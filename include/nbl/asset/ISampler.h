@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_SAMPLER_H_INCLUDED__
-#define __NBL_ASSET_I_SAMPLER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_SAMPLER_H_INCLUDED_
+#define _NBL_ASSET_I_SAMPLER_H_INCLUDED_
 
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/builtin/hlsl/enums.hlsl"

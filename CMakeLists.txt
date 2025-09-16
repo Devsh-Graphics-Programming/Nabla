@@ -20,17 +20,25 @@ NBL_POLICY(CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.htm
 NBL_POLICY(CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 NBL_POLICY(CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF) # https://cmake.org/cmake/help/latest/prop_tgt/CXX_SCAN_FOR_MODULES.html#prop_tgt:CXX_SCAN_FOR_MODULES
+
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
-project(Nabla LANGUAGES CXX C)
+project(Nabla
+	VERSION 0.7.2.0 
+	HOMEPAGE_URL "https://www.devsh.eu/nabla"
+	LANGUAGES CXX C
+)
 enable_language(C CXX ASM ASM_NASM)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 if(MSVC)
 	enable_language(ASM_MASM)
-	link_libraries(delayimp)
 endif()
 
 # TODO: TO BE KILLED, keep both in one tree
@@ -154,31 +162,16 @@ if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_
 	else()
 		set(_NBL_CMAKE_STATUS_ FATAL_ERROR)
 	endif()
-	
+
 	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define 'NBL_MEMORY_CONSUMPTION_CHECK_SKIP' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
 include(adjust/flags)
 include(adjust/definitions)
 
-if(WIN32)
-	set(_NBL_PLATFORM_WINDOWS_ 1)
-elseif(ANDROID)
-	set(_NBL_PLATFORM_ANDROID_ 1)
-elseif(UNIX)
-	set(_NBL_PLATFORM_LINUX_ 1)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
-endif()
-
-if(NBL_STATIC_BUILD)
-	unset(_NBL_SHARED_BUILD_ CACHE)
-else()
-	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
-endif()
-
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
-option(NBL_FAST_MATH "Enable fast low-precision math" ON)
+option(NBL_FAST_MATH "Enable fast low-precision math" OFF) # the reason OFF is by default now is the var controling it at build time was set AFTER BuildConfigOptions was generated - resulting in the feature being always OFF regardless the value xD - so just for sanity, keeping the same behaviour by default
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
@@ -287,4 +280,43 @@ option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
 include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
+
+option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
+
+if(NBL_ENABLE_CONFIG_INSTALL)
+	if(NBL_STATIC_BUILD)
+		message(WARNING "Ignoring NBL_ENABLE_CONFIG_INSTALL due to: TODO, static builds are not relocatable yet!")
+	else()
+		install(TARGETS Nabla
+			EXPORT NablaExportTargets
+			ARCHIVE  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+			LIBRARY  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+			RUNTIME  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/nbl
+		)
+
+		write_basic_package_version_file(
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			VERSION ${PROJECT_VERSION}
+			COMPATIBILITY SameMinorVersion
+		)
+
+		configure_package_config_file(
+			"${CMAKE_CURRENT_LIST_DIR}/cmake/NablaConfig.cmake.in"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			INSTALL_DESTINATION cmake
+		)
+
+		install(EXPORT NablaExportTargets
+			NAMESPACE Nabla::
+			DESTINATION cmake
+		)
+
+		install(FILES
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			DESTINATION cmake
+		)
+	endif()
+endif()
+
 NBL_ADJUST_FOLDERS(nabla)

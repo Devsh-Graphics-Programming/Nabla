@@ -7,9 +7,6 @@
 
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 
-#include <functional>
-
-
 namespace nbl::asset 
 {
 
@@ -18,55 +15,58 @@ class CSmoothNormalGenerator
 	public:
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
-#if 0
-		static core::smart_refctd_ptr<ICPUMeshBuffer> calculateNormals(ICPUMeshBuffer* buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction function);
+
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(const ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function);
 
 	private:
 		class VertexHashMap
 		{
-		public:
-			struct BucketBounds
-			{
-				core::vector<IMeshManipulator::SSNGVertexData>::iterator begin;
-				core::vector<IMeshManipulator::SSNGVertexData>::iterator end;
-			};
+			public:
+				struct BucketBounds
+				{
+					core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin;
+					core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end;
+				};
 
-		public:
-			VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
+			public:
+				VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
 
-			//inserts vertex into hash table
-			void add(IMeshManipulator::SSNGVertexData&& vertex);
+				//inserts vertex into hash table
+				void add(CPolygonGeometryManipulator::SSNGVertexData&& vertex);
 
-			//sorts hashtable and sets iterators at beginnings of bucktes
-			void validate();
+				//sorts hashtable and sets iterators at beginnings of bucktes
+				void validate();
 
-			//
-			std::array<uint32_t, 8> getNeighboringCellHashes(const IMeshManipulator::SSNGVertexData& vertex);
+				inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
-			inline uint32_t getBucketCount() const { return buckets.size(); }
-			inline BucketBounds getBucketBoundsById(uint32_t index) { return { buckets[index], buckets[index + 1] }; }
-			BucketBounds getBucketBoundsByHash(uint32_t hash);
+				//
+				std::array<uint32_t, 8> getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData& vertex);
 
-		private:
-			static constexpr uint32_t invalidHash = 0xFFFFFFFF;
+				inline uint32_t getBucketCount() { return m_buckets.size(); }
+				inline BucketBounds getBucketBoundsById(uint32_t index) const { return { m_buckets[index], m_buckets[index + 1] }; }
+				BucketBounds getBucketBoundsByHash(uint32_t hash);
 
-		private:
-			//holds iterators pointing to beginning of each bucket, last iterator points to vertices.end()
-			core::vector<core::vector<IMeshManipulator::SSNGVertexData>::iterator> buckets;
-			core::vector<IMeshManipulator::SSNGVertexData> vertices;
-			const uint32_t hashTableMaxSize;
-			const float cellSize;
+			private:
+				static inline constexpr uint32_t invalidHash = 0xFFFFFFFF;
+				static inline constexpr uint32_t primeNumber1 = 73856093;
+				static inline constexpr uint32_t primeNumber2 = 19349663;
+				static inline constexpr uint32_t primeNumber3 = 83492791;
 
-		private:
-			uint32_t hash(const IMeshManipulator::SSNGVertexData& vertex) const;
-			uint32_t hash(const core::vector3du32_SIMD& position) const;
+				//holds iterators pointing to beginning of each bucket, last iterator points to m_vertices.end()
+				core::vector<core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator> m_buckets;
+				core::vector<CPolygonGeometryManipulator::SSNGVertexData> m_vertices;
+				const uint32_t m_hashTableMaxSize;
+				const float m_cellSize;
+
+				uint32_t hash(const CPolygonGeometryManipulator::SSNGVertexData& vertex) const;
+				uint32_t hash(const hlsl::uint32_t3& position) const;
 
 		};
 
 	private:
-		static VertexHashMap setupData(const ICPUMeshBuffer* buffer, float epsilon);
-		static void processConnectedVertices(ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
-#endif
+		static VertexHashMap setupData(const ICPUPolygonGeometry* polygon, float epsilon);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> processConnectedVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon);
 };
 
 }

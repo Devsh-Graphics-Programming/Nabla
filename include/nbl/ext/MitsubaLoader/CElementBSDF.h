@@ -86,7 +86,9 @@ class CElementBSDF : public IElement
 			ASHIKHMIN_SHIRLEY
 		};
 
-		RoughSpecularBase(float defaultAlpha) : distribution(BECKMANN), specularReflectance(1.f)
+		RoughSpecularBase(float defaultAlpha) : distribution(GGX), specularReflectance(1.f),
+			// union ignores ctors, and ctors are important to not try to free garbage strings
+			alphaU(core::nan<float>()), alphaV(core::nan<float>())
 		{
 			alpha = defaultAlpha;
 		}
@@ -255,7 +257,7 @@ class CElementBSDF : public IElement
 
 			BlendBSDF() : weight(0.5f) {}
 
-			CElementTexture::FloatOrTexture weight;
+			CElementTexture::SpectrumOrTexture weight;
 		};
 		struct Mask : MetaBSDF
 		{
@@ -291,8 +293,12 @@ class CElementBSDF : public IElement
 			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};
 
-		CElementBSDF(const char* id) : IElement(id), type(Type::INVALID)
+		inline CElementBSDF(const char* id) : IElement(id), type(Type::INVALID)
 		{
+		}
+		inline CElementBSDF(const CElementBSDF& other) : IElement(other)
+		{
+			operator=(other);
 		}
 		virtual ~CElementBSDF()
 		{

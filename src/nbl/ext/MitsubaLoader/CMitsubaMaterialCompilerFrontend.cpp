@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "nbl/asset/utils/CIESProfile.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
@@ -20,59 +21,290 @@ std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwind
 
     return {_element,scale};
 }
+
 auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
 {
-    float scale = 1.f;
-    std::tie(_element, scale) = unwindTextureScale(_element);
+    tex_ass_type retval = {};
+
+    float& scale = std::get<float>(retval);
+    std::tie(_element,scale) = unwindTextureScale(_element);
     if (!_element)
     {
-        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 2x2 Magenta Checkerboard Error Texture.", ELL_ERROR);
-        return getErrorTexture();
+        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 64x64 Magenta or Flat Error Texture.", ELL_ERROR);
+        return getErrorTexture(semantic);
     }
 
-    asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
-    if (!viewBundle.getContents().empty())
+    // get sampler (this can't really fail)
+    std::get<core::smart_refctd_ptr<asset::ICPUSampler>>(retval) = m_loaderContext->getSampler(SContext::computeSamplerParameters(_element->bitmap));
+
     {
-        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
-
-        auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
-        if (found!=m_loaderContext->derivMapCache.end())
+        const asset::IAsset::E_TYPE types[2] = { asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+        const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
+        auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
+        if (viewBundle.getContents().empty())
         {
-            const float normalizationFactor = found->second;
-            scale *= normalizationFactor;
+            os::Printer::log("[ERROR] Could Not Load Texture from path \""+std::string(_element->bitmap.filename.svalue)+"\", substituting 64x64 Magenta or Flat Error Texture.",ELL_ERROR);
+            std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(getErrorTexture(semantic));
         }
+        else
+        {
+            auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
-        types[0] = asset::IAsset::ET_SAMPLER;
-        const std::string samplerKey = m_loaderContext->samplerCacheKey(SContext::computeSamplerParameters(_element->bitmap));
-        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
-        assert(!samplerBundle.getContents().empty());
-        auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
+            auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
+            if (found!=m_loaderContext->derivMapCache.end())
+            {
+                const float normalizationFactor = found->second;
+                scale *= normalizationFactor;
+            }
 
-        return {view, sampler, scale};
+            std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::move(view);
+        }
     }
-    return { nullptr, nullptr, scale };
+
+    return retval;
 }
 
-auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
+
+auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) -> emission_profile_type
 {
-    constexpr const char* ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/dummy2d";
-    constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
+    constexpr static asset::IAsset::E_TYPE types[] = {asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO};
+    
+    std::string filename = _element->filename;
+    m_loaderContext->override_->getLoadFilename(filename, m_loaderContext->inner, 0u);
 
-    asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
-    assert(!bundle.getContents().empty()); // this shouldnt ever happen since ERR_TEX_CACHE_NAME is builtin asset
+    auto viewBundle = m_loaderContext->override_->findCachedAsset(filename, types, m_loaderContext->inner, 0u);
+    if (viewBundle.getMetadata())
+    {
+        const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
+        return { m_loaderContext->getSampler(m_loaderContext->emissionProfileSamplerParams(_element,meta)), &meta};
+    }
+    return { nullptr, nullptr };
+}
+
+CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform)
+{
+    assert(_emitter->type == CElementEmitter::AREA);
+
+    auto* res = ir->allocNode<asset::material_compiler::IR::CEmitterNode>();
+    res->intensity = _emitter->area.radiance;
+
+    const auto inProfile = _emitter->area.emissionProfile;
+    if (inProfile)
+    {
+        auto [sampler, meta] = getEmissionProfile(inProfile);
         
-    auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+        auto fillProfile = [&]() -> bool
+        {
+            asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
 
-    types[0] = asset::IAsset::ET_SAMPLER;
-    auto sbundle = m_loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, m_loaderContext->inner, 0u);
-    assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
+            // do cheap checks first
+            {
+                auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
 
-    auto smplr = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
+                // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
+                worldSpaceIESTransform[1].w = 0;
+                worldSpaceIESTransform[2].w = 0;
 
-    return { view, smplr, 1.f };
+                const float THRESHOLD = core::exp2(-14.f);
+                const auto det = core::determinant(worldSpaceIESTransform);
+
+                if (abs(det) < THRESHOLD) // protect us from determinant = 0 where inverse transform doesn't exist because the matrix is singular, also we don't want to be too much close to 0 because of the matrix conditioning index becoming higher and higher
+                {
+                    os::Printer::log("ERROR: Emission profile rejected because determinant of transformation matrix does not exceed the minimum threshold and is too close or equal 0", ELL_ERROR);
+                    return false; // exit the lambda
+                }
+
+                profile.right_hand = det > 0.0f;
+                profile.up = core::normalize(worldSpaceIESTransform[1]);
+                profile.view = core::normalize(worldSpaceIESTransform[2]);
+            }
+
+            float flatten = inProfile->flatten;
+
+            // negative means full domain
+            const bool fullDomain = flatten < 0.f;
+            if (fullDomain)
+                flatten = -flatten;
+
+            if (flatten > 1.f)
+            {
+                flatten = 1.f;
+                os::Printer::log("ERROR: Flatten property = " + std::to_string(inProfile->flatten) + " is outside it's [0, 1] domain, clamping!", ELL_ERROR);
+            }
+            else if (inProfile->flatten < std::numeric_limits<float>::epsilon()-1)
+                os::Printer::log("WARNING: Full domain flatten mode detected with abs(flatten) = " + std::to_string(flatten), ELL_WARNING);
+
+            core::smart_refctd_ptr<asset::ICPUImageView> flattenIES = nullptr;
+            {
+                const auto cacheName = inProfile->filename + "?flatten=" + std::to_string(flatten);
+
+                // try cache
+                {
+                    const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+                    asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(cacheName,types,m_loaderContext->inner,0u);
+                    auto contents = bundle.getContents();
+                    if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
+                        flattenIES = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
+                }
+
+                // failed to find, have to create
+                if (!flattenIES)
+                {
+                    const auto optimalResolution = meta->profile.getOptimalIESResolution();
+                    flattenIES = meta->profile.createIESTexture(flatten, fullDomain, optimalResolution.x, optimalResolution.y);
+                }
+                
+                // now must be loaded to proceed
+                if (!flattenIES)
+                    return false;
+                
+                // insert into cache
+                asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
+                asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(flattenIES) });
+                m_loaderContext->override_->insertAssetIntoCache(bundle, cacheName, m_loaderContext->inner, 0u);
+            }
+            profile.texture = { flattenIES, sampler, 1.f };
+    
+            // success
+            res->emissionProfile = profile;
+
+            // note that IES texel intensity value is already divided by max intensity
+            const auto maxIntesity = meta->profile.getMaxCandelaValue();
+            switch (inProfile->normalization)
+            {
+                case CElementEmissionProfile::EN_UNIT_MAX:
+                {
+                    // true Max value changes because of flatten
+                    // can be reverted back to do nothing if the TODO about adjusting max-value while flattening gets done
+                    res->intensity *= maxIntesity/(maxIntesity+(meta->profile.getAvgEmmision(fullDomain)-maxIntesity)*flatten);
+                } break;
+                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
+                {
+                    // because negative flatten (`!fullDomain`) expands the domain so implied==full
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(fullDomain);
+                } break;
+                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
+                {
+                    // flatten does not affect the average over the full domain
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(true);
+                } break;
+                default:
+                {
+                    res->intensity *= maxIntesity;
+                } break;
+            }
+            return true;
+        };
+
+        if (meta && !fillProfile())
+            os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
+    }
+    return res;
+}
+
+CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend::getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const
+{
+    tex_ass_type retval = { nullptr,nullptr,1.f };
+
+    {
+        const asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
+        constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
+        auto sbundle = m_loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, m_loaderContext->inner, 0u);
+        assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
+        std::get<core::smart_refctd_ptr<asset::ICPUSampler>>(retval) = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
+    }
+    
+    {
+        auto format = asset::EF_R8G8B8A8_SRGB;
+        uint32_t fill_value = 0x80808080u; // mid-gray
+        std::string ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/not_found";
+        switch (semantic)
+        {
+            case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
+                ERR_TEX_CACHE_NAME += "?blend";
+                break;
+            case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
+                ERR_TEX_CACHE_NAME += "?deriv?n";
+                format = asset::EF_R8G8_SNORM;
+                std::get<float>(retval) = 0.f;
+                break;
+            case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
+                ERR_TEX_CACHE_NAME += "?deriv?h";
+                format = asset::EF_R8G8_SNORM;
+                std::get<float>(retval) = 0.f;
+                break;
+            default:
+                fill_value = 0xffff00ffu; // magenta
+                break;
+        }
+        ERR_TEX_CACHE_NAME += "?view";
+
+        const asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+        auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
+
+        auto& outImageView = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval);
+        if (bundle.getContents().empty())
+        {
+            constexpr uint32_t dummyTexPOTSize = 6;
+            constexpr uint32_t resolution = 0x1u<<dummyTexPOTSize;
+            
+            auto image = asset::ICPUImage::create(asset::ICPUImage::SCreationParams{
+                /*.flags = */static_cast<asset::IImage::E_CREATE_FLAGS>(0u),
+                /*.type = */asset::IImage::ET_2D,
+                /*.format = */format,
+                /*.extent = */{resolution,resolution,1u},
+                /*.mipLevels = */1u,
+                /*.arrayLayers = */1u,
+                /*.samples = */asset::IImage::ESCF_1_BIT
+                //.tiling etc.
+            });
+
+            // set contents
+            {
+                const auto TexelSize = asset::getTexelOrBlockBytesize(format);
+                const auto& info = image->getCreationParameters();
+                auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(TexelSize*info.extent.width*info.extent.height);
+
+                // fill
+                assert(asset::getTexelOrBlockBytesize(info.format)==TexelSize);
+                std::fill_n(reinterpret_cast<uint32_t*>(buf->getPointer()), buf->getSize()/sizeof(uint32_t), fill_value);
+
+                auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
+                asset::ICPUImage::SBufferCopy& region = regions->front();
+                region.imageSubresource.mipLevel = 0u;
+                region.imageSubresource.baseArrayLayer = 0u;
+                region.imageSubresource.layerCount = 1u;
+                region.bufferOffset = 0u;
+                region.bufferRowLength = info.extent.width;
+                region.bufferImageHeight = 0u;
+                region.imageOffset = { 0u, 0u, 0u };
+                region.imageExtent = { resolution, resolution, 1u };
+                image->setBufferAndRegions(std::move(buf), regions);
+            }
+
+            outImageView = core::make_smart_refctd_ptr<asset::ICPUImageView>(asset::ICPUImageView::SCreationParams{
+                /*.flags = */{},
+                /*.image = */std::move(image),
+                /*.viewType = */asset::ICPUImageView::ET_2D,
+                /*.format = */format,
+                /*.components = */{},
+                /*.subresourceRange = */{
+                    /*.aspectMask = */asset::IImage::EAF_COLOR_BIT,
+                    /*.baseMipLevel = */0u,
+                    /*.levelCount = */1u,
+                    /*.baseArrayLayer = */0u,
+                    /*.layerCount = */1u
+                }
+            });
+
+            // TODO: shouldn't be using an override, should be using asset manager directly and setting the mutability to immutable
+            m_loaderContext->override_->insertAssetIntoCache(asset::SAssetBundle(nullptr,{outImageView}), ERR_TEX_CACHE_NAME, m_loaderContext->inner, 0);
+        }
+        else
+            outImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+    }
+
+    return retval;
 }
 
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger) -> IRNode*
@@ -88,14 +320,20 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
                 dst = std::move(tex);
             }
-            else dst = src.value.fvalue;
+            else
+                dst = src.value.fvalue;
         };
-        auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) -> void
+        auto getSpectrumOrTexture = [this](
+            const CElementTexture::SpectrumOrTexture& src,
+            IR::INode::SParameter<IR::INode::color_t>& dst,
+            const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY
+        ) -> void
         {
             if (src.value.type == SPropertyElementData::INVALID)
             {
                 IR::INode::STextureSource tex;
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
+                assert(!core::isnan(tex.scale));
                 dst = std::move(tex);
             }
             else
@@ -257,10 +495,10 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
 
             const float thickness = _bsdf->coating.thickness;
             getSpectrumOrTexture(_bsdf->coating.sigmaA, node->thicknessSigmaA);
-            if (node->thicknessSigmaA.source == IR::INode::EPS_CONSTANT)
-                node->thicknessSigmaA.value.constant *= thickness;
+            if (node->thicknessSigmaA.isConstant())
+                node->thicknessSigmaA.constant *= thickness;
             else
-                node->thicknessSigmaA.value.texture.scale *= thickness;
+                node->thicknessSigmaA.texture.scale *= thickness;
 
             node->eta = IR::INode::color_t(eta);
             node->shadowing = IR::CMicrofacetCoatingBSDFNode::EST_SMITH;
@@ -283,19 +521,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
         {
             ir_node = ir->allocNode<IR::CBSDFBlendNode>();
             ir_node->children.count = 2u;
-
-            auto* node = static_cast<IR::CBSDFBlendNode*>(ir_node);
-            if (_bsdf->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
-            {
-                std::tie(node->weight.value.texture.image, node->weight.value.texture.sampler, node->weight.value.texture.scale) =
-                    getTexture(_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
-                node->weight.source = IR::INode::EPS_TEXTURE;
-            }
-            else
-            {
-                node->weight.value.constant = IR::INode::color_t(_bsdf->blendbsdf.weight.value.fvalue);
-                node->weight.source = IR::INode::EPS_CONSTANT;
-            }
+            getSpectrumOrTexture(_bsdf->blendbsdf.weight,static_cast<IR::CBSDFBlendNode*>(ir_node)->weight,EIVS_BLEND_WEIGHT);
         }
         break;
         case CElementBSDF::MIXTURE_BSDF:
@@ -318,27 +544,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
 {
     using namespace asset;
     using namespace material_compiler;
-
-    auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
-    {
-        if (src.value.type == SPropertyElementData::INVALID)
-        {
-            IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            dst = std::move(tex);
-        }
-        else dst = src.value.fvalue;
-    };
-    auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst)
-    {
-        if (src.value.type == SPropertyElementData::INVALID)
-        {
-            IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            dst = std::move(tex);
-        }
-        else dst = src.value.vvalue;
-    };
 
     struct SNode
     {
@@ -396,7 +601,8 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         case IRNode::ES_BSDF_COMBINER: [[fallthrough]];
         case IRNode::ES_OPACITY: [[fallthrough]];
         case IRNode::ES_GEOM_MODIFIER: [[fallthrough]];
-        case IRNode::ES_EMISSION:
+        case IRNode::ES_EMITTER:
+        case IRNode::ES_ROOT:
             return ir->copyNode(front);
         case IRNode::ES_BSDF:
         {
@@ -471,9 +677,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
 
         *dst = ir_node;
     }
-
-    ir->addRootNode(frontroot);
-    ir->addRootNode(backroot);
 
     return { frontroot, backroot };
 }

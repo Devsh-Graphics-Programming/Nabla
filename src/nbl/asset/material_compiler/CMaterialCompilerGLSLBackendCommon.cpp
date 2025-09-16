@@ -90,6 +90,9 @@ class CIdGenerator
 };
 
 
+
+
+
 // base class for the many traversals:
 // - texture prefetch
 // - normal precompute
@@ -155,14 +158,14 @@ class ITraversalGenerator
 			case instr_stream::OP_DIFFUSE:
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.diffuse.alpha.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
+				if (!node->alpha_u.isConstant())
+					_dst.diffuse.alpha.setTexture(packTexture(node->alpha_u.texture), node->alpha_u.texture.scale);
 				else
-					_dst.diffuse.alpha.setConst(node->alpha_u.value.constant);
-				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
-					_dst.diffuse.reflectance.setTexture(packTexture(node->reflectance.value.texture), node->reflectance.value.texture.scale);
+					_dst.diffuse.alpha.setConst(node->alpha_u.constant);
+				if (!node->reflectance.isConstant())
+					_dst.diffuse.reflectance.setTexture(packTexture(node->reflectance.texture), node->reflectance.texture.scale);
 				else
-					_dst.diffuse.reflectance.setConst(node->reflectance.value.constant.pointer);
+					_dst.diffuse.reflectance.setConst(node->reflectance.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
@@ -170,31 +173,31 @@ class ITraversalGenerator
 			{
 				auto* node = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(_node);
 
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.dielectric.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
+				if (!node->alpha_u.isConstant())
+					_dst.dielectric.alpha_u.setTexture(packTexture(node->alpha_u.texture), node->alpha_u.texture.scale);
 				else
-					_dst.dielectric.alpha_u.setConst(node->alpha_u.value.constant);
-				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.dielectric.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
+					_dst.dielectric.alpha_u.setConst(node->alpha_u.constant);
+				if (!node->alpha_v.isConstant())
+					_dst.dielectric.alpha_v.setTexture(packTexture(node->alpha_v.texture), node->alpha_v.texture.scale);
 				else
-					_dst.dielectric.alpha_v.setConst(node->alpha_v.value.constant);
-//				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(node->eta.pointer);
+					_dst.dielectric.alpha_v.setConst(node->alpha_v.constant);
+				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(node->eta.pointer);
 			}
 			break;
 			case instr_stream::OP_CONDUCTOR:
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
 				
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.conductor.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
+				if (!node->alpha_u.isConstant())
+					_dst.conductor.alpha_u.setTexture(packTexture(node->alpha_u.texture), node->alpha_u.texture.scale);
 				else
-					_dst.conductor.alpha_u.setConst(node->alpha_u.value.constant);
-				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
+					_dst.conductor.alpha_u.setConst(node->alpha_u.constant);
+				if (!node->alpha_v.isConstant())
+					_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.texture), node->alpha_v.texture.scale);
 				else
-					_dst.conductor.alpha_v.setConst(node->alpha_v.value.constant);
-//				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
-//				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
+					_dst.conductor.alpha_v.setConst(node->alpha_v.constant);
+				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
+				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
 			break;
 			case instr_stream::OP_COATING:
@@ -202,21 +205,21 @@ class ITraversalGenerator
 				auto* coat = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(_node);
 
 				/*
-				if (coat->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.alpha_u.setTexture(packTexture(coat->alpha_u.value.texture), coat->alpha_u.value.texture.scale);
+				if (!coat->alpha_u.isConstant())
+					_dst.coating.alpha_u.setTexture(packTexture(coat->alpha_u.texture), coat->alpha_u.texture.scale);
 				else
-					_dst.coating.alpha_u.setConst(coat->alpha_u.value.constant);
-				if (coat->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.alpha_v.setTexture(packTexture(coat->alpha_v.value.texture), coat->alpha_v.value.texture.scale);
+					_dst.coating.alpha_u.setConst(coat->alpha_u.constant);
+				if (!coat->alpha_v.isConstant())
+					_dst.coating.alpha_v.setTexture(packTexture(coat->alpha_v.texture), coat->alpha_v.texture.scale);
 				else
-					_dst.coating.alpha_v.setConst(coat->alpha_v.value.constant);
+					_dst.coating.alpha_v.setConst(coat->alpha_v.constant);
 				*/
-				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.sigmaA.setTexture(packTexture(coat->thicknessSigmaA.value.texture), coat->thicknessSigmaA.value.texture.scale);
+				if (!coat->thicknessSigmaA.isConstant())
+					_dst.coating.sigmaA.setTexture(packTexture(coat->thicknessSigmaA.texture), coat->thicknessSigmaA.texture.scale);
 				else
-					_dst.coating.sigmaA.setConst(coat->thicknessSigmaA.value.constant.pointer);
+					_dst.coating.sigmaA.setConst(coat->thicknessSigmaA.constant.pointer);
 
-//				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
+				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
 				//_dst.coating.thickness = coat->thickness;
 			}
 			break;
@@ -226,24 +229,24 @@ class ITraversalGenerator
 				assert(b->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
 				auto* blend = static_cast<const IR::CBSDFBlendNode*>(b);
 
-				if (blend->weight.source == IR::INode::EPS_TEXTURE)
-					_dst.blend.weight.setTexture(packTexture(blend->weight.value.texture), blend->weight.value.texture.scale);
+				if (!blend->weight.isConstant())
+					_dst.blend.weight.setTexture(packTexture(blend->weight.texture), blend->weight.texture.scale);
 				else
-					_dst.blend.weight.setConst(blend->weight.value.constant.pointer);
+					_dst.blend.weight.setConst(blend->weight.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
-				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.difftrans.alpha.setTexture(packTexture(difftrans->alpha_u.value.texture), difftrans->alpha_u.value.texture.scale);
+				if (!difftrans->alpha_u.isConstant())
+					_dst.difftrans.alpha.setTexture(packTexture(difftrans->alpha_u.texture), difftrans->alpha_u.texture.scale);
 				else
-					_dst.difftrans.alpha.setConst(difftrans->alpha_u.value.constant);
-				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
-					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.value.texture), difftrans->transmittance.value.texture.scale);
+					_dst.difftrans.alpha.setConst(difftrans->alpha_u.constant);
+				if (!difftrans->transmittance.isConstant())
+					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.texture), difftrans->transmittance.texture.scale);
 				else
-					_dst.difftrans.transmittance.setConst(difftrans->transmittance.value.constant.pointer);
+					_dst.difftrans.transmittance.setConst(difftrans->transmittance.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_BUMPMAP:
@@ -252,7 +255,7 @@ class ITraversalGenerator
 
 				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
 
-//				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
+				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
 				core::uintBitsToFloat(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
 			}
 			break;
@@ -285,40 +288,7 @@ class ITraversalGenerator
 
 		instr_stream::VTID packTexture(const IR::INode::STextureSource& tex)
 		{
-			// cache, obviously
-			if (auto found = m_ctx->VTallocMap.find({ tex.image.get(),tex.sampler.get() }); found != m_ctx->VTallocMap.end())
-				return found->second;
-
-			auto img = tex.image->getCreationParameters().image;
-//			img = m_ctx->vt.vt->createUpscaledImage(img.get());
-			auto* sampler = tex.sampler.get();
-
-			const auto& extent = img->getCreationParameters().extent;
-			const auto uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapU);
-			const auto vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapV);
-			const auto border = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(sampler->getParams().BorderColor);
-
-			asset::IImage::SSubresourceRange subres;
-			subres.baseArrayLayer = 0u;
-			subres.layerCount = 1u;
-			subres.baseMipLevel = 0u;
-			const uint32_t mx = std::max(extent.width, extent.height);
-			const uint32_t round = core::roundUpToPoT<uint32_t>(mx);
-			const int32_t lsb = hlsl::findLSB(round);
-			subres.levelCount = static_cast<uint32_t>(lsb + 1);
-
-			SContext::VT::alloc_t alloc;
-			alloc.format = img->getCreationParameters().format;
-			alloc.extent = img->getCreationParameters().extent;
-			alloc.subresource = subres;
-			alloc.uwrap = uwrap;
-			alloc.vwrap = vwrap;
-			auto addr = m_ctx->vt.alloc(alloc, std::move(img), border);
-
-			std::pair<SContext::VTallocKey, instr_stream::VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
-			m_ctx->VTallocMap.insert(item);
-
-			return addr;
+			return CMaterialCompilerGLSLBackendCommon::packTexture(m_ctx, tex);
 		}
 
 		// returns if the instruction actually got pushed
@@ -365,9 +335,9 @@ class ITraversalGenerator
 			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node) -> instr_t
 			{
 				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF);
-				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
+				if (!node->alpha_v.isConstant())
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
+				if (!node->alpha_u.isConstant())
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 
 				return dst;
@@ -379,9 +349,9 @@ class ITraversalGenerator
 			case instr_stream::OP_DIFFUSE:
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
+				if (!node->alpha_u.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
-				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
+				if (!node->reflectance.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
@@ -398,7 +368,7 @@ class ITraversalGenerator
 				auto* coat = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(_node);
 
 				//_instr = handleSpecularBitfields(_instr, coat);
-				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
+				if (!coat->thicknessSigmaA.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 			}
 			break;
@@ -407,16 +377,17 @@ class ITraversalGenerator
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
 				assert(blend->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
 
-				if (static_cast<const IR::CBSDFBlendNode*>(_node)->weight.source == IR::INode::EPS_TEXTURE)
+				if (!static_cast<const IR::CBSDFBlendNode*>(_node)->weight.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 			}
+			break;
 			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
-				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
+				if (!difftrans->alpha_u.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
-				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
+				if (!difftrans->transmittance.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 			}
 			break;
@@ -618,7 +589,6 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	while (q.size()>1ull)
 	{
 		auto* blend = ir->allocTmpNode<IR::CBSDFBlendNode>();
-		blend->weight.source = IR::INode::EPS_CONSTANT;
 
 		auto left = q.front();
 		q.pop();
@@ -626,7 +596,7 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 		q.pop();
 
 		q_el el{blend, left.weightsSum+right.weightsSum};
-		blend->weight.value.constant = right.weightsSum/el.weightsSum;
+		blend->weight = right.weightsSum/el.weightsSum;
 		blend->children = IR::INode::createChildrenArray(left.node,right.node);
 
 		q.push(el);
@@ -635,11 +605,18 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	return q.front().node;
 }
 
+
 std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& out_next, tmp_bxdf_translation_cache_t* cache)
 {
 	instr_t instr = instr_stream::OP_INVALID;
 	switch (tree->symbol)
 	{
+	case IR::INode::ES_ROOT: 
+	{
+		auto* node = static_cast<const IR::CRootNode*>(tree);
+		out_next = IR::INode::createChildrenArray(node->children[0]);
+	}
+	break;
 	case IR::INode::ES_GEOM_MODIFIER:
 	{
 		auto* node = static_cast<const IR::CGeomModifierNode*>(tree);
@@ -719,8 +696,7 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			// so we ignore coating layer and process only the coated material
 			if (!is_coated_diffuse)
 			{
-				// TODO: use logger
-				// os::Printer::log("Material compiler GLSL: Coating over non-diffuse materials is not supported. Ignoring coating layer!", ELL_WARNING);
+				os::Printer::log("Material compiler GLSL: Coating over non-diffuse materials is not supported. Ignoring coating layer!", ELL_WARNING);
 
 				auto retval = processSubtree(ir, coated, out_next, cache);
 				instr = retval.first;
@@ -872,7 +848,7 @@ auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regBudg
 			srcRegs.pop();
 		}
 
-		_out_maxUsedReg = std::max(srcs[0],srcs[1]);
+		_out_maxUsedReg = std::max(_out_maxUsedReg,std::max(srcs[0],srcs[1]));
 
 		// increment instruction interator
 		++j;
@@ -1064,10 +1040,10 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
 
 			// we dont fetch the same texel twice, cache helps us detect duplicates
 			instr_stream::tex_prefetch::prefetch_instr_t prefetch_instr;
-			prefetch_instr.s.tex_data = bsdf_data.common.param[param_i].tex;
-			if (processed.find(prefetch_instr.s.tex_data) != processed.end())
+			prefetch_instr.tex_data = bsdf_data.common.param[param_i].tex;
+			if (processed.find(prefetch_instr.tex_data) != processed.end())
 				continue;
-			processed.insert(prefetch_instr.s.tex_data);
+			processed.insert(prefetch_instr.tex_data);
 
 			const uint32_t dst_reg = regNum;
 			const uint32_t reg_cnt = instr_stream::getRegisterCountForParameter(op, param_i);
@@ -1078,7 +1054,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
 
 			prefetch_stream.push_back(prefetch_instr);
 
-			_out_tex2reg.insert({ prefetch_instr.s.tex_data, dst_reg });
+			_out_tex2reg.insert({ prefetch_instr.tex_data, dst_reg });
 
 			_out_regCntFlags |= (1u << reg_cnt);
 		}
@@ -1199,6 +1175,24 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	return defs;
 }
 
+emitter_t CMaterialCompilerGLSLBackendCommon::lowerEmitter(SContext* _ctx, const IR::CEmitterNode* _node) {
+	emitter_t res;
+	res.emissive = core::rgb32f_to_rgb19e7(_node->intensity.pointer);
+	if (_node->emissionProfile) {
+		auto& profile = _node->emissionProfile;
+		std::tie(res.orientation[0], res.orientation[1], res.orientation[2]) = std::tuple<float,float,float>({ profile.up[0], profile.up[1], profile.up[2] });
+		std::tie(res.orientation[3], res.orientation[4], res.orientation[5]) = std::tuple<float, float, float>({ profile.view[0], profile.view[1], profile.view[2] });
+		auto& rawBytes = reinterpret_cast<uint32_t&>(res.orientation[0]);
+		rawBytes ^= rawBytes & 1;
+		rawBytes |= profile.right_hand;
+		res.emissionProfile = reinterpret_cast<uint64_t&>(packTexture(_ctx, profile.texture));
+	}
+	else {
+		res.emissionProfile = reinterpret_cast<uint64_t&>(instr_stream::VTID::invalid());
+	}
+	return res;
+}
+
 auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
 {
 	result_t res;
@@ -1207,8 +1201,23 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 	res.usedRegisterCount = 0u;
 	res.globalPrefetchRegCountFlags = 0u;
 
-	for (const IR::INode* root : _ir->roots)
-	{
+	core::unordered_map<const IR::CEmitterNode*, uint32_t> emitterCache;
+	auto getOrCreateEmitter = [&](const IR::CEmitterNode* node) -> uint32_t {
+		auto it = emitterCache.find(node);
+		if (it == emitterCache.end()) {
+			auto emitter = lowerEmitter(_ctx, node);
+			it = emitterCache.emplace(node, res.emitterData.size()).first;
+			res.emitterData.push_back(emitter);
+		}
+		return it->second;
+	};
+
+	core::unordered_map<const IR::INode*, oriented_material_t> compiledBSDFRootNodes;
+	auto compileBSDFRootNode = [&](const IR::INode* root) -> oriented_material_t {
+		auto it = compiledBSDFRootNodes.find(root);
+		if (it != compiledBSDFRootNodes.end()) {
+			return it->second;
+		}
 		uint32_t remainingRegisters = instr_stream::MAX_REGISTER_COUNT;
 
 		const size_t interm_bsdf_data_begin_ix = _ctx->bsdfData.size();
@@ -1326,29 +1335,49 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 			res.bsdfData.push_back(bsdf_data);
 		}
 
-		result_t::instr_streams_t streams;
+		oriented_material_t material;
 		{
-			streams.offset = res.instructions.size();
+			material.instr_offset = res.instructions.size();
 
-			streams.rem_and_pdf_count = rem_pdf_stream.size();
+			material.rem_pdf_count = rem_pdf_stream.size();
 			res.instructions.insert(res.instructions.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
 
-			streams.gen_choice_count = gen_choice_stream.size();
+			material.genchoice_count = gen_choice_stream.size();
 			res.instructions.insert(res.instructions.end(), gen_choice_stream.begin(), gen_choice_stream.end());
 
-			streams.norm_precomp_count = normal_precomp_stream.size();
+			material.nprecomp_count = normal_precomp_stream.size();
 			res.instructions.insert(res.instructions.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
 
-			streams.prefetch_offset = res.prefetch_stream.size();
-			streams.tex_prefetch_count = tex_prefetch_stream.size();
+			material.prefetch_offset = res.prefetch_stream.size();
+			material.prefetch_count = tex_prefetch_stream.size();
 			res.prefetch_stream.insert(res.prefetch_stream.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
 		}
 
-		res.streams.insert({root,streams});
-
-		res.noNormPrecompStream = res.noNormPrecompStream && (streams.norm_precomp_count==0u);
-		res.noPrefetchStream = res.noPrefetchStream && (streams.tex_prefetch_count==0u);
+		res.noNormPrecompStream = res.noNormPrecompStream && (material.nprecomp_count==0u);
+		res.noPrefetchStream = res.noPrefetchStream && (material.prefetch_count==0u);
 		res.usedRegisterCount = std::max(res.usedRegisterCount, instr_stream::MAX_REGISTER_COUNT-remainingRegisters);
+
+		compiledBSDFRootNodes.emplace(root, material);
+
+		return material;
+	};
+
+	for (const IR::INode* root : _ir->roots)
+	{
+		if (root->symbol != IR::INode::ES_ROOT) {
+			os::Printer::log("Material compiler: Non root node added as root; ignoring it", ELL_ERROR);
+			continue;
+		}
+		oriented_material_t material;
+		auto* node = static_cast<const IR::CRootNode*>(root);
+		material = compileBSDFRootNode(node->children[0]);
+		if (node->children.count>1) {
+			material.emitter_id = getOrCreateEmitter(static_cast<const IR::CEmitterNode*>(node->children[1]));
+		}
+		else {
+			material.emitter_id = NBL_MC_INVALID_EMITTER_ID;
+		}
+		res.materials.insert({ root, material });
 	}
 
 	_ir->deinitTmpNodes();
@@ -1382,10 +1411,10 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 
 	res.allIsotropic = true;
 	res.noBSDF = true;
-	for (const auto& e : res.streams)
+	for (const auto& e : res.materials)
 	{
-		const result_t::instr_streams_t& streams = e.second;
-		auto rem_and_pdf = streams.get_rem_and_pdf();
+		const oriented_material_t& material = e.second;
+		auto rem_and_pdf = material.get_rem_and_pdf();
 		for (uint32_t i = 0u; i < rem_and_pdf.count; ++i) 
 		{
 			const uint32_t first = rem_and_pdf.first;
@@ -1428,6 +1457,8 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 		}
 	}
 
+	os::Printer::log("Material Compiler: Total Emitter count: "+std::to_string(res.emitterData.size()), nbl::ELL_INFORMATION);
+
 	res.fragmentShaderSource_declarations =
 		genPreprocDefinitions(res, _generatorChoiceStream) +
 R"(
@@ -1438,10 +1469,11 @@ R"(
 }
 
 }
-void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const
+void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostream& _out, const oriented_material_t& _material, const result_t& _res, const SContext* _ctx) const
 {
+	_out << "####### emitter_id " << _material.emitter_id << "\n";
 	_out << "####### remainder_and_pdf stream\n";
-	auto rem_and_pdf = _streams.get_rem_and_pdf();
+	auto rem_and_pdf = _material.get_rem_and_pdf();
 	for (uint32_t i = 0u; i < rem_and_pdf.count; ++i)
 	{
 		using namespace remainder_and_pdf;
@@ -1460,7 +1492,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 			_out << "SRC2 = " << regs.z << "\n";
 	}
 	_out << "####### gen_choice stream\n";
-	auto gen_choice = _streams.get_gen_choice();
+	auto gen_choice = _material.get_gen_choice();
 	for (uint32_t i = 0u; i < gen_choice.count; ++i)
 	{
 		using namespace gen_choice;
@@ -1477,26 +1509,26 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "rem_and_pdf offset " << rnp_offset << "\n";
 	}
 	_out << "####### tex_prefetch stream\n";
-	auto tex_prefetch = _streams.get_tex_prefetch();
+	auto tex_prefetch = _material.get_tex_prefetch();
 	for (uint32_t i = 0u; i < tex_prefetch.count; ++i)
 	{
 		using namespace tex_prefetch;
 
 		const instr_stream::tex_prefetch::prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
-		const auto& vtid = instr.s.tex_data.vtid;
+		const auto& vtid = instr.tex_data.vtid;
 
 		_out << "### instr " << i << "\n";
 		const uint32_t reg_cnt = instr.getRegCnt();
 		const uint32_t reg = instr.getDstReg();
-		uint32_t scale = instr.s.tex_data.scale;
+		uint32_t scale = instr.tex_data.scale;
 		_out << "reg = " << reg << "\n";
 		_out << "reg_count = " << reg_cnt << "\n";
 		_out << "scale = " << core::uintBitsToFloat(scale) << "\n";
-//		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
-//		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
+		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
+		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
 	}
 	_out << "####### normal_precomp stream\n";
-	auto norm_precomp = _streams.get_norm_precomp();
+	auto norm_precomp = _material.get_norm_precomp();
 	for (uint32_t i = 0u; i < norm_precomp.count; ++i)
 	{
 		const instr_t instr = _res.instructions[norm_precomp.first + i];
@@ -1507,6 +1539,17 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "### instr " << i << "\n";
 		_out << reg << " <- perturbNormal( reg " << data.bumpmap.derivmap_prefetch_reg << " )\n";
 	}
+	if (_material.emitter_id != NBL_MC_INVALID_EMITTER_ID) {
+		_out << "####### emitter data\n";
+		auto& emitter = _res.emitterData[_material.emitter_id];
+		auto emissive = core::rgb19e7_to_rgb32f(emitter.emissive);
+		_out << "emissive = " << "(" << emissive.x << "," << emissive.y << "," << emissive.z << ")" << "\n";
+		_out << "emission profile = " << emitter.emissionProfile << "\n";
+		_out << "orientation = ";
+		for (uint32_t i = 0u; i < 6; i++) {
+			_out << emitter.orientation << " \n"[i == 5u];
+		}
+	}
 }
 
 void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std::ostream& _out, instr_t instr, const result_t& _res, const SContext* _ctx) const
@@ -1514,22 +1557,20 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	auto texDataStr = [](const instr_stream::STextureData& td) {
 		return "{ " + std::to_string(reinterpret_cast<const uint64_t&>(td.vtid)) + ", " + std::to_string(reinterpret_cast<const float&>(td.scale)) + " }";
 	};
-	auto paramVal3OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) -> std::string {
+	auto paramVal3OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) {
 		if (tex)
 			return std::to_string(tc.prefetch);
 		else {
-//			auto val = core::rgb19e7_to_rgb32f(tc.constant);
-//			return "{ " + std::to_string(val.x) + ", " + std::to_string(val.y) + ", " + std::to_string(val.z) + " }";
-			return "";
+			auto val = core::rgb19e7_to_rgb32f(tc.constant);
+			return "{ " + std::to_string(val.x) + ", " + std::to_string(val.y) + ", " + std::to_string(val.z) + " }";
 		}
 	};
-	auto paramVal1OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) -> std::string {
+	auto paramVal1OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) {
 		if (tex)
 			return std::to_string(tc.prefetch);
 		else {
-//			auto val = core::rgb19e7_to_rgb32f(tc.constant);
-//			return std::to_string(val.x);
-			return "";
+			auto val = core::rgb19e7_to_rgb32f(tc.constant);
+			return std::to_string(val.x);
 		}
 	};
 
@@ -1579,20 +1620,20 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
-//		const auto eta = core::rgb19e7_to_rgb32f(data.dielectric.eta);
+		const auto eta = core::rgb19e7_to_rgb32f(data.dielectric.eta);
 
-//		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 	}
 		break;
 	case instr_stream::OP_CONDUCTOR:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
-//		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
-//		const auto etak = core::rgb19e7_to_rgb32f(data.conductor.eta[1]);
+		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
+		const auto etak = core::rgb19e7_to_rgb32f(data.conductor.eta[1]);
 
-//		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
-//		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
+		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
 	}
 	break;
 	case instr_stream::OP_COATING:
@@ -1602,8 +1643,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "thickness*SigmaA tex " << sigma << "\n";
 		_out << "thickness*SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";
 
-//		const auto eta = core::rgb19e7_to_rgb32f(data.coating.eta);
-//		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+		const auto eta = core::rgb19e7_to_rgb32f(data.coating.eta);
+		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 		//_out << "Thickness: " << data.coating.thickness << "\n";
 	}
 	break;
@@ -1611,7 +1652,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 		bool weight = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 		_out << "Weight tex " << weight << "\n";
-		_out << "Weight val/reg " << paramVal1OrRegStr(data.blend.weight, weight) << "\n";
+		_out << "Weight val/reg " << paramVal3OrRegStr(data.blend.weight, weight) << "\n";
 	}
 	break;
 	case instr_stream::OP_DIFFTRANS:
