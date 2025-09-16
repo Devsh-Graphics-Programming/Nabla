@@ -465,7 +465,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				//
 				const float maxDirectionComp = value[maxDirCompIndex];
 				//max component of 3d normal cannot be less than sqrt(1/D)
-				if (maxDirectionComp < std::sqrtf(0.9998f / float(dimensions)))
+				if (maxDirectionComp < std::sqrtf(0.999683f / float(dimensions)))
 				{
 					_NBL_DEBUG_BREAK_IF(true);
 					return float32_tN(0.f);

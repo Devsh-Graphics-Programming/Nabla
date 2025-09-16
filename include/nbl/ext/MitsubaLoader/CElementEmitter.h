@@ -9,6 +9,7 @@
 
 #include "vectorSIMD.h"
 #include "nbl/ext/MitsubaLoader/CElementTexture.h"
+#include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
 
 namespace nbl
 {
@@ -35,6 +36,8 @@ class CElementEmitter : public IElement
 			ENVMAP,
 			CONSTANT
 		};
+
+
 	struct SampledEmitter
 	{
 		SampledEmitter() : samplingWeight(1.f) {}
@@ -48,6 +51,7 @@ class CElementEmitter : public IElement
 		struct Area : SampledEmitter
 		{
 			core::vectorSIMDf radiance = core::vectorSIMDf(1.f); // Watts Meter^-2 Steradian^-1
+			CElementEmissionProfile* emissionProfile = nullptr;
 		};
 		struct Spot : SampledEmitter
 		{
@@ -227,7 +231,10 @@ class CElementEmitter : public IElement
 							case Type::DIRECTIONAL:
 								[[fallthrough]];
 							case Type::COLLIMATED:
-								[[fallthrough]];/*
+								[[fallthrough]];
+							case Type::AREA:
+								[[fallthrough]];
+								/*
 							case Type::SKY:
 								[[fallthrough]];
 							case Type::SUN:
@@ -251,6 +258,13 @@ class CElementEmitter : public IElement
 					animation = anim;
 					return true;
 					break;*/
+				case IElement::Type::EMISSION_PROFILE: {
+					if (type == Type::AREA) {
+						area.emissionProfile = static_cast<CElementEmissionProfile*>(_child);
+						return true;
+					}
+					return false;
+				}
 				case IElement::Type::TEXTURE:
 					if (type!=SPOT || name!="texture")
 						return false;
