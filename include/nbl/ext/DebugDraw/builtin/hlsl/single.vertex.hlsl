@@ -3,7 +3,7 @@
 #include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/bda/__ptr.hlsl"
-#include "common.hlsl"
+#include "nbl/ext/DebugDraw/builtin/hlsl/common.hlsl"
 
 using namespace nbl::hlsl;
 using namespace nbl::ext::debug_draw;

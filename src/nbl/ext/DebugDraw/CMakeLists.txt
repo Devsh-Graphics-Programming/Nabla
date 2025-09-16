@@ -20,8 +20,8 @@ nbl_create_ext_library_project(
 )
 
 # this should be standard for all extensions
-set(_ARCHIVE_ENTRY_KEY_ "DebugDraw/builtin/hlsl") # then each one has unique archive key
-get_filename_component(_ARCHIVE_ABSOLUTE_ENTRY_PATH_ "${NBL_EXT_INTERNAL_INCLUDE_DIR}/nbl/ext" ABSOLUTE)
+set(_ARCHIVE_ENTRY_KEY_ "nbl/ext/DebugDraw/builtin/hlsl") # then each one has unique archive key
+get_filename_component(_ARCHIVE_ABSOLUTE_ENTRY_PATH_ "${NBL_EXT_INTERNAL_INCLUDE_DIR}" ABSOLUTE)
 get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
 get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
 

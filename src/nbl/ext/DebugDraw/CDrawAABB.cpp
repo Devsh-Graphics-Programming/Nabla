@@ -162,7 +162,7 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 			return params.utilities->getLogicalDevice()->compileShader({ shaderSrc.get() });
 		};
 
-	if (!system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
+	if (!system->exists(path(NBL_ARCHIVE_ENTRY) / "common.hlsl", {}))
 		mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
 
 	auto vertexShader = compileShader(vsPath, IShader::E_SHADER_STAGE::ESS_VERTEX);
