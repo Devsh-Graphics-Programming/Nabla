@@ -5,6 +5,10 @@
 #include "nbl/ext/DebugDraw/CDrawAABB.h"
 #include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+#include "nbl/ext/debug_draw/builtin/CArchive.h"
+#endif
+
 using namespace nbl;
 using namespace core;
 using namespace video;
