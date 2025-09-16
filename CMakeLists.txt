@@ -20,6 +20,8 @@ NBL_POLICY(CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.htm
 NBL_POLICY(CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 NBL_POLICY(CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF) # https://cmake.org/cmake/help/latest/prop_tgt/CXX_SCAN_FOR_MODULES.html#prop_tgt:CXX_SCAN_FOR_MODULES
+
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)

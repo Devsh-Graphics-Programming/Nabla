@@ -222,10 +222,6 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CImageWriterTGA.cpp
 	asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
 	asset/interchange/CGLIWriter.cpp
-	
-# Material compiler
-	asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
-	asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
 set(NBL_VIDEO_SOURCES
 # Utilities

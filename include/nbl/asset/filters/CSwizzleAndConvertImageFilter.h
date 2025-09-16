@@ -54,10 +54,9 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 		static inline void normalizationPrepass(E_FORMAT rInFormat, const ExecutionPolicy& policy, state_type* state, const core::vectorSIMDu32& blockDims)
 		{
 			if constexpr (!std::is_void_v<Normalization>)
-			{			
+			{
 				assert(kInFormat==EF_UNKNOWN || rInFormat==EF_UNKNOWN);
 				state->normalization.template initialize<encodeBufferType>();
-
 				auto perOutputRegion = [policy,&blockDims,&state,rInFormat](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 				{
 					auto normalizePrepass = [&commonExecuteData,&blockDims,&state,rInFormat](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
