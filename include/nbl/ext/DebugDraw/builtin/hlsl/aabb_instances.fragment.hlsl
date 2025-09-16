@@ -1,6 +1,6 @@
 #pragma shader_stage(fragment)
 
-#include "common.hlsl"
+#include "nbl/ext/DebugDraw/builtin/hlsl/common.hlsl"
 
 using namespace nbl::ext::debug_draw;
 
