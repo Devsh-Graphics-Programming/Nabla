@@ -539,7 +539,7 @@ struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation derived from Numerical Recipes in C, transformed for log2
 	static T __call(T x)
 	{
-#ifdef __HLSL_VERSION // make the host compilers shut up
+#ifdef __HLSL_VERSION
 		#pragma dxc diagnostic push
 		#pragma dxc diagnostic ignored "-Wliteral-range"
 #endif
