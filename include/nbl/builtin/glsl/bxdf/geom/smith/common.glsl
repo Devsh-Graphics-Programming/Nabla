@@ -21,7 +21,7 @@ float nbl_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float lambda_V, in floa
 {
     onePlusLambda_V = 1.0+lambda_V;
 
-    return nbl_glsl_microfacet_to_light_measure_transform((transmitted ? (1.0-reflectance):reflectance)*ndf/onePlusLambda_V,absNdotV,transmitted,VdotH,LdotH,VdotHLdotH,orientedEta);
+    return nbl_glsl_microfacet_to_light_measure_transform(reflectance*ndf/onePlusLambda_V,absNdotV,transmitted,VdotH,LdotH,VdotHLdotH,orientedEta);
 }
 
 // for when you know the NDF and the uncorrelated smith masking function
@@ -45,7 +45,7 @@ float nbl_glsl_smith_FVNDF_pdf_wo_clamps(in float fresnel_ndf, in float G1_over_
 
 float nbl_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float G1_over_2NdotV, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta, in float reflectance)
 {
-    float FN = (transmitted ? (1.0 - reflectance) : reflectance) * ndf;
+    float FN = reflectance * ndf;   // fresnel already takes into account transmission
     
     return nbl_glsl_smith_FVNDF_pdf_wo_clamps(FN, G1_over_2NdotV, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
 }

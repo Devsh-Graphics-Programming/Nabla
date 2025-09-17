@@ -277,7 +277,7 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         quant_type DG1 = ndf.template DG1<sample_type, isotropic_interaction_type>(dq, qq, _sample, interaction);
 
         const scalar_type reflectance = fresnel(hlsl::abs(cache.getVdotH()))[0];
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * DG1.projectedLightMeasure;
+        return reflectance * DG1.projectedLightMeasure;
     }
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
@@ -290,7 +290,7 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         quant_type DG1 = ndf.template DG1<sample_type, anisotropic_interaction_type>(dq, qq, _sample, interaction);
 
         const scalar_type reflectance = fresnel(hlsl::abs(cache.getVdotH()))[0];
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * DG1.projectedLightMeasure;
+        return reflectance * DG1.projectedLightMeasure;
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
