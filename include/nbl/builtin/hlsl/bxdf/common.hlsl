@@ -941,14 +941,14 @@ struct beta
     {
         assert(x >= T(0.999) && y >= T(0.999));
 
-#ifdef __HLSL_VERSION
+// #ifdef __HLSL_VERSION
         #pragma dxc diagnostic push
 		#pragma dxc diagnostic ignored "-Wliteral-range"
-#endif
+// #endif
 		const T thresholds[4] = { 0, 5e5, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
-#ifdef __HLSL_VERSION
+// #ifdef __HLSL_VERSION
         #pragma dxc diagnostic pop
-#endif
+// #endif
 		if (x+y > thresholds[mpl::find_lsb_v<sizeof(T)>])
 			return T(0.0);
 
