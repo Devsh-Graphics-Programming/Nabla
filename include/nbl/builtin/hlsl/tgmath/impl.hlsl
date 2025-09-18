@@ -539,6 +539,7 @@ struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation derived from Numerical Recipes in C, transformed for log2
 	static T __call(T x)
 	{
+// currently throws a boost preprocess error, see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/932
 // #ifdef __HLSL_VERSION
 		#pragma dxc diagnostic push
 		#pragma dxc diagnostic ignored "-Wliteral-range"
@@ -588,6 +589,7 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
 	{
+// currently throws a boost preprocess error, see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/932
 // #ifdef __HLSL_VERSION
 		#pragma dxc diagnostic push
 		#pragma dxc diagnostic ignored "-Wliteral-range"

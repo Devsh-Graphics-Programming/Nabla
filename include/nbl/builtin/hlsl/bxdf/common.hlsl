@@ -941,6 +941,7 @@ struct beta
     {
         assert(x >= T(0.999) && y >= T(0.999));
 
+// currently throws a boost preprocess error, see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/932
 // #ifdef __HLSL_VERSION
         #pragma dxc diagnostic push
 		#pragma dxc diagnostic ignored "-Wliteral-range"
