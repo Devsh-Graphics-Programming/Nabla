@@ -12,6 +12,7 @@
 #include <glm/detail/_swizzle.hpp>
 
 #include "nbl/core/hash/blake.h"
+#include "nbl/core/algorithm/utility.h"
 
 namespace nbl::hlsl
 {
@@ -92,4 +93,31 @@ struct blake3_hasher::update_impl<hlsl::vector<T,N>,Dummy>
 }
 #endif
 }
+
+#ifndef __HLSL_VERSION
+namespace std
+{
+template<typename T, uint16_t N>
+struct hash<nbl::hlsl::vector<T,N> >
+{
+    size_t operator()(const nbl::hlsl::vector<T,N>& v) const noexcept
+    {
+        size_t seed = 0;
+        NBL_UNROLL for (uint16_t i = 0; i < N; i++)
+            nbl::core::hash_combine(seed, v[i]);
+        return seed;
+    }
+};
+
+template<typename T>
+struct hash<nbl::hlsl::vector<T,1> >
+{
+    size_t operator()(const nbl::hlsl::vector<T,1>& v) const noexcept
+    {
+        std::hash<T> hasher;
+        return hasher(v.x);
+    }
+};
+}
+#endif
 #endif

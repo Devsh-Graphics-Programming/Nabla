@@ -11,6 +11,7 @@
 #include "nbl/builtin/hlsl/ieee754.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
+// #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
 #include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
 #include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
@@ -429,6 +430,8 @@ struct SLightSample
     }
     scalar_type getNdotL2() NBL_CONST_MEMBER_FUNC { return NdotL2; }
 
+    bool isValid() NBL_CONST_MEMBER_FUNC { return !hlsl::all<vector<bool, 3> >(hlsl::glsl::equal(L.getDirection(), hlsl::promote<vector3_type>(0.0))); }
+
 
     RayDirInfo L;
 
@@ -737,7 +740,7 @@ struct SAnisotropicMicrofacetCache
     {
         this_t retval;
         retval.iso_cache = isocache_type::create(V,L,N,orientedEtas,H);
-        const bool valid = retval.iso_cache.NdotH >= 0.0;
+        const bool valid = retval.iso_cache.getNdotH() >= 0.0;
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(T,H);
@@ -755,7 +758,7 @@ struct SAnisotropicMicrofacetCache
         this_t retval;
         vector3_type H;
         retval.iso_cache = isocache_type::template create<typename AnisotropicInteraction::isotropic_interaction_type, LS>(interaction.isotropic,_sample,orientedEtas,H);
-        const bool valid = retval.iso_cache.NdotH >= 0.0;
+        const bool valid = retval.iso_cache.getNdotH() >= 0.0;
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.getT(),H);

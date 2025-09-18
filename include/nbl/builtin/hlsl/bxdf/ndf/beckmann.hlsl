@@ -16,71 +16,79 @@ namespace bxdf
 namespace ndf
 {
 
-namespace beckmann_concepts
+namespace impl
 {
-#define NBL_CONCEPT_NAME DG1Query
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (query, T)
-NBL_CONCEPT_BEGIN(1)
-#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-);
-#undef query
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME G2overG1Query
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (query, T)
-NBL_CONCEPT_BEGIN(1)
-#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-);
-#undef query
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-}
+template<typename T>
+struct SBeckmannDG1Query
+{
+    using scalar_type = T;
+
+    scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+    scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+
+    scalar_type ndf;
+    scalar_type lambda_V;
+};
+
+template<typename T>
+struct SBeckmannG2overG1Query
+{
+    using scalar_type = T;
+
+    scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
+    scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+
+    scalar_type lambda_L;
+    scalar_type lambda_V;
+};
+
+template<typename T>
+struct SBeckmannQuantQuery
+{
+    using scalar_type = T;
+
+    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
+    scalar_type getVdotH_etaLdotH() NBL_CONST_MEMBER_FUNC { return VdotH_etaLdotH; }
+
+    scalar_type VdotHLdotH;
+    scalar_type VdotH_etaLdotH;
+};
 
 template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
-struct Beckmann;
+struct BeckmannCommon;
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
+    using dg1_query_type = SBeckmannDG1Query<scalar_type>;
+    using g2g1_query_type = SBeckmannG2overG1Query<scalar_type>;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        scalar_type nom = exp2<scalar_type>((cache.getNdotH2() - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * cache.getNdotH2()));
-        scalar_type denom = a2 * cache.getNdotH2() * cache.getNdotH2();
+        scalar_type NdotH2 = cache.getNdotH2();
+        scalar_type nom = exp2<scalar_type>((NdotH2 - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * NdotH2));
+        scalar_type denom = a2 * NdotH2 * NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
-    // brdf
-    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
-    scalar_type DG1(NBL_CONST_REF_ARG(Query) query)
+    scalar_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query)
     {
         return query.getNdf() / (scalar_type(1.0) + query.getLambdaV());
     }
 
-    // bsdf
-    template<class Query, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type DG1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    //conversion between alpha and Phong exponent, Walter et.al.
+    static scalar_type phong_exp_to_alpha2(scalar_type _n)
     {
-        return DG1(query);
+        return 2.0 / (_n + 2.0);
     }
-
-    scalar_type G1(scalar_type lambda)
+    //+INF for a2==0.0
+    static scalar_type alpha2_to_phong_exp(scalar_type a2)
     {
-        return scalar_type(1.0) / (scalar_type(1.0) + lambda);
+        return 2.0 / a2 - 2.0;
     }
 
     scalar_type C2(scalar_type NdotX2)
@@ -88,7 +96,7 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return NdotX2 / (a2 * (scalar_type(1.0) - NdotX2));
     }
 
-    scalar_type Lambda(scalar_type c2)
+    static scalar_type Lambda(scalar_type c2)
     {
         scalar_type c = sqrt<scalar_type>(c2);
         scalar_type nom = scalar_type(1.0) - scalar_type(1.259) * c + scalar_type(0.396) * c2;
@@ -101,57 +109,56 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return Lambda(C2(NdotX2));
     }
 
-    template<class Query, class LS, class Interaction NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query> && LightSample<LS> && surface_interactions::Isotropic<Interaction>)
-    scalar_type correlated(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         return scalar_type(1.0) / (scalar_type(1.0) + query.getLambdaV() + query.getLambdaL());
     }
 
-    template<class Query, class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query> && LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + query.getLambdaL()), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + query.getLambdaL()), cache.isTransmission());
+        scalar_type lambda_L = query.getLambdaL();
+        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
-    vector<scalar_type, 2> A;
+    vector<scalar_type, 2> A;   // TODO: remove?
     scalar_type a2;
 };
 
-
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
+    using dg1_query_type = SBeckmannDG1Query<scalar_type>;
+    using g2g1_query_type = SBeckmannG2overG1Query<scalar_type>;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type nom = exp<scalar_type>(-(cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2) / cache.getNdotH2());
-        scalar_type denom = A.x * A.y * cache.getNdotH2() * cache.getNdotH2();
+        scalar_type denom = a2 * cache.getNdotH2() * cache.getNdotH2();
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
-    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
-    scalar_type DG1(NBL_CONST_REF_ARG(Query) query)
+    scalar_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query)
     {
-        Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.template DG1<Query>(query);
+        BeckmannCommon<T,false> beckmann;
+        scalar_type dg = beckmann.DG1(query);
         return dg;
     }
 
-    template<class Query, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query> && AnisotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type DG1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    //conversion between alpha and Phong exponent, Walter et.al.
+    static scalar_type phong_exp_to_alpha2(scalar_type _n)
     {
-        Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.template DG1<Query, typename MicrofacetCache::isocache_type>(query, cache.iso_cache);
-        return dg;
+        return 2.0 / (_n + 2.0);
     }
-
-    scalar_type G1(scalar_type lambda)
+    //+INF for a2==0.0
+    static scalar_type alpha2_to_phong_exp(scalar_type a2)
     {
-        return scalar_type(1.0) / (scalar_type(1.0) + lambda);
+        return 2.0 / a2 - 2.0;
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
@@ -159,7 +166,7 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return NdotX2 / (TdotX2 * ax2 + BdotX2 * ay2);
     }
 
-    scalar_type Lambda(scalar_type c2)
+    static scalar_type Lambda(scalar_type c2)
     {
         scalar_type c = sqrt<scalar_type>(c2);
         scalar_type nom = scalar_type(1.0) - scalar_type(1.259) * c + scalar_type(0.396) * c2;
@@ -172,22 +179,398 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return Lambda(C2(TdotX2, BdotX2, NdotX2));
     }
 
-    template<class Query, class LS, class Interaction NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query> && LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
-    scalar_type correlated(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         return scalar_type(1.0) / (scalar_type(1.0) + query.getLambdaV() + query.getLambdaL());
     }
 
-    template<class Query, class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query> && LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + query.getLambdaL()), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + query.getLambdaL()), cache.isTransmission());
+        scalar_type lambda_L = query.getLambdaL();
+        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
     vector<scalar_type, 2> A;
     scalar_type ax2;
     scalar_type ay2;
+    scalar_type a2;
+};
+
+template<typename T>
+struct BeckmannGenerateH
+{
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    static vector3_type __call(const vector2_type A, const vector3_type localV, const vector2_type u)
+    {
+        //stretch
+        vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x * localV.x, A.y * localV.y, localV.z));
+
+        vector2_type slope;
+        if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
+        {
+            scalar_type r = sqrt<scalar_type>(-log<scalar_type>(1.0 - u.x));
+            scalar_type sinPhi = sin<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
+            scalar_type cosPhi = cos<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
+            slope = (vector2_type)r * vector2_type(cosPhi,sinPhi);
+        }
+        else
+        {
+            scalar_type cosTheta = V.z;
+            scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
+            scalar_type tanTheta = sinTheta / cosTheta;
+            scalar_type cotTheta = 1.0 / tanTheta;
+
+            scalar_type a = -1.0;
+            scalar_type c = erf<scalar_type>(cosTheta);
+            scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
+            scalar_type theta = acos<scalar_type>(cosTheta);
+            scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
+            scalar_type b = c - (1.0 + c) * pow<scalar_type>(1.0-sample_x, fit);
+
+            scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-cosTheta*cosTheta));
+
+            const int ITER_THRESHOLD = 10;
+            const float MAX_ACCEPTABLE_ERR = 1.0e-5;
+            int it = 0;
+            float value=1000.0;
+            while (++it < ITER_THRESHOLD && nbl::hlsl::abs<scalar_type>(value) > MAX_ACCEPTABLE_ERR)
+            {
+                if (!(b >= a && b <= c))
+                    b = 0.5 * (a + c);
+
+                float invErf = erfInv<scalar_type>(b);
+                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf * invErf)) - sample_x;
+                float derivative = normalization * (1.0 - invErf * cosTheta);
+
+                if (value > 0.0)
+                    c = b;
+                else
+                    a = b;
+
+                b -= value/derivative;
+            }
+            // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
+            slope.x = erfInv<scalar_type>(b);
+            slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y, 1.0e-6) - 1.0);
+        }
+
+        scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
+        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
+        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
+        //rotate
+        scalar_type tmp = cosPhi*slope.x - sinPhi*slope.y;
+        slope.y = sinPhi*slope.x + cosPhi*slope.y;
+        slope.x = tmp;
+
+        //unstretch
+        slope = vector2_type(A.x,A.y)*slope;
+
+        return nbl::hlsl::normalize<vector3_type>(vector3_type(-slope, 1.0));
+    }
+};
+}
+
+template<typename T, bool IsAnisotropic, MicrofacetTransformTypes reflect_refract NBL_STRUCT_CONSTRAINABLE>
+struct Beckmann;
+
+// partial spec for brdf
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct Beckmann<T,false,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+    using scalar_type = T;
+    using base_type = impl::BeckmannCommon<T,false>;
+    using quant_type = SDualMeasureQuant<scalar_type>;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    using dg1_query_type = typename base_type::dg1_query_type;
+    using g2g1_query_type = typename base_type::g2g1_query_type;
+    using quant_query_type = impl::SBeckmannQuantQuery<scalar_type>;
+
+    template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    {
+        quant_query_type dummy; // brdfs don't make use of this
+        return dummy;
+    }
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    dg1_query_type createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        dg1_query_type dg1_query;
+        dg1_query.ndf = __base.template D<MicrofacetCache>(cache);
+        dg1_query.lambda_V = __base.LambdaC2(interaction.getNdotV2());
+        return dg1_query;
+    }
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    g2g1_query_type createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        g2g1_query_type g2_query;
+        g2_query.lambda_L = __base.LambdaC2(_sample.getNdotL2());
+        g2_query.lambda_V = __base.LambdaC2(interaction.getNdotV2());
+        return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        scalar_type d = __base.template D<MicrofacetCache>(cache);
+        return createDualMeasureQuantity<T>(d, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type dg1 = __base.DG1(query);
+        return createDualMeasureQuantity<T>(dg1, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    quant_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type g = __base.template correlated<LS, Interaction>(query, _sample, interaction);
+        return createDualMeasureQuantity<T>(g, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return __base.template G2_over_G1<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
+    }
+
+    base_type __base;
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct Beckmann<T,true,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+    using scalar_type = T;
+    using base_type = impl::BeckmannCommon<T,true>;
+    using quant_type = SDualMeasureQuant<scalar_type>;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    using dg1_query_type = typename base_type::dg1_query_type;
+    using g2g1_query_type = typename base_type::g2g1_query_type;
+    using quant_query_type = impl::SBeckmannQuantQuery<scalar_type>;
+
+    template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    {
+        quant_query_type dummy; // brdfs don't make use of this
+        return dummy;
+    }
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    dg1_query_type createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        dg1_query_type dg1_query;
+        dg1_query.ndf = __base.template D<MicrofacetCache>(cache);
+        dg1_query.lambda_V = __base.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        return dg1_query;
+    }
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    g2g1_query_type createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        g2g1_query_type g2_query;
+        g2_query.lambda_L = __base.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
+        g2_query.lambda_V = __base.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        scalar_type d = __base.template D<MicrofacetCache>(cache);
+        return createDualMeasureQuantity<T>(d, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type dg1 = __base.DG1(query);
+        return createDualMeasureQuantity<T>(dg1, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    quant_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type g = __base.template correlated<LS, Interaction>(query, _sample, interaction);
+        return createDualMeasureQuantity<T>(g, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return __base.template G2_over_G1<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
+    }
+
+    base_type __base;
+};
+
+// partial for bsdf
+template<typename T, MicrofacetTransformTypes reflect_refract>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct Beckmann<T,false,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+    using scalar_type = T;
+    using base_type = impl::BeckmannCommon<T,false>;
+    using quant_type = SDualMeasureQuant<scalar_type>;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    using dg1_query_type = typename base_type::dg1_query_type;
+    using g2g1_query_type = typename base_type::g2g1_query_type;
+    using quant_query_type = impl::SBeckmannQuantQuery<scalar_type>;
+
+    template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    {
+        quant_query_type quant_query;
+        quant_query.VdotHLdotH = cache.getVdotHLdotH();
+        quant_query.VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
+        return quant_query;
+    }
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    dg1_query_type createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        dg1_query_type dg1_query;
+        dg1_query.ndf = __base.template D<MicrofacetCache>(cache);
+        dg1_query.lambda_V = __base.LambdaC2(interaction.getNdotV2());
+        return dg1_query;
+    }
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    g2g1_query_type createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        g2g1_query_type g2_query;
+        g2_query.lambda_L = __base.LambdaC2(_sample.getNdotL2());
+        g2_query.lambda_V = __base.LambdaC2(interaction.getNdotV2());
+        return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        scalar_type d = __base.template D<MicrofacetCache>(cache);
+        return createDualMeasureQuantity<T, reflect_refract>(d, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type dg1 = __base.DG1(query);
+        return createDualMeasureQuantity<T, reflect_refract>(dg1, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    quant_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type g = __base.template correlated<LS, Interaction>(query, _sample, interaction);
+        return createDualMeasureQuantity<T, reflect_refract>(g, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return __base.template G2_over_G1<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
+    }
+
+    base_type __base;
+};
+
+template<typename T, MicrofacetTransformTypes reflect_refract>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct Beckmann<T,true,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+    using scalar_type = T;
+    using base_type = impl::BeckmannCommon<T,true>;
+    using quant_type = SDualMeasureQuant<scalar_type>;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    using dg1_query_type = typename base_type::dg1_query_type;
+    using g2g1_query_type = typename base_type::g2g1_query_type;
+    using quant_query_type = impl::SBeckmannQuantQuery<scalar_type>;
+
+    template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    {
+        quant_query_type quant_query;
+        quant_query.VdotHLdotH = cache.getVdotHLdotH();
+        quant_query.VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
+        return quant_query;
+    }
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    dg1_query_type createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        dg1_query_type dg1_query;
+        dg1_query.ndf = __base.template D<MicrofacetCache>(cache);
+        dg1_query.lambda_V = __base.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        return dg1_query;
+    }
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    g2g1_query_type createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        g2g1_query_type g2_query;
+        g2_query.lambda_L = __base.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
+        g2_query.lambda_V = __base.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        scalar_type d = __base.template D<MicrofacetCache>(cache);
+        return createDualMeasureQuantity<T, reflect_refract>(d, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type dg1 = __base.DG1(query);
+        return createDualMeasureQuantity<T, reflect_refract>(dg1, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
+    quant_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        scalar_type g = __base.template correlated<LS, Interaction>(query, _sample, interaction);
+        return createDualMeasureQuantity<T, reflect_refract>(g, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return __base.template G2_over_G1<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
+    }
+
+    base_type __base;
 };
 
 }
