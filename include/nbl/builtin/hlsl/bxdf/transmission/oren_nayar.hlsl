@@ -33,7 +33,7 @@ struct SOrenNayar
     NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
 
-    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
+    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
     struct SCreationParams
     {
@@ -41,10 +41,18 @@ struct SOrenNayar
     };
     using creation_type = SCreationParams;
 
+    struct SQuery
+    {
+        scalar_type getVdotL() NBL_CONST_MEMBER_FUNC { return VdotL; }
+        scalar_type VdotL;
+    };
+
     static this_t create(scalar_type A)
     {
         this_t retval;
         retval.A = A;
+        retval.A2 = A * 0.5;
+        retval.AB = vector2_type(1.0, 0.0) + vector2_type(-0.5, 0.45) * vector2_type(retval.A2, retval.A2) / vector2_type(retval.A2 + 0.33, retval.A2 + 0.09);
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
@@ -61,32 +69,33 @@ struct SOrenNayar
         scalar_type cos_phi_sin_theta = max<scalar_type>(VdotL - maxNdotL * maxNdotV, 0.0);
         return (AB.x + AB.y * cos_phi_sin_theta * C);
     }
+    template<typename Query>
+    spectral_type __eval(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    {
+        scalar_type NdotL = _sample.getNdotL(_clamp);
+        return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * 0.5 * __rec_pi_factored_out_wo_clamps(query.getVdotL(), NdotL, interaction.getNdotV(_clamp)));
+    }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        scalar_type NdotL = _sample.getNdotL(_clamp);
-        return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * 0.5 * __rec_pi_factored_out_wo_clamps(hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()), NdotL, interaction.getNdotV(_clamp)));
+        SQuery query;
+        query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
+        return __eval<SQuery>(query, _sample, interaction); 
     }
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         return eval(_sample, interaction.isotropic);
     }
 
-    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
-
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
-    {
-        return generate_wo_clamps(interaction, u);
-    }
-
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
     {
-        return generate_wo_clamps(anisotropic_interaction_type::create(interaction), u);
+        return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
@@ -94,11 +103,18 @@ struct SOrenNayar
         return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    template<typename Query>
+    quotient_pdf_type __quotient_and_pdf(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         scalar_type _pdf = pdf(_sample);
-        scalar_type q = __rec_pi_factored_out_wo_clamps(hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
+        scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
         return quotient_pdf_type::create(q, _pdf);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    {
+        SQuery query;
+        query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
+        return __quotient_and_pdf<SQuery>(query, _sample, interaction);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
@@ -106,6 +122,8 @@ struct SOrenNayar
     }
 
     scalar_type A;
+    scalar_type A2;
+    vector2_type AB;
 };
 
 }
