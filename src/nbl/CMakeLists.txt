@@ -122,7 +122,6 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 # <=
 
 set(NBL_CORE_SOURCES
-	core/IReferenceCounted.cpp
 	core/alloc/refctd_memory_resource.cpp
 	core/hash/blake.cpp
 )
