@@ -22,9 +22,9 @@ class NBL_API2 CPolygonGeometryManipulator
 		{
 			uint32_t index;									     //offset of the vertex into index buffer
 			uint32_t hash;											       //
-			float wage;												         //angle wage of the vertex
+			hlsl::float32_t3 weightedNormal;
+			hlsl::float32_t3 parentTriangleFaceNormal;
 			hlsl::float32_t3 position;							   //position of the vertex in 3D space
-			hlsl::float32_t3 parentTriangleFaceNormal; //
 		};
 
 		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;

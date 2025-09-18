@@ -219,9 +219,9 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		//set data for m_vertices
 		const auto angleWages = getAngleWeight(v1, v2, v3);
 
-		vertices.add({ i,	0,	angleWages.x,	v1,		faceNormal});
-		vertices.add({ i + 1,	0,	angleWages.y,	v2,		faceNormal});
-		vertices.add({ i + 2,	0,	angleWages.z,	v3,		faceNormal});
+		vertices.add({ i,	0,	faceNormal * angleWages.x, faceNormal, v1});
+		vertices.add({ i + 1,	0,	faceNormal * angleWages.y, faceNormal,v2});
+		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, faceNormal, v3});
 	}
 
 	vertices.validate();
@@ -260,7 +260,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
 			std::array<uint32_t, 8> neighboringCells = vertexHashMap.getNeighboringCellHashes(*processedVertex);
-			hlsl::float32_t3 normal = processedVertex->parentTriangleFaceNormal * processedVertex->wage;
+			hlsl::float32_t3 normal = processedVertex->weightedNormal;
 
 			//iterate among all neighboring cells
 			for (int i = 0; i < 8; i++)
@@ -273,7 +273,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 							vxcmp(*processedVertex, *bounds.begin, polygon))
 						{
 							//TODO: better mean calculation algorithm
-							normal += bounds.begin->parentTriangleFaceNormal * bounds.begin->wage;
+							normal += bounds.begin->weightedNormal;
 						}
 				}
 			}
@@ -373,7 +373,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
 			std::array<uint32_t, 8> neighboringCells = vertices.getNeighboringCellHashes(*processedVertex);
-			hlsl::float32_t3 normal = processedVertex->parentTriangleFaceNormal * processedVertex->wage;
 
 			auto& groupIndex = groupIndexes[processedVertex->index];
 
