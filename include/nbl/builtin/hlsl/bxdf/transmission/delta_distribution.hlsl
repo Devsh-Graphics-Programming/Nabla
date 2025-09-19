@@ -33,20 +33,6 @@ struct SDeltaDistribution
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
-    struct SCreationParams {};
-    using creation_type = SCreationParams;
-
-    static this_t create()
-    {
-        this_t retval;
-        // nothing here, just keeping in convention with others
-        return retval;
-    }
-    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
-    {
-        return create();
-    }
-
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         return hlsl::promote<spectral_type>(0);
