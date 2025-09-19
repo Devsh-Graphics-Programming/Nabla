@@ -521,7 +521,7 @@ struct SIsotropicMicrofacetCache
         retval.LdotH = retval.VdotH;
         retval.absNdotH = NdotLplusVdotL * oriented_LplusV_rcpLen;
         retval.NdotH2 = retval.absNdotH * retval.absNdotH;
-        LplusV_rcpLen = oriented_LplusV_rcpLen;
+        LplusV_rcpLen = unoriented_LplusV_rcpLen;
 
         return retval;
     }

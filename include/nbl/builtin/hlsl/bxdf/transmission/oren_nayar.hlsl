@@ -38,32 +38,24 @@ struct SOrenNayar
         scalar_type VdotL;
     };
 
-    static this_t create(scalar_type A)
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
     {
         this_t retval;
-        retval.A2 = A * 0.5;
+        retval.A2 = params.A * 0.5;
         retval.AB = vector2_type(1.0, 0.0) + vector2_type(-0.5, 0.45) * vector2_type(retval.A2, retval.A2) / vector2_type(retval.A2 + 0.33, retval.A2 + 0.09);
         return retval;
     }
-    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
-    {
-        return create(params.A);
-    }
 
-    scalar_type __rec_pi_factored_out_wo_clamps(scalar_type VdotL, scalar_type maxNdotL, scalar_type maxNdotV)
-    {
-        scalar_type C = 1.0 / max<scalar_type>(maxNdotL, maxNdotV);
-
-        scalar_type cos_phi_sin_theta = max<scalar_type>(VdotL - maxNdotL * maxNdotV, 0.0);
-        return (AB.x + AB.y * cos_phi_sin_theta * C);
-    }
     template<typename Query>
     spectral_type __eval(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         scalar_type NdotL = _sample.getNdotL(_clamp);
-        return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * 0.5 * __rec_pi_factored_out_wo_clamps(query.getVdotL(), NdotL, interaction.getNdotV(_clamp)));
-    }
+        scalar_type NdotV = interaction.getNdotV(_clamp);
+        scalar_type C = 1.0 / max<scalar_type>(NdotL, NdotV);
 
+        scalar_type cos_phi_sin_theta = max<scalar_type>(VdotL - NdotL * NdotV, 0.0);
+        return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * 0.5 * (AB.x + AB.y * cos_phi_sin_theta * C));
+    }
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         SQuery query;
