@@ -435,6 +435,8 @@ struct SLightSample
     }
     scalar_type getNdotL2() NBL_CONST_MEMBER_FUNC { return NdotL2; }
 
+    bool isValid() NBL_CONST_MEMBER_FUNC { return !hlsl::all<vector<bool, 3> >(hlsl::glsl::equal(L.getDirection(), hlsl::promote<vector3_type>(0.0))); }
+
 
     RayDirInfo L;
 
@@ -509,16 +511,17 @@ struct SIsotropicMicrofacetCache
     // always valid because its specialized for the reflective case
     static this_t createForReflection(const scalar_type NdotV, const scalar_type NdotL, const scalar_type VdotL, NBL_REF_ARG(scalar_type) LplusV_rcpLen)
     {
-        LplusV_rcpLen = rsqrt<scalar_type>(2.0 + 2.0 * VdotL);
+        scalar_type unoriented_LplusV_rcpLen = rsqrt<scalar_type>(2.0 + 2.0 * VdotL);
 
         this_t retval;
         retval.VdotL = VdotL;
-        scalar_type NdotLVdotL = NdotL + NdotV;
-        LplusV_rcpLen = ieee754::flipSign<scalar_type>(LplusV_rcpLen, NdotLVdotL < scalar_type(0.0)); 
-        retval.VdotH = LplusV_rcpLen * VdotL + LplusV_rcpLen;
+        scalar_type NdotLplusVdotL = NdotL + NdotV;
+        scalar_type oriented_LplusV_rcpLen = ieee754::flipSign<scalar_type>(unoriented_LplusV_rcpLen, NdotLplusVdotL < scalar_type(0.0)); 
+        retval.VdotH = oriented_LplusV_rcpLen * VdotL + oriented_LplusV_rcpLen;
         retval.LdotH = retval.VdotH;
-        retval.absNdotH = NdotLVdotL * LplusV_rcpLen;
+        retval.absNdotH = NdotLplusVdotL * oriented_LplusV_rcpLen;
         retval.NdotH2 = retval.absNdotH * retval.absNdotH;
+        LplusV_rcpLen = oriented_LplusV_rcpLen;
 
         return retval;
     }
@@ -976,8 +979,6 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(iso, isocache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
 );
