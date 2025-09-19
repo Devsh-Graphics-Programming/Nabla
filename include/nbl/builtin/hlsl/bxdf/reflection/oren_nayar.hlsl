@@ -53,7 +53,7 @@ struct SOrenNayar
         scalar_type NdotV = interaction.getNdotV(_clamp);
         scalar_type C = 1.0 / max<scalar_type>(NdotL, NdotV);
 
-        scalar_type cos_phi_sin_theta = max<scalar_type>(VdotL - NdotL * NdotV, 0.0);
+        scalar_type cos_phi_sin_theta = max<scalar_type>(query.getVdotL() - NdotL * NdotV, 0.0);
         return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * (AB.x + AB.y * cos_phi_sin_theta * C));
     }
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
@@ -88,7 +88,13 @@ struct SOrenNayar
     quotient_pdf_type __quotient_and_pdf(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         scalar_type _pdf = pdf(_sample);
-        scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
+
+        scalar_type NdotL = _sample.getNdotL(_clamp);
+        scalar_type NdotV = interaction.getNdotV(_clamp);
+        scalar_type C = 1.0 / max<scalar_type>(NdotL, NdotV);
+
+        scalar_type cos_phi_sin_theta = max<scalar_type>(query.getVdotL() - NdotL * NdotV, 0.0);
+        scalar_type q = AB.x + AB.y * cos_phi_sin_theta * C;
         return quotient_pdf_type::create(q, _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
