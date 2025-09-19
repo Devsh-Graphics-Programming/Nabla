@@ -38,13 +38,12 @@ struct SDeltaDistribution
     {
         ray_dir_info_type L = interaction.getV().transmit();
         sample_type s = sample_type::create(L, interaction.getN());
-        s.TdotL = hlsl::dot(L.getDirection(),interaction.getT());
-        s.BdotL = hlsl::dot(L.getDirection(),interaction.getB());
+        s.TdotL = -interaction.getTdotV();
+        s.BdotL = -interaction.getBdotV();
         s.NdotL = -interaction.getNdotV();
         s.NdotL2 = interaction.getNdotV2();
         return s;
     }
-
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u)
     {
         return generate(anisotropic_interaction_type::create(interaction), u);

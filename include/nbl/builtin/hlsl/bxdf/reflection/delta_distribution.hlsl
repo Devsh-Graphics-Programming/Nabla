@@ -40,8 +40,8 @@ struct SDeltaDistribution
         bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(V, interaction.getN());
         ray_dir_info_type L = interaction.getV().reflect(r);
         sample_type s = sample_type::create(L, interaction.getN());
-        s.TdotL = -hlsl::dot(V,L.getDirection());
-        s.BdotL = -hlsl::dot(V,interaction.getB());
+        s.TdotL = -interaction.getTdotV();
+        s.BdotL = -interaction.getBdotV();
         s.NdotL = interaction.getNdotV();
         s.NdotL2 = interaction.getNdotV2();
         return s;
