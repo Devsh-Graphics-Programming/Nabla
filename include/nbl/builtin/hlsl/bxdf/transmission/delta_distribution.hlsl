@@ -21,17 +21,9 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<C
 struct SDeltaDistribution
 {
     using this_t = SDeltaDistribution<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
+    BXDF_CONFIG_TYPE_ALIASES(Config);
 
-    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
+    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
@@ -45,7 +37,12 @@ struct SDeltaDistribution
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u)
     {
         ray_dir_info_type L = interaction.getV().transmit();
-        return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
+        sample_type s = sample_type::create(L, interaction.getN());
+        s.TdotL = hlsl::dot(L.getDirection(),interaction.getT());
+        s.BdotL = hlsl::dot(L.getDirection(),interaction.getB());
+        s.NdotL = -interaction.getNdotV();
+        s.NdotL2 = interaction.getNdotV2();
+        return s;
     }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u)

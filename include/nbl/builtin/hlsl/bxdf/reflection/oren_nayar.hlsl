@@ -22,14 +22,7 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<C
 struct SOrenNayar
 {
     using this_t = SOrenNayar<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
+    BXDF_CONFIG_TYPE_ALIASES(Config);
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
@@ -48,7 +41,6 @@ struct SOrenNayar
     static this_t create(scalar_type A)
     {
         this_t retval;
-        retval.A = A;
         retval.A2 = A * 0.5;
         retval.AB = vector2_type(1.0, 0.0) + vector2_type(-0.5, 0.45) * vector2_type(retval.A2, retval.A2) / vector2_type(retval.A2 + 0.33, retval.A2 + 0.09);
         return retval;
@@ -117,7 +109,6 @@ struct SOrenNayar
         return quotient_and_pdf(_sample, interaction.isotropic);
     }
 
-    scalar_type A;
     scalar_type A2;
     vector2_type AB;
 };

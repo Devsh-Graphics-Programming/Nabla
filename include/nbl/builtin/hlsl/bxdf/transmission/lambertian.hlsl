@@ -23,15 +23,7 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<C
 struct SLambertian
 {
     using this_t = SLambertian<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
+    BXDF_CONFIG_TYPE_ALIASES(Config);
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
