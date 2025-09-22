@@ -35,11 +35,11 @@ struct SLambertian
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
     {
-        return __base.generate(anisotropic_interaction_type::create(interaction), u);
+        return __base.template generate<vector3_type>(anisotropic_interaction_type::create(interaction), u);
     }
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
-        return __base.generate(interaction, u);
+        return __base.template generate<vector3_type>(interaction, u);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)

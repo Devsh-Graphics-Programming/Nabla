@@ -68,6 +68,7 @@ struct SSmoothDielectric
         return 0;
     }
 
+    // smooth BxDFs are isotropic by definition
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         return quotient_pdf_type::create(1.0, bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity));
@@ -159,7 +160,7 @@ struct SThinSmoothDielectric
         return 0;
     }
 
-    // isotropic only?
+    // smooth BxDFs are isotropic by definition
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());

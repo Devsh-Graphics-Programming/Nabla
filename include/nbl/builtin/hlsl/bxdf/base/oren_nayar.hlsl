@@ -65,17 +65,17 @@ struct SOrenNayarBase
         return __eval<SQuery>(query, _sample, interaction); 
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u)
+    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector2_type>)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u)
     {
-        // static_assert(!IsBSDF);
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
+    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector3_type>)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u)
     {
-        // static_assert(IsBSDF);
         ray_dir_info_type L;
         L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
