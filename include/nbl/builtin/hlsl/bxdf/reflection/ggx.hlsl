@@ -23,18 +23,7 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfigurat
 struct SGGXIsotropic
 {
     using this_t = SGGXIsotropic<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
+    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using ndf_type = ndf::GGX<scalar_type, false, ndf::MTT_REFLECT>;
     using fresnel_type = fresnel::Conductor<spectral_type>;
@@ -106,18 +95,7 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfigurat
 struct SGGXAnisotropic
 {
     using this_t = SGGXAnisotropic<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
+    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using ndf_type = ndf::GGX<scalar_type, true, ndf::MTT_REFLECT>;
     using fresnel_type = fresnel::Conductor<spectral_type>;
