@@ -25,17 +25,7 @@ template<class Config, class N, class F>
 NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
 struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>) >
 {
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
+    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using quant_type = typename N::quant_type;
 
@@ -54,8 +44,7 @@ struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::Mi
             scalar_type DG = D.projectedLightMeasure;
             if (any<vector<bool, 2> >(ndf.__base.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
             {
-                quant_type G2 = ndf.template correlated<sample_type, isotropic_interaction_type>(gq, qq, _sample, interaction);
-                DG *= G2.microfacetMeasure;
+                DG *= ndf.template correlated<sample_type, isotropic_interaction_type>(gq, _sample, interaction);
             }
             return fresnel(cache.getVdotH()) * DG;
         }
@@ -77,8 +66,7 @@ struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::Mi
             scalar_type DG = D.projectedLightMeasure;
             if (any<vector<bool, 2> >(ndf.__base.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
             {
-                quant_type G2 = ndf.template correlated<sample_type, anisotropic_interaction_type>(gq, qq, _sample, interaction);
-                DG *= G2.microfacetMeasure;
+                DG *= ndf.template correlated<sample_type, anisotropic_interaction_type>(gq, _sample, interaction);
             }
             return fresnel(cache.getVdotH()) * DG;
         }
@@ -200,8 +188,7 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         scalar_type DG = D.projectedLightMeasure;
         if (any<vector<bool, 2> >(ndf.__base.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
         {
-            quant_type G2 = ndf.template correlated<sample_type, isotropic_interaction_type>(gq, qq, _sample, interaction);
-            DG *= G2.microfacetMeasure;
+            DG *= ndf.template correlated<sample_type, isotropic_interaction_type>(gq, _sample, interaction);
         }
         return hlsl::promote<spectral_type>(fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
@@ -218,8 +205,7 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         scalar_type DG = D.projectedLightMeasure;
         if (any<vector<bool, 2> >(ndf.__base.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
         {
-            quant_type G2 = ndf.template correlated<sample_type, anisotropic_interaction_type>(gq, qq, _sample, interaction);
-            DG *= G2.microfacetMeasure;
+            DG *= ndf.template correlated<sample_type, anisotropic_interaction_type>(gq, _sample, interaction);
         }
         return hlsl::promote<spectral_type>(fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }

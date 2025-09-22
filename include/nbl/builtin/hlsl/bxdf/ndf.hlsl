@@ -46,7 +46,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quant_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(quant_query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::quant_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::sample_t, dummy_impl::interaction_t>(dg1_query, quant_query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::quant_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::sample_t, dummy_impl::interaction_t>(g2_query, quant_query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::quant_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::sample_t, dummy_impl::interaction_t>(g2_query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(g2_query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef g2_query
