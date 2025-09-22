@@ -26,13 +26,50 @@ namespace nbl::asset::material_compiler3
 // plan on ignoring every transmission through the microfacets within the statistical pixel footprint as given by the VNDF except the perfectly specular one.
 // The energy loss from that leads to pathologies like the glGTF Specular+Diffuse model, comparison: https://x.com/DS2LightingMod/status/1961502201228267595
 // 
-// There's an implicit Top and Bottom on the layer stack, but thats only for the purpose of interpreting the Etas (predivided ratios of Indices of Refraction).
-// We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
-// 
-// If you don't plan on ignoring the actual convolution of incoming light by the VNDF, such an assumption only speeds up the Importance Sampling slightly as
+// If you don't plan on ignoring the actual convolution of incoming light by the BSDF, such an assumption only speeds up the Importance Sampling slightly as
 // on the way back through a layer we don't consume another 2D random variable, instead transforming the ray deterministically. This however would require one
 // to keep a stack of cached interactions with each layer, and its just simpler to run local path tracing through layers which can account for multiple scattering
 // through a medium layer, etc.
+// 
+// Our Frontend is built around the IR, which wants to perform the following canonicalization of a BSDF Layer (not including emission):
+// 
+// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
+// 
+// Where `l(w_i,w_o)` is a Contributor Node BxDF such as Oren Nayar or Cook-Torrance, which is doesn't model absorption and is usually Monochrome.
+// These are assumed to be 100% valid BxDFs with White Furnace Test <= 1 and obeying Helmholtz Reciprocity. This is why you can't multiply two "Contributor Nodes" together.
+// We make an attempt to implement Energy Normalized versions of `l_i` but not always, so there might be energy loss due to single scattering assumptions.
+// 
+// This convention greatly simplifies the Layering of BSDFs as when we model two layers combined we need only consider the Sum terms which are Products of a BTDF contibutor
+// in convolution with the layer below or above. For emission this is equivalent to convolving the emission with BTDFs producing a custom emission profile.
+// Some of these combinations can be approximated or solved outright without resolving to frequency space approaches or path tracing within the layers.
+// 
+// To obtain a valid BxDF for the canonical expression, each product of weights also needs to exhibit Helmholtz Reciprocity:
+// 
+// 	   Product_j^{N_i} h(w_i,w_o) = Product_j^{N_i} h(w_o,w_i)
+// 
+// Which means that direction dependant weight nodes need to know the underlying contributor they are weighting to determine their semantics, e.g. a Fresnel on:
+// - Cook Torrance will use the Microfacet Normal for any calculation as that is symmetric between `w_o` and `w_i`
+// - Diffuse will use both `NdotV` and `NdotL` (also known as `theta_i` and `theta_o`) symmetrically
+// - A BTDF will use the compliments (`1-x`) of the Fresnels
+// 
+// We cannot derive BTDF factors from top and bottom BRDF as the problem is underconstrained, we don't know which factor models absorption and which part transmission.
+// 
+// Helmholtz Reciprocity allows us to use completely independent BRDFs per hemisphere, when `w_i` and `w_o` are in the same hemisphere (reflection).
+// Note that transmission only occurs when `w_i` and `w_o` are in opposite hemispheres and the reciprocity forces one BTDF.
+// 
+// There's an implicit Top and Bottom on the layer stack, but thats only for the purpose of interpreting the Etas (predivided ratios of Indices of Refraction),
+// both the Top and Bottom BRDF treat the Eta as being the speed of light in the medium above over the speed of light in the medium below.
+// This means that for modelling air-vs-glass you use the same Eta for the Top BRDF, the middle BTDF and Bottom BRDF.
+// We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
+// 
+// The backend can expand the Top BRDF, Middle BTDF, Bottom BRDF into 4 separate instruction streams for Front-Back BRDF and BTDF. This is because we can
+// throw away the first or last BRDF+BTDF in the stack, as well as use different pre-computed Etas if we know the sign of `cos(theta_i)` as we interact with each layer.
+// Whether the backend actually generates a separate instruction stream depends on the impact of Instruction Cache misses due to not sharing streams for layers.
+// 
+// Also note that a single null BTDF in the stack splits it into the two separate stacks, one per original interaction orientation.
+// 
+// I've considered expressing the layers using only a BTDF and BRDF (same top and bottom hemisphere) but that would lead to more layers in for materials,
+// requiring the placing of a mirror then vantablack layer for most one-sided materials, and most importantly disallow the expression of certain front-back correlations.
 // 
 // Because we implement Schussler et. al 2017 we also ensure that signs of dot products with shading normals are identical to smooth normals.
 // However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
@@ -459,9 +496,11 @@ protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
-		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
-		//! However if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used instead.
-		//! If there are two BxDFs with different normals, these nodes get split and duplicated into two in our Final IR.
+		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
+		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
+		//! Due to the Helmholtz Reciprocity handling outlined in the comments for the entire front-end you can usually count on these nodes
+		//! getting applied once using `VdotH` for Cook-Torrance BRDF, twice using `VdotN` and `LdotN` for Diffuse BRDF, and using their
+		//! complements before multiplication for BTDFs. 
 		//! ----------------------------------------------------------------------------------------------------------------
 		// Beer's Law Node, behaves differently depending on where it is:
 		// - to get a scattering medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
@@ -500,7 +539,7 @@ protected:
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
 				TypedHandle<CSpectralVariable> orientedRealEta = {};
-				// Specifying this turns your Fresnel into a conductor one
+				// Specifying this turns your Fresnel into a conductor one, note that currently these are disallowed on BTDFs!
 				TypedHandle<CSpectralVariable> orientedImagEta = {};
 				// if you want to reuse the same parameter but want to flip the interfaces around
 				uint8_t reciprocateEtas : 1 = false;
@@ -512,7 +551,7 @@ protected:
 		};
 		// @kept_secret TODO: Thin Film Interference Fresnel
 		//! Basic BxDF nodes
-		// Every BxDF leaf node is supposed to pass WFT test, color and extinction is added on later via multipliers
+		// Every BxDF leaf node is supposed to pass WFT test and must not create energy, color and extinction is added on later via multipliers
 		class IBxDF : public IContributor
 		{
 			public:
@@ -547,10 +586,10 @@ protected:
 		// Delta Transmission is the only Special Delta Distribution Node, because of how useful it is for compiling Anyhit shaders, the rest can be done easily with:
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
 		// - Smooth Conductor -> above multiplied with Conductor-Fresnel
-		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides (bottom side having a reciprocated Eta) of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
-		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF in both sides and a Delta Transmission BTDF
-		// - Plastic -> Can layer the above over Diffuse BRDF, but its faster to cook a mixture of Diffuse and Smooth Conductor BRDFs, weighing the diffuse by Fresnel complements.
-		//				If one wants to emulate non-linear diffuse TIR color shifts, abuse `CThinInfiniteScatterCorrection` 
+		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
+		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF in both sides and a Delta Transmission BTDF with `CThinInfiniteScatterCorrection` on the fresnel
+		// - Plastic -> Similar to layering the above over Diffuse BRDF, its of uttmost importance that the BTDF is Delta Transmission.
+		//              If one wants to emulate non-linear diffuse TIR color shifts, abuse `CThinInfiniteScatterCorrection`.
 		class CDeltaTransmission final : public IBxDF
 		{
 			public:
@@ -566,7 +605,8 @@ protected:
 			protected:
 				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 		};
-		// Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
+		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
+		// Base diffuse node
 		class COrenNayar final : public IBxDF
 		{
 			public:

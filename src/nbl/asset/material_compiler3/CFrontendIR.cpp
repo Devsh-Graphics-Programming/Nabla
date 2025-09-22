@@ -42,7 +42,15 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 		args.logger.log("Oriented Real Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedRealEta,args.pool->getTypeName(orientedRealEta).data());
 		return true;
 	}
-	if (!args.pool->deref(orientedImagEta))
+	if (const auto imagEta = args.pool->deref(orientedImagEta); imagEta)
+	{
+		if (args.isBTDF)
+		{
+			const auto knotCount = imagEta->getKnotCount();
+			// TODO: check all knots have a scale of 0
+		}
+	}
+	else
 	{
 		args.logger.log("Oriented Imaginary Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedImagEta,args.pool->getTypeName(orientedImagEta).data());
 		return true;
