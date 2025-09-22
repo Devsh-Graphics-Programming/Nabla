@@ -430,7 +430,7 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T> || co
 T thinDielectricInfiniteScatter(const T singleInterfaceReflectance)
 {
     const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-    return hlsl::mix<T>(hlsl::promote<T>(1.0), (singleInterfaceReflectance - doubleInterfaceReflectance) / (hlsl::promote<T>(1.0) - doubleInterfaceReflectance) * 2.0f, doubleInterfaceReflectance > hlsl::promote<T>(0.9999));
+    return hlsl::mix<T>((singleInterfaceReflectance - doubleInterfaceReflectance) / (hlsl::promote<T>(1.0) - doubleInterfaceReflectance) * 2.0f, hlsl::promote<T>(1.0), doubleInterfaceReflectance > hlsl::promote<T>(0.9999));
 }
 
 }
