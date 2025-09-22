@@ -289,16 +289,19 @@ protected:
 
 				enum class Semantics : uint8_t
 				{
+					NoneUndefined = 0,
 					// 3 knots, their wavelengths are implied and fixed at color primaries
-					Fixed3_SRGB = 0,
-					Fixed3_DCI_P3 = 1,
-					Fixed3_BT2020 = 2,
-					Fixed3_AdobeRGB = 3,
-					Fixed3_AcesCG = 4,
+					Fixed3_SRGB = 1,
+					Fixed3_DCI_P3 = 2,
+					Fixed3_BT2020 = 3,
+					Fixed3_AdobeRGB = 4,
+					Fixed3_AcesCG = 5,
 					// Ideas: each node is described by (wavelength,value) pair
 					// PairsLinear = 5, // linear interpolation
 					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
 				};
+
+				//
 				template<uint8_t Count>
 				struct SCreationParams
 				{
@@ -312,28 +315,58 @@ protected:
 					template<bool Enable=true> requires (Enable==(Count>1))
 					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
 				};
-				template<uint8_t Count>
-				static inline uint32_t calc_size(const SCreationParams<Count>&)
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
-				}
-				
-				inline uint8_t getKnotCount() const
-				{
-					static_assert(sizeof(SParameter::padding)>1);
-					return paramsBeginPadding()[1];
-				}
-				inline uint32_t getSize() const override
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
-				}
-
+				//
 				template<uint8_t Count>
 				inline CSpectralVariable(SCreationParams<Count>&& params)
 				{
 					// back up the count
 					params.knots.params[0].padding[1] = Count;
+					// set it correctly for monochrome
+					if constexpr (Count==1)
+						params.knots.params[0].padding[2] = static_cast<uint8_t>(Semantics::NoneUndefined);
+					else
+					{
+						assert(params.getSemantics()!=Semantics::NoneUndefined);
+					}
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
+				}
+
+				// encapsulation due to padding abuse
+				inline uint8_t& uvSlot() {return pWonky()->knots.uvSlot();}
+				inline const uint8_t& uvSlot() const {return pWonky()->knots.uvSlot();}
+
+				// these getters are immutable
+				inline uint8_t getKnotCount() const
+				{
+					static_assert(sizeof(SParameter::padding)>1);
+					return paramsBeginPadding()[1];
+				}
+				inline Semantics getSemantics() const
+				{
+					static_assert(sizeof(SParameter::padding)>2);
+					const auto retval = static_cast<Semantics>(paramsBeginPadding()[2]);
+					assert((getKnotCount()==1)==(retval==Semantics::NoneUndefined));
+					return retval;
+				}
+
+				//
+				inline SParameter* getParam(const uint8_t i)
+				{
+					if (i<getKnotCount())
+						return &pWonky()->knots.params[i];
+					return nullptr;
+				}
+				inline const SParameter* getParam(const uint8_t i) const {return const_cast<const SParameter*>(const_cast<CSpectralVariable*>(this)->getParam(i));}
+
+				//
+				template<uint8_t Count>
+				static inline uint32_t calc_size(const SCreationParams<Count>&)
+				{
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
+				}
+				inline uint32_t getSize() const override
+				{
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
 				}
 
 				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
@@ -341,17 +374,15 @@ protected:
 			protected:
 				inline ~CSpectralVariable()
 				{
-					auto pWonky = reinterpret_cast<SCreationParams<1>*>(this+1);
-					std::destroy_n(pWonky->knots.params,getKnotCount());
+					std::destroy_n(pWonky()->knots.params,getKnotCount());
 				}
 
 				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				inline bool invalid(const SInvalidCheckArgs& args) const override
 				{
 					const auto knotCount = getKnotCount();
-					auto pWonky = reinterpret_cast<const SCreationParams<2>*>(this+1);
 					// non-monochrome spectral variable 
-					if (const auto semantic=pWonky->getSemantics(); knotCount>1)
+					if (const auto semantic=getSemantics(); knotCount>1)
 					switch (semantic)
 					{
 						case Semantics::Fixed3_SRGB: [[fallthrough]];
@@ -370,7 +401,7 @@ protected:
 							return true;
 					}
 					for (auto i=0u; i<knotCount; i++)
-					if (!pWonky->knots.params[i])
+					if (!*getParam(i))
 					{
 						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
 						return true;
@@ -382,7 +413,9 @@ protected:
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 			private:
-				const uint8_t* paramsBeginPadding() const {return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding;}
+				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
+				const SCreationParams<1>* pWonky() const {return reinterpret_cast<const SCreationParams<1>*>(this+1);}
+				const uint8_t* paramsBeginPadding() const {return pWonky()->knots.params[0].padding; }
 		};
 		//
 		class IUnaryOp : public IExprNode

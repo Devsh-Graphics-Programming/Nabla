@@ -47,7 +47,14 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 		if (args.isBTDF)
 		{
 			const auto knotCount = imagEta->getKnotCount();
-			// TODO: check all knots have a scale of 0
+			for (uint8_t i=0; i<knotCount; i++)
+			{
+				const auto& param = *imagEta->getParam(i);
+				if (param.scale==0.f)
+					continue;
+				args.logger.log("Fresnels used for BTDFs cannot have Imaginary Eta, scale must be 0.f for all knots, is %.*e at knot %u",ELL_ERROR,param.scale,i);
+				return true;
+			}
 		}
 	}
 	else
@@ -235,6 +242,7 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 			const auto childCount = node->getChildCount();
 			if (childCount)
 			{
+				// TODO: print with child link names
 				str << "\n\t" << nodeID << " -> {";
 				for (auto childIx=0; childIx<childCount; childIx++)
 				{
