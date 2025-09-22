@@ -792,6 +792,23 @@ namespace bxdf_concepts
 {
 namespace impl
 {
+
+#define NBL_CONCEPT_NAME bxdf_common_typdefs
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (bxdf, T)
+NBL_CONCEPT_BEGIN(1)
+#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+);
+#undef bxdf
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 #define NBL_CONCEPT_NAME bxdf_common
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -803,11 +820,7 @@ NBL_CONCEPT_BEGIN(3)
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common_typdefs, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(_sample)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
@@ -941,11 +954,7 @@ NBL_CONCEPT_BEGIN(4)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common_typdefs, T))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
