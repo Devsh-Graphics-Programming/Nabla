@@ -98,18 +98,13 @@ struct SThinSmoothDielectric
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    static this_t create(NBL_CONST_REF_ARG(fresnel::Dielectric<spectral_type>) f, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
-    {
-        this_t retval;
-        retval.fresnel = f;
-        retval.luminosityContributionHint = luminosityContributionHint;
-        return retval;
-    }
     static this_t create(NBL_CONST_REF_ARG(fresnel::Dielectric<spectral_type>) f)
     {
         static_assert(vector_traits<spectral_type>::Dimension == 3);
-        const spectral_type rec709 = spectral_type(0.2126, 0.7152, 0.0722);
-        return create(f, rec709);
+        this_t retval;
+        retval.fresnel = f;
+        retval.luminosityContributionHint = spectral_type(0.2126, 0.7152, 0.0722);  // rec709
+        return retval;
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
