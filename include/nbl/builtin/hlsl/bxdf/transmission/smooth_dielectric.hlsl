@@ -34,23 +34,6 @@ struct SSmoothDielectric
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    struct SCreationParams
-    {
-        scalar_type eta;
-    };
-    using creation_type = SCreationParams;
-
-    static this_t create(scalar_type eta)
-    {
-        this_t retval;
-        retval.eta = eta;
-        return retval;
-    }
-    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
-    {
-        return create(params.eta);
-    }
-
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         return hlsl::promote<spectral_type>(0);
@@ -62,7 +45,6 @@ struct SSmoothDielectric
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
     {
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(_clamp), hlsl::promote<monochrome_type>(eta));        
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, interaction.getNdotV(_clamp))[0];
 
         scalar_type rcpChoiceProb;
@@ -95,13 +77,13 @@ struct SSmoothDielectric
         return quotient_and_pdf(_sample, interaction.isotropic);
     }
 
-    scalar_type eta;
+    fresnel::OrientedEtas<monochrome_type> orientedEta;
 };
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
-struct SSmoothThinDielectric
+struct SThinSmoothDielectric
 {
-    using this_t = SSmoothThinDielectric<Config>;
+    using this_t = SThinSmoothDielectric<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -115,29 +97,18 @@ struct SSmoothThinDielectric
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    struct SCreationParams
-    {
-        spectral_type eta2;
-        spectral_type luminosityContributionHint;
-    };
-    using creation_type = SCreationParams;
-
-    static this_t create(NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::Dielectric<spectral_type>) f, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
         this_t retval;
-        retval.eta2 = eta2;
+        retval.fresnel = f;
         retval.luminosityContributionHint = luminosityContributionHint;
         return retval;
     }
-    static this_t create(NBL_CONST_REF_ARG(spectral_type) eta2)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::Dielectric<spectral_type>) f)
     {
         static_assert(vector_traits<spectral_type>::Dimension == 3);
         const spectral_type rec709 = spectral_type(0.2126, 0.7152, 0.0722);
-        return create(eta2, rec709);
-    }
-    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
-    {
-        return create(params.eta2, params.luminosityContributionHint);
+        return create(f, rec709);
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
@@ -153,30 +124,32 @@ struct SSmoothThinDielectric
     // its basically a set of weights that determine
     // assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
     // `remainderMetadata` is a variable which the generator function returns byproducts of sample generation that would otherwise have to be redundantly calculated `quotient_and_pdf`
-    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(ray_dir_info_type) V, const vector3_type T, const vector3_type B, const vector3_type N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint, NBL_REF_ARG(spectral_type) remainderMetadata)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(spectral_type) remainderMetadata)
     {
         // we will only ever intersect from the outside
-        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2,absNdotV));
+        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
 
         // we are only allowed one choice for the entire ray, so make the probability a weighted sum
         const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, luminosityContributionHint);
 
         scalar_type rcpChoiceProb;
-        const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
+        scalar_type z = u.z;
+        const bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
         remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
+        ray_dir_info_type V = interaction.getV();
+        vector3_type N = interaction.getN();
         Reflect<scalar_type> r = Reflect<scalar_type>::create(V.getDirection(), N);
-        ray_dir_info_type L;
-        L.direction = hlsl::mix(V.reflect(r).getDirection(), V.transmit().getDirection(), transmitted);
-        return sample_type::create(L, T, B, N);
+        ray_dir_info_type L = V.reflectTransmit(r, transmitted);
+        return sample_type::create(L, interaction.getT(), interaction.getB(), N);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         vector3_type dummy;
-        return __generate_wo_clamps(interaction.getV(), interaction.getT(), interaction.getB(), interaction.getN(), interaction.getNdotV(), interaction.getNdotV(_clamp), u, eta2, luminosityContributionHint, dummy);
+        return generate(interaction, u, dummy);
     }
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
     {
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
@@ -190,7 +163,7 @@ struct SSmoothThinDielectric
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());
-        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, interaction.getNdotV(_clamp)));
+        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
         const spectral_type sampleValue = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted);
 
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
@@ -203,7 +176,7 @@ struct SSmoothThinDielectric
         return quotient_and_pdf(_sample, interaction.isotropic);
     }
 
-    spectral_type eta2;
+    fresnel::Dielectric<spectral_type> fresnel;
     spectral_type luminosityContributionHint;
 };
 
@@ -218,7 +191,7 @@ struct traits<bxdf::transmission::SSmoothDielectric<C> >
 };
 
 template<typename C>
-struct traits<bxdf::transmission::SSmoothThinDielectric<C> >
+struct traits<bxdf::transmission::SThinSmoothDielectric<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
