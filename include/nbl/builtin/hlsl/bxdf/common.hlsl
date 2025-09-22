@@ -436,7 +436,7 @@ struct SLightSample
     }
     scalar_type getNdotL2() NBL_CONST_MEMBER_FUNC { return NdotL2; }
 
-    bool isValid() NBL_CONST_MEMBER_FUNC { return !hlsl::all<vector<bool, 3> >(hlsl::glsl::equal(L.getDirection(), hlsl::promote<vector3_type>(0.0))); }
+    bool isValid() NBL_CONST_MEMBER_FUNC { return hlsl::any<vector<bool, 3> >(hlsl::glsl::notEqual(L.getDirection(), hlsl::promote<vector3_type>(0.0))); }
 
 
     RayDirInfo L;
