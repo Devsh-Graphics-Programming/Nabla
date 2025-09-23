@@ -778,21 +778,6 @@ protected:
 inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 {
 	constexpr auto ELL_ERROR = system::ILogger::E_LOG_LEVEL::ELL_ERROR;
-
-	core::stack<const CLayer*> layerStack;
-	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
-	{
-		const auto* layer = deref(layerHandle);
-		if (!layer)
-		{
-			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).data());
-			return false;
-		}
-		layerStack.push(layer);
-		return true;
-	};
-	if (!pushLayer(rootHandle))
-		return false;
 			
 	enum class SubtreeContributorState : uint8_t
 	{
@@ -807,6 +792,11 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		SubtreeContributorState contribState = SubtreeContributorState::Required;
 	};
 	core::stack<StackEntry> exprStack;
+	// unused yet
+	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
+	// should probably size it better, if I knew total node count allocated or live
+	visitedNodes.reserve(m_rootNodes.size()<<3);
+	//
 	auto validateExpression = [&](const TypedHandle<const IExprNode> exprRoot, const bool isBTDF) -> bool
 	{
 		if (!exprRoot)
@@ -865,6 +855,8 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 						logger.log("Expression too complex, more than %d contributors encountered",ELL_ERROR,MaxContributors);
 						return false;
 					}
+					// cannot optimize with `unordered_set visitedNodes` because we need to check contributor slots, if we really wanted to we could do it with an
+					// `unordered_map` telling us the contributor slot range remapping (and presence of contributor) but right now it would be premature optimization.
 					exprStack.push(newEntry);
 				}
 				else if (childHandle)
@@ -893,15 +885,30 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		}
 		return true;
 	};
-	while (!layerStack.empty())
+
+	core::vector<const CLayer*> layerStack;
+	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
 	{
-		const auto* layer = layerStack.top();
-		layerStack.pop();
-		if (layer->coated && !pushLayer(layer->coated))
+		const auto* layer = deref(layerHandle);
+		if (!layer)
 		{
-			logger.log("\tcoatee %d was specificed but is of wrong type",ELL_ERROR,layer->coated);
+			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).data());
 			return false;
 		}
+		auto found = std::find(layerStack.begin(),layerStack.end(),layer);
+		if (found!=layerStack.end())
+		{
+			logger.log("Layer node %u is involved in a Cycle!",ELL_ERROR,layerHandle.untyped.value);
+			return false;
+		}
+		layerStack.push_back(layer);
+		return true;
+	};
+	if (!pushLayer(rootHandle))
+		return false;
+	while (true)
+	{
+		const auto* layer = layerStack.back();
 		if (!layer->brdfTop && !layer->btdf && !layer->brdfBottom)
 		{
 			logger.log("At least one BRDF or BTDF in the Layer is required.",ELL_ERROR);
@@ -913,6 +920,13 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 			return false;
 		if (!validateExpression(layer->brdfBottom,false))
 			return false;
+		if (!layer->coated)
+			break;
+		if (!pushLayer(layer->coated))
+		{
+			logger.log("\tcoatee %d was specificed but is invalid!",ELL_ERROR,layer->coated);
+			return false;
+		}
 	}
 	return true;
 }

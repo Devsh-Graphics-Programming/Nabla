@@ -25,7 +25,8 @@ class CNodePool : public core::IReferenceCounted
 			using value_t = uint32_t;
 			constexpr static inline value_t Invalid = ~value_t(0);
 
-			inline operator bool() const {return value!=Invalid;}
+			explicit inline operator bool() const {return value!=Invalid;}
+			inline bool operator==(const Handle& other) const {return value==other.value;}
 
 			// also serves as a byte offset into the pool
 			value_t value = Invalid;
@@ -89,7 +90,8 @@ class CNodePool : public core::IReferenceCounted
 		{
 			using node_type = T;
 			
-			inline operator bool() const {return untyped;}
+			explicit inline operator bool() const {return bool(untyped);}
+			inline bool operator==(const TypedHandle& other) const {return untyped==other.untyped;}
 
 			inline operator const TypedHandle<const T>&() const
 			{
@@ -117,6 +119,13 @@ class CNodePool : public core::IReferenceCounted
 		}
 
 	protected:
+		struct HandleHash
+		{
+			inline size_t operator()(const TypedHandle<const INode> handle) const
+			{
+				return std::hash<Handle::value_t>()(handle.untyped.value);
+			}
+		};
 		// save myself some typing
 		using refctd_pmr_t = core::smart_refctd_ptr<core::refctd_memory_resource>;
 

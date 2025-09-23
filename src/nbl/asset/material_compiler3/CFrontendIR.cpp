@@ -219,7 +219,10 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle
 void CFrontendIR::printDotGraph(std::ostringstream& str) const
 {
 	str << "digraph {\n";
-
+	
+	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
+	// should probably size it better, if I knew total node count allocated or live
+	visitedNodes.reserve(m_rootNodes.size()<<3);
 	// TODO: track layering depth and indent accordingly?
 	// assign in reverse because we want materials to print in order
 	core::vector<TypedHandle<const CLayer>> layerStack(m_rootNodes.rbegin(),m_rootNodes.rend());
@@ -228,6 +231,11 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 	{
 		const auto layerHandle = layerStack.back();
 		layerStack.pop_back();
+		// don't print layer nodes multiple times
+		const auto visited = visitedNodes.find(layerHandle);
+		if (visited!=visitedNodes.end())
+			continue;
+		visitedNodes.insert(layerHandle);
 		const auto* layerNode = deref(layerHandle);
 		//
 		const auto layerID = getNodeID(layerHandle);
@@ -242,8 +250,14 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 		{
 			if (!root)
 				return;
+			// print the link from the layer to the expression
 			str << "\n\t" << layerID << " -> " << getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
+			// but not the expression again
+			const auto visited = visitedNodes.find(root);
+			if (visited!=visitedNodes.end())
+				return;
 			exprStack.push(root);
+			visitedNodes.insert(root);
 		};
 		pushExprRoot(layerNode->brdfTop,"Top BRDF");
 		pushExprRoot(layerNode->btdf,"BTDF");
@@ -266,7 +280,11 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 					if (const auto child=deref(childHandle); child)
 					{
 						str << getNodeID(childHandle) << " ";
+						const auto visited = visitedNodes.find(childHandle);
+						if (visited!=visitedNodes.end())
+							continue;
 						exprStack.push(childHandle);
+						visitedNodes.insert(childHandle);
 					}
 				}
 				str << "}\n";
