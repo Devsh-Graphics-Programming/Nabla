@@ -31,25 +31,25 @@ struct SGGXIsotropic
     struct SCreationParams
     {
         scalar_type A;
-        spectral_type ior0;
-        spectral_type ior1;
+        spectral_type eta;
+        spectral_type etak;
     };
     using creation_type = SCreationParams;
 
-    static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
+    static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) eta, NBL_CONST_REF_ARG(spectral_type) etak)
     {
         this_t retval;
         retval.__base.ndf.__base.A = vector2_type(A, A);
         retval.__base.ndf.__base.a2 = A*A;
         retval.__base.ndf.__base.one_minus_a2 = scalar_type(1.0) - A*A;
-        retval.__base.fresnel.ior = ior0;
-        retval.__base.fresnel.iork = ior1;
-        retval.__base.fresnel.iork2 = ior1*ior1;
+        retval.__base.fresnel.eta = eta;
+        retval.__base.fresnel.etak2 = etak * etak;
+        retval.__base.fresnel.etaLen2 = eta * eta + retval.__base.fresnel.etak2;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
     {
-        return create(params.A, params.ior0, params.ior1);
+        return create(params.A, params.eta, params.etak);
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
@@ -104,26 +104,26 @@ struct SGGXAnisotropic
     {
         scalar_type ax;
         scalar_type ay;
-        spectral_type ior0;
-        spectral_type ior1;
+        spectral_type eta;
+        spectral_type etak;
     };
     using creation_type = SCreationParams;
 
-    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
+    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) eta, NBL_CONST_REF_ARG(spectral_type) etak)
     {
         this_t retval;
         retval.__base.ndf.__base.A = vector2_type(ax, ay);
         retval.__base.ndf.__base.ax2 = ax*ax;
         retval.__base.ndf.__base.ay2 = ay*ay;
         retval.__base.ndf.__base.a2 = ax*ay;
-        retval.__base.fresnel.ior = ior0;
-        retval.__base.fresnel.iork = ior1;
-        retval.__base.fresnel.iork2 = ior1*ior1;
+        retval.__base.fresnel.eta = eta;
+        retval.__base.fresnel.etak2 = etak * etak;
+        retval.__base.fresnel.etaLen2 = eta * eta + retval.__base.fresnel.etak2;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
     {
-        return create(params.ax, params.ay, params.ior0, params.ior1);
+        return create(params.ax, params.ay, params.eta, params.etak);
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)

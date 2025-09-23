@@ -347,21 +347,21 @@ struct Conductor
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static Conductor<T> create(NBL_CONST_REF_ARG(T) ior, NBL_CONST_REF_ARG(T) iork)
+    static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak)
     {
         Conductor<T> retval;
-        retval.ior = ior;
-        retval.iork = iork;
-        retval.iork2 = iork*iork;
+        retval.eta = eta;
+        retval.etak2 = etak * etak;
+        retval.etaLen2 = eta * eta + retval.etak2;
         return retval;
     }
 
-    static Conductor<T> create(NBL_CONST_REF_ARG(complex_t<T>) ior)
+    static Conductor<T> create(NBL_CONST_REF_ARG(complex_t<T>) eta)
     {
         Conductor<T> retval;
-        retval.ior = ior.real();
-        retval.iork = ior.imag();
-        retval.iork2 = ior.imag()*ior.imag();
+        retval.eta = eta.real();
+        retval.etak2 = eta.imag() * eta.imag();
+        retval.etaLen2 = eta * eta + retval.etak2;
         return retval;
     }
 
@@ -370,9 +370,8 @@ struct Conductor
         const scalar_type cosTheta2 = clampedCosTheta * clampedCosTheta;
         //const float sinTheta2 = 1.0 - cosTheta2;
 
-        const T etaLen2 = ior * ior + iork2;
         assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
-        const T etaCosTwice = ior * clampedCosTheta * 2.0f;
+        const T etaCosTwice = eta * clampedCosTheta * 2.0f;
 
         const T rs_common = etaLen2 + (T)(cosTheta2);
         const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
@@ -383,9 +382,9 @@ struct Conductor
         return (rs2 + rp2) * 0.5f;
     }
 
-    T ior;
-    T iork;
-    T iork2;
+    T eta;
+    T etak2;
+    T etaLen2;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)

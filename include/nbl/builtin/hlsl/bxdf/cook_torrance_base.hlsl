@@ -160,18 +160,7 @@ template<class Config, class N, class F>
 NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
 struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>) >
 {
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
+    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using quant_type = typename N::quant_type;
 
