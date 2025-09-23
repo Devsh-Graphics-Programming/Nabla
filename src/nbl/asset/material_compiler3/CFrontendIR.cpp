@@ -57,11 +57,27 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 			}
 		}
 	}
-	else
+	else if (orientedImagEta)
 	{
 		args.logger.log("Oriented Imaginary Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedImagEta,args.pool->getTypeName(orientedImagEta).data());
 		return true;
 	}
+	return false;
+}
+
+bool CFrontendIR::CThinInfiniteScatterCorrection::invalid(const SInvalidCheckArgs& args) const
+{
+	if (!args.pool->deref(reflectance))
+	{
+		args.logger.log("Reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectance,args.pool->getTypeName(reflectance).data());
+		return true;
+	}
+	if (!args.pool->deref(transmittance))
+	{
+		args.logger.log("Reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,transmittance,args.pool->getTypeName(transmittance).data());
+		return true;
+	}
+	// TODO: check extinction
 	return false;
 }
 

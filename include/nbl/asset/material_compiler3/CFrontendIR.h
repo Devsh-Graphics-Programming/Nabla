@@ -265,7 +265,18 @@ protected:
 					bool isBTDF;
 					// there's space for 7 more bools
 				};
-				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
+				// by default all children are mandatory
+				virtual inline bool invalid(const SInvalidCheckArgs& args) const
+				{
+					const auto childCount = getChildCount();
+					for (uint8_t i=0u; i<childCount; i++)
+					if (const auto childHandle=getChildHandle_impl(i); !childHandle)
+					{
+						args.logger.log("Default `IExprNode::invalid` child #%u missing!",system::ILogger::ELL_ERROR,i);
+						return true;
+					}
+					return false;
+				}
 				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 				
 				virtual inline core::string getLabelSuffix() const {return "";}
@@ -481,6 +492,7 @@ protected:
 		{
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix!=1 ? extinction:transmittance):reflectance;}
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
 				{
 					sstr << "\n\t" << selfID << " -> " << selfID << "_computeTransmittance [label=\"computeTransmittance = " << (computeTransmittance ? "true":"false") << "\"]";
