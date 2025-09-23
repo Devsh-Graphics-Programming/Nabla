@@ -77,7 +77,8 @@ struct SCookTorrance
 
     using quant_type = typename N::quant_type;
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    template<class Interaction, class MicrofacetCache>
+    spectral_type __eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
         {
@@ -85,14 +86,14 @@ struct SCookTorrance
             using g2g1_query_type = typename N::g2g1_query_type;
 
             scalar_type dummy;
-            quant_query_type qq = ndf.template createQuantQuery<isocache_type>(cache, dummy);
+            quant_query_type qq = ndf.template createQuantQuery<MicrofacetCache>(cache, dummy);
 
-            quant_type D = ndf.template D<sample_type, isotropic_interaction_type, isocache_type>(qq, _sample, interaction, cache);
+            quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
             scalar_type DG = D.projectedLightMeasure;
-            if (any<vector<bool, 2> >(ndf.__base.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
+            if (D.microfacetMeasure < numeric_limits<scalar_type>::infinity)
             {
-                g2g1_query_type gq = ndf.template createG2G1Query<sample_type, isotropic_interaction_type>(_sample, interaction);
-                DG *= ndf.template correlated<sample_type, isotropic_interaction_type>(gq, _sample, interaction);
+                g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+                DG *= ndf.template correlated<sample_type, Interaction>(gq, _sample, interaction);
             }
             NBL_IF_CONSTEXPR(IsBSDF)
                 return impl::__implicit_promote<spectral_type, typename F::vector_type>::__call(fresnel(hlsl::abs(cache.getVdotH()))) * DG;
@@ -102,30 +103,13 @@ struct SCookTorrance
         else
             return hlsl::promote<spectral_type>(0.0);
     }
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    {
+        return __eval<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
+    }
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
-        {
-            using quant_query_type = typename N::quant_query_type;
-            using g2g1_query_type = typename N::g2g1_query_type;
-
-            scalar_type dummy;
-            quant_query_type qq = ndf.template createQuantQuery<anisocache_type>(cache, dummy);
-
-            quant_type D = ndf.template D<sample_type, anisotropic_interaction_type, anisocache_type>(qq, _sample, interaction, cache);
-            scalar_type DG = D.projectedLightMeasure;
-            if (any<vector<bool, 2> >(ndf.__base.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
-            {
-                g2g1_query_type gq = ndf.template createG2G1Query<sample_type, anisotropic_interaction_type>(_sample, interaction);
-                DG *= ndf.template correlated<sample_type, anisotropic_interaction_type>(gq, _sample, interaction);
-            }
-            NBL_IF_CONSTEXPR(IsBSDF)
-                return impl::__implicit_promote<spectral_type, typename F::vector_type>::__call(fresnel(hlsl::abs(cache.getVdotH()))) * DG;
-            else
-                return impl::__implicit_promote<spectral_type, typename F::vector_type>::__call(fresnel(cache.getVdotH())) * DG;
-        }
-        else
-            return hlsl::promote<spectral_type>(0.0);
+        return __eval<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
     }
 
     template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector2_type>)
@@ -176,15 +160,16 @@ struct SCookTorrance
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    template<class Interaction, class MicrofacetCache>
+    scalar_type __pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         using quant_query_type = typename N::quant_query_type;
         using dg1_query_type = typename N::dg1_query_type;
 
-        dg1_query_type dq = ndf.template createDG1Query<isotropic_interaction_type, isocache_type>(interaction, cache);
+        dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
 
-        quant_query_type qq = impl::quant_query_helper<N, F, IsBSDF>::template __call<isocache_type>(ndf, fresnel, cache);
-        quant_type DG1 = ndf.template DG1<sample_type, isotropic_interaction_type>(dq, qq, _sample, interaction);
+        quant_query_type qq = impl::quant_query_helper<N, F, IsBSDF>::template __call<MicrofacetCache>(ndf, fresnel, cache);
+        quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, qq, _sample, interaction);
 
         NBL_IF_CONSTEXPR(IsBSDF)
         {
@@ -195,39 +180,28 @@ struct SCookTorrance
         {
             return DG1.projectedLightMeasure;
         }
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    {
+        return __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        using quant_query_type = typename N::quant_query_type;
-        using dg1_query_type = typename N::dg1_query_type;
-
-        dg1_query_type dq = ndf.template createDG1Query<anisotropic_interaction_type, anisocache_type>(interaction, cache);
-
-        quant_query_type qq = impl::quant_query_helper<N, F, IsBSDF>::template __call<anisocache_type>(ndf, fresnel, cache);
-        quant_type DG1 = ndf.template DG1<sample_type, anisotropic_interaction_type>(dq, qq, _sample, interaction);
-
-        NBL_IF_CONSTEXPR(IsBSDF)
-        {
-            const scalar_type reflectance = fresnel(hlsl::abs(cache.getVdotH()))[0];
-            return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * DG1.projectedLightMeasure;
-        }
-        else
-        {
-            return DG1.projectedLightMeasure;
-        }
+        return __pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    template<class Interaction, class MicrofacetCache>
+    quotient_pdf_type __quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        scalar_type _pdf = pdf(_sample, interaction, cache);
+        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache);
 
         spectral_type quo = hlsl::promote<spectral_type>(0.0);
         if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
         {
             using g2g1_query_type = typename N::g2g1_query_type;
 
-            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, isotropic_interaction_type>(_sample, interaction);
-            scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, isotropic_interaction_type, isocache_type>(gq, _sample, interaction, cache);
+            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+            scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
             NBL_IF_CONSTEXPR(IsBSDF)
                 quo = hlsl::promote<spectral_type>(G2_over_G1);
             else
@@ -235,25 +209,14 @@ struct SCookTorrance
         }
 
         return quotient_pdf_type::create(quo, _pdf);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    {
+        return __quotient_and_pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        scalar_type _pdf = pdf(_sample, interaction, cache);
-
-        spectral_type quo = hlsl::promote<spectral_type>(0.0);
-        if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
-        {
-            using g2g1_query_type = typename N::g2g1_query_type;
-
-            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, anisotropic_interaction_type>(_sample, interaction);
-            scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, anisotropic_interaction_type, anisocache_type>(gq, _sample, interaction, cache);
-            NBL_IF_CONSTEXPR(IsBSDF)
-                quo = hlsl::promote<spectral_type>(G2_over_G1);
-            else
-                quo = fresnel(cache.getVdotH()) * G2_over_G1;
-        }
-
-        return quotient_pdf_type::create(quo, _pdf);
+        return __quotient_and_pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
     }
 
     N ndf;
