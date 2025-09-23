@@ -44,7 +44,7 @@ struct SGGXDielectricIsotropic
         retval.__base.ndf.__base.one_minus_a2 = scalar_type(1.0) - A*A;
         retval.__base.fresnel.orientedEta = orientedEta;
         retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
-        retval.luminosityContributionHint = luminosityContributionHint;
+        retval.__base.luminosityContributionHint = luminosityContributionHint;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, scalar_type A)
@@ -67,13 +67,16 @@ struct SGGXDielectricIsotropic
         return __base.eval(_sample, interaction.isotropic, cache.iso_cache);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(isocache_type) cache)
     {
-        return __base.generate(interaction, u, cache, luminosityContributionHint);
+        anisocache_type aniso_cache;
+        sample_type s = __base.template generate<vector3_type>(anisotropic_interaction_type::create(interaction), u, aniso_cache);
+        cache = aniso_cache.iso_cache;
+        return s;
     }
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        return __base.generate(interaction.isotropic, u, cache.iso_cache, luminosityContributionHint);
+        return __base.template generate<vector3_type>(interaction, u, cache);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
@@ -95,27 +98,13 @@ struct SGGXDielectricIsotropic
     }
 
     SCookTorrance<Config, ndf_type, fresnel_type, true> __base;
-    spectral_type luminosityContributionHint;
 };
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
 struct SGGXDielectricAnisotropic
 {
     using this_t = SGGXDielectricAnisotropic<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(matrix3x3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
+    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using ndf_type = ndf::GGX<scalar_type, true, ndf::MTT_REFLECT_REFRACT>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
@@ -138,7 +127,7 @@ struct SGGXDielectricAnisotropic
         retval.__base.ndf.__base.a2 = ax*ay;
         retval.__base.fresnel.orientedEta = orientedEta;
         retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
-        retval.luminosityContributionHint = luminosityContributionHint;
+        retval.__base.luminosityContributionHint = luminosityContributionHint;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, scalar_type ax, scalar_type ay)
@@ -157,12 +146,12 @@ struct SGGXDielectricAnisotropic
         return __base.eval(_sample, interaction, cache);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        return __base.generate(interaction, u, cache, luminosityContributionHint);
+        return __base.template generate<vector3_type>(interaction, u, cache);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         anisocache_type dummycache;
         return generate(interaction, u, dummycache);
@@ -179,7 +168,6 @@ struct SGGXDielectricAnisotropic
     }
 
     SCookTorrance<Config, ndf_type, fresnel_type, true> __base;
-    spectral_type luminosityContributionHint;
 };
 
 }

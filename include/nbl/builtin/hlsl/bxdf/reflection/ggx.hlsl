@@ -63,11 +63,14 @@ struct SGGXIsotropic
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
-        return __base.generate(interaction, u, cache);
+        anisocache_type aniso_cache;
+        sample_type s = __base.template generate<vector2_type>(anisotropic_interaction_type::create(interaction), u, aniso_cache);
+        cache = aniso_cache.iso_cache;
+        return s;
     }
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        return __base.generate(interaction.isotropic, u, cache.iso_cache);
+        return __base.template generate<vector2_type>(interaction, u, cache);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
@@ -133,7 +136,7 @@ struct SGGXAnisotropic
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        return __base.generate(interaction, u, cache);
+        return __base.template generate<vector2_type>(interaction, u, cache);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
