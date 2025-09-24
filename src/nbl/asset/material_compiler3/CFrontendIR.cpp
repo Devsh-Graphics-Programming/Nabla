@@ -334,6 +334,7 @@ core::string CFrontendIR::CSpectralVariable::getLabelSuffix() const
 		return "";
 	constexpr const char* SemanticNames[] =
 	{
+		"",
 		"\\nSemantics = Fixed3_SRGB",
 		"\\nSemantics = Fixed3_DCI_P3",
 		"\\nSemantics = Fixed3_BT2020",

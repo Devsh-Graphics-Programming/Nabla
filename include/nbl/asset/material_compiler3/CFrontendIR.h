@@ -790,8 +790,12 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		TypedHandle<const IExprNode> handle;
 		uint8_t contribSlot;
 		SubtreeContributorState contribState = SubtreeContributorState::Required;
+		// using post-order like stack but with a pre-order DFS
+		uint8_t visited = false;
 	};
 	core::stack<StackEntry> exprStack;
+	// why a separate stack to the main one? Because we don't push siblings.
+	core::vector<TypedHandle<const IExprNode>> ancestorPrefix;
 	// unused yet
 	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
 	// should probably size it better, if I knew total node count allocated or live
@@ -818,7 +822,19 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		while (!exprStack.empty())
 		{
 			const StackEntry entry = exprStack.top();
-			exprStack.pop();
+			if (entry.visited)
+			{
+				exprStack.pop();
+				// this is the whole reason why we're using a post-order like stack
+				ancestorPrefix.pop_back();
+				continue;
+			}
+			else
+			{
+				exprStack.top().visited = true;
+				// push self into prefix so children can check against it
+				ancestorPrefix.push_back(entry.handle);
+			}
 			const auto* node = entry.node;
 			const auto nodeType = node->getType();
 			const bool nodeIsMul = nodeType==IExprNode::Type::Mul;
@@ -853,6 +869,13 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 					if (contributorCount>MaxContributors)
 					{
 						logger.log("Expression too complex, more than %d contributors encountered",ELL_ERROR,MaxContributors);
+						return false;
+					}
+					// detect cycles
+					const auto found = std::find(ancestorPrefix.begin(),ancestorPrefix.end(),childHandle);
+					if (found!=ancestorPrefix.end())
+					{
+						logger.log("Expression contains a cycle involving node %d of type %s",ELL_ERROR,childHandle,getTypeName(childHandle).data());
 						return false;
 					}
 					// cannot optimize with `unordered_set visitedNodes` because we need to check contributor slots, if we really wanted to we could do it with an
