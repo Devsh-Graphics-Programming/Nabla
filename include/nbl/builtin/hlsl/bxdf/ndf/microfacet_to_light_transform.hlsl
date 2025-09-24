@@ -42,6 +42,7 @@ struct createDualMeasureQuantity_helper
 
    static SDualMeasureQuant<T> __call(const T microfacetMeasure, scalar_type clampedNdotV, scalar_type clampedNdotL, scalar_type VdotHLdotH, scalar_type VdotH_etaLdotH)
    {
+      assert(clampedNdotV >= scalar_type(0.0) && clampedNdotL >= scalar_type(0.0));
       SDualMeasureQuant<T> retval;
       retval.microfacetMeasure = microfacetMeasure;
       // do constexpr booleans first so optimizer picks up this and short circuits
@@ -56,6 +57,7 @@ struct createDualMeasureQuantity_helper
 };
 }
 
+// specialMeasure meaning the measure defined by the specialization of createDualMeasureQuantity_helper; note that GGX redefines it somewhat
 template<typename T>
 SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL)
 {
