@@ -313,7 +313,7 @@ struct GGX<T,false,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar
     {
         dg1_query_type dg1_query;
         dg1_query.ndf = __base.template D<MicrofacetCache>(cache);
-        scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_MAX);
+        scalar_type clampedNdotV = interaction.getNdotV();
         dg1_query.G1 = scalar_type(2.0) * clampedNdotV * __base.G1_wo_numerator(clampedNdotV, interaction.getNdotV2());
         return dg1_query;
     }
@@ -386,7 +386,7 @@ struct GGX<T,true,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
     {
         dg1_query_type dg1_query;
         dg1_query.ndf = __base.template D<MicrofacetCache>(cache);
-        scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_MAX);
+        scalar_type clampedNdotV = interaction.getNdotV();
         dg1_query.G1 = scalar_type(2.0) * clampedNdotV * __base.G1_wo_numerator(clampedNdotV, interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return dg1_query;
     }

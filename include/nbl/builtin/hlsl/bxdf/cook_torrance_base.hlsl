@@ -128,34 +128,34 @@ struct SCookTorrance
     template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector3_type>)
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u, NBL_REF_ARG(anisocache_type) cache)
     {
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel.orientedEta;
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = orientedEta.getReciprocals();
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel.getOrientedEtaRcps();
 
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type upperHemisphereV = hlsl::mix(localV, -localV, interaction.getNdotV() < scalar_type(0.0));
         const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
 
-        const scalar_type reflectance = fresnel(hlsl::abs(hlsl::dot(localV, localH)))[0];
+        const scalar_type VdotH = hlsl::dot(localV, localH);
+        const scalar_type reflectance = fresnel(hlsl::abs(VdotH))[0];
         const scalar_type reflectionProb = hlsl::dot<spectral_type>(hlsl::promote<spectral_type>(reflectance), luminosityContributionHint);
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
         bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
 
-        cache = anisocache_type::createForReflection(localV, localH);
-
         Refract<scalar_type> r = Refract<scalar_type>::create(localV, localH);
-        cache.iso_cache.LdotH = hlsl::mix(cache.getVdotH(), r.getNdotT(rcpEta.value2[0]), transmitted);
         ray_dir_info_type localL;
         bxdf::ReflectRefract<scalar_type> rr;
         rr.refract = r;
         localL = localL.reflectRefract(rr, transmitted, rcpEta.value[0]);
 
         // fail if samples have invalid paths
+        // TODO fix this: if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(VdotH, hlsl::dot(localL.getDirection(), localH)) != transmitted)
         if ((!transmitted && hlsl::sign(localL.getDirection().z) != hlsl::sign(localV.z)) || (transmitted && hlsl::sign(localL.getDirection().z) == hlsl::sign(localV.z)))
         {
             localL.direction = vector3_type(0,0,0); // should check if sample direction is invalid
         }
+        else
+            cache = anisocache_type::create(localV, localH, transmitted, rcpEta);
 
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }

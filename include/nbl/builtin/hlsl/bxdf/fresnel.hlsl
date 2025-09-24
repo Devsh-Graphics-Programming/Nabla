@@ -420,6 +420,8 @@ struct Dielectric
         return __call(orientedEta2, clampedCosTheta);
     }
 
+    OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
+
     OrientedEtas<T> orientedEta;
     T orientedEta2;
 };
