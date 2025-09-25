@@ -183,11 +183,17 @@ struct SCookTorrance
     }
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        return __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
+        if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
+            return __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
+        else
+            return scalar_type(0.0);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        return __pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
+        if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
+            return __pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
+        else
+            return scalar_type(0.0);
     }
 
     template<class Interaction, class MicrofacetCache>
@@ -196,17 +202,14 @@ struct SCookTorrance
         scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache);
 
         spectral_type quo = hlsl::promote<spectral_type>(0.0);
-        if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
-        {
-            using g2g1_query_type = typename N::g2g1_query_type;
-
-            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
-            scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
-            NBL_IF_CONSTEXPR(IsBSDF)
-                quo = hlsl::promote<spectral_type>(G2_over_G1);
-            else
-                quo = fresnel(cache.getVdotH()) * G2_over_G1;
-        }
+        
+        using g2g1_query_type = typename N::g2g1_query_type;
+        g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+        scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
+        NBL_IF_CONSTEXPR(IsBSDF)
+            quo = hlsl::promote<spectral_type>(G2_over_G1);
+        else
+            quo = fresnel(cache.getVdotH()) * G2_over_G1;
 
         return quotient_pdf_type::create(quo, _pdf);
     }
