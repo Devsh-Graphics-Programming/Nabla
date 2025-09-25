@@ -500,37 +500,6 @@ protected:
 				inline uint32_t getSize() const override { return calc_size(); }
 				inline CComplement() = default;
 		};
-		// Compute Inifinite Scatter and extinction between two parallel infinite planes
-		// Reflective Component is: R, T E R E T, T E (R E)^3 T, T E (R E)^5 T, ... 
-		// Transmissive Component is: T E T, T E (R E)^2 T, T E (R E)^4 T, ... 
-		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the reflectance.
-		class CThinInfiniteScatterCorrection final : public IExprNode
-		{
-			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix!=1 ? extinction:transmittance):reflectance;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
-				
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "extinction":"reflectance"):"transmittance";}
-				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
-				{
-					sstr << "\n\t" << selfID << " -> " << selfID << "_computeTransmittance [label=\"computeTransmittance = " << (computeTransmittance ? "true":"false") << "\"]";
-				}
-				
-			public:
-				inline uint8_t getChildCount() const override final {return 3;}
-				inline const std::string_view getTypeName() const override {return "nbl::CThinInfiniteScatterCorrection";}
-
-				// you can set the children later
-				static inline uint32_t calc_size() { return sizeof(CThinInfiniteScatterCorrection); }
-				inline uint32_t getSize() const override { return calc_size(); }
-				inline CThinInfiniteScatterCorrection() = default;
-
-				TypedHandle<IExprNode> reflectance = {};
-				TypedHandle<IExprNode> transmittance = {};
-				TypedHandle<IExprNode> extinction = {};
-				// Whether to compute reflectance or transmittance
-				uint8_t computeTransmittance : 1 = false;
-		};
 		// Emission nodes are only allowed in BRDF expressions, not BTDF. To allow different emission on both sides, expressed unambigously.
 		// Basic Emitter - note that it is of unit radiance so its easier to importance sample
 		class CEmitter final : public IContributor
@@ -564,13 +533,15 @@ protected:
 		//! Due to the Helmholtz Reciprocity handling outlined in the comments for the entire front-end you can usually count on these nodes
 		//! getting applied once using `VdotH` for Cook-Torrance BRDF, twice using `VdotN` and `LdotN` for Diffuse BRDF, and using their
 		//! complements before multiplication for BTDFs. 
-		//! ----------------------------------------------------------------------------------------------------------------
+		class IContributorDependant : public IExprNode
+		{
+		};
 		// Beer's Law Node, behaves differently depending on where it is:
 		// - to get an extinction medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
 		// - to get a scattering medium between two Layers, create a layer with just a BTDF set up like above
 		// - to apply the beer's law on a single microfacet or a BRDF or BTDF multiply it with a BxDF
 		// Note: Even it makes little sense, Beer can be applied to the most outermost BRDF to simulate a correllated "foggy" coating without an extra BRDF layer.
-		class CBeer final : public IExprNode
+		class CBeer final : public IContributorDependant
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CBeer";}
@@ -593,7 +564,8 @@ protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
-		class CFresnel final : public IExprNode
+		// @kept_secret TODO: Thin Film Interference Fresnel
+		class CFresnel final : public IContributorDependant
 		{
 			public:
 				inline uint8_t getChildCount() const override {return 2;}
@@ -616,7 +588,43 @@ protected:
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Real":"Imaginary";}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
-		// @kept_secret TODO: Thin Film Interference Fresnel
+		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
+		// It's a specialization of what would be a layer of two identical smooth BRDF and BTDF with arbitrary Fresnel function and beer's
+		// extinction on the BRDFs (not BTDFs), all applied on a per micro-facet basis (layering per microfacet, not whole surface).
+		// 
+		// We actually allow you to use different reflectance nodes R_u and R_b, the NDFs of both layers remain the same but Reflectance Functions to differ.
+		// Note that e.g. using different Etas for the Fresnel used for the top and bottom reflectance will result in a compound Fresnel!=1.0 
+		// meaning that in such case you can no longer optimize the BTDF contributor into a DeltaTransmission but need a CookTorrance with
+		// an Eta equal to the ratio of the first Eta over the second Eta (note that when they're equal the ratio is 1 which turns into Delta Trans).
+		//
+		// Because we split BRDF and BTDF into separate expressions, what this node computes differs depending on where it gets used:
+		// BRDF: R_u + (1-R_u)^2 E^2 R_b Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = R_u + (1-R_u)^2 E^2 R_b / (1 - R_u R_b E^2) = R_u + (1-R_u)^2 R_b / (E^-2 - R_u R_b)
+		// BTDF: (1-R_u) E (1-R_b) Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = (1-R_u) E^2 (1-R_b) / (1 - R_u R_b E^2) = (1-R_u) (1-R_b) / (E^-2 - R_u R_b)
+		// Note the transformation at the end just makes the prevention of 0/0 or 0*INF same as for a non-extinctive equation, just check `R_u*R_b < Threshold`
+		// 
+		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the extinction.
+		class CThinInfiniteScatterCorrection final : public IExprNode
+		{
+			protected:
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? reflectanceBottom:extinction):reflectanceTop;}
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
+				
+			public:
+				inline uint8_t getChildCount() const override final {return 3;}
+				inline const std::string_view getTypeName() const override {return "nbl::CThinInfiniteScatterCorrection";}
+
+				// you can set the children later
+				static inline uint32_t calc_size() {return sizeof(CThinInfiniteScatterCorrection);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CThinInfiniteScatterCorrection() = default;
+
+				TypedHandle<IExprNode> reflectanceTop = {};
+				// optional
+				TypedHandle<IExprNode> extinction = {};
+				TypedHandle<IExprNode> reflectanceBottom = {};
+		};
 		//! Basic BxDF nodes
 		// Every BxDF leaf node is supposed to pass WFT test and must not create energy, color and extinction is added on later via multipliers
 		class IBxDF : public IContributor

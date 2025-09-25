@@ -42,7 +42,7 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 		args.logger.log("Oriented Real Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedRealEta,args.pool->getTypeName(orientedRealEta).data());
 		return true;
 	}
-	if (const auto imagEta = args.pool->deref(orientedImagEta); imagEta)
+	if (const auto imagEta=args.pool->deref(orientedImagEta); imagEta)
 	{
 		if (args.isBTDF)
 		{
@@ -59,7 +59,7 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 	}
 	else if (orientedImagEta)
 	{
-		args.logger.log("Oriented Imaginary Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedImagEta,args.pool->getTypeName(orientedImagEta).data());
+		args.logger.log("Oriented Imaginary Eta node of incorrect type attached, but is %u of type %s",ELL_ERROR,orientedImagEta,args.pool->getTypeName(orientedImagEta).data());
 		return true;
 	}
 	return false;
@@ -67,17 +67,21 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CThinInfiniteScatterCorrection::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(reflectance))
+	if (!args.pool->deref(reflectanceTop))
 	{
-		args.logger.log("Reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectance,args.pool->getTypeName(reflectance).data());
+		args.logger.log("Top reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectanceTop,args.pool->getTypeName(reflectanceTop).data());
 		return true;
 	}
-	if (!args.pool->deref(transmittance))
+	if (extinction && !args.pool->deref(extinction))
 	{
-		args.logger.log("Reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,transmittance,args.pool->getTypeName(transmittance).data());
+		args.logger.log("Extinction node of incorrect type attached, but is %u of type %s",ELL_ERROR,extinction,args.pool->getTypeName(extinction).data());
 		return true;
 	}
-	// TODO: check extinction
+	if (!args.pool->deref(reflectanceBottom))
+	{
+		args.logger.log("Top reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectanceBottom,args.pool->getTypeName(reflectanceBottom).data());
+		return true;
+	}
 	return false;
 }
 
