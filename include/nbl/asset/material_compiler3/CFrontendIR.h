@@ -548,9 +548,10 @@ protected:
 		//! complements before multiplication for BTDFs. 
 		//! ----------------------------------------------------------------------------------------------------------------
 		// Beer's Law Node, behaves differently depending on where it is:
-		// - to get a scattering medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
-		// - to get a scattering medium between two Layers, create a layer with the above
+		// - to get an extinction medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
+		// - to get a scattering medium between two Layers, create a layer with just a BTDF set up like above
 		// - to apply the beer's law on a single microfacet or a BRDF or BTDF multiply it with a BxDF
+		// Note: Even it makes little sense, Beer can be applied to the most outermost BRDF to simulate a correllated "foggy" coating without an extra BRDF layer.
 		class CBeer final : public IExprNode
 		{
 			public:
