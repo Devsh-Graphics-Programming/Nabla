@@ -1,4 +1,4 @@
-// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
@@ -113,6 +113,18 @@ protected:
 			{
 				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
 			}
+			inline bool operator!=(const SParameter& other) const
+			{
+				if (scale!=other.scale)
+					return true;
+				if (viewChannel!=other.viewChannel)
+					return true;
+				// don't compare paddings!
+				if (view!=other.view)
+					return true;
+				return sampler!=other.sampler;
+			}
+			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
 
 			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
@@ -123,6 +135,7 @@ protected:
 			uint8_t padding[3] = {0,0,0};
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
 			// shadow comparison functions are ignored
+			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
 			ICPUSampler::SParams sampler = {};
 		};
 		// In the forest, this is not a node, we'll deduplicate later
@@ -132,7 +145,7 @@ protected:
 			private:
 				friend class CSpectralVariable;
 				template<typename StringConstIterator=const core::string*>
-				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
+				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
 				{
 					bool imageUsed = false;
 					for (uint8_t i=0; i<_count; i++)
@@ -147,10 +160,10 @@ protected:
 						else
 							sstr <<" [label=\"Param " << std::to_string(i) <<"\"]";
 					}
-					if (imageUsed)
+					if (uvRequired || imageUsed)
 					{
 						const auto uvTransformID = selfID+"_uvTransform";
-						sstr << "\n\t" << uvTransformID << " [label=\"";
+						sstr << "\n\t" << uvTransformID << " [label=\"uvSlot = " << std::to_string(uvSlot()) << "\\n";
 						printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
 						sstr << "\"]";
 						sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
@@ -165,20 +178,21 @@ protected:
 						return false;
 					return true;
 				}
-				// Ignored if no modulator textures
+				// Ignored if no modulator textures and isotropic BxDF
 				uint8_t& uvSlot() {return params[0].padding[0];}
 				const uint8_t& uvSlot() const {return params[0].padding[0];}
 				// Note: the padding abuse
 				static_assert(sizeof(SParameter::padding)>0);
 
 				template<typename StringConstIterator=const core::string*>
-				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
+				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
 				{
-					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin));
+					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin),uvRequired);
 				}
 
 				SParameter params[Count] = {};
 				// identity transform by default, ignored if no UVs
+				// NOTE: a transform could be applied per-param, whats important that the UV slot remains the smae across all of them.
 				hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
 					1,0,0,
 					0,1,0
@@ -280,6 +294,7 @@ protected:
 				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 				
 				virtual inline core::string getLabelSuffix() const {return "";}
+				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 		};
 
@@ -443,6 +458,7 @@ protected:
 		{
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "rhs":"lhs";}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 2;}
@@ -493,6 +509,8 @@ protected:
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix!=1 ? extinction:transmittance):reflectance;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "extinction":"reflectance"):"transmittance";}
 				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
 				{
 					sstr << "\n\t" << selfID << " -> " << selfID << "_computeTransmittance [label=\"computeTransmittance = " << (computeTransmittance ? "true":"false") << "\"]";
@@ -563,13 +581,15 @@ protected:
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(LdotX-1)*rcpEta))
+				// Effective transparency = exp2(log2(perpTransmittance)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*inversesqrt(1.f+(LdotX-1)*rcpEta))
 				// Absorption and thickness of the interface combined into a single variable, eta and `LdotX` is taken from the leaf BTDF node.
 				// With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
-				TypedHandle<CSpectralVariable> perpTransparency = {};
+				TypedHandle<CSpectralVariable> perpTransmittance = {};
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransparency;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransmittance;}
+				
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
@@ -593,6 +613,7 @@ protected:
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Real":"Imaginary";}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// @kept_secret TODO: Thin Film Interference Fresnel
@@ -618,6 +639,19 @@ protected:
 							param.scale = 0.f;
 					}
 
+					// conservative check, checks if we can optimize certain things this way
+					inline bool definitelyIsotropic() const
+					{
+						// a derivative map from a texture allows for anisotropic NDFs at higher mip levels when pre-filtered properly
+						for (auto i=0; i<2; i++)
+						if (getDerivMap()[i].scale!=0.f && getDerivMap()[i].view)
+							return false;
+						// if roughness inputs are not equal (same scale, same texture) then NDF can be anisotropic in places
+						if (getRougness()[0]!=getRougness()[1])
+							return false;
+						// if a reference stretch is used, stretched triangles can turn the distribution isotropic
+						return stretchInvariant();
+					}
 					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
 					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
 
@@ -704,6 +738,7 @@ protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 
 				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 

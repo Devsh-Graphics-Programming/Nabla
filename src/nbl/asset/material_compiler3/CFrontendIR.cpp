@@ -27,9 +27,9 @@ bool CFrontendIR::CEmitter::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(perpTransparency))
+	if (!args.pool->deref(perpTransmittance))
 	{
-		args.logger.log("Perpendicular Transparency node of correct type must be attached, but is %u of type %s",ELL_ERROR,perpTransparency,args.pool->getTypeName(perpTransparency).data());
+		args.logger.log("Perpendicular Transparency node of correct type must be attached, but is %u of type %s",ELL_ERROR,perpTransmittance,args.pool->getTypeName(perpTransmittance).data());
 		return true;
 	}
 	return false;
@@ -272,14 +272,12 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 			const auto childCount = node->getChildCount();
 			if (childCount)
 			{
-				// TODO: print with child link names
-				str << "\n\t" << nodeID << " -> {";
 				for (auto childIx=0; childIx<childCount; childIx++)
 				{
 					const auto childHandle = node->getChildHandle(childIx);
 					if (const auto child=deref(childHandle); child)
 					{
-						str << getNodeID(childHandle) << " ";
+						str << "\n\t" << nodeID << " -> " << getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
 						const auto visited = visitedNodes.find(childHandle);
 						if (visited!=visitedNodes.end())
 							continue;
@@ -287,7 +285,6 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 						visitedNodes.insert(childHandle);
 					}
 				}
-				str << "}\n";
 			}
 			// special printing
 			node->printDot(str,nodeID);
@@ -347,7 +344,7 @@ core::string CFrontendIR::CSpectralVariable::getLabelSuffix() const
 void CFrontendIR::CSpectralVariable::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-	pWonky->knots.printDot(getKnotCount(),sstr,selfID);
+	pWonky->knots.printDot(getKnotCount(),sstr,selfID,{});
 }
 
 void CFrontendIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
@@ -377,8 +374,8 @@ void CFrontendIR::IBxDF::SBasicNDFParams::printDot(std::ostringstream& sstr, con
 		"alpha_u",
 		"alpha_v"
 	};
-	SParameterSet<4>::printDot(sstr,selfID,paramSemantics);
-	if (hlsl::determinant(reference)>0.f)
+	SParameterSet<4>::printDot(sstr,selfID,paramSemantics,!definitelyIsotropic());
+	if (!stretchInvariant())
 	{
 		const auto referenceID = selfID+"_reference";
 		sstr << "\n\t" << referenceID << " [label=\"";

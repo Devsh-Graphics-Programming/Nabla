@@ -46,10 +46,26 @@ class CTrueIR : public CNodePool
 		{
 //			TypedHandle<CRootNode> root;
 			CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
+			//
+			constexpr static inline uint8_t MaxUVSlots = 32;
+			std::bitset<MaxUVSlots> usedUVSlots;
+			// the tangent frames are a subset of used UV slots, unless there's an anisotropic BRDF involved
+			std::bitset<MaxUVSlots> usedTangentFrames;
 		};
 		inline std::span<const Material> getMaterials() const {return m_materials;}
 
 		// We take the trees from the forest, and canonicalize them into our weird Domain Specific IR with Upside down expression trees.
+		// Process:
+		// 1. Schusslerization (for derivative map usage) and Decompression (duplicating nodes, etc.)
+		// 2. Canonicalize Expressions (Transform into Sum-Product form, DCE, etc.)
+		// 3. Split BTDFs (front vs. back part), reciprocate Etas
+		// 4. Simplify and Hoist Layer terms (delta sampling property)
+		// 5. Subexpression elimination
+		// It is the backend's job to handle:
+		// - constant encoding precision (scale factors, UV matrices, IoRs)
+		// - multiscatter compensation
+		// - compilation failure to unsupported complex layering
+		// - compilation failure to unsupported complex layering
 		bool addMaterials(const CFrontendIR* forest);
 
 	protected:
