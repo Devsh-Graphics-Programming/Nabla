@@ -96,7 +96,7 @@ struct CookTorranceParams<F,Spectral,true>
 }
 
 // N (NDF), F (fresnel)
-template<class Config, class N, class F>
+template<class Config, class N, class F NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
 struct SCookTorrance
 {
     MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
@@ -109,24 +109,24 @@ struct SCookTorrance
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ndf_type::IsAnisotropic;
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::IsBSDF;
 
-    using create_params_type = impl::CookTorranceParams<fresnel_type, spectral_type, IsAnisotropic>;
+    using creation_params_type = impl::CookTorranceParams<fresnel_type, spectral_type, IsAnisotropic>;
 
     template<typename C=bool_constant<!IsAnisotropic> >
-    enable_if_t<C::value && !IsAnisotropic, this_t> create(NBL_CONST_REF_ARG(create_params_type) params)
+    static enable_if_t<C::value && !IsAnisotropic, this_t> create(NBL_CONST_REF_ARG(creation_params_type) params)
     {
         this_t retval;
         retval.ndf = ndf_type::create(params.A);
         retval.fresnel = params.fresnel;
-        retval.luminosityContributionHint = luminosityContributionHint;
+        retval.luminosityContributionHint = params.luminosityContributionHint;
         return retval;
     }
     template<typename C=bool_constant<IsAnisotropic> >
-    enable_if_t<C::value && IsAnisotropic, this_t> create(NBL_CONST_REF_ARG(create_params_type) params)
+    static enable_if_t<C::value && IsAnisotropic, this_t> create(NBL_CONST_REF_ARG(creation_params_type) params)
     {
         this_t retval;
         retval.ndf = ndf_type::create(params.ax, params.ay);
         retval.fresnel = params.fresnel;
-        retval.luminosityContributionHint = luminosityContributionHint;
+        retval.luminosityContributionHint = params.luminosityContributionHint;
         return retval;
     }
 
@@ -166,8 +166,8 @@ struct SCookTorrance
         return __eval<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
     }
 
-    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector2_type>)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u, NBL_REF_ARG(anisocache_type) cache)
+    template<typename C=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type localH = ndf.generateH(localV, u);
@@ -179,8 +179,8 @@ struct SCookTorrance
 
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
-    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector3_type>)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u, NBL_REF_ARG(anisocache_type) cache)
+    template<typename C=bool_constant<IsBSDF> >
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
     {
         fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel.getOrientedEtaRcps();
 
@@ -213,19 +213,19 @@ struct SCookTorrance
 
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
-    template<typename T, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(is_same_v<T, vector2_type>)
-    enable_if_t<C::value && !IsAnisotropic, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const T u, NBL_REF_ARG(anisocache_type) cache)
+    template<typename C=bool_constant<!IsAnisotropic>, typename D=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsAnisotropic && D::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
         anisocache_type aniso_cache;
-        sample_type s = generate<T>(anisotropic_interaction_type::create(interaction), u, aniso_cache);
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, aniso_cache);
         cache = aniso_cache.iso_cache;
         return s;
     }
-    template<typename T, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(is_same_v<T, vector3_type>)
-    enable_if_t<C::value && !IsAnisotropic, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const T u, NBL_REF_ARG(anisocache_type) cache)
+    template<typename C=bool_constant<!IsAnisotropic>, typename D=bool_constant<IsBSDF> >
+    enable_if_t<C::value && !IsAnisotropic && D::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(isocache_type) cache)
     {
         anisocache_type aniso_cache;
-        sample_type s = generate<T>(anisotropic_interaction_type::create(interaction), u, aniso_cache);
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, aniso_cache);
         cache = aniso_cache.iso_cache;
         return s;
     }

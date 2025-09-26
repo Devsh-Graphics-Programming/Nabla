@@ -19,140 +19,143 @@ namespace bxdf
 namespace reflection
 {
 
-template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
-struct SGGXIsotropic
-{
-    using this_t = SGGXIsotropic<Config>;
-    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
+template<class Config>
+using SGGXIsotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
-    using ndf_type = ndf::GGX<scalar_type, false, ndf::MTT_REFLECT>;
-    using fresnel_type = fresnel::Conductor<spectral_type>;
+template<class Config>
+using SGGXAnisotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
-    struct SCreationParams
-    {
-        scalar_type A;
-        spectral_type eta;
-        spectral_type etak;
-    };
-    using creation_type = SCreationParams;
+// template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
+// struct SGGXIsotropic
+// {
+//     using this_t = SGGXIsotropic<Config>;
+//     MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
-    static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) eta, NBL_CONST_REF_ARG(spectral_type) etak)
-    {
-        this_t retval;
-        retval.__base.ndf.__ndf_base.a2 = A*A;
-        retval.__base.ndf.__ndf_base.one_minus_a2 = scalar_type(1.0) - A*A;
-        retval.__base.ndf.__generate_base.ax = A;
-        retval.__base.ndf.__generate_base.ay = A;
-        retval.__base.fresnel.eta = eta;
-        retval.__base.fresnel.etak2 = etak * etak;
-        retval.__base.fresnel.etaLen2 = eta * eta + retval.__base.fresnel.etak2;
-        return retval;
-    }
-    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
-    {
-        return create(params.A, params.eta, params.etak);
-    }
+//     using ndf_type = ndf::GGX<scalar_type, false, ndf::MTT_REFLECT>;
+//     using fresnel_type = fresnel::Conductor<spectral_type>;
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        return __base.eval(_sample, interaction, cache);
-    }
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __base.eval(_sample, interaction.isotropic, cache.iso_cache);
-    }
+//     struct SCreationParams
+//     {
+//         scalar_type A;
+//         spectral_type eta;
+//         spectral_type etak;
+//     };
+//     using creation_type = SCreationParams;
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
-    {
-        anisocache_type aniso_cache;
-        sample_type s = __base.template generate<vector2_type>(anisotropic_interaction_type::create(interaction), u, aniso_cache);
-        cache = aniso_cache.iso_cache;
-        return s;
-    }
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
-    {
-        return __base.template generate<vector2_type>(interaction, u, cache);
-    }
+//     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) eta, NBL_CONST_REF_ARG(spectral_type) etak)
+//     {
+//         this_t retval;
+//         retval.__base.ndf.__ndf_base.a2 = A*A;
+//         retval.__base.ndf.__ndf_base.one_minus_a2 = scalar_type(1.0) - A*A;
+//         retval.__base.ndf.__generate_base.ax = A;
+//         retval.__base.ndf.__generate_base.ay = A;
+//         retval.__base.fresnel.eta = eta;
+//         retval.__base.fresnel.etak2 = etak * etak;
+//         retval.__base.fresnel.etaLen2 = eta * eta + retval.__base.fresnel.etak2;
+//         return retval;
+//     }
+//     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+//     {
+//         return create(params.A, params.eta, params.etak);
+//     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        return __base.pdf(_sample, interaction, cache);
-    }
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __base.pdf(_sample, interaction.isotropic, cache.iso_cache);
-    }
+//     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+//     {
+//         return __base.eval(_sample, interaction, cache);
+//     }
+//     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.eval(_sample, interaction.isotropic, cache.iso_cache);
+//     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        return __base.quotient_and_pdf(_sample, interaction, cache);
-    }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __base.quotient_and_pdf(_sample, interaction.isotropic, cache.iso_cache);
-    }
+//     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
+//     {
+//         return __base.generate(interaction, u, cache);
+//     }
+//     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.generate(interaction, u, cache);
+//     }
 
-    SCookTorrance<Config, ndf_type, fresnel_type> __base;
-};
+//     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+//     {
+//         return __base.pdf(_sample, interaction, cache);
+//     }
+//     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.pdf(_sample, interaction.isotropic, cache.iso_cache);
+//     }
 
-template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
-struct SGGXAnisotropic
-{
-    using this_t = SGGXAnisotropic<Config>;
-    MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
+//     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+//     {
+//         return __base.quotient_and_pdf(_sample, interaction, cache);
+//     }
+//     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.quotient_and_pdf(_sample, interaction.isotropic, cache.iso_cache);
+//     }
 
-    using ndf_type = ndf::GGX<scalar_type, true, ndf::MTT_REFLECT>;
-    using fresnel_type = fresnel::Conductor<spectral_type>;
+//     SCookTorrance<Config, ndf_type, fresnel_type> __base;
+// };
 
-    struct SCreationParams
-    {
-        scalar_type ax;
-        scalar_type ay;
-        spectral_type eta;
-        spectral_type etak;
-    };
-    using creation_type = SCreationParams;
+// template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
+// struct SGGXAnisotropic
+// {
+//     using this_t = SGGXAnisotropic<Config>;
+//     MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config);
 
-    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) eta, NBL_CONST_REF_ARG(spectral_type) etak)
-    {
-        this_t retval;
-        retval.__base.ndf.__ndf_base.ax2 = ax*ax;
-        retval.__base.ndf.__ndf_base.ay2 = ay*ay;
-        retval.__base.ndf.__ndf_base.a2 = ax*ay;
-        retval.__base.ndf.__generate_base.ax = ax;
-        retval.__base.ndf.__generate_base.ay = ay;
-        retval.__base.fresnel.eta = eta;
-        retval.__base.fresnel.etak2 = etak * etak;
-        retval.__base.fresnel.etaLen2 = eta * eta + retval.__base.fresnel.etak2;
-        return retval;
-    }
-    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
-    {
-        return create(params.ax, params.ay, params.eta, params.etak);
-    }
+//     using ndf_type = ndf::GGX<scalar_type, true, ndf::MTT_REFLECT>;
+//     using fresnel_type = fresnel::Conductor<spectral_type>;
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __base.eval(_sample, interaction, cache);
-    }
+//     struct SCreationParams
+//     {
+//         scalar_type ax;
+//         scalar_type ay;
+//         spectral_type eta;
+//         spectral_type etak;
+//     };
+//     using creation_type = SCreationParams;
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
-    {
-        return __base.template generate<vector2_type>(interaction, u, cache);
-    }
+//     static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) eta, NBL_CONST_REF_ARG(spectral_type) etak)
+//     {
+//         this_t retval;
+//         retval.__base.ndf.__ndf_base.ax2 = ax*ax;
+//         retval.__base.ndf.__ndf_base.ay2 = ay*ay;
+//         retval.__base.ndf.__ndf_base.a2 = ax*ay;
+//         retval.__base.ndf.__generate_base.ax = ax;
+//         retval.__base.ndf.__generate_base.ay = ay;
+//         retval.__base.fresnel.eta = eta;
+//         retval.__base.fresnel.etak2 = etak * etak;
+//         retval.__base.fresnel.etaLen2 = eta * eta + retval.__base.fresnel.etak2;
+//         return retval;
+//     }
+//     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+//     {
+//         return create(params.ax, params.ay, params.eta, params.etak);
+//     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __base.pdf(_sample, interaction, cache);
-    }
+//     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.eval(_sample, interaction, cache);
+//     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __base.quotient_and_pdf(_sample, interaction, cache);
-    }
+//     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.generate(interaction, u, cache);
+//     }
 
-    SCookTorrance<Config, ndf_type, fresnel_type> __base;
-};
+//     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.pdf(_sample, interaction, cache);
+//     }
+
+//     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+//     {
+//         return __base.quotient_and_pdf(_sample, interaction, cache);
+//     }
+
+//     SCookTorrance<Config, ndf_type, fresnel_type> __base;
+// };
 
 }
 

@@ -305,7 +305,7 @@ struct GGX
     NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IsAnisotropic ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;
 
     template<typename C=bool_constant<!IsAnisotropic> >
-    enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)
+    static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)
     {
         this_t retval;
         retval.__ndf_base.a2 = A*A;
@@ -315,7 +315,7 @@ struct GGX
         return retval;
     }
     template<typename C=bool_constant<IsAnisotropic> >
-    enable_if_t<C::value && IsAnisotropic, this_t> create(scalar_type ax, scalar_type ay)
+    static enable_if_t<C::value && IsAnisotropic, this_t> create(scalar_type ax, scalar_type ay)
     {
         this_t retval;
         retval.__ndf_base.ax2 = ax*ax;
