@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf/microfacet_to_light_transform.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf.hlsl"
 
 namespace nbl
 {
@@ -15,6 +16,37 @@ namespace bxdf
 {
 namespace ndf
 {
+
+namespace beckmann_concepts
+{
+#define NBL_CONCEPT_NAME DG1Query
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (query, T)
+NBL_CONCEPT_BEGIN(1)
+#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+);
+#undef query
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+#define NBL_CONCEPT_NAME G2overG1Query
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (query, T)
+NBL_CONCEPT_BEGIN(1)
+#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+);
+#undef query
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+}
 
 namespace impl
 {
@@ -43,18 +75,6 @@ struct SBeckmannG2overG1Query
     scalar_type lambda_V;
 };
 
-template<typename T>
-struct SBeckmannQuantQuery
-{
-    using scalar_type = T;
-
-    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
-    scalar_type getVdotH_etaLdotH() NBL_CONST_MEMBER_FUNC { return VdotH_etaLdotH; }
-
-    scalar_type VdotHLdotH;
-    scalar_type VdotH_etaLdotH;
-};
-
 template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
 struct BeckmannCommon;
 
@@ -63,8 +83,6 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
-    using dg1_query_type = SBeckmannDG1Query<scalar_type>;
-    using g2g1_query_type = SBeckmannG2overG1Query<scalar_type>;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
@@ -75,20 +93,10 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
-    scalar_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query)
+    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
+    static scalar_type DG1(NBL_CONST_REF_ARG(Query) query)
     {
         return query.getNdf() / (scalar_type(1.0) + query.getLambdaV());
-    }
-
-    //conversion between alpha and Phong exponent, Walter et.al.
-    static scalar_type phong_exp_to_alpha2(scalar_type _n)
-    {
-        return 2.0 / (_n + 2.0);
-    }
-    //+INF for a2==0.0
-    static scalar_type alpha2_to_phong_exp(scalar_type a2)
-    {
-        return 2.0 / a2 - 2.0;
     }
 
     scalar_type C2(scalar_type NdotX2)
@@ -109,13 +117,14 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
         return Lambda(C2(NdotX2));
     }
 
-    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query)
+    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query>)
+    static scalar_type correlated(NBL_CONST_REF_ARG(Query) query)
     {
         return scalar_type(1.0) / (scalar_type(1.0) + query.getLambdaV() + query.getLambdaL());
     }
 
-    template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class Query, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    static scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
         scalar_type lambda_L = query.getLambdaL();
@@ -131,8 +140,6 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
-    using dg1_query_type = SBeckmannDG1Query<scalar_type>;
-    using g2g1_query_type = SBeckmannG2overG1Query<scalar_type>;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
@@ -143,22 +150,12 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
-    scalar_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query)
+    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
+    static scalar_type DG1(NBL_CONST_REF_ARG(Query) query)
     {
         BeckmannCommon<T,false> beckmann;
         scalar_type dg = beckmann.DG1(query);
         return dg;
-    }
-
-    //conversion between alpha and Phong exponent, Walter et.al.
-    static scalar_type phong_exp_to_alpha2(scalar_type _n)
-    {
-        return 2.0 / (_n + 2.0);
-    }
-    //+INF for a2==0.0
-    static scalar_type alpha2_to_phong_exp(scalar_type a2)
-    {
-        return 2.0 / a2 - 2.0;
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
@@ -179,13 +176,14 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         return Lambda(C2(TdotX2, BdotX2, NdotX2));
     }
 
-    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query)
+    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query>)
+    static scalar_type correlated(NBL_CONST_REF_ARG(Query) query)
     {
         return scalar_type(1.0) / (scalar_type(1.0) + query.getLambdaV() + query.getLambdaL());
     }
 
-    template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class Query, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::G2overG1Query<Query> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    static scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
         scalar_type lambda_L = query.getLambdaL();
@@ -285,9 +283,9 @@ struct Beckmann
     using vector2_type = vector<T, 2>;
     using vector3_type = vector<T, 3>;
 
-    using dg1_query_type = typename base_type::dg1_query_type;
-    using g2g1_query_type = typename base_type::g2g1_query_type;
-    using quant_query_type = impl::SBeckmannQuantQuery<scalar_type>;
+    using dg1_query_type = impl::SBeckmannDG1Query<scalar_type>;
+    using g2g1_query_type = impl::SBeckmannG2overG1Query<scalar_type>;
+    using quant_query_type = impl::NDFQuantQuery<scalar_type>;
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = reflect_refract != MTT_REFLECT;
     template<class Interaction>
@@ -363,29 +361,44 @@ struct Beckmann
     template<class LS, class Interaction, typename C=bool_constant<!IsBSDF> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
     enable_if_t<C::value && !IsBSDF, quant_type> DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        scalar_type dg1 = __base.DG1(query);
+        scalar_type dg1 = base_type::template DG1<dg1_query_type>(query);
         return createDualMeasureQuantity<T>(dg1, interaction.getNdotV(BxDFClampMode::BCM_MAX), _sample.getNdotL(BxDFClampMode::BCM_MAX));
     }
     template<class LS, class Interaction, typename C=bool_constant<IsBSDF> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
     enable_if_t<C::value && IsBSDF, quant_type> DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        scalar_type dg1 = __base.DG1(query);
+        scalar_type dg1 = base_type::template DG1<dg1_query_type>(query);
         return createDualMeasureQuantity<T, reflect_refract>(dg1, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query.getVdotHLdotH(), quant_query.getVdotH_etaLdotH());
     }
 
     template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
     scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        return __base.correlated(query);
+        return base_type::template correlated<g2g1_query_type>(query);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return __base.template G2_over_G1<MicrofacetCache>(query, cache);
+        return base_type::template G2_over_G1<g2g1_query_type, MicrofacetCache>(query, cache);
     }
 
     base_type __base;
+};
+
+template<typename T>
+struct PhongExponent
+{
+    //conversion between alpha and Phong exponent, Walter et.al.
+    static T ToAlpha2(T _n)
+    {
+        return T(2.0) / (_n + T(2.0));
+    }
+    //+INF for a2==0.0
+    static T FromAlpha2(T a2)
+    {
+        return T(2.0) / a2 - T(2.0);
+    }
 };
 
 }

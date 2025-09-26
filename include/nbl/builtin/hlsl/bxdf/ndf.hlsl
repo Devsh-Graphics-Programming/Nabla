@@ -16,6 +16,21 @@ namespace bxdf
 namespace ndf
 {
 
+namespace impl
+{
+template<typename T>
+struct NDFQuantQuery
+{
+    using scalar_type = T;
+
+    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
+    scalar_type getVdotH_etaLdotH() NBL_CONST_MEMBER_FUNC { return VdotH_etaLdotH; }
+
+    scalar_type VdotHLdotH;
+    scalar_type VdotH_etaLdotH;
+};
+}
+
 namespace dummy_impl
 {
 using sample_t = SLightSample<ray_dir_info::SBasic<float> >;
