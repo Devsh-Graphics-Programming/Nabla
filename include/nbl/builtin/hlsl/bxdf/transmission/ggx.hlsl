@@ -39,9 +39,10 @@ struct SGGXDielectricIsotropic
     static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, scalar_type A, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
         this_t retval;
-        retval.__base.ndf.__base.A = vector2_type(A, A);
-        retval.__base.ndf.__base.a2 = A*A;
-        retval.__base.ndf.__base.one_minus_a2 = scalar_type(1.0) - A*A;
+        retval.__base.ndf.__ndf_base.a2 = A*A;
+        retval.__base.ndf.__ndf_base.one_minus_a2 = scalar_type(1.0) - A*A;
+        retval.__base.ndf.__generate_base.ax = A;
+        retval.__base.ndf.__generate_base.ay = A;
         retval.__base.fresnel.orientedEta = orientedEta;
         retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         retval.__base.luminosityContributionHint = luminosityContributionHint;
@@ -121,10 +122,11 @@ struct SGGXDielectricAnisotropic
     static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
         this_t retval;
-        retval.__base.ndf.__base.A = vector2_type(ax, ay);
-        retval.__base.ndf.__base.ax2 = ax*ax;
-        retval.__base.ndf.__base.ay2 = ay*ay;
-        retval.__base.ndf.__base.a2 = ax*ay;
+        retval.__base.ndf.__ndf_base.ax2 = ax*ax;
+        retval.__base.ndf.__ndf_base.ay2 = ay*ay;
+        retval.__base.ndf.__ndf_base.a2 = ax*ay;
+        retval.__base.ndf.__generate_base.ax = ax;
+        retval.__base.ndf.__generate_base.ay = ay;
         retval.__base.fresnel.orientedEta = orientedEta;
         retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         retval.__base.luminosityContributionHint = luminosityContributionHint;
