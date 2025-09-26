@@ -287,6 +287,7 @@ struct GGX
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = _IsAnisotropic;
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = reflect_refract != MTT_REFLECT;
 
+    using this_t = GGX<T, _IsAnisotropic, reflect_refract>;
     using scalar_type = T;
     using base_type = impl::GGXCommon<T,IsBSDF,IsAnisotropic>;
     using quant_type = SDualMeasureQuant<scalar_type>;
@@ -302,6 +303,28 @@ struct GGX
     NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IsAnisotropic ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;
     template<class MicrofacetCache>
     NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IsAnisotropic ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;
+
+    template<typename C=bool_constant<!IsAnisotropic> >
+    enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)
+    {
+        this_t retval;
+        retval.__ndf_base.a2 = A*A;
+        retval.__ndf_base.one_minus_a2 = scalar_type(1.0) - A*A;
+        retval.__generate_base.ax = A;
+        retval.__generate_base.ay = A;
+        return retval;
+    }
+    template<typename C=bool_constant<IsAnisotropic> >
+    enable_if_t<C::value && IsAnisotropic, this_t> create(scalar_type ax, scalar_type ay)
+    {
+        this_t retval;
+        retval.__ndf_base.ax2 = ax*ax;
+        retval.__ndf_base.ay2 = ay*ay;
+        retval.__ndf_base.a2 = ax*ay;
+        retval.__generate_base.ax = ax;
+        retval.__generate_base.ay = ay;
+        return retval;
+    }
 
     template<class MicrofacetCache, typename C=bool_constant<!IsBSDF> NBL_FUNC_REQUIRES(RequiredMicrofacetCache<MicrofacetCache>)
     enable_if_t<C::value && !IsBSDF, quant_query_type> createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)

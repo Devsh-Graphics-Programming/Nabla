@@ -97,7 +97,7 @@ struct SBeckmannDielectricIsotropic
         return __base.quotient_and_pdf(_sample, interaction.isotropic, cache.iso_cache);
     }
 
-    SCookTorrance<Config, ndf_type, fresnel_type, true> __base;
+    SCookTorrance<Config, ndf_type, fresnel_type> __base;
 };
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
@@ -168,7 +168,7 @@ struct SBeckmannDielectricAnisotropic
         return __base.quotient_and_pdf(_sample, interaction, cache);
     }
 
-    SCookTorrance<Config, ndf_type, fresnel_type, true> __base;
+    SCookTorrance<Config, ndf_type, fresnel_type> __base;
 };
 
 }
