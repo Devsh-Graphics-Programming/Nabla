@@ -1,18 +1,15 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MISTUBA_LOADER_C_MITSUBA_LOADER_H_INCLUDED_
+#define _NBL_EXT_MISTUBA_LOADER_C_MITSUBA_LOADER_H_INCLUDED_
 
-#ifndef __C_MITSUBA_LOADER_H_INCLUDED__
-#define __C_MITSUBA_LOADER_H_INCLUDED__
 
 #include "nbl/asset/asset.h"
 
-#include "IFileSystem.h"
-#include "nbl/asset/utils/ICPUVirtualTexture.h"
-
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
+//#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+//#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 
@@ -23,8 +20,7 @@ namespace nbl::ext::MitsubaLoader
 class CElementBSDF;
 class CMitsubaMaterialCompilerFrontend;
 
-
-// TODO: we need a GLSL to C++ compatibility wrapper
+#if 0 // TODO
 //#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
 #define uint uint32_t
 #define uvec2 uint64_t
@@ -52,7 +48,7 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
 
 
-class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
+class CMitsubaLoader : public asset::ISceneLoader
 {
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:
@@ -66,8 +62,6 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
-
-		static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createPipelineLayout(asset::IAssetManager* _manager, const asset::ICPUVirtualTexture* _vt);
 
 		//
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
@@ -101,6 +95,7 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		//! Loads an asset from an opened file, returns nullptr in case of failure.
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
+#endif
 
 }
 #endif
