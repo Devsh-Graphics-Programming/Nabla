@@ -12,7 +12,7 @@ namespace nbl::asset::material_compiler3
 {
 
 // You make the Materials with a classical expression IR, one Root Node per material's interface layer, but here they're in "Accumulator Form"
-// They appeared "flipped upside down" 
+// They appear "flipped upside down", its expected our backends will evaluate contributors first, and then bother with the attenuators. 
 class CTrueIR : public CNodePool
 {
 	public:
