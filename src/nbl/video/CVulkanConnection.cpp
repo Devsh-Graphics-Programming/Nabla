@@ -297,6 +297,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
 
     core::smart_refctd_ptr<CVulkanConnection> api(new CVulkanConnection(vk_instance,enabledFeatures,std::move(debugCallback),vk_debugMessenger),core::dont_grab);
     api->m_physicalDevices.reserve(vk_physicalDevices.size());
+    api->m_vulkanDevicesInfo.reserve(vk_physicalDevices.size());
     for (auto vk_physicalDevice : vk_physicalDevices)
     {
         auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
@@ -306,6 +307,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
             continue;
         }
         api->m_physicalDevices.emplace_back(std::move(device));
+        // device enumeration
     }
 #undef LOF
 

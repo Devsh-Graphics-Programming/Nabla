@@ -26,6 +26,8 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
         inline E_API_TYPE getAPIType() const override {return EAT_VULKAN;}
 
         inline IDebugCallback* getDebugCallback() const override {return m_debugCallback.get();}
+        
+        inline const core::vector<core::string>& getVulkanDevicesInfo() const { return m_vulkanDevicesInfo; }
 
         bool startCapture() override;
         bool endCapture() override;
@@ -44,6 +46,7 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
         const VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT;
         const std::unique_ptr<CVulkanDebugCallback> m_debugCallback; // this needs to live longer than VkDebugUtilsMessengerEXT handle above
         std::atomic_flag flag;
+        core::vector<core::string> m_vulkanDevicesInfo;
 };
 
 }
