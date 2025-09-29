@@ -166,6 +166,19 @@ struct flipSign_helper<FloatingPoint, Bool NBL_PARTIAL_REQ_BOT(concepts::Floatin
 	}
 };
 
+template <typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeScalar<FloatingPoint>)
+struct flipSign_helper<FloatingPoint, FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(FloatingPoint val, FloatingPoint flip)
+	{
+		using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+		return bit_cast<FloatingPoint>(asUint ^ (ieee754::traits<AsFloat>::signMask && flip));
+	}
+};
+
 template <typename Vectorial, typename Bool>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::BooleanScalar<Bool>)
 struct flipSign_helper<Vectorial, Bool NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::BooleanScalar<Bool>) >
@@ -203,12 +216,36 @@ struct flipSign_helper<Vectorial, BoolVector NBL_PARTIAL_REQ_BOT(concepts::Float
 		return output;
 	}
 };
+
+template <typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial>)
+struct flipSign_helper<Vectorial, Vectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial>) >
+{
+	static Vectorial __call(Vectorial val, Vectorial flip)
+	{
+		using traits_v = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits_v::scalar_type> getter_v;
+		array_set<Vectorial, typename traits_v::scalar_type> setter;
+
+		Vectorial output;
+		for (uint32_t i = 0; i < traits_v::Dimension; ++i)
+			setter(output, i, flipSign_helper<typename traits_v::scalar_type, typename traits_v::scalar_type>::__call(getter_v(val, i), getter_v(flip, i)));
+
+		return output;
+	}
+};
 }
 
 template <typename T, typename U>
 NBL_CONSTEXPR_INLINE_FUNC T flipSign(T val, U flip)
 {
 	return impl::flipSign_helper<T, U>::__call(val, flip);
+}
+
+template <typename T>
+NBL_CONSTEXPR_INLINE_FUNC T flipSignIfRHSNegative(T val, T flip)
+{
+	return impl::flipSign_helper<T, T>::__call(val, flip);
 }
 
 }

@@ -185,7 +185,7 @@ struct SCookTorrance
         fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel.getOrientedEtaRcps();
 
         const vector3_type localV = interaction.getTangentSpaceV();
-        const vector3_type upperHemisphereV = hlsl::mix(localV, -localV, interaction.getNdotV() < scalar_type(0.0));
+        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(interaction.getNdotV())); //hlsl::mix(localV, -localV, interaction.getNdotV() < scalar_type(0.0));
         const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
 
         const scalar_type VdotH = hlsl::dot(localV, localH);
