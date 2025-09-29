@@ -29,21 +29,34 @@ struct SLambertianBase
     {
         return hlsl::promote<spectral_type>(_sample.getNdotL(_clamp) * numbers::inv_pi<scalar_type> * hlsl::mix(1.0, 0.5, IsBSDF));
     }
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return eval(_sample, interaction.isotropic);
+    }
 
-    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector2_type>)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u)
+    template<typename C=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
-
-    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector3_type>)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u)
+    template<typename C=bool_constant<IsBSDF> >
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
+    }
+    template<typename C=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u)
+    {
+        return generate(anisotropic_interaction_type::create(interaction), u);
+    }
+    template<typename C=bool_constant<IsBSDF> >
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
+    {
+        return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
@@ -62,6 +75,10 @@ struct SLambertianBase
         else
             qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(_sample.getNdotL(_clamp));
         return quotient_pdf_type::create(qp.quotient[0], qp.pdf);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return quotient_and_pdf(_sample, interaction.isotropic);
     }
 };
 

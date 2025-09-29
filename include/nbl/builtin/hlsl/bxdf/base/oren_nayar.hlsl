@@ -64,21 +64,34 @@ struct SOrenNayarBase
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
         return __eval<SQuery>(query, _sample, interaction); 
     }
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return eval(_sample, interaction.isotropic); 
+    }
 
-    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector2_type>)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u)
+    template<typename C=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
-
-    template<typename T NBL_FUNC_REQUIRES(is_same_v<T, vector3_type>)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const T u)
+    template<typename C=bool_constant<IsBSDF> >
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
+    }
+    template<typename C=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u)
+    {
+        return generate(anisotropic_interaction_type::create(interaction), u);
+    }
+    template<typename C=bool_constant<IsBSDF> >
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
+    {
+        return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
@@ -101,6 +114,10 @@ struct SOrenNayarBase
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
         return __quotient_and_pdf<SQuery>(query, _sample, interaction);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return quotient_and_pdf(_sample, interaction.isotropic);
     }
 
     scalar_type A2;
