@@ -131,7 +131,6 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
         return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
-    vector<scalar_type, 2> A;   // TODO: remove?
     scalar_type a2;
 };
 
@@ -190,7 +189,6 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
-    vector<scalar_type, 2> A;
     scalar_type ax2;
     scalar_type ay2;
     scalar_type a2;
