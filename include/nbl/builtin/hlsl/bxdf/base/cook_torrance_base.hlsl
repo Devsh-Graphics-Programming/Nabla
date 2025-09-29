@@ -79,7 +79,6 @@ struct CookTorranceParams<F,Spectral,false>
 
     scalar_type A;
     F fresnel;
-    spectral_type luminosityContributionHint;   // if not BSDF, ignore
 };
 
 template<class F, typename Spectral>
@@ -91,7 +90,6 @@ struct CookTorranceParams<F,Spectral,true>
     scalar_type ax;
     scalar_type ay;
     F fresnel;
-    spectral_type luminosityContributionHint;
 };
 }
 
@@ -117,7 +115,6 @@ struct SCookTorrance
         this_t retval;
         retval.ndf = ndf_type::create(params.A);
         retval.fresnel = params.fresnel;
-        retval.luminosityContributionHint = params.luminosityContributionHint;
         return retval;
     }
     template<typename C=bool_constant<IsAnisotropic> >
@@ -126,7 +123,6 @@ struct SCookTorrance
         this_t retval;
         retval.ndf = ndf_type::create(params.ax, params.ay);
         retval.fresnel = params.fresnel;
-        retval.luminosityContributionHint = params.luminosityContributionHint;
         return retval;
     }
 
@@ -190,11 +186,10 @@ struct SCookTorrance
 
         const scalar_type VdotH = hlsl::dot(localV, localH);
         const scalar_type reflectance = fresnel(hlsl::abs(VdotH))[0];
-        const scalar_type reflectionProb = hlsl::dot<spectral_type>(hlsl::promote<spectral_type>(reflectance), luminosityContributionHint);
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
-        bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
+        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
 
         Refract<scalar_type> r = Refract<scalar_type>::create(localV, localH);
         ray_dir_info_type localL;
@@ -296,7 +291,6 @@ struct SCookTorrance
 
     ndf_type ndf;
     fresnel_type fresnel;
-    spectral_type luminosityContributionHint;
 };
 
 }
