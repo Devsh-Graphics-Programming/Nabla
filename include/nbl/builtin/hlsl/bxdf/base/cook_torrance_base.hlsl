@@ -170,19 +170,19 @@ struct SCookTorrance
         const vector3_type localH = ndf.generateH(localV, u);
 
         cache = anisocache_type::createForReflection(localV, localH);
-        // struct reflect_wrapper
-        // {
-        //     vector3_type operator()()
-        //     {
-        //         return r(VdotH);
-        //     }
-        //     bxdf::Reflect<scalar_type> r;
-        //     scalar_type VdotH;
-        // };
-        // reflect_wrapper r;
-        bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(localV, localH);
-        // r.VdotH = cache.getVdotH();
-        ray_dir_info_type localL = localV_raydir.reflect(r);
+        struct reflect_wrapper
+        {
+            vector3_type operator()() NBL_CONST_MEMBER_FUNC
+            {
+                return r(VdotH);
+            }
+            bxdf::Reflect<scalar_type> r;
+            scalar_type VdotH;
+        };
+        reflect_wrapper r;
+        r.r = bxdf::Reflect<scalar_type>::create(localV, localH);
+        r.VdotH = cache.getVdotH();
+        ray_dir_info_type localL = localV_raydir.template reflect<reflect_wrapper>(r);
 
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }

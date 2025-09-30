@@ -88,28 +88,32 @@ struct SBasic
         return retval;
     }
 
-    SBasic<T> reflect(NBL_CONST_REF_ARG(Reflect<scalar_type>) r) NBL_CONST_MEMBER_FUNC
+    template<typename R=Reflect<scalar_type> >
+    SBasic<T> reflect(NBL_CONST_REF_ARG(R) r) NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = r();
         return retval;
     }
 
-    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r, scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
+    template<typename R=Refract<scalar_type> >
+    SBasic<T> refract(NBL_CONST_REF_ARG(R) r, scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = r(rcpOrientedEta);
         return retval;
     }
 
-    SBasic<T> reflectTransmit(NBL_CONST_REF_ARG(Reflect<scalar_type>) r, bool transmitted) NBL_CONST_MEMBER_FUNC
+    template<typename R=Reflect<scalar_type> >
+    SBasic<T> reflectTransmit(NBL_CONST_REF_ARG(R) r, bool transmitted) NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = hlsl::mix(r(), -direction, transmitted);
         return retval;
     }
 
-    SBasic<T> reflectRefract(NBL_CONST_REF_ARG(ReflectRefract<scalar_type>) rr, bool transmitted, scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
+    template<typename R=ReflectRefract<scalar_type> >
+    SBasic<T> reflectRefract(NBL_CONST_REF_ARG(R) rr, bool transmitted, scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = rr(transmitted, rcpOrientedEta);
