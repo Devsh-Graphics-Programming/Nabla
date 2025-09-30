@@ -300,7 +300,8 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     api->m_vulkanProfiles.reserve(vk_physicalDevices.size());
     for (auto vk_physicalDevice : vk_physicalDevices)
     {
-        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
+        auto& profile = api->m_vulkanProfiles.emplace_back();
+        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice, profile);
         if (!device)
         {
             LOG(api->getDebugCallback()->getLogger(), "Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!", system::ILogger::ELL_WARNING, vk_physicalDevice);
