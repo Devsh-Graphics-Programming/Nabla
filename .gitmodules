@@ -84,7 +84,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
 [submodule "3rdparty/boost/superproject"]
 	path = 3rdparty/boost/superproject
-	url = ../boost.git
+	url = git@github.com:Devsh-Graphics-Programming/boost.git
 [submodule "3rdparty/argparse"]
 	path = 3rdparty/argparse
 	url = git@github.com:p-ranav/argparse.git
@@ -117,7 +117,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/glm.git
 [submodule "docker/msvc-winsdk"]
 	path = docker/msvc-winsdk
-	url = ../docker-nanoserver-msvc-winsdk
+	url = git@github.com:Devsh-Graphics-Programming/docker-nanoserver-msvc-winsdk.git
 [submodule "3rdparty/gtl"]
 	path = 3rdparty/gtl
 	url = https://github.com/greg7mdp/gtl.git
