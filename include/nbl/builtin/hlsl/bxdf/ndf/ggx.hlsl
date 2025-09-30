@@ -91,7 +91,7 @@ struct GGXCommon<T,IsBSDF,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type denom = scalar_type(1.0) - one_minus_a2 * cache.getNdotH2();
-        return a2 * numbers::inv_pi<scalar_type> / (denom * denom);
+        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), a2 * numbers::inv_pi<scalar_type> / (denom * denom), a2 > numeric_limits<scalar_type>::min);
     }
 
     template<class Query NBL_FUNC_REQUIRES(ggx_concepts::DG1Query<Query>)
@@ -173,7 +173,7 @@ struct GGXCommon<T,IsBSDF,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type denom = cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2 + cache.getNdotH2();
-        return numbers::inv_pi<scalar_type> / (a2 * denom * denom);
+        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), numbers::inv_pi<scalar_type> / (a2 * denom * denom), a2 > numeric_limits<scalar_type>::min);
     }
 
     // TODO: potential idea for making GGX spin using covariance matrix of sorts: https://www.desmos.com/3d/weq2ginq9o

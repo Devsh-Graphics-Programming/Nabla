@@ -139,7 +139,7 @@ struct SCookTorrance
 
             quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
             scalar_type DG = D.projectedLightMeasure;
-            if (D.microfacetMeasure < numeric_limits<scalar_type>::infinity)
+            if (D.microfacetMeasure < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
             {
                 g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
                 DG *= ndf.template correlated<sample_type, Interaction>(gq, _sample, interaction);

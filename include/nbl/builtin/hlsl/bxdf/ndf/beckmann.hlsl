@@ -90,7 +90,7 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
         scalar_type NdotH2 = cache.getNdotH2();
         scalar_type nom = exp2<scalar_type>((NdotH2 - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * NdotH2));
         scalar_type denom = a2 * NdotH2 * NdotH2;
-        return numbers::inv_pi<scalar_type> * nom / denom;
+        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), numbers::inv_pi<scalar_type> * nom / denom, a2 > numeric_limits<scalar_type>::min);
     }
 
     template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
@@ -146,7 +146,7 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         scalar_type NdotH2 = cache.getNdotH2();
         scalar_type nom = exp<scalar_type>(-(cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2) / NdotH2);
         scalar_type denom = a2 * NdotH2 * NdotH2;
-        return numbers::inv_pi<scalar_type> * nom / denom;
+        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), numbers::inv_pi<scalar_type> * nom / denom, a2 > numeric_limits<scalar_type>::min);
     }
 
     template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
