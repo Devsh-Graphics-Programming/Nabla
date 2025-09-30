@@ -768,6 +768,20 @@ struct SAnisotropicMicrofacetCache
         retval.BdotH = nbl::hlsl::dot<vector3_type>(interaction.getB(),H);
         return retval;
     }
+    static this_t create(
+        const scalar_type VdotH, const vector3_type L, const vector3_type H,
+        const vector3_type T, const vector3_type B, const vector3_type N, bool transmitted
+    )
+    {
+        this_t retval;
+        retval.iso_cache.VdotH = VdotH;
+        retval.iso_cache.LdotH = hlsl::mix(VdotH, hlsl::dot(L, H), transmitted);
+        retval.iso_cache.absNdotH = hlsl::abs(hlsl::dot(N, H));
+        retval.iso_cache.NdotH2 = retval.iso_cache.getAbsNdotH() * retval.iso_cache.getAbsNdotH();
+        retval.TdotH = hlsl::dot(T, H);
+        retval.BdotH = hlsl::dot(B, H);
+        return retval;
+    }
 
     scalar_type getVdotL() NBL_CONST_MEMBER_FUNC { return iso_cache.getVdotL(); }
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getVdotH(); }
