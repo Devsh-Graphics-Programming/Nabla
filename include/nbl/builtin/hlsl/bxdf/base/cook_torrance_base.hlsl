@@ -68,6 +68,29 @@ struct quant_query_helper<N, F, false>
     }
 };
 
+template<class F, bool IsBSDF>
+struct check_TIR_helper;
+
+template<class F>
+struct check_TIR_helper<F, false>
+{
+    template<class MicrofacetCache>
+    static bool __call(NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return true;
+    }
+};
+
+template<class F>
+struct check_TIR_helper<F, true>
+{
+    template<class MicrofacetCache>
+    static bool __call(NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return ComputeMicrofacetNormal<typename F::scalar_type>::isValidMicrofacet(cache.isTransmission(), cache.getVdotL(), cache.getAbsNdotH(), fresnel.orientedEta);
+    }
+};
+
 template<class F, typename Spectral, bool IsAnisotropic>
 struct CookTorranceParams;
 
@@ -129,7 +152,8 @@ struct SCookTorrance
     template<class Interaction, class MicrofacetCache>
     spectral_type __eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
+        const bool notTIR = impl::check_TIR_helper<fresnel_type, IsBSDF>::template __call<MicrofacetCache>(fresnel, cache);
+        if ((IsBSDF && notTIR) || (!IsBSDF && _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
         {
             using quant_query_type = typename ndf_type::quant_query_type;
             using g2g1_query_type = typename ndf_type::g2g1_query_type;
@@ -283,14 +307,17 @@ struct SCookTorrance
         scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache);
 
         spectral_type quo = hlsl::promote<spectral_type>(0.0);
-        
-        using g2g1_query_type = typename N::g2g1_query_type;
-        g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
-        scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
-        NBL_IF_CONSTEXPR(IsBSDF)
-            quo = hlsl::promote<spectral_type>(G2_over_G1);
-        else
-            quo = fresnel(cache.getVdotH()) * G2_over_G1;
+        const bool notTIR = impl::check_TIR_helper<fresnel_type, IsBSDF>::template __call<MicrofacetCache>(fresnel, cache);
+        if (notTIR)
+        {
+            using g2g1_query_type = typename N::g2g1_query_type;
+            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+            scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
+            NBL_IF_CONSTEXPR(IsBSDF)
+                quo = hlsl::promote<spectral_type>(G2_over_G1);
+            else
+                quo = fresnel(cache.getVdotH()) * G2_over_G1;
+        }
 
         // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
         _pdf = hlsl::mix(_pdf, scalar_type(0.0), hlsl::all(quo < hlsl::promote<spectral_type>(numeric_limits<scalar_type>::min)));

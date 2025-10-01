@@ -161,7 +161,7 @@ struct ComputeMicrofacetNormal
 
     static bool isValidMicrofacet(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, NBL_CONST_REF_ARG(fresnel::OrientedEtas<vector<scalar_type,1> >) orientedEta)
     {
-        return !transmitted || (VdotL <= -hlsl::min(orientedEta.value, orientedEta.rcp) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
+        return !transmitted || (VdotL <= -hlsl::min(orientedEta.value[0], orientedEta.rcp[0]) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
     }
 
     vector_type V;
