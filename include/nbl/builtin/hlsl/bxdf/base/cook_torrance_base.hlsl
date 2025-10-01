@@ -259,14 +259,20 @@ struct SCookTorrance
     enable_if_t<C::value && !IsAnisotropic, scalar_type> pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
-            return __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
+        {
+            scalar_type _pdf = __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
+            hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
+        }
         else
             return scalar_type(0.0);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
-            return __pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
+        {
+            scalar_type _pdf = __pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
+            hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
+        }
         else
             return scalar_type(0.0);
     }
@@ -286,6 +292,8 @@ struct SCookTorrance
         else
             quo = fresnel(cache.getVdotH()) * G2_over_G1;
 
+        // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
+        _pdf = hlsl::mix(_pdf, scalar_type(0.0), hlsl::all(quo < hlsl::promote<spectral_type>(numeric_limits<scalar_type>::min)));
         return quotient_pdf_type::create(quo, _pdf);
     }
     template<typename C=bool_constant<!IsAnisotropic> >
