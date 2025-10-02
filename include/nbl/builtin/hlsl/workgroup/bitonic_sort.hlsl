@@ -5,7 +5,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
 
-// ------------------------------- COMMON -----------------------------------------
 
 namespace nbl
 {
