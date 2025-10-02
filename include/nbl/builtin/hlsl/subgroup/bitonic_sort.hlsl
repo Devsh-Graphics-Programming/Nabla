@@ -12,13 +12,6 @@ namespace nbl
 		namespace bitonic_sort
         {
 
-            // -----------------------------------------------------------------------------------------------------------------------------------------------------------------
-            template<bool Inverse, typename Scalar, class device_capabilities = void>
-			struct bitonic_sort
-            {
-                static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi);
-            };
-
         }
     }
 }
