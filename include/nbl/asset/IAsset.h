@@ -95,6 +95,7 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
 			ET_RAYTRACING_PIPELINE = 1ull << 23, //!< asset::ICPURayTracingPipeline
+			ET_MESH_PIPELINE = 1ull << 24,
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 

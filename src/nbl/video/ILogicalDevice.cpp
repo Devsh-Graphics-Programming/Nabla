@@ -833,6 +833,172 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     return retval;
 }
 
+bool MeshGraphicsCommonValidation(
+    const IGPURenderpass* renderpass, uint8_t subpassIndex,
+    SPhysicalDeviceLimits const& limits, SPhysicalDeviceFeatures const& features, 
+    nbl::asset::SRasterizationParams const& rasterParams, nbl::asset::SBlendParams const& blendParams,
+    const system::logger_opt_ptr m_logger,
+    const IPhysicalDevice::SFormatImageUsages& formatUsages
+) {
+    if (rasterParams.alphaToOneEnable && !features.alphaToOne)
+    {
+        NBL_LOG_ERROR("Feature `alpha to one` is not enabled");
+        return false;
+    }
+    if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
+    {
+        NBL_LOG_ERROR("Feature `depth bounds` is not enabled");
+        return false;
+    }
+    const auto samples = 0x1u << rasterParams.samplesLog2;
+
+    const auto& passParams = renderpass->getCreationParameters();
+    const auto& subpass = passParams.subpasses[subpassIndex];
+    if (subpass.viewMask)
+    {
+        /*
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
+        if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
+            return false;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
+        if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
+            return false;
+        */
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
+        //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
+        if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
+        {
+            NBL_LOG_ERROR("Invalid viewMask (params[%u])", subpassIndex);
+            return false;
+        }
+    }
+    if (subpass.depthStencilAttachment.render.used())
+    {
+        const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+        bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
+        if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
+            sampleCountNeedsToMatch = true;
+        if (sampleCountNeedsToMatch && attachment.samples != samples)
+        {
+            NBL_LOG_ERROR("Depth stencil and rasterization samples need to match (params[%u])", subpassIndex);
+            return false;
+        }
+    }
+    for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+    {
+        const auto& render = subpass.colorAttachments[i].render;
+        if (render.used())
+        {
+            const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
+            if (blendParams.blendParams[i].blendEnabled() && !formatUsages[attachment.format].attachmentBlend)
+            {
+                NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", subpassIndex, i);
+                return false;
+            }
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+            if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
+            {
+                NBL_LOG_ERROR("Color attachment and rasterization samples need to match (params[%u].colorAttachments[%u])", subpassIndex, i);
+                return false;
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
+            if (/*detect NV version && */(attachment.samples > samples))
+            {
+                NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", subpassIndex, i);
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+//this is a COPY of graphics pipeline, with MINOR adjustments. 
+//no changes should be made DIRECTLY here
+//UNLESS it's DIRECTLY for mesh/task
+//there SHOULD be a function duplicates functionality between graphics and mesh pipeline that can be adjusted first
+bool ILogicalDevice::createMeshPipelines(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPUMeshPipeline::SCreationParams> params,
+    core::smart_refctd_ptr<IGPUMeshPipeline>* const output
+) {
+    std::fill_n(output, params.size(), nullptr);
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache, params);
+    if (!specConstantValidation) {
+        NBL_LOG_ERROR("Invalid parameters were given");
+        return false;
+    }
+
+    const auto& features = getEnabledFeatures();
+    const auto& limits = getPhysicalDeviceLimits();
+
+    core::vector<IGPUMeshPipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+                                             {return sum + param.getShaderCount();}
+                                            );
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
+
+    for (auto ix = 0u; ix < params.size(); ix++)
+    {
+        const auto& ci = params[ix];
+
+        if (params[ix].taskShader.shader != nullptr) {
+            if (!features.taskShader) {
+                NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
+                return false;
+            }
+        }
+
+        //check extensions here
+        //it SEEMS like createGraphicsPipeline does, but it does it in a weird way I don't understand? 
+        //geo and tess are just flat disabled??
+        if (!features.meshShader) {
+            NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
+            return false;
+        }
+
+        auto renderpass = ci.renderpass;
+        if (!renderpass->wasCreatedBy(this)) {
+            NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
+            return false;
+        }
+        
+
+        MeshGraphicsCommonValidation(renderpass, ci.cached.subpassIx, limits, features, ci.cached.rasterization, ci.cached.blend, m_logger, getPhysicalDevice()->getImageFormatUsagesOptimalTiling());
+
+        SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
+        trimTask.insertEntryPoint(ci.taskShader, hlsl::ShaderStage::ESS_TASK);
+        trimTask.insertEntryPoint(ci.meshShader, hlsl::ShaderStage::ESS_MESH);
+        trimTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+
+        newParams[ix].taskShader = trimTask.trim(ci.taskShader, trimmedShaders);
+        newParams[ix].meshShader = trimTask.trim(ci.meshShader, trimmedShaders);
+        newParams[ix].fragmentShader = trimTask.trim(ci.fragmentShader, trimmedShaders);
+    }
+    createMeshPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
+
+    for (auto i = 0u; i < params.size(); i++)
+    {
+        if (!output[i])
+        {
+            NBL_LOG_ERROR("MeshPipeline was not created (params[%u])", i);
+            return false;
+        }
+        else
+        {
+            m_logger.log("shader[%d] mesh debug name - %s\n", nbl::system::ILogger::ELL_DEBUG, i, params[i].meshShader.shader->getDebugName());
+           // TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+        }
+    }
+    return true;
+}
+
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
@@ -888,88 +1054,13 @@ bool ILogicalDevice::createGraphicsPipelines(
             return false;
         }
 
-        const auto& rasterParams = ci.cached.rasterization;
-        if (rasterParams.alphaToOneEnable && !features.alphaToOne)
-        {
-            NBL_LOG_ERROR("Feature `alpha to one` is not enabled");
-            return false;
-        }
-        if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
-        {
-            NBL_LOG_ERROR("Feature `depth bounds` is not enabled");
-            return false;
-        }
-
-        const auto samples = 0x1u << rasterParams.samplesLog2;
-
         // TODO: loads more validation on extra parameters here!
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-lineRasterizationMode-02766
 
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01505
         // baiscally the AMD version must have the rasterization samples equal to the maximum of all attachment samples counts
 
-        const auto& passParams = renderpass->getCreationParameters();
-        const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
-        if (subpass.viewMask)
-        {
-            /*
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
-            if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
-                return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
-            if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
-                return false;
-            */
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
-            //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
-            if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
-            {
-                NBL_LOG_ERROR("Invalid viewMask (params[%u])", ix);
-                return false;
-            }
-        }
-        if (subpass.depthStencilAttachment.render.used())
-        {
-            const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-            bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
-            if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
-                sampleCountNeedsToMatch = true;
-            if (sampleCountNeedsToMatch && attachment.samples != samples)
-            {
-                NBL_LOG_ERROR("Invalid depth stencil attachment (params[%u])", ix);
-                return false;
-            }
-        }
-        for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
-        {
-            const auto& render = subpass.colorAttachments[i].render;
-            if (render.used())
-            {
-                const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-                if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
-                if (/*detect NV version && */(attachment.samples > samples))
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-            }
-        }
+        MeshGraphicsCommonValidation(renderpass, ci.cached.subpassIx, limits, features, ci.cached.rasterization, ci.cached.blend, m_logger, getPhysicalDevice()->getImageFormatUsagesOptimalTiling());
 
         SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
         trimTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
