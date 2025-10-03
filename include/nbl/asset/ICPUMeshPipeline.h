@@ -39,9 +39,11 @@ class ICPUMeshPipeline final : public ICPUPipeline<IMeshPipeline<ICPUPipelineLay
 
         inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override final
         {
-            const auto stageIndex = stageToIndex(stage);
-            if (stageIndex != -1)
-                return { &m_specInfos[stageIndex], 1 };
+            switch (stage) {
+                case hlsl::ShaderStage::ESS_TASK:       return { &m_specInfos[0], 1 };
+                case hlsl::ShaderStage::ESS_MESH:       return { &m_specInfos[1], 1 };
+                case hlsl::ShaderStage::ESS_FRAGMENT:   return { &m_specInfos[2], 2 };
+            }
             return {};
         }
 
@@ -53,9 +55,11 @@ class ICPUMeshPipeline final : public ICPUPipeline<IMeshPipeline<ICPUPipelineLay
         SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage)
         {
             if (!isMutable()) return nullptr;
-            const auto stageIndex = stageToIndex(stage);
-            if (stageIndex != -1)
-                return &m_specInfos[stageIndex];
+            switch (stage) {
+                case hlsl::ShaderStage::ESS_TASK:       return &m_specInfos[0];
+                case hlsl::ShaderStage::ESS_MESH:       return &m_specInfos[1];
+                case hlsl::ShaderStage::ESS_FRAGMENT:   return &m_specInfos[2];
+            }
             return nullptr;
         }
 

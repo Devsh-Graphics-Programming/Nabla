@@ -263,7 +263,6 @@ set(NBL_VIDEO_SOURCES
 	video/CVulkanDescriptorSetLayout.cpp
 	video/CVulkanPipelineLayout.cpp
 	video/CVulkanPipelineCache.cpp
-	video/CVulkanComputePipeline.cpp
 	video/CVulkanDescriptorPool.cpp
 	video/CVulkanDescriptorSet.cpp
 	video/CVulkanMemoryAllocation.cpp
@@ -276,6 +275,8 @@ set(NBL_VIDEO_SOURCES
 	video/CVulkanConnection.cpp
 	video/CVulkanPhysicalDevice.cpp
 	video/CVulkanGraphicsPipeline.cpp
+	video/CVulkanComputePipeline.cpp
+	video/CVulkanMeshPipeline.cpp
 	video/CVulkanRayTracingPipeline.cpp
 	video/CVulkanEvent.cpp
 	video/CSurfaceVulkan.cpp

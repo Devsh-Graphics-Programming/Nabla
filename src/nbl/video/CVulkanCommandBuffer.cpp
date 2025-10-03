@@ -406,15 +406,20 @@ bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const asset:
     return true;
 }
 
+bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
+{
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject());
+    return true;
+}
+
 bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* const pipeline)
 {
     getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
-bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
-{
-    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject());
+bool CVulkanCommandBuffer::bindMeshPipeline_impl(const IGPUMeshPipeline* const pipeline) {
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanMeshPipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
