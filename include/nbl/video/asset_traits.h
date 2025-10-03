@@ -9,10 +9,6 @@
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/video/IGPUDescriptorSet.h"
-#include "nbl/asset/ICPUComputePipeline.h"
-#include "nbl/video/IGPUComputePipeline.h"
-#include "nbl/asset/ICPUGraphicsPipeline.h"
-#include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/asset/ICPUSampler.h"
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/asset/ICPUImageView.h"
@@ -21,11 +17,14 @@
 #include "nbl/video/IGPUAccelerationStructure.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/video/IGPUPolygonGeometry.h"
-#include "nbl/asset/ICPURayTracingPipeline.h"
-#include "nbl/video/IGPURayTracingPipeline.h"
-
+#include "nbl/asset/ICPUGraphicsPipeline.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/asset/ICPUComputePipeline.h"
+#include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/asset/ICPUMeshPipeline.h"
 #include "nbl/video/IGPUMeshPipeline.h"
+#include "nbl/asset/ICPURayTracingPipeline.h"
+#include "nbl/video/IGPURayTracingPipeline.h"
 
 
 namespace nbl::video

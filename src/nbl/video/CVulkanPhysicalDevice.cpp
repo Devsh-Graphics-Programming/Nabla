@@ -732,6 +732,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                    cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
         VkPhysicalDeviceMaintenance5FeaturesKHR                         maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT              graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT };
+        VkPhysicalDeviceMeshShaderFeaturesEXT                           meshShaderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
+
+        //do we hate macros?
+#define AddExtensionToPNextIfSupported(name, feat) if (isExtensionSupported(name)) addToPNextChain(&feat);
+        
+        AddExtensionToPNextIfSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME, meshShaderFeatures);
 
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
@@ -817,6 +823,18 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             
         features.geometryShader = deviceFeatures.features.geometryShader;
         features.tessellationShader = deviceFeatures.features.tessellationShader;
+
+        //check if features are existant first
+        //potentially put a copy of VkPhysicalDeviceMeshShaderFeaturesEXT directly into features
+        //depends on the less obvious properties
+        if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
+            features.meshShader = meshShaderFeatures.meshShader;
+            features.taskShader = meshShaderFeatures.taskShader;
+            //TODO
+            //meshShaderFeatures.primitiveFragmentShadingRateMeshShader;
+            //meshShaderFeatures.meshShaderQueries;
+            //meshShaderFeatures.multiviewMeshShader;
+        }
             
         if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
             RETURN_NULL_PHYSICAL_DEVICE;

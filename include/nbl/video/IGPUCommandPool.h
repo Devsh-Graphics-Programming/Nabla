@@ -8,8 +8,9 @@
 
 #include "nbl/video/IEvent.h"
 #include "nbl/video/IGPUDescriptorSet.h"
-#include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/video/IGPUComputePipeline.h"
+#include "nbl/video/IGPUMeshPipeline.h"
 #include "nbl/video/IGPURayTracingPipeline.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IQueryPool.h"
@@ -125,7 +126,6 @@ class IGPUCommandPool : public IBackendObject
         class CBeginRenderPassCmd;
         class CPipelineBarrierCmd;
         class CBindDescriptorSetsCmd;
-        class CBindComputePipelineCmd;
         class CUpdateBufferCmd;
         class CResetQueryPoolCmd;
         class CWriteTimestampCmd;
@@ -133,6 +133,9 @@ class IGPUCommandPool : public IBackendObject
         class CEndQueryCmd;
         class CCopyQueryPoolResultsCmd;
         class CBindGraphicsPipelineCmd;
+        class CBindComputePipelineCmd;
+        class CBindMeshPipelineCmd;
+        class CBindRayTracingPipelineCmd;
         class CPushConstantsCmd;
         class CBindVertexBuffersCmd;
         class CCopyBufferCmd;
@@ -155,7 +158,6 @@ class IGPUCommandPool : public IBackendObject
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
         class CTraceRaysCmd;
         class CTraceRaysIndirectCmd;
-        class CBindRayTracingPipelineCmd;
 
     protected:
         IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint8_t _familyIx)
@@ -529,15 +531,6 @@ class IGPUCommandPool::CBindDescriptorSetsCmd final : public IFixedSizeCommand<C
         core::smart_refctd_ptr<const IGPUDescriptorSet> m_sets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
 };
 
-class IGPUCommandPool::CBindComputePipelineCmd final : public IFixedSizeCommand<CBindComputePipelineCmd>
-{
-    public:
-        CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
-
-    private:
-        core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
-};
-
 class IGPUCommandPool::CUpdateBufferCmd final : public IFixedSizeCommand<CUpdateBufferCmd>
 {
     public:
@@ -595,6 +588,7 @@ class IGPUCommandPool::CCopyQueryPoolResultsCmd final : public IFixedSizeCommand
         core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
+//i dont really understand how to mirror this with mesh pipeline yet
 class IGPUCommandPool::CBindGraphicsPipelineCmd final : public IFixedSizeCommand<CBindGraphicsPipelineCmd>
 {
     public:
@@ -602,6 +596,24 @@ class IGPUCommandPool::CBindGraphicsPipelineCmd final : public IFixedSizeCommand
 
     private:
         core::smart_refctd_ptr<const IGPUGraphicsPipeline> m_pipeline;
+};
+
+class IGPUCommandPool::CBindComputePipelineCmd final : public IFixedSizeCommand<CBindComputePipelineCmd>
+{
+public:
+    CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
+};
+
+class IGPUCommandPool::CBindMeshPipelineCmd final : public IFixedSizeCommand<CBindMeshPipelineCmd>
+{
+public:
+    CBindMeshPipelineCmd(core::smart_refctd_ptr<const IGPUMeshPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUMeshPipeline> m_pipeline;
 };
 
 class IGPUCommandPool::CPushConstantsCmd final : public IFixedSizeCommand<CPushConstantsCmd>
