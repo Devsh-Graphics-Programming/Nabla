@@ -24,6 +24,9 @@
 #include "nbl/asset/ICPURayTracingPipeline.h"
 #include "nbl/video/IGPURayTracingPipeline.h"
 
+#include "nbl/asset/ICPUMeshPipeline.h"
+#include "nbl/video/IGPUMeshPipeline.h"
+
 
 namespace nbl::video
 {
@@ -135,6 +138,19 @@ struct asset_traits<asset::ICPUGraphicsPipeline>
 	// lookup type
 	using lookup_t = const video_t*;
 };
+
+template<>
+struct asset_traits<asset::ICPUMeshPipeline> {
+	//the asset type
+	using asset_t = asset::ICPUMeshPipeline;
+	// we reference a pipeline layout and a renderpass
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUGraphicsPipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
 
 
 template<>
