@@ -38,14 +38,14 @@ struct SLambertianBase
     enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u)
     {
         ray_dir_info_type L;
-        L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
+        L.setDirection(sampling::ProjectedHemisphere<scalar_type>::generate(u));
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
     template<typename C=bool_constant<IsBSDF> >
     enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         ray_dir_info_type L;
-        L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
+        L.setDirection(sampling::ProjectedSphere<scalar_type>::generate(u));
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
     template<typename C=bool_constant<!IsBSDF> >

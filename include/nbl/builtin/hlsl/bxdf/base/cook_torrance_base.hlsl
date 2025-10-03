@@ -236,7 +236,7 @@ struct SCookTorrance
 
         // fail if samples have invalid paths
         if (localL.getDirection().z < scalar_type(0.0))  // NdotL<0
-            localL.direction = vector3_type(0,0,0); // should check if sample direction is invalid
+            localL.makeInvalid(); // should check if sample direction is invalid
 
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
@@ -272,7 +272,7 @@ struct SCookTorrance
         const vector3_type Ldir = L.getDirection();
         const scalar_type LdotH = hlsl::dot(Ldir, H);
         if ((ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(VdotH, LdotH) != transmitted) || (LdotH * hlsl::dot(_N, Ldir) < scalar_type(0.0)))
-            L.direction = vector3_type(0,0,0); // should check if sample direction is invalid
+            L.makeInvalid(); // should check if sample direction is invalid
         else
             cache = anisocache_type::create(VdotH, Ldir, H, T, B, _N, transmitted);
 

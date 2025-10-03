@@ -32,7 +32,7 @@ namespace ray_dir_info
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (rdirinfo, T)
-#define NBL_CONCEPT_PARAM_1 (N, typename T::vector3_type)
+#define NBL_CONCEPT_PARAM_1 (v, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_2 (rcpEta, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (m, typename T::matrix3x3_type)
 #define NBL_CONCEPT_PARAM_4 (rfl, Reflect<typename T::scalar_type>)
@@ -41,7 +41,7 @@ namespace ray_dir_info
 #define NBL_CONCEPT_PARAM_7 (rr, ReflectRefract<typename T::scalar_type>)
 NBL_CONCEPT_BEGIN(8)
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define rcpEta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define m NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define rfl NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
@@ -52,6 +52,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::matrix3x3_type))
+    ((NBL_CONCEPT_REQ_EXPR)(rdirinfo.setDirection(v)))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.getDirection()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transmit()), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(rfl)), ::nbl::hlsl::is_same_v, T))
@@ -59,6 +60,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflectTransmit(rfl, t)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflectRefract(rr, t, rcpEta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transform(m)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.isValid()), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR)(rdirinfo.makeInvalid()))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_vector_v, typename T::vector3_type))
 );
@@ -68,7 +71,7 @@ NBL_CONCEPT_END(
 #undef rfl
 #undef m
 #undef rcpEta
-#undef N
+#undef v
 #undef rdirinfo
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
@@ -79,6 +82,7 @@ struct SBasic
     using vector3_type = vector<T, 3>;
     using matrix3x3_type = matrix<T, 3, 3>;
 
+    void setDirection(const vector3_type v) { direction = v; }
     vector3_type getDirection() NBL_CONST_MEMBER_FUNC { return direction; }
 
     SBasic<T> transmit() NBL_CONST_MEMBER_FUNC
@@ -132,6 +136,13 @@ struct SBasic
         retval.direction = nbl::hlsl::mul<matrix3x3_type,vector3_type>(m, direction);
         return retval;
     }
+
+    void makeInvalid()
+    {
+        direction = vector3_type(0,0,0);
+    }
+
+    bool isValid() NBL_CONST_MEMBER_FUNC { return hlsl::any<vector<bool, 3> >(hlsl::glsl::notEqual(direction, hlsl::promote<vector3_type>(0.0))); }
 
     vector3_type direction;
 };
@@ -348,6 +359,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getBdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL(clampMode)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.isValid()), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createFromTangentSpace(rdirinfo,frame)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pV,pV,pV)), ::nbl::hlsl::is_same_v, T))
@@ -440,7 +452,7 @@ struct SLightSample
     }
     scalar_type getNdotL2() NBL_CONST_MEMBER_FUNC { return NdotL2; }
 
-    bool isValid() NBL_CONST_MEMBER_FUNC { return hlsl::any<vector<bool, 3> >(hlsl::glsl::notEqual(L.getDirection(), hlsl::promote<vector3_type>(0.0))); }
+    bool isValid() NBL_CONST_MEMBER_FUNC { return L.isValid(); }
 
 
     RayDirInfo L;
