@@ -234,6 +234,10 @@ struct SCookTorrance
         r.VdotH = cache.getVdotH();
         ray_dir_info_type localL = localV_raydir.template reflect<reflect_wrapper>(r);
 
+        // fail if samples have invalid paths
+        if (localL.getDirection().z < scalar_type(0.0))  // NdotL<0
+            localL.direction = vector3_type(0,0,0); // should check if sample direction is invalid
+
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
     template<typename C=bool_constant<IsBSDF> >
@@ -319,7 +323,7 @@ struct SCookTorrance
         if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
         {
             scalar_type _pdf = __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
-            hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
+            return hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
         }
         else
             return scalar_type(0.0);
@@ -329,7 +333,7 @@ struct SCookTorrance
         if (IsBSDF || (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
         {
             scalar_type _pdf = __pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
-            hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
+            return hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
         }
         else
             return scalar_type(0.0);
