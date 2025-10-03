@@ -393,8 +393,9 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 if (!Base::freeListStackCtr[level])
                     continue;
 
-                // pop off the top
-                const Block& popped = Base::freeListStack[level][--Base::freeListStackCtr[level]];
+                const auto newStackSize = Base::freeListStackCtr[level]-1;
+                // try pop off the top
+                const Block& popped = Base::freeListStack[level][newStackSize];
                 Block allocatedBlock;
                 size_type wastedSpace = Base::calcSubAllocation(allocatedBlock,&popped,bytes,alignment);
                 // the minimum size of the free blocks that would have been created before and after the allocation would not satisfy the minimum
@@ -407,6 +408,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                     #endif // _NBL_DEBUG
                     return {{invalid_address,invalid_address},{invalid_address,invalid_address}};
                 }
+                Base::freeListStackCtr[level] = newStackSize;
                 Base::freeSize -= popped.getLength();
                 return {allocatedBlock,popped};
             }
