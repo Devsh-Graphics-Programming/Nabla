@@ -31,6 +31,7 @@ template<typename C>
 struct traits<bxdf::reflection::SBeckmannIsotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
@@ -39,6 +40,7 @@ template<typename C>
 struct traits<bxdf::reflection::SBeckmannAnisotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };

@@ -25,6 +25,7 @@ template<typename C>
 struct traits<bxdf::transmission::SLambertian<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };

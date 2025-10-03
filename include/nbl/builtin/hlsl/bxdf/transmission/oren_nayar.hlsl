@@ -24,7 +24,8 @@ using SOrenNayar = base::SOrenNayarBase<Config, true>;
 template<typename C>
 struct traits<bxdf::transmission::SOrenNayar<C> >
 {
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
