@@ -1360,13 +1360,132 @@ core::vector<VkDynamicState> getDefaultDynamicStates(SPhysicalDeviceFeatures con
 
 void CVulkanLogicalDevice::createMeshPipelines_impl(
     IGPUPipelineCache* const pipelineCache,
-    const std::span<const IGPUMeshPipeline::SCreationParams> params,
+    const std::span<const IGPUMeshPipeline::SCreationParams> createInfos,
     core::smart_refctd_ptr<IGPUMeshPipeline>* const output,
     const SSpecializationValidationResult& validation
 ) {
     const auto& features = getEnabledFeatures();
+
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject() : VK_NULL_HANDLE;
 
+    core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr });
+
+    core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(createInfos.size() * IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
+
+    core::vector<VkDynamicState> vk_dynamicStates = getDefaultDynamicStates(features);
+
+    const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0u,
+        .dynamicStateCount = static_cast<uint32_t>(vk_dynamicStates.size()),
+        .pDynamicStates = vk_dynamicStates.data()
+    };
+    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(), {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr, // the extensions that interest us have a dynamic state variant anyway
+        .flags = 0, // must be 0
+        .viewportCount = 0,
+        .pViewports = nullptr,
+        .scissorCount = 0,
+        .pScissors = nullptr,
+    });
+
+    PopulateMeshGraphicsCommonData(
+        createInfos, vk_createInfos,
+
+        vk_viewportStates,
+        vk_rasterizationStates,
+        vk_multisampleStates,
+        vk_depthStencilStates,
+        vk_colorBlendStates,
+        vk_colorBlendAttachmentStates,
+
+        vk_dynamicStates, vk_dynamicStateCreateInfo
+    );
+
+    //not used in mesh pipelines
+    for (auto& outCreateInfo : vk_createInfos) {
+        outCreateInfo.pVertexInputState = nullptr;
+        outCreateInfo.pInputAssemblyState = nullptr;
+        outCreateInfo.pTessellationState = nullptr;
+    }
+    auto outCreateInfo = vk_createInfos.data();
+
+    const auto maxShaderStages = createInfos.size() * IGPUMeshPipeline::MESH_SHADER_STAGE_COUNT;
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages, { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr });
+    core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages, { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0 });
+    core::vector<std::string> entryPoints(maxShaderStages);
+    core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages, {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr});
+    core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages, { 0,nullptr,0,nullptr });
+    core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
+    core::vector<uint8_t> specializationData(validation.dataSize);
+    auto outShaderStage = vk_shaderStage.data();
+    auto outEntryPoints = entryPoints.data();
+    auto outShaderModule = vk_shaderModule.data();
+    auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
+    auto outSpecInfo = vk_specializationInfos.data();
+    auto outSpecMapEntry = vk_specializationMapEntry.data();
+    auto outSpecData = specializationData.data();
+
+    //shader
+    for (const auto& info : createInfos)
+    {
+        outCreateInfo->pStages = outShaderStage;
+        auto processSpecShader = [&](IGPUPipelineBase::SShaderSpecInfo spec, hlsl::ShaderStage shaderStage)
+            {
+                if (spec.shader)
+                {
+                    *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec,
+                                                                         shaderStage,
+                                                                         false,
+                                                                         outShaderModule,
+                                                                         outEntryPoints,
+                                                                         outRequiredSubgroupSize,
+                                                                         outSpecInfo,
+                                                                         outSpecMapEntry,
+                                                                         outSpecData
+                    );
+                    outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
+                }
+            };
+        processSpecShader(info.taskShader, hlsl::ShaderStage::ESS_TASK);
+        processSpecShader(info.meshShader, hlsl::ShaderStage::ESS_MESH);
+        processSpecShader(info.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+
+        outCreateInfo++;
+    }
+
+    auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
+    std::stringstream debugNameBuilder;
+    if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache, vk_createInfos.size(), vk_createInfos.data(), nullptr, vk_pipelines) == VK_SUCCESS)
+    {
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            const auto& createInfo = createInfos[i];
+            const VkPipeline vk_pipeline = vk_pipelines[i];
+            // break the lifetime cause of the aliasing
+            std::uninitialized_default_construct_n(output + i, 1);
+            output[i] = core::make_smart_refctd_ptr<CVulkanMeshPipeline>(createInfos[i], vk_pipeline);
+            debugNameBuilder.str("");
+            auto buildDebugName = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage stage)
+                {
+                    if (spec.shader != nullptr)
+                        debugNameBuilder << spec.shader->getFilepathHint() << "(" << spec.entryPoint << "," << stage << ")\n";
+                };
+            buildDebugName(createInfo.taskShader, hlsl::ESS_TASK);
+            buildDebugName(createInfo.meshShader, hlsl::ESS_MESH);
+            buildDebugName(createInfo.fragmentShader, hlsl::ESS_FRAGMENT);
+            output[i]->setObjectDebugName(debugNameBuilder.str().c_str());
+        }
+    }
+    else
+        std::fill_n(output, vk_createInfos.size(), nullptr);
 }
 
 void CVulkanLogicalDevice::createGraphicsPipelines_impl(
@@ -1436,6 +1555,58 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     core::vector<VkPipelineTessellationStateCreateInfo> vk_tessellation(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,nullptr,0 });
     core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0 });
 
+    auto outCreateInfo = vk_createInfos.data();
+    auto outVertexInput = vk_vertexInput.data();
+    auto outInputBinding = vk_inputBinding.data();
+    auto outInputAttribute = vk_inputAttribute.data();
+    auto outTessellation = vk_tessellation.data();
+    auto outInputAssembly = vk_inputAssembly.data();
+
+    //ill acknowledge this additional looping is a little ugly
+    //input and tess
+    for (const auto& info : createInfos)
+    {   
+        {
+            const auto& vertexInputParams = info.cached.vertexInput;
+            outVertexInput->pVertexBindingDescriptions = outInputBinding;
+            for (auto b = 0u; b < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; b++)
+                if (vertexInputParams.enabledBindingFlags & (1 << b))
+                {
+                    outInputBinding->binding = b;
+                    outInputBinding->stride = vertexInputParams.bindings[b].stride;
+                    outInputBinding->inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
+                    outInputBinding++;
+                }
+            outVertexInput->vertexBindingDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions, outInputBinding);
+            outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
+            for (auto l = 0u; l < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
+                if (vertexInputParams.enabledAttribFlags & (1 << l))
+                {
+                    outInputAttribute->location = l;
+                    outInputAttribute->binding = vertexInputParams.attributes[l].binding;
+                    outInputAttribute->format = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(vertexInputParams.attributes[l].format));
+                    outInputAttribute->offset = vertexInputParams.attributes[l].relativeOffset;
+                    outInputAttribute++;
+                }
+            outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputAttributeDescription*>(outVertexInput->pVertexAttributeDescriptions, outInputAttribute);
+        }
+        outCreateInfo->pVertexInputState = outVertexInput++;
+        {
+            const auto& primAssParams = info.cached.primitiveAssembly;
+            outInputAssembly->topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
+            outInputAssembly->primitiveRestartEnable = primAssParams.primitiveRestartEnable;
+        }
+        outCreateInfo->pInputAssemblyState = outInputAssembly++;
+
+        if (info.tesselationControlShader.shader || info.tesselationEvaluationShader.shader)
+        {
+            outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
+            outCreateInfo->pTessellationState = outTessellation++;
+        }
+
+        outCreateInfo++;
+    }
+
     const auto maxShaderStages = createInfos.size()*IGPUGraphicsPipeline::GRAPHICS_SHADER_STAGE_COUNT;
     core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages,{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr});
     core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages,{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0});
@@ -1455,14 +1626,8 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     auto outSpecInfo = vk_specializationInfos.data();
     auto outSpecMapEntry = vk_specializationMapEntry.data();
     auto outSpecData = specializationData.data();
-    auto outVertexInput = vk_vertexInput.data();
-    auto outInputBinding = vk_inputBinding.data();
-    auto outInputAttribute = vk_inputAttribute.data();
-    auto outTessellation = vk_tessellation.data();
-    auto outInputAssembly = vk_inputAssembly.data();
 
-
-    //graphics only stuff
+    //shader
     for (const auto& info : createInfos)
     {
         outCreateInfo->pStages = outShaderStage;
@@ -1470,8 +1635,17 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         {
             if (spec.shader)
             {
-            *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
-            outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
+                *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, 
+                                                                     shaderStage, 
+                                                                     false, 
+                                                                     outShaderModule, 
+                                                                     outEntryPoints, 
+                                                                     outRequiredSubgroupSize, 
+                                                                     outSpecInfo, 
+                                                                     outSpecMapEntry, 
+                                                                     outSpecData
+                );
+                outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
             }
         };
         processSpecShader(info.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
@@ -1480,51 +1654,8 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         processSpecShader(info.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
         processSpecShader(info.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
 
-        // when dealing with mesh shaders, the vertex input and assembly state will be null
-        {
-            {
-                const auto& vertexInputParams = info.cached.vertexInput;
-                outVertexInput->pVertexBindingDescriptions = outInputBinding;
-                for (auto b=0u; b<asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; b++)
-                if (vertexInputParams.enabledBindingFlags&(1<<b))
-                {
-                    outInputBinding->binding = b;
-                    outInputBinding->stride = vertexInputParams.bindings[b].stride;
-                    outInputBinding->inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
-                    outInputBinding++;
-                }
-                outVertexInput->vertexBindingDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
-                outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
-                for (auto l=0u; l<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
-                if (vertexInputParams.enabledAttribFlags&(1<<l))
-                {
-                    outInputAttribute->location = l;
-                    outInputAttribute->binding = vertexInputParams.attributes[l].binding;
-                    outInputAttribute->format = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(vertexInputParams.attributes[l].format));
-                    outInputAttribute->offset = vertexInputParams.attributes[l].relativeOffset;
-                    outInputAttribute++;
-                }
-                outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputAttributeDescription*>(outVertexInput->pVertexAttributeDescriptions,outInputAttribute);
-            }
-            outCreateInfo->pVertexInputState = outVertexInput++;
-            {
-                const auto& primAssParams = info.cached.primitiveAssembly;
-                outInputAssembly->topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
-                outInputAssembly->primitiveRestartEnable = primAssParams.primitiveRestartEnable;
-            }
-            outCreateInfo->pInputAssemblyState = outInputAssembly++;
-            
-            if (info.tesselationControlShader.shader || info.tesselationEvaluationShader.shader)
-            {
-                outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
-                outCreateInfo->pTessellationState = outTessellation++;
-            }
-        }
-
         outCreateInfo++;
     }
-   
-
    
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
     std::stringstream debugNameBuilder;

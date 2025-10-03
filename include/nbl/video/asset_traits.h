@@ -26,9 +26,6 @@
 #include "nbl/asset/ICPURayTracingPipeline.h"
 #include "nbl/video/IGPURayTracingPipeline.h"
 
-#include "nbl/asset/ICPUMeshPipeline.h"
-#include "nbl/video/IGPUMeshPipeline.h"
-
 
 namespace nbl::video
 {

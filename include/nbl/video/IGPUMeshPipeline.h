@@ -73,6 +73,7 @@ namespace nbl::video
 
             inline SSpecializationValidationResult valid() const
             {
+                //this seems like the place to check if the mesh extension exists, but the raytracing pipeline doesnt do it here
                 if (!layout)
                     return {};
                 SSpecializationValidationResult retval = { .count = 0,.dataSize = 0 };
@@ -102,7 +103,7 @@ namespace nbl::video
                 if (!hasRequiredStages(stagePresence))
                     return {};
 
-                //if (!vertexShader.shader) return {}; //i dont quite understand why this line was here. checking if the shader itself was made correctly?
+                //if (!vertexShader.shader) return {}; //i dont quite understand why this line was in IGPUGraphics. checking if the shader itself was made correctly?
 
                 return retval;
             }
