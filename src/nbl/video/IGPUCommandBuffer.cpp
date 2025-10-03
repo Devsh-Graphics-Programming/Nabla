@@ -963,31 +963,6 @@ template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IG
 template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
 
 
-bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
-        return false;
-
-    if (!this->isCompatibleDevicewise(pipeline))
-    {
-        NBL_LOG_ERROR("incompatible pipeline device!");
-        return false;
-    }
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
-    {
-        NBL_LOG_ERROR("out of host memory!");
-        return false;
-    }
-
-    m_boundComputePipeline = pipeline;
-
-    m_noCommands = false;
-    bindComputePipeline_impl(pipeline);
-
-    return true;
-}
-
 bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
 {
     // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
@@ -1013,6 +988,58 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
     m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
 }
+
+bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
+        return false;
+
+    if (!this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("incompatible pipeline device!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_boundComputePipeline = pipeline;
+
+    m_noCommands = false;
+    bindComputePipeline_impl(pipeline);
+
+    return true;
+}
+
+bool IGPUCommandBuffer::bindMeshPipeline(const IGPUMeshPipeline* const pipeline)
+{
+    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
+    // we cannot check renderpass-pipeline compatibility here.
+    // And checking before every drawcall would be performance suicide.
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!pipeline || !this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("incompatible pipeline device!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindMeshPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUMeshPipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_boundMeshPipeline = pipeline;
+
+    m_noCommands = false;
+    return bindMeshPipeline_impl(pipeline);
+}
+
 
 bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline)
 {
@@ -1421,10 +1448,19 @@ bool IGPUCommandBuffer::copyQueryPoolResults(
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, stride, flags);
 }
 
-
 bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ)
 {
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+    /*
+    * potentially do something like this here.
+    const bool whollyInsideRenderpass = m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT);
+    auto allowedQueueCaps = queue_flags_t::GRAPHICS_BIT;
+    auto allowedRenderpassScope = inside;
+    if (!whollyInsideRenderpass)
+        allowedQueueCaps = queue_flags_t::COMPUTE_BIT;
+        allowedRenderpassScope = outside;
+    */
+
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT | queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::BOTH))
         return false;
 
     if (groupCountX==0 || groupCountY==0 || groupCountZ==0)
@@ -1446,9 +1482,9 @@ bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t grou
 
 bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding)
 {
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT | queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::BOTH))
         return false;
-
+    //side mission - find out what 4 is. may impact mesh in a way im not expecting
     if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
         return false;
 
