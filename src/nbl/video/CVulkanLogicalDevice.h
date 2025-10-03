@@ -20,7 +20,6 @@
 #include "nbl/video/CVulkanSampler.h"
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanPipelineCache.h"
-#include "nbl/video/CVulkanComputePipeline.h"
 #include "nbl/video/CVulkanDescriptorPool.h"
 #include "nbl/video/CVulkanDescriptorSet.h"
 #include "nbl/video/CVulkanMemoryAllocation.h"
@@ -29,7 +28,10 @@
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/CVulkanAccelerationStructure.h"
+
+#include "nbl/video/CVulkanComputePipeline.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
+#include "nbl/video/CVulkanMeshPipeline.h"
 #include "nbl/video/CVulkanRayTracingPipeline.h"
 
 namespace nbl::video
@@ -293,6 +295,12 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
             const SSpecializationValidationResult& validation
         ) override;
+        void createMeshPipelines_impl(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPUMeshPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPUMeshPipeline>* const output,
+            const SSpecializationValidationResult& validation
+        ) override; //final?
 
         void createRayTracingPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
