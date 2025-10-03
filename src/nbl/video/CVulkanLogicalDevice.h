@@ -29,8 +29,8 @@
 #include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/CVulkanAccelerationStructure.h"
 
-#include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanComputePipeline.h"
+#include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanMeshPipeline.h"
 #include "nbl/video/CVulkanRayTracingPipeline.h"
 
@@ -297,7 +297,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         ) override;
         void createMeshPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUMeshPipeline::SCreationParams> createInfos,
+            const std::span<const IGPUMeshPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUMeshPipeline>* const output,
             const SSpecializationValidationResult& validation
         ) override; //final?

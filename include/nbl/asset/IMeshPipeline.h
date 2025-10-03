@@ -28,6 +28,19 @@ namespace nbl::asset {
 
         static inline bool hasRequiredStages(const core::bitflag<hlsl::ShaderStage>& stagePresence)
         {
+            /*
+            VUID-VkPipelineShaderStageCreateInfo-stage-02091
+            If the meshShaders feature is not enabled, stage must not be VK_SHADER_STAGE_MESH_BIT_EXT
+
+            VUID-VkPipelineShaderStageCreateInfo-stage-02092
+            If the taskShaders feature is not enabled, stage must not be VK_SHADER_STAGE_TASK_BIT_EXT
+
+            need to check extentions here
+
+            maybe assert vertex,geo, and tess arent used here?
+            */
+
+
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
             if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_MESH)) {
                 return false;
