@@ -780,8 +780,10 @@ struct SAnisotropicMicrofacetCache
         this_t retval;
         retval.iso_cache.VdotH = VdotH;
         retval.iso_cache.LdotH = hlsl::mix(VdotH, hlsl::dot(L, H), transmitted);
-        retval.iso_cache.absNdotH = hlsl::abs(hlsl::dot(N, H));
-        retval.iso_cache.NdotH2 = retval.iso_cache.getAbsNdotH() * retval.iso_cache.getAbsNdotH();
+        scalar_type NdotH = hlsl::dot(N, H);
+        assert(NdotH > scalar_type(0.0));
+        retval.iso_cache.absNdotH = hlsl::abs(NdotH);
+        retval.iso_cache.NdotH2 = NdotH * NdotH;
         retval.TdotH = hlsl::dot(T, H);
         retval.BdotH = hlsl::dot(B, H);
         return retval;
