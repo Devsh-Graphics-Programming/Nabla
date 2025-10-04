@@ -235,11 +235,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 
 		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
-			std::array<uint32_t, 8> neighboringCells = vertexHashMap.getNeighboringCellHashes(*processedVertex);
+			std::array<uint32_t, 8> neighboringCells;
+		  const auto cellCount = vertexHashMap.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
 			hlsl::float32_t3 normal = processedVertex->weightedNormal;
 
 			//iterate among all neighboring cells
-			for (int i = 0; i < 8; i++)
+			for (int i = 0; i < cellCount; i++)
 			{
 				VertexHashMap::BucketBounds bounds = vertexHashMap.getBucketBoundsByHash(neighboringCells[i]);
 				for (; bounds.begin != bounds.end; bounds.begin++)
@@ -263,55 +264,55 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	return outPolygon;
 }
 
-std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData & vertex)
+uint8_t CSmoothNormalGenerator::VertexHashMap::getNeighboringCellHashes(uint32_t* outNeighbours, const CPolygonGeometryManipulator::SSNGVertexData& vertex)
 {
-	std::array<uint32_t, 8> neighbourhood;
-
-	hlsl::float32_t3 cellFloatCoord = vertex.position / m_cellSize - hlsl::float32_t3(0.5f);
+	hlsl::float32_t3 cellFloatCoord = floor(vertex.position / m_cellSize - hlsl::float32_t3(0.5f));
 	hlsl::uint32_t3 neighbor = hlsl::uint32_t3(static_cast<uint32_t>(cellFloatCoord.x), static_cast<uint32_t>(cellFloatCoord.y), static_cast<uint32_t>(cellFloatCoord.z));
 
+	uint8_t neighbourCount = 0;
+
 	//left bottom near
-	neighbourhood[0] = hash(neighbor);
+	outNeighbours[neighbourCount] = hash(neighbor);
+	neighbourCount++;
+
+	auto addUniqueNeighbour = [&neighbourCount, outNeighbours](uint32_t hashVal)
+  {
+    if (std::find(outNeighbours, outNeighbours + neighbourCount, hashVal) != outNeighbours + neighbourCount)
+    {
+			outNeighbours[neighbourCount] = hashVal;
+			neighbourCount++;
+    }
+  };
 
 	//right bottom near
 	neighbor = neighbor + hlsl::uint32_t3(1, 0, 0);
-	neighbourhood[1] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
 	//right bottom far
 	neighbor = neighbor + hlsl::uint32_t3(0, 0, 1);
-	neighbourhood[2] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
 	//left bottom far
 	neighbor = neighbor - hlsl::uint32_t3(1, 0, 0);
-	neighbourhood[3] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
 	//left top far
 	neighbor = neighbor + hlsl::uint32_t3(0, 1, 0);
-	neighbourhood[4] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
 	//right top far
 	neighbor = neighbor + hlsl::uint32_t3(1, 0, 0);
-	neighbourhood[5] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
 	//righ top near
 	neighbor = neighbor - hlsl::uint32_t3(0, 0, 1);
-	neighbourhood[6] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
 	//left top near
 	neighbor = neighbor - hlsl::uint32_t3(1, 0, 0);
-	neighbourhood[7] = hash(neighbor);
+	addUniqueNeighbour(hash(neighbor));
 
-	//erase duplicated hashes
-	for (int i = 0; i < 8; i++)
-	{
-		uint32_t currHash = neighbourhood[i];
-		for (int j = i + 1; j < 8; j++)
-		{
-			if (neighbourhood[j] == currHash)
-				neighbourhood[j] = invalidHash;
-		}
-	}
-	return neighbourhood;
+	return neighbourCount;
 }
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon)
@@ -348,12 +349,13 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 
 		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
-			std::array<uint32_t, 8> neighboringCells = vertices.getNeighboringCellHashes(*processedVertex);
+			std::array<uint32_t, 8> neighboringCells;
+		  const auto cellCount = vertices.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
 
 			auto& groupIndex = groupIndexes[processedVertex->index];
 
 			//iterate among all neighboring cells
-			for (int i = 0; i < 8; i++)
+			for (int i = 0; i < cellCount; i++)
 			{
 				VertexHashMap::BucketBounds bounds = vertices.getBucketBoundsByHash(neighboringCells[i]);
 				for (auto neighbourVertex_it = bounds.begin; neighbourVertex_it != bounds.end; neighbourVertex_it++)

@@ -39,8 +39,7 @@ class CSmoothNormalGenerator
 
 			inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
-			//
-			std::array<uint32_t, 8> getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData& vertex);
+			uint8_t getNeighboringCellHashes(uint32_t* outNeighbours, const CPolygonGeometryManipulator::SSNGVertexData& vertex);
 
 			inline uint32_t getBucketCount() { return m_buckets.size(); }
 			inline BucketBounds getBucketBoundsById(uint32_t index) const { return { m_buckets[index], m_buckets[index + 1] }; }
