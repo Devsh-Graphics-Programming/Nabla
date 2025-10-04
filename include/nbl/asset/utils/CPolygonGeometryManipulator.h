@@ -20,10 +20,9 @@ class NBL_API2 CPolygonGeometryManipulator
 		//vertex data needed for CSmoothNormalGenerator
 		struct SSNGVertexData
 		{
-			uint32_t index;									     //offset of the vertex into index buffer
+			uint64_t index;									     //offset of the vertex into index buffer
 			uint32_t hash;											       //
 			hlsl::float32_t3 weightedNormal;
-			hlsl::float32_t3 parentTriangleFaceNormal;
 			hlsl::float32_t3 position;							   //position of the vertex in 3D space
 		};
 
@@ -247,7 +246,7 @@ class NBL_API2 CPolygonGeometryManipulator
 				VxCmpFunction vxcmp = [](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
-					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal) > cosOf45Deg;
+					return dot(normalize(v0.weightedNormal),normalize(v1.weightedNormal)) > cosOf45Deg;
 				});
 
 #if 0 // TODO: REDO
