@@ -152,10 +152,10 @@ void CSmoothNormalGenerator::VertexHashMap::validate()
 	// TODO: maybe use counting sort (or big radix) and use the histogram directly for the m_buckets
 	auto finalSortedOutput = core::radix_sort(m_vertices.data(),m_vertices.data()+oldSize,oldSize,KeyAccessor());
 	// TODO: optimize out the erase
-	if (finalSortedOutput!=m_vertices.data())
-		m_vertices.erase(m_vertices.begin(),m_vertices.begin()+oldSize);
+	if (finalSortedOutput != m_vertices.data())
+		m_vertices.erase(m_vertices.begin(), m_vertices.begin() + oldSize);
 	else
-		m_vertices.erase(m_vertices.begin()+oldSize,m_vertices.end());
+		m_vertices.resize(oldSize);
 
 	// TODO: are `m_buckets` even begin USED!?
 	uint16_t prevHash = m_vertices[0].hash;
@@ -179,9 +179,10 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 {
 	const size_t idxCount = polygon->getPrimitiveCount() * 3;
 
-	VertexHashMap vertices(idxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 2.f);
+	const auto cellCount = std::max<uint32_t>(core::roundUpToPoT<uint32_t>((idxCount + 31) >> 5), 4);
+	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon == 0.0f ? 0.00001f : epsilon * 2.f);
 
-	for (uint32_t i = 0; i < idxCount; i += 3)
+	for (uint64_t i = 0; i < idxCount; i += 3)
 	{
 		//calculate face normal of parent triangle
 		hlsl::float32_t3 v1, v2, v3;
@@ -317,7 +318,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 {
 	struct Group
 	{
-		uint32_t vertex_reference_index; // index to referenced vertex in the original polygon
+		uint64_t vertex_reference_index; // index to referenced vertex in the original polygon
 	};
 	core::vector<Group> groups; 
 	groups.reserve(vertices.getVertexCount());
