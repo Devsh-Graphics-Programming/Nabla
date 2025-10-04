@@ -22,10 +22,11 @@ class CSmoothNormalGenerator
 		class VertexHashMap
 		{
 		public:
+			using collection_t = core::vector<CPolygonGeometryManipulator::SSNGVertexData>;
 			struct BucketBounds
 			{
-				core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin;
-				core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end;
+				collection_t::iterator begin;
+				collection_t::iterator end;
 			};
 
 		public:
@@ -52,8 +53,8 @@ class CSmoothNormalGenerator
       static constexpr uint32_t primeNumber3 = 83492791;
 
 			//holds iterators pointing to beginning of each bucket, last iterator points to m_vertices.end()
-			core::vector<core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator> m_buckets;
-			core::vector<CPolygonGeometryManipulator::SSNGVertexData> m_vertices;
+			core::vector<collection_t::iterator> m_buckets;
+			collection_t m_vertices;
 			const uint32_t m_hashTableMaxSize;
 			const float m_cellSize;
 
