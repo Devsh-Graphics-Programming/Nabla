@@ -5,6 +5,7 @@
 #include "CSmoothNormalGenerator.h"
 
 #include "nbl/core/declarations.h"
+#include "nbl/builtin/hlsl/shapes/triangle.hlsl"
 
 #include <algorithm>
 #include <array>
@@ -71,40 +72,14 @@ static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 
-static hlsl::float32_t3 getAngleWeight(
-	const hlsl::float32_t3& v1,
-	const hlsl::float32_t3& v2,
-	const hlsl::float32_t3& v3)
-{
-	auto distancesquared = [](const hlsl::float32_t3& v1, const hlsl::float32_t3& v2)
-  {
-    const auto diff = v1 - v2;
-		return hlsl::dot(diff, diff);
-  };
-	// Calculate this triangle's weight for each of its three m_vertices
-	// start by calculating the lengths of its sides
-	const float a = distancesquared(v2, v3);
-	const float asqrt = sqrt(a);
-	const float b = distancesquared(v1,v3);
-	const float bsqrt = sqrt(b);
-	const float c = distancesquared(v1,v2);
-	const float csqrt = sqrt(c);
-
-	// use them to find the angle at each vertex
-	return hlsl::float32_t3(
-		acosf((b + c - a) / (2.f * bsqrt * csqrt)),
-		acosf((-b + c + a) / (2.f * asqrt * csqrt)),
-		acosf((b - c + a) / (2.f * bsqrt * asqrt)));
-}
-
 core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
 {
-	VertexHashMap vertexArray = setupData(polygon, epsilon);
-	const auto smoothPolygon = processConnectedVertices(polygon, vertexArray, epsilon,vxcmp);
+	VertexHashMap vertexHashMap = setupData(polygon, epsilon);
+	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, epsilon,vxcmp);
 
 	if (enableWelding)
 	{
-		return weldVertices(smoothPolygon.get(), vertexArray, epsilon);
+		return weldVertices(smoothPolygon.get(), vertexHashMap, epsilon);
 	}
 	return smoothPolygon;
 }
@@ -217,11 +192,11 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		const auto faceNormal = normalize(cross(v2 - v1, v3 - v1));
 
 		//set data for m_vertices
-		const auto angleWages = getAngleWeight(v1, v2, v3);
+		const auto angleWages = hlsl::shapes::util::GetAngleWeight(v2 - v3, v1 - v3, v1 - v2);
 
-		vertices.add({ i,	0,	faceNormal * angleWages.x, faceNormal, v1});
-		vertices.add({ i + 1,	0,	faceNormal * angleWages.y, faceNormal,v2});
-		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, faceNormal, v3});
+		vertices.add({ i,	0,	faceNormal * angleWages.x, v1});
+		vertices.add({ i + 1,	0,	faceNormal * angleWages.y,v2});
+		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, v3});
 	}
 
 	vertices.validate();
