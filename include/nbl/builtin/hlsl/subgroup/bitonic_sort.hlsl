@@ -12,7 +12,8 @@ namespace hlsl
 {
 namespace subgroup
 {
-
+namespace bitonic_sort
+{
 template<typename KeyType, typename ValueType, typename Comparator = less<KeyType>>
 struct bitonic_sort_config
 {
