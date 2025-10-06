@@ -1,4 +1,4 @@
-// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
@@ -26,13 +26,50 @@ namespace nbl::asset::material_compiler3
 // plan on ignoring every transmission through the microfacets within the statistical pixel footprint as given by the VNDF except the perfectly specular one.
 // The energy loss from that leads to pathologies like the glGTF Specular+Diffuse model, comparison: https://x.com/DS2LightingMod/status/1961502201228267595
 // 
-// There's an implicit Top and Bottom on the layer stack, but thats only for the purpose of interpreting the Etas (predivided ratios of Indices of Refraction).
-// We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
-// 
-// If you don't plan on ignoring the actual convolution of incoming light by the VNDF, such an assumption only speeds up the Importance Sampling slightly as
+// If you don't plan on ignoring the actual convolution of incoming light by the BSDF, such an assumption only speeds up the Importance Sampling slightly as
 // on the way back through a layer we don't consume another 2D random variable, instead transforming the ray deterministically. This however would require one
 // to keep a stack of cached interactions with each layer, and its just simpler to run local path tracing through layers which can account for multiple scattering
 // through a medium layer, etc.
+// 
+// Our Frontend is built around the IR, which wants to perform the following canonicalization of a BSDF Layer (not including emission):
+// 
+// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
+// 
+// Where `l(w_i,w_o)` is a Contributor Node BxDF such as Oren Nayar or Cook-Torrance, which is doesn't model absorption and is usually Monochrome.
+// These are assumed to be 100% valid BxDFs with White Furnace Test <= 1 and obeying Helmholtz Reciprocity. This is why you can't multiply two "Contributor Nodes" together.
+// We make an attempt to implement Energy Normalized versions of `l_i` but not always, so there might be energy loss due to single scattering assumptions.
+// 
+// This convention greatly simplifies the Layering of BSDFs as when we model two layers combined we need only consider the Sum terms which are Products of a BTDF contibutor
+// in convolution with the layer below or above. For emission this is equivalent to convolving the emission with BTDFs producing a custom emission profile.
+// Some of these combinations can be approximated or solved outright without resolving to frequency space approaches or path tracing within the layers.
+// 
+// To obtain a valid BxDF for the canonical expression, each product of weights also needs to exhibit Helmholtz Reciprocity:
+// 
+// 	   Product_j^{N_i} h(w_i,w_o) = Product_j^{N_i} h(w_o,w_i)
+// 
+// Which means that direction dependant weight nodes need to know the underlying contributor they are weighting to determine their semantics, e.g. a Fresnel on:
+// - Cook Torrance will use the Microfacet Normal for any calculation as that is symmetric between `w_o` and `w_i`
+// - Diffuse will use both `NdotV` and `NdotL` (also known as `theta_i` and `theta_o`) symmetrically
+// - A BTDF will use the compliments (`1-x`) of the Fresnels
+// 
+// We cannot derive BTDF factors from top and bottom BRDF as the problem is underconstrained, we don't know which factor models absorption and which part transmission.
+// 
+// Helmholtz Reciprocity allows us to use completely independent BRDFs per hemisphere, when `w_i` and `w_o` are in the same hemisphere (reflection).
+// Note that transmission only occurs when `w_i` and `w_o` are in opposite hemispheres and the reciprocity forces one BTDF.
+// 
+// There's an implicit Top and Bottom on the layer stack, but thats only for the purpose of interpreting the Etas (predivided ratios of Indices of Refraction),
+// both the Top and Bottom BRDF treat the Eta as being the speed of light in the medium above over the speed of light in the medium below.
+// This means that for modelling air-vs-glass you use the same Eta for the Top BRDF, the middle BTDF and Bottom BRDF.
+// We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
+// 
+// The backend can expand the Top BRDF, Middle BTDF, Bottom BRDF into 4 separate instruction streams for Front-Back BRDF and BTDF. This is because we can
+// throw away the first or last BRDF+BTDF in the stack, as well as use different pre-computed Etas if we know the sign of `cos(theta_i)` as we interact with each layer.
+// Whether the backend actually generates a separate instruction stream depends on the impact of Instruction Cache misses due to not sharing streams for layers.
+// 
+// Also note that a single null BTDF in the stack splits it into the two separate stacks, one per original interaction orientation.
+// 
+// I've considered expressing the layers using only a BTDF and BRDF (same top and bottom hemisphere) but that would lead to more layers in for materials,
+// requiring the placing of a mirror then vantablack layer for most one-sided materials, and most importantly disallow the expression of certain front-back correlations.
 // 
 // Because we implement Schussler et. al 2017 we also ensure that signs of dot products with shading normals are identical to smooth normals.
 // However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
@@ -76,6 +113,18 @@ protected:
 			{
 				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
 			}
+			inline bool operator!=(const SParameter& other) const
+			{
+				if (scale!=other.scale)
+					return true;
+				if (viewChannel!=other.viewChannel)
+					return true;
+				// don't compare paddings!
+				if (view!=other.view)
+					return true;
+				return sampler!=other.sampler;
+			}
+			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
 
 			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
@@ -86,6 +135,7 @@ protected:
 			uint8_t padding[3] = {0,0,0};
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
 			// shadow comparison functions are ignored
+			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
 			ICPUSampler::SParams sampler = {};
 		};
 		// In the forest, this is not a node, we'll deduplicate later
@@ -95,7 +145,7 @@ protected:
 			private:
 				friend class CSpectralVariable;
 				template<typename StringConstIterator=const core::string*>
-				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
+				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
 				{
 					bool imageUsed = false;
 					for (uint8_t i=0; i<_count; i++)
@@ -110,10 +160,10 @@ protected:
 						else
 							sstr <<" [label=\"Param " << std::to_string(i) <<"\"]";
 					}
-					if (imageUsed)
+					if (uvRequired || imageUsed)
 					{
 						const auto uvTransformID = selfID+"_uvTransform";
-						sstr << "\n\t" << uvTransformID << " [label=\"";
+						sstr << "\n\t" << uvTransformID << " [label=\"uvSlot = " << std::to_string(uvSlot()) << "\\n";
 						printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
 						sstr << "\"]";
 						sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
@@ -128,20 +178,21 @@ protected:
 						return false;
 					return true;
 				}
-				// Ignored if no modulator textures
+				// Ignored if no modulator textures and isotropic BxDF
 				uint8_t& uvSlot() {return params[0].padding[0];}
 				const uint8_t& uvSlot() const {return params[0].padding[0];}
 				// Note: the padding abuse
 				static_assert(sizeof(SParameter::padding)>0);
 
 				template<typename StringConstIterator=const core::string*>
-				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
+				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
 				{
-					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin));
+					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin),uvRequired);
 				}
 
 				SParameter params[Count] = {};
 				// identity transform by default, ignored if no UVs
+				// NOTE: a transform could be applied per-param, whats important that the UV slot remains the smae across all of them.
 				hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
 					1,0,0,
 					0,1,0
@@ -228,10 +279,22 @@ protected:
 					bool isBTDF;
 					// there's space for 7 more bools
 				};
-				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
+				// by default all children are mandatory
+				virtual inline bool invalid(const SInvalidCheckArgs& args) const
+				{
+					const auto childCount = getChildCount();
+					for (uint8_t i=0u; i<childCount; i++)
+					if (const auto childHandle=getChildHandle_impl(i); !childHandle)
+					{
+						args.logger.log("Default `IExprNode::invalid` child #%u missing!",system::ILogger::ELL_ERROR,i);
+						return true;
+					}
+					return false;
+				}
 				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 				
 				virtual inline core::string getLabelSuffix() const {return "";}
+				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 		};
 
@@ -252,16 +315,19 @@ protected:
 
 				enum class Semantics : uint8_t
 				{
+					NoneUndefined = 0,
 					// 3 knots, their wavelengths are implied and fixed at color primaries
-					Fixed3_SRGB = 0,
-					Fixed3_DCI_P3 = 1,
-					Fixed3_BT2020 = 2,
-					Fixed3_AdobeRGB = 3,
-					Fixed3_AcesCG = 4,
+					Fixed3_SRGB = 1,
+					Fixed3_DCI_P3 = 2,
+					Fixed3_BT2020 = 3,
+					Fixed3_AdobeRGB = 4,
+					Fixed3_AcesCG = 5,
 					// Ideas: each node is described by (wavelength,value) pair
 					// PairsLinear = 5, // linear interpolation
 					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
 				};
+
+				//
 				template<uint8_t Count>
 				struct SCreationParams
 				{
@@ -275,28 +341,58 @@ protected:
 					template<bool Enable=true> requires (Enable==(Count>1))
 					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
 				};
-				template<uint8_t Count>
-				static inline uint32_t calc_size(const SCreationParams<Count>&)
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
-				}
-				
-				inline uint8_t getKnotCount() const
-				{
-					static_assert(sizeof(SParameter::padding)>1);
-					return paramsBeginPadding()[1];
-				}
-				inline uint32_t getSize() const override
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
-				}
-
+				//
 				template<uint8_t Count>
 				inline CSpectralVariable(SCreationParams<Count>&& params)
 				{
 					// back up the count
 					params.knots.params[0].padding[1] = Count;
+					// set it correctly for monochrome
+					if constexpr (Count==1)
+						params.knots.params[0].padding[2] = static_cast<uint8_t>(Semantics::NoneUndefined);
+					else
+					{
+						assert(params.getSemantics()!=Semantics::NoneUndefined);
+					}
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
+				}
+
+				// encapsulation due to padding abuse
+				inline uint8_t& uvSlot() {return pWonky()->knots.uvSlot();}
+				inline const uint8_t& uvSlot() const {return pWonky()->knots.uvSlot();}
+
+				// these getters are immutable
+				inline uint8_t getKnotCount() const
+				{
+					static_assert(sizeof(SParameter::padding)>1);
+					return paramsBeginPadding()[1];
+				}
+				inline Semantics getSemantics() const
+				{
+					static_assert(sizeof(SParameter::padding)>2);
+					const auto retval = static_cast<Semantics>(paramsBeginPadding()[2]);
+					assert((getKnotCount()==1)==(retval==Semantics::NoneUndefined));
+					return retval;
+				}
+
+				//
+				inline SParameter* getParam(const uint8_t i)
+				{
+					if (i<getKnotCount())
+						return &pWonky()->knots.params[i];
+					return nullptr;
+				}
+				inline const SParameter* getParam(const uint8_t i) const {return const_cast<const SParameter*>(const_cast<CSpectralVariable*>(this)->getParam(i));}
+
+				//
+				template<uint8_t Count>
+				static inline uint32_t calc_size(const SCreationParams<Count>&)
+				{
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
+				}
+				inline uint32_t getSize() const override
+				{
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
 				}
 
 				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
@@ -304,17 +400,15 @@ protected:
 			protected:
 				inline ~CSpectralVariable()
 				{
-					auto pWonky = reinterpret_cast<SCreationParams<1>*>(this+1);
-					std::destroy_n(pWonky->knots.params,getKnotCount());
+					std::destroy_n(pWonky()->knots.params,getKnotCount());
 				}
 
 				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				inline bool invalid(const SInvalidCheckArgs& args) const override
 				{
 					const auto knotCount = getKnotCount();
-					auto pWonky = reinterpret_cast<const SCreationParams<2>*>(this+1);
 					// non-monochrome spectral variable 
-					if (const auto semantic=pWonky->getSemantics(); knotCount>1)
+					if (const auto semantic=getSemantics(); knotCount>1)
 					switch (semantic)
 					{
 						case Semantics::Fixed3_SRGB: [[fallthrough]];
@@ -333,7 +427,7 @@ protected:
 							return true;
 					}
 					for (auto i=0u; i<knotCount; i++)
-					if (!pWonky->knots.params[i])
+					if (!*getParam(i))
 					{
 						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
 						return true;
@@ -345,7 +439,9 @@ protected:
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 			private:
-				const uint8_t* paramsBeginPadding() const {return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding;}
+				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
+				const SCreationParams<1>* pWonky() const {return reinterpret_cast<const SCreationParams<1>*>(this+1);}
+				const uint8_t* paramsBeginPadding() const {return pWonky()->knots.params[0].padding; }
 		};
 		//
 		class IUnaryOp : public IExprNode
@@ -362,6 +458,7 @@ protected:
 		{
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "rhs":"lhs";}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 2;}
@@ -403,34 +500,6 @@ protected:
 				inline uint32_t getSize() const override { return calc_size(); }
 				inline CComplement() = default;
 		};
-		// Compute Inifinite Scatter and extinction between two parallel infinite planes
-		// Reflective Component is: R, T E R E T, T E (R E)^3 T, T E (R E)^5 T, ... 
-		// Transmissive Component is: T E T, T E (R E)^2 T, T E (R E)^4 T, ... 
-		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the reflectance.
-		class CThinInfiniteScatterCorrection final : public IExprNode
-		{
-			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix!=1 ? extinction:transmittance):reflectance;}
-				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
-				{
-					sstr << "\n\t" << selfID << " -> " << selfID << "_computeTransmittance [label=\"computeTransmittance = " << (computeTransmittance ? "true":"false") << "\"]";
-				}
-				
-			public:
-				inline uint8_t getChildCount() const override final {return 3;}
-				inline const std::string_view getTypeName() const override {return "nbl::CThinInfiniteScatterCorrection";}
-
-				// you can set the children later
-				static inline uint32_t calc_size() { return sizeof(CThinInfiniteScatterCorrection); }
-				inline uint32_t getSize() const override { return calc_size(); }
-				inline CThinInfiniteScatterCorrection() = default;
-
-				TypedHandle<IExprNode> reflectance = {};
-				TypedHandle<IExprNode> transmittance = {};
-				TypedHandle<IExprNode> extinction = {};
-				// Whether to compute reflectance or transmittance
-				uint8_t computeTransmittance : 1 = false;
-		};
 		// Emission nodes are only allowed in BRDF expressions, not BTDF. To allow different emission on both sides, expressed unambigously.
 		// Basic Emitter - note that it is of unit radiance so its easier to importance sample
 		class CEmitter final : public IContributor
@@ -459,15 +528,20 @@ protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
-		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
-		//! However if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used instead.
-		//! If there are two BxDFs with different normals, these nodes get split and duplicated into two in our Final IR.
-		//! ----------------------------------------------------------------------------------------------------------------
+		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
+		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
+		//! Due to the Helmholtz Reciprocity handling outlined in the comments for the entire front-end you can usually count on these nodes
+		//! getting applied once using `VdotH` for Cook-Torrance BRDF, twice using `VdotN` and `LdotN` for Diffuse BRDF, and using their
+		//! complements before multiplication for BTDFs. 
+		class IContributorDependant : public IExprNode
+		{
+		};
 		// Beer's Law Node, behaves differently depending on where it is:
-		// - to get a scattering medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
-		// - to get a scattering medium between two Layers, create a layer with the above
+		// - to get an extinction medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
+		// - to get a scattering medium between two Layers, create a layer with just a BTDF set up like above
 		// - to apply the beer's law on a single microfacet or a BRDF or BTDF multiply it with a BxDF
-		class CBeer final : public IExprNode
+		// Note: Even it makes little sense, Beer can be applied to the most outermost BRDF to simulate a correllated "foggy" coating without an extra BRDF layer.
+		class CBeer final : public IContributorDependant
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CBeer";}
@@ -478,17 +552,20 @@ protected:
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(LdotX-1)*rcpEta))
+				// Effective transparency = exp2(log2(perpTransmittance)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*inversesqrt(1.f+(LdotX-1)*rcpEta))
 				// Absorption and thickness of the interface combined into a single variable, eta and `LdotX` is taken from the leaf BTDF node.
 				// With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
-				TypedHandle<CSpectralVariable> perpTransparency = {};
+				TypedHandle<CSpectralVariable> perpTransmittance = {};
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransparency;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransmittance;}
+				
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
-		class CFresnel final : public IExprNode
+		// @kept_secret TODO: Thin Film Interference Fresnel
+		class CFresnel final : public IContributorDependant
 		{
 			public:
 				inline uint8_t getChildCount() const override {return 2;}
@@ -500,7 +577,7 @@ protected:
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
 				TypedHandle<CSpectralVariable> orientedRealEta = {};
-				// Specifying this turns your Fresnel into a conductor one
+				// Specifying this turns your Fresnel into a conductor one, note that currently these are disallowed on BTDFs!
 				TypedHandle<CSpectralVariable> orientedImagEta = {};
 				// if you want to reuse the same parameter but want to flip the interfaces around
 				uint8_t reciprocateEtas : 1 = false;
@@ -508,11 +585,48 @@ protected:
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Real":"Imaginary";}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
-		// @kept_secret TODO: Thin Film Interference Fresnel
+		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
+		// It's a specialization of what would be a layer of two identical smooth BRDF and BTDF with arbitrary Fresnel function and beer's
+		// extinction on the BRDFs (not BTDFs), all applied on a per micro-facet basis (layering per microfacet, not whole surface).
+		// 
+		// We actually allow you to use different reflectance nodes R_u and R_b, the NDFs of both layers remain the same but Reflectance Functions to differ.
+		// Note that e.g. using different Etas for the Fresnel used for the top and bottom reflectance will result in a compound Fresnel!=1.0 
+		// meaning that in such case you can no longer optimize the BTDF contributor into a DeltaTransmission but need a CookTorrance with
+		// an Eta equal to the ratio of the first Eta over the second Eta (note that when they're equal the ratio is 1 which turns into Delta Trans).
+		//
+		// Because we split BRDF and BTDF into separate expressions, what this node computes differs depending on where it gets used:
+		// BRDF: R_u + (1-R_u)^2 E^2 R_b Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = R_u + (1-R_u)^2 E^2 R_b / (1 - R_u R_b E^2) = R_u + (1-R_u)^2 R_b / (E^-2 - R_u R_b)
+		// BTDF: (1-R_u) E (1-R_b) Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = (1-R_u) E^2 (1-R_b) / (1 - R_u R_b E^2) = (1-R_u) (1-R_b) / (E^-2 - R_u R_b)
+		// Note the transformation at the end just makes the prevention of 0/0 or 0*INF same as for a non-extinctive equation, just check `R_u*R_b < Threshold`
+		// 
+		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the extinction.
+		class CThinInfiniteScatterCorrection final : public IExprNode
+		{
+			protected:
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? reflectanceBottom:extinction):reflectanceTop;}
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
+				
+			public:
+				inline uint8_t getChildCount() const override final {return 3;}
+				inline const std::string_view getTypeName() const override {return "nbl::CThinInfiniteScatterCorrection";}
+
+				// you can set the children later
+				static inline uint32_t calc_size() {return sizeof(CThinInfiniteScatterCorrection);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CThinInfiniteScatterCorrection() = default;
+
+				TypedHandle<IExprNode> reflectanceTop = {};
+				// optional
+				TypedHandle<IExprNode> extinction = {};
+				TypedHandle<IExprNode> reflectanceBottom = {};
+		};
 		//! Basic BxDF nodes
-		// Every BxDF leaf node is supposed to pass WFT test, color and extinction is added on later via multipliers
+		// Every BxDF leaf node is supposed to pass WFT test and must not create energy, color and extinction is added on later via multipliers
 		class IBxDF : public IContributor
 		{
 			public:
@@ -533,6 +647,19 @@ protected:
 							param.scale = 0.f;
 					}
 
+					// conservative check, checks if we can optimize certain things this way
+					inline bool definitelyIsotropic() const
+					{
+						// a derivative map from a texture allows for anisotropic NDFs at higher mip levels when pre-filtered properly
+						for (auto i=0; i<2; i++)
+						if (getDerivMap()[i].scale!=0.f && getDerivMap()[i].view)
+							return false;
+						// if roughness inputs are not equal (same scale, same texture) then NDF can be anisotropic in places
+						if (getRougness()[0]!=getRougness()[1])
+							return false;
+						// if a reference stretch is used, stretched triangles can turn the distribution isotropic
+						return stretchInvariant();
+					}
 					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
 					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
 
@@ -547,10 +674,10 @@ protected:
 		// Delta Transmission is the only Special Delta Distribution Node, because of how useful it is for compiling Anyhit shaders, the rest can be done easily with:
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
 		// - Smooth Conductor -> above multiplied with Conductor-Fresnel
-		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides (bottom side having a reciprocated Eta) of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
-		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF in both sides and a Delta Transmission BTDF
-		// - Plastic -> Can layer the above over Diffuse BRDF, but its faster to cook a mixture of Diffuse and Smooth Conductor BRDFs, weighing the diffuse by Fresnel complements.
-		//				If one wants to emulate non-linear diffuse TIR color shifts, abuse `CThinInfiniteScatterCorrection` 
+		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
+		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF in both sides and a Delta Transmission BTDF with `CThinInfiniteScatterCorrection` on the fresnel
+		// - Plastic -> Similar to layering the above over Diffuse BRDF, its of uttmost importance that the BTDF is Delta Transmission.
+		//              If one wants to emulate non-linear diffuse TIR color shifts, abuse `CThinInfiniteScatterCorrection`.
 		class CDeltaTransmission final : public IBxDF
 		{
 			public:
@@ -566,7 +693,8 @@ protected:
 			protected:
 				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 		};
-		// Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
+		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
+		// Base diffuse node
 		class COrenNayar final : public IBxDF
 		{
 			public:
@@ -618,6 +746,7 @@ protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 
 				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 
@@ -650,6 +779,7 @@ protected:
 
 		// To quickly make a matching backface material from a frontface or vice versa
 		NBL_API TypedHandle<IExprNode> reciprocate(const TypedHandle<const IExprNode> other);
+		NBL_API TypedHandle<CFresnel> createNamedFresnel(const std::string_view name);
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
@@ -687,27 +817,11 @@ protected:
 		}
 
 		core::vector<TypedHandle<const CLayer>> m_rootNodes;
-		// TODO: named material Fresnels
 };
 
 inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 {
 	constexpr auto ELL_ERROR = system::ILogger::E_LOG_LEVEL::ELL_ERROR;
-
-	core::stack<const CLayer*> layerStack;
-	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
-	{
-		const auto* layer = deref(layerHandle);
-		if (!layer)
-		{
-			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).data());
-			return false;
-		}
-		layerStack.push(layer);
-		return true;
-	};
-	if (!pushLayer(rootHandle))
-		return false;
 			
 	enum class SubtreeContributorState : uint8_t
 	{
@@ -720,8 +834,17 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		TypedHandle<const IExprNode> handle;
 		uint8_t contribSlot;
 		SubtreeContributorState contribState = SubtreeContributorState::Required;
+		// using post-order like stack but with a pre-order DFS
+		uint8_t visited = false;
 	};
 	core::stack<StackEntry> exprStack;
+	// why a separate stack to the main one? Because we don't push siblings.
+	core::vector<TypedHandle<const IExprNode>> ancestorPrefix;
+	// unused yet
+	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
+	// should probably size it better, if I knew total node count allocated or live
+	visitedNodes.reserve(m_rootNodes.size()<<3);
+	//
 	auto validateExpression = [&](const TypedHandle<const IExprNode> exprRoot, const bool isBTDF) -> bool
 	{
 		if (!exprRoot)
@@ -743,7 +866,19 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		while (!exprStack.empty())
 		{
 			const StackEntry entry = exprStack.top();
-			exprStack.pop();
+			if (entry.visited)
+			{
+				exprStack.pop();
+				// this is the whole reason why we're using a post-order like stack
+				ancestorPrefix.pop_back();
+				continue;
+			}
+			else
+			{
+				exprStack.top().visited = true;
+				// push self into prefix so children can check against it
+				ancestorPrefix.push_back(entry.handle);
+			}
 			const auto* node = entry.node;
 			const auto nodeType = node->getType();
 			const bool nodeIsMul = nodeType==IExprNode::Type::Mul;
@@ -780,6 +915,15 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 						logger.log("Expression too complex, more than %d contributors encountered",ELL_ERROR,MaxContributors);
 						return false;
 					}
+					// detect cycles
+					const auto found = std::find(ancestorPrefix.begin(),ancestorPrefix.end(),childHandle);
+					if (found!=ancestorPrefix.end())
+					{
+						logger.log("Expression contains a cycle involving node %d of type %s",ELL_ERROR,childHandle,getTypeName(childHandle).data());
+						return false;
+					}
+					// cannot optimize with `unordered_set visitedNodes` because we need to check contributor slots, if we really wanted to we could do it with an
+					// `unordered_map` telling us the contributor slot range remapping (and presence of contributor) but right now it would be premature optimization.
 					exprStack.push(newEntry);
 				}
 				else if (childHandle)
@@ -808,15 +952,30 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		}
 		return true;
 	};
-	while (!layerStack.empty())
+
+	core::vector<const CLayer*> layerStack;
+	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
 	{
-		const auto* layer = layerStack.top();
-		layerStack.pop();
-		if (layer->coated && !pushLayer(layer->coated))
+		const auto* layer = deref(layerHandle);
+		if (!layer)
 		{
-			logger.log("\tcoatee %d was specificed but is of wrong type",ELL_ERROR,layer->coated);
+			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).data());
 			return false;
 		}
+		auto found = std::find(layerStack.begin(),layerStack.end(),layer);
+		if (found!=layerStack.end())
+		{
+			logger.log("Layer node %u is involved in a Cycle!",ELL_ERROR,layerHandle.untyped.value);
+			return false;
+		}
+		layerStack.push_back(layer);
+		return true;
+	};
+	if (!pushLayer(rootHandle))
+		return false;
+	while (true)
+	{
+		const auto* layer = layerStack.back();
 		if (!layer->brdfTop && !layer->btdf && !layer->brdfBottom)
 		{
 			logger.log("At least one BRDF or BTDF in the Layer is required.",ELL_ERROR);
@@ -828,6 +987,13 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 			return false;
 		if (!validateExpression(layer->brdfBottom,false))
 			return false;
+		if (!layer->coated)
+			break;
+		if (!pushLayer(layer->coated))
+		{
+			logger.log("\tcoatee %d was specificed but is invalid!",ELL_ERROR,layer->coated);
+			return false;
+		}
 	}
 	return true;
 }

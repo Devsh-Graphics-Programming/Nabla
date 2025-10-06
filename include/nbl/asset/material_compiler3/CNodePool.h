@@ -25,7 +25,8 @@ class CNodePool : public core::IReferenceCounted
 			using value_t = uint32_t;
 			constexpr static inline value_t Invalid = ~value_t(0);
 
-			inline operator bool() const {return value!=Invalid;}
+			explicit inline operator bool() const {return value!=Invalid;}
+			inline bool operator==(const Handle& other) const {return value==other.value;}
 
 			// also serves as a byte offset into the pool
 			value_t value = Invalid;
@@ -64,11 +65,11 @@ class CNodePool : public core::IReferenceCounted
 				inline CDebugInfo(const void* data, const uint32_t size) : m_size(size)
 				{
 					if (data)
-						memcpy(this+1,data,m_size);
+						memcpy(std::launder(this+1),data,m_size);
 				}
 				inline CDebugInfo(const std::string_view& view) : CDebugInfo(nullptr,view.length()+1)
 				{
-					auto* out = reinterpret_cast<char*>(this+1);
+					auto* out = std::launder(reinterpret_cast<char*>(this+1));
 					if (m_size>1)
 						memcpy(out,view.data(),m_size);
 					out[m_size-1] = 0;
@@ -76,7 +77,7 @@ class CNodePool : public core::IReferenceCounted
 
 				inline const std::span<const uint8_t> data() const
 				{
-					return {reinterpret_cast<const uint8_t*>(this+1),m_size};
+					return {std::launder(reinterpret_cast<const uint8_t*>(this+1)),m_size};
 				}
 
 			protected:
@@ -89,7 +90,8 @@ class CNodePool : public core::IReferenceCounted
 		{
 			using node_type = T;
 			
-			inline operator bool() const {return untyped;}
+			explicit inline operator bool() const {return bool(untyped);}
+			inline bool operator==(const TypedHandle& other) const {return untyped==other.untyped;}
 
 			inline operator const TypedHandle<const T>&() const
 			{
@@ -117,6 +119,13 @@ class CNodePool : public core::IReferenceCounted
 		}
 
 	protected:
+		struct HandleHash
+		{
+			inline size_t operator()(const TypedHandle<const INode> handle) const
+			{
+				return std::hash<Handle::value_t>()(handle.untyped.value);
+			}
+		};
 		// save myself some typing
 		using refctd_pmr_t = core::smart_refctd_ptr<core::refctd_memory_resource>;
 
@@ -174,6 +183,7 @@ class CNodePool : public core::IReferenceCounted
 			const uint32_t size = ptr->getSize();
 			static_cast<INode*>(ptr)->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 			// wipe v-table to mark as dead (so `~CNodePool` doesn't run destructor twice)
+			// NOTE: This won't work if we start reusing memory, even zeroing out the whole node won't work! Then need an accurate record of live nodes!
 			const void* nullVTable = nullptr;
 			assert(memcmp(ptr,&nullVTable,sizeof(nullVTable))!=0); // double free
 			memset(static_cast<INode*>(ptr),0,sizeof(nullVTable));
@@ -196,6 +206,7 @@ class CNodePool : public core::IReferenceCounted
 				for (auto handleOff=chunk.getAllocator().get_total_size(); handleOff<chunkSize; handleOff+=sizeof(Handle))
 				{
 					const auto pHandle = reinterpret_cast<const Handle*>(chunk.m_data+handleOff);
+					// NOTE: This won't work if we start reusing memory, even zeroing out the whole node won't work! Then need an accurate record of live nodes!
 					if (auto* node=deref<INode>(*pHandle); node)
 						node->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 				}
@@ -207,7 +218,7 @@ class CNodePool : public core::IReferenceCounted
 		struct Chunk
 		{
 			// for now using KISS, we can use geeneralpupose allocator later
-			// Generalpurpose woudl require us to store the allocated handle list in a different way, so that handles can be quickly removed from it.
+			// Generalpurpose would require us to store the allocated handle list in a different way, so that handles can be quickly removed from it.
 			// Maybe a doubly linked list around the original allocation?
 			using allocator_t = core::LinearAddressAllocatorST<Handle::value_t>;
 
@@ -232,8 +243,9 @@ class CNodePool : public core::IReferenceCounted
 						return invalid_address;
 					}
 					// clear vtable to mark as not initialized yet
+					// TODO: this won't work with reusable memory / not bump allocator
 					memset(m_data+retval,0,sizeof(INode));
-					*reinterpret_cast<Handle::value_t*>(m_data+newSize) = retval;
+					*std::launder(reinterpret_cast<Handle::value_t*>(m_data+newSize)) = retval;
 					// shrink allocator
 					getAllocator() = allocator_t(newSize, std::move(getAllocator()), nullptr);
 				}
@@ -264,9 +276,9 @@ class CNodePool : public core::IReferenceCounted
 					return ptr;
 				else
 				{
-					if (*reinterpret_cast<const void* const*>(ptr)) // vtable not wiped
+					if (*std::launder(reinterpret_cast<const void* const*>(ptr))) // vtable not wiped
 					{
-						auto* base = reinterpret_cast<INode*>(ptr);
+						auto* base = std::launder(reinterpret_cast<INode*>(ptr));
 						return dynamic_cast<T*>(base);
 					}
 				}

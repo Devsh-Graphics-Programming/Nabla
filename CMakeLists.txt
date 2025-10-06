@@ -28,7 +28,7 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla
-	VERSION 0.7.2.0 
+	VERSION 0.8.0.1 
 	HOMEPAGE_URL "https://www.devsh.eu/nabla"
 	LANGUAGES CXX C
 )
