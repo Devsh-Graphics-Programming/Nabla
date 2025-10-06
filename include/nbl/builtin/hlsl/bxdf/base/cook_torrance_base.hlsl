@@ -115,30 +115,6 @@ struct getOrientedFresnel<F, true NBL_PARTIAL_REQ_BOT(fresnel::TwoSidedFresnel<F
         return fresnel.getReorientedFresnel(NdotV);
     }
 };
-
-template<class F, typename Spectral, bool IsAnisotropic>
-struct CookTorranceParams;
-
-template<class F, typename Spectral>
-struct CookTorranceParams<F,Spectral,false>
-{
-    using scalar_type = typename F::scalar_type;
-    using spectral_type = Spectral;
-
-    scalar_type A;
-    F fresnel;
-};
-
-template<class F, typename Spectral>
-struct CookTorranceParams<F,Spectral,true>
-{
-    using scalar_type = typename F::scalar_type;
-    using spectral_type = Spectral;
-
-    scalar_type ax;
-    scalar_type ay;
-    F fresnel;
-};
 }
 
 // N (NDF), F (fresnel)
@@ -154,25 +130,6 @@ struct SCookTorrance
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ndf_type::IsAnisotropic;
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::NDFSurfaceType != ndf::MTT_REFLECT;
-
-    using creation_params_type = impl::CookTorranceParams<fresnel_type, spectral_type, IsAnisotropic>;
-
-    template<typename C=bool_constant<!IsAnisotropic> >
-    static enable_if_t<C::value && !IsAnisotropic, this_t> create(NBL_CONST_REF_ARG(creation_params_type) params)
-    {
-        this_t retval;
-        retval.ndf = ndf_type::create(params.A);
-        retval.fresnel = params.fresnel;
-        return retval;
-    }
-    template<typename C=bool_constant<IsAnisotropic> >
-    static enable_if_t<C::value && IsAnisotropic, this_t> create(NBL_CONST_REF_ARG(creation_params_type) params)
-    {
-        this_t retval;
-        retval.ndf = ndf_type::create(params.ax, params.ay);
-        retval.fresnel = params.fresnel;
-        return retval;
-    }
 
     template<class Interaction, class MicrofacetCache>
     spectral_type __eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
