@@ -451,6 +451,9 @@ if (NBL_BUILD_BULLET)
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
 
+add_library(Vulkan-Tools OBJECT "Vulkan-Tools/vulkaninfo/vulkaninfo.cpp")
+target_include_directories(Vulkan-Tools INTERFACE "Vulkan-Tools/vulkaninfo")
+
 # Final gather
 set(NBL_3RDPARTY_TARGETS
 				lzma
@@ -472,6 +475,7 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
+				Vulkan-Tools
 				Imath
 				freetype
 				${NBL_MSDFGEN_TARGETS}
