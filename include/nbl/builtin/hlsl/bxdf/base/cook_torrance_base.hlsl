@@ -91,7 +91,7 @@ struct check_TIR_helper<F, true>
     }
 };
 
-template<class F, bool IsBSDF>
+template<class F, bool IsBSDF NBL_STRUCT_CONSTRAINABLE>
 struct getOrientedFresnel;
 
 template<class F>
@@ -105,14 +105,14 @@ struct getOrientedFresnel<F, false>
 };
 
 template<class F>
-struct getOrientedFresnel<F, true>
+NBL_PARTIAL_REQ_TOP(fresnel::TwoSidedFresnel<F>)
+struct getOrientedFresnel<F, true NBL_PARTIAL_REQ_BOT(fresnel::TwoSidedFresnel<F>) >
 {
     using scalar_type = typename F::scalar_type;
 
     static F __call(NBL_CONST_REF_ARG(F) fresnel, scalar_type NdotV)
     {
-        fresnel::OrientedEtas<typename F::vector_type> orientedEta = fresnel::OrientedEtas<typename F::vector_type>::create(NdotV, fresnel.orientedEta.value);
-        return F::create(orientedEta);
+        return fresnel.getReorientedFresnel(NdotV);
     }
 };
 
@@ -153,7 +153,7 @@ struct SCookTorrance
     using fresnel_type = F;
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ndf_type::IsAnisotropic;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::IsBSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::NDFSurfaceType != ndf::MTT_REFLECT;
 
     using creation_params_type = impl::CookTorranceParams<fresnel_type, spectral_type, IsAnisotropic>;
 

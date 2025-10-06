@@ -18,19 +18,19 @@ namespace ndf
 
 enum MicrofacetTransformTypes : uint16_t
 {
-    MTT_REFLECT = 0b01,
-    MTT_REFRACT = 0b10,
-    MTT_REFLECT_REFRACT = 0b11
+   MTT_REFLECT = 0b01,
+   MTT_REFRACT = 0b10,
+   MTT_REFLECT_REFRACT = 0b11
 };
 
 
 template<typename T>
 struct SDualMeasureQuant
 {
-    using value_type = T;
-    
-    T microfacetMeasure;
-    T projectedLightMeasure;
+   using value_type = T;
+   
+   T microfacetMeasure;
+   T projectedLightMeasure;
 };
 
 namespace impl

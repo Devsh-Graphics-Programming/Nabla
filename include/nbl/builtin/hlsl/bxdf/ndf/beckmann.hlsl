@@ -87,10 +87,12 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
+        if (a2 < numeric_limits<scalar_type>::min)
+            return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         scalar_type NdotH2 = cache.getNdotH2();
         scalar_type nom = exp2<scalar_type>((NdotH2 - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * NdotH2));
         scalar_type denom = a2 * NdotH2 * NdotH2;
-        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), numbers::inv_pi<scalar_type> * nom / denom, a2 > numeric_limits<scalar_type>::min);
+        return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
     template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
@@ -101,6 +103,7 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
 
     scalar_type C2(scalar_type NdotX2)
     {
+        assert(NdotX2 >= scalar_type(0.0));
         return NdotX2 / (a2 * (scalar_type(1.0) - NdotX2));
     }
 
@@ -143,10 +146,12 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
+        if (a2 < numeric_limits<scalar_type>::min)
+            return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         scalar_type NdotH2 = cache.getNdotH2();
         scalar_type nom = exp<scalar_type>(-(cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2) / NdotH2);
         scalar_type denom = a2 * NdotH2 * NdotH2;
-        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), numbers::inv_pi<scalar_type> * nom / denom, a2 > numeric_limits<scalar_type>::min);
+        return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
     template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1Query<Query>)
@@ -290,6 +295,7 @@ struct Beckmann
     using quant_query_type = impl::NDFQuantQuery<scalar_type>;
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = _IsAnisotropic;
+    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes NDFSurfaceType = reflect_refract;
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = reflect_refract != MTT_REFLECT;
     template<class Interaction>
     NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IsAnisotropic ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;

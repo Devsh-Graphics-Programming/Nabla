@@ -90,8 +90,10 @@ struct GGXCommon<T,IsBSDF,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
+        if (a2 < numeric_limits<scalar_type>::min)
+            return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         scalar_type denom = scalar_type(1.0) - one_minus_a2 * cache.getNdotH2();
-        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), a2 * numbers::inv_pi<scalar_type> / (denom * denom), a2 > numeric_limits<scalar_type>::min);
+        return a2 * numbers::inv_pi<scalar_type> / (denom * denom);
     }
 
     template<class Query NBL_FUNC_REQUIRES(ggx_concepts::DG1Query<Query>)
@@ -104,11 +106,6 @@ struct GGXCommon<T,IsBSDF,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
     {
         assert(a2 >= numeric_limits<scalar_type>::min);
         return sqrt(a2 + one_minus_a2 * NdotX2);
-    }
-
-    scalar_type G1_wo_numerator(scalar_type absNdotX, scalar_type NdotX2)
-    {
-        return scalar_type(1.0) / (absNdotX + devsh_part(NdotX2));
     }
 
     static scalar_type G1_wo_numerator_devsh_part(scalar_type absNdotX, scalar_type devsh_part)
@@ -172,8 +169,10 @@ struct GGXCommon<T,IsBSDF,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
+        if (a2 < numeric_limits<scalar_type>::min)
+            return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         scalar_type denom = cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2 + cache.getNdotH2();
-        return hlsl::mix(bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity), numbers::inv_pi<scalar_type> / (a2 * denom * denom), a2 > numeric_limits<scalar_type>::min);
+        return numbers::inv_pi<scalar_type> / (a2 * denom * denom);
     }
 
     // TODO: potential idea for making GGX spin using covariance matrix of sorts: https://www.desmos.com/3d/weq2ginq9o
@@ -189,11 +188,6 @@ struct GGXCommon<T,IsBSDF,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar
     {
         assert(ax2 >= numeric_limits<scalar_type>::min && ay2 >= numeric_limits<scalar_type>::min);
         return sqrt(TdotX2 * ax2 + BdotX2 * ay2 + NdotX2);
-    }
-
-    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
-    {
-        return scalar_type(1.0) / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2));
     }
 
     static scalar_type G1_wo_numerator_devsh_part(scalar_type NdotX, scalar_type devsh_part)
@@ -285,6 +279,7 @@ template<typename T, bool _IsAnisotropic, MicrofacetTransformTypes reflect_refra
 struct GGX
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = _IsAnisotropic;
+    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes NDFSurfaceType = reflect_refract;
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = reflect_refract != MTT_REFLECT;
 
     using this_t = GGX<T, _IsAnisotropic, reflect_refract>;
@@ -346,7 +341,7 @@ struct GGX
         dg1_query_type dg1_query;
         dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache);
         scalar_type clampedNdotV = interaction.getNdotV(_clamp);
-        dg1_query.G1_over_2NdotV = __ndf_base.G1_wo_numerator(clampedNdotV, interaction.getNdotV2());
+        dg1_query.G1_over_2NdotV = base_type::G1_wo_numerator_devsh_part(clampedNdotV, __ndf_base.devsh_part(interaction.getNdotV2()));
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
@@ -363,7 +358,7 @@ struct GGX
         dg1_query_type dg1_query;
         dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache);
         scalar_type clampedNdotV = interaction.getNdotV(_clamp);
-        dg1_query.G1_over_2NdotV = __ndf_base.G1_wo_numerator(clampedNdotV, interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        dg1_query.G1_over_2NdotV = base_type::G1_wo_numerator_devsh_part(clampedNdotV, __ndf_base.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)

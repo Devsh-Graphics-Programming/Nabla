@@ -319,6 +319,22 @@ NBL_CONCEPT_END(
 #undef fresnel
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+#define NBL_CONCEPT_NAME TwoSidedFresnel
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (fresnel, T)
+#define NBL_CONCEPT_PARAM_1 (cosTheta, typename T::scalar_type)
+NBL_CONCEPT_BEGIN(2)
+#define fresnel NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define cosTheta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Fresnel, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getReorientedFresnel(cosTheta)), ::nbl::hlsl::is_same_v, T))
+);
+#undef cosTheta
+#undef fresnel
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct Schlick
 {
@@ -458,6 +474,12 @@ struct Dielectric
 
     OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
     OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
+
+    Dielectric<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtas<T> eta = OrientedEtas<T>::create(NdotI, orientedEta.value);
+        return Dielectric<T>::create(eta);
+    }
 
     OrientedEtas<T> orientedEta;
     T orientedEta2;
