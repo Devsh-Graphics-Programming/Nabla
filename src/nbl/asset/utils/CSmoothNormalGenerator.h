@@ -29,6 +29,7 @@ class CSmoothNormalGenerator
 				collection_t::iterator end;
 			};
 
+
 		public:
 			VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
 
@@ -40,20 +41,44 @@ class CSmoothNormalGenerator
 
 			inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
-			uint8_t getNeighboringCellHashes(uint32_t* outNeighbours, const CPolygonGeometryManipulator::SSNGVertexData& vertex);
+      uint8_t getNeighboringCellHashes(uint32_t* outNeighbours, const CPolygonGeometryManipulator::SSNGVertexData& vertex);
 
-			inline uint32_t getBucketCount() { return m_buckets.size(); }
-			inline BucketBounds getBucketBoundsById(uint32_t index) const { return { m_buckets[index], m_buckets[index + 1] }; }
 			BucketBounds getBucketBoundsByHash(uint32_t hash);
 
+			const collection_t& vertices() const { return m_vertices; }
+
 		private:
+      struct KeyAccessor
+      {
+        _NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
+
+        template<auto bit_offset, auto radix_mask>
+        inline decltype(radix_mask) operator()(const CPolygonGeometryManipulator::SSNGVertexData& item) const
+        {
+          return static_cast<decltype(radix_mask)>(item.hash>>static_cast<uint32_t>(bit_offset))&radix_mask;
+        }
+      };
+
 			static constexpr uint32_t invalidHash = 0xFFFFFFFF;
       static constexpr uint32_t primeNumber1 = 73856093;
       static constexpr uint32_t primeNumber2 = 19349663;
       static constexpr uint32_t primeNumber3 = 83492791;
 
-			//holds iterators pointing to beginning of each bucket, last iterator points to m_vertices.end()
-			core::vector<collection_t::iterator> m_buckets;
+			using sorter_t = std::variant<
+        core::LSBSorter<KeyAccessor::key_bit_count, uint16_t>,
+				core::LSBSorter<KeyAccessor::key_bit_count, uint32_t>,
+				core::LSBSorter<KeyAccessor::key_bit_count, size_t>>;
+			sorter_t m_sorter;
+
+			static sorter_t createSorter(size_t vertexCount)
+			{
+        if (vertexCount < (0x1ull << 16ull))
+          return core::LSBSorter<KeyAccessor::key_bit_count,uint16_t>();
+        if (vertexCount< (0x1ull << 32ull))
+          return core::LSBSorter<KeyAccessor::key_bit_count,uint32_t>();
+			  return core::LSBSorter<KeyAccessor::key_bit_count,size_t>();
+			}
+
 			collection_t m_vertices;
 			const uint32_t m_hashTableMaxSize;
 			const float m_cellSize;

@@ -38,10 +38,10 @@ constexpr int8_t find_msb(const T& a_variable)
 {
     static_assert(std::is_unsigned<T>::value, "Variable must be unsigned");
 
-    constexpr uint8_t number_of_bits = std::numeric_limits<T>::digits;
+    constexpr int8_t number_of_bits = std::numeric_limits<T>::digits;
     const std::bitset<number_of_bits> variable_bitset{a_variable};
 
-    for (uint8_t msb = number_of_bits - 1; msb >= 0; msb--)
+    for (int8_t msb = number_of_bits - 1; msb >= 0; msb--)
     {
         if (variable_bitset[msb] == 1)
             return msb;
@@ -49,12 +49,15 @@ constexpr int8_t find_msb(const T& a_variable)
     return -1;
 }
 
+
+}
+
 template<size_t key_bit_count, typename histogram_t>
-struct RadixSorter
+struct LSBSorter
 {
 		_NBL_STATIC_INLINE_CONSTEXPR uint16_t histogram_bytesize = 8192u;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);
-		_NBL_STATIC_INLINE_CONSTEXPR uint8_t radix_bits = find_msb(histogram_size);
+		_NBL_STATIC_INLINE_CONSTEXPR uint8_t radix_bits = impl::find_msb(histogram_size);
 		_NBL_STATIC_INLINE_CONSTEXPR size_t last_pass = (key_bit_count-1ull)/size_t(radix_bits);
 		_NBL_STATIC_INLINE_CONSTEXPR uint16_t radix_mask = (1u<<radix_bits)-1u;
 
@@ -63,6 +66,14 @@ struct RadixSorter
 		{
 			return pass<RandomIt,KeyAccessor,0ull>(input,output,rangeSize,comp);
 		}
+
+    std::pair<histogram_t, histogram_t> getHashBound(size_t key) const
+		{
+			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits * last_pass);
+			const auto histogramIx = (key >> shift) & radix_mask;
+			return { histogram[histogramIx], histogram[histogramIx + 1] };
+		}
+
 	private:
 		template<class RandomIt, class KeyAccessor, size_t pass_ix>
 		inline RandomIt pass(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
@@ -91,19 +102,17 @@ struct RadixSorter
 		alignas(sizeof(histogram_t)) histogram_t histogram[histogram_size];
 };
 
-}
-
 template<class RandomIt, class KeyAccessor>
 inline RandomIt radix_sort(RandomIt input, RandomIt scratch, const size_t rangeSize, const KeyAccessor& comp)
 {
 	assert(std::abs(std::distance(input,scratch))>=rangeSize);
 
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<16ull))
-		return impl::RadixSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
+		return LSBSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<32ull))
-		return impl::RadixSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
+		return LSBSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
 	else
-		return impl::RadixSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
+		return LSBSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
 }
 
 //! Because Radix Sort needs O(2n) space and a number of passes dependant on the key length, the final sorted range can be either in `input` or `scratch`

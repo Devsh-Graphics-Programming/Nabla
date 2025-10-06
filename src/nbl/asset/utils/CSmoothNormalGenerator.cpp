@@ -84,14 +84,14 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::calculateNor
 	return smoothPolygon;
 }
 
-CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize)
-	:m_hashTableMaxSize(_hashTableMaxSize),
-	m_cellSize(_cellSize)
+CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize) :
+    m_sorter(createSorter(_vertexCount)),
+    m_hashTableMaxSize(_hashTableMaxSize),
+    m_cellSize(_cellSize)
 {
-	assert((core::isPoT(m_hashTableMaxSize)));
+  assert((core::isPoT(m_hashTableMaxSize)));
 
-	m_vertices.reserve(_vertexCount);
-	m_buckets.reserve(_hashTableMaxSize + 1);
+  m_vertices.reserve(_vertexCount);
 }
 
 uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const CPolygonGeometryManipulator::SSNGVertexData & vertex) const
@@ -121,8 +121,14 @@ CSmoothNormalGenerator::VertexHashMap::BucketBounds CSmoothNormalGenerator::Vert
 	if (hash == invalidHash)
 		return { m_vertices.end(), m_vertices.end() };
 
-	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin = std::lower_bound(m_vertices.begin(), m_vertices.end(), hash);
-	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end = std::upper_bound(m_vertices.begin(), m_vertices.end(), hash);
+	const auto skipListBound = std::visit([&](auto& sorter)
+	{
+	  auto hashBound = sorter.getHashBound(hash);
+		return std::pair<collection_t::iterator, collection_t::iterator>(m_vertices.begin() + hashBound.first, m_vertices.begin() + hashBound.second);
+	}, m_sorter);
+
+  auto begin = std::lower_bound(skipListBound.first, skipListBound.second, hash);
+	auto end = std::upper_bound(skipListBound.first, skipListBound.second, hash);
 
 	//bucket missing
 	if (begin == m_vertices.end())
@@ -135,22 +141,12 @@ CSmoothNormalGenerator::VertexHashMap::BucketBounds CSmoothNormalGenerator::Vert
 	return { begin, end };
 }
 
-struct KeyAccessor
-{
-	_NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
-
-	template<auto bit_offset, auto radix_mask>
-	inline decltype(radix_mask) operator()(const CPolygonGeometryManipulator::SSNGVertexData& item) const
-	{
-		return static_cast<decltype(radix_mask)>(item.hash>>static_cast<uint32_t>(bit_offset))&radix_mask;
-	}
-};
 void CSmoothNormalGenerator::VertexHashMap::validate()
 {
 	const auto oldSize = m_vertices.size();
 	m_vertices.resize(oldSize*2u);
 	// TODO: maybe use counting sort (or big radix) and use the histogram directly for the m_buckets
-	auto finalSortedOutput = core::radix_sort(m_vertices.data(),m_vertices.data()+oldSize,oldSize,KeyAccessor());
+	auto finalSortedOutput = std::visit( [&](auto& sorter) { return sorter(m_vertices.data(), m_vertices.data() + oldSize, oldSize, KeyAccessor()); },m_sorter );
 	// TODO: optimize out the erase
 	if (finalSortedOutput != m_vertices.data())
 		m_vertices.erase(m_vertices.begin(), m_vertices.begin() + oldSize);
@@ -160,19 +156,6 @@ void CSmoothNormalGenerator::VertexHashMap::validate()
 	// TODO: are `m_buckets` even begin USED!?
 	uint16_t prevHash = m_vertices[0].hash;
 	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator prevBegin = m_vertices.begin();
-	m_buckets.push_back(prevBegin);
-
-	while (true)
-	{
-		core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator next = std::upper_bound(prevBegin, m_vertices.end(), prevHash);
-		m_buckets.push_back(next);
-
-		if (next == m_vertices.end())
-			break;
-
-		prevBegin = next;
-		prevHash = next->hash;
-	}
 }
 
 CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const asset::ICPUPolygonGeometry* polygon, float epsilon)
@@ -229,35 +212,31 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalPtr());
 	auto normalStride = outPolygon->getNormalView().composed.stride;
 
-	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
-	{
-		VertexHashMap::BucketBounds processedBucket = vertexHashMap.getBucketBoundsById(cell);
 
-		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
-		{
-			std::array<uint32_t, 8> neighboringCells;
-		  const auto cellCount = vertexHashMap.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
-			hlsl::float32_t3 normal = processedVertex->weightedNormal;
+  for (auto processedVertex = vertexHashMap.vertices().begin(); processedVertex != vertexHashMap.vertices().end(); processedVertex++)
+  {
+    std::array<uint32_t, 8> neighboringCells;
+    const auto cellCount = vertexHashMap.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
+    hlsl::float32_t3 normal = processedVertex->weightedNormal;
 
-			//iterate among all neighboring cells
-			for (int i = 0; i < cellCount; i++)
-			{
-				VertexHashMap::BucketBounds bounds = vertexHashMap.getBucketBoundsByHash(neighboringCells[i]);
-				for (; bounds.begin != bounds.end; bounds.begin++)
-				{
-					if (processedVertex != bounds.begin)
-						if (compareVertexPosition(processedVertex->position, bounds.begin->position, epsilon) &&
-							vxcmp(*processedVertex, *bounds.begin, polygon))
-						{
-							//TODO: better mean calculation algorithm
-							normal += bounds.begin->weightedNormal;
-						}
-				}
-			}
-			normal = normalize(normal);
-		  memcpy(normalPtr + (normalStride * processedVertex->index), &normal, sizeof(normal));
-		}
-	}
+    //iterate among all neighboring cells
+    for (uint8_t i = 0; i < cellCount; i++)
+    {
+      VertexHashMap::BucketBounds bounds = vertexHashMap.getBucketBoundsByHash(neighboringCells[i]);
+      for (; bounds.begin != bounds.end; bounds.begin++)
+      {
+        if (processedVertex != bounds.begin)
+          if (compareVertexPosition(processedVertex->position, bounds.begin->position, epsilon) &&
+            vxcmp(*processedVertex, *bounds.begin, polygon))
+          {
+            //TODO: better mean calculation algorithm
+            normal += bounds.begin->weightedNormal;
+          }
+      }
+    }
+    normal = normalize(normal);
+    memcpy(normalPtr + (normalStride * processedVertex->index), &normal, sizeof(normal));
+  }
 
 	CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
 
@@ -343,49 +322,44 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 		return true;
   };
 
-	for (uint32_t cell = 0; cell < vertices.getBucketCount() - 1; cell++)
-	{
-		VertexHashMap::BucketBounds processedBucket = vertices.getBucketBoundsById(cell);
+  for (auto processedVertex = vertices.vertices().begin(); processedVertex != vertices.vertices().end(); processedVertex++)
+  {
+    std::array<uint32_t, 8> neighboringCells;
+    const auto cellCount = vertices.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
 
-		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
-		{
-			std::array<uint32_t, 8> neighboringCells;
-		  const auto cellCount = vertices.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
+    auto& groupIndex = groupIndexes[processedVertex->index];
 
-			auto& groupIndex = groupIndexes[processedVertex->index];
+    //iterate among all neighboring cells
+    for (int i = 0; i < cellCount; i++)
+    {
+      VertexHashMap::BucketBounds bounds = vertices.getBucketBoundsByHash(neighboringCells[i]);
+      for (auto neighbourVertex_it = bounds.begin; neighbourVertex_it != bounds.end; neighbourVertex_it++)
+      {
+        const auto neighbourGroupIndex = groupIndexes[neighbourVertex_it->index];
 
-			//iterate among all neighboring cells
-			for (int i = 0; i < cellCount; i++)
-			{
-				VertexHashMap::BucketBounds bounds = vertices.getBucketBoundsByHash(neighboringCells[i]);
-				for (auto neighbourVertex_it = bounds.begin; neighbourVertex_it != bounds.end; neighbourVertex_it++)
-				{
-					const auto neighbourGroupIndex = groupIndexes[neighbourVertex_it->index];
+        hlsl::float32_t3 normal1, normal2;
+        polygon->getNormalView().decodeElement(processedVertex->index, normal1);
+        polygon->getNormalView().decodeElement(neighbourVertex_it->index, normal2);
 
-					hlsl::float32_t3 normal1, normal2;
-					polygon->getNormalView().decodeElement(processedVertex->index, normal1);
-					polygon->getNormalView().decodeElement(neighbourVertex_it->index, normal2);
+        hlsl::float32_t3 position1, position2;
+        polygon->getPositionView().decodeElement(processedVertex->index, position1);
+        polygon->getPositionView().decodeElement(neighbourVertex_it->index, position2);
 
-					hlsl::float32_t3 position1, position2;
-					polygon->getPositionView().decodeElement(processedVertex->index, position1);
-					polygon->getPositionView().decodeElement(neighbourVertex_it->index, position2);
-					 
-					// find the first group that this vertex can join
-					if (processedVertex != neighbourVertex_it && neighbourGroupIndex && canJoinVertices(processedVertex->index, neighbourVertex_it->index))
-					{
-						groupIndex = neighbourGroupIndex;
-						break;
-					}
-				}
-			}
-			if (!groupIndex)
-			{
-        // create new group if no group nearby that is compatible with this vertex
-        groupIndex = groups.size();
-        groups.push_back({ processedVertex->index});
-			}
-		}
-	}
+        // find the first group that this vertex can join
+        if (processedVertex != neighbourVertex_it && neighbourGroupIndex && canJoinVertices(processedVertex->index, neighbourVertex_it->index))
+        {
+          groupIndex = neighbourGroupIndex;
+          break;
+        }
+      }
+    }
+    if (!groupIndex)
+    {
+      // create new group if no group nearby that is compatible with this vertex
+      groupIndex = groups.size();
+      groups.push_back({ processedVertex->index});
+    }
+  }
 
   auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 	outPolygon->setIndexing(IPolygonGeometryBase::TriangleList());
