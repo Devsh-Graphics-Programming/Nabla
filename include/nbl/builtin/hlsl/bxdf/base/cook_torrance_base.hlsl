@@ -87,7 +87,7 @@ struct check_TIR_helper<F, true>
     template<class MicrofacetCache>
     static bool __call(NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return ComputeMicrofacetNormal<typename F::scalar_type>::isValidMicrofacet(cache.isTransmission(), cache.getVdotL(), cache.getAbsNdotH(), fresnel.orientedEta);
+        return ComputeMicrofacetNormal<typename F::scalar_type>::isValidMicrofacet(cache.isTransmission(), cache.getVdotL(), cache.getAbsNdotH(), fresnel.getRefractionOrientedEta());
     }
 };
 

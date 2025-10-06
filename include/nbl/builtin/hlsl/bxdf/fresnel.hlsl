@@ -312,6 +312,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel(cosTheta)), ::nbl::hlsl::is_same_v, typename T::vector_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, OrientedEtas<typename T::vector_type>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getOrientedEtaRcps()), ::nbl::hlsl::is_same_v, OrientedEtaRcps<typename T::vector_type>))
 );
 #undef cosTheta
 #undef fresnel
@@ -336,6 +338,24 @@ struct Schlick
         assert(hlsl::all(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0)));
         T x = 1.0 - clampedCosTheta;
         return F0 + (1.0 - F0) * x*x*x*x*x;
+    }
+
+    OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC
+    {
+        const T sqrtF0 = hlsl::sqrt(F0);        
+        OrientedEtas<T> orientedEta;
+        orientedEta.value = (hlsl::promote<T>(1.0) + sqrtF0) / (hlsl::promote<T>(1.0) - sqrtF0);
+        orientedEta.rcp = hlsl::promote<T>(1.0) / orientedEta.value;
+        return orientedEta;
+    }
+
+    OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        const T sqrtF0 = hlsl::sqrt(F0);        
+        OrientedEtaRcps<T> rcpEta;
+        rcpEta.value = (hlsl::promote<T>(1.0) - sqrtF0) / (hlsl::promote<T>(1.0) + sqrtF0);
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
     }
 
     T F0;
@@ -382,6 +402,22 @@ struct Conductor
         return (rs2 + rp2) * 0.5f;
     }
 
+    OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtas<T> orientedEta;
+        orientedEta.value = eta;
+        orientedEta.rcp = hlsl::promote<T>(1.0) / eta;
+        return orientedEta;
+    }
+
+    OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtaRcps<T> rcpEta;
+        rcpEta.value = hlsl::promote<T>(1.0) / eta;
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
+    }
+
     T eta;
     T etak2;
     T etaLen2;
@@ -420,6 +456,7 @@ struct Dielectric
         return __call(orientedEta2, clampedCosTheta);
     }
 
+    OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
     OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
 
     OrientedEtas<T> orientedEta;
