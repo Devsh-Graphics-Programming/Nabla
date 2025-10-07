@@ -694,6 +694,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<typename T::scalar_type> > >,SLightSample<ray_dir_info::SBasic<typename T::scalar_type> > >(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,V,V,V,eta,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<typename T::scalar_type> > >,SLightSample<ray_dir_info::SBasic<typename T::scalar_type> > >(aniso,_sample,eta)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createPartial(pNdotL,pNdotL,pNdotL,b0,rcp_eta)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR)(cache.fillTangents(V,V,V)))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
 );
 #undef rcp_eta
@@ -720,8 +722,8 @@ struct SAnisotropicMicrofacetCache
     static this_t createForReflection(const vector3_type tangentSpaceV, const vector3_type tangentSpaceH)
     {
         this_t retval;
-
         retval.iso_cache.VdotH = nbl::hlsl::dot<vector3_type>(tangentSpaceV,tangentSpaceH);
+        retval.iso_cache.VdotL = scalar_type(2.0) * retval.iso_cache.VdotH * retval.iso_cache.VdotH - scalar_type(1.0);
         retval.iso_cache.LdotH = retval.iso_cache.getVdotH();
         assert(tangentSpaceH.z >= scalar_type(0.0));
         retval.iso_cache.absNdotH = tangentSpaceH.z;
@@ -743,6 +745,7 @@ struct SAnisotropicMicrofacetCache
         {
             Refract<scalar_type> r = Refract<scalar_type>::create(tangentSpaceV, tangentSpaceH);
             retval.iso_cache.LdotH = r.getNdotT(rcpOrientedEta.value2[0]);
+            retval.iso_cache.VdotL = retval.iso_cache.VdotH * (retval.iso_cache.LdotH - rcpOrientedEta.value[0] + retval.iso_cache.VdotH * rcpOrientedEta.value[0]);
         }
 
         return retval;
@@ -793,21 +796,26 @@ struct SAnisotropicMicrofacetCache
         retval.BdotH = nbl::hlsl::dot<vector3_type>(interaction.getB(),H);
         return retval;
     }
-    static this_t create(
-        const scalar_type VdotH, const vector3_type L, const vector3_type H,
-        const vector3_type T, const vector3_type B, const vector3_type N, bool transmitted
+    static this_t createPartial(
+        const scalar_type VdotH, const scalar_type LdotH, const scalar_type NdotH,
+        bool transmitted, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpOrientedEta
     )
     {
         this_t retval;
         retval.iso_cache.VdotH = VdotH;
-        retval.iso_cache.LdotH = hlsl::mix(VdotH, hlsl::dot(L, H), transmitted);
-        scalar_type NdotH = hlsl::dot(N, H);
+        retval.iso_cache.LdotH = LdotH;
+        retval.iso_cache.VdotL = hlsl::mix(scalar_type(2.0) * retval.iso_cache.VdotH * retval.iso_cache.VdotH - scalar_type(1.0),
+                                VdotH * (LdotH - rcpOrientedEta.value[0] + VdotH * rcpOrientedEta.value[0]), transmitted);
         assert(NdotH > scalar_type(0.0));
         retval.iso_cache.absNdotH = hlsl::abs(NdotH);
         retval.iso_cache.NdotH2 = NdotH * NdotH;
-        retval.TdotH = hlsl::dot(T, H);
-        retval.BdotH = hlsl::dot(B, H);
         return retval;
+    }
+
+    void fillTangents(const vector3_type T, const vector3_type B, const vector3_type H)
+    {
+        TdotH = hlsl::dot(T, H);
+        BdotH = hlsl::dot(B, H);
     }
 
     scalar_type getVdotL() NBL_CONST_MEMBER_FUNC { return iso_cache.getVdotL(); }

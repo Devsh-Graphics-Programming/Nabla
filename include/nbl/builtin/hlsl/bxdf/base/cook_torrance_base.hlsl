@@ -134,30 +134,34 @@ struct SCookTorrance
     template<class Interaction, class MicrofacetCache>
     spectral_type __eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
-        const bool notTIR = impl::check_TIR_helper<fresnel_type, IsBSDF>::template __call<MicrofacetCache>(_f, cache);
-        if ((IsBSDF && notTIR) || (!IsBSDF && _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min))
+        bool valid;
+        fresnel_type _f = fresnel;
+        NBL_IF_CONSTEXPR(IsBSDF)
         {
-            using quant_query_type = typename ndf_type::quant_query_type;
-            using g2g1_query_type = typename ndf_type::g2g1_query_type;
-
-            scalar_type dummy;
-            quant_query_type qq = ndf.template createQuantQuery<MicrofacetCache>(cache, dummy);
-
-            quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
-            scalar_type DG = D.projectedLightMeasure;
-            if (D.microfacetMeasure < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
-            {
-                g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
-                DG *= ndf.template correlated<sample_type, Interaction>(gq, _sample, interaction);
-            }
-            NBL_IF_CONSTEXPR(IsBSDF)
-                return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(cache.getVdotH()))) * DG;
-            else
-                return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(cache.getVdotH())) * DG;
+            _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
+            valid = impl::check_TIR_helper<fresnel_type, IsBSDF>::template __call<MicrofacetCache>(_f, cache);
         }
         else
+            valid = _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min;
+        if (!valid)
             return hlsl::promote<spectral_type>(0.0);
+
+        using quant_query_type = typename ndf_type::quant_query_type;
+        scalar_type dummy;
+        quant_query_type qq = ndf.template createQuantQuery<MicrofacetCache>(cache, dummy);
+
+        quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
+        scalar_type DG = D.projectedLightMeasure;
+        if (D.microfacetMeasure < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        {
+            using g2g1_query_type = typename ndf_type::g2g1_query_type;
+            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+            DG *= ndf.template correlated<sample_type, Interaction>(gq, _sample, interaction);
+        }
+        scalar_type clampedVdotH = cache.getVdotH();
+        NBL_IF_CONSTEXPR(IsBSDF)
+            clampedVdotH = hlsl::abs(clampedVdotH);
+        return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
     }
     template<typename C=bool_constant<!IsAnisotropic> >
     enable_if_t<C::value && !IsAnisotropic, spectral_type> eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
@@ -172,66 +176,100 @@ struct SCookTorrance
     template<typename C=bool_constant<!IsBSDF> >
     enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        ray_dir_info_type localV_raydir = interaction.getV().transform(interaction.getToTangentSpace());
+        if (interaction.getNdotV() > numeric_limits<scalar_type>::min)
+        {
+            ray_dir_info_type invalidL;
+            invalidL.makeInvalid();
+            return sample_type::createFromTangentSpace(invalidL, interaction.getFromTangentSpace());
+        }
+
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type localH = ndf.generateH(localV, u);
+        const scalar_type VdotH = hlsl::dot(localV, localH);
+        const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
 
-        cache = anisocache_type::createForReflection(localV, localH);
-        struct reflect_wrapper
+        ray_dir_info_type L;
+        if (scalar_type(2.0) * VdotH * localH.z > localV.z) // NdotL>0, compiler's Common Subexpression Elimination pass should re-use 2*VdotH later
         {
-            vector3_type operator()() NBL_CONST_MEMBER_FUNC
+            assert(VdotH >= scalar_type(0.0));
+            ray_dir_info_type V = interaction.getV();
+            struct reflect_wrapper  // so we don't recalculate VdotH
             {
-                return r(VdotH);
-            }
-            bxdf::Reflect<scalar_type> r;
-            scalar_type VdotH;
-        };
-        reflect_wrapper r;
-        r.r = bxdf::Reflect<scalar_type>::create(localV, localH);
-        r.VdotH = cache.getVdotH();
-        ray_dir_info_type localL = localV_raydir.template reflect<reflect_wrapper>(r);
+                vector3_type operator()() NBL_CONST_MEMBER_FUNC
+                {
+                    return r(VdotH);
+                }
+                bxdf::Reflect<scalar_type> r;
+                scalar_type VdotH;
+            };
+            reflect_wrapper rw;
+            rw.r = bxdf::Reflect<scalar_type>::create(V.getDirection(), H);
+            rw.VdotH = VdotH;
+            L = V.template reflect<reflect_wrapper>(rw);
 
-        // fail if samples have invalid paths
-        if (localL.getDirection().z < scalar_type(0.0))  // NdotL<0
-            localL.makeInvalid(); // should check if sample direction is invalid
+            cache = anisocache_type::createForReflection(localV, localH);
+        }
+        else    // fail if samples have invalid paths
+            L.makeInvalid();    // should check if sample direction is invalid
 
-        return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
+        const vector3_type T = interaction.getT();
+        const vector3_type B = interaction.getB();
+        const vector3_type _N = interaction.getN();
+
+        return sample_type::create(L, T, B, _N);
     }
     template<typename C=bool_constant<IsBSDF> >
     enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
+        const vector3_type localV = interaction.getTangentSpaceV();
+        const scalar_type NdotV = localV.z;
+
+        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, NdotV);
         fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
 
-        ray_dir_info_type V = interaction.getV();
-        const vector3_type localV = interaction.getTangentSpaceV();
-        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(interaction.getNdotV()));
+        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
         const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
+        const scalar_type VdotH = hlsl::dot(localV, localH);
         const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
 
-        const scalar_type VdotH = hlsl::dot(V.getDirection(), H);
+        assert(NdotV * VdotH > scalar_type(0.0));
         const scalar_type reflectance = _f(hlsl::abs(VdotH))[0];
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
         bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
 
+        ray_dir_info_type V = interaction.getV();
+        const vector3_type _N = interaction.getN();
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
+        const scalar_type LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
+        cache = anisocache_type::createPartial(VdotH, LdotH, hlsl::dot(_N, H), transmitted, rcpEta);
+
+        struct reflect_refract_wrapper  // so we don't recalculate LdotH
+        {
+            vector3_type operator()(const bool doRefract, const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
+            {
+                return rr(NdotTorR, rcpOrientedEta);
+            }
+            bxdf::ReflectRefract<scalar_type> rr;
+            scalar_type NdotTorR;
+        };
         bxdf::ReflectRefract<scalar_type> rr;
         rr.refract = r;
-        ray_dir_info_type L = V.reflectRefract(rr, transmitted, rcpEta.value[0]);
+        reflect_refract_wrapper rrw;
+        rrw.rr = rr;
+        rrw.NdotTorR = LdotH;
+        ray_dir_info_type L = V.template reflectRefract<reflect_refract_wrapper>(rrw, transmitted, rcpEta.value[0]);
 
         const vector3_type T = interaction.getT();
         const vector3_type B = interaction.getB();
-        const vector3_type _N = interaction.getN();
 
         // fail if samples have invalid paths
-        const vector3_type Ldir = L.getDirection();
-        const scalar_type LdotH = hlsl::dot(Ldir, H);
-        if ((ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(VdotH, LdotH) != transmitted) || (LdotH * hlsl::dot(_N, Ldir) < scalar_type(0.0)))
+        const scalar_type NdotL = scalar_type(2.0) * VdotH * localH.z - localV.z;
+        if ((ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted))
             L.makeInvalid(); // should check if sample direction is invalid
         else
-            cache = anisocache_type::create(VdotH, Ldir, H, T, B, _N, transmitted);
+            cache.fillTangents(T, B, H);
 
         return sample_type::create(L, T, B, _N);
     }
