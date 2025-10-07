@@ -468,8 +468,10 @@ struct SLightSample
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (cache, T)
-NBL_CONCEPT_BEGIN(1)
+#define NBL_CONCEPT_PARAM_1 (eta, fresnel::OrientedEtas<vector<typename T::scalar_type,1> >)
+NBL_CONCEPT_BEGIN(2)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define eta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -480,7 +482,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getAbsNdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isTransmission()), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isValid(eta)), ::nbl::hlsl::is_same_v, bool))
 );
+#undef eta
 #undef cache
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
@@ -636,6 +640,11 @@ struct SIsotropicMicrofacetCache
     // problem is that BRDF GGX and friends can generate unmasked H, which is actually backfacing towards L (non VNDF variants can even generate VdotH<0)
     // similar with BSDF sampling, as fresnel can be high while reflection can be invalid, or low while refraction would be invalid too
     bool isTransmission() NBL_CONST_MEMBER_FUNC { return getVdotHLdotH() < scalar_type(0.0); }
+
+    bool isValid(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta) NBL_CONST_MEMBER_FUNC
+    {
+        return ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(isTransmission(), VdotL, absNdotH, orientedEta);
+    }
 
     scalar_type getVdotL() NBL_CONST_MEMBER_FUNC { return VdotL; }
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return VdotH; }
@@ -808,6 +817,11 @@ struct SAnisotropicMicrofacetCache
     scalar_type getAbsNdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getAbsNdotH(); }
     scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return iso_cache.getNdotH2(); }
     bool isTransmission() NBL_CONST_MEMBER_FUNC { return iso_cache.isTransmission(); }
+
+    bool isValid(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta) NBL_CONST_MEMBER_FUNC
+    {
+        return iso_cache.isValid(orientedEta);
+    }
 
     scalar_type getTdotH() NBL_CONST_MEMBER_FUNC { return TdotH; }
     scalar_type getTdotH2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getTdotH(); return t*t; }

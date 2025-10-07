@@ -312,7 +312,6 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel(cosTheta)), ::nbl::hlsl::is_same_v, typename T::vector_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, OrientedEtas<typename T::vector_type>))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getOrientedEtaRcps()), ::nbl::hlsl::is_same_v, OrientedEtaRcps<typename T::vector_type>))
 );
 #undef cosTheta
@@ -329,6 +328,7 @@ NBL_CONCEPT_BEGIN(2)
 #define cosTheta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Fresnel, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, OrientedEtas<typename T::vector_type>))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getReorientedFresnel(cosTheta)), ::nbl::hlsl::is_same_v, T))
 );
 #undef cosTheta
@@ -374,6 +374,14 @@ struct Schlick
         return rcpEta;
     }
 
+    Schlick<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
+    {
+        // correct? but also sclick works best between eta 1.4-2.2
+        OrientedEtaRcps<T> rcpEta = getOrientedEtaRcps();
+        T sqrt_newF0 = (hlsl::promote<T>(1.0) - rcpEta.value) / (hlsl::promote<T>(1.0) + rcpEta.value);
+        return Schlick<T>::create(sqrt_newF0 * sqrt_newF0);
+    }
+
     T F0;
 };
 
@@ -416,14 +424,6 @@ struct Conductor
         const T rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
 
         return (rs2 + rp2) * 0.5f;
-    }
-
-    OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC
-    {
-        OrientedEtas<T> orientedEta;
-        orientedEta.value = eta;
-        orientedEta.rcp = hlsl::promote<T>(1.0) / eta;
-        return orientedEta;
     }
 
     OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
