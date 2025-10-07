@@ -4,19 +4,3 @@
 
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
-
-
-namespace nbl
-{
-    namespace hlsl
-    {
-        namespace workgroup
-        {
-			namespace bitonic_sort
-            {
-            }
-        }
-    }
-}
-
-#endif
