@@ -184,6 +184,7 @@ set(NBL_ASSET_SOURCES
 	asset/utils/CPolygonGeometryManipulator.cpp
 	asset/utils/COverdrawPolygonGeometryOptimizer.cpp
 	asset/utils/CSmoothNormalGenerator.cpp
+	asset/utils/CVertexHashMap.cpp
 
 # Mesh loaders
 	asset/interchange/COBJMeshFileLoader.cpp

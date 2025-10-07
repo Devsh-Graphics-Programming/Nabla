@@ -19,76 +19,8 @@ class CSmoothNormalGenerator
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(const ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function);
 
 	private:
-		class VertexHashMap
-		{
-		public:
-			using collection_t = core::vector<CPolygonGeometryManipulator::SSNGVertexData>;
-			struct BucketBounds
-			{
-				collection_t::iterator begin;
-				collection_t::iterator end;
-			};
+		using VertexHashMap = CVertexHashMap;
 
-
-		public:
-			VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
-
-			//inserts vertex into hash table
-			void add(CPolygonGeometryManipulator::SSNGVertexData&& vertex);
-
-			//sorts hashtable and sets iterators at beginnings of bucktes
-			void validate();
-
-			inline uint32_t getVertexCount() const { return m_vertices.size(); }
-
-      uint8_t getNeighboringCellHashes(uint32_t* outNeighbours, const CPolygonGeometryManipulator::SSNGVertexData& vertex);
-
-			BucketBounds getBucketBoundsByHash(uint32_t hash);
-
-			const collection_t& vertices() const { return m_vertices; }
-
-		private:
-      struct KeyAccessor
-      {
-        _NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
-
-        template<auto bit_offset, auto radix_mask>
-        inline decltype(radix_mask) operator()(const CPolygonGeometryManipulator::SSNGVertexData& item) const
-        {
-          return static_cast<decltype(radix_mask)>(item.hash>>static_cast<uint32_t>(bit_offset))&radix_mask;
-        }
-      };
-
-			static constexpr uint32_t invalidHash = 0xFFFFFFFF;
-      static constexpr uint32_t primeNumber1 = 73856093;
-      static constexpr uint32_t primeNumber2 = 19349663;
-      static constexpr uint32_t primeNumber3 = 83492791;
-
-			using sorter_t = std::variant<
-        core::LSBSorter<KeyAccessor::key_bit_count, uint16_t>,
-				core::LSBSorter<KeyAccessor::key_bit_count, uint32_t>,
-				core::LSBSorter<KeyAccessor::key_bit_count, size_t>>;
-			sorter_t m_sorter;
-
-			static sorter_t createSorter(size_t vertexCount)
-			{
-        if (vertexCount < (0x1ull << 16ull))
-          return core::LSBSorter<KeyAccessor::key_bit_count,uint16_t>();
-        if (vertexCount< (0x1ull << 32ull))
-          return core::LSBSorter<KeyAccessor::key_bit_count,uint32_t>();
-			  return core::LSBSorter<KeyAccessor::key_bit_count,size_t>();
-			}
-
-			collection_t m_vertices;
-			const uint32_t m_hashTableMaxSize;
-			const float m_cellSize;
-
-			uint32_t hash(const CPolygonGeometryManipulator::SSNGVertexData& vertex) const;
-			uint32_t hash(const hlsl::uint32_t3& position) const;
-
-		};
-
-	private:
 		static VertexHashMap setupData(const ICPUPolygonGeometry* polygon, float epsilon);
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> processConnectedVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp);
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon);

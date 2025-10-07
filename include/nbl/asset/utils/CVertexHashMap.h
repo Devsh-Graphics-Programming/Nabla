@@ -1,0 +1,87 @@
+#ifndef _NBL_ASSET_C_VERTEX_HASH_MAP_H_INCLUDED_
+#define _NBL_ASSET_C_VERTEX_HASH_MAP_H_INCLUDED_
+
+#include "nbl/core/declarations.h"
+
+namespace nbl::asset
+{
+
+class CVertexHashMap
+{
+public:
+
+  struct VertexData
+  {
+    uint64_t index;									     //offset of the vertex into index buffer
+    uint32_t hash;											       //
+    hlsl::float32_t3 weightedNormal;
+    hlsl::float32_t3 position;							   //position of the vertex in 3D space
+  };
+
+  using collection_t = core::vector<VertexData>;
+  struct BucketBounds
+  {
+    collection_t::iterator begin;
+    collection_t::iterator end;
+  };
+
+
+  CVertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
+
+  //inserts vertex into hash table
+  void add(VertexData&& vertex);
+
+  //sorts hashtable and sets iterators at beginnings of bucktes
+  void validate();
+
+  inline uint32_t getVertexCount() const { return m_vertices.size(); }
+
+  uint8_t getNeighboringCellHashes(uint32_t* outNeighbours, const VertexData& vertex);
+
+  BucketBounds getBucketBoundsByHash(uint32_t hash);
+
+  const collection_t& vertices() const { return m_vertices; }
+
+private:
+  struct KeyAccessor
+  {
+    _NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
+
+    template<auto bit_offset, auto radix_mask>
+    inline decltype(radix_mask) operator()(const VertexData& item) const
+    {
+      return static_cast<decltype(radix_mask)>(item.hash >> static_cast<uint32_t>(bit_offset)) & radix_mask;
+    }
+  };
+
+  static constexpr uint32_t invalidHash = 0xFFFFFFFF;
+  static constexpr uint32_t primeNumber1 = 73856093;
+  static constexpr uint32_t primeNumber2 = 19349663;
+  static constexpr uint32_t primeNumber3 = 83492791;
+
+  using sorter_t = std::variant<
+    core::LSBSorter<KeyAccessor::key_bit_count, uint16_t>,
+    core::LSBSorter<KeyAccessor::key_bit_count, uint32_t>,
+    core::LSBSorter<KeyAccessor::key_bit_count, size_t>>;
+  sorter_t m_sorter;
+
+  static sorter_t createSorter(size_t vertexCount)
+  {
+    if (vertexCount < (0x1ull << 16ull))
+      return core::LSBSorter<KeyAccessor::key_bit_count, uint16_t>();
+    if (vertexCount < (0x1ull << 32ull))
+      return core::LSBSorter<KeyAccessor::key_bit_count, uint32_t>();
+    return core::LSBSorter<KeyAccessor::key_bit_count, size_t>();
+  }
+
+  collection_t m_vertices;
+  const uint32_t m_hashTableMaxSize;
+  const float m_cellSize;
+
+  uint32_t hash(const VertexData& vertex) const;
+  uint32_t hash(const hlsl::uint32_t3& position) const;
+
+};
+
+}
+#endif

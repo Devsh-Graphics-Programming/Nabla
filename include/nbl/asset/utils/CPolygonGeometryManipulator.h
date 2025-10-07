@@ -9,6 +9,7 @@
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
+#include "nbl/asset/utils/CVertexHashMap.h"
 
 namespace nbl::asset
 {
@@ -17,14 +18,8 @@ namespace nbl::asset
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
-		//vertex data needed for CSmoothNormalGenerator
-		struct SSNGVertexData
-		{
-			uint64_t index;									     //offset of the vertex into index buffer
-			uint32_t hash;											       //
-			hlsl::float32_t3 weightedNormal;
-			hlsl::float32_t3 position;							   //position of the vertex in 3D space
-		};
+
+		using SSNGVertexData = CVertexHashMap::VertexData;
 
 		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;
 
