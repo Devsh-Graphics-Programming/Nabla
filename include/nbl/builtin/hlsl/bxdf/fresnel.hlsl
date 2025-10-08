@@ -328,7 +328,7 @@ NBL_CONCEPT_BEGIN(2)
 #define cosTheta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Fresnel, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, OrientedEtas<typename T::vector_type>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getReorientedFresnel(cosTheta)), ::nbl::hlsl::is_same_v, T))
 );
 #undef cosTheta
@@ -356,15 +356,6 @@ struct Schlick
         return F0 + (1.0 - F0) * x*x*x*x*x;
     }
 
-    OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC
-    {
-        const T sqrtF0 = hlsl::sqrt(F0);        
-        OrientedEtas<T> orientedEta;
-        orientedEta.value = (hlsl::promote<T>(1.0) + sqrtF0) / (hlsl::promote<T>(1.0) - sqrtF0);
-        orientedEta.rcp = hlsl::promote<T>(1.0) / orientedEta.value;
-        return orientedEta;
-    }
-
     OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         const T sqrtF0 = hlsl::sqrt(F0);        
@@ -372,14 +363,6 @@ struct Schlick
         rcpEta.value = (hlsl::promote<T>(1.0) - sqrtF0) / (hlsl::promote<T>(1.0) + sqrtF0);
         rcpEta.value2 = rcpEta.value * rcpEta.value;
         return rcpEta;
-    }
-
-    Schlick<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
-    {
-        // correct? but also sclick works best between eta 1.4-2.2
-        OrientedEtaRcps<T> rcpEta = getOrientedEtaRcps();
-        T sqrt_newF0 = (hlsl::promote<T>(1.0) - rcpEta.value) / (hlsl::promote<T>(1.0) + rcpEta.value);
-        return Schlick<T>::create(sqrt_newF0 * sqrt_newF0);
     }
 
     T F0;
@@ -472,7 +455,7 @@ struct Dielectric
         return __call(orientedEta2, clampedCosTheta);
     }
 
-    OrientedEtas<T> getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta.value[0]; }   // expect T to be monochrome?
     OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
 
     Dielectric<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC

@@ -84,10 +84,13 @@ struct check_TIR_helper<F, false>
 template<class F>
 struct check_TIR_helper<F, true>
 {
+    using vector_type = typename F::vector_type;    // expect monochrome
+
     template<class MicrofacetCache>
     static bool __call(NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return cache.isValid(fresnel.getRefractionOrientedEta());
+        fresnel::OrientedEtas<vector_type> orientedEta = fresnel::OrientedEtas<vector_type>::create(typename F::scalar_type(1.0), hlsl::promote<vector_type>(fresnel.getRefractionOrientedEta()));
+        return cache.isValid(orientedEta);
     }
 };
 
@@ -273,7 +276,8 @@ struct SCookTorrance
             L.makeInvalid(); // should check if sample direction is invalid
         else
         {
-            assert(ComputeMicrofacetNormal::isValidMicrofacet(transmitted,cache.getVdotL(),localH.z,_f.getRefractionOrientedEta()));
+            fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(fresnel.getRefractionOrientedEta()));
+            assert(ComputeMicrofacetNormal::isValidMicrofacet(transmitted,cache.getVdotL(),localH.z,orientedEta));
             cache.fillTangents(T, B, H);
         }
 
