@@ -6,7 +6,6 @@
 #define __NBL_ASSET_C_IES_PROFILE_H_INCLUDED__
 
 #include "nbl/asset/metadata/CIESProfileMetadata.h"
-#include "nbl/core/Types.h"
 #include <sstream>
 
 namespace nbl 

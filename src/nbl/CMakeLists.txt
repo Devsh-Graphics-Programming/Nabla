@@ -221,6 +221,11 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CImageWriterTGA.cpp
 	asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
 	asset/interchange/CGLIWriter.cpp
+
+# IES profile loaders
+	asset/interchange/CIESProfileLoader.cpp
+	asset/utils/CIESProfileParser.cpp
+	asset/utils/CIESProfile.cpp
 )
 set(NBL_VIDEO_SOURCES
 # Utilities

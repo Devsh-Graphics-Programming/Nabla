@@ -3,24 +3,53 @@
 using namespace nbl;
 using namespace asset;
 
-asset::SAssetBundle
-CIESProfileLoader::loadAsset(io::IReadFile* _file,
-    const asset::IAssetLoader::SAssetLoadParams& _params,
-    asset::IAssetLoader::IAssetLoaderOverride* _override,
-    uint32_t _hierarchyLevel) {
-    if (!_file)
+bool CIESProfileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
+{
+    system::IFile::success_t success;
+    std::string versionBuffer(0x45, ' ');
+    const auto* fName = _file->getFileName().c_str();
+    _file->read(success, versionBuffer.data(), 0, versionBuffer.size());
+
+    if (success)
+    {
+        for (const auto& it : CIESProfileParser::VALID_SIGNATURES)
+            if (versionBuffer.find(it.data()) != std::string::npos)
+                return true;
+
+        logger.log("%s: Invalid IES signature for \"%s\" file!", system::ILogger::ELL_ERROR, __FUNCTION__, fName);
+    }
+    else
+        logger.log("%s: Failed to read \"%s\" file!", system::ILogger::ELL_ERROR, __FUNCTION__, fName);
+
+    return false;
+}
+
+asset::SAssetBundle CIESProfileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+{
+    if (not _file)
+    {
+        _params.logger.log("%s: Nullptr system::IFile pointer!", system::ILogger::ELL_ERROR, __FUNCTION__);
         return {};
+    }
 
     IAssetLoader::SAssetLoadContext loadContex(_params, _file);
     core::vector<char> data(_file->getSize());
-    _file->read(data.data(), _file->getSize());
+    system::IFile::success_t success;
+    const auto* fName = _file->getFileName().c_str();
+    _file->read(success, data.data(), 0, _file->getSize());
+
+    if (not success)
+    {
+        _params.logger.log("%s: Failed to read \"%s\" file!", system::ILogger::ELL_ERROR, __FUNCTION__, fName);
+        return {};
+    }
 
     CIESProfileParser parser(data.data(), data.size());
     CIESProfile profile;
 
-    if (!parser.parse(profile)) 
+    if (not parser.parse(profile)) 
     {
-        os::Printer::log("ERROR: Emission profile parsing error: " + std::string(parser.getErrorMsg()), ELL_ERROR);
+        _params.logger.log("%s: Failed to parse emission profile for \"%s\" file!", system::ILogger::ELL_ERROR, __FUNCTION__, fName);
         return {};
     }
 

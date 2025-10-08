@@ -139,7 +139,9 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     region.bufferImageHeight = 0u;
     region.bufferOffset = 0u;
 
-    auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * bufferRowLength * height);
+    asset::ICPUBuffer::SCreationParams bParams;
+    bParams.size = texelBytesz * bufferRowLength * height;
+    auto buffer = asset::ICPUBuffer::create(std::move(bParams));
 
     if (!outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull, region)))
         return {};
@@ -189,7 +191,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
         CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
         const auto& regions = outImg->getRegions(state.subresource.mipLevel);
-        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outImg.get(), fill, regions.begin(), regions.end(), clip);
+        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outImg.get(), fill, regions, clip);
     }
 
     ICPUImageView::SCreationParams viewParams = {};
