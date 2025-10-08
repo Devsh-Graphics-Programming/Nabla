@@ -76,6 +76,29 @@ NBL_CONCEPT_END(
 #undef ndf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+
+#define NDF_CONSTEXPR_DECLS(ANISO,REFLECT_REFRACT) NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ANISO;\
+NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes SupportedPaths = REFLECT_REFRACT;\
+NBL_CONSTEXPR_STATIC_INLINE bool SupportsTransmission = REFLECT_REFRACT != MTT_REFLECT;\
+NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_NONE;\
+template<class Interaction>\
+NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IsAnisotropic ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;\
+template<class MicrofacetCache>\
+NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IsAnisotropic ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;\
+
+// help avoid preprocessor splitting template declarations by comma
+#define SINGLE_ARG(...) __VA_ARGS__
+
+#define NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY) using this_t = N;\
+using scalar_type = T;\
+using base_type = BASE;\
+using quant_type = SDualMeasureQuant<scalar_type>;\
+using vector2_type = vector<T, 2>;\
+using vector3_type = vector<T, 3>;\
+using dg1_query_type = DG1_QUERY<scalar_type>;\
+using g2g1_query_type = G2_QUERY<scalar_type>;\
+using quant_query_type = impl::NDFQuantQuery<scalar_type>;\
+
 }
 }
 }

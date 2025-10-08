@@ -132,7 +132,7 @@ struct SCookTorrance
     using fresnel_type = F;
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ndf_type::IsAnisotropic;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::NDFSurfaceType != ndf::MTT_REFLECT;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::SupportedPaths != ndf::MTT_REFLECT;
 
     template<class Interaction, class MicrofacetCache>
     static bool __checkValid(NBL_CONST_REF_ARG(fresnel_type) f, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
