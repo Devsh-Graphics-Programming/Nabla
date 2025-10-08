@@ -75,12 +75,27 @@ struct SBeckmannG2overG1Query
     scalar_type lambda_V;
 };
 
+template<typename T>
+struct BeckmannBase
+{
+    //conversion between alpha and Phong exponent, Walter et.al.
+    static T PhongExponentToAlpha2(T _n)
+    {
+        return T(2.0) / (_n + T(2.0));
+    }
+    //+INF for a2==0.0
+    static T Alpha2ToPhongExponent(T a2)
+    {
+        return T(2.0) / a2 - T(2.0);
+    }
+};
+
 template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
 struct BeckmannCommon;
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) > : BeckmannBase<T>
 {
     using scalar_type = T;
 
@@ -139,7 +154,7 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) > : BeckmannBase<T>
 {
     using scalar_type = T;
 
@@ -415,21 +430,6 @@ struct Beckmann
 
     base_type __ndf_base;
     impl::BeckmannGenerateH<scalar_type> __generate_base;
-};
-
-template<typename T>
-struct PhongExponent
-{
-    //conversion between alpha and Phong exponent, Walter et.al.
-    static T ToAlpha2(T _n)
-    {
-        return T(2.0) / (_n + T(2.0));
-    }
-    //+INF for a2==0.0
-    static T FromAlpha2(T a2)
-    {
-        return T(2.0) / a2 - T(2.0);
-    }
 };
 
 }
