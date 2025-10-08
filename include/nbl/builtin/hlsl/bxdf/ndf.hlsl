@@ -16,21 +16,6 @@ namespace bxdf
 namespace ndf
 {
 
-namespace impl
-{
-template<typename T>
-struct NDFQuantQuery
-{
-    using scalar_type = T;
-
-    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
-    scalar_type getVdotH_etaLdotH() NBL_CONST_MEMBER_FUNC { return VdotH_etaLdotH; }
-
-    scalar_type VdotHLdotH;
-    scalar_type VdotH_etaLdotH;
-};
-}
-
 namespace dummy_impl
 {
 using sample_t = SLightSample<ray_dir_info::SBasic<float> >;
@@ -89,15 +74,15 @@ NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IsAnisotropic ? Aniso
 // help avoid preprocessor splitting template declarations by comma
 #define SINGLE_ARG(...) __VA_ARGS__
 
-#define NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY) using this_t = N;\
+#define NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY,QUANT_QUERY) using this_t = N;\
 using scalar_type = T;\
 using base_type = BASE;\
 using quant_type = SDualMeasureQuant<scalar_type>;\
 using vector2_type = vector<T, 2>;\
 using vector3_type = vector<T, 3>;\
-using dg1_query_type = DG1_QUERY<scalar_type>;\
-using g2g1_query_type = G2_QUERY<scalar_type>;\
-using quant_query_type = impl::NDFQuantQuery<scalar_type>;\
+using dg1_query_type = DG1_QUERY;\
+using g2g1_query_type = G2_QUERY;\
+using quant_query_type = QUANT_QUERY;\
 
 }
 }

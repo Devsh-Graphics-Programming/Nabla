@@ -299,7 +299,7 @@ template<typename T, bool _IsAnisotropic, MicrofacetTransformTypes reflect_refra
 struct Beckmann
 {
     NDF_CONSTEXPR_DECLS(_IsAnisotropic,reflect_refract);
-    NDF_TYPE_ALIASES(SINGLE_ARG(Beckmann<T,IsAnisotropic,SupportedPaths>), SINGLE_ARG(impl::BeckmannCommon<T,IsAnisotropic>), impl::SBeckmannDG1Query, impl::SBeckmannG2overG1Query);
+    NDF_TYPE_ALIASES(SINGLE_ARG(Beckmann<T,IsAnisotropic,SupportedPaths>), SINGLE_ARG(impl::BeckmannCommon<T,IsAnisotropic>), impl::SBeckmannDG1Query<scalar_type>, impl::SBeckmannG2overG1Query<scalar_type>, DualMeasureQuantQuery<scalar_type>);
 
     template<typename C=bool_constant<!IsAnisotropic> >
     static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)

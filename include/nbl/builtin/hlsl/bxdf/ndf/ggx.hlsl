@@ -279,7 +279,7 @@ template<typename T, bool _IsAnisotropic, MicrofacetTransformTypes reflect_refra
 struct GGX
 {
     NDF_CONSTEXPR_DECLS(_IsAnisotropic,reflect_refract);
-    NDF_TYPE_ALIASES(SINGLE_ARG(GGX<T,IsAnisotropic,SupportedPaths>), SINGLE_ARG(impl::GGXCommon<T,SupportsTransmission,IsAnisotropic>), impl::SGGXDG1Query, impl::SGGXG2XQuery);
+    NDF_TYPE_ALIASES(SINGLE_ARG(GGX<T,IsAnisotropic,SupportedPaths>), SINGLE_ARG(impl::GGXCommon<T,SupportsTransmission,IsAnisotropic>), impl::SGGXDG1Query<scalar_type>, impl::SGGXG2XQuery<scalar_type>, DualMeasureQuantQuery<scalar_type>);
 
     template<typename C=bool_constant<!IsAnisotropic> >
     static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)

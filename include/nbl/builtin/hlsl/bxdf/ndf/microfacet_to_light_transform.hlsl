@@ -23,6 +23,18 @@ enum MicrofacetTransformTypes : uint16_t
    MTT_REFLECT_REFRACT = 0b11
 };
 
+template<typename T>
+struct DualMeasureQuantQuery
+{
+    using scalar_type = T;
+
+    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
+    scalar_type getVdotH_etaLdotH() NBL_CONST_MEMBER_FUNC { return VdotH_etaLdotH; }
+
+    scalar_type VdotHLdotH;
+    scalar_type VdotH_etaLdotH;
+};
+
 
 template<typename T>
 struct SDualMeasureQuant
