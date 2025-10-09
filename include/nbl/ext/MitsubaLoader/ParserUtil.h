@@ -1,50 +1,39 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MISTUBA_LOADER_I_PARSER_UTIL_H_INCLUDED_
+#define _NBL_EXT_MISTUBA_LOADER_I_PARSER_UTIL_H_INCLUDED_
 
-#ifndef __I_PARSER_UTIL_H_INCLUDED__
-#define __I_PARSER_UTIL_H_INCLUDED__
-
-//#include "nbl/core/core.h"
-
-//#include "IFileSystem.h"
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+//#include "nbl/ext/MitsubaLoader/CElementFactory.h"
+//#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 #include "expat/lib/expat.h"
 
 #include <stack>
 
 
-namespace nbl
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
-
-	   	  
-
 class ParserLog
 {
-public:
-	static inline void setLogger(const system::logger_opt_ptr& logger) { ParserLog::logger = logger; };
+	public:
+		static inline void setLogger(const system::logger_opt_ptr& _logger) {logger=_logger;}
 
-	/*prints this message:
-	Mitsuba loader error:
-	Invalid .xml file structure: message */
-	static void invalidXMLFileStructure(const std::string& errorMessage);
+		/*prints this message:
+		Mitsuba loader error:
+		Invalid .xml file structure: message */
+		static void invalidXMLFileStructure(const std::string& errorMessage);
 
-private:
-	static system::logger_opt_ptr logger;
+	private:
+		static system::logger_opt_ptr logger;
 };
 
 
 template<typename... types>
-class ElementPool // : public std::tuple<core::vector<types>...>
+class ElementPool // similar to : public std::tuple<core::vector<types>...>
 {
 		core::SimpleBlockBasedAllocator<core::LinearAddressAllocator<uint32_t>,core::aligned_allocator> poolAllocator;
 	public:
@@ -68,7 +57,9 @@ class ParserManager
 			XML_Parser parser;
 			system::path currentXMLDir;
 		};
+
 	public:
+#if 0
 		//! Constructor 
 		ParserManager(system::ISystem* _system, asset::IAssetLoader::IAssetLoaderOverride* _override) :
 								m_system(_system), m_override(_override), m_sceneDeclCount(0),
@@ -127,12 +118,9 @@ class ParserManager
 		each element of index N is parent of the element of index N+1
 		the scene element is a parent of all elements of index 0 */
 		core::stack<std::pair<IElement*,std::string> > elements; 
-
+#endif
 		friend class CElementFactory;
 };
 
 }
-}
-}
-
 #endif

@@ -15,6 +15,8 @@
 namespace nbl::ext::MitsubaLoader
 {
 
+class CMitsubaMetadata;
+
 struct SContext
 {
 	public:
@@ -23,14 +25,14 @@ struct SContext
 //			const asset::IMeshManipulator* _manipulator,
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
-//			CMitsubaMetadata* _metadata
+			CMitsubaMetadata* _metadata
 		);
 
 //		const asset::IGeometryCreator* creator;
 //		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
-//		CMitsubaMetadata* meta;
+		CMitsubaMetadata* meta;
 
 #if 0
 		//
@@ -192,8 +194,8 @@ struct SContext
 		core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
 #endif
 		//material compiler
-		core::smart_refctd_ptr<asset::material_compiler::IR> ir;
-		CMitsubaMaterialCompilerFrontend frontend;
+//		core::smart_refctd_ptr<asset::material_compiler::IR> ir;
+//		CMitsubaMaterialCompilerFrontend frontend;
 
 	private:
 };

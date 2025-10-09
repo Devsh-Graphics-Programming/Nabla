@@ -21,7 +21,7 @@ set(NBL_EXT_MITSUBA_LOADER_H
 #	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaSerializedMetadata.h
 #	${NBL_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
 #	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMaterialCompilerFrontend.h
 )
 
@@ -40,7 +40,7 @@ set(NBL_EXT_MITSUBA_LOADER_SRC
 #	CElementFactory.cpp
 #	ParserUtil.cpp
 	CSerializedLoader.cpp
-#	CMitsubaLoader.cpp
+	CMitsubaLoader.cpp
 #	CMitsubaMaterialCompilerFrontend.cpp
 )
 

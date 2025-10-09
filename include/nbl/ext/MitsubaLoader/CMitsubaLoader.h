@@ -46,17 +46,15 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 #undef mat4x3
 #undef nbl_glsl_MC_material_data_t
 using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
-
+#endif
 
 class CMitsubaLoader : public asset::ISceneLoader
 {
-		friend class CMitsubaMaterialCompilerFrontend;
+//		friend class CMitsubaMaterialCompilerFrontend;
 	public:
 		//! Constructor
-		CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs);
-
-		void initialize() override;
-
+		inline CMitsubaLoader() = default;
+#if 0
 	protected:
 		io::IFileSystem* m_filesystem;
 
@@ -78,24 +76,18 @@ class CMitsubaLoader : public asset::ISceneLoader
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
 
 	public:
-		//! Check if the file might be loaded by this class
-		/** Check might look into the file.
-		\param file File handle to check.
-		\return True if file seems to be loadable. */
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+#endif
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override;
 
-		//! Returns an array of string literals terminated by nullptr
-		const char** getAssociatedFileExtensions() const override;
-
-		//! Returns the assets loaded by the loader
-		/** Bits of the returned value correspond to each IAsset::E_TYPE
-		enumeration member, and the return value cannot be 0. */
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH/*|asset::IAsset::ET_SCENE|asset::IAsset::ET_IMPLEMENTATION_SPECIFIC_METADATA*/; }
+		inline const char** getAssociatedFileExtensions() const override
+		{
+			static const char* ext[]{ "xml", nullptr };
+			return ext;
+		}
 
 		//! Loads an asset from an opened file, returns nullptr in case of failure.
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override=nullptr, uint32_t _hierarchyLevel=0u) override;
 };
-#endif
 
 }
 #endif
