@@ -72,7 +72,7 @@ template<class MicrofacetCache>\
 NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IsAnisotropic ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;\
 
 // help avoid preprocessor splitting template declarations by comma
-#define SINGLE_ARG(...) __VA_ARGS__
+#define NDF_SINGLE_ARG(...) __VA_ARGS__
 
 #define NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY,QUANT_QUERY) using this_t = N;\
 using scalar_type = T;\

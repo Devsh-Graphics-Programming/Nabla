@@ -81,6 +81,11 @@ SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename 
 {
    return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,VdotHLdotH,VdotH_etaLdotH);
 }
+template<typename T, MicrofacetTransformTypes reflect_refract, class Query>
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL, NBL_CONST_REF_ARG(Query) query)
+{
+   return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,query.getVdotHLdotH(),query.getVdotH_etaLdotH());
+}
 
 }
 }
