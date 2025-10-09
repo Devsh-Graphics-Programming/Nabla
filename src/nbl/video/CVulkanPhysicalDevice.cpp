@@ -828,12 +828,39 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //potentially put a copy of VkPhysicalDeviceMeshShaderFeaturesEXT directly into features
         //depends on the less obvious properties
         if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
-            features.meshShader = meshShaderFeatures.meshShader;
             features.taskShader = meshShaderFeatures.taskShader;
+            features.meshShader = meshShaderFeatures.meshShader;
             //TODO
-            //meshShaderFeatures.primitiveFragmentShadingRateMeshShader;
-            //meshShaderFeatures.meshShaderQueries;
-            //meshShaderFeatures.multiviewMeshShader;
+            //VkBool32           multiviewMeshShader;
+            //VkBool32           primitiveFragmentShadingRateMeshShader;
+            //VkBool32           meshShaderQueries;
+
+            //VkPhysicalDeviceMeshShaderPropertiesEXT
+            //#define LIMIT_INIT_MESH(limitMemberName) properties.limits.limitMemberName = meshShaderProperties.limitMemberName
+            //LIMIT_INIT_MESH(maxTaskWorkGroupTotalCount);
+            //LIMIT_INIT_MESH(maxTaskWorkGroupInvocations);
+            //LIMIT_INIT_MESH(maxTaskPayloadSize);
+            //LIMIT_INIT_MESH(maxTaskSharedMemorySize);
+            //LIMIT_INIT_MESH(maxTaskPayloadAndSharedMemorySize);
+            //LIMIT_INIT_MESH(maxMeshWorkGroupInvocations);
+            //LIMIT_INIT_MESH(maxMeshSharedMemorySize);
+            //LIMIT_INIT_MESH(maxMeshPayloadAndSharedMemorySize);
+            //LIMIT_INIT_MESH(maxMeshOutputMemorySize);
+            //LIMIT_INIT_MESH(maxMeshOutputComponents);
+            //LIMIT_INIT_MESH(maxMeshOutputVertices);
+            //LIMIT_INIT_MESH(maxMeshOutputPrimitives);
+            //LIMIT_INIT_MESH(maxMeshOutputLayers);
+            //LIMIT_INIT_MESH(maxMeshMultiviewViewCount);
+            //LIMIT_INIT_MESH(maxMeshOutputPerVertexGranularity);
+            //LIMIT_INIT_MESH(maxMeshOutputPerPrimitiveGranularity);
+
+            //for(uint8_t i = 0; i < 3; i++){
+            //    LIMIT_INIT_MESH(maxTaskWorkGroupCount[i]);
+            //    LIMIT_INIT_MESH(maxTaskWorkGroupSize[i]);
+            //    LIMIT_INIT_MESH(maxMeshWorkGroupCount[i]);
+            //    LIMIT_INIT_MESH(maxMeshWorkGroupSize[i]);
+            //}
+            //#undef LIMIT_INIT_MESH
         }
             
         if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)

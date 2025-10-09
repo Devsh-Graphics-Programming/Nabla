@@ -50,6 +50,16 @@
                     "type": "bool",
                     "name": "tessellationShader",
                     "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "meshShader",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "taskShader",
+                    "value": false
                 }
             ]
         },

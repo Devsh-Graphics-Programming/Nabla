@@ -42,7 +42,7 @@ class ICPUMeshPipeline final : public ICPUPipeline<IMeshPipeline<ICPUPipelineLay
             switch (stage) {
                 case hlsl::ShaderStage::ESS_TASK:       return { &m_specInfos[0], 1 };
                 case hlsl::ShaderStage::ESS_MESH:       return { &m_specInfos[1], 1 };
-                case hlsl::ShaderStage::ESS_FRAGMENT:   return { &m_specInfos[2], 2 };
+                case hlsl::ShaderStage::ESS_FRAGMENT:   return { &m_specInfos[2], 1 };
             }
             return {};
         }
