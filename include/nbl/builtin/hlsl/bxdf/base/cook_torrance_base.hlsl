@@ -133,6 +133,7 @@ struct SCookTorrance
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ndf_type::IsAnisotropic;
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::SupportedPaths != ndf::MTT_REFLECT;
+    NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);
 
     template<class Interaction, class MicrofacetCache>
     static bool __checkValid(NBL_CONST_REF_ARG(fresnel_type) f, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
@@ -143,8 +144,10 @@ struct SCookTorrance
             return _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min;
     }
 
-    template<class Interaction, class MicrofacetCache>
-    spectral_type __eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
+            NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         fresnel_type _f = fresnel;
         NBL_IF_CONSTEXPR(IsBSDF)
@@ -169,15 +172,6 @@ struct SCookTorrance
         NBL_IF_CONSTEXPR(IsBSDF)
             clampedVdotH = hlsl::abs(clampedVdotH);
         return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
-    }
-    template<typename C=bool_constant<!IsAnisotropic> >
-    enable_if_t<C::value && !IsAnisotropic, spectral_type> eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        return __eval<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
-    }
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __eval<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
     }
 
     template<typename C=bool_constant<!IsBSDF> >
@@ -318,19 +312,10 @@ struct SCookTorrance
             return DG1.projectedLightMeasure;
         }
     }
-    template<typename C=bool_constant<!IsAnisotropic> >
-    enable_if_t<C::value && !IsAnisotropic, scalar_type> pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        fresnel_type _f = fresnel;
-        NBL_IF_CONSTEXPR(IsBSDF)
-            _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
-        if (!__checkValid<isotropic_interaction_type, isocache_type>(_f, _sample, interaction, cache))
-            return scalar_type(0.0);
-
-        scalar_type _pdf = __pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
-        return hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
-    }
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
+            NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         fresnel_type _f = fresnel;
         NBL_IF_CONSTEXPR(IsBSDF)
@@ -342,8 +327,10 @@ struct SCookTorrance
         return hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
     }
 
-    template<class Interaction, class MicrofacetCache>
-    quotient_pdf_type __quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
+            NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         if (!_sample.isValid())
             return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));   // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
@@ -373,15 +360,6 @@ struct SCookTorrance
         }
 
         return quotient_pdf_type::create(quo, _pdf);
-    }
-    template<typename C=bool_constant<!IsAnisotropic> >
-    enable_if_t<C::value && !IsAnisotropic, quotient_pdf_type> quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        return __quotient_and_pdf<isotropic_interaction_type, isocache_type>(_sample, interaction, cache);
-    }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        return __quotient_and_pdf<anisotropic_interaction_type, anisocache_type>(_sample, interaction, cache);
     }
 
     ndf_type ndf;

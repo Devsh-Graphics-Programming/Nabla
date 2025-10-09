@@ -62,19 +62,21 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 
-#define NDF_CONSTEXPR_DECLS(ANISO,REFLECT_REFRACT) NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ANISO;\
+#define NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IS_ANISO) template<class Interaction>\
+NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IS_ANISO ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;\
+template<class MicrofacetCache>\
+NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IS_ANISO ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;\
+
+#define NBL_HLSL_NDF_CONSTEXPR_DECLS(ANISO,REFLECT_REFRACT) NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ANISO;\
 NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes SupportedPaths = REFLECT_REFRACT;\
 NBL_CONSTEXPR_STATIC_INLINE bool SupportsTransmission = REFLECT_REFRACT != MTT_REFLECT;\
 NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_NONE;\
-template<class Interaction>\
-NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IsAnisotropic ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;\
-template<class MicrofacetCache>\
-NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IsAnisotropic ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;\
+NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);\
 
 // help avoid preprocessor splitting template declarations by comma
-#define NDF_SINGLE_ARG(...) __VA_ARGS__
+#define NBL_HLSL_NDF_SINGLE_ARG(...) __VA_ARGS__
 
-#define NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY,QUANT_QUERY) using this_t = N;\
+#define NBL_HLSL_NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY,QUANT_QUERY) using this_t = N;\
 using scalar_type = T;\
 using base_type = BASE;\
 using quant_type = SDualMeasureQuant<scalar_type>;\
