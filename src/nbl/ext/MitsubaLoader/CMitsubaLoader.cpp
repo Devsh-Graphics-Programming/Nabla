@@ -298,15 +298,16 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 
 asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-//	ParserManager parserManager(m_assetMgr->getFileSystem(),_override);
-//	if (!parserManager.parse(_file))
+	ParserManager parserManager(m_system.get(),_override);
+	if (!parserManager.parse(_file,_params.logger))
 		return {};
-#if 0
-	if (_params.loaderFlags & IAssetLoader::ELPF_LOAD_METADATA_ONLY)
+
+	//if (_params.loaderFlags&IAssetLoader::ELPF_LOAD_METADATA_ONLY)
 	{
 		auto emptyScene = core::make_smart_refctd_ptr<asset::ICPUScene>();
-		return SAssetBundle(std::move(parserManager.m_metadata),{ std::move(emptyScene) });
+		return SAssetBundle(std::move(parserManager.m_metadata),{std::move(emptyScene)});
 	}
+#if 0
 	else
 	{
 		//

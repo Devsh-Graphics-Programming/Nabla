@@ -38,7 +38,7 @@ set(NBL_EXT_MITSUBA_LOADER_SRC
 #	CElementTexture.cpp
 #	CElementEmitter.cpp
 #	CElementFactory.cpp
-#	ParserUtil.cpp
+	ParserUtil.cpp
 	CSerializedLoader.cpp
 	CMitsubaLoader.cpp
 #	CMitsubaMaterialCompilerFrontend.cpp

@@ -8,11 +8,11 @@
 #include "nbl/asset/metadata/IAssetMetadata.h"
 #include "nbl/asset/ICPUImage.h"
 
-#include "nbl/ext/MitsubaLoader/SContext.h"
-#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
-#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
-#include "nbl/ext/MitsubaLoader/CElementSensor.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
+//#include "nbl/ext/MitsubaLoader/SContext.h"
+//#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+//#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
+//#include "nbl/ext/MitsubaLoader/CElementSensor.h"
+//#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 
 namespace nbl::ext::MitsubaLoader
@@ -27,6 +27,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 			public:
 				std::string m_id;
 		};
+#if 0
 		class CMesh : public asset::IMeshMetadata, public CID
 		{
 			public:
@@ -45,27 +46,25 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 				CElementIntegrator m_integrator;
 				core::vector<CElementSensor> m_sensors;
 		} m_global;
-
-		CMitsubaMetadata() :
-			IAssetMetadata(), m_metaPplnStorage(), m_semanticStorage(), m_metaPplnStorageIt(nullptr),
-			m_metaMeshStorage(), m_metaMeshInstanceStorage(), m_metaMeshInstanceAuxStorage(),
-			m_meshStorageIt(nullptr), m_instanceStorageIt(nullptr), m_instanceAuxStorageIt(nullptr)
+#endif
+		inline CMitsubaMetadata() :	IAssetMetadata()/*, m_metaMeshStorage(), m_metaMeshInstanceStorage(), m_metaMeshInstanceAuxStorage(),
+			m_meshStorageIt(nullptr), m_instanceStorageIt(nullptr), m_instanceAuxStorageIt(nullptr)*/
 		{
 		}
 
-		_NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "ext::MitsubaLoader::CMitsubaLoader";
-		const char* getLoaderName() const override { return LoaderName; }
-
+		constexpr static inline const char* LoaderName = "ext::MitsubaLoader::CMitsubaLoader";
+		const char* getLoaderName() const override {return LoaderName;}
+#if 0
         //!
         inline const CMesh* getAssetSpecificMetadata(const asset::ICPUMesh* asset) const
         {
             const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
             return static_cast<const CMesh*>(found);
         }
-
+#endif
 	private:
 		friend class CMitsubaLoader;
-
+#if 0
 		meta_container_t<CMesh> m_metaMeshStorage;
 		CMesh* m_meshStorageIt;
 
@@ -106,6 +105,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 
 			return meta->m_instances.size();
 		}
+#endif
 };
 
 }

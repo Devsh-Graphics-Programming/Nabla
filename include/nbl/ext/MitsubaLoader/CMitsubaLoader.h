@@ -48,19 +48,14 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
 #endif
 
-class CMitsubaLoader : public asset::ISceneLoader
+class CMitsubaLoader final : public asset::ISceneLoader
 {
 //		friend class CMitsubaMaterialCompilerFrontend;
-	public:
-		//! Constructor
-		inline CMitsubaLoader() = default;
-#if 0
-	protected:
-		io::IFileSystem* m_filesystem;
+		core::smart_refctd_ptr<system::ISystem> m_system;
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
-
+#if 0
 		//
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
@@ -74,9 +69,11 @@ class CMitsubaLoader : public asset::ISceneLoader
 
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
-
-	public:
 #endif
+	public:
+		//! Constructor
+		inline CMitsubaLoader(core::smart_refctd_ptr<system::ISystem>&& _system) : m_system(std::move(_system)) {}
+
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override;
 
 		inline const char** getAssociatedFileExtensions() const override

@@ -8,7 +8,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 
 //#include "nbl/ext/MitsubaLoader/CElementFactory.h"
-//#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 #include "expat/lib/expat.h"
 
@@ -17,21 +17,9 @@
 
 namespace nbl::ext::MitsubaLoader
 {
-class ParserLog
-{
-	public:
-		static inline void setLogger(const system::logger_opt_ptr& _logger) {logger=_logger;}
+class IElement;
 
-		/*prints this message:
-		Mitsuba loader error:
-		Invalid .xml file structure: message */
-		static void invalidXMLFileStructure(const std::string& errorMessage);
-
-	private:
-		static system::logger_opt_ptr logger;
-};
-
-
+// TODO: replace with common Class for Material Compiler V3 Node Pool
 template<typename... types>
 class ElementPool // similar to : public std::tuple<core::vector<types>...>
 {
@@ -51,33 +39,42 @@ class ElementPool // similar to : public std::tuple<core::vector<types>...>
 class ParserManager
 {
 	protected:
+		// TODO: need per-file/per-parse contexts and per-load (one shapegroup, one metadata, one stack, etc. - basically the members of `ParserManager` now)
 		struct Context
 		{
-			ParserManager* manager;
-			XML_Parser parser;
+			/*prints this message:
+			Mitsuba loader error:
+			Invalid .xml file structure: message */
+			void invalidXMLFileStructure(const std::string& errorMessage) const;
+
+			//
+			inline void killParseWithError(const std::string& message) const
+			{
+				invalidXMLFileStructure(message);
+				XML_StopParser(parser,false);
+			}
+
 			system::path currentXMLDir;
+			//
+			ParserManager* manager;
+			system::logger_opt_ptr logger;
+			//
+			XML_Parser parser;
 		};
 
 	public:
-#if 0
 		//! Constructor 
-		ParserManager(system::ISystem* _system, asset::IAssetLoader::IAssetLoaderOverride* _override) :
-								m_system(_system), m_override(_override), m_sceneDeclCount(0),
-								m_metadata(core::make_smart_refctd_ptr<CMitsubaMetadata>())
-		{
-		}
+		inline ParserManager(system::ISystem* _system, asset::IAssetLoader::IAssetLoaderOverride* _override) :
+			propertyElements({
+				"float", "string", "boolean", "integer",
+				"rgb", "srgb", "spectrum", "blackbody",
+				"point", "vector",
+				"matrix", "rotate", "translate", "scale", "lookat"
+			}),	m_system(_system), m_override(_override), m_metadata(core::make_smart_refctd_ptr<CMitsubaMetadata>()) {}
 
 		//
 		static void elementHandlerStart(void* _data, const char* _el, const char** _atts);
 		static void elementHandlerEnd(void* _data, const char* _el);
-
-		//
-		inline void killParseWithError(const Context& ctx, const std::string& message)
-		{
-			_NBL_DEBUG_BREAK_IF(true);
-			ParserLog::invalidXMLFileStructure(message);
-			XML_StopParser(ctx.parser, false);
-		}
 
 		bool parse(system::IFile* _file, const system::logger_opt_ptr& _logger);
 
@@ -85,22 +82,25 @@ class ParserManager
 
 		void onEnd(const Context& ctx, const char* _el);
 
+#if 0
 		//
 		core::vector<std::pair<CElementShape*,std::string> > shapegroups;
-		//
+#endif
+		// note that its shared between per-file contexts
 		core::smart_refctd_ptr<CMitsubaMetadata> m_metadata;
 
 	private:
 		//
 		void processProperty(const Context& ctx, const char* _el, const char** _atts);
 
-		//
+		const core::unordered_set<std::string,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> propertyElements;
+		// TODO: re-architect this and move into context so the PArserManager can be persistent
 		system::ISystem* m_system;
 		asset::IAssetLoader::IAssetLoaderOverride* m_override;
 		//
-		uint32_t m_sceneDeclCount;
-		//
-		ElementPool<
+		uint32_t m_sceneDeclCount = 0;
+		// TODO: This leaks memory all over the place because destructors are not ran!
+		ElementPool</*
 			CElementIntegrator,
 			CElementSensor,
 			CElementFilm,
@@ -109,16 +109,15 @@ class ParserManager
 			CElementShape,
 			CElementBSDF,
 			CElementTexture,
-			CElementEmitter
-					> objects;
+			CElementEmitter*/
+		> objects;
 		// aliases and names
 		core::unordered_map<std::string,IElement*,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> handles;
-
 		/*stack of currently processed elements
 		each element of index N is parent of the element of index N+1
 		the scene element is a parent of all elements of index 0 */
 		core::stack<std::pair<IElement*,std::string> > elements; 
-#endif
+
 		friend class CElementFactory;
 };
 
