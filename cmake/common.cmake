@@ -1210,7 +1210,7 @@ struct DeviceConfigCaps
 
 	get_target_property(HEADER_RULE_GENERATED ${IMPL_TARGET} NBL_HEADER_GENERATED_RULE)
 	if(NOT HEADER_RULE_GENERATED)
-		set(INCLUDE_DIR "$<TARGET_PROPERTY:${IMPL_TARGET},BINARY_DIR>/${IMPL_TARGET}/.cmake/include")
+	    set(INCLUDE_DIR "$<TARGET_PROPERTY:${IMPL_TARGET},BINARY_DIR>/${IMPL_TARGET}/.cmake/include")
 		set(INCLUDE_FILE "${INCLUDE_DIR}/$<TARGET_PROPERTY:${IMPL_TARGET},NBL_HEADER_PATH>")
 		set(INCLUDE_CONTENT $<TARGET_PROPERTY:${IMPL_TARGET},NBL_HEADER_CONTENT>)
 
@@ -1323,11 +1323,26 @@ namespace @IMPL_NAMESPACE@ {
 
         set(CAP_NAMES "")
         set(CAP_TYPES "")
+		set(CAP_KINDS "")
         if(HAS_CAPS)
             math(EXPR LAST_CAP "${CAPS_LENGTH} - 1")
             foreach(CAP_IDX RANGE 0 ${LAST_CAP})
+				string(JSON CAP_KIND ERROR_VARIABLE CAP_TYPE_ERROR GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} kind)
                 string(JSON CAP_NAME GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} name)
                 string(JSON CAP_TYPE GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} type)
+
+				# -> TODO: improve validation, input should be string
+				if(CAP_TYPE_ERROR)
+					set(CAP_KIND limits) # I assume its limit by default (or when invalid value present, currently)
+				else()
+					if(NOT CAP_KIND MATCHES "^(limits|features)$")
+						ERROR_WHILE_PARSING_ITEM(
+							"Invalid CAP kind \"${CAP_KIND}\" for ${CAP_NAME}\n"
+							"Allowed kinds are: limits, features"
+						)
+					endif()
+				endif()
+				# <-
 
 				if(NOT CAP_TYPE MATCHES "^(bool|uint16_t|uint32_t|uint64_t)$")
 					ERROR_WHILE_PARSING_ITEM(
@@ -1366,6 +1381,7 @@ namespace @IMPL_NAMESPACE@ {
                 set(CAP_VALUES_${CAP_IDX} "${VALUES}")
                 list(APPEND CAP_NAMES "${CAP_NAME}")
                 list(APPEND CAP_TYPES "${CAP_TYPE}")
+				list(APPEND CAP_KINDS "${CAP_KIND}")
             endforeach()
         endif()
 
@@ -1405,12 +1421,16 @@ namespace @IMPL_NAMESPACE@ {
 
 ]=])
 		unset(RETVAL_EVAL)
-		foreach(CAP ${CAP_NAMES})
+		list(LENGTH CAP_NAMES CAP_COUNT)
+		math(EXPR CAP_COUNT "${CAP_COUNT} - 1")
+		foreach(i RANGE ${CAP_COUNT})
+		list(GET CAP_NAMES ${i} CAP)
+		list(GET CAP_KINDS ${i} KIND)
 			string(CONFIGURE [=[
-		retval += ".@CAP@_" + std::to_string(limits.@CAP@);
+		retval += ".@CAP@_" + std::to_string(@KIND@.@CAP@);
 ]=] RETVALUE_VIEW @ONLY)
 			string(APPEND RETVAL_EVAL "${RETVALUE_VIEW}")
-		endforeach(CAP)
+		endforeach()
 		string(CONFIGURE "${HEADER_ITEM_VIEW}" HEADER_ITEM_EVAL @ONLY)
 		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_EVAL}")
 		
@@ -1461,6 +1481,7 @@ namespace @IMPL_NAMESPACE@ {
 
 			list(GET CAP_NAMES ${CAP_INDEX} CURRENT_CAP)
 			list(GET CAP_TYPES ${CAP_INDEX} CURRENT_TYPE)
+			list(GET CAP_KINDS ${CAP_INDEX} CURRENT_KIND)
 			set(VAR_NAME "CAP_VALUES_${CAP_INDEX}")
 			set(VALUES "${${VAR_NAME}}")
 
