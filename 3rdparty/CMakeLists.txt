@@ -451,6 +451,9 @@ if (NBL_BUILD_BULLET)
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
 
+add_library(Vulkan-Headers INTERFACE)
+target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+add_library(Vulkan::Headers ALIAS Vulkan-Headers)
 add_subdirectory(Vulkan-Tools/vulkaninfo vulkaninfo EXCLUDE_FROM_ALL)
 
 # Final gather
