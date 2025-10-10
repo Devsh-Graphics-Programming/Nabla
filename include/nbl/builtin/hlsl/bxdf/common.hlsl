@@ -491,7 +491,7 @@ struct SLightSample
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (cache, T)
-#define NBL_CONCEPT_PARAM_1 (eta, fresnel::OrientedEtas<vector<typename T::scalar_type,1> >)
+#define NBL_CONCEPT_PARAM_1 (eta, typename T::scalar_type)
 NBL_CONCEPT_BEGIN(2)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define eta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
@@ -664,8 +664,9 @@ struct SIsotropicMicrofacetCache
     // similar with BSDF sampling, as fresnel can be high while reflection can be invalid, or low while refraction would be invalid too
     bool isTransmission() NBL_CONST_MEMBER_FUNC { return getVdotHLdotH() < scalar_type(0.0); }
 
-    bool isValid(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta) NBL_CONST_MEMBER_FUNC
+    bool isValid(const scalar_type eta) NBL_CONST_MEMBER_FUNC
     {
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(eta));
         return ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(isTransmission(), VdotL, absNdotH, orientedEta);
     }
 
@@ -849,9 +850,9 @@ struct SAnisotropicMicrofacetCache
     scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return iso_cache.getNdotH2(); }
     bool isTransmission() NBL_CONST_MEMBER_FUNC { return iso_cache.isTransmission(); }
 
-    bool isValid(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta) NBL_CONST_MEMBER_FUNC
+    bool isValid(const scalar_type eta) NBL_CONST_MEMBER_FUNC
     {
-        return iso_cache.isValid(orientedEta);
+        return iso_cache.isValid(eta);
     }
 
     scalar_type getTdotH() NBL_CONST_MEMBER_FUNC { return TdotH; }

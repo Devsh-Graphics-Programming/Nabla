@@ -273,7 +273,7 @@ struct GGX
             dmq.projectedLightMeasure = d * NdotL_over_denominator;
         }
         else
-            dmq.projectedLightMeasure = d * _sample.getNdotL(BxDFClampMode::BCM_MAX);
+            dmq.projectedLightMeasure = d * _sample.getNdotL(BxDFClampMode::BCM_ABS);
         return dmq;
     }
 
@@ -282,7 +282,7 @@ struct GGX
     {
         scalar_type dg1 = scalar_type(0.5) * query.getNdfwoNumerator() * query.getG1over2NdotV();
         quant_type dmq;
-        dmq.microfacetMeasure = dg1;  // note: microfacetMeasure/2NdotV
+        dmq.microfacetMeasure = dg1;  // note: microfacetMeasure/4NdotV
 
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
@@ -294,7 +294,7 @@ struct GGX
             dmq.projectedLightMeasure = dg1;// TODO: figure this out * NdotL_over_denominator;
         }
         else
-            dmq.projectedLightMeasure = dg1;// TODO: figure this out * _sample.getNdotL(BxDFClampMode::BCM_MAX);
+            dmq.projectedLightMeasure = dg1;// TODO: figure this out * _sample.getNdotL(BxDFClampMode::BCM_ABS);
         return dmq;
     }
 

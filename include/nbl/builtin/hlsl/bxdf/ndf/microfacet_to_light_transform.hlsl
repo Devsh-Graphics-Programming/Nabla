@@ -23,16 +23,35 @@ enum MicrofacetTransformTypes : uint16_t
    MTT_REFLECT_REFRACT = 0b11
 };
 
+namespace microfacet_transform_concepts
+{
+#define NBL_CONCEPT_NAME QuantQuery
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (query, T)
+NBL_CONCEPT_BEGIN(1)
+#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getVdotHLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNeg_rcp2_VdotH_etaLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+);
+#undef query
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+}
+
 template<typename T>
 struct DualMeasureQuantQuery
 {
-    using scalar_type = T;
+   using scalar_type = T;
 
-    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
-    scalar_type getNeg_rcp2_VdotH_etaLdotH () NBL_CONST_MEMBER_FUNC { return neg_rcp2_VdotH_etaLdotH ; }
+   // note in pbrt it's `abs(VdotH)*abs(LdotH)`
+   // we leverage the fact that under transmission the sign must always be negative and rest of the code already accounts for that
+   scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
+   scalar_type getNeg_rcp2_VdotH_etaLdotH () NBL_CONST_MEMBER_FUNC { return neg_rcp2_VdotH_etaLdotH ; }
 
-    scalar_type VdotHLdotH;
-    scalar_type neg_rcp2_VdotH_etaLdotH;
+   scalar_type VdotHLdotH;
+   scalar_type neg_rcp2_VdotH_etaLdotH;
 };
 
 
