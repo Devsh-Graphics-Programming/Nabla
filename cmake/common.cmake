@@ -1427,18 +1427,15 @@ namespace @IMPL_NAMESPACE@ {
 ]=])
 		unset(RETVAL_EVAL)
 		list(LENGTH CAP_NAMES CAP_COUNT)
-		if(CAP_COUNT GREATER 0)
-			math(EXPR LAST_CAP "${CAP_COUNT} - 1")
-			foreach(i RANGE ${LAST_CAP})
-				list(GET CAP_NAMES ${i} CAP)
-				list(GET CAP_KINDS ${i} KIND)
-				string(CONFIGURE [=[
+		math(EXPR CAP_COUNT "${CAP_COUNT} - 1")
+		foreach(i RANGE ${CAP_COUNT})
+		list(GET CAP_NAMES ${i} CAP)
+		list(GET CAP_KINDS ${i} KIND)
+			string(CONFIGURE [=[
 		retval += ".@CAP@_" + std::to_string(@KIND@.@CAP@);
-]=] 			RETVALUE_VIEW @ONLY)
-				string(APPEND RETVAL_EVAL "${RETVALUE_VIEW}")
-			endforeach()
-		endif()
-		
+]=] RETVALUE_VIEW @ONLY)
+			string(APPEND RETVAL_EVAL "${RETVALUE_VIEW}")
+		endforeach()
 		string(CONFIGURE "${HEADER_ITEM_VIEW}" HEADER_ITEM_EVAL @ONLY)
 		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_EVAL}")
 		
