@@ -27,7 +27,7 @@ NBL_CONCEPT_BEGIN(1)
 #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdfwoNumerator()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getG1over2NdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef query
@@ -56,7 +56,7 @@ struct SGGXDG1Query
 {
     using scalar_type = T;
 
-    scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+    scalar_type getNdfwoNumerator() NBL_CONST_MEMBER_FUNC { return ndf; }
     scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
 
     scalar_type ndf;
@@ -211,7 +211,8 @@ struct GGX
         NBL_IF_CONSTEXPR (SupportsTransmission)
         {
             quant_query.VdotHLdotH = cache.getVdotHLdotH();
-            quant_query.VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
+            const scalar_type VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
+            quant_query.neg_rcp2_VdotH_etaLdotH = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
         }
         return quant_query;
     }
@@ -260,16 +261,15 @@ struct GGX
     {
         scalar_type d = __ndf_base.template D<MicrofacetCache>(cache);
         quant_type dmq;
-        dmq.microfacetMeasure = d;  // note: microfacetMeasure/2NdotV
+        dmq.microfacetMeasure = d;
 
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
             const scalar_type VdotHLdotH = quant_query.getVdotHLdotH();
-            const scalar_type VdotH_etaLdotH = quant_query.getVdotH_etaLdotH();
             const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
             scalar_type NdotL_over_denominator = _sample.getNdotL(BxDFClampMode::BCM_ABS);
             if (transmitted)
-                    NdotL_over_denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+                    NdotL_over_denominator *= scalar_type(4.0) * VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
             dmq.projectedLightMeasure = d * NdotL_over_denominator;
         }
         else
@@ -280,18 +280,17 @@ struct GGX
     template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
     quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        scalar_type dg1 = scalar_type(0.5) * query.getNdf() * query.getG1over2NdotV();
+        scalar_type dg1 = scalar_type(0.5) * query.getNdfwoNumerator() * query.getG1over2NdotV();
         quant_type dmq;
         dmq.microfacetMeasure = dg1;  // note: microfacetMeasure/2NdotV
 
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
             const scalar_type VdotHLdotH = quant_query.getVdotHLdotH();
-            const scalar_type VdotH_etaLdotH = quant_query.getVdotH_etaLdotH();
             const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
             scalar_type NdotL_over_denominator = _sample.getNdotL(BxDFClampMode::BCM_ABS);
             if (transmitted)
-                    NdotL_over_denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+                    NdotL_over_denominator *= scalar_type(4.0) * VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
             dmq.projectedLightMeasure = dg1;// TODO: figure this out * NdotL_over_denominator;
         }
         else

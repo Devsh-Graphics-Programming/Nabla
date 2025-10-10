@@ -269,7 +269,8 @@ struct Beckmann
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
             quant_query.VdotHLdotH = cache.getVdotHLdotH();
-            quant_query.VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
+            const scalar_type VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
+            quant_query.neg_rcp2_VdotH_etaLdotH = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
         }
         return quant_query;
     }

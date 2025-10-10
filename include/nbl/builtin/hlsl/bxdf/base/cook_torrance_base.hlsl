@@ -149,9 +149,7 @@ struct SCookTorrance
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        fresnel_type _f = fresnel;
-        NBL_IF_CONSTEXPR(IsBSDF)
-            _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
+        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
         if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
             return hlsl::promote<spectral_type>(0.0);
 
