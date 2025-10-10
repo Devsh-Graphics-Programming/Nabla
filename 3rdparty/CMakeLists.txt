@@ -451,10 +451,7 @@ if (NBL_BUILD_BULLET)
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
 
-set(_VULKANINFO_PREFIX "Vulkan-Tools/vulkaninfo")
-add_library(vulkaninfo OBJECT "${_VULKANINFO_PREFIX}/vulkaninfo.cpp")
-target_include_directories(vulkaninfo PRIVATE "${_VULKANINFO_PREFIX}" "${_VULKANINFO_PREFIX}/generated")
-target_link_libraries(vulkaninfo PRIVATE Vulkan::Headers)
+add_subdirectory(Vulkan-Tools/vulkaninfo vulkaninfo EXCLUDE_FROM_ALL)
 
 # Final gather
 set(NBL_3RDPARTY_TARGETS
