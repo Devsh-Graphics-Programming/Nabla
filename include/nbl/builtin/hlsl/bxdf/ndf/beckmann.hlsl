@@ -231,7 +231,7 @@ template<typename T, bool _IsAnisotropic, MicrofacetTransformTypes reflect_refra
 struct Beckmann
 {
     NBL_HLSL_NDF_CONSTEXPR_DECLS(_IsAnisotropic,reflect_refract);
-    NBL_HLSL_NDF_TYPE_ALIASES(NBL_HLSL_NDF_SINGLE_ARG(Beckmann<T,IsAnisotropic,SupportedPaths>), NBL_HLSL_NDF_SINGLE_ARG(impl::BeckmannCommon<T,IsAnisotropic>), impl::SBeckmannDG1Query<scalar_type>, impl::SBeckmannG2overG1Query<scalar_type>, DualMeasureQuantQuery<scalar_type>);
+    NBL_HLSL_NDF_TYPE_ALIASES(((Beckmann<T,IsAnisotropic,SupportedPaths>))((impl::BeckmannCommon<T,IsAnisotropic>))((impl::SBeckmannDG1Query<scalar_type>))((impl::SBeckmannG2overG1Query<scalar_type>))((DualMeasureQuantQuery<scalar_type>)));
 
     template<typename C=bool_constant<!IsAnisotropic> >
     static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)

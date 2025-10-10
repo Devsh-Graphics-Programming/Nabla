@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include <boost/preprocessor/punctuation/remove_parens.hpp>
 
 namespace nbl
 {
@@ -73,18 +74,15 @@ NBL_CONSTEXPR_STATIC_INLINE bool SupportsTransmission = REFLECT_REFRACT != MTT_R
 NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_NONE;\
 NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);\
 
-// help avoid preprocessor splitting template declarations by comma
-#define NBL_HLSL_NDF_SINGLE_ARG(...) __VA_ARGS__
-
-#define NBL_HLSL_NDF_TYPE_ALIASES(N,BASE,DG1_QUERY,G2_QUERY,QUANT_QUERY) using this_t = N;\
+#define NBL_HLSL_NDF_TYPE_ALIASES(...) using this_t = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(0, __VA_ARGS__));\
 using scalar_type = T;\
-using base_type = BASE;\
+using base_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(1, __VA_ARGS__));\
 using quant_type = SDualMeasureQuant<scalar_type>;\
 using vector2_type = vector<T, 2>;\
 using vector3_type = vector<T, 3>;\
-using dg1_query_type = DG1_QUERY;\
-using g2g1_query_type = G2_QUERY;\
-using quant_query_type = QUANT_QUERY;\
+using dg1_query_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(2, __VA_ARGS__));\
+using g2g1_query_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(3, __VA_ARGS__));\
+using quant_query_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(4, __VA_ARGS__));\
 
 }
 }

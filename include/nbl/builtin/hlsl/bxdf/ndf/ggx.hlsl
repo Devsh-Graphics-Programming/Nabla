@@ -175,7 +175,7 @@ template<typename T, bool _IsAnisotropic, MicrofacetTransformTypes reflect_refra
 struct GGX
 {
     NBL_HLSL_NDF_CONSTEXPR_DECLS(_IsAnisotropic,reflect_refract);
-    NBL_HLSL_NDF_TYPE_ALIASES(NBL_HLSL_NDF_SINGLE_ARG(GGX<T,IsAnisotropic,SupportedPaths>), NBL_HLSL_NDF_SINGLE_ARG(impl::GGXCommon<T,SupportsTransmission,IsAnisotropic>), impl::SGGXDG1Query<scalar_type>, impl::SGGXG2XQuery<scalar_type>, DualMeasureQuantQuery<scalar_type>);
+    NBL_HLSL_NDF_TYPE_ALIASES(((GGX<T,IsAnisotropic,SupportedPaths>))((impl::GGXCommon<T,SupportsTransmission,IsAnisotropic>))((impl::SGGXDG1Query<scalar_type>))((impl::SGGXG2XQuery<scalar_type>))((DualMeasureQuantQuery<scalar_type>)));
 
     template<typename C=bool_constant<!IsAnisotropic> >
     static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)
