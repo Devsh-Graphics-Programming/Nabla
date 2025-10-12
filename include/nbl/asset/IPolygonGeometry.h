@@ -88,13 +88,16 @@ class IPolygonGeometryBase : public virtual core::IReferenceCounted
                 virtual uint8_t rate_impl() const = 0;
         };
         //
-        NBL_API2 static IIndexingCallback* PointList();
-        NBL_API2 static IIndexingCallback* LineList();
-        NBL_API2 static IIndexingCallback* TriangleList();
-        NBL_API2 static IIndexingCallback* QuadList();
+        static inline IIndexingCallback* PointList() {return NGonList(1);}
+        static inline IIndexingCallback* LineList() {return NGonList(2);}
+        static inline IIndexingCallback* TriangleList() {return NGonList(3);}
+        static inline IIndexingCallback* QuadList() {return NGonList(4);}
+        //
+        NBL_API2 static IIndexingCallback* NGonList(const uint8_t n);
         // TODO: Adjacency, Patch, etc.
         NBL_API2 static IIndexingCallback* TriangleStrip();
         NBL_API2 static IIndexingCallback* TriangleFan();
+
 
         // This should be a pointer to a stateless singleton (think of it more like a dynamic enum/template than anything else)
         inline const IIndexingCallback* getIndexingCallback() const {return m_indexing;}
@@ -179,6 +182,8 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
 
         // For when the geometric normal of the patch isn't enough and you want interpolated custom normals
         inline const SDataView& getNormalView() const {return m_normalView;}
+        template<typename _B=BufferType> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
+        inline IGeometry<_B>::template MutableElementAccessor<_B> getNormalAccessor() {return base_t::template createElementAccessor<_B>(m_normalView);}
 
         // Its also a Max Joint ID that `m_jointWeightViews` can reference
         inline uint32_t getJointCount() const override final
@@ -203,6 +208,26 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
         // For User defined semantics
         inline const core::vector<SDataView>& getAuxAttributeViews() const {return m_auxAttributeViews;}
 
+        inline E_INDEX_TYPE getIndexType() const
+        {
+            auto indexType = EIT_UNKNOWN;
+            // disallowed index format
+            if (base_t::m_indexView)
+            {
+                switch (base_t::m_indexView.composed.format)
+                {
+                    case EF_R16_UINT:
+                        indexType = EIT_16BIT;
+                        break;
+                    case EF_R32_UINT:
+                        indexType = EIT_32BIT;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return indexType;
+        }
 
         // Does not set the `transform` or `geometryFlags` fields, because it doesn't care about it.
         // Also won't set second set of vertex data, opacity mipmaps, etc.
@@ -212,30 +237,12 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
             // must be a triangle list, but don't want to compare pointers
             if (m_indexing && m_indexing->knownTopology()==EPT_TRIANGLE_LIST)// && m_indexing->degree() == TriangleList()->degree() && m_indexing->rate() == TriangleList->rate())
             {
-                auto indexType = EIT_UNKNOWN;
-                // disallowed index format
-                if (base_t::m_indexView)
-                {
-                    switch (base_t::m_indexView.composed.format)
-                    {
-                        case EF_R16_UINT:
-                            indexType = EIT_16BIT;
-                            break;
-                        case EF_R32_UINT: [[fallthrough]];
-                            indexType = EIT_32BIT;
-                            break;
-                        default:
-                            break;
-                    }
-                    if (indexType==EIT_UNKNOWN)
-                        return retval;
-                }
                 retval.vertexData[0] = base_t::m_positionView.src;
                 retval.indexData = base_t::m_indexView.src;
                 retval.maxVertex = base_t::m_positionView.getElementCount() - 1;
                 retval.vertexStride = base_t::m_positionView.composed.getStride();
                 retval.vertexFormat = base_t::m_positionView.composed.format;
-                retval.indexType = indexType;
+                retval.indexType = getIndexType();
             }
             return retval;
         }

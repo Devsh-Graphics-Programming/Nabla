@@ -543,6 +543,31 @@ class AssetVisitor : public CRTP
 				return false;
 			return true;
 		}
+		inline bool impl(const instance_t<ICPURayTracingPipeline>& instance, const CAssetConverter::patch_t<ICPURayTracingPipeline>& userPatch)
+		{
+			const auto* asset = instance.asset;
+			const auto* layout = asset->getLayout();
+			if (!layout || !descend(layout,{layout}))
+				return false;
+			using stage_t = hlsl::ShaderStage;
+			for (stage_t stage : {hlsl::ShaderStage::ESS_RAYGEN, hlsl::ShaderStage::ESS_MISS, hlsl::ShaderStage::ESS_ANY_HIT, hlsl::ShaderStage::ESS_CLOSEST_HIT, hlsl::ShaderStage::ESS_INTERSECTION, hlsl::ShaderStage::ESS_CALLABLE})
+			{
+				const auto& specInfos = asset->getSpecInfos(stage);
+				for (auto specInfo_i = 0; specInfo_i < specInfos.size(); specInfo_i++)
+				{
+					const auto& specInfo = specInfos[specInfo_i];
+					const auto* shader = specInfo.shader.get();
+					if (!shader)
+					{
+						if (stage == stage_t::ESS_RAYGEN) return false;
+						CRTP::template nullOptional<IShader>();
+						continue;
+					}
+          if (!descend(shader,{shader}, specInfo, stage, specInfo_i)) return false;
+				}
+			}
+			return true;
+		}
 		inline bool impl(const instance_t<ICPUGraphicsPipeline>& instance, const CAssetConverter::patch_t<ICPUGraphicsPipeline>& userPatch)
 		{
 			const auto* asset = instance.asset;
@@ -1104,6 +1129,12 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 					assert(hlsl::bitCount(stage) == 1);
 					hasher << stage;
 					hasher << arg0.requiredSubgroupSize;
+					// Shaders in Groups are hashed in order and non-present ones calls `nullOptional` so just this info should be enough to produce unique input to hashing function
+					//if constexpr (std::is_same_v<AssetT, ICPURayTracingPipeline>)
+					//{
+					//	const auto groupIndex = std::get<2>(argTuple);
+					//	hasher << groupIndex;
+					//}
 					if (!arg0.entries.empty())
 					{
 					  for (const auto& specConstant : arg0.entries) 
@@ -1368,6 +1399,26 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUComputePipe
 		return false;
 	const auto& params = asset->getCachedCreationParams();
 	hasher << params.requireFullSubgroups;
+	return true;
+}
+bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURayTracingPipeline> lookup)
+{
+	const auto* asset = lookup.asset;
+	//
+	hasher << asset->getMissGroupCount();
+	hasher << asset->getHitGroupCount();
+	hasher << asset->getCallableGroupCount();
+	AssetVisitor<HashVisit<ICPURayTracingPipeline>> visitor = {
+		*this,
+		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
+		*lookup.patch
+	};
+	if (!visitor())
+		return false;
+	const auto& params = asset->getCachedCreationParams();
+	hasher << params.flags;
+	hasher << params.maxRecursionDepth;
+	hasher << params.dynamicStackSize;
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass> lookup)
@@ -1688,6 +1739,7 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 	rehash.operator()<IShader>();
 	rehash.operator()<ICPUPipelineCache>();
 	rehash.operator()<ICPUComputePipeline>();
+	rehash.template operator()<ICPURayTracingPipeline>();
 	// graphics pipeline needs a renderpass
 	rehash.template operator()<ICPURenderpass>();
 	rehash.template operator()<ICPUGraphicsPipeline>();
@@ -2041,102 +2093,184 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 				storageOffset.data += element;
 				potentialTLASRewrites.push_back(storageOffset);
 			}
-			if constexpr (std::is_same_v<DepType,ICPUImageView>)
+			if constexpr (std::is_same_v<DepType, ICPUImageView>)
 			{
 				outInfo.info.image.imageLayout = std::get<0>(argTuple);
-				if (type==IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
+				if (type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
 				{
 					assert(lastCombinedSampler);
 					outInfo.info.combinedImageSampler.sampler = smart_refctd_ptr<IGPUSampler>(lastCombinedSampler);
-					lastCombinedSampler = nullptr; // for debuggability
+					lastCombinedSampler = nullptr;
 				}
 			}
 			outInfo.desc = std::move(depObj);
 			return true;
-		}
-};
-template<>
-class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPUPolygonGeometry>
+    }
+  };
+  template<>
+  class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPUPolygonGeometry>
+  {
+    public:
+      bool finalize()
+      {
+        if (!creationParams.indexing)
+          return false;
+        creationParams.jointWeightViews = jointWeightViews;
+        creationParams.auxAttributeViews = auxAttributeViews;
+        return true;
+      }
+
+      IGPUPolygonGeometry::SCreationParams creationParams = {};
+      // has to be public because of aggregate init, but its only for internal usage!
+      core::vector<IGPUPolygonGeometry::SJointWeight> jointWeightViews = {};
+      core::vector<IGPUPolygonGeometry::SDataView> auxAttributeViews = {};
+
+    protected:
+      bool descend_impl(
+        const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+        const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch,
+        const EPolygonGeometryViewType type, const uint32_t index
+      )
+      {
+        auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
+        if (!depObj)
+          return false;
+        const auto* asset = user.asset;
+        switch (type)
+        {
+          case EPolygonGeometryViewType::Position:
+            // obligatory attribute, handle basic setup here too
+            creationParams.indexing = asset->getIndexingCallback();
+            creationParams.aabb = asset->getAABBStorage();
+            creationParams.jointCount = asset->getJointCount();
+            creationParams.positionView = getView(asset->getPositionView(),std::move(depObj));
+            break;
+          case EPolygonGeometryViewType::Index:
+            creationParams.indexView = getView(asset->getIndexView(),std::move(depObj));
+            break;
+          case EPolygonGeometryViewType::Normal:
+            creationParams.normalView = getView(asset->getNormalView(),std::move(depObj));
+            break;
+          case EPolygonGeometryViewType::JointOBB:
+            creationParams.jointOBBView = getView(*asset->getJointOBBView(),std::move(depObj));
+            break;
+          case EPolygonGeometryViewType::JointIndices:
+            jointWeightViews.resize(index+1);
+            jointWeightViews[index].indices = getView(asset->getJointWeightViews()[index].indices,std::move(depObj));
+            break;
+          case EPolygonGeometryViewType::JointWeights:
+            jointWeightViews.resize(index+1);
+            jointWeightViews[index].weights = getView(asset->getJointWeightViews()[index].weights,std::move(depObj));
+            break;
+          case EPolygonGeometryViewType::Aux:
+            auxAttributeViews.push_back(getView(asset->getAuxAttributeViews()[index],std::move(depObj)));
+            break;
+          default:
+            return false;
+        }
+        // abuse this pointer to signal invalid state
+        return creationParams.indexing;
+      }
+
+    private:
+      IGPUPolygonGeometry::SDataView getView(const ICPUPolygonGeometry::SDataView& orig, core::smart_refctd_ptr<IGPUBuffer>&& buff)
+      {
+        IGPUPolygonGeometry::SDataView retval = {
+          .composed = orig.composed,
+          .src = {
+            .offset = orig.src.offset,
+            .size = orig.src.actualSize(),
+            .buffer = std::move(buff)
+          }
+        };
+        if (orig && !retval)
+          creationParams.indexing = nullptr;
+        return retval;
+      }
+  };
+  template<>
+class GetDependantVisit<ICPURayTracingPipeline> : public GetDependantVisitBase<ICPURayTracingPipeline>
 {
-	public:
-		bool finalize()
-		{
-			if (!creationParams.indexing)
-				return false;
-			creationParams.jointWeightViews = jointWeightViews;
-			creationParams.auxAttributeViews = auxAttributeViews;
-			return true;
-		}
+public:
 
-		IGPUPolygonGeometry::SCreationParams creationParams = {};
-		// has to be public because of aggregate init, but its only for internal usage!
-		core::vector<IGPUPolygonGeometry::SJointWeight> jointWeightViews = {};
-		core::vector<IGPUPolygonGeometry::SDataView> auxAttributeViews = {};
+	inline void allocateShaders(size_t missCount, size_t hitGroupCount, size_t callableGroupCount)
+	{
+		misses.resize(missCount);
+		hitGroups.anyHits.resize(hitGroupCount);
+		hitGroups.closestHits.resize(hitGroupCount);
+		hitGroups.intersections.resize(hitGroupCount);
+		callables.resize(callableGroupCount);
+	}
 
-	protected:
-		bool descend_impl(
-			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
-			const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch,
-			const EPolygonGeometryViewType type, const uint32_t index
-		)
-		{
-			auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
-			if (!depObj)
-				return false;
-			const auto* asset = user.asset;
-			switch (type)
-			{
-				case EPolygonGeometryViewType::Position:
-					// obligatory attribute, handle basic setup here too
-					creationParams.indexing = asset->getIndexingCallback();
-					creationParams.aabb = asset->getAABBStorage();
-					creationParams.jointCount = asset->getJointCount();
-					creationParams.positionView = getView(asset->getPositionView(),std::move(depObj));
-					break;
-				case EPolygonGeometryViewType::Index:
-					creationParams.indexView = getView(asset->getIndexView(),std::move(depObj));
-					break;
-				case EPolygonGeometryViewType::Normal:
-					creationParams.normalView = getView(asset->getNormalView(),std::move(depObj));
-					break;
-				case EPolygonGeometryViewType::JointOBB:
-					creationParams.jointOBBView = getView(*asset->getJointOBBView(),std::move(depObj));
-					break;
-				case EPolygonGeometryViewType::JointIndices:
-					jointWeightViews.resize(index+1);
-					jointWeightViews[index].indices = getView(asset->getJointWeightViews()[index].indices,std::move(depObj));
-					break;
-				case EPolygonGeometryViewType::JointWeights:
-					jointWeightViews.resize(index+1);
-					jointWeightViews[index].weights = getView(asset->getJointWeightViews()[index].weights,std::move(depObj));
-					break;
-				case EPolygonGeometryViewType::Aux:
-					auxAttributeViews.push_back(getView(asset->getAuxAttributeViews()[index],std::move(depObj)));
-					break;
-				default:
-					return false;
-			}
-			// abuse this pointer to signal invalid state
-			return creationParams.indexing;
-		}
+  inline core::vector<ICPUPipelineBase::SShaderSpecInfo>* getSpecInfoVector(const hlsl::ShaderStage stage)
+  {
+    switch (stage) 
+    {
+      // raygen is not stored as vector so we can't return it here. Use getSpecInfo
+      case hlsl::ShaderStage::ESS_MISS:
+        return &misses;
+      case hlsl::ShaderStage::ESS_ANY_HIT:
+        return &hitGroups.anyHits;
+      case hlsl::ShaderStage::ESS_CLOSEST_HIT:
+        return &hitGroups.closestHits;
+      case hlsl::ShaderStage::ESS_INTERSECTION:
+        return &hitGroups.intersections;
+      case hlsl::ShaderStage::ESS_CALLABLE:
+        return &callables;
+    }
+    return nullptr;
+  }
 
-	private:
-		IGPUPolygonGeometry::SDataView getView(const ICPUPolygonGeometry::SDataView& orig, core::smart_refctd_ptr<IGPUBuffer>&& buff)
+  // ok to do non owning since some cache owns anyway
+  IGPUPipelineLayout* layout = nullptr;
+  ICPUPipelineBase::SShaderSpecInfo raygen;
+  core::vector<ICPUPipelineBase::SShaderSpecInfo> misses;
+  ICPURayTracingPipeline::SHitGroupSpecInfos hitGroups;
+  core::vector<ICPUPipelineBase::SShaderSpecInfo> callables;
+
+protected:
+	bool descend_impl(
+		const instance_t<ICPURayTracingPipeline>& user, const CAssetConverter::patch_t<ICPURayTracingPipeline>& userPatch,
+		const instance_t<ICPUPipelineLayout>& dep, const CAssetConverter::patch_t<ICPUPipelineLayout>& soloPatch
+	)
+	{
+		auto depObj = getDependant<ICPUPipelineLayout>(dep, soloPatch);
+		if (!depObj)
+			return false;
+		layout = depObj.get();
+		return true;
+	}
+	bool descend_impl(
+		const instance_t<ICPURayTracingPipeline>& user, const CAssetConverter::patch_t<ICPURayTracingPipeline>& userPatch,
+		const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const ICPUPipelineBase::SShaderSpecInfo& inSpecInfo, hlsl::ShaderStage stage, uint32_t groupIndex
+	)
+	{
+		auto depObj = getDependant<IShader>(dep, soloPatch);
+		if (!depObj)
+			return false;
+		if (stage == hlsl::ShaderStage::ESS_RAYGEN)
 		{
-			IGPUPolygonGeometry::SDataView retval = {
-				.composed = orig.composed,
-				.src = {
-					.offset = orig.src.offset,
-					.size = orig.src.actualSize(),
-					.buffer = std::move(buff)
-				}
+			assert(groupIndex == 0);
+			raygen = ICPUPipelineBase::SShaderSpecInfo{
+				.shader = depObj,
+				.entryPoint = inSpecInfo.entryPoint,
+				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
+        .entries = inSpecInfo.entries,
 			};
-			if (orig && !retval)
-				creationParams.indexing = nullptr;
-			return retval;
+		} else
+		{
+			auto& shaderGroups = *getSpecInfoVector(stage);
+			assert(groupIndex < shaderGroups.size());
+			shaderGroups[groupIndex] = ICPUPipelineBase::SShaderSpecInfo{
+				.shader = depObj,
+				.entryPoint = inSpecInfo.entryPoint,
+				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
+				.entries = inSpecInfo.entries,
+      };
 		}
+		return true;
+	}
 };
-
 
 // Needed both for reservation and conversion
 class MetaDeviceMemoryAllocator final
@@ -2774,6 +2908,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					case ICPUGraphicsPipeline::AssetType:
 						visit.template operator()<ICPUGraphicsPipeline>(entry);
 						break;
+					case ICPURayTracingPipeline::AssetType:
+						visit.template operator()<ICPURayTracingPipeline>(entry);
+						break;
 					case ICPUDescriptorSet::AssetType:
 						visit.template operator()<ICPUDescriptorSet>(entry);
 						break;
@@ -3024,7 +3161,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
 									{
-										size = core::alignUp(size,alignof(float))+sizeof(hlsl::float32_t3x4);
+										size = core::alignUp(size, IAccelerationStructure::TransformDataMinAlignment)+sizeof(hlsl::float32_t3x4);
 										alignment = hlsl::max<uint16_t>(alignof(float),alignment);
 									}
 									uint16_t indexSize = 0;
@@ -3474,6 +3611,102 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 				}
 			}
+		  if constexpr (std::is_same_v<AssetType,ICPURayTracingPipeline>)
+			{
+				for (auto& entry : conversionRequests.contentHashToCanonical)
+				{
+					const ICPURayTracingPipeline* asset = entry.second.canonicalAsset;
+					// there is no patching possible for this asset
+					for (auto i=0ull; i<entry.second.copyCount; i++)
+					{
+						const auto outIx = i+entry.second.firstCopyIx;
+						const auto uniqueCopyGroupID = conversionRequests.gpuObjUniqueCopyGroupIDs[outIx];
+						AssetVisitor<GetDependantVisit<ICPURayTracingPipeline>> visitor = {
+							{visitBase},
+							{asset,uniqueCopyGroupID},
+							{}
+						};
+						visitor.allocateShaders(
+							asset->getMissGroupCount(),
+							asset->getHitGroupCount(), 
+							asset->getCallableGroupCount());
+						if (!visitor())
+							continue;
+						// ILogicalDevice::createComputePipelines is rather aggressive on the spec constant validation, so we create one pipeline at a time
+						core::smart_refctd_ptr<IGPURayTracingPipeline> ppln;
+						{
+							// no derivatives, special flags, etc.
+							IGPURayTracingPipeline::SCreationParams params = {};
+							using SShaderEntryMap = IGPUPipelineBase::SShaderEntryMap;
+							using stage_t = hlsl::ShaderStage;
+							using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
+
+							params.layout = visitor.layout;
+
+							SShaderEntryMap raygenEntryMap;
+							params.shaderGroups.raygen = GPUShaderSpecInfo::create(visitor.raygen, &raygenEntryMap);
+
+							struct GPUSpecEntryVec
+							{
+								core::vector<SShaderEntryMap> entryMaps;
+								core::vector<IGPUPipelineBase::SShaderSpecInfo> specs;
+
+								explicit GPUSpecEntryVec(std::span<ICPUPipelineBase::SShaderSpecInfo> cpuSpecs)
+								  : entryMaps(cpuSpecs.size()), specs(cpuSpecs.size())
+								{
+									for (auto spec_i = 0u; spec_i < cpuSpecs.size(); spec_i++)
+										specs[spec_i] = GPUShaderSpecInfo::create(cpuSpecs[spec_i], &entryMaps[spec_i]);
+								}
+							};
+
+							GPUSpecEntryVec missSpecEntry(visitor.misses);
+							params.shaderGroups.misses = missSpecEntry.specs;
+
+							GPUSpecEntryVec callableSpecEntry(visitor.callables);
+							params.shaderGroups.callables = callableSpecEntry.specs;
+
+							core::vector<IGPURayTracingPipeline::SHitGroup> hitGroups(visitor.hitGroups.closestHits.size());
+							core::vector<SShaderEntryMap> closestHitEntryMaps(visitor.hitGroups.closestHits.size());
+							core::vector<SShaderEntryMap> anyHitEntryMaps(visitor.hitGroups.anyHits.size());
+							core::vector<SShaderEntryMap> intersectionEntryMaps(visitor.hitGroups.intersections.size());
+							assert(anyHitEntryMaps.size() == closestHitEntryMaps.size());
+							assert(anyHitEntryMaps.size() == intersectionEntryMaps.size());
+							for (auto hitGroup_i = 0u ; hitGroup_i < hitGroups.size(); hitGroup_i++)
+							{
+								hitGroups[hitGroup_i].closestHit = GPUShaderSpecInfo::create(visitor.hitGroups.closestHits[hitGroup_i], &closestHitEntryMaps[hitGroup_i]);
+								hitGroups[hitGroup_i].anyHit = GPUShaderSpecInfo::create(visitor.hitGroups.anyHits[hitGroup_i], &anyHitEntryMaps[hitGroup_i]);
+								hitGroups[hitGroup_i].intersection = GPUShaderSpecInfo::create(visitor.hitGroups.intersections[hitGroup_i], &intersectionEntryMaps[hitGroup_i]);
+							}
+							params.shaderGroups.hits = hitGroups;
+							params.cached = asset->getCachedCreationParams();
+
+							using RayTracingFlags = IGPURayTracingPipeline::SCreationParams::FLAGS;
+							const auto isNullSpecInfo = [](const ICPUPipelineBase::SShaderSpecInfo& specInfo)
+								{
+									return specInfo.shader.get() == nullptr;
+								};
+							const auto noNullMiss = std::none_of(
+								visitor.misses.begin(), 
+								visitor.misses.end(), 
+								isNullSpecInfo);
+							if (noNullMiss) params.cached.flags |= RayTracingFlags::NO_NULL_MISS_SHADERS;
+							const auto noNullClosestHit = std::none_of(
+								visitor.hitGroups.closestHits.begin(), 
+								visitor.hitGroups.closestHits.end(),
+								isNullSpecInfo);
+							if (noNullClosestHit) params.cached.flags |= RayTracingFlags::NO_NULL_CLOSEST_HIT_SHADERS;
+							const auto noNullAnyHit = std::none_of(
+								visitor.hitGroups.anyHits.begin(),
+								visitor.hitGroups.anyHits.end(),
+								isNullSpecInfo);
+							if (noNullAnyHit) params.cached.flags |= RayTracingFlags::NO_NULL_ANY_HIT_SHADERS;
+
+							device->createRayTracingPipelines(inputs.pipelineCache, {&params, 1}, &ppln);
+							conversionRequests.assign(entry.first, entry.second.firstCopyIx, i, std::move(ppln));
+						}
+					}
+				}
+			}
 			if constexpr (std::is_same_v<AssetType,ICPUDescriptorSet>)
 			{
 				// Why we're not grouping multiple descriptor sets into few pools and doing 1 pool per descriptor set.
@@ -3675,6 +3908,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		dedupCreateProp.template operator()<ICPUPipelineLayout>();
 		dedupCreateProp.template operator()<ICPUPipelineCache>();
 		dedupCreateProp.template operator()<ICPUComputePipeline>();
+		dedupCreateProp.template operator()<ICPURayTracingPipeline>();
 		dedupCreateProp.template operator()<ICPURenderpass>();
 		dedupCreateProp.template operator()<ICPUGraphicsPipeline>();
 		dedupCreateProp.template operator()<ICPUDescriptorSet>();
@@ -3758,6 +3992,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		pruneStaging.template operator()<ICPUGraphicsPipeline>();
 		pruneStaging.template operator()<ICPURenderpass>();
 		pruneStaging.template operator()<ICPUComputePipeline>();
+		pruneStaging.template operator()<ICPURayTracingPipeline>();
 		pruneStaging.template operator()<ICPUPipelineCache>();
 		pruneStaging.template operator()<ICPUPipelineLayout>();
 		pruneStaging.template operator()<ICPUDescriptorSetLayout>();
@@ -5061,7 +5296,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
 									{
-										size = core::alignUp(size,alignof(float))+sizeof(hlsl::float32_t3x4);
+										size = core::alignUp(size, IAccelerationStructure::TransformDataMinAlignment)+sizeof(hlsl::float32_t3x4);
 										alignment = hlsl::max<uint16_t>(alignof(float),alignment);
 									}
 									uint16_t indexSize = 0u;
@@ -5265,7 +5500,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									}
 									if (geom.hasTransform())
 									{
-										offset = core::alignUp(offset,alignof(float));
+										offset = core::alignUp(offset, IAccelerationStructure::TransformDataMinAlignment);
 										outGeom.transform = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
 										memcpyCallback.data = &geom.transform;
 										if (!streamDataToScratch(offset,sizeof(geom.transform),memcpyCallback))

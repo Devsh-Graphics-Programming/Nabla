@@ -74,6 +74,10 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
                 return {};
             }
 
+            inline core::bitflag<FLAGS>& getFlags() { return flags; }
+
+            inline core::bitflag<FLAGS> getFlags() const { return flags; }
+
             const IGPUPipelineLayout* layout = nullptr;
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
