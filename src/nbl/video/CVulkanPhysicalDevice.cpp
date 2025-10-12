@@ -12,7 +12,7 @@ do { \
     return nullptr; \
 } while(0)
 
-std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::string& profile)
+std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice)
 {
     system::logger_opt_ptr logger = api->getDebugCallback()->getLogger();
 
@@ -26,9 +26,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             // TODO: Print full gpu limits and features
         }
     });
-
-    using json = nlohmann::json;
-    json profileObject = { {"$schema", "https://schema.khronos.org/vulkan/profiles-0.8-latest.json"} };
 
     auto& properties = initData.properties;
     auto& features = initData.features;
@@ -267,10 +264,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         assert(VK_SUCCESS==res);
 
         for (const auto& vk_extension : vk_extensions)
-        {
-            profileObject["capabilities"]["device"]["extensions"][vk_extension.extensionName] = vk_extension.specVersion;
             availableFeatureSet.insert(vk_extension.extensionName);
-        }
     }
     auto isExtensionSupported = [&availableFeatureSet](const char* name)->bool
     {
@@ -1372,11 +1366,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 //        bufferUsages.opticalFlowVector = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_VECTOR_BIT_NV);
 //        bufferUsages.opticalFlowCost = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_COST_BIT_NV);
     }
-    
-    profile = profileObject.dump(4); // nicely indented json 
 
     success = true;
-    return std::unique_ptr<CVulkanPhysicalDevice>(new CVulkanPhysicalDevice(std::move(initData),rdoc,vk_physicalDevice,std::move(availableFeatureSet),profile));
+    return std::unique_ptr<CVulkanPhysicalDevice>(new CVulkanPhysicalDevice(std::move(initData),rdoc,vk_physicalDevice,std::move(availableFeatureSet)));
 }
 
 #undef RETURN_NULL_PHYSICAL_DEVICE

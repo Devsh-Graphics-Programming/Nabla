@@ -12,17 +12,15 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
     public:
-        static std::unique_ptr<CVulkanPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::string& profile);
+        static std::unique_ptr<CVulkanPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice);
             
         inline VkPhysicalDevice getInternalObject() const { return m_vkPhysicalDevice; }
             
         inline E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-        inline const core::string& getProfile() const { return m_profile; }
-
     protected:
-        inline CVulkanPhysicalDevice(IPhysicalDevice::SInitData&& _initData, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::unordered_set<std::string>&& _extensions, core::string& profile)
-            : IPhysicalDevice(std::move(_initData)), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_extensions(std::move(_extensions)), m_profile(profile) {}
+        inline CVulkanPhysicalDevice(IPhysicalDevice::SInitData&& _initData, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::unordered_set<std::string>&& _extensions)
+            : IPhysicalDevice(std::move(_initData)), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_extensions(std::move(_extensions)) {}
     
         //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
         //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
@@ -117,7 +115,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
         renderdoc_api_t* const m_rdoc_api;
         const VkPhysicalDevice m_vkPhysicalDevice;
 
-        core::string& m_profile;
         const core::unordered_set<std::string> m_extensions;
 };
 
