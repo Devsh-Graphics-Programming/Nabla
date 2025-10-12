@@ -329,7 +329,6 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
-	$<TARGET_OBJECTS:vulkaninfo>
 )
 
 if(NBL_STATIC_BUILD)
@@ -600,6 +599,11 @@ endif()
 # CUDA
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
+endif()
+
+# vulkaninfo
+if (NOT VULKANINFO_BUILD_EXECUTABLE)
+	target_link_libraries(Nabla PRIVATE vulkaninfo)
 endif()
 
 # Include dirs for self

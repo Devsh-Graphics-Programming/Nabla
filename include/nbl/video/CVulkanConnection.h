@@ -27,6 +27,8 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
 
         inline IDebugCallback* getDebugCallback() const override {return m_debugCallback.get();}
 
+        void exportGpuProfile() const;
+
         bool startCapture() override;
         bool endCapture() override;
 

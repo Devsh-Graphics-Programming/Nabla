@@ -4,6 +4,8 @@
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/debug/CVulkanDebugCallback.h"
 
+#include "vulkaninfo/vulkaninfo.h"
+
 // TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
@@ -320,6 +322,13 @@ CVulkanConnection::~CVulkanConnection()
         vkDestroyDebugUtilsMessengerEXT(m_vkInstance,m_vkDebugUtilsMessengerEXT,nullptr);
 
     vkDestroyInstance(m_vkInstance,nullptr);
+}
+
+void CVulkanConnection::exportGpuProfile() const
+{
+    constexpr char arg1[] = "--json";
+    char* argv = const_cast<char*>(arg1);
+    vulkaninfo(1, &argv);
 }
 
 bool CVulkanConnection::startCapture()
