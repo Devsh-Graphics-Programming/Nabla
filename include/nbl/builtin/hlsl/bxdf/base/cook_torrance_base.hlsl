@@ -119,6 +119,27 @@ struct getOrientedFresnel<F, true NBL_PARTIAL_REQ_BOT(fresnel::TwoSidedFresnel<F
         return fresnel.getReorientedFresnel(NdotV);
     }
 };
+
+template<class N, class LS, class Interaction, class MicrofacetCache>
+struct overwrite_DG
+{
+    using scalar_type = typename N::scalar_type;
+    using quant_type = typename N::quant_type;
+    using quant_query_type = typename N::quant_query_type;
+    using g2g1_query_type = typename N::g2g1_query_type;
+    NBL_CONSTEXPR_STATIC_INLINE bool HasOverwrite = ndf::NDF_CanOverwriteDG<N>;
+
+    template<typename C=bool_constant<!HasOverwrite> >
+    static enable_if_t<C::value && !HasOverwrite, void> __call(NBL_REF_ARG(scalar_type) DG, N ndf, NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+    }
+    template<typename C=bool_constant<HasOverwrite> >
+    static enable_if_t<C::value && HasOverwrite, void> __call(NBL_REF_ARG(scalar_type) DG, N ndf, NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        quant_type dg = ndf.template Dcorrelated<LS, Interaction, MicrofacetCache>(query, quant_query, _sample, interaction, cache);
+        DG = dg.projectedLightMeasure;
+    }
+};
 }
 
 // N (NDF), F (fresnel)
@@ -148,16 +169,18 @@ struct SCookTorrance
         using quant_query_type = typename ndf_type::quant_query_type;
         quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<MicrofacetCache>(ndf, _f, cache);
 
+        using g2g1_query_type = typename ndf_type::g2g1_query_type;
+        g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+
         quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
         scalar_type DG = D.projectedLightMeasure;
         if (D.microfacetMeasure < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
-        {
-            using g2g1_query_type = typename ndf_type::g2g1_query_type;
-            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
             DG *= ndf.template correlated<sample_type, Interaction>(gq, _sample, interaction);
-        }
         else
             return hlsl::promote<spectral_type>(0.0);
+
+        impl::overwrite_DG<ndf_type, sample_type, Interaction, MicrofacetCache>::__call(DG, ndf, gq, qq, _sample, interaction, cache);
+
         scalar_type clampedVdotH = cache.getVdotH();
         NBL_IF_CONSTEXPR(IsBSDF)
             clampedVdotH = hlsl::abs(clampedVdotH);

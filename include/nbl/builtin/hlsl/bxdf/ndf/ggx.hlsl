@@ -260,29 +260,55 @@ struct GGX
     quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type d = __ndf_base.template D<MicrofacetCache>(cache);
-        quant_type dmq;
-        dmq.microfacetMeasure = d;
-
-        NBL_IF_CONSTEXPR(SupportsTransmission)
-        {
-            const scalar_type VdotHLdotH = quant_query.getVdotHLdotH();
-            const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
-            scalar_type NdotL_over_denominator = _sample.getNdotL(BxDFClampMode::BCM_ABS);
-            if (transmitted)
-                    NdotL_over_denominator *= scalar_type(4.0) * VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
-            dmq.projectedLightMeasure = d * NdotL_over_denominator;
-        }
-        else
-            dmq.projectedLightMeasure = d * _sample.getNdotL(BxDFClampMode::BCM_ABS);
-        return dmq;
+        return createDualMeasureQuantity<T, reflect_refract, quant_query_type>(d, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query);
     }
 
     template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
     quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        scalar_type dg1 = scalar_type(0.5) * query.getNdfwoNumerator() * query.getG1over2NdotV();
+        scalar_type dg1_over_2NdotV = query.getNdfwoNumerator() * query.getG1over2NdotV();
         quant_type dmq;
-        dmq.microfacetMeasure = dg1;  // note: microfacetMeasure/4NdotV
+        dmq.microfacetMeasure = scalar_type(2.0) * interaction.getNdotV(_clamp) * dg1_over_2NdotV;
+
+        NBL_IF_CONSTEXPR(SupportsTransmission)
+        {
+            const scalar_type VdotHLdotH = quant_query.getVdotHLdotH();
+            const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
+            dmq.projectedLightMeasure = hlsl::mix(scalar_type(0.5),scalar_type(2.0),transmitted) * dg1_over_2NdotV;
+            if (transmitted)
+                dmq.projectedLightMeasure *= VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
+        }
+        else
+            dmq.projectedLightMeasure = scalar_type(0.5) * dg1_over_2NdotV;
+        return dmq;
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
+    scalar_type correlated_wo_numerator(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        // without numerator, numerator is 2 * NdotV * NdotL, we factor out 4 * NdotV * NdotL, hence 0.5
+        scalar_type Vterm = _sample.getNdotL(_clamp) * query.getDevshV();
+        scalar_type Lterm = interaction.getNdotV(_clamp) * query.getDevshL();
+        return scalar_type(0.5) / (Vterm + Lterm);
+    }
+
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
+    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        return scalar_type(4.0) * interaction.getNdotV(_clamp) * _sample.getNdotL(_clamp) * correlated_wo_numerator<LS, Interaction>(query, _sample, interaction);
+    }
+
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    quant_type Dcorrelated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        scalar_type dg = __ndf_base.template D<MicrofacetCache>(cache);
+        if (dg < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+            dg *= correlated_wo_numerator<LS, Interaction>(query, _sample, interaction);
+        else
+            dg = scalar_type(0.0);
+
+        quant_type dmq;
+        dmq.microfacetMeasure = dg;
 
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
@@ -291,20 +317,11 @@ struct GGX
             scalar_type NdotL_over_denominator = _sample.getNdotL(BxDFClampMode::BCM_ABS);
             if (transmitted)
                     NdotL_over_denominator *= scalar_type(4.0) * VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
-            dmq.projectedLightMeasure = dg1;// TODO: figure this out * NdotL_over_denominator;
+            dmq.projectedLightMeasure = dg * NdotL_over_denominator;
         }
         else
-            dmq.projectedLightMeasure = dg1;// TODO: figure this out * _sample.getNdotL(BxDFClampMode::BCM_ABS);
+            dmq.projectedLightMeasure = dg * _sample.getNdotL(BxDFClampMode::BCM_ABS);
         return dmq;
-    }
-
-    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
-    {
-        // without numerator, numerator is 2 * NdotV * NdotL, we factor out 4 * NdotV * NdotL, hence 0.5
-        scalar_type Vterm = _sample.getNdotL(_clamp) * query.getDevshV();
-        scalar_type Lterm = interaction.getNdotV(_clamp) * query.getDevshL();
-        return scalar_type(0.5) / (Vterm + Lterm);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)

@@ -62,6 +62,34 @@ NBL_CONCEPT_END(
 #undef ndf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+#define NBL_CONCEPT_NAME NDF_CanOverwriteDG
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (ndf, T)
+#define NBL_CONCEPT_PARAM_1 (quant_query, typename T::quant_query_type)
+#define NBL_CONCEPT_PARAM_2 (_sample, dummy_impl::sample_t)
+#define NBL_CONCEPT_PARAM_3 (interaction, dummy_impl::interaction_t)
+#define NBL_CONCEPT_PARAM_4 (cache, dummy_impl::cache_t)
+#define NBL_CONCEPT_PARAM_5 (g2_query, typename T::g2g1_query_type)
+NBL_CONCEPT_BEGIN(6)
+#define ndf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define quant_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define g2_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NDF, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template Dcorrelated<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(g2_query, quant_query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::quant_type))
+);
+#undef g2_query
+#undef cache
+#undef interaction
+#undef _sample
+#undef quant_query
+#undef ndf
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 
 #define NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IS_ANISO) template<class Interaction>\
 NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IS_ANISO ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;\
