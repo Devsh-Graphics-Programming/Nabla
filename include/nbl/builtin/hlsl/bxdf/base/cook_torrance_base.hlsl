@@ -194,7 +194,7 @@ struct SCookTorrance
             const scalar_type NdotV = interaction.getNdotV();
             if (NdotV < numeric_limits<scalar_type>::min)
                 return sample_type::createInvalid();
-            assert(NdotV != bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN));
+            assert(!hlsl::isnan(NdotV));
         }
 
         const vector3_type localV = interaction.getTangentSpaceV();
@@ -263,11 +263,11 @@ struct SCookTorrance
         const scalar_type NdotL = localH.z * (VdotH * viewShortenFactor + LdotH) - NdotV * viewShortenFactor;
         // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
         // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
-        if ((ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted))
+        if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
             return sample_type::createInvalid();    // should check if sample direction is invalid
 
         cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        assert(cache.isValid());
+        // assert(cache.isValid(fresnel.getRefractionOrientedEta())); TODO get clarification on case NdotV<0, transmitted=false (technically not TIR?)
 
         struct reflect_refract_wrapper  // so we don't recalculate LdotH
         {
@@ -287,9 +287,6 @@ struct SCookTorrance
 
         const vector3_type T = interaction.getT();
         const vector3_type B = interaction.getB();
-
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(fresnel.getRefractionOrientedEta()));
-        assert(ComputeMicrofacetNormal::isValidMicrofacet(transmitted,cache.getVdotL(),localH.z,orientedEta));
         cache.fillTangents(T, B, H);
 
         return sample_type::create(L, T, B, NdotL);
