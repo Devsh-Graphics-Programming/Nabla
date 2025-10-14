@@ -145,6 +145,7 @@ public:
 			return strings;
 		};
 		
+		// TODO: replace this parse crap with argparse or something
 		auto findOutputFlag = [&](const std::string_view& outputFlag)
 		{
 			return std::find_if(m_arguments.begin(), m_arguments.end(), [&](const std::string& argument) 
@@ -299,7 +300,7 @@ private:
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
 
-		options.debugInfoFlags = core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>(asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT);
+		options.debugInfoFlags = core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>(asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE); // pass explicitly to CLI if you want them
 		options.dxcOptions = std::span<std::string>(m_arguments);
 
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));

@@ -3,6 +3,7 @@
 
 #include <nbl/builtin/hlsl/ieee754/impl.hlsl>
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 
 namespace nbl
 {
@@ -142,13 +143,72 @@ NBL_CONSTEXPR_INLINE_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint
 	return bit_cast<FloatingPoint>(toAsUint | extractSignPreserveBitPattern(from));
 }
 
-template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
-NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip = true)
+namespace impl
 {
-	using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
-	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
-	const AsUint asUint = ieee754::impl::bitCastToUintType(val);
-	return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
+template <typename T, typename U NBL_STRUCT_CONSTRAINABLE>
+struct flipSign_helper;
+
+template <typename FloatingPoint, typename Bool>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeScalar<FloatingPoint> && concepts::BooleanScalar<Bool>)
+struct flipSign_helper<FloatingPoint, Bool NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<FloatingPoint> && concepts::BooleanScalar<Bool>) >
+{
+	static FloatingPoint __call(FloatingPoint val, Bool flip)
+	{
+		using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+		// can't use mix_helper because circular dep
+#ifdef __HLSL_VERSION
+		return bit_cast<FloatingPoint>(asUint ^ spirv::select(flip, ieee754::traits<AsFloat>::signMask, AsUint(0ull)));
+#else
+		return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
+#endif
+	}
+};
+
+template <typename Vectorial, typename Bool>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::BooleanScalar<Bool>)
+struct flipSign_helper<Vectorial, Bool NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::BooleanScalar<Bool>) >
+{
+	static Vectorial __call(Vectorial val, Bool flip)
+	{
+		using traits = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits::scalar_type> getter;
+		array_set<Vectorial, typename traits::scalar_type> setter;
+
+		Vectorial output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, flipSign_helper<typename traits::scalar_type, Bool>::__call(getter(val, i), flip));
+
+		return output;
+	}
+};
+
+template <typename Vectorial, typename BoolVector>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::Boolean<BoolVector> && !concepts::Scalar<BoolVector> && vector_traits<Vectorial>::Dimension==vector_traits<BoolVector>::Dimension)
+struct flipSign_helper<Vectorial, BoolVector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::Boolean<BoolVector> && !concepts::Scalar<BoolVector> && vector_traits<Vectorial>::Dimension==vector_traits<BoolVector>::Dimension) >
+{
+	static Vectorial __call(Vectorial val, BoolVector flip)
+	{
+		using traits_v = hlsl::vector_traits<Vectorial>;
+		using traits_f = hlsl::vector_traits<BoolVector>;
+		array_get<Vectorial, typename traits_v::scalar_type> getter_v;
+		array_get<BoolVector, typename traits_f::scalar_type> getter_f;
+		array_set<Vectorial, typename traits_v::scalar_type> setter;
+
+		Vectorial output;
+		for (uint32_t i = 0; i < traits_v::Dimension; ++i)
+			setter(output, i, flipSign_helper<typename traits_v::scalar_type, typename traits_f::scalar_type>::__call(getter_v(val, i), getter_f(flip, i)));
+
+		return output;
+	}
+};
+}
+
+template <typename T, typename U = bool>
+NBL_CONSTEXPR_INLINE_FUNC T flipSign(T val, U flip = true)
+{
+	return impl::flipSign_helper<T, U>::__call(val, flip);
 }
 
 }

@@ -39,25 +39,20 @@ class CListIndexingCB final : public IPolygonGeometryBase::IIndexingCallback
             }
         }
 };
-auto IPolygonGeometryBase::PointList() -> IIndexingCallback*
+#include <boost/preprocessor/arithmetic/add.hpp>
+auto IPolygonGeometryBase::NGonList(const uint8_t n)-> IIndexingCallback*
 {
-    static CListIndexingCB<1> singleton;
-    return &singleton;
-}
-auto IPolygonGeometryBase::LineList() -> IIndexingCallback*
-{
-    static CListIndexingCB<2> singleton;
-    return &singleton;
-}
-auto IPolygonGeometryBase::TriangleList() -> IIndexingCallback*
-{
-    static CListIndexingCB<3> singleton;
-    return &singleton;
-}
-auto IPolygonGeometryBase::QuadList() -> IIndexingCallback*
-{
-    static CListIndexingCB<4> singleton;
-    return &singleton;
+#define DECL(z, n, text) text<n+1> singleton_ ## n;
+    BOOST_PP_REPEAT(255,DECL,static CListIndexingCB)
+#undef DECL
+    switch (n)
+    {
+#define CASE(z, n, text) text BOOST_PP_ADD(n,1): return &singleton_ ## n;
+        BOOST_PP_REPEAT(255,CASE,case)
+#undef CASE
+        default:
+            return nullptr;
+    }
 }
 
 class CTriangleStripIndexingCB final : public IPolygonGeometryBase::IIndexingCallback

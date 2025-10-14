@@ -6,8 +6,8 @@
 #include <nabla.h>
 #include "nbl/video/utilities/CSimpleResizeSurface.h"
 
-#include "SimpleWindowedApplication.hpp"
-#include "CEventCallback.hpp"
+#include "nbl/examples/common/SimpleWindowedApplication.hpp"
+#include "nbl/examples/common/CEventCallback.hpp"
 
 #include "nbl/ext/ImGui/ImGui.h"
 #include "nbl/ui/ICursorControl.h"
@@ -39,6 +39,7 @@ class NITETool final : public examples::SimpleWindowedApplication
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
 	constexpr static inline clock_t::duration DisplayImageDuration = std::chrono::milliseconds(900);
+	constexpr static inline uint8_t MaxUITextureCount = 1u;
 
 public:
 	inline NITETool(const path& _localInputCWD, const path& _localOutputCWD, const path& _sharedInputCWD, const path& _sharedOutputCWD)
@@ -49,7 +50,7 @@ public:
 		if (!m_surface)
 		{
 			{
-				auto windowCallback = core::make_smart_refctd_ptr<CEventCallback>(smart_refctd_ptr(m_inputSystem), smart_refctd_ptr(m_logger));
+				auto windowCallback = core::make_smart_refctd_ptr<examples::CEventCallback>(smart_refctd_ptr(m_inputSystem), smart_refctd_ptr(m_logger));
 				IWindow::SCreationParams params = {};
 				params.callback = core::make_smart_refctd_ptr<nbl::video::ISimpleManagedSurface::ICallback>();
 				params.width = WIN_W;
@@ -107,7 +108,7 @@ public:
 		const auto pModeArg = program.get<std::string>(NBL_MODE_ARG.data());
 		const auto pGroupArg = program.get<std::string>(NBL_GROUP_ARG.data());
 
-		m_inputSystem = make_smart_refctd_ptr<InputSystem>(logger_opt_smart_ptr(smart_refctd_ptr(m_logger)));
+		m_inputSystem = make_smart_refctd_ptr<examples::InputSystem>(logger_opt_smart_ptr(smart_refctd_ptr(m_logger)));
 
 		if (!device_base_t::onAppInitialized(smart_refctd_ptr(m_system)))
 			return false;
@@ -157,7 +158,7 @@ public:
 		if (!m_surface || !m_surface->init(gQueue, std::move(scResources), swapchainParams.sharedParams))
 			return logFail("Could not create Window & Surface or initialize the Surface!");
 
-		m_maxFramesInFlight = m_surface->getMaxFramesInFlight();
+		m_maxFramesInFlight = m_surface->getMaxAcquiresInFlight();
 		if (FRAMES_IN_FLIGHT < m_maxFramesInFlight)
 		{
 			m_logger->log("Lowering frames in flight!", ILogger::ELL_WARNING);
@@ -174,17 +175,20 @@ public:
 				return logFail("Couldn't create Command Buffer!");
 		}
 
-		ui.manager = core::make_smart_refctd_ptr<nbl::ext::imgui::UI>
-		(
-			nbl::ext::imgui::UI::S_CREATION_PARAMETERS
-			{
-				.assetManager = m_assetManager.get(),
-				.utilities = m_utils.get(),
-				.transfer = getTransferUpQueue(),
-				.renderpass = renderpass,
-				.subpassIx = 0u
-			}
-		);
+		nbl::ext::imgui::UI::SCreationParameters params;
+
+		params.resources.texturesInfo = { .setIx = 0u, .bindingIx = 0u };
+		params.resources.samplersInfo = { .setIx = 0u, .bindingIx = 1u };
+		params.assetManager = m_assetManager;
+		params.pipelineCache = nullptr;
+		params.pipelineLayout = nbl::ext::imgui::UI::createDefaultPipelineLayout(m_utils->getLogicalDevice(), params.resources.texturesInfo, params.resources.samplersInfo, MaxUITextureCount);
+		params.renderpass = smart_refctd_ptr<IGPURenderpass>(renderpass);
+		params.streamingBuffer = nullptr;
+		params.subpassIx = 0u;
+		params.transfer = getTransferUpQueue();
+		params.utilities = m_utils;
+
+		ui.manager = nbl::ext::imgui::UI::create(std::move(params));
 
 		{
 			// note that we use default layout provided by our extension (textures & samplers -> single set at 0u ix)
@@ -192,8 +196,8 @@ public:
 			const auto& params = ui.manager->getCreationParameters();
 
 			IDescriptorPool::SCreateInfo descriptorPoolInfo = {};
-			descriptorPoolInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = params.resources.count;
-			descriptorPoolInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = params.resources.count;
+			descriptorPoolInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = params.resources.getSamplersCount();
+			descriptorPoolInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = params.resources.getTexturesCount();
 			descriptorPoolInfo.maxSets = 1u;
 			descriptorPoolInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT;
 
@@ -333,7 +337,7 @@ public:
 			const auto uiParams = ui.manager->getCreationParameters();
 			auto* pipeline = ui.manager->getPipeline();
 			cb->bindGraphicsPipeline(pipeline);
-			cb->bindDescriptorSets(EPBP_GRAPHICS, pipeline->getLayout(), uiParams.resources.textures.setIx, 1u, &ui.descriptorSet.get()); // note that we use default UI pipeline layout where uiParams.resources.textures.setIx == uiParams.resources.samplers.setIx
+			cb->bindDescriptorSets(EPBP_GRAPHICS, pipeline->getLayout(), uiParams.resources.texturesInfo.setIx, 1u, &ui.descriptorSet.get()); // note that we use default UI pipeline layout where uiParams.resources.textures.setIx == uiParams.resources.samplers.setIx
 			ui.manager->render(cb, waitInfo);
 			cb->endRenderPass();
 		}
@@ -470,15 +474,12 @@ public:
 
 		const auto cursorPosition = m_window->getCursorControl()->getPosition();
 
-		nbl::ext::imgui::UI::S_UPDATE_PARAMETERS params =
+		nbl::ext::imgui::UI::SUpdateParameters params =
 		{
 			.mousePosition = nbl::hlsl::float32_t2(cursorPosition.x, cursorPosition.y) - nbl::hlsl::float32_t2(m_window->getX(), m_window->getY()),
 			.displaySize = { m_window->getWidth(), m_window->getHeight() },
-			.events =
-			{
-				.mouse = core::SRange<const nbl::ui::SMouseEvent>(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size()),
-				.keyboard = core::SRange<const nbl::ui::SKeyboardEvent>(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size())
-			}
+			.mouseEvents = core::SRange<const nbl::ui::SMouseEvent>(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size()),
+			.keyboardEvents = core::SRange<const nbl::ui::SKeyboardEvent>(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size()),
 		};
 
 		ui.manager->update(params);
@@ -502,9 +503,9 @@ private:
 	} ui; 
 
 	smart_refctd_ptr<nbl::asset::IAssetManager> m_assetManager;
-	core::smart_refctd_ptr<InputSystem> m_inputSystem;
-	InputSystem::ChannelReader<IMouseEventChannel> mouse;
-	InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+	core::smart_refctd_ptr<examples::InputSystem> m_inputSystem;
+	examples::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+	examples::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
 	// Test engine
 	ImGuiTestEngine* engine = nullptr;

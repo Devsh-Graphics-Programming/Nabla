@@ -831,6 +831,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IShaderCompiler::CCache* writeCache = nullptr;
             std::span<const asset::IShaderCompiler::SMacroDefinition> extraDefines = {};
             hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
+            core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS> debugInfoFlags = asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE;
         };
         core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
@@ -1258,7 +1259,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     }
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07985
-                else if (ci.basePipelineIndex < -1 || ci.basePipelineIndex >= i || ci.basePipelineIndex >= 0 && !params[ci.basePipelineIndex].flags.hasFlags(AllowDerivativesFlag))
+                else if (ci.basePipelineIndex < -1 || ci.basePipelineIndex >= i || ci.basePipelineIndex >= 0 && !params[ci.basePipelineIndex].getFlags().hasFlags(AllowDerivativesFlag))
                 {
                     NBL_LOG_ERROR("Invalid basePipeline was specified (params[%d])", i);
                     return {};

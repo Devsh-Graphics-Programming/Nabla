@@ -360,9 +360,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         commonCompileOptions.preprocessorOptions.extraDefines = creationParams.extraDefines;
 
         commonCompileOptions.stage = creationParams.stage;
-        commonCompileOptions.debugInfoFlags =
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+        commonCompileOptions.debugInfoFlags = creationParams.debugInfoFlags;
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
         commonCompileOptions.preprocessorOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
@@ -1025,8 +1023,8 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
 
     for (const auto& param : params)
     {
-        const bool skipAABBs = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
-        const bool skipBuiltin = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
+        const bool skipAABBs = bool(param.getFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
+        const bool skipBuiltin = bool(param.getFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
 
         if (!features.rayTracingPipeline)
         {
@@ -1062,15 +1060,15 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
 
     const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.shaderGroups.misses.size();
+        return sum + static_cast<uint32_t>(param.shaderGroups.misses.size());
     });
     const auto hitGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.shaderGroups.hits.size();
+        return sum + static_cast<uint32_t>(param.shaderGroups.hits.size());
     });
     const auto callableGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.shaderGroups.callables.size();
+        return sum + static_cast<uint32_t>(param.shaderGroups.callables.size());
     });
 
 
