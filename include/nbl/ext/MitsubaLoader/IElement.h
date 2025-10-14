@@ -1,22 +1,15 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MISTUBA_LOADER_I_ELEMENT_H_INCLUDED_
+#define _NBL_EXT_MISTUBA_LOADER_I_ELEMENT_H_INCLUDED_
 
-#ifndef __I_ELEMENT_H_INCLUDED__
-#define __I_ELEMENT_H_INCLUDED__
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 
-
-namespace nbl
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
-
-
 class CMitsubaMetadata;
 
 class IElement
@@ -114,7 +107,4 @@ class IElement
 };
 
 }
-}
-}
-
 #endif

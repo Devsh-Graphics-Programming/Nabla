@@ -4,7 +4,7 @@
 
 
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
+// TODO: all of the element types
 
 #include "expat/lib/expat.h"
 
@@ -15,42 +15,42 @@ namespace nbl::ext::MitsubaLoader
 {
 using namespace nbl::system;
 
-void ParserManager::Context::invalidXMLFileStructure(const std::string& errorMessage) const
+auto ParserManager::parse(IFile* _file, const Params& _params) const -> Result
 {
-	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'" + errorMessage + '\'';
+	Result result = {
+		.metadata = core::make_smart_refctd_ptr<CMitsubaMetadata>()
+	};
+	SessionContext ctx = {
+		.result = &result,
+		.params = &_params,
+		.manager = this
+	};
 
-	logger.log(message,ILogger::E_LOG_LEVEL::ELL_ERROR);
-	_NBL_DEBUG_BREAK_IF(true);
+	if (!ctx.parse(_file))
+		return {};
+
+	return result;
 }
 
-void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
+bool ParserManager::SessionContext::parse(IFile* _file)
 {
-	auto ctx = *reinterpret_cast<Context*>(_data);
+	auto logger = params->logger;
 
-	ctx.manager->parseElement(ctx, _el, _atts);
-}
-
-void ParserManager::elementHandlerEnd(void* _data, const char* _el)
-{
-	auto ctx = *reinterpret_cast<Context*>(_data);
-
-	ctx.manager->onEnd(ctx,_el);
-}
-
-
-bool ParserManager::parse(IFile* _file, const logger_opt_ptr& _logger)
-{
 	XML_Parser parser = XML_ParserCreate(nullptr);
 	if (!parser)
 	{
-		_logger.log("Could not create XML Parser!",ILogger::E_LOG_LEVEL::ELL_ERROR);
+		logger.log("Could not create XML Parser!",ILogger::E_LOG_LEVEL::ELL_ERROR);
 		return false;
 	}
 
 	XML_SetElementHandler(parser,elementHandlerStart,elementHandlerEnd);
 
 	//from now data (instance of ParserData struct) will be visible to expat handlers
-	Context ctx = {_file->getFileName().parent_path()/"",this,_logger,parser};
+	XMLContext ctx = {
+		.session = this,
+		.currentXMLDir = _file->getFileName().parent_path()/"",
+		.parser = parser
+	};
 	XML_SetUserData(parser,&ctx);
 
 	const size_t size = _file->getSize();
@@ -62,7 +62,7 @@ bool ParserManager::parse(IFile* _file, const logger_opt_ptr& _logger)
 		_file->read(success,const_cast<char*>(buff),0u,size);
 		if (!success)
 		{
-			_logger.log("Could read the file into XML Parser Buffer!",ILogger::E_LOG_LEVEL::ELL_ERROR);
+			logger.log("Could read the file into XML Parser Buffer!",ILogger::E_LOG_LEVEL::ELL_ERROR);
 			return false;
 		}
 	}
@@ -75,16 +75,16 @@ bool ParserManager::parse(IFile* _file, const logger_opt_ptr& _logger)
 	{
 		case XML_STATUS_ERROR:
 			{
-				_logger.log("Parse status: XML_STATUS_ERROR",ILogger::E_LOG_LEVEL::ELL_ERROR);
+				logger.log("Parse status: XML_STATUS_ERROR",ILogger::E_LOG_LEVEL::ELL_ERROR);
 				return false;
 			}
 			break;
 		case XML_STATUS_OK:
-			_logger.log("Parse status: XML_STATUS_OK",ILogger::E_LOG_LEVEL::ELL_INFO);
+			logger.log("Parse status: XML_STATUS_OK",ILogger::E_LOG_LEVEL::ELL_INFO);
 			break;
 		case XML_STATUS_SUSPENDED:
 			{
-				_logger.log("Parse status: XML_STATUS_SUSPENDED",ILogger::E_LOG_LEVEL::ELL_INFO);
+				logger.log("Parse status: XML_STATUS_SUSPENDED",ILogger::E_LOG_LEVEL::ELL_INFO);
 				return false;
 			}
 			break;
@@ -93,38 +93,46 @@ bool ParserManager::parse(IFile* _file, const logger_opt_ptr& _logger)
 	return true;
 }
 
-void ParserManager::parseElement(const Context& ctx, const char* _el, const char** _atts)
+void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
 {
-	if (core::strcmpi(_el, "scene")==0)
+	auto& ctx = *reinterpret_cast<XMLContext*>(_data);
+
+	ctx.parseElement(_el,_atts);
+}
+
+void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts)
+{
+	if (core::strcmpi(_el,"scene")==0)
 	{
 		auto count = 0u;
 		while (_atts && _atts[count]) { count++; }
 		if (count!=2u)
 		{
-			ctx.killParseWithError("Wrong number of attributes for scene element");
+			killParseWithError("Wrong number of attributes for scene element");
 			return;
 		}
 
 		if (core::strcmpi(_atts[0],"version"))
 		{
-			ctx.invalidXMLFileStructure(std::string(_atts[0]) + " is not an attribute of scene element");
+			session->invalidXMLFileStructure(core::string(_atts[0]) + " is not an attribute of scene element");
 			return;
 		}
 		else if (core::strcmpi(_atts[1],"0.5.0"))
 		{
-			ctx.invalidXMLFileStructure("Version " + std::string(_atts[1]) + " is unsupported");
+			session->invalidXMLFileStructure("Version " + core::string(_atts[1]) + " is unsupported");
 			return;
 		}
-		m_sceneDeclCount++;
+		session->sceneDeclCount++;
 		return;
 	}
 
-	if (m_sceneDeclCount==0u)
+	if (session->sceneDeclCount==0u)
 	{
-		ctx.killParseWithError("there is no scene element");
+		killParseWithError("there is no scene element");
 		return;
 	}
 	
+	const ParserManager* manager = session->manager;
 	if (core::strcmpi(_el,"include")==0)
 	{
 		core::smart_refctd_ptr<IFile> file;
@@ -136,7 +144,7 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 				auto flags = IFile::ECF_READ;
 				if (i==0)
 					flags |= IFile::ECF_MAPPABLE;
-				m_system->createFile(future,ctx.currentXMLDir/_atts[1],flags);
+				session->params->system->createFile(future,currentXMLDir/_atts[1],flags);
 				if (future.wait())
 					future.acquire().move_into(file);
 				if (file)
@@ -145,114 +153,190 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 			return false;
 		};
 		// first try as relative path, then as global
-		if (!tryOpen(ctx.currentXMLDir/_atts[1]))
+		if (!tryOpen(currentXMLDir/_atts[1]))
 		if (!tryOpen(_atts[1]))
 		{
-			ctx.invalidXMLFileStructure(std::string("Could not open include file: ")+_atts[1]);
+			session->invalidXMLFileStructure(std::string("Could not open include file: ")+_atts[1]);
 			return;
 		}
-		parse(file.get(),ctx.logger);
-		return;
-	}
-#if 0
-	if (propertyElements.find(_el)!=propertyElements.end())
-	{
-		processProperty(ctx, _el, _atts);
+		if (!session->parse(file.get()))
+			killParseWithError(core::string("Could not parse include file: ")+_atts[1]);
 		return;
 	}
 
-	const auto& _map = CElementFactory::createElementTable;
+	const auto& propertyElements = manager->propertyElements;
+	if (propertyElements.find(_el)!=propertyElements.end())
+	{
+		auto& elements = session->elements;
+		if (elements.empty())
+		{
+			killParseWithError("cannot set a property with no element on the stack.");
+			return;
+		}
+		if (!elements.top().element)
+		{
+			session->invalidXMLFileStructure("cannot set property on element that failed to be created.");
+			return;
+		}
+
+		auto optProperty = manager->propertyElementManager.createPropertyData(_el,_atts,session->params->logger);
+		if (!optProperty.has_value())
+		{
+			session->invalidXMLFileStructure("could not create property data.");
+			return;
+		}
+
+		elements.top().element->addProperty(std::move(optProperty.value()));
+		return;
+	}
+
+	// TODO: don't have this table be a global
+	const auto& _map = manager->createElementTable;
 	auto found = _map.find(_el);
 	if (found==_map.end())
 	{
-		invalidXMLFileStructure(std::string("Could not process element ") + _el);
-		elements.push({nullptr,""});
+		session->invalidXMLFileStructure(std::string("Could not process element ")+_el);
+		session->elements.push({nullptr,""});
 		return;
 	}
 
-	auto el = found->second.first(_atts, this);
-	bool goesOnStack = found->second.second;
-	if (!goesOnStack)
+	auto created = found->second.create(_atts,session);
+	// we still push nullptr (failed creation) onto the stack, we only stop parse on catastrphic failure
+	if (!found->second.retvalGoesOnStack)
 		return;
-
-	
-	elements.push(el);
-	if (el.first && el.first->id.size())
-		handles[el.first->id] = el.first;
-#endif
+	if (created.element && created.name.size())
+		session->handles[created.name] = created.element;
+	session->elements.push(std::move(created));
 }
 
-void ParserManager::processProperty(const Context& ctx, const char* _el, const char** _atts)
+void ParserManager::elementHandlerEnd(void* _data, const char* _el)
 {
-	if (elements.empty())
-	{
-		ctx.killParseWithError("cannot set a property with no element on the stack.");
-		return;
-	}
-	if (!elements.top().first)
-	{
-		ctx.invalidXMLFileStructure("cannot set property on element that failed to be created.");
-		return;
-	}
+	auto& ctx = *reinterpret_cast<XMLContext*>(_data);
 
-#if 0
-	auto optProperty = CPropertyElementManager::createPropertyData(_el,_atts);
-
-	if (optProperty.first == false)
-	{
-		invalidXMLFileStructure("could not create property data.");
-		return;
-	}
-
-	elements.top().first->addProperty(std::move(optProperty.second));
-#endif
+	ctx.onEnd(_el);
 }
 
-void ParserManager::onEnd(const Context& ctx, const char* _el)
+void ParserManager::XMLContext::onEnd(const char* _el)
 {
+	const auto& propertyElements = session->manager->propertyElements;
 	if (propertyElements.find(_el)!=propertyElements.end())
 		return;
 
-	if (core::strcmpi(_el, "scene") == 0)
+	if (core::strcmpi(_el,"scene")==0)
 	{
-		m_sceneDeclCount--;
+		session->sceneDeclCount--;
 		return;
 	}
-#if 0
+
+	auto& elements = session->elements;
 	if (elements.empty())
 		return;
 
 	auto element = elements.top();
 	elements.pop();
 
-	if (element.first && !element.first->onEndTag(m_override,m_metadata.get()))
+	auto& result = *session->result;
+	if (element.element && !element.element->onEndTag(session->params->_override,result.metadata.get()))
 	{
-		killParseWithError(ctx,element.first->getLogName() + " could not onEndTag");
+		killParseWithError(element.element->getLogName()+" could not onEndTag");
 		return;
 	}
 
 	if (!elements.empty())
 	{
-		IElement* parent = elements.top().first;
-		if (parent && !parent->processChildData(element.first, element.second))
+		IElement* parent = elements.top().element;
+		if (parent && !parent->processChildData(element.element,element.name))
 		{
-			if (element.first)
-				killParseWithError(ctx,element.first->getLogName() + " could not processChildData with name: " + element.second);
+			if (element.element)
+				killParseWithError(element.element->getLogName()+" could not processChildData with name: "+element.name);
 			else
-				killParseWithError(ctx,"Failed to add a nullptr child with name: " + element.second);
+				killParseWithError("Failed to add a nullptr child with name: "+element.name);
 		}
 
 		return;
 	}
 
-	if (element.first && element.first->getType()==IElement::Type::SHAPE)
+	if (element.element && element.element->getType()==IElement::Type::SHAPE)
 	{
-		auto shape = static_cast<CElementShape*>(element.first);
+		auto shape = static_cast<CElementShape*>(element.element);
 		if (shape)
-			shapegroups.emplace_back(shape,std::move(element.second));
+			result.shapegroups.emplace_back(shape,std::move(element.name));
 	}
-#endif
 }
 
+//
+ParserManager::ParserManager() : propertyElements({
+	"float", "string", "boolean", "integer",
+	"rgb", "srgb", "spectrum", "blackbody",
+	"point", "vector",
+	"matrix", "rotate", "translate", "scale", "lookat"
+}), propertyElementManager(), createElementTable({
+#if 0 // TODO
+	{"integrator",		{CElementFactory::createElement<CElementIntegrator>,.retvalGoesOnStack=true}},
+	{"sensor",			{CElementFactory::createElement<CElementSensor>,.retvalGoesOnStack=true}},
+	{"film",			{CElementFactory::createElement<CElementFilm>,.retvalGoesOnStack=true}},
+	{"rfilter",			{CElementFactory::createElement<CElementRFilter>,.retvalGoesOnStack=true}},
+	{"sampler",			{CElementFactory::createElement<CElementSampler>,.retvalGoesOnStack=true}},
+	{"shape",			{CElementFactory::createElement<CElementShape>,.retvalGoesOnStack=true}},
+	{"transform",		{CElementFactory::createElement<CElementTransform>,.retvalGoesOnStack=true}},
+	//{"animation",		{CElementFactory::createElement<CElementAnimation>,.retvalGoesOnStack=true}},
+	{"bsdf",			{CElementFactory::createElement<CElementBSDF>,.retvalGoesOnStack=true}},
+	{"texture",			{CElementFactory::createElement<CElementTexture>,.retvalGoesOnStack=true}},
+	{"emitter",			{CElementFactory::createElement<CElementEmitter>,.retvalGoesOnStack=true}},
+	{"emissionprofile", {CElementFactory::createElement<CElementEmissionProfile>,.retvalGoesOnStack=true}},
+#endif
+	{"alias",			{.create=processAlias,.retvalGoesOnStack=true}},
+	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
+}){}
+
+auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SElementCreator
+{
+	const char* id = nullptr;
+	const char* as = nullptr;
+	if (IElement::areAttributesInvalid(_atts,4u))
+	{
+		ctx->invalidXMLFileStructure("Invalid attributes for <alias>");
+		return {};
+	}
+
+	core::string name;
+	while (*_atts)
+	{
+		if (core::strcmpi(_atts[0], "id")==0)
+			id = _atts[1];
+		else if (core::strcmpi(_atts[0], "as")==0)
+			as = _atts[1];
+		else if (core::strcmpi(_atts[0], "name")==0)
+			name = _atts[1];
+		_atts += 2;
+	}
+	// not finding the alias doesn't kill XML parse
+	if (!id || !as)
+	{
+		ctx->invalidXMLFileStructure("Alias ID and what we're aliasing is not found");
+		return {nullptr,std::move(name)};
+	}
+
+	auto& handles = ctx->handles;
+	auto* original = handles[id];
+	handles[as] = original;
+	return {original,std::move(name)};
+}
+
+auto ParserManager::processRef(const char** _atts, SessionContext* ctx) -> SElementCreator
+{
+	const char* id;
+	std::string name;
+	if (!IElement::getIDAndName(id,name,_atts))
+	{
+		ctx->invalidXMLFileStructure("Malformed `<ref>` element!");
+		return {nullptr,std::move(name)};
+	}
+
+	auto* original = ctx->handles[id];
+	if (!original)
+		ctx->invalidXMLFileStructure("Used a `<ref name=\""+name+"\" id=\"")+id+"\">` element but referenced element not defined in preceeding XML!");
+	return {original, std::move(name)};
+}
 
 }

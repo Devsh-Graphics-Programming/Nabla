@@ -4,29 +4,28 @@ set(NBL_EXT_INTERNAL_INCLUDE_DIR "${NBL_ROOT_PATH}/include/nbl/ext/MitsubaLoader
 
 
 set(NBL_EXT_MITSUBA_LOADER_H
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/PropertyElement.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/IElement.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMetadata.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementIntegrator.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementSensor.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementFilm.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementRFilter.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementSampler.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTransform.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementShape.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementBSDF.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementFactory.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaSerializedMetadata.h
-#	${NBL_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/PropertyElement.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/IElement.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMetadata.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementIntegrator.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementSensor.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementFilm.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementRFilter.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementSampler.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTransform.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementShape.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementBSDF.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaSerializedMetadata.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
 #	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMaterialCompilerFrontend.h
 )
 
 set(NBL_EXT_MITSUBA_LOADER_SRC
-#	PropertyElement.cpp
+	PropertyElement.cpp
 #	CElementIntegrator.cpp
 #	CElementSensor.cpp
 #	CElementFilm.cpp
@@ -37,7 +36,6 @@ set(NBL_EXT_MITSUBA_LOADER_SRC
 #	CElementBSDF.cpp
 #	CElementTexture.cpp
 #	CElementEmitter.cpp
-#	CElementFactory.cpp
 	ParserUtil.cpp
 	CSerializedLoader.cpp
 	CMitsubaLoader.cpp

@@ -364,7 +364,7 @@ template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::LO
 { return mvalue; }
 
 
-class CPropertyElementManager final
+class CPropertyElementManager final : public core::Unmovable
 {
 		const core::unordered_map<std::string,SPropertyElementData::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType;
 
