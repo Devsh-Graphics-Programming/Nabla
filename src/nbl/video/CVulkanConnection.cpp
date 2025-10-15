@@ -316,19 +316,19 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     return api;
 }
 
+void CVulkanConnection::exportGpuProfile()
+{
+    constexpr char arg1[] = "--json";
+    char* argv = const_cast<char*>(arg1);
+    vulkaninfo(1, &argv);
+}
+
 CVulkanConnection::~CVulkanConnection()
 {
     if (m_vkDebugUtilsMessengerEXT!=VK_NULL_HANDLE)
         vkDestroyDebugUtilsMessengerEXT(m_vkInstance,m_vkDebugUtilsMessengerEXT,nullptr);
 
     vkDestroyInstance(m_vkInstance,nullptr);
-}
-
-void CVulkanConnection::exportGpuProfile() const
-{
-    constexpr char arg1[] = "--json";
-    char* argv = const_cast<char*>(arg1);
-    vulkaninfo(1, &argv);
 }
 
 bool CVulkanConnection::startCapture()

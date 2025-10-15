@@ -21,13 +21,14 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
             core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable
         );
 
+        static void exportGpuProfile();
+
         inline VkInstance getInternalObject() const {return m_vkInstance;}
 
         inline E_API_TYPE getAPIType() const override {return EAT_VULKAN;}
 
         inline IDebugCallback* getDebugCallback() const override {return m_debugCallback.get();}
 
-        void exportGpuProfile() const;
 
         bool startCapture() override;
         bool endCapture() override;
