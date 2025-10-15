@@ -334,33 +334,33 @@ template<> struct SPropertyElementData::get_type<SPropertyElementData::Type::LOO
 template<> struct SPropertyElementData::get_type<SPropertyElementData::Type::INVALID>
 { using type = void; };
 // TODO: rewrite rest to be less `::` verbose
-template<> auto SPropertyElementData::getProperty<SPropertyElementData::Type::FLOAT>() const -> const get_type_t<Type::FLOAT>&
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::FLOAT>() const -> const get_type_t<Type::FLOAT>&
 { return fvalue; }
-template<> auto SPropertyElementData::getProperty<SPropertyElementData::Type::INTEGER>() const -> const get_type_t<Type::INTEGER>&
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::INTEGER>() const -> const get_type_t<Type::INTEGER>&
 { return ivalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::BOOLEAN>& SPropertyElementData::getProperty<SPropertyElementData::Type::BOOLEAN>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::BOOLEAN>() const -> const get_type_t<Type::BOOLEAN>&
 { return bvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::STRING>& SPropertyElementData::getProperty<SPropertyElementData::Type::STRING>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::STRING>() const -> const get_type_t<Type::STRING>&
 { return svalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::RGB>& SPropertyElementData::getProperty<SPropertyElementData::Type::RGB>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::RGB>() const -> const get_type_t<Type::RGB>&
 { return vvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::SRGB>& SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const -> const get_type_t<Type::SRGB>&
 { return vvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::SPECTRUM>& SPropertyElementData::getProperty<SPropertyElementData::Type::SPECTRUM>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::SPECTRUM>() const -> const get_type_t<Type::SPECTRUM>&
 { return vvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::VECTOR>& SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const -> const get_type_t<Type::VECTOR>&
 { return vvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::POINT>& SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const -> const get_type_t<Type::POINT>&
 { return vvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::MATRIX>& SPropertyElementData::getProperty<SPropertyElementData::Type::MATRIX>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::MATRIX>() const -> const get_type_t<Type::MATRIX>&
 { return mvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::TRANSLATE>& SPropertyElementData::getProperty<SPropertyElementData::Type::TRANSLATE>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::TRANSLATE>() const -> const get_type_t<Type::TRANSLATE>&
 { return mvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::ROTATE>& SPropertyElementData::getProperty<SPropertyElementData::Type::ROTATE>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::ROTATE>() const -> const get_type_t<Type::ROTATE>&
 { return mvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::SCALE>& SPropertyElementData::getProperty<SPropertyElementData::Type::SCALE>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::SCALE>() const -> const get_type_t<Type::SCALE>&
 { return mvalue; }
-template<> const SPropertyElementData::get_type_t<SPropertyElementData::Type::LOOKAT>& SPropertyElementData::getProperty<SPropertyElementData::Type::LOOKAT>() const
+template<> inline auto SPropertyElementData::getProperty<SPropertyElementData::Type::LOOKAT>() const -> const get_type_t<Type::LOOKAT>&
 { return mvalue; }
 
 

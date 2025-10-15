@@ -100,6 +100,12 @@ void ParserManager::elementHandlerStart(void* _data, const char* _el, const char
 	ctx.parseElement(_el,_atts);
 }
 
+void ParserManager::XMLContext::killParseWithError(const std::string& message) const
+{
+	session->invalidXMLFileStructure(message);
+	XML_StopParser(parser,false);
+}
+
 void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts)
 {
 	if (core::strcmpi(_el,"scene")==0)
@@ -289,7 +295,7 @@ ParserManager::ParserManager() : propertyElements({
 	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
 }){}
 
-auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SElementCreator
+auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SNamedElement
 {
 	const char* id = nullptr;
 	const char* as = nullptr;
@@ -323,7 +329,7 @@ auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SEl
 	return {original,std::move(name)};
 }
 
-auto ParserManager::processRef(const char** _atts, SessionContext* ctx) -> SElementCreator
+auto ParserManager::processRef(const char** _atts, SessionContext* ctx) -> SNamedElement
 {
 	const char* id;
 	std::string name;
@@ -335,8 +341,8 @@ auto ParserManager::processRef(const char** _atts, SessionContext* ctx) -> SElem
 
 	auto* original = ctx->handles[id];
 	if (!original)
-		ctx->invalidXMLFileStructure("Used a `<ref name=\""+name+"\" id=\"")+id+"\">` element but referenced element not defined in preceeding XML!");
-	return {original, std::move(name)};
+		ctx->invalidXMLFileStructure(core::string("Used a `<ref name=\"")+name+"\" id=\""+id+"\">` element but referenced element not defined in preceeding XML!");
+	return {original,std::move(name)};
 }
 
 }

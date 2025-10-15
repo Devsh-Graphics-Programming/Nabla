@@ -135,22 +135,22 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader
 #endif
 
 #if 0
-static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_refctd_ptr<asset::ICPUImage>&& _img) // TODO: this should seriously be a utility somewhere
+static core::smart_refctd_ptr<ICPUImageView> createImageView(core::smart_refctd_ptr<ICPUImage>&& _img) // TODO: this should seriously be a utility somewhere
 {
 	const auto& iparams = _img->getCreationParameters();
 
-	asset::ICPUImageView::SCreationParams params;
+	ICPUImageView::SCreationParams params;
 	params.format = iparams.format;
 	params.subresourceRange.baseArrayLayer = 0u;
 	params.subresourceRange.layerCount = iparams.arrayLayers;
 	assert(params.subresourceRange.layerCount == 1u);
 	params.subresourceRange.baseMipLevel = 0u;
 	params.subresourceRange.levelCount = iparams.mipLevels;
-	params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-	params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+	params.viewType = IImageView<ICPUImage>::ET_2D;
+	params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
 	params.image = std::move(_img);
 
-	return asset::ICPUImageView::create(std::move(params));
+	return ICPUImageView::create(std::move(params));
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, const ICPUSampler::SParams& _samplerParams, bool fromNormalMap)
 {
@@ -296,36 +296,30 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 	return false;
 }
 
-asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	ParserManager parserManager(m_system.get(),_override);
-	if (!parserManager.parse(_file,_params.logger))
+	auto result = m_parser.parse(_file,{.logger=_params.logger,.system=m_system.get(),._override=_override});
+	if (!result)
 		return {};
 
-	//if (_params.loaderFlags&IAssetLoader::ELPF_LOAD_METADATA_ONLY)
+	auto scene = core::make_smart_refctd_ptr<ICPUScene>();
+	if (_params.loaderFlags&IAssetLoader::ELPF_LOAD_METADATA_ONLY)
 	{
-		auto emptyScene = core::make_smart_refctd_ptr<asset::ICPUScene>();
-		return SAssetBundle(std::move(parserManager.m_metadata),{std::move(emptyScene)});
+		return SAssetBundle(std::move(result.metadata),{std::move(scene)});
 	}
-#if 0
 	else
 	{
-		//
-		auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
+#if 0
 		SContext ctx(
-			m_assetMgr->getGeometryCreator(),
-			m_assetMgr->getMeshManipulator(),
-			asset::IAssetLoader::SAssetLoadContext{ 
-				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+//			m_assetMgr->getGeometryCreator(),
+//			m_assetMgr->getMeshManipulator(),
+			IAssetLoader::SAssetLoadContext{ 
+				IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,_params.logger,_file->getFileName().parent_path()),
 				_file
 			},
 			_override,
 			parserManager.m_metadata.get()
 		);
-		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_assetMgr))
-		{
-			createAndCacheVertexShader(m_assetMgr, DUMMY_VERTEX_SHADER);
-		}
 
 		core::map<core::smart_refctd_ptr<asset::ICPUMesh>,std::pair<std::string,CElementShape::Type>> meshes;
 		for (auto& shapepair : parserManager.shapegroups)
@@ -356,7 +350,9 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset:
 			for (auto mb : mesh.first.get()->getMeshBuffers())
 				mb->setInstanceCount(instanceCount);
 		}
+#endif
 
+#if 0
 		// TODO: put IR and stuff in metadata so that we can recompile the materials after load
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get(), decltype(ctx.backend)::EGST_PRESENT_WITH_AOV_EXTRACTION);
 		ctx.backend_ctx.vt.commitAll();
@@ -434,10 +430,9 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset:
 				parserManager.m_metadata->m_global.m_envMapImages.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*contentRange.begin()));
 			}
 		}
-
-		return asset::SAssetBundle(std::move(parserManager.m_metadata),std::move(meshSmartPtrArray));
-	}
 #endif
+		return asset::SAssetBundle(std::move(result.metadata),{std::move(scene)});
+	}
 }
 
 #if 0
@@ -1192,27 +1187,20 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 	return ds0;
 }
+#endif
 
 using namespace std::string_literals;
 
 SContext::SContext(
-	const asset::IGeometryCreator* _geomCreator,
-	const asset::IMeshManipulator* _manipulator,
+//	const asset::IGeometryCreator* _geomCreator,
+//	const asset::IMeshManipulator* _manipulator,
 	const asset::IAssetLoader::SAssetLoadContext& _ctx,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CMitsubaMetadata* _metadata
-) : creator(_geomCreator), manipulator(_manipulator), inner(_ctx), override_(_override), meta(_metadata),
-	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
+) : /*creator(_geomCreator), manipulator(_manipulator),*/ inner(_ctx), override_(_override), meta(_metadata)
+//,ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
-	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
-		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages
-		VT_PAGE_SZ_LOG2, 
-		VT_PAGE_PADDING, 
-		VT_MAX_ALLOCATABLE_TEX_SZ_LOG2
-	);
-	meta->m_global.m_VT = core::smart_refctd_ptr<ICPUVirtualTexture>(backend_ctx.vt.getCPUVirtualTexture());
 }
-#endif
 
 }
 }

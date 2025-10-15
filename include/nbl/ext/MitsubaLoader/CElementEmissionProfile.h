@@ -1,20 +1,15 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MISTUBA_LOADER_C_ELEMENT_EMISSION_PROFILE_H_INCLUDED_
+#define _NBL_EXT_MISTUBA_LOADER_C_ELEMENT_EMISSION_PROFILE_H_INCLUDED_
 
-#ifndef __C_ELEMENT_EMISSION_PROFILE_H_INCLUDED__
-#define __C_ELEMENT_EMISSION_PROFILE_H_INCLUDED__
 
-#include "vectorSIMD.h"
 #include "nbl/ext/MitsubaLoader/CElementTexture.h"
 #include "nbl/ext/MitsubaLoader/CElementTransform.h"
 
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
 struct CElementEmissionProfile : public IElement {
@@ -71,7 +66,4 @@ struct CElementEmissionProfile : public IElement {
 };
 
 }
-}
-}
-
 #endif

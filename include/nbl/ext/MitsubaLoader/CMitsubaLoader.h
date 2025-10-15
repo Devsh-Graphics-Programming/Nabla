@@ -8,7 +8,7 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-//#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
 //#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
@@ -51,6 +51,8 @@ using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
 class CMitsubaLoader final : public asset::ISceneLoader
 {
 //		friend class CMitsubaMaterialCompilerFrontend;
+
+		const ParserManager m_parser;
 		core::smart_refctd_ptr<system::ISystem> m_system;
 
 		//! Destructor
@@ -72,7 +74,7 @@ class CMitsubaLoader final : public asset::ISceneLoader
 #endif
 	public:
 		//! Constructor
-		inline CMitsubaLoader(core::smart_refctd_ptr<system::ISystem>&& _system) : m_system(std::move(_system)) {}
+		inline CMitsubaLoader(core::smart_refctd_ptr<system::ISystem>&& _system) : m_parser(), m_system(std::move(_system)) {}
 
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override;
 

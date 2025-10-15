@@ -8,6 +8,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 
+
 namespace nbl::ext::MitsubaLoader
 {
 class CMitsubaMetadata;

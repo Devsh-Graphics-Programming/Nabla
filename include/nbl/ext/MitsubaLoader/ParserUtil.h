@@ -7,13 +7,15 @@
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
-
-#include "expat/lib/expat.h"
 
 #include <stack>
+
+// don't leak expat headers
+struct XML_ParserStruct;
+typedef struct XML_ParserStruct* XML_Parser;
 
 
 namespace nbl::ext::MitsubaLoader
@@ -116,11 +118,7 @@ class ParserManager final
 		struct XMLContext
 		{
 			//
-			inline void killParseWithError(const std::string& message) const
-			{
-				session->invalidXMLFileStructure(message);
-				XML_StopParser(parser,false);
-			}
+			void killParseWithError(const std::string& message) const;
 			void parseElement(const char* _el, const char** _atts);
 			void onEnd(const char* _el);
 
