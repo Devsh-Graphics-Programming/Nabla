@@ -15,7 +15,7 @@ namespace nbl::ext::MitsubaLoader
 {
 
 
-class CElementShape : public IElement
+class CElementShape final : public IElement
 {
 	public:
 		enum Type
@@ -99,18 +99,18 @@ class CElementShape : public IElement
 			CElementTexture* texture;
 		};*/
 
-		CElementShape(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), bsdf(nullptr), emitter(nullptr)
+		inline CElementShape(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), bsdf(nullptr), emitter(nullptr)
 		{
 		}
-		CElementShape(const CElementShape& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
+		inline CElementShape(const CElementShape& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
 		{
 			operator=(other);
 		}
-		CElementShape(CElementShape&& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
+		inline CElementShape(CElementShape&& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
 		{
 			operator=(std::move(other));
 		}
-		virtual ~CElementShape()
+		inline ~CElementShape()
 		{
 		}
 
@@ -215,20 +215,21 @@ class CElementShape : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::SHAPE; }
-		std::string getLogName() const override { return "shape"; }
+		inline IElement::Type getType() const override { return IElement::Type::SHAPE; }
+		inline std::string getLogName() const override { return "shape"; }
 
 		
-		inline core::matrix3x4SIMD getAbsoluteTransform() const
+		inline hlsl::float32_t3x4 getAbsoluteTransform() const
 		{
-			auto local = transform.matrix.extractSub3x4();
+			// explicit truncation
+			auto local = hlsl::float32_t3x4(transform.matrix);
 			// TODO restore at some point (and make it actually work??)
 			// note: INSTANCE can only contain SHAPEGROUP and the latter doesnt have its own transform
 
 			//if (type==CElementShape::INSTANCE && instance.parent)
-			//	return core::concatenateBFollowedByA(local,instance.parent->getAbsoluteTransform());
+			//	return mul(instance.parent->getAbsoluteTransform(),local);
 			return local;
 		}
 

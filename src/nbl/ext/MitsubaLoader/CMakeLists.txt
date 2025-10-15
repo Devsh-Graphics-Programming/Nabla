@@ -17,6 +17,7 @@ set(NBL_EXT_MITSUBA_LOADER_H
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementBSDF.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementEmissionProfile.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaSerializedMetadata.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
@@ -31,11 +32,12 @@ set(NBL_EXT_MITSUBA_LOADER_SRC
 #	CElementFilm.cpp
 #	CElementRFilter.cpp
 #	CElementSampler.cpp
-#	CElementTransform.cpp
+	CElementTransform.cpp
 #	CElementShape.cpp
 #	CElementBSDF.cpp
 #	CElementTexture.cpp
 #	CElementEmitter.cpp
+	CElementEmissionProfile.cpp
 	ParserUtil.cpp
 	CSerializedLoader.cpp
 	CMitsubaLoader.cpp

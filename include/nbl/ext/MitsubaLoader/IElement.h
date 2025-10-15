@@ -6,6 +6,7 @@
 
 
 #include "nbl/asset/interchange/IAssetLoader.h"
+
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 
 
@@ -47,7 +48,7 @@ class IElement
 		virtual IElement::Type getType() const = 0;
 		virtual std::string getLogName() const = 0;
 
-		virtual bool addProperty(SNamedPropertyElement&& _property) = 0;
+		virtual bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) = 0;
 		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) = 0;
 		//! default implementation for elements that doesnt have any children
 		virtual bool processChildData(IElement* _child, const std::string& name)
@@ -55,7 +56,7 @@ class IElement
 			return !_child;
 		}
 		//
-		static inline bool getTypeIDAndNameStrings(std::add_lvalue_reference<const char*>::type outType, std::add_lvalue_reference<const char*>::type outID, std::string& name, const char** _atts)
+		static inline bool getTypeIDAndNameStrings(std::add_lvalue_reference_t<const char*> outType, std::add_lvalue_reference_t<const char*> outID, std::string& name, const char** _atts)
 		{
 			outType = nullptr;
 			outID = nullptr;
@@ -75,7 +76,7 @@ class IElement
 			}
 			return outType;
 		}
-		static inline bool getIDAndName(std::add_lvalue_reference<const char*>::type id, std::string& name, const char** _atts)
+		static inline bool getIDAndName(std::add_lvalue_reference_t<const char*> id, std::string& name, const char** _atts)
 		{
 			const char* thrownAwayType;
 			getTypeIDAndNameStrings(thrownAwayType,id,name,_atts);

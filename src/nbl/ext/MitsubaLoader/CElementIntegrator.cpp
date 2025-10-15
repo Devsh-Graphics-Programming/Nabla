@@ -1,30 +1,24 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
+#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
-
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
-{
 
+namespace nbl::ext::MitsubaLoader
+{
 
 template<>
-CElementFactory::return_type CElementFactory::createElement<CElementIntegrator>(const char** _atts, ParserManager* _util)
+auto ParserManager::createElement<CElementIntegrator>(const char** _atts, SessionContext* ctx) -> SNamedElement
 {
 	const char* type;
 	const char* id;
 	std::string name;
 	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr,"");
+		return {};
 
 	static const core::unordered_map<std::string, CElementIntegrator::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 	{
@@ -53,12 +47,12 @@ CElementFactory::return_type CElementFactory::createElement<CElementIntegrator>(
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
 		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr, "");
+		return {};
 	}
 
 	CElementIntegrator* obj = _util->objects.construct<CElementIntegrator>(id);
 	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
+		return {};
 
 	obj->type = found->second;
 	// defaults
@@ -430,6 +424,4 @@ bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _ov
 	return true;
 }
 
-}
-}
 }

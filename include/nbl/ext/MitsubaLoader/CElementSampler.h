@@ -15,7 +15,7 @@ class CGlobalMitsubaMetadata;
 class CElementSampler : public IElement
 {
 	public:
-		enum Type
+		enum Type : uint8_t
 		{
 			INVALID,
 			INDEPENDENT,
@@ -26,13 +26,13 @@ class CElementSampler : public IElement
 			SOBOL
 		};
 
-		CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
-		virtual ~CElementSampler() {}
+		inline CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
+		inline ~CElementSampler() {}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::SAMPLER; }
-		std::string getLogName() const override { return "sampler"; }
+		inline IElement::Type getType() const override { return IElement::Type::SAMPLER; }
+		inline std::string getLogName() const override { return "sampler"; }
 
 		// make these public
 		Type type;

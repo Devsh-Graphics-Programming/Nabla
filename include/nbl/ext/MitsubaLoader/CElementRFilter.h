@@ -13,10 +13,10 @@ namespace nbl::ext::MitsubaLoader
 {
 
 
-class CElementRFilter : public IElement
+class CElementRFilter final : public IElement
 {
 	public:
-		enum Type
+		enum Type : uint8_t
 		{
 			INVALID,
 			BOX,
@@ -40,16 +40,16 @@ class CElementRFilter : public IElement
 			int32_t lobes = 3;
 		};
 
-		CElementRFilter(const char* id) : IElement(id), type(GAUSSIAN)
+		inline CElementRFilter(const char* id) : IElement(id), type(GAUSSIAN)
 		{
 			gaussian = Gaussian();
 		}
-		virtual ~CElementRFilter() {}
+		inline ~CElementRFilter() {}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::RFILTER; }
-		std::string getLogName() const override { return "rfilter"; }
+		inline IElement::Type getType() const override { return IElement::Type::RFILTER; }
+		inline std::string getLogName() const override { return "rfilter"; }
 
 		// make these public
 		Type type;

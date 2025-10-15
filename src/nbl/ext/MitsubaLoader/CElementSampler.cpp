@@ -1,17 +1,12 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
+#include "nbl/ext/MitsubaLoader/CElementSampler.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
-{
 
+namespace nbl::ext::MitsubaLoader
+{
 
 template<>
 CElementFactory::return_type CElementFactory::createElement<CElementSampler>(const char** _atts, ParserManager* _util)
@@ -133,6 +128,4 @@ bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	return true;
 }
 
-}
-}
 }

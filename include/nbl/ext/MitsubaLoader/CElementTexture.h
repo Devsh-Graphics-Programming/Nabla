@@ -235,7 +235,7 @@ class CElementTexture : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::TEXTURE; }
 		std::string getLogName() const override { return "texture"; }

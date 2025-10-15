@@ -14,8 +14,7 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-
-class CElementSensor : public IElement
+class CElementSensor final : public IElement
 {
 	public:
 		enum Type
@@ -35,8 +34,8 @@ class CElementSensor : public IElement
 
 		struct ShutterSensor
 		{
-			core::vectorSIMDf up = core::vectorSIMDf(0,1,0);
-			core::vectorSIMDf clipPlanes[MaxClipPlanes] = {};
+			hlsl::float32_t3 up = hlsl::float32_t3(0,1,0);
+			hlsl::float32_t3 clipPlanes[MaxClipPlanes] = {};
 			float moveSpeed = core::nan<float>();
 			float zoomSpeed = core::nan<float>();
 			float rotateSpeed = core::nan<float>();
@@ -101,14 +100,14 @@ class CElementSensor : public IElement
 			kc;
 		};*/
 
-		CElementSensor(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), film(""), sampler("")
+		inline CElementSensor(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), film(""), sampler("")
 		{
 		}
-		CElementSensor(const CElementSensor& other) : IElement(""), transform(), film(""), sampler("")
+		inline CElementSensor(const CElementSensor& other) : IElement(""), transform(), film(""), sampler("")
 		{
 			operator=(other);
 		}
-		virtual ~CElementSensor()
+		inline ~CElementSensor()
 		{
 		}
 
@@ -151,12 +150,12 @@ class CElementSensor : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::SENSOR; }
-		std::string getLogName() const override { return "sensor"; }
+		inline IElement::Type getType() const override { return IElement::Type::SENSOR; }
+		inline std::string getLogName() const override { return "sensor"; }
 
-		bool processChildData(IElement* _child, const std::string& name) override
+		inline bool processChildData(IElement* _child, const std::string& name) override
 		{
 			if (!_child)
 				return true;

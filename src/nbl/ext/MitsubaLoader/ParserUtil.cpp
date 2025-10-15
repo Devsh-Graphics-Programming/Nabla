@@ -4,7 +4,18 @@
 
 
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-// TODO: all of the element types
+#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
+#include "nbl/ext/MitsubaLoader/CElementFilm.h"
+#include "nbl/ext/MitsubaLoader/CElementRFilter.h"
+#include "nbl/ext/MitsubaLoader/CElementSampler.h"
+//#include "nbl/ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CElementTransform.h"
+//#include "nbl/ext/MitsubaLoader/CElementAnimation.h"
+//#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
+//#include "nbl/ext/MitsubaLoader/CElementTexture.h"
+//#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+#include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
 
 #include "expat/lib/expat.h"
 
@@ -193,7 +204,7 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 			return;
 		}
 
-		elements.top().element->addProperty(std::move(optProperty.value()));
+		elements.top().element->addProperty(std::move(optProperty.value()),session->params->logger);
 		return;
 	}
 
@@ -278,20 +289,18 @@ ParserManager::ParserManager() : propertyElements({
 	"point", "vector",
 	"matrix", "rotate", "translate", "scale", "lookat"
 }), propertyElementManager(), createElementTable({
-#if 0 // TODO
-	{"integrator",		{CElementFactory::createElement<CElementIntegrator>,.retvalGoesOnStack=true}},
-	{"sensor",			{CElementFactory::createElement<CElementSensor>,.retvalGoesOnStack=true}},
-	{"film",			{CElementFactory::createElement<CElementFilm>,.retvalGoesOnStack=true}},
-	{"rfilter",			{CElementFactory::createElement<CElementRFilter>,.retvalGoesOnStack=true}},
-	{"sampler",			{CElementFactory::createElement<CElementSampler>,.retvalGoesOnStack=true}},
-	{"shape",			{CElementFactory::createElement<CElementShape>,.retvalGoesOnStack=true}},
-	{"transform",		{CElementFactory::createElement<CElementTransform>,.retvalGoesOnStack=true}},
-	//{"animation",		{CElementFactory::createElement<CElementAnimation>,.retvalGoesOnStack=true}},
-	{"bsdf",			{CElementFactory::createElement<CElementBSDF>,.retvalGoesOnStack=true}},
-	{"texture",			{CElementFactory::createElement<CElementTexture>,.retvalGoesOnStack=true}},
-	{"emitter",			{CElementFactory::createElement<CElementEmitter>,.retvalGoesOnStack=true}},
-	{"emissionprofile", {CElementFactory::createElement<CElementEmissionProfile>,.retvalGoesOnStack=true}},
-#endif
+//	{"integrator",		{.create=createElement<CElementIntegrator>,.retvalGoesOnStack=true}},
+//	{"sensor",			{.create=createElement<CElementSensor>,.retvalGoesOnStack=true}},
+//	{"film",			{.create=createElement<CElementFilm>,.retvalGoesOnStack=true}},
+//	{"rfilter",			{.create=createElement<CElementRFilter>,.retvalGoesOnStack=true}},
+//	{"sampler",			{.create=createElement<CElementSampler>,.retvalGoesOnStack=true}},
+//	{"shape",			{.create=createElement<CElementShape>,.retvalGoesOnStack=true}},
+	{"transform",		{.create=createElement<CElementTransform>,.retvalGoesOnStack=true}},
+//	{"animation",		{.create=createElement<CElementAnimation>,.retvalGoesOnStack=true}},
+//	{"bsdf",			{.create=createElement<CElementBSDF>,.retvalGoesOnStack=true}},
+//	{"texture",			{.create=createElement<CElementTexture>,.retvalGoesOnStack=true}},
+//	{"emitter",			{.create=createElement<CElementEmitter>,.retvalGoesOnStack=true}},
+	{"emissionprofile", {.create=createElement<CElementEmissionProfile>,.retvalGoesOnStack=true}},
 	{"alias",			{.create=processAlias,.retvalGoesOnStack=true}},
 	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
 }){}

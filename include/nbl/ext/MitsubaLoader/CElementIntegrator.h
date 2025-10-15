@@ -12,7 +12,7 @@ namespace nbl::ext::MitsubaLoader
 {
 
 
-class CElementIntegrator : public IElement
+class CElementIntegrator final : public IElement
 {
 	public:
 		enum Type
@@ -191,10 +191,10 @@ class CElementIntegrator : public IElement
 		{
 		};
 
-		CElementIntegrator(const char* id) : IElement(id), type(Type::INVALID)
+		inline CElementIntegrator(const char* id) : IElement(id), type(Type::INVALID)
 		{
 		}
-		virtual ~CElementIntegrator()
+		inline ~CElementIntegrator()
 		{
 		}
 
@@ -264,12 +264,12 @@ class CElementIntegrator : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
-		std::string getLogName() const override { return "integrator"; }
+		inline IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
+		inline std::string getLogName() const override { return "integrator"; }
 
-		bool processChildData(IElement* _child, const std::string& name) override
+		inline bool processChildData(IElement* _child, const std::string& name) override
 		{
 			if (!_child)
 				return true;

@@ -2,28 +2,27 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
 #include <functional>
 
-namespace nbl
+
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
-	
+
 template<>
-CElementFactory::return_type CElementFactory::createElement<CElementSensor>(const char** _atts, ParserManager* _util)
+auto ParserManager::createElement<CElementSensor>(const char** _atts, SessionContext* ctx) -> SNamedElement
 {
 	const char* type;
 	const char* id;
 	std::string name;
 	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr,"");
+		return {};
 
-	static const core::unordered_map<std::string, CElementSensor::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	// TODO: initialize this separately
+	static const core::unordered_map<std::string,CElementSensor::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 	{
 		{"perspective",			CElementSensor::Type::PERSPECTIVE},
 		{"thinlens",			CElementSensor::Type::THINLENS},
@@ -39,14 +38,13 @@ CElementFactory::return_type CElementFactory::createElement<CElementSensor>(cons
 	auto found = StringToType.find(type);
 	if (found==StringToType.end())
 	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr, "");
+		ctx->invalidXMLFileStructure("unknown type");
+		return {};
 	}
 
-	CElementSensor* obj = _util->objects.construct<CElementSensor>(id);
+	CElementSensor* obj = ctx->objects.construct<CElementSensor>(id);
 	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
+		return {};
 
 	obj->type = found->second;
 	// defaults
@@ -79,7 +77,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementSensor>(cons
 		default:
 			break;
 	}
-	return CElementFactory::return_type(obj, std::move(name));
+	return {obj,std::move(name)};
 }
 
 bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
@@ -242,7 +240,7 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 
 bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* meta)
 {
-	if (type == Type::INVALID)
+	if (type==Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
 		_NBL_DEBUG_BREAK_IF(true);
@@ -257,6 +255,4 @@ bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overri
 	return true;
 }
 
-}
-}
 }

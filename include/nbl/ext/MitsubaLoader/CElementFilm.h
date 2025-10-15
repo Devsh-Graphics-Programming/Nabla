@@ -5,17 +5,16 @@
 #define _NBL_EXT_MISTUBA_LOADER_C_ELEMENT_FILM_H_INCLUDED_
 
 
-#include "nbl/macros.h"
 #include "nbl/ext/MitsubaLoader/CElementRFilter.h"
 
 
 namespace nbl::ext::MitsubaLoader
 {
 
-class CElementFilm : public IElement
+class CElementFilm final : public IElement
 {
 	public:
-		enum Type
+		enum Type : uint8_t
 		{
 			INVALID,
 			HDR_FILM,
@@ -23,7 +22,7 @@ class CElementFilm : public IElement
 			LDR_FILM,
 			MFILM
 		};
-		enum PixelFormat
+		enum PixelFormat : uint8_t
 		{
 			LUMINANCE,
 			LUMINANCE_ALPHA,
@@ -34,7 +33,7 @@ class CElementFilm : public IElement
 			SPECTRUM,
 			SPECTRUM_ALPHA
 		};
-		enum FileFormat
+		enum FileFormat : uint8_t
 		{
 			OPENEXR,
 			RGBE,
@@ -45,7 +44,7 @@ class CElementFilm : public IElement
 			MATHEMATICA,
 			NUMPY
 		};
-		enum ComponentFormat
+		enum ComponentFormat : uint8_t
 		{
 			FLOAT16,
 			FLOAT32,
@@ -79,11 +78,11 @@ class CElementFilm : public IElement
 				variable[4] = 0;
 			}
 			int32_t digits;
-			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxVarNameLen = 63; // matlab
+			constexpr static inline size_t MaxVarNameLen = 63; // matlab
 			char variable[MaxVarNameLen+1];
 		};
 
-		CElementFilm(const char* id) : IElement(id), type(Type::HDR_FILM),
+		inline CElementFilm(const char* id) : IElement(id), type(Type::HDR_FILM),
 			width(768), height(576), cropOffsetX(0), cropOffsetY(0), cropWidth(INT_MAX), cropHeight(INT_MAX),
 			fileFormat(OPENEXR), pixelFormat(RGB), componentFormat(FLOAT16),
 			banner(true), highQualityEdges(false), rfilter("")
@@ -94,10 +93,10 @@ class CElementFilm : public IElement
 		{
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::FILM; }
-		std::string getLogName() const override { return "film"; }
+		inline IElement::Type getType() const override { return IElement::Type::FILM; }
+		inline std::string getLogName() const override { return "film"; }
 
 		inline bool processChildData(IElement* _child, const std::string& name) override
 		{
@@ -129,7 +128,7 @@ class CElementFilm : public IElement
 			M	mfilm;
 		};
 
-		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxPathLen = 256;
+		constexpr static inline size_t MaxPathLen = 256;
 		char outputFilePath[MaxPathLen+1] = {0};
 		char denoiserBloomFilePath[MaxPathLen+1] = {0};
 		int32_t cascadeCount = 1;
@@ -137,7 +136,7 @@ class CElementFilm : public IElement
 		float cascadeLuminanceStart = core::nan<float>();
 		float denoiserBloomScale = 0.0f;
 		float denoiserBloomIntensity = 0.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;
+		constexpr static inline size_t MaxTonemapperArgsLen = 128;
 		char denoiserTonemapperArgs[MaxTonemapperArgsLen+1] = {0};
 		float envmapRegularizationFactor = 0.5f; // 1.0f means based envmap luminance, 0.0f means uniform
 };

@@ -1,30 +1,25 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
+#include "nbl/ext/MitsubaLoader/CElementTransform.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
-{
 
+namespace nbl::ext::MitsubaLoader
+{
 	
 template<>
-CElementFactory::return_type CElementFactory::createElement<CElementTransform>(const char** _atts, ParserManager* _util)
+auto ParserManager::createElement<CElementTransform>(const char** _atts, SessionContext* ctx) -> SNamedElement
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return CElementFactory::return_type(nullptr,"");
-	if (core::strcmpi(_atts[0], "name"))
-		return CElementFactory::return_type(nullptr,"");
+	if (IElement::invalidAttributeCount(_atts,2u))
+		return {};
+	if (core::strcmpi(_atts[0],"name"))
+		return {};
 	
-	return CElementFactory::return_type(_util->objects.construct<CElementTransform>(),_atts[1]);
+	return {ctx->objects.construct<CElementTransform>(),_atts[1]};
 }
 
-bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
+bool CElementTransform::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
 	switch (_property.type)
 	{
@@ -37,12 +32,11 @@ bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
 		case SNamedPropertyElement::Type::SCALE:
 			[[fallthrough]];
 		case SNamedPropertyElement::Type::LOOKAT:
-			matrix = core::concatenateBFollowedByA(_property.mvalue, matrix);
+			matrix = hlsl::mul(matrix,_property.mvalue);
 			break;
 		default:
 			{
-				ParserLog::invalidXMLFileStructure("The transform element does not take child property: "+_property.type);
-				_NBL_DEBUG_BREAK_IF(true);
+				invalidXMLFileStructure(logger,"The transform element does not take child property: "+_property.type);
 				return false;
 			}
 			break;
@@ -51,6 +45,4 @@ bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
 	return true;
 }
 
-}
-}
 }

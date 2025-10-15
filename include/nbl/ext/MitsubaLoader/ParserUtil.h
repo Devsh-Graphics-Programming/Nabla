@@ -139,6 +139,9 @@ class ParserManager final
 		};
 		const core::unordered_map<std::string/*elementName*/,SElementCreator,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> createElementTable;
 		//
+		template<typename Element> requires std::is_base_of_v<IElement,Element>
+		static SNamedElement createElement(const char** _atts, SessionContext* ctx);
+		//
 		static SNamedElement processAlias(const char** _atts, SessionContext* ctx);
 		static SNamedElement processRef(const char** _atts, SessionContext* ctx);
 };

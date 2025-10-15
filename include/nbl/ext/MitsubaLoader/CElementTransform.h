@@ -11,17 +11,16 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-
-class CElementTransform : public IElement
+class CElementTransform final : public IElement
 {
 	public:
-		CElementTransform() : IElement(""), matrix() {}
-		virtual ~CElementTransform() {}
+		inline CElementTransform() : IElement(""), matrix() {}
+		inline  ~CElementTransform() {}
 
-		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override { return true; }
-		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
-		std::string getLogName() const override { return "transform"; }
+		inline IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
+		inline std::string getLogName() const override { return "transform"; }
 		/*
 		inline CElementTransform& operator=(const CElementTransform& other)
 		{
@@ -31,7 +30,7 @@ class CElementTransform : public IElement
 		}
 		*/
 
-		core::matrix4SIMD matrix;
+		hlsl::float32_t4x4 matrix;
 };
 
 }
