@@ -88,4 +88,3 @@ set(CPACK_COMPONENT_HEADERS_DEPENDS Libraries Runtimes)
 set(CPACK_THREADS 0) # try to use all threads for compression
 
 include(CPack)
-include("${CMAKE_CURRENT_LIST_DIR}/find/nabla.cmake")

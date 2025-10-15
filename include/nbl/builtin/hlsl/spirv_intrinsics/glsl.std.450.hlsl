@@ -95,8 +95,7 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
 T fMix(T x, T y, T a);
 
-template<typename T>
-NBL_BOOL_CONCEPT FMixIsCallable = always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>;
+NBL_VALID_EXPRESSION(FMixIsCallable, (T), spirv::fMix<T>(experimental::declval<T>(),experimental::declval<T>(),experimental::declval<T>()));
 
 template<typename SquareMatrix NBL_FUNC_REQUIRES(matrix_traits<SquareMatrix>::Square)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]

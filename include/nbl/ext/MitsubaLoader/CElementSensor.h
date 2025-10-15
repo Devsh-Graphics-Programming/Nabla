@@ -35,19 +35,23 @@ class CElementSensor : public IElement
 			FLUENCEMETER,
 			PERSPECTIVE_RDIST
 		};
-	struct ShutterSensor
-	{
-		float moveSpeed = core::nan<float>();
-		float zoomSpeed = core::nan<float>();
-		float rotateSpeed = core::nan<float>();
-		float shutterOpen = 0.f;
-		float shutterClose = 0.f;
-	};
-	struct CameraBase : ShutterSensor
-	{
-		float nearClip = 0.01f;
-		float farClip = 10000.f;
-	};
+		constexpr static inline uint8_t MaxClipPlanes = 6u;
+
+		struct ShutterSensor
+		{
+			core::vectorSIMDf up = core::vectorSIMDf(0,1,0);
+			core::vectorSIMDf clipPlanes[MaxClipPlanes] = {};
+			float moveSpeed = core::nan<float>();
+			float zoomSpeed = core::nan<float>();
+			float rotateSpeed = core::nan<float>();
+			float shutterOpen = 0.f;
+			float shutterClose = 0.f;
+		};
+		struct CameraBase : ShutterSensor
+		{
+			float nearClip = 0.01f;
+			float farClip = 10000.f;
+		};
 		struct PerspectivePinhole : CameraBase
 		{
 			enum class FOVAxis
@@ -65,17 +69,19 @@ class CElementSensor : public IElement
 				_NBL_DEBUG_BREAK_IF(true); // TODO
 			}
 
+			float shiftX = 0.f;
+			float shiftY = 0.f;
 			float fov = 53.2f;
 			FOVAxis fovAxis = FOVAxis::X;
 		};
 		struct Orthographic : CameraBase
 		{
 		};
-	struct DepthOfFieldBase
-	{
-		float apertureRadius = 0.f;
-		float focusDistance = 0.f;
-	};
+		struct DepthOfFieldBase
+		{
+			float apertureRadius = 0.f;
+			float focusDistance = 0.f;
+		};
 		struct PerspectiveThinLens : PerspectivePinhole, DepthOfFieldBase
 		{
 		};

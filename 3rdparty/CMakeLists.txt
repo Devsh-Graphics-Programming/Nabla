@@ -292,6 +292,9 @@ option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will inc
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
+
 NBL_GENERATE_GIT_TRACKING_META()
 
 # NGFX
@@ -451,9 +454,7 @@ if (NBL_BUILD_BULLET)
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
 
-add_library(Vulkan-Headers INTERFACE)
-target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
-add_library(Vulkan::Headers ALIAS Vulkan-Headers)
+target_include_directories(Vulkan::Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 add_subdirectory(Vulkan-Tools/vulkaninfo vulkaninfo EXCLUDE_FROM_ALL)
 
 # Final gather
@@ -528,7 +529,27 @@ add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
 NBL_ADJUST_FOLDERS(3rdaprty)
 
-nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/gtl/include")
+nbl_install_dir(Vulkan-Headers/include/vulkan)
+nbl_install_dir(Vulkan-Headers/include/vk_video)
+
+nbl_install_file_spec(volk/volk.h volk)
+
+nbl_install_dir(gtl/include/gtl)
+nbl_install_dir(glm/glm)
+
+nbl_install_file_spec(${CMAKE_CURRENT_BINARY_DIR}/imath/config/ImathConfig.h imath)
+nbl_install_dir(imath/src/Imath)
+
+nbl_install_file(blake/c/blake3.h)
+
+nbl_install_file_spec(nlohmann_json/include/nlohmann/json_fwd.hpp nlohmann)
+nbl_install_file_spec(nlohmann_json/include/nlohmann/detail/abi_macros.hpp nlohmann/detail)
+
+nbl_install_dir(boost/superproject/libs/preprocessor/include/boost)
+
+nbl_install_file_spec(renderdoc/renderdoc_app.h renderdoc)
+
+nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
 
 # parent scope exports, must be at the end of the file
 set(_NBL_3RDPARTY_TARGETS_ 

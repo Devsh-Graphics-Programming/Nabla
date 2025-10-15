@@ -81,6 +81,9 @@ bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle
     return _mgr->insertBuiltinAssetIntoCache(_asset);
 }
 
+
+
+
 bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr,  core::smart_refctd_ptr<IAsset>& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path)
 {
     asset::SAssetBundle bundle(std::move(metadata), { _asset });

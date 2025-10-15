@@ -139,6 +139,23 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
 
 #define NBL_BXDF_CONFIG_ALIAS(TYPE,CONFIG) using TYPE = typename CONFIG::TYPE
 
+
+#define BXDF_CONFIG_TYPE_ALIASES(Config) NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(sample_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);\
+
+#define MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config) BXDF_CONFIG_TYPE_ALIASES(Config);\
+NBL_BXDF_CONFIG_ALIAS(matrix3x3_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);\
+
 }
 }
 }

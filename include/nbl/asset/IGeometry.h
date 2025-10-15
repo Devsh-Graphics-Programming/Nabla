@@ -404,8 +404,34 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             SDataViewBase composed = {};
             SBufferRange<BufferType> src = {};
         };
+        template<typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
+        class MutableElementAccessor final
+        {
+                friend class IGeometry<ICPUBuffer>;
+                inline MutableElementAccessor(SDataView* const pView) : _this(pView) {}
+
+                SDataView* const _this;
+
+            public:
+                template<typename Index=uint32_t>
+                inline void* getPointer(const Index elIx=0)
+                {
+                    if (_this)
+                        return _this->getPointer<Index,BufferType>(elIx);
+                    return nullptr;
+                }
+                template<typename V, typename Index=uint32_t> requires hlsl::concepts::Vector<V>
+                inline void encodeElement(const Index elIx, const V& v)
+                {
+                    if (_this)
+                        _this->encodeElement<V,Index,BufferType>(elIx,v);
+                }
+        };
         //
         inline const SDataView& getPositionView() const {return m_positionView;}
+        // TODO: the requires should really be done with `declval` callability checks
+        template<typename _B=BufferType> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
+        inline MutableElementAccessor<_B> getPositionElementAccessor() {return createElementAccessor<_B>(m_positionView);}
 
         // depends on indexing, primitive type, etc.
         virtual uint64_t getPrimitiveCount() const = 0;
@@ -426,6 +452,11 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
 
     protected:
         virtual inline ~IGeometry() = default;
+        template<typename _B> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
+        inline MutableElementAccessor<_B> createElementAccessor(SDataView& view)
+        {
+            return MutableElementAccessor<_B>(IAsset::isMutable() ? (&view):nullptr);
+        }
 
         // 
         inline bool setJointOBBView(SDataView&& view)
@@ -458,13 +489,17 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
 template<class BufferType>
 class IIndexableGeometry : public IGeometry<BufferType>
 {
+        using base_t = IGeometry<BufferType>;
+
     protected:
-        using SDataView = IGeometry<BufferType>::SDataView;
+        using SDataView = base_t::SDataView;
 
     public:
         // index buffer is optional so no override of `valid()`
 
         inline const SDataView& getIndexView() const {return m_indexView;}
+        template<typename _B=BufferType> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
+        inline base_t::template MutableElementAccessor<_B> getIndexElementAccessor() {return base_t::template createElementAccessor<_B>(m_indexView);}
 
         inline const uint64_t getIndexCount() const
         {
