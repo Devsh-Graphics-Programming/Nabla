@@ -136,6 +136,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;
     region.imageSubresource.mipLevel = 0u;
+    region.imageSubresource.aspectMask = core::bitflag(asset::IImage::EAF_COLOR_BIT);
     region.bufferImageHeight = 0u;
     region.bufferOffset = 0u;
 
@@ -152,7 +153,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
         CFillImageFilter::state_type state;
         state.outImage = outImg.get();
-        state.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        state.subresource.aspectMask = core::bitflag(asset::IImage::EAF_COLOR_BIT);
         state.subresource.baseArrayLayer = 0u;
         state.subresource.layerCount = 1u;
         state.outRange.extent = creationParams.extent;
@@ -199,7 +200,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
     viewParams.viewType = IImageView<ICPUImage>::ET_2D;
     viewParams.format = viewParams.image->getCreationParameters().format;
-    viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+    viewParams.subresourceRange.aspectMask = core::bitflag(asset::IImage::EAF_COLOR_BIT);
     viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
     viewParams.subresourceRange.layerCount = 1u;
 
