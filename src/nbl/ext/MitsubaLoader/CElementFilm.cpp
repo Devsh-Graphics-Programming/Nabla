@@ -1,75 +1,18 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
+#include "nbl/ext/MitsubaLoader/CElementFilm.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
-
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementFilm>(const char** _atts, ParserManager* _util)
+bool CElementFilm::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr, "");
-
-	static const core::unordered_map<std::string, CElementFilm::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-	{
-		{"hdrfilm",		CElementFilm::Type::HDR_FILM},
-		{"tiledhdrfilm",CElementFilm::Type::TILED_HDR},
-		{"ldrfilm",		CElementFilm::Type::LDR_FILM},
-		{"mfilm",		CElementFilm::Type::MFILM}
-	};
-
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr, "");
-	}
-
-	CElementFilm* obj = _util->objects.construct<CElementFilm>(id);
-	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
-
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementFilm::Type::LDR_FILM:
-			obj->fileFormat = CElementFilm::FileFormat::PNG;
-			//obj->componentFormat = UINT8;
-			obj->ldrfilm = CElementFilm::LDR();
-			break;
-		case CElementFilm::Type::MFILM:
-			obj->width = 1;
-			obj->height = 1;
-			obj->fileFormat = CElementFilm::FileFormat::MATLAB;
-			obj->pixelFormat = CElementFilm::PixelFormat::LUMINANCE;
-			obj->mfilm = CElementFilm::M();
-			break;
-		default:
-			break;
-	}
-	return CElementFactory::return_type(obj, std::move(name));
-}
-
-
-bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
-{
+#if 0
 	bool error = type==Type::INVALID;
 #define SET_PROPERTY(MEMBER,PROPERTY_TYPE)		[&]() -> void { \
 		if (_property.type!=PROPERTY_TYPE) { \
@@ -311,16 +254,19 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found == SetPropertyMap.end())
 	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
+		
+		invalidXMLFileStructure(logger,"No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
 		return false;
 	}
 
 	found->second();
 	return !error;
+#endif
+	assert(false);
+	return false;
 }
 
-bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
+bool CElementFilm::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)
 {
 	cropOffsetX = std::max(cropOffsetX,0);
 	cropOffsetY = std::max(cropOffsetY,0);
@@ -339,8 +285,8 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case PFM:
 					break;
 				default:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this file format");
+					
 					return false;
 			};
 			break;
@@ -350,8 +296,8 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case OPENEXR:
 					break;
 				default:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this file format");
+					
 					return false;
 			};
 			break;
@@ -363,8 +309,8 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case JPEG:
 					break;
 				default:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this file format");
+					
 					return false;
 			};
 			switch (pixelFormat)
@@ -378,8 +324,8 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case XYZ:
 					[[fallthrough]];
 				case XYZA:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this pixel format");
+					
 					return false;
 					break;
 				default:
@@ -396,8 +342,8 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case NUMPY:
 					break;
 				default:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this file format");
+					
 					return false;
 			};
 			switch (pixelFormat)
@@ -405,8 +351,8 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case XYZ:
 					[[fallthrough]];
 				case XYZA:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this pixel format");
+					
 					return false;
 					break;
 				default:
@@ -417,14 +363,14 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 				case FLOAT32:
 					break;
 				default:
-					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this component format");
-					_NBL_DEBUG_BREAK_IF(true);
+					invalidXMLFileStructure(logger,getLogName() + ": film type does not support this component format");
+					
 					return false;
 			};
 			break;
 		default:
-			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-			_NBL_DEBUG_BREAK_IF(true);
+			invalidXMLFileStructure(logger,getLogName() + ": type not specified");
+			
 			return false;
 	}
 
@@ -432,6 +378,4 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 }
 
 
-}
-}
 }

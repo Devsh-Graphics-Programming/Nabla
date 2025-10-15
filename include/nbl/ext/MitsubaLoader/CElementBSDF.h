@@ -370,7 +370,7 @@ class CElementBSDF : public IElement
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		IElement::Type getType() const override { return IElement::Type::BSDF; }
 		std::string getLogName() const override { return "bsdf"; }
 
@@ -380,16 +380,16 @@ class CElementBSDF : public IElement
 		{
 			switch (type)
 			{
-			case COATING: [[fallthrough]];
-			case ROUGHCOATING: [[fallthrough]];
-			case TWO_SIDED: [[fallthrough]];
-			case MASK: [[fallthrough]];
-			case BLEND_BSDF: [[fallthrough]];
-			case MIXTURE_BSDF: [[fallthrough]];
-			case BUMPMAP:
-				return true;
-			default:
-				return false;
+				case COATING: [[fallthrough]];
+				case ROUGHCOATING: [[fallthrough]];
+				case TWO_SIDED: [[fallthrough]];
+				case MASK: [[fallthrough]];
+				case BLEND_BSDF: [[fallthrough]];
+				case MIXTURE_BSDF: [[fallthrough]];
+				case BUMPMAP:
+					return true;
+				default:
+					return false;
 			}
 		}
 

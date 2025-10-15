@@ -274,14 +274,9 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 	return false;
 }
 
-bool CElementShape::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
+bool CElementShape::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 
 	// TODO: some validation
 

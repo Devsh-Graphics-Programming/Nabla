@@ -27,11 +27,11 @@ set(NBL_EXT_MITSUBA_LOADER_H
 
 set(NBL_EXT_MITSUBA_LOADER_SRC
 	PropertyElement.cpp
-#	CElementIntegrator.cpp
-#	CElementSensor.cpp
-#	CElementFilm.cpp
-#	CElementRFilter.cpp
-#	CElementSampler.cpp
+	CElementIntegrator.cpp
+	CElementSensor.cpp
+	CElementFilm.cpp
+	CElementRFilter.cpp
+	CElementSampler.cpp
 	CElementTransform.cpp
 #	CElementShape.cpp
 #	CElementBSDF.cpp

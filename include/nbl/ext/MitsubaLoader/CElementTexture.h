@@ -133,7 +133,7 @@ class CElementTexture : public IElement
 				Z*/
 			};
 
-			SPropertyElementData filename;
+			SPropertyElementData filename; // TODO: make sure destructor runs
 			WRAP_MODE wrapModeU = REPEAT;
 			WRAP_MODE wrapModeV = REPEAT;
 			float gamma = NAN;
@@ -236,9 +236,10 @@ class CElementTexture : public IElement
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
-		IElement::Type getType() const override { return IElement::Type::TEXTURE; }
-		std::string getLogName() const override { return "texture"; }
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
+
+		inline IElement::Type getType() const override { return IElement::Type::TEXTURE; }
+		inline std::string getLogName() const override { return "texture"; }
 
 		bool processChildData(IElement* _child, const std::string& name) override;
 

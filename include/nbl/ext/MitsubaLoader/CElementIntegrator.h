@@ -15,9 +15,8 @@ namespace nbl::ext::MitsubaLoader
 class CElementIntegrator final : public IElement
 {
 	public:
-		enum Type
+		enum Type : uint8_t
 		{
-			INVALID,
 			AO,
 			DIRECT,
 			PATH,
@@ -35,8 +34,33 @@ class CElementIntegrator final : public IElement
 			VPL,
 			IRR_CACHE,
 			MULTI_CHANNEL,
-			FIELD_EXTRACT
+			FIELD_EXTRACT,
+			INVALID
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"ao",				Type::AO},
+				{"direct",			Type::DIRECT},
+				{"path",			Type::PATH},
+				{"volpath_simple",	Type::VOL_PATH_SIMPLE},
+				{"volpath",			Type::VOL_PATH},
+				{"bdpt",			Type::BDPT},
+				{"photonmapper",	Type::PHOTONMAPPER},
+				{"ppm",				Type::PPM},
+				{"sppm",			Type::SPPM},
+				{"pssmlt",			Type::PSSMLT},
+				{"mlt",				Type::MLT},
+				{"erpt",			Type::ERPT},
+				{"ptracer",			Type::ADJ_P_TRACER},
+				{"adaptive",		Type::ADAPTIVE},
+				{"vpl",				Type::VPL},
+				{"irrcache",		Type::IRR_CACHE},
+				{"multichannel",	Type::MULTI_CHANNEL},
+				{"field",			Type::FIELD_EXTRACT}
+			};
+		}
+
 		struct AmbientOcclusion
 		{
 			int32_t shadingSamples = 1;
@@ -49,8 +73,8 @@ class CElementIntegrator final : public IElement
 	};
 		struct DirectIllumination : EmitterHideableBase
 		{
-			int32_t emitterSamples = 0xdeadbeefu;
-			int32_t bsdfSamples = 0xdeadbeefu;
+			int32_t emitterSamples = static_cast<int32_t>(0xdeadbeefu);
+			int32_t bsdfSamples = static_cast<int32_t>(0xdeadbeefu);
 			bool strictNormals = false;
 		};
 	struct MonteCarloTracingBase
@@ -161,7 +185,7 @@ class CElementIntegrator final : public IElement
 			}
 
 			Type field;
-			SPropertyElementData undefined;
+			SPropertyElementData undefined; // TODO: test destructor runs
 		};
 	struct MetaIntegrator
 	{
@@ -198,74 +222,89 @@ class CElementIntegrator final : public IElement
 		{
 		}
 
-		inline CElementIntegrator& operator=(const CElementIntegrator& other)
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor)
 		{
-			IElement::operator=(other);
-			type = other.type;
 			switch (type)
 			{
 				case CElementIntegrator::Type::AO:
-					ao = other.ao;
+					visitor(ao);
 					break;
 				case CElementIntegrator::Type::DIRECT:
-					direct = other.direct;
+					visitor(direct);
 					break;
 				case CElementIntegrator::Type::PATH:
-					path = other.path;
+					visitor(path);
 					break;
 				case CElementIntegrator::Type::VOL_PATH_SIMPLE:
-					volpath_simple = other.volpath_simple;
+					visitor(volpath_simple);
 					break;
 				case CElementIntegrator::Type::VOL_PATH:
-					volpath = other.volpath;
+					visitor(volpath);
 					break;
 				case CElementIntegrator::Type::BDPT:
-					bdpt = other.bdpt;
+					visitor(bdpt);
 					break;
 				case CElementIntegrator::Type::PHOTONMAPPER:
-					photonmapper = other.photonmapper;
+					visitor(photonmapper);
 					break;
 				case CElementIntegrator::Type::PPM:
-					ppm = other.ppm;
+					visitor(ppm);
 					break;
 				case CElementIntegrator::Type::SPPM:
-					sppm = other.sppm;
+					visitor(sppm);
 					break;
 				case CElementIntegrator::Type::PSSMLT:
-					pssmlt = other.pssmlt;
+					visitor(pssmlt);
 					break;
 				case CElementIntegrator::Type::MLT:
-					mlt = other.mlt;
+					visitor(mlt);
 					break;
 				case CElementIntegrator::Type::ERPT:
-					erpt = other.erpt;
+					visitor(erpt);
 					break;
 				case CElementIntegrator::Type::ADJ_P_TRACER:
-					ptracer = other.ptracer;
+					visitor(ptracer);
 					break;
 				case CElementIntegrator::Type::ADAPTIVE:
-					adaptive = other.adaptive;
+					visitor(adaptive);
 					break;
 				case CElementIntegrator::Type::VPL:
-					vpl = other.vpl;
+					visitor(vpl);
 					break;
 				case CElementIntegrator::Type::IRR_CACHE:
-					irrcache = other.irrcache;
+					visitor(irrcache);
 					break;
 				case CElementIntegrator::Type::MULTI_CHANNEL:
-					multichannel = other.multichannel;
+					visitor(multichannel);
 					break;
 				case CElementIntegrator::Type::FIELD_EXTRACT:
-					field = other.field;
+					visitor(field);
 					break;
 				default:
 					break;
 			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementIntegrator*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
+		}
+
+		inline CElementIntegrator& operator=(const CElementIntegrator& other)
+		{
+			IElement::operator=(other);
+			type = other.type;
+			IElement::copyVariant(this,&other);
 			return *this;
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		inline IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
 		inline std::string getLogName() const override { return "integrator"; }
 

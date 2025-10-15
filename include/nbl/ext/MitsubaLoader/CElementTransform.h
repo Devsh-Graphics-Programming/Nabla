@@ -18,7 +18,7 @@ class CElementTransform final : public IElement
 		inline  ~CElementTransform() {}
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override { return true; }
+		inline bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override {return true;}
 		inline IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
 		inline std::string getLogName() const override { return "transform"; }
 		/*

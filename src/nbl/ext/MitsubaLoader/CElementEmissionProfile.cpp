@@ -10,22 +10,6 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-template<>
-auto ParserManager::createElement<CElementEmissionProfile>(const char** _atts, SessionContext* ctx) -> SNamedElement
-{
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return {};
-
-	CElementEmissionProfile* obj = ctx->objects.construct<CElementEmissionProfile>(id);
-	if (!obj)
-		return {};
-
-	return {obj,std::move(name)};
-}
-
 bool CElementEmissionProfile::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
 	if (_property.name=="filename")

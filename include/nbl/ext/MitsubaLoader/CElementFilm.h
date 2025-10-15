@@ -22,6 +22,16 @@ class CElementFilm final : public IElement
 			LDR_FILM,
 			MFILM
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"hdrfilm",		Type::HDR_FILM},
+				{"tiledhdrfilm",Type::TILED_HDR},
+				{"ldrfilm",		Type::LDR_FILM},
+				{"mfilm",		Type::MFILM}
+			};
+		}
+
 		enum PixelFormat : uint8_t
 		{
 			LUMINANCE,
@@ -93,8 +103,29 @@ class CElementFilm final : public IElement
 		{
 		}
 
+		inline void initialize()
+		{
+			switch (type)
+			{
+				case CElementFilm::Type::LDR_FILM:
+					fileFormat = CElementFilm::FileFormat::PNG;
+					//componentFormat = UINT8;
+					ldrfilm = CElementFilm::LDR();
+					break;
+				case CElementFilm::Type::MFILM:
+					width = 1;
+					height = 1;
+					fileFormat = CElementFilm::FileFormat::MATLAB;
+					pixelFormat = CElementFilm::PixelFormat::LUMINANCE;
+					mfilm = CElementFilm::M();
+					break;
+				default:
+					break;
+			}
+		}
+
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		inline IElement::Type getType() const override { return IElement::Type::FILM; }
 		inline std::string getLogName() const override { return "film"; }
 

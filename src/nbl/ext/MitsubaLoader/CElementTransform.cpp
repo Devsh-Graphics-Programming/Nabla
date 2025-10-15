@@ -7,17 +7,6 @@
 
 namespace nbl::ext::MitsubaLoader
 {
-	
-template<>
-auto ParserManager::createElement<CElementTransform>(const char** _atts, SessionContext* ctx) -> SNamedElement
-{
-	if (IElement::invalidAttributeCount(_atts,2u))
-		return {};
-	if (core::strcmpi(_atts[0],"name"))
-		return {};
-	
-	return {ctx->objects.construct<CElementTransform>(),_atts[1]};
-}
 
 bool CElementTransform::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {

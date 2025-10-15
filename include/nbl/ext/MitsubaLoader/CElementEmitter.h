@@ -87,7 +87,7 @@ class CElementEmitter : public IElement
 		};*/
 		struct EnvMap : SampledEmitter
 		{
-			SPropertyElementData filename;
+			SPropertyElementData filename; // TODO: make sure destructor runs
 			float scale = 1.f;
 			float gamma = NAN;
 			//bool cache = false;
@@ -201,7 +201,7 @@ class CElementEmitter : public IElement
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		IElement::Type getType() const override { return IElement::Type::EMITTER; }
 		std::string getLogName() const override { return "emitter"; }
 

@@ -807,12 +807,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 
 bool CElementBSDF::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 	
 	// TODO: Validation
 	{

@@ -1,17 +1,13 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+
+namespace nbl::ext::MitsubaLoader
 {
 
 
@@ -284,14 +280,9 @@ bool CElementTexture::processChildData(IElement* _child, const std::string& name
 	return true;
 }
 
-bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
+bool CElementTexture::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 	
 	// TODO: Validation
 	{
@@ -300,6 +291,4 @@ bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	return true;
 }
 
-}
-}
 }

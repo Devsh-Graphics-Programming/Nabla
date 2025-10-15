@@ -26,6 +26,18 @@ class CElementRFilter final : public IElement
 			CATMULLROM,
 			LANCZOS
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				std::make_pair("box", Type::BOX),
+				std::make_pair("tent", Type::TENT),
+				std::make_pair("gaussian", Type::GAUSSIAN),
+				std::make_pair("mitchell", Type::MITCHELL),
+				std::make_pair("catmullrom", Type::CATMULLROM),
+				std::make_pair("lanczos", Type::LANCZOS)
+			};
+		}
+
 		struct Gaussian
 		{
 			float sigma = NAN; // can't look at mitsuba source to figure out the default it uses
@@ -46,8 +58,43 @@ class CElementRFilter final : public IElement
 		}
 		inline ~CElementRFilter() {}
 
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor)
+		{
+			switch (type)
+			{
+				case Type::BOX:
+					[[fallthrough]];
+				case Type::TENT:
+					break;
+				case Type::GAUSSIAN:
+					visit(gaussian);
+					break;
+				case Type::MITCHELL:
+					visit(mitchell);
+					break;
+				case Type::CATMULLROM:
+					visit(catmullrom);
+					break;
+				case Type::LANCZOS:
+					visit(lanczos);
+					break;
+				default:
+					break;
+			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementRFilter*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
+		}
+
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		inline IElement::Type getType() const override { return IElement::Type::RFILTER; }
 		inline std::string getLogName() const override { return "rfilter"; }
 

@@ -2,8 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
-#include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 #include <functional>
 
@@ -11,116 +12,10 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-template<>
-auto ParserManager::createElement<CElementIntegrator>(const char** _atts, SessionContext* ctx) -> SNamedElement
-{
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return {};
-
-	static const core::unordered_map<std::string, CElementIntegrator::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-	{
-		{"ao",				CElementIntegrator::Type::AO},
-		{"direct",			CElementIntegrator::Type::DIRECT},
-		{"path",			CElementIntegrator::Type::PATH},
-		{"volpath_simple",	CElementIntegrator::Type::VOL_PATH_SIMPLE},
-		{"volpath",			CElementIntegrator::Type::VOL_PATH},
-		{"bdpt",			CElementIntegrator::Type::BDPT},
-		{"photonmapper",	CElementIntegrator::Type::PHOTONMAPPER},
-		{"ppm",				CElementIntegrator::Type::PPM},
-		{"sppm",			CElementIntegrator::Type::SPPM},
-		{"pssmlt",			CElementIntegrator::Type::PSSMLT},
-		{"mlt",				CElementIntegrator::Type::MLT},
-		{"erpt",			CElementIntegrator::Type::ERPT},
-		{"ptracer",			CElementIntegrator::Type::ADJ_P_TRACER},
-		{"adaptive",		CElementIntegrator::Type::ADAPTIVE},
-		{"vpl",				CElementIntegrator::Type::VPL},
-		{"irrcache",		CElementIntegrator::Type::IRR_CACHE},
-		{"multichannel",	CElementIntegrator::Type::MULTI_CHANNEL},
-		{"field",			CElementIntegrator::Type::FIELD_EXTRACT}
-	};
-
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return {};
-	}
-
-	CElementIntegrator* obj = _util->objects.construct<CElementIntegrator>(id);
-	if (!obj)
-		return {};
-
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementIntegrator::Type::AO:
-			obj->ao = CElementIntegrator::AmbientOcclusion();
-			break;
-		case CElementIntegrator::Type::DIRECT:
-			obj->direct = CElementIntegrator::DirectIllumination();
-			break;
-		case CElementIntegrator::Type::PATH:
-			obj->path = CElementIntegrator::PathTracing();
-			break;
-		case CElementIntegrator::Type::VOL_PATH_SIMPLE:
-			obj->volpath_simple = CElementIntegrator::SimpleVolumetricPathTracing();
-			break;
-		case CElementIntegrator::Type::VOL_PATH:
-			obj->volpath = CElementIntegrator::ExtendedVolumetricPathTracing();
-			break;
-		case CElementIntegrator::Type::BDPT:
-			obj->bdpt = CElementIntegrator::BiDirectionalPathTracing();
-			break;
-		case CElementIntegrator::Type::PHOTONMAPPER:
-			obj->photonmapper = CElementIntegrator::PhotonMapping();
-			break;
-		case CElementIntegrator::Type::PPM:
-			obj->ppm = CElementIntegrator::ProgressivePhotonMapping();
-			break;
-		case CElementIntegrator::Type::SPPM:
-			obj->sppm = CElementIntegrator::StochasticProgressivePhotonMapping();
-			break;
-		case CElementIntegrator::Type::PSSMLT:
-			obj->pssmlt = CElementIntegrator::PrimarySampleSpaceMetropolisLightTransport();
-			break;
-		case CElementIntegrator::Type::MLT:
-			obj->mlt = CElementIntegrator::PathSpaceMetropolisLightTransport();
-			break;
-		case CElementIntegrator::Type::ERPT:
-			obj->erpt = CElementIntegrator::EnergyRedistributionPathTracing();
-			break;
-		case CElementIntegrator::Type::ADJ_P_TRACER:
-			obj->ptracer = CElementIntegrator::AdjointParticleTracing();
-			break;
-		case CElementIntegrator::Type::ADAPTIVE:
-			obj->adaptive = CElementIntegrator::AdaptiveIntegrator();
-			break;
-		case CElementIntegrator::Type::VPL:
-			obj->vpl = CElementIntegrator::VirtualPointLights();
-			break;
-		case CElementIntegrator::Type::IRR_CACHE:
-			obj->irrcache = CElementIntegrator::IrradianceCacheIntegrator();
-			break;
-		case CElementIntegrator::Type::MULTI_CHANNEL:
-			obj->multichannel = CElementIntegrator::MultiChannelIntegrator();
-			break;
-		case CElementIntegrator::Type::FIELD_EXTRACT:
-			obj->field = CElementIntegrator::FieldExtraction();
-			break;
-		default:
-			break;
-	}
-	return CElementFactory::return_type(obj, std::move(name));
-}
-
-bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
+bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
 	bool error = false;
+#if 0
 	auto dispatch = [&](auto func) -> void
 	{
 		switch (type)
@@ -391,23 +286,20 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found==SetPropertyMap.end())
 	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
+		invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
 		return false;
 	}
 
 	found->second();
 	return !error;
+#endif
+	assert(false);
+	return false;
 }
 
-bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
+bool CElementIntegrator::onEndTag(CMitsubaMetadata* metadata, system::logger_opt_ptr logger)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 	
 	// TODO: Validation
 	{
@@ -415,8 +307,7 @@ bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _ov
 
 	if (metadata->m_global.m_integrator.type!=Type::INVALID)
 	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": already specified an integrator");
-		_NBL_DEBUG_BREAK_IF(true);
+		invalidXMLFileStructure(logger,"already specified an integrator, NOT overwriting.");
 		return true;
 	}
 	metadata->m_global.m_integrator = *this;

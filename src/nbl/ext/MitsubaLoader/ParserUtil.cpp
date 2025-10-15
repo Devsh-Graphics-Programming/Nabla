@@ -254,7 +254,7 @@ void ParserManager::XMLContext::onEnd(const char* _el)
 	elements.pop();
 
 	auto& result = *session->result;
-	if (element.element && !element.element->onEndTag(session->params->_override,result.metadata.get()))
+	if (element.element && !element.element->onEndTag(result.metadata.get(),session->params->logger))
 	{
 		killParseWithError(element.element->getLogName()+" could not onEndTag");
 		return;
@@ -282,6 +282,84 @@ void ParserManager::XMLContext::onEnd(const char* _el)
 	}
 }
 
+// special specs
+template<>
+struct ParserManager::CreateElement<CElementTransform>
+{
+	static inline SNamedElement __call(const char** _atts, SessionContext* ctx)
+	{
+		if (IElement::invalidAttributeCount(_atts,2u))
+			return {};
+		if (core::strcmpi(_atts[0],"name"))
+			return {};
+	
+		return {ctx->objects.construct<CElementTransform>(),_atts[1]};
+	};
+};
+template<>
+struct ParserManager::CreateElement<CElementEmissionProfile>
+{
+	static inline SNamedElement __call(const char** _atts, SessionContext* ctx)
+	{
+		const char* type;
+		const char* id;
+		std::string name;
+		if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+			return {};
+
+		CElementEmissionProfile* obj = ctx->objects.construct<CElementEmissionProfile>(id);
+		if (!obj)
+			return {};
+
+		return { obj,std::move(name) };
+	};
+};
+
+// default spec
+template<typename T>
+concept HasTypeMap = requires() {
+	{ T::compStringToTypeMap() } -> std::same_as<core::unordered_map<core::string,typename T::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals>>;
+};
+template<typename T>
+concept HasVisit = requires() {
+	{ std::declval<T>().visit([](auto& selfV)->void {}) } -> std::same_as<void>;
+};
+template<typename Element> requires HasTypeMap<Element>
+struct ParserManager::CreateElement<Element>
+{
+	static inline SNamedElement __call(const char** _atts, SessionContext* ctx)
+	{
+		const char* type;
+		const char* id;
+		std::string name;
+		if (!IElement::getTypeIDAndNameStrings(type,id,name,_atts))
+			return {};
+
+		static const auto StringToTypeMap = Element::compStringToTypeMap(); // TODO: make a const member cause of DLL delay load
+		auto found = StringToTypeMap.find(type);
+		if (found==StringToTypeMap.end())
+		{
+			ctx->invalidXMLFileStructure("unknown type");
+			return {};
+		}
+
+		Element* obj = ctx->objects.construct<Element>(id);
+		if (!obj)
+			return {};
+	
+		obj->type = found->second;
+		if constexpr (HasVisit<Element>)
+			obj->visit([](auto& selfV)->void
+				{
+					selfV = {};
+				}
+			);
+		else
+			obj->initialize();
+		return {obj,std::move(name)};
+	}
+};
+
 //
 ParserManager::ParserManager() : propertyElements({
 	"float", "string", "boolean", "integer",
@@ -289,21 +367,21 @@ ParserManager::ParserManager() : propertyElements({
 	"point", "vector",
 	"matrix", "rotate", "translate", "scale", "lookat"
 }), propertyElementManager(), createElementTable({
-//	{"integrator",		{.create=createElement<CElementIntegrator>,.retvalGoesOnStack=true}},
-//	{"sensor",			{.create=createElement<CElementSensor>,.retvalGoesOnStack=true}},
-//	{"film",			{.create=createElement<CElementFilm>,.retvalGoesOnStack=true}},
-//	{"rfilter",			{.create=createElement<CElementRFilter>,.retvalGoesOnStack=true}},
-//	{"sampler",			{.create=createElement<CElementSampler>,.retvalGoesOnStack=true}},
-//	{"shape",			{.create=createElement<CElementShape>,.retvalGoesOnStack=true}},
-	{"transform",		{.create=createElement<CElementTransform>,.retvalGoesOnStack=true}},
-//	{"animation",		{.create=createElement<CElementAnimation>,.retvalGoesOnStack=true}},
-//	{"bsdf",			{.create=createElement<CElementBSDF>,.retvalGoesOnStack=true}},
-//	{"texture",			{.create=createElement<CElementTexture>,.retvalGoesOnStack=true}},
-//	{"emitter",			{.create=createElement<CElementEmitter>,.retvalGoesOnStack=true}},
-	{"emissionprofile", {.create=createElement<CElementEmissionProfile>,.retvalGoesOnStack=true}},
+	{"integrator",		{.create=ParserManager::CreateElement<CElementIntegrator>::__call,.retvalGoesOnStack=true}},
+	{"sensor",			{.create=ParserManager::CreateElement<CElementSensor>::__call,.retvalGoesOnStack=true}},
+	{"film",			{.create=ParserManager::CreateElement<CElementFilm>::__call,.retvalGoesOnStack=true}},
+	{"rfilter",			{.create=ParserManager::CreateElement<CElementRFilter>::__call,.retvalGoesOnStack=true}},
+	{"sampler",			{.create=ParserManager::CreateElement<CElementSampler>::__call,.retvalGoesOnStack=true}},
+//	{"shape",			{.create=ParserManager::CreateElement<CElementShape>::__call,.retvalGoesOnStack=true}},
+	{"transform",		{.create=ParserManager::CreateElement<CElementTransform>::__call,.retvalGoesOnStack=true}},
+//	{"animation",		{.create=ParserManager::CreateElement<CElementAnimation>::__call,.retvalGoesOnStack=true}},
+//	{"bsdf",			{.create=ParserManager::CreateElement<CElementBSDF>::__call,.retvalGoesOnStack=true}},
+//	{"texture",			{.create=ParserManager::CreateElement<CElementTexture>::__call,.retvalGoesOnStack=true}},
+//	{"emitter",			{.create=ParserManager::CreateElement<CElementEmitter>::__call,.retvalGoesOnStack=true}},
+	{"emissionprofile", {.create=ParserManager::CreateElement<CElementEmissionProfile>::__call,.retvalGoesOnStack=true}},
 	{"alias",			{.create=processAlias,.retvalGoesOnStack=true}},
 	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
-}){}
+}) {}
 
 auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SNamedElement
 {

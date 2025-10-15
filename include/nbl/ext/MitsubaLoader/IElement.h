@@ -49,12 +49,13 @@ class IElement
 		virtual std::string getLogName() const = 0;
 
 		virtual bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) = 0;
-		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) = 0;
+		virtual bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) = 0;
 		//! default implementation for elements that doesnt have any children
 		virtual bool processChildData(IElement* _child, const std::string& name)
 		{
 			return !_child;
 		}
+
 		//
 		static inline bool getTypeIDAndNameStrings(std::add_lvalue_reference_t<const char*> outType, std::add_lvalue_reference_t<const char*> outID, std::string& name, const char** _atts)
 		{
@@ -105,6 +106,22 @@ class IElement
 				return true;
 			
 			return _atts[attrCount];
+		}
+
+		//
+		template<typename Derived>
+		static inline void copyVariant(Derived* to, const Derived* from)
+		{
+			to->visit([from](auto& selfEl)->void
+				{
+					from->visit([&selfEl](const auto& otherEl)->void
+						{
+							if constexpr (std::is_same_v<std::decay_t<decltype(selfEl)>,std::decay_t<decltype(otherEl)>>)
+								selfEl = otherEl;
+						}
+					);
+				}
+			);
 		}
 };
 

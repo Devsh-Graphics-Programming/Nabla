@@ -14,6 +14,7 @@ namespace nbl::ext::MitsubaLoader
 // maybe move somewhere
 inline void invalidXMLFileStructure(system::logger_opt_ptr logger, const std::string& errorMessage)
 {
+	// TODO: print the line in the XML or something
 	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'" + errorMessage + '\'';
 	logger.log(message,system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 	_NBL_DEBUG_BREAK_IF(true);

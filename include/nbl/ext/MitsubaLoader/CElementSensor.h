@@ -17,9 +17,8 @@ namespace nbl::ext::MitsubaLoader
 class CElementSensor final : public IElement
 {
 	public:
-		enum Type
+		enum Type : uint8_t
 		{
-			INVALID,
 			PERSPECTIVE,
 			THINLENS,
 			ORTHOGRAPHIC,
@@ -28,8 +27,24 @@ class CElementSensor final : public IElement
 			IRRADIANCEMETER,
 			RADIANCEMETER,
 			FLUENCEMETER,
-			PERSPECTIVE_RDIST
+			PERSPECTIVE_RDIST,
+			INVALID
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"perspective",			Type::PERSPECTIVE},
+				{"thinlens",			Type::THINLENS},
+				{"orthographic",		Type::ORTHOGRAPHIC},
+				{"telecentric",			Type::TELECENTRIC},
+				{"spherical",			Type::SPHERICAL},
+				{"irradiancemeter",		Type::IRRADIANCEMETER},
+				{"radiancemeter",		Type::RADIANCEMETER},
+				{"fluencemeter",		Type::FLUENCEMETER}/*,
+				{"perspective_rdist",	PERSPECTIVE_RDIST}*/
+			};
+		}
+
 		constexpr static inline uint8_t MaxClipPlanes = 6u;
 
 		struct ShutterSensor
@@ -111,47 +126,62 @@ class CElementSensor final : public IElement
 		{
 		}
 
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor)
+		{
+			switch (type)
+			{
+				case CElementSensor::Type::PERSPECTIVE:
+					visitor(perspective);
+					break;
+				case CElementSensor::Type::THINLENS:
+					visitor(thinlens);
+					break;
+				case CElementSensor::Type::ORTHOGRAPHIC:
+					visitor(orthographic);
+					break;
+				case CElementSensor::Type::TELECENTRIC:
+					visitor(telecentric);
+					break;
+				case CElementSensor::Type::SPHERICAL:
+					visitor(spherical);
+					break;
+				case CElementSensor::Type::IRRADIANCEMETER:
+					visitor(irradiancemeter);
+					break;
+				case CElementSensor::Type::RADIANCEMETER:
+					visitor(radiancemeter);
+					break;
+				case CElementSensor::Type::FLUENCEMETER:
+					visitor(fluencemeter);
+					break;
+				default:
+					break;
+			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementSensor*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
+		}
+
 		inline CElementSensor& operator=(const CElementSensor& other)
 		{
 			IElement::operator=(other);
 			type = other.type;
 			transform = other.transform;
-			switch (type)
-			{
-				case CElementSensor::Type::PERSPECTIVE:
-					perspective = other.perspective;
-					break;
-				case CElementSensor::Type::THINLENS:
-					thinlens = other.thinlens;
-					break;
-				case CElementSensor::Type::ORTHOGRAPHIC:
-					orthographic = other.orthographic;
-					break;
-				case CElementSensor::Type::TELECENTRIC:
-					telecentric = other.telecentric;
-					break;
-				case CElementSensor::Type::SPHERICAL:
-					spherical = other.spherical;
-					break;
-				case CElementSensor::Type::IRRADIANCEMETER:
-					irradiancemeter = other.irradiancemeter;
-					break;
-				case CElementSensor::Type::RADIANCEMETER:
-					radiancemeter = other.radiancemeter;
-					break;
-				case CElementSensor::Type::FLUENCEMETER:
-					fluencemeter = other.fluencemeter;
-					break;
-				default:
-					break;
-			}
+			IElement::copyVariant(this,&other);
 			film = other.film;
 			sampler = other.sampler;
 			return *this;
 		}
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		inline IElement::Type getType() const override { return IElement::Type::SENSOR; }
 		inline std::string getLogName() const override { return "sensor"; }
 
@@ -181,12 +211,12 @@ class CElementSensor final : public IElement
 					break;*/
 				case IElement::Type::FILM:
 					film = *static_cast<CElementFilm*>(_child);
-					if (film.type != CElementFilm::Type::INVALID)
+					if (film.type!=CElementFilm::Type::INVALID)
 						return true;
 					break;
 				case IElement::Type::SAMPLER:
 					sampler = *static_cast<CElementSampler*>(_child);
-					if (sampler.type != CElementSampler::Type::INVALID)
+					if (sampler.type!=CElementSampler::Type::INVALID)
 						return true;
 					break;
 			}

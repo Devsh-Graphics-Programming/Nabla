@@ -10,8 +10,8 @@
 
 //#include "nbl/ext/MitsubaLoader/SContext.h"
 //#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
-//#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
-//#include "nbl/ext/MitsubaLoader/CElementSensor.h"
+#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
 //#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 
@@ -36,17 +36,16 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 
 				CElementShape::Type type;
 		};
+#endif
 		struct SGlobal
 		{
 			public:
-				SGlobal() : m_integrator("invalid") {}// TODO
-
-				inline uint32_t getVTStorageViewCount() const { return m_VT->getFloatViews().size(); }
+				inline SGlobal() : m_integrator("invalid") {}// TODO
 
 				CElementIntegrator m_integrator;
 				core::vector<CElementSensor> m_sensors;
 		} m_global;
-#endif
+
 		inline CMitsubaMetadata() :	IAssetMetadata()/*, m_metaMeshStorage(), m_metaMeshInstanceStorage(), m_metaMeshInstanceAuxStorage(),
 			m_meshStorageIt(nullptr), m_instanceStorageIt(nullptr), m_instanceAuxStorageIt(nullptr)*/
 		{
@@ -63,7 +62,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
         }
 #endif
 	private:
-		friend class CMitsubaLoader;
+//		friend class CMitsubaLoader;
 #if 0
 		meta_container_t<CMesh> m_metaMeshStorage;
 		CMesh* m_meshStorageIt;

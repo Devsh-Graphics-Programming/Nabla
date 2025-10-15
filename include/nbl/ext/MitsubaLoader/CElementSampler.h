@@ -17,29 +17,65 @@ class CElementSampler : public IElement
 	public:
 		enum Type : uint8_t
 		{
-			INVALID,
 			INDEPENDENT,
 			STRATIFIED,
 			LDSAMPLER,
 			HALTON,
 			HAMMERSLEY,
-			SOBOL
+			SOBOL,
+			INVALID
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"independent",	Type::INDEPENDENT},
+				{"stratified",	Type::STRATIFIED},
+				{"ldsampler",	Type::LDSAMPLER},
+				{"halton",		Type::HALTON},
+				{"hammersley",	Type::HAMMERSLEY},
+				{"sobol",		Type::SOBOL}
+			};
+		}
 
 		inline CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
 		inline ~CElementSampler() {}
 
+		inline void initialize()
+		{		
+			sampleCount = 4;
+			switch (type)
+			{
+				case CElementSampler::Type::STRATIFIED:
+					[[fallthrough]];
+				case CElementSampler::Type::LDSAMPLER:
+					dimension = 4;
+					break;
+				case CElementSampler::Type::HALTON:
+					[[fallthrough]];
+				case CElementSampler::Type::HAMMERSLEY:
+					scramble = -1;
+					break;
+				case CElementSampler::Type::SOBOL:
+					scramble = 0;
+					break;
+				default:
+					break;
+			}
+		}
+
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override;
+		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 		inline IElement::Type getType() const override { return IElement::Type::SAMPLER; }
 		inline std::string getLogName() const override { return "sampler"; }
 
 		// make these public
+		// TODO: these should be bitfields of a uint64_t, or pack into 8 bytes somehow
 		Type type;
 		int32_t sampleCount;
 		union
 		{
 			int32_t dimension;
+			// TODO: document scramble seed?
 			int32_t scramble;
 		};
 };

@@ -44,9 +44,7 @@ struct CElementEmissionProfile final : public IElement
 	}
 
 	bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
-	inline bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) override {
-		return true;
-	}
+	inline bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override {return true;}
 	bool processChildData(IElement* _child, const std::string& name) override;
 	inline IElement::Type getType() const override { return IElement::Type::EMISSION_PROFILE; }
 	inline std::string getLogName() const override { return "emissionprofile "; }
@@ -60,7 +58,7 @@ struct CElementEmissionProfile final : public IElement
 
 	};
 
-	std::string filename;
+	std::string filename; // TODO: test destructor runs
 	E_NORMALIZE normalization;
 	float flatten; // TODO: why is this named this way?
 };

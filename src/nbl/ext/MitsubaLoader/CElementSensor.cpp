@@ -5,6 +5,7 @@
 
 #include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 #include <functional>
 
@@ -12,77 +13,10 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-template<>
-auto ParserManager::createElement<CElementSensor>(const char** _atts, SessionContext* ctx) -> SNamedElement
-{
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return {};
-
-	// TODO: initialize this separately
-	static const core::unordered_map<std::string,CElementSensor::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
-	{
-		{"perspective",			CElementSensor::Type::PERSPECTIVE},
-		{"thinlens",			CElementSensor::Type::THINLENS},
-		{"orthographic",		CElementSensor::Type::ORTHOGRAPHIC},
-		{"telecentric",			CElementSensor::Type::TELECENTRIC},
-		{"spherical",			CElementSensor::Type::SPHERICAL},
-		{"irradiancemeter",		CElementSensor::Type::IRRADIANCEMETER},
-		{"radiancemeter",		CElementSensor::Type::RADIANCEMETER},
-		{"fluencemeter",		CElementSensor::Type::FLUENCEMETER}/*,
-		{"perspective_rdist",	CElementSensor::PERSPECTIVE_RDIST}*/
-	};
-
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ctx->invalidXMLFileStructure("unknown type");
-		return {};
-	}
-
-	CElementSensor* obj = ctx->objects.construct<CElementSensor>(id);
-	if (!obj)
-		return {};
-
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementSensor::Type::PERSPECTIVE:
-			obj->perspective = CElementSensor::PerspectivePinhole();
-			break;
-		case CElementSensor::Type::THINLENS:
-			obj->thinlens = CElementSensor::PerspectiveThinLens();
-			break;
-		case CElementSensor::Type::ORTHOGRAPHIC:
-			obj->orthographic = CElementSensor::Orthographic();
-			break;
-		case CElementSensor::Type::TELECENTRIC:
-			obj->telecentric = CElementSensor::TelecentricLens();
-			break;
-		case CElementSensor::Type::SPHERICAL:
-			obj->spherical = CElementSensor::SphericalCamera();
-			break;
-		case CElementSensor::Type::IRRADIANCEMETER:
-			obj->irradiancemeter = CElementSensor::IrradianceMeter();
-			break;
-		case CElementSensor::Type::RADIANCEMETER:
-			obj->radiancemeter = CElementSensor::RadianceMeter();
-			break;
-		case CElementSensor::Type::FLUENCEMETER:
-			obj->fluencemeter = CElementSensor::FluenceMeter();
-			break;
-		default:
-			break;
-	}
-	return {obj,std::move(name)};
-}
-
-bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
+bool CElementSensor::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
 	bool error = false;
+#if 0
 	auto dispatch = [&](auto func) -> void
 	{
 		switch (type)
@@ -221,8 +155,8 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 		{"nearClip",		setNearClip},
 		{"farClip",			setFarClip},
 		{"focusDistance",	setFocusDistance},
-		{"apertureRadius",	setApertureRadius}/*,
-		{"kc",				setKc}*/
+		{"apertureRadius",	setApertureRadius}
+//,		{"kc",				setKc}
 	};
 	
 
@@ -236,16 +170,14 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 
 	found->second();
 	return !error;
+#endif
+	assert(false);
+	return false;
 }
 
-bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* meta)
+bool CElementSensor::onEndTag(CMitsubaMetadata* meta, system::logger_opt_ptr logger)
 {
-	if (type==Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 
 	// TODO: some validation
 
