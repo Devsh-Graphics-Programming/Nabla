@@ -4,12 +4,14 @@
 #ifndef _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
 
+
 #include "nbl/system/declarations.h"
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
+
 
 namespace nbl::asset
 {

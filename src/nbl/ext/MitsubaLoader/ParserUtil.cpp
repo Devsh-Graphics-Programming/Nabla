@@ -17,6 +17,7 @@ using namespace nbl::system;
 
 auto ParserManager::parse(IFile* _file, const Params& _params) const -> Result
 {
+//	CMitsubaMetadata* obj = new CMitsubaMetadata();
 	Result result = {
 		.metadata = core::make_smart_refctd_ptr<CMitsubaMetadata>()
 	};
