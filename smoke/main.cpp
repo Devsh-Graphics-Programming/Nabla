@@ -36,11 +36,16 @@ public:
             return false;
         }
 
+        CVulkanConnection::exportGpuProfile();
+
         return true;
     }
 
     void workLoopBody() override {}
     bool keepRunning() override { return false; }
+
+private:
+    smart_refctd_ptr<CVulkanConnection> m_api;
 };
 
 NBL_MAIN_FUNC(Smoke)
