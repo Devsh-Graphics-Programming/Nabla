@@ -149,14 +149,14 @@ struct GGXGenerateH
 
         scalar_type lensq = V.x*V.x + V.y*V.y;
         vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * hlsl::rsqrt(lensq) : vector3_type(1.0,0.0,0.0);
-        vector3_type T2 = cross<scalar_type>(V,T1);
+        vector3_type T2 = hlsl::cross(V,T1);
 
-        scalar_type r = sqrt<scalar_type>(u.x);
-        scalar_type phi = 2.0 * numbers::pi<scalar_type> * u.y;
-        scalar_type t1 = r * cos<scalar_type>(phi);
-        scalar_type t2 = r * sin<scalar_type>(phi);
-        scalar_type s = 0.5 * (1.0 + V.z);
-        t2 = (1.0 - s)*sqrt<scalar_type>(1.0 - t1*t1) + s*t2;
+        scalar_type r = hlsl::sqrt(u.x);
+        scalar_type phi = scalar_type(2.0) * numbers::pi<scalar_type> * u.y;
+        scalar_type t1 = r * hlsl::cos(phi);
+        scalar_type t2 = r * hlsl::sin(phi);
+        scalar_type s = scalar_type(0.5) * (scalar_type(1.0) + V.z);
+        t2 = hlsl::mix(hlsl::sqrt(scalar_type(1.0) - t1*t1), t2, s);
 
         //reprojection onto hemisphere
         //found cases where t1*t1+t2*t2>1.0 due to fp32 precision issues, hence the max

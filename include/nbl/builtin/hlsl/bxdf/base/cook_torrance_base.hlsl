@@ -260,7 +260,6 @@ struct SCookTorrance
         bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
 
         ray_dir_info_type V = interaction.getV();
-        const vector3_type _N = interaction.getN();
         const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
         const scalar_type LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
@@ -274,7 +273,7 @@ struct SCookTorrance
             return sample_type::createInvalid();    // should check if sample direction is invalid
 
         cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        // assert(cache.isValid(fresnel.getRefractionOrientedEta()));
+        assert(cache.isValid(_f.getRefractionOrientedEta()));
 
         struct reflect_refract_wrapper  // so we don't recalculate LdotH
         {

@@ -159,41 +159,41 @@ struct BeckmannGenerateH
         vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(ax * localV.x, ay * localV.y, localV.z));
 
         vector2_type slope;
-        if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
+        if (V.z > 0.9999)   // V.z=NdotV=cosTheta in tangent space
         {
-            scalar_type r = sqrt<scalar_type>(-log<scalar_type>(1.0 - u.x));
-            scalar_type sinPhi = sin<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
-            scalar_type cosPhi = cos<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
-            slope = (vector2_type)r * vector2_type(cosPhi,sinPhi);
+            scalar_type r = hlsl::sqrt(-hlsl::log(1.0 - u.x));
+            scalar_type sinPhi = hlsl::sin(2.0 * numbers::pi<scalar_type> * u.y);
+            scalar_type cosPhi = hlsl::cos(2.0 * numbers::pi<scalar_type> * u.y);
+            slope = hlsl::promote<vector2_type>(r) * vector2_type(cosPhi,sinPhi);
         }
         else
         {
             scalar_type cosTheta = V.z;
-            scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
+            scalar_type sinTheta = hlsl::sqrt(1.0 - cosTheta * cosTheta);
             scalar_type tanTheta = sinTheta / cosTheta;
             scalar_type cotTheta = 1.0 / tanTheta;
 
             scalar_type a = -1.0;
-            scalar_type c = erf<scalar_type>(cosTheta);
-            scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
-            scalar_type theta = acos<scalar_type>(cosTheta);
+            scalar_type c = hlsl::erf(cotTheta);
+            scalar_type sample_x = hlsl::max(u.x, scalar_type(1e-6));
+            scalar_type theta = hlsl::acos(cosTheta);
             scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
-            scalar_type b = c - (1.0 + c) * pow<scalar_type>(1.0-sample_x, fit);
+            scalar_type b = c - (1.0 + c) * hlsl::pow(1.0-sample_x, fit);
 
-            scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-cosTheta*cosTheta));
+            scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * hlsl::exp(-cotTheta*cotTheta));
 
-            const int ITER_THRESHOLD = 10;
-            const float MAX_ACCEPTABLE_ERR = 1.0e-5;
-            int it = 0;
-            float value=1000.0;
-            while (++it < ITER_THRESHOLD && nbl::hlsl::abs<scalar_type>(value) > MAX_ACCEPTABLE_ERR)
+            const uint32_t ITER_THRESHOLD = 10;
+            const scalar_type MAX_ACCEPTABLE_ERR = 1e-5;
+            uint32_t it = 0;
+            scalar_type value = 1000.0;
+            while (++it < ITER_THRESHOLD && hlsl::abs(value) > MAX_ACCEPTABLE_ERR)
             {
                 if (!(b >= a && b <= c))
                     b = 0.5 * (a + c);
 
-                float invErf = erfInv<scalar_type>(b);
-                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf * invErf)) - sample_x;
-                float derivative = normalization * (1.0 - invErf * cosTheta);
+                scalar_type invErf = hlsl::erfInv(b);
+                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * hlsl::exp(-invErf * invErf)) - sample_x;
+                scalar_type derivative = normalization * (1.0 - invErf * cosTheta);
 
                 if (value > 0.0)
                     c = b;
@@ -203,13 +203,13 @@ struct BeckmannGenerateH
                 b -= value/derivative;
             }
             // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
-            slope.x = erfInv<scalar_type>(b);
-            slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y, 1.0e-6) - 1.0);
+            slope.x = hlsl::erfInv(b);
+            slope.y = hlsl::erfInv(2.0 * hlsl::max(u.y, scalar_type(1e-6)) - 1.0);
         }
 
-        scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
-        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
-        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
+        scalar_type sinTheta = hlsl::sqrt(1.0 - V.z*V.z);
+        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : hlsl::clamp(V.x/sinTheta, -1.0, 1.0);
+        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : hlsl::clamp(V.y/sinTheta, -1.0, 1.0);
         //rotate
         scalar_type tmp = cosPhi*slope.x - sinPhi*slope.y;
         slope.y = sinPhi*slope.x + cosPhi*slope.y;
