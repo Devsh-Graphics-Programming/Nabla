@@ -191,7 +191,8 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 			killParseWithError("cannot set a property with no element on the stack.");
 			return;
 		}
-		if (!elements.top().element)
+		auto* element = elements.top().element;
+		if (!element)
 		{
 			session->invalidXMLFileStructure("cannot set property on element that failed to be created.");
 			return;
@@ -204,7 +205,35 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 			return;
 		}
 
-		elements.top().element->addProperty(std::move(optProperty.value()),session->params->logger);
+		bool unsupportedElement = true;
+		auto run = [&](const auto& map)->void
+		{
+			using element_t = std::remove_cvref_t<decltype(map)>::mapped_type::mapped_type::element_t;
+			if (element_t::ElementType==element->getType())
+			{
+				unsupportedElement = false;
+				auto& property = optProperty.value();
+				auto typeIt = map.find(property.type);
+				if (typeIt==map.end())
+				{
+					session->invalidXMLFileStructure("There's no property supported by ElementType (TODO) with PropertyType (TODO)");
+					return;
+				}
+				auto nameIt = typeIt->second.find(property.name);
+				if (nameIt==typeIt->second.end())
+				{
+					session->invalidXMLFileStructure("There's no Property named (TODO) of Type (TODO) supported by ElementType (TODO)");
+					return;
+				}
+				// TODO: visit variant type checks
+				nameIt->second(static_cast<element_t*>(element),std::move(property),session->params->logger);
+			}
+		};
+		std::apply([&run](const auto&... maps)->void
+			{
+				(run(maps), ...); 
+			},manager->addPropertyMaps
+		);
 		return;
 	}
 
@@ -381,7 +410,9 @@ ParserManager::ParserManager() : propertyElements({
 	{"emissionprofile", {.create=ParserManager::CreateElement<CElementEmissionProfile>::__call,.retvalGoesOnStack=true}},
 	{"alias",			{.create=processAlias,.retvalGoesOnStack=true}},
 	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
-}) {}
+}), addPropertyMaps({
+	CElementSensor::compAddPropertyMap()
+}) { }
 
 auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SNamedElement
 {

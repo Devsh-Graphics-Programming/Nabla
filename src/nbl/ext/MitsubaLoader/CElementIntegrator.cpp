@@ -6,6 +6,7 @@
 
 #include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
+#include "nbl/type_traits.h" // legacy stuff for `is_any_of`
 #include <functional>
 
 
@@ -14,74 +15,12 @@ namespace nbl::ext::MitsubaLoader
 
 bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
+	if (type>=Type::INVALID)
+		return false;
 	bool error = false;
 #if 0
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
-		{
-			case CElementIntegrator::Type::AO:
-				func(ao);
-				break;
-			case CElementIntegrator::Type::DIRECT:
-				func(direct);
-				break;
-			case CElementIntegrator::Type::PATH:
-				func(path);
-				break;
-			case CElementIntegrator::Type::VOL_PATH_SIMPLE:
-				func(volpath_simple);
-				break;
-			case CElementIntegrator::Type::VOL_PATH:
-				func(volpath);
-				break;
-			case CElementIntegrator::Type::BDPT:
-				func(bdpt);
-				break;
-			case CElementIntegrator::Type::PHOTONMAPPER:
-				func(photonmapper);
-				break;
-			case CElementIntegrator::Type::PPM:
-				func(ppm);
-				break;
-			case CElementIntegrator::Type::SPPM:
-				func(sppm);
-				break;
-			case CElementIntegrator::Type::PSSMLT:
-				func(pssmlt);
-				break;
-			case CElementIntegrator::Type::MLT:
-				func(mlt);
-				break;
-			case CElementIntegrator::Type::ERPT:
-				func(erpt);
-				break;
-			case CElementIntegrator::Type::ADJ_P_TRACER:
-				func(ptracer);
-				break;
-			case CElementIntegrator::Type::ADAPTIVE:
-				func(adaptive);
-				break;
-			case CElementIntegrator::Type::VPL:
-				func(vpl);
-				break;
-			case CElementIntegrator::Type::IRR_CACHE:
-				func(irrcache);
-				break;
-			case CElementIntegrator::Type::MULTI_CHANNEL:
-				func(multichannel);
-				break;
-			case CElementIntegrator::Type::FIELD_EXTRACT:
-				func(field);
-				break;
-			default:
-				error = true;
-				break;
-		}
-	};
-
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
+		visit([&](auto& state) -> void { \
 			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
@@ -98,7 +37,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::
 	auto processBSDFSamples = SET_PROPERTY_TEMPLATE(bsdfSamples,SNamedPropertyElement::Type::INTEGER,DirectIllumination);
 	auto processShadingSamples = [&]() -> void
 	{ 
-		dispatch([&](auto& state) -> void {
+		visit([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
 			if constexpr (std::is_same<state_type,AmbientOcclusion>::value)
@@ -165,7 +104,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::
 	auto processClamping = SET_PROPERTY_TEMPLATE(clamping,SNamedPropertyElement::Type::FLOAT,VirtualPointLights);
 	auto processField = [&]() -> void
 	{
-		dispatch([&](auto& state) -> void
+		visit([&](auto& state) -> void
 		{
 			using state_type = std::remove_reference<decltype(state)>::type;
 			if constexpr (std::is_same<state_type,FieldExtraction>::value)
@@ -197,7 +136,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::
 	};
 	auto processUndefined = [&]() -> void
 	{
-		dispatch([&](auto& state) -> void {
+		visit([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
 			if constexpr (std::is_same<state_type, FieldExtraction>::value)
@@ -286,15 +225,13 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::
 	auto found = SetPropertyMap.find(_property.name);
 	if (found==SetPropertyMap.end())
 	{
-		invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
+		invalidXMLFileStructure(logger,"No Integrator can have such property set with name: "+_property.name);
 		return false;
 	}
 
 	found->second();
-	return !error;
 #endif
-	assert(false);
-	return false;
+	return !error;
 }
 
 bool CElementIntegrator::onEndTag(CMitsubaMetadata* metadata, system::logger_opt_ptr logger)

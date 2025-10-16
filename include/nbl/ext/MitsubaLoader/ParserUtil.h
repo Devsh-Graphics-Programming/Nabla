@@ -9,6 +9,7 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 #include <stack>
@@ -72,7 +73,22 @@ class ParserManager final
 		const core::unordered_set<std::string,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> propertyElements;
 		const CPropertyElementManager propertyElementManager;
 
+		using supported_elements_t = core::type_list<
+//			CElementIntegrator,
+			CElementSensor
+//			CElementFilm,
+//			CElementRFilter,
+//			CElementSampler,
+///			CElementShape,
+///			CElementBSDF,
+///			CElementTexture,
+///			CElementEmitter,
+//			CElementEmissionProfile
+		>;
+
 	private:
+		const core::tuple_transform_t<IElement::AddPropertyMap,supported_elements_t> addPropertyMaps;
+
 		struct SNamedElement
 		{
 			IElement* element = nullptr;
@@ -97,17 +113,7 @@ class ParserManager final
 			//
 			uint32_t sceneDeclCount = 0;
 			// TODO: This leaks memory all over the place because destructors are not ran!
-			ElementPool</*
-				CElementIntegrator,
-				CElementSensor,
-				CElementFilm,
-				CElementRFilter,
-				CElementSampler,
-				CElementShape,
-				CElementBSDF,
-				CElementTexture,
-				CElementEmitter*/
-			> objects = {};
+			ElementPool<> objects = {};
 			// aliases and names (in Mitsbua XML you can give nodes names and `ref` them)
 			core::unordered_map<core::string,IElement*,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> handles = {};
 			// stack of currently processed elements, each element of index N is parent of the element of index N+1

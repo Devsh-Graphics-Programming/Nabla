@@ -30,27 +30,13 @@ class CElementSensor final : public IElement
 			PERSPECTIVE_RDIST,
 			INVALID
 		};
-		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
-		{
-			return {
-				{"perspective",			Type::PERSPECTIVE},
-				{"thinlens",			Type::THINLENS},
-				{"orthographic",		Type::ORTHOGRAPHIC},
-				{"telecentric",			Type::TELECENTRIC},
-				{"spherical",			Type::SPHERICAL},
-				{"irradiancemeter",		Type::IRRADIANCEMETER},
-				{"radiancemeter",		Type::RADIANCEMETER},
-				{"fluencemeter",		Type::FLUENCEMETER}/*,
-				{"perspective_rdist",	PERSPECTIVE_RDIST}*/
-			};
-		}
 
 		constexpr static inline uint8_t MaxClipPlanes = 6u;
 
 		struct ShutterSensor
 		{
 			hlsl::float32_t3 up = hlsl::float32_t3(0,1,0);
-			hlsl::float32_t3 clipPlanes[MaxClipPlanes] = {};
+			hlsl::float32_t4 clipPlanes[MaxClipPlanes] = {};
 			float moveSpeed = core::nan<float>();
 			float zoomSpeed = core::nan<float>();
 			float rotateSpeed = core::nan<float>();
@@ -64,6 +50,8 @@ class CElementSensor final : public IElement
 		};
 		struct PerspectivePinhole : CameraBase
 		{
+			constexpr static inline Type VariantType = Type::PERSPECTIVE;
+
 			enum class FOVAxis
 			{
 				INVALID,
@@ -86,6 +74,7 @@ class CElementSensor final : public IElement
 		};
 		struct Orthographic : CameraBase
 		{
+			constexpr static inline Type VariantType = Type::ORTHOGRAPHIC;
 		};
 		struct DepthOfFieldBase
 		{
@@ -94,26 +83,58 @@ class CElementSensor final : public IElement
 		};
 		struct PerspectiveThinLens : PerspectivePinhole, DepthOfFieldBase
 		{
+			constexpr static inline Type VariantType = Type::THINLENS;
 		};
 		struct TelecentricLens : Orthographic, DepthOfFieldBase
 		{
+			constexpr static inline Type VariantType = Type::TELECENTRIC;
 		};
 		struct SphericalCamera : CameraBase
 		{
+			constexpr static inline Type VariantType = Type::SPHERICAL;
 		};
 		struct IrradianceMeter : ShutterSensor
 		{
+			constexpr static inline Type VariantType = Type::IRRADIANCEMETER;
 		};
 		struct RadianceMeter : ShutterSensor
 		{
+			constexpr static inline Type VariantType = Type::RADIANCEMETER;
 		};
 		struct FluenceMeter : ShutterSensor
 		{
+			constexpr static inline Type VariantType = Type::FLUENCEMETER;
 		};/*
 		struct PerspectivePinholeRadialDistortion : PerspectivePinhole
 		{
 			kc;
 		};*/
+
+		using variant_list_t = core::type_list<
+			PerspectivePinhole,
+			PerspectiveThinLens,
+			Orthographic,
+			TelecentricLens,
+			SphericalCamera,
+			IrradianceMeter,
+			RadianceMeter,
+			FluenceMeter
+		>;
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"perspective",			Type::PERSPECTIVE},
+				{"thinlens",			Type::THINLENS},
+				{"orthographic",		Type::ORTHOGRAPHIC},
+				{"telecentric",			Type::TELECENTRIC},
+				{"spherical",			Type::SPHERICAL},
+				{"irradiancemeter",		Type::IRRADIANCEMETER},
+				{"radiancemeter",		Type::RADIANCEMETER},
+				{"fluencemeter",		Type::FLUENCEMETER}/*,
+				{"perspective_rdist",	PERSPECTIVE_RDIST}*/
+			};
+		}
+		static AddPropertyMap<CElementSensor> compAddPropertyMap();
 
 		inline CElementSensor(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), film(""), sampler("")
 		{
@@ -182,7 +203,9 @@ class CElementSensor final : public IElement
 
 		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		inline IElement::Type getType() const override { return IElement::Type::SENSOR; }
+
+		constexpr static inline auto ElementType = IElement::Type::SENSOR;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "sensor"; }
 
 		inline bool processChildData(IElement* _child, const std::string& name) override

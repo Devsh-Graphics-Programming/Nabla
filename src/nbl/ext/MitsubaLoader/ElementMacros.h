@@ -4,6 +4,9 @@
 #include "nbl/ext/MitsubaLoader/IElement.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
+
+#define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(PROP_TYPE,NAME) retval.registerCallback(SNamedPropertyElement::Type::PROP_TYPE,NAME,{.func=[](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
+
 /*
 template<>
 CElementFactory::return_type CElementFactory::createElement<CElementSampler>(const char** _atts, ParserManager* _util)

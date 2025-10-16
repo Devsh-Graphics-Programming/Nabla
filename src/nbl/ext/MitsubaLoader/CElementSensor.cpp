@@ -9,47 +9,74 @@
 
 #include <functional>
 
+template<typename D, typename B>
+struct derived_from : std::is_base_of<B,D> {};
 
 namespace nbl::ext::MitsubaLoader
 {
 
+auto CElementSensor::compAddPropertyMap() -> AddPropertyMap<CElementSensor>
+{
+	using this_t = CElementSensor;
+	AddPropertyMap<CElementSensor> retval;
+
+//	auto setUp = SET_PROPERTY_TEMPLATE(up, SNamedPropertyElement::Type::VECTOR, ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(VECTOR,"clipPlane")
+		{
+			if (_property.getVectorDimension()!=4)
+			{
+				return false;
+			}
+			constexpr std::string_view Name = "clipPlane";
+			const std::string_view sv(_property.name);
+			if (sv.length()!=Name.length()+1 || sv.find(Name)!=0)
+			{
+				return false;
+			}
+			const auto index = std::atoi(sv.data()+Name.length());
+			if (index>MaxClipPlanes)
+			{
+				return false;
+			}
+			// everyone inherits from this
+			_this->perspective.clipPlanes[index] = _property.vvalue;
+			return true;
+		}
+	});
+
+//	auto setShiftX = SET_PROPERTY_TEMPLATE(shiftX, SNamedPropertyElement::Type::FLOAT, PerspectivePinhole);
+//	auto setShiftY = SET_PROPERTY_TEMPLATE(shiftY, SNamedPropertyElement::Type::FLOAT, PerspectivePinhole);
+//	auto setFov = SET_PROPERTY_TEMPLATE(fov, SNamedPropertyElement::Type::FLOAT, PerspectivePinhole);
+	retval.template registerCallback<derived_from,PerspectivePinhole>(SNamedPropertyElement::Type::STRING,"fovAxis",[](CElementSensor* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
+		{
+			auto& state = _this->perspective;
+			static const core::unordered_map<std::string,PerspectivePinhole::FOVAxis,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+			{
+				{"x",		PerspectivePinhole::FOVAxis::X},
+				{"y",		PerspectivePinhole::FOVAxis::Y},
+				{"diagonal",PerspectivePinhole::FOVAxis::DIAGONAL},
+				{"smaller",	PerspectivePinhole::FOVAxis::SMALLER},
+				{"larger",	PerspectivePinhole::FOVAxis::LARGER}
+			};
+			auto found = StringToType.find(_property.svalue);
+			if (found!=StringToType.end())
+				state.fovAxis = found->second;
+			else
+				state.fovAxis = PerspectivePinhole::FOVAxis::INVALID;
+			return true;
+		}
+	);
+
+	return retval;
+}
+
 bool CElementSensor::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
+	if (type >= Type::INVALID)
+		return false;
 	bool error = false;
+
 #if 0
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
-		{
-			case CElementSensor::Type::PERSPECTIVE:
-				func(perspective);
-				break;
-			case CElementSensor::Type::THINLENS:
-				func(thinlens);
-				break;
-			case CElementSensor::Type::ORTHOGRAPHIC:
-				func(orthographic);
-				break;
-			case CElementSensor::Type::TELECENTRIC:
-				func(telecentric);
-				break;
-			case CElementSensor::Type::SPHERICAL:
-				func(spherical);
-				break;
-			case CElementSensor::Type::IRRADIANCEMETER:
-				func(irradiancemeter);
-				break;
-			case CElementSensor::Type::RADIANCEMETER:
-				func(radiancemeter);
-				break;
-			case CElementSensor::Type::FLUENCEMETER:
-				func(fluencemeter);
-				break;
-			default:
-				error = true;
-				break;
-		}
-	};
 
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE,BASE)		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
@@ -65,62 +92,6 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property, system::logg
 	}
 	
 	auto setUp = SET_PROPERTY_TEMPLATE(up,SNamedPropertyElement::Type::VECTOR,ShutterSensor);
-	auto setClipPlane = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void
-		{
-			if (_property.type!=SNamedPropertyElement::Type::VECTOR || _property.getVectorDimension()==4)
-			{
-				error = true;
-				return;
-			}
-			constexpr std::string_view Name = "clipPlane";
-			const std::string_view sv(_property.name);
-			if (sv.length()!=Name.length()+1 || sv.find(Name)!=0)
-			{
-				error = true;
-				return;
-			}
-			const auto index = std::atoi(sv.data()+Name.length());
-			if (index>MaxClipPlanes)
-			{
-				error = true;
-				return;
-			}
-			state.clipPlanes[index] = _property.vvalue;
-		});
-	};
-	auto setShiftX = SET_PROPERTY_TEMPLATE(shiftX,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
-	auto setShiftY = SET_PROPERTY_TEMPLATE(shiftY,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
-	auto setFov = SET_PROPERTY_TEMPLATE(fov,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
-	auto setFovAxis = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void
-		{
-			using state_type = std::remove_reference<decltype(state)>::type;
-			if constexpr (std::is_base_of<PerspectivePinhole,state_type>::value)
-			{
-				if (_property.type!=SNamedPropertyElement::Type::STRING)
-				{
-					error = true;
-					return;
-				}
-				static const core::unordered_map<std::string,PerspectivePinhole::FOVAxis,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
-				{
-					{"x",		PerspectivePinhole::FOVAxis::X},
-					{"y",		PerspectivePinhole::FOVAxis::Y},
-					{"diagonal",PerspectivePinhole::FOVAxis::DIAGONAL},
-					{"smaller",	PerspectivePinhole::FOVAxis::SMALLER},
-					{"larger",	PerspectivePinhole::FOVAxis::LARGER}
-				};
-				auto found = StringToType.find(_property.svalue);
-				if (found!=StringToType.end())
-					state.fovAxis = found->second;
-				else
-					state.fovAxis = PerspectivePinhole::FOVAxis::INVALID;
-			}
-		});
-	};
 	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
 	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
 	auto setMoveSpeed		= SET_PROPERTY_TEMPLATE(moveSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);

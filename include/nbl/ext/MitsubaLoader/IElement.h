@@ -5,6 +5,7 @@
 #define _NBL_EXT_MISTUBA_LOADER_I_ELEMENT_H_INCLUDED_
 
 
+#include "nbl/core/algorithm/utility.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
@@ -13,6 +14,21 @@
 namespace nbl::ext::MitsubaLoader
 {
 class CMitsubaMetadata;
+
+namespace impl
+{
+template<template<typename...> class Pred, typename... Args>
+struct ToUnaryPred
+{
+	template<typename T>
+	struct type : bool_constant<Pred<T,Args...>::value> {};
+};
+
+template<typename T, typename TypeList>
+struct mpl_of_passing;
+template<typename T, typename TypeList>
+using mpl_of_passing_t = mpl_of_passing<T,TypeList>::type;
+}
 
 class IElement
 {
@@ -108,7 +124,12 @@ class IElement
 			return _atts[attrCount];
 		}
 
-		//
+		// if we used `variant` instead of union we could default implement this
+		//template<typename Derived, typename... Variants>
+		//static inline void defaultVisit(Derived* this)
+		//{
+		// generated switch / visit of `Variant`
+		//}
 		template<typename Derived>
 		static inline void copyVariant(Derived* to, const Derived* from)
 		{
@@ -123,7 +144,69 @@ class IElement
 				}
 			);
 		}
+		
+		// could move it to `nbl/builtin/hlsl/mpl`
+		template<typename Type, Type... values>
+		struct mpl_array
+		{
+			constexpr static inline Type data[] = { values... };
+		};
+		//
+		template<typename Derived>
+		struct AddPropertyCallback
+		{
+			using element_t = Derived;
+			// TODO: list or map of supported variants (if `visit` is present)
+			using func_t = bool(*)(Derived*,SNamedPropertyElement&&,const system::logger_opt_ptr);
+
+			inline bool operator()(Derived* d, SNamedPropertyElement&& p, const system::logger_opt_ptr l) const {return func(d,std::move(p),l);}
+
+			func_t func;
+			// will usually point at 
+			std::span<const typename Derived::Type> allowedVariantTypes = {};
+		};
+		template<typename Derived>
+		using PropertyNameCallbackMap = core::unordered_map<core::string,AddPropertyCallback<Derived>,core::CaseInsensitiveHash,core::CaseInsensitiveEquals>;
+		template<typename Derived>
+		class AddPropertyMap
+		{
+				template<Derived::Type... types>
+				inline void registerCallback(const SNamedPropertyElement::Type type, std::string&& propertyName, AddPropertyCallback<Derived> cb)
+				{
+					if constexpr (sizeof...(types))
+						cb.allowedVariantTypes = mpl_array<Type,types...>::data;
+					registerCallback(type,std::move(propertyName),cb);
+				}
+
+			public:
+				inline void registerCallback(const SNamedPropertyElement::Type type, std::string&& propertyName, const AddPropertyCallback<Derived>& cb)
+				{
+					auto [nameIt,inserted] = byPropertyType[type].emplace(std::move(propertyName),cb);
+					assert(inserted);
+				}
+				template<template<typename...> class Pred, typename... Args>
+				inline void registerCallback(const SNamedPropertyElement::Type type, std::string&& propertyName, AddPropertyCallback<Derived>::func_t cb)
+				{
+					AddPropertyCallback<Derived> callback = {.func=cb};
+					using UnaryPred = impl::ToUnaryPred<Pred,Args...>;
+					using passing_types = core::filter_t<typename UnaryPred::type,typename Derived::variant_list_t>;
+					if constexpr (core::type_list_size_v<passing_types>)
+						callback.allowedVariantTypes = impl::mpl_of_passing_t<typename Derived::Type,passing_types>::data;
+					registerCallback(type,std::move(propertyName),callback);
+				}
+
+				std::array<PropertyNameCallbackMap<Derived>,SNamedPropertyElement::Type::INVALID> byPropertyType = {};
+		};
 };
+
+namespace impl
+{
+template<typename T, typename... V>
+struct mpl_of_passing<T,core::type_list<V...>>
+{
+	using type = IElement::mpl_array<T,V::VariantType...>;
+};
+}
 
 }
 #endif
