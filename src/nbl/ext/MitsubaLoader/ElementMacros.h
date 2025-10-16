@@ -5,7 +5,30 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
 
-#define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(PROP_TYPE,NAME) retval.registerCallback(SNamedPropertyElement::Type::PROP_TYPE,NAME,{.func=[](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
+#define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(NAME,PROP_TYPE) retval.registerCallback(SNamedPropertyElement::Type::PROP_TYPE,NAME,{\
+	.func=[](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
+
+#define NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(NAME,PROP_TYPE) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(#NAME,PROP_TYPE) {\
+	_this->NAME = _property.getProperty<SNamedPropertyElement::Type::PROP_TYPE>(); \
+	return true;}})
+
+
+#define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT,...) retval.template registerCallback<CONSTRAINT,__VA_ARGS__>( \
+	SNamedPropertyElement::Type::PROP_TYPE,NAME,[](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
+
+#define NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT,...) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED(#NAME,PROP_TYPE,CONSTRAINT,__VA_ARGS__) {\
+	_this->visit([&_property](auto& state)->void{ \
+		if constexpr (CONSTRAINT<std::remove_reference_t<decltype(state)>,__VA_ARGS__>::value) \
+			state. ## NAME = _property.getProperty<SNamedPropertyElement::Type::PROP_TYPE>(); \
+	}); return true;})
+
+
+// just to reverse `is_base_of`
+namespace nbl::ext::MitsubaLoader
+{
+template<typename D, typename B>
+struct derived_from : std::is_base_of<B,D> {};
+}
 
 /*
 template<>
