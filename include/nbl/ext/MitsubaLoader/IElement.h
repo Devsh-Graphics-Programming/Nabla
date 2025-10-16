@@ -179,6 +179,8 @@ class IElement
 				}
 
 			public:
+				using element_type = Derived;
+
 				inline void registerCallback(const SNamedPropertyElement::Type type, std::string&& propertyName, const AddPropertyCallback<Derived>& cb)
 				{
 					auto [nameIt,inserted] = byPropertyType[type].emplace(std::move(propertyName),cb);

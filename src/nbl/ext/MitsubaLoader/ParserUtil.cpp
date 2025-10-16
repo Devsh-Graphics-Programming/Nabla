@@ -208,25 +208,32 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 		bool unsupportedElement = true;
 		auto run = [&](const auto& map)->void
 		{
-			using element_t = std::remove_cvref_t<decltype(map)>::mapped_type::mapped_type::element_t;
+			using element_t = std::remove_cvref_t<decltype(map)>::element_type;
 			if (element_t::ElementType==element->getType())
 			{
 				unsupportedElement = false;
 				auto& property = optProperty.value();
-				auto typeIt = map.find(property.type);
-				if (typeIt==map.end())
+				const auto& typeMap = map.byPropertyType[property.type];
+				if (typeMap.empty())
 				{
 					session->invalidXMLFileStructure("There's no property supported by ElementType (TODO) with PropertyType (TODO)");
 					return;
 				}
-				auto nameIt = typeIt->second.find(property.name);
-				if (nameIt==typeIt->second.end())
+				auto nameIt = typeMap.find(property.name);
+				if (nameIt==typeMap.end())
 				{
 					session->invalidXMLFileStructure("There's no Property named (TODO) of Type (TODO) supported by ElementType (TODO)");
 					return;
 				}
-				// TODO: visit variant type checks
-				nameIt->second(static_cast<element_t*>(element),std::move(property),session->params->logger);
+				const auto& callback = nameIt->second;
+				auto* typedElement = static_cast<element_t*>(element);
+				if constexpr (!std::is_same_v<typename element_t::Type,IElement::Type>)
+				if (std::find(callback.allowedVariantTypes.begin(),callback.allowedVariantTypes.end(),typedElement->type)==callback.allowedVariantTypes.end())
+				{
+					session->invalidXMLFileStructure("There's no Property named (TODO) of Type (TODO) not supported on ElementType (TODO) of Variant (TODO)");
+					return;
+				}
+				callback(typedElement,std::move(property),session->params->logger);
 			}
 		};
 		std::apply([&run](const auto&... maps)->void
@@ -234,6 +241,11 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 				(run(maps), ...); 
 			},manager->addPropertyMaps
 		);
+		if (unsupportedElement)
+		{
+			session->invalidXMLFileStructure("Current Element Type doesn't have a AddPropertyMap at all (no property adding supported)!");
+			return;
+		}
 		return;
 	}
 
