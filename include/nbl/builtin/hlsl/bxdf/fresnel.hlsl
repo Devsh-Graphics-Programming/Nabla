@@ -438,7 +438,7 @@ struct Dielectric
 
     static T __call(NBL_CONST_REF_ARG(T) orientedEta2, const scalar_type clampedCosTheta)
     {
-        const scalar_type sinTheta2 = 1.0 - clampedCosTheta * clampedCosTheta;
+        const scalar_type sinTheta2 = scalar_type(1.0) - clampedCosTheta * clampedCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
         const T t0 = hlsl::sqrt<T>(hlsl::max<T>(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
@@ -447,7 +447,7 @@ struct Dielectric
         const T t2 = orientedEta2 * clampedCosTheta;
         const T rp = (t0 - t2) / (t0 + t2);
 
-        return (rs * rs + rp * rp) * 0.5f;
+        return (rs * rs + rp * rp) * scalar_type(0.5);
     }
 
     T operator()(const scalar_type clampedCosTheta)

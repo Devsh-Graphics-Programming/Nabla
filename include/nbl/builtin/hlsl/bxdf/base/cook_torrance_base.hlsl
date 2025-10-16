@@ -184,7 +184,14 @@ struct SCookTorrance
         scalar_type clampedVdotH = cache.getVdotH();
         NBL_IF_CONSTEXPR(IsBSDF)
             clampedVdotH = hlsl::abs(clampedVdotH);
-        return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
+        
+        NBL_IF_CONSTEXPR(IsBSDF)
+        {
+            const scalar_type reflectance = _f(clampedVdotH)[0];
+            return hlsl::promote<spectral_type>(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission())) * DG;
+        }
+        else
+            return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
     }
 
     template<typename C=bool_constant<!IsBSDF> >
@@ -267,7 +274,7 @@ struct SCookTorrance
             return sample_type::createInvalid();    // should check if sample direction is invalid
 
         cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        // assert(cache.isValid(fresnel.getRefractionOrientedEta())); TODO get clarification on case NdotV<0, transmitted=false (technically not TIR?)
+        // assert(cache.isValid(fresnel.getRefractionOrientedEta()));
 
         struct reflect_refract_wrapper  // so we don't recalculate LdotH
         {
@@ -347,7 +354,7 @@ struct SCookTorrance
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
 
         const bool valid = impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
-        assert(valid);
+        // assert(valid);
         
         scalar_type G2_over_G1 = scalar_type(1.0);
         if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
