@@ -353,8 +353,8 @@ struct SCookTorrance
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
 
         const bool valid = impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
-        // assert(valid);
-        
+        assert(valid);
+
         scalar_type G2_over_G1 = scalar_type(1.0);
         if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
         {

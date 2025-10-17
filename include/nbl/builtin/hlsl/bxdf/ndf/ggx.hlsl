@@ -156,7 +156,7 @@ struct GGXGenerateH
         scalar_type t1 = r * hlsl::cos(phi);
         scalar_type t2 = r * hlsl::sin(phi);
         scalar_type s = scalar_type(0.5) * (scalar_type(1.0) + V.z);
-        t2 = hlsl::mix(hlsl::sqrt(scalar_type(1.0) - t1*t1), t2, s);
+        t2 = (1-s) * hlsl::sqrt(scalar_type(1.0) - t1*t1) + t2 * s;
 
         //reprojection onto hemisphere
         //found cases where t1*t1+t2*t2>1.0 due to fp32 precision issues, hence the max

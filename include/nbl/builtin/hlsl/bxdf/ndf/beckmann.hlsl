@@ -178,7 +178,7 @@ struct BeckmannGenerateH
             scalar_type sample_x = hlsl::max(u.x, scalar_type(1e-6));
             scalar_type theta = hlsl::acos(cosTheta);
             scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
-            scalar_type b = c - (1.0 + c) * hlsl::pow(1.0-sample_x, fit);
+            scalar_type b = c - (1.0 + c) * hlsl::pow(scalar_type(1.0)-sample_x, fit);
 
             scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * hlsl::exp(-cotTheta*cotTheta));
 
@@ -208,8 +208,8 @@ struct BeckmannGenerateH
         }
 
         scalar_type sinTheta = hlsl::sqrt(1.0 - V.z*V.z);
-        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : hlsl::clamp(V.x/sinTheta, -1.0, 1.0);
-        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : hlsl::clamp(V.y/sinTheta, -1.0, 1.0);
+        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : hlsl::clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
+        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : hlsl::clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
         //rotate
         scalar_type tmp = cosPhi*slope.x - sinPhi*slope.y;
         slope.y = sinPhi*slope.x + cosPhi*slope.y;
