@@ -8,7 +8,6 @@
 #include "nbl/builtin/hlsl/shapes/triangle.hlsl"
 
 #include <algorithm>
-#include <array>
 
 namespace nbl
 {
@@ -24,64 +23,17 @@ static bool operator<(const CPolygonGeometryManipulator::SSNGVertexData& lhs, ui
 	return lhs.hash < rhs;
 }
 
-static bool isAttributeEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
-{
-	if (!view) return true;
-	const auto channelCount = getFormatChannelCount(view.composed.format);
-	switch (view.composed.rangeFormat)
-	{
-    case IGeometryBase::EAABBFormat::U64:
-    case IGeometryBase::EAABBFormat::U32:
-    {
-			hlsl::uint64_t4 val1, val2;
-			view.decodeElement<hlsl::uint64_t4>(index1, val1);
-			view.decodeElement<hlsl::uint64_t4>(index2, val2);
-			for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-				if (val1[channel_i] != val2[channel_i]) return false;
-      break;
-    }
-    case IGeometryBase::EAABBFormat::S64:
-    case IGeometryBase::EAABBFormat::S32:
-    {
-			hlsl::int64_t4 val1, val2;
-			view.decodeElement<hlsl::int64_t4>(index1, val1);
-			view.decodeElement<hlsl::int64_t4>(index2, val2);
-			for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-				if (val1[channel_i] != val2[channel_i]) return false;
-      break;
-    }
-    default:
-    {
-			hlsl::float64_t4 val1, val2;
-			view.decodeElement<hlsl::float64_t4>(index1, val1);
-			view.decodeElement<hlsl::float64_t4>(index2, val2);
-			for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-			{
-				const auto diff = abs(val1[channel_i] - val2[channel_i]);
-				if (diff > epsilon) return false;
-			}
-			break;
-    }
-	}
-	return true;
-}
-
 static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32_t3& b, float epsilon)
 {
 	const hlsl::float32_t3 difference = abs(b - a);
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
+CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
 {
 	VertexHashMap vertexHashMap = setupData(polygon, epsilon);
 	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, epsilon,vxcmp);
-
-	if (enableWelding)
-	{
-		return weldVertices(smoothPolygon.get(), vertexHashMap, epsilon);
-	}
-	return smoothPolygon;
+	return { vertexHashMap, smoothPolygon };
 }
 
 
@@ -117,256 +69,52 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConnectedVertices(const asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
 {
-  auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
-  static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
-  const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
-  auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
-  auto normalView = polygon->getNormalView();
+	auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
+	static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
+	const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
+	auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
+	auto normalView = polygon->getNormalView();
 
-  hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
-  aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
-  aabb.minVx = -aabb.maxVx;
-  outPolygon->setNormalView({
-    .composed = {
-      .encodedDataRange = {.f32 = aabb},
-      .stride = sizeof(hlsl::float32_t3),
-      .format = NormalFormat,
-      .rangeFormat = IGeometryBase::EAABBFormat::F32
-    },
-    .src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
-   });
+	hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
+	aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
+	aabb.minVx = -aabb.maxVx;
+	outPolygon->setNormalView({
+		.composed = {
+			.encodedDataRange = {.f32 = aabb},
+			.stride = sizeof(hlsl::float32_t3),
+			.format = NormalFormat,
+			.rangeFormat = IGeometryBase::EAABBFormat::F32
+		},
+		.src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
+	 });
 
 	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalPtr());
 	auto normalStride = outPolygon->getNormalView().composed.stride;
 
 
-  for (auto processedVertex = vertexHashMap.vertices().begin(); processedVertex != vertexHashMap.vertices().end(); processedVertex++)
-  {
-    std::array<uint32_t, 8> neighboringCells;
-    const auto cellCount = vertexHashMap.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
-    hlsl::float32_t3 normal = processedVertex->weightedNormal;
+	for (auto& processedVertex : vertexHashMap.vertices())
+	{
+		auto normal = processedVertex.weightedNormal;
 
-    //iterate among all neighboring cells
-    for (uint8_t i = 0; i < cellCount; i++)
-    {
-      VertexHashMap::BucketBounds bounds = vertexHashMap.getBucketBoundsByHash(neighboringCells[i]);
-      for (; bounds.begin != bounds.end; bounds.begin++)
-      {
-        if (processedVertex != bounds.begin)
-          if (compareVertexPosition(processedVertex->position, bounds.begin->position, epsilon) &&
-            vxcmp(*processedVertex, *bounds.begin, polygon))
-          {
-            //TODO: better mean calculation algorithm
-            normal += bounds.begin->weightedNormal;
-          }
-      }
-    }
-    normal = normalize(normal);
-    memcpy(normalPtr + (normalStride * processedVertex->index), &normal, sizeof(normal));
-  }
+		vertexHashMap.iterateBroadphaseCandidates(processedVertex, [&](const VertexHashMap::vertex_data_t& candidate)
+			{
+				if (compareVertexPosition(processedVertex.position, candidate.position, epsilon) &&
+					vxcmp(processedVertex, candidate, polygon))
+				{
+					//TODO: better mean calculation algorithm
+					normal += candidate.weightedNormal;
+				}
+				return true;
+			});
+
+		normal = normalize(normal);
+		memcpy(normalPtr + (normalStride * processedVertex.index), &normal, sizeof(normal));
+	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
 
 	return outPolygon;
 }
 
-
-core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon)
-{
-	struct Group
-	{
-		uint64_t vertex_reference_index; // index to referenced vertex in the original polygon
-	};
-	core::vector<Group> groups; 
-	groups.reserve(vertices.getVertexCount());
-
-	core::vector<std::optional<uint32_t>> groupIndexes(vertices.getVertexCount());
-
-	auto canJoinVertices = [&](uint32_t index1, uint32_t index2)-> bool
-  {
-    if (!isAttributeEqual(polygon->getPositionView(), index1, index2, epsilon))
-			return false;
-    if (!isAttributeEqual(polygon->getNormalView(), index1, index2, epsilon))
-			return false;
-		for (const auto& jointWeightView : polygon->getJointWeightViews())
-		{
-			if (!isAttributeEqual(jointWeightView.indices, index1, index2, epsilon)) return false;
-			if (!isAttributeEqual(jointWeightView.weights, index1, index2, epsilon)) return false;
-		}
-		for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
-			if (!isAttributeEqual(auxAttributeView, index1, index2, epsilon)) return false;
-
-		return true;
-  };
-
-  for (auto processedVertex = vertices.vertices().begin(); processedVertex != vertices.vertices().end(); processedVertex++)
-  {
-    std::array<uint32_t, 8> neighboringCells;
-    const auto cellCount = vertices.getNeighboringCellHashes(neighboringCells.data(), *processedVertex);
-
-    auto& groupIndex = groupIndexes[processedVertex->index];
-
-    //iterate among all neighboring cells
-    for (int i = 0; i < cellCount; i++)
-    {
-      VertexHashMap::BucketBounds bounds = vertices.getBucketBoundsByHash(neighboringCells[i]);
-      for (auto neighbourVertex_it = bounds.begin; neighbourVertex_it != bounds.end; neighbourVertex_it++)
-      {
-        const auto neighbourGroupIndex = groupIndexes[neighbourVertex_it->index];
-
-        hlsl::float32_t3 normal1, normal2;
-        polygon->getNormalView().decodeElement(processedVertex->index, normal1);
-        polygon->getNormalView().decodeElement(neighbourVertex_it->index, normal2);
-
-        hlsl::float32_t3 position1, position2;
-        polygon->getPositionView().decodeElement(processedVertex->index, position1);
-        polygon->getPositionView().decodeElement(neighbourVertex_it->index, position2);
-
-        // find the first group that this vertex can join
-        if (processedVertex != neighbourVertex_it && neighbourGroupIndex && canJoinVertices(processedVertex->index, neighbourVertex_it->index))
-        {
-          groupIndex = neighbourGroupIndex;
-          break;
-        }
-      }
-    }
-    if (!groupIndex)
-    {
-      // create new group if no group nearby that is compatible with this vertex
-      groupIndex = groups.size();
-      groups.push_back({ processedVertex->index});
-    }
-  }
-
-  auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
-	outPolygon->setIndexing(IPolygonGeometryBase::TriangleList());
-
-	const uint32_t indexSize = (groups.size() < std::numeric_limits<uint16_t>::max()) ? sizeof(uint16_t) : sizeof(uint32_t);
-  auto indexBuffer = ICPUBuffer::create({indexSize * groupIndexes.size(), IBuffer::EUF_INDEX_BUFFER_BIT});
-  auto indexBufferPtr = reinterpret_cast<std::byte*>(indexBuffer->getPointer());
-  auto indexView = ICPUPolygonGeometry::SDataView{
-    .composed = {
-      .stride = indexSize,
-    },
-    .src = {
-      .offset = 0,
-      .size = indexBuffer->getSize(),
-      .buffer = std::move(indexBuffer)
-    }
-  };
-	if (indexSize == 2)
-	{
-		indexView.composed.encodedDataRange.u16.minVx[0] = 0;
-		indexView.composed.encodedDataRange.u16.maxVx[0] = groups.size() - 1;
-		indexView.composed.format = EF_R16_UINT;
-		indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U16;
-	} else if (indexSize == 4)
-	{
-		indexView.composed.encodedDataRange.u32.minVx[0] = 0;
-		indexView.composed.encodedDataRange.u32.maxVx[0] = groups.size() - 1;
-		indexView.composed.format = EF_R32_UINT;
-		indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U32;
-	}
-
-	for (auto index_i = 0u; index_i < groupIndexes.size(); index_i++)
-	{
-		if (indexSize == 2)
-		{
-			uint16_t index = *groupIndexes[index_i];
-			memcpy(indexBufferPtr + indexSize * index_i, &index, sizeof(index));
-		} else if (indexSize == 4)
-		{
-			uint32_t index = *groupIndexes[index_i];
-			memcpy(indexBufferPtr + indexSize * index_i, &index, sizeof(index));
-		}
-	}
-	outPolygon->setIndexView(std::move(indexView));
-
-
-	using position_t = hlsl::float32_t3;
-	constexpr auto PositionAttrSize = sizeof(position_t);
-	auto positionBuffer = ICPUBuffer::create({ PositionAttrSize * groups.size(), IBuffer::EUF_NONE });
-	auto outPositions = reinterpret_cast<position_t*>(positionBuffer->getPointer());
-	const auto inPositions = reinterpret_cast<const position_t*>(polygon->getPositionView().getPointer());
-	outPolygon->setPositionView({
-		.composed = polygon->getPositionView().composed,
-	  .src = {.offset = 0, .size = positionBuffer->getSize(), .buffer = std::move(positionBuffer)}
-  });
-
-	using normal_t = hlsl::float32_t3;
-	constexpr auto NormalAttrSize = sizeof(normal_t);
-	auto normalBuffer = ICPUBuffer::create({ NormalAttrSize * groups.size(), IBuffer::EUF_NONE });
-	auto outNormals = reinterpret_cast<normal_t*>(normalBuffer->getPointer());
-	const auto inNormals = reinterpret_cast<const normal_t*>(polygon->getNormalView().getPointer());
-	outPolygon->setNormalView({
-		.composed = polygon->getNormalView().composed,
-	  .src = {.offset = 0, .size = normalBuffer->getSize(), .buffer = std::move(normalBuffer)}
-  });
-
-	auto createOutView = [&](const ICPUPolygonGeometry::SDataView& view)
-  {
-    auto buffer = ICPUBuffer::create({ view.composed.stride * groups.size(), view.src.buffer->getUsageFlags() });
-		return ICPUPolygonGeometry::SDataView{
-			.composed = view.composed,
-			.src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
-		};
-  };
-
-	const auto& inJointWeightViews = polygon->getJointWeightViews();
-	auto* outJointWeightViews = outPolygon->getJointWeightViews();
-	outJointWeightViews->resize(inJointWeightViews.size());
-	for (auto jointWeightView_i = 0u; jointWeightView_i < inJointWeightViews.size(); jointWeightView_i++)
-	{
-		const auto& inJointWeightView = inJointWeightViews[jointWeightView_i];
-		outJointWeightViews->operator[](jointWeightView_i).indices = createOutView(inJointWeightView.indices);
-		outJointWeightViews->operator[](jointWeightView_i).weights = createOutView(inJointWeightView.weights);
-	}
-
-	const auto& inAuxAttributeViews = polygon->getAuxAttributeViews();
-	auto* outAuxAttributeViews = outPolygon->getAuxAttributeViews();
-	outAuxAttributeViews->resize(inAuxAttributeViews.size());
-	for (auto auxAttributeView_i = 0u; auxAttributeView_i < inAuxAttributeViews.size(); auxAttributeView_i++)
-	{
-		const auto& inAuxAttributeView = inAuxAttributeViews[auxAttributeView_i];
-		outAuxAttributeViews->operator[](auxAttributeView_i) = createOutView(inAuxAttributeView);
-	}
-
-	for (auto group_i = 0u; group_i < groups.size(); group_i++)
-	{
-		const auto srcIndex = groups[group_i].vertex_reference_index;
-		outPositions[group_i] = inPositions[srcIndex];
-		outNormals[group_i] = inPositions[srcIndex];
-
-    for (uint64_t jointView_i = 0u; jointView_i < polygon->getJointWeightViews().size(); jointView_i++)
-    {
-      auto& inView = polygon->getJointWeightViews()[jointView_i];
-      auto& outView = outPolygon->getJointWeightViews()->operator[](jointView_i);
-
-      const std::byte* const inJointIndices = reinterpret_cast<const std::byte*>(inView.indices.getPointer());
-      const auto jointIndexSize = inView.indices.composed.stride;
-      std::byte* const outJointIndices = reinterpret_cast<std::byte*>(outView.indices.getPointer());
-      memcpy(outJointIndices + group_i * jointIndexSize, inJointIndices + srcIndex * jointIndexSize, jointIndexSize);
-
-      const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
-      const auto jointWeightSize = inView.weights.composed.stride;
-      std::byte* const outWeights = reinterpret_cast<std::byte*>(outView.weights.getPointer());
-      memcpy(outWeights + group_i * jointWeightSize, inWeights + srcIndex * jointWeightSize, jointWeightSize);
-    }
-
-    for (auto auxView_i = 0u; auxView_i < polygon->getAuxAttributeViews().size(); auxView_i++)
-    {
-      auto& inView = polygon->getAuxAttributeViews()[auxView_i];
-      auto& outView = outPolygon->getAuxAttributeViews()->operator[](auxView_i);
-      const auto attrSize = inView.composed.stride;
-      const std::byte* const inAuxs = reinterpret_cast<const std::byte*>(inView.getPointer());
-      std::byte* const outAuxs = reinterpret_cast<std::byte*>(outView.getPointer());
-      memcpy(outAuxs + group_i * attrSize, inAuxs + srcIndex * attrSize, attrSize);
-    }
-	}
-
-  CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
-  return outPolygon;
-
-}
 }
 }

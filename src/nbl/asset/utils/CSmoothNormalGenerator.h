@@ -16,14 +16,19 @@ class CSmoothNormalGenerator
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
 
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(const ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function);
+		using VertexHashMap = CVertexHashGrid<CPolygonGeometryManipulator::SSNGVertexData>;
+
+	  struct Result
+	  {
+			VertexHashMap vertexHashGrid;
+			core::smart_refctd_ptr<ICPUPolygonGeometry> geom;
+	  };
+		static Result calculateNormals(const ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function);
 
 	private:
-		using VertexHashMap = CVertexHashMap;
 
 		static VertexHashMap setupData(const ICPUPolygonGeometry* polygon, float epsilon);
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> processConnectedVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp);
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon);
 };
 
 }

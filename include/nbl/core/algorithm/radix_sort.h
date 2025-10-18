@@ -71,7 +71,8 @@ struct LSBSorter
 		{
 			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits * last_pass);
 			const auto histogramIx = (key >> shift) & radix_mask;
-			return { histogram[histogramIx], histogram[histogramIx + 1] };
+			const auto boundBegin = histogramIx == 0 ? 0 : histogram[histogramIx - 1];
+			return { boundBegin, histogram[histogramIx] };
 		}
 
 	private:
@@ -82,21 +83,41 @@ struct LSBSorter
 			std::fill_n(histogram,histogram_size,static_cast<histogram_t>(0u));
 			// count
 			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits*pass_ix);
-			for (histogram_t i=0u; i<rangeSize; i++)
+			for (histogram_t i = 0u; i < rangeSize; i++)
 				++histogram[comp.template operator()<shift,radix_mask>(input[i])];
 			// prefix sum
-			std::inclusive_scan(histogram,histogram+histogram_size,histogram);
+			std::inclusive_scan(histogram, histogram + histogram_size, histogram);
 			// scatter
-			for (histogram_t i=rangeSize; i!=0u;)
-			{
-				i--;
-				output[--histogram[comp.template operator()<shift,radix_mask>(input[i])]] = input[i];
-			}
 
 			if constexpr (pass_ix != last_pass)
+			{
+			  
+        for (histogram_t i = rangeSize; i != 0u;)
+        {
+          i--;
+          const auto& val = input[i];
+          const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
+          output[--histogram[histogramIx]] = val;
+        }
+
 				return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
+			}
 			else
+			{
+				// need to preserve histogram value for the skip list, so we copy to temporary histogramArray and use that
+				std::array<histogram_t, histogram_size> tmpHistogram;
+				std::copy(histogram, histogram + histogram_size, tmpHistogram.data());
+
+        for (histogram_t i = rangeSize; i != 0u;)
+        {
+          i--;
+          const auto& val = input[i];
+          const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
+          output[--tmpHistogram[histogramIx]] = val;
+        }
+			  
 				return output;
+			}
 		}
 	
 		alignas(sizeof(histogram_t)) histogram_t histogram[histogram_size];

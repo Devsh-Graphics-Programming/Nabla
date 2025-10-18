@@ -83,7 +83,6 @@ template <typename IndexT>
 	requires(std::is_same_v<IndexT, uint16_t> || std::is_same_v<IndexT, uint32_t>)
 static ICPUPolygonGeometry::SDataView createIndexView(size_t indexCount, size_t maxIndex)
 {
-	
 	const auto bytesize = sizeof(IndexT) * indexCount;
 	auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 

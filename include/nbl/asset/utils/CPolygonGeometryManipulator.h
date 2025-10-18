@@ -9,7 +9,7 @@
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
-#include "nbl/asset/utils/CVertexHashMap.h"
+#include "nbl/asset/utils/CVertexHashGrid.h"
 
 namespace nbl::asset
 {
@@ -19,7 +19,30 @@ class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
 
-		using SSNGVertexData = CVertexHashMap::VertexData;
+    struct SSNGVertexData
+    {
+      uint64_t index;									     //offset of the vertex into index buffer
+			uint32_t hash;
+      hlsl::float32_t3 weightedNormal;
+			// TODO(kevinyu): Should we separate this from SSNGVertexData, and store it in its own vector in VertexHashGrid? Similar like how hashmap work. Or keep it intrusive?
+      hlsl::float32_t3 position;							   //position of the vertex in 3D space
+
+			hlsl::float32_t3 getPosition() const
+			{
+				return position;
+			}
+
+			void setHash(uint32_t hash)
+			{
+				this->hash = hash;
+			}
+
+			uint32_t getHash() const
+			{
+				return hash;
+			};
+
+    };
 
 		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;
 
