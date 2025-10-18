@@ -51,8 +51,6 @@ public:
       }
     }
 
-    // TODO(kevinyu): Handle when indexBuffer is not exist
-
     const auto& indexView = outPolygon->getIndexView();
     if (indexView)
     {

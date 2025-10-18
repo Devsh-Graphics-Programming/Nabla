@@ -135,7 +135,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
 
 namespace
 {
-  static bool isAttributeEqual(const ICPUPolygonGeometry::SDataView& view, uint64_t index1, uint64_t index2, float epsilon)
+  bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint64_t index1, uint64_t index2, float epsilon)
   {
     if (!view) return true;
     const auto channelCount = getFormatChannelCount(view.composed.format);
@@ -175,7 +175,40 @@ namespace
       }
     }
     return true;
-  } 
+  }
+
+  bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint64_t index1, uint64_t index2, float epsilon)
+{
+  if (!view) return true;
+  const auto channelCount = getFormatChannelCount(view.composed.format);
+  switch (view.composed.rangeFormat)
+  {
+    case IGeometryBase::EAABBFormat::U64:
+    case IGeometryBase::EAABBFormat::U32:
+    {
+      hlsl::uint64_t4 val1, val2;
+      view.decodeElement<hlsl::uint64_t4>(index1, val1);
+      view.decodeElement<hlsl::uint64_t4>(index2, val2);
+      return (1.0 - hlsl::dot(val1, val2)) < epsilon;
+    }
+    case IGeometryBase::EAABBFormat::S64:
+    case IGeometryBase::EAABBFormat::S32:
+    {
+      hlsl::int64_t4 val1, val2;
+      view.decodeElement<hlsl::int64_t4>(index1, val1);
+      view.decodeElement<hlsl::int64_t4>(index2, val2);
+      return (1.0 - hlsl::dot(val1, val2)) < epsilon;
+    }
+    default:
+    {
+      hlsl::float64_t4 val1, val2;
+      view.decodeElement<hlsl::float64_t4>(index1, val1);
+      view.decodeElement<hlsl::float64_t4>(index2, val2);
+      return (1.0 - hlsl::dot(val1, val2)) < epsilon;
+    }
+  }
+  return true;
+}
 }
 
 
@@ -196,17 +229,17 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createS
 
     auto canJoinVertices = [epsilon](const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2)-> bool
 {
-      if (!isAttributeEqual(polygon->getPositionView(), index1, index2, epsilon))
+      if (!isAttributeValEqual(polygon->getPositionView(), index1, index2, epsilon))
         return false;
-      if (!isAttributeEqual(polygon->getNormalView(), index1, index2, epsilon))
+      if (!isAttributeDirEqual(polygon->getNormalView(), index1, index2, epsilon))
         return false;
       for (const auto& jointWeightView : polygon->getJointWeightViews())
       {
-        if (!isAttributeEqual(jointWeightView.indices, index1, index2, epsilon)) return false;
-        if (!isAttributeEqual(jointWeightView.weights, index1, index2, epsilon)) return false;
+        if (!isAttributeValEqual(jointWeightView.indices, index1, index2, epsilon)) return false;
+        if (!isAttributeValEqual(jointWeightView.weights, index1, index2, epsilon)) return false;
       }
       for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
-        if (!isAttributeEqual(auxAttributeView, index1, index2, epsilon)) return false;
+        if (!isAttributeValEqual(auxAttributeView, index1, index2, epsilon)) return false;
 
       return true;
     };
