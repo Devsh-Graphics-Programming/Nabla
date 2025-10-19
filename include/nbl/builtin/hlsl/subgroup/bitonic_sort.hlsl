@@ -10,6 +10,7 @@ namespace nbl
 	{
 		namespace subgroup
 		{
+
 			template<typename KeyType, typename ValueType, typename Comparator = less<KeyType> >
 			struct bitonic_sort_config
 			{
@@ -44,52 +45,91 @@ namespace nbl
 						hiVal = tempVal;
 					}
 				}
+
+
+				static void lastMergeStage(uint32_t stage, uint32_t invocationID, NBL_REF_ARG(key_t) loKey, NBL_REF_ARG(key_t) hiKey,
+					NBL_REF_ARG(value_t) loVal, NBL_REF_ARG(value_t) hiVal)
+				{
+					[unroll]
+					for (uint32_t pass = 0; pass <= stage; pass++)
+					{
+						const uint32_t stride = 1u << (stage - pass); // Element stride
+						const uint32_t threadStride = stride >> 1;
+						if (threadStride == 0)
+						{
+							// Local compare and swap for stage 0
+							compareAndSwap(Ascending, loKey, hiKey, loVal, hiVal);
+						}
+						else
+						{
+							// Shuffle from partner using XOR
+							const key_t pLoKey = glsl::subgroupShuffleXor<key_t>(loKey, threadStride);
+							const key_t pHiKey = glsl::subgroupShuffleXor<key_t>(hiKey, threadStride);
+							const value_t pLoVal = glsl::subgroupShuffleXor<value_t>(loVal, threadStride);
+							const value_t pHiVal = glsl::subgroupShuffleXor<value_t>(hiVal, threadStride);
+							comparator_t comp;
+							if (comp(loKey, pLoKey)) { loKey = pLoKey; loVal = pLoVal; }
+							if (comp(hiKey, pHiKey)) { hiKey = pHiKey; hiVal = pHiVal; }
+
+						}
+
+					}
+				}
+
+				static void mergeStage(uint32_t stage, bool bitonicAscending, uint32_t invocationID, NBL_REF_ARG(key_t) loKey, NBL_REF_ARG(key_t) hiKey,
+					NBL_REF_ARG(value_t) loVal, NBL_REF_ARG(value_t) hiVal)
+				{
+					[unroll]
+					for (uint32_t pass = 0; pass <= stage; pass++)
+					{
+						const uint32_t stride = 1u << (stage - pass); // Element stride
+						const uint32_t threadStride = stride >> 1;
+						if (threadStride == 0)
+						{
+							// Local compare and swap for stage 0
+							compareAndSwap(bitonicAscending, loKey, hiKey, loVal, hiVal);
+						}
+						else
+						{
+							// Shuffle from partner using XOR
+							const key_t pLoKey = glsl::subgroupShuffleXor<key_t>(loKey, threadStride);
+							const key_t pHiKey = glsl::subgroupShuffleXor<key_t>(hiKey, threadStride);
+							const value_t pLoVal = glsl::subgroupShuffleXor<value_t>(loVal, threadStride);
+							const value_t pHiVal = glsl::subgroupShuffleXor<value_t>(hiVal, threadStride);
+							// Determine if we're upper or lower half
+							const bool upperHalf = bool(invocationID & threadStride);
+							const bool takeLarger = upperHalf == bitonicAscending;
+							comparator_t comp;
+							if (takeLarger)
+							{
+								if (comp(loKey, pLoKey)) { loKey = pLoKey; loVal = pLoVal; }
+								if (comp(hiKey, pHiKey)) { hiKey = pHiKey; hiVal = pHiVal; }
+							}
+							else
+							{
+								if (comp(pLoKey, loKey)) { loKey = pLoKey; loVal = pLoVal; }
+								if (comp(pHiKey, hiKey)) { hiKey = pHiKey; hiVal = pHiVal; }
+							}
+						}
+					}
+				}
+
 				static void __call(NBL_REF_ARG(key_t) loKey, NBL_REF_ARG(key_t) hiKey,
 					NBL_REF_ARG(value_t) loVal, NBL_REF_ARG(value_t) hiVal)
 				{
 					const uint32_t invocationID = glsl::gl_SubgroupInvocationID();
 					const uint32_t subgroupSizeLog2 = glsl::gl_SubgroupSizeLog2();
 					[unroll]
-						for (uint32_t stage = 0; stage <= subgroupSizeLog2; stage++)
+						for (uint32_t stage = 0; stage < subgroupSizeLog2; stage++)
 						{
 							const bool bitonicAscending = (stage == subgroupSizeLog2) ? Ascending : !bool(invocationID & (1u << stage));
-							// Passes within this stage
-							[unroll]
-								for (uint32_t pass = 0; pass <= stage; pass++)
-								{
-									const uint32_t stride = 1u << (stage - pass); // Element stride
-									const uint32_t threadStride = stride >> 1;
-									if (threadStride == 0)
-									{
-										// Local compare and swap for stage 0
-										compareAndSwap(bitonicAscending, loKey, hiKey, loVal, hiVal);
-									}
-									else
-									{
-										// Shuffle from partner using XOR
-										const key_t pLoKey = glsl::subgroupShuffleXor<key_t>(loKey, threadStride);
-										const key_t pHiKey = glsl::subgroupShuffleXor<key_t>(hiKey, threadStride);
-										const value_t pLoVal = glsl::subgroupShuffleXor<value_t>(loVal, threadStride);
-										const value_t pHiVal = glsl::subgroupShuffleXor<value_t>(hiVal, threadStride);
-										// Determine if we're upper or lower half
-										const bool upperHalf = bool(invocationID & threadStride);
-										const bool takeLarger = upperHalf == bitonicAscending;
-										comparator_t comp;
-										if (takeLarger)
-										{
-											if (comp(loKey, pLoKey)) { loKey = pLoKey; loVal = pLoVal; }
-											if (comp(hiKey, pHiKey)) { hiKey = pHiKey; hiVal = pHiVal; }
-										}
-										else
-										{
-											if (comp(pLoKey, loKey)) { loKey = pLoKey; loVal = pLoVal; }
-											if (comp(pHiKey, hiKey)) { hiKey = pHiKey; hiVal = pHiVal; }
-										}
-									}
-								}
+							mergeStage(stage, bitonicAscending, invocationID, loKey, hiKey, loVal, hiVal);
 						}
+					lastMergeStage(subgroupSizeLog2, invocationID, loKey, hiKey, loVal, hiVal);
+
 				}
 			};
+
 		}
 	}
 }
