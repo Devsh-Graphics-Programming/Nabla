@@ -36,7 +36,7 @@ public:
             return false;
         }
 
-        CVulkanConnection::exportGpuProfile();
+        nbl::video::vulkaninfo();
 
         return true;
     }

@@ -4,10 +4,10 @@
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/debug/CVulkanDebugCallback.h"
 
-#include "vulkaninfo/vulkaninfo.h"
-
 // TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
+
+extern int vulkaninfo(const std::span<const std::string_view>);
 
 namespace nbl::video
 {
@@ -316,13 +316,6 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     return api;
 }
 
-void CVulkanConnection::exportGpuProfile()
-{
-    constexpr char arg1[] = "--json";
-    char* argv = const_cast<char*>(arg1);
-    vulkaninfo(1, &argv);
-}
-
 CVulkanConnection::~CVulkanConnection()
 {
     if (m_vkDebugUtilsMessengerEXT!=VK_NULL_HANDLE)
@@ -380,6 +373,15 @@ bool CVulkanConnection::endCapture()
     }
     flag.clear();
     return true;
+}
+
+NBL_API2 void vulkaninfo() {
+    uint32_t gpuIndex = 0;
+    std::string jsonArg = "--json=" + std::to_string(gpuIndex);
+    std::array<std::string_view, 2> args = { "", jsonArg };
+
+    while (::vulkaninfo(args) == 0) 
+        jsonArg = "--json=" + std::to_string(++gpuIndex);
 }
 
 }
