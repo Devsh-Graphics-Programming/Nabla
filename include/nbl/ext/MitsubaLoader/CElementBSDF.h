@@ -289,6 +289,10 @@ class CElementBSDF : public IElement
 			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};
 
+		//
+		static AddPropertyMap<CElementBSDF> compAddPropertyMap();
+
+		//
 		inline CElementBSDF(const char* id) : IElement(id), type(Type::INVALID)
 		{
 		}
@@ -369,14 +373,15 @@ class CElementBSDF : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		IElement::Type getType() const override { return IElement::Type::BSDF; }
+
+		constexpr static inline auto ElementType = IElement::Type::BSDF;
+		inline IElement::Type getType() const override { return ElementType; }
 		std::string getLogName() const override { return "bsdf"; }
 
 		bool processChildData(IElement* _child, const std::string& name) override;
 
-		bool isMeta() const
+		inline bool isMeta() const
 		{
 			switch (type)
 			{

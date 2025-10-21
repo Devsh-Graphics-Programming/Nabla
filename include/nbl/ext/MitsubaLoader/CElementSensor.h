@@ -201,7 +201,6 @@ class CElementSensor final : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 
 		constexpr static inline auto ElementType = IElement::Type::SENSOR;

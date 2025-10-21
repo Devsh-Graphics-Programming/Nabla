@@ -1,56 +1,69 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/ext/MitsubaLoader/CElementSampler.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 
 namespace nbl::ext::MitsubaLoader
 {
-
-
-bool CElementSampler::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
+	
+auto CElementSampler::compAddPropertyMap() -> AddPropertyMap<CElementSampler>
 {
-	if (_property.type==SNamedPropertyElement::Type::INTEGER && _property.name=="sampleCount")
-	{
-		sampleCount = _property.ivalue;
-		switch (type)
-		{
-			case Type::STRATIFIED:
-				sampleCount = ceilf(sqrtf(sampleCount));
-				break;
-			case Type::LDSAMPLER:
-				//sampleCount = core::roundUpToPoT<int32_t>(sampleCount);
-				break;
-			default:
-				break;
-		}
-	}
-	else if (_property.type == SNamedPropertyElement::Type::INTEGER && _property.name == "dimension")
-	{
-		dimension = _property.ivalue;
-		if (type == Type::INDEPENDENT || type == Type::HALTON || type == Type::HAMMERSLEY)
-		{
-			invalidXMLFileStructure(logger,"this sampler type ("+std::to_string(type)+") does not take these parameters");
-			return false;
-		}
-	}
-	else if (_property.type == SNamedPropertyElement::Type::INTEGER && _property.name == "scramble")
-	{
-		scramble = _property.ivalue;
-		if (type==Type::INDEPENDENT || type==Type::STRATIFIED || type == Type::LDSAMPLER)
-		{
-			invalidXMLFileStructure(logger,"this sampler type ("+std::to_string(type)+") does not take these parameters");
-			return false;
-		}
-	}
-	else
-	{
-		invalidXMLFileStructure(logger,"unknown property named `"+_property.name+"` of type "+std::to_string(_property.type));
-		return false;
-	}
+	using this_t = CElementSampler;
+	AddPropertyMap<CElementSampler> retval;
 
-	return true;
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("sampleCount",INTEGER)
+		{
+			auto& sampleCount = _this->sampleCount;
+			sampleCount = _property.ivalue;
+			switch (_this->type)
+			{
+				case Type::STRATIFIED:
+					sampleCount = ceilf(sqrtf(sampleCount));
+					break;
+				case Type::LDSAMPLER:
+					//sampleCount = core::roundUpToPoT<int32_t>(sampleCount);
+					break;
+				default:
+					break;
+			}
+			return true;
+		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("dimension",INTEGER)
+		{
+			_this->dimension = _property.ivalue;
+			switch (_this->type)
+			{
+				case Type::INDEPENDENT: [[fallthrough]];
+				case Type::HALTON: [[fallthrough]];
+				case Type::HAMMERSLEY:
+					invalidXMLFileStructure(logger,"this sampler type ("+std::to_string(_this->type)+") does not take these parameters");
+					return false;
+				default:
+					return true;
+			}
+		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("scramble",INTEGER)
+		{
+			_this->scramble = _property.ivalue;
+			switch (_this->type)
+			{
+				case Type::INDEPENDENT: [[fallthrough]];
+				case Type::HALTON: [[fallthrough]];
+				case Type::HAMMERSLEY:
+					invalidXMLFileStructure(logger,"this sampler type ("+std::to_string(_this->type)+") does not take these parameters");
+					return false;
+				default:
+					return true;
+			}
+		}
+	});
+
+	return retval;
 }
 
 bool CElementSampler::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)

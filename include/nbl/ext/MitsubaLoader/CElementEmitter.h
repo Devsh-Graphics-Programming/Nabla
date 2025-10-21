@@ -97,16 +97,19 @@ class CElementEmitter : public IElement
 			core::vectorSIMDf radiance = core::vectorSIMDf(1.f); // Watts Meter^-2 Steradian^-1
 		};
 
+		//
+		static AddPropertyMap<CElementEmitter> compAddPropertyMap();
 
-		CElementEmitter(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform()
+		//
+		inline CElementEmitter(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform()
 		{
 		}
-		CElementEmitter() : CElementEmitter("") {}
-		CElementEmitter(const CElementEmitter& other) : IElement(""), transform()
+		inline CElementEmitter() : CElementEmitter("") {}
+		inline CElementEmitter(const CElementEmitter& other) : IElement(""), transform()
 		{
 			operator=(other);
 		}
-		CElementEmitter(CElementEmitter&& other) : IElement(""), transform()
+		inline CElementEmitter(CElementEmitter&& other) : IElement(""), transform()
 		{
 			operator=(std::move(other));
 		}
@@ -200,9 +203,10 @@ class CElementEmitter : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		IElement::Type getType() const override { return IElement::Type::EMITTER; }
+		
+		constexpr static inline auto ElementType = IElement::Type::EMITTER;
+		inline IElement::Type getType() const override { return ElementType; }
 		std::string getLogName() const override { return "emitter"; }
 
 		bool processChildData(IElement* _child, const std::string& name) override

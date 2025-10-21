@@ -26,17 +26,6 @@ class CElementRFilter final : public IElement
 			CATMULLROM,
 			LANCZOS
 		};
-		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
-		{
-			return {
-				std::make_pair("box", Type::BOX),
-				std::make_pair("tent", Type::TENT),
-				std::make_pair("gaussian", Type::GAUSSIAN),
-				std::make_pair("mitchell", Type::MITCHELL),
-				std::make_pair("catmullrom", Type::CATMULLROM),
-				std::make_pair("lanczos", Type::LANCZOS)
-			};
-		}
 
 		struct Gaussian
 		{
@@ -51,6 +40,24 @@ class CElementRFilter final : public IElement
 		{
 			int32_t lobes = 3;
 		};
+
+		using variant_list_t = core::type_list<
+			Gaussian,
+			MitchellNetravali,
+			LanczosSinc
+		>;
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				std::make_pair("box", Type::BOX),
+				std::make_pair("tent", Type::TENT),
+				std::make_pair("gaussian", Type::GAUSSIAN),
+				std::make_pair("mitchell", Type::MITCHELL),
+				std::make_pair("catmullrom", Type::CATMULLROM),
+				std::make_pair("lanczos", Type::LANCZOS)
+			};
+		}
+		static AddPropertyMap<CElementRFilter> compAddPropertyMap();
 
 		inline CElementRFilter(const char* id) : IElement(id), type(GAUSSIAN)
 		{
@@ -93,9 +100,10 @@ class CElementRFilter final : public IElement
 			);
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		inline IElement::Type getType() const override { return IElement::Type::RFILTER; }
+
+		constexpr static inline auto ElementType = IElement::Type::RFILTER;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "rfilter"; }
 
 		// make these public

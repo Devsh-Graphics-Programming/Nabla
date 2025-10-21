@@ -99,6 +99,8 @@ class CElementShape final : public IElement
 			CElementTexture* texture;
 		};*/
 
+		static AddPropertyMap<CElementShape> compAddPropertyMap();
+
 		inline CElementShape(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), bsdf(nullptr), emitter(nullptr)
 		{
 		}
@@ -215,9 +217,10 @@ class CElementShape final : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		inline IElement::Type getType() const override { return IElement::Type::SHAPE; }
+
+		constexpr static inline auto ElementType = IElement::Type::SHAPE;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "shape"; }
 
 		

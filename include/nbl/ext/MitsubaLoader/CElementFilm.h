@@ -99,7 +99,7 @@ class CElementFilm final : public IElement
 		{
 			hdrfilm = HDR();
 		}
-		virtual ~CElementFilm()
+		virtual inline ~CElementFilm()
 		{
 		}
 
@@ -124,9 +124,10 @@ class CElementFilm final : public IElement
 			}
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		inline IElement::Type getType() const override { return IElement::Type::FILM; }
+
+		constexpr static inline auto ElementType = IElement::Type::FILM;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "film"; }
 
 		inline bool processChildData(IElement* _child, const std::string& name) override

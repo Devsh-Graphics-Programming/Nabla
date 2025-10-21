@@ -36,6 +36,7 @@ class CElementSampler : public IElement
 				{"sobol",		Type::SOBOL}
 			};
 		}
+		static AddPropertyMap<CElementSampler> compAddPropertyMap();
 
 		inline CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
 		inline ~CElementSampler() {}
@@ -63,9 +64,10 @@ class CElementSampler : public IElement
 			}
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		inline IElement::Type getType() const override { return IElement::Type::SAMPLER; }
+
+		constexpr static inline auto ElementType = IElement::Type::SAMPLER;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "sampler"; }
 
 		// make these public

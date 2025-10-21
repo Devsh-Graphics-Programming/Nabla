@@ -155,18 +155,22 @@ class CElementTexture : public IElement
 			float	scale;
 		};
 
-		CElementTexture(const char* id) : IElement(id), type(Type::INVALID)
+		//
+		static AddPropertyMap<CElementTexture> compAddPropertyMap();
+
+		//
+		inline CElementTexture(const char* id) : IElement(id), type(Type::INVALID)
 		{
 		}
-		CElementTexture(const CElementTexture& other) : CElementTexture("")
+		inline CElementTexture(const CElementTexture& other) : CElementTexture("")
 		{
 			operator=(other);
 		}
-		CElementTexture(CElementTexture&& other) : CElementTexture("")
+		inline CElementTexture(CElementTexture&& other) : CElementTexture("")
 		{
 			operator=(std::move(other));
 		}
-		virtual ~CElementTexture()
+		inline virtual ~CElementTexture()
 		{
 		}
 		
@@ -235,10 +239,10 @@ class CElementTexture : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 
-		inline IElement::Type getType() const override { return IElement::Type::TEXTURE; }
+		constexpr static inline auto ElementType = IElement::Type::TEXTURE;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "texture"; }
 
 		bool processChildData(IElement* _child, const std::string& name) override;

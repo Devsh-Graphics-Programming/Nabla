@@ -8,30 +8,26 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-bool CElementTransform::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
+auto CElementTransform::compAddPropertyMap() -> AddPropertyMap<CElementTransform>
 {
-	switch (_property.type)
-	{
-		case SNamedPropertyElement::Type::MATRIX:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::TRANSLATE:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::ROTATE:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::SCALE:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::LOOKAT:
-			matrix = hlsl::mul(matrix,_property.mvalue);
-			break;
-		default:
-			{
-				invalidXMLFileStructure(logger,"The transform element does not take child property: "+_property.type);
-				return false;
-			}
-			break;
-	}
+	using this_t = CElementTransform;
+	AddPropertyMap<CElementTransform> retval;
 
-	return true;
+	auto setMatrix = [](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
+	{
+		_this->matrix = _property.mvalue;
+		return true;
+	};
+	for (const auto& type : {
+		SNamedPropertyElement::Type::MATRIX,
+		SNamedPropertyElement::Type::TRANSLATE,
+		SNamedPropertyElement::Type::ROTATE,
+		SNamedPropertyElement::Type::SCALE,
+		SNamedPropertyElement::Type::LOOKAT
+	})
+		retval.registerCallback(type,"",{.func=setMatrix});
+
+	return retval;
 }
 
 }

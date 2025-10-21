@@ -1,8 +1,6 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-
 #include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/ElementMacros.h"
@@ -43,7 +41,6 @@ auto CElementSensor::compAddPropertyMap() -> AddPropertyMap<CElementSensor>
 		}
 	);
 
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(up,VECTOR,derived_from,ShutterSensor);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shutterOpen,FLOAT,derived_from,ShutterSensor);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shutterClose,FLOAT,derived_from,ShutterSensor);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(moveSpeed,FLOAT,derived_from,ShutterSensor);
@@ -84,12 +81,6 @@ auto CElementSensor::compAddPropertyMap() -> AddPropertyMap<CElementSensor>
 	//{"focalLength",	noIdeaHowToProcessValue},
 
 	return retval;
-}
-
-bool CElementSensor::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
-{	
-	assert(false);
-	return false;
 }
 
 bool CElementSensor::onEndTag(CMitsubaMetadata* meta, system::logger_opt_ptr logger)

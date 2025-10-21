@@ -215,6 +215,10 @@ class CElementIntegrator final : public IElement
 		{
 		};
 
+		//
+		static AddPropertyMap<CElementIntegrator> compAddPropertyMap();
+
+		//
 		inline CElementIntegrator(const char* id) : IElement(id), type(Type::INVALID)
 		{
 		}
@@ -303,9 +307,10 @@ class CElementIntegrator final : public IElement
 			return *this;
 		}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
-		inline IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
+
+		constexpr static inline auto ElementType = IElement::Type::INTEGRATOR;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "integrator"; }
 
 		inline bool processChildData(IElement* _child, const std::string& name) override

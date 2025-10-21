@@ -8,9 +8,16 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
-#include "nbl/ext/MitsubaLoader/PropertyElement.h"
+#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
 #include "nbl/ext/MitsubaLoader/CElementSensor.h"
+#include "nbl/ext/MitsubaLoader/CElementFilm.h"
+#include "nbl/ext/MitsubaLoader/CElementRFilter.h"
+#include "nbl/ext/MitsubaLoader/CElementSampler.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
+#include "nbl/ext/MitsubaLoader/CElementTexture.h"
+#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+#include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
 
 #include <stack>
 
@@ -74,16 +81,16 @@ class ParserManager final
 		const CPropertyElementManager propertyElementManager;
 
 		using supported_elements_t = core::type_list<
-//			CElementIntegrator,
-			CElementSensor
-//			CElementFilm,
-//			CElementRFilter,
-//			CElementSampler,
+			CElementIntegrator,
+			CElementSensor,
+			CElementFilm,
+			CElementRFilter,
+			CElementSampler,
 ///			CElementShape,
 ///			CElementBSDF,
 ///			CElementTexture,
 ///			CElementEmitter,
-//			CElementEmissionProfile
+			CElementEmissionProfile
 		>;
 
 	private:

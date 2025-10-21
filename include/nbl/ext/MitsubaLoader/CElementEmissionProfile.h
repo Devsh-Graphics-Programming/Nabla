@@ -14,6 +14,8 @@ namespace nbl::ext::MitsubaLoader
 
 struct CElementEmissionProfile final : public IElement
 {
+	static AddPropertyMap<CElementEmissionProfile> compAddPropertyMap();
+
 	inline CElementEmissionProfile(const char* id) : IElement(id), normalization(EN_NONE), flatten(0.0) /*no blending by default*/ {}
 	inline CElementEmissionProfile() : IElement(""), normalization(EN_NONE) {}
 	inline CElementEmissionProfile(const CElementEmissionProfile& other) : IElement("")
@@ -24,6 +26,7 @@ struct CElementEmissionProfile final : public IElement
 	{
 		operator=(std::move(other));
 	}
+	inline ~CElementEmissionProfile() {}
 
 	inline CElementEmissionProfile& operator=(const CElementEmissionProfile& other)
 	{
@@ -39,14 +42,12 @@ struct CElementEmissionProfile final : public IElement
 		return *this;
 	}
 
-	inline ~CElementEmissionProfile()
-	{
-	}
 
-	bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 	inline bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override {return true;}
 	bool processChildData(IElement* _child, const std::string& name) override;
-	inline IElement::Type getType() const override { return IElement::Type::EMISSION_PROFILE; }
+
+	constexpr static inline auto ElementType = IElement::Type::EMISSION_PROFILE;
+	inline IElement::Type getType() const override { return ElementType; }
 	inline std::string getLogName() const override { return "emissionprofile "; }
 	
 	enum E_NORMALIZE : uint8_t

@@ -220,6 +220,9 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 					return;
 				}
 				auto nameIt = typeMap.find(property.name);
+				// special, find callback that matches all names (registered with empty name)
+				if (nameIt==typeMap.end())
+					nameIt = typeMap.find("");
 				if (nameIt==typeMap.end())
 				{
 					session->invalidXMLFileStructure("There's no Property named (TODO) of Type (TODO) supported by ElementType (TODO)");

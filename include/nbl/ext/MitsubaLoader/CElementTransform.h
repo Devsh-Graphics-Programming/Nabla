@@ -14,12 +14,15 @@ namespace nbl::ext::MitsubaLoader
 class CElementTransform final : public IElement
 {
 	public:
+		static AddPropertyMap<CElementTransform> compAddPropertyMap();
+
 		inline CElementTransform() : IElement(""), matrix() {}
 		inline  ~CElementTransform() {}
 
-		bool addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger) override;
 		inline bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override {return true;}
-		inline IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
+
+		constexpr static inline auto ElementType = IElement::Type::TRANSFORM;
+		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "transform"; }
 		/*
 		inline CElementTransform& operator=(const CElementTransform& other)
