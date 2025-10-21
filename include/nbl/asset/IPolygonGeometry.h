@@ -88,13 +88,16 @@ class IPolygonGeometryBase : public virtual core::IReferenceCounted
                 virtual uint8_t rate_impl() const = 0;
         };
         //
-        NBL_API2 static IIndexingCallback* PointList();
-        NBL_API2 static IIndexingCallback* LineList();
-        NBL_API2 static IIndexingCallback* TriangleList();
-        NBL_API2 static IIndexingCallback* QuadList();
+        static inline IIndexingCallback* PointList() {return NGonList(1);}
+        static inline IIndexingCallback* LineList() {return NGonList(2);}
+        static inline IIndexingCallback* TriangleList() {return NGonList(3);}
+        static inline IIndexingCallback* QuadList() {return NGonList(4);}
+        //
+        NBL_API2 static IIndexingCallback* NGonList(const uint8_t n);
         // TODO: Adjacency, Patch, etc.
         NBL_API2 static IIndexingCallback* TriangleStrip();
         NBL_API2 static IIndexingCallback* TriangleFan();
+
 
         // This should be a pointer to a stateless singleton (think of it more like a dynamic enum/template than anything else)
         inline const IIndexingCallback* getIndexingCallback() const {return m_indexing;}
@@ -179,6 +182,8 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
 
         // For when the geometric normal of the patch isn't enough and you want interpolated custom normals
         inline const SDataView& getNormalView() const {return m_normalView;}
+        template<typename _B=BufferType> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
+        inline IGeometry<_B>::template MutableElementAccessor<_B> getNormalAccessor() {return base_t::template createElementAccessor<_B>(m_normalView);}
 
         // Its also a Max Joint ID that `m_jointWeightViews` can reference
         inline uint32_t getJointCount() const override final

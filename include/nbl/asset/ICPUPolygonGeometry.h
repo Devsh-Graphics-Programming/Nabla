@@ -97,14 +97,6 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
             }
             return false;
         }
-        inline void* getNormalPtr()
-        {
-            if (isMutable())
-            {
-              return m_normalView.getPointer();
-            }
-            return nullptr;
-        }
 
         //
         template<typename Visitor>

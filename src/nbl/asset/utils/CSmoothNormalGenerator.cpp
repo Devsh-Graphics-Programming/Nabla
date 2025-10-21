@@ -85,12 +85,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 			.format = NormalFormat,
 			.rangeFormat = IGeometryBase::EAABBFormat::F32
 		},
-		.src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
-	 });
+		.src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) }
+	});
 
-	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalPtr());
-	auto normalStride = outPolygon->getNormalView().composed.stride;
-
+	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalAccessor().getPointer());
+	constexpr auto normalStride = sizeof(hlsl::float32_t3);
+	assert(outPolygon->getNormalView().composed.stride==normalStride);
 
 	for (auto& processedVertex : vertexHashMap.vertices())
 	{

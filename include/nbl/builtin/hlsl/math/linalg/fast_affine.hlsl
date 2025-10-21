@@ -18,12 +18,6 @@ namespace math
 {
 namespace linalg
 {
-// TODO: move to macros
-#ifdef __HLSL_VERSION
-#define NBL_UNROLL [[unroll]]
-#else
-#define NBL_UNROLL
-#endif
 
 // Multiply matrices as-if extended to be filled with identity elements
 template<typename T, int N, int M, int P, int Q> 
@@ -82,7 +76,6 @@ vector<T,N> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,M>) lhs, const vector<T,P>
     }
     return retval;
 }
-#undef NBL_UNROLL
 
 // useful for fast computation of a Normal Matrix
 template<typename T, int N>

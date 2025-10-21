@@ -10,6 +10,7 @@ add_custom_target(pack_artifact_ditt
 	COMMAND cmake -E echo "Archiving the build!"
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/${NBL_RAYTRACEDAO_EX_NAME}/bin/LowDiscrepancySequenceCache.bin ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/${NBL_RAYTRACEDAO_EX_NAME}/bin/LowDiscrepancySequenceCache.bin
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/${NBL_RAYTRACEDAO_EX_NAME}/bin/raytracedao.exe ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/${NBL_RAYTRACEDAO_EX_NAME}/bin/raytracedao.exe
+	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/${NBL_RAYTRACEDAO_EX_NAME}/addEnvironmentEmitters.comp ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/${NBL_RAYTRACEDAO_EX_NAME}/addEnvironmentEmitters.comp
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/${NBL_RAYTRACEDAO_EX_NAME}/closestHit.comp ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/${NBL_RAYTRACEDAO_EX_NAME}/closestHit.comp
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/${NBL_RAYTRACEDAO_EX_NAME}/common.h ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/${NBL_RAYTRACEDAO_EX_NAME}/common.h
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/${NBL_RAYTRACEDAO_EX_NAME}/cull.comp ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/${NBL_RAYTRACEDAO_EX_NAME}/cull.comp
