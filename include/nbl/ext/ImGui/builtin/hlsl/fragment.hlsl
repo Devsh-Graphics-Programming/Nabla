@@ -39,6 +39,7 @@ using namespace nbl::ext::imgui;
     to request per object data with BDA
 */
 
+[shader("pixel")]
 float4 PSMain(PSInput input) : SV_Target0
 {
     // BDA for requesting object data

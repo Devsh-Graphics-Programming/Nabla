@@ -18,6 +18,7 @@ struct VSInput
     to request per object data with BDA
 */
 
+[shader("vertex")]
 PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 {
     PSInput output;
