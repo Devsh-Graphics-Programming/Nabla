@@ -142,7 +142,7 @@ struct ComputeMicrofacetNormal
         assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
         const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
         vector_type tmpH = V + L * etaFactor;
-        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract);
+        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract && orientedEta > scalar_type(1.0));
         return tmpH;
     }
 
@@ -232,6 +232,7 @@ struct Refract
         return ieee754::copySign(absNdotT, -NdotI);  // TODO: make a ieee754::copySignIntoPositive, see https://github.com/Devsh-Graphics-Programming/Nabla/pull/899#discussion_r2197473145
     }
 
+    // refraction takes eta as ior_incoming/ior_transmitted due to snell's law
     vector_type operator()(const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         return N * (getNdotI() * rcpOrientedEta + getNdotT(rcpOrientedEta*rcpOrientedEta)) - rcpOrientedEta * I;
@@ -455,7 +456,9 @@ struct Dielectric
         return __call(orientedEta2, clampedCosTheta);
     }
 
-    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta.value[0]; }   // expect T to be monochrome?
+    // default to monochrome, but it is possible to have RGB fresnel without dispersion fixing the refraction Eta
+    // to be something else than the etas used to compute RGB reflectance or some sort of interpolation of them
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta.value[0]; }
     OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
 
     Dielectric<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC

@@ -232,6 +232,7 @@ struct Beckmann
 {
     NBL_HLSL_NDF_CONSTEXPR_DECLS(_IsAnisotropic,reflect_refract);
     NBL_HLSL_NDF_TYPE_ALIASES(((Beckmann<T,IsAnisotropic,SupportedPaths>))((impl::BeckmannCommon<T,IsAnisotropic>))((impl::SBeckmannDG1Query<scalar_type>))((impl::SBeckmannG2overG1Query<scalar_type>))((DualMeasureQuantQuery<scalar_type>)));
+    NBL_CONSTEXPR_STATIC_INLINE bool GuaranteedVNDF = false;
 
     template<typename C=bool_constant<!IsAnisotropic> >
     static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)

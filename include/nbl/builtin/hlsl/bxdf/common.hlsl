@@ -828,8 +828,8 @@ struct SAnisotropicMicrofacetCache
         this_t retval;
         retval.iso_cache.VdotH = VdotH;
         retval.iso_cache.LdotH = LdotH;
-        const scalar_type viewShortenFactor = hlsl::mix(scalar_type(1.0), rcpOrientedEta.value[0], transmitted);
-        retval.iso_cache.VdotL = VdotH * (VdotH * viewShortenFactor + LdotH) - viewShortenFactor;
+        retval.iso_cache.VdotL = hlsl::mix(scalar_type(2.0) * VdotH * VdotH  - scalar_type(1.0),
+                                    VdotH * (VdotH * rcpOrientedEta.value[0] + LdotH) - rcpOrientedEta.value[0], transmitted);
         assert(NdotH > scalar_type(0.0));
         retval.iso_cache.absNdotH = hlsl::abs(NdotH);
         retval.iso_cache.NdotH2 = NdotH * NdotH;

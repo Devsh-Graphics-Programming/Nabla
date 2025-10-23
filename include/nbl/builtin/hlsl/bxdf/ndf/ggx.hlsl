@@ -176,6 +176,7 @@ struct GGX
 {
     NBL_HLSL_NDF_CONSTEXPR_DECLS(_IsAnisotropic,reflect_refract);
     NBL_HLSL_NDF_TYPE_ALIASES(((GGX<T,IsAnisotropic,SupportedPaths>))((impl::GGXCommon<T,SupportsTransmission,IsAnisotropic>))((impl::SGGXDG1Query<scalar_type>))((impl::SGGXG2XQuery<scalar_type>))((DualMeasureQuantQuery<scalar_type>)));
+    NBL_CONSTEXPR_STATIC_INLINE bool GuaranteedVNDF = true;
 
     template<typename C=bool_constant<!IsAnisotropic> >
     static enable_if_t<C::value && !IsAnisotropic, this_t> create(scalar_type A)
