@@ -375,13 +375,17 @@ bool CVulkanConnection::endCapture()
     return true;
 }
 
-NBL_API2 void vulkaninfo() {
-    uint32_t gpuIndex = 0;
-    std::string jsonArg = "--json=" + std::to_string(gpuIndex);
-    std::array<std::string_view, 2> args = { "", jsonArg };
-
-    while (::vulkaninfo(args) == 0) 
-        jsonArg = "--json=" + std::to_string(++gpuIndex);
+void CVulkanConnection::exportGpuProfiles()
+{
+    for (size_t i = 0;; i++)
+    {
+        auto arg = "--json=" + std::to_string(i);
+        int code = ::vulkaninfo(std::array<const std::string_view, 1>{ arg });
+        if (code != 0)
+            break;
+    }
 }
+
+NBL_API2 int vulkaninfo(const std::span<const std::string_view> args) { return ::vulkaninfo(args); }
 
 }
