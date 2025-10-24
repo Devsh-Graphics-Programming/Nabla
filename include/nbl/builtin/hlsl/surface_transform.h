@@ -181,4 +181,6 @@ TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 }
 }
 }
-#endif
+
+#endif // _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
+
