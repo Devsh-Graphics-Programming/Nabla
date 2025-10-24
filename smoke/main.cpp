@@ -36,7 +36,7 @@ public:
             return false;
         }
 
-        nbl::video::vulkaninfo();
+        exportGpuProfiles();
 
         return true;
     }
@@ -45,7 +45,18 @@ public:
     bool keepRunning() override { return false; }
 
 private:
-    smart_refctd_ptr<CVulkanConnection> m_api;
+    static void exportGpuProfiles()
+    {
+        for (size_t i = 0;; i++)
+        {
+            auto stringifiedIndex = std::to_string(i);
+            std::array<char*, 2> args = { ("--json=" + stringifiedIndex).data(), ("-o device_" + stringifiedIndex + ".json").data() };
+            int code = nbl::video::vulkaninfo(args);
+
+            if (code != 0)
+                break;
+        }
+    }
 };
 
 NBL_MAIN_FUNC(Smoke)

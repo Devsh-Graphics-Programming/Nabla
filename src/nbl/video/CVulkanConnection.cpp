@@ -7,7 +7,7 @@
 // TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
-extern int vulkaninfo(const std::span<const std::string_view>);
+extern int vulkaninfo(int, char**);
 
 namespace nbl::video
 {
@@ -375,17 +375,9 @@ bool CVulkanConnection::endCapture()
     return true;
 }
 
-void CVulkanConnection::exportGpuProfiles()
+int vulkaninfo(const std::span<char*> args)
 {
-    for (size_t i = 0;; i++)
-    {
-        auto arg = "--json=" + std::to_string(i);
-        int code = ::vulkaninfo(std::array<const std::string_view, 1>{ arg });
-        if (code != 0)
-            break;
-    }
+    return ::vulkaninfo(args.size(), args.data()); 
 }
-
-NBL_API2 int vulkaninfo(const std::span<const std::string_view> args) { return ::vulkaninfo(args); }
 
 }

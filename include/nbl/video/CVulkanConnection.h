@@ -13,7 +13,7 @@
 namespace nbl::video
 {
 
-NBL_API2 int vulkaninfo(const std::span<const std::string_view> args);
+NBL_API2 int vulkaninfo(const std::span<char*> args);
 
 class NBL_API2 CVulkanConnection final : public IAPIConnection
 {
@@ -22,8 +22,6 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
             core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
             core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable
         );
-
-        static void exportGpuProfiles();
 
         inline VkInstance getInternalObject() const {return m_vkInstance;}
 
