@@ -159,7 +159,7 @@ struct flipSign_helper<FloatingPoint, Bool NBL_PARTIAL_REQ_BOT(concepts::Floatin
 		const AsUint asUint = ieee754::impl::bitCastToUintType(val);
 		// can't use mix_helper because circular dep
 #ifdef __HLSL_VERSION
-		return bit_cast<FloatingPoint>(asUint ^ spirv::select(AsUint(0ull), ieee754::traits<AsFloat>::signMask, flip));
+		return bit_cast<FloatingPoint>(asUint ^ spirv::select(flip, ieee754::traits<AsFloat>::signMask, AsUint(0ull)));
 #else
 		return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
 #endif
