@@ -22,9 +22,9 @@ class NBL_API2 CPolygonGeometryManipulator
     struct SSNGVertexData
     {
       uint64_t index;									     //offset of the vertex into index buffer
+			// TODO: check whether separating hash and position into its own vector or even rehash the position everytime we need will result in VertexHashGrid become faster.
 			uint32_t hash;
       hlsl::float32_t3 weightedNormal;
-			// TODO(kevinyu): Should we separate this from SSNGVertexData, and store it in its own vector in VertexHashGrid? Similar like how hashmap work. Or keep it intrusive?
       hlsl::float32_t3 position;							   //position of the vertex in 3D space
 
 			hlsl::float32_t3 getPosition() const
