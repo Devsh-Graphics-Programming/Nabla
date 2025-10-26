@@ -182,7 +182,7 @@ private:
 			hash,
 			[](const VertexData& vertex, uint32_t hash)
 			{
-				return vertex.hash < hash;
+				return vertex.getHash() < hash;
 			});
 
 		auto end = std::upper_bound(
@@ -191,7 +191,7 @@ private:
 			hash, 
 			[](uint32_t hash, const VertexData& vertex)
 			{
-				return hash < vertex.hash;
+				return hash < vertex.getHash();
 			});
 
 		const auto beginIx = begin - m_vertices.begin();

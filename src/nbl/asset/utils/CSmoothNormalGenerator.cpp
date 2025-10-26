@@ -55,7 +55,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		const auto faceNormal = normalize(cross(v2 - v1, v3 - v1));
 
 		//set data for m_vertices
-		const auto angleWages = hlsl::shapes::util::GetAngleWeight(v2 - v3, v1 - v3, v1 - v2);
+		const auto angleWages = hlsl::shapes::util::compInternalAngle(v2 - v3, v1 - v3, v1 - v2);
 
 		vertices.add({ i,	0,	faceNormal * angleWages.x, v1});
 		vertices.add({ i + 1,	0,	faceNormal * angleWages.y,v2});
