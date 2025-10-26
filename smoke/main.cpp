@@ -17,7 +17,6 @@ public:
     bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
     {
         const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
-        //const char* sdk = "D:\\Nabla\\smoke\\build-ct\\install";
 
         if (sdk)
         {
