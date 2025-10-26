@@ -17,6 +17,7 @@ public:
     bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
     {
         const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
+        //const char* sdk = "D:\\Nabla\\smoke\\build-ct\\install";
 
         if (sdk)
         {
@@ -47,14 +48,28 @@ public:
 private:
     static void exportGpuProfiles()
     {
+        std::string buf;
+
         for (size_t i = 0;; i++)
         {
             auto stringifiedIndex = std::to_string(i);
-            std::array<char*, 2> args = { ("--json=" + stringifiedIndex).data(), ("-o device_" + stringifiedIndex + ".json").data() };
+            auto outFile = "device_" + stringifiedIndex + ".json";
+            std::array<char*, 2> args = { ("--json=" + stringifiedIndex).data(), ("-o " + outFile).data() };
+
             int code = nbl::video::vulkaninfo(args);
 
             if (code != 0)
                 break;
+
+            // print out file content
+            std::ifstream output(outFile);
+            
+            while (output >> buf)
+            {
+                std::cout << buf;
+            }
+
+            std::cout << "\n\n";
         }
     }
 };
