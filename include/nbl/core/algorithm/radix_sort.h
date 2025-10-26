@@ -53,7 +53,7 @@ constexpr int8_t find_msb(const T& a_variable)
 }
 
 template<size_t key_bit_count, typename histogram_t>
-struct LSBSorter
+struct RadixLsbSorter
 {
 		_NBL_STATIC_INLINE_CONSTEXPR uint16_t histogram_bytesize = 8192u;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);
@@ -129,11 +129,11 @@ inline RandomIt radix_sort(RandomIt input, RandomIt scratch, const size_t rangeS
 	assert(std::abs(std::distance(input,scratch))>=rangeSize);
 
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<16ull))
-		return LSBSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
+		return RadixLsbSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<32ull))
-		return LSBSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
+		return RadixLsbSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
 	else
-		return LSBSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
+		return RadixLsbSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
 }
 
 //! Because Radix Sort needs O(2n) space and a number of passes dependant on the key length, the final sorted range can be either in `input` or `scratch`

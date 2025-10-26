@@ -101,18 +101,18 @@ private:
 	static constexpr uint32_t invalidHash = 0xFFFFFFFF;
 
 	using sorter_t = std::variant<
-		core::LSBSorter<KeyAccessor::key_bit_count, uint16_t>,
-		core::LSBSorter<KeyAccessor::key_bit_count, uint32_t>,
-		core::LSBSorter<KeyAccessor::key_bit_count, size_t>>;
+		core::RadixLsbSorter<KeyAccessor::key_bit_count, uint16_t>,
+		core::RadixLsbSorter<KeyAccessor::key_bit_count, uint32_t>,
+		core::RadixLsbSorter<KeyAccessor::key_bit_count, size_t>>;
 	sorter_t m_sorter;
 
 	static sorter_t createSorter(size_t vertexCount)
 	{
 		if (vertexCount < (0x1ull << 16ull))
-			return core::LSBSorter<KeyAccessor::key_bit_count, uint16_t>();
+			return core::RadixLsbSorter<KeyAccessor::key_bit_count, uint16_t>();
 		if (vertexCount < (0x1ull << 32ull))
-			return core::LSBSorter<KeyAccessor::key_bit_count, uint32_t>();
-		return core::LSBSorter<KeyAccessor::key_bit_count, size_t>();
+			return core::RadixLsbSorter<KeyAccessor::key_bit_count, uint32_t>();
+		return core::RadixLsbSorter<KeyAccessor::key_bit_count, size_t>();
 	}
 
 	collection_t m_vertices;
