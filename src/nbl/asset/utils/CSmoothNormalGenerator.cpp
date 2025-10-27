@@ -44,7 +44,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	const auto cellCount = std::max<uint32_t>(core::roundUpToPoT<uint32_t>((idxCount + 31) >> 5), 4);
 	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon == 0.0f ? 0.00001f : epsilon * 2.f);
 
-	for (uint64_t i = 0; i < idxCount; i += 3)
+	for (uint32_t i = 0; i < idxCount; i += 3)
 	{
 		//calculate face normal of parent triangle
 		hlsl::float32_t3 v1, v2, v3;

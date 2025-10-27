@@ -18,21 +18,21 @@ public:
     auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
     outPolygon->setIndexing(IPolygonGeometryBase::TriangleList());
 
-    core::vector<uint64_t> vertexIndexToAsIndex(as.getVertexCount());
+    core::vector<uint32_t> vertexIndexToAsIndex(as.getVertexCount());
 
-    for (uint64_t vertexData_i = 0u; vertexData_i < as.getVertexCount(); vertexData_i++)
+    for (uint32_t vertexData_i = 0u; vertexData_i < as.getVertexCount(); vertexData_i++)
     {
       const auto& vertexData = as.vertices()[vertexData_i];
       vertexIndexToAsIndex[vertexData.index] = vertexData.index;
     }
 
-    static constexpr auto INVALID_INDEX = std::numeric_limits<uint64_t>::max();
-    core::vector<uint64_t> remappedVertexIndexes(as.getVertexCount());
+    static constexpr auto INVALID_INDEX = std::numeric_limits<uint32_t>::max();
+    core::vector<uint32_t> remappedVertexIndexes(as.getVertexCount());
     std::fill(remappedVertexIndexes.begin(), remappedVertexIndexes.end(), INVALID_INDEX);
 
-    uint64_t maxRemappedIndex = 0;
+    uint32_t maxRemappedIndex = 0;
     // iterate by index, so that we always use the smallest index when multiple vertexes can be welded together
-    for (uint64_t index = 0; index < as.getVertexCount(); index++)
+    for (uint32_t index = 0; index < as.getVertexCount(); index++)
     {
       const auto asIndex = vertexIndexToAsIndex[index];
       const auto& vertexData = as.vertices()[asIndex];

@@ -21,7 +21,7 @@ class NBL_API2 CPolygonGeometryManipulator
 
     struct SSNGVertexData
     {
-      uint64_t index;									     //offset of the vertex into index buffer
+      uint32_t index;									     //offset of the vertex into index buffer
 			// TODO: check whether separating hash and position into its own vector or even rehash the position everytime we need will result in VertexHashGrid become faster.
 			uint32_t hash;
       hlsl::float32_t3 weightedNormal;
