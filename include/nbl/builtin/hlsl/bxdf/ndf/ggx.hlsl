@@ -200,6 +200,7 @@ struct GGX
         return retval;
     }
 
+    // numerator is 2 * NdotV
     static scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)
     {
         return scalar_type(1.0) / (NdotX + devsh_part);
@@ -296,9 +297,9 @@ struct GGX
         {
             if (NdotV < 1e-7 || NdotL < 1e-7)
                 return 0.0;
-            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v / NdotV + scalar_type(1.0));
-            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l / NdotL + scalar_type(1.0));
-            return bxdf::beta_wo_check<scalar_type>(onePlusLambda_L, onePlusLambda_V);
+            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v + NdotV) / NdotV;
+            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l + NdotL) / NdotL;
+            return bxdf::beta_wo_check<scalar_type>(onePlusLambda_L, onePlusLambda_V) / (scalar_type(4.0) * NdotV * NdotL);
         }
         else
         {
@@ -352,8 +353,8 @@ struct GGX
         {
             if (NdotV < 1e-7 || NdotL < 1e-7)
                 return 0.0;
-            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v / NdotV + scalar_type(1.0));
-            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l / NdotL + scalar_type(1.0));
+            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v + NdotV) / NdotV;
+            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l + NdotL) / NdotL;
             G2_over_G1 = bxdf::beta_wo_check<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
