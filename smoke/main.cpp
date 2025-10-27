@@ -60,7 +60,7 @@ private:
 
             int code = nbl::video::vulkaninfo(args);
 
-            if (code == 0)
+            if (code != 0)
                 break;
 
             // print out file content
