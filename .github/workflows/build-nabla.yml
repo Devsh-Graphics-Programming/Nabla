@@ -385,4 +385,4 @@ jobs:
         run: cmake --build smoke/out --config ${{ matrix.config }}
 
       - name: CTest Smoke
-        run: ctest --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
+        run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
