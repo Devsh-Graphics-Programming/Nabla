@@ -175,7 +175,7 @@ struct SCookTorrance
         quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
         scalar_type DG = D.projectedLightMeasure;
         if (D.microfacetMeasure < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
-            DG *= ndf.template correlated<sample_type, Interaction>(gq, _sample, interaction);
+            DG *= ndf.template correlated<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
         else
             return hlsl::promote<spectral_type>(0.0);
 
@@ -242,7 +242,7 @@ struct SCookTorrance
     template<typename C=bool_constant<IsBSDF> >
     enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        const vector3_type localV = interaction.getTangentSpaceV();
+        const vector3_type localV = hlsl::normalize(interaction.getTangentSpaceV());
         const scalar_type NdotV = localV.z;
 
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, NdotV);
@@ -327,9 +327,10 @@ struct SCookTorrance
         {
             bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(V.getDirection(), H);
             L = V.reflect(r);
+            L.direction = hlsl::normalize(L.direction);
         }
 
-        vector3_type _N = interaction.getN();
+        vector3_type _N = hlsl::normalize(interaction.getN());
         scalar_type NdotL = hlsl::dot(_N, L.getDirection());
         if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
             return sample_type::createInvalid();    // should check if sample direction is invalid
@@ -351,7 +352,7 @@ struct SCookTorrance
 
         // const scalar_type _viewShortenFactor = hlsl::mix(scalar_type(1.0), rcpEta.value[0], transmitted);
         // const scalar_type _NdotL = localH.z * (VdotH * _viewShortenFactor + cache.iso_cache.LdotH) - NdotV * _viewShortenFactor;
-        scalar_type _NdotL = hlsl::dot(interaction.getN(), L.getDirection());
+        scalar_type _NdotL = hlsl::dot(_N, L.getDirection());
         assert(hlsl::abs(_NdotL - NdotL) < 1e-4);
 
         const vector3_type T = interaction.getT();

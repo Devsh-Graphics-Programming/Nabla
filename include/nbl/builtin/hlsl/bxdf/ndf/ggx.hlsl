@@ -284,19 +284,34 @@ struct GGX
         return dmq;
     }
 
-    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    scalar_type correlated_wo_numerator(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    scalar_type correlated_wo_numerator(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
+        scalar_type NdotV = interaction.getNdotV(_clamp);
+        scalar_type NdotL = _sample.getNdotL(_clamp);
+        scalar_type devsh_v = query.getDevshV();
+        scalar_type devsh_l = query.getDevshL();
         // without numerator, numerator is 2 * NdotV * NdotL, we factor out 4 * NdotV * NdotL, hence 0.5
-        scalar_type Vterm = _sample.getNdotL(_clamp) * query.getDevshV();
-        scalar_type Lterm = interaction.getNdotV(_clamp) * query.getDevshL();
-        return scalar_type(0.5) / (Vterm + Lterm);
+        if (cache.isTransmission())
+        {
+            if (NdotV < 1e-7 || NdotL < 1e-7)
+                return 0.0;
+            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v / NdotV + scalar_type(1.0));
+            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l / NdotL + scalar_type(1.0));
+            return bxdf::beta_wo_check<scalar_type>(onePlusLambda_L, onePlusLambda_V);
+        }
+        else
+        {
+            scalar_type Vterm = NdotL * devsh_v;
+            scalar_type Lterm = NdotV * devsh_l;
+            return scalar_type(0.5) / (Vterm + Lterm);
+        }
     }
 
-    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return scalar_type(4.0) * interaction.getNdotV(_clamp) * _sample.getNdotL(_clamp) * correlated_wo_numerator<LS, Interaction>(query, _sample, interaction);
+        return scalar_type(4.0) * interaction.getNdotV(_clamp) * _sample.getNdotL(_clamp) * correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
@@ -304,7 +319,7 @@ struct GGX
     {
         scalar_type dg = __ndf_base.template D<MicrofacetCache>(cache);
         if (dg < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
-            dg *= correlated_wo_numerator<LS, Interaction>(query, _sample, interaction);
+            dg *= correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
         else
             dg = scalar_type(0.0);
 

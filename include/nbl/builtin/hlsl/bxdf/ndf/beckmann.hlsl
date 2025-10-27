@@ -327,10 +327,12 @@ struct Beckmann
         return createDualMeasureQuantity<T, reflect_refract, quant_query_type>(dg1, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query);
     }
 
-    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return scalar_type(1.0) / (scalar_type(1.0) + query.getLambdaV() + query.getLambdaL());
+        scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
+        scalar_type lambda_L = query.getLambdaL();
+        return hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
