@@ -47,23 +47,26 @@ public:
 private:
     static void exportGpuProfiles()
     {
+        std::string arg2 = "-o";
         std::string buf;
+        std::string arg1;
+        std::string arg3;
 
         for (size_t i = 0;; i++)
         {
             auto stringifiedIndex = std::to_string(i);
             auto outFile = "device_" + stringifiedIndex + ".json";
-            std::array<char*, 2> args = { ("--json=" + stringifiedIndex).data(), ("-o " + outFile).data() };
+            std::array<char*, 3> args = { arg1.data(), arg2.data(), outFile.data() };
 
             int code = nbl::video::vulkaninfo(args);
 
-            if (code != 0)
+            if (code == 0)
                 break;
 
             // print out file content
-            std::ifstream output(outFile);
+            std::ifstream input(outFile);
             
-            while (output >> buf)
+            while (input >> buf)
             {
                 std::cout << buf;
             }
