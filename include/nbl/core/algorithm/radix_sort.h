@@ -67,12 +67,12 @@ struct RadixLsbSorter
 			return pass<RandomIt,KeyAccessor,0ull>(input,output,rangeSize,comp);
 		}
 
-    std::pair<histogram_t, histogram_t> getHashBound(size_t key) const
+    std::pair<histogram_t, histogram_t> getMostSignificantRadixBound(size_t key) const
 		{
 			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits * last_pass);
 			const auto histogramIx = (key >> shift) & radix_mask;
-			const auto boundBegin = histogramIx == 0 ? 0 : histogram[histogramIx - 1];
-			return { boundBegin, histogram[histogramIx] };
+			const auto boundBegin = histogramIx == 0 ? 0 : m_histogram[histogramIx - 1];
+			return { boundBegin, m_histogram[histogramIx] };
 		}
 
 	private:
@@ -80,47 +80,30 @@ struct RadixLsbSorter
 		inline RandomIt pass(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
 		{
 			// clear
-			std::fill_n(histogram,histogram_size,static_cast<histogram_t>(0u));
+			std::fill_n(m_histogram,histogram_size,static_cast<histogram_t>(0u));
+
 			// count
 			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits*pass_ix);
 			for (histogram_t i = 0u; i < rangeSize; i++)
-				++histogram[comp.template operator()<shift,radix_mask>(input[i])];
+				++m_histogram[comp.template operator()<shift,radix_mask>(input[i])];
+
 			// prefix sum
-			std::inclusive_scan(histogram, histogram + histogram_size, histogram);
-			// scatter
+			std::exclusive_scan(m_histogram, m_histogram + histogram_size, m_histogram, 0);
+
+			// scatter. After scatter m_histogram now become a skiplist
+			for (histogram_t i = 0; i < rangeSize; i++)
+			{
+        const auto& val = input[i];
+        const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
+        output[m_histogram[histogramIx]++] = val;
+			}
 
 			if constexpr (pass_ix != last_pass)
-			{
-			  
-        for (histogram_t i = rangeSize; i != 0u;)
-        {
-          i--;
-          const auto& val = input[i];
-          const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
-          output[--histogram[histogramIx]] = val;
-        }
-
-				return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
-			}
-			else
-			{
-				// need to preserve histogram value for the skip list, so we copy to temporary histogramArray and use that
-				std::array<histogram_t, histogram_size> tmpHistogram;
-				std::copy(histogram, histogram + histogram_size, tmpHistogram.data());
-
-        for (histogram_t i = rangeSize; i != 0u;)
-        {
-          i--;
-          const auto& val = input[i];
-          const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
-          output[--tmpHistogram[histogramIx]] = val;
-        }
-			  
-				return output;
-			}
+        return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
+      return output;
 		}
 	
-		alignas(sizeof(histogram_t)) histogram_t histogram[histogram_size];
+		alignas(sizeof(histogram_t)) histogram_t m_histogram[histogram_size];
 };
 
 template<class RandomIt, class KeyAccessor>
