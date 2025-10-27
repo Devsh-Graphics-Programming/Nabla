@@ -13,6 +13,13 @@ concept HashGridVertexData = requires(T obj, T const cobj, uint32_t hash) {
 		{ cobj.getPosition() } -> std::same_as<hlsl::float32_t3>;
 };
 
+template <typename Fn, typename T>
+concept HashGridIteratorFn = HashGridVertexData<T> && requires(Fn && fn, T const cobj)
+{
+	// return whether hash grid should continue the iteration
+	{ std::invoke(std::forward<Fn>(fn), cobj) } -> std::same_as<bool>;
+};
+
 template <HashGridVertexData VertexData>
 class CVertexHashGrid
 {
@@ -26,43 +33,40 @@ public:
 		collection_t::const_iterator end;
 	};
 
-	CVertexHashGrid(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize) :
-		m_sorter(createSorter(_vertexCount)),
-		m_hashTableMaxSize(_hashTableMaxSize),
-		m_cellSize(_cellSize)
+	CVertexHashGrid(size_t cellSize, uint32_t hashTableMaxSizeLog2, float vertexCountReserve) :
+		m_cellSize(cellSize),
+		m_hashTableMaxSize(1llu << hashTableMaxSizeLog2),
+		m_sorter(createSorter(vertexCountReserve))
 	{
-		assert((core::isPoT(m_hashTableMaxSize)));
-
-		m_vertices.reserve(_vertexCount);
+		m_vertices.reserve(vertexCountReserve);
 	}
 
 	//inserts vertex into hash table
 	void add(VertexData&& vertex)
 	{
 		vertex.setHash(hash(vertex));
-		m_vertices.push_back(vertex);
+		m_vertices.push_back(std::move(vertex));
 	}
 
-	void validate()
+	void bake()
 	{
-		const auto oldSize = m_vertices.size();
-		m_vertices.resize(oldSize*2u);
-		auto finalSortedOutput = std::visit( [&](auto& sorter) { return sorter(m_vertices.data(), m_vertices.data() + oldSize, oldSize, KeyAccessor()); },m_sorter );
+		auto scratchBuffer = collection_t(m_vertices.size());
+
+		auto finalSortedOutput = std::visit( [&](auto& sorter)
+		{
+		  return sorter(m_vertices.data(), scratchBuffer.data(), m_vertices.size(), KeyAccessor());
+		}, m_sorter );
 
 		if (finalSortedOutput != m_vertices.data())
-			m_vertices.erase(m_vertices.begin(), m_vertices.begin() + oldSize);
-		else
-			m_vertices.resize(oldSize);
+			m_vertices = std::move(scratchBuffer);
 	}
 
 	const collection_t& vertices() const { return m_vertices; }
 
-	collection_t& vertices(){ return m_vertices; }
-
 	inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
-	template <typename Fn>
-	void iterateBroadphaseCandidates(const VertexData& vertex, Fn fn) const
+	template <HashGridIteratorFn<VertexData> Fn>
+	void forEachBroadphaseNeighborCandidates(const VertexData& vertex, Fn&& fn) const
 	{
 		std::array<uint32_t, 8> neighboringCells;
 		const auto cellCount = getNeighboringCellHashes(neighboringCells.data(), vertex);
@@ -76,7 +80,7 @@ public:
 			{
 				const vertex_data_t& neighborVertex = *bounds.begin;
 				if (&vertex != &neighborVertex)
-					if (!fn(neighborVertex)) break;
+					if (!std::invoke(std::forward<Fn>(fn), neighborVertex)) break;
 			}
 		}
 		
@@ -85,7 +89,7 @@ public:
 private:
 	struct KeyAccessor
 	{
-		_NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
+		constexpr static size_t key_bit_count = 32ull;
 
 		template<auto bit_offset, auto radix_mask>
 		inline decltype(radix_mask) operator()(const VertexData& item) const
@@ -97,8 +101,6 @@ private:
 	static constexpr uint32_t primeNumber1 = 73856093;
 	static constexpr uint32_t primeNumber2 = 19349663;
 	static constexpr uint32_t primeNumber3 = 83492791;
-
-	static constexpr uint32_t invalidHash = 0xFFFFFFFF;
 
 	using sorter_t = std::variant<
 		core::RadixLsbSorter<KeyAccessor::key_bit_count, uint16_t>,
@@ -122,10 +124,8 @@ private:
 	uint32_t hash(const VertexData& vertex) const
 	{
 		const hlsl::float32_t3 position = floor(vertex.getPosition() / m_cellSize);
-
-		return	((static_cast<uint32_t>(position.x) * primeNumber1) ^
-			(static_cast<uint32_t>(position.y) * primeNumber2) ^
-			(static_cast<uint32_t>(position.z) * primeNumber3))& (m_hashTableMaxSize - 1);
+		const auto position_uint32 = hlsl::uint32_t3(position.x, position.y, position.z);
+		return hash(position_uint32);
 	}
 
 	uint32_t hash(const hlsl::uint32_t3& position) const
@@ -137,6 +137,7 @@ private:
 
 	uint8_t getNeighboringCellHashes(uint32_t* outNeighbors, const VertexData& vertex) const
 	{
+		// both 0.x and -0.x would be converted to 0 if we directly casting the position to unsigned integer. Causing the 0 to be crowded then the rest of the cells. So we use floor here to spread the vertex more uniformly.
 		hlsl::float32_t3 cellfloatcoord = floor(vertex.getPosition() / m_cellSize - hlsl::float32_t3(0.5));
 		hlsl::uint32_t3 baseCoord = hlsl::uint32_t3(static_cast<uint32_t>(cellfloatcoord.x), static_cast<uint32_t>(cellfloatcoord.y), static_cast<uint32_t>(cellfloatcoord.z));
 
@@ -167,12 +168,9 @@ private:
 
 	BucketBounds getBucketBoundsByHash(uint32_t hash) const
 	{
-		if (hash == invalidHash)
-			return { m_vertices.end(), m_vertices.end() };
-
 		const auto skipListBound = std::visit([&](auto& sorter)
 		{
-			auto hashBound = sorter.getHashBound(hash);
+			auto hashBound = sorter.getMostSignificantRadixBound(hash);
 			return std::pair<collection_t::const_iterator, collection_t::const_iterator>(m_vertices.begin() + hashBound.first, m_vertices.begin() + hashBound.second);
 		}, m_sorter);
 

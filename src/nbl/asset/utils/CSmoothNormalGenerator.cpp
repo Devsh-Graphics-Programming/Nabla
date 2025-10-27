@@ -62,7 +62,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, v3});
 	}
 
-	vertices.validate();
+	vertices.bake();
 
 	return vertices;
 }
@@ -96,7 +96,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	{
 		auto normal = processedVertex.weightedNormal;
 
-		vertexHashMap.iterateBroadphaseCandidates(processedVertex, [&](const VertexHashMap::vertex_data_t& candidate)
+		vertexHashMap.forEachBroadphaseNeighborCandidates(processedVertex, [&](const VertexHashMap::vertex_data_t& candidate)
 			{
 				if (compareVertexPosition(processedVertex.position, candidate.position, epsilon) &&
 					vxcmp(processedVertex, candidate, polygon))

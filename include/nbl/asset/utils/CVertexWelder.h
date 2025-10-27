@@ -37,7 +37,7 @@ public:
       const auto asIndex = vertexIndexToAsIndex[index];
       const auto& vertexData = as.vertices()[asIndex];
       auto& remappedVertexIndex = remappedVertexIndexes[index];
-      as.iterateBroadphaseCandidates(vertexData, [&, polygon, index](const typename AccelStructureT::vertex_data_t& neighbor) {
+      as.forEachBroadphaseNeighborCandidates(vertexData, [&, polygon, index](const typename AccelStructureT::vertex_data_t& neighbor) {
         const auto neighborRemappedIndex = remappedVertexIndexes[neighbor.index];
         if (shouldWeldFn(polygon, index, neighbor.index) && neighborRemappedIndex != INVALID_INDEX) {
           remappedVertexIndex = neighborRemappedIndex;
