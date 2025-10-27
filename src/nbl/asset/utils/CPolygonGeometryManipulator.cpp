@@ -136,86 +136,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
     return outGeometry;
 }
 
-
-namespace
-{
-  bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint64_t index1, uint64_t index2, float epsilon)
-  {
-    if (!view) return true;
-    const auto channelCount = getFormatChannelCount(view.composed.format);
-    switch (view.composed.rangeFormat)
-    {
-      case IGeometryBase::EAABBFormat::U64:
-      case IGeometryBase::EAABBFormat::U32:
-      {
-        hlsl::uint64_t4 val1, val2;
-        view.decodeElement<hlsl::uint64_t4>(index1, val1);
-        view.decodeElement<hlsl::uint64_t4>(index2, val2);
-        for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-          if (val1[channel_i] != val2[channel_i]) return false;
-        break;
-      }
-      case IGeometryBase::EAABBFormat::S64:
-      case IGeometryBase::EAABBFormat::S32:
-      {
-        hlsl::int64_t4 val1, val2;
-        view.decodeElement<hlsl::int64_t4>(index1, val1);
-        view.decodeElement<hlsl::int64_t4>(index2, val2);
-        for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-          if (val1[channel_i] != val2[channel_i]) return false;
-        break;
-      }
-      default:
-      {
-        hlsl::float64_t4 val1, val2;
-        view.decodeElement<hlsl::float64_t4>(index1, val1);
-        view.decodeElement<hlsl::float64_t4>(index2, val2);
-        for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-        {
-          const auto diff = abs(val1[channel_i] - val2[channel_i]);
-          if (diff > epsilon) return false;
-        }
-        break;
-      }
-    }
-    return true;
-  }
-
-  bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint64_t index1, uint64_t index2, float epsilon)
-{
-  if (!view) return true;
-  const auto channelCount = getFormatChannelCount(view.composed.format);
-  switch (view.composed.rangeFormat)
-  {
-    case IGeometryBase::EAABBFormat::U64:
-    case IGeometryBase::EAABBFormat::U32:
-    {
-      hlsl::uint64_t4 val1, val2;
-      view.decodeElement<hlsl::uint64_t4>(index1, val1);
-      view.decodeElement<hlsl::uint64_t4>(index2, val2);
-      return (1.0 - hlsl::dot(val1, val2)) < epsilon;
-    }
-    case IGeometryBase::EAABBFormat::S64:
-    case IGeometryBase::EAABBFormat::S32:
-    {
-      hlsl::int64_t4 val1, val2;
-      view.decodeElement<hlsl::int64_t4>(index1, val1);
-      view.decodeElement<hlsl::int64_t4>(index2, val2);
-      return (1.0 - hlsl::dot(val1, val2)) < epsilon;
-    }
-    default:
-    {
-      hlsl::float64_t4 val1, val2;
-      view.decodeElement<hlsl::float64_t4>(index1, val1);
-      view.decodeElement<hlsl::float64_t4>(index2, val2);
-      return (1.0 - hlsl::dot(val1, val2)) < epsilon;
-    }
-  }
-  return true;
-}
-}
-
-
 core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, VxCmpFunction vxcmp)
 {
     if (!inPolygon)
@@ -231,27 +151,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createS
       return nullptr;
     }
 
-    auto canJoinVertices = [epsilon](const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2)-> bool
-{
-      if (!isAttributeValEqual(polygon->getPositionView(), index1, index2, epsilon))
-        return false;
-      if (!isAttributeDirEqual(polygon->getNormalView(), index1, index2, epsilon))
-        return false;
-      for (const auto& jointWeightView : polygon->getJointWeightViews())
-      {
-        if (!isAttributeValEqual(jointWeightView.indices, index1, index2, epsilon)) return false;
-        if (!isAttributeValEqual(jointWeightView.weights, index1, index2, epsilon)) return false;
-      }
-      for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
-        if (!isAttributeValEqual(auxAttributeView, index1, index2, epsilon)) return false;
-
-      return true;
-    };
-
     auto result = CSmoothNormalGenerator::calculateNormals(inPolygon, epsilon, vxcmp);
     if (enableWelding)
     {
-      return CVertexWelder::weldVertices(result.geom.get(), result.vertexHashGrid, canJoinVertices);
+      return CVertexWelder::weldVertices(result.geom.get(), result.vertexHashGrid, CVertexWelder::DefaultWeldPredicate(epsilon));
     }
     return result.geom;
 }
