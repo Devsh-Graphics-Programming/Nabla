@@ -1179,6 +1179,7 @@ struct DeviceConfigCaps
 		-Zpr 
 		-spirv 
 		-fspv-target-env=vulkan1.3
+		-Wno-local-type-template-args
 	)
 
 	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
