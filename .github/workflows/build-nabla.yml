@@ -364,6 +364,13 @@ jobs:
           sparse-checkout: |
             smoke
 
+      - name: Download VulkanSDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: latest
+          vulkan-use-cache: true
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+
       - name: Download Nabla install artifact
         uses: actions/download-artifact@v4
         with:
