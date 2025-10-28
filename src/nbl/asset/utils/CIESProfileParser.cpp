@@ -106,12 +106,6 @@ bool CIESProfileParser::parse(CIESProfile& result)
     if (vSize < 2)
         return false;
 
-    {
-        const uint32_t maxDimMeasureSize = core::max(hSize, vSize);
-        result.optimalIESResolution = decltype(result.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
-        result.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
-    }
-
     auto& vAngles = result.vAngles;
     for (int i = 0; i < vSize; i++) {
         vAngles[i] = getDouble("vertical angle truncated");
@@ -184,6 +178,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
     const auto H_ANGLES_I_RANGE = result.symmetry != CIESProfile::ISOTROPIC ? result.hAngles.size() - 1 : 1;
     const auto V_ANGLES_I_RANGE = result.vAngles.size() - 1;
 
+    float smallestRangeSolidAngle = FULL_SOLID_ANGLE;
     for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
     {
         const float thetaRad = core::radians<float>(result.vAngles[j]);
@@ -196,6 +191,11 @@ bool CIESProfileParser::parse(CIESProfile& result)
         for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
         {
             const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? core::radians<float>(hAngles[i + 1] - hAngles[i]) : (core::PI<float>() * 2.0f);
+            // TODO: in reality one should transform the 4 vertices (or 3) into octahedral map, work out the dUV/dPhi and dUV/dTheta vectors as-if for Anisotropic Filtering
+            // then choose the minor axis length, and use that as a pixel size (since looking for smallest thing, dont have to worry about handling discont)
+            const float solidAngle = dsinTheta * dPhiRad;
+            if (solidAngle<smallestRangeSolidAngle)
+                smallestRangeSolidAngle = solidAngle;
 
             const auto candelaValue = result.getCandelaValue(i, j);
 
@@ -213,6 +213,13 @@ bool CIESProfileParser::parse(CIESProfile& result)
         }
         totalEmissionIntegral += stripIntegral*dsinTheta;
         nonZeroEmissionDomainSize += nonZeroStripDomain*dsinTheta;
+    }
+
+    // assuming octahedral map
+    {
+        const uint32_t maxDimMeasureSize = core::sqrt(FULL_SOLID_ANGLE/smallestRangeSolidAngle);
+        result.optimalIESResolution = decltype(result.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
+        result.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
     }
 
     assert(nonZeroEmissionDomainSize >= 0.f);

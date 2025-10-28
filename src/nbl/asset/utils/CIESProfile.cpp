@@ -118,6 +118,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
     // TODO: If no symmetry (no folding in half and abuse of mirror sampler) make dimensions odd-sized so middle texel taps the south pole
 
+    // TODO: This is hack because the mitsuba loader and its material compiler use Virtual Texturing, and there's some bug with IES not sampling sub 128x128 mip levels
+    // don't want to spend time to fix this since we'll be using descriptor indexing for the next iteration
+    width = core::max(width,128);
+    height = core::max(height,128);
+
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
     imgInfo.extent.width = width;
