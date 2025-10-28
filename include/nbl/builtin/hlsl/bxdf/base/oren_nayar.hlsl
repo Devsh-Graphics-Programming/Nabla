@@ -95,18 +95,22 @@ struct SOrenNayarBase
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         if (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
         else
             return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return pdf(_sample, interaction.isotropic);
+    }
 
     template<typename Query>
     quotient_pdf_type __quotient_and_pdf(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        scalar_type _pdf = pdf(_sample);
+        scalar_type _pdf = pdf(_sample, interaction);
         scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
         return quotient_pdf_type::create(q, _pdf);
     }
