@@ -136,7 +136,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
     return outGeometry;
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, VxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, SSNGVxCmpFunction vxcmp)
 {
     if (!inPolygon)
     {

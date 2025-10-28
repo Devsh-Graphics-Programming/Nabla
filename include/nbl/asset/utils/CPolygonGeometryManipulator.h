@@ -9,6 +9,7 @@
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
+#include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/CVertexHashGrid.h"
 
 namespace nbl::asset
@@ -18,33 +19,6 @@ namespace nbl::asset
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
-
-    struct SSNGVertexData
-    {
-      uint32_t index;									     //offset of the vertex into index buffer
-			// TODO: check whether separating hash and position into its own vector or even rehash the position everytime we need will result in VertexHashGrid become faster.
-			uint32_t hash;
-      hlsl::float32_t3 weightedNormal;
-      hlsl::float32_t3 position;							   //position of the vertex in 3D space
-
-			hlsl::float32_t3 getPosition() const
-			{
-				return position;
-			}
-
-			void setHash(uint32_t hash)
-			{
-				this->hash = hash;
-			}
-
-			uint32_t getHash() const
-			{
-				return hash;
-			};
-
-    };
-
-		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;
 
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
 		{
@@ -260,8 +234,9 @@ class NBL_API2 CPolygonGeometryManipulator
 
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
 
+		using SSNGVxCmpFunction = CSmoothNormalGenerator::VxCmpFunction;
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, bool enableWelding = false, float epsilon = 1.525e-5f,
-				VxCmpFunction vxcmp = [](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
+				SSNGVxCmpFunction vxcmp = [](const CSmoothNormalGenerator::SSNGVertexData& v0, const CSmoothNormalGenerator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
 					return dot(normalize(v0.weightedNormal),normalize(v1.weightedNormal)) > cosOf45Deg;

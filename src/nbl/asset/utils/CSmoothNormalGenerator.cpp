@@ -13,12 +13,12 @@ namespace nbl
 {
 namespace asset
 {
-static bool operator<(uint32_t lhs, const CPolygonGeometryManipulator::SSNGVertexData& rhs)
+static bool operator<(uint32_t lhs, const CSmoothNormalGenerator::SSNGVertexData& rhs)
 {
 	return lhs < rhs.hash;
 }
 
-static bool operator<(const CPolygonGeometryManipulator::SSNGVertexData& lhs, uint32_t rhs)
+static bool operator<(const CSmoothNormalGenerator::SSNGVertexData& lhs, uint32_t rhs)
 {
 	return lhs.hash < rhs;
 }
@@ -29,7 +29,7 @@ static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 
-CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
+CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, VxCmpFunction vxcmp)
 {
 	VertexHashMap vertexHashMap = setupData(polygon, epsilon);
 	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, epsilon,vxcmp);
@@ -67,7 +67,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	return vertices;
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConnectedVertices(const asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConnectedVertices(const asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, float epsilon, VxCmpFunction vxcmp)
 {
 	auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 	static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
