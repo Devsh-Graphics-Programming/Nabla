@@ -180,15 +180,23 @@ bool CIESProfileParser::parse(CIESProfile& result)
     float totalEmissionIntegral = 0.0, nonZeroEmissionDomainSize = 0.0;
     constexpr auto FULL_SOLID_ANGLE = 4.0f * core::PI<float>();
 
+    // TODO: this code could have two separate inner for loops for `result.symmetry != CIESProfile::ISOTROPIC` cases 
     const auto H_ANGLES_I_RANGE = result.symmetry != CIESProfile::ISOTROPIC ? result.hAngles.size() - 1 : 1;
     const auto V_ANGLES_I_RANGE = result.vAngles.size() - 1;
 
-    for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
+    for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
     {
-        const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? (hAngles[i + 1] - hAngles[i]) : core::PI<float>() * 2.0f;
+        const float thetaRad = core::radians<float>(result.vAngles[j]);
+        const float cosLo = std::cos(thetaRad);
+        const float cosHi = std::cos(core::radians<float>(result.vAngles[j+1]));
+        const float dsinTheta = cosLo - cosHi;
 
-        for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
+        float stripIntegral = 0.f;
+        float nonZeroStripDomain = 0.f;
+        for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
         {
+            const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? core::radians<float>(hAngles[i + 1] - hAngles[i]) : (core::PI<float>() * 2.0f);
+
             const auto candelaValue = result.getCandelaValue(i, j);
 
             // interpolate candela value spanned onto a solid angle
@@ -199,23 +207,17 @@ bool CIESProfileParser::parse(CIESProfile& result)
             if (result.maxCandelaValue < candelaValue)
                 result.maxCandelaValue = candelaValue;
 
-            const float thetaRad = core::radians<float>(result.vAngles[j]);
-            const float cosLo = std::cos(core::radians<float>(result.vAngles[j]));
-            const float cosHi = std::cos(core::radians<float>(result.vAngles[j + 1]));
-
-            const auto differentialSolidAngle = dPhiRad*(cosLo - cosHi);
-            const auto integralV = candelaAverage * differentialSolidAngle;
-
-            if (integralV > 0.0)
-            {
-                totalEmissionIntegral += integralV;
-                nonZeroEmissionDomainSize += differentialSolidAngle;
-            }
+            stripIntegral += candelaAverage*dPhiRad;
+            if (candelaAverage>0.f)
+                nonZeroStripDomain += dPhiRad;
         }
+        totalEmissionIntegral += stripIntegral*dsinTheta;
+        nonZeroEmissionDomainSize += nonZeroStripDomain*dsinTheta;
     }
 
-    nonZeroEmissionDomainSize = std::clamp<float>(nonZeroEmissionDomainSize, 0.0, FULL_SOLID_ANGLE);
-    if (nonZeroEmissionDomainSize <= 0) // protect us from division by 0 (just in case, we should never hit it)
+    assert(nonZeroEmissionDomainSize >= 0.f);
+    //assert(nonZeroEmissionDomainSize*fluxMultiplier =approx= 2.f*(cosBack-cosFront)*PI);
+    if (nonZeroEmissionDomainSize <= std::numeric_limits<float>::min()) // protect us from division by small numbers (just in case, we should never hit it)
         return false;
 
     result.avgEmmision = totalEmissionIntegral / static_cast<decltype(totalEmissionIntegral)>(nonZeroEmissionDomainSize);
