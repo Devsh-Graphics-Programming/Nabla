@@ -44,6 +44,7 @@ public:
           }
           default:
           {
+            // TODO: Handle 16,32,64 bit float vectors once the pixel encode/decode functions get reimplemented in HLSL and decodeElement can actually benefit from that.
             hlsl::float64_t4 val1, val2;
             view.decodeElement<hlsl::float64_t4>(index1, val1);
             view.decodeElement<hlsl::float64_t4>(index2, val2);
