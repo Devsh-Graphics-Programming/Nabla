@@ -365,11 +365,15 @@ jobs:
             smoke
 
       - name: Download VulkanSDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        uses: jakoch/install-vulkan-sdk-action@v1
         with:
-          vulkan-query-version: latest
-          vulkan-use-cache: true
-          vulkan-components: Vulkan-Headers, Vulkan-Loader
+            install_runtime: true
+            cache: false
+            stripdown: true
+            install_lavapipe: true
+
+      - name: Add lavapipe driver
+        run: reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\Vulkan\Drivers" /v "C:\lavapipe\share\vulkan\icd.d\lvp_icd.x86_64.json" /t REG_DWORD /d 0 /f
 
       - name: Download Nabla install artifact
         uses: actions/download-artifact@v4
