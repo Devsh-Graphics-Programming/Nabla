@@ -16,8 +16,7 @@ namespace workgroup
 {
 namespace bitonic_sort
 {
-// Reorder: non-type parameters FIRST, then typename parameters with defaults
-// This matches FFT's pattern and avoids DXC bugs
+
 template<uint16_t _ElementsPerInvocationLog2, uint16_t _WorkgroupSizeLog2, typename KeyType, typename ValueType, typename Comparator = less<KeyType> >
 struct bitonic_sort_config
 {
@@ -52,7 +51,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
     static void mergeStage(NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor, uint32_t stage, bool bitonicAscending, uint32_t invocationID, NBL_REF_ARG(key_t) loKey, NBL_REF_ARG(key_t) hiKey,
         NBL_REF_ARG(value_t) loVal, NBL_REF_ARG(value_t) hiVal)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = config_t::WorkgroupSize;
+        const uint32_t WorkgroupSize = config_t::WorkgroupSize;
         using key_adaptor = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, key_t, uint32_t, 1, WorkgroupSize>;
         using value_adaptor = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, value_t, uint32_t, 1, WorkgroupSize>;
 
@@ -63,56 +62,45 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
         sharedmemAdaptorValue.accessor = sharedmemAccessor;
 
         const uint32_t subgroupSizeLog2 = glsl::gl_SubgroupSizeLog2();
+        comparator_t comp;
 
         [unroll]
         for (uint32_t pass = 0; pass <= stage; pass++)
         {
-            // Stride calculation: stage S merges 2^(S+1) subgroups
+            if (pass)
+                sharedmemAdaptorValue.workgroupExecutionAndMemoryBarrier();
+
             const uint32_t stridePower = (stage - pass + 1) + subgroupSizeLog2;
             const uint32_t stride = 1u << stridePower;
             const uint32_t threadStride = stride >> 1;
 
-            // Separate shuffles for lo/hi streams (two-round shuffle as per PR review)
-            // TODO: Consider single-round shuffle of key-value pairs for better performance
             key_t pLoKey = loKey;
             shuffleXor(pLoKey, threadStride, sharedmemAdaptorKey);
+            sharedmemAdaptorKey.workgroupExecutionAndMemoryBarrier();
+
             value_t pLoVal = loVal;
             shuffleXor(pLoVal, threadStride, sharedmemAdaptorValue);
-            
-            sharedmemAdaptorKey.workgroupExecutionAndMemoryBarrier();
             sharedmemAdaptorValue.workgroupExecutionAndMemoryBarrier();
 
             key_t pHiKey = hiKey;
             shuffleXor(pHiKey, threadStride, sharedmemAdaptorKey);
+            sharedmemAdaptorKey.workgroupExecutionAndMemoryBarrier();
+
             value_t pHiVal = hiVal;
             shuffleXor(pHiVal, threadStride, sharedmemAdaptorValue);
 
             const bool isUpper = (invocationID & threadStride) != 0;
             const bool takeLarger = isUpper == bitonicAscending;
 
-            comparator_t comp;
+            nbl::hlsl::bitonic_sort::compareExchangeWithPartner(takeLarger, loKey, pLoKey, hiKey, pHiKey, loVal, pLoVal, hiVal, pHiVal, comp);
 
-            // lo update
-            const bool loSelfSmaller = comp(loKey, pLoKey);
-            const bool takePartnerLo = takeLarger ? loSelfSmaller : !loSelfSmaller;
-            loKey = takePartnerLo ? pLoKey : loKey;
-            loVal = takePartnerLo ? pLoVal : loVal;
-
-            // hi update
-            const bool hiSelfSmaller = comp(hiKey, pHiKey);
-            const bool takePartnerHi = takeLarger ? hiSelfSmaller : !hiSelfSmaller;
-            hiKey = takePartnerHi ? pHiKey : hiKey;
-            hiVal = takePartnerHi ? pHiVal : hiVal;
-
-            sharedmemAdaptorKey.workgroupExecutionAndMemoryBarrier();
-            sharedmemAdaptorValue.workgroupExecutionAndMemoryBarrier();
         }
     }
 
     template<typename Accessor, typename SharedMemoryAccessor>
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = config_t::WorkgroupSize;
+        const uint32_t WorkgroupSize = config_t::WorkgroupSize;
 
         const uint32_t invocationID = glsl::gl_LocalInvocationID().x;
         const uint32_t subgroupSizeLog2 = glsl::gl_SubgroupSizeLog2();
@@ -121,9 +109,8 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
         const uint32_t numSubgroups = WorkgroupSize / subgroupSize;
         const uint32_t numSubgroupsLog2 = findMSB(numSubgroups);
 
-        // Load this thread's 2 elements from accessor
         const uint32_t loIdx = invocationID * 2;
-        const uint32_t hiIdx = loIdx + 1;
+        const uint32_t hiIdx = loIdx | 1;
         key_t loKey, hiKey;
         value_t loVal, hiVal;
         accessor.template get<key_t>(loIdx, loKey);
@@ -146,21 +133,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
             subgroup::bitonic_sort<SortConfig>::mergeStage(subgroupSizeLog2, bitonicAscending, subgroupInvocationID, loKey, hiKey, loVal, hiVal);
         }
 
-        // Final: ensure lo <= hi within each thread (for ascending sort)
-        comparator_t comp;
-        if (comp(hiKey, loKey))
-        {
-            // Swap keys
-            key_t tempKey = loKey;
-            loKey = hiKey;
-            hiKey = tempKey;
-            // Swap values
-            value_t tempVal = loVal;
-            loVal = hiVal;
-            hiVal = tempVal;
-        }
 
-        // Store results back
         accessor.template set<key_t>(loIdx, loKey);
         accessor.template set<key_t>(hiIdx, hiKey);
         accessor.template set<value_t>(loIdx, loVal);
@@ -181,10 +154,10 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<2, WorkgroupSizeLog2, KeyTy
 	template<typename Accessor, typename SharedMemoryAccessor>
 	static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
 	{
-	    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = config_t::WorkgroupSize;
-	    NBL_CONSTEXPR_STATIC_INLINE uint32_t ElementsPerThread = config_t::ElementsPerInvocation;
-		NBL_CONSTEXPR_STATIC_INLINE uint32_t TotalElements = WorkgroupSize * ElementsPerThread;
-		NBL_CONSTEXPR_STATIC_INLINE uint32_t ElementsPerSimpleSort = WorkgroupSize * 2; // E=1 handles WG*2 elements
+	    const uint32_t WorkgroupSize = config_t::WorkgroupSize;
+	    const uint32_t ElementsPerThread = config_t::ElementsPerInvocation;
+		const uint32_t TotalElements = WorkgroupSize * ElementsPerThread;
+		const uint32_t ElementsPerSimpleSort = WorkgroupSize * 2; // E=1 handles WG*2 elements
 
         const uint32_t threadID = glsl::gl_LocalInvocationID().x;
 		comparator_t comp;
@@ -202,6 +175,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<2, WorkgroupSizeLog2, KeyTy
 
 			BitonicSort<simple_config_t, device_capabilities>::template __call(offsetAccessor, sharedmemAccessor);
 		}
+		sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
 
 		accessor = offsetAccessor.accessor;
 
@@ -242,13 +216,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<2, WorkgroupSizeLog2, KeyTy
 						accessor.template get<value_t>(loIx, loValGlobal);
 						accessor.template get<value_t>(hiIx, hiValGlobal);
 
-						key_t tempKey = loKeyGlobal;
-						loKeyGlobal = hiKeyGlobal;
-						hiKeyGlobal = tempKey;
-
-						value_t tempVal = loValGlobal;
-						loValGlobal = hiValGlobal;
-						hiValGlobal = tempVal;
+						nbl::hlsl::bitonic_sort::swap(loKeyGlobal, hiKeyGlobal, loValGlobal, hiValGlobal);
 
 						accessor.template set<key_t>(loIx, loKeyGlobal);
 						accessor.template set<key_t>(hiIx, hiKeyGlobal);
@@ -280,17 +248,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<2, WorkgroupSizeLog2, KeyTy
 					accessor.template get<value_t>(loIx, loValGlobal);
 					accessor.template get<value_t>(hiIx, hiValGlobal);
 
-					const bool shouldSwap = comp(hiKeyGlobal, loKeyGlobal);
-					if (shouldSwap == bitonicAscending)
-					{
-					    key_t tempKey = loKeyGlobal;
-						loKeyGlobal = hiKeyGlobal;
-						hiKeyGlobal = tempKey;
-
-						value_t tempVal = loValGlobal;
-						loValGlobal = hiValGlobal;
-						hiValGlobal = tempVal;
-					}
+					nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, loKeyGlobal, hiKeyGlobal, loValGlobal, hiValGlobal, comp);
 
 					accessor.template set<key_t>(loIx, loKeyGlobal);
 					accessor.template set<key_t>(hiIx, hiKeyGlobal);
@@ -317,10 +275,10 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<ElementsPerThreadLog2, Work
     template<typename Accessor, typename SharedMemoryAccessor>
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = config_t::WorkgroupSize;
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t ElementsPerThread = config_t::ElementsPerInvocation;
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t TotalElements = WorkgroupSize * ElementsPerThread;
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t ElementsPerSimpleSort = WorkgroupSize * 2;
+        const uint32_t WorkgroupSize = config_t::WorkgroupSize;
+        const uint32_t ElementsPerThread = config_t::ElementsPerInvocation;
+        const uint32_t TotalElements = WorkgroupSize * ElementsPerThread;
+        const uint32_t ElementsPerSimpleSort = WorkgroupSize * 2;
 
         const uint32_t threadID = glsl::gl_LocalInvocationID().x;
         comparator_t comp;
@@ -342,11 +300,12 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<ElementsPerThreadLog2, Work
             // Call E=1 workgroup sort
             BitonicSort<simple_config_t, device_capabilities>::template __call(offsetAccessor, sharedmemAccessor);
         }
+        sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
 
         // PHASE 2: Reverse odd-indexed chunks to form bitonic sequences
         const uint32_t simpleLog = hlsl::findMSB(ElementsPerSimpleSort - 1) + 1u;
         [unroll]
-        for (uint32_t sub = 1; sub < numSub; sub += 2) // Only odd-indexed chunks
+        for (uint32_t sub = 1; sub < numSub; sub += 2)
         {
             offsetAccessor.offset = sub * ElementsPerSimpleSort;
             [unroll]
@@ -366,14 +325,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<ElementsPerThreadLog2, Work
                     accessor.template get<value_t>(loIx, loValGlobal);
                     accessor.template get<value_t>(hiIx, hiValGlobal);
 
-                    // Always swap to reverse
-                    key_t tempKey = loKeyGlobal;
-                    loKeyGlobal = hiKeyGlobal;
-                    hiKeyGlobal = tempKey;
-
-                    value_t tempVal = loValGlobal;
-                    loValGlobal = hiValGlobal;
-                    hiValGlobal = tempVal;
+                    nbl::hlsl::bitonic_sort::swap(loKeyGlobal, hiKeyGlobal, loValGlobal, hiValGlobal);
 
                     accessor.template set<key_t>(loIx, loKeyGlobal);
                     accessor.template set<key_t>(hiIx, hiKeyGlobal);
@@ -409,17 +361,7 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<ElementsPerThreadLog2, Work
                     accessor.template get<value_t>(loIx, loValGlobal);
                     accessor.template get<value_t>(hiIx, hiValGlobal);
 
-                    const bool shouldSwap = comp(hiKeyGlobal, loKeyGlobal);
-                    if (shouldSwap == bitonicAscending)
-                    {
-                        key_t tempKey = loKeyGlobal;
-                        loKeyGlobal = hiKeyGlobal;
-                        hiKeyGlobal = tempKey;
-
-                        value_t tempVal = loValGlobal;
-                        loValGlobal = hiValGlobal;
-                        hiValGlobal = tempVal;
-                    }
+                    nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, loKeyGlobal, hiKeyGlobal, loValGlobal, hiValGlobal, comp);
 
                     accessor.template set<key_t>(loIx, loKeyGlobal);
                     accessor.template set<key_t>(hiIx, hiKeyGlobal);
