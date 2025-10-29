@@ -55,8 +55,9 @@ private:
         for (size_t i = 0;; i++)
         {
             auto stringifiedIndex = std::to_string(i);
-            auto outFile = "device_" + stringifiedIndex + ".json";
-            std::array<char*, 3> args = { arg1.data(), arg2.data(), outFile.data() };
+            arg1 = "--json=" + stringifiedIndex;
+            arg3 = "device_" + stringifiedIndex + ".json";
+            std::array<char*, 3> args = { arg1.data(), arg2.data(), arg3.data() };
 
             int code = nbl::video::vulkaninfo(args);
 
@@ -64,11 +65,11 @@ private:
                 break;
 
             // print out file content
-            std::ifstream input(outFile);
+            std::ifstream input(arg3);
             
-            while (input >> buf)
+            while (std::getline(input, buf))
             {
-                std::cout << buf;
+                std::cout << buf << "\n";
             }
 
             std::cout << "\n\n";
