@@ -206,15 +206,18 @@ struct GGX
         return scalar_type(1.0) / (NdotX + devsh_part);
     }
 
-    template<class MicrofacetCache NBL_FUNC_REQUIRES(RequiredMicrofacetCache<MicrofacetCache>)
-    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
     {
         quant_query_type quant_query;   // only has members for refraction
-        NBL_IF_CONSTEXPR (SupportsTransmission)
+        NBL_IF_CONSTEXPR(SupportsTransmission)
         {
             quant_query.VdotHLdotH = cache.getVdotHLdotH();
-            const scalar_type VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
-            quant_query.neg_rcp2_VdotH_etaLdotH = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
+            const scalar_type VdotH = cache.getVdotH();
+            const scalar_type VdotH_etaLdotH = hlsl::mix(VdotH + orientedEta * cache.getLdotH(),
+                                                        VdotH / orientedEta + cache.getLdotH(),
+                                                        interaction.getPathOrigin() == PathOrigin::PO_SENSOR);
+            quant_query.neg_rcp2_refractionDenom = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
         }
         return quant_query;
     }
@@ -278,7 +281,7 @@ struct GGX
             const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
             dmq.projectedLightMeasure = hlsl::mix(scalar_type(0.5),scalar_type(2.0),transmitted) * dg1_over_2NdotV;
             if (transmitted)
-                dmq.projectedLightMeasure *= VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
+                dmq.projectedLightMeasure *= VdotHLdotH * quant_query.getNeg_rcp2_refractionDenom();
         }
         else
             dmq.projectedLightMeasure = scalar_type(0.5) * dg1_over_2NdotV;
@@ -319,10 +322,14 @@ struct GGX
     quant_type Dcorrelated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type dg = __ndf_base.template D<MicrofacetCache>(cache);
-        if (dg < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
-            dg *= correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
-        else
-            dg = scalar_type(0.0);
+        if (dg >= bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        {
+            quant_type dmq;
+            dmq.microfacetMeasure = scalar_type(0.0);
+            dmq.projectedLightMeasure = scalar_type(0.0);
+            return dmq;
+        }
+        dg *= correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
 
         quant_type dmq;
         dmq.microfacetMeasure = dg;
@@ -333,7 +340,7 @@ struct GGX
             const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
             scalar_type NdotL_over_denominator = _sample.getNdotL(BxDFClampMode::BCM_ABS);
             if (transmitted)
-                    NdotL_over_denominator *= scalar_type(4.0) * VdotHLdotH * quant_query.getNeg_rcp2_VdotH_etaLdotH();
+                    NdotL_over_denominator *= scalar_type(4.0) * VdotHLdotH * quant_query.getNeg_rcp2_refractionDenom();
             dmq.projectedLightMeasure = dg * NdotL_over_denominator;
         }
         else

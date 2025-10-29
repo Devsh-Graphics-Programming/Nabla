@@ -263,15 +263,18 @@ struct Beckmann
         return hlsl::mix<scalar_type>(scalar_type(0.0), nom / denom, c < scalar_type(1.6));
     }
 
-    template<class MicrofacetCache NBL_FUNC_REQUIRES(RequiredMicrofacetCache<MicrofacetCache>)
-    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
     {
         quant_query_type quant_query;   // only has members for refraction
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
             quant_query.VdotHLdotH = cache.getVdotHLdotH();
-            const scalar_type VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
-            quant_query.neg_rcp2_VdotH_etaLdotH = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
+            const scalar_type VdotH = cache.getVdotH();
+            const scalar_type VdotH_etaLdotH = hlsl::mix(VdotH + orientedEta * cache.getLdotH(),
+                                                        VdotH / orientedEta + cache.getLdotH(),
+                                                        interaction.getPathOrigin() == PathOrigin::PO_SENSOR);
+            quant_query.neg_rcp2_refractionDenom = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
         }
         return quant_query;
     }

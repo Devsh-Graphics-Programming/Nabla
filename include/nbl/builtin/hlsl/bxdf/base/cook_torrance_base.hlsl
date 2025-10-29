@@ -48,10 +48,10 @@ struct quant_query_helper<N, F, true>
 {
     using quant_query_type = typename N::quant_query_type;
 
-    template<class C>
-    static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(C) cache)
+    template<class I, class C>
+    static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
     {
-        return ndf.template createQuantQuery<C>(cache, fresnel.orientedEta.value[0]);
+        return ndf.template createQuantQuery<I,C>(interaction, cache, fresnel.orientedEta.value[0]);
     }
 };
 
@@ -60,11 +60,11 @@ struct quant_query_helper<N, F, false>
 {
     using quant_query_type = typename N::quant_query_type;
 
-    template<class C>
-    static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(C) cache)
+    template<class I, class C>
+    static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
     {
         typename N::scalar_type dummy;
-        return ndf.template createQuantQuery<C>(cache, dummy);
+        return ndf.template createQuantQuery<I,C>(interaction, cache, dummy);
     }
 };
 
@@ -167,7 +167,7 @@ struct SCookTorrance
             return hlsl::promote<spectral_type>(0.0);
 
         using quant_query_type = typename ndf_type::quant_query_type;
-        quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<MicrofacetCache>(ndf, _f, cache);
+        quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
 
         using g2g1_query_type = typename ndf_type::g2g1_query_type;
         g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
@@ -379,7 +379,7 @@ struct SCookTorrance
         dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
 
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
-        quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<MicrofacetCache>(ndf, _f, cache);
+        quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
         quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, qq, _sample, interaction);
 
         NBL_IF_CONSTEXPR(IsBSDF)

@@ -157,6 +157,12 @@ enum BxDFClampMode : uint16_t
     BCM_ABS
 };
 
+enum PathOrigin : uint16_t
+{
+    PO_SENSOR = 0,
+    PO_LIGHT
+};
+
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointScalar<T>)
 T conditionalAbsOrMax(T x, BxDFClampMode _clamp)
 {
@@ -186,6 +192,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getN()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getNdotV(clampMode)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getNdotV2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getPathOrigin()), ::nbl::hlsl::is_same_v, PathOrigin))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(normV,normN)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
 );
@@ -221,6 +228,8 @@ struct SIsotropic
         return bxdf::conditionalAbsOrMax<scalar_type>(NdotV, _clamp);
     }
     scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return NdotV2; }
+
+    PathOrigin getPathOrigin() NBL_CONST_MEMBER_FUNC { return PathOrigin::PO_SENSOR; }
 
     RayDirInfo V;
     vector3_type N;
@@ -309,6 +318,7 @@ struct SAnisotropic
     vector3_type getN() NBL_CONST_MEMBER_FUNC { return isotropic.getN(); }
     scalar_type getNdotV(BxDFClampMode _clamp = BxDFClampMode::BCM_NONE) NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV(_clamp); }
     scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV2(); }
+    PathOrigin getPathOrigin() NBL_CONST_MEMBER_FUNC { return isotropic.getPathOrigin(); }
 
     vector3_type getT() NBL_CONST_MEMBER_FUNC { return T; }
     vector3_type getB() NBL_CONST_MEMBER_FUNC { return B; }
