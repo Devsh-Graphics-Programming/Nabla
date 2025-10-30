@@ -88,10 +88,14 @@ struct GGXCommon<T,SupportsTransmission,false NBL_PARTIAL_REQ_BOT(concepts::Floa
 
     // trowbridge-reitz
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
         if (a2 < numeric_limits<scalar_type>::min)
+        {
+            isInfinity = true;
             return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+        }
+        isInfinity = false;
         scalar_type denom = scalar_type(1.0) - one_minus_a2 * cache.getNdotH2();
         return a2 * numbers::inv_pi<scalar_type> / (denom * denom);
     }
@@ -115,10 +119,14 @@ struct GGXCommon<T,SupportsTransmission,true NBL_PARTIAL_REQ_BOT(concepts::Float
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_MAX;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
         if (a2 < numeric_limits<scalar_type>::min)
+        {
+            isInfinity = true;
             return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+        }
+        isInfinity = false;
         scalar_type denom = cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2 + cache.getNdotH2();
         return numbers::inv_pi<scalar_type> / (a2 * denom * denom);
     }
@@ -225,7 +233,8 @@ struct GGX
     enable_if_t<C::value && !IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         dg1_query_type dg1_query;
-        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache);
+        bool dummy;
+        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
         scalar_type clampedNdotV = interaction.getNdotV(_clamp);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getNdotV2()));
         return dg1_query;
@@ -242,7 +251,8 @@ struct GGX
     enable_if_t<C::value && IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         dg1_query_type dg1_query;
-        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache);
+        bool dummy;
+        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
         scalar_type clampedNdotV = interaction.getNdotV(_clamp);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
         return dg1_query;
@@ -262,16 +272,18 @@ struct GGX
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
-        scalar_type d = __ndf_base.template D<MicrofacetCache>(cache);
+        scalar_type d = __ndf_base.template D<MicrofacetCache>(cache, isInfinity);
         return createDualMeasureQuantity<T, reflect_refract, quant_query_type>(d, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query);
     }
 
     template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_REF_ARG(bool) isInfinity)
     {
+        scalar_type D = query.getNdfwoNumerator();
         scalar_type dg1_over_2NdotV = query.getNdfwoNumerator() * query.getG1over2NdotV();
+        isInfinity = D == bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         quant_type dmq;
         dmq.microfacetMeasure = scalar_type(2.0) * interaction.getNdotV(_clamp) * dg1_over_2NdotV;
 
@@ -319,10 +331,10 @@ struct GGX
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quant_type Dcorrelated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    quant_type Dcorrelated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
-        scalar_type dg = __ndf_base.template D<MicrofacetCache>(cache);
-        if (dg >= bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        scalar_type dg = __ndf_base.template D<MicrofacetCache>(cache, isInfinity);
+        if (isInfinity)
         {
             quant_type dmq;
             dmq.microfacetMeasure = scalar_type(0.0);

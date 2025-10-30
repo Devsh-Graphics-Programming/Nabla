@@ -121,27 +121,6 @@ struct getOrientedFresnel<F, true NBL_PARTIAL_REQ_BOT(fresnel::TwoSidedFresnel<F
         return fresnel.getReorientedFresnel(NdotV);
     }
 };
-
-template<class N, class LS, class Interaction, class MicrofacetCache>
-struct overwrite_DG
-{
-    using scalar_type = typename N::scalar_type;
-    using quant_type = typename N::quant_type;
-    using quant_query_type = typename N::quant_query_type;
-    using g2g1_query_type = typename N::g2g1_query_type;
-    NBL_CONSTEXPR_STATIC_INLINE bool HasOverwrite = ndf::NDF_CanOverwriteDG<N>;
-
-    template<typename C=bool_constant<!HasOverwrite> >
-    static enable_if_t<C::value && !HasOverwrite, void> __call(NBL_REF_ARG(scalar_type) DG, N ndf, NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
-    {
-    }
-    template<typename C=bool_constant<HasOverwrite> >
-    static enable_if_t<C::value && HasOverwrite, void> __call(NBL_REF_ARG(scalar_type) DG, N ndf, NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
-    {
-        quant_type dg = ndf.template Dcorrelated<LS, Interaction, MicrofacetCache>(query, quant_query, _sample, interaction, cache);
-        DG = dg.projectedLightMeasure;
-    }
-};
 }
 
 // N (NDF), F (fresnel)
@@ -161,6 +140,23 @@ struct SCookTorrance
 
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
+            NBL_FUNC_REQUIRES(!ndf::NDF_CanOverwriteDG<ndf_type> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    static void overwriteDG(NBL_REF_ARG(scalar_type) DG, ndf_type ndf, NBL_CONST_REF_ARG(typename ndf_type::g2g1_query_type) query, NBL_CONST_REF_ARG(typename ndf_type::quant_query_type) quant_query,
+                    NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
+    {
+    }
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
+            NBL_FUNC_REQUIRES(ndf::NDF_CanOverwriteDG<ndf_type> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    static void overwriteDG(NBL_REF_ARG(scalar_type) DG, ndf_type ndf, NBL_CONST_REF_ARG(typename ndf_type::g2g1_query_type) query, NBL_CONST_REF_ARG(typename ndf_type::quant_query_type) quant_query,
+                    NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
+    {
+        quant_type dg = ndf.template Dcorrelated<sample_type, Interaction, MicrofacetCache>(query, quant_query, _sample, interaction, cache, isInfinity);
+        DG = dg.projectedLightMeasure;
+    }
+
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
@@ -174,14 +170,16 @@ struct SCookTorrance
         using g2g1_query_type = typename ndf_type::g2g1_query_type;
         g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
 
-        quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache);
+        bool isInfinity;
+        quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache, isInfinity);
         scalar_type DG = D.projectedLightMeasure;
-        if (D.microfacetMeasure < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        if (!isInfinity)
             DG *= ndf.template correlated<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
-        else
-            return hlsl::promote<spectral_type>(0.0);
 
-        impl::overwrite_DG<ndf_type, sample_type, Interaction, MicrofacetCache>::__call(DG, ndf, gq, qq, _sample, interaction, cache);
+        overwriteDG<Interaction, MicrofacetCache>(DG, ndf, gq, qq, _sample, interaction, cache, isInfinity);
+
+        if (isInfinity)
+            return hlsl::promote<spectral_type>(0.0);
 
         scalar_type clampedVdotH = cache.getVdotH();
         NBL_IF_CONSTEXPR(IsBSDF)
@@ -320,7 +318,7 @@ struct SCookTorrance
     }
 
     template<class Interaction, class MicrofacetCache>
-    scalar_type __pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    scalar_type __pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
         using quant_query_type = typename ndf_type::quant_query_type;
         using dg1_query_type = typename ndf_type::dg1_query_type;
@@ -329,7 +327,7 @@ struct SCookTorrance
 
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
         quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
-        quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, qq, _sample, interaction);
+        quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, qq, _sample, interaction, isInfinity);
 
         NBL_IF_CONSTEXPR(IsBSDF)
         {
@@ -350,8 +348,9 @@ struct SCookTorrance
         if (!impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
             return scalar_type(0.0);
 
-        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache);
-        return hlsl::mix(scalar_type(0.0), _pdf, _pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity));
+        bool isInfinity;
+        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
+        return hlsl::mix(_pdf, scalar_type(0.0), isInfinity);
     }
 
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
@@ -362,14 +361,15 @@ struct SCookTorrance
         if (!_sample.isValid())
             return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));   // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
 
-        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache);
+        bool isInfinity;
+        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
 
         const bool valid = impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
         assert(valid);  // expect the generated sample to always be valid, different checks for brdf and btdf
 
         scalar_type G2_over_G1 = scalar_type(1.0);
-        if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        if (!isInfinity)
         {
             using g2g1_query_type = typename N::g2g1_query_type;
             g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
