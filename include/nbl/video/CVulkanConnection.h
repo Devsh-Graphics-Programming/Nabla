@@ -13,7 +13,7 @@
 namespace nbl::video
 {
 
-NBL_API2 int vulkaninfo(const std::span<char*> args);
+NBL_API2 int vulkaninfo(const std::span<const char*> args);
 
 class NBL_API2 CVulkanConnection final : public IAPIConnection
 {

@@ -375,9 +375,9 @@ bool CVulkanConnection::endCapture()
     return true;
 }
 
-int vulkaninfo(const std::span<char*> args)
+int vulkaninfo(const std::span<const char*> args)
 {
-    return ::vulkaninfo(args.size(), args.data()); 
+    return ::vulkaninfo(args.size(), const_cast<char**>(args.data())); 
 }
 
 }
