@@ -77,7 +77,7 @@ struct checkValid<F, false>
     using scalar_type = typename F::scalar_type;
 
     template<class Sample, class Interaction, class MicrofacetCache>
-    static bool __call(NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(Sample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    static bool __call(NBL_CONST_REF_ARG(F) orientedFresnel, NBL_CONST_REF_ARG(Sample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         return _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min;
     }
@@ -86,12 +86,14 @@ struct checkValid<F, false>
 template<class F>
 struct checkValid<F, true>
 {
+    using scalar_type = typename F::scalar_type;
     using vector_type = typename F::vector_type;    // expect monochrome
 
     template<class Sample, class Interaction, class MicrofacetCache>
-    static bool __call(NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(Sample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    static bool __call(NBL_CONST_REF_ARG(F) orientedFresnel, NBL_CONST_REF_ARG(Sample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return cache.isValid(fresnel.getRefractionOrientedEta());
+        fresnel::OrientedEtas<vector_type> orientedEta = fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(orientedFresnel.getRefractionOrientedEta()));
+        return cache.isValid(orientedEta);
     }
 };
 
@@ -268,12 +270,7 @@ struct SCookTorrance
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
         bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
-
-        ray_dir_info_type V = interaction.getV();
-        const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
-        assert(hlsl::abs(hlsl::length(H) - scalar_type(1.0)) < scalar_type(1e-4));
-        Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
-        const scalar_type LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
+        const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
 
         // fail if samples have invalid paths
         const scalar_type NdotL = hlsl::mix(scalar_type(2.0) * VdotH * localH.z - NdotV,
@@ -284,7 +281,12 @@ struct SCookTorrance
             return sample_type::createInvalid();    // should check if sample direction is invalid
 
         cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        assert(cache.isValid(_f.getRefractionOrientedEta()));
+        assert(cache.isValid(fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(_f.getRefractionOrientedEta()))));
+
+        ray_dir_info_type V = interaction.getV();
+        const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
+        assert(hlsl::abs(hlsl::length(H) - scalar_type(1.0)) < scalar_type(1e-4));
+        Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
 
         struct reflect_refract_wrapper  // so we don't recalculate LdotH
         {
@@ -364,7 +366,7 @@ struct SCookTorrance
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
 
         const bool valid = impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
-        assert(valid);
+        assert(valid);  // expect the generated sample to always be valid, different checks for brdf and btdf
 
         scalar_type G2_over_G1 = scalar_type(1.0);
         if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
