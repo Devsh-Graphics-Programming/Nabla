@@ -498,6 +498,15 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 		memcpy(normals + vertex_i, &quantizedBottomNormal, sizeof(quantizedBottomNormal));
 	}
 
+	for (auto i = 0u; i < vertexCount; ++i)
+	{
+		auto position = positions[i];
+		auto len = glm::length(position);
+
+		auto ok = len >= 1.f - 0.01f;
+		assert(ok);
+	}
+
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
@@ -1884,6 +1893,94 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
 	}
+
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
+	return retval;
+}
+
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createGrid(const hlsl::uint16_t2 resolution) const
+{
+	if (resolution.x < 2 || resolution.y < 2)
+		return nullptr;
+
+	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	retval->setIndexing(IPolygonGeometryBase::TriangleStrip());
+
+	//! Create indices
+	/*	
+		i \in [0, resolution.x - 1], j \in [0, resolution.y - 1]
+		logical vertex id : V(i, j)
+
+		Eg. resolution = {5u, 4u}:
+
+		 j=3  15--16--17--18--19
+			   | \ | \ | \ | \ |
+		 j=2  10--11--12--13--14
+			   | \ | \ | \ | \ |
+		 j=1   5-- 6-- 7-- 8-- 9
+			   | \ | \ | \ | \ |
+		 j=0   0-- 1-- 2-- 3-- 4
+			   i=0  1   2   3   4
+
+		Strip order (one draw), rows linked by 2 degenerate indices:
+		row 0 -> 1 (L->R):  0,5, 1,6, 2,7, 3,8, 4,9, 9,9
+		row 1 -> 2 (R->L):  9,14, 8,13, 7,12, 6,11, 5,10, 5,5
+		row 2 -> 3 (L->R):  5,10, 6,11, 7,12, 8,13, 9,14, 14,14
+	*/
+
+	const size_t indexCount = 2ull * resolution.x * (resolution.y - 1) + 2ull * (resolution.y - 2);
+	const size_t maxIndex = resolution.x * resolution.y - 1u;
+
+	auto createIndices = [&]<typename IndexT>() -> void
+	{
+		auto indexView = createIndexView<IndexT>(indexCount, maxIndex);
+
+		auto V = [&](IndexT i, IndexT j) { return IndexT(j * resolution.x + i); };
+		auto* index = static_cast<IndexT*>(indexView.src.buffer->getPointer());
+		#define PUSH_INDEX(value) *index = value; ++index;
+
+		for (IndexT j = 0u; j < resolution.y - 1; ++j)
+		{
+			if ((j & 1u) == 0)
+			{
+				for (IndexT i = 0u; i < resolution.x; ++i)
+				{
+					PUSH_INDEX(V(i, j))
+					PUSH_INDEX(V(i, j + 1))
+				}
+
+				if (j + 1 < resolution.y - 1)
+				{
+					IndexT last = V(resolution.x - 1, j + 1);
+					PUSH_INDEX(last)
+					PUSH_INDEX(last)
+				}
+			}
+			else
+			{
+				for (int i = int(resolution.x) - 1; i >= 0; --i)
+				{
+					PUSH_INDEX(V(uint32_t(i), j))
+					PUSH_INDEX(V(uint32_t(i), j + 1))
+				}
+
+				if (j + 1 < resolution.y - 1)
+				{
+					IndexT first = V(0, j + 1);
+					PUSH_INDEX(first)
+					PUSH_INDEX(first)
+				}
+			}
+		}
+		retval->setIndexView(std::move(indexView));
+	};
+
+	if (maxIndex <= std::numeric_limits<uint16_t>::max())
+		createIndices.template operator() < uint16_t > ();
+	else if (maxIndex <= std::numeric_limits<uint32_t>::max())
+		createIndices.template operator() < uint32_t > ();
+	else
+		return nullptr;
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
