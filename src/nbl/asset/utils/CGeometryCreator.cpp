@@ -498,15 +498,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 		memcpy(normals + vertex_i, &quantizedBottomNormal, sizeof(quantizedBottomNormal));
 	}
 
-	for (auto i = 0u; i < vertexCount; ++i)
-	{
-		auto position = positions[i];
-		auto len = glm::length(position);
-
-		auto ok = len >= 1.f - 0.01f;
-		assert(ok);
-	}
-
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
