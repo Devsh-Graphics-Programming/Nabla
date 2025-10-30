@@ -242,7 +242,7 @@ struct SCookTorrance
     template<typename C=bool_constant<IsBSDF> >
     enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
     {
-        const vector3_type localV = hlsl::normalize(interaction.getTangentSpaceV());
+        const vector3_type localV = interaction.getTangentSpaceV();
         const scalar_type NdotV = localV.z;
 
         fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, NdotV);
@@ -270,90 +270,37 @@ struct SCookTorrance
         bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
 
         ray_dir_info_type V = interaction.getV();
-        const vector3_type H = hlsl::normalize(hlsl::mul(interaction.getFromTangentSpace(), localH));
+        const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
+        assert(hlsl::abs(hlsl::length(H) - scalar_type(1.0)) < scalar_type(1e-4));
+        Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
+        const scalar_type LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
 
-        // TODO: UNDER CONSTRUCTION, will uncomment when sure basic stuff passes tests
-        // Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
-        // const scalar_type LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
-
-        // // fail if samples have invalid paths
-        // const scalar_type viewShortenFactor = hlsl::mix(scalar_type(1.0), rcpEta.value[0], transmitted);
-        // const scalar_type NdotL = localH.z * (VdotH * viewShortenFactor + hlsl::abs(LdotH)) - NdotV * viewShortenFactor;
-        // // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
-        // // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
-        // if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
-        //     return sample_type::createInvalid();    // should check if sample direction is invalid
-
-        // cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        // assert(cache.isValid(_f.getRefractionOrientedEta()));
-
-        // struct reflect_refract_wrapper  // so we don't recalculate LdotH
-        // {
-        //     vector3_type operator()(const bool doRefract, const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
-        //     {
-        //         return rr(NdotTorR, rcpOrientedEta);
-        //     }
-        //     bxdf::ReflectRefract<scalar_type> rr;
-        //     scalar_type NdotTorR;
-        // };
-        // bxdf::ReflectRefract<scalar_type> rr;   // rr.getNdotTorR() and calls to mix as well as a good part of the computations should CSE with our computation of NdotL above
-        // rr.refract = r;
-        // reflect_refract_wrapper rrw;
-        // rrw.rr = rr;
-        // rrw.NdotTorR = LdotH;
-        // ray_dir_info_type L = V.template reflectRefract<reflect_refract_wrapper>(rrw, transmitted, rcpEta.value[0]);
-
-        ray_dir_info_type L;
-        if (transmitted)
-        {
-            // scalar_type eta = rcpEta.value[0];  // refraction takes eta as ior_incoming/ior_transmitted due to snell's law
-            // vector3_type orientedH = ieee754::flipSignIfRHSNegative<vector3_type>(H, hlsl::promote<vector3_type>(NdotV));
-            // scalar_type cosThetaI = hlsl::dot(V.getDirection(), orientedH);
-            // scalar_type sin2ThetaI = hlsl::max(scalar_type(0), scalar_type(1) - cosThetaI * cosThetaI);
-            // scalar_type sin2ThetaT = eta * eta * sin2ThetaI;
-
-            // if (sin2ThetaT >= 1) return sample_type::createInvalid();
-            // scalar_type cosThetaT = hlsl::sqrt(scalar_type(1) - sin2ThetaT);
-            // L.direction = eta * -V.getDirection() + (eta * cosThetaI - cosThetaT) * orientedH;
-
-
-            Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
-            bxdf::ReflectRefract<scalar_type> rr;
-            rr.refract = r;
-            L = V.reflectRefract(rr, transmitted, rcpEta.value[0]);
-            L.direction = hlsl::normalize(L.direction);
-        }
-        else
-        {
-            bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(V.getDirection(), H);
-            L = V.reflect(r);
-            L.direction = hlsl::normalize(L.direction);
-        }
-
-        vector3_type _N = hlsl::normalize(interaction.getN());
-        scalar_type NdotL = hlsl::dot(_N, L.getDirection());
+        // fail if samples have invalid paths
+        const scalar_type NdotL = hlsl::mix(scalar_type(2.0) * VdotH * localH.z - NdotV,
+                                    localH.z * (VdotH * rcpEta.value[0] + LdotH) - NdotV * rcpEta.value[0], transmitted);
+        // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
+        // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
         if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
             return sample_type::createInvalid();    // should check if sample direction is invalid
 
-        cache.iso_cache.VdotH = VdotH;
-        cache.iso_cache.LdotH = hlsl::dot(L.getDirection(), H);
-        // cache.iso_cache.VdotL = hlsl::dot(V.getDirection(), L.getDirection());
-        cache.iso_cache.VdotL = hlsl::mix(scalar_type(2.0) * VdotH * VdotH  - scalar_type(1.0),
-                                    VdotH * (VdotH * rcpEta.value[0] + cache.iso_cache.LdotH) - rcpEta.value[0], transmitted);
-        // const scalar_type viewShortenFactor = hlsl::mix(scalar_type(1.0), rcpEta.value[0], transmitted);
-        // scalar_type _VdotL = VdotH * (VdotH * viewShortenFactor + cache.iso_cache.LdotH) - viewShortenFactor;
-        // scalar_type VdotL = hlsl::dot(V.getDirection(), L.getDirection());
-        // assert(hlsl::abs(VdotL - cache.iso_cache.VdotL) < 1e-4);
-        assert(localH.z > scalar_type(0.0));
-        cache.iso_cache.absNdotH = hlsl::abs(localH.z);
-        cache.iso_cache.NdotH2 = localH.z * localH.z;
-
+        cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
         assert(cache.isValid(_f.getRefractionOrientedEta()));
 
-        // const scalar_type _viewShortenFactor = hlsl::mix(scalar_type(1.0), rcpEta.value[0], transmitted);
-        // const scalar_type _NdotL = localH.z * (VdotH * _viewShortenFactor + cache.iso_cache.LdotH) - NdotV * _viewShortenFactor;
-        scalar_type _NdotL = hlsl::dot(_N, L.getDirection());
-        assert(hlsl::abs(_NdotL - NdotL) < 1e-4);
+        struct reflect_refract_wrapper  // so we don't recalculate LdotH
+        {
+            vector3_type operator()(const bool doRefract, const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
+            {
+                return rr(NdotTorR, rcpOrientedEta);
+            }
+            bxdf::ReflectRefract<scalar_type> rr;
+            scalar_type NdotTorR;
+        };
+        bxdf::ReflectRefract<scalar_type> rr;   // rr.getNdotTorR() and calls to mix as well as a good part of the computations should CSE with our computation of NdotL above
+        rr.refract = r;
+        reflect_refract_wrapper rrw;
+        rrw.rr = rr;
+        rrw.NdotTorR = LdotH;
+        ray_dir_info_type L = V.template reflectRefract<reflect_refract_wrapper>(rrw, transmitted, rcpEta.value[0]);
 
         const vector3_type T = interaction.getT();
         const vector3_type B = interaction.getB();
