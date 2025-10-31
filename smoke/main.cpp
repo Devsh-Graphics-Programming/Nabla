@@ -57,7 +57,7 @@ private:
             auto stringifiedIndex = std::to_string(i);
             arg1 = "--json=" + stringifiedIndex;
             arg3 = "device_" + stringifiedIndex + ".json";
-            std::array<char*, 3> args = { arg1.data(), arg2.data(), arg3.data() };
+            std::array<const char*, 3> args = { arg1.data(), arg2.data(), arg3.data() };
 
             int code = nbl::video::vulkaninfo(args);
 
