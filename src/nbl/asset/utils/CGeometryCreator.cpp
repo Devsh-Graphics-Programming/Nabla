@@ -1891,6 +1891,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createGrid(const hlsl::uint16_t2 resolution) const
 {
+	using namespace hlsl;
+
 	if (resolution.x < 2 || resolution.y < 2)
 		return nullptr;
 
@@ -1972,6 +1974,43 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createGrid(const h
 		createIndices.template operator() < uint32_t > ();
 	else
 		return nullptr;
+
+	//! Create positions
+	const size_t vertexCount = resolution.x * resolution.y;
+	{
+		shapes::AABB<4, float32_t> aabb;
+		aabb.maxVx = float32_t4((resolution.x - 0.5f) / float(resolution.x), 0.5f, (resolution.y - 0.5f) / float(resolution.y), 1.f);
+		aabb.minVx = float32_t4(0.5f / float(resolution.x), 0.5f, 0.5f / float(resolution.y), 1.f);
+
+		const auto stride = getTexelOrBlockBytesize<EF_A2R10G10B10_UNORM_PACK32>();
+		const auto bytes = stride * vertexCount;
+		auto buffer = ICPUBuffer::create({ bytes, IBuffer::EUF_NONE });
+		ICPUPolygonGeometry::SDataView positionView = {
+			.composed = {
+				.encodedDataRange = {.f32 = aabb},
+				.stride = stride,
+				.format = EF_A2R10G10B10_UNORM_PACK32,
+				.rangeFormat = IGeometryBase::EAABBFormat::F32
+			},
+			.src = {.offset = 0,.size = buffer->getSize(),.buffer = core::smart_refctd_ptr(buffer)}
+		};
+
+		auto* packed = reinterpret_cast<uint32_t*>(buffer->getPointer());
+		for (uint32_t j = 0; j < resolution.y; ++j)
+			for (uint32_t i = 0; i < resolution.x; ++i)
+			{
+				const double u = (i + 0.5) / double(resolution.x);
+				const double v = (j + 0.5) / double(resolution.y);
+
+				float64_t4 rgbaunorm = { u, 0.5, v, 1.0 };
+
+				*packed = {};
+				encodePixels<asset::EF_A2R10G10B10_UNORM_PACK32, double>(packed, (double*)&rgbaunorm);
+				++packed;
+			}
+
+		retval->setPositionView(std::move(positionView));
+	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
