@@ -33,7 +33,7 @@ public:
 		collection_t::const_iterator end;
 	};
 
-	CVertexHashGrid(size_t cellSize, uint32_t hashTableMaxSizeLog2, float vertexCountReserve) :
+	inline CVertexHashGrid(float cellSize, uint32_t hashTableMaxSizeLog2, size_t vertexCountReserve = 8192) :
 		m_cellSize(cellSize),
 		m_hashTableMaxSize(1llu << hashTableMaxSizeLog2),
 		m_sorter(createSorter(vertexCountReserve))
@@ -42,13 +42,13 @@ public:
 	}
 
 	//inserts vertex into hash table
-	void add(VertexData&& vertex)
+	inline void add(VertexData&& vertex)
 	{
 		vertex.setHash(hash(vertex));
 		m_vertices.push_back(std::move(vertex));
 	}
 
-	void bake()
+	inline void bake()
 	{
 		auto scratchBuffer = collection_t(m_vertices.size());
 
@@ -61,15 +61,15 @@ public:
 			m_vertices = std::move(scratchBuffer);
 	}
 
-	const collection_t& vertices() const { return m_vertices; }
+	inline const collection_t& vertices() const { return m_vertices; }
 
 	inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
 	template <HashGridIteratorFn<VertexData> Fn>
-	void forEachBroadphaseNeighborCandidates(const VertexData& vertex, Fn&& fn) const
+	inline void forEachBroadphaseNeighborCandidates(const VertexData& vertex, Fn&& fn) const
 	{
 		std::array<uint32_t, 8> neighboringCells;
-		const auto cellCount = getNeighboringCellHashes(neighboringCells.data(), vertex);
+		const auto cellCount = getNeighboringCellHashes(neighboringCells.data(), vertex.getPosition());
 
 		//iterate among all neighboring cells
 		for (uint8_t i = 0; i < cellCount; i++)
@@ -107,7 +107,7 @@ public:
 private:
 	struct KeyAccessor
 	{
-		constexpr static size_t key_bit_count = 32ull;
+		constexpr static inline size_t key_bit_count = 32ull;
 
 		template<auto bit_offset, auto radix_mask>
 		inline decltype(radix_mask) operator()(const VertexData& item) const
@@ -126,7 +126,7 @@ private:
 		core::RadixLsbSorter<KeyAccessor::key_bit_count, size_t>>;
 	sorter_t m_sorter;
 
-	static sorter_t createSorter(size_t vertexCount)
+	inline static sorter_t createSorter(size_t vertexCount)
 	{
 		if (vertexCount < (0x1ull << 16ull))
 			return core::RadixLsbSorter<KeyAccessor::key_bit_count, uint16_t>();
@@ -139,52 +139,52 @@ private:
 	const uint32_t m_hashTableMaxSize;
 	const float m_cellSize;
 
-	uint32_t hash(const VertexData& vertex) const
+	inline uint32_t hash(const VertexData& vertex) const
 	{
 		const hlsl::float32_t3 position = floor(vertex.getPosition() / m_cellSize);
 		const auto position_uint32 = hlsl::uint32_t3(position.x, position.y, position.z);
 		return hash(position_uint32);
 	}
 
-	uint32_t hash(const hlsl::uint32_t3& position) const
+	inline uint32_t hash(const hlsl::uint32_t3& position) const
 	{
 		return	((position.x * primeNumber1) ^
 			(position.y * primeNumber2) ^
 			(position.z * primeNumber3))& (m_hashTableMaxSize - 1);
 	}
 
-	uint8_t getNeighboringCellHashes(uint32_t* outNeighbors, const VertexData& vertex) const
-	{
-		// both 0.x and -0.x would be converted to 0 if we directly casting the position to unsigned integer. Causing the 0 to be crowded then the rest of the cells. So we use floor here to spread the vertex more uniformly.
-		hlsl::float32_t3 cellfloatcoord = floor(vertex.getPosition() / m_cellSize - hlsl::float32_t3(0.5));
-		hlsl::uint32_t3 baseCoord = hlsl::uint32_t3(static_cast<uint32_t>(cellfloatcoord.x), static_cast<uint32_t>(cellfloatcoord.y), static_cast<uint32_t>(cellfloatcoord.z));
+  inline uint8_t getNeighboringCellHashes(uint32_t* outNeighbors, hlsl::float32_t3 position) const
+  {
+    // both 0.x and -0.x would be converted to 0 if we directly casting the position to unsigned integer. Causing the 0 to be crowded then the rest of the cells. So we use floor here to spread the vertex more uniformly.
+    hlsl::float32_t3 cellfloatcoord = floor(position / m_cellSize - hlsl::float32_t3(0.5));
+    hlsl::uint32_t3 baseCoord = hlsl::uint32_t3(static_cast<uint32_t>(cellfloatcoord.x), static_cast<uint32_t>(cellfloatcoord.y), static_cast<uint32_t>(cellfloatcoord.z));
 
-		uint8_t neighborCount = 0;
+    uint8_t neighborCount = 0;
 
-		outNeighbors[neighborCount] = hash(baseCoord);
-		neighborCount++;
+    outNeighbors[neighborCount] = hash(baseCoord);
+    neighborCount++;
 
-		auto addUniqueNeighbor = [&neighborCount, outNeighbors](uint32_t hashval)
-		{
-			if (std::find(outNeighbors, outNeighbors + neighborCount, hashval) == outNeighbors + neighborCount)
-			{
-				outNeighbors[neighborCount] = hashval;
-				neighborCount++;
-			}
-		};
+    auto addUniqueNeighbor = [&neighborCount, outNeighbors](uint32_t hashval)
+    {
+      if (std::find(outNeighbors, outNeighbors + neighborCount, hashval) == outNeighbors + neighborCount)
+      {
+        outNeighbors[neighborCount] = hashval;
+        neighborCount++;
+      }
+    };
 
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(0, 0, 1)));
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(0, 1, 0)));
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 0, 0)));
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 1, 0)));
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 0, 1)));
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(0, 1, 1)));
-		addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 1, 1)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(0, 0, 1)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(0, 1, 0)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 0, 0)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 1, 0)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 0, 1)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(0, 1, 1)));
+    addUniqueNeighbor(hash(baseCoord + hlsl::uint32_t3(1, 1, 1)));
 
-		return neighborCount;
-	}
+    return neighborCount;
+  }
 
-	BucketBounds getBucketBoundsByHash(uint32_t hash) const
+	inline BucketBounds getBucketBoundsByHash(uint32_t hash) const
 	{
 		const auto skipListBound = std::visit([&](auto& sorter)
 		{
