@@ -42,24 +42,24 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	const size_t idxCount = polygon->getPrimitiveCount() * 3;
 
 	const auto cellCount = std::max<uint32_t>(core::roundUpToPoT<uint32_t>((idxCount + 31) >> 5), 4);
-	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon == 0.0f ? 0.00001f : epsilon * 2.f);
+	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon);
 
 	for (uint32_t i = 0; i < idxCount; i += 3)
 	{
 		//calculate face normal of parent triangle
-		hlsl::float32_t3 v1, v2, v3;
-		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i, v1);
-		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 1, v2);
-		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 2, v3);
+		hlsl::float32_t3 v0, v1, v2;
+		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i, v0);
+		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 1, v1);
+		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 2, v2);
 
-		const auto faceNormal = normalize(cross(v2 - v1, v3 - v1));
+		const auto faceNormal = normalize(cross(v1 - v0, v2 - v0));
 
 		//set data for m_vertices
-		const auto angleWages = hlsl::shapes::util::compInternalAngle(v2 - v3, v1 - v3, v1 - v2);
+		const auto angleWages = hlsl::shapes::util::compInternalAngle(v2 - v1, v0 - v2, v1 - v2);
 
-		vertices.add({ i,	0,	faceNormal * angleWages.x, v1});
-		vertices.add({ i + 1,	0,	faceNormal * angleWages.y,v2});
-		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, v3});
+		vertices.add({ i,	0,	faceNormal * angleWages.x, v0});
+		vertices.add({ i + 1,	0,	faceNormal * angleWages.y,v1});
+		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, v2});
 	}
 
 	vertices.bake();
