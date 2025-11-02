@@ -9,227 +9,243 @@
 namespace nbl::asset {
 
 class CVertexWelder {
-	
-public:
-  using WeldPredicateFn = std::function<bool(const ICPUPolygonGeometry* geom, uint32_t idx1, uint32_t idx2)>;
+    
+  public:
 
-  class DefaultWeldPredicate
-  {
-    private:
-      static bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
-      {
-        if (!view) return true;
-        const auto channelCount = getFormatChannelCount(view.composed.format);
-        switch (view.composed.rangeFormat)
+    class WeldPredicate
+    {
+      public:
+        virtual bool init(const ICPUPolygonGeometry* geom) = 0;
+        virtual bool operator()(const ICPUPolygonGeometry* geom, uint32_t idx1, uint32_t idx2) const = 0;
+        virtual ~WeldPredicate() {};
+    };
+
+    class DefaultWeldPredicate : public WeldPredicate
+    {
+      private:
+
+        static bool isIntegralElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2)
         {
-          case IGeometryBase::EAABBFormat::U64:
-          case IGeometryBase::EAABBFormat::U32:
+          const auto byteSize = getTexelOrBlockBytesize(view.composed.format);
+          const auto* basePtr = reinterpret_cast<const std::byte*>(view.getPointer());
+          const auto stride = view.composed.stride;
+          return (memcmp(basePtr + (index1 * stride), basePtr + (index2 * stride), byteSize) == 0);
+        }
+
+        static bool isRealElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, uint32_t channelCount, float epsilon)
+        {
+          // TODO: Handle 16,32,64 bit float vectors once the pixel encode/decode functions get reimplemented in HLSL and decodeElement can actually benefit from that.
+          hlsl::float64_t4 val1, val2;
+          view.decodeElement<hlsl::float64_t4>(index1, val1);
+          view.decodeElement<hlsl::float64_t4>(index2, val2);
+          for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
           {
-            hlsl::uint64_t4 val1, val2;
-            view.decodeElement<hlsl::uint64_t4>(index1, val1);
-            view.decodeElement<hlsl::uint64_t4>(index2, val2);
-            for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-              if (val1[channel_i] != val2[channel_i]) return false;
-            break;
+            const auto diff = abs(val1[channel_i] - val2[channel_i]);
+            if (diff > epsilon) return false;
           }
-          case IGeometryBase::EAABBFormat::S64:
-          case IGeometryBase::EAABBFormat::S32:
+          return true;
+        }
+
+        static bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
+        {
+          if (!view) return true;
+          const auto channelCount = getFormatChannelCount(view.composed.format);
+          // TODO: use memcmp to compare for integral equality
+          const auto byteSize = getTexelOrBlockBytesize(view.composed.format);
+          switch (view.composed.rangeFormat)
           {
-            hlsl::int64_t4 val1, val2;
-            view.decodeElement<hlsl::int64_t4>(index1, val1);
-            view.decodeElement<hlsl::int64_t4>(index2, val2);
-            for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
-              if (val1[channel_i] != val2[channel_i]) return false;
-            break;
-          }
-          default:
-          {
-            // TODO: Handle 16,32,64 bit float vectors once the pixel encode/decode functions get reimplemented in HLSL and decodeElement can actually benefit from that.
-            hlsl::float64_t4 val1, val2;
-            view.decodeElement<hlsl::float64_t4>(index1, val1);
-            view.decodeElement<hlsl::float64_t4>(index2, val2);
-            for (auto channel_i = 0u; channel_i < channelCount; channel_i++)
+            case IGeometryBase::EAABBFormat::U64:
+            case IGeometryBase::EAABBFormat::U32:
+            case IGeometryBase::EAABBFormat::S64:
+            case IGeometryBase::EAABBFormat::S32:
             {
-              const auto diff = abs(val1[channel_i] - val2[channel_i]);
-              if (diff > epsilon) return false;
+              return isIntegralElementEqual(view, index1, index2);
             }
-            break;
+            default:
+            {
+              return isRealElementEqual(view, index1, index2, channelCount, epsilon);
+            }
           }
+          return true;
         }
-        return true;
-      }
 
-      static bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
-      {
-        if (!view) return true;
-        const auto channelCount = getFormatChannelCount(view.composed.format);
-        switch (view.composed.rangeFormat)
+        static bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
         {
-          case IGeometryBase::EAABBFormat::U64:
-          case IGeometryBase::EAABBFormat::U32:
+          if (!view) return true;
+          const auto channelCount = getFormatChannelCount(view.composed.format);
+          switch (view.composed.rangeFormat)
           {
-            hlsl::uint64_t4 val1, val2;
-            view.decodeElement<hlsl::uint64_t4>(index1, val1);
-            view.decodeElement<hlsl::uint64_t4>(index2, val2);
-            return (1.0 - hlsl::dot(val1, val2)) < epsilon;
-          }
-          case IGeometryBase::EAABBFormat::S64:
-          case IGeometryBase::EAABBFormat::S32:
-          {
-            hlsl::int64_t4 val1, val2;
-            view.decodeElement<hlsl::int64_t4>(index1, val1);
-            view.decodeElement<hlsl::int64_t4>(index2, val2);
-            return (1.0 - hlsl::dot(val1, val2)) < epsilon;
-          }
-          default:
-          {
-            hlsl::float64_t4 val1, val2;
-            view.decodeElement<hlsl::float64_t4>(index1, val1);
-            view.decodeElement<hlsl::float64_t4>(index2, val2);
-            return (1.0 - hlsl::dot(val1, val2)) < epsilon;
+            case IGeometryBase::EAABBFormat::U64:
+            case IGeometryBase::EAABBFormat::U32:
+            case IGeometryBase::EAABBFormat::S64:
+            case IGeometryBase::EAABBFormat::S32:
+            {
+              return isIntegralElementEqual(view, index1, index2);
+            }
+            default:
+            {
+              if (channelCount != 3)
+                return isRealElementEqual(view, index1, index2, channelCount, epsilon);
+
+              hlsl::float64_t4 val1, val2;
+              view.decodeElement<hlsl::float64_t4>(index1, val1);
+              view.decodeElement<hlsl::float64_t4>(index2, val2);
+              return (1.0 - hlsl::dot(val1, val2)) < epsilon;
+            }
           }
         }
-        return true;
-      }
 
-      float m_epsilon;
+        float m_epsilon;
 
-    public:
+      public:
 
-      DefaultWeldPredicate(float epsilon) : m_epsilon(epsilon) {}
+        DefaultWeldPredicate(float epsilon) : m_epsilon(epsilon) {}
 
-      bool operator()(const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2)
-      {
-        if (!isAttributeValEqual(polygon->getPositionView(), index1, index2, m_epsilon))
-          return false;
-        if (!isAttributeDirEqual(polygon->getNormalView(), index1, index2, m_epsilon))
-          return false;
-        for (const auto& jointWeightView : polygon->getJointWeightViews())
+        bool init(const ICPUPolygonGeometry* polygon) override
         {
-          if (!isAttributeValEqual(jointWeightView.indices, index1, index2, m_epsilon)) return false;
-          if (!isAttributeValEqual(jointWeightView.weights, index1, index2, m_epsilon)) return false;
+          return polygon->valid();
         }
-        for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
-          if (!isAttributeValEqual(auxAttributeView, index1, index2, m_epsilon)) return false;
 
-        return true;
-      }
-        
-  };
-
-  template <typename AccelStructureT>
-  static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, WeldPredicateFn shouldWeldFn) {
-    auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
-    outPolygon->setIndexing(IPolygonGeometryBase::TriangleList());
-
-    core::vector<uint32_t> vertexIndexToAsIndex(as.getVertexCount());
-
-    for (uint32_t vertexData_i = 0u; vertexData_i < as.getVertexCount(); vertexData_i++)
-    {
-      const auto& vertexData = as.vertices()[vertexData_i];
-      vertexIndexToAsIndex[vertexData.index] = vertexData.index;
-    }
-
-    static constexpr auto INVALID_INDEX = std::numeric_limits<uint32_t>::max();
-    core::vector<uint32_t> remappedVertexIndexes(as.getVertexCount());
-    std::fill(remappedVertexIndexes.begin(), remappedVertexIndexes.end(), INVALID_INDEX);
-
-    uint32_t maxRemappedIndex = 0;
-    // iterate by index, so that we always use the smallest index when multiple vertexes can be welded together
-    for (uint32_t index = 0; index < as.getVertexCount(); index++)
-    {
-      const auto asIndex = vertexIndexToAsIndex[index];
-      const auto& vertexData = as.vertices()[asIndex];
-      auto& remappedVertexIndex = remappedVertexIndexes[index];
-      as.forEachBroadphaseNeighborCandidates(vertexData, [&, polygon, index](const typename AccelStructureT::vertex_data_t& neighbor) {
-        const auto neighborRemappedIndex = remappedVertexIndexes[neighbor.index];
-        if (shouldWeldFn(polygon, index, neighbor.index) && neighborRemappedIndex != INVALID_INDEX) {
-          remappedVertexIndex = neighborRemappedIndex;
-          return false;
-        }
-        return true;
-      });
-      if (remappedVertexIndex != INVALID_INDEX) {
-        remappedVertexIndex = vertexData.index;
-        maxRemappedIndex = vertexData.index;
-      }
-    }
-
-    const auto& indexView = outPolygon->getIndexView();
-    if (indexView)
-    {
-      auto remappedIndexView = [&]
-      {
-        const auto bytesize = indexView.src.size;
-        auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
-
-        auto retval = indexView;
-        retval.src.buffer = std::move(indices);
-        if (retval.composed.rangeFormat == IGeometryBase::EAABBFormat::U16)
-          retval.composed.encodedDataRange.u16.maxVx[0] = maxRemappedIndex;
-        else if (retval.composed.rangeFormat == IGeometryBase::EAABBFormat::U32)
-          retval.composed.encodedDataRange.u32.maxVx[0] = maxRemappedIndex;
-
-        return retval;
-      }();
-
-
-      auto remappedIndexes = [&]<typename IndexT>() {
-        auto* indexPtr = reinterpret_cast<IndexT*>(remappedIndexView.getPointer());
-        for (uint64_t index_i = 0; index_i < polygon->getIndexCount(); index_i++)
+        bool operator()(const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2) const override
         {
-          hlsl::vector<IndexT, 1> index;
-          indexView.decodeElement<hlsl::vector<IndexT, 1>>(index_i, index);
-          IndexT remappedIndex = remappedVertexIndexes[index.x];
-          indexPtr[index_i] = remappedIndex;
+          if (!isAttributeValEqual(polygon->getPositionView(), index1, index2, m_epsilon))
+            return false;
+          if (!isAttributeDirEqual(polygon->getNormalView(), index1, index2, m_epsilon))
+            return false;
+          for (const auto& jointWeightView : polygon->getJointWeightViews())
+          {
+            if (!isAttributeValEqual(jointWeightView.indices, index1, index2, m_epsilon)) return false;
+            if (!isAttributeValEqual(jointWeightView.weights, index1, index2, m_epsilon)) return false;
+          }
+          for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
+            if (!isAttributeValEqual(auxAttributeView, index1, index2, m_epsilon)) return false;
+
+          return true;
         }
+
+        ~DefaultWeldPredicate() override {}
+          
+    };
+
+    template <typename AccelStructureT>
+    static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, const WeldPredicate& shouldWeldFn) {
+      auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
+
+      const auto& positionView = polygon->getPositionView();
+      const auto vertexCount = positionView.getElementCount();
+
+      static constexpr auto INVALID_INDEX = std::numeric_limits<uint32_t>::max();
+      core::vector<uint32_t> remappedVertexIndexes(vertexCount);
+      std::fill(remappedVertexIndexes.begin(), remappedVertexIndexes.end(), INVALID_INDEX);
+
+      uint32_t maxRemappedIndex = 0;
+      // iterate by index, so that we always use the smallest index when multiple vertexes can be welded together
+      for (uint32_t index = 0; index < vertexCount; index++)
+      {
+        hlsl::float32_t3 position;
+        positionView.decodeElement<hlsl::float32_t3>(index, position);
+        auto remappedVertexIndex = INVALID_INDEX;
+        bool foundVertex = false;
+        as.forEachBroadphaseNeighborCandidates(position, [&](const typename AccelStructureT::vertex_data_t& candidate) {
+          const auto neighborRemappedIndex = remappedVertexIndexes[candidate.index];
+          if (index == candidate.index) {
+            foundVertex = true;
+          }
+          else if (neighborRemappedIndex != INVALID_INDEX && shouldWeldFn(polygon, index, candidate.index)) {
+            remappedVertexIndex = neighborRemappedIndex;
+          }
+          return !(foundVertex && remappedVertexIndex != INVALID_INDEX);
+        });
+        if (foundVertex)
+        {
+          if (remappedVertexIndex == INVALID_INDEX) {
+            remappedVertexIndex = index;
+            maxRemappedIndex = index;
+          }
+        }
+        remappedVertexIndexes[index] = remappedVertexIndex;
+      }
+
+      const auto& indexView = outPolygon->getIndexView();
+      const auto remappedRangeFormat = (maxRemappedIndex - 1) < std::numeric_limits<uint16_t>::max() ? IGeometryBase::EAABBFormat::U16 : IGeometryBase::EAABBFormat::U32;
+
+      auto createRemappedIndexView = [&](size_t indexCount) {
+        const uint32_t indexSize = remappedRangeFormat == IGeometryBase::EAABBFormat::U16 ? sizeof(uint16_t) : sizeof(uint32_t);
+        auto remappedIndexBuffer = ICPUBuffer::create({indexSize * indexCount, IBuffer::EUF_INDEX_BUFFER_BIT});
+        auto remappedIndexView = ICPUPolygonGeometry::SDataView{
+          .composed = {
+            .stride = indexSize,
+            .rangeFormat = remappedRangeFormat
+          },
+          .src = {
+            .offset = 0,
+            .size = remappedIndexBuffer->getSize(),
+            .buffer = std::move(remappedIndexBuffer)
+          }
+        };
+
+        if (remappedRangeFormat == IGeometryBase::EAABBFormat::U16)
+        {
+          hlsl::shapes::AABB<4, uint16_t> aabb;
+          aabb.minVx[0] = 0;
+          aabb.maxVx[0] = maxRemappedIndex;
+          remappedIndexView.composed.encodedDataRange.u16 = aabb;
+          remappedIndexView.composed.format = EF_R16_UINT;
+        }
+        else if (remappedRangeFormat == IGeometryBase::EAABBFormat::U32) {
+          hlsl::shapes::AABB<4, uint32_t> aabb;
+          aabb.minVx[0] = 0;
+          aabb.maxVx[0] = maxRemappedIndex;
+          remappedIndexView.composed.encodedDataRange.u32 = aabb;
+          remappedIndexView.composed.format = EF_R32_UINT;
+        }
+
+        return remappedIndexView;
       };
 
-      if (indexView.composed.rangeFormat == IGeometryBase::EAABBFormat::U16) {
-        remappedIndexes.template operator()<uint16_t>();
-      }
-      else if (indexView.composed.rangeFormat == IGeometryBase::EAABBFormat::U32) {
-        remappedIndexes.template operator()<uint32_t>();
-      }
 
-      outPolygon->setIndexView(std::move(remappedIndexView));
-    } else
-    {
-      const uint32_t indexSize = (outPolygon->getPositionView().getElementCount() - 1 < std::numeric_limits<uint16_t>::max()) ? sizeof(uint16_t) : sizeof(uint32_t);
-      auto remappedIndexBuffer = ICPUBuffer::create({indexSize * outPolygon->getVertexReferenceCount(), IBuffer::EUF_INDEX_BUFFER_BIT});
-      auto remappedIndexView = ICPUPolygonGeometry::SDataView{
-        .composed = {
-          .stride = indexSize,
-        },
-        .src = {
-          .offset = 0,
-          .size = remappedIndexBuffer->getSize(),
-          .buffer = std::move(remappedIndexBuffer)
+      if (indexView)
+      {
+        auto remappedIndexView = createRemappedIndexView(polygon->getIndexCount());
+        auto remappedIndexes = [&]<typename IndexT>() {
+          auto* remappedIndexPtr = reinterpret_cast<IndexT*>(remappedIndexView.getPointer());
+          for (uint32_t index_i = 0; index_i < polygon->getIndexCount(); index_i++)
+          {
+            hlsl::vector<IndexT, 1> index;
+            indexView.decodeElement<hlsl::vector<IndexT, 1>>(index_i, index);
+            IndexT remappedIndex = remappedVertexIndexes[index.x];
+            remappedIndexPtr[index_i] = remappedIndex;
+          }
+        };
+
+        if (remappedRangeFormat == IGeometryBase::EAABBFormat::U16) {
+          remappedIndexes.template operator()<uint16_t>();
         }
-      };
-
-      auto fillRemappedIndex = [&]<typename IndexT>(){
-        auto remappedIndexBufferPtr = reinterpret_cast<IndexT*>(remappedIndexBuffer->getPointer());
-        for (uint64_t index = 0; index < outPolygon->getPositionView().getElementCount(); index++)
-        {
-          remappedIndexBufferPtr[index] = remappedVertexIndexes[index];
+        else if (remappedRangeFormat == IGeometryBase::EAABBFormat::U32) {
+          remappedIndexes.template operator()<uint32_t>();
         }
-      };
 
-      if (indexView.composed.rangeFormat == IGeometryBase::EAABBFormat::U16) {
-        fillRemappedIndex.template operator()<uint16_t>();
+        outPolygon->setIndexView(std::move(remappedIndexView));
+      } else
+      {
+        auto remappedIndexView = createRemappedIndexView(remappedVertexIndexes.size());
+
+        auto fillRemappedIndex = [&]<typename IndexT>(){
+          auto remappedIndexBufferPtr = reinterpret_cast<IndexT*>(remappedIndexView.getPointer());
+          std::copy_n(remappedVertexIndexes.data(), remappedVertexIndexes.size(), remappedIndexBufferPtr);
+        };
+        if (remappedRangeFormat == IGeometryBase::EAABBFormat::U16) {
+          fillRemappedIndex.template operator()<uint16_t>();
+        }
+        else if (remappedRangeFormat == IGeometryBase::EAABBFormat::U32) {
+          fillRemappedIndex.template operator()<uint32_t>();
+        }
+        outPolygon->setIndexView(std::move(remappedIndexView));
       }
-      else if (indexView.composed.rangeFormat == IGeometryBase::EAABBFormat::U32) {
-        fillRemappedIndex.template operator()<uint32_t>();
-      }
-      
-      outPolygon->setIndexView(std::move(remappedIndexView));
-      
+
+      CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
+      return outPolygon;
     }
-
-    CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
-    return outPolygon;
-  }
 };
 
 }
