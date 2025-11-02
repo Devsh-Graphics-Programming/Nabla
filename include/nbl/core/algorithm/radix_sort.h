@@ -91,8 +91,9 @@ struct RadixLsbSorter
 			std::exclusive_scan(m_histogram, m_histogram + histogram_size, m_histogram, 0);
 
 			// scatter. After scatter m_histogram now become a skiplist
-			for (histogram_t i = 0; i < rangeSize; i++)
+			for (histogram_t i = rangeSize; i != 0;)
 			{
+				i--;
         const auto& val = input[i];
         const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
         output[m_histogram[histogramIx]++] = val;
