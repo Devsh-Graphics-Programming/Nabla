@@ -510,12 +510,25 @@ struct Dielectric
 };
 
 // adapted from https://belcour.github.io/blog/research/publication/2017/05/01/brdf-thin-film.html
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+template<typename T, bool SupportsTransmission NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct Iridescent
 {
+    using this_t = Iridescent<T,SupportsTransmission>;
     using scalar_type = typename vector_traits<T>::scalar_type;
     using monochrome_type = vector<scalar_type, 1>;
     using vector_type = T;  // assert dim==3?
+
+    static this_t create(scalar_type Dinc, vector_type ior1, vector_type ior2, vector_type ior3, vector_type iork3)
+    {
+        this_t retval;
+        retval.Dinc = Dinc;
+        retval.eta12 = ior2/ior1;
+        retval.eta23 = ior3/ior2;
+        retval.etak23 = scalar_type(0.0);
+        NBL_IF_CONSTEXPR(SupportsTransmission)
+            retval.etak23 = iork3/ior2;
+        return retval;
+    }
 
     // returns reflectance R = (rp, rs), phi is the phase shift for each plane of polarization (p,s)
     static void phase_shift(const vector_type orientedEta, const vector_type orientedEtak, const vector_type cosTheta, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
@@ -552,18 +565,15 @@ struct Iridescent
         return xyz / scalar_type(1.0685e-7);
     }
 
-    T operator()()
+    T operator()(const scalar_type clampedCosTheta /* LdotH */)
     {
         const vector_type wavelengths = vector_type(colorspace::scRGB::wavelength_R, colorspace::scRGB::wavelength_G, colorspace::scRGB::wavelength_B);
 
-        vector_type eta12 = ior2/ior1;
-        vector_type eta23 = ior3/ior2;
-        vector_type etak23 = iork3/ior2;
-        scalar_type cosTheta_1 = absCosTheta;
+        scalar_type cosTheta_1 = clampedCosTheta;
         vector_type cosTheta_2;
 
         vector_type R12p, R23p, R12s, R23s;
-        const vector_type scale = ior1/ior2;
+        const vector_type scale = scalar_type(1.0)/eta12;
         const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(1-cosTheta_1*cosTheta_1) * scale * scale;
 
         cosTheta_2 = hlsl::sqrt(cosTheta2_2);
@@ -571,7 +581,7 @@ struct Iridescent
 
         // Reflected part by the base
         // if kappa==0, base material is dielectric
-        if (hlsl::all<vector<bool, vector_traits<T>::Dimension> >(iork3 < hlsl::promote<vector_type>(hlsl::numeric_limits<scalar_type>::min)))
+        NBL_IF_CONSTEXPR(SupportsTransmission)
             Dielectric<vector_type>::__polarized(eta23, cosTheta_2, R23p, R23s);
         else
             Conductor<vector_type>::__polarized(eta23, etak23, cosTheta_2, R23p, R23s);
@@ -635,12 +645,32 @@ struct Iridescent
         return hlsl::max(colorspace::scRGB::FromXYZ(I), hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
     }
 
-    scalar_type absCosTheta;// LdotH
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return eta23[0]; }
+    OrientedEtaRcps<monochrome_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtaRcps<monochrome_type> rcpEta;
+        rcpEta.value = hlsl::promote<monochrome_type>(1.0) / eta23[0];
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
+    }
+
+    this_t getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
+    {
+        const bool flip = NdotI < scalar_type(0.0);
+        this_t orientedFresnel;
+        orientedFresnel.Dinc = Dinc;
+        orientedFresnel.eta12 = hlsl::mix(eta12, hlsl::promote<vector_type>(1.0)/eta12, flip);
+        orientedFresnel.eta23 = hlsl::mix(eta23, hlsl::promote<vector_type>(1.0)/eta23, flip);
+        orientedFresnel.etak23 = hlsl::promote<vector_type>(0.0);
+        NBL_IF_CONSTEXPR(SupportsTransmission)
+            orientedFresnel.etak23 = hlsl::mix(etak23, hlsl::promote<vector_type>(1.0)/etak23, flip);
+        return orientedFresnel;
+    }
+
     scalar_type Dinc;       // thickness of thin film in nanometers, rec. 100-25000nm
-    vector_type ior1;       // usually air (1.0)
-    vector_type ior2;       // thin-film index
-    vector_type ior3;       // complex conductor index, k==0 makes dielectric
-    vector_type iork3;
+    vector_type eta12;      // outside (usually air 1.0) -> thin-film IOR
+    vector_type eta23;      // thin-film -> base material IOR
+    vector_type etak23;     // thin-film -> complex component, k==0 makes dielectric
 };
 
 
