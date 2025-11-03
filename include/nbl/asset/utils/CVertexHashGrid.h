@@ -66,26 +66,6 @@ public:
 	inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
 	template <HashGridIteratorFn<VertexData> Fn>
-	inline void forEachBroadphaseNeighborCandidates(const VertexData& vertex, Fn&& fn) const
-	{
-		std::array<uint32_t, 8> neighboringCells;
-		const auto cellCount = getNeighboringCellHashes(neighboringCells.data(), vertex.getPosition());
-
-		//iterate among all neighboring cells
-		for (uint8_t i = 0; i < cellCount; i++)
-		{
-			const auto& neighborCell = neighboringCells[i];
-			BucketBounds bounds = getBucketBoundsByHash(neighborCell);
-			for (; bounds.begin != bounds.end; bounds.begin++)
-			{
-				const vertex_data_t& neighborVertex = *bounds.begin;
-				if (&vertex != &neighborVertex)
-					if (!std::invoke(std::forward<Fn>(fn), neighborVertex)) break;
-			}
-		}
-	}
-
-	template <HashGridIteratorFn<VertexData> Fn>
 	inline void forEachBroadphaseNeighborCandidates(const hlsl::float32_t3& position, Fn&& fn) const
 	{
 		std::array<uint32_t, 8> neighboringCells;

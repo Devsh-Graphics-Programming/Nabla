@@ -99,9 +99,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	{
 		auto normal = processedVertex.weightedNormal;
 
-		vertexHashMap.forEachBroadphaseNeighborCandidates(processedVertex, [&](const VertexHashMap::vertex_data_t& candidate)
+		vertexHashMap.forEachBroadphaseNeighborCandidates(processedVertex.getPosition(), [&](const VertexHashMap::vertex_data_t& candidate)
 			{
-				if (compareVertexPosition(processedVertex.position, candidate.position, epsilon) &&
+				if (processedVertex.index != candidate.index && compareVertexPosition(processedVertex.position, candidate.position, epsilon) &&
 					vxcmp(processedVertex, candidate, polygon))
 				{
 					//TODO: better mean calculation algorithm
