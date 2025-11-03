@@ -25,7 +25,7 @@ class CVertexWelder {
       public:
         virtual bool init(const ICPUPolygonGeometry* geom) = 0;
         virtual bool operator()(const ICPUPolygonGeometry* geom, uint32_t idx1, uint32_t idx2) const = 0;
-        virtual ~WeldPredicate() {};
+        virtual ~WeldPredicate() = default;
     };
 
     class DefaultWeldPredicate : public WeldPredicate
@@ -131,7 +131,7 @@ class CVertexWelder {
           return true;
         }
 
-        ~DefaultWeldPredicate() override {}
+        ~DefaultWeldPredicate() override = default;
           
     };
 
