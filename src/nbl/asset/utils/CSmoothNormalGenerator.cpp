@@ -32,8 +32,9 @@ static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32
 CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, VxCmpFunction vxcmp)
 {
 	assert(polygon->getIndexingCallback()->degree() == 3);
-	VertexHashMap vertexHashMap = setupData(polygon, epsilon);
-	const auto patchedEpsilon = epsilon == 0.0f ? 0.00001f : epsilon * 2.f;
+	static constexpr auto MinEpsilon = 0.00001f;
+	const auto patchedEpsilon = epsilon < MinEpsilon ? MinEpsilon : epsilon;
+	VertexHashMap vertexHashMap = setupData(polygon, patchedEpsilon);
 	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, patchedEpsilon,vxcmp);
 	return { vertexHashMap, smoothPolygon };
 }
@@ -44,7 +45,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	const size_t idxCount = polygon->getPrimitiveCount() * 3;
 
 	const auto cellCount = std::max<uint32_t>(core::roundUpToPoT<uint32_t>((idxCount + 31) >> 5), 4);
-	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon);
+	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon * 2.f);
 
 	for (uint32_t i = 0; i < idxCount; i += 3)
 	{
