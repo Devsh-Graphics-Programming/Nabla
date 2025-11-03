@@ -19,7 +19,6 @@ class CSmoothNormalGenerator
     struct VertexData
     {
       uint32_t index;									     //offset of the vertex into index buffer
-			// TODO: check whether separating hash and position into its own vector or even rehash the position everytime we need will result in VertexHashGrid become faster.
 			uint32_t hash;
       hlsl::float32_t3 weightedNormal;
       hlsl::float32_t3 position;							   //position of the vertex in 3D space
