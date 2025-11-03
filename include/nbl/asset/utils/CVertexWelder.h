@@ -32,7 +32,7 @@ class CVertexWelder {
     {
       private:
 
-        static bool isIntegralElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2)
+        static inline bool isIntegralElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2)
         {
           const auto byteSize = getTexelOrBlockBytesize(view.composed.format);
           const auto* basePtr = reinterpret_cast<const std::byte*>(view.getPointer());
@@ -40,7 +40,7 @@ class CVertexWelder {
           return (memcmp(basePtr + (index1 * stride), basePtr + (index2 * stride), byteSize) == 0);
         }
 
-        static bool isRealElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, uint32_t channelCount, float epsilon)
+        static inline bool isRealElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, uint32_t channelCount, float epsilon)
         {
           // TODO: Handle 16,32,64 bit float vectors once the pixel encode/decode functions get reimplemented in HLSL and decodeElement can actually benefit from that.
           hlsl::float64_t4 val1, val2;
@@ -54,7 +54,7 @@ class CVertexWelder {
           return true;
         }
 
-        static bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
+        static inline bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
         {
           if (!view) return true;
           const auto channelCount = getFormatChannelCount(view.composed.format);
@@ -77,7 +77,7 @@ class CVertexWelder {
           return true;
         }
 
-        static bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
+        static inline bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
         {
           if (!view) return true;
           const auto channelCount = getFormatChannelCount(view.composed.format);
@@ -109,12 +109,12 @@ class CVertexWelder {
 
         DefaultWeldPredicate(float epsilon) : m_epsilon(epsilon) {}
 
-        bool init(const ICPUPolygonGeometry* polygon) override
+        inline bool init(const ICPUPolygonGeometry* polygon) override
         {
           return polygon->valid();
         }
 
-        bool operator()(const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2) const override
+        inline bool operator()(const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2) const override
         {
           if (!isAttributeValEqual(polygon->getPositionView(), index1, index2, m_epsilon))
             return false;
@@ -136,7 +136,7 @@ class CVertexWelder {
     };
 
     template <VertexWelderAccelerationStructure AccelStructureT>
-    static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, const WeldPredicate& shouldWeldFn) {
+    static inline core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, const WeldPredicate& shouldWeldFn) {
       auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 
       const auto& positionView = polygon->getPositionView();
