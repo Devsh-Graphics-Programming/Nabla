@@ -107,7 +107,7 @@ class CVertexWelder {
 
       public:
 
-        DefaultWeldPredicate(float epsilon) : m_epsilon(epsilon) {}
+        inline DefaultWeldPredicate(float epsilon) : m_epsilon(epsilon) {}
 
         inline bool init(const ICPUPolygonGeometry* polygon) override
         {
@@ -131,7 +131,7 @@ class CVertexWelder {
           return true;
         }
 
-        ~DefaultWeldPredicate() override = default;
+        inline ~DefaultWeldPredicate() override = default;
           
     };
 
