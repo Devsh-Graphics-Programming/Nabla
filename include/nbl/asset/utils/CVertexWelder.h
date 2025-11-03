@@ -142,7 +142,7 @@ class CVertexWelder {
       const auto& positionView = polygon->getPositionView();
       const auto vertexCount = positionView.getElementCount();
 
-      static constexpr auto INVALID_INDEX = std::numeric_limits<uint32_t>::max();
+      constexpr auto INVALID_INDEX = std::numeric_limits<uint32_t>::max();
       core::vector<uint32_t> remappedVertexIndexes(vertexCount);
       std::fill(remappedVertexIndexes.begin(), remappedVertexIndexes.end(), INVALID_INDEX);
 

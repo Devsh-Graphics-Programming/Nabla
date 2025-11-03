@@ -83,7 +83,7 @@ public:
 					if (!std::invoke(std::forward<Fn>(fn), neighborVertex)) break;
 			}
 		}
-	};
+	}
 
 	template <HashGridIteratorFn<VertexData> Fn>
 	inline void forEachBroadphaseNeighborCandidates(const hlsl::float32_t3& position, Fn&& fn) const
@@ -102,7 +102,7 @@ public:
 				if (!std::invoke(std::forward<Fn>(fn), neighborVertex)) break;
 			}
 		}
-	};
+	}
 
 private:
 	struct KeyAccessor
@@ -116,9 +116,9 @@ private:
 		}
 	};
 
-	static constexpr uint32_t primeNumber1 = 73856093;
-	static constexpr uint32_t primeNumber2 = 19349663;
-	static constexpr uint32_t primeNumber3 = 83492791;
+	static constexpr inline uint32_t primeNumber1 = 73856093;
+	static constexpr inline uint32_t primeNumber2 = 19349663;
+	static constexpr inline uint32_t primeNumber3 = 83492791;
 
 	using sorter_t = std::variant<
 		core::RadixLsbSorter<KeyAccessor::key_bit_count, uint16_t>,

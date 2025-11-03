@@ -231,10 +231,10 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_COUNT
 		};
 
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
 
 		using SSNGVxCmpFunction = CSmoothNormalGenerator::VxCmpFunction;
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, bool enableWelding = false, float epsilon = 1.525e-5f,
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, bool enableWelding = false, float epsilon = 1.525e-5f,
 				SSNGVxCmpFunction vxcmp = [](const CSmoothNormalGenerator::SSNGVertexData& v0, const CSmoothNormalGenerator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
