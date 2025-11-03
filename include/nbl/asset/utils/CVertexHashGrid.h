@@ -166,6 +166,7 @@ private:
 		// |2e|e|
 		// In the example,x is snapped into a different cell which is the most bottom left cell that could collide with x. Since we have move it into its bottom left candidate, there is no need to check to the bottom and to the left of the snapped coordinate. We only need to check the upper and to the right of the snapped cell, which include the original cell. Note that we do not need to check the upper and to the right of the original cell. The cell size is 2 * epsilon and x is located on the lower and lefter side of the cell.
 		// Contrary to x, y is still snapped into its original cell. It means the most bottom left cell that collide with y is its own cell.
+		// The above scheme is to reduce the number of cell candidates that we need to check for collision, from 9 cell to 4 cell in 2d, or from 27 cells to 8 cells in 3d.
 		// both 0.x and -0.x would be converted to 0 if we directly casting the position to unsigned integer. Causing the 0 to be crowded then the rest of the cells. So we use floor here to spread the vertex more uniformly.
 		hlsl::float32_t3 cellfloatcoord = floor(position / m_cellSize - hlsl::float32_t3(0.5));
 		hlsl::uint32_t3 baseCoord = hlsl::uint32_t3(static_cast<uint32_t>(cellfloatcoord.x), static_cast<uint32_t>(cellfloatcoord.y), static_cast<uint32_t>(cellfloatcoord.z));
