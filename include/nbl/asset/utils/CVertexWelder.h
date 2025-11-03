@@ -215,7 +215,7 @@ class CVertexWelder {
       if (indexView)
       {
         auto remappedIndexView = createRemappedIndexView(polygon->getIndexCount());
-        auto remappedIndexes = [&]<typename IndexT>() {
+        auto remappedIndexes = [&]<typename IndexT>() -> bool {
           auto* remappedIndexPtr = reinterpret_cast<IndexT*>(remappedIndexView.getPointer());
           for (uint32_t index_i = 0; index_i < polygon->getIndexCount(); index_i++)
           {
@@ -223,31 +223,40 @@ class CVertexWelder {
             indexView.decodeElement<hlsl::vector<IndexT, 1>>(index_i, index);
             IndexT remappedIndex = remappedVertexIndexes[index.x];
             remappedIndexPtr[index_i] = remappedIndex;
+            if (remappedIndex == INVALID_INDEX) return false;
           }
+          return true;
         };
 
         if (remappedRangeFormat == IGeometryBase::EAABBFormat::U16) {
-          remappedIndexes.template operator()<uint16_t>();
+          if (!remappedIndexes.template operator()<uint16_t>()) return nullptr;
         }
         else if (remappedRangeFormat == IGeometryBase::EAABBFormat::U32) {
-          remappedIndexes.template operator()<uint32_t>();
+          if (!remappedIndexes.template operator()<uint32_t>()) return nullptr;
         }
 
         outPolygon->setIndexView(std::move(remappedIndexView));
+
       } else
       {
         auto remappedIndexView = createRemappedIndexView(remappedVertexIndexes.size());
 
         auto fillRemappedIndex = [&]<typename IndexT>(){
           auto remappedIndexBufferPtr = reinterpret_cast<IndexT*>(remappedIndexView.getPointer());
-          std::copy_n(remappedVertexIndexes.data(), remappedVertexIndexes.size(), remappedIndexBufferPtr);
+          for (uint32_t index_i = 0; index_i < remappedVertexIndexes.size(); index_i++)
+          {
+            if (remappedVertexIndexes[index_i] == INVALID_INDEX) return false;
+            remappedIndexBufferPtr[index_i] = remappedVertexIndexes[index_i];
+          }
+          return true;
         };
         if (remappedRangeFormat == IGeometryBase::EAABBFormat::U16) {
-          fillRemappedIndex.template operator()<uint16_t>();
+          if (!fillRemappedIndex.template operator()<uint16_t>()) return nullptr;
         }
         else if (remappedRangeFormat == IGeometryBase::EAABBFormat::U32) {
-          fillRemappedIndex.template operator()<uint32_t>();
+          if (!fillRemappedIndex.template operator()<uint32_t>()) return nullptr;
         }
+
         outPolygon->setIndexView(std::move(remappedIndexView));
       }
 

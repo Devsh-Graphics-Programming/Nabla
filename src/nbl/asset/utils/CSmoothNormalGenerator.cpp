@@ -31,8 +31,10 @@ static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32
 
 CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, VxCmpFunction vxcmp)
 {
+	assert(polygon->getIndexingCallback()->degree() == 3);
 	VertexHashMap vertexHashMap = setupData(polygon, epsilon);
-	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, epsilon,vxcmp);
+	const auto patchedEpsilon = epsilon == 0.0f ? 0.00001f : epsilon * 2.f;
+	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, patchedEpsilon,vxcmp);
 	return { vertexHashMap, smoothPolygon };
 }
 
