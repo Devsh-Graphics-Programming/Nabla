@@ -1982,7 +1982,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createGrid(const h
 		aabb.maxVx = float32_t4((resolution.x - 0.5f) / float(resolution.x), 0.5f, (resolution.y - 0.5f) / float(resolution.y), 1.f);
 		aabb.minVx = float32_t4(0.5f / float(resolution.x), 0.5f, 0.5f / float(resolution.y), 1.f);
 
-		const auto stride = getTexelOrBlockBytesize<EF_A2R10G10B10_UNORM_PACK32>();
+		static constexpr auto stride = getTexelOrBlockBytesize<EF_A2R10G10B10_UNORM_PACK32>();
 		const auto bytes = stride * vertexCount;
 		auto buffer = ICPUBuffer::create({ bytes, IBuffer::EUF_NONE });
 		ICPUPolygonGeometry::SDataView positionView = {
