@@ -49,7 +49,11 @@ struct SDeltaDistribution
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    {
+        return 0;
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         return 0;
     }
@@ -71,6 +75,7 @@ template<typename C>
 struct traits<bxdf::transmission::SDeltaDistribution<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
