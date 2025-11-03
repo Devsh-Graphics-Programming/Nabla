@@ -10,7 +10,6 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
-#include "nbl/asset/utils/CVertexHashGrid.h"
 
 namespace nbl::asset
 {
@@ -269,14 +268,14 @@ class NBL_API2 CPolygonGeometryManipulator
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
 
-        //! Compares two attributes of floating point types in accordance with passed error metric.
-        /**
-        @param _a First attribute.
-        @param _b Second attribute.
-        @param _cpa Component count.
-        @param _errMetric Error metric info.
-        */
-        static inline bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric)
+				//! Compares two attributes of floating point types in accordance with passed error metric.
+				/**
+				@param _a First attribute.
+				@param _b Second attribute.
+				@param _cpa Component count.
+				@param _errMetric Error metric info.
+				*/
+				static inline bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric)
 		{
 			using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
 
@@ -357,41 +356,41 @@ class NBL_API2 CPolygonGeometryManipulator
 		}
 		
 
-        //! Swaps the index buffer for a new index buffer with invalid triangles removed.
-        /**
-        Invalid triangle is such consisting of two or more same indices.
-        @param _input Input index buffer.
-        @param _idxType Type of indices in the index buffer.
-        @returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
-        */
-        static void filterInvalidTriangles(ICPUMeshBuffer* _input);
+				//! Swaps the index buffer for a new index buffer with invalid triangles removed.
+				/**
+				Invalid triangle is such consisting of two or more same indices.
+				@param _input Input index buffer.
+				@param _idxType Type of indices in the index buffer.
+				@returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
+				*/
+				static void filterInvalidTriangles(ICPUMeshBuffer* _input);
 
-        //! Creates index buffer from input converting it to indices for line list primitives. Input is assumed to be indices for line strip.
-        /**
-        @param _input Input index buffer's data.
-        @param _idxCount Index count.
-        @param _inIndexType Type of input index buffer data (32bit or 16bit).
-        @param _outIndexType Type of output index buffer data (32bit or 16bit).
-        */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+				//! Creates index buffer from input converting it to indices for line list primitives. Input is assumed to be indices for line strip.
+				/**
+				@param _input Input index buffer's data.
+				@param _idxCount Index count.
+				@param _inIndexType Type of input index buffer data (32bit or 16bit).
+				@param _outIndexType Type of output index buffer data (32bit or 16bit).
+				*/
+				static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
-        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
-        /**
-        @param _input Input index buffer's data.
-        @param _idxCount Index count.
-        @param _inIndexType Type of input index buffer data (32bit or 16bit).
-        @param _outIndexType Type of output index buffer data (32bit or 16bit).
-        */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+				//! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
+				/**
+				@param _input Input index buffer's data.
+				@param _idxCount Index count.
+				@param _inIndexType Type of input index buffer data (32bit or 16bit).
+				@param _outIndexType Type of output index buffer data (32bit or 16bit).
+				*/
+				static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
-        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
-        /**
-        @param _input Input index buffer's data.
-        @param _idxCount Index count.
-        @param _inIndexType Type of input index buffer data (32bit or 16bit).
-        @param _outIndexType Type of output index buffer data (32bit or 16bit).
-        */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+				//! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
+				/**
+				@param _input Input index buffer's data.
+				@param _idxCount Index count.
+				@param _inIndexType Type of input index buffer data (32bit or 16bit).
+				@param _outIndexType Type of output index buffer data (32bit or 16bit).
+				*/
+				static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
 		//!
 		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
@@ -627,7 +626,7 @@ class NBL_API2 CPolygonGeometryManipulator
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
-        \param errMetrics Array of size EVAI_COUNT. Describes error metric for each vertex attribute (used if attribute is of floating point or normalized type).
+				\param errMetrics Array of size EVAI_COUNT. Describes error metric for each vertex attribute (used if attribute is of floating point or normalized type).
 		\param tolerance The threshold for vertex comparisons.
 		\return Mesh without redundant vertices. */
 		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh = false);
@@ -645,12 +644,12 @@ class NBL_API2 CPolygonGeometryManipulator
 		*/
 		static void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric);
 
-        //! Creates a 32bit index buffer for a mesh with primitive types changed to list types
-        /**#
+				//! Creates a 32bit index buffer for a mesh with primitive types changed to list types
+				/**#
 		@param _newPrimitiveType
-        @param _begin non-const iterator to beginning of meshbuffer range
-        @param _end non-const iterator to ending of meshbuffer range
-        */
+				@param _begin non-const iterator to beginning of meshbuffer range
+				@param _end non-const iterator to ending of meshbuffer range
+				*/
 		template<typename Iterator>
 		static inline void homogenizePrimitiveTypeAndIndices(Iterator _begin, Iterator _end, const E_PRIMITIVE_TOPOLOGY _newPrimitiveType, const E_INDEX_TYPE outIndexType = EIT_32BIT)
 		{
