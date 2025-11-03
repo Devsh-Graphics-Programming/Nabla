@@ -33,7 +33,7 @@ namespace util
 
     const float_t angle0 = hlsl::acos((b + c - a) / (2.f * bsqrt * csqrt));
     const float_t angle1 = hlsl::acos((-b + c + a) / (2.f * asqrt * csqrt));
-    const float_t angle2 = hlsl::numbers::pi<float_t> - (angle1 + angle2);
+    const float_t angle2 = hlsl::numbers::pi<float_t> - (angle0 + angle1);
     // use them to find the angle at each vertex
     return vector<float_t, 3>(angle0, angle1, angle2);
   }
