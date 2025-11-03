@@ -16,7 +16,7 @@ class CSmoothNormalGenerator
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
 
-    struct SSNGVertexData
+    struct VertexData
     {
       uint32_t index;									     //offset of the vertex into index buffer
 			// TODO: check whether separating hash and position into its own vector or even rehash the position everytime we need will result in VertexHashGrid become faster.
@@ -41,9 +41,9 @@ class CSmoothNormalGenerator
 
     };
 
-		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;
+		using VxCmpFunction = std::function<bool(const VertexData&, const VertexData&, const ICPUPolygonGeometry*)>;
 
-		using VertexHashMap = CVertexHashGrid<SSNGVertexData>;
+		using VertexHashMap = CVertexHashGrid<VertexData>;
 
 	  struct Result
 	  {

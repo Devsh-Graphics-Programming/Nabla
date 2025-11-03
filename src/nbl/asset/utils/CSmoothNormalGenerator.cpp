@@ -13,12 +13,12 @@ namespace nbl
 {
 namespace asset
 {
-static bool operator<(uint32_t lhs, const CSmoothNormalGenerator::SSNGVertexData& rhs)
+static bool operator<(uint32_t lhs, const CSmoothNormalGenerator::VertexData& rhs)
 {
 	return lhs < rhs.hash;
 }
 
-static bool operator<(const CSmoothNormalGenerator::SSNGVertexData& lhs, uint32_t rhs)
+static bool operator<(const CSmoothNormalGenerator::VertexData& lhs, uint32_t rhs)
 {
 	return lhs.hash < rhs;
 }
