@@ -155,7 +155,7 @@ private:
 
 	inline uint8_t getNeighboringCellHashes(uint32_t* outNeighbors, hlsl::float32_t3 position) const
 	{
-		// We substract the coordinate by 0.5 since the cellSize is expected to be twice the epsilon. This is to snap the vertex into the cell that contain the most bottom left neighbor of our vertex.
+		// We substract the coordinate by 0.5 since the cellSize is expected to be twice the epsilon. This is to snap the vertex into the cell that contain the most bottom left cell that could collide with of our vertex.
 		// -------          -------
 		// |  | y|          |  |  |
 		// |	|x |          |  |y |
@@ -164,7 +164,8 @@ private:
 		// |	|	 |          |  |  |
 		// -------          -------
 		// |2e|e|
-		// By substracing 0.5 on the coordinate, now we only need to check the cell that is either upper or righter than us. Reducing the number of cell that we have to check if we use epsilon as the cell size and do not substract the coord by 0.5.
+		// In the example,x is snapped into a different cell which is the most bottom left cell that could collide with x. Since we have move it into its bottom left candidate, there is no need to check to the bottom and to the left of the snapped coordinate. We only need to check the upper and to the right of the snapped cell, which include the original cell. Note that we do not need to check the upper and to the right of the original cell. The cell size is 2 * epsilon and x is located on the lower and lefter side of the cell.
+		// Contrary to x, y is still snapped into its original cell. It means the most bottom left cell that collide with y is its own cell.
 		// both 0.x and -0.x would be converted to 0 if we directly casting the position to unsigned integer. Causing the 0 to be crowded then the rest of the cells. So we use floor here to spread the vertex more uniformly.
 		hlsl::float32_t3 cellfloatcoord = floor(position / m_cellSize - hlsl::float32_t3(0.5));
 		hlsl::uint32_t3 baseCoord = hlsl::uint32_t3(static_cast<uint32_t>(cellfloatcoord.x), static_cast<uint32_t>(cellfloatcoord.y), static_cast<uint32_t>(cellfloatcoord.z));
