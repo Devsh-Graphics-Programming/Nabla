@@ -8,6 +8,14 @@
 
 namespace nbl::asset {
 
+template <typename T>
+concept VertexWelderAccelerationStructure = requires(T const cobj, hlsl::float32_t3 position, std::function<bool(const typename T::vertex_data_t&)> fn)
+{
+  typename T::vertex_data_t;
+  { std::same_as<decltype(T::vertex_data_t::index), uint32_t> };
+  { cobj.forEachBroadphaseNeighborCandidates(position, fn) } -> std::same_as<void>;
+};
+
 class CVertexWelder {
     
   public:
@@ -127,7 +135,7 @@ class CVertexWelder {
           
     };
 
-    template <typename AccelStructureT>
+    template <VertexWelderAccelerationStructure AccelStructureT>
     static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, const WeldPredicate& shouldWeldFn) {
       auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 
