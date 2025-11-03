@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/bxdf/reflection/lambertian.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection/oren_nayar.hlsl"
+#include "nbl/builtin/hlsl/bxdf/reflection/delta_distribution.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection/ggx.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection/iridescent.hlsl"

@@ -22,7 +22,7 @@
 #include <vector>
 #include <utility>
 #include <iterator>
-#include <gtl/include/gtl/phmap.hpp>
+#include <gtl/phmap.hpp>
 
 #include "nbl/core/memory/new_delete.h"
 
