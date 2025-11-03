@@ -55,11 +55,11 @@ constexpr int8_t find_msb(const T& a_variable)
 template<size_t key_bit_count, typename histogram_t>
 struct RadixLsbSorter
 {
-		_NBL_STATIC_INLINE_CONSTEXPR uint16_t histogram_bytesize = 8192u;
-		_NBL_STATIC_INLINE_CONSTEXPR size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);
-		_NBL_STATIC_INLINE_CONSTEXPR uint8_t radix_bits = impl::find_msb(histogram_size);
-		_NBL_STATIC_INLINE_CONSTEXPR size_t last_pass = (key_bit_count-1ull)/size_t(radix_bits);
-		_NBL_STATIC_INLINE_CONSTEXPR uint16_t radix_mask = (1u<<radix_bits)-1u;
+		constexpr static inline uint16_t histogram_bytesize = 8192u;
+		constexpr static inline size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);
+		constexpr static inline uint8_t radix_bits = impl::find_msb(histogram_size);
+		constexpr static inline size_t last_pass = (key_bit_count-1ull)/size_t(radix_bits);
+		constexpr static inline uint16_t radix_mask = (1u<<radix_bits)-1u;
 
 		template<class RandomIt, class KeyAccessor>
 		inline RandomIt operator()(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
@@ -67,7 +67,7 @@ struct RadixLsbSorter
 			return pass<RandomIt,KeyAccessor,0ull>(input,output,rangeSize,comp);
 		}
 
-    std::pair<histogram_t, histogram_t> getMostSignificantRadixBound(size_t key) const
+    inline std::pair<histogram_t, histogram_t> getMostSignificantRadixBound(size_t key) const
 		{
 			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits * last_pass);
 			const auto histogramIx = (key >> shift) & radix_mask;
