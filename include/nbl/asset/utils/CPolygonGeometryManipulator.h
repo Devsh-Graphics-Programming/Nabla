@@ -233,9 +233,11 @@ class NBL_API2 CPolygonGeometryManipulator
 
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
 
+		using SSNGVertexData = CSmoothNormalGenerator::VertexData;
 		using SSNGVxCmpFunction = CSmoothNormalGenerator::VxCmpFunction;
+
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, bool enableWelding = false, float epsilon = 1.525e-5f,
-				SSNGVxCmpFunction vxcmp = [](const CSmoothNormalGenerator::VertexData& v0, const CSmoothNormalGenerator::VertexData& v1, const ICPUPolygonGeometry* buffer) 
+				SSNGVxCmpFunction vxcmp = [](const SSNGVertexData& v0, const SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
 				{ 
 					constexpr float cosOf45Deg = 0.70710678118f;
 					return dot(normalize(v0.weightedNormal),normalize(v1.weightedNormal)) > cosOf45Deg;
