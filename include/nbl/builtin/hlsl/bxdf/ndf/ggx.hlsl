@@ -84,8 +84,6 @@ struct GGXCommon<T,SupportsTransmission,false NBL_PARTIAL_REQ_BOT(concepts::Floa
 {
     using scalar_type = T;
 
-    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_MAX;
-
     // trowbridge-reitz
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
@@ -117,8 +115,6 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct GGXCommon<T,SupportsTransmission,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
-
-    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_MAX;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
@@ -234,7 +230,7 @@ struct GGX
         dg1_query_type dg1_query;
         bool dummy;
         dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
-        scalar_type clampedNdotV = interaction.getNdotV(_clamp);
+        scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getNdotV2()));
         return dg1_query;
     }
@@ -252,7 +248,7 @@ struct GGX
         dg1_query_type dg1_query;
         bool dummy;
         dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
-        scalar_type clampedNdotV = interaction.getNdotV(_clamp);
+        scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
         return dg1_query;
     }
@@ -287,7 +283,7 @@ struct GGX
             return dmq;
 
         scalar_type dg1_over_2NdotV = D * query.getG1over2NdotV();
-        dmq.microfacetMeasure = scalar_type(2.0) * interaction.getNdotV(_clamp) * dg1_over_2NdotV;
+        dmq.microfacetMeasure = scalar_type(2.0) * interaction.getNdotV(BxDFClampMode::BCM_ABS) * dg1_over_2NdotV;
 
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
@@ -305,8 +301,8 @@ struct GGX
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     scalar_type correlated_wo_numerator(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        scalar_type NdotV = interaction.getNdotV(_clamp);
-        scalar_type NdotL = _sample.getNdotL(_clamp);
+        scalar_type NdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
+        scalar_type NdotL = _sample.getNdotL(BxDFClampMode::BCM_ABS);
         scalar_type devsh_v = query.getDevshV();
         scalar_type devsh_l = query.getDevshL();
         // without numerator, numerator is 2 * NdotV * NdotL, we factor out 4 * NdotV * NdotL, hence 0.5
@@ -329,7 +325,7 @@ struct GGX
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        return scalar_type(4.0) * interaction.getNdotV(_clamp) * _sample.getNdotL(_clamp) * correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
+        return scalar_type(4.0) * interaction.getNdotV(BxDFClampMode::BCM_ABS) * _sample.getNdotL(BxDFClampMode::BCM_ABS) * correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
@@ -366,8 +362,8 @@ struct GGX
     scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type G2_over_G1;
-        scalar_type NdotV = interaction.getNdotV(_clamp);
-        scalar_type NdotL = _sample.getNdotL(_clamp);
+        scalar_type NdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
+        scalar_type NdotL = _sample.getNdotL(BxDFClampMode::BCM_ABS);
         scalar_type devsh_v = query.getDevshV();
         scalar_type devsh_l = query.getDevshL();
         if (cache.isTransmission())
