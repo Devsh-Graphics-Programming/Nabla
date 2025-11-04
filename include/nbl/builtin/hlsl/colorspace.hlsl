@@ -32,9 +32,9 @@ struct scRGB : colorspace_base
 
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoscRGB;
+        return decode::XYZtoscRGB;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoscRGB, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoscRGB, val); }
 
     static float32_t3x3 ToXYZ()
     {
@@ -54,9 +54,9 @@ struct Display_P3 : colorspace_base
 
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoDisplay_P3;
+        return decode::XYZtoDisplay_P3;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoDisplay_P3, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoDisplay_P3, val); }
 
     static float32_t3x3 ToXYZ()
     {
@@ -73,9 +73,9 @@ struct DCI_P3 : colorspace_base
 
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoDCI_P3;
+        return decode::XYZtoDCI_P3;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoDCI_P3, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoDCI_P3, val); }
 
     static float32_t3x3 ToXYZ()
     {
@@ -92,9 +92,9 @@ struct BT2020 : colorspace_base
 
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoBT2020;
+        return decode::XYZtoBT2020;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoBT2020, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoBT2020, val); }
 
     static float32_t3x3 ToXYZ()
     {
@@ -115,9 +115,9 @@ struct AdobeRGB : colorspace_base
 
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoAdobeRGB;
+        return decode::XYZtoAdobeRGB;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoAdobeRGB, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoAdobeRGB, val); }
 
     static float32_t3x3 ToXYZ()
     {
@@ -130,9 +130,9 @@ struct ACES2065_1 : colorspace_base
 {
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoACES2065_1;
+        return decode::XYZtoACES2065_1;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoACES2065_1, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoACES2065_1, val); }
 
     static float32_t3x3 ToXYZ()
     {
@@ -145,9 +145,9 @@ struct ACEScc : colorspace_base
 {
     static float32_t3x3 FromXYZ()
     {
-        return XYZtoACEScc;
+        return decode::XYZtoACEScc;
     }
-    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(XYZtoACEScc, val); }
+    static float32_t3 FromXYZ(float32_t3 val) { return hlsl::mul(decode::XYZtoACEScc, val); }
 
     static float32_t3x3 ToXYZ()
     {

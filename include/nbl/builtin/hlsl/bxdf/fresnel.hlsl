@@ -522,6 +522,7 @@ struct Iridescent
     {
         this_t retval;
         retval.Dinc = Dinc;
+        retval.thinFilmIor = ior2;
         retval.eta12 = ior2/ior1;
         retval.eta23 = ior3/ior2;
         retval.etak23 = scalar_type(0.0);
@@ -595,7 +596,7 @@ struct Iridescent
         vector_type T121s = hlsl::promote<vector_type>(1.0) - R12s;
 
         // Optical Path Difference
-        const vector_type D = hlsl::promote<vector_type>(2.0 * Dinc) * ior2 * cosTheta_2;
+        const vector_type D = hlsl::promote<vector_type>(2.0 * Dinc) * thinFilmIor * cosTheta_2;
         const vector_type Dphi = hlsl::promote<vector_type>(2.0 * numbers::pi<scalar_type>) * D / wavelengths;
 
         vector_type phi21p, phi21s, phi23p, phi23s, r123s, r123p, Rs;
@@ -659,6 +660,7 @@ struct Iridescent
         const bool flip = NdotI < scalar_type(0.0);
         this_t orientedFresnel;
         orientedFresnel.Dinc = Dinc;
+        orientedFresnel.thinFilmIor = thinFilmIor;
         orientedFresnel.eta12 = hlsl::mix(eta12, hlsl::promote<vector_type>(1.0)/eta12, flip);
         orientedFresnel.eta23 = hlsl::mix(eta23, hlsl::promote<vector_type>(1.0)/eta23, flip);
         orientedFresnel.etak23 = hlsl::promote<vector_type>(0.0);
@@ -668,6 +670,7 @@ struct Iridescent
     }
 
     scalar_type Dinc;       // thickness of thin film in nanometers, rec. 100-25000nm
+    vector_type thinFilmIor;
     vector_type eta12;      // outside (usually air 1.0) -> thin-film IOR
     vector_type eta23;      // thin-film -> base material IOR
     vector_type etak23;     // thin-film -> complex component, k==0 makes dielectric
