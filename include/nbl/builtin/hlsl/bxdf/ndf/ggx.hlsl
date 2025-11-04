@@ -97,7 +97,9 @@ struct GGXCommon<T,SupportsTransmission,false NBL_PARTIAL_REQ_BOT(concepts::Floa
         }
         isInfinity = false;
         scalar_type denom = scalar_type(1.0) - one_minus_a2 * cache.getNdotH2();
-        return a2 * numbers::inv_pi<scalar_type> / (denom * denom);
+        scalar_type ndf = a2 * numbers::inv_pi<scalar_type> / (denom * denom);
+        isInfinity = hlsl::isinf(ndf);
+        return ndf;
     }
 
     scalar_type devsh_part(scalar_type NdotX2)
@@ -128,7 +130,9 @@ struct GGXCommon<T,SupportsTransmission,true NBL_PARTIAL_REQ_BOT(concepts::Float
         }
         isInfinity = false;
         scalar_type denom = cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2 + cache.getNdotH2();
-        return numbers::inv_pi<scalar_type> / (a2 * denom * denom);
+        scalar_type ndf = numbers::inv_pi<scalar_type> / (a2 * denom * denom);
+        isInfinity = hlsl::isinf(ndf);
+        return ndf;
     }
 
     // TODO: potential idea for making GGX spin using covariance matrix of sorts: https://www.desmos.com/3d/weq2ginq9o
@@ -220,12 +224,7 @@ struct GGX
         quant_query_type quant_query;   // only has members for refraction
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
-            quant_query.VdotHLdotH = cache.getVdotHLdotH();
-            const scalar_type VdotH = cache.getVdotH();
-            const scalar_type VdotH_etaLdotH = hlsl::mix(VdotH + orientedEta * cache.getLdotH(),
-                                                        VdotH / orientedEta + cache.getLdotH(),
-                                                        interaction.getPathOrigin() == PathOrigin::PO_SENSOR);
-            quant_query.neg_rcp2_refractionDenom = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
+            quant_query = quant_query_type::template create<Interaction, MicrofacetCache>(interaction, cache, orientedEta);
         }
         return quant_query;
     }
@@ -282,9 +281,12 @@ struct GGX
     quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_REF_ARG(bool) isInfinity)
     {
         scalar_type D = query.getNdfwoNumerator();
-        scalar_type dg1_over_2NdotV = query.getNdfwoNumerator() * query.getG1over2NdotV();
-        isInfinity = D == bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+        isInfinity = hlsl::isinf(D);
         quant_type dmq;
+        if (isInfinity)
+            return dmq;
+
+        scalar_type dg1_over_2NdotV = D * query.getG1over2NdotV();
         dmq.microfacetMeasure = scalar_type(2.0) * interaction.getNdotV(_clamp) * dg1_over_2NdotV;
 
         NBL_IF_CONSTEXPR(SupportsTransmission)
