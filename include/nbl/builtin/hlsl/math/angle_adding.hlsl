@@ -21,53 +21,45 @@ struct sincos_accumulator
 {
     using this_t = sincos_accumulator<T>;
 
-    static this_t create()
-    {
-        this_t retval;
-        retval.runningSum = complex_t<T>::create(T(1.0), T(0.0));
-        return retval;
-    }
-
     static this_t create(T cosA)
     {
+        return create(cosA, sqrt<T>(T(1.0) - cosA * cosA));
+    }
+
+    static this_t create(T cosA, T sinA)
+    {
         this_t retval;
-        retval.runningSum = complex_t<T>::create(cosA, T(0));
+        retval.runningSum.real(cosA);
+        retval.runningSum.imag(sinA);
+        retval.wraparound = 0u;
         return retval;
     }
 
-    void addCosine(T cosA, T biasA)
+    void addCosine(T cosA, T sinA)
     {
-        const T bias = biasA + runningSum.imag();
         const T a = cosA;
         const T b = runningSum.real();
         const bool reverse = abs<T>(min<T>(a, b)) > max<T>(a, b);
-        const T c = a * b - sqrt<T>((T(1.0) - a * a) * (T(1.0) - b * b));
+        const T c = a * b - sinA * runningSum.imag();
+        const T d = sinA * b + a * runningSum.imag();
 
         runningSum.real(ieee754::flipSign<T>(c, reverse));
-        runningSum.imag(hlsl::mix(bias, bias + numbers::pi<T>, reverse));
+        runningSum.imag(ieee754::flipSign<T>(d, reverse));
+
+        wraparound += hlsl::mix(0u, 1u, reverse);
     }
     void addCosine(T cosA)
     {
-        addCosine(cosA, T(0.0));
+        addCosine(cosA, sqrt<T>(T(1.0) - cosA * cosA));
     }
 
     T getSumofArccos()
     {
-        return acos<T>(runningSum.real()) + runningSum.imag();
-    }
-
-    static T getArccosSumofABC_minus_PI(T cosA, T cosB, T cosC, T sinA, T sinB, T sinC)
-    {
-        const bool AltminusB = cosA < (-cosB);
-        const T cosSumAB = cosA * cosB - sinA * sinB;
-        const bool ABltminusC = cosSumAB < (-cosC);
-        const bool ABltC = cosSumAB < cosC;
-        // apply triple angle formula
-        const T absArccosSumABC = acos<T>(clamp<T>(cosSumAB * cosC - (cosA * sinB + sinA * cosB) * sinC, T(-1.0), T(1.0)));
-        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + ((AltminusB || ABltminusC) ? numbers::pi<T> : (-numbers::pi<T>));
+        return acos<T>(runningSum.real()) + wraparound * numbers::pi<T>;
     }
 
     complex_t<T> runningSum;
+    uint16_t wraparound;
 };
 
 }
