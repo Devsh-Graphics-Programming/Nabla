@@ -128,6 +128,12 @@ struct SCookTorrance
         return cache.isValid(orientedEta);
     }
 
+    bool dotIsUnity(const vector3_type a, const vector3_type b)
+    {
+        const scalar_type ab = hlsl::dot(a, b);
+        return hlsl::max(ab, scalar_type(1.0) / ab) <= scalar_type(1.0 + 1e-3);
+    }
+
     // bxdf stuff
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
@@ -256,8 +262,14 @@ struct SCookTorrance
         assert(cache.isValid(fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(_f.getRefractionOrientedEta()))));
 
         ray_dir_info_type V = interaction.getV();
+        const matrix3x3_type fromTangent = interaction.getFromTangentSpace();
+        // tangent frame orthonormality
+        assert(dotIsUnity(fromTangent[0],fromTangent[1]));
+        assert(dotIsUnity(fromTangent[1],fromTangent[2]));
+        assert(dotIsUnity(fromTangent[2],fromTangent[0]));
+        // NDF sampling produced a unit length direction
+        assert(dotIsUnity(localH,localH));
         const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
-        assert(hlsl::abs(hlsl::length(H) - scalar_type(1.0)) < scalar_type(1e-4));
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
 
         struct reflect_refract_wrapper  // so we don't recalculate LdotH
