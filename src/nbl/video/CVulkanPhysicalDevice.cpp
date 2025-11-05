@@ -1,8 +1,6 @@
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
-#include "nlohmann/json.hpp" // TODO/FIXME: this is probably a mess making, consult someone how to do it better.
-
 namespace nbl::video
 {
 
