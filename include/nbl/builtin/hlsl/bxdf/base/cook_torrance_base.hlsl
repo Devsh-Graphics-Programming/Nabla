@@ -174,80 +174,11 @@ struct SCookTorrance
             return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
     }
 
-    template<typename C=bool_constant<!IsBSDF> >
-    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
+                                const scalar_type NdotV, const scalar_type VdotH, bool transmitted,
+                                NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, 
+                                NBL_REF_ARG(anisocache_type) cache, NBL_REF_ARG(bool) valid)
     {
-        {
-            const scalar_type NdotV = interaction.getNdotV();
-            if (NdotV < numeric_limits<scalar_type>::min)
-                return sample_type::createInvalid();
-            assert(!hlsl::isnan(NdotV));
-        }
-
-        const vector3_type localV = interaction.getTangentSpaceV();
-        const vector3_type localH = ndf.generateH(localV, u);
-        const scalar_type VdotH = hlsl::dot(localV, localH);
-        assert(VdotH >= scalar_type(0.0));  // VNDF sampling guarantees VdotH has same sign as NdotV (should be positive for BRDF)
-
-        const scalar_type NdotL = scalar_type(2.0) * VdotH * localH.z - localV.z;
-        ray_dir_info_type L;
-        if (NdotL > 0) // compiler's Common Subexpression Elimination pass should re-use 2*VdotH later
-        {
-            ray_dir_info_type V = interaction.getV();
-            const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
-            struct reflect_wrapper  // so we don't recalculate VdotH
-            {
-                vector3_type operator()() NBL_CONST_MEMBER_FUNC
-                {
-                    return r(VdotH);
-                }
-                bxdf::Reflect<scalar_type> r;
-                scalar_type VdotH;
-            };
-            reflect_wrapper rw;
-            rw.r = bxdf::Reflect<scalar_type>::create(V.getDirection(), H);
-            rw.VdotH = VdotH;
-            L = V.template reflect<reflect_wrapper>(rw);
-
-            cache = anisocache_type::createForReflection(localV, localH);
-
-            const vector3_type T = interaction.getT();
-            const vector3_type B = interaction.getB();
-
-            return sample_type::create(L, T, B, NdotL);
-        }
-        else    // fail if samples have invalid paths
-            return sample_type::createInvalid();    // should check if sample direction is invalid
-    }
-    template<typename C=bool_constant<IsBSDF> >
-    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
-    {
-        const vector3_type localV = interaction.getTangentSpaceV();
-        const scalar_type NdotV = localV.z;
-
-        fresnel_type _f = getOrientedFresnel(fresnel, NdotV);
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
-
-        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
-        const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
-        const scalar_type VdotH = hlsl::dot(localV, localH);
-
-        NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)
-        {
-            // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
-            if ((IsBSDF ? (NdotV*VdotH) : VdotH) <= scalar_type(0.0))
-                return sample_type::createInvalid();
-            assert(!hlsl::isnan(NdotV*VdotH));
-        }
-        else
-        {
-            assert(NdotV*VdotH >= scalar_type(0.0));
-        }
-        const scalar_type reflectance = _f(hlsl::abs(VdotH))[0];
-
-        scalar_type rcpChoiceProb;
-        scalar_type z = u.z;
-        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
         const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
 
         // fail if samples have invalid paths
@@ -256,10 +187,12 @@ struct SCookTorrance
         // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
         // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
         if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
+        {
+            valid = false;
             return sample_type::createInvalid();    // should check if sample direction is invalid
+        }
 
         cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        assert(cache.isValid(fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(_f.getRefractionOrientedEta()))));
 
         ray_dir_info_type V = interaction.getV();
         const matrix3x3_type fromTangent = interaction.getFromTangentSpace();
@@ -290,9 +223,71 @@ struct SCookTorrance
 
         const vector3_type T = interaction.getT();
         const vector3_type B = interaction.getB();
-        cache.fillTangents(T, B, H);
 
+        valid = true;
         return sample_type::create(L, T, B, NdotL);
+    }
+    template<typename C=bool_constant<!IsBSDF> >
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        const scalar_type NdotV = interaction.getNdotV();
+        if (NdotV < numeric_limits<scalar_type>::min)
+            return sample_type::createInvalid();
+        assert(!hlsl::isnan(NdotV));
+
+        const vector3_type localV = interaction.getTangentSpaceV();
+        const vector3_type localH = ndf.generateH(localV, u);
+        const scalar_type VdotH = hlsl::dot(localV, localH);
+        assert(VdotH >= scalar_type(0.0));  // VNDF sampling guarantees VdotH has same sign as NdotV (should be positive for BRDF)
+
+        fresnel::OrientedEtaRcps<monochrome_type> dummy;
+        bool valid;
+        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, false, dummy, cache, valid);
+        if (valid)
+            cache = anisocache_type::createForReflection(localV, localH);
+        return s;
+    }
+    template<typename C=bool_constant<IsBSDF> >
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        const vector3_type localV = interaction.getTangentSpaceV();
+        const scalar_type NdotV = localV.z;
+
+        fresnel_type _f = getOrientedFresnel(fresnel, NdotV);
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
+
+        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
+        const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
+        const scalar_type VdotH = hlsl::dot(localV, localH);
+
+        NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)
+        {
+            // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
+            if ((IsBSDF ? (NdotV*VdotH) : VdotH) <= scalar_type(0.0))
+                return sample_type::createInvalid();
+            assert(!hlsl::isnan(NdotV*VdotH));
+        }
+        else
+        {
+            assert(NdotV*VdotH >= scalar_type(0.0));
+        }
+        const scalar_type reflectance = _f(hlsl::abs(VdotH))[0];
+
+        scalar_type rcpChoiceProb;
+        scalar_type z = u.z;
+        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
+
+        bool valid;
+        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, transmitted, rcpEta, cache, valid);
+        if (valid)
+        {
+            assert(cache.isValid(fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(_f.getRefractionOrientedEta()))));
+            const vector3_type T = interaction.getT();
+            const vector3_type B = interaction.getB();
+            const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
+            cache.fillTangents(T, B, H);
+        }
+        return s;
     }
     template<typename C=bool_constant<!IsAnisotropic> >
     enable_if_t<C::value && !IsAnisotropic, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const conditional_t<IsBSDF, vector3_type, vector2_type> u, NBL_REF_ARG(isocache_type) cache)
