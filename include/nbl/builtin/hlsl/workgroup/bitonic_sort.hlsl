@@ -49,13 +49,36 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
 
     using SortConfig = subgroup::bitonic_sort_config<key_t, value_t, comparator_t>;
 
+    template<typename Key, typename Value, typename key_adaptor_t, typename value_adaptor_t>
+    static void shuffleXor(NBL_REF_ARG(pair<Key, Value>) p, uint32_t ownedIdx, uint32_t mask, NBL_REF_ARG(key_adaptor_t) keyAdaptor, NBL_REF_ARG(value_adaptor_t) valueAdaptor)
+    {
+        keyAdaptor.template set<Key>(ownedIdx, p.first);
+        valueAdaptor.template set<Value>(ownedIdx, p.second);
+
+        // Wait until all writes are done before reading - only barrier on one adaptor here
+        keyAdaptor.workgroupExecutionAndMemoryBarrier();
+
+        keyAdaptor.template get<Key>(ownedIdx ^ mask, p.first);
+        valueAdaptor.template get<Value>(ownedIdx ^ mask, p.second);
+    }
+    
+
     template<typename SharedMemoryAccessor>
     static void mergeStage(NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor, uint32_t stage, bool bitonicAscending, uint32_t invocationID,
-        NBL_REF_ARG(nbl::hlsl::pair<key_t, value_t>) loPair, NBL_REF_ARG(nbl::hlsl::pair<key_t, value_t>) hiPair)
+        NBL_REF_ARG(nbl::hlsl::pair<key_t, value_t>) lopair, NBL_REF_ARG(nbl::hlsl::pair<key_t, value_t>) hipair)
     {
         const uint32_t WorkgroupSize = config_t::WorkgroupSize;
         const uint32_t subgroupSizeLog2 = glsl::gl_SubgroupSizeLog2();
         comparator_t comp;
+
+
+        using key_adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, uint32_t, uint32_t, 1, WorkgroupSize>;
+        using value_adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, uint32_t, uint32_t, 1, WorkgroupSize, integral_constant<uint32_t, WorkgroupSize * sizeof(key_t) / sizeof(uint32_t)> >;
+
+        key_adaptor_t keyAdaptor;
+        keyAdaptor.accessor = sharedmemAccessor;
+        value_adaptor_t valueAdaptor;
+        valueAdaptor.accessor = sharedmemAccessor;
 
         [unroll]
         for (uint32_t pass = 0; pass <= stage; pass++)
@@ -67,17 +90,16 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
             const uint32_t stride = 1u << stridePower;
             const uint32_t threadStride = stride >> 1;
 
-            nbl::hlsl::pair<key_t, value_t> pLoPair = loPair;
-            shuffleXor(pLoPair, threadStride, sharedmemAccessor);
-            sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
+            nbl::hlsl::pair<key_t, value_t> plopair = lopair;
+            shuffleXor(plopair, invocationID, threadStride, keyAdaptor, valueAdaptor);
 
-            nbl::hlsl::pair<key_t, value_t> pHiPair = hiPair;
-            shuffleXor(pHiPair, threadStride, sharedmemAccessor);
+            nbl::hlsl::pair<key_t, value_t> phipair = hipair;
+            shuffleXor(phipair, invocationID ^ threadStride, threadStride, keyAdaptor, valueAdaptor);
 
             const bool isUpper = (invocationID & threadStride) != 0;
             const bool takeLarger = isUpper == bitonicAscending;
 
-            nbl::hlsl::bitonic_sort::compareExchangeWithPartner(takeLarger, loPair, pLoPair, hiPair, pHiPair, comp);
+            nbl::hlsl::bitonic_sort::compareExchangeWithPartner(takeLarger, lopair, plopair, hipair, phipair, comp);
         }
     }
 
@@ -96,12 +118,12 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
         const uint32_t loIdx = invocationID * 2;
         const uint32_t hiIdx = loIdx | 1;
 
-        nbl::hlsl::pair<key_t, value_t> loPair, hiPair;
-        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(loIdx, loPair);
-        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(hiIdx, hiPair);
+        nbl::hlsl::pair<key_t, value_t> lopair, hipair;
+        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(loIdx, lopair);
+        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(hiIdx, hipair);
 
         const bool subgroupAscending = (subgroupID & 1) == 0;
-        subgroup::bitonic_sort<SortConfig>::__call(subgroupAscending, loPair.first, hiPair.first, loPair.second, hiPair.second);
+        subgroup::bitonic_sort<SortConfig>::__call(subgroupAscending, lopair, hipair);
 
         const uint32_t subgroupInvocationID = glsl::gl_SubgroupInvocationID();
 
@@ -110,13 +132,13 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<1, WorkgroupSizeLog2, KeyTy
         {
             const bool bitonicAscending = !bool(invocationID & (subgroupSize << (stage + 1)));
 
-            mergeStage(sharedmemAccessor, stage, bitonicAscending, invocationID, loPair, hiPair);
+            mergeStage(sharedmemAccessor, stage, bitonicAscending, invocationID, lopair, hipair);
 
-            subgroup::bitonic_sort<SortConfig>::mergeStage(subgroupSizeLog2, bitonicAscending, subgroupInvocationID, loPair.first, hiPair.first, loPair.second, hiPair.second);
+            subgroup::bitonic_sort<SortConfig>::mergeStage(subgroupSizeLog2, bitonicAscending, subgroupInvocationID, lopair, hipair);
         }
 
-        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(loIdx, loPair);
-        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(hiIdx, hiPair);
+        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(loIdx, lopair);
+        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(hiIdx, hipair);
     }
 };
 
@@ -178,14 +200,14 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<ElementsPerThreadLog2, Work
                     const uint32_t loIx = (((virtualThreadID & (~(stride - 1u))) << 1u) | (virtualThreadID & (stride - 1u))) + offsetAccessor.offset;
                     const uint32_t hiIx = loIx | stride;
 
-                    nbl::hlsl::pair<key_t, value_t> loPair, hiPair;
-                    accessor.template get<nbl::hlsl::pair<key_t, value_t> >(loIx, loPair);
-                    accessor.template get<nbl::hlsl::pair<key_t, value_t> >(hiIx, hiPair);
+                    nbl::hlsl::pair<key_t, value_t> lopair, hipair;
+                    accessor.template get<nbl::hlsl::pair<key_t, value_t> >(loIx, lopair);
+                    accessor.template get<nbl::hlsl::pair<key_t, value_t> >(hiIx, hipair);
 
-                    nbl::hlsl::bitonic_sort::swap(loPair.first, hiPair.first, loPair.second, hiPair.second);
+                    swap(lopair, hipair);
 
-                    accessor.template set<nbl::hlsl::pair<key_t, value_t> >(loIx, loPair);
-                    accessor.template set<nbl::hlsl::pair<key_t, value_t> >(hiIx, hiPair);
+                    accessor.template set<nbl::hlsl::pair<key_t, value_t> >(loIx, lopair);
+                    accessor.template set<nbl::hlsl::pair<key_t, value_t> >(hiIx, hipair);
                 }
                 sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
                 }
@@ -209,14 +231,14 @@ struct BitonicSort<bitonic_sort::bitonic_sort_config<ElementsPerThreadLog2, Work
 
                         const bool bitonicAscending = ((loIx & k) == 0u);
 
-                        nbl::hlsl::pair<key_t, value_t> loPair, hiPair;
-                        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(loIx, loPair);
-                        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(hiIx, hiPair);
+                        nbl::hlsl::pair<key_t, value_t> lopair, hipair;
+                        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(loIx, lopair);
+                        accessor.template get<nbl::hlsl::pair<key_t, value_t> >(hiIx, hipair);
 
-                        nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, loPair.first, hiPair.first, loPair.second, hiPair.second, comp);
+                        nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, lopair, hipair, comp);
 
-                        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(loIx, loPair);
-                        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(hiIx, hiPair);
+                        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(loIx, lopair);
+                        accessor.template set<nbl::hlsl::pair<key_t, value_t> >(hiIx, hipair);
                     }
                         sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
                 }
