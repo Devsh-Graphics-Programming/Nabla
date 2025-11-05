@@ -29,8 +29,9 @@ struct sincos_accumulator
     static this_t create(T cosA, T sinA)
     {
         this_t retval;
-        retval.runningSum.real(cosA);
-        retval.runningSum.imag(sinA);
+        retval.runningSum = complex_t<T>::create(cosA, sinA);
+        // retval.runningSum.real(cosA);
+        // retval.runningSum.imag(sinA);
         retval.wraparound = 0u;
         return retval;
     }
@@ -38,10 +39,11 @@ struct sincos_accumulator
     void addCosine(T cosA, T sinA)
     {
         const T a = cosA;
-        const T b = runningSum.real();
-        const bool reverse = abs<T>(min<T>(a, b)) > max<T>(a, b);
-        const T c = a * b - sinA * runningSum.imag();
-        const T d = sinA * b + a * runningSum.imag();
+        const T cosB = runningSum.real();
+        const T sinB = runningSum.imag();
+        const bool reverse = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
+        const T c = a * cosB - sinA * sinB;
+        const T d = sinA * cosB + a * sinB;
 
         runningSum.real(ieee754::flipSign<T>(c, reverse));
         runningSum.imag(ieee754::flipSign<T>(d, reverse));
