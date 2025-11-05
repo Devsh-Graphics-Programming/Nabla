@@ -30,8 +30,8 @@ struct bitonic_sort<bitonic_sort_config<KeyType, ValueType, Comparator>, device_
 	using value_t = typename config_t::value_t;
 	using comparator_t = typename config_t::comparator_t;
 
-	static void mergeStage(uint32_t stage, bool bitonicAscending, uint32_t invocationID, NBL_REF_ARG(key_t) loKey, NBL_REF_ARG(key_t) hiKey,
-		NBL_REF_ARG(value_t) loVal, NBL_REF_ARG(value_t) hiVal)
+	static void mergeStage(uint32_t stage, bool bitonicAscending, uint32_t invocationID,
+		NBL_REF_ARG(pair<key_t, value_t>) loPair, NBL_REF_ARG(pair<key_t, value_t>) hiPair)
 	{
 		comparator_t comp;
 
@@ -43,26 +43,28 @@ struct bitonic_sort<bitonic_sort_config<KeyType, ValueType, Comparator>, device_
 			if (threadStride == 0)
 			{
 				// Local compare and swap for stage 0
-				nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, loKey, hiKey, loVal, hiVal, comp);
+				nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, loPair, hiPair, comp);
 			}
 			else
 			{
 				// Shuffle from partner using XOR
-				const key_t pLoKey = glsl::subgroupShuffleXor<key_t>(loKey, threadStride);
-				const key_t pHiKey = glsl::subgroupShuffleXor<key_t>(hiKey, threadStride);
-				const value_t pLoVal = glsl::subgroupShuffleXor<value_t>(loVal, threadStride);
-				const value_t pHiVal = glsl::subgroupShuffleXor<value_t>(hiVal, threadStride);
+				const key_t pLoKey = glsl::subgroupShuffleXor<key_t>(loPair.first, threadStride);
+				const value_t pLoVal = glsl::subgroupShuffleXor<value_t>(loPair.second, threadStride);
+				const key_t pHiKey = glsl::subgroupShuffleXor<key_t>(hiPair.first, threadStride);
+				const value_t pHiVal = glsl::subgroupShuffleXor<value_t>(hiPair.second, threadStride);
+
+				const pair<key_t, value_t> partnerLoPair = make_pair(pLoKey, pLoVal);
+				const pair<key_t, value_t> partnerHiPair = make_pair(pHiKey, pHiVal);
 
 				const bool isUpper = bool(invocationID & threadStride);
 				const bool takeLarger = isUpper == bitonicAscending;
 
-				nbl::hlsl::bitonic_sort::compareExchangeWithPartner(takeLarger, loKey, pLoKey, hiKey, pHiKey, loVal, pLoVal, hiVal, pHiVal, comp);
+				nbl::hlsl::bitonic_sort::compareExchangeWithPartner(takeLarger, loPair, partnerLoPair, hiPair, partnerHiPair, comp);
 			}
 		}
 	}
 
-	static void __call(bool ascending, NBL_REF_ARG(key_t) loKey, NBL_REF_ARG(key_t) hiKey,
-		NBL_REF_ARG(value_t) loVal, NBL_REF_ARG(value_t) hiVal)
+	static void __call(bool ascending, NBL_REF_ARG(pair<key_t, value_t>) loPair, NBL_REF_ARG(pair<key_t, value_t>) hiPair)
 	{
 		const uint32_t invocationID = glsl::gl_SubgroupInvocationID();
 		const uint32_t subgroupSizeLog2 = glsl::gl_SubgroupSizeLog2();
@@ -70,7 +72,7 @@ struct bitonic_sort<bitonic_sort_config<KeyType, ValueType, Comparator>, device_
 		for (uint32_t stage = 0; stage <= subgroupSizeLog2; stage++)
 		{
 			const bool bitonicAscending = (stage == subgroupSizeLog2) ? ascending : !bool(invocationID & (1u << stage));
-			mergeStage(stage, bitonicAscending, invocationID, loKey, hiKey, loVal, hiVal);
+			mergeStage(stage, bitonicAscending, invocationID, loPair, hiPair);
 		}
 	}
 };
