@@ -221,7 +221,6 @@ class CVertexWelder {
 
       constexpr auto INVALID_INDEX = std::numeric_limits<uint32_t>::max();
       core::vector<uint32_t> remappedVertexIndexes(vertexCount);
-      std::fill(remappedVertexIndexes.begin(), remappedVertexIndexes.end(), INVALID_INDEX);
 
       uint32_t maxRemappedIndex = 0;
       // iterate by index, so that we always use the smallest index when multiple vertexes can be welded together
@@ -230,24 +229,31 @@ class CVertexWelder {
         hlsl::float32_t3 position;
         positionView.decodeElement<hlsl::float32_t3>(index, position);
         auto remappedVertexIndex = INVALID_INDEX;
-        bool foundVertex = false;
         as.forEachBroadphaseNeighborCandidates(position, [&](const typename AccelStructureT::vertex_data_t& candidate) {
           const auto neighborRemappedIndex = remappedVertexIndexes[candidate.index];
-          if (index == candidate.index) {
-            foundVertex = true;
+          // make sure we can only map higher indices to lower indices to disallow loops
+          if (candidate.index<index)
+          {
+             auto neighborRemappedIndex = remappedVertexIndexes[candidate.index];
+             if (neighborRemappedIndex == INVALID_INDEX)
+                return true;
+             // the link should only be 1 step away (vertices should only remap to vertices that aren't getting remapped)
+             if (neighborRemappedIndex != remappedVertexIndexes[neighborRemappedIndex])
+                return true;
+
+             if (shouldWeldFn(polygon, index, neighborRemappedIndex))
+             {
+                remappedVertexIndex = neighborRemappedIndex;
+                return false;
+             }
           }
-          else if (neighborRemappedIndex != INVALID_INDEX && shouldWeldFn(polygon, index, candidate.index)) {
-            remappedVertexIndex = neighborRemappedIndex;
+          else if (index==candidate.index)
+          {
+             remappedVertexIndex = index;
+             maxRemappedIndex = index;
           }
-          return !(foundVertex && remappedVertexIndex != INVALID_INDEX);
+          return true;
         });
-        if (foundVertex)
-        {
-          if (remappedVertexIndex == INVALID_INDEX) {
-            remappedVertexIndex = index;
-            maxRemappedIndex = index;
-          }
-        }
         remappedVertexIndexes[index] = remappedVertexIndex;
       }
 
