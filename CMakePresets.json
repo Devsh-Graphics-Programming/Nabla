@@ -302,6 +302,7 @@
             "binaryDir": "build/production/n4ce",
             "cacheVariables": {
                 "NBL_STATIC_BUILD": "OFF",
+				"NBL_SKIP_BUILD_OPTIONS_VALIDATION": "ON",
                 "CMAKE_SUPPRESS_REGENERATION": "OFF",
                 "NBL_COMPILER_DYNAMIC_RUNTIME": "ON",
                 "NBL_EMBED_BUILTIN_RESOURCES": "ON",
