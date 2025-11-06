@@ -10,6 +10,7 @@
 namespace nbl::asset 
 {
 
+// TODO: implement a class template that take position type(either float32_t3 or float64_t3 as template argument
 class CSmoothNormalGenerator
 {
 	public:

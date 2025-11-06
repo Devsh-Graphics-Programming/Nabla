@@ -20,6 +20,7 @@ concept HashGridIteratorFn = HashGridVertexData<T> && requires(Fn && fn, T const
 	{ std::invoke(std::forward<Fn>(fn), cobj) } -> std::same_as<bool>;
 };
 
+// TODO: implement a class template that take position type(either float32_t3 or float64_t3 as template argument
 template <HashGridVertexData VertexData>
 class CVertexHashGrid
 {
