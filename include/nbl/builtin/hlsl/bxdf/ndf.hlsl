@@ -20,7 +20,7 @@ namespace ndf
 namespace dummy_impl
 {
 using sample_t = SLightSample<ray_dir_info::SBasic<float> >;
-using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float> > >;
+using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float>, vector<float, 3> > >;
 using cache_t = SAnisotropicMicrofacetCache<SIsotropicMicrofacetCache<float> >;
 }
 
