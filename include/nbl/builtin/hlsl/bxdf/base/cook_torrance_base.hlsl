@@ -167,8 +167,8 @@ struct SCookTorrance
         
         NBL_IF_CONSTEXPR(IsBSDF)
         {
-            const scalar_type reflectance = _f(clampedVdotH)[0];
-            return hlsl::promote<spectral_type>(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission())) * DG;
+            const spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
+            return hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
         }
         else
             return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
@@ -271,7 +271,9 @@ struct SCookTorrance
         {
             assert(NdotV*VdotH >= scalar_type(0.0));
         }
-        const scalar_type reflectance = _f(hlsl::abs(VdotH))[0];
+
+        spectral_type prefixThroughputWeights = interaction.getPrefixThroughputWeights();
+        const scalar_type reflectance = hlsl::dot(impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(VdotH))), prefixThroughputWeights);
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
@@ -312,7 +314,8 @@ struct SCookTorrance
 
         NBL_IF_CONSTEXPR(IsBSDF)
         {
-            const scalar_type reflectance = _f(hlsl::abs(cache.getVdotH()))[0];
+            spectral_type prefixThroughputWeights = interaction.getPrefixThroughputWeights();
+            const scalar_type reflectance = hlsl::dot(impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(cache.getVdotH()))), prefixThroughputWeights);
             return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * DG1.projectedLightMeasure;
         }
         else
@@ -359,7 +362,13 @@ struct SCookTorrance
 
         spectral_type quo;
         NBL_IF_CONSTEXPR(IsBSDF)
-            quo = hlsl::promote<spectral_type>(G2_over_G1);
+        {
+            spectral_type prefixThroughputWeights = interaction.getPrefixThroughputWeights();
+            spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(cache.getVdotH())));
+            const scalar_type scaled_reflectance = hlsl::dot(reflectance, prefixThroughputWeights);
+            quo = hlsl::mix(reflectance / scaled_reflectance,
+                    (hlsl::promote<spectral_type>(1.0) - reflectance) / (scalar_type(1.0) - scaled_reflectance), cache.isTransmission()) * G2_over_G1;
+        }
         else
         {
             const scalar_type VdotH = cache.getVdotH();
