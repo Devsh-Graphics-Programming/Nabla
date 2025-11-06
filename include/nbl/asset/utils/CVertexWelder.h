@@ -32,9 +32,14 @@ class CVertexWelder {
     {
       private:
 
-        static inline bool isIntegralElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2)
+        struct SDataViewContext
         {
-          const auto byteSize = getTexelOrBlockBytesize(view.composed.format);
+          uint32_t channelCount : 3;
+          uint32_t byteSize: 29;
+        };
+
+        static inline bool isIntegralElementEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, uint32_t byteSize)
+        {
           const auto* basePtr = reinterpret_cast<const std::byte*>(view.getPointer());
           const auto stride = view.composed.stride;
           return (memcmp(basePtr + (index1 * stride), basePtr + (index2 * stride), byteSize) == 0);
@@ -53,12 +58,13 @@ class CVertexWelder {
           return true;
         }
 
-        static inline bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
+        static inline bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, const SDataViewContext& context, uint32_t index1, uint32_t index2, float epsilon)
         {
+          if (context.byteSize == 0) return true;
+
           assert(view);
           assert(view.composed.isFormatted());
           assert(IGeometryBase::getMatchingAABBFormat(view.composed.format) == view.composed.rangeFormat);
-          const auto channelCount = getFormatChannelCount(view.composed.format);
           switch (view.composed.rangeFormat)
           {
             case IGeometryBase::EAABBFormat::U64:
@@ -66,22 +72,23 @@ class CVertexWelder {
             case IGeometryBase::EAABBFormat::S64:
             case IGeometryBase::EAABBFormat::S32:
             {
-              return isIntegralElementEqual(view, index1, index2);
+              return isIntegralElementEqual(view, index1, index2, context.byteSize);
             }
             default:
             {
-              return isRealElementEqual(view, index1, index2, channelCount, epsilon);
+              return isRealElementEqual(view, index1, index2, context.channelCount, epsilon);
             }
           }
           return true;
         }
 
-        static inline bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
+        static inline bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, const SDataViewContext& context, uint32_t index1, uint32_t index2, float epsilon)
         {
+          if (context.byteSize == 0) return true;
+
           assert(view);
           assert(view.composed.isFormatted());
           assert(IGeometryBase::getMatchingAABBFormat(view.composed.format) == view.composed.rangeFormat);
-          const auto channelCount = getFormatChannelCount(view.composed.format);
           switch (view.composed.rangeFormat)
           {
             case IGeometryBase::EAABBFormat::U64:
@@ -89,12 +96,12 @@ class CVertexWelder {
             case IGeometryBase::EAABBFormat::S64:
             case IGeometryBase::EAABBFormat::S32:
             {
-              return isIntegralElementEqual(view, index1, index2);
+              return isIntegralElementEqual(view, index1, index2, context.byteSize);
             }
             default:
             {
-              if (channelCount != 3)
-                return isRealElementEqual(view, index1, index2, channelCount, epsilon);
+              if (context.channelCount != 3)
+                return isRealElementEqual(view, index1, index2, context.channelCount, epsilon);
 
               hlsl::float64_t4 val1, val2;
               view.decodeElement<hlsl::float64_t4>(index1, val1);
@@ -106,28 +113,97 @@ class CVertexWelder {
 
         float m_epsilon;
 
+        SDataViewContext m_positionViewContext;
+        SDataViewContext m_normalViewContext;
+
+        struct SJointViewContext
+        {
+          SDataViewContext indices;
+          SDataViewContext weights;
+        };
+        core::vector<SJointViewContext> m_jointViewContexts;
+
+        core::vector<SDataViewContext> m_auxAttributeViewContexts;
+
       public:
 
         inline DefaultWeldPredicate(float epsilon) : m_epsilon(epsilon) {}
 
         inline bool init(const ICPUPolygonGeometry* polygon) override
         {
-          return polygon->valid();
+          auto isViewFormatValid = [](const ICPUPolygonGeometry::SDataView& view)
+          {
+            return view.composed.isFormatted() && IGeometryBase::getMatchingAABBFormat(view.composed.format) == view.composed.rangeFormat;
+          };
+          auto getViewContext = [](const ICPUPolygonGeometry::SDataView& view) -> SDataViewContext
+          {
+            if (!view)
+            {
+              return {
+                .channelCount = 0,
+                .byteSize = 0
+              };
+            }
+            return {
+              .channelCount = getFormatChannelCount(view.composed.format),
+              .byteSize = getTexelOrBlockBytesize(view.composed.format)
+            };
+          };
+
+          if (!polygon->valid()) return false;
+
+          const auto& positionView = polygon->getPositionView();
+          if (IGeometryBase::getMatchingAABBFormat(positionView.composed.format) == positionView.composed.rangeFormat) return false;
+          m_positionViewContext = {
+            .channelCount = getFormatChannelCount(positionView.composed.format),
+            .byteSize = getTexelOrBlockBytesize(positionView.composed.format),
+          };
+
+          const auto& normalView = polygon->getNormalView();
+          if (normalView && !isViewFormatValid(normalView)) return false;
+          m_normalViewContext = getViewContext(normalView);
+
+          m_jointViewContexts.reserve(polygon->getJointWeightViews().size());
+          for (const auto& jointWeightView : polygon->getJointWeightViews())
+          {
+            if (jointWeightView.indices && !isViewFormatValid(jointWeightView.indices)) return false;
+            if (jointWeightView.weights && !isViewFormatValid(jointWeightView.weights)) return false;
+            m_jointViewContexts.push_back({
+              .indices = getViewContext(jointWeightView.indices),
+              .weights = getViewContext(jointWeightView.weights),
+            });
+          }
+
+          m_auxAttributeViewContexts.reserve(polygon->getAuxAttributeViews().size());
+          for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
+          {
+            if (auxAttributeView && !isViewFormatValid(auxAttributeView)) return false;
+            m_auxAttributeViewContexts.push_back(getViewContext(auxAttributeView));
+          }
+
         }
 
         inline bool operator()(const ICPUPolygonGeometry* polygon, uint32_t index1, uint32_t index2) const override
         {
-          if (!isAttributeValEqual(polygon->getPositionView(), index1, index2, m_epsilon))
+          if (!isAttributeValEqual(polygon->getPositionView(), m_positionViewContext, index1, index2, m_epsilon))
             return false;
-          if (!isAttributeDirEqual(polygon->getNormalView(), index1, index2, m_epsilon))
+
+          const auto& normalView = polygon->getNormalView();
+          if (!isAttributeDirEqual(normalView, m_normalViewContext, index1, index2, m_epsilon))
             return false;
-          for (const auto& jointWeightView : polygon->getJointWeightViews())
+
+          for (uint64_t joint_i = 0; joint_i < polygon->getJointWeightViews().size(); joint_i++)
           {
-            if (!isAttributeValEqual(jointWeightView.indices, index1, index2, m_epsilon)) return false;
-            if (!isAttributeValEqual(jointWeightView.weights, index1, index2, m_epsilon)) return false;
+            const auto& jointWeightView = polygon->getJointWeightViews()[joint_i];
+            if (!isAttributeValEqual(jointWeightView.indices, m_jointViewContexts[joint_i].indices, index1, index2, m_epsilon)) return false;
+            if (!isAttributeValEqual(jointWeightView.weights, m_jointViewContexts[joint_i].weights, index1, index2, m_epsilon)) return false;
           }
-          for (const auto& auxAttributeView : polygon->getAuxAttributeViews())
-            if (!isAttributeValEqual(auxAttributeView, index1, index2, m_epsilon)) return false;
+
+          const auto& auxAttrViews = polygon->getAuxAttributeViews();
+          for (uint64_t aux_i = 0; aux_i < auxAttrViews.size(); aux_i++)
+          {
+            if (!isAttributeValEqual(auxAttrViews[aux_i], m_auxAttributeViewContexts[aux_i], index1, index2, m_epsilon)) return false;
+          }
 
           return true;
         }
