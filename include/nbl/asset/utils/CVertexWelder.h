@@ -55,10 +55,10 @@ class CVertexWelder {
 
         static inline bool isAttributeValEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
         {
-          if (!view) return true;
+          assert(view);
+          assert(view.composed.isFormatted());
+          assert(IGeometryBase::getMatchingAABBFormat(view.composed.format) == view.composed.rangeFormat);
           const auto channelCount = getFormatChannelCount(view.composed.format);
-          // TODO: use memcmp to compare for integral equality
-          const auto byteSize = getTexelOrBlockBytesize(view.composed.format);
           switch (view.composed.rangeFormat)
           {
             case IGeometryBase::EAABBFormat::U64:
@@ -78,7 +78,9 @@ class CVertexWelder {
 
         static inline bool isAttributeDirEqual(const ICPUPolygonGeometry::SDataView& view, uint32_t index1, uint32_t index2, float epsilon)
         {
-          if (!view) return true;
+          assert(view);
+          assert(view.composed.isFormatted());
+          assert(IGeometryBase::getMatchingAABBFormat(view.composed.format) == view.composed.rangeFormat);
           const auto channelCount = getFormatChannelCount(view.composed.format);
           switch (view.composed.rangeFormat)
           {
