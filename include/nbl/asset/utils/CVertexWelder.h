@@ -258,7 +258,7 @@ class CVertexWelder {
       }
 
       const auto& indexView = outPolygon->getIndexView();
-      const auto remappedRangeFormat = (maxRemappedIndex - 1) < std::numeric_limits<uint16_t>::max() ? IGeometryBase::EAABBFormat::U16 : IGeometryBase::EAABBFormat::U32;
+      const auto remappedRangeFormat = (maxRemappedIndex - 1) < static_cast<decltype(maxRemappedIndex)>(std::numeric_limits<uint16_t>::max()) ? IGeometryBase::EAABBFormat::U16 : IGeometryBase::EAABBFormat::U32;
 
       auto createRemappedIndexView = [&](size_t indexCount) {
         const uint32_t indexSize = remappedRangeFormat == IGeometryBase::EAABBFormat::U16 ? sizeof(uint16_t) : sizeof(uint32_t);
@@ -302,10 +302,10 @@ class CVertexWelder {
           auto* remappedIndexPtr = reinterpret_cast<IndexT*>(remappedIndexView.getPointer());
           for (uint32_t index_i = 0; index_i < polygon->getIndexCount(); index_i++)
           {
-            hlsl::vector<IndexT, 1> index;
-            indexView.decodeElement<hlsl::vector<IndexT, 1>>(index_i, index);
-            IndexT remappedIndex = remappedVertexIndexes[index.x];
-            remappedIndexPtr[index_i] = remappedIndex;
+            hlsl::vector<uint32_t, 1> index;
+            indexView.decodeElement<hlsl::vector<uint32_t, 1>>(index_i, index);
+            const auto remappedIndex = remappedVertexIndexes[index.x];
+            remappedIndexPtr[index_i] = remappedVertexIndexes[index.x];
             if (remappedIndex == INVALID_INDEX) return false;
           }
           return true;
@@ -343,7 +343,7 @@ class CVertexWelder {
         outPolygon->setIndexView(std::move(remappedIndexView));
       }
 
-      CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
+      CGeometryManipulator::recomputeContentHash(outPolygon->getIndexView());
       return outPolygon;
     }
 };
