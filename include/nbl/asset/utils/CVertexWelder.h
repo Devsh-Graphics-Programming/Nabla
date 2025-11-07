@@ -305,7 +305,7 @@ class CVertexWelder {
             hlsl::vector<uint32_t, 1> index;
             indexView.decodeElement<hlsl::vector<uint32_t, 1>>(index_i, index);
             const auto remappedIndex = remappedVertexIndexes[index.x];
-            remappedIndexPtr[index_i] = remappedVertexIndexes[index.x];
+            remappedIndexPtr[index_i] = static_cast<IndexT>(remappedIndex);
             if (remappedIndex == INVALID_INDEX) return false;
           }
           return true;
