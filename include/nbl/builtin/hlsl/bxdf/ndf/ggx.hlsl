@@ -93,7 +93,6 @@ struct GGXCommon<T,SupportsTransmission,false NBL_PARTIAL_REQ_BOT(concepts::Floa
             isInfinity = true;
             return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         }
-        isInfinity = false;
         scalar_type denom = scalar_type(1.0) - one_minus_a2 * cache.getNdotH2();
         scalar_type ndf = a2 * numbers::inv_pi<scalar_type> / (denom * denom);
         isInfinity = hlsl::isinf(ndf);
@@ -124,7 +123,6 @@ struct GGXCommon<T,SupportsTransmission,true NBL_PARTIAL_REQ_BOT(concepts::Float
             isInfinity = true;
             return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         }
-        isInfinity = false;
         scalar_type denom = cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2 + cache.getNdotH2();
         scalar_type ndf = numbers::inv_pi<scalar_type> / (a2 * denom * denom);
         isInfinity = hlsl::isinf(ndf);
