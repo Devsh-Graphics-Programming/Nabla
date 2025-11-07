@@ -195,7 +195,6 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getNdotV2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getPathOrigin()), ::nbl::hlsl::is_same_v, PathOrigin))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getLuminosityContributionHint()), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getPrefixThroughputWeights()), ::nbl::hlsl::is_same_v, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(normV,normN)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
 );
@@ -223,7 +222,6 @@ struct SIsotropic
         retval.NdotV = nbl::hlsl::dot<vector3_type>(retval.N, retval.V.getDirection());
         retval.NdotV2 = retval.NdotV * retval.NdotV;
         retval.luminosityContributionHint = hlsl::promote<spectral_type>(1.0);
-        retval.throughputWeights = hlsl::promote<spectral_type>(1.0);
 
         return retval;
     }
@@ -238,11 +236,6 @@ struct SIsotropic
 
     PathOrigin getPathOrigin() NBL_CONST_MEMBER_FUNC { return PathOrigin::PO_SENSOR; }
     spectral_type getLuminosityContributionHint() NBL_CONST_MEMBER_FUNC { return luminosityContributionHint; }
-    spectral_type getPrefixThroughputWeights() NBL_CONST_MEMBER_FUNC
-    {
-        spectral_type prefixThroughputWeights = luminosityContributionHint * throughputWeights;
-        return prefixThroughputWeights / math::lpNorm<spectral_type,1>(prefixThroughputWeights);
-    }
 
     RayDirInfo V;
     vector3_type N;
@@ -250,7 +243,6 @@ struct SIsotropic
     scalar_type NdotV2;
 
     spectral_type luminosityContributionHint;
-    spectral_type throughputWeights;    // product of all quotients so far
 };
 
 #define NBL_CONCEPT_NAME Anisotropic
@@ -337,7 +329,6 @@ struct SAnisotropic
     scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV2(); }
     PathOrigin getPathOrigin() NBL_CONST_MEMBER_FUNC { return isotropic.getPathOrigin(); }
     spectral_type getLuminosityContributionHint() NBL_CONST_MEMBER_FUNC { return isotropic.getLuminosityContributionHint(); }
-    spectral_type getPrefixThroughputWeights() NBL_CONST_MEMBER_FUNC { return isotropic.getPrefixThroughputWeights(); }
 
     vector3_type getT() NBL_CONST_MEMBER_FUNC { return T; }
     vector3_type getB() NBL_CONST_MEMBER_FUNC { return B; }
