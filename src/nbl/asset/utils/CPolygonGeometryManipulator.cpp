@@ -154,7 +154,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createS
 		auto result = CSmoothNormalGenerator::calculateNormals(inPolygon, epsilon, vxcmp);
 		if (enableWelding)
 		{
-			return CVertexWelder::weldVertices(result.geom.get(), result.vertexHashGrid, CVertexWelder::DefaultWeldPredicate(epsilon));
+			auto weldPredicate = CVertexWelder::DefaultWeldPredicate(epsilon);
+			return CVertexWelder::weldVertices(result.geom.get(), result.vertexHashGrid, weldPredicate);
 		}
 		return result.geom;
 }

@@ -153,7 +153,7 @@ class CVertexWelder {
           if (!polygon->valid()) return false;
 
           const auto& positionView = polygon->getPositionView();
-          if (IGeometryBase::getMatchingAABBFormat(positionView.composed.format) == positionView.composed.rangeFormat) return false;
+          if (IGeometryBase::getMatchingAABBFormat(positionView.composed.format) != positionView.composed.rangeFormat) return false;
           m_positionViewContext = {
             .channelCount = getFormatChannelCount(positionView.composed.format),
             .byteSize = getTexelOrBlockBytesize(positionView.composed.format),
@@ -180,6 +180,8 @@ class CVertexWelder {
             if (auxAttributeView && !isViewFormatValid(auxAttributeView)) return false;
             m_auxAttributeViewContexts.push_back(getViewContext(auxAttributeView));
           }
+
+          return true;
 
         }
 
@@ -213,8 +215,10 @@ class CVertexWelder {
     };
 
     template <VertexWelderAccelerationStructure AccelStructureT>
-    static inline core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, const WeldPredicate& shouldWeldFn) {
+    static inline core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, const AccelStructureT& as, WeldPredicate& shouldWeldFn) {
       auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
+
+      if (!shouldWeldFn.init(polygon)) return nullptr;
 
       const auto& positionView = polygon->getPositionView();
       const auto vertexCount = positionView.getElementCount();
