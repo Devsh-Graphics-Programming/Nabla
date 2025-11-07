@@ -99,6 +99,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	{
 		auto normal = processedVertex.weightedNormal;
 
+		// We perform double the work (since `vxcmp` must be commutative but not required to be associative) intentionally,
+		// because without guaranteed associativity we cannot partition the vertices into disjoint sets (we're not reconstructing OBJ-like
+		// smooth groups with this), so we can't have all vertices in a set just copy their normal from a "master vertex".
+		// For an example of why that is good, think of a cone or cylinder and why its good to have non-associative smoothing predicate.
 		vertexHashMap.forEachBroadphaseNeighborCandidates(processedVertex.getPosition(), [&](const VertexHashMap::vertex_data_t& candidate)
 			{
 				if (processedVertex.index != candidate.index && compareVertexPosition(processedVertex.position, candidate.position, epsilon) &&
