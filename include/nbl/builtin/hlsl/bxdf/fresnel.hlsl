@@ -401,7 +401,7 @@ struct Conductor
     static void __polarized(const T orientedEta, const T orientedEtak, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
     {
         T cosTheta_2 = cosTheta * cosTheta;
-        T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta_2;
+        // T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta_2;
         const T eta = orientedEta;
         const T eta2 = eta*eta;
         const T etak = orientedEtak;
@@ -470,7 +470,7 @@ struct Dielectric
         const T eta = orientedEta;
         const T eta2 = eta * eta;
 
-        T t0 = hlsl::sqrt(eta2 - sinTheta2);
+        T t0 = hlsl::sqrt(hlsl::max(eta2 - sinTheta2, hlsl::promote<T>(0.0)));
         T t2 = eta2 * cosTheta;
 
         T rp = (t0 - t2) / (t0 + t2);
@@ -569,9 +569,9 @@ struct iridescent_helper
 
         vector_type R12p, R23p, R12s, R23s;
         const vector_type scale = scalar_type(1.0)/eta12;
-        const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(1-cosTheta_1*cosTheta_1) * scale * scale;
+        const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(1.0-cosTheta_1*cosTheta_1) * scale * scale;
 
-        cosTheta_2 = hlsl::sqrt(cosTheta2_2);
+        cosTheta_2 = hlsl::sqrt(hlsl::max(cosTheta2_2, hlsl::promote<vector_type>(0.0)));
         Dielectric<vector_type>::__polarized(eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
 
         // Reflected part by the base
@@ -584,6 +584,9 @@ struct iridescent_helper
         // Check for total internal reflection
         R12s = hlsl::mix(R12s, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
         R12p = hlsl::mix(R12p, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+
+        R23s = hlsl::mix(R23s, hlsl::promote<vector_type>(0.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+        R23p = hlsl::mix(R23p, hlsl::promote<vector_type>(0.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
 
         // Compute the transmission coefficients
         vector_type T121p = hlsl::promote<vector_type>(1.0) - R12p;

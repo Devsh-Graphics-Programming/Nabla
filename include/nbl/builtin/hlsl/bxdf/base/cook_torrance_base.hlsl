@@ -128,10 +128,10 @@ struct SCookTorrance
         return cache.isValid(orientedEta);
     }
 
-    bool dotIsUnity(const vector3_type a, const vector3_type b)
+    bool dotIsUnity(const vector3_type a, const vector3_type b, const scalar_type value)
     {
         const scalar_type ab = hlsl::dot(a, b);
-        return hlsl::max(ab, scalar_type(1.0) / ab) <= scalar_type(1.0 + 1e-3);
+        return hlsl::max(ab, value / ab) <= scalar_type(value + 1e-3);
     }
 
     // bxdf stuff
@@ -197,11 +197,11 @@ struct SCookTorrance
         ray_dir_info_type V = interaction.getV();
         const matrix3x3_type fromTangent = interaction.getFromTangentSpace();
         // tangent frame orthonormality
-        assert(dotIsUnity(fromTangent[0],fromTangent[1]));
-        assert(dotIsUnity(fromTangent[1],fromTangent[2]));
-        assert(dotIsUnity(fromTangent[2],fromTangent[0]));
+        assert(dotIsUnity(fromTangent[0],fromTangent[1],0.0));
+        assert(dotIsUnity(fromTangent[1],fromTangent[2],0.0));
+        assert(dotIsUnity(fromTangent[2],fromTangent[0],0.0));
         // NDF sampling produced a unit length direction
-        assert(dotIsUnity(localH,localH));
+        assert(dotIsUnity(localH,localH,1.0));
         const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
 
@@ -238,7 +238,17 @@ struct SCookTorrance
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type localH = ndf.generateH(localV, u);
         const scalar_type VdotH = hlsl::dot(localV, localH);
-        assert(VdotH >= scalar_type(0.0));  // VNDF sampling guarantees VdotH has same sign as NdotV (should be positive for BRDF)
+        NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)   // VNDF sampling guarantees VdotH has same sign as NdotV (should be positive for BRDF)
+        {
+            // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
+            if (VdotH <= scalar_type(0.0))
+                return sample_type::createInvalid();
+            assert(!hlsl::isnan(NdotV*VdotH));
+        }
+        else
+        {
+            assert(VdotH >= scalar_type(0.0));
+        }
 
         fresnel::OrientedEtaRcps<monochrome_type> dummy;
         bool valid;
@@ -263,7 +273,7 @@ struct SCookTorrance
         NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)
         {
             // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
-            if ((IsBSDF ? (NdotV*VdotH) : VdotH) <= scalar_type(0.0))
+            if (NdotV*VdotH <= scalar_type(0.0))
                 return sample_type::createInvalid();
             assert(!hlsl::isnan(NdotV*VdotH));
         }
@@ -283,7 +293,7 @@ struct SCookTorrance
         sample_type s = __generate_common(interaction, localH, NdotV, VdotH, transmitted, rcpEta, cache, valid);
         if (valid)
         {
-            assert(cache.isValid(fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(_f.getRefractionOrientedEta()))));
+            assert(cache.isValid(fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(_f.getRefractionOrientedEta()))));
             const vector3_type T = interaction.getT();
             const vector3_type B = interaction.getB();
             const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
