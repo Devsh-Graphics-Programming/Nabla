@@ -38,10 +38,10 @@ constexpr int8_t find_msb(const T& a_variable)
 {
     static_assert(std::is_unsigned<T>::value, "Variable must be unsigned");
 
-    constexpr uint8_t number_of_bits = std::numeric_limits<T>::digits;
+    constexpr int8_t number_of_bits = std::numeric_limits<T>::digits;
     const std::bitset<number_of_bits> variable_bitset{a_variable};
 
-    for (uint8_t msb = number_of_bits - 1; msb >= 0; msb--)
+    for (int8_t msb = number_of_bits - 1; msb >= 0; msb--)
     {
         if (variable_bitset[msb] == 1)
             return msb;
@@ -49,49 +49,65 @@ constexpr int8_t find_msb(const T& a_variable)
     return -1;
 }
 
+
+}
+
 template<size_t key_bit_count, typename histogram_t>
-struct RadixSorter
+struct RadixLsbSorter
 {
-		_NBL_STATIC_INLINE_CONSTEXPR uint16_t histogram_bytesize = 8192u;
-		_NBL_STATIC_INLINE_CONSTEXPR size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);
-		_NBL_STATIC_INLINE_CONSTEXPR uint8_t radix_bits = find_msb(histogram_size);
-		_NBL_STATIC_INLINE_CONSTEXPR size_t last_pass = (key_bit_count-1ull)/size_t(radix_bits);
-		_NBL_STATIC_INLINE_CONSTEXPR uint16_t radix_mask = (1u<<radix_bits)-1u;
+		constexpr static inline uint16_t histogram_bytesize = 8192u;
+		constexpr static inline size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);
+		constexpr static inline uint8_t radix_bits = impl::find_msb(histogram_size);
+		constexpr static inline size_t last_pass = (key_bit_count-1ull)/size_t(radix_bits);
+		constexpr static inline uint16_t radix_mask = (1u<<radix_bits)-1u;
 
 		template<class RandomIt, class KeyAccessor>
 		inline RandomIt operator()(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
 		{
 			return pass<RandomIt,KeyAccessor,0ull>(input,output,rangeSize,comp);
 		}
+
+    inline std::pair<histogram_t, histogram_t> getMostSignificantRadixBound(size_t key) const
+		{
+			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits * last_pass);
+			const auto histogramIx = (key >> shift) & radix_mask;
+			const auto boundBegin = histogramIx == 0 ? 0 : m_histogram[histogramIx - 1];
+			return { boundBegin, m_histogram[histogramIx] };
+		}
+
 	private:
 		template<class RandomIt, class KeyAccessor, size_t pass_ix>
 		inline RandomIt pass(RandomIt input, RandomIt output, const histogram_t rangeSize, const KeyAccessor& comp)
 		{
 			// clear
-			std::fill_n(histogram,histogram_size,static_cast<histogram_t>(0u));
+			std::fill_n(m_histogram,histogram_size,static_cast<histogram_t>(0u));
+
 			// count
 			constexpr histogram_t shift = static_cast<histogram_t>(radix_bits*pass_ix);
-			for (histogram_t i=0u; i<rangeSize; i++)
-				++histogram[comp.template operator()<shift,radix_mask>(input[i])];
-			// prefix sum
-			std::inclusive_scan(histogram,histogram+histogram_size,histogram);
-			// scatter
-			for (histogram_t i=rangeSize; i!=0u;)
+			for (histogram_t i = rangeSize; i != 0;)
 			{
 				i--;
-				output[--histogram[comp.template operator()<shift,radix_mask>(input[i])]] = input[i];
+				++m_histogram[comp.template operator()<shift,radix_mask>(input[i])];
+			}
+
+			// prefix sum
+			std::exclusive_scan(m_histogram, m_histogram + histogram_size, m_histogram, 0);
+
+			// scatter. After scatter m_histogram now become a skiplist
+			for (histogram_t i = 0; i < rangeSize; i++)
+			{
+        const auto& val = input[i];
+        const auto& histogramIx = comp.template operator()<shift,radix_mask>(val);
+        output[m_histogram[histogramIx]++] = val;
 			}
 
 			if constexpr (pass_ix != last_pass)
-				return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
-			else
-				return output;
+        return pass<RandomIt,KeyAccessor,pass_ix+1ull>(output,input,rangeSize,comp);
+      return output;
 		}
 	
-		alignas(sizeof(histogram_t)) histogram_t histogram[histogram_size];
+		alignas(sizeof(histogram_t)) histogram_t m_histogram[histogram_size];
 };
-
-}
 
 template<class RandomIt, class KeyAccessor>
 inline RandomIt radix_sort(RandomIt input, RandomIt scratch, const size_t rangeSize, const KeyAccessor& comp)
@@ -99,11 +115,11 @@ inline RandomIt radix_sort(RandomIt input, RandomIt scratch, const size_t rangeS
 	assert(std::abs(std::distance(input,scratch))>=rangeSize);
 
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<16ull))
-		return impl::RadixSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
+		return RadixLsbSorter<KeyAccessor::key_bit_count,uint16_t>()(input,scratch,static_cast<uint16_t>(rangeSize),comp);
 	if (rangeSize<static_cast<decltype(rangeSize)>(0x1ull<<32ull))
-		return impl::RadixSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
+		return RadixLsbSorter<KeyAccessor::key_bit_count,uint32_t>()(input,scratch,static_cast<uint32_t>(rangeSize),comp);
 	else
-		return impl::RadixSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
+		return RadixLsbSorter<KeyAccessor::key_bit_count,size_t>()(input,scratch,rangeSize,comp);
 }
 
 //! Because Radix Sort needs O(2n) space and a number of passes dependant on the key length, the final sorted range can be either in `input` or `scratch`
