@@ -4,7 +4,6 @@ Thank you for your interest in contributing to the Nabla Engine! Nabla is a high
 
 ## Table of Contents
 
-<<<<<<< HEAD
 - [How Can I Contribute?](#how-can-i-contribute)
   - [Reporting Bugs](#reporting-bugs)
   - [Suggesting Enhancements](#suggesting-enhancements)
@@ -13,9 +12,6 @@ Thank you for your interest in contributing to the Nabla Engine! Nabla is a high
 - [Pull Request Process](#pull-request-process)
 - [Connect with Other Project Contributors](#connect-with-other-project-contributors)
 - [License](#license)
-=======
-https://github.com/Devsh-Graphics-Programming/Nabla/issues
->>>>>>> 0c03e2f7517c6cd8cfff2dfb5c874a3da41c27e7
 
 ## How Can I Contribute?
 
