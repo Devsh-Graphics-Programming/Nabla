@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
+#include "nbl/builtin/hlsl/math/octahedral.hlsl"
 
 using namespace nbl;
 using namespace asset;
@@ -81,20 +82,6 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
 
     return s0 * (1.0 - u) + s1 * u;
 }
-
-inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const float& v)
-{
-    core::vectorSIMDf pos = core::vectorSIMDf(2 * (u - 0.5), 2 * (v - 0.5), 0.0);
-    float abs_x = core::abs(pos.x), abs_y = core::abs(pos.y);
-    pos.z = 1.0 - abs_x - abs_y;
-    if (pos.z < 0.0) {
-        pos.x = (pos.x<0.f ? (-1.f):1.f) * (1.0 - abs_y);
-        pos.y = (pos.y<0.f ? (-1.f):1.f) * (1.0 - abs_x);
-    }
-
-    return core::normalize(pos);
-}
-
 
 inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
 {
@@ -183,8 +170,12 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         {
             // We don't currently support generating IES images that exploit symmetries or reduced domains, all are full octahederal mappings of a sphere.
             // If we did, we'd rely on MIRROR and CLAMP samplers to do some of the work for us while handling the discontinuity due to corner sampling. 
-            const auto dir = octahdronUVToDir(position.x * vertInv, position.y * horiInv);
-            const auto [theta, phi] = sphericalDirToRadians(dir);
+            
+            using Octahedral = hlsl::math::OctahedralTransform<hlsl::float32_t>;
+            const auto uv = Octahedral::vector2_type(position.x * vertInv, position.y * horiInv);
+            const auto dir = Octahedral::uvToDir(uv);
+			const auto tmp = core::vectorSIMDf(dir.x, dir.y, dir.z);
+            const auto [theta, phi] = sphericalDirToRadians(tmp);
             const auto intensity = sample(theta, phi);
             
             //! blend the IES texture with "flatten"

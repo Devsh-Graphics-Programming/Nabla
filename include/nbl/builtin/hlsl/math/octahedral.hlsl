@@ -16,49 +16,55 @@ namespace math
 {
 
 // Octahedral Transform, maps 3D direction vectors to 2D square and vice versa
-template<typename T = float64_t>
+template<typename T = float32_t>
 struct OctahedralTransform
 {
     using scalar_type   = T;
     using vector2_type  = vector<T, 2>;
     using vector3_type  = vector<T, 3>;
 
-    // F : [-1, 1]^2 -> S^2
-    static vector3_type eval(const vector2_type ndc)
+    // F : [0, 1]^2 -> S^2
+    static vector3_type uvToDir(const vector2_type uv)
     {
-        vector3_type p = vector3_type(ndc.xy, scalar_type(0));
-        const vector2_type a = abs(p.xy);
+        vector3_type p = vector3_type((uv * scalar_type(2) - scalar_type(1)), scalar_type(0));
+		const scalar_type a_x = abs(p.x); const scalar_type a_y = abs(p.y);
 
-        p.z = scalar_type(1) - a.x - a.y;
+        p.z = scalar_type(1) - a_x - a_y;
 
-        if (p.z < scalar_type(0))
-            p.xy = hlsl::sign(p.xy) * (scalar_type(1) - abs(p.yx));
+        if (p.z < scalar_type(0)) 
+        {
+            p.x = (p.x < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - a_y);
+            p.y = (p.y < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - a_x);
+        }
 
         return hlsl::normalize(p);
     }
 
     // F^-1 : S^2 -> [-1, 1]^2
-    static vector2_type inverse(vector3_type dir)
+    static vector2_type dirToNDC(vector3_type dir)
     {
         dir = hlsl::normalize(dir);
         const scalar_type sum = hlsl::dot(vector3_type(scalar_type(1), scalar_type(1), scalar_type(1)), abs(dir));
         vector3_type s = dir / sum;
 
         if (s.z < scalar_type(0))
-            s.xy = hlsl::sign(s.xy) * (scalar_type(1) - abs(s.yx));
+        {
+            s.x = (s.x < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - abs(s.y));
+            s.y = (s.y < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - abs(s.x));
+        }
 
         return s.xy;
     }
 
-    // transforms direction vector into UV (for corner sampling)
+    // transforms direction vector into UV for corner sampling
     // dir in S^2, halfMinusHalfPixel in [0, 0.5)^2,
     // where halfMinusHalfPixel = 0.5-0.5/texSize
     // and texSize.x >= 1, texSize.y >= 1
-    // NOTE/TODO: not best place to keep it here imo
+    // NOTE/TODO: not best place to keep it here
     static vector2_type toCornerSampledUV(vector3_type dir, vector2_type halfMinusHalfPixel)
     {
         // note: cornerSampled(NDC*0.5+0.5) = NDC*0.5*(1-1/texSize)+0.5
-        return inverse(dir) * halfMinusHalfPixel + scalar_type(0.5);
+        return dirToNDC(dir) * halfMinusHalfPixel + scalar_type(0.5);
     }
 };
 
