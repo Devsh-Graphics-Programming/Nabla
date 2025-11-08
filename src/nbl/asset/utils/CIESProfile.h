@@ -71,7 +71,12 @@ namespace nbl
                 inline IES_STORAGE_FORMAT getAvgEmmision(const bool fullDomain=false) const
                 {
                     if (fullDomain)
-                        return totalEmissionIntegral*0.25/core::radians(vAngles.back()-vAngles.front());
+                    {
+                        const float cosLo = std::cos(core::radians(vAngles.front()));
+                        const float cosHi = std::cos(core::radians<float>(vAngles.back()));
+                        const float dsinTheta = cosLo - cosHi;
+                        return totalEmissionIntegral*(0.5/core::PI<float>())/dsinTheta;
+                    }
                     return avgEmmision;
                 }
 

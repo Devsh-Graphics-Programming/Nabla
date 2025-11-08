@@ -601,7 +601,8 @@ vec3 nbl_glsl_MC_oriented_material_t_getEmissive(in nbl_glsl_MC_oriented_materia
 		if ((floatBitsToInt(emitter.orientation[0])&1u) != 1u) {
 			right *= -1;
 		}
-		return emissive * nbl_glsl_vTextureGrad(emitter.emissionProfile, nbl_glsl_IES_convert_dir_to_uv(mat3(right, up, view)*dir), mat2(0.0)).r;
+		vec2 halfMinusHalfPixel = vec2(0.5)-vec2(0.5)/vec2(nbl_glsl_unpackSize(emitter.emissionProfile));
+		return emissive * nbl_glsl_vTextureGrad(emitter.emissionProfile, nbl_glsl_IES_convert_dir_to_uv(mat3(right, up, view)*dir,halfMinusHalfPixel), mat2(0.0)).r;
 	}
 #endif
 	return emissive;

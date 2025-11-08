@@ -106,12 +106,6 @@ bool CIESProfileParser::parse(CIESProfile& result)
     if (vSize < 2)
         return false;
 
-    {
-        const uint32_t maxDimMeasureSize = core::max(hSize, vSize);
-        result.optimalIESResolution = decltype(result.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
-        result.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
-    }
-
     auto& vAngles = result.vAngles;
     for (int i = 0; i < vSize; i++) {
         vAngles[i] = getDouble("vertical angle truncated");
@@ -180,15 +174,29 @@ bool CIESProfileParser::parse(CIESProfile& result)
     float totalEmissionIntegral = 0.0, nonZeroEmissionDomainSize = 0.0;
     constexpr auto FULL_SOLID_ANGLE = 4.0f * core::PI<float>();
 
+    // TODO: this code could have two separate inner for loops for `result.symmetry != CIESProfile::ISOTROPIC` cases 
     const auto H_ANGLES_I_RANGE = result.symmetry != CIESProfile::ISOTROPIC ? result.hAngles.size() - 1 : 1;
     const auto V_ANGLES_I_RANGE = result.vAngles.size() - 1;
 
-    for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
+    float smallestRangeSolidAngle = FULL_SOLID_ANGLE;
+    for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
     {
-        const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? (hAngles[i + 1] - hAngles[i]) : core::PI<float>() * 2.0f;
+        const float thetaRad = core::radians<float>(result.vAngles[j]);
+        const float cosLo = std::cos(thetaRad);
+        const float cosHi = std::cos(core::radians<float>(result.vAngles[j+1]));
+        const float dsinTheta = cosLo - cosHi;
 
-        for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
+        float stripIntegral = 0.f;
+        float nonZeroStripDomain = 0.f;
+        for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
         {
+            const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? core::radians<float>(hAngles[i + 1] - hAngles[i]) : (core::PI<float>() * 2.0f);
+            // TODO: in reality one should transform the 4 vertices (or 3) into octahedral map, work out the dUV/dPhi and dUV/dTheta vectors as-if for Anisotropic Filtering
+            // then choose the minor axis length, and use that as a pixel size (since looking for smallest thing, dont have to worry about handling discont)
+            const float solidAngle = dsinTheta * dPhiRad;
+            if (solidAngle<smallestRangeSolidAngle)
+                smallestRangeSolidAngle = solidAngle;
+
             const auto candelaValue = result.getCandelaValue(i, j);
 
             // interpolate candela value spanned onto a solid angle
@@ -199,23 +207,24 @@ bool CIESProfileParser::parse(CIESProfile& result)
             if (result.maxCandelaValue < candelaValue)
                 result.maxCandelaValue = candelaValue;
 
-            const float thetaRad = core::radians<float>(result.vAngles[j]);
-            const float cosLo = std::cos(core::radians<float>(result.vAngles[j]));
-            const float cosHi = std::cos(core::radians<float>(result.vAngles[j + 1]));
-
-            const auto differentialSolidAngle = dPhiRad*(cosLo - cosHi);
-            const auto integralV = candelaAverage * differentialSolidAngle;
-
-            if (integralV > 0.0)
-            {
-                totalEmissionIntegral += integralV;
-                nonZeroEmissionDomainSize += differentialSolidAngle;
-            }
+            stripIntegral += candelaAverage*dPhiRad;
+            if (candelaAverage>0.f)
+                nonZeroStripDomain += dPhiRad;
         }
+        totalEmissionIntegral += stripIntegral*dsinTheta;
+        nonZeroEmissionDomainSize += nonZeroStripDomain*dsinTheta;
     }
 
-    nonZeroEmissionDomainSize = std::clamp<float>(nonZeroEmissionDomainSize, 0.0, FULL_SOLID_ANGLE);
-    if (nonZeroEmissionDomainSize <= 0) // protect us from division by 0 (just in case, we should never hit it)
+    // assuming octahedral map
+    {
+        const uint32_t maxDimMeasureSize = core::sqrt(FULL_SOLID_ANGLE/smallestRangeSolidAngle);
+        result.optimalIESResolution = decltype(result.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
+        result.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
+    }
+
+    assert(nonZeroEmissionDomainSize >= 0.f);
+    //assert(nonZeroEmissionDomainSize*fluxMultiplier =approx= 2.f*(cosBack-cosFront)*PI);
+    if (nonZeroEmissionDomainSize <= std::numeric_limits<float>::min()) // protect us from division by small numbers (just in case, we should never hit it)
         return false;
 
     result.avgEmmision = totalEmissionIntegral / static_cast<decltype(totalEmissionIntegral)>(nonZeroEmissionDomainSize);

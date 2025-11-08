@@ -88,8 +88,8 @@ inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const flo
     float abs_x = core::abs(pos.x), abs_y = core::abs(pos.y);
     pos.z = 1.0 - abs_x - abs_y;
     if (pos.z < 0.0) {
-        pos.x = core::sign(pos.x) * (1.0 - abs_y);
-        pos.y = core::sign(pos.y) * (1.0 - abs_x);
+        pos.x = (pos.x<0.f ? (-1.f):1.f) * (1.0 - abs_y);
+        pos.y = (pos.y<0.f ? (-1.f):1.f) * (1.0 - abs_x);
     }
 
     return core::normalize(pos);
@@ -115,6 +115,13 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
     if (height > CDC_MAX_TEXTURE_HEIGHT)
         height = CDC_MAX_TEXTURE_HEIGHT;
+
+    // TODO: If no symmetry (no folding in half and abuse of mirror sampler) make dimensions odd-sized so middle texel taps the south pole
+
+    // TODO: This is hack because the mitsuba loader and its material compiler use Virtual Texturing, and there's some bug with IES not sampling sub 128x128 mip levels
+    // don't want to spend time to fix this since we'll be using descriptor indexing for the next iteration
+    width = core::max(width,128);
+    height = core::max(height,128);
 
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -164,15 +171,19 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         const double maxValue = getMaxCandelaValue();
         const double maxValueRecip = 1.0 / maxValue;
 
-        const double vertInv = 1.0 / height;
-        const double horiInv = 1.0 / width;
+        // There is one huge issue, the IES files love to give us values for degrees 0, 90, 180 an 360
+        // So standard octahedral mapping won't work, because for above data points you need corner sampled images.
+        const float vertInv = 1.0 / (height-1);
+        const float horiInv = 1.0 / (width-1);
 
         const double flattenTarget = getAvgEmmision(fullDomainFlatten);
         const double domainLo = core::radians(vAngles.front());
         const double domainHi = core::radians(vAngles.back());
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
-            const auto dir = octahdronUVToDir(((float)position.x + 0.5) * vertInv, ((float)position.y + 0.5) * horiInv);
+            // We don't currently support generating IES images that exploit symmetries or reduced domains, all are full octahederal mappings of a sphere.
+            // If we did, we'd rely on MIRROR and CLAMP samplers to do some of the work for us while handling the discontinuity due to corner sampling. 
+            const auto dir = octahdronUVToDir(position.x * vertInv, position.y * horiInv);
             const auto [theta, phi] = sphericalDirToRadians(dir);
             const auto intensity = sample(theta, phi);
             
