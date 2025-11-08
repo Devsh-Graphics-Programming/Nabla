@@ -3,6 +3,7 @@
 #include <atomic>
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 #include "nbl/builtin/hlsl/math/octahedral.hlsl"
+#include "nbl/builtin/hlsl/math/polar.hlsl"
 
 using namespace nbl;
 using namespace asset;
@@ -81,14 +82,6 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
     double s1 = getCandelaValue(i1, j0) * (1.0 - v) + getCandelaValue(i1, j1) * (v);
 
     return s0 * (1.0 - u) + s1 * u;
-}
-
-inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
-{
-    const float theta = std::acos(std::clamp<float>(dir.z, -1.f, 1.f));
-    const float phi = std::atan2(dir.y, dir.x);
-
-    return { theta, phi };
 }
 
 template<class ExecutionPolicy>
@@ -172,15 +165,15 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
             // If we did, we'd rely on MIRROR and CLAMP samplers to do some of the work for us while handling the discontinuity due to corner sampling. 
             
             using Octahedral = hlsl::math::OctahedralTransform<hlsl::float32_t>;
+            using Polar = hlsl::math::Polar<hlsl::float32_t>;
             const auto uv = Octahedral::vector2_type(position.x * vertInv, position.y * horiInv);
             const auto dir = Octahedral::uvToDir(uv);
-			const auto tmp = core::vectorSIMDf(dir.x, dir.y, dir.z);
-            const auto [theta, phi] = sphericalDirToRadians(tmp);
-            const auto intensity = sample(theta, phi);
-            
+            const auto polar = Polar::createFromCartesian(dir);
+            const auto intensity = sample(polar.theta, polar.phi);
+
             //! blend the IES texture with "flatten"
             double blendV = intensity * (1.0 - flatten);
-            if (fullDomainFlatten && domainLo<=theta && theta<=domainHi || intensity >0.0)
+            if (fullDomainFlatten && domainLo<= polar.theta && polar.theta<=domainHi || intensity >0.0)
                 blendV += flattenTarget * flatten;
 
             blendV *= maxValueRecip;

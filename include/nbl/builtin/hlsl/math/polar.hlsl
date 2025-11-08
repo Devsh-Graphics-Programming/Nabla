@@ -14,27 +14,29 @@ namespace hlsl
 namespace math
 {
 
-template<typename T>
+template<typename T = float32_t>
 struct Polar
 {
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
     using vector3_type = vector<T, 3>;
 
-    // should be normalized
-    static Polar<T> createFromCartesian(const vector3_type coords)
+    // input must be normalized
+    static Polar<T> createFromCartesian(NBL_CONST_REF_ARG(vector3_type) dir)
     {
         Polar<T> retval;
-        retval.theta = hlsl::acos(coords.z);
-        retval.phi = hlsl::atan2(coords.y, coords.x);
+        retval.theta = acos(dir.z);
+        retval.phi = atan2(dir.y, dir.x);
         return retval;
     }
 
-    static vector3_type ToCartesian(const scalar_type theta, const scalar_type phi)
+    static vector3_type ToCartesian(NBL_CONST_REF_ARG(scalar_type) theta, NBL_CONST_REF_ARG(scalar_type) phi)
     {
-        return vector<T, 3>(hlsl::cos(phi) * hlsl::cos(theta),
-            hlsl::sin(phi) * hlsl::cos(theta),
-            hlsl::sin(theta));
+        return vector<T, 3>(
+            cos(phi) * cos(theta),
+            sin(phi) * cos(theta),
+            sin(theta)
+        );
     }
 
     vector3_type getCartesian()
@@ -42,8 +44,8 @@ struct Polar
         return ToCartesian(theta, phi);
     }
 
-    scalar_type theta;
-    scalar_type phi;
+    scalar_type theta;  //! polar angle in range [0, PI]
+    scalar_type phi;    //! azimuthal angle in range [-PI, PI]
 };
 
 }

@@ -24,7 +24,7 @@ struct OctahedralTransform
     using vector3_type  = vector<T, 3>;
 
     // F : [0, 1]^2 -> S^2
-    static vector3_type uvToDir(const vector2_type uv)
+    static vector3_type uvToDir(NBL_CONST_REF_ARG(vector2_type) uv)
     {
         vector3_type p = vector3_type((uv * scalar_type(2) - scalar_type(1)), scalar_type(0));
 		const scalar_type a_x = abs(p.x); const scalar_type a_y = abs(p.y);
@@ -41,9 +41,9 @@ struct OctahedralTransform
     }
 
     // F^-1 : S^2 -> [-1, 1]^2
-    static vector2_type dirToNDC(vector3_type dir)
+    static vector2_type dirToNDC(NBL_CONST_REF_ARG(vector3_type) d)
     {
-        dir = hlsl::normalize(dir);
+        scalar_type dir = hlsl::normalize(d);
         const scalar_type sum = hlsl::dot(vector3_type(scalar_type(1), scalar_type(1), scalar_type(1)), abs(dir));
         vector3_type s = dir / sum;
 
@@ -61,7 +61,7 @@ struct OctahedralTransform
     // where halfMinusHalfPixel = 0.5-0.5/texSize
     // and texSize.x >= 1, texSize.y >= 1
     // NOTE/TODO: not best place to keep it here
-    static vector2_type toCornerSampledUV(vector3_type dir, vector2_type halfMinusHalfPixel)
+    static vector2_type toCornerSampledUV(NBL_CONST_REF_ARG(vector3_type) dir, NBL_CONST_REF_ARG(vector2_type) halfMinusHalfPixel)
     {
         // note: cornerSampled(NDC*0.5+0.5) = NDC*0.5*(1-1/texSize)+0.5
         return dirToNDC(dir) * halfMinusHalfPixel + scalar_type(0.5);
