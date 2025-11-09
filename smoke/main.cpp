@@ -36,11 +36,45 @@ public:
             return false;
         }
 
+        exportGpuProfiles();
+
         return true;
     }
 
     void workLoopBody() override {}
     bool keepRunning() override { return false; }
+
+private:
+    static void exportGpuProfiles()
+    {
+        std::string arg2 = "-o";
+        std::string buf;
+        std::string arg1;
+        std::string arg3;
+
+        for (size_t i = 0;; i++)
+        {
+            auto stringifiedIndex = std::to_string(i);
+            arg1 = "--json=" + stringifiedIndex;
+            arg3 = "device_" + stringifiedIndex + ".json";
+            std::array<const char*, 3> args = { arg1.data(), arg2.data(), arg3.data() };
+
+            int code = nbl::video::vulkaninfo(args);
+
+            if (code != 0)
+                break;
+
+            // print out file content
+            std::ifstream input(arg3);
+            
+            while (std::getline(input, buf))
+            {
+                std::cout << buf << "\n";
+            }
+
+            std::cout << "\n\n";
+        }
+    }
 };
 
 NBL_MAIN_FUNC(Smoke)
