@@ -345,6 +345,8 @@ struct Schlick
     using vector_type = T;
     using eta_type = vector_type;
 
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
+
     static Schlick<T> create(NBL_CONST_REF_ARG(T) F0)
     {
         Schlick<T> retval;
@@ -352,7 +354,7 @@ struct Schlick
         return retval;
     }
 
-    T operator()(const scalar_type clampedCosTheta)
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         assert(clampedCosTheta >= scalar_type(0.0));
         assert(hlsl::all(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0)));
@@ -378,6 +380,8 @@ struct Conductor
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
     using eta_type = vector_type;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
 
     static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak)
     {
@@ -412,7 +416,7 @@ struct Conductor
         Rp = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
     }
 
-    T operator()(const scalar_type clampedCosTheta)
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         T rs2, rp2;
         __polarized(eta, etaLen2, hlsl::promote<T>(clampedCosTheta), rp2, rs2);
@@ -439,6 +443,8 @@ struct Dielectric
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
     using eta_type = vector_type;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
 
     static Dielectric<T> create(NBL_CONST_REF_ARG(OrientedEtas<T>) orientedEta)
     {
@@ -470,7 +476,7 @@ struct Dielectric
         return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
 
-    T operator()(const scalar_type clampedCosTheta)
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         return __call(orientedEta2, clampedCosTheta);
     }
@@ -664,7 +670,9 @@ struct Iridescent<T, false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVector
     using eta_type = vector_type;
     using base_type = impl::iridescent_base<T, false>;
 
-    T operator()(const scalar_type clampedCosTheta)
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
+
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         return impl::iridescent_helper<T,false>::template __call<base_type>(__base, clampedCosTheta);
     }
@@ -690,7 +698,9 @@ struct Iridescent<T, true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectori
     using eta_type = vector<scalar_type, 1>;
     using base_type = impl::iridescent_base<T, true>;
 
-    T operator()(const scalar_type clampedCosTheta)
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
+
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         return impl::iridescent_helper<T,true>::template __call<base_type>(__base, clampedCosTheta);
     }
