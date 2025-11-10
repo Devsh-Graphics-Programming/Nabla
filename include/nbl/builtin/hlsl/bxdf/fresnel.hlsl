@@ -397,20 +397,14 @@ struct Conductor
         return retval;
     }
 
-    // TODO: will probably merge with __call at some point
-    static void __polarized(const T orientedEta, const T orientedEtak, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
+    static void __polarized(const T orientedEta, const T etaLen2, const T clampedCosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
     {
-        T cosTheta_2 = cosTheta * cosTheta;
-        // T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta_2;
+        const T cosTheta_2 = clampedCosTheta * clampedCosTheta;
         const T eta = orientedEta;
-        const T eta2 = eta*eta;
-        const T etak = orientedEtak;
-        const T etak2 = etak*etak;
 
-        const T etaLen2 = eta2 + etak2;
         assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
         T t1 = etaLen2 * cosTheta_2;
-        const T etaCosTwice = eta * cosTheta * scalar_type(2.0);
+        const T etaCosTwice = eta * clampedCosTheta * hlsl::promote<T>(2.0);
 
         const T rs_common = etaLen2 + cosTheta_2;
         Rs = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
@@ -420,17 +414,8 @@ struct Conductor
 
     T operator()(const scalar_type clampedCosTheta)
     {
-        const scalar_type cosTheta_2 = clampedCosTheta * clampedCosTheta;
-        //const float sinTheta2 = 1.0 - cosTheta_2;
-
-        assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
-        const T etaCosTwice = eta * clampedCosTheta * hlsl::promote<T>(2.0);
-
-        const T rs_common = etaLen2 + hlsl::promote<T>(cosTheta_2);
-        const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
-
-        const T rp_common = etaLen2 * cosTheta_2 + hlsl::promote<T>(1.0);
-        const T rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
+        T rs2, rp2;
+        __polarized(eta, etaLen2, hlsl::promote<T>(clampedCosTheta), rp2, rs2);
 
         return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
@@ -463,15 +448,13 @@ struct Dielectric
         return retval;
     }
 
-    // TODO: will probably merge with __call at some point
-    static void __polarized(const T orientedEta, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
+    static void __polarized(const T orientedEta2, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
     {
-        T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta * cosTheta;
-        const T eta = orientedEta;
-        const T eta2 = eta * eta;
+        const T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta * cosTheta;
 
-        T t0 = hlsl::sqrt(hlsl::max(eta2 - sinTheta2, hlsl::promote<T>(0.0)));
-        T t2 = eta2 * cosTheta;
+        // the max() clamping can handle TIR when orientedEta2<1.0
+        T t0 = hlsl::sqrt(hlsl::max(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
+        T t2 = orientedEta2 * cosTheta;
 
         T rp = (t0 - t2) / (t0 + t2);
         Rp = rp * rp;
@@ -481,16 +464,10 @@ struct Dielectric
 
     static T __call(NBL_CONST_REF_ARG(T) orientedEta2, const scalar_type clampedCosTheta)
     {
-        const scalar_type sinTheta2 = scalar_type(1.0) - clampedCosTheta * clampedCosTheta;
+        T rs2, rp2;
+        __polarized(orientedEta2, hlsl::promote<T>(clampedCosTheta), rp2, rs2);
 
-        // the max() clamping can handle TIR when orientedEta2<1.0
-        const T t0 = hlsl::sqrt<T>(hlsl::max<T>(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
-        const T rs = (hlsl::promote<T>(clampedCosTheta) - t0) / (hlsl::promote<T>(clampedCosTheta) + t0);
-
-        const T t2 = orientedEta2 * clampedCosTheta;
-        const T rp = (t0 - t2) / (t0 + t2);
-
-        return (rs * rs + rp * rp) * scalar_type(0.5);
+        return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
 
     T operator()(const scalar_type clampedCosTheta)
@@ -577,9 +554,12 @@ struct iridescent_helper
         // Reflected part by the base
         // if kappa==0, base material is dielectric
         NBL_IF_CONSTEXPR(SupportsTransmission)
-            Dielectric<vector_type>::__polarized(eta23, cosTheta_2, R23p, R23s);
+            Dielectric<vector_type>::__polarized(eta23 * eta23, cosTheta_2, R23p, R23s);
         else
-            Conductor<vector_type>::__polarized(eta23, etak23, cosTheta_2, R23p, R23s);
+        {
+            vector_type etaLen2 = eta23 * eta23 + etak23 * etak23;
+            Conductor<vector_type>::__polarized(eta23, etaLen2, cosTheta_2, R23p, R23s);
+        }
 
         // Check for total internal reflection
         R12s = hlsl::mix(R12s, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
@@ -660,14 +640,24 @@ struct Iridescent<T, false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVector
     using vector_type = T;  // assert dim==3?
     using eta_type = vector_type;
 
-    static this_t create(scalar_type Dinc, vector_type ior1, vector_type ior2, vector_type ior3, vector_type iork3)
+    struct CreationParams
+    {
+        scalar_type Dinc;
+        vector_type ior1;
+        vector_type ior2;
+        vector_type ior3;
+        vector_type iork3;
+    };
+    using creation_params_type = CreationParams;
+
+    static this_t create(NBL_CONST_REF_ARG(creation_params_type) params)
     {
         this_t retval;
-        retval.helper.Dinc = Dinc;
-        retval.helper.thinFilmIor = ior2;
-        retval.helper.eta12 = ior2/ior1;
-        retval.helper.eta23 = ior3/ior2;
-        retval.helper.etak23 = iork3/ior2;
+        retval.helper.Dinc = params.Dinc;
+        retval.helper.thinFilmIor = params.ior2;
+        retval.helper.eta12 = params.ior2/params.ior1;
+        retval.helper.eta23 = params.ior3/params.ior2;
+        retval.helper.etak23 = params.iork3/params.ior2;
         return retval;
     }
 
@@ -696,13 +686,22 @@ struct Iridescent<T, true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectori
     using vector_type = T;  // assert dim==3?
     using eta_type = vector<scalar_type, 1>;
 
-    static this_t create(scalar_type Dinc, vector_type ior1, vector_type ior2, vector_type ior3)
+    struct CreationParams
+    {
+        scalar_type Dinc;
+        vector_type ior1;
+        vector_type ior2;
+        vector_type ior3;
+    };
+    using creation_params_type = CreationParams;
+
+    static this_t create(NBL_CONST_REF_ARG(creation_params_type) params)
     {
         this_t retval;
-        retval.helper.Dinc = Dinc;
-        retval.helper.thinFilmIor = ior2;
-        retval.helper.eta12 = ior2/ior1;
-        retval.helper.eta23 = ior3/ior2;
+        retval.helper.Dinc = params.Dinc;
+        retval.helper.thinFilmIor = params.ior2;
+        retval.helper.eta12 = params.ior2/params.ior1;
+        retval.helper.eta23 = params.ior3/params.ior2;
         retval.helper.etak23 = hlsl::promote<vector_type>(0.0);
         return retval;
     }
