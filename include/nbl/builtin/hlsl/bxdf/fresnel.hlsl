@@ -537,11 +537,15 @@ struct iridescent_helper
         return xyz / scalar_type(1.0685e-7);
     }
 
-    T __call(const scalar_type clampedCosTheta)
+    template<typename Params>
+    static T __call(NBL_CONST_REF_ARG(Params) params, const scalar_type clampedCosTheta)
     {
         const vector_type wavelengths = vector_type(colorspace::scRGB::wavelength_R, colorspace::scRGB::wavelength_G, colorspace::scRGB::wavelength_B);
 
-        scalar_type cosTheta_1 = clampedCosTheta;
+        const vector_type eta12 = params.getEta12();
+        const vector_type eta23 = params.getEta23();
+        const vector_type etak23 = params.getEtak23();
+        const scalar_type cosTheta_1 = clampedCosTheta;
         vector_type cosTheta_2;
 
         vector_type R12p, R23p, R12s, R23s;
@@ -573,7 +577,7 @@ struct iridescent_helper
         vector_type T121s = hlsl::promote<vector_type>(1.0) - R12s;
 
         // Optical Path Difference
-        const vector_type D = hlsl::promote<vector_type>(2.0 * Dinc) * thinFilmIor * cosTheta_2;
+        const vector_type D = hlsl::promote<vector_type>(2.0 * params.getDinc()) * params.getThinFilmIor() * cosTheta_2;
         const vector_type Dphi = hlsl::promote<vector_type>(2.0 * numbers::pi<scalar_type>) * D / wavelengths;
 
         vector_type phi21p, phi21s, phi23p, phi23s, r123s, r123p, Rs;
@@ -622,6 +626,25 @@ struct iridescent_helper
 
         return hlsl::max(colorspace::scRGB::FromXYZ(I), hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
     }
+};
+
+template<typename T, bool SupportsTransmission NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)    
+struct iridescent_base
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
+
+    scalar_type getDinc() NBL_CONST_MEMBER_FUNC { return Dinc; }
+    vector_type getThinFilmIor() NBL_CONST_MEMBER_FUNC { return thinFilmIor; }
+    vector_type getEta12() NBL_CONST_MEMBER_FUNC { return eta12; }
+    vector_type getEta23() NBL_CONST_MEMBER_FUNC { return eta23; }
+    vector_type getEtak23() NBL_CONST_MEMBER_FUNC
+    {
+        NBL_IF_CONSTEXPR(SupportsTransmission)
+            return hlsl::promote<vector_type>(0.0);
+        else
+            return etak23;
+    }
 
     scalar_type Dinc;       // thickness of thin film in nanometers, rec. 100-25000nm
     vector_type thinFilmIor;
@@ -639,42 +662,22 @@ struct Iridescent<T, false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVector
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;  // assert dim==3?
     using eta_type = vector_type;
-
-    struct CreationParams
-    {
-        scalar_type Dinc;
-        vector_type ior1;
-        vector_type ior2;
-        vector_type ior3;
-        vector_type iork3;
-    };
-    using creation_params_type = CreationParams;
-
-    static this_t create(NBL_CONST_REF_ARG(creation_params_type) params)
-    {
-        this_t retval;
-        retval.helper.Dinc = params.Dinc;
-        retval.helper.thinFilmIor = params.ior2;
-        retval.helper.eta12 = params.ior2/params.ior1;
-        retval.helper.eta23 = params.ior3/params.ior2;
-        retval.helper.etak23 = params.iork3/params.ior2;
-        return retval;
-    }
+    using base_type = impl::iridescent_base<T, false>;
 
     T operator()(const scalar_type clampedCosTheta)
     {
-        return helper.__call(clampedCosTheta);
+        return impl::iridescent_helper<T,false>::template __call<base_type>(__base, clampedCosTheta);
     }
 
     OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = hlsl::promote<eta_type>(1.0) / helper.eta23;
+        rcpEta.value = hlsl::promote<eta_type>(1.0) / __base.eta23;
         rcpEta.value2 = rcpEta.value * rcpEta.value;
         return rcpEta;
     }
 
-    impl::iridescent_helper<T,false> helper;
+    base_type __base;
 };
 
 template<typename T>
@@ -685,37 +688,18 @@ struct Iridescent<T, true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectori
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;  // assert dim==3?
     using eta_type = vector<scalar_type, 1>;
-
-    struct CreationParams
-    {
-        scalar_type Dinc;
-        vector_type ior1;
-        vector_type ior2;
-        vector_type ior3;
-    };
-    using creation_params_type = CreationParams;
-
-    static this_t create(NBL_CONST_REF_ARG(creation_params_type) params)
-    {
-        this_t retval;
-        retval.helper.Dinc = params.Dinc;
-        retval.helper.thinFilmIor = params.ior2;
-        retval.helper.eta12 = params.ior2/params.ior1;
-        retval.helper.eta23 = params.ior3/params.ior2;
-        retval.helper.etak23 = hlsl::promote<vector_type>(0.0);
-        return retval;
-    }
+    using base_type = impl::iridescent_base<T, true>;
 
     T operator()(const scalar_type clampedCosTheta)
     {
-        return helper.__call(clampedCosTheta);
+        return impl::iridescent_helper<T,true>::template __call<base_type>(__base, clampedCosTheta);
     }
 
-    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return helper.eta23[0]; }
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return __base.eta23[0]; }
     OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = hlsl::promote<eta_type>(1.0) / helper.eta23[0];
+        rcpEta.value = hlsl::promote<eta_type>(1.0) / __base.eta23[0];
         rcpEta.value2 = rcpEta.value * rcpEta.value;
         return rcpEta;
     }
@@ -724,15 +708,15 @@ struct Iridescent<T, true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectori
     {
         const bool flip = NdotI < scalar_type(0.0);
         this_t orientedFresnel;
-        orientedFresnel.helper.Dinc = helper.Dinc;
-        orientedFresnel.helper.thinFilmIor = helper.thinFilmIor;
-        orientedFresnel.helper.eta12 = hlsl::mix(helper.eta12, hlsl::promote<vector_type>(1.0)/helper.eta12, flip);
-        orientedFresnel.helper.eta23 = hlsl::mix(helper.eta23, hlsl::promote<vector_type>(1.0)/helper.eta23, flip);
-        orientedFresnel.helper.etak23 = hlsl::promote<vector_type>(0.0);
+        orientedFresnel.__base.Dinc = __base.Dinc;
+        orientedFresnel.__base.thinFilmIor = __base.thinFilmIor;
+        orientedFresnel.__base.eta12 = hlsl::mix(__base.eta12, hlsl::promote<vector_type>(1.0)/__base.eta12, flip);
+        orientedFresnel.__base.eta23 = hlsl::mix(__base.eta23, hlsl::promote<vector_type>(1.0)/__base.eta23, flip);
+        orientedFresnel.__base.etak23 = hlsl::promote<vector_type>(0.0);
         return orientedFresnel;
     }
 
-    impl::iridescent_helper<T,true> helper;
+    base_type __base;
 };
 
 
