@@ -16,15 +16,7 @@ namespace hlsl
 namespace colorspace
 {
 
-struct colorspace_base
-{
-    // default CIE RGB primaries wavelengths
-    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 700.0f;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 546.1f;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_B = 435.8f;
-};
-
-struct scRGB : colorspace_base
+struct scRGB
 {
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 611.4f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 549.1f;
@@ -46,7 +38,7 @@ struct scRGB : colorspace_base
 struct sRGB : scRGB {};
 struct BT709 : scRGB {};
 
-struct Display_P3 : colorspace_base
+struct Display_P3
 {
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 614.9f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 544.2f;
@@ -65,7 +57,7 @@ struct Display_P3 : colorspace_base
     static float32_t3 ToXYZ(float32_t3 val) { return hlsl::mul(Display_P3toXYZ, val); }
 };
 
-struct DCI_P3 : colorspace_base
+struct DCI_P3
 {
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 614.9f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 544.2f;
@@ -84,7 +76,7 @@ struct DCI_P3 : colorspace_base
     static float32_t3 ToXYZ(float32_t3 val) { return hlsl::mul(DCI_P3toXYZ, val); }
 };
 
-struct BT2020 : colorspace_base
+struct BT2020
 {
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 630.0f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 532.0f;
@@ -107,7 +99,7 @@ struct HDR10_ST2084 : BT2020 {};
 struct DOLBYIVISION : BT2020 {};
 struct HDR10_HLG : BT2020 {};
 
-struct AdobeRGB : colorspace_base
+struct AdobeRGB
 {
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 611.4f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 534.7f;
@@ -126,8 +118,13 @@ struct AdobeRGB : colorspace_base
     static float32_t3 ToXYZ(float32_t3 val) { return hlsl::mul(AdobeRGBtoXYZ, val); }
 };
 
-struct ACES2065_1 : colorspace_base
+struct ACES2065_1
 {
+    // AP0 primaries (approximate)
+    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 700.0f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 520.0f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_B = 472.5f;
+
     static float32_t3x3 FromXYZ()
     {
         return decode::XYZtoACES2065_1;
@@ -141,8 +138,13 @@ struct ACES2065_1 : colorspace_base
     static float32_t3 ToXYZ(float32_t3 val) { return hlsl::mul(ACES2065_1toXYZ, val); }
 };
 
-struct ACEScc : colorspace_base
+struct ACEScc
 {
+    // AP1 primaries (approximate)
+    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 630.0f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 533.0f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_B = 467.0f;
+
     static float32_t3x3 FromXYZ()
     {
         return decode::XYZtoACEScc;
