@@ -54,7 +54,7 @@ struct ProjectedSphere
     using vector_t3 = vector<T, 3>;
     using hemisphere_t = ProjectedHemisphere<T>;
 
-    static vector_t3 generate(vector_t3 _sample)
+    static vector_t3 generate(NBL_REF_ARG(vector_t3) _sample)
     {
         vector_t3 retval = hemisphere_t::generate(_sample.xy);
         const bool chooseLower = _sample.z > T(0.5);

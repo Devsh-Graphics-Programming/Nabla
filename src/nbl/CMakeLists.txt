@@ -753,6 +753,13 @@ list(APPEND INTERFACE_BUILD_DEFINITIONS
 # TODO: private
 target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
 
+# vulkaninfo
+if (NBL_STATIC_BUILD)
+	target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:vulkaninfo>)
+else()
+	target_link_libraries(Nabla PRIVATE $<BUILD_INTERFACE:vulkaninfo>)
+endif()
+
 # NGFX
 if(TARGET ngfx)
 	if(NBL_STATIC_BUILD)
