@@ -121,6 +121,7 @@ struct AdobeRGB
 struct ACES2065_1
 {
     // AP0 primaries (approximate)
+    // probably not appropriate to use since AP0 space is larger than CIE
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 700.0f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 520.0f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_B = 472.5f;
@@ -141,6 +142,7 @@ struct ACES2065_1
 struct ACEScc
 {
     // AP1 primaries (approximate)
+    // probably not appropriate to use since AP1 space is larger than CIE
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_R = 630.0f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_G = 533.0f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t wavelength_B = 467.0f;

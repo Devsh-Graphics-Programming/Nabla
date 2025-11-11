@@ -28,31 +28,35 @@ struct sincos_accumulator
 
     static this_t create(T cosA, T sinA)
     {
+        assert(sinA >= T(0.0));
         this_t retval;
         retval.runningSum = complex_t<T>::create(cosA, sinA);
-        // retval.runningSum.real(cosA);
-        // retval.runningSum.imag(sinA);
-        retval.wraparound = 0u;
+        retval.wraparound = hlsl::mix(T(0.0), T(1.0), cosA == T(-1.0));
         return retval;
     }
 
-    void addCosine(T cosA, T sinA)
+    // This utility expects that all input angles being added are [0,PI], i.e. runningSum.y and sinA are always positive
+    // We make use of sine and cosine angle sum formulas to accumulate a running sum of angles
+    // and any "overflow" (when sum goes over PI) is stored in wraparound
+    // This way, we can accumulate the sines and cosines of a set of angles, and only have to do one acos() call to retrieve the final sum
+    void addAngle(T cosA, T sinA)
     {
         const T a = cosA;
         const T cosB = runningSum.real();
         const T sinB = runningSum.imag();
-        const bool reverse = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
+        const bool overflow = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
         const T c = a * cosB - sinA * sinB;
         const T d = sinA * cosB + a * sinB;
 
-        runningSum.real(ieee754::flipSign<T>(c, reverse));
-        runningSum.imag(ieee754::flipSign<T>(d, reverse));
+        runningSum.real(ieee754::flipSign<T>(c, overflow));
+        runningSum.imag(ieee754::flipSign<T>(d, overflow));
 
-        wraparound += hlsl::mix(0u, 1u, reverse);
+        if (overflow)
+            wraparound++;
     }
     void addCosine(T cosA)
     {
-        addCosine(cosA, sqrt<T>(T(1.0) - cosA * cosA));
+        addAngle(cosA, sqrt<T>(T(1.0) - cosA * cosA));
     }
 
     T getSumofArccos()
@@ -61,7 +65,7 @@ struct sincos_accumulator
     }
 
     complex_t<T> runningSum;
-    uint16_t wraparound;
+    T wraparound;    // counts in pi (half revolutions)
 };
 
 }
