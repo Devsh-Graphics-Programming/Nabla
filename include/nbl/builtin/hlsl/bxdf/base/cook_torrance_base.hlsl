@@ -191,12 +191,10 @@ struct SCookTorrance
     }
 
     sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
-                                const scalar_type NdotV, const scalar_type VdotH, bool transmitted,
+                                const scalar_type NdotV, const scalar_type VdotH, const scalar_type LdotH, bool transmitted,
                                 NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, 
-                                NBL_REF_ARG(anisocache_type) cache, NBL_REF_ARG(bool) valid)
+                                NBL_REF_ARG(bool) valid)
     {
-        const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
-
         // fail if samples have invalid paths
         const scalar_type NdotL = hlsl::mix(scalar_type(2.0) * VdotH * localH.z - NdotV,
                                     localH.z * (VdotH * rcpEta.value[0] + LdotH) - NdotV * rcpEta.value[0], transmitted);
@@ -207,8 +205,6 @@ struct SCookTorrance
             valid = false;
             return sample_type::createInvalid();    // should check if sample direction is invalid
         }
-
-        cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
 
         ray_dir_info_type V = interaction.getV();
         const matrix3x3_type fromTangent = interaction.getFromTangentSpace();
@@ -268,7 +264,7 @@ struct SCookTorrance
 
         fresnel::OrientedEtaRcps<monochrome_type> dummy;
         bool valid;
-        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, false, dummy, cache, valid);
+        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, VdotH, false, dummy, valid);
         if (valid)
             cache = anisocache_type::createForReflection(localV, localH);
         return s;
@@ -304,10 +300,12 @@ struct SCookTorrance
         scalar_type z = u.z;
         bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
 
+        const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
         bool valid;
-        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, transmitted, rcpEta, cache, valid);
+        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, LdotH, transmitted, rcpEta, valid);
         if (valid)
         {
+            cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
             assert(cache.isValid(fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(_f.getRefractionOrientedEta()))));
             const vector3_type T = interaction.getT();
             const vector3_type B = interaction.getB();
@@ -387,10 +385,15 @@ struct SCookTorrance
         spectral_type quo;
         NBL_IF_CONSTEXPR(IsBSDF)
         {
-            const scalar_type scaled_reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()));
-            spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(cache.getVdotH())));
-            quo = hlsl::mix(reflectance / scaled_reflectance,
-                    (hlsl::promote<spectral_type>(1.0) - reflectance) / (scalar_type(1.0) - scaled_reflectance), cache.isTransmission()) * G2_over_G1;
+            NBL_IF_CONSTEXPR(fresnel_type::ReturnsMonochrome)
+                quo = hlsl::promote<spectral_type>(G2_over_G1);
+            else
+            {
+                const scalar_type scaled_reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()));
+                spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(cache.getVdotH())));
+                quo = hlsl::mix(reflectance / scaled_reflectance,
+                        (hlsl::promote<spectral_type>(1.0) - reflectance) / (scalar_type(1.0) - scaled_reflectance), cache.isTransmission()) * G2_over_G1;
+            }
         }
         else
         {

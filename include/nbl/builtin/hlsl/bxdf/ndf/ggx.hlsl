@@ -278,7 +278,11 @@ struct GGX
         isInfinity = hlsl::isinf(D);
         quant_type dmq;
         if (isInfinity)
+        {
+            dmq.microfacetMeasure = scalar_type(0.0);
+            dmq.projectedLightMeasure = scalar_type(0.0);
             return dmq;
+        }
 
         scalar_type dg1_over_2NdotV = D * query.getG1over2NdotV();
         dmq.microfacetMeasure = scalar_type(2.0) * interaction.getNdotV(BxDFClampMode::BCM_ABS) * dg1_over_2NdotV;

@@ -339,6 +339,8 @@ struct Beckmann
         if (isInfinity)
         {
             quant_type dmq;
+            dmq.microfacetMeasure = scalar_type(0.0);
+            dmq.projectedLightMeasure = scalar_type(0.0);
             return dmq;
         }
         scalar_type dg1 = D / (scalar_type(1.0) + query.getLambdaV());
