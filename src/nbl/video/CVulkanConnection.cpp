@@ -7,6 +7,8 @@
 // TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
+extern int vulkaninfo(int, char**);
+
 namespace nbl::video
 {
 
@@ -306,6 +308,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
             continue;
         }
         api->m_physicalDevices.emplace_back(std::move(device));
+        // device enumeration
     }
 #undef LOF
 
@@ -370,6 +373,11 @@ bool CVulkanConnection::endCapture()
     }
     flag.clear();
     return true;
+}
+
+int vulkaninfo(const std::span<const char*> args)
+{
+    return ::vulkaninfo(args.size(), const_cast<char**>(args.data())); 
 }
 
 }

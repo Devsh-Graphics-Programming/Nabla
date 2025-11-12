@@ -42,9 +42,9 @@ inline bool isinf_uint_impl(UnsignedInteger val)
 namespace impl
 {
 #ifndef __HLSL_VERSION
-template<typename T, typename U>
-NBL_BOOL_CONCEPT MixIsCallable = always_true<decltype(glm::mix(declval<T>(), declval<T>(), declval<U>()))>;
+NBL_VALID_EXPRESSION(MixIsCallable, (T)(U), glm::mix(declval<T>(),declval<T>(),declval<U>()));
 #endif
+
 template<typename T, typename U>
 NBL_BOOL_CONCEPT MixCallingBuiltins =
 #ifdef __HLSL_VERSION

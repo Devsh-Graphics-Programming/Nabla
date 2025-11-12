@@ -5,13 +5,14 @@
 #ifndef __HLSL_VERSION 
 #include <stdint.h>
 #define IMATH_HALF_NO_LOOKUP_TABLE
-#include <half.h>
+#include <Imath/half.h>
 
 #define GLM_FORCE_SWIZZLE
-#include <glm/glm/glm.hpp>
-#include <glm/glm/detail/_swizzle.hpp>
+#include <glm/glm.hpp>
+#include <glm/detail/_swizzle.hpp>
 
 #include "nbl/core/hash/blake.h"
+#include "nbl/core/algorithm/utility.h"
 
 namespace nbl::hlsl
 {

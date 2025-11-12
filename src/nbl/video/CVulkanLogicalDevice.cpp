@@ -82,7 +82,7 @@ ISemaphore::WAIT_RESULT CVulkanLogicalDevice::waitForSemaphores(const std::span<
     {
         auto sema = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.semaphore,this);
         if (!sema)
-            retval_t::_ERROR;
+           return retval_t::_ERROR;
         *(outSemaphores++) = sema->getInternalObject();
         *(outValues++) = info.value;
     }

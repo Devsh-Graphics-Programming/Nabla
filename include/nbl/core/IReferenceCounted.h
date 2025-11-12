@@ -133,7 +133,7 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 		// Old destructor, but needed virtual for abstractness!
 		// _NBL_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
 		//! Destructor, no need to define really, but make it pure virtual to truly prevent instantiation.
-		NBL_API2 virtual ~IReferenceCounted() = 0;
+		virtual ~IReferenceCounted() = 0;
 
 		//! Sets the debug name of the object.
 		/** The Debugname may only be set and changed by the object
@@ -155,6 +155,13 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 		static_assert(alignof(std::atomic<uint32_t>) <= _NBL_SIMD_ALIGNMENT/2u, "This compiler has a problem with its atomic int decl!");
 		static_assert(sizeof(std::atomic<uint32_t>) <= _NBL_SIMD_ALIGNMENT/2u, "This compiler has a problem with its atomic int decl!");
 };
+
+// yes pure virt can be inline, just needs a definition outside the class
+inline IReferenceCounted::~IReferenceCounted()
+{
+    _NBL_DEBUG_BREAK_IF(ReferenceCounter!=0);
+}
+
 static_assert(alignof(IReferenceCounted) == _NBL_SIMD_ALIGNMENT, "This compiler has a problem respecting alignment!");
 
 template<typename T>

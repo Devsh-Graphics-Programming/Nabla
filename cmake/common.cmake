@@ -157,8 +157,6 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		target_compile_definitions(${EXECUTABLE_NAME}
 			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\"" 
 			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
-			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_}\"" 
-			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_}\""
 		)
 	endif()
 
@@ -204,45 +202,12 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 endmacro()
 
-function(nbl_get_conf_dir _OUTVAR _CONFIG)
-	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
-endfunction()
-
-macro(nbl_generate_conf_files)
-	nbl_get_conf_dir(NBL_CONF_DIR_DEBUG Debug)
-	nbl_get_conf_dir(NBL_CONF_DIR_RELEASE Release)
-	nbl_get_conf_dir(NBL_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
-
-	set(_NBL_DEBUG 0)
-	set(_NBL_RELWITHDEBINFO 0)
-
-	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf")
-	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Release>)
-
-	set(_NBL_DEBUG 0)
-	set(_NBL_RELWITHDEBINFO 1)
-	
-	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf")
-	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:RelWithDebInfo>)
-
-	set(_NBL_DEBUG 1)
-	set(_NBL_RELWITHDEBINFO 0)
-
-	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
-	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
-
-	unset(NBL_CONF_DIR_DEBUG)
-	unset(NBL_CONF_DIR_RELEASE)
-	unset(NBL_CONF_DIR_RELWITHDEBINFO)
-endmacro()
-
 ###########################################
 # Nabla install rules, directory structure:
 #
-# -	$<CONFIG>/include 		(header files)
-# - $<CONFIG>/lib 			(import/static/shared libraries)
-# - $<CONFIG>/runtime 		(DLLs/PDBs)
+# -	include 				(portable header files)
+# - $<CONFIG>/lib 			(static or import shared libraries)
+# - $<CONFIG>/runtime 		(DLLs/SOs/PDBs)
 # - $<CONFIG>/exe			(executables and media)
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
@@ -253,9 +218,7 @@ function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
-		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release COMPONENT Headers)
-		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug COMPONENT Headers)
-		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+		install(FILES ${file} DESTINATION include/${dir} COMPONENT Headers)
 	endforeach()
 endfunction()
 
@@ -268,9 +231,7 @@ function(nbl_install_headers _HEADERS)
 endfunction()
 
 function(nbl_install_file_spec _FILES _RELATIVE_DESTINATION)
-	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
-	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
-	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} COMPONENT Headers)
 endfunction()
 
 function(nbl_install_file _FILES)
@@ -278,9 +239,7 @@ function(nbl_install_file _FILES)
 endfunction()
 
 function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
-	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
-	install(DIRECTORY ${_DIR} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
-	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} COMPONENT Headers)
 endfunction()
 
 function(nbl_install_dir _DIR)
@@ -396,18 +355,6 @@ function(nbl_install_builtin_resources _TARGET_)
 	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
 	
 	nbl_install_headers_spec("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
-endfunction()
-
-function(nbl_install_config_header _CONF_HDR_NAME)
-	nbl_get_conf_dir(dir_deb Debug)
-	nbl_get_conf_dir(dir_rel Release)
-	nbl_get_conf_dir(dir_relWithDebInfo RelWithDebInfo)
-	set(file_deb "${dir_deb}/${_CONF_HDR_NAME}")
-	set(file_rel "${dir_rel}/${_CONF_HDR_NAME}")
-	set(file_relWithDebInfo "${dir_relWithDebInfo}/${_CONF_HDR_NAME}")
-	install(FILES ${file_rel} DESTINATION include CONFIGURATIONS Release)
-	install(FILES ${file_deb} DESTINATION debug/include CONFIGURATIONS Debug)
-	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
 function(NBL_TEST_MODULE_INSTALL_FILE _NBL_FILEPATH_)
@@ -1070,87 +1017,6 @@ macro(propagate_changed_variables_to_parent_scope)
             endif()
         endif()
     endforeach()
-endmacro()
-
-macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
-	macro(NBL_INSERT_DEFINITIONS _NBL_DEFINITIONS_)
-		string(FIND "${_NBL_DEFINITIONS_}" "NOTFOUND" CHECK)
-			if(${CHECK} EQUAL -1)
-				list(APPEND TESTEST ${_NBL_DEFINITIONS_})
-			endif()
-	endmacro()
-		
-	get_directory_property(NBL_DIRECTORY_DEFINITIONS COMPILE_DEFINITIONS)
-
-	if(DEFINED NBL_DIRECTORY_DEFINITIONS)
-		NBL_INSERT_DEFINITIONS("${NBL_DIRECTORY_DEFINITIONS}")
-	endif()
-	
-	get_target_property(NBL_COMPILE_DEFS ${NBL_TARGET} COMPILE_DEFINITIONS)
-	if(DEFINED NBL_COMPILE_DEFS)
-		foreach(def IN LISTS NBL_COMPILE_DEFS)
-			NBL_INSERT_DEFINITIONS(${def})
-		endforeach()
-	endif()
-	
-	foreach(trgt IN LISTS _NBL_3RDPARTY_TARGETS_)			 
-			 get_target_property(NBL_COMPILE_DEFS ${trgt} COMPILE_DEFINITIONS)
-			 
-			 if(DEFINED NBL_COMPILE_DEFS)
-				NBL_INSERT_DEFINITIONS(${NBL_COMPILE_DEFS})
-			 endif()
-	endforeach()
-	
-	foreach(def IN LISTS TESTEST)	
-		string(FIND "${def}" "-D" CHECK)
-			if(${CHECK} EQUAL -1)
-				list(APPEND ${NBL_REFERENCE_RETURN_VARIABLE} ${def})
-			else()
-				string(LENGTH "-D" _NBL_D_LENGTH_)
-				string(LENGTH ${def} _NBL_DEFINITION_LENGTH_)
-				math(EXPR _NBL_DEFINITION_WITHOUT_D_LENGTH_ "${_NBL_DEFINITION_LENGTH_} - ${_NBL_D_LENGTH_}" OUTPUT_FORMAT DECIMAL)
-				string(SUBSTRING ${def} ${_NBL_D_LENGTH_} ${_NBL_DEFINITION_WITHOUT_D_LENGTH_} _NBL_DEFINITION_WITHOUT_D_)
-				
-				list(APPEND ${NBL_REFERENCE_RETURN_VARIABLE} ${_NBL_DEFINITION_WITHOUT_D_})
-			endif()
-	endforeach()
-	
-	list(REMOVE_DUPLICATES ${NBL_REFERENCE_RETURN_VARIABLE})
-	
-	foreach(_NBL_DEF_ IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
-		string(FIND "${_NBL_DEF_}" "=" _NBL_POSITION_ REVERSE)
-		
-		# put target compile definitions without any value into wrapper file
-		if(_NBL_POSITION_ STREQUAL -1)
-			if(NOT ${_NBL_DEF_} STREQUAL "__NBL_BUILDING_NABLA__")
-				string(APPEND WRAPPER_CODE 
-					"#ifndef ${_NBL_DEF_}\n"
-					"#define ${_NBL_DEF_}\n"
-					"#endif // ${_NBL_DEF_}\n\n"
-				)
-			endif()
-		else()
-			# put target compile definitions with an assigned value into wrapper file
-			string(SUBSTRING "${_NBL_DEF_}" 0 ${_NBL_POSITION_} _NBL_CLEANED_DEF_)
-			
-			string(LENGTH "${_NBL_DEF_}" _NBL_DEF_LENGTH_)
-			math(EXPR _NBL_SHIFTED_POSITION_ "${_NBL_POSITION_} + 1" OUTPUT_FORMAT DECIMAL)
-			math(EXPR _NBL_DEF_VALUE_LENGTH_ "${_NBL_DEF_LENGTH_} - ${_NBL_SHIFTED_POSITION_}" OUTPUT_FORMAT DECIMAL)
-			string(SUBSTRING "${_NBL_DEF_}" ${_NBL_SHIFTED_POSITION_} ${_NBL_DEF_VALUE_LENGTH_} _NBL_DEF_VALUE_)
-			
-			string(APPEND WRAPPER_CODE 
-				"#ifndef ${_NBL_CLEANED_DEF_}\n"
-				"#define ${_NBL_CLEANED_DEF_} ${_NBL_DEF_VALUE_}\n"
-				"#endif // ${_NBL_CLEANED_DEF_}\n\n"
-			)
-		endif()
-	endforeach()
-	
-	set(${NBL_REFERENCE_RETURN_VARIABLE} "${WRAPPER_CODE}")
-endmacro()
-
-macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
-	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()
 
 function(NBL_GET_ALL_TARGETS NBL_OUTPUT_VAR)
