@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/bxdf/transmission/delta_distribution.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/ggx.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/iridescent.hlsl"
 
 namespace nbl
 {

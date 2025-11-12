@@ -33,9 +33,9 @@ struct lp_norm<T,0,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectoria
     {
         array_get<T, scalar_type> getter;
 
-        scalar_type retval = abs<T>(getter(v, 0));
-        for (int i = 1; i < extent<T>::value; i++)
-            retval = max<T>(abs<T>(getter(v, i)),retval);
+        scalar_type retval = abs<scalar_type>(getter(v, 0));
+        for (int i = 1; i < vector_traits<T>::Dimension; i++)
+            retval = max<scalar_type>(abs<scalar_type>(getter(v, i)),retval);
         return retval;
     }
 };
@@ -49,9 +49,9 @@ struct lp_norm<T,1,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial
     {
         array_get<T, scalar_type> getter;
 
-        scalar_type retval = abs<T>(getter(v, 0));
-        for (int i = 1; i < extent<T>::value; i++)
-            retval += abs<T>(getter(v, i));
+        scalar_type retval = abs<scalar_type>(getter(v, 0));
+        for (int i = 1; i < vector_traits<T>::Dimension; i++)
+            retval += abs<scalar_type>(getter(v, i));
         return retval;
     }
 

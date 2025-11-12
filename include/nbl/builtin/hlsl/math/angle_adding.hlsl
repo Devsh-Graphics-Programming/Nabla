@@ -21,53 +21,51 @@ struct sincos_accumulator
 {
     using this_t = sincos_accumulator<T>;
 
-    static this_t create()
-    {
-        this_t retval;
-        retval.runningSum = complex_t<T>::create(T(1.0), T(0.0));
-        return retval;
-    }
-
     static this_t create(T cosA)
     {
+        return create(cosA, sqrt<T>(T(1.0) - cosA * cosA));
+    }
+
+    static this_t create(T cosA, T sinA)
+    {
+        assert(sinA >= T(0.0));
         this_t retval;
-        retval.runningSum = complex_t<T>::create(cosA, T(0));
+        retval.runningSum = complex_t<T>::create(cosA, sinA);
+        retval.wraparound = hlsl::mix(T(0.0), T(1.0), cosA == T(-1.0));
         return retval;
     }
 
-    void addCosine(T cosA, T biasA)
+    // This utility expects that all input angles being added are [0,PI], i.e. runningSum.y and sinA are always positive
+    // We make use of sine and cosine angle sum formulas to accumulate a running sum of angles
+    // and any "overflow" (when sum goes over PI) is stored in wraparound
+    // This way, we can accumulate the sines and cosines of a set of angles, and only have to do one acos() call to retrieve the final sum
+    void addAngle(T cosA, T sinA)
     {
-        const T bias = biasA + runningSum.imag();
         const T a = cosA;
-        const T b = runningSum.real();
-        const bool reverse = abs<T>(min<T>(a, b)) > max<T>(a, b);
-        const T c = a * b - sqrt<T>((T(1.0) - a * a) * (T(1.0) - b * b));
+        const T cosB = runningSum.real();
+        const T sinB = runningSum.imag();
+        const bool overflow = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
+        const T c = a * cosB - sinA * sinB;
+        const T d = sinA * cosB + a * sinB;
 
-        runningSum.real(ieee754::flipSign<T>(c, reverse));
-        runningSum.imag(hlsl::mix(bias, bias + numbers::pi<T>, reverse));
+        runningSum.real(ieee754::flipSign<T>(c, overflow));
+        runningSum.imag(ieee754::flipSign<T>(d, overflow));
+
+        if (overflow)
+            wraparound++;
     }
     void addCosine(T cosA)
     {
-        addCosine(cosA, T(0.0));
+        addAngle(cosA, sqrt<T>(T(1.0) - cosA * cosA));
     }
 
     T getSumofArccos()
     {
-        return acos<T>(runningSum.real()) + runningSum.imag();
-    }
-
-    static T getArccosSumofABC_minus_PI(T cosA, T cosB, T cosC, T sinA, T sinB, T sinC)
-    {
-        const bool AltminusB = cosA < (-cosB);
-        const T cosSumAB = cosA * cosB - sinA * sinB;
-        const bool ABltminusC = cosSumAB < (-cosC);
-        const bool ABltC = cosSumAB < cosC;
-        // apply triple angle formula
-        const T absArccosSumABC = acos<T>(clamp<T>(cosSumAB * cosC - (cosA * sinB + sinA * cosB) * sinC, T(-1.0), T(1.0)));
-        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + ((AltminusB || ABltminusC) ? numbers::pi<T> : (-numbers::pi<T>));
+        return acos<T>(runningSum.real()) + wraparound * numbers::pi<T>;
     }
 
     complex_t<T> runningSum;
+    T wraparound;    // counts in pi (half revolutions)
 };
 
 }

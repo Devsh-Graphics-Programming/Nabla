@@ -20,7 +20,7 @@ namespace ndf
 namespace dummy_impl
 {
 using sample_t = SLightSample<ray_dir_info::SBasic<float> >;
-using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float> > >;
+using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float>, vector<float, 3> > >;
 using cache_t = SAnisotropicMicrofacetCache<SIsotropicMicrofacetCache<float> >;
 }
 
@@ -103,7 +103,6 @@ NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IS_ANISO ? Anisotropi
 #define NBL_HLSL_NDF_CONSTEXPR_DECLS(ANISO,REFLECT_REFRACT) NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ANISO;\
 NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes SupportedPaths = REFLECT_REFRACT;\
 NBL_CONSTEXPR_STATIC_INLINE bool SupportsTransmission = REFLECT_REFRACT != MTT_REFLECT;\
-NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = SupportsTransmission ? BxDFClampMode::BCM_ABS : BxDFClampMode::BCM_NONE;\
 NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);\
 
 #define NBL_HLSL_NDF_TYPE_ALIASES(...) using this_t = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(0, __VA_ARGS__));\
