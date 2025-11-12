@@ -25,7 +25,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         }
     });
 
-
     auto& properties = initData.properties;
     auto& features = initData.features;
     // First call just with Vulkan 1.0 API because:
@@ -1365,7 +1364,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 //        bufferUsages.opticalFlowVector = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_VECTOR_BIT_NV);
 //        bufferUsages.opticalFlowCost = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_COST_BIT_NV);
     }
-    
+
     success = true;
     return std::unique_ptr<CVulkanPhysicalDevice>(new CVulkanPhysicalDevice(std::move(initData),rdoc,vk_physicalDevice,std::move(availableFeatureSet)));
 }
