@@ -51,7 +51,7 @@ struct quant_query_helper<N, F, true>
     template<class I, class C>
     static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
     {
-        return ndf.template createQuantQuery<I,C>(interaction, cache, fresnel.orientedEta.value[0]);
+        return ndf.template createQuantQuery<I,C>(interaction, cache, fresnel.getRefractionOrientedEta());
     }
 };
 
@@ -65,60 +65,6 @@ struct quant_query_helper<N, F, false>
     {
         typename N::scalar_type dummy;
         return ndf.template createQuantQuery<I,C>(interaction, cache, dummy);
-    }
-};
-
-template<class F, bool IsBSDF>
-struct checkValid;
-
-template<class F>
-struct checkValid<F, false>
-{
-    using scalar_type = typename F::scalar_type;
-
-    template<class Sample, class Interaction, class MicrofacetCache>
-    static bool __call(NBL_CONST_REF_ARG(F) orientedFresnel, NBL_CONST_REF_ARG(Sample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
-    {
-        return _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min;
-    }
-};
-
-template<class F>
-struct checkValid<F, true>
-{
-    using scalar_type = typename F::scalar_type;
-    using vector_type = typename F::vector_type;    // expect monochrome
-
-    template<class Sample, class Interaction, class MicrofacetCache>
-    static bool __call(NBL_CONST_REF_ARG(F) orientedFresnel, NBL_CONST_REF_ARG(Sample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
-    {
-        fresnel::OrientedEtas<vector_type> orientedEta = fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(orientedFresnel.getRefractionOrientedEta()));
-        return cache.isValid(orientedEta);
-    }
-};
-
-template<class F, bool IsBSDF NBL_STRUCT_CONSTRAINABLE>
-struct getOrientedFresnel;
-
-template<class F>
-struct getOrientedFresnel<F, false>
-{
-    static F __call(NBL_CONST_REF_ARG(F) fresnel, typename F::scalar_type NdotV)
-    {
-        // expect conductor fresnel
-        return fresnel;
-    }
-};
-
-template<class F>
-NBL_PARTIAL_REQ_TOP(fresnel::TwoSidedFresnel<F>)
-struct getOrientedFresnel<F, true NBL_PARTIAL_REQ_BOT(fresnel::TwoSidedFresnel<F>) >
-{
-    using scalar_type = typename F::scalar_type;
-
-    static F __call(NBL_CONST_REF_ARG(F) fresnel, scalar_type NdotV)
-    {
-        return fresnel.getReorientedFresnel(NdotV);
     }
 };
 }
@@ -138,30 +84,78 @@ struct SCookTorrance
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::SupportedPaths != ndf::MTT_REFLECT;
     NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);
 
+    // utility functions
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(!ndf::NDF_CanOverwriteDG<ndf_type> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    static void overwriteDG(NBL_REF_ARG(scalar_type) DG, ndf_type ndf, NBL_CONST_REF_ARG(typename ndf_type::g2g1_query_type) query, NBL_CONST_REF_ARG(typename ndf_type::quant_query_type) quant_query,
+    static void __overwriteDG(NBL_REF_ARG(scalar_type) DG, ndf_type ndf, NBL_CONST_REF_ARG(typename ndf_type::g2g1_query_type) query, NBL_CONST_REF_ARG(typename ndf_type::quant_query_type) quant_query,
                     NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
     }
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(ndf::NDF_CanOverwriteDG<ndf_type> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    static void overwriteDG(NBL_REF_ARG(scalar_type) DG, ndf_type ndf, NBL_CONST_REF_ARG(typename ndf_type::g2g1_query_type) query, NBL_CONST_REF_ARG(typename ndf_type::quant_query_type) quant_query,
+    static void __overwriteDG(NBL_REF_ARG(scalar_type) DG, ndf_type ndf, NBL_CONST_REF_ARG(typename ndf_type::g2g1_query_type) query, NBL_CONST_REF_ARG(typename ndf_type::quant_query_type) quant_query,
                     NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
     {
         quant_type dg = ndf.template Dcorrelated<sample_type, Interaction, MicrofacetCache>(query, quant_query, _sample, interaction, cache, isInfinity);
         DG = dg.projectedLightMeasure;
     }
 
+    template<typename PH=fresnel_type NBL_FUNC_REQUIRES(!fresnel::TwoSidedFresnel<PH>)
+    static fresnel_type __getOrientedFresnel(NBL_CONST_REF_ARG(fresnel_type) fresnel, scalar_type NdotV)
+    {
+        // expect conductor fresnel
+        return fresnel;
+    }
+    template<typename PH=fresnel_type NBL_FUNC_REQUIRES(fresnel::TwoSidedFresnel<PH>)
+    static fresnel_type __getOrientedFresnel(NBL_CONST_REF_ARG(fresnel_type) fresnel, scalar_type NdotV)
+    {
+        return fresnel.getReorientedFresnel(NdotV);
+    }
+
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>, typename C=bool_constant<!IsBSDF> NBL_FUNC_REQUIRES(C::value && !IsBSDF)
+    static bool __checkValid(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        return _sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min;
+    }
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>, typename C=bool_constant<IsBSDF> NBL_FUNC_REQUIRES(C::value && IsBSDF)
+    static bool __checkValid(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    {
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(orientedFresnel.getRefractionOrientedEta()));
+        return cache.isValid(orientedEta);
+    }
+
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
+            typename C=bool_constant<!fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && !fresnel_type::ReturnsMonochrome)
+    static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH)
+    {
+        spectral_type throughputWeights = interaction.getLuminosityContributionHint();
+        return hlsl::dot<spectral_type>(impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(orientedFresnel(clampedVdotH)), throughputWeights);
+    }
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
+            typename C=bool_constant<fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && fresnel_type::ReturnsMonochrome)
+    static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH)
+    {
+        return orientedFresnel(clampedVdotH)[0];
+    }
+
+    bool __dotIsUnity(const vector3_type a, const vector3_type b, const scalar_type value)
+    {
+        const scalar_type ab = hlsl::dot(a, b);
+        return hlsl::max(ab, value / ab) <= scalar_type(value + 1e-3);
+    }
+
+    // bxdf stuff
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
-        if (!impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
+        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
+        if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
             return hlsl::promote<spectral_type>(0.0);
 
         using quant_query_type = typename ndf_type::quant_query_type;
@@ -176,8 +170,10 @@ struct SCookTorrance
         if (!isInfinity)
             DG *= ndf.template correlated<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
 
-        overwriteDG<Interaction, MicrofacetCache>(DG, ndf, gq, qq, _sample, interaction, cache, isInfinity);
+        __overwriteDG<Interaction, MicrofacetCache>(DG, ndf, gq, qq, _sample, interaction, cache, isInfinity);
 
+        // immediately return only after all calls setting DG
+        // allows compiler to throw away calls to ndf.D if using __overwriteDG, before that we only avoid computation for G2(correlated)
         if (isInfinity)
             return hlsl::promote<spectral_type>(0.0);
 
@@ -187,103 +183,38 @@ struct SCookTorrance
         
         NBL_IF_CONSTEXPR(IsBSDF)
         {
-            const scalar_type reflectance = _f(clampedVdotH)[0];
-            return hlsl::promote<spectral_type>(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission())) * DG;
+            const spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
+            return hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
         }
         else
             return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
     }
 
-    template<typename C=bool_constant<!IsBSDF> >
-    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
+                                const scalar_type NdotV, const scalar_type VdotH, const scalar_type LdotH, bool transmitted,
+                                NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, 
+                                NBL_REF_ARG(bool) valid)
     {
-        {
-            const scalar_type NdotV = interaction.getNdotV();
-            if (NdotV < numeric_limits<scalar_type>::min)
-                return sample_type::createInvalid();
-            assert(!hlsl::isnan(NdotV));
-        }
-
-        const vector3_type localV = interaction.getTangentSpaceV();
-        const vector3_type localH = ndf.generateH(localV, u);
-        const scalar_type VdotH = hlsl::dot(localV, localH);
-        assert(VdotH >= scalar_type(0.0));  // VNDF sampling guarantees VdotH has same sign as NdotV (should be positive for BRDF)
-
-        const scalar_type NdotL = scalar_type(2.0) * VdotH * localH.z - localV.z;
-        ray_dir_info_type L;
-        if (NdotL > 0) // compiler's Common Subexpression Elimination pass should re-use 2*VdotH later
-        {
-            ray_dir_info_type V = interaction.getV();
-            const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
-            struct reflect_wrapper  // so we don't recalculate VdotH
-            {
-                vector3_type operator()() NBL_CONST_MEMBER_FUNC
-                {
-                    return r(VdotH);
-                }
-                bxdf::Reflect<scalar_type> r;
-                scalar_type VdotH;
-            };
-            reflect_wrapper rw;
-            rw.r = bxdf::Reflect<scalar_type>::create(V.getDirection(), H);
-            rw.VdotH = VdotH;
-            L = V.template reflect<reflect_wrapper>(rw);
-
-            cache = anisocache_type::createForReflection(localV, localH);
-
-            const vector3_type T = interaction.getT();
-            const vector3_type B = interaction.getB();
-
-            return sample_type::create(L, T, B, NdotL);
-        }
-        else    // fail if samples have invalid paths
-            return sample_type::createInvalid();    // should check if sample direction is invalid
-    }
-    template<typename C=bool_constant<IsBSDF> >
-    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
-    {
-        const vector3_type localV = interaction.getTangentSpaceV();
-        const scalar_type NdotV = localV.z;
-
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, NdotV);
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
-
-        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
-        const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
-        const scalar_type VdotH = hlsl::dot(localV, localH);
-
-        NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)
-        {
-            // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
-            if ((IsBSDF ? (NdotV*VdotH) : VdotH) <= scalar_type(0.0))
-                return sample_type::createInvalid();
-            assert(!hlsl::isnan(NdotV*VdotH));
-        }
-        else
-        {
-            assert(NdotV*VdotH >= scalar_type(0.0));
-        }
-        const scalar_type reflectance = _f(hlsl::abs(VdotH))[0];
-
-        scalar_type rcpChoiceProb;
-        scalar_type z = u.z;
-        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
-        const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
-
         // fail if samples have invalid paths
         const scalar_type NdotL = hlsl::mix(scalar_type(2.0) * VdotH * localH.z - NdotV,
                                     localH.z * (VdotH * rcpEta.value[0] + LdotH) - NdotV * rcpEta.value[0], transmitted);
         // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
         // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
         if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
+        {
+            valid = false;
             return sample_type::createInvalid();    // should check if sample direction is invalid
-
-        cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
-        assert(cache.isValid(fresnel::OrientedEtas<vector_type>::create(scalar_type(1.0), hlsl::promote<vector_type>(_f.getRefractionOrientedEta()))));
+        }
 
         ray_dir_info_type V = interaction.getV();
+        const matrix3x3_type fromTangent = interaction.getFromTangentSpace();
+        // tangent frame orthonormality
+        assert(__dotIsUnity(fromTangent[0],fromTangent[1],0.0));
+        assert(__dotIsUnity(fromTangent[1],fromTangent[2],0.0));
+        assert(__dotIsUnity(fromTangent[2],fromTangent[0],0.0));
+        // NDF sampling produced a unit length direction
+        assert(__dotIsUnity(localH,localH,1.0));
         const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
-        assert(hlsl::abs(hlsl::length(H) - scalar_type(1.0)) < scalar_type(1e-4));
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
 
         struct reflect_refract_wrapper  // so we don't recalculate LdotH
@@ -304,12 +235,87 @@ struct SCookTorrance
 
         const vector3_type T = interaction.getT();
         const vector3_type B = interaction.getB();
-        cache.fillTangents(T, B, H);
 
+        valid = true;
         return sample_type::create(L, T, B, NdotL);
     }
-    template<typename C=bool_constant<!IsAnisotropic> >
-    enable_if_t<C::value && !IsAnisotropic, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const conditional_t<IsBSDF, vector3_type, vector2_type> u, NBL_REF_ARG(isocache_type) cache)
+    template<typename C=bool_constant<!IsBSDF> NBL_FUNC_REQUIRES(C::value && !IsBSDF)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        const scalar_type NdotV = interaction.getNdotV();
+        if (NdotV < numeric_limits<scalar_type>::min)
+            return sample_type::createInvalid();
+        assert(!hlsl::isnan(NdotV));
+
+        const vector3_type localV = interaction.getTangentSpaceV();
+        const vector3_type localH = ndf.generateH(localV, u);
+        const scalar_type VdotH = hlsl::dot(localV, localH);
+        NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)   // VNDF sampling guarantees VdotH has same sign as NdotV (should be positive for BRDF)
+        {
+            // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
+            if (VdotH <= scalar_type(0.0))
+                return sample_type::createInvalid();
+            assert(!hlsl::isnan(NdotV*VdotH));
+        }
+        else
+        {
+            assert(VdotH >= scalar_type(0.0));
+        }
+
+        fresnel::OrientedEtaRcps<monochrome_type> dummy;
+        bool valid;
+        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, VdotH, false, dummy, valid);
+        if (valid)
+            cache = anisocache_type::createForReflection(localV, localH);
+        return s;
+    }
+    template<typename C=bool_constant<IsBSDF> NBL_FUNC_REQUIRES(C::value && IsBSDF)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        const vector3_type localV = interaction.getTangentSpaceV();
+        const scalar_type NdotV = localV.z;
+
+        fresnel_type _f = __getOrientedFresnel(fresnel, NdotV);
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
+
+        const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
+        const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
+        const scalar_type VdotH = hlsl::dot(localV, localH);
+
+        NBL_IF_CONSTEXPR(!ndf_type::GuaranteedVNDF)
+        {
+            // allow for rejection sampling, theoretically NdotV=0 or VdotH=0 is valid, but leads to 0 value contribution anyway
+            if (NdotV*VdotH <= scalar_type(0.0))
+                return sample_type::createInvalid();
+            assert(!hlsl::isnan(NdotV*VdotH));
+        }
+        else
+        {
+            assert(NdotV*VdotH >= scalar_type(0.0));
+        }
+
+        const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(VdotH));
+
+        scalar_type rcpChoiceProb;
+        scalar_type z = u.z;
+        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
+
+        const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
+        bool valid;
+        sample_type s = __generate_common(interaction, localH, NdotV, VdotH, LdotH, transmitted, rcpEta, valid);
+        if (valid)
+        {
+            cache = anisocache_type::createPartial(VdotH, LdotH, localH.z, transmitted, rcpEta);
+            assert(cache.isValid(fresnel::OrientedEtas<monochrome_type>::create(scalar_type(1.0), hlsl::promote<monochrome_type>(_f.getRefractionOrientedEta()))));
+            const vector3_type T = interaction.getT();
+            const vector3_type B = interaction.getB();
+            const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
+            cache.fillTangents(T, B, H);
+        }
+        return s;
+    }
+    template<typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(C::value && !IsAnisotropic)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const conditional_t<IsBSDF, vector3_type, vector2_type> u, NBL_REF_ARG(isocache_type) cache)
     {
         anisocache_type aniso_cache;
         sample_type s = generate(anisotropic_interaction_type::create(interaction), u, aniso_cache);
@@ -325,13 +331,13 @@ struct SCookTorrance
 
         dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
 
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
+        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
         quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
         quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, qq, _sample, interaction, isInfinity);
 
         NBL_IF_CONSTEXPR(IsBSDF)
         {
-            const scalar_type reflectance = _f(hlsl::abs(cache.getVdotH()))[0];
+            const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()));    
             return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * DG1.projectedLightMeasure;
         }
         else
@@ -344,8 +350,8 @@ struct SCookTorrance
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
-        if (!impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
+        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
+        if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
             return scalar_type(0.0);
 
         bool isInfinity;
@@ -363,9 +369,9 @@ struct SCookTorrance
 
         bool isInfinity;
         scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
-        fresnel_type _f = impl::getOrientedFresnel<fresnel_type, IsBSDF>::__call(fresnel, interaction.getNdotV());
+        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
 
-        const bool valid = impl::checkValid<fresnel_type, IsBSDF>::template __call<sample_type, Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
+        const bool valid = __checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
         assert(valid);  // expect the generated sample to always be valid, different checks for brdf and btdf
 
         scalar_type G2_over_G1 = scalar_type(1.0);
@@ -378,7 +384,17 @@ struct SCookTorrance
 
         spectral_type quo;
         NBL_IF_CONSTEXPR(IsBSDF)
-            quo = hlsl::promote<spectral_type>(G2_over_G1);
+        {
+            NBL_IF_CONSTEXPR(fresnel_type::ReturnsMonochrome)
+                quo = hlsl::promote<spectral_type>(G2_over_G1);
+            else
+            {
+                const scalar_type scaled_reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()));
+                spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(hlsl::abs(cache.getVdotH())));
+                quo = hlsl::mix(reflectance / scaled_reflectance,
+                        (hlsl::promote<spectral_type>(1.0) - reflectance) / (scalar_type(1.0) - scaled_reflectance), cache.isTransmission()) * G2_over_G1;
+            }
+        }
         else
         {
             const scalar_type VdotH = cache.getVdotH();
