@@ -133,7 +133,7 @@ struct SCookTorrance
     static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH)
     {
         spectral_type throughputWeights = interaction.getLuminosityContributionHint();
-        return hlsl::dot<spectral_type>(impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(orientedFresnel(clampedVdotH)), throughputWeights);
+        return hlsl::dot<spectral_type>(orientedFresnel(clampedVdotH), throughputWeights);
     }
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
             typename C=bool_constant<fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && fresnel_type::ReturnsMonochrome)
@@ -142,7 +142,7 @@ struct SCookTorrance
         return orientedFresnel(clampedVdotH)[0];
     }
 
-    bool __dotIsUnity(const vector3_type a, const vector3_type b, const scalar_type value)
+    bool __dotIsValue(const vector3_type a, const vector3_type b, const scalar_type value)
     {
         const scalar_type ab = hlsl::dot(a, b);
         return hlsl::max(ab, value / ab) <= scalar_type(value + 1e-3);
@@ -209,11 +209,11 @@ struct SCookTorrance
         ray_dir_info_type V = interaction.getV();
         const matrix3x3_type fromTangent = interaction.getFromTangentSpace();
         // tangent frame orthonormality
-        assert(__dotIsUnity(fromTangent[0],fromTangent[1],0.0));
-        assert(__dotIsUnity(fromTangent[1],fromTangent[2],0.0));
-        assert(__dotIsUnity(fromTangent[2],fromTangent[0],0.0));
+        assert(__dotIsValue(fromTangent[0],fromTangent[1],0.0));
+        assert(__dotIsValue(fromTangent[1],fromTangent[2],0.0));
+        assert(__dotIsValue(fromTangent[2],fromTangent[0],0.0));
         // NDF sampling produced a unit length direction
-        assert(__dotIsUnity(localH,localH,1.0));
+        assert(__dotIsValue(localH,localH,1.0));
         const vector3_type H = hlsl::mul(interaction.getFromTangentSpace(), localH);
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), H);
 
@@ -407,6 +407,18 @@ struct SCookTorrance
 
     ndf_type ndf;
     fresnel_type fresnel;   // always front-facing
+};
+
+
+template<class Config, class N, class F>
+struct traits<SCookTorrance<Config,N,F> >
+{
+   using __type = SCookTorrance<Config,N,F>;
+
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = conditional_value<__type::IsBSDF, BxDFType, BxDFType::BT_BSDF, BxDFType::BT_BRDF>::value;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = !__type::IsBSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = !__type::IsBSDF;
 };
 
 }
