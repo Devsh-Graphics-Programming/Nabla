@@ -20,14 +20,7 @@ using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type,
 
 }
 
-template<typename C>
-struct traits<bxdf::reflection::SIridescent<C> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
-};
+// inherit trait from cook torrance base
 
 }
 }
