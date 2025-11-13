@@ -130,17 +130,19 @@ struct SCookTorrance
 
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
             typename C=bool_constant<!fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && !fresnel_type::ReturnsMonochrome)
-    static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH, NBL_REF_ARG(spectral_type) outFresnelVal)
+    static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH, bool transmitted, NBL_REF_ARG(spectral_type) outFresnelVal)
     {
         spectral_type throughputWeights = interaction.getLuminosityContributionHint();
-        outFresnelVal = orientedFresnel(clampedVdotH);
+        spectral_type reflectance = orientedFresnel(clampedVdotH);
+        outFresnelVal = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0)-reflectance, transmitted);
         return hlsl::dot<spectral_type>(outFresnelVal, throughputWeights);
     }
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
             typename C=bool_constant<fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && fresnel_type::ReturnsMonochrome)
-    static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH, NBL_REF_ARG(spectral_type) outFresnelVal)
+    static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH, bool transmitted, NBL_REF_ARG(spectral_type) outFresnelVal)
     {
-        return orientedFresnel(clampedVdotH)[0];
+        scalar_type reflectance = orientedFresnel(clampedVdotH)[0];
+        return hlsl::mix(reflectance, scalar_type(1.0)-reflectance, transmitted);
     }
 
     bool __dotIsValue(const vector3_type a, const vector3_type b, const scalar_type value)
@@ -296,7 +298,7 @@ struct SCookTorrance
         }
 
         spectral_type dummy;
-        const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(VdotH), dummy);
+        const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(VdotH), false, dummy);
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
@@ -340,8 +342,8 @@ struct SCookTorrance
         NBL_IF_CONSTEXPR(IsBSDF)
         {
             spectral_type dummy;
-            const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()), dummy);    
-            return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * DG1.projectedLightMeasure;
+            const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()), cache.isTransmission(), dummy);    
+            return reflectance * DG1.projectedLightMeasure;
         }
         else
         {
@@ -393,9 +395,8 @@ struct SCookTorrance
             else
             {
                 spectral_type reflectance;
-                const scalar_type scaled_reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()), reflectance);
-                quo = hlsl::mix(reflectance / scaled_reflectance,
-                        (hlsl::promote<spectral_type>(1.0) - reflectance) / (scalar_type(1.0) - scaled_reflectance), cache.isTransmission()) * G2_over_G1;
+                const scalar_type scaled_reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()), cache.isTransmission(), reflectance);
+                quo = reflectance / scaled_reflectance * G2_over_G1;
             }
         }
         else
