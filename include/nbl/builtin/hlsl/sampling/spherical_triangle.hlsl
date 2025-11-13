@@ -103,7 +103,10 @@ struct SphericalTriangle
         const scalar_type cosC_ = sin_vertices[0] * sinB_* cos_c - cos_vertices[0] * cosB_;
         const scalar_type sinC_ = nbl::hlsl::sqrt(1.0 - cosC_ * cosC_);
 
-        const scalar_type subTriSolidAngleRatio = math::getArccosSumofABC_minus_PI(cos_vertices[0], cosB_, cosC_, sin_vertices[0], sinB_, sinC_) * pdf;
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cos_vertices[0], sin_vertices[0]);
+        angle_adder.addAngle(cosB_, sinB_);
+        angle_adder.addAngle(cosC_, sinC_);
+        const scalar_type subTriSolidAngleRatio = (angle_adder.getSumofArccos() - numbers::pi<scalar_type>) * pdf;
         const scalar_type u = subTriSolidAngleRatio > numeric_limits<scalar_type>::min ? subTriSolidAngleRatio : 0.0;
 
         const scalar_type cosBC_s = (cos_vertices[0] + cosB_ * cosC_) / (sinB_ * sinC_);
