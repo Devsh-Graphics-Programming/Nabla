@@ -16,7 +16,7 @@ namespace transmission
 {
 
 template<class Config>
-using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT_REFRACT>, fresnel::Iridescent<typename Config::spectral_type, true> >;
+using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT_REFRACT>, fresnel::Iridescent<typename Config::spectral_type, true, colorspace::scRGB> >;
 
 }
 
