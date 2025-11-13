@@ -31,7 +31,7 @@ struct sincos_accumulator
         assert(sinA >= T(0.0));
         this_t retval;
         retval.runningSum = complex_t<T>::create(cosA, sinA);
-        retval.wraparound = hlsl::mix(T(0.0), T(1.0), cosA == T(-1.0));
+        retval.wraparound = T(0.0);
         return retval;
     }
 
@@ -41,27 +41,35 @@ struct sincos_accumulator
     // This way, we can accumulate the sines and cosines of a set of angles, and only have to do one acos() call to retrieve the final sum
     void addAngle(T cosA, T sinA)
     {
-        const T a = cosA;
         const T cosB = runningSum.real();
         const T sinB = runningSum.imag();
+        // TODO: prove if we infer overflow from sign of `d` instead
         const bool overflow = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
-        const T c = a * cosB - sinA * sinB;
-        const T d = sinA * cosB + a * sinB;
+        const T c = cosA * cosB - sinA * sinB;
+        const T d = sinA * cosB + cosA * sinB;
 
+        // TODO: figure out if we can skip flipping signs until `getSumOfArccos()`, this would mean that on odd overflows the formula is
+        // const T c = sinA * sinB - cosA * cosB;
+        // const T d = - sinA * cosB - cosA * sinB;
+        // but both signs get inverted so the `abs()` of both terms gets preserved, so the equation can stay as is.
+        // And in `getSumOfArccos()` we could do either of:
+        // return acos<T>((intWraparound<<signBitOffset<T>)^runningSum.real()) + intWraparound * numbers::pi<T>;
+        // return (intWraparound+(intWraparound&0x1u)) * numbers::pi<T> + (intWraparound<<signBitOffset<T>)^acos<T>(runningSum.real());
         runningSum.real(ieee754::flipSign<T>(c, overflow));
         runningSum.imag(ieee754::flipSign<T>(d, overflow));
 
         if (overflow)
-            wraparound++;
+            wraparound += numbers::pi<T>;
     }
     void addCosine(T cosA)
     {
         addAngle(cosA, sqrt<T>(T(1.0) - cosA * cosA));
     }
 
+    // TODO: rename to `getSumOfArccos`
     T getSumofArccos()
     {
-        return acos<T>(runningSum.real()) + wraparound * numbers::pi<T>;
+        return acos<T>(runningSum.real()) + wraparound;
     }
 
     complex_t<T> runningSum;
