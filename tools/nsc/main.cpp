@@ -8,7 +8,7 @@
 
 #include "nbl/asset/metadata/CHLSLMetadata.h"
 #include "nlohmann/json.hpp"
-using json = nlohmann::json;
+using json = ::nlohmann::json;
 
 using namespace nbl;
 using namespace nbl::system;
@@ -34,7 +34,7 @@ public:
 
 			if (argv[1] == "--dump-build-info")
 			{
-				json j;
+				::json j;
 
 				auto& modules = j["modules"];
 
