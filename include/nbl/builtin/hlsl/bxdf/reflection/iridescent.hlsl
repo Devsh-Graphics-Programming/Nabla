@@ -16,7 +16,7 @@ namespace reflection
 {
 
 template<class Config>
-using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Iridescent<typename Config::spectral_type, false> >;
+using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Iridescent<typename Config::spectral_type, false, colorspace::scRGB> >;
 
 }
 
