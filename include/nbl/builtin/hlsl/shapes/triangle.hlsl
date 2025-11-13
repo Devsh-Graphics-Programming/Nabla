@@ -9,6 +9,8 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
+#include <nbl/builtin/hlsl/math/angle_adding.hlsl>
+#include <nbl/builtin/hlsl/numbers.hlsl>
 
 namespace nbl
 {
@@ -59,7 +61,10 @@ struct SphericalTriangle
         cos_vertices = hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, (vector3_type)(-1.f), (vector3_type)1.f); // using Spherical Law of Cosines (TODO: do we need to clamp anymore? since the pyramid angles method introduction?) 
         sin_vertices = hlsl::sqrt((vector3_type)1.f - cos_vertices * cos_vertices);
 
-        return math::getArccosSumofABC_minus_PI(cos_vertices[0], cos_vertices[1], cos_vertices[2], sin_vertices[0], sin_vertices[1], sin_vertices[2]);
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cos_vertices[0], sin_vertices[0]);
+        angle_adder.addAngle(cos_vertices[1], sin_vertices[1]);
+        angle_adder.addAngle(cos_vertices[2], sin_vertices[2]);
+        return angle_adder.getSumofArccos() - numbers::pi<scalar_type>;
     }
 
     scalar_type solidAngleOfTriangle()
@@ -89,7 +94,7 @@ struct SphericalTriangle
         const vector3_type externalProducts = hlsl::abs(hlsl::mul(/* transposed already */awayFromEdgePlane, receiverNormal));
 
         const vector3_type pyramidAngles = acos<scalar_type>(cos_sides);
-        return hlsl::dot<vector3_type>(pyramidAngles, externalProducts) / (2.f * numbers::pi<float>);
+        return hlsl::dot<vector3_type>(pyramidAngles, externalProducts) / (2.f * numbers::pi<scalar_type>);
     }
 
     vector3_type vertex0;
