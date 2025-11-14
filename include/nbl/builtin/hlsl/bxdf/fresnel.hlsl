@@ -141,7 +141,7 @@ struct ComputeMicrofacetNormal
     vector_type unnormalized(const bool _refract)
     {
         assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
-        const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
+        const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta, _refract);
         vector_type tmpH = V + L * etaFactor;
         tmpH = ieee754::flipSign<vector_type>(tmpH, _refract && orientedEta > scalar_type(1.0));
         return tmpH;
