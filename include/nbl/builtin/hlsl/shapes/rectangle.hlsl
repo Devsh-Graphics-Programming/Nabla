@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
+#include <nbl/builtin/hlsl/math/angle_adding.hlsl>
 
 namespace nbl
 {
@@ -49,7 +50,11 @@ struct SphericalRectangle
             -n_z[2] * n_z[3],
             -n_z[3] * n_z[0]
         );
-        return math::getSumofArccosABCD(cosGamma[0], cosGamma[1], cosGamma[2], cosGamma[3]) - 2 * numbers::pi<float>;
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
+        angle_adder.addCosine(cosGamma[1]);
+        angle_adder.addCosine(cosGamma[2]);
+        angle_adder.addCosine(cosGamma[3]);
+        return angle_adder.getSumofArccos() - scalar_type(2.0) * numbers::pi<float>;
     }
 
     vector3_type r0;
