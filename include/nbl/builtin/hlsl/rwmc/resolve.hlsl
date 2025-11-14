@@ -158,7 +158,7 @@ struct Resolver
 
 	CascadeSample __sampleCascade(NBL_REF_ARG(CascadeAccessor) acc, int16_t2 coord, uint16_t cascadeIndex, float reciprocalBaseI)
 	{
-		CascadeAccessor::output_type tmp;
+		typename CascadeAccessor::output_type tmp;
 		output_type neighbourhood[9];
 		neighbourhood[0] = acc.template get<float, 2>(coord + int16_t2(-1, -1), cascadeIndex);
 		neighbourhood[1] = acc.template get<float, 2>(coord + int16_t2(0, -1), cascadeIndex);
