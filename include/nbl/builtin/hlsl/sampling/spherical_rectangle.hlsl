@@ -43,8 +43,12 @@ struct SphericalRectangle
             -n_z[3] * n_z[0]
         );
 
-        scalar_type p = math::getSumofArccosAB(cosGamma[0], cosGamma[1]);
-        scalar_type q = math::getSumofArccosAB(cosGamma[2], cosGamma[3]);
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
+        angle_adder.addCosine(cosGamma[1]);
+        scalar_type p = angle_adder.getSumofArccos();
+        angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
+        angle_adder.addCosine(cosGamma[3]);
+        scalar_type q = angle_adder.getSumofArccos();
 
         const scalar_type k = 2 * numbers::pi<scalar_type> - q;
         const scalar_type b0 = n_z[0];
