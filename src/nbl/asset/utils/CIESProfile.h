@@ -6,6 +6,7 @@
 #define __NBL_ASSET_C_IES_PROFILE_H_INCLUDED__
 
 #include "nbl/asset/metadata/CIESProfileMetadata.h"
+#include "nbl/builtin/hlsl/ies/sampler.hlsl"
 #include <sstream>
 
 namespace nbl 
@@ -15,99 +16,67 @@ namespace nbl
         class CIESProfile 
         {
             public:
-                using IES_STORAGE_FORMAT = double;
-
-                //! max 16K resolution
-                _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_MAX_TEXTURE_WIDTH = 15360;
-                _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_MAX_TEXTURE_HEIGHT = 8640;
-
-                _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_DEFAULT_TEXTURE_WIDTH = 1024;
-                _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_DEFAULT_TEXTURE_HEIGHT = 1024;
-
-                _NBL_STATIC_INLINE_CONSTEXPR IES_STORAGE_FORMAT MAX_VANGLE = 180.0;
-                _NBL_STATIC_INLINE_CONSTEXPR IES_STORAGE_FORMAT MAX_HANGLE = 360.0;
-
-                _NBL_STATIC_INLINE_CONSTEXPR auto UI16_MAX_D = 65535.0;
-                _NBL_STATIC_INLINE_CONSTEXPR auto IES_TEXTURE_STORAGE_FORMAT = asset::EF_R16_UNORM;
-
-                enum Version : uint8_t
+                struct properties_t : public nbl::hlsl::ies::ProfileProperties
                 {
-                    V_1995,
-                    V_2002,
-                    V_SIZE
+                    hlsl::uint32_t2 optimalIESResolution; //! Optimal resolution for IES CDC texture
                 };
 
-                enum PhotometricType : uint8_t 
+                struct accessor_t
                 {
-                    TYPE_NONE,
-                    TYPE_C,
-                    TYPE_B,
-                    TYPE_A
+                    using key_t = uint32_t;
+                    using key_t2 = hlsl::uint32_t2;
+                    using value_t = hlsl::float32_t;
+
+                    accessor_t(const key_t2& resolution, const properties_t& props) : hAngles(resolution.x), vAngles(resolution.y), data(resolution.x * resolution.y), properties(props) {}
+
+                    template<typename T NBL_FUNC_REQUIRES(hlsl::is_same_v<T, key_t>)
+                    inline value_t vAngle(T j) const { return (value_t)vAngles[j]; }
+
+                    template<typename T NBL_FUNC_REQUIRES(hlsl::is_same_v<T, key_t>)
+                    inline value_t hAngle(T i) const { return (value_t)hAngles[i]; }
+
+                    template<typename T NBL_FUNC_REQUIRES(hlsl::is_same_v<T, key_t2>)
+                    inline value_t value(T ij) const { return (value_t)data[vAnglesCount() * ij.x + ij.y]; }
+
+                    template<typename T NBL_FUNC_REQUIRES(hlsl::is_same_v<T, key_t2>)
+                    inline void setValue(T ij, value_t val) { data[vAnglesCount() * ij.x + ij.y] = val; }
+
+                    inline key_t vAnglesCount() { return (key_t)vAngles.size(); }
+                    inline key_t hAnglesCount() { return (key_t)hAngles.size(); }
+                    inline properties_t::LuminairePlanesSymmetry symmetry() { return properties.symmetry; }
+
+                    core::vector<value_t> hAngles;          //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention. Note that if symmetry is OTHER_HALF_SYMMETRIC then real horizontal angle provided by IES data is (hAngles[index] + 90) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
+                    core::vector<value_t> vAngles;          //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
+                    core::vector<value_t> data;             //! Candela scalar values
+                    properties_t properties;                //! Profile properties
                 };
 
-                enum LuminairePlanesSymmetry : uint8_t
-                {
-                    ISOTROPIC,                  //! Only one horizontal angle present and a luminaire is assumed to be laterally axial symmetric
-                    QUAD_SYMETRIC,              //! The luminaire is assumed to be symmetric in each quadrant
-                    HALF_SYMETRIC,              //! The luminaire is assumed to be symmetric about the 0 to 180 degree plane
-                    OTHER_HALF_SYMMETRIC,       //! HALF_SYMETRIC case for legacy V_1995 version where horizontal angles are in range [90, 270], in that case the parser patches horizontal angles to be HALF_SYMETRIC
-                    NO_LATERAL_SYMMET           //! The luminaire is assumed to exhibit no lateral symmet
-                };
+                using sampler_t = nbl::hlsl::ies::CandelaSampler<accessor_t>;
 
                 CIESProfile() = default;
                 ~CIESProfile() = default;
+         
+				inline const accessor_t& getAccessor() const { return accessor; }
 
-                auto getType() const { return type; }
-                auto getVersion() const { return version; }
-                auto getSymmetry() const { return symmetry; }
-
-                const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
-                const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
-                const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }              
-                IES_STORAGE_FORMAT getCandelaValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
-                
-                IES_STORAGE_FORMAT getMaxCandelaValue() const { return maxCandelaValue; }
-                IES_STORAGE_FORMAT getTotalEmission() const { return totalEmissionIntegral; }
-                inline IES_STORAGE_FORMAT getAvgEmmision(const bool fullDomain=false) const
+                inline hlsl::float32_t getAvgEmmision(const bool fullDomain=false) const
                 {
                     if (fullDomain)
                     {
-                        const float cosLo = std::cos(core::radians(vAngles.front()));
-                        const float cosHi = std::cos(core::radians<float>(vAngles.back()));
+                        const float cosLo = std::cos(core::radians(accessor.vAngles.front()));
+                        const float cosHi = std::cos(core::radians<float>(accessor.vAngles.back()));
                         const float dsinTheta = cosLo - cosHi;
-                        return totalEmissionIntegral*(0.5/core::PI<float>())/dsinTheta;
+                        return accessor.properties.totalEmissionIntegral*(0.5/core::PI<float>())/dsinTheta;
                     }
-                    return avgEmmision;
+                    return accessor.properties.avgEmmision;
                 }
 
-                auto getOptimalIESResolution() const { return optimalIESResolution; }
-
                 template<class ExecutionPolicy>
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const bool fullDomainFlatten=false, uint32_t width = CDC_DEFAULT_TEXTURE_WIDTH, uint32_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const bool fullDomainFlatten=false, uint32_t width = CDC_DEFAULT_TEXTURE_WIDTH, uint32_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const bool fullDomainFlatten=false, uint32_t width = properties_t::CDC_DEFAULT_TEXTURE_WIDTH, uint32_t height = properties_t::CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const bool fullDomainFlatten=false, uint32_t width = properties_t::CDC_DEFAULT_TEXTURE_WIDTH, uint32_t height = properties_t::CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
-                CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
-                    : type(type), version(V_SIZE), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
-                
-                void setCandelaValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[vAngles.size() * i + j] = val; }
-
-                const IES_STORAGE_FORMAT sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
-
-                PhotometricType type;
-                Version version;
-                LuminairePlanesSymmetry symmetry;
-
-                core::vector<IES_STORAGE_FORMAT> hAngles;           //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention. Note that if symmetry is OTHER_HALF_SYMMETRIC then real horizontal angle provided by IES data is (hAngles[index] + 90) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
-                core::vector<IES_STORAGE_FORMAT> vAngles;           //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
-                core::vector<IES_STORAGE_FORMAT> data;              //! Candela values
-                
-                IES_STORAGE_FORMAT maxCandelaValue = {};            //! Max value from this->data vector    
-                IES_STORAGE_FORMAT totalEmissionIntegral = {};      //! Total energy emitted
-                IES_STORAGE_FORMAT avgEmmision = {};                //! this->totalEmissionIntegral / <size of the emission domain where non zero emission values>
-
-                core::vector2du32_SIMD optimalIESResolution;        //! optimal resolution for IES profile texture
-
+                CIESProfile(const properties_t& props, const hlsl::uint32_t2& resolution) : accessor(resolution, props) {}
+                accessor_t accessor; //! IES profile data accessor
                 friend class CIESProfileParser;
         };
     }

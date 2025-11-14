@@ -8,82 +8,6 @@
 using namespace nbl;
 using namespace asset;
 
-const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT theta, IES_STORAGE_FORMAT phi) const 
-{
-    auto wrapPhi = [&](const IES_STORAGE_FORMAT& _phi) -> IES_STORAGE_FORMAT
-    {
-        constexpr auto M_HALF_PI =core::HALF_PI<double>();
-        constexpr auto M_TWICE_PI = core::PI<double>() * 2.0;
-
-        switch (symmetry)
-        {
-            case ISOTROPIC: //! axial symmetry
-                return 0.0;
-            case QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap onto [0, 90] degrees range
-            {
-                float wrapPhi = abs(_phi); //! first MIRROR
-
-                if (wrapPhi > M_HALF_PI) //! then REPEAT
-                    wrapPhi = std::clamp<IES_STORAGE_FORMAT>(M_HALF_PI - (wrapPhi - M_HALF_PI), 0, M_HALF_PI);
-
-                return wrapPhi; //! eg. maps (in degrees) 91,269,271 -> 89 and 179,181,359 -> 1
-            }
-            case HALF_SYMETRIC: //! phi MIRROR wrap onto [0, 180] degrees range
-            case OTHER_HALF_SYMMETRIC:
-                return abs(_phi); //! eg. maps (in degress) 181 -> 179 or 359 -> 1
-            case NO_LATERAL_SYMMET: //! plot onto whole (in degress) [0, 360] range
-            {
-                if (_phi < 0)
-                    return _phi + M_TWICE_PI;
-                else
-                    return _phi;
-            }
-            default:
-                assert(false);
-                return 69;
-        }
-    };
-
-    const float vAngle = core::degrees(theta), hAngle = core::degrees(wrapPhi(phi));
-
-    assert(vAngle >= 0.0 && vAngle <= 180.0);
-    assert(hAngle >= 0.0 && hAngle <= 360.0);
-
-    if (vAngle > vAngles.back())
-        return 0.0;
-
-    // bilinear interpolation
-    auto lb = [](const core::vector<double>& angles, double angle) -> size_t
-    {
-        assert(!angles.empty());
-        const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
-        return (size_t)std::max((int64_t)idx - 1, (int64_t)0);
-    };
-
-    auto ub = [](const core::vector<double>& angles, double angle) -> size_t
-    {
-        assert(!angles.empty());
-        const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
-        return std::min<size_t>(idx, angles.size() - 1);
-    };
-
-    const size_t j0 = lb(vAngles, vAngle);
-    const size_t j1 = ub(vAngles, vAngle);
-    const size_t i0 = symmetry == ISOTROPIC ? 0 : lb(hAngles, hAngle);
-    const size_t i1 = symmetry == ISOTROPIC ? 0 : ub(hAngles, hAngle);
-
-    double uResp = i1 == i0 ? 1.0 : 1.0 / (hAngles[i1] - hAngles[i0]);
-    double vResp = j1 == j0 ? 1.0 : 1.0 / (vAngles[j1] - vAngles[j0]);
-
-    double u = (hAngle - hAngles[i0]) * uResp;
-    double v = (vAngle - vAngles[j0]) * vResp;
-
-    double s0 = getCandelaValue(i0, j0) * (1.0 - v) + getCandelaValue(i0, j1) * (v);
-    double s1 = getCandelaValue(i1, j0) * (1.0 - v) + getCandelaValue(i1, j1) * (v);
-
-    return s0 * (1.0 - u) + s1 * u;
-}
-
 template<class ExecutionPolicy>
 core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
 {
@@ -169,7 +93,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
             const auto uv = Octahedral::vector2_type(position.x * vertInv, position.y * horiInv);
             const auto dir = Octahedral::uvToDir(uv);
             const auto polar = Polar::createFromCartesian(dir);
-            const auto intensity = sample(polar.theta, polar.phi);
+            const auto intensity = sampler_t::sample(accessor, hlsl::uint32_t(polar.theta, polar.phi));
 
             //! blend the IES texture with "flatten"
             double blendV = intensity * (1.0 - flatten);
