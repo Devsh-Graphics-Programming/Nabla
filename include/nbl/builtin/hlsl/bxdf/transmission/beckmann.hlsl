@@ -27,23 +27,7 @@ using SBeckmannDielectricAnisotropic = SCookTorrance<Config, ndf::Beckmann<typen
 
 }
 
-template<typename C>
-struct traits<bxdf::transmission::SBeckmannDielectricIsotropic<C> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
-};
-
-template<typename C>
-struct traits<bxdf::transmission::SBeckmannDielectricAnisotropic<C> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
-};
+// inherit trait from cook torrance base
 
 }
 }

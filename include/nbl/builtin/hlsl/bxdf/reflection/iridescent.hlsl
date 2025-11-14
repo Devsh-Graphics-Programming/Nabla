@@ -16,18 +16,11 @@ namespace reflection
 {
 
 template<class Config>
-using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Iridescent<typename Config::spectral_type, false> >;
+using SIridescent = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Iridescent<typename Config::spectral_type, false, colorspace::scRGB> >;
 
 }
 
-template<typename C>
-struct traits<bxdf::reflection::SIridescent<C> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
-};
+// inherit trait from cook torrance base
 
 }
 }

@@ -122,11 +122,7 @@ void frisvad(NBL_CONST_REF_ARG(T) normal, NBL_REF_ARG(T) tangent, NBL_REF_ARG(T)
 
 bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(float) rcpChoiceProb)
 {
-#ifdef __HLSL_VERSION
-    NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
-#else
-    NBL_CONSTEXPR float32_t NEXT_ULP_AFTER_UNITY = bit_cast<float32_t>(0x3f800001u);
-#endif
+    const float32_t NEXT_ULP_AFTER_UNITY = bit_cast<float32_t>(0x3f800001u);
     const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
 
     // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
