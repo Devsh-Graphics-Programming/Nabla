@@ -60,7 +60,7 @@ asset::SAssetBundle CIESProfileLoader::loadAsset(system::IFile* _file, const ass
         cpuImageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d", loadContex, _hierarchyLevel).first; // note: we could also pass empty content, but this would require adjusting IAssetLoader source to not attempt to use all loaders to find the asset
     else
     {
-        const auto optimalResolution = profile.getOptimalIESResolution();
+        const auto optimalResolution = profile.getAccessor().properties.optimalIESResolution;
         cpuImageView = profile.createIESTexture(0.f, false, optimalResolution.x, optimalResolution.y);
     }
 

@@ -17,7 +17,7 @@ namespace ies
 struct ProfileProperties
 {
     //! max 16K resolution
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_SIZE = 15360u;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_WIDTH = 15360u;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_HEIGHT = 8640u;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_DEFAULT_TEXTURE_WIDTH = 1024u;
@@ -54,7 +54,7 @@ struct ProfileProperties
     Version version;
     LuminairePlanesSymmetry symmetry;
 
-    float32_t maxCandelaValue;            //! Max value from this->data vector    
+    float32_t maxCandelaValue;            //! Max scalar value from candela data vector    
     float32_t totalEmissionIntegral;      //! Total energy emitted
     float32_t avgEmmision;                //! totalEmissionIntegral / <size of the emission domain where non zero emission values>
 };

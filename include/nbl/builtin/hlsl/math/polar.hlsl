@@ -44,8 +44,8 @@ struct Polar
         return ToCartesian(theta, phi);
     }
 
-    scalar_type theta;  //! polar angle in range [0, PI]
-    scalar_type phi;    //! azimuthal angle in range [-PI, PI]
+    scalar_type theta;  //! polar angle
+    scalar_type phi;    //! azimuthal angle
 };
 
 }

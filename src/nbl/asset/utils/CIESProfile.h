@@ -18,6 +18,7 @@ namespace nbl
             public:
                 struct properties_t : public nbl::hlsl::ies::ProfileProperties
                 {
+                    NBL_CONSTEXPR_STATIC_INLINE auto IES_TEXTURE_STORAGE_FORMAT = asset::EF_R16_UNORM;
                     hlsl::uint32_t2 optimalIESResolution; //! Optimal resolution for IES CDC texture
                 };
 
@@ -27,7 +28,9 @@ namespace nbl
                     using key_t2 = hlsl::uint32_t2;
                     using value_t = hlsl::float32_t;
 
+                    accessor_t() = default;
                     accessor_t(const key_t2& resolution, const properties_t& props) : hAngles(resolution.x), vAngles(resolution.y), data(resolution.x * resolution.y), properties(props) {}
+                    ~accessor_t() = default;
 
                     template<typename T NBL_FUNC_REQUIRES(hlsl::is_same_v<T, key_t>)
                     inline value_t vAngle(T j) const { return (value_t)vAngles[j]; }
@@ -41,9 +44,9 @@ namespace nbl
                     template<typename T NBL_FUNC_REQUIRES(hlsl::is_same_v<T, key_t2>)
                     inline void setValue(T ij, value_t val) { data[vAnglesCount() * ij.x + ij.y] = val; }
 
-                    inline key_t vAnglesCount() { return (key_t)vAngles.size(); }
-                    inline key_t hAnglesCount() { return (key_t)hAngles.size(); }
-                    inline properties_t::LuminairePlanesSymmetry symmetry() { return properties.symmetry; }
+                    inline key_t vAnglesCount() const { return (key_t)vAngles.size(); }
+                    inline key_t hAnglesCount() const { return (key_t)hAngles.size(); }
+                    inline properties_t::LuminairePlanesSymmetry symmetry() const { return properties.symmetry; }
 
                     core::vector<value_t> hAngles;          //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention. Note that if symmetry is OTHER_HALF_SYMMETRIC then real horizontal angle provided by IES data is (hAngles[index] + 90) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
                     core::vector<value_t> vAngles;          //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
@@ -76,7 +79,7 @@ namespace nbl
 
             private:
                 CIESProfile(const properties_t& props, const hlsl::uint32_t2& resolution) : accessor(resolution, props) {}
-                accessor_t accessor; //! IES profile data accessor
+                accessor_t accessor;
                 friend class CIESProfileParser;
         };
     }

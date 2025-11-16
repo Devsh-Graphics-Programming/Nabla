@@ -14,11 +14,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     const bool inFlattenDomain = flatten >= 0.0 && flatten <= 1.0; // [0, 1] range for blend equation, 1 is normally invalid but we use it to for special implied domain flatten mode
     assert(inFlattenDomain);
 
-    if (width > CDC_MAX_TEXTURE_WIDTH)
-        width = CDC_MAX_TEXTURE_WIDTH;
+    if (width > properties_t::CDC_MAX_TEXTURE_WIDTH)
+        width = properties_t::CDC_MAX_TEXTURE_WIDTH;
 
-    if (height > CDC_MAX_TEXTURE_HEIGHT)
-        height = CDC_MAX_TEXTURE_HEIGHT;
+    if (height > properties_t::CDC_MAX_TEXTURE_HEIGHT)
+        height = properties_t::CDC_MAX_TEXTURE_HEIGHT;
 
     // TODO: If no symmetry (no folding in half and abuse of mirror sampler) make dimensions odd-sized so middle texel taps the south pole
 
@@ -36,11 +36,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     imgInfo.arrayLayers = 1u;
     imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
     imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-    imgInfo.format = IES_TEXTURE_STORAGE_FORMAT;
+    imgInfo.format = properties_t::IES_TEXTURE_STORAGE_FORMAT;
     auto outImg = asset::ICPUImage::create(std::move(imgInfo));
 
     asset::ICPUImage::SBufferCopy region;
-    constexpr auto texelBytesz = asset::getTexelOrBlockBytesize<IES_TEXTURE_STORAGE_FORMAT>();
+    constexpr auto texelBytesz = asset::getTexelOrBlockBytesize<properties_t::IES_TEXTURE_STORAGE_FORMAT>();
     const size_t bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, texelBytesz);
     region.bufferRowLength = bufferRowLength;
     region.imageExtent = imgInfo.extent;
@@ -72,8 +72,8 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
 
         // Late Optimization TODO: Modify the Max Value for the UNORM texture to be the Max Value after flatten blending 
-        const double maxValue = getMaxCandelaValue();
-        const double maxValueRecip = 1.0 / maxValue;
+        const auto maxValue = accessor.properties.maxCandelaValue;
+        const auto maxValueRecip = 1.f / maxValue;
 
         // There is one huge issue, the IES files love to give us values for degrees 0, 90, 180 an 360
         // So standard octahedral mapping won't work, because for above data points you need corner sampled images.
@@ -81,8 +81,8 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         const float horiInv = 1.0 / (width-1);
 
         const double flattenTarget = getAvgEmmision(fullDomainFlatten);
-        const double domainLo = core::radians(vAngles.front());
-        const double domainHi = core::radians(vAngles.back());
+        const double domainLo = core::radians(accessor.vAngles.front());
+        const double domainHi = core::radians(accessor.vAngles.back());
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
             // We don't currently support generating IES images that exploit symmetries or reduced domains, all are full octahederal mappings of a sphere.
@@ -93,10 +93,10 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
             const auto uv = Octahedral::vector2_type(position.x * vertInv, position.y * horiInv);
             const auto dir = Octahedral::uvToDir(uv);
             const auto polar = Polar::createFromCartesian(dir);
-            const auto intensity = sampler_t::sample(accessor, hlsl::uint32_t(polar.theta, polar.phi));
+            const auto intensity = sampler_t::sample(accessor, polar);
 
             //! blend the IES texture with "flatten"
-            double blendV = intensity * (1.0 - flatten);
+            float blendV = intensity * (1.f - flatten);
             if (fullDomainFlatten && domainLo<= polar.theta && polar.theta<=domainHi || intensity >0.0)
                 blendV += flattenTarget * flatten;
 
@@ -104,7 +104,8 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
             asset::IImageFilter::IState::ColorValue color;
             //asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV); TODO: FIX THIS ENCODE, GIVES ARTIFACTS
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D + 0.5, 0.0, UI16_MAX_D));
+            constexpr float UI16_MAX_D = static_cast<float>(std::numeric_limits<std::uint16_t>::max());
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D + 0.5f, 0.f, UI16_MAX_D));
             *color.asUShort = encodeV;
             color.writeMemory(wInfo, blockArrayOffset);
         };
