@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
+#include "nbl/builtin/hlsl/sampling/basic.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
@@ -39,7 +40,8 @@ struct SSmoothDielectric
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, interaction.getNdotV(_clamp))[0];
 
         scalar_type rcpChoiceProb;
-        bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        bool transmitted = partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
         ray_dir_info_type V = interaction.getV();
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), interaction.getN());
@@ -125,7 +127,8 @@ struct SThinSmoothDielectric
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
-        const bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        const bool transmitted = partitionRandVariable(reflectionProb, z, rcpChoiceProb);
         remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
         ray_dir_info_type V = interaction.getV();
