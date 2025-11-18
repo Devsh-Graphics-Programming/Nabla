@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/bxdf/config.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf.hlsl"
 #include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
+#include "nbl/builtin/hlsl/sampling/basic.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf/microfacet_to_light_transform.hlsl"
 
 namespace nbl
@@ -302,7 +303,8 @@ struct SCookTorrance
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
-        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        bool transmitted = partitionRandVariable(reflectance, z, rcpChoiceProb);
 
         const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
         bool valid;
