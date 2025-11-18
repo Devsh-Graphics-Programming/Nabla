@@ -28,13 +28,13 @@ struct Bilinear
     {
         Bilinear<T> retval;
         retval.bilinearCoeffs = bilinearCoeffs;
+        retval.twiceAreasUnderXCurve = vector2_type(bilinearCoeffs[0] + bilinearCoeffs[1], bilinearCoeffs[2] + bilinearCoeffs[3]);
         return retval;
     }
 
     vector2_type generate(NBL_REF_ARG(scalar_type) rcpPdf, NBL_CONST_REF_ARG(vector2_type) _u)
     {
         vector2_type u = _u;
-        const vector2_type twiceAreasUnderXCurve = vector2_type(bilinearCoeffs[0] + bilinearCoeffs[1], bilinearCoeffs[2] + bilinearCoeffs[3]);
         Linear<scalar_type> lineary = Linear<scalar_type>::create(twiceAreasUnderXCurve);
         u.y = lineary.generate(u.y);
 
@@ -52,7 +52,10 @@ struct Bilinear
         return 4.0 * nbl::hlsl::mix(nbl::hlsl::mix(bilinearCoeffs[0], bilinearCoeffs[1], u.x), nbl::hlsl::mix(bilinearCoeffs[2], bilinearCoeffs[3], u.x), u.y) / (bilinearCoeffs[0] + bilinearCoeffs[1] + bilinearCoeffs[2] + bilinearCoeffs[3]);
     }
 
-    vector4_type bilinearCoeffs;
+    // unit square: x0y0    x1y0
+    //              x0y1    x1y1
+    vector4_type bilinearCoeffs;    // (x0y0, x0y1, x1y0, x1y1)
+    vector2_type twiceAreasUnderXCurve;
 };
 
 }

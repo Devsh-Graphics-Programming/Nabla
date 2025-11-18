@@ -21,21 +21,26 @@ struct Linear
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
 
-    static Linear<T> create(NBL_CONST_REF_ARG(vector2_type) linearCoeffs)
+    static Linear<T> create(NBL_CONST_REF_ARG(vector2_type) linearCoeffs)   // start and end importance values (start, end)
     {
         Linear<T> retval;
-        retval.linearCoeffs = linearCoeffs;
+        retval.linearCoeffStart = linearCoeffs[0];
+        retval.rcpDiff = 1.0 / (linearCoeffs[0] - linearCoeffs[1]);
+        vector2_type squaredCoeffs = linearCoeffs * linearCoeffs;
+        retval.squaredCoeffStart = squaredCoeffs[0];
+        retval.squaredCoeffDiff = squaredCoeffs[1] - squaredCoeffs[0];
         return retval;
     }
 
     scalar_type generate(scalar_type u)
     {
-        const scalar_type rcpDiff = 1.0 / (linearCoeffs[0] - linearCoeffs[1]);
-        const vector2_type squaredCoeffs = linearCoeffs * linearCoeffs;
-        return nbl::hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max ? (linearCoeffs[0] - nbl::hlsl::sqrt(nbl::hlsl::mix(squaredCoeffs[0], squaredCoeffs[1], u))) * rcpDiff : u;
+        return hlsl::mix(u, (linearCoeffStart - hlsl::sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max);
     }
 
-    vector2_type linearCoeffs;
+    scalar_type linearCoeffStart;  
+    scalar_type rcpDiff;
+    scalar_type squaredCoeffStart;
+    scalar_type squaredCoeffDiff;
 };
 
 }
