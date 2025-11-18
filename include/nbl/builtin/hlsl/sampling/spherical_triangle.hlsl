@@ -8,7 +8,8 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
-#include <nbl/builtin/hlsl/shapes/triangle.hlsl>
+#include <nbl/builtin/hlsl/math/quaternions.hlsl>
+#include <nbl/builtin/hlsl/shapes/spherical_triangle.hlsl>
 
 namespace nbl
 {
@@ -31,20 +32,6 @@ struct SphericalTriangle
         return retval;
     }
 
-    vector3_type slerp_delta(NBL_CONST_REF_ARG(vector3_type) start, NBL_CONST_REF_ARG(vector3_type) preScaledWaypoint, scalar_type cosAngleFromStart)
-    {
-        vector3_type planeNormal = nbl::hlsl::cross(start,preScaledWaypoint);
-    
-        cosAngleFromStart *= 0.5;
-        const scalar_type sinAngle = nbl::hlsl::sqrt(0.5 - cosAngleFromStart);
-        const scalar_type cosAngle = nbl::hlsl::sqrt(0.5 + cosAngleFromStart);
-        
-        planeNormal *= sinAngle;
-        const vector3_type precompPart = nbl::hlsl::cross(planeNormal, start) * 2.0;
-
-        return precompPart * cosAngle + nbl::hlsl::cross(planeNormal, precompPart);
-    }
-
     // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
     vector3_type generate(scalar_type solidAngle, NBL_CONST_REF_ARG(vector3_type) cos_vertices, NBL_CONST_REF_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REF_ARG(vector2_type) u)
     {
@@ -64,7 +51,7 @@ struct SphericalTriangle
         {
             const scalar_type cosAngleAlongAC = ((v_ * q - u_ * p) * cos_vertices[0] - v_) / ((v_ * p + u_ * q) * sin_vertices[0]);
             if (nbl::hlsl::abs(cosAngleAlongAC) < 1.f)
-                C_s += slerp_delta(tri.vertex0, tri.vertex2 * csc_b, cosAngleAlongAC);
+                C_s += math::quaternion_t<scalar_type>::slerp_delta(tri.vertex0, tri.vertex2 * csc_b, cosAngleAlongAC);
         }
 
         vector3_type retval = tri.vertex1;
@@ -74,7 +61,7 @@ struct SphericalTriangle
         {
             const scalar_type cosAngleAlongBC_s = nbl::hlsl::clamp(1.0 + cosBC_s * u.y - u.y, -1.f, 1.f);
             if (nbl::hlsl::abs(cosAngleAlongBC_s) < 1.f)
-                retval += slerp_delta(tri.vertex1, C_s * csc_b_s, cosAngleAlongBC_s);
+                retval += math::quaternion_t<scalar_type>::slerp_delta(tri.vertex1, C_s * csc_b_s, cosAngleAlongBC_s);
         }
         return retval;
     }

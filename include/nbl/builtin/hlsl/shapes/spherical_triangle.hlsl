@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_SHAPES_TRIANGLE_INCLUDED_
-#define _NBL_BUILTIN_HLSL_SHAPES_TRIANGLE_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SHAPES_SPHERICAL_TRIANGLE_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SHAPES_SPHERICAL_TRIANGLE_INCLUDED_
 
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>

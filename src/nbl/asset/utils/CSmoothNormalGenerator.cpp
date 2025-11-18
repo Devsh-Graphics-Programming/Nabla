@@ -5,7 +5,7 @@
 #include "CSmoothNormalGenerator.h"
 
 #include "nbl/core/declarations.h"
-#include "nbl/builtin/hlsl/shapes/triangle.hlsl"
+#include "nbl/builtin/hlsl/shapes/spherical_triangle.hlsl"
 
 #include <algorithm>
 
