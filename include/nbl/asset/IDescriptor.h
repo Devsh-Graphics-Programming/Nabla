@@ -42,7 +42,7 @@ class IDescriptor : public virtual core::IReferenceCounted
 		{
 			EC_BUFFER = 0,
 			EC_SAMPLER,
-			EC_IMAGE,
+			EC_IMAGE, // TODO: rename to IMAGE_VIEW
 			EC_BUFFER_VIEW,
 			EC_ACCELERATION_STRUCTURE,
 			EC_COUNT

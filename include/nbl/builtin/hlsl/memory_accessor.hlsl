@@ -112,8 +112,8 @@ struct StructureOfArrays : impl::StructureOfArraysBase<IndexType,ElementStride,S
     BaseAccessor accessor;
 
     // Question: shall we go back to requiring a `access_t get(index_t)` on the `BaseAccessor`, then we could `enable_if` check the return type (via `has_method_get`) matches and we won't get Nasty HLSL copy-in copy-out conversions
-    template<typename T>
-    enable_if_t<sizeof(T)%sizeof(access_t)==0,void> get(const index_t ix, NBL_REF_ARG(T) value)
+    template<typename T, typename I=index_t>
+    enable_if_t<sizeof(T)%sizeof(access_t)==0,void> get(const I ix, NBL_REF_ARG(T) value)
     {
         NBL_CONSTEXPR uint64_t SubElementCount = sizeof(T)/sizeof(access_t);
         // `vector` for now, we'll use `array` later when `bit_cast` gets fixed
@@ -123,8 +123,8 @@ struct StructureOfArrays : impl::StructureOfArraysBase<IndexType,ElementStride,S
         value = bit_cast<T,vector<access_t,SubElementCount> >(aux);
     }
 
-    template<typename T>
-    enable_if_t<sizeof(T)%sizeof(access_t)==0,void> set(const index_t ix, NBL_CONST_REF_ARG(T) value)
+    template<typename T, typename I=index_t>
+    enable_if_t<sizeof(T)%sizeof(access_t)==0,void> set(const I ix, NBL_CONST_REF_ARG(T) value)
     { 
         NBL_CONSTEXPR uint64_t SubElementCount = sizeof(T)/sizeof(access_t);
         // `vector` for now, we'll use `array` later when `bit_cast` gets fixed
@@ -209,11 +209,11 @@ struct Offset : impl::OffsetBase<IndexType,_Offset>
 
     BaseAccessor accessor;
 
-    template <typename T>
-    void set(index_t idx, T value) {accessor.set(idx+base_t::offset,value); }
+    template <typename T, typename I=index_t>
+    void set(I idx, T value) {accessor.set(idx+base_t::offset,value); }
 
-    template <typename T> 
-    void get(index_t idx, NBL_REF_ARG(T) value) {accessor.get(idx+base_t::offset,value);}
+    template <typename T, typename I=index_t> 
+    void get(I idx, NBL_REF_ARG(T) value) {accessor.get(idx+base_t::offset,value);}
     
     template<typename S=BaseAccessor>
     enable_if_t<

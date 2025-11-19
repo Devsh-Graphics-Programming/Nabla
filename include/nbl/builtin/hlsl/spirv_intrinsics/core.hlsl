@@ -69,6 +69,8 @@ static const bool HelperInvocation;
 static const uint32_t VertexIndex;
 [[vk::ext_builtin_input(spv::BuiltInInstanceIndex)]]
 static const uint32_t InstanceIndex;
+[[vk::ext_builtin_input(spv::BuiltInPrimitiveId)]]
+static const uint32_t PrimitiveId;
 
 //! Vertex and friends
 [[vk::ext_builtin_output(spv::BuiltInPosition)]]
@@ -339,11 +341,11 @@ enable_if_t<is_integral_v<Integral>, Integral> bitCount(Integral mat);
 
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAll)]]
-enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> all(BooleanVector vec);
+enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> all(BooleanVector vec);
 
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAny)]]
-enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> any(BooleanVector vec);
+enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> any(BooleanVector vec);
 
 // If Condition is a vector, ResultType must be a vector with the same number of components. Using (p -> q) = (~p v q)
 template<typename Condition, typename ResultType NBL_FUNC_REQUIRES(concepts::Boolean<Condition> && (! concepts::Vector<Condition> || (concepts::Vector<ResultType> && (extent_v<Condition> == extent_v<ResultType>))))
@@ -357,6 +359,41 @@ AddCarryOutput<T> addCarry(T operand1, T operand2);
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpISubBorrow)]]
 SubBorrowOutput<T> subBorrow(T operand1, T operand2);
+
+
+template<typename T NBL_FUNC_REQUIRES(concepts::Integral<T> || concepts::IntVector<T>)
+[[vk::ext_instruction(spv::OpIEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> IEqual(T lhs, T rhs);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T> || concepts::FloatingPointVector<T>)
+[[vk::ext_instruction(spv::OpFOrdEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
+
+NBL_VALID_EXPRESSION(IEqualIsCallable, (T), IEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+NBL_VALID_EXPRESSION(FOrdEqualIsCallable, (T), FOrdEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+
+template<typename T>
+NBL_BOOL_CONCEPT EqualIntrinsicCallable = IEqualIsCallable<T> || FOrdEqualIsCallable<T>;
+
+template<typename T NBL_FUNC_REQUIRES(concepts::Integral<T> || concepts::IntVector<T>)
+[[vk::ext_instruction(spv::OpINotEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> INotEqual(T lhs, T rhs);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T> || concepts::FloatingPointVector<T>)
+[[vk::ext_instruction(spv::OpFOrdNotEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdNotEqual(T lhs, T rhs);
+
+NBL_VALID_EXPRESSION(INotEqualIsCallable, (T), INotEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+NBL_VALID_EXPRESSION(FOrdNotEqualIsCallable, (T), FOrdNotEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+
+template<typename T>
+NBL_BOOL_CONCEPT NotEqualIntrinsicCallable = INotEqualIsCallable<T> || FOrdNotEqualIsCallable<T>;
+
+template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!concepts::Vector<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)))
+[[vk::ext_instruction(spv::OpSelect)]]
+T select(U a, T x, T y);
+
+NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
 
 }
 

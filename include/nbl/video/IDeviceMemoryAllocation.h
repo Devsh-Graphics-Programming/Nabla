@@ -22,7 +22,7 @@ TO COPY BETWEEN MEMORY ALLOCATIONS you need to have them bound to
 one or two IGPUBuffers and execute IVideoDriver::copyBuffer between them.
 We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
-class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
+class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
     public:
         //! Access flags for how the application plans to use mapped memory (if any)
@@ -91,6 +91,7 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         //! Utility function, tell us if writes by the CPU or GPU need extra visibility operations to become visible for reading on the other processor
         /** Only execute flushes or invalidations if the allocation requires them, and batch them (flush one combined range instead of two or more)
         for greater efficiency. To execute a flush or invalidation, use IDriver::flushMappedAllocationRanges and IDriver::invalidateMappedAllocationRanges respectively. */
+        // TODO: Visible is a misnomer, collides with Vulkan memory model nomenclature where visibility only concerns reads, where as this is both read and write (visibility and availability)
         inline bool haveToMakeVisible() const
         {
             return !m_memoryPropertyFlags.hasFlags(EMPF_HOST_COHERENT_BIT);
@@ -102,6 +103,9 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             size_t offset = 0ull;
             size_t length = 0ull;
         };
+        // makes sure offset and length are aligned to the `SPhysicalDeviceLimits::nonCoherentAtomSize` but also not outside the memory allocation
+        MemoryRange alignNonCoherentRange(MemoryRange range) const;
+        //
         inline void* map(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint=IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE)
         {
             if (isCurrentlyMapped())

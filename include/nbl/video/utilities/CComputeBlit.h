@@ -12,7 +12,7 @@ class CComputeBlit : public core::IReferenceCounted
 {
 	public:
 		constexpr static inline asset::SPushConstantRange DefaultPushConstantRange = {
-			.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,
+			.stageFlags = hlsl::ShaderStage::ESS_COMPUTE,
 			.offset = 0ull,
 			.size = sizeof(hlsl::blit::Parameters)
 		};
@@ -67,7 +67,7 @@ class CComputeBlit : public core::IReferenceCounted
 			// required
 			CAssetConverter* converter;
 			// in theory we _could_ accept either pipeline layout type (or just the base) and make the CPU one back from the GPU
-			const asset::ICPUPipelineLayout* layout;
+			asset::ICPUPipelineLayout* layout;
 			// must be Uniform Texel Buffer descriptor type
 			hlsl::SBindingInfo kernelWeights;
 			// must be Sampled Image descriptor type
@@ -123,7 +123,7 @@ class CComputeBlit : public core::IReferenceCounted
 					baseBucketCount = 512;
 					break;
 				case format_t::EF_R16_UNORM: [[fallthrough]];
-				case format_t::EF_R16_SNORM: [[fallthrough]];
+				case format_t::EF_R16_SNORM:
 					baseBucketCount = 1024;
 					break;
 				case format_t::EF_R32_SFLOAT:

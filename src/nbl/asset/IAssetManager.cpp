@@ -84,8 +84,9 @@
 #endif
 
 #include "nbl/asset/interchange/CBufferLoaderBIN.h"
+//#include "nbl/asset/interchange/CIESProfileLoader.h"
+
 #include "nbl/asset/utils/CGeometryCreator.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
 
 
 using namespace nbl;
@@ -115,20 +116,8 @@ std::function<void(SAssetBundle&)> nbl::asset::makeAssetDisposeFunc(const IAsset
 
 void IAssetManager::initializeMeshTools()
 {
-	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
-    m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
     if (!m_compilerSet)
         m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
-}
-
-const IGeometryCreator* IAssetManager::getGeometryCreator() const
-{
-	return m_geometryCreator.get();
-}
-
-IMeshManipulator* IAssetManager::getMeshManipulator()
-{
-	return m_meshManipulator.get();
 }
 
 void IAssetManager::addLoadersAndWriters()
@@ -137,7 +126,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this, core::smart_refctd_ptr<system::ISystem>(m_system)));
@@ -192,6 +181,7 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
+//    addAssetLoader(core::make_smart_refctd_ptr<asset::CIESProfileLoader>());
 
     for (auto& loader : m_loaders.vector)
         loader->initialize();
@@ -201,8 +191,6 @@ void IAssetManager::addLoadersAndWriters()
 SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
     IAssetLoader::SAssetLoadParams params(_params);
-    if (params.meshManipulatorOverride == nullptr)
-        params.meshManipulatorOverride = m_meshManipulator.get();
 
     IAssetLoader::SAssetLoadContext ctx{params,_file};
 
@@ -268,41 +256,6 @@ void IAssetManager::insertBuiltinAssets()
 		changeAssetKey(bundle, path);
 		insertBuiltinAssetIntoCache(bundle);
 	};
-
-    /*
-        SBinding for UBO - basic view parameters.
-    */
-
-    asset::ICPUDescriptorSetLayout::SBinding binding1;
-    binding1.count = 1u;
-    binding1.binding = 0u;
-    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
-    binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-
-    auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
-    addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
-
-    /*
-        SBinding for the texture (sampler).
-    */
-
-    asset::ICPUDescriptorSetLayout::SBinding binding3;
-    binding3.binding = 0u;
-    binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-    binding3.count = 1u;
-    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
-    binding3.immutableSamplers = nullptr;
-
-    auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
-    addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
-
-	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::E_SHADER_STAGE::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
-	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
-			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
-			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)
-	);
-	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
 
 	// samplers
 	{
@@ -383,58 +336,5 @@ void IAssetManager::insertBuiltinAssets()
 
         addBuiltInToCaches(dummy2dImgView, "nbl/builtin/image_view/dummy2d");
         addBuiltInToCaches(dummy2dImage, "nbl/builtin/image/dummy2d");
-    }
-
-    //ds layouts
-    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
-    {
-        asset::ICPUDescriptorSetLayout::SBinding bnd;
-        bnd.count = 1u;
-        bnd.binding = 0u;
-        //maybe even ESS_ALL_GRAPHICS?
-        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
-        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
-        //it's intentionally added to cache later, see comments below, dont touch this order of insertions
-    }
-
-    //desc sets
-    {
-        auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
-        {
-            constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
-            auto ubo = asset::ICPUBuffer::create({ UBO_SZ });
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
-            asset::fillBufferWithDeadBeef(ubo.get());
-
-            auto descriptorInfos = ds1->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(0), IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
-            descriptorInfos.begin()[0].desc = std::move(ubo);
-            descriptorInfos.begin()[0].info.buffer.offset = 0ull;
-            descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
-        }
-        addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
-        addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");
-    }
-
-    // pipeline layout
-    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
-    {
-        asset::ICPUDescriptorSetLayout::SBinding bnd;
-        bnd.count = 1u;
-        bnd.binding = 0u;
-        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
-        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-        auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
-
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(std::span<const asset::SPushConstantRange>(),nullptr,std::move(ds1Layout),nullptr,nullptr);
-        auto paths =
-        {               
-            "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
-            "nbl/builtin/pipeline_layout/loader/PLY",
-            "nbl/builtin/pipeline_layout/loader/STL" 
-        };
-
-        for(auto &path : paths)
-            addBuiltInToCaches(pipelineLayout, path);
     }
 }

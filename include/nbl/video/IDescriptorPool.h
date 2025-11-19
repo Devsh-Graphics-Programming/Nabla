@@ -100,50 +100,56 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         virtual bool reset_impl() = 0;
 
     private:
+        // unfortunately according to the C++ spec this is a pile of UB that will never pass strict aliasing
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::IDescriptor::E_TYPE type) const
         {
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUSampler>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUImageView>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUBufferView>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUBuffer>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUTopLevelAccelerationStructure>);
             switch (type)
             {
-            case asset::IDescriptor::E_TYPE::ET_SAMPLER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_samplerStorage.get());
-                break;
-            case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
-                break;
-            case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)];
-                break;
-            case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get());
-                break;
-            case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UTB_STBStorage.get());
-                break;
-            case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UTB_STBStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)];
-                break;
-            case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get());
-                break;
-            case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)];
-                break;
-            case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)]);
-                break;
-            case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)]);
-                break;
-            case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE)];
-                break;
-            case asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_accelerationStructureStorage.get());
-                break;
-            default:
-                assert(!"Invalid code path.");
-                return nullptr;
+                case asset::IDescriptor::E_TYPE::ET_SAMPLER:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_samplerStorage.get());
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)];
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get());
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UTB_STBStorage.get());
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UTB_STBStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)];
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get());
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)];
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)]);
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)]);
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE)];
+                    break;
+                case asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
+                    baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_accelerationStructureStorage.get());
+                    break;
+                default:
+                    assert(!"Invalid code path.");
+                    return nullptr;
             }
 
             return baseAddress;
@@ -232,7 +238,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb
-        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]> m_accelerationStructureStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure>>[]> m_accelerationStructureStorage;
 
         system::logger_opt_ptr m_logger;
 };

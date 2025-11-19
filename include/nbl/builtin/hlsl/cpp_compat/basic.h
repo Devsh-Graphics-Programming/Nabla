@@ -2,7 +2,35 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_BASIC_INCLUDED_
 
 #include <nbl/builtin/hlsl/macros.h>
-#include <nbl/builtin/hlsl/concepts/impl/base.hlsl>
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace impl
+{
+template<typename To, typename From, typename Enabled = void>
+struct static_cast_helper
+{
+    static inline To cast(From u)
+    {
+#ifndef __HLSL_VERSION
+        return static_cast<To>(u);
+#else
+        return To(u);
+#endif
+    }
+};
+}
+
+template<typename To, typename From>
+inline To _static_cast(From v)
+{
+    return impl::static_cast_helper<To, From>::cast(v);
+}
+
+}
+}
 
 #ifndef __HLSL_VERSION
 #include <type_traits>
@@ -11,9 +39,8 @@
 #define NBL_CONSTEXPR constexpr // TODO: rename to NBL_CONSTEXPR_VAR
 #define NBL_CONSTEXPR_FUNC constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
-#define NBL_CONSTEXPR_INLINE constexpr inline
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
-#define NBL_CONSTEXPR_STATIC_FUNC constexpr static
+#define NBL_CONSTEXPR_INLINE_FUNC constexpr inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC NBL_FORCE_INLINE constexpr
 #define NBL_CONST_MEMBER_FUNC const
 #define NBL_IF_CONSTEXPR(...) if constexpr (__VA_ARGS__)
@@ -39,16 +66,14 @@ namespace nbl::hlsl
 
 #else
 
-
 #define ARROW .arrow().
 #define NBL_CONSTEXPR const static // TODO: rename to NBL_CONSTEXPR_VAR
-#define NBL_CONSTEXPR_FUNC inline
+#define NBL_CONSTEXPR_FUNC
 #define NBL_CONSTEXPR_STATIC const static
-#define NBL_CONSTEXPR_INLINE const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
-#define NBL_CONSTEXPR_STATIC_FUNC static inline
+#define NBL_CONSTEXPR_INLINE_FUNC inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC inline
-#define NBL_CONST_MEMBER_FUNC
+#define NBL_CONST_MEMBER_FUNC 
 #define NBL_IF_CONSTEXPR(...) if (__VA_ARGS__)
 
 namespace nbl
@@ -76,35 +101,5 @@ struct add_pointer
 #define NBL_CONST_REF_ARG(...) const in __VA_ARGS__
 
 #endif
-
-namespace nbl
-{
-namespace hlsl
-{
-namespace impl
-{
-template<typename To, typename From, typename Enabled = void NBL_STRUCT_CONSTRAINABLE >
-struct static_cast_helper
-{
-    NBL_CONSTEXPR_STATIC_FUNC To cast(NBL_CONST_REF_ARG(From) u)
-    {
-#ifndef __HLSL_VERSION
-        return static_cast<To>(u);
-#else
-        return To(u);
-#endif
-    }
-};
-
-}
-
-template<typename To, typename From>
-NBL_CONSTEXPR_FUNC To _static_cast(NBL_CONST_REF_ARG(From) v)
-{
-    return impl::static_cast_helper<To, From>::cast(v);
-}
-
-}
-}
 
 #endif

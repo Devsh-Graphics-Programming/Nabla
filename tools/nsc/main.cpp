@@ -6,6 +6,7 @@
 #include <string>
 #include <algorithm>
 
+#include "nbl/asset/metadata/CHLSLMetadata.h"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 
@@ -218,18 +219,23 @@ public:
 				m_include_search_paths.emplace_back(m_arguments[i + 1]);
 		}
 
-		auto shader = open_shader_file(file_to_compile);
+		auto [shader, shaderStage] = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
 		{
 			m_logger->log("Error. Loaded shader file content is not HLSL.", ILogger::ELL_ERROR);
 			return false;
 		}
-		auto compilation_result = compile_shader(shader.get(), file_to_compile);
+
+		auto start = std::chrono::high_resolution_clock::now();
+		auto compilation_result = compile_shader(shader.get(), shaderStage, file_to_compile);
+		auto end = std::chrono::high_resolution_clock::now();
 
 		// writie compiled shader to file as bytes
 		if (compilation_result) 
 		{
 			m_logger->log("Shader compilation successful.", ILogger::ELL_INFO);
+			const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+			m_logger->log("Took %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
 			{
 				const auto location = std::filesystem::path(output_filepath);
 				const auto parentDirectory = location.parent_path();
@@ -285,14 +291,15 @@ public:
 
 private:
 
-	core::smart_refctd_ptr<ICPUShader> compile_shader(const ICPUShader* shader, std::string_view sourceIdentifier) {
+	core::smart_refctd_ptr<IShader> compile_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier) {
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
-		options.stage = shader->getStage();
+		options.stage = shaderStage;
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
 
+		options.debugInfoFlags = core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>(asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT);
 		options.dxcOptions = std::span<std::string>(m_arguments);
 
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
@@ -308,7 +315,7 @@ private:
 	}
 
 
-	core::smart_refctd_ptr<const ICPUShader> open_shader_file(std::string filepath) {
+	std::tuple<core::smart_refctd_ptr<const IShader>, hlsl::ShaderStage> open_shader_file(std::string filepath) {
 
 		m_assetMgr = make_smart_refctd_ptr<asset::IAssetManager>(smart_refctd_ptr(m_system));
 
@@ -317,9 +324,10 @@ private:
 		lp.workingDirectory = localInputCWD;
 		auto assetBundle = m_assetMgr->getAsset(filepath, lp);
 		const auto assets = assetBundle.getContents();
+		const auto* metadata = assetBundle.getMetadata();
 		if (assets.empty()) {
 			m_logger->log("Could not load shader %s", ILogger::ELL_ERROR, filepath);
-			return nullptr;
+			return {nullptr, hlsl::ShaderStage::ESS_UNKNOWN};
 		}
 		assert(assets.size() == 1);
 
@@ -329,18 +337,19 @@ private:
 			auto buf = IAsset::castDown<ICPUBuffer>(assets[0]);
 			std::string source; source.resize(buf->getSize()+1);
 			memcpy(source.data(),buf->getPointer(),buf->getSize());
-			return core::make_smart_refctd_ptr<ICPUShader>(source.data(), IShader::E_SHADER_STAGE::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, std::move(filepath));
+			return { core::make_smart_refctd_ptr<IShader>(source.data(), IShader::E_CONTENT_TYPE::ECT_HLSL, std::move(filepath)), hlsl::ShaderStage::ESS_UNKNOWN};
 		}
 		else if (assetBundle.getAssetType() == IAsset::ET_SHADER)
 		{
-			return smart_refctd_ptr_static_cast<ICPUShader>(assets[0]);
+			const auto hlslMetadata = static_cast<const CHLSLMetadata*>(metadata);
+			return { smart_refctd_ptr_static_cast<IShader>(assets[0]), hlslMetadata->shaderStages->front()};
 		} 
 		else 
 		{
 			m_logger->log("file '%s' is an asset that is neither a buffer or a shader.", ILogger::ELL_ERROR, filepath);
 		}
 
-		return nullptr;
+		return {nullptr, hlsl::ShaderStage::ESS_UNKNOWN};
 	}
 
 

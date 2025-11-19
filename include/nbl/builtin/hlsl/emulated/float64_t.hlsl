@@ -154,14 +154,20 @@ namespace hlsl
                     if ((data | ieee754::traits<float64_t>::signMask) == (rhs.data | ieee754::traits<float64_t>::signMask))
                         return _static_cast<this_t>(0ull);
 
-                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64 ? 0ull : rhsNormMantissa >> shiftAmount;
+                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64u ? 0ull : rhsNormMantissa >> shiftAmount;
                     uint64_t rhsNormMantissaLow = 0ull;
                     if (shiftAmount < 128)
                     {
                         if (shiftAmount >= 64)
+                        {
                             rhsNormMantissaLow = rhsNormMantissa >> (shiftAmount - 64);
+                        }
                         else
-                            rhsNormMantissaLow = rhsNormMantissa << (64 - shiftAmount);
+                        {
+                            const uint32_t lowMantissaShiftAmount = 64 - shiftAmount;
+                            if(lowMantissaShiftAmount < 64)
+                                rhsNormMantissaLow = rhsNormMantissa << lowMantissaShiftAmount;
+                        }
                     }
 
                     const int64_t mantissaDiff = int64_t(lhsNormMantissa) - int64_t(rhsNormMantissaHigh);
@@ -179,7 +185,7 @@ namespace hlsl
                 }
                 else
                 {
-                    rhsNormMantissa >>= shiftAmount;
+                    rhsNormMantissa = shiftAmount > 63 ? 0ull : rhsNormMantissa >> shiftAmount;
                     resultMantissa = lhsNormMantissa + rhsNormMantissa;
 
                     if (resultMantissa & 1ull << 53)
@@ -387,6 +393,59 @@ namespace hlsl
         this_t flipSign()
         {
             return bit_cast<this_t>(data ^ ieee754::traits<float64_t>::signMask);
+        }
+
+        /**
+        * @brief Computes sqare root estimation.
+        * 
+        * Can be less precise when FastMath is disabled.
+        * sqrt(inf) = inf
+        * sqrt(-0) = -0
+        * sqrt(NaN) = NaN
+        */
+        static this_t sqrt(this_t number)
+        {
+            bool isZero = !(number.data & 0x7FFFFFFFFFFFFFFFull);
+            if (isZero)
+                return number;
+
+            static const uint64_t MaxFloat64AsUint64 = 0x7FEFFFFFFFFFFFFFull;
+            if (number.data > MaxFloat64AsUint64)
+            {
+                bool isInf = cpp_compat_intrinsics_impl::isinf_uint_impl(number.data);
+                if (isInf)
+                    return number;
+
+                // when (number.data > MaxFloat64AsUint64) and is not infinity, we can be sure that number is either NaN or negative
+                return bit_cast<this_t>(ieee754::traits<this_t>::quietNaN);
+            }
+
+            const float f32InverseSquareRoot = nbl::hlsl::rsqrt(_static_cast<float>(number));
+
+            // find sqrt approximation using the Newton-Raphson method
+            this_t inverseSquareRoot = _static_cast<this_t>(f32InverseSquareRoot);
+            const int Iterations = 5;
+            static const this_t Half = this_t::create(0.5f);
+            static const this_t ThreeHalfs = this_t::create(1.5f);
+            const this_t x2 = number * Half;
+            [[unroll]]
+            for (int i = 0; i < Iterations; ++i)
+            {
+                inverseSquareRoot = inverseSquareRoot * (ThreeHalfs - (x2 * inverseSquareRoot * inverseSquareRoot));
+            }
+
+            if (FastMath)
+            {
+                return this_t::create(1.0f) / inverseSquareRoot;
+            }
+            else
+            {
+                // 2 Newton-Raphson iterations to increase precision
+                this_t squareRoot = this_t::create(1.0f) / inverseSquareRoot;
+                squareRoot = Half * (squareRoot + number / squareRoot);
+                squareRoot = Half * (squareRoot + number / squareRoot);
+                return squareRoot;
+            }
         }
 
         NBL_CONSTEXPR_STATIC bool isFastMathSupported = FastMath;

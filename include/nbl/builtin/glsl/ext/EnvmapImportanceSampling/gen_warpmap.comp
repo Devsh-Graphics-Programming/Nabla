@@ -1,0 +1,77 @@
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_WARPMAP_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_WARPMAP_INCLUDED_
+
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/structs.glsl>
+#include <nbl/builtin/glsl/math/functions.glsl>
+
+layout(local_size_x = WARP_MAP_GEN_WORKGROUP_DIM, local_size_y = WARP_MAP_GEN_WORKGROUP_DIM) in;
+
+layout(set = 0, binding = 0) uniform sampler2D luminance;
+layout(set = 0, binding = 1, rg32f) uniform image2D warpMap;
+
+bool choseSecond(inout float xi, in float first, in float second)
+{
+	// numerical resilience against IEEE754
+	float firstProb = 1.0f/(1.0f+second/first);
+	float dummy = 0.0f;
+	return nbl_glsl_partitionRandVariable(firstProb,xi,dummy);
+}
+
+void main()
+{
+	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+	
+	const ivec2 warpMapSize = imageSize(warpMap).xy;
+	const ivec2 lastWarpMapPixel = warpMapSize-ivec2(1);
+
+	if (all(lessThan(pixelCoord,warpMapSize)))
+	{
+		// Corner Sampling, this is why it was important to have the envmap be PoT-1, so you can have xi both 0% and 100%
+		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
+		
+		ivec2 p; p.y = 0;
+		// envmap needs to be 2:1 ratio for this to work
+		//assert(warpMapSize.x==(warpMapSize.y<<1));
+		
+		const ivec2 lumaMapSize = textureSize(luminance,0);
+		const int mip2x1 = findMSB(lumaMapSize.x)-1;
+		// do one split in the X axis first cause penultimate full mip would have been 2x1
+		p.x = choseSecond(xi.x,texelFetchOffset(luminance,ivec2(0,0),mip2x1,ivec2(0,0)).r,texelFetchOffset(luminance,ivec2(0,0),mip2x1,ivec2(1,0)).r) ? 1:0;
+		for (int i=mip2x1-1; i>=0; --i)
+		{
+			p <<= 1;
+			const vec4 values = vec4(
+				texelFetchOffset(luminance, p, i, ivec2(0, 1)).r,
+				texelFetchOffset(luminance, p, i, ivec2(1, 1)).r,
+				texelFetchOffset(luminance, p, i, ivec2(1, 0)).r,
+				texelFetchOffset(luminance, p, i, ivec2(0, 0)).r
+			);
+
+			float wx_0,wx_1;
+			{
+				const float wy_0 = values[3]+values[2];
+				const float wy_1 = values[1]+values[0];
+				if (choseSecond(xi.y,wy_0,wy_1))
+				{
+					p.y |= 1;
+					wx_0 = values[0];
+					wx_1 = values[1];
+				}
+				else // picked y=0
+				{
+					wx_0 = values[3];
+					wx_1 = values[2];
+				}
+			}
+			
+			if (choseSecond(xi.x,wx_0,wx_1))
+				p.x |= 1;
+		}
+
+		const vec2 directionUV = (vec2(p.x,p.y)+xi)/vec2(lumaMapSize);
+		imageStore(warpMap,pixelCoord, vec4(directionUV, 0, 0));
+	}
+
+}
+
+#endif

@@ -115,6 +115,13 @@ struct round_down_to_pot : integral_constant<uint64_t, uint64_t(1) << log2_v<X> 
 template<uint64_t X>
 NBL_CONSTEXPR uint64_t round_down_to_pot_v = round_down_to_pot<X>::value;
 
+template<uint64_t X>
+struct find_lsb
+{
+	NBL_CONSTEXPR_STATIC_INLINE uint16_t value = log2<X & -X>::value;
+};
+template<uint64_t X>
+NBL_CONSTEXPR uint64_t find_lsb_v = find_lsb<X>::value;
 }
 }
 }

@@ -377,22 +377,31 @@ bool CVulkanCommandBuffer::copyImage_impl(const IGPUImage* const srcImage, const
 }
 
 
-bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact)
 {
-    const auto info = getVkCopyAccelerationStructureInfoFrom(copyInfo);
+	VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(src->getNativeHandle());
+	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(dst->getNativeHandle());
+	info.mode = compact ? VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR:VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR;
     getFunctionTable().vkCmdCopyAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
-bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst)
 {
-    const auto info = getVkCopyAccelerationStructureToMemoryInfoFrom(copyInfo);
+	VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(src->getNativeHandle());
+	info.dst = getVkDeviceOrHostAddress(dst);
+	info.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_SERIALIZE_KHR;
     getFunctionTable().vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf,&info);
     return true;
 }
 
-bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst)
 {
-    const auto info = getVkCopyMemoryToAccelerationStructureInfoFrom(copyInfo);
+    VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+    info.src = getVkDeviceOrHostAddress(src);
+    info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(dst->getNativeHandle());
+    info.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_DESERIALIZE_KHR;
     getFunctionTable().vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
@@ -470,7 +479,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
     return true;
 }
 
-bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
+bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<hlsl::ShaderStage> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
 {
     getFunctionTable().vkCmdPushConstants(m_cmdbuf,static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),getVkShaderStageFlagsFromShaderStage(stageFlags),offset,size,pValues);
     return true;
@@ -661,7 +670,7 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
         .renderArea = info.renderArea,
         // Implicitly but could be optimizedif needed
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-00902
-        .clearValueCount = vk_clearValues.size()/sizeof(VkClearValue),
+        .clearValueCount = static_cast<uint32_t>(vk_clearValues.size()/sizeof(VkClearValue)),
         // Implicit
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-04962
         .pClearValues = vk_clearValues.data()

@@ -1,48 +1,59 @@
-# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
+cmake_minimum_required(VERSION 3.31)
 
-cmake_minimum_required(VERSION 3.29)
-cmake_policy(SET CMP0112 NEW)
-cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
-cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
+# TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
+# https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
+# also we should update deps which throw warnings about < 3.10 compatibility
+
+macro(NBL_POLICY P S)
+if(POLICY ${P})
+	cmake_policy(SET ${P} ${S})
+	set(CMAKE_POLICY_DEFAULT_${P} ${S})
+endif()
+endmacro()
+
+NBL_POLICY(CMP0003 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0003.html#cmp0003
+NBL_POLICY(CMP0077 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0077.html#cmp0077
+NBL_POLICY(CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.html#cmp0112
+NBL_POLICY(CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
+NBL_POLICY(CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
+
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF) # https://cmake.org/cmake/help/latest/prop_tgt/CXX_SCAN_FOR_MODULES.html#prop_tgt:CXX_SCAN_FOR_MODULES
 
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
-project(Nabla LANGUAGES CXX C)
+project(Nabla
+	VERSION 0.8.0.1 
+	HOMEPAGE_URL "https://www.devsh.eu/nabla"
+	LANGUAGES CXX C
+)
 enable_language(C CXX ASM ASM_NASM)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 if(MSVC)
 	enable_language(ASM_MASM)
-	link_libraries(delayimp)
 endif()
 
+# TODO: TO BE KILLED, keep both in one tree
 option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
-option(NBL_DYNAMIC_MSVC_RUNTIME "" ON)
+
+option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 
-if(MSVC)
-	if(NBL_SANITIZE_ADDRESS)
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
-	else()
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>$<$<CONFIG:RelWithDebInfo>:ProgramDatabase>")
-	endif()
-endif()
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
 else()
-	if(MSVC)
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			message(STATUS "Shared Nabla build enabled!")
-		else()
-			message(FATAL_ERROR "Turn NBL_DYNAMIC_MSVC_RUNTIME on! For dynamic Nabla builds dynamic MSVC runtime is mandatory!")
-		endif()
-	else()
-		message(FATAL_ERROR "Nabla can't be built with shared libraries! Please make sure you are targetting Windows OS and MSVC compiler!")
+	if(NOT NBL_COMPILER_DYNAMIC_RUNTIME)
+		message(FATAL_ERROR "Turn NBL_COMPILER_DYNAMIC_RUNTIME on! For dynamic Nabla builds dynamic runtime is mandatory!")
 	endif()
 endif()
 
@@ -151,34 +162,19 @@ if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_
 	else()
 		set(_NBL_CMAKE_STATUS_ FATAL_ERROR)
 	endif()
-	
+
 	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define 'NBL_MEMORY_CONSUMPTION_CHECK_SKIP' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
 include(adjust/flags)
 include(adjust/definitions)
 
-if(WIN32)
-	set(_NBL_PLATFORM_WINDOWS_ 1)
-elseif(ANDROID)
-	set(_NBL_PLATFORM_ANDROID_ 1)
-elseif(UNIX)
-	set(_NBL_PLATFORM_LINUX_ 1)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
-endif()
-
-if(NBL_STATIC_BUILD)
-	unset(_NBL_SHARED_BUILD_ CACHE)
-else()
-	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
-endif()
-
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
-option(NBL_FAST_MATH "Enable fast low-precision math" ON)
+option(NBL_FAST_MATH "Enable fast low-precision math" OFF) # the reason OFF is by default now is the var controling it at build time was set AFTER BuildConfigOptions was generated - resulting in the feature being always OFF regardless the value xD - so just for sanity, keeping the same behaviour by default
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
-option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" OFF)
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
@@ -193,7 +189,7 @@ endif()
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
-option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" OFF)
 option(NBL_ENABLE_DOCKER_INTEGRATION "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
 
 if (NBL_ENABLE_DOCKER_INTEGRATION)
@@ -268,7 +264,7 @@ add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
 if(NBL_BUILD_EXAMPLES)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
-	add_subdirectory(examples_tests)
+	add_subdirectory(examples_tests EXCLUDE_FROM_ALL)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 endif()
 add_subdirectory(tools)
@@ -283,3 +279,43 @@ option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
 include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
+
+option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
+
+if(NBL_ENABLE_CONFIG_INSTALL)
+	if(NBL_STATIC_BUILD)
+		message(WARNING "Ignoring NBL_ENABLE_CONFIG_INSTALL due to: TODO, static builds are not relocatable yet!")
+	else()
+		install(TARGETS Nabla
+			EXPORT NablaExportTargets
+			ARCHIVE  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+			LIBRARY  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+			RUNTIME  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/nbl
+		)
+
+		write_basic_package_version_file(
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			VERSION ${PROJECT_VERSION}
+			COMPATIBILITY SameMinorVersion
+		)
+
+		configure_package_config_file(
+			"${CMAKE_CURRENT_LIST_DIR}/cmake/NablaConfig.cmake.in"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			INSTALL_DESTINATION cmake
+		)
+
+		install(EXPORT NablaExportTargets
+			NAMESPACE Nabla::
+			DESTINATION cmake
+		)
+
+		install(FILES
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			DESTINATION cmake
+		)
+	endif()
+endif()
+
+NBL_ADJUST_FOLDERS(nabla)

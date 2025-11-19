@@ -74,7 +74,7 @@ inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG
 }
 
 template<typename T>
-inline typename cpp_compat_intrinsics_impl::find_lsb_helper<T>::return_t findLSB(NBL_CONST_REF_ARG(T) val)
+NBL_CONSTEXPR_FUNC inline typename cpp_compat_intrinsics_impl::find_lsb_helper<T>::return_t findLSB(NBL_CONST_REF_ARG(T) val)
 {
 	return cpp_compat_intrinsics_impl::find_lsb_helper<T>::__call(val);
 }
