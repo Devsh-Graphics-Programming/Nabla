@@ -31,24 +31,22 @@ struct SphericalTriangle
         retval.vertex0 = nbl::hlsl::normalize(vertex0 - origin);
         retval.vertex1 = nbl::hlsl::normalize(vertex1 - origin);
         retval.vertex2 = nbl::hlsl::normalize(vertex2 - origin);
+        retval.cos_sides = vector3_type(hlsl::dot(vertex1, vertex2), hlsl::dot(vertex2, vertex0), hlsl::dot(vertex0, vertex1));
+        const vector3_type csc_sides2 = hlsl::promote<vector3_type>(1.0) - retval.cos_sides * retval.cos_sides;
+        retval.csc_sides.x = hlsl::rsqrt<scalar_type>(csc_sides2.x);
+        retval.csc_sides.y = hlsl::rsqrt<scalar_type>(csc_sides2.y);
+        retval.csc_sides.z = hlsl::rsqrt<scalar_type>(csc_sides2.z);
         return retval;
     }
 
-    bool pyramidAngles(NBL_REF_ARG(vector3_type) cos_sides, NBL_REF_ARG(vector3_type) csc_sides)
+    bool pyramidAngles()
     {
-        cos_sides = vector3_type(hlsl::dot(vertex1, vertex2), hlsl::dot(vertex2, vertex0), hlsl::dot(vertex0, vertex1));
-        csc_sides = (vector3_type)(1.f) - cos_sides * cos_sides;
-        csc_sides.x = hlsl::rsqrt<scalar_type>(csc_sides.x);
-        csc_sides.y = hlsl::rsqrt<scalar_type>(csc_sides.y);
-        csc_sides.z = hlsl::rsqrt<scalar_type>(csc_sides.z);
-
         return hlsl::any<vector<bool, 3> >(csc_sides >= (vector3_type)(numeric_limits<scalar_type>::max));
     }
 
     scalar_type solidAngleOfTriangle(NBL_REF_ARG(vector3_type) cos_vertices, NBL_REF_ARG(vector3_type) sin_vertices, NBL_REF_ARG(scalar_type) cos_a, NBL_REF_ARG(scalar_type) cos_c, NBL_REF_ARG(scalar_type) csc_b, NBL_REF_ARG(scalar_type) csc_c)
     {
-        vector3_type cos_sides,csc_sides;
-        if (pyramidAngles(cos_sides, csc_sides))
+        if (pyramidAngles())
             return 0.f;
 
         // these variables might eventually get optimized out
@@ -58,8 +56,8 @@ struct SphericalTriangle
         csc_c = csc_sides[2];
 
         // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
-        cos_vertices = hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, (vector3_type)(-1.f), (vector3_type)1.f); // using Spherical Law of Cosines (TODO: do we need to clamp anymore? since the pyramid angles method introduction?) 
-        sin_vertices = hlsl::sqrt((vector3_type)1.f - cos_vertices * cos_vertices);
+        cos_vertices = hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, hlsl::promote<vector3_type>(-1.0), hlsl::promote<vector3_type>(1.0)); // using Spherical Law of Cosines (TODO: do we need to clamp anymore? since the pyramid angles method introduction?) 
+        sin_vertices = hlsl::sqrt(hlsl::promote<vector3_type>(1.0) - cos_vertices * cos_vertices);
 
         math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cos_vertices[0], sin_vertices[0]);
         angle_adder.addAngle(cos_vertices[1], sin_vertices[1]);
@@ -76,7 +74,7 @@ struct SphericalTriangle
 
     scalar_type projectedSolidAngleOfTriangle(NBL_CONST_REF_ARG(vector3_type) receiverNormal, NBL_REF_ARG(vector3_type) cos_sides, NBL_REF_ARG(vector3_type) csc_sides, NBL_REF_ARG(vector3_type) cos_vertices)
     {
-        if (pyramidAngles(cos_sides, csc_sides))
+        if (pyramidAngles())
             return 0.f;
 
         vector3_type awayFromEdgePlane0 = hlsl::cross<vector3_type>(vertex1, vertex2) * csc_sides[0];
@@ -88,7 +86,7 @@ struct SphericalTriangle
         cos_vertices[1] = hlsl::dot<vector3_type>(awayFromEdgePlane2, awayFromEdgePlane0);
         cos_vertices[2] = hlsl::dot<vector3_type>(awayFromEdgePlane0, awayFromEdgePlane1);
         // TODO: above dot products are in the wrong order, either work out which is which, or try all 6 permutations till it works
-        cos_vertices = hlsl::clamp<vector3_type>((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, (vector3_type)(-1.f), (vector3_type)1.f);
+        cos_vertices = hlsl::clamp<vector3_type>((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, hlsl::promote<vector3_type>(-1.0), hlsl::promote<vector3_type>(1.0));
 
         matrix<scalar_type, 3, 3> awayFromEdgePlane = matrix<scalar_type, 3, 3>(awayFromEdgePlane0, awayFromEdgePlane1, awayFromEdgePlane2);
         const vector3_type externalProducts = hlsl::abs(hlsl::mul(/* transposed already */awayFromEdgePlane, receiverNormal));
@@ -100,6 +98,8 @@ struct SphericalTriangle
     vector3_type vertex0;
     vector3_type vertex1;
     vector3_type vertex2;
+    vector3_type cos_sides;
+    vector3_type csc_sides;
 };
 
 }
