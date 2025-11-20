@@ -43,7 +43,7 @@ struct emulated_int64_base
     *
     * @param [in] _data Vector of `uint32_t` encoding the `uint64_t/int64_t` being emulated. Stored as little endian (first component are the lower 32 bits)
     */
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(storage_t) _data)
+    NBL_CONSTEXPR_STATIC this_t create(NBL_CONST_REF_ARG(storage_t) _data)
     {
         this_t retVal;
         retVal.data = _data;
@@ -56,7 +56,7 @@ struct emulated_int64_base
     * @param [in] lo Lowest 32 bits of the `uint64_t/int64_t` being emulated
     * @param [in] hi Highest 32 bits of the `uint64_t/int64_t` being emulated
     */
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint32_t) lo, NBL_CONST_REF_ARG(uint32_t) hi)
+    NBL_CONSTEXPR_STATIC this_t create(NBL_CONST_REF_ARG(uint32_t) lo, NBL_CONST_REF_ARG(uint32_t) hi)
     {
         return create(storage_t(lo, hi));
     }
@@ -113,6 +113,24 @@ struct emulated_int64_base
     #ifndef __HLSL_VERSION
     constexpr inline this_t operator<<(uint32_t bits) const;
     constexpr inline this_t operator>>(uint32_t bits) const;
+
+    constexpr inline this_t& operator&=(const this_t& val)
+    {
+      data &= val.data;
+      return *this;
+    }
+
+    constexpr inline this_t& operator|=(const this_t& val)
+    {
+      data |= val.data;
+      return *this;
+    }
+  
+    constexpr inline this_t& operator^=(const this_t& val)
+    {
+      data ^= val.data;
+      return *this;
+    }
 
     #endif
 
@@ -191,7 +209,7 @@ struct static_cast_helper<emulated_int64_base<Signed>, emulated_int64_base<!Sign
     using To = emulated_int64_base<Signed>;
     using From = emulated_int64_base<!Signed>;
 
-    NBL_CONSTEXPR_STATIC_FUNC To cast(NBL_CONST_REF_ARG(From) other)
+    NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) other)
     {
         To retVal;
         retVal.data = other.data;
@@ -206,7 +224,7 @@ struct static_cast_helper<I, emulated_int64_base<Signed> NBL_PARTIAL_REQ_BOT(con
     using From = emulated_int64_base<Signed>;
 
     // Return only the lowest bits
-    NBL_CONSTEXPR_STATIC_FUNC To cast(NBL_CONST_REF_ARG(From) val)
+    NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) val)
     {
         return _static_cast<To>(val.data.x);
     }
@@ -218,7 +236,7 @@ struct static_cast_helper<I, emulated_int64_base<Signed> NBL_PARTIAL_REQ_BOT(con
     using To = I;
     using From = emulated_int64_base<Signed>;
 
-    NBL_CONSTEXPR_STATIC_FUNC To cast(NBL_CONST_REF_ARG(From) val)
+    NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) val)
     {
         return bit_cast<To>(val.data);
     }
@@ -231,7 +249,7 @@ struct static_cast_helper<emulated_int64_base<Signed>, I NBL_PARTIAL_REQ_BOT(con
     using From = I;
 
     // Set only lower bits
-    NBL_CONSTEXPR_STATIC_FUNC To cast(NBL_CONST_REF_ARG(From) i)
+    NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) i)
     {
         return To::create(_static_cast<uint32_t>(i), uint32_t(0));
     }
@@ -243,7 +261,7 @@ struct static_cast_helper<emulated_int64_base<Signed>, I NBL_PARTIAL_REQ_BOT(con
     using To = emulated_int64_base<Signed>;
     using From = I;
 
-    NBL_CONSTEXPR_STATIC_FUNC To cast(NBL_CONST_REF_ARG(From) i)
+    NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) i)
     {
         // `bit_cast` blocked by GLM vectors using a union
         #ifndef __HLSL_VERSION
@@ -417,13 +435,13 @@ struct minus<emulated_int64_base<Signed> >
 };
 
 template<>
-NBL_CONSTEXPR_INLINE emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+NBL_CONSTEXPR emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
 template<>
-NBL_CONSTEXPR_INLINE emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+NBL_CONSTEXPR emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
 template<>
-NBL_CONSTEXPR_INLINE emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+NBL_CONSTEXPR emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
 template<>
-NBL_CONSTEXPR_INLINE emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+NBL_CONSTEXPR emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
 
 // --------------------------------- Compound assignment operators ------------------------------------------
 // Specializations of the structs found in functional.hlsl
@@ -457,13 +475,13 @@ struct minus_assign<emulated_int64_base<Signed> >
 };
 
 template<>
-NBL_CONSTEXPR_INLINE emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
+NBL_CONSTEXPR emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
 template<>
-NBL_CONSTEXPR_INLINE emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
+NBL_CONSTEXPR emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
 template<>
-NBL_CONSTEXPR_INLINE emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
+NBL_CONSTEXPR emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
 template<>
-NBL_CONSTEXPR_INLINE emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
+NBL_CONSTEXPR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
 
 // ------------------------------------------------ TYPE TRAITS SATISFIED -----------------------------------------------------
 
