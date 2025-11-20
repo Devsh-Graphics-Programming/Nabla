@@ -15,7 +15,7 @@ namespace impl
 template<typename T, typename U>
 struct Promote
 {
-    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(U) v)
+    NBL_CONSTEXPR_FUNC T operator()(const U v)
     {
         return T(v);
     }
