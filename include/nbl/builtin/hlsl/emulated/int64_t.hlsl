@@ -370,12 +370,14 @@ constexpr inline emulated_int64_base<Signed> emulated_int64_base<Signed>::operat
     return leftShift(*this, bits);
 }
 
+template<>
 constexpr inline emulated_uint64_t emulated_uint64_t::operator>>(uint32_t bits) const
 {
     arithmetic_right_shift_operator<emulated_uint64_t> rightShift;
     return rightShift(*this, bits);
 }
 
+template<>
 constexpr inline emulated_int64_t emulated_int64_t::operator>>(uint32_t bits) const
 {
     arithmetic_right_shift_operator<emulated_int64_t> rightShift;
