@@ -207,10 +207,10 @@ template<bool Signed, uint16_t Bits, typename storage_t, bool BitsAlreadySpread,
 NBL_BOOL_CONCEPT Comparable = concepts::IntegralLikeScalar<I> && is_signed_v<I> == Signed && ((BitsAlreadySpread && sizeof(I) == sizeof(storage_t)) || (!BitsAlreadySpread && 8 * sizeof(I) == mpl::max_v<uint64_t, mpl::round_up_to_pot_v<Bits>, uint64_t(16)>));
 
 template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, bool BitsAlreadySpread>
-struct Equals;
+struct Equal;
 
 template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t>
-struct Equals<Signed, Bits, D, storage_t, true>
+struct Equal<Signed, Bits, D, storage_t, true>
 {
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, true, I>)
     NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
@@ -226,14 +226,14 @@ struct Equals<Signed, Bits, D, storage_t, true>
 };
 
 template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t>
-struct Equals<Signed, Bits, D, storage_t, false>
+struct Equal<Signed, Bits, D, storage_t, false>
 {
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, false, I>)
     NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
     {
         using right_sign_t = conditional_t<Signed, make_signed_t<storage_t>, make_unsigned_t<storage_t> >;
         const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(Transcoder<D, Bits, storage_t>::interleaveShift(rhs));
-        return Equals<Signed, Bits, D, storage_t, true>::template __call<right_sign_t>(value, interleaved);
+        return Equal<Signed, Bits, D, storage_t, true>::template __call<right_sign_t>(value, interleaved);
     }
 };
 
@@ -291,13 +291,13 @@ template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, bool BitsAl
 struct LessThan : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread, less<portable_vector_t<storage_t, D> > > {};
 
 template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, bool BitsAlreadySpread>
-struct LessEquals : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread, less_equal<portable_vector_t<storage_t, D> > > {};
+struct LessEqual : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread, less_equal<portable_vector_t<storage_t, D> > > {};
 
 template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, bool BitsAlreadySpread>
 struct GreaterThan : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread, greater<portable_vector_t<storage_t, D> > > {};
 
 template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, bool BitsAlreadySpread>
-struct GreaterEquals : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread, greater_equal<portable_vector_t<storage_t, D> > > {};
+struct GreaterEqual : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread, greater_equal<portable_vector_t<storage_t, D> > > {};
 
 } //namespace impl
 
@@ -470,7 +470,7 @@ struct code
     NBL_FUNC_REQUIRES(impl::Comparable<Signed, Bits, storage_t, BitsAlreadySpread, I>)
     NBL_CONSTEXPR_FUNC vector<bool, D> equal(NBL_CONST_REF_ARG(vector<I, D>) rhs) NBL_CONST_MEMBER_FUNC
     {
-        return impl::Equals<Signed, Bits, D, storage_t, BitsAlreadySpread>::template __call<I>(value, rhs);
+        return impl::Equal<Signed, Bits, D, storage_t, BitsAlreadySpread>::template __call<I>(value, rhs);
     }  
 
     NBL_CONSTEXPR_FUNC bool operator!=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
@@ -494,9 +494,9 @@ struct code
 
     template<bool BitsAlreadySpread, typename I
     NBL_FUNC_REQUIRES(impl::Comparable<Signed, Bits, storage_t, BitsAlreadySpread, I>)
-    NBL_CONSTEXPR_FUNC vector<bool, D> lessThanEquals(NBL_CONST_REF_ARG(vector<I, D>) rhs) NBL_CONST_MEMBER_FUNC
+    NBL_CONSTEXPR_FUNC vector<bool, D> lessThanEqual(NBL_CONST_REF_ARG(vector<I, D>) rhs) NBL_CONST_MEMBER_FUNC
     {
-        return impl::LessEquals<Signed, Bits, D, storage_t, BitsAlreadySpread>::template __call<I>(value, rhs);
+        return impl::LessEqual<Signed, Bits, D, storage_t, BitsAlreadySpread>::template __call<I>(value, rhs);
     }
 
     template<bool BitsAlreadySpread, typename I
@@ -508,9 +508,9 @@ struct code
 
     template<bool BitsAlreadySpread, typename I
     NBL_FUNC_REQUIRES(impl::Comparable<Signed, Bits, storage_t, BitsAlreadySpread, I>)
-    NBL_CONSTEXPR_FUNC vector<bool, D> greaterThanEquals(NBL_CONST_REF_ARG(vector<I, D>) rhs) NBL_CONST_MEMBER_FUNC
+    NBL_CONSTEXPR_FUNC vector<bool, D> greaterThanEqual(NBL_CONST_REF_ARG(vector<I, D>) rhs) NBL_CONST_MEMBER_FUNC
     {
-        return impl::GreaterEquals<Signed, Bits, D, storage_t, BitsAlreadySpread>::template __call<I>(value, rhs);
+        return impl::GreaterEqual<Signed, Bits, D, storage_t, BitsAlreadySpread>::template __call<I>(value, rhs);
     }
 
 };
