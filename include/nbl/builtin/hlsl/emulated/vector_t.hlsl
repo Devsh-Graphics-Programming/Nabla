@@ -133,17 +133,17 @@ struct emulated_vector;
 // Generic ComponentType vectors still have to be partial specialized based on whether they're fundamental and/or integral
 
 #define NBL_EMULATED_VECTOR_UNARY_OPERATOR(OP)\
-NBL_CONSTEXPR_FUNC this_t operator##OP() NBL_CONST_MEMBER_FUNC \
+NBL_CONSTEXPR_FUNC this_t operator OP() NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     [[unroll]]\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, this_t::getComponent(i).operator##OP());\
+        output.setComponent(i, this_t::getComponent(i).operator OP());\
     return output;\
 }
 
 #define NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(OP)\
-NBL_CONSTEXPR_FUNC this_t operator##OP (component_t val) NBL_CONST_MEMBER_FUNC \
+NBL_CONSTEXPR_FUNC this_t operator OP (component_t val) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     [[unroll]]\
@@ -151,7 +151,7 @@ NBL_CONSTEXPR_FUNC this_t operator##OP (component_t val) NBL_CONST_MEMBER_FUNC \
         output.setComponent(i, this_t::getComponent(i) OP val);\
     return output;\
 }\
-NBL_CONSTEXPR_FUNC this_t operator##OP (this_t other) NBL_CONST_MEMBER_FUNC \
+NBL_CONSTEXPR_FUNC this_t operator OP (this_t other) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     [[unroll]]\
@@ -161,7 +161,7 @@ NBL_CONSTEXPR_FUNC this_t operator##OP (this_t other) NBL_CONST_MEMBER_FUNC \
 }
 
 #define NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(OP) NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(OP)\
-NBL_CONSTEXPR_FUNC this_t operator##OP(vector<component_t, CRTP::Dimension> other) NBL_CONST_MEMBER_FUNC \
+NBL_CONSTEXPR_FUNC this_t operator OP(vector<component_t, CRTP::Dimension> other) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     [[unroll]]\
@@ -170,7 +170,7 @@ NBL_CONSTEXPR_FUNC this_t operator##OP(vector<component_t, CRTP::Dimension> othe
     return output;\
 }
 
-#define NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(OP) NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator##OP (this_t other) NBL_CONST_MEMBER_FUNC \
+#define NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(OP) NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator OP (this_t other) NBL_CONST_MEMBER_FUNC \
 {\
     vector<bool, CRTP::Dimension> output;\
     [[unroll]]\
@@ -180,7 +180,7 @@ NBL_CONSTEXPR_FUNC this_t operator##OP(vector<component_t, CRTP::Dimension> othe
 }
 
 #define NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(OP) NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(OP)\
-NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator##OP (vector<component_t, CRTP::Dimension> other) NBL_CONST_MEMBER_FUNC \
+NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator OP (vector<component_t, CRTP::Dimension> other) NBL_CONST_MEMBER_FUNC \
 {\
     vector<bool, CRTP::Dimension> output;\
     [[unroll]]\
