@@ -31,7 +31,7 @@ struct SphericalTriangle
         retval.vertex0 = nbl::hlsl::normalize(vertex0 - origin);
         retval.vertex1 = nbl::hlsl::normalize(vertex1 - origin);
         retval.vertex2 = nbl::hlsl::normalize(vertex2 - origin);
-        retval.cos_sides = vector3_type(hlsl::dot(vertex1, vertex2), hlsl::dot(vertex2, vertex0), hlsl::dot(vertex0, vertex1));
+        retval.cos_sides = vector3_type(hlsl::dot(retval.vertex1, retval.vertex2), hlsl::dot(retval.vertex2, retval.vertex0), hlsl::dot(retval.vertex0, retval.vertex1));
         const vector3_type csc_sides2 = hlsl::promote<vector3_type>(1.0) - retval.cos_sides * retval.cos_sides;
         retval.csc_sides.x = hlsl::rsqrt<scalar_type>(csc_sides2.x);
         retval.csc_sides.y = hlsl::rsqrt<scalar_type>(csc_sides2.y);
