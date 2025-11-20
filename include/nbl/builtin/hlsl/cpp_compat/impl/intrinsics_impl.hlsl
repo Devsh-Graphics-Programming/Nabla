@@ -256,8 +256,8 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(spirv::FMixIsCallable<T>) >
 };
 
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(spirv::SelectIsCallable<T,U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(spirv::SelectIsCallable<T,U>) >
+NBL_PARTIAL_REQ_TOP(spirv::SelectIsCallable<T,U> && concepts::Boolean<U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(spirv::SelectIsCallable<T,U> && concepts::Boolean<U>) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
 	// for a component of a that is false, the corresponding component of x is returned
