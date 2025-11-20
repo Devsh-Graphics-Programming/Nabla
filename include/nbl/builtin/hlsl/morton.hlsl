@@ -115,7 +115,7 @@ struct Transcoder
     *
     * @param [in] decodedValue Cartesian coordinates to interleave and shift
     */
-    NBL_CONSTEXPR_STATIC_FUNC portable_vector_t<encode_t, Dim> interleaveShift(NBL_CONST_REF_ARG(decode_t) decodedValue)
+    NBL_CONSTEXPR_STATIC portable_vector_t<encode_t, Dim> interleaveShift(NBL_CONST_REF_ARG(decode_t) decodedValue)
     {
         left_shift_operator<portable_vector_t<encode_t, Dim> > leftShift;
         portable_vector_t<encode_t, Dim> interleaved = _static_cast<portable_vector_t<encode_t, Dim> >(decodedValue) & coding_mask_v<Dim, Bits, CodingStages, encode_t>;
@@ -144,7 +144,7 @@ struct Transcoder
     *
     * @param [in] decodedValue Cartesian coordinates to encode
     */
-    NBL_CONSTEXPR_STATIC_FUNC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
+    NBL_CONSTEXPR_STATIC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
     {
         const portable_vector_t<encode_t, Dim> interleaveShifted = interleaveShift<decode_t>(decodedValue);
 
@@ -165,7 +165,7 @@ struct Transcoder
     *
     * @param [in] encodedValue Representation of a Morton code (binary code, not the morton class defined below)
     */
-    NBL_CONSTEXPR_STATIC_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
+    NBL_CONSTEXPR_STATIC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
     {
         arithmetic_right_shift_operator<encode_t> encodedRightShift;
         portable_vector_t<encode_t, Dim> decoded;
@@ -213,7 +213,7 @@ template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t>
 struct Equals<Signed, Bits, D, storage_t, true>
 {
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, true, I>)
-    NBL_CONSTEXPR_STATIC_FUNC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
+    NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
     {
         const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, );
         const portable_vector_t<storage_t, D> zeros = _static_cast<portable_vector_t<storage_t, D> >(truncate<vector<uint64_t, D> >(vector<uint64_t, 4>(0,0,0,0)));
@@ -229,7 +229,7 @@ template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t>
 struct Equals<Signed, Bits, D, storage_t, false>
 {
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, false, I>)
-    NBL_CONSTEXPR_STATIC_FUNC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
+    NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
     {
         using right_sign_t = conditional_t<Signed, make_signed_t<storage_t>, make_unsigned_t<storage_t> >;
         const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(Transcoder<D, Bits, storage_t>::interleaveShift(rhs));
@@ -248,7 +248,7 @@ template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, typename Co
 struct BaseComparison<Signed, Bits, D, storage_t, true, ComparisonOp>
 {
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, true, I>)
-    NBL_CONSTEXPR_STATIC_FUNC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
+    NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
     {
         const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, );
         const portable_vector_t<storage_t, D> SignMasks = NBL_MORTON_SIGN_MASKS(storage_t, D, Bits);
@@ -279,7 +279,7 @@ template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, typename Co
 struct BaseComparison<Signed, Bits, D, storage_t, false, ComparisonOp>
 {
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, false, I>)
-    NBL_CONSTEXPR_STATIC_FUNC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
+    NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
     {
         using right_sign_t = conditional_t<Signed, make_signed_t<storage_t>, make_unsigned_t<storage_t> >;
         const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(Transcoder<D, Bits, storage_t>::interleaveShift(rhs));
@@ -327,7 +327,7 @@ struct code
     * @param [in] cartesian Coordinates to encode. Signedness MUST match the signedness of this Morton code class
     */
     template<typename I>
-    NBL_CONSTEXPR_STATIC_FUNC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed) && (8 * sizeof(I) >= Bits), this_t>
+    NBL_CONSTEXPR_STATIC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed) && (8 * sizeof(I) >= Bits), this_t>
     create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         this_t retVal;
@@ -525,7 +525,7 @@ namespace impl
 template<typename I, uint16_t Bits, uint16_t D, typename _uint64_t> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I> && 8 * sizeof(I) >= Bits)
 struct static_cast_helper<vector<I, D>, morton::code<is_signed_v<I>, Bits, D, _uint64_t> NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I> && 8 * sizeof(I) >= Bits) >
 {
-    NBL_CONSTEXPR_STATIC_FUNC vector<I, D> cast(NBL_CONST_REF_ARG(morton::code<is_signed_v<I>, Bits, D, _uint64_t>) val)
+    NBL_CONSTEXPR_STATIC vector<I, D> cast(NBL_CONST_REF_ARG(morton::code<is_signed_v<I>, Bits, D, _uint64_t>) val)
     {
         using storage_t = typename morton::code<is_signed_v<I>, Bits, D, _uint64_t>::storage_t;
         return morton::impl::Transcoder<D, Bits, storage_t>::decode(val.value);

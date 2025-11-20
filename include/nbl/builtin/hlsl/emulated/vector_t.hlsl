@@ -192,7 +192,7 @@ NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator##OP (vector<component_
 #define NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM \
 using this_t = emulated_vector<ComponentType, CRTP>;\
 using component_t = ComponentType;\
-NBL_CONSTEXPR_STATIC_FUNC this_t create(this_t other)\
+NBL_CONSTEXPR_STATIC this_t create(this_t other)\
 {\
     CRTP output;\
     [[unroll]]\
@@ -209,7 +209,7 @@ NBL_CONSTEXPR_FUNC component_t calcComponentSum() NBL_CONST_MEMBER_FUNC \
 }
 
 #define NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM \
-NBL_CONSTEXPR_STATIC_FUNC this_t create(vector<component_t, CRTP::Dimension> other)\
+NBL_CONSTEXPR_STATIC this_t create(vector<component_t, CRTP::Dimension> other)\
 {\
     this_t output;\
     [[unroll]]\
@@ -356,7 +356,7 @@ struct emulated_vector<emulated_float64_t<FastMath, FlushDenormToZero>, CRTP> : 
     using component_t = emulated_float64_t<FastMath, FlushDenormToZero>;
     using this_t = emulated_vector<component_t, CRTP>;
 
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(this_t other)
+    NBL_CONSTEXPR_STATIC this_t create(this_t other)
     {
         this_t output;
 
@@ -367,7 +367,7 @@ struct emulated_vector<emulated_float64_t<FastMath, FlushDenormToZero>, CRTP> : 
     }
 
     template<typename T>
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(vector<T, CRTP::Dimension> other)
+    NBL_CONSTEXPR_STATIC this_t create(vector<T, CRTP::Dimension> other)
     {
         this_t output;
 
@@ -505,7 +505,7 @@ namespace impl
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t2<To>, vector<From, 2>, void>
 {
-    NBL_CONSTEXPR_STATIC_FUNC emulated_vector_t2<To> cast(NBL_CONST_REF_ARG(vector<From, 2>) vec)
+    NBL_CONSTEXPR_STATIC emulated_vector_t2<To> cast(NBL_CONST_REF_ARG(vector<From, 2>) vec)
     {
         emulated_vector_t2<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -518,7 +518,7 @@ struct static_cast_helper<emulated_vector_t2<To>, vector<From, 2>, void>
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 {
-    NBL_CONSTEXPR_STATIC_FUNC emulated_vector_t3<To> cast(NBL_CONST_REF_ARG(vector<From, 3>) vec)
+    NBL_CONSTEXPR_STATIC emulated_vector_t3<To> cast(NBL_CONST_REF_ARG(vector<From, 3>) vec)
     {
         emulated_vector_t3<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -532,7 +532,7 @@ struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t4<To>, vector<From, 4>, void>
 {
-    NBL_CONSTEXPR_STATIC_FUNC emulated_vector_t4<To> cast(NBL_CONST_REF_ARG(vector<From, 4>) vec)
+    NBL_CONSTEXPR_STATIC emulated_vector_t4<To> cast(NBL_CONST_REF_ARG(vector<From, 4>) vec)
     {
         emulated_vector_t4<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -550,7 +550,7 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
     using OutputVecType = vector<ToComponentType, N>;
     using InputVecType = emulated_vector_t<FromComponentType, N>;
 
-    NBL_CONSTEXPR_STATIC_FUNC OutputVecType cast(NBL_CONST_REF_ARG(InputVecType) vec)
+    NBL_CONSTEXPR_STATIC OutputVecType cast(NBL_CONST_REF_ARG(InputVecType) vec)
     {
         array_get<InputVecType, FromComponentType> getter;
         array_set<OutputVecType, ToComponentType> setter;
@@ -569,7 +569,7 @@ struct static_cast_helper<emulated_vector_t##N <ToComponentType>, emulated_vecto
 {\
     using OutputVecType = emulated_vector_t##N <ToComponentType>;\
     using InputVecType = emulated_vector_t##N <FromComponentType>;\
-    NBL_CONSTEXPR_STATIC_FUNC OutputVecType cast(NBL_CONST_REF_ARG(InputVecType) vec)\
+    NBL_CONSTEXPR_STATIC OutputVecType cast(NBL_CONST_REF_ARG(InputVecType) vec)\
     {\
         array_get<InputVecType, FromComponentType> getter;\
         array_set<OutputVecType, ToComponentType> setter;\

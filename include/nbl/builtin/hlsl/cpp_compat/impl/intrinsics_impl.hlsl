@@ -673,7 +673,7 @@ template<typename B, typename T>
 NBL_PARTIAL_REQ_TOP(concepts::BooleanScalar<B>)
 struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::BooleanScalar<B>) >
 {
-	NBL_CONSTEXPR_STATIC_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	NBL_CONSTEXPR_STATIC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
 	{
 		return condition ? object1 : object2;
 	}
@@ -683,7 +683,7 @@ template<typename B, typename T>
 NBL_PARTIAL_REQ_TOP(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
 struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>)) >
 {
-	NBL_CONSTEXPR_STATIC_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	NBL_CONSTEXPR_STATIC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
 	{
 		using traits = hlsl::vector_traits<T>;
 		array_get<B, bool> conditionGetter;
@@ -701,7 +701,7 @@ struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::V
 template<typename T>
 struct undef_helper
 {
-	NBL_CONSTEXPR_STATIC_FUNC T __call()
+	NBL_CONSTEXPR_STATIC T __call()
 	{
 		T t;
 		return t;
