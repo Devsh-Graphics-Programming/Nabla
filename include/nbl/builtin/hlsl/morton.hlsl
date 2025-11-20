@@ -118,7 +118,7 @@ struct Transcoder
     NBL_CONSTEXPR_STATIC portable_vector_t<encode_t, Dim> interleaveShift(NBL_CONST_REF_ARG(decode_t) decodedValue)
     {
         left_shift_operator<portable_vector_t<encode_t, Dim> > leftShift;
-        portable_vector_t<encode_t, Dim> interleaved = _static_cast<portable_vector_t<encode_t, Dim> >(decodedValue) & coding_mask_v<Dim, Bits, CodingStages, encode_t>;
+        portable_vector_t<encode_t, Dim> interleaved = truncate<portable_vector_t<encode_t, Dim> >(decodedValue) & coding_mask_v<Dim, Bits, CodingStages, encode_t>;
 
         #define ENCODE_LOOP_ITERATION(I) NBL_IF_CONSTEXPR(Bits > (uint16_t(1) << I))\
         {\
