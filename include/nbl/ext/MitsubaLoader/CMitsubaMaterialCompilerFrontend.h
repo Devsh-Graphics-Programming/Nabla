@@ -43,7 +43,7 @@ class CMitsubaMaterialCompilerFrontend
         explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
         front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
-        EmitterNode* createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform);
+        EmitterNode* createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, hlsl::float32_t4x4 transform);
 
     private:
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;

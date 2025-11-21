@@ -60,7 +60,7 @@ class CQuantQuaternionCache : public CDirQuantCacheBase<impl::Projection,impl::Q
 
 	public:
 		template<E_FORMAT CacheFormat>
-		value_type_t<CacheFormat> quantize(const core::quaternion& quat)
+		value_type_t<CacheFormat> quantize(const hlsl::quaternion<float>& quat)
 		{
 			return Base::quantize<4u,CacheFormat>(reinterpret_cast<const core::vectorSIMDf&>(quat));
 		}

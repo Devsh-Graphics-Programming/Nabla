@@ -56,8 +56,8 @@ class EnvmapImportanceSampling
 			float x,y,z;
 		};
 		#define vec4 core::vectorSIMDf
-		#define mat4 core::matrix4SIMD
-		#define mat4x3 core::matrix3x4SIMD
+		#define mat4 hlsl::float32_t4x4
+		#define mat4x3 hlsl::float32_t3x4
 		#include "nbl/builtin/glsl/ext/EnvmapImportanceSampling/structs.glsl"
 		#undef uint
 		#undef vec4
