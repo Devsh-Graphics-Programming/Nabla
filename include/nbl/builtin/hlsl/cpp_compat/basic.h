@@ -3,34 +3,6 @@
 
 #include <nbl/builtin/hlsl/macros.h>
 
-namespace nbl
-{
-namespace hlsl
-{
-namespace impl
-{
-template<typename To, typename From, typename Enabled = void>
-struct static_cast_helper
-{
-    static inline To cast(From u)
-    {
-#ifndef __HLSL_VERSION
-        return static_cast<To>(u);
-#else
-        return To(u);
-#endif
-    }
-};
-}
-
-template<typename To, typename From>
-inline To _static_cast(From v)
-{
-    return impl::static_cast_helper<To, From>::cast(v);
-}
-
-}
-}
 
 #ifndef __HLSL_VERSION
 #include <type_traits>
@@ -101,5 +73,34 @@ struct add_pointer
 #define NBL_CONST_REF_ARG(...) const in __VA_ARGS__
 
 #endif
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace impl
+{
+template<typename To, typename From, typename Enabled = void>
+struct static_cast_helper
+{
+    NBL_CONSTEXPR_STATIC_INLINE To cast(From u)
+    {
+#ifndef __HLSL_VERSION
+        return static_cast<To>(u);
+#else
+        return To(u);
+#endif
+    }
+};
+}
+
+template<typename To, typename From>
+NBL_CONSTEXPR_INLINE_FUNC To _static_cast(From v)
+{
+    return impl::static_cast_helper<To, From>::cast(v);
+}
+
+}
+}
 
 #endif

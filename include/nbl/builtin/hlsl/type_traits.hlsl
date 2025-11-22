@@ -636,7 +636,9 @@ template<bool C, class T, class F>
 using conditional_t = typename conditional<C,T,F>::type;
 
 
-// Template variables
+// Template Variables
+template<class T, T val>
+NBL_CONSTEXPR T integral_constant_v = integral_constant<T, val>::value;
 template<typename A, typename B>
 NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
 template<class T>
@@ -653,10 +655,19 @@ template<class T>
 NBL_CONSTEXPR uint64_t size_of_v = size_of<T>::value;
 template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+template<typename T>
+NBL_CONSTEXPR bool is_fundamental_v = is_fundamental<T>::value;
+
 
 // Overlapping definitions
 template<typename T>
 using make_void_t = typename make_void<T>::type;
+
+template<typename T>
+using make_signed_t = typename make_signed<T>::type;
+
+template<typename T>
+using make_unsigned_t = typename make_unsigned<T>::type;
 
 template<bool C, typename T, T A, T B>
 struct conditional_value
@@ -843,9 +854,6 @@ struct float_of_size<8>
 };
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
-
-template<typename T, int N>
-struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
 
 template<typename T, int N, int M>
 struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};

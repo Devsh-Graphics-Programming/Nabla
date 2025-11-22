@@ -74,11 +74,21 @@ struct is_emulating_floating_point_scalar
 {
 	NBL_CONSTEXPR_STATIC_INLINE bool value = FloatingPointScalar<T>;
 };
+
+template<typename T>
+struct is_emulating_integral_scalar
+{
+	NBL_CONSTEXPR_STATIC_INLINE bool value = IntegralScalar<T>;
+};
 }
 
 //! Floating point types are native floating point types or types that imitate native floating point types (for example emulated_float64_t)
 template<typename T>
 NBL_BOOL_CONCEPT FloatingPointLikeScalar = impl::is_emulating_floating_point_scalar<T>::value;
+
+//! Integral-like types are native integral types or types that imitate native integral types (for example emulated_uint64_t)
+template<typename T>
+NBL_BOOL_CONCEPT IntegralLikeScalar = impl::is_emulating_integral_scalar<T>::value;
 
 }
 }
