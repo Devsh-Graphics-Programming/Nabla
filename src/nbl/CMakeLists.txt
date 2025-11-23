@@ -307,7 +307,6 @@ if(MSVC)
 	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
 endif()
 
-get_target_property(JPEG_STATIC_BINARY_DIR jpeg-static BINARY_DIR)
 get_target_property(PNG_STATIC_BINARY_DIR png_static BINARY_DIR)
 
 set(PUBLIC_BUILD_INCLUDE_DIRS
@@ -319,7 +318,6 @@ set(PUBLIC_BUILD_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
 	${THIRD_PARTY_SOURCE_DIR}/renderdoc 		# for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib 			# for dynamically generated zconf.h
-	${JPEG_STATIC_BINARY_DIR} 					# for dynamically generated pnglibconf.h
 	${PNG_STATIC_BINARY_DIR} 					# for dynamically generated jconfig.h
 	${CONFIG_DIRECOTORY}						# Nabla config directory
 )
@@ -486,26 +484,11 @@ if (UNIX)
 endif()
 
 # zlib
-add_dependencies(zlibstatic zlib_copy)
-add_dependencies(Nabla zlibstatic)
-
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE zlibstatic)
-	target_link_libraries(Nabla INTERFACE
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	)
 else()
 	target_link_libraries(Nabla PRIVATE zlibstatic)
-	target_link_libraries(Nabla PRIVATE
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	)
 endif()
-
-list(APPEND PUBLIC_BUILD_INCLUDE_DIRS $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
 # blake3
 add_dependencies(Nabla blake3)
@@ -562,7 +545,7 @@ list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/simdjson)
 # libjpeg
 add_dependencies(Nabla jpeg-static)
 if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE jpeg-static)
+	target_link_libraries(Nabla PUBLIC jpeg-static)
 else()
 	target_link_libraries(Nabla PRIVATE jpeg-static)
 endif()
