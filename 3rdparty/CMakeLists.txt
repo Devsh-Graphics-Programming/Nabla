@@ -88,13 +88,15 @@ set(ZLIB_INSTALL OFF)
 set(ZLIB_BUILD_TESTING OFF)
 set(ZLIB_BUILD_MINIZIP OFF)
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-add_library(ZLIB::ZLIB ALIAS zlibstatic) # trick projects which want to use it
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
 set_target_properties(zlibstatic PROPERTIES 
 	ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>
 	DEBUG_POSTFIX "d"
 	OUTPUT_NAME zlibstatic
 )
+add_library(ZLIB::ZLIB ALIAS zlibstatic) # trick projects which want to use it via alias
+set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE INTERNAL "" FORCE) # and
+set(ZLIB_LIBRARY zlibstatic CACHE INTERNAL "" FORCE) # find_package
 
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
