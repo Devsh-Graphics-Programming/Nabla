@@ -68,7 +68,10 @@ struct quaternion
 		const float spsy = sp * sy;
 
 		quaternion<float_t> output;
-		output.data = float32_t4(sr, cr, cr, cr) * float32_t4(cpcy, spcy, cpsy, cpcy) + float32_t4(-cr, sr, -sr, sr) * float32_t4(spsy, cpsy, spcy, spsy);
+		output.data[3] = cr * cp * cy + sr * sp * sy; // w
+		output.data[0] = cr * sp * cy + sr * cp * sy; // x
+		output.data[1] = cr * cp * sy - sr * sp * cy; // y
+		output.data[2] = sr * cp * cy - cr * sp * sy; // z
 
 		return output;
 	}
