@@ -13,6 +13,22 @@ set(BUILD_TESTING OFF)
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
+# zlib
+set(ZLIB_BUILD_SHARED OFF)
+set(ZLIB_BUILD_STATIC ON)
+set(ZLIB_INSTALL OFF)
+set(ZLIB_BUILD_TESTING OFF)
+set(ZLIB_BUILD_MINIZIP OFF)
+add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
+get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
+set_target_properties(zlibstatic PROPERTIES 
+	ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>
+	DEBUG_POSTFIX "d"
+	RELWITHDEBINFO_POSTFIX "rwdi"
+	OUTPUT_NAME zlibstatic
+)
+add_library(ZLIB::ZLIB ALIAS zlibstatic) # trick projects which want to use it via alias
+
 # nlohmann_json
 set(JSON_BuildTests OFF)
 add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
@@ -80,21 +96,6 @@ endif()
 
 # boost
 add_subdirectory(boost boost EXCLUDE_FROM_ALL)
-
-# zlib
-set(ZLIB_BUILD_SHARED OFF)
-set(ZLIB_BUILD_STATIC ON)
-set(ZLIB_INSTALL OFF)
-set(ZLIB_BUILD_TESTING OFF)
-set(ZLIB_BUILD_MINIZIP OFF)
-add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-add_library(ZLIB::ZLIB ALIAS zlibstatic) # trick projects which want to use it
-get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
-set_target_properties(zlibstatic PROPERTIES 
-	ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>
-	DEBUG_POSTFIX "d"
-	OUTPUT_NAME zlibstatic
-)
 
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
