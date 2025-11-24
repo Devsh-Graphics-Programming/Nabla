@@ -1,9 +1,7 @@
-#include "common.hlsl"
+#include "pc.hlsl"
 #include "psinput.hlsl"
 
 using namespace nbl::ext::imgui;
-
-[[vk::push_constant]] struct PushConstants pc;
 
 struct VSInput
 {

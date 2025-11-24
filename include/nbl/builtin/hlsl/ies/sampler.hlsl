@@ -61,7 +61,8 @@ struct CandelaSampler
 
     static value_t sample(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(math::Polar<float32_t>) polar)
     {
-        const symmetry_t symmetry = accessor.symmetry();
+        // TODO: DXC seems to have a bug and cannot use symmetry_t directly with == operator https://godbolt.devsh.eu/z/P9Kc5x
+        const ProfileProperties::LuminairePlanesSymmetry symmetry = accessor.symmetry();
         const float32_t vAngle = degrees(polar.theta);
         const float32_t hAngle = degrees(wrapPhi(polar.phi, symmetry));
 
@@ -71,8 +72,8 @@ struct CandelaSampler
 
         const uint32_t j0 = getVLB(accessor, vAngle);
         const uint32_t j1 = getVUB(accessor, vAngle);
-        const uint32_t i0 = (symmetry == symmetry_t::ISOTROPIC) ? 0u : getHLB(accessor, hAngle);
-        const uint32_t i1 = (symmetry == symmetry_t::ISOTROPIC) ? 0u : getHUB(accessor, hAngle);
+        const uint32_t i0 = (symmetry == ProfileProperties::LuminairePlanesSymmetry::ISOTROPIC) ? 0u : getHLB(accessor, hAngle);
+        const uint32_t i1 = (symmetry == ProfileProperties::LuminairePlanesSymmetry::ISOTROPIC) ? 0u : getHUB(accessor, hAngle);
 
         const float32_t uReciprocal = ((i1 == i0) ? 1.f : 1.f / (accessor.hAngle(i1) - accessor.hAngle(i0)));
         const float32_t vReciprocal = ((j1 == j0) ? 1.f : 1.f / (accessor.vAngle(j1) - accessor.vAngle(j0)));

@@ -43,8 +43,8 @@ struct OctahedralTransform
     // F^-1 : S^2 -> [-1, 1]^2
     static vector2_type dirToNDC(NBL_CONST_REF_ARG(vector3_type) d)
     {
-        scalar_type dir = hlsl::normalize(d);
-        const scalar_type sum = hlsl::dot(vector3_type(scalar_type(1), scalar_type(1), scalar_type(1)), abs(dir));
+        vector3_type dir = hlsl::normalize(d);
+        const scalar_type sum = dot(vector3_type(scalar_type(1), scalar_type(1), scalar_type(1)), abs(dir));
         vector3_type s = dir / sum;
 
         if (s.z < scalar_type(0))

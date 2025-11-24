@@ -22,12 +22,10 @@
 #error "NBL_SAMPLERS_COUNT must be defined!"
 #endif
 
-#include "common.hlsl"
+#include "pc.hlsl"
 #include "psinput.hlsl"
 
 using namespace nbl::ext::imgui;
-
-[[vk::push_constant]] struct PushConstants pc;
 
 // separable image samplers to handle textures we do descriptor-index
 [[vk::binding(NBL_TEXTURES_BINDING_IX, NBL_TEXTURES_SET_IX)]] Texture2D textures[NBL_TEXTURES_COUNT];
