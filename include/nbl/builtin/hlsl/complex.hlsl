@@ -24,7 +24,7 @@ template<typename Scalar>
 struct complex_t : public std::complex<Scalar>
 {
     using base_t = std::complex<Scalar>;
-    complex_t(const Scalar real, const Scalar imag) : base_t(real, imag) {}
+    complex_t(const Scalar real = Scalar(), const Scalar imag = Scalar()) : base_t(real, imag) {}
     static complex_t create(const Scalar real, const Scalar imag)
     {
         complex_t retVal(real, imag);
