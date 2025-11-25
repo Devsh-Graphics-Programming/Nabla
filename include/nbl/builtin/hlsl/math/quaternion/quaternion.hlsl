@@ -48,30 +48,23 @@ struct quaternion
 
 	static inline quaternion create(float_t pitch, float_t yaw, float_t roll)
 	{
-		float angle;
+		const float rollDiv2 = roll * 0.5f;
+		const float sr = sinf(rollDiv2);
+		const float cr = cosf(rollDiv2);
 
-		angle = roll * 0.5f;
-		const float sr = sinf(angle);
-		const float cr = cosf(angle);
+		const float pitchDiv2 = pitch * 0.5f;
+		const float sp = sinf(pitchDiv2);
+		const float cp = cosf(pitchDiv2);
 
-		angle = pitch * 0.5f;
-		const float sp = sinf(angle);
-		const float cp = cos(angle);
-
-		angle = yaw * 0.5f;
-		const float sy = sinf(angle);
-		const float cy = cosf(angle);
-
-		const float cpcy = cp * cy;
-		const float spcy = sp * cy;
-		const float cpsy = cp * sy;
-		const float spsy = sp * sy;
+		const float yawDiv2 = yaw * 0.5f;
+		const float sy = sinf(yawDiv2);
+		const float cy = cosf(yawDiv2);
 
 		quaternion<float_t> output;
-		output.data[3] = cr * cp * cy + sr * sp * sy; // w
 		output.data[0] = cr * sp * cy + sr * cp * sy; // x
 		output.data[1] = cr * cp * sy - sr * sp * cy; // y
 		output.data[2] = sr * cp * cy - cr * sp * sy; // z
+		output.data[3] = cr * cp * cy + sr * sp * sy; // w
 
 		return output;
 	}
