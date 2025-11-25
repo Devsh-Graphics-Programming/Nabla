@@ -2,13 +2,14 @@
 #define _NBL_BUILTIN_HLSL_PROJECTION_PROJECTION_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 namespace nbl
 {
 namespace hlsl
 {
 // TODO: use glm instead for c++
-template<typename FloatingPoint>
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
 inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovRH(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
 {
 	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
@@ -25,7 +26,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovRH(Floatin
 
 	return m;
 }
-template<typename FloatingPoint>
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
 inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovLH(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
 {
 	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
@@ -43,7 +44,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovLH(Floatin
 	return m;
 }
 
-template<typename FloatingPoint>
+template<typename FloatingPoint  NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
 inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoRH(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
 {
 	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
@@ -59,7 +60,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoRH(FloatingPoint wi
 	return m;
 }
 
-template<typename FloatingPoint>
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
 inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoLH(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
 {
 	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
