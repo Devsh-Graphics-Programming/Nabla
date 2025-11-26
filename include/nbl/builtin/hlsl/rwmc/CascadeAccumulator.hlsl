@@ -41,6 +41,7 @@ struct CascadeAccumulator
 
     using cascade_layer_scalar_type = typename vector_traits<CascadeLayerType>::scalar_type;
     using this_t = CascadeAccumulator<CascadeLayerType, CascadeCount>;
+    using input_sample_type = CascadeLayerType;
     using output_storage_type = CascadeEntry;
     using initialization_data = SplattingParameters;
     output_storage_type accumulation;
@@ -66,7 +67,7 @@ struct CascadeAccumulator
     }
 
     // most of this code is stolen from https://cg.ivd.kit.edu/publications/2018/rwmc/tool/split.cpp
-    void addSample(uint32_t sampleCount, CascadeLayerType _sample)
+    void addSample(uint32_t sampleCount, input_sample_type _sample)
     {
         const cascade_layer_scalar_type log2Start = splattingParameters.log2Start;
         const cascade_layer_scalar_type log2Base = splattingParameters.log2Base;
