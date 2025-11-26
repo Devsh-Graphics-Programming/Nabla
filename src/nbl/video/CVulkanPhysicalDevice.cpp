@@ -462,8 +462,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.supportedDepthResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedDepthResolveModes);
         properties.limits.supportedStencilResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedStencilResolveModes);
         
-        if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
-            RETURN_NULL_PHYSICAL_DEVICE;
+        //if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
+        //    RETURN_NULL_PHYSICAL_DEVICE;
 
         // not dealing with vulkan12Properties.filterMinmaxSingleComponentFormats, TODO report in usage
         properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
@@ -882,8 +882,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         // TODO sparse stuff
 
         properties.limits.variableMultisampleRate = deviceFeatures.features.variableMultisampleRate;
-        if (!deviceFeatures.features.inheritedQueries)
-            RETURN_NULL_PHYSICAL_DEVICE;
+        //if (!deviceFeatures.features.inheritedQueries)
+        //    RETURN_NULL_PHYSICAL_DEVICE;
             
 
         /* Vulkan 1.1 Core  */
