@@ -40,4 +40,4 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
     LINK_BUILTIN_RESOURCES_TO_TARGET(${LIB_NAME} ${_BR_TARGET_})
 endif()
 
-set(NBL_EXT_DEBUG_DRAW_TARGET ${LIB_NAME} CACHE INTERNAL "Nabla's Debug Draw logical target name")
+add_library(Nabla::ext::DebugDraw ALIAS ${LIB_NAME})
