@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/ext/DebugDraw/CDrawAABB.h"
-#include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/ext/debug_draw/builtin/CArchive.h"
@@ -23,7 +22,7 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 {
 	auto* const logger = params.utilities->getLogger();
 
-	if (!validateCreationParameters(params))
+	if (!params.validate())
 	{
 		logger->log("Failed creation parameters validation!", ILogger::ELL_ERROR);
 		return nullptr;
@@ -102,28 +101,28 @@ const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> l
 	return smart_refctd_ptr(archive);
 }
 
-bool DrawAABB::validateCreationParameters(SCreationParameters& creationParams)
-{
-	const auto validation = std::to_array
-	({
-		std::make_pair(bool(creationParams.assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
-		std::make_pair(bool(creationParams.assetManager->getSystem()), "Invalid `creationParams.assetManager->getSystem()` is nullptr!"),
-		std::make_pair(bool(creationParams.utilities), "Invalid `creationParams.utilities` is nullptr!"),
-		std::make_pair(bool(creationParams.transfer), "Invalid `creationParams.transfer` is nullptr!"),
-		std::make_pair(bool(creationParams.renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
-		(creationParams.assetManager && creationParams.utilities && creationParams.transfer && creationParams.renderpass) ? std::make_pair(bool(creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required DrawAABB::S_CREATION_PARAMETERS!")
-		});
-
-	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
-	for (const auto& [ok, error] : validation)
-		if (!ok)
-		{
-			logger.log(error, ILogger::ELL_ERROR);
-			return false;
-		}
-
-	return true;
-}
+//bool DrawAABB::validateCreationParameters(SCreationParameters& creationParams)
+//{
+//	const auto validation = std::to_array
+//	({
+//		std::make_pair(bool(creationParams.assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
+//		std::make_pair(bool(creationParams.assetManager->getSystem()), "Invalid `creationParams.assetManager->getSystem()` is nullptr!"),
+//		std::make_pair(bool(creationParams.utilities), "Invalid `creationParams.utilities` is nullptr!"),
+//		std::make_pair(bool(creationParams.transfer), "Invalid `creationParams.transfer` is nullptr!"),
+//		std::make_pair(bool(creationParams.renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
+//		(creationParams.assetManager && creationParams.utilities && creationParams.transfer && creationParams.renderpass) ? std::make_pair(bool(creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required DrawAABB::S_CREATION_PARAMETERS!")
+//		});
+//
+//	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
+//	for (const auto& [ok, error] : validation)
+//		if (!ok)
+//		{
+//			logger.log(error, ILogger::ELL_ERROR);
+//			return false;
+//		}
+//
+//	return true;
+//}
 
 smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParameters& params, const IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath)
 {
@@ -346,71 +345,10 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 	return true;
 }
 
-bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat)
-{
-	if (!(m_cachedCreationParams.drawMode & ADM_DRAW_BATCH))
-	{
-		m_cachedCreationParams.utilities->getLogger()->log("DrawAABB has not been enabled for draw batches!", ILogger::ELL_ERROR);
-		return false;
-	}
-
-	using offset_t = SCachedCreationParameters::streaming_buffer_t::size_type;
-	constexpr auto MdiSizes = std::to_array<offset_t>({ sizeof(float32_t3), sizeof(InstanceData) });
-	// shared nPoT alignment needs to be divisible by all smaller ones to satisfy an allocation from all
-	constexpr offset_t MaxAlignment = std::reduce(MdiSizes.begin(), MdiSizes.end(), 1, [](const offset_t a, const offset_t b)->offset_t {return std::lcm(a, b); });
-	// allocator initialization needs us to round up to PoT
-	const auto MaxPOTAlignment = roundUpToPoT(MaxAlignment);
-
-	auto* streaming = m_cachedCreationParams.streamingBuffer.get();
-
-	auto* const streamingPtr = reinterpret_cast<uint8_t*>(streaming->getBufferPointer());
-	assert(streamingPtr);
-
-	commandBuffer->bindGraphicsPipeline(m_batchPipeline.get());
-	commandBuffer->setLineWidth(1.f);
-	asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
-	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
-
-	std::vector<InstanceData> instances(aabbInstances.size());
-	for (uint32_t i = 0; i < aabbInstances.size(); i++)
-	{
-		auto& inst = instances[i];
-		inst = aabbInstances[i];
-		inst.transform = hlsl::mul(cameraMat, inst.transform);
-	}
-
-	auto instancesIt = instances.begin();
-	const uint32_t instancesPerIter = streaming->getBuffer()->getSize() / sizeof(InstanceData);
-	using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
-	while (instancesIt != instances.end())
-    {
-		const uint32_t instanceCount = min(instancesPerIter, instances.size());
-        offset_t inputOffset = 0u;
-	    offset_t ImaginarySizeUpperBound = 0x1 << 30;
-	    suballocator_t imaginaryChunk(nullptr, inputOffset, 0, roundUpToPoT(MaxAlignment), ImaginarySizeUpperBound);
-	    uint32_t instancesByteOffset = imaginaryChunk.alloc_addr(sizeof(InstanceData) * instanceCount, sizeof(InstanceData));
-	    const uint32_t totalSize = imaginaryChunk.get_allocated_size();
-
-	    inputOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
-		std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
-	    streaming->multi_allocate(waitTill, 1, &inputOffset, &totalSize, &MaxAlignment);
-
-	    memcpy(streamingPtr + instancesByteOffset, std::addressof(*instancesIt), sizeof(InstanceData) * instanceCount);
-		instancesIt += instanceCount;
-
-	    assert(!streaming->needsManualFlushOrInvalidate());
-
-	    SPushConstants pc;
-	    pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
-
-	    commandBuffer->pushConstants(m_batchPipeline->getLayout(), ESS_VERTEX, 0, sizeof(SPushConstants), &pc);
-	    commandBuffer->drawIndexed(IndicesCount, instanceCount, 0, 0, 0);
-
-	    streaming->multi_deallocate(1, &inputOffset, &totalSize, waitInfo);
-    }
-
-	return true;
-}
+//bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat)
+//{
+//	
+//}
 
 hlsl::float32_t4x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
 {
