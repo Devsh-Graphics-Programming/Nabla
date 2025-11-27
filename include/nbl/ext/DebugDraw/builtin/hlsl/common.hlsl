@@ -2,6 +2,11 @@
 #define _NBL_DEBUG_DRAW_EXT_COMMON_HLSL
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#ifdef __HLSL_VERSION
+#include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+#include "nbl/builtin/hlsl/bda/__ptr.hlsl"
+#endif
 
 namespace nbl
 {
@@ -30,8 +35,13 @@ struct SPushConstants
 struct PSInput
 {
     float32_t4 position : SV_Position;
-    float32_t4 color : TEXCOORD0;
+    nointerpolation float32_t4 color : TEXCOORD0;
 };
+
+float32_t3 getUnitAABBVertex()
+{
+    return (hlsl::promote<uint32_t3>(hlsl::glsl::gl_VertexIndex()) >> uint32_t3(0,2,1)) & 0x1u;
+}
 #endif
 
 }
