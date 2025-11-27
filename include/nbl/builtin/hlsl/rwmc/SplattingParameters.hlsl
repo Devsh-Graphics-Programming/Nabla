@@ -12,8 +12,10 @@ namespace rwmc
 
 struct SplattingParameters
 {
-    float log2Start;
-    float log2Base;
+    // float16_t log2Start; 0
+    // float16_t log2Base; 1
+    // pack as Half2x16
+    int32_t packedLog2;
 };
 
 }
