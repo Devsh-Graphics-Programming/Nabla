@@ -435,13 +435,13 @@ struct minus<emulated_int64_base<Signed> >
 };
 
 template<>
-NBL_CONSTEXPR emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+NBL_CONSTEXPR_INLINE_VAR emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
 template<>
-NBL_CONSTEXPR emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+NBL_CONSTEXPR_INLINE_VAR emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
 template<>
-NBL_CONSTEXPR emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+NBL_CONSTEXPR_INLINE_VAR emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
 template<>
-NBL_CONSTEXPR emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+NBL_CONSTEXPR_INLINE_VAR emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
 
 // --------------------------------- Compound assignment operators ------------------------------------------
 // Specializations of the structs found in functional.hlsl
@@ -475,13 +475,13 @@ struct minus_assign<emulated_int64_base<Signed> >
 };
 
 template<>
-NBL_CONSTEXPR emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
+NBL_CONSTEXPR_INLINE_VAR emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
 template<>
-NBL_CONSTEXPR emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
+NBL_CONSTEXPR_INLINE_VAR emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
 template<>
-NBL_CONSTEXPR emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
+NBL_CONSTEXPR_INLINE_VAR emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
 template<>
-NBL_CONSTEXPR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
+NBL_CONSTEXPR_INLINE_VAR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
 
 // ------------------------------------------------ TYPE TRAITS SATISFIED -----------------------------------------------------
 
