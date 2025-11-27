@@ -69,8 +69,9 @@ struct CascadeAccumulator
     // most of this code is stolen from https://cg.ivd.kit.edu/publications/2018/rwmc/tool/split.cpp
     void addSample(uint32_t sampleCount, input_sample_type _sample)
     {
-        const cascade_layer_scalar_type log2Start = splattingParameters.log2Start;
-        const cascade_layer_scalar_type log2Base = splattingParameters.log2Base;
+        const float32_t2 unpackedParams = hlsl::unpackHalf2x16(splattingParameters.packedLog2);
+        const cascade_layer_scalar_type log2Start = unpackedParams[0];
+        const cascade_layer_scalar_type log2Base = unpackedParams[1];
         const cascade_layer_scalar_type luma = getLuma(_sample);
         const cascade_layer_scalar_type log2Luma = log2<cascade_layer_scalar_type>(luma);
         const cascade_layer_scalar_type cascade = log2Luma * 1.f / log2Base - log2Start / log2Base;
