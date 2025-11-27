@@ -5,9 +5,12 @@
 #define _NBL_BUILTIN_HLSL_BXDF_TRANSMISSION_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/transmission/lambertian.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/oren_nayar.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/smooth_dielectric.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/delta_distribution.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/ggx.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/iridescent.hlsl"
 
 namespace nbl
 {

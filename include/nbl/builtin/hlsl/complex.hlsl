@@ -21,7 +21,16 @@ namespace hlsl
 {
 
 template<typename Scalar>
-using complex_t = std::complex<Scalar>;
+struct complex_t : public std::complex<Scalar>
+{
+    using base_t = std::complex<Scalar>;
+    complex_t(const Scalar real = Scalar(), const Scalar imag = Scalar()) : base_t(real, imag) {}
+    static complex_t create(const Scalar real, const Scalar imag)
+    {
+        complex_t retVal(real, imag);
+        return retVal;
+    }
+};
 
 // Fast mul by i
 template<typename Scalar>

@@ -12,6 +12,7 @@
 #include <glm/detail/_swizzle.hpp>
 
 #include "nbl/core/hash/blake.h"
+#include "nbl/core/algorithm/utility.h"
 
 namespace nbl::hlsl
 {

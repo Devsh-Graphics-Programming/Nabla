@@ -6,10 +6,8 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
-#include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
-#include "nbl/builtin/hlsl/concepts/vector.hlsl"
-#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
-#include "nbl/builtin/hlsl/ieee754.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/complex.hlsl"
 
 namespace nbl
 {
@@ -18,107 +16,65 @@ namespace hlsl
 namespace math
 {
 
-namespace impl
-{
+template <typename T>
 struct sincos_accumulator
 {
-    using this_t = sincos_accumulator;
+    using this_t = sincos_accumulator<T>;
 
-    static this_t create()
+    static this_t create(T cosA)
     {
+        return create(cosA, sqrt<T>(T(1.0) - cosA * cosA));
+    }
+
+    static this_t create(T cosA, T sinA)
+    {
+        assert(sinA >= T(0.0));
         this_t retval;
-        retval.tmp0 = 0;
-        retval.tmp1 = 0;
-        retval.tmp2 = 0;
-        retval.tmp3 = 0;
-        retval.tmp4 = 0;
-        retval.tmp5 = 0;
+        retval.runningSum = complex_t<T>::create(cosA, sinA);
+        retval.wraparound = T(0.0);
         return retval;
     }
 
-    static this_t create(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
+    // This utility expects that all input angles being added are [0,PI], i.e. runningSum.y and sinA are always positive
+    // We make use of sine and cosine angle sum formulas to accumulate a running sum of angles
+    // and any "overflow" (when sum goes over PI) is stored in wraparound
+    // This way, we can accumulate the sines and cosines of a set of angles, and only have to do one acos() call to retrieve the final sum
+    void addAngle(T cosA, T sinA)
     {
-        this_t retval;
-        retval.tmp0 = cosA;
-        retval.tmp1 = cosB;
-        retval.tmp2 = cosC;
-        retval.tmp3 = sinA;
-        retval.tmp4 = sinB;
-        retval.tmp5 = sinC;
-        return retval;
+        const T cosB = runningSum.real();
+        const T sinB = runningSum.imag();
+        // TODO: prove if we infer overflow from sign of `d` instead
+        const bool overflow = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
+        const T c = cosA * cosB - sinA * sinB;
+        const T d = sinA * cosB + cosA * sinB;
+
+        // TODO: figure out if we can skip flipping signs until `getSumOfArccos()`, this would mean that on odd overflows the formula is
+        // const T c = sinA * sinB - cosA * cosB;
+        // const T d = - sinA * cosB - cosA * sinB;
+        // but both signs get inverted so the `abs()` of both terms gets preserved, so the equation can stay as is.
+        // And in `getSumOfArccos()` we could do either of:
+        // return acos<T>((intWraparound<<signBitOffset<T>)^runningSum.real()) + intWraparound * numbers::pi<T>;
+        // return (intWraparound+(intWraparound&0x1u)) * numbers::pi<T> + (intWraparound<<signBitOffset<T>)^acos<T>(runningSum.real());
+        runningSum.real(ieee754::flipSign<T>(c, overflow));
+        runningSum.imag(ieee754::flipSign<T>(d, overflow));
+
+        if (overflow)
+            wraparound += numbers::pi<T>;
+    }
+    void addCosine(T cosA)
+    {
+        addAngle(cosA, sqrt<T>(T(1.0) - cosA * cosA));
     }
 
-    float getArccosSumofABC_minus_PI()
+    // TODO: rename to `getSumOfArccos`
+    T getSumofArccos()
     {
-        const bool AltminusB = tmp0 < (-tmp1);
-        const float cosSumAB = tmp0 * tmp1 - tmp3 * tmp4;
-        const bool ABltminusC = cosSumAB < (-tmp2);
-        const bool ABltC = cosSumAB < tmp2;
-        // apply triple angle formula
-        const float absArccosSumABC = acos<float>(clamp<float>(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
-        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + ((AltminusB || ABltminusC) ? numbers::pi<float> : (-numbers::pi<float>));
+        return acos<T>(runningSum.real()) + wraparound;
     }
 
-    static void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
-    {
-        const float bias = biasA + biasB;
-        const float a = cosA;
-        const float b = cosB;
-        const bool reverse = abs<float>(min<float>(a, b)) > max<float>(a, b);
-        const float c = a * b - sqrt<float>((1.0f - a * a) * (1.0f - b * b));
-
-        if (reverse)
-        {
-            out0 = -c;
-            out1 = bias + numbers::pi<float>;
-        }
-        else
-        {
-            out0 = c;
-            out1 = bias;
-        }
-    }
-
-    float tmp0;
-    float tmp1;
-    float tmp2;
-    float tmp3;
-    float tmp4;
-    float tmp5;
+    complex_t<T> runningSum;
+    T wraparound;    // counts in pi (half revolutions)
 };
-}
-
-float getArccosSumofABC_minus_PI(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
-{
-    impl::sincos_accumulator acc = impl::sincos_accumulator::create(cosA, cosB, cosC, sinA, sinB, sinC);
-    return acc.getArccosSumofABC_minus_PI();
-}
-
-void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
-{
-    impl::sincos_accumulator acc = impl::sincos_accumulator::create();
-    impl::sincos_accumulator::combineCosForSumOfAcos(cosA, cosB, biasA, biasB, acc.tmp0, acc.tmp1);
-    out0 = acc.tmp0;
-    out1 = acc.tmp1;
-}
-
-// returns acos(a) + acos(b)
-float getSumofArccosAB(float cosA, float cosB)
-{
-    impl::sincos_accumulator acc = impl::sincos_accumulator::create();
-    impl::sincos_accumulator::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, acc.tmp0, acc.tmp1);
-    return acos<float>(acc.tmp0) + acc.tmp1;
-}
-
-// returns acos(a) + acos(b) + acos(c) + acos(d)
-float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
-{
-    impl::sincos_accumulator acc = impl::sincos_accumulator::create();
-    impl::sincos_accumulator::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, acc.tmp0, acc.tmp1);
-    impl::sincos_accumulator::combineCosForSumOfAcos(cosC, cosD, 0.0f, 0.0f, acc.tmp2, acc.tmp3);
-    impl::sincos_accumulator::combineCosForSumOfAcos(acc.tmp0, acc.tmp2, acc.tmp1, acc.tmp3, acc.tmp4, acc.tmp5);
-    return acos<float>(acc.tmp4) + acc.tmp5;
-}
 
 }
 }

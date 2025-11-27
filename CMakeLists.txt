@@ -1,7 +1,7 @@
 # Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 3.31..4.2.0)
 
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
@@ -28,7 +28,7 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla
-	VERSION 0.7.2.0 
+	VERSION 0.8.0.1 
 	HOMEPAGE_URL "https://www.devsh.eu/nabla"
 	LANGUAGES CXX C
 )

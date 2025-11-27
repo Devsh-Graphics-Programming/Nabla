@@ -83,7 +83,6 @@ template <typename IndexT>
 	requires(std::is_same_v<IndexT, uint16_t> || std::is_same_v<IndexT, uint32_t>)
 static ICPUPolygonGeometry::SDataView createIndexView(size_t indexCount, size_t maxIndex)
 {
-	
 	const auto bytesize = sizeof(IndexT) * indexCount;
 	auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 
@@ -749,7 +748,7 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	});
 	const auto coneTransform = hlsl::math::linalg::rotation_mat(hlsl::numbers::pi<hlsl::float32_t> * -0.5f, hlsl::float32_t3(1.f, 0.f, 0.f));
 	geometries->push_back({
-		.transform = hlsl::float32_t3x4(coneTransform),
+		.transform = hlsl::math::linalg::promote_affine<3, 4>(coneTransform),
 		.geometry = cone
 	});
 	return collection;
