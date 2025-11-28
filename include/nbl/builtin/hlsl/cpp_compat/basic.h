@@ -9,6 +9,7 @@
 
 #define ARROW ->
 #define NBL_CONSTEXPR constexpr // TODO: rename to NBL_CONSTEXPR_VAR
+#define NBL_CONSTEXPR_INLINE constexpr inline
 #define NBL_CONSTEXPR_FUNC constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
@@ -16,6 +17,9 @@
 #define NBL_CONSTEXPR_INLINE_VAR constexpr inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC NBL_FORCE_INLINE constexpr
 #define NBL_CONST_MEMBER_FUNC const
+#define NBL_CONSTEXPR_FUNC_SCOPE_VAR constexpr
+#define NBL_CONSTEXPR_OOL_MEMBER constexpr
+#define NBL_CONSTEXPR_INLINE_OOL_MEMBER constexpr inline
 #define NBL_IF_CONSTEXPR(...) if constexpr (__VA_ARGS__)
 
 namespace nbl::hlsl
@@ -41,13 +45,17 @@ namespace nbl::hlsl
 
 #define ARROW .arrow().
 #define NBL_CONSTEXPR const static // TODO: rename to NBL_CONSTEXPR_VAR
+#define NBL_CONSTEXPR_INLINE const static
 #define NBL_CONSTEXPR_FUNC
 #define NBL_CONSTEXPR_STATIC const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 #define NBL_CONSTEXPR_INLINE_FUNC inline
-#define NBL_CONSTEXPR_INLINE_VAR inline
+#define NBL_CONSTEXPR_INLINE_VAR static const
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC inline
 #define NBL_CONST_MEMBER_FUNC 
+#define NBL_CONSTEXPR_FUNC_SCOPE_VAR const
+#define NBL_CONSTEXPR_OOL_MEMBER const
+#define NBL_CONSTEXPR_INLINE_OOL_MEMBER const
 #define NBL_IF_CONSTEXPR(...) if (__VA_ARGS__)
 
 namespace nbl
