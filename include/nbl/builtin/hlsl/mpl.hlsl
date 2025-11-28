@@ -110,6 +110,7 @@ struct round_up_to_pot : integral_constant<uint64_t, uint64_t(1) << log2_ceil_v<
 template<uint64_t X>
 NBL_CONSTEXPR uint64_t round_up_to_pot_v = round_up_to_pot<X>::value;
 
+// TODO: should rename log2 to log2_floor
 template<uint64_t X>
 struct round_down_to_pot : integral_constant<uint64_t, uint64_t(1) << log2_v<X> > {};
 template<uint64_t X>
