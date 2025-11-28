@@ -31,7 +31,10 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 	smart_refctd_ptr<IGPUGraphicsPipeline> singlePipeline = nullptr;
 	if (params.drawMode & ADM_DRAW_SINGLE)
 	{
-		singlePipeline = createPipeline(params, params.singlePipelineLayout.get(), "single.vertex.hlsl", "aabb_instances.fragment.hlsl");
+		auto pipelineLayout = params.singlePipelineLayout;
+		if (!pipelineLayout)
+			pipelineLayout = createDefaultPipelineLayout(params.utilities->getLogicalDevice(), ADM_DRAW_SINGLE);
+		singlePipeline = createPipeline(params, pipelineLayout.get(), "single.vertex.hlsl", "aabb_instances.fragment.hlsl");
 		if (!singlePipeline)
 		{
 			logger->log("Failed to create pipeline!", ILogger::ELL_ERROR);
@@ -42,7 +45,10 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 	smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline = nullptr;
 	if (params.drawMode & ADM_DRAW_BATCH)
 	{
-		batchPipeline = createPipeline(params, params.batchPipelineLayout.get(), "aabb_instances.vertex.hlsl", "aabb_instances.fragment.hlsl");
+		auto pipelineLayout = params.batchPipelineLayout;
+		if (!pipelineLayout)
+			pipelineLayout = createDefaultPipelineLayout(params.utilities->getLogicalDevice(), ADM_DRAW_BATCH);
+		batchPipeline = createPipeline(params, pipelineLayout.get(), "aabb_instances.vertex.hlsl", "aabb_instances.fragment.hlsl");
 		if (!batchPipeline)
 		{
 			logger->log("Failed to create pipeline!", ILogger::ELL_ERROR);
@@ -287,14 +293,15 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createPipelineLayout
 	return device->createPipelineLayout({ &pcRange , 1 }, nullptr, nullptr, nullptr, nullptr);
 }
 
-core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createDefaultPipelineLayout(video::ILogicalDevice* device)
+core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createDefaultPipelineLayout(video::ILogicalDevice* device, DrawMode mode)
 {
+	const uint32_t pcSize = (mode & ADM_DRAW_BATCH) ? sizeof(SPushConstants) : sizeof(SSinglePushConstants);
 	SPushConstantRange pcRange = {
 		.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX,
 		.offset = 0,
-		.size = sizeof(SPushConstants)
+		.size = pcSize
 	};
-	return device->createPipelineLayout({ &pcRange , 1 }, nullptr, nullptr, nullptr, nullptr);
+	return createPipelineLayoutFromPCRange(device, pcRange);
 }
 
 bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color, const hlsl::float32_t4x4& cameraMat)
@@ -321,11 +328,6 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 
 	return true;
 }
-
-//bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat)
-//{
-//	
-//}
 
 hlsl::float32_t4x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
 {
