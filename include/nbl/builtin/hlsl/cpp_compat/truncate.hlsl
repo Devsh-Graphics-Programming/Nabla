@@ -63,7 +63,6 @@ struct Truncate<vector<Scalar, 4>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
 
 } //namespace impl
 
-// TODO(kevinyu): Should we specialize this for vector and scalar to take argument by value instead of reference?
 template<typename T, typename U>
 NBL_CONSTEXPR_FUNC T truncate(NBL_CONST_REF_ARG(U) v)
 {

@@ -67,7 +67,6 @@ struct Promote<vector <Scalar, 4>, U>
 
 }
 
-// TODO(kevinyu): Should we specialize this for vector and scalar to take argument by value instead of reference?
 template<typename T, typename U>
 NBL_CONSTEXPR_FUNC T promote(NBL_CONST_REF_ARG(U) v)
 {
