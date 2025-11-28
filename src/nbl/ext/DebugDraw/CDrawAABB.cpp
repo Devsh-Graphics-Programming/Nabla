@@ -304,7 +304,7 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createDefaultPipelin
 	return createPipelineLayoutFromPCRange(device, pcRange);
 }
 
-bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color, const hlsl::float32_t4x4& cameraMat)
+bool DrawAABB::renderSingle(const DrawParameters& params, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color)
 {
 	if (!(m_cachedCreationParams.drawMode & ADM_DRAW_SINGLE))
 	{
@@ -312,15 +312,15 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 		return false;
 	}
 
+	auto& commandBuffer = params.commandBuffer;
 	commandBuffer->bindGraphicsPipeline(m_singlePipeline.get());
-	commandBuffer->setLineWidth(1.f);
+	commandBuffer->setLineWidth(params.lineWidth);
 	asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
 	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
 	SSinglePushConstants pc;
-
-	hlsl::float32_t4x4 instanceTransform = getTransformFromAABB(aabb);
-	pc.instance.transform = hlsl::mul(cameraMat, instanceTransform);
+	hlsl::float32_t3x4 instanceTransform = getTransformFromAABB(aabb);
+	pc.instance.transform = math::linalg::promoted_mul(params.cameraMat, instanceTransform);
 	pc.instance.color = color;
 	
 	commandBuffer->pushConstants(m_singlePipeline->getLayout(), ESS_VERTEX, 0, sizeof(SSinglePushConstants), &pc);
@@ -329,14 +329,13 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 	return true;
 }
 
-hlsl::float32_t4x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
+hlsl::float32_t3x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
 {
 	const auto diagonal = aabb.getExtent();
-	hlsl::float32_t4x4 transform;
+	hlsl::float32_t3x4 transform;
 	transform[0][3] = aabb.minVx.x;
 	transform[1][3] = aabb.minVx.y;
 	transform[2][3] = aabb.minVx.z;
-	transform[3][3] = 1.f;
 	transform[0][0] = diagonal.x;
 	transform[1][1] = diagonal.y;
 	transform[2][2] = diagonal.z;
