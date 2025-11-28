@@ -52,23 +52,18 @@ namespace nbl::ext::debug_draw
 
             inline bool validate() const
             {
-                const auto validation = std::to_array
-                ({
-                    std::make_pair(bool(assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
-                    std::make_pair(bool(assetManager->getSystem()), "Invalid `creationParams.assetManager->getSystem()` is nullptr!"),
-                    std::make_pair(bool(utilities), "Invalid `creationParams.utilities` is nullptr!"),
-                    std::make_pair(bool(transfer), "Invalid `creationParams.transfer` is nullptr!"),
-                    std::make_pair(bool(renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
-                    (assetManager && utilities && transfer && renderpass) ? std::make_pair(bool(utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[transfer->getFamilyIndex()].queueFlags.hasFlags(video::IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required DrawAABB::S_CREATION_PARAMETERS!")
-                    });
+                assert(bool(assetManager));
+                assert(bool(assetManager->getSystem()));
+                assert(bool(utilities));
+                assert(bool(transfer));
+                assert(bool(renderpass));
 
                 system::logger_opt_ptr logger = utilities->getLogger();
-                for (const auto& [ok, error] : validation)
-                    if (!ok)
-                    {
-                        logger.log(error, system::ILogger::ELL_ERROR);
-                        return false;
-                    }
+                if (!bool(utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[transfer->getFamilyIndex()].queueFlags.hasFlags(video::IQueue::FAMILY_FLAGS::TRANSFER_BIT)))
+                {
+                    logger.log("Invalid `creationParams.transfer` is not capable of transfer operations!", system::ILogger::ELL_ERROR);
+                    return false;
+                }
 
                 return true;
             }
@@ -80,8 +75,8 @@ namespace nbl::ext::debug_draw
         // creates pipeline layout from push constant range
         static core::smart_refctd_ptr<video::IGPUPipelineLayout> createPipelineLayoutFromPCRange(video::ILogicalDevice* device, const asset::SPushConstantRange& pcRange);
 
-        // creates default pipeline layout for streaming version
-        static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::ILogicalDevice* device);
+        // creates default pipeline layout for pipeline specified by draw mode (note: if mode==BOTH, returns layout for BATCH mode)
+        static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::ILogicalDevice* device, DrawMode mode = ADM_DRAW_BATCH);
 
         //! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
         static const core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const std::string_view archiveAlias = "");
