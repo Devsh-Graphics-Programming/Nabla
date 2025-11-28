@@ -101,29 +101,6 @@ const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> l
 	return smart_refctd_ptr(archive);
 }
 
-//bool DrawAABB::validateCreationParameters(SCreationParameters& creationParams)
-//{
-//	const auto validation = std::to_array
-//	({
-//		std::make_pair(bool(creationParams.assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
-//		std::make_pair(bool(creationParams.assetManager->getSystem()), "Invalid `creationParams.assetManager->getSystem()` is nullptr!"),
-//		std::make_pair(bool(creationParams.utilities), "Invalid `creationParams.utilities` is nullptr!"),
-//		std::make_pair(bool(creationParams.transfer), "Invalid `creationParams.transfer` is nullptr!"),
-//		std::make_pair(bool(creationParams.renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
-//		(creationParams.assetManager && creationParams.utilities && creationParams.transfer && creationParams.renderpass) ? std::make_pair(bool(creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required DrawAABB::S_CREATION_PARAMETERS!")
-//		});
-//
-//	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
-//	for (const auto& [ok, error] : validation)
-//		if (!ok)
-//		{
-//			logger.log(error, ILogger::ELL_ERROR);
-//			return false;
-//		}
-//
-//	return true;
-//}
-
 smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParameters& params, const IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath)
 {
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
