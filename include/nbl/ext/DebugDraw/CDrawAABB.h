@@ -69,6 +69,13 @@ namespace nbl::ext::debug_draw
             }
         };
 
+        struct DrawParameters
+        {
+            video::IGPUCommandBuffer* commandBuffer = nullptr;
+            hlsl::float32_t4x4 cameraMat = hlsl::float32_t4x4(1);
+            float lineWidth = 1.f;
+        };
+
         // creates an instance that can draw one AABB via push constant or multiple using streaming buffer
         static core::smart_refctd_ptr<DrawAABB> create(SCreationParameters&& params);
 
@@ -84,11 +91,11 @@ namespace nbl::ext::debug_draw
         inline const SCachedCreationParameters& getCreationParameters() const { return m_cachedCreationParams; }
 
         // records draw command for single AABB, user has to set pipeline outside
-        bool renderSingle(video::IGPUCommandBuffer* commandBuffer, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color, const hlsl::float32_t4x4& cameraMat);
+        bool renderSingle(const DrawParameters& params, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color);
 
         // records draw command for rendering batch of AABB instances as InstanceData
         // user has to set span of filled-in InstanceData; camera matrix used in push constant
-        inline bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat)
+        inline bool render(const DrawParameters& params, video::ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances)
         {
             if (!(m_cachedCreationParams.drawMode & ADM_DRAW_BATCH))
             {
@@ -108,8 +115,9 @@ namespace nbl::ext::debug_draw
             auto* const streamingPtr = reinterpret_cast<uint8_t*>(streaming->getBufferPointer());
             assert(streamingPtr);
 
+            auto& commandBuffer = params.commandBuffer;
             commandBuffer->bindGraphicsPipeline(m_batchPipeline.get());
-            commandBuffer->setLineWidth(1.f);
+            commandBuffer->setLineWidth(params.lineWidth);
             asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
             commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
@@ -118,7 +126,7 @@ namespace nbl::ext::debug_draw
             {
                 auto& inst = instances[i];
                 inst = aabbInstances[i];
-                inst.transform = hlsl::mul(cameraMat, inst.transform);
+                inst.transform = hlsl::mul(params.cameraMat, inst.transform);
             }
 
             auto instancesIt = instances.begin();
@@ -154,7 +162,7 @@ namespace nbl::ext::debug_draw
             return true;
         }
 
-        static hlsl::float32_t4x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
+        static hlsl::float32_t3x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
 
     protected:
 	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline,
