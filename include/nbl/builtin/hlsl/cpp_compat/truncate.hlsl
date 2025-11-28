@@ -21,7 +21,7 @@ struct Truncate
     }
 };
 
-template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>)
+template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>)
 struct Truncate<vector<Scalar, 1>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>) >
 {
     NBL_CONSTEXPR_FUNC vector<Scalar, 1> operator()(const vector<Scalar, N> v)
@@ -31,7 +31,7 @@ struct Truncate<vector<Scalar, 1>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
     }
 };
 
-template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar> && N >= 2)
+template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar> && N >= 2)
 struct Truncate<vector<Scalar, 2>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar> && N >= 2) >
 {
     NBL_CONSTEXPR_FUNC vector<Scalar, 2> operator()(const vector<Scalar, N> v)
@@ -41,7 +41,7 @@ struct Truncate<vector<Scalar, 2>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
     }
 };
 
-template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 3)
+template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 3)
 struct Truncate<vector<Scalar, 3>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>&& N >= 3) >
 {
     NBL_CONSTEXPR_FUNC vector<Scalar, 3> operator()(const vector<Scalar, N> v)
@@ -51,7 +51,7 @@ struct Truncate<vector<Scalar, 3>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
     }
 };
 
-template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 4)
+template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 4)
 struct Truncate<vector<Scalar, 4>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>&& N >= 4) >
 {
     NBL_CONSTEXPR_FUNC vector<Scalar, 4> operator()(const vector<Scalar, N> v)
