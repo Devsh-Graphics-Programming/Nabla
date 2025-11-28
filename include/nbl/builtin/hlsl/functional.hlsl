@@ -321,7 +321,7 @@ struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVector<T> && conc
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         left_shift_operator<scalar_t> leftShift;
         T shifted;
         [[unroll]]
@@ -336,7 +336,7 @@ struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVector<T> && conc
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         left_shift_operator<scalar_t> leftShift;
         T shifted;
         [[unroll]]
@@ -351,7 +351,7 @@ struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVector<T> && conc
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         left_shift_operator<scalar_t> leftShift;
         T shifted;
         [[unroll]]
@@ -366,7 +366,7 @@ struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVector<T> && conc
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         left_shift_operator<scalar_t> leftShift;
         T shifted;
         [[unroll]]
@@ -416,7 +416,7 @@ struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVecto
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         arithmetic_right_shift_operator<scalar_t> rightShift;
         T shifted;
         [[unroll]]
@@ -431,7 +431,7 @@ struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVecto
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         arithmetic_right_shift_operator<scalar_t> rightShift;
         T shifted;
         [[unroll]]
@@ -446,7 +446,7 @@ struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVecto
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         arithmetic_right_shift_operator<scalar_t> rightShift;
         T shifted;
         [[unroll]]
@@ -461,7 +461,7 @@ struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVecto
     {
         array_get<T, scalar_t> getter;
         array_set<T, scalar_t> setter;
-        NBL_CONSTEXPR_STATIC uint16_t extent = uint16_t(extent_v<T>);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
         arithmetic_right_shift_operator<scalar_t> rightShift;
         T shifted;
         [[unroll]]
