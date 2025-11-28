@@ -121,20 +121,22 @@ namespace nbl::ext::debug_draw
             asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
             commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
-            std::vector<InstanceData> instances(aabbInstances.size());
-            for (uint32_t i = 0; i < aabbInstances.size(); i++)
-            {
-                auto& inst = instances[i];
-                inst = aabbInstances[i];
-                inst.transform = hlsl::mul(params.cameraMat, inst.transform);
-            }
+            auto setInstancesRange = [&](InstanceData* data, uint32_t count) -> void {
+                for (uint32_t i = 0; i < count; i++)
+                {
+                    auto inst = data + i;
+                    *inst = aabbInstances[i];
+                    inst->transform = hlsl::mul(params.cameraMat, inst->transform);
+                }
+                };
 
-            auto instancesIt = instances.begin();
+            const uint32_t numInstances = aabbInstances.size();
             const uint32_t instancesPerIter = streaming->getBuffer()->getSize() / sizeof(InstanceData);
             using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
-            while (instancesIt != instances.end())
+            uint32_t beginOffset = 0;
+            while (beginOffset < numInstances)
             {
-                const uint32_t instanceCount = hlsl::min<uint32_t>(instancesPerIter, instances.size());
+                const uint32_t instanceCount = hlsl::min<uint32_t>(instancesPerIter, numInstances);
                 offset_t inputOffset = 0u;
                 offset_t ImaginarySizeUpperBound = 0x1 << 30;
                 suballocator_t imaginaryChunk(nullptr, inputOffset, 0, hlsl::roundUpToPoT(MaxAlignment), ImaginarySizeUpperBound);
@@ -145,8 +147,9 @@ namespace nbl::ext::debug_draw
                 std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
                 streaming->multi_allocate(waitTill, 1, &inputOffset, &totalSize, &MaxAlignment);
 
-                memcpy(streamingPtr + instancesByteOffset, std::addressof(*instancesIt), sizeof(InstanceData) * instanceCount);
-                instancesIt += instanceCount;
+                auto* const streamingInstancesPtr = reinterpret_cast<InstanceData*>(streamingPtr + instancesByteOffset);
+                setInstancesRange(streamingInstancesPtr, instanceCount);
+                beginOffset += instanceCount;
 
                 assert(!streaming->needsManualFlushOrInvalidate());
 
