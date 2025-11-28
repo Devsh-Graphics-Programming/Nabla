@@ -27,7 +27,7 @@ template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<Unsigned
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
 	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
-	NBL_CONSTEXPR UnsignedInteger Mask = (UnsignedInteger(0) - 1) >> 1;
+	NBL_CONSTEXPR_FUNC_SCOPE_VAR UnsignedInteger Mask = (UnsignedInteger(0) - 1) >> 1;
 	UnsignedInteger absVal = val & Mask;
 	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
 }
