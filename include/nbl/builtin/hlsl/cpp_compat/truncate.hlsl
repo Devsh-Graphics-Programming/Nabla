@@ -24,7 +24,7 @@ struct Truncate
 template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>)
 struct Truncate<vector<Scalar, 1>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>) >
 {
-    NBL_CONSTEXPR_FUNC vector<Scalar, 1> operator()(NBL_CONST_REF_ARG(vector<Scalar, N>) v)
+    NBL_CONSTEXPR_FUNC vector<Scalar, 1> operator()(const vector<Scalar, N> v)
     {
         vector<Scalar, 1> truncated = { v[0] };
         return truncated;
@@ -34,7 +34,7 @@ struct Truncate<vector<Scalar, 1>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
 template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar> && N >= 2)
 struct Truncate<vector<Scalar, 2>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar> && N >= 2) >
 {
-    NBL_CONSTEXPR_FUNC vector<Scalar, 2> operator()(NBL_CONST_REF_ARG(vector<Scalar, N>) v)
+    NBL_CONSTEXPR_FUNC vector<Scalar, 2> operator()(const vector<Scalar, N> v)
     {
         vector<Scalar, 2> truncated = { v[0], v[1]};
         return truncated;
@@ -44,7 +44,7 @@ struct Truncate<vector<Scalar, 2>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
 template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 3)
 struct Truncate<vector<Scalar, 3>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>&& N >= 3) >
 {
-    NBL_CONSTEXPR_FUNC vector<Scalar, 3> operator()(NBL_CONST_REF_ARG(vector<Scalar, N>) v)
+    NBL_CONSTEXPR_FUNC vector<Scalar, 3> operator()(const vector<Scalar, N> v)
     {
         vector<Scalar, 3> truncated = { v[0], v[1], v[2] };
         return truncated;
@@ -54,7 +54,7 @@ struct Truncate<vector<Scalar, 3>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
 template<typename Scalar, uint16_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 4)
 struct Truncate<vector<Scalar, 4>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>&& N >= 4) >
 {
-    NBL_CONSTEXPR_FUNC vector<Scalar, 4> operator()(NBL_CONST_REF_ARG(vector<Scalar, N>) v)
+    NBL_CONSTEXPR_FUNC vector<Scalar, 4> operator()(const vector<Scalar, N> v)
     {
         vector<Scalar, 4> truncated = { v[0], v[1], v[2], v[3] };
         return truncated;
@@ -63,6 +63,7 @@ struct Truncate<vector<Scalar, 4>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concept
 
 } //namespace impl
 
+// TODO(kevinyu): Should we specialize this for vector and scalar to take argument by value instead of reference?
 template<typename T, typename U>
 NBL_CONSTEXPR_FUNC T truncate(NBL_CONST_REF_ARG(U) v)
 {
