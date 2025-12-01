@@ -186,8 +186,6 @@ bool DrawAABB::createStreamingBuffer(SCreationParameters& params)
 		{
 			bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> flags(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
 
-			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
-				flags |= IDeviceMemoryAllocation::EMCAF_READ;
 			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
 				flags |= IDeviceMemoryAllocation::EMCAF_WRITE;
 
@@ -274,16 +272,72 @@ smart_refctd_ptr<IGPUBuffer> DrawAABB::createIndicesBuffer(SCreationParameters& 
 	unitAABBIndices[22] = 3;
 	unitAABBIndices[23] = 7;
 
+	auto* device = params.utilities->getLogicalDevice();
+	smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf;
+	{
+		smart_refctd_ptr<nbl::video::IGPUCommandPool> cmdpool = device->createCommandPool(params.transfer->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+		if (!cmdpool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, { &cmdbuf, 1 }))
+		{
+			params.utilities->getLogger()->log("Failed to create Command Buffer for index buffer!\n");
+			return nullptr;
+		}
+	}
+
 	IGPUBuffer::SCreationParams bufparams;
 	bufparams.size = sizeof(uint32_t) * unitAABBIndices.size();
-	bufparams.usage = IGPUBuffer::EUF_INDEX_BUFFER_BIT | IGPUBuffer::EUF_TRANSFER_DST_BIT;
+	bufparams.usage = IGPUBuffer::EUF_INDEX_BUFFER_BIT | IGPUBuffer::EUF_TRANSFER_DST_BIT | IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
 
 	smart_refctd_ptr<IGPUBuffer> indicesBuffer;
-	params.utilities->createFilledDeviceLocalBufferOnDedMem(
-		SIntendedSubmitInfo{ .queue = params.transfer },
-		std::move(bufparams),
-		unitAABBIndices.data()
-	).move_into(indicesBuffer);
+	{
+		indicesBuffer = device->createBuffer(std::move(bufparams));
+		if (!indicesBuffer)
+		{
+			params.utilities->getLogger()->log("Failed to create index buffer!\n");
+			return nullptr;
+		}
+
+		video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs = indicesBuffer->getMemoryReqs();
+		reqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+
+		auto bufMem = device->allocate(reqs, indicesBuffer.get());
+		if (!bufMem.isValid())
+		{
+			params.utilities->getLogger()->log("Failed to allocate device memory compatible with index buffer!\n");
+			return nullptr;
+		}
+	}
+
+	{
+		cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+		cmdbuf->beginDebugMarker("Fill indices buffer begin");
+
+		SBufferRange<IGPUBuffer> bufRange = { .offset = 0, .size = indicesBuffer->getSize(), .buffer = indicesBuffer };
+		cmdbuf->updateBuffer(bufRange, unitAABBIndices.data());
+
+		cmdbuf->endDebugMarker();
+		cmdbuf->end();
+	}
+
+	smart_refctd_ptr<ISemaphore> idxBufProgress;
+	constexpr auto FinishedValue = 25;
+	{
+		constexpr auto StartedValue = 0;
+		idxBufProgress = device->createSemaphore(StartedValue);
+
+		IQueue::SSubmitInfo submitInfos[1] = {};
+		const IQueue::SSubmitInfo::SCommandBufferInfo cmdbufs[] = { {.cmdbuf = cmdbuf.get()} };
+		submitInfos[0].commandBuffers = cmdbufs;
+		const IQueue::SSubmitInfo::SSemaphoreInfo signals[] = { {.semaphore = idxBufProgress.get(),.value = FinishedValue,.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS} };
+		submitInfos[0].signalSemaphores = signals;
+
+		params.transfer->submit(submitInfos);
+	}
+
+	const ISemaphore::SWaitInfo waitInfos[] = { {
+				.semaphore = idxBufProgress.get(),
+				.value = FinishedValue
+			} };
+	device->blockForSemaphores(waitInfos);
 
 	return indicesBuffer;
 }
