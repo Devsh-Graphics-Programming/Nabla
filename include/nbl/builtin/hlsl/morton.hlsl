@@ -137,8 +137,7 @@ struct Transcoder
         return leftShift(interleaved, truncate<vector<uint16_t, Dim> >(vector<uint16_t, 4>(0, 1, 2, 3)));
     }
 
-    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >
-    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && 8 * sizeof(typename vector_traits<decode_t>::scalar_type) >= Bits)
+    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> > >
     /**
     * @brief Encodes a vector of cartesian coordinates as a Morton code
     *
@@ -216,7 +215,7 @@ struct Equal<Signed, Bits, D, storage_t, true>
     NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
     {
         const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, );
-        const portable_vector_t<storage_t, D> zeros = _static_cast<portable_vector_t<storage_t, D> >(truncate<vector<uint64_t, D> >(vector<uint64_t, 4>(0,0,0,0)));
+        const portable_vector_t<storage_t, D> zeros = promote<portable_vector_t<storage_t, D>>(_static_cast<storage_t>(0));
         
         const portable_vector_t<storage_t, D> rhsCasted = _static_cast<portable_vector_t<storage_t, D> >(rhs);
         const portable_vector_t<storage_t, D> xored = rhsCasted ^ (InterleaveMasks & value);
