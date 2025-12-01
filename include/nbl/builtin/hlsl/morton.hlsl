@@ -326,7 +326,7 @@ struct code
     * @param [in] cartesian Coordinates to encode. Signedness MUST match the signedness of this Morton code class
     */
     template<typename I>
-    NBL_CONSTEXPR_STATIC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed) && (8 * sizeof(I) >= Bits), this_t>
+    NBL_CONSTEXPR_STATIC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed), this_t>
     create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         this_t retVal;
