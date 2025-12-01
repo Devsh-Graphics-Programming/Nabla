@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/math/quaternions.hlsl>
 
 namespace nbl
 {
@@ -125,28 +126,28 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixRH(
 
 //! Replaces curent rocation and scale by rotation represented by quaternion `quat`, leaves 4th row and 4th colum unchanged
 template<typename T, uint32_t N>
-inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(core::quaternion) quat)
+inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(math::quaternion<T>) quat)
 {
 	static_assert(N == 3 || N == 4);
 
 	outMat[0] = vector<T, 4>(
-		1 - 2 * (quat.y * quat.y + quat.z * quat.z),
-		2 * (quat.x * quat.y - quat.z * quat.w),
-		2 * (quat.x * quat.z + quat.y * quat.w),
+		1 - 2 * (quat.data.y * quat.data.y + quat.data.z * quat.data.z),
+		2 * (quat.data.x * quat.data.y - quat.data.z * quat.data.w),
+		2 * (quat.data.x * quat.data.z + quat.data.y * quat.data.w),
 		outMat[0][3]
 	);
 
 	outMat[1] = vector<T, 4>(
-		2 * (quat.x * quat.y + quat.z * quat.w),
-		1 - 2 * (quat.x * quat.x + quat.z * quat.z),
-		2 * (quat.y * quat.z - quat.x * quat.w),
+		2 * (quat.data.x * quat.data.y + quat.data.z * quat.data.w),
+		1 - 2 * (quat.data.x * quat.data.x + quat.data.z * quat.data.z),
+		2 * (quat.data.y * quat.data.z - quat.data.x * quat.data.w),
 		outMat[1][3]
 	);
 
 	outMat[2] = vector<T, 4>(
-		2 * (quat.x * quat.z - quat.y * quat.w),
-		2 * (quat.y * quat.z + quat.x * quat.w),
-		1 - 2 * (quat.x * quat.x + quat.y * quat.y),
+		2 * (quat.data.x * quat.data.z - quat.data.y * quat.data.w),
+		2 * (quat.data.y * quat.data.z + quat.data.x * quat.data.w),
+		1 - 2 * (quat.data.x * quat.data.x + quat.data.y * quat.data.y),
 		outMat[2][3]
 	);
 }

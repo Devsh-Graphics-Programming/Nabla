@@ -14,21 +14,150 @@ namespace hlsl
 namespace math
 {
 
-template <typename T>
-struct quaternion_t
+template<typename T>
+struct truncated_quaternion
 {
-    using this_t = quaternion_t<T>;
+    using this_t = truncated_quaternion<T>;
+    using scalar_type = T;
+    using data_type = vector<T, 3>;
+
+    static this_t create()
+    {
+        this_t q;
+        q.data = data_type(0.0, 0.0, 0.0);
+        return q;
+    }
+
+    data_type data;
+};
+
+template <typename T>
+struct quaternion
+{
+    using this_t = quaternion<T>;
     using scalar_type = T;
     using data_type = vector<T, 4>;
     using vector3_type = vector<T, 3>;
     using matrix_type = matrix<T, 3, 3>;
 
-    static this_t createFromTruncated(const vector3_type first3Components)
+    static this_t create()
+    {
+        this_t q;
+        q.data = data_type(0.0, 0.0, 0.0, 1.0);
+        return q;
+    }
+    
+    static this_t create(scalar_type x, scalar_type y, scalar_type z, scalar_type w)
+    {
+        this_t q;
+        q.data = data_type(x, y, z, w);
+        return q;
+    }
+
+    static this_t create(NBL_CONST_REF_ARG(this_t) other)
+    {
+        return other;
+    }
+
+    static this_t create(scalar_type pitch, scalar_type yaw, scalar_type roll)
+    {
+        const scalar_type rollDiv2 = roll * scalar_type(0.5);
+        const scalar_type sr = hlsl::sin(rollDiv2);
+        const scalar_type cr = hlsl::cos(rollDiv2);
+
+        const scalar_type pitchDiv2 = pitch * scalar_type(0.5);
+        const scalar_type sp = hlsl::sin(pitchDiv2);
+        const scalar_type cp = hlsl::cos(pitchDiv2);
+
+        const scalar_type yawDiv2 = yaw * scalar_type(0.5);
+        const scalar_type sy = hlsl::sin(yawDiv2);
+        const scalar_type cy = hlsl::cos(yawDiv2);
+
+        this_t output;
+        output.data[0] = cr * sp * cy + sr * cp * sy; // x
+        output.data[1] = cr * cp * sy - sr * sp * cy; // y
+        output.data[2] = sr * cp * cy - cr * sp * sy; // z
+        output.data[3] = cr * cp * cy + sr * sp * sy; // w
+
+        return output;
+    }
+
+    static this_t create(NBL_CONST_REF_ARG(matrix_type) m)
+    {
+        using AsUint = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
+        const scalar_type m00 = m[0][0], m11 = m[1][1], m22 = m[2][2];
+        const scalar_type neg_m00 = bit_cast<scalar_type>(bit_cast<AsUint>(m00)^0x80000000u);
+        const scalar_type neg_m11 = bit_cast<scalar_type>(bit_cast<AsUint>(m11)^0x80000000u);
+        const scalar_type neg_m22 = bit_cast<scalar_type>(bit_cast<AsUint>(m22)^0x80000000u);
+        const data_type Qx = data_type(m00, m00, neg_m00, neg_m00);
+        const data_type Qy = data_type(m11, neg_m11, m11, neg_m11);
+        const data_type Qz = data_type(m22, neg_m22, neg_m22, m22);
+
+        const data_type tmp = hlsl::promote<data_type>(1.0) + Qx + Qy + Qz;
+        const data_type invscales = hlsl::promote<data_type>(0.5) / hlsl::sqrt(tmp);
+        const data_type scales = tmp * invscales * hlsl::promote<data_type>(0.5);
+
+        // TODO: speed this up
+        this_t retval;
+        if (tmp.x > scalar_type(0.0))
+        {
+            retval.data.x = (m[2][1] - m[1][2]) * invscales.x;
+            retval.data.y = (m[0][2] - m[2][0]) * invscales.x;
+            retval.data.z = (m[1][0] - m[0][1]) * invscales.x;
+            retval.data.w = scales.x;
+        }
+        else
+        {
+            if (tmp.y > scalar_type(0.0))
+            {
+                retval.data.x = scales.y;
+                retval.data.y = (m[0][1] + m[1][0]) * invscales.y;
+                retval.data.z = (m[2][0] + m[0][2]) * invscales.y;
+                retval.data.w = (m[2][1] - m[1][2]) * invscales.y;
+            }
+            else if (tmp.z > scalar_type(0.0))
+            {
+                retval.data.x = (m[0][1] + m[1][0]) * invscales.z;
+                retval.data.y = scales.z;
+                retval.data.z = (m[0][2] - m[2][0]) * invscales.z;
+                retval.data.w = (m[1][2] + m[2][1]) * invscales.z;
+            }
+            else
+            {
+                retval.data.x = (m[0][2] + m[2][0]) * invscales.w;
+                retval.data.y = (m[1][2] + m[2][1]) * invscales.w;
+                retval.data.z = scales.w;
+                retval.data.w = (m[1][0] - m[0][1]) * invscales.w;
+            }
+        }
+
+        retval.data = hlsl::normalize(retval.data);
+        return retval;
+    }
+
+    static this_t createFromTruncated(NBL_CONST_REF_ARG(truncated_quaternion<T>) first3Components)
     {
         this_t retval;
-        retval.data.xyz = first3Components;
-        retval.data.w = hlsl::sqrt(scalar_type(1.0) - hlsl::dot(first3Components, first3Components));
+        retval.data.xyz = first3Components.data;
+        retval.data.w = hlsl::sqrt(scalar_type(1.0) - hlsl::dot(first3Components.data, first3Components.data));
         return retval;
+    }
+
+    this_t operator*(scalar_type scalar)
+    {
+        this_t output;
+        output.data = data * scalar;
+        return output;
+    }
+
+    this_t operator*(NBL_CONST_REF_ARG(this_t) other)
+    {
+        return this_t::create(
+            data.w * other.data.w - data.x * other.x - data.y * other.data.y - data.z * other.data.z,
+            data.w * other.data.x + data.x * other.w + data.y * other.data.z - data.z * other.data.y,
+            data.w * other.data.y - data.x * other.z + data.y * other.data.w + data.z * other.data.x,
+            data.w * other.data.z + data.x * other.y - data.y * other.data.x + data.z * other.data.w
+        );
     }
 
     static this_t lerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
