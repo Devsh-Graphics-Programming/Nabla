@@ -12,7 +12,7 @@ namespace impl
 {
 
 // partial specialize this for `T=matrix<scalar_t,,>|vector<scalar_t,>` and `U=matrix<scalar_t,,>|vector<scalar_t,>|scalar_t`
-template<typename T, typename U>
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct Promote
 {
     NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(U) v)
