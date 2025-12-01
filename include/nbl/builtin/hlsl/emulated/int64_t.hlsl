@@ -53,11 +53,8 @@ struct emulated_int64_t
     constexpr explicit emulated_int64_t(const emulated_uint64_t& other);
     #endif
 
-    NBL_CONSTEXPR_FUNC this_t operator-() NBL_CONST_MEMBER_FUNC
-    {
-        storage_t inverted = ~data;
-        return create(_static_cast<storage_t>(inverted)) + _static_cast<this_t>(1);
-    }
+    NBL_CONSTEXPR_FUNC emulated_int64_t operator-() NBL_CONST_MEMBER_FUNC;
+
 };
 
 // ------------------------------------------------ TYPE TRAITS SATISFIED -----------------------------------------------------
@@ -196,24 +193,25 @@ constexpr emulated_uint64_t::operator I() const noexcept
 template<typename T> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<T>)
 struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
 {
+    using type_t = T;
     NBL_CONSTEXPR_STATIC uint32_t ComponentBitWidth = uint32_t(8 * sizeof(uint32_t));
 
     // Can't do generic templated definition, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
     
     // If `_bits > 63` or `_bits < 0` the result is undefined
-    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, uint32_t bits)
+    NBL_CONSTEXPR_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint32_t bits)
     {
         const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites LSB
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
-        const T shifted = T::create(bigShift ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
+        const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
                                                        : vector<uint32_t, 2>(operand.__getLSB() << bits, (operand.__getMSB() << bits) | (operand.__getLSB() >> shift)));
-        ternary_operator<T> ternary;
+        ternary_operator<type_t> ternary;
         return ternary(bool(bits), shifted, operand);
     }
 
     // If `_bits > 63` or `_bits < 0` the result is undefined
-    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, T bits)
+    NBL_CONSTEXPR_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t bits)
     {
         return operator()(operand, _static_cast<uint32_t>(bits));
     }
@@ -381,6 +379,26 @@ NBL_CONSTEXPR_INLINE_VAR emulated_uint64_t minus_assign<emulated_uint64_t>::iden
 template<>
 NBL_CONSTEXPR_INLINE_VAR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
 
+// --------------------------------- Unary operators ------------------------------------------
+// Specializations of the structs found in functional.hlsl
+template<>
+struct unary_minus_operator<emulated_int64_t>
+{
+    using type_t = emulated_int64_t;
+
+    NBL_CONSTEXPR_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand)
+    {
+        using storage_t = type_t::storage_t;
+        storage_t inverted = ~operand.data;
+        return type_t::create(_static_cast<storage_t>(inverted)) + _static_cast<type_t>(1);
+    }
+};
+
+NBL_CONSTEXPR_INLINE_FUNC emulated_int64_t emulated_int64_t::operator-() NBL_CONST_MEMBER_FUNC
+{
+    unary_minus_operator<emulated_int64_t> unaryMinus;
+    return unaryMinus(NBL_DEREF_THIS);
+}
 
 } //namespace nbl
 } //namespace hlsl

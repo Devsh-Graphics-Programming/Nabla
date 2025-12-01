@@ -8,6 +8,7 @@
 #include <type_traits>
 
 #define ARROW ->
+#define NBL_DEREF_THIS (*this)
 #define NBL_CONSTEXPR constexpr // TODO: rename to NBL_CONSTEXPR_VAR
 #define NBL_CONSTEXPR_FUNC constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
@@ -44,6 +45,7 @@ namespace nbl::hlsl
 #else
 
 #define ARROW .arrow().
+#define NBL_DEREF_THIS this
 #define NBL_CONSTEXPR const static // TODO: rename to NBL_CONSTEXPR_VAR
 #define NBL_CONSTEXPR_FUNC
 #define NBL_CONSTEXPR_STATIC const static

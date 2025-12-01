@@ -487,7 +487,17 @@ struct logical_right_shift_operator
     }
 };
 
+// ----------------------------------------------------------------- UNARY OPERATORS --------------------------------------------------------------------
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct unary_minus_operator
+{
+    using type_t = T;
 
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand)
+    {
+        return -operand;
+    }
+};
 
 } //namespace nbl
 } //namespace hlsl
