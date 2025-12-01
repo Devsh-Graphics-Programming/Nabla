@@ -219,7 +219,7 @@ NBL_COMPARISON_VECTORIAL_SPECIALIZATION(less_equal, <=, lessThanEqual)
 
 // ------------------------------------------------------------- COMPOUND ASSIGNMENT OPERATORS --------------------------------------------------------------------
 
-#define COMPOUND_ASSIGN(NAME) template<typename T> struct NAME##_assign { \
+#define COMPOUND_ASSIGN(NAME) template<typename T NBL_STRUCT_CONSTRAINABLE> struct NAME##_assign { \
     using type_t = T; \
     using base_t = NAME <type_t>; \
     base_t baseOp; \
