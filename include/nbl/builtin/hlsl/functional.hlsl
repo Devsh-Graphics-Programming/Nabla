@@ -91,7 +91,7 @@ struct reference_wrapper : enable_if_t<
 
 #else // CPP
 
-#define ALIAS_STD(NAME,OP) template<typename T NBL_STRUCT_CONSTRAINABLE > struct NAME : std::NAME<T> { \
+#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
     using type_t = T;
 
 #endif
@@ -136,7 +136,7 @@ ALIAS_STD(divides,/)
 
 #ifndef __HLSL_VERSION
 
-template<typename T NBL_STRUCT_CONSTRAINABLE > 
+template<typename T> 
 struct bit_not : std::bit_not<T>
 {
     using type_t = T;
@@ -184,11 +184,11 @@ ALIAS_STD(less_equal, <=) };
 // GLM doesn't have operators on vectors
 #ifndef __HLSL_VERSION
 
-#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP, GLM_OP) template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)\
-struct NAME <T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
+#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP, GLM_OP) template<typename T> requires (concepts::Vectorial<T>)\
+struct NAME <T>\
 {\
     using type_t = T;\
-    vector<bool, vector_traits<T>::Dimension> operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)\
+    vector<bool, vector_traits<T>::Dimension> operator()(const T& lhs, const T& rhs)\
     {\
         return glm::GLM_OP (lhs, rhs);\
     }\
