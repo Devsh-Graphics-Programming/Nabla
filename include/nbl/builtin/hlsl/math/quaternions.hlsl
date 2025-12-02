@@ -59,6 +59,18 @@ struct quaternion
         return other;
     }
 
+    // angle: Rotation angle expressed in radians.
+    // axis: Rotation axis, must be normalized.
+    static this_t create(scalar_type angle, const vector3_type axis)
+    {
+        this_t q;
+        const scalar_type sinTheta = hlsl::sin(angle * 0.5);
+        const scalar_type cosTheta = hlsl::cos(angle * 0.5);
+        q.data = data_type(axis.x * sinTheta, axis.y * sinTheta, axis.z * sinTheta, cosTheta);
+        return q;
+    }
+
+
     static this_t create(scalar_type pitch, scalar_type yaw, scalar_type roll)
     {
         const scalar_type rollDiv2 = roll * scalar_type(0.5);
@@ -227,6 +239,19 @@ struct quaternion
 };
 
 }
+
+namespace impl
+{
+template<typename T>
+struct static_cast_helper<matrix<T,3,3>, math::quaternion<T> >
+{
+    static inline matrix<T,3,3> cast(math::quaternion<T> q)
+    {
+        return q.constructMatrix();
+    }
+};
+}
+
 }
 }
 
