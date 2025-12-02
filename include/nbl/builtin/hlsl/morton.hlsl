@@ -342,7 +342,7 @@ struct code
     *
     * @param [in] cartesian Coordinates to encode
     */
-    template<typename I NBL_FUNC_REQUIRES(8 * sizeof(I) >= Bits)
+    template<typename I>
     inline explicit code(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         *this = create(cartesian);
@@ -351,7 +351,7 @@ struct code
     /**
     * @brief Decodes this Morton code back to a set of cartesian coordinates
     */
-    template<typename I NBL_FUNC_REQUIRES(8 * sizeof(I) >= Bits && is_signed_v<I> == Signed)
+    template<typename I NBL_FUNC_REQUIRES(is_signed_v<I> == Signed)
     constexpr explicit operator vector<I, D>() const noexcept;
 
     #endif
@@ -521,8 +521,8 @@ namespace impl
 {
 
 // I must be of same signedness as the morton code, and be wide enough to hold each component
-template<typename I, uint16_t Bits, uint16_t D, typename _uint64_t> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I> && 8 * sizeof(I) >= Bits)
-struct static_cast_helper<vector<I, D>, morton::code<is_signed_v<I>, Bits, D, _uint64_t> NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I> && 8 * sizeof(I) >= Bits) >
+template<typename I, uint16_t Bits, uint16_t D, typename _uint64_t> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I>)
+struct static_cast_helper<vector<I, D>, morton::code<is_signed_v<I>, Bits, D, _uint64_t> NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I>) >
 {
     NBL_CONSTEXPR_STATIC vector<I, D> cast(NBL_CONST_REF_ARG(morton::code<is_signed_v<I>, Bits, D, _uint64_t>) val)
     {
@@ -606,7 +606,7 @@ constexpr morton::code<Signed, Bits, D, _uint64_t> morton::code<Signed, Bits, D,
 }
 
 template <bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_PRIMARY_REQUIRES(morton::impl::Dimension<D>&& D* Bits <= 64)
-template <typename I NBL_FUNC_REQUIRES(8 * sizeof(I) >= Bits && is_signed_v<I> == Signed)
+template <typename I NBL_FUNC_REQUIRES(is_signed_v<I> == Signed)
 constexpr morton::code<Signed, Bits, D, _uint64_t>::operator vector<I, D>() const noexcept
 {
     return _static_cast<vector<I, D>, morton::code<Signed, Bits, D>>(*this);
