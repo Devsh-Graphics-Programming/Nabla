@@ -40,6 +40,8 @@ struct quaternion
     using vector3_type = vector<T, 3>;
     using matrix_type = matrix<T, 3, 3>;
 
+    using AsUint = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
+
     static this_t create()
     {
         this_t q;
@@ -66,7 +68,7 @@ struct quaternion
         this_t q;
         const scalar_type sinTheta = hlsl::sin(angle * 0.5);
         const scalar_type cosTheta = hlsl::cos(angle * 0.5);
-        q.data = data_type(axis.x * sinTheta, axis.y * sinTheta, axis.z * sinTheta, cosTheta);
+        q.data = data_type(axis * sinTheta, cosTheta);
         return q;
     }
 
@@ -96,7 +98,6 @@ struct quaternion
 
     static this_t create(NBL_CONST_REF_ARG(matrix_type) m)
     {
-        using AsUint = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
         const scalar_type m00 = m[0][0], m11 = m[1][1], m22 = m[2][2];
         const scalar_type neg_m00 = bit_cast<scalar_type>(bit_cast<AsUint>(m00)^0x80000000u);
         const scalar_type neg_m11 = bit_cast<scalar_type>(bit_cast<AsUint>(m11)^0x80000000u);
@@ -147,7 +148,7 @@ struct quaternion
         return retval;
     }
 
-    static this_t createFromTruncated(NBL_CONST_REF_ARG(truncated_quaternion<T>) first3Components)
+    static this_t create(NBL_CONST_REF_ARG(truncated_quaternion<T>) first3Components)
     {
         this_t retval;
         retval.data.xyz = first3Components.data;
@@ -174,7 +175,6 @@ struct quaternion
 
     static this_t lerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
     {
-        using AsUint = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
         const AsUint negationMask = hlsl::bit_cast<AsUint>(totalPseudoAngle) & AsUint(0x80000000u);
         const data_type adjEnd = hlsl::bit_cast<scalar_type>(hlsl::bit_cast<AsUint>(end.data) ^ negationMask);
 
@@ -208,6 +208,13 @@ struct quaternion
         return retval;
     }
 
+    vector3_type transformVector(const vector3_type v)
+    {
+        scalar_type scale = hlsl::length(data);
+        vector3_type direction = data.xyz;
+        return v * scale + hlsl::cross(direction, v * data.w + hlsl::cross(direction, v)) * scalar_type(2.0);
+    }
+
     matrix_type constructMatrix()
     {
         matrix_type mat;
@@ -235,6 +242,23 @@ struct quaternion
         return precompPart * cosAngle + hlsl::cross(planeNormal, precompPart);
     }
 
+    this_t inverse()
+    {
+        this_t retval;
+        retval.data.x = bit_cast<scalar_type>(bit_cast<AsUint>(data.x)^0x80000000u);
+        retval.data.y = bit_cast<scalar_type>(bit_cast<AsUint>(data.y)^0x80000000u);
+        retval.data.z = bit_cast<scalar_type>(bit_cast<AsUint>(data.z)^0x80000000u);
+        retval.data.w = data.w;
+        return retval;
+    }
+
+    static this_t normalize(NBL_CONST_REF_ARG(this_t) q)
+    {
+        this_t retval;
+        retval.data = hlsl::normalize(q.data);
+        return retval;
+    }
+
     data_type data;
 };
 
@@ -242,6 +266,29 @@ struct quaternion
 
 namespace impl
 {
+
+template<typename T>
+struct static_cast_helper<math::quaternion<T>, math::truncated_quaternion<T> >
+{
+    static inline math::quaternion<T> cast(math::truncated_quaternion<T> q)
+    {
+        return math::quaternion<T>::create(q);
+    }
+};
+
+template<typename T>
+struct static_cast_helper<math::truncated_quaternion<T>, math::quaternion<T> >
+{
+    static inline math::truncated_quaternion<T> cast(math::quaternion<T> q)
+    {
+        math::truncated_quaternion<T> t;
+        t.data.x = t.data.x;
+        t.data.y = t.data.y;
+        t.data.z = t.data.z;
+        return t;
+    }
+};
+
 template<typename T>
 struct static_cast_helper<matrix<T,3,3>, math::quaternion<T> >
 {
