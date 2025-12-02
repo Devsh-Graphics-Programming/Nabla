@@ -51,7 +51,7 @@ struct SphericalTriangle
         {
             const scalar_type cosAngleAlongAC = ((v_ * q - u_ * p) * cos_vertices[0] - v_) / ((v_ * p + u_ * q) * sin_vertices[0]);
             if (nbl::hlsl::abs(cosAngleAlongAC) < 1.f)
-                C_s += math::quaternion_t<scalar_type>::slerp_delta(tri.vertex0, tri.vertex2 * csc_b, cosAngleAlongAC);
+                C_s += math::quaternion<scalar_type>::slerp_delta(tri.vertex0, tri.vertex2 * csc_b, cosAngleAlongAC);
         }
 
         vector3_type retval = tri.vertex1;
@@ -61,7 +61,7 @@ struct SphericalTriangle
         {
             const scalar_type cosAngleAlongBC_s = nbl::hlsl::clamp(1.0 + cosBC_s * u.y - u.y, -1.f, 1.f);
             if (nbl::hlsl::abs(cosAngleAlongBC_s) < 1.f)
-                retval += math::quaternion_t<scalar_type>::slerp_delta(tri.vertex1, C_s * csc_b_s, cosAngleAlongBC_s);
+                retval += math::quaternion<scalar_type>::slerp_delta(tri.vertex1, C_s * csc_b_s, cosAngleAlongBC_s);
         }
         return retval;
     }

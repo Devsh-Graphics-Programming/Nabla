@@ -15,9 +15,9 @@ namespace math
 {
 
 template <typename T>
-struct quaternion_t
+struct quaternion
 {
-    using this_t = quaternion_t<T>;
+    using this_t = quaternion<T>;
     using scalar_type = T;
     using data_type = vector<T, 4>;
     using vector3_type = vector<T, 3>;
