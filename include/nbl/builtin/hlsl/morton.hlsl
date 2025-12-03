@@ -108,18 +108,21 @@ NBL_HLSL_MORTON_SPECIALIZE_LAST_CODING_MASKS
 template<uint16_t Dim, uint16_t Bits, typename encode_t NBL_PRIMARY_REQUIRES(Dimension<Dim> && Dim * Bits <= 64 && 8 * sizeof(encode_t) == mpl::max_v<uint64_t, mpl::round_up_to_pot_v<Dim * Bits>, uint64_t(16)>)
 struct Transcoder
 {
-    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >
-    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && 8 * sizeof(typename vector_traits<decode_t>::scalar_type) >= Bits)
+    using decode_t = conditional_t < (Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >;
+
+    template<typename T 
+    NBL_FUNC_REQUIRES(concepts::same_as<T, decode_t> )
     /**
     * @brief Interleaves each coordinate with `Dim - 1` zeros inbetween each bit, and left-shifts each by their coordinate index
     *
     * @param [in] decodedValue Cartesian coordinates to interleave and shift
     */
-    NBL_CONSTEXPR_STATIC portable_vector_t<encode_t, Dim> interleaveShift(NBL_CONST_REF_ARG(decode_t) decodedValue)
+    NBL_CONSTEXPR_STATIC portable_vector_t<encode_t, Dim> interleaveShift(NBL_CONST_REF_ARG(T) decodedValue)
     {
         left_shift_operator<portable_vector_t<encode_t, Dim> > leftShift;
         portable_vector_t<encode_t, Dim> interleaved = _static_cast<portable_vector_t<encode_t, Dim> >(decodedValue) & coding_mask_v<Dim, Bits, CodingStages, encode_t>;
 
+        // Read this to understand how interleaving and spreading bits works https://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/
         #define ENCODE_LOOP_ITERATION(I) NBL_IF_CONSTEXPR(Bits > (uint16_t(1) << I))\
         {\
             interleaved = interleaved | leftShift(interleaved, (uint16_t(1) << I) * (Dim - 1));\
@@ -137,15 +140,15 @@ struct Transcoder
         return leftShift(interleaved, truncate<vector<uint16_t, Dim> >(vector<uint16_t, 4>(0, 1, 2, 3)));
     }
 
-    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> > >
+    template<typename T>
     /**
     * @brief Encodes a vector of cartesian coordinates as a Morton code
     *
     * @param [in] decodedValue Cartesian coordinates to encode
     */
-    NBL_CONSTEXPR_STATIC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
+    NBL_CONSTEXPR_STATIC encode_t encode(NBL_CONST_REF_ARG(T) decodedValue)
     {
-        const portable_vector_t<encode_t, Dim> interleaveShifted = interleaveShift<decode_t>(decodedValue);
+        const portable_vector_t<encode_t, Dim> interleaveShifted = interleaveShift<T>(decodedValue);
 
         array_get<portable_vector_t<encode_t, Dim>, encode_t> getter;
         encode_t encoded = getter(interleaveShifted, 0);
@@ -157,8 +160,6 @@ struct Transcoder
         return encoded;
     }
 
-    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >
-    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && 8 * sizeof(typename vector_traits<decode_t>::scalar_type) >= Bits)
     /**
     * @brief Decodes a Morton code back to a vector of cartesian coordinates
     *
@@ -231,7 +232,8 @@ struct Equal<Signed, Bits, D, storage_t, false>
     NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
     {
         using right_sign_t = conditional_t<Signed, make_signed_t<storage_t>, make_unsigned_t<storage_t> >;
-        const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(Transcoder<D, Bits, storage_t>::interleaveShift(rhs));
+        using transcoder_t = Transcoder<D, Bits, storage_t>;
+        const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(transcoder_t::interleaveShift(_static_cast<typename transcoder_t::decode_t>(rhs)));
         return Equal<Signed, Bits, D, storage_t, true>::template __call<right_sign_t>(value, interleaved);
     }
 };
@@ -281,7 +283,8 @@ struct BaseComparison<Signed, Bits, D, storage_t, false, ComparisonOp>
     NBL_CONSTEXPR_STATIC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
     {
         using right_sign_t = conditional_t<Signed, make_signed_t<storage_t>, make_unsigned_t<storage_t> >;
-        const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(Transcoder<D, Bits, storage_t>::interleaveShift(rhs));
+        using transcoder_t = Transcoder<D, Bits, storage_t>;
+        const portable_vector_t<right_sign_t, D> interleaved = _static_cast<portable_vector_t<right_sign_t, D> >(transcoder_t::interleaveShift(_static_cast<typename transcoder_t::decode_t>(rhs)));
         return BaseComparison<Signed, Bits, D, storage_t, true, ComparisonOp>::template __call<right_sign_t>(value, interleaved);
     }
 };
@@ -309,6 +312,8 @@ struct code
     using this_signed_t = code<true, Bits, D, _uint64_t>;
     NBL_CONSTEXPR_STATIC uint16_t TotalBitWidth = D * Bits;
     using storage_t = conditional_t<(TotalBitWidth > 16), conditional_t<(TotalBitWidth > 32), _uint64_t, uint32_t>, uint16_t>;
+    
+    using transcoder_t = impl::Transcoder<D, Bits, storage_t>;
 
     storage_t value;
 
@@ -326,11 +331,12 @@ struct code
     * @param [in] cartesian Coordinates to encode. Signedness MUST match the signedness of this Morton code class
     */
     template<typename I>
-    NBL_CONSTEXPR_STATIC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed), this_t>
+    NBL_CONSTEXPR_STATIC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed && sizeof(I) == sizeof(vector_traits<typename transcoder_t::decode_t>::scalar_type)), this_t>
     create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         this_t retVal;
-        retVal.value = impl::Transcoder<D, Bits, storage_t>::encode(cartesian);
+        using decode_t = typename transcoder_t::decode_t;
+        retVal.value = transcoder_t::encode(_static_cast<decode_t>(cartesian));
         return retVal;
     }
 
