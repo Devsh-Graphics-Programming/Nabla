@@ -19,7 +19,6 @@ struct emulated_int64_t;
 
 struct emulated_uint64_t
 {
-    using storage_t = vector<uint32_t, 2>;
     using this_t = emulated_uint64_t;
     NBL_CONSTEXPR_STATIC_INLINE bool Signed = false;
 
@@ -38,7 +37,6 @@ struct emulated_uint64_t
 
 struct emulated_int64_t
 {
-    using storage_t = vector<uint32_t, 2>;
     using this_t = emulated_int64_t;
     NBL_CONSTEXPR_STATIC_INLINE bool Signed = true;
     

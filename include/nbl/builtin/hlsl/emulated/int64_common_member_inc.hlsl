@@ -1,4 +1,4 @@
-
+using storage_t = vector<uint32_t, 2>;
 storage_t data;
 
 /**
