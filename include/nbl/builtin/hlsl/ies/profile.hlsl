@@ -61,40 +61,40 @@ struct ProfileProperties
         NO_LATERAL_SYMMET           //! The luminaire is assumed to exhibit no lateral symmet
     };
 
-    Version getVersion() const
+    Version getVersion() NBL_CONST_MEMBER_FUNC
     {
-        return static_cast<Version>( packed & VERSION_MASK );
+        return (Version)( packed & VERSION_MASK );
     }
 
-    PhotometricType getType() const
+    PhotometricType getType() NBL_CONST_MEMBER_FUNC
     {
         const packed_flags_t shift = VERSION_BITS;
-        return static_cast<PhotometricType>( (packed >> shift) & TYPE_MASK );
+        return (PhotometricType)((packed >> shift) & TYPE_MASK);
     }
 
-    LuminairePlanesSymmetry getSymmetry() const
+    LuminairePlanesSymmetry getSymmetry() NBL_CONST_MEMBER_FUNC
     {
         const packed_flags_t shift = VERSION_BITS + TYPE_BITS;
-        return static_cast<LuminairePlanesSymmetry>( (packed >> shift) & SYMM_MASK );
+        return (LuminairePlanesSymmetry)((packed >> shift) & SYMM_MASK);
     }
 
     void setVersion(Version v)
     {
-        packed_flags_t vBits = static_cast<packed_flags_t>(v) & VERSION_MASK;
+        packed_flags_t vBits = (packed_flags_t)(v) & VERSION_MASK;
         packed = (packed & ~VERSION_MASK) | vBits;
     }
 
     void setType(PhotometricType t)
     {
         const packed_flags_t shift = VERSION_BITS;
-        packed_flags_t tBits = (static_cast<packed_flags_t>(t) & TYPE_MASK) << shift;
+        packed_flags_t tBits = ((packed_flags_t)(t) & TYPE_MASK) << shift;
         packed = (packed & ~(TYPE_MASK << shift)) | tBits;
     }
 
     void setSymmetry(LuminairePlanesSymmetry s)
     {
         const packed_flags_t shift = VERSION_BITS + TYPE_BITS;
-        packed_flags_t sBits = (static_cast<packed_flags_t>(s) & SYMM_MASK) << shift;
+        packed_flags_t sBits = ((packed_flags_t)(s) & SYMM_MASK) << shift;
         packed = (packed & ~(SYMM_MASK << shift)) | sBits;
     }
 
@@ -102,7 +102,7 @@ struct ProfileProperties
 	float32_t totalEmissionIntegral;  //! Total emitted intensity (integral over full angular domain)
 	float32_t fullDomainAvgEmission;  //! Mean intensity over full angular domain (including I == 0)
 	float32_t avgEmmision;            //! Mean intensity over emitting solid angle (I > 0)
-	packed_flags_t packed = 0u;		  //! Packed version, type and symmetry flags
+	packed_flags_t packed;			  //! Packed version, type and symmetry flags
 };
 
 }

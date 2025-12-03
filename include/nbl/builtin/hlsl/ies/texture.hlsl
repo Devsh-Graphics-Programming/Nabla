@@ -6,11 +6,28 @@
 #define _NBL_BUILTIN_HLSL_IES_TEXTURE_INCLUDED_
 
 #include "nbl/builtin/hlsl/ies/sampler.hlsl"
+#include "nbl/builtin/hlsl/bda/struct_declare.hlsl"
 
 namespace nbl
 {
 namespace hlsl
 {
+
+// TODO(?): should be in nbl::hlsl::ies (or in the Texutre struct) but I get
+// error GA3909C62: class template specialization of 'member_count' not in a namespace enclosing 'bda'
+// which I don't want to deal with rn to not (eventually) break stuff
+
+struct IESTextureInfo;
+NBL_HLSL_DEFINE_STRUCT((IESTextureInfo),
+	((inv, float32_t2))
+	((flatten, float32_t))
+	((maxValueRecip, float32_t))
+	((flattenTarget, float32_t))
+	((domainLo, float32_t))
+	((domainHi, float32_t))
+	((fullDomainFlatten, uint16_t)) // bool
+);
+
 namespace ies
 {
 
@@ -22,19 +39,9 @@ struct Texture
 	using sampler_t = CandelaSampler<accessor_t>;
 	using polar_t = math::Polar<float32_t>;
 	using octahedral_t = math::OctahedralTransform<float32_t>;
+	using SInfo = nbl::hlsl::IESTextureInfo;
 
-    struct SInfo
-    {
-        float32_t2 inv;
-        float32_t flatten;
-        float32_t maxValueRecip;
-        float32_t flattenTarget;
-        float32_t domainLo;
-        float32_t domainHi;
-        bool fullDomainFlatten;
-    };
-
-    static SInfo createInfo(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(uint32_t2) size, float32_t flatten, bool fullDomainFlatten)
+    static inline SInfo createInfo(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(uint32_t2) size, float32_t flatten, bool fullDomainFlatten)
     {
         SInfo retval;
 		const ProfileProperties props = accessor.getProperties();
@@ -57,7 +64,7 @@ struct Texture
         return retval;
     }
 
-	static float32_t eval(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(SInfo) info, NBL_CONST_REF_ARG(uint32_t2) position)
+	static inline float32_t eval(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(SInfo) info, NBL_CONST_REF_ARG(uint32_t2) position)
     {
 	    // We don't currently support generating IES images that exploit symmetries or reduced domains, all are full octahederal mappings of a sphere.
 		// If we did, we'd rely on MIRROR and CLAMP samplers to do some of the work for us while handling the discontinuity due to corner sampling. 
