@@ -495,7 +495,17 @@ struct unary_minus_operator
 
     NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand)
     {
-        return -operand;
+        return operand.operator-();
+    }
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(is_fundamental_v<T>)
+struct unary_minus_operator<T NBL_PARTIAL_REQ_BOT(is_fundamental_v<T>) >
+{
+    using type_t = T;
+    NBL_CONSTEXPR_FUNC T operator()(const T operand)
+    {
+      return -operand;
     }
 };
 

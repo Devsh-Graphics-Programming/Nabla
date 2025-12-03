@@ -51,7 +51,11 @@ struct emulated_int64_t
     constexpr explicit emulated_int64_t(const emulated_uint64_t& other);
     #endif
 
-    NBL_CONSTEXPR_FUNC emulated_int64_t operator-() NBL_CONST_MEMBER_FUNC;
+    NBL_CONSTEXPR_FUNC emulated_int64_t operator-() NBL_CONST_MEMBER_FUNC
+    {
+        storage_t inverted = ~data;
+        return create(_static_cast<storage_t>(inverted)) + _static_cast<this_t>(1);
+    }
 
 };
 
@@ -376,27 +380,6 @@ template<>
 NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
 template<>
 NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
-
-// --------------------------------- Unary operators ------------------------------------------
-// Specializations of the structs found in functional.hlsl
-template<>
-struct unary_minus_operator<emulated_int64_t>
-{
-    using type_t = emulated_int64_t;
-
-    NBL_CONSTEXPR_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand)
-    {
-        using storage_t = type_t::storage_t;
-        storage_t inverted = ~operand.data;
-        return type_t::create(_static_cast<storage_t>(inverted)) + _static_cast<type_t>(1);
-    }
-};
-
-NBL_CONSTEXPR_INLINE_FUNC emulated_int64_t emulated_int64_t::operator-() NBL_CONST_MEMBER_FUNC
-{
-    unary_minus_operator<emulated_int64_t> unaryMinus;
-    return unaryMinus(NBL_DEREF_THIS);
-}
 
 } //namespace nbl
 } //namespace hlsl
