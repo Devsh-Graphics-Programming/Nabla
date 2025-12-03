@@ -28,7 +28,7 @@ NBL_BOOL_CONCEPT Dimension = 1 < D && D < 5;
 template<typename T, uint16_t Bits NBL_FUNC_REQUIRES(concepts::Integral<T> && concepts::Scalar<T>) 
 NBL_CONSTEXPR_FUNC bool verifyAnyBitIntegral(T val)
 {
-  NBL_CONSTEXPR_FUNC_SCOPE_VAR T mask = (~((T(1) << Bits) - 1));
+  NBL_CONSTEXPR_FUNC_SCOPE_VAR T mask = ~((T(1) << Bits) - 1);
   const bool allZero = ((val & mask) == 0);
   NBL_IF_CONSTEXPR(is_signed_v<T>)
   {
