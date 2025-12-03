@@ -68,7 +68,7 @@ namespace concepts
 {
 
 template <typename T>
-NBL_BOOL_CONCEPT ImitationIntegral64Scalar = same_as<T, emulated_uint64_t> || same_as<T, emulated_int64_t>;
+NBL_BOOL_CONCEPT EmulatedIntegralScalar64 = same_as<T, emulated_uint64_t> || same_as<T, emulated_int64_t>;
   
 namespace impl
 {
@@ -93,8 +93,8 @@ struct is_emulating_integral_scalar<emulated_int64_t>
 namespace impl
 {
 
-template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<To> && concepts::ImitationIntegral64Scalar<From> && !concepts::same_as<To, From>)
-struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<To> && concepts::ImitationIntegral64Scalar<From> && !concepts::same_as<To, From>) >
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::EmulatedIntegralScalar64<To> && concepts::EmulatedIntegralScalar64<From> && !concepts::same_as<To, From>)
+struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScalar64<To> && concepts::EmulatedIntegralScalar64<From> && !concepts::same_as<To, From>) >
 {
 
     NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) other)
@@ -105,8 +105,8 @@ struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegr
     }
 };
 
-template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<To> && (sizeof(To) <= sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<From>)
-struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<To> && (sizeof(To) <= sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<From>) >
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<To> && (sizeof(To) <= sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<From>)
+struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<To> && (sizeof(To) <= sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<From>) >
 {
     // Return only the lowest bits
     NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) val)
@@ -115,8 +115,8 @@ struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<
     }
 };
 
-template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<To> && (sizeof(To) > sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<From>)
-struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<To> && (sizeof(To) > sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<From>) >
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<To> && (sizeof(To) > sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<From>)
+struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<To> && (sizeof(To) > sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<From>) >
 {
     NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) val)
     {
@@ -124,8 +124,8 @@ struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<
     }
 };
 
-template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<From> && (sizeof(From) <= sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<To>)
-struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<From> && (sizeof(From) <= sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<To>) >
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<From> && (sizeof(From) <= sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<To>)
+struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<From> && (sizeof(From) <= sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<To>) >
 {
     // Set only lower bits
     NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) i)
@@ -134,8 +134,8 @@ struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<
     }
 };
 
-template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<From> && (sizeof(From) > sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<To>)
-struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<From> && (sizeof(From) > sizeof(uint32_t)) && concepts::ImitationIntegral64Scalar<To>) >
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<From> && (sizeof(From) > sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<To>)
+struct static_cast_helper<To, From NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<From> && (sizeof(From) > sizeof(uint32_t)) && concepts::EmulatedIntegralScalar64<To>) >
 {
     NBL_CONSTEXPR_STATIC To cast(NBL_CONST_REF_ARG(From) i)
     {
@@ -188,8 +188,8 @@ constexpr emulated_uint64_t::operator I() const noexcept
 
 // ---------------------- Functional operators ------------------------
 
-template<typename T> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<T>)
-struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::EmulatedIntegralScalar64<T>)
+struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScalar64<T>) >
 {
     using type_t = T;
     NBL_CONSTEXPR_STATIC uint32_t ComponentBitWidth = uint32_t(8 * sizeof(uint32_t));
@@ -302,8 +302,8 @@ constexpr inline emulated_int64_t emulated_int64_t::operator>>(uint32_t bits) co
 // Specializations of the structs found in functional.hlsl
 // These all have to be specialized because of the identity that can't be initialized inside the struct definition
 
-template<typename T> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<T>)
-struct plus<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::EmulatedIntegralScalar64<T>)
+struct plus<T NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScalar64<T>) >
 {
     using type_t = T;
 
@@ -315,8 +315,8 @@ struct plus<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
     const static type_t identity;
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<T>)
-struct minus<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::EmulatedIntegralScalar64<T>)
+struct minus<T NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScalar64<T>) >
 {
     using type_t = T;
 
@@ -340,8 +340,8 @@ NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR emulated_int64_t minus<emulated_int64_t>::id
 // --------------------------------- Compound assignment operators ------------------------------------------
 // Specializations of the structs found in functional.hlsl
 
-template<typename T> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<T>)
-struct plus_assign<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::EmulatedIntegralScalar64<T>)
+struct plus_assign<T NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScalar64<T>) >
 {
     using type_t = T;
     using base_t = plus<type_t>;
@@ -354,8 +354,8 @@ struct plus_assign<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>)
     const static type_t identity;
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(concepts::ImitationIntegral64Scalar<T>)
-struct minus_assign<T NBL_PARTIAL_REQ_BOT(concepts::ImitationIntegral64Scalar<T>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::EmulatedIntegralScalar64<T>)
+struct minus_assign<T NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScalar64<T>) >
 {
     using type_t = T;
     using base_t = minus<type_t>;
