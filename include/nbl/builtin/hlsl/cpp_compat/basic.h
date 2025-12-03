@@ -21,6 +21,7 @@
 #define NBL_CONSTEXPR_OOL_MEMBER constexpr
 #define NBL_CONSTEXPR_INLINE_OOL_MEMBER constexpr inline
 #define NBL_IF_CONSTEXPR(...) if constexpr (__VA_ARGS__)
+#define NBL_ASSERT(...) assert(__VA_ARGS__)
 
 namespace nbl::hlsl
 {
@@ -57,6 +58,7 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR_OOL_MEMBER const
 #define NBL_CONSTEXPR_INLINE_OOL_MEMBER const
 #define NBL_IF_CONSTEXPR(...) if (__VA_ARGS__)
+#define NBL_ASSERT(...)
 
 namespace nbl
 {

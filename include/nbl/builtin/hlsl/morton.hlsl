@@ -25,7 +25,31 @@ namespace impl
 template <uint16_t D>
 NBL_BOOL_CONCEPT Dimension = 1 < D && D < 5;
 
-// --------------------------------------------------------- MORTON ENCODE/DECODE MASKS ---------------------------------------------------
+template<typename T, uint16_t Bits NBL_FUNC_REQUIRES(concepts::Integral<T> && concepts::Scalar<T>) 
+NBL_CONSTEXPR_FUNC bool verifyAnyBitIntegral(T val)
+{
+  NBL_CONSTEXPR_FUNC_SCOPE_VAR T mask = (~((T(1) << Bits) - 1));
+  const bool allZero = ((val & mask) == 0);
+  NBL_IF_CONSTEXPR(is_signed_v<T>)
+  {
+    const bool allOne = ((val & mask) == mask);
+    return allZero || allOne;
+  }
+  return allZero;
+}
+
+template<typename T, uint16_t Dim, uint16_t Bits NBL_FUNC_REQUIRES(concepts::Integral<T> && concepts::Scalar<T>)
+NBL_CONSTEXPR_FUNC bool verifyAnyBitIntegralVec(vector<T, Dim> vec)
+{
+  array_get<vector<T, Dim>, T> getter;
+  [[unroll]]
+  for (uint16_t i = 0; i < Dim; i++)
+    if (!verifyAnyBitIntegral<T, Bits>(getter(vec, i))) return false;
+  return true;
+}
+
+
+// --------------------------------------------------------- MORTON ENCOE/DECODE MASKS ---------------------------------------------------
 
 NBL_CONSTEXPR uint16_t CodingStages = 5;
 
@@ -108,7 +132,8 @@ NBL_HLSL_MORTON_SPECIALIZE_LAST_CODING_MASKS
 template<uint16_t Dim, uint16_t Bits, typename encode_t NBL_PRIMARY_REQUIRES(Dimension<Dim> && Dim * Bits <= 64 && 8 * sizeof(encode_t) == mpl::max_v<uint64_t, mpl::round_up_to_pot_v<Dim * Bits>, uint64_t(16)>)
 struct Transcoder
 {
-    using decode_t = conditional_t < (Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >;
+    using decode_component_t = conditional_t<(Bits > 16), uint32_t, uint16_t>;
+    using decode_t = vector<decode_component_t, Dim>;
 
     template<typename T 
     NBL_FUNC_REQUIRES(concepts::same_as<T, decode_t> )
@@ -314,6 +339,9 @@ struct code
     using storage_t = conditional_t<(TotalBitWidth > 16), conditional_t<(TotalBitWidth > 32), _uint64_t, uint32_t>, uint16_t>;
     
     using transcoder_t = impl::Transcoder<D, Bits, storage_t>;
+    using decode_component_t = conditional_t<Signed,
+      make_signed_t<typename transcoder_t::decode_component_t>,
+      typename transcoder_t::decode_component_t>;
 
     storage_t value;
 
@@ -331,10 +359,11 @@ struct code
     * @param [in] cartesian Coordinates to encode. Signedness MUST match the signedness of this Morton code class
     */
     template<typename I>
-    NBL_CONSTEXPR_STATIC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed && sizeof(I) == sizeof(vector_traits<typename transcoder_t::decode_t>::scalar_type)), this_t>
+    NBL_CONSTEXPR_STATIC enable_if_t <concepts::same_as<I, decode_component_t>, this_t>
     create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         this_t retVal;
+        NBL_ASSERT((impl::verifyAnyBitIntegralVec<I, D, Bits >(cartesian) == true));
         using decode_t = typename transcoder_t::decode_t;
         retVal.value = transcoder_t::encode(_static_cast<decode_t>(cartesian));
         return retVal;
