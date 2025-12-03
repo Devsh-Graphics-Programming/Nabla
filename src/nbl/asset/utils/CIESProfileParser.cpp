@@ -101,8 +101,8 @@ bool CIESProfileParser::parse(CIESProfile& result)
 
     {
         CIESProfile::properties_t init;
-		init.type = type;
-		init.version = iesVersion;
+		init.setType(type);
+		init.setVersion(iesVersion);
 		init.maxCandelaValue = 0.f;
 		init.totalEmissionIntegral = 0.f;
 		init.avgEmmision = 0.f;
@@ -142,24 +142,24 @@ bool CIESProfileParser::parse(CIESProfile& result)
         const auto lastHAngle = hAngles.back();
 
         if (lastHAngle == 0.f)
-            result.accessor.properties.symmetry = CIESProfile::properties_t::ISOTROPIC;
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::ISOTROPIC);
         else if (lastHAngle == 90.f)
         {
-            result.accessor.properties.symmetry = CIESProfile::properties_t::QUAD_SYMETRIC;
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::QUAD_SYMETRIC);
             fluxMultiplier = 4.f;
         }
         else if (lastHAngle == 180.f)
         {
-            result.accessor.properties.symmetry = CIESProfile::properties_t::HALF_SYMETRIC;
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::HALF_SYMETRIC);
             fluxMultiplier = 2.0;
         }
         else if (lastHAngle == 360.f)
-            result.accessor.properties.symmetry = CIESProfile::properties_t::NO_LATERAL_SYMMET;
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::NO_LATERAL_SYMMET);
         else
         {
-            if (firstHAngle == 90.f && lastHAngle == 270.f && result.accessor.properties.version == CIESProfile::properties_t::V_1995)
+            if (firstHAngle == 90.f && lastHAngle == 270.f && iesVersion == CIESProfile::properties_t::V_1995)
             {
-                result.accessor.properties.symmetry = CIESProfile::properties_t::OTHER_HALF_SYMMETRIC;
+                result.accessor.properties.setSymmetry(CIESProfile::properties_t::OTHER_HALF_SYMMETRIC);
                 fluxMultiplier = 2.f;
 
                 for (auto& angle : hAngles)
@@ -169,6 +169,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
                 return false;
         }
     }
+	const auto symmetry = result.accessor.properties.getSymmetry();
 
     {
         const double factor = ballastFactor * candelaMultiplier;
@@ -181,7 +182,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
     constexpr auto FULL_SOLID_ANGLE = 4.0f * core::PI<float>();
 
     // TODO: this code could have two separate inner for loops for `result.symmetry != CIESProfile::ISOTROPIC` cases 
-    const auto H_ANGLES_I_RANGE = result.accessor.properties.symmetry != CIESProfile::properties_t::ISOTROPIC ? result.accessor.hAngles.size() - 1 : 1;
+    const auto H_ANGLES_I_RANGE = symmetry != CIESProfile::properties_t::ISOTROPIC ? result.accessor.hAngles.size() - 1 : 1;
     const auto V_ANGLES_I_RANGE = result.accessor.vAngles.size() - 1;
 
     float smallestRangeSolidAngle = FULL_SOLID_ANGLE;
@@ -196,7 +197,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
         float nonZeroStripDomain = 0.f;
         for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
         {
-            const float dPhiRad = result.accessor.properties.symmetry != CIESProfile::properties_t::ISOTROPIC ? core::radians<float>(hAngles[i + 1] - hAngles[i]) : (core::PI<float>() * 2.0f);
+            const float dPhiRad = symmetry != CIESProfile::properties_t::ISOTROPIC ? core::radians<float>(hAngles[i + 1] - hAngles[i]) : (core::PI<float>() * 2.0f);
             // TODO: in reality one should transform the 4 vertices (or 3) into octahedral map, work out the dUV/dPhi and dUV/dTheta vectors as-if for Anisotropic Filtering
             // then choose the minor axis length, and use that as a pixel size (since looking for smallest thing, dont have to worry about handling discont)
             const float solidAngle = dsinTheta * dPhiRad;
@@ -206,7 +207,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
             const auto candelaValue = result.accessor.value(hlsl::uint32_t2(i, j));
 
             // interpolate candela value spanned onto a solid angle
-            const auto candelaAverage = result.accessor.properties.symmetry != CIESProfile::properties_t::ISOTROPIC ?
+            const auto candelaAverage = symmetry != CIESProfile::properties_t::ISOTROPIC ?
                   0.25f * (candelaValue + result.accessor.value(hlsl::uint32_t2(i + 1, j)) + result.accessor.value(hlsl::uint32_t2(i, j + 1)) + result.accessor.value(hlsl::uint32_t2(i + 1, j + 1)))
                 : 0.5f * (candelaValue + result.accessor.value(hlsl::uint32_t2(i, j + 1)));
 
@@ -235,6 +236,12 @@ bool CIESProfileParser::parse(CIESProfile& result)
 
     result.accessor.properties.avgEmmision = totalEmissionIntegral / static_cast<decltype(totalEmissionIntegral)>(nonZeroEmissionDomainSize);
     result.accessor.properties.totalEmissionIntegral = totalEmissionIntegral * fluxMultiplier; // we use fluxMultiplier to calculate final total emission for case where we have some symmetry between planes (fluxMultiplier is 1.0f if ISOTROPIC or NO_LATERAL_SYMMET because they already have correct total emission integral calculated), also note it doesn't affect average emission at all
+	{
+        const float cosLo = std::cos(core::radians(result.accessor.vAngles.front()));
+        const float cosHi = std::cos(core::radians<float>(result.accessor.vAngles.back()));
+        const float dsinTheta = cosLo - cosHi;
+        result.accessor.properties.fullDomainAvgEmission = result.accessor.properties.totalEmissionIntegral*(0.5f/core::PI<float>())/dsinTheta;
+	}
 
     return !error;
 }

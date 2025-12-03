@@ -26,14 +26,25 @@ struct ProfileProperties
     NBL_CONSTEXPR_STATIC_INLINE float32_t MAX_VANGLE = 180.f;
     NBL_CONSTEXPR_STATIC_INLINE float32_t MAX_HANGLE = 360.f;
 
-    enum Version : uint16_t
+	// TODO: could change to uint8_t once we get implemented
+    // https://github.com/microsoft/hlsl-specs/pull/538
+	using packed_flags_t = uint16_t;
+
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t VERSION_BITS = 2u;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TYPE_BITS    = 2u;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SYMM_BITS    = 3u;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t VERSION_MASK = (packed_flags_t(1u) << VERSION_BITS) - packed_flags_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TYPE_MASK    = (packed_flags_t(1u) << TYPE_BITS)    - packed_flags_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SYMM_MASK    = (packed_flags_t(1u) << SYMM_BITS)    - packed_flags_t(1u);
+
+    enum Version : packed_flags_t
     {
         V_1995,
         V_2002,
         V_SIZE
     };
 
-    enum PhotometricType : uint16_t
+    enum PhotometricType : packed_flags_t
     {
         TYPE_NONE,
         TYPE_C,
@@ -41,7 +52,7 @@ struct ProfileProperties
         TYPE_A
     };
 
-    enum LuminairePlanesSymmetry : uint16_t
+    enum LuminairePlanesSymmetry : packed_flags_t
     {
         ISOTROPIC,                  //! Only one horizontal angle present and a luminaire is assumed to be laterally axial symmetric
         QUAD_SYMETRIC,              //! The luminaire is assumed to be symmetric in each quadrant
@@ -50,13 +61,48 @@ struct ProfileProperties
         NO_LATERAL_SYMMET           //! The luminaire is assumed to exhibit no lateral symmet
     };
 
-    PhotometricType type;
-    Version version;
-    LuminairePlanesSymmetry symmetry;
+    Version getVersion() const
+    {
+        return static_cast<Version>( packed & VERSION_MASK );
+    }
 
-    float32_t maxCandelaValue;            //! Max scalar value from candela data vector    
-    float32_t totalEmissionIntegral;      //! Total energy emitted
-    float32_t avgEmmision;                //! totalEmissionIntegral / <size of the emission domain where non zero emission values>
+    PhotometricType getType() const
+    {
+        const packed_flags_t shift = VERSION_BITS;
+        return static_cast<PhotometricType>( (packed >> shift) & TYPE_MASK );
+    }
+
+    LuminairePlanesSymmetry getSymmetry() const
+    {
+        const packed_flags_t shift = VERSION_BITS + TYPE_BITS;
+        return static_cast<LuminairePlanesSymmetry>( (packed >> shift) & SYMM_MASK );
+    }
+
+    void setVersion(Version v)
+    {
+        packed_flags_t vBits = static_cast<packed_flags_t>(v) & VERSION_MASK;
+        packed = (packed & ~VERSION_MASK) | vBits;
+    }
+
+    void setType(PhotometricType t)
+    {
+        const packed_flags_t shift = VERSION_BITS;
+        packed_flags_t tBits = (static_cast<packed_flags_t>(t) & TYPE_MASK) << shift;
+        packed = (packed & ~(TYPE_MASK << shift)) | tBits;
+    }
+
+    void setSymmetry(LuminairePlanesSymmetry s)
+    {
+        const packed_flags_t shift = VERSION_BITS + TYPE_BITS;
+        packed_flags_t sBits = (static_cast<packed_flags_t>(s) & SYMM_MASK) << shift;
+        packed = (packed & ~(SYMM_MASK << shift)) | sBits;
+    }
+
+	float32_t maxCandelaValue;        //! Max candela sample value
+	float32_t totalEmissionIntegral;  //! Total emitted intensity (integral over full angular domain)
+	float32_t fullDomainAvgEmission;  //! Mean intensity over full angular domain (including I == 0)
+	float32_t avgEmmision;            //! Mean intensity over emitting solid angle (I > 0)
+	packed_flags_t packed = 0u;		  //! Packed version, type and symmetry flags
 };
 
 }

@@ -7,6 +7,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/math/polar.hlsl"
+#include "nbl/builtin/hlsl/math/octahedral.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/ies/profile.hlsl"
 
@@ -37,7 +38,7 @@ NBL_CONCEPT_END(
 
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.vAnglesCount()), is_same_v, req_key_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.hAnglesCount()), is_same_v, req_key_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.symmetry()), is_same_v, ProfileProperties::LuminairePlanesSymmetry))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.getProperties()), is_same_v, ProfileProperties))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template vAngle<req_key_t>((req_key_t)0)), is_same_v, req_value_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template hAngle<req_key_t>((req_key_t)0)), is_same_v, req_value_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template value<req_key_t2>((req_key_t2)0)), is_same_v, req_value_t))
@@ -58,11 +59,13 @@ struct CandelaSampler
     using accessor_t = Accessor;
     using value_t = typename accessor_t::value_t;
     using symmetry_t = ProfileProperties::LuminairePlanesSymmetry;
+	using polar_t = math::Polar<float32_t>;
+	using octahedral_t = math::OctahedralTransform<float32_t>;
 
     static value_t sample(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(math::Polar<float32_t>) polar)
     {
         // TODO: DXC seems to have a bug and cannot use symmetry_t directly with == operator https://godbolt.devsh.eu/z/P9Kc5x
-        const ProfileProperties::LuminairePlanesSymmetry symmetry = accessor.symmetry();
+        const ProfileProperties::LuminairePlanesSymmetry symmetry = accessor.getProperties().getSymmetry();
         const float32_t vAngle = degrees(polar.theta);
         const float32_t hAngle = degrees(wrapPhi(polar.phi, symmetry));
 
@@ -86,6 +89,13 @@ struct CandelaSampler
 
         return s0 * (1.f - u) + s1 * u;
     }
+
+	static value_t sample(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(float32_t2) uv)
+	{
+		const float32_t3 dir = octahedral_t::uvToDir(uv);
+        const polar_t polar = polar_t::createFromCartesian(dir);
+		return sample(accessor, polar);
+	}
 
     static float32_t wrapPhi(const float32_t phi, const symmetry_t symmetry)
     {

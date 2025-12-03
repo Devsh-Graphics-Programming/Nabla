@@ -2,8 +2,6 @@
 
 #include <atomic>
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
-#include "nbl/builtin/hlsl/math/octahedral.hlsl"
-#include "nbl/builtin/hlsl/math/polar.hlsl"
 
 using namespace nbl;
 using namespace asset;
@@ -70,42 +68,15 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         state.outRange.extent = creationParams.extent;
 
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
+		const auto tInfo = texture_t::createInfo(accessor, hlsl::uint32_t2(width, height), flatten, fullDomainFlatten);
 
-        // Late Optimization TODO: Modify the Max Value for the UNORM texture to be the Max Value after flatten blending 
-        const auto maxValue = accessor.properties.maxCandelaValue;
-        const auto maxValueRecip = 1.f / maxValue;
-
-        // There is one huge issue, the IES files love to give us values for degrees 0, 90, 180 an 360
-        // So standard octahedral mapping won't work, because for above data points you need corner sampled images.
-        const float vertInv = 1.0 / (height-1);
-        const float horiInv = 1.0 / (width-1);
-
-        const double flattenTarget = getAvgEmmision(fullDomainFlatten);
-        const double domainLo = core::radians(accessor.vAngles.front());
-        const double domainHi = core::radians(accessor.vAngles.back());
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
-            // We don't currently support generating IES images that exploit symmetries or reduced domains, all are full octahederal mappings of a sphere.
-            // If we did, we'd rely on MIRROR and CLAMP samplers to do some of the work for us while handling the discontinuity due to corner sampling. 
-            
-            using Octahedral = hlsl::math::OctahedralTransform<hlsl::float32_t>;
-            using Polar = hlsl::math::Polar<hlsl::float32_t>;
-            const auto uv = Octahedral::vector2_type(position.x * vertInv, position.y * horiInv);
-            const auto dir = Octahedral::uvToDir(uv);
-            const auto polar = Polar::createFromCartesian(dir);
-            const auto intensity = sampler_t::sample(accessor, polar);
-
-            //! blend the IES texture with "flatten"
-            float blendV = intensity * (1.f - flatten);
-            if (fullDomainFlatten && domainLo<= polar.theta && polar.theta<=domainHi || intensity >0.0)
-                blendV += flattenTarget * flatten;
-
-            blendV *= maxValueRecip;
+			auto texel = texture_t::eval(accessor, tInfo, hlsl::uint32_t2(position.x, position.y));
 
             asset::IImageFilter::IState::ColorValue color;
-            //asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV); TODO: FIX THIS ENCODE, GIVES ARTIFACTS
             constexpr float UI16_MAX_D = static_cast<float>(std::numeric_limits<std::uint16_t>::max());
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D + 0.5f, 0.f, UI16_MAX_D));
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(texel * UI16_MAX_D + 0.5f, 0.f, UI16_MAX_D)); // TODO: use asset::encodePixels when its fixed (no artifacts)
             *color.asUShort = encodeV;
             color.writeMemory(wInfo, blockArrayOffset);
         };
