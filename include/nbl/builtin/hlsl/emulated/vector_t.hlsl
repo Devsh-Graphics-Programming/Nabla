@@ -627,6 +627,8 @@ NBL_EMULATED_VEC_TRUNCATION(4, 4)
 
 } //namespace impl
 
+template<typename T, uint16_t N, uint32_t I>
+struct extent<emulated_vector_t<T, N>, I> : extent<T[N], I> {}; 
 }
 }
 #endif
