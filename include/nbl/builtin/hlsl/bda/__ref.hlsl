@@ -4,7 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 
+// TODO: this shouldn't be included IMHO
 #include "nbl/builtin/hlsl/functional.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl
 {
@@ -12,31 +14,34 @@ namespace hlsl
 {
 namespace bda
 {
+template<typename T, bool _restrict>
+struct __spv_ptr_t;
 template<typename T>
-using __spv_ptr_t = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer,T>;
-
+struct __spv_ptr_t<T,false>
+{
+    [[vk::ext_decorate(spv::DecorationAliasedPointer)]] spirv::bda_pointer_t<T> value;
+};
 template<typename T>
-struct __ptr;
+struct __spv_ptr_t<T,true>
+{
+    [[vk::ext_decorate(spv::DecorationRestrictPointer)]] spirv::bda_pointer_t<T> value;
+};
 
-// TODO: refactor this in terms of `nbl::hlsl::` when they fix the composite struct inline SPIR-V BDA issue
 template<typename T, uint32_t alignment, bool _restrict>
 struct __base_ref
 {
-// TODO:
-// static_assert(alignment>=alignof(T));
+    __spv_ptr_t<T,_restrict> ptr;
 
-    using spv_ptr_t = uint64_t;
-    spv_ptr_t ptr;
-
-    __spv_ptr_t<T> __get_spv_ptr()
+    void __init(const spirv::bda_pointer_t<T> _ptr)
     {
-        return spirv::bitcast < __spv_ptr_t<T> > (ptr);
+        ptr.value = _ptr;
     }
-
-    // TODO: Would like to use `spv_ptr_t` or OpAccessChain result instead of `uint64_t`
-    void __init(const spv_ptr_t _ptr)
+    
+    spirv::bda_pointer_t<T> __get_spv_ptr()
     {
-        ptr = _ptr;
+        // BUG: https://github.com/microsoft/DirectXShaderCompiler/issues/7184
+        // if I don't launder the pointer through this I get "IsNonPtrAccessChain(ptrInst->opcode())" 
+        return spirv::copyObject<spirv::bda_pointer_t<T> >(ptr.value);
     }
 
     T load()
@@ -50,16 +55,13 @@ struct __base_ref
     }
 };
 
-template<typename T, uint32_t alignment=alignment_of_v<T>, bool _restrict = false>
+// TODO: I wish HLSL had some things like C++ which would allow you to make a "stack only"/non-storable type
+// NOTE: I guess there's the Function/Private storage space variables?
+template<typename T, uint32_t alignment=alignment_of_v<T>, bool _restrict=false>
 struct __ref : __base_ref<T,alignment,_restrict>
 {
-    using base_t = __base_ref < T, alignment, _restrict>;
-    using this_t = __ref < T, alignment, _restrict>;
-
-    __spv_ptr_t<T> get_ptr()
-    {
-        return base_t::__get_spv_ptr();
-    }
+    using base_t = __base_ref< T,alignment,_restrict>;
+    using this_t = __ref<T,alignment,_restrict>;
 };
 }
 }

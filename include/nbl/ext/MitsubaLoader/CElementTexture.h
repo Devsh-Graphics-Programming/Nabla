@@ -59,8 +59,8 @@ class CElementTexture : public IElement
 				return *this;
 			}
 
-			SPropertyElementData value;
-			CElementTexture* texture; // only used if value.type==INVALID
+			SPropertyElementData value = {};
+			CElementTexture* texture = nullptr; // only used if value.type==INVALID
 		};
 		struct SpectrumOrTexture : FloatOrTexture
 		{

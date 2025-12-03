@@ -56,7 +56,7 @@ struct reduce
         [unroll(1)]
         while (lastInvocationInLevel>subgroupMask)
         {
-            scanLoadIndex += lastInvocationInLevel+_static_cast<uint16_t>(1);
+            scanLoadIndex += lastInvocationInLevel-_static_cast<uint16_t>(1);
             // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
             if (participate && (SubgroupContiguousIndex()==lastInvocationInLevel || isLastSubgroupInvocation))
                 scratchAccessor.set(scanLoadIndex-loadStoreIndexDiff,scan); // For subgroupSz = 32, first 512 invocations store index is [0,15], 512-1023 [16,31] etc.
@@ -121,7 +121,7 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
                     if (logShift!=initialLogShift) // but the top level doesn't have any level above itself
                     {
                         // this is fine if on the way up you also += under `if (participate)`
-                        scanStoreIndex -= __base.lastInvocationInLevel+_static_cast<uint16_t>(1);
+                        scanStoreIndex -= __base.lastInvocationInLevel-_static_cast<uint16_t>(1);
                         type_t higherLevelEPS;
                         scratchAccessor.get(scanStoreIndex, higherLevelEPS);
                         __base.lastLevelScan = binop(__base.lastLevelScan,higherLevelEPS);

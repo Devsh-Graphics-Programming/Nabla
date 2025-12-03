@@ -4,70 +4,173 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_FAST_AFFINE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_LINALG_FAST_AFFINE_INCLUDED_
 
+
+#include <nbl/builtin/hlsl/mpl.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 
-#if 0 // TODO
-vec4 pseudoMul4x4with3x1(in mat4 m, in vec3 v)
+
+namespace nbl
 {
-    return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
-}
-vec3 pseudoMul3x4with3x1(in mat4x3 m, in vec3 v)
+namespace hlsl
 {
-    return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
-}
-mat4x3 pseudoMul4x3with4x3(in mat4x3 lhs, in mat4x3 rhs) // TODO: change name to 3x4with3x4
+namespace math
 {
-    mat4x3 result;
-    for (int i = 0; i < 4; i++)
-        result[i] = lhs[0] * rhs[i][0] + lhs[1] * rhs[i][1] + lhs[2] * rhs[i][2];
-    result[3] += lhs[3];
-    return result;
-}
-mat4 pseudoMul4x4with4x3(in mat4 proj, in mat4x3 tform)
+namespace linalg
 {
-    mat4 result;
-    for (int i = 0; i < 4; i++)
-        result[i] = proj[0] * tform[i][0] + proj[1] * tform[i][1] + proj[2] * tform[i][2];
-    result[3] += proj[3];
-    return result;
+
+// Multiply matrices as-if extended to be filled with identity elements
+template<typename T, int N, int M, int P, int Q> 
+matrix<T,N,M> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,P>) lhs, NBL_CONST_REF_ARG(matrix<T,Q,M>) rhs)
+{
+    matrix<T,N,M> retval;
+    // NxM = NxR RxM
+    // out[i][j] == dot(row[i],col[j])
+    // out[i][j] == lhs[i][0]*col[j][0]+...+lhs[i][3]*col[j][3]
+    // col[a][b] == (rhs^T)[b][a]
+    // out[i][j] == lhs[i][0]*rhs[0][j]+...+lhs[i][3]*rhs[3][j]
+    // out[i] == lhs[i][0]*rhs[0]+...+lhs[i][3]*rhs[3]
+    NBL_UNROLL for (uint32_t i=0; i<N; i++)
+    {
+        vector<T,M> acc = i<Q ? rhs[i]:promote<vector<T,M> >(0);
+        if (i>=Q)
+            acc[i] = T(1);
+        // multiply if not outside of `lhs` matrix
+        // otherwise the diagonal element is just unity
+        if (i<P)
+            acc *= lhs[i][i];
+        // other elements are 0 if outside the LHS matrix
+        NBL_UNROLL for (uint32_t j=0; j<P; j++)
+        if (j!=i)
+        {
+            // inside the RHS matrix
+            if (j<Q)
+                acc += rhs[j]*lhs[i][j];
+            else // outside we have an implicit e_j valued row
+                acc[j] += lhs[i][j];
+        }
+        retval[i] = acc;
+    }
+    return retval;
 }
 
-// useful for fast computation of a Normal Matrix (you just need to remember to normalize the transformed normal because of the missing divide by the determinant)
-mat3 sub3x3TransposeCofactors(in mat3 sub3x3)
+// Multiply matrix and vector as-if extended to be filled with 1 in diagonal for matrix and last for vector
+template<typename T, int N, int M, int P> 
+vector<T,N> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,M>) lhs, const vector<T,P> v)
 {
-    return mat3(
-        cross(sub3x3[1],sub3x3[2]),
-        cross(sub3x3[2],sub3x3[0]),
-        cross(sub3x3[0],sub3x3[1])
-    );
-}
-// returns a signflip mask
-uint sub3x3TransposeCofactors(in mat3 sub3x3, out mat3 sub3x3TransposeCofactors)
-{
-    sub3x3TransposeCofactors = sub3x3TransposeCofactors(sub3x3);
-    return floatBitsToUint(dot(sub3x3[0],sub3x3TransposeCofactors[0]))&0x80000000u;
+    vector<T,N> retval;
+    // Nx1 = NxM Mx1
+    {
+        matrix<T,M,1> rhs;
+        // one can safely discard elements of `v[i]` where `i<P && i>=M`, because to contribute `lhs` would need to have `M>=P`
+        NBL_UNROLL for (uint32_t i=0; i<M; i++)
+        {
+            if (i<P)
+                rhs[i] = v[i];
+            else
+                rhs[i] = i!=(M-1) ? T(0):T(1);
+        }
+        matrix<T,N,1> tmp = promoted_mul<T,N,1,M,M>(lhs,rhs);
+        NBL_UNROLL for (uint32_t i=0; i<N; i++)
+            retval[i] = tmp[i];
+    }
+    return retval;
 }
 
-// use this if you anticipate flipped/mirrored models
-vec3 fastNormalTransform(in uint signFlipMask, in mat3 sub3x3TransposeCofactors, in vec3 normal)
+// useful for fast computation of a Normal Matrix
+template<typename T, int N>
+struct cofactors_base;
+
+template<typename T>
+struct cofactors_base<T,3>
 {
-    vec3 tmp = sub3x3TransposeCofactors*normal;
-    const float tmpLenRcp = inversesqrt(dot(tmp,tmp));
-    return tmp*uintBitsToFloat(floatBitsToUint(tmpLenRcp)^signFlipMask);
-}
-#endif
+    using matrix_t = matrix<T,3,3>;
+    using vector_t = vector<T,3>;
+
+    static inline cofactors_base<T,3> create(NBL_CONST_REF_ARG(matrix_t) val)
+    {
+        cofactors_base<T,3> retval;
+
+        retval.transposed = matrix_t(
+            hlsl::cross<vector_t>(val[1],val[2]),
+            hlsl::cross<vector_t>(val[2],val[0]),
+            hlsl::cross<vector_t>(val[0],val[1])
+        );
+
+        return retval;
+    }
+
+    //
+    inline matrix_t get() NBL_CONST_MEMBER_FUNC
+    {
+        return hlsl::transpose<matrix_t>(transposed);
+    }
+    
+    //
+    inline vector_t normalTransform(const vector_t n) NBL_CONST_MEMBER_FUNC
+    {
+        const vector_t tmp = hlsl::mul<matrix_t,vector_t>(transposed,n);
+        return hlsl::normalize<vector_t>(tmp);
+    }
+
+    matrix_t transposed;
+};
+
+// variant that cares about flipped/mirrored transforms
+template<typename T, int N>
+struct cofactors
+{
+    using pseudo_base_t = cofactors_base<T,N>;
+    using matrix_t = typename pseudo_base_t::matrix_t;
+    using vector_t = typename pseudo_base_t::vector_t;
+    using mask_t = unsigned_integer_of_size_t<sizeof(T)>;
+
+    static inline cofactors<T,3> create(NBL_CONST_REF_ARG(matrix_t) val)
+    {
+        cofactors<T,3> retval;
+        retval.composed = pseudo_base_t::create(val);
+
+        const T det = hlsl::dot<vector_t>(val[0],retval.composed.transposed[0]);
+
+        const mask_t SignBit = 1;
+        SignBit = SignBit<<(sizeof(mask_t)*8-1);
+        retval.signFlipMask = bit_cast<mask_t>(det) & SignBit;
+
+        return retval;
+    }
+    
+    //
+    inline vector_t normalTransform(const vector_t n) NBL_CONST_MEMBER_FUNC
+    {
+        const vector_t tmp = hlsl::mul<matrix_t,vector_t>(composed.transposed,n);
+        const T rcpLen = hlsl::rsqrt<T>(hlsl::dot<vector_t>(tmp,tmp));
+        return tmp*bit_cast<T>(bit_cast<mask_t>(rcpLen)^determinantSignMask);
+    }
+
+    cofactors_base<T,N> composed;
+    mask_t determinantSignMask;
+};
 
 //
-template<typename Mat3x4> NBL_REQUIRES(is_matrix_v<Mat3x4>) // TODO: allow any matrix type AND our emulated ones
-Mat3x4 pseudoInverse3x4(NBL_CONST_REF_ARG(Mat3x4) tform)
+template<typename Mat3x4 NBL_FUNC_REQUIRES(is_matrix_v<Mat3x4>) // TODO: allow any matrix type AND our emulated ones
+Mat3x4 pseudoInverse3x4(NBL_CONST_REF_ARG(Mat3x4) tform, NBL_CONST_REF_ARG(matrix<scalar_type_t<Mat3x4>,3,3>) sub3x3Inv)
 {
-    const matrix<scalar_type_t<Mat3x4>,3,3> sub3x3Inv = inverse(mat3(tform));
     Mat3x4 retval;
     retval[0] = sub3x3Inv[0];
     retval[1] = sub3x3Inv[1];
     retval[2] = sub3x3Inv[2];
-    retval[3] = -sub3x3Inv*tform[3];
+    retval[3] = -hlsl::mul(sub3x3Inv,tform[3]);
     return retval;
 }
+template<typename Mat3x4 NBL_FUNC_REQUIRES(is_matrix_v<Mat3x4>) // TODO: allow any matrix type AND our emulated ones
+Mat3x4 pseudoInverse3x4(NBL_CONST_REF_ARG(Mat3x4) tform)
+{
+    return pseudoInverse3x4(tform,inverse(matrix<scalar_type_t<Mat3x4>,3,3>(tform)));
+}
 
+
+}
+}
+}
+}
 #endif

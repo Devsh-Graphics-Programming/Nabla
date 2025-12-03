@@ -7,6 +7,8 @@
 // TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
+extern int vulkaninfo(int, char**);
+
 namespace nbl::video
 {
 
@@ -286,7 +288,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     }
 
     VkDebugUtilsMessengerEXT vk_debugMessenger = VK_NULL_HANDLE;
-    if (debugCallback)
+    if (enabledFeatures.debugUtils && debugCallback)
     {
         if (vkCreateDebugUtilsMessengerEXT(vk_instance,&debugMessengerCreateInfo,nullptr,&vk_debugMessenger) != VK_SUCCESS)
         {
@@ -299,13 +301,14 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     api->m_physicalDevices.reserve(vk_physicalDevices.size());
     for (auto vk_physicalDevice : vk_physicalDevices)
     {
-        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),IAPIConnection::m_rdoc_api,vk_physicalDevice);
+        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
         if (!device)
         {
             LOG(api->getDebugCallback()->getLogger(), "Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!", system::ILogger::ELL_WARNING, vk_physicalDevice);
             continue;
         }
         api->m_physicalDevices.emplace_back(std::move(device));
+        // device enumeration
     }
 #undef LOF
 
@@ -370,6 +373,11 @@ bool CVulkanConnection::endCapture()
     }
     flag.clear();
     return true;
+}
+
+int vulkaninfo(const std::span<const char*> args)
+{
+    return ::vulkaninfo(args.size(), const_cast<char**>(args.data())); 
 }
 
 }

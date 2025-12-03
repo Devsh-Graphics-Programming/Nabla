@@ -10,6 +10,7 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/video/IGPURayTracingPipeline.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IQueryPool.h"
 
@@ -139,6 +140,7 @@ class IGPUCommandPool : public IBackendObject
         class CBlitImageCmd;
         class CCopyImageToBufferCmd;
         class CExecuteCommandsCmd;
+        class CCustomReferenceCmd;
         class CWaitEventsCmd;
         class CCopyImageCmd;
         class CResolveImageCmd;
@@ -151,6 +153,9 @@ class IGPUCommandPool : public IBackendObject
         class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
         class CCopyAccelerationStructureCmd;
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
+        class CTraceRaysCmd;
+        class CTraceRaysIndirectCmd;
+        class CBindRayTracingPipelineCmd;
 
     protected:
         IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint8_t _familyIx)
@@ -682,6 +687,17 @@ class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<C
         }
 };
 
+class IGPUCommandPool::CCustomReferenceCmd final : public IVariableSizeCommand<CCustomReferenceCmd>
+{
+    public:
+        CCustomReferenceCmd(const uint32_t count) : IVariableSizeCommand<CCustomReferenceCmd>(count) {}
+
+        static uint32_t calc_resources(const uint32_t count)
+        {
+            return count;
+        }
+};
+
 class IGPUCommandPool::CWaitEventsCmd final : public IVariableSizeCommand<CWaitEventsCmd>
 {
     public:
@@ -822,6 +838,46 @@ class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd final : publi
         core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
+class IGPUCommandPool::CTraceRaysCmd final : public IFixedSizeCommand<CTraceRaysCmd>
+{
+    public:
+      CTraceRaysCmd(
+        core::smart_refctd_ptr<const IGPUBuffer>&& raygenGroupBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&& hitGroupsBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&&  missGroupsBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&& callableGroupsBuffer) :
+        m_raygenGroupBuffer(raygenGroupBuffer),
+        m_hitGroupsBuffer(hitGroupsBuffer),
+        m_missGroupsBuffer(missGroupsBuffer),
+        m_callableGroupsBuffer(callableGroupsBuffer) {}
+        
+  
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_raygenGroupBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_hitGroupsBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_missGroupsBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_callableGroupsBuffer;
+};
+
+class IGPUCommandPool::CTraceRaysIndirectCmd final : public IFixedSizeCommand<CTraceRaysIndirectCmd>
+{
+    public:
+      CTraceRaysIndirectCmd(
+        core::smart_refctd_ptr<const IGPUBuffer>&& bindingBuffer) :
+        m_bindingBuffer(bindingBuffer) {}
+  
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_bindingBuffer;
+};
+
+class IGPUCommandPool::CBindRayTracingPipelineCmd final : public IFixedSizeCommand<CBindRayTracingPipelineCmd>
+{
+    public:
+        CBindRayTracingPipelineCmd(core::smart_refctd_ptr<const IGPURayTracingPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPURayTracingPipeline> m_pipeline;
+};
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandPool::CREATE_FLAGS)
 
 }

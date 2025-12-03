@@ -60,8 +60,6 @@ class ICPUPipelineCache final : public IPreHashed
 			return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 		}
 
-		inline size_t getDependantCount() const override {return 0;}
-
 		//
 		inline core::blake3_hash_t computeContentHash() const override
 		{
@@ -85,9 +83,12 @@ class ICPUPipelineCache final : public IPreHashed
 		//
 		const auto& getEntries() const {return m_cache;}
 
-	protected:
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+		inline bool valid() const override
+		{
+			return true;
+		}
 
+	protected:
 		inline void discardContent_impl() override
 		{
 			for (auto& entry : m_cache)
@@ -96,6 +97,10 @@ class ICPUPipelineCache final : public IPreHashed
 
 	private:
 		entries_map_t m_cache;
+
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		{
+		}
 };
 
 }

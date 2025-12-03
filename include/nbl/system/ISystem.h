@@ -47,14 +47,6 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                     future.set_result(value);
                 }
         };
-		
-		#ifndef NBL_EMBED_BUILTIN_RESOURCES
-        constexpr std::string_view getBuiltinResourcesDirectoryPath()
-        {
-            std::string_view retval = NBL_BUILTIN_RESOURCES_DIRECTORY_PATH;
-            return retval;
-        }
-		#endif
 
         //
         inline void addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
@@ -167,6 +159,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
         virtual SystemInfo getSystemInfo() const = 0;
         
+        static bool isDebuggerAttached();
 
     protected:
         // all file operations take place serially on a dedicated thread (to make fibers possible in the future)

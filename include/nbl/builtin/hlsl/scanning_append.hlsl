@@ -28,7 +28,7 @@ struct result_t
 // Elements with value 0 do not get appended
 // Note: If NBL_GLSL_EXT_shader_atomic_int64 is not present, then the call to these functions needs to be subgroup uniform
 template<class AtomicCounterAccessor>
-result_t non_negative(inout AtomicCounterAccessor accessor, in uint value)
+result_t non_negative(NBL_REF_ARG(AtomicCounterAccessor) accessor, in uint value)
 {
   const bool willAppend = bool(value);
 
@@ -70,7 +70,7 @@ result_t non_negative(inout AtomicCounterAccessor accessor, in uint value)
 
 // optimized version which tries to omit the atomicAdd and locks if it can, in return it may return garbage/invalid value when invocation's `value==0`
 template<class AtomicCounterAccessor>
-result_t positive(inout AtomicCounterAccessor accessor, in uint value)
+result_t positive(NBL_REF_ARG(AtomicCounterAccessor) accessor, in uint value)
 {
   const bool willAppend = bool(value);
 #ifdef NBL_GLSL_EXT_shader_atomic_int64

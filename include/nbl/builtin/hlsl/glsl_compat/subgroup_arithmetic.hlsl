@@ -81,29 +81,77 @@ T subgroupExclusiveXor(T value) {
 }
 
 template<typename T>
-T subgroupMin(T value) {
-    return spirv::groupBitwiseMin(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupMin(T value) {
+    return spirv::groupSMin(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
 }
 template<typename T>
-T subgroupInclusiveMin(T value) {
-    return spirv::groupBitwiseMin(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupMin(T value) {
+    return spirv::groupUMin(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
 }
 template<typename T>
-T subgroupExclusiveMin(T value) {
-    return spirv::groupBitwiseMin(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> subgroupMin(T value) {
+    return spirv::groupFMin(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupInclusiveMin(T value) {
+    return spirv::groupSMin(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupInclusiveMin(T value) {
+    return spirv::groupUMin(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> subgroupInclusiveMin(T value) {
+    return spirv::groupFMin(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupExclusiveMin(T value) {
+    return spirv::groupSMin(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupExclusiveMin(T value) {
+    return spirv::groupUMin(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> subgroupExclusiveMin(T value) {
+    return spirv::groupFMin(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
 }
 
 template<typename T>
-T subgroupMax(T value) {
-    return spirv::groupBitwiseMax(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupMax(T value) {
+    return spirv::groupSMax(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
 }
 template<typename T>
-T subgroupInclusiveMax(T value) {
-    return spirv::groupBitwiseMax(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupMax(T value) {
+    return spirv::groupUMax(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
 }
 template<typename T>
-T subgroupExclusiveMax(T value) {
-    return spirv::groupBitwiseMax(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> subgroupMax(T value) {
+    return spirv::groupFMax(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupInclusiveMax(T value) {
+    return spirv::groupSMax(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupInclusiveMax(T value) {
+    return spirv::groupUMax(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> subgroupInclusiveMax(T value) {
+    return spirv::groupFMax(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupExclusiveMax(T value) {
+    return spirv::groupSMax(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> subgroupExclusiveMax(T value) {
+    return spirv::groupUMax(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+}
+template<typename T>
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> subgroupExclusiveMax(T value) {
+    return spirv::groupFMax(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
 }
 
 }

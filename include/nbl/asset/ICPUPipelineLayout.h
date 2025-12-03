@@ -31,16 +31,6 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         ) : IPipelineLayout<ICPUDescriptorSetLayout>(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
         //
-        inline size_t getDependantCount() const override
-        {
-            size_t count = 0;
-            for (auto i=0; i<m_descSetLayouts.size(); i++)
-            if (m_descSetLayouts[i])
-                count++;
-            return count;
-        }
-
-        //
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
         {
             assert(isMutable());
@@ -76,17 +66,28 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         static inline constexpr auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
+        inline bool valid() const override
+        {
+            for (auto i = 0; i < m_descSetLayouts.size(); i++)
+            {
+                if (!m_descSetLayouts[i]) continue;
+                if (!m_descSetLayouts[i]->valid()) return false;
+            }
+            return true;
+        }
+
     protected:
 		virtual ~ICPUPipelineLayout() = default;
 
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            size_t count = 0;
-            for (auto i=0; i<m_descSetLayouts.size(); i++)
-            if ((count++)==ix)
-                return m_descSetLayouts[ix].get();
-            return nullptr;
-        }
+      inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+      {
+          for (auto i = 0; i < m_descSetLayouts.size(); i++)
+          {
+              if (!m_descSetLayouts[i]) continue;
+              if (!visit(m_descSetLayouts[i].get())) return;
+          }
+      }
+
 };
 
 }

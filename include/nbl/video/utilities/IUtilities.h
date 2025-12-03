@@ -24,21 +24,34 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
         constexpr static inline uint32_t OptimalCoalescedInvocationXferSize = sizeof(uint32_t);
 
-        uint32_t m_allocationAlignment = 0u;
-        uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
-
-        nbl::system::logger_opt_smart_ptr m_logger;
+        IUtilities( core::smart_refctd_ptr<ILogicalDevice>&& device,
+                    nbl::system::logger_opt_smart_ptr&& logger,
+                    core::smart_refctd_ptr<StreamingTransientDataBufferMT<> >&& defaultUploadBuffer,
+                    core::smart_refctd_ptr<StreamingTransientDataBufferMT<> >&& defaultDownloadBuffer,
+                    uint32_t allocationAlignment,
+                    uint32_t allocationAlignmentForBufferImageCopy)
+            : m_device(std::move(device))
+            , m_logger(nbl::system::logger_opt_smart_ptr(logger))
+            , m_defaultUploadBuffer(std::move(defaultUploadBuffer))
+            , m_defaultDownloadBuffer(std::move(defaultDownloadBuffer))
+            , m_allocationAlignment(allocationAlignment)
+            , m_allocationAlignmentForBufferImageCopy(allocationAlignmentForBufferImageCopy)
+        {
+            m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+            m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+        }
+        
+        IUtilities() = delete;
 
     public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger=nullptr, const uint32_t downstreamSize=0x4000000u, const uint32_t upstreamSize=0x4000000u)
-            : m_device(core::smart_refctd_ptr(device)), m_logger(nbl::system::logger_opt_smart_ptr(logger))
+        static inline core::smart_refctd_ptr<IUtilities> create(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger = nullptr, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u)
         {
-            auto physicalDevice = m_device->getPhysicalDevice();
+            auto physicalDevice = device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
-
+            
             auto queueFamProps = physicalDevice->getQueueFamilyProperties();
             uint32_t minImageTransferGranularityVolume = 1u; // minImageTransferGranularity.width * height * depth
-
+            
             for (auto& qf : queueFamProps)
             {
                 uint32_t volume = qf.minImageTransferGranularity.width*qf.minImageTransferGranularity.height*qf.minImageTransferGranularity.depth;
@@ -46,10 +59,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     minImageTransferGranularityVolume = volume;
             }
 
-            // host-mapped device memory needs to have this alignment in flush/invalidate calls, therefore this is the streaming buffer's "allocationAlignment".
-            m_allocationAlignment = limits.nonCoherentAtomSize;
-            m_allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,m_allocationAlignment);
-
+            const uint32_t allocationAlignment = limits.nonCoherentAtomSize;
+            const uint32_t allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,allocationAlignment);
+            
             const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations * OptimalCoalescedInvocationXferSize;
             const uint32_t maxImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
             const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();
@@ -57,16 +69,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom,minImageOptimalTransferAtom);
 
             // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom
-            assert(m_allocationAlignment <= minStreamingBufferAllocationSize);
-            assert(m_allocationAlignmentForBufferImageCopy <= minStreamingBufferAllocationSize);
+            
+            const bool transferConstaintsSatisfied = 
+                (allocationAlignment <= minStreamingBufferAllocationSize) &&
+                (allocationAlignmentForBufferImageCopy <= minStreamingBufferAllocationSize) &&
+                (minStreamingBufferAllocationSize <= minOptimalTransferAtom) &&
+                (minOptimalTransferAtom <= maxOptimalTransferAtom) &&
+                (minStreamingBufferAllocationSize % allocationAlignment == 0u) &&
+                (minStreamingBufferAllocationSize % allocationAlignmentForBufferImageCopy == 0u);
 
-            assert(minStreamingBufferAllocationSize <= minOptimalTransferAtom);
-            assert(minOptimalTransferAtom <= maxOptimalTransferAtom);
+            if (!transferConstaintsSatisfied)
+                return nullptr;
 
-            assert(minStreamingBufferAllocationSize % m_allocationAlignment == 0u);
-            assert(minStreamingBufferAllocationSize % m_allocationAlignmentForBufferImageCopy == 0u);
-
-            const auto& enabledFeatures = m_device->getEnabledFeatures();
+            const auto& enabledFeatures = device->getEnabledFeatures();
 
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
             auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
@@ -74,7 +89,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 commonUsages |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
             
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+            
+            core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer = nullptr;
+            core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer = nullptr;
 
+            // Try Create Download Buffer
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = downstreamSize;
@@ -82,12 +101,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT;
                 if (enabledFeatures.conditionalRendering)
                     streamingBufferCreationParams.usage |= IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT;
-                auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
+                auto buffer = device->createBuffer(std::move(streamingBufferCreationParams));
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
-                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
-                auto mem = memOffset.memory;
+                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                                
+                if (!deviceMemAllocation.isValid())
+                {
+                    // allocation failed
+                    return nullptr;
+                }
+
+                auto mem = deviceMemAllocation.memory;
 
                 core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
@@ -98,9 +124,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 assert(access.value);
                 mem->map({0ull,reqs.size},access);
 
-                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
-                m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+                defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
+            // Try Create Upload Buffer
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = upstreamSize;
@@ -109,13 +135,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     streamingBufferCreationParams.usage |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT;
                 if (enabledFeatures.rayTracingPipeline)
                     streamingBufferCreationParams.usage |= IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
-                auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
+                auto buffer = device->createBuffer(std::move(streamingBufferCreationParams));
 
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
-                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
+                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                
+                if (!deviceMemAllocation.isValid())
+                {
+                    // allocation failed
+                    return nullptr;
+                }
 
-                auto mem = memOffset.memory;
+                auto mem = deviceMemAllocation.memory;
                 core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
                 if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
@@ -125,9 +157,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 assert(access.value);
                 mem->map({0ull,reqs.size},access);
 
-                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
-                m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+                defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
+
 #if 0 // TODO: port
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
@@ -135,6 +167,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
 #endif
+
+            return core::smart_refctd_ptr<IUtilities>(new IUtilities(std::move(device), std::move(logger), std::move(defaultUploadBuffer), std::move(defaultDownloadBuffer), allocationAlignment, allocationAlignmentForBufferImageCopy), core::dont_grab);
+
         }
 
         inline ~IUtilities()
@@ -297,7 +332,33 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // updateBufferRangeViaStagingBuffer
         // --------------
 
-        //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
+        //! Used in `updateBufferRangeViaStagingBuffer` to provide data on demand
+        class IUpstreamingDataProducer
+        {
+            public:
+                // Returns the number of bytes written, must be more than 0 and less than or equal to `blockSize`, this is to not have to handle stopping writng mid-struct for example.
+                // `dst` is already pre-scolled, it it points at the start of the staging block
+                // You can be sure that subsequent calls to this function will happen "in order" meaning next call `offsetInRange` equals last call's `offsetInRange` incremented by the return value
+                virtual uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) = 0;
+        };
+        // useful for wrapping lambdas
+        template<typename F>
+        class CUpstreamingDataProducerLambdaWrapper final : public IUpstreamingDataProducer
+        {
+                F f;
+
+            public:
+                inline CUpstreamingDataProducerLambdaWrapper(F&& _f) : f(std::move(_f)) {}
+
+                inline uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override {return f(dst,offsetInRange,blockSize);}
+        };
+        template<typename F> 
+        static inline CUpstreamingDataProducerLambdaWrapper<F> wrapUpstreamingDataProducerLambda(F&& f)
+        {
+            return CUpstreamingDataProducerLambdaWrapper<F>(std::move(f));
+        }
+
+        //! Fills ranges with callback allocated in stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
         //! If the allocation from staging memory fails due to large buffer size or fragmentation then This function may need to submit the command buffer via the `submissionQueue`. 
         //! Returns:
         //!     True on successful recording of copy commands and handling of overflows if any, and false on failure for any reason.
@@ -311,8 +372,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
         //!     * bufferRange must be valid (see `SBufferRange::isValid()`)
         //!     * data must not be nullptr
-        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
-        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
+        inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, IUpstreamingDataProducer& callback)
         {
             if (!bufferRange.isValid() || !bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT))
             {
@@ -325,9 +385,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
-            // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
+            // TODO: Why did we settle on `/4` ? It was something about worst case fragmentation due to alignment in General Purpose Address Allocator. But need to remember what exactly.
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
+            const auto minBlockSize = m_defaultUploadBuffer->getAddressAllocator().min_size();
 
+            core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
+            const bool manualFlush = m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate();
+            if (manualFlush)
+                flushRanges.reserve((bufferRange.size-1)/m_defaultUploadBuffer.get()->max_size()+1);
+
+            // for the signal to be useful for us to let go of memory, we need to signal after transfer is finished
+            const auto oldScratchStage = nextSubmit.scratchSemaphore.stageMask|=asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
+            //
+            auto* uploadBuffer = m_defaultUploadBuffer.get()->getBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
@@ -336,22 +406,39 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
                 // get allocation size
-                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
+                uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
-                const uint32_t subSize = core::min(allocationSize,size);
+                uint32_t subSize = core::min(allocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 // copy only the unpadded part
                 if (localOffset!=StreamingTransientDataBufferMT<>::invalid_value)
                 {
-                    const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
-                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + localOffset, dataPtr, subSize);
+                    const uint32_t bytesWritten = callback(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,uploadedSize,subSize);
+                    assert(bytesWritten>0 && bytesWritten<=subSize);
+                    // Highly Experimental, enable at own risk!
+                    if constexpr (false)
+                    // Reclaim the unused space if both the used part and the unused part are large enough to be their own independent free blocks in the allocator
+                    if (const uint32_t unusedSize=subSize-bytesWritten; bytesWritten>=minBlockSize && unusedSize>=minBlockSize)
+                    {
+                        const uint32_t unusedOffset = localOffset+bytesWritten;
+                        m_defaultUploadBuffer.get()->multi_deallocate(1u,&unusedOffset,&unusedSize);
+                        allocationSize = bytesWritten;
+                    }
+                    subSize = bytesWritten;
                 }
                 else
                 {
+                    if (!flushRanges.empty())
+                    {
+                        m_device->flushMappedMemoryRanges(flushRanges);
+                        flushRanges.clear();
+                    }
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
                     nextSubmit.overflowSubmit(scratch);
+                    // first submit we respect whatever stages the user had (maybe they wanted to be notified of the completion of `nextSubmit.prevCommandBuffers`
+                    nextSubmit.scratchSemaphore.stageMask = asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
                     // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
                     // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
                     if (nextSubmit.overflowCallback)
@@ -360,22 +447,58 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     continue; // keep trying again
                 }
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-                if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
-                {
-                    auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory().memory,localOffset,subSize,limits.nonCoherentAtomSize);
-                    m_device->flushMappedMemoryRanges(1u,&flushRange);
-                }
+                if (manualFlush)
+                    flushRanges.emplace_back(uploadBuffer->getBoundMemory().memory,localOffset,subSize,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                 IGPUCommandBuffer::SBufferCopy copy;
                 copy.srcOffset = localOffset;
                 copy.dstOffset = bufferRange.offset+uploadedSize;
                 copy.size = subSize;
-                scratch->cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
+                scratch->cmdbuf->copyBuffer(uploadBuffer, bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
                 m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&scratch->cmdbuf);
                 uploadedSize += subSize;
             }
+            nextSubmit.scratchSemaphore.stageMask = oldScratchStage;
+            if (!flushRanges.empty())
+                m_device->flushMappedMemoryRanges(flushRanges);
             return true;
+        }
+        // overload to make invokers not care about l-value or r-value
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, IUpstreamingDataProducer&& callback)
+        {
+            return updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,callback);
+        }
+
+        //
+        class CMemcpyUpstreamingDataProducer final : public IUpstreamingDataProducer
+        {
+            public:
+                inline uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
+                {
+                    memcpy(dst,reinterpret_cast<const uint8_t*>(data)+offsetInRange,blockSize);
+                    return blockSize;
+                }
+
+                const void* data;
+        };
+        //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`.
+        //! Returns same as `updateBufferRangeViaStagingBuffer` with a callback instead of a pointer, make sure to submit with `nextSubmit.popSubmit()` after this function returns.
+        //! Parameters:
+        //!     - nextSubmit: same as `updateBufferRangeViaStagingBuffer` with a callback
+        //!     - bufferRange: same as `updateBufferRangeViaStagingBuffer` with a callback
+        //!     - data: raw pointer to data that will be copied to `bufferRange::buffer` at `bufferRange::offset`
+        //! Valid Usage:
+        //!     * same as `updateBufferRangeViaStagingBuffer` with a callback
+        //!     * data must not be nullptr
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
+        {
+            CMemcpyUpstreamingDataProducer memcpyCb;
+            memcpyCb.data = data;
+            bool retval = updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,memcpyCb);
+            return retval;
         }
 
         //! This only needs a valid queue in `submit`
@@ -454,11 +577,12 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 ~CDownstreamingDataConsumer()
                 {
                     assert(m_downstreamingBuffer);
-                    auto device = const_cast<ILogicalDevice*>(m_downstreamingBuffer->getBuffer()->getOriginDevice());
+                    auto* downstreamingBuffer = m_downstreamingBuffer->getBuffer();
+                    auto device = const_cast<ILogicalDevice*>(downstreamingBuffer->getOriginDevice());
                     if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
                     {
                         const auto nonCoherentAtomSize = device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
-                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory().memory,m_copyRange.offset,m_copyRange.length,nonCoherentAtomSize);
+                        auto flushRange = ILogicalDevice::MappedMemoryRange(downstreamingBuffer->getBoundMemory().memory,m_copyRange.offset,m_copyRange.length,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
                         device->invalidateMappedMemoryRanges(1u,&flushRange);
                     }
                     // Call the function
@@ -513,6 +637,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultDownloadBuffer->get_total_size()/4);
 
+            // for the signal to be useful for us to execute the data consumer callback, the signal must happen after the copy is done
+            const auto oldScratchStage = nextSubmit.scratchSemaphore.stageMask|=asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
             for (size_t downloadedSize=0ull; downloadedSize<srcBufferRange.size;)
             {
@@ -549,6 +675,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 {
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
                     nextSubmit.overflowSubmit(scratch);
+                    // first submit we respect whatever stages the user had (maybe they wanted to be notified of the completion of `nextSubmit.prevCommandBuffers`
+                    nextSubmit.scratchSemaphore.stageMask = asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
                     // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
                     // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
                     if (nextSubmit.overflowCallback)
@@ -556,6 +684,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     m_device->blockForSemaphores({&completed,1});
                 }
             }
+            nextSubmit.scratchSemaphore.stageMask = oldScratchStage;
             return true;
         }
 
@@ -577,35 +706,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return true;
         }
 
-        // --------------
-        // buildAccelerationStructures
-        // --------------
-#if 0 // TODO: port later when we have an example
-        //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline void buildAccelerationStructures(IQueue* queue, const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
-        {
-            core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-            auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-            m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::LEVEL::PRIMARY, 1u, &cmdbuf);
-            IQueue::SSubmitInfo submit;
-            {
-                submit.commandBufferCount = 1u;
-                submit.commandBuffers = &cmdbuf.get();
-                submit.waitSemaphoreCount = 0u;
-                submit.pWaitDstStageMask = nullptr;
-                submit.pWaitSemaphores = nullptr;
-            }
-
-            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-            cmdbuf->buildAccelerationStructures(pInfos,ppBuildRangeInfos);
-            cmdbuf->end();
-
-            queue->submit(1u, &submit, fence.get());
-        
-            m_device->blockForFences(1u,&fence.get());
-        }
-#endif
         // --------------
         // updateImageViaStagingBuffer
         // --------------
@@ -697,23 +797,15 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return retval;
         }
 
-        // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
-        // and round the end of the range up to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize.
-        static ILogicalDevice::MappedMemoryRange AlignedMappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len, size_t nonCoherentAtomSize)
-        {
-            ILogicalDevice::MappedMemoryRange range = {};
-            range.memory = mem;
-            range.offset = core::alignDown(off, nonCoherentAtomSize);
-            range.length = core::min(core::alignUp(len, nonCoherentAtomSize), mem->getAllocationSize());
-            return range;
-        }
-
-
         core::smart_refctd_ptr<ILogicalDevice> m_device;
+        nbl::system::logger_opt_smart_ptr m_logger;
 
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
-
+        
+        uint32_t m_allocationAlignment = 0u;
+        uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
+        
 #if 0 // TODO: port
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
         core::smart_refctd_ptr<CScanner> m_scanner;

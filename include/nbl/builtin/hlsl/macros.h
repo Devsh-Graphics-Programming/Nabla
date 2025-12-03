@@ -34,6 +34,12 @@ inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forw
 
 #endif
 
+#ifdef __HLSL_VERSION
+#define NBL_UNROLL [[unroll]]
+#else
+#define NBL_UNROLL
+#endif
+
 #ifdef __HLSL_VERSION // cause DXC is insane
 #define NBL_FP64_LITERAL(LIT) LIT##l
 #else // and nobody except GCC supports C++23 `f64` suffix on float literals
