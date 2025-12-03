@@ -491,6 +491,15 @@ DEFINE_SCALAR_OF_SPECIALIZATION(3)
 DEFINE_SCALAR_OF_SPECIALIZATION(4)
 #undef DEFINE_SCALAR_OF_SPECIALIZATION
 
+#define DEFINE_EXTENT_SPECIALIZATION(DIMENSION)\
+template<typename ScalarType, uint32_t I>\
+struct extent<emulated_vector_t##DIMENSION<ScalarType>, I> : extent<ScalarType[DIMENSION], I> {};
+
+DEFINE_EXTENT_SPECIALIZATION(2)
+DEFINE_EXTENT_SPECIALIZATION(3)
+DEFINE_EXTENT_SPECIALIZATION(4)
+#undef DEFINE_EXTENT_SPECIALIZATION
+
 namespace impl
 {
 template<typename To, typename From>
@@ -627,8 +636,6 @@ NBL_EMULATED_VEC_TRUNCATION(4, 4)
 
 } //namespace impl
 
-template<typename T, uint16_t N, uint32_t I>
-struct extent<emulated_vector_t<T, N>, I> : extent<T[N], I> {}; 
 }
 }
 #endif
