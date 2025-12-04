@@ -134,41 +134,6 @@ ALIAS_STD(divides,/)
     NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
 };
 
-#ifndef __HLSL_VERSION
-
-template<typename T> 
-struct bit_not : std::bit_not<T>
-{
-    using type_t = T;
-};
-
-#else
-
-template<typename T NBL_STRUCT_CONSTRAINABLE >
-struct bit_not
-{
-    using type_t = T;
-
-    T operator()(NBL_CONST_REF_ARG(T) operand) 
-    { 
-        return ~operand; 
-    }
-};
-
-// The default version above only works for fundamental scalars, vectors and matrices. This is because you can't call `~x` unless `x` is one of the former.
-// Similarly, calling `x.operator~()` is not valid for the aforementioned, and only for types overriding this operator. So, we need a specialization.
-template<typename T> NBL_PARTIAL_REQ_TOP(!(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T>))
-struct bit_not<T NBL_PARTIAL_REQ_BOT(!(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T>)) >
-{
-    using type_t = T;
-
-    T operator()(NBL_CONST_REF_ARG(T) operand)
-    {
-        return operand.operator~();
-    }
-};
-
-#endif
 
 ALIAS_STD(equal_to, ==) };
 ALIAS_STD(not_equal_to, !=) };
@@ -488,27 +453,38 @@ struct logical_right_shift_operator
 };
 
 // ----------------------------------------------------------------- UNARY OPERATORS --------------------------------------------------------------------
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct unary_minus_operator
-{
-    using type_t = T;
-
-    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand)
-    {
-        return operand.operator-();
-    }
+#ifndef __HLSL_VERSION
+#define NBL_UNARY_OP_SPECIALIZATION(NAME, OP) template<typename T> \
+struct NAME : std::NAME<T> { \
+    using type_t = T; \
 };
+#else
+#define NBL_UNARY_OP_SPECIALIZATION(NAME, OP) template<typename T NBL_STRUCT_CONSTRAINABLE> \
+struct NAME \
+{ \
+    using type_t = T; \
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand) \
+    { \
+        return operand.operator OP(); \
+    } \
+}; \
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T> ) \
+struct NAME<T NBL_PARTIAL_REQ_BOT(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T> ) > \
+{ \
+    using type_t = T; \
+    NBL_CONSTEXPR_FUNC T operator()(const T operand) \
+    { \
+      return (OP operand); \
+    } \
+}; 
+#endif
 
-template<typename T> NBL_PARTIAL_REQ_TOP(is_fundamental_v<T>)
-struct unary_minus_operator<T NBL_PARTIAL_REQ_BOT(is_fundamental_v<T>) >
-{
-    using type_t = T;
-    NBL_CONSTEXPR_FUNC T operator()(const T operand)
-    {
-      return -operand;
-    }
-};
+NBL_UNARY_OP_SPECIALIZATION(bit_not, ~)
+NBL_UNARY_OP_SPECIALIZATION(negate, -)
 
+
+
+#endif
 } //namespace nbl
 } //namespace hlsl
 
