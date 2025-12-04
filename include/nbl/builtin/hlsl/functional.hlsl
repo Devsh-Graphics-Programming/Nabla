@@ -482,9 +482,6 @@ struct NAME<T NBL_PARTIAL_REQ_BOT(concepts::Scalar<T> || concepts::Vector<T> || 
 NBL_UNARY_OP_SPECIALIZATION(bit_not, ~)
 NBL_UNARY_OP_SPECIALIZATION(negate, -)
 
-
-
-#endif
 } //namespace nbl
 } //namespace hlsl
 
