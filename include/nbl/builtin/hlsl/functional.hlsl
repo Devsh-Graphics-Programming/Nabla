@@ -235,16 +235,35 @@ struct maximum
     NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
 };
 
-template<typename T NBL_STRUCT_CONSTRAINABLE >
+#ifndef __HLSL_VERSION
+template<typename F1, typename F2 > requires(is_same_v<std::invoke_result_t<F1>, std::invoke_result_t<F2>()> )
 struct ternary_operator
 {
-    using type_t = T;
+   using type_t = std::invoke_result_t<F1>;
 
-    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(bool) condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
-    {
-        return select<bool, T>(condition, lhs, rhs);
-    }
+   constexpr inline type_t operator()(const bool condition, const F1& lhs, const F2& rhs)
+   {
+      if (condition)
+         return std::invoke(lhs);
+      else
+         return std::invoke(rhs);
+   }
 };
+#else
+template<typename F1, typename F2 NBL_PRIMARY_REQUIRES(is_same_v<decltype(experimental::declval<F1>()()),decltype(experimental::declval<F2>()())> )
+struct ternary_operator
+{
+   using type_t = decltype(experimental::declval<F1>().operator());
+
+   NBL_CONSTEXPR_FUNC type_t operator()(const bool condition, NBL_CONST_REF_ARG(F1) lhs, NBL_CONST_REF_ARG(F2) rhs)
+   {
+      if (condition)
+         return lhs();
+      else
+         return rhs();
+   }
+};
+#endif
 
 // ----------------------------------------------------------------- SHIFT OPERATORS --------------------------------------------------------------------
 
