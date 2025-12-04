@@ -59,9 +59,7 @@ struct coding_mask;
 template<uint16_t Dim, uint16_t Bits, uint16_t Stage, typename T = uint64_t>
 NBL_CONSTEXPR T coding_mask_v = _static_cast<T>(coding_mask<Dim, Bits, Stage>::value);
 
-// It's a complete cointoss whether template variables work or not, since it's a C++14 feature (not supported in HLSL2021). Most of the ones we use in Nabla work,
-// but this one will only work for some parameters and not for others. Therefore, this was made into a macro to inline where used
-
+// constexpr vector is not supported since it is not a fundamental type, which means it cannot be stored or leaked outside of constexpr context, it can only exist transiently. So the only way to return vector is to make the function consteval. Thus, we use macro to inline where it is used.
 #define NBL_MORTON_INTERLEAVE_MASKS(STORAGE_T, DIM, BITS, NAMESPACE_PREFIX) _static_cast<portable_vector_t< STORAGE_T, DIM > >(\
                                                                             truncate<vector<uint64_t, DIM > >(\
                                                                             vector<uint64_t, 4>(NAMESPACE_PREFIX coding_mask_v< DIM, BITS, 0>,\
