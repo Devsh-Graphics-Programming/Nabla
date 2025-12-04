@@ -226,7 +226,9 @@ bool CIESProfileParser::parse(CIESProfile& result)
     {
         const uint32_t maxDimMeasureSize = core::sqrt(FULL_SOLID_ANGLE/smallestRangeSolidAngle);
         result.accessor.properties.optimalIESResolution = decltype(result.accessor.properties.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
-        result.accessor.properties.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
+        auto& res = result.accessor.properties.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
+		res.x = core::max(res.x,CIESProfile::properties_t::CDC_MIN_TEXTURE_WIDTH);
+		res.y = core::max(res.y,CIESProfile::properties_t::CDC_MIN_TEXTURE_HEIGHT);
     }
 
     assert(nonZeroEmissionDomainSize >= 0.f);

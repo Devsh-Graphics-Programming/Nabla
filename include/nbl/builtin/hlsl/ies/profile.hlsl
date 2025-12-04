@@ -20,6 +20,11 @@ struct ProfileProperties
     NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_WIDTH = 15360u;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_HEIGHT = 8640u;
 
+    // TODO: This constraint is hack because the mitsuba loader and its material compiler use Virtual Texturing, and there's some bug with IES not sampling sub 128x128 mip levels
+    // don't want to spend time to fix this since we'll be using descriptor indexing for the next iteration
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MIN_TEXTURE_WIDTH = 128u;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MIN_TEXTURE_HEIGHT = 128u;
+
     NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_DEFAULT_TEXTURE_WIDTH = 1024u;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_DEFAULT_TEXTURE_HEIGHT = 1024u;
 
