@@ -18,7 +18,7 @@ namespace accessors
 #define NBL_CONCEPT_PARAM_0 (accessor, T)
 #define NBL_CONCEPT_PARAM_1 (val, V)
 #define NBL_CONCEPT_PARAM_2 (index, I)
-NBL_CONCEPT_BEGIN(3)
+
 #define accessor NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define val NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define index NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
