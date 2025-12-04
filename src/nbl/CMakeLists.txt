@@ -103,7 +103,7 @@ if (NBL_COMPILE_WITH_CUDA)
 	endif()
 endif()
 
-# => TODO: clean
+# => TODO: clean!
 # a little bit of globbing for headers never hurt anyone
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
@@ -111,6 +111,9 @@ file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES  "${NBL_ROOT_PATH}/src/*.h")
 set(NABLA_HEADERS_PUBLIC2 ${NABLA_HEADERS_PUBLIC2} ${TEMP_GLOB_RES}) # TODO: we should have moved all headers from src directory to /include, but we need it for install target
+
+file(GLOB_RECURSE NABLA_HLSL_PUBLIC "${NBL_ROOT_PATH}/include/*.hlsl")
+list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_HLSL_PUBLIC})
 
 foreach(NBL_CURRENT_HEADER IN LISTS NABLA_HEADERS_PUBLIC2)
 	cmake_path(GET NBL_CURRENT_HEADER PARENT_PATH NBL_CURRENT_HEADER_DIR)
@@ -307,7 +310,6 @@ if(MSVC)
 	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
 endif()
 
-get_target_property(JPEG_STATIC_BINARY_DIR jpeg-static BINARY_DIR)
 get_target_property(PNG_STATIC_BINARY_DIR png_static BINARY_DIR)
 
 set(PUBLIC_BUILD_INCLUDE_DIRS
@@ -319,7 +321,6 @@ set(PUBLIC_BUILD_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
 	${THIRD_PARTY_SOURCE_DIR}/renderdoc 		# for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib 			# for dynamically generated zconf.h
-	${JPEG_STATIC_BINARY_DIR} 					# for dynamically generated pnglibconf.h
 	${PNG_STATIC_BINARY_DIR} 					# for dynamically generated jconfig.h
 	${CONFIG_DIRECOTORY}						# Nabla config directory
 )
@@ -352,6 +353,7 @@ else()
 	)
 endif()
 add_library(Nabla::Nabla ALIAS Nabla)
+set_source_files_properties(${NABLA_HLSL_PUBLIC} PROPERTIES HEADER_FILE_ONLY ON)
 
 # from old build config template:
 # 
@@ -486,26 +488,11 @@ if (UNIX)
 endif()
 
 # zlib
-add_dependencies(zlibstatic zlib_copy)
-add_dependencies(Nabla zlibstatic)
-
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE zlibstatic)
-	target_link_libraries(Nabla INTERFACE
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	)
 else()
 	target_link_libraries(Nabla PRIVATE zlibstatic)
-	target_link_libraries(Nabla PRIVATE
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	)
 endif()
-
-list(APPEND PUBLIC_BUILD_INCLUDE_DIRS $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
 # blake3
 add_dependencies(Nabla blake3)
@@ -562,7 +549,7 @@ list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/simdjson)
 # libjpeg
 add_dependencies(Nabla jpeg-static)
 if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE jpeg-static)
+	target_link_libraries(Nabla PUBLIC jpeg-static)
 else()
 	target_link_libraries(Nabla PRIVATE jpeg-static)
 endif()
@@ -753,6 +740,13 @@ list(APPEND INTERFACE_BUILD_DEFINITIONS
 # TODO: private
 target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
 
+# vulkaninfo
+if (NBL_STATIC_BUILD)
+	target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:vulkaninfo>)
+else()
+	target_link_libraries(Nabla PRIVATE $<BUILD_INTERFACE:vulkaninfo>)
+endif()
+
 # NGFX
 if(TARGET ngfx)
 	if(NBL_STATIC_BUILD)
@@ -857,3 +851,28 @@ target_compile_definitions(Nabla
 )
 
 NBL_ADJUST_FOLDERS(src)
+function(EXTRACT_BY_REGEX OUT REGEX)
+    set(tmp "${ARGN}")
+    list(FILTER tmp INCLUDE REGEX "${REGEX}")
+    set(${OUT} "${tmp}" PARENT_SCOPE)
+endfunction()
+
+get_target_property(SRC Nabla SOURCES)
+EXTRACT_BY_REGEX(NABLA_HLSL_FILES ".*\\.hlsl$" ${SRC})
+EXTRACT_BY_REGEX(NABLA_HEADER_FILES ".*\\.(h|hpp|tcc)$" ${SRC})
+EXTRACT_BY_REGEX(NABLA_SOURCE_FILES ".*\\.(c|cpp)$" ${SRC})
+
+source_group(TREE "${NBL_ROOT_PATH}"
+    PREFIX "HLSL Files"
+    FILES  ${NABLA_HLSL_FILES}
+)
+
+source_group(TREE "${NBL_ROOT_PATH}"
+    PREFIX "Header Files"
+    FILES  ${NABLA_HEADER_FILES}
+)
+
+source_group(TREE "${NBL_ROOT_PATH}"
+    PREFIX "Source Files"
+    FILES  ${NABLA_SOURCE_FILES}
+)
