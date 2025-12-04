@@ -42,7 +42,7 @@ template<typename T, uint16_t Dim, uint16_t Bits NBL_FUNC_REQUIRES(concepts::Int
 NBL_CONSTEXPR_FUNC bool verifyAnyBitIntegralVec(vector<T, Dim> vec)
 {
   array_get<vector<T, Dim>, T> getter;
-  [[unroll]]
+  NBL_UNROLL
   for (uint16_t i = 0; i < Dim; i++)
     if (!verifyAnyBitIntegral<T, Bits>(getter(vec, i))) return false;
   return true;
@@ -178,7 +178,7 @@ struct Transcoder
         array_get<portable_vector_t<encode_t, Dim>, encode_t> getter;
         encode_t encoded = getter(interleaveShifted, 0);
 
-        [[unroll]]
+        NBL_UNROLL
         for (uint16_t i = 1; i < Dim; i++)
             encoded = encoded | getter(interleaveShifted, i);
 
@@ -196,7 +196,7 @@ struct Transcoder
         portable_vector_t<encode_t, Dim> decoded;
         array_set<portable_vector_t<encode_t, Dim>, encode_t> setter;
         // Write initial values into decoded
-        [[unroll]]
+        NBL_UNROLL
         for (uint16_t i = 0; i < Dim; i++)
             setter(decoded, i, encodedRightShift(encodedValue, i));
 
@@ -363,7 +363,7 @@ struct code
     create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         this_t retVal;
-        NBL_ASSERT((impl::verifyAnyBitIntegralVec<I, D, Bits >(cartesian) == true));
+        NBL_ASSERT((impl::verifyAnyBitIntegralVec<I, D, Bits >(cartesian)));
         using decode_t = typename transcoder_t::decode_t;
         retVal.value = transcoder_t::encode(_static_cast<decode_t>(cartesian));
         return retVal;
@@ -466,7 +466,7 @@ struct code
         array_get<portable_vector_t<storage_t, D>, storage_t> getter;
         this_t retVal;
         retVal.value = getter(interleaveShiftedResult, 0);
-        [[unroll]]
+        NBL_UNROLL
         for (uint16_t i = 1; i < D; i++)
             retVal.value = retVal.value | getter(interleaveShiftedResult, i);
         return retVal;
@@ -486,7 +486,7 @@ struct code
         array_get<portable_vector_t<storage_t, D>, storage_t> getter;
         this_t retVal;
         retVal.value = getter(interleaveShiftedResult, 0);
-        [[unroll]]
+        NBL_UNROLL
         for (uint16_t i = 1; i < D; i++)
             retVal.value = retVal.value | getter(interleaveShiftedResult, i);
 
