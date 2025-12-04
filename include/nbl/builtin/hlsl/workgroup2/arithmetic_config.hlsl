@@ -225,7 +225,7 @@ template<uint16_t W, uint16_t S, uint16_t I>
 struct is_configuration<ArithmeticConfiguration<W,S,I> > : bool_constant<true> {};
 
 template<typename T>
-NBL_CONSTEXPR bool is_configuration_v = is_configuration<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_configuration_v = is_configuration<T>::value;
 
 }
 }
