@@ -752,7 +752,7 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
                                                             base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
     }
 
-    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::ior1[0] / base_type::ior3[0]; }
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::ior3[0] / base_type::ior1[0]; }
     OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         OrientedEtaRcps<eta_type> rcpEta;
