@@ -23,181 +23,98 @@ enum MicrofacetTransformTypes : uint16_t
     MTT_REFLECT_REFRACT = 0b11
 };
 
-template<typename T, bool IsGgx, MicrofacetTransformTypes reflect_refract>
-struct SDualMeasureQuant;
+namespace microfacet_transform_concepts
+{
+#define NBL_CONCEPT_NAME QuantQuery
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (query, T)
+NBL_CONCEPT_BEGIN(1)
+#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getVdotHLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNeg_rcp2_VdotH_etaLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+);
+#undef query
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+}
 
 template<typename T>
-struct SDualMeasureQuant<T, false, MTT_REFLECT>
+struct DualMeasureQuantQuery
 {
-    using this_t = SDualMeasureQuant<T, false, MTT_REFLECT>;
     using scalar_type = T;
 
-    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes Type = MTT_REFLECT;
-
-    scalar_type getMicrofacetMeasure()
+    template<class Interaction, class MicrofacetCache>
+    static DualMeasureQuantQuery<T> create(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
     {
-        return pdf;
+        DualMeasureQuantQuery<T> retval;
+        retval.VdotHLdotH = cache.getVdotHLdotH();
+        const scalar_type VdotH = cache.getVdotH();
+        const scalar_type VdotH_etaLdotH = hlsl::mix(VdotH + orientedEta * cache.getLdotH(),
+                                                    VdotH / orientedEta + cache.getLdotH(),
+                                                    interaction.getPathOrigin() == PathOrigin::PO_SENSOR);
+        retval.neg_rcp2_refractionDenom = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
+        return retval;
     }
 
-    // this computes the max(NdotL,0)/(4*max(NdotV,0)*max(NdotL,0)) factor which transforms PDFs in the f in projected microfacet f * NdotH measure to projected light measure f * NdotL
-    scalar_type getProjectedLightMeasure()
-    {
-        return scalar_type(0.25) * pdf / maxNdotV;
-    }
+    // note in pbrt it's `abs(VdotH)*abs(LdotH)`
+    // we leverage the fact that under transmission the sign must always be negative and rest of the code already accounts for that
+    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
+    scalar_type getNeg_rcp2_refractionDenom() NBL_CONST_MEMBER_FUNC { return neg_rcp2_refractionDenom ; }
 
-    scalar_type pdf;
-    scalar_type maxNdotV;
+    scalar_type VdotHLdotH;
+    scalar_type neg_rcp2_refractionDenom;
 };
 
+
 template<typename T>
-struct SDualMeasureQuant<T, true, MTT_REFLECT>
+struct SDualMeasureQuant
 {
-    using this_t = SDualMeasureQuant<T, true, MTT_REFLECT>;
-    using scalar_type = T;
-
-    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes Type = MTT_REFLECT;
-
-    scalar_type getMicrofacetMeasure()
-    {
-        return pdf;
-    }
-
-    // this computes the max(NdotL,0)/(4*max(NdotV,0)*max(NdotL,0)) factor which transforms PDFs in the f in projected microfacet f * NdotH measure to projected light measure f * NdotL
-    scalar_type getProjectedLightMeasure()
-    {
-        return pdf * maxNdotL;
-    }
-
-    scalar_type pdf;
-    scalar_type maxNdotL;
+    using value_type = T;
+    
+    T microfacetMeasure;
+    T projectedLightMeasure;
 };
 
-template<typename T>
-struct SDualMeasureQuant<T, false, MTT_REFRACT>
+namespace impl
 {
-    using this_t = SDualMeasureQuant<T, false, MTT_REFRACT>;
-    using scalar_type = T;
+template<typename T, MicrofacetTransformTypes reflect_refract>
+struct createDualMeasureQuantity_helper
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
 
-    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes Type = MTT_REFRACT;
-
-    scalar_type getMicrofacetMeasure()
+    static SDualMeasureQuant<T> __call(const T microfacetMeasure, scalar_type clampedNdotV, scalar_type clampedNdotL, scalar_type VdotHLdotH, scalar_type neg_rcp2_refractionDenom)
     {
-        return pdf;
-    }
-
-    scalar_type getProjectedLightMeasure()
-    {
-        const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+        assert(clampedNdotV >= scalar_type(0.0) && clampedNdotL >= scalar_type(0.0));
+        SDualMeasureQuant<T> retval;
+        retval.microfacetMeasure = microfacetMeasure;
+        // do constexpr booleans first so optimizer picks up this and short circuits
+        const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
+        retval.projectedLightMeasure = microfacetMeasure * hlsl::mix(scalar_type(0.25),VdotHLdotH*neg_rcp2_refractionDenom,transmitted)/clampedNdotV;
         // VdotHLdotH is negative under transmission, so thats denominator is negative
-        scalar_type denominator = absNdotV * (-VdotH_etaLdotH * VdotH_etaLdotH);
-        return pdf * VdotHLdotH / denominator;
+        return retval;
     }
-
-    scalar_type pdf;
-    scalar_type absNdotV;
-    scalar_type VdotH;
-    scalar_type LdotH;
-    scalar_type VdotHLdotH;
-    scalar_type orientedEta;
 };
+}
 
+// specialMeasure meaning the measure defined by the specialization of createDualMeasureQuantity_helper; note that GGX redefines it somewhat
 template<typename T>
-struct SDualMeasureQuant<T, true, MTT_REFRACT>
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL)
 {
-    using this_t = SDualMeasureQuant<T, true, MTT_REFRACT>;
-    using scalar_type = T;
-
-    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes Type = MTT_REFRACT;
-
-    scalar_type getMicrofacetMeasure()
-    {
-        return pdf;
-    }
-
-    scalar_type getProjectedLightMeasure()
-    {
-        const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-        // VdotHLdotH is negative under transmission, so thats denominator is negative
-        scalar_type denominator = absNdotL * (-scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH));
-        return pdf * denominator;
-    }
-
-    scalar_type pdf;
-    scalar_type absNdotL;
-    scalar_type VdotH;
-    scalar_type LdotH;
-    scalar_type VdotHLdotH;
-    scalar_type orientedEta;
-};
-
-template<typename T>
-struct SDualMeasureQuant<T, false, MTT_REFLECT_REFRACT>
+    typename vector_traits<T>::scalar_type dummy;
+    return impl::createDualMeasureQuantity_helper<T,MTT_REFLECT>::__call(specialMeasure,clampedNdotV,clampedNdotL,dummy,dummy);
+}
+template<typename T, MicrofacetTransformTypes reflect_refract>
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL, typename vector_traits<T>::scalar_type VdotHLdotH, typename vector_traits<T>::scalar_type neg_rcp2_refractionDenom)
 {
-    using this_t = SDualMeasureQuant<T, false, MTT_REFLECT_REFRACT>;
-    using scalar_type = T;
-
-    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes Type = MTT_REFLECT_REFRACT;
-
-    scalar_type getMicrofacetMeasure()
-    {
-        return pdf;
-    }
-
-    scalar_type getProjectedLightMeasure()
-    {
-        scalar_type denominator = absNdotV;
-        if (transmitted)
-        {
-            const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-            // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
-        }
-        return pdf * (transmitted ? VdotHLdotH : scalar_type(0.25)) / denominator;
-    }
-
-    scalar_type pdf;
-    scalar_type absNdotV;
-    bool transmitted;
-    scalar_type VdotH;
-    scalar_type LdotH;
-    scalar_type VdotHLdotH;
-    scalar_type orientedEta;
-};
-
-template<typename T>
-struct SDualMeasureQuant<T, true, MTT_REFLECT_REFRACT>
+    return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,VdotHLdotH,neg_rcp2_refractionDenom);
+}
+template<typename T, MicrofacetTransformTypes reflect_refract, class Query>
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL, NBL_CONST_REF_ARG(Query) query)
 {
-    using this_t = SDualMeasureQuant<T, true, MTT_REFLECT_REFRACT>;
-    using scalar_type = T;
-
-    NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes Type = MTT_REFLECT_REFRACT;
-
-    scalar_type getMicrofacetMeasure()
-    {
-        return pdf;
-    }
-
-    scalar_type getProjectedLightMeasure()
-    {
-        scalar_type denominator = absNdotL;
-        if (transmitted)
-        {
-            const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-            // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
-        }
-        return pdf * denominator;
-    }
-
-    scalar_type pdf;
-    scalar_type absNdotL;
-    bool transmitted;
-    scalar_type VdotH;
-    scalar_type LdotH;
-    scalar_type VdotHLdotH;
-    scalar_type orientedEta;
-};
-
+    return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,query.getVdotHLdotH(),query.getNeg_rcp2_refractionDenom());
+}
 
 }
 }

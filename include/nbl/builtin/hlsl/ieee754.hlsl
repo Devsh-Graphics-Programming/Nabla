@@ -203,12 +203,52 @@ struct flipSign_helper<Vectorial, BoolVector NBL_PARTIAL_REQ_BOT(concepts::Float
 		return output;
 	}
 };
+
+template <typename T NBL_STRUCT_CONSTRAINABLE>
+struct flipSignIfRHSNegative_helper;
+
+template <typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeScalar<FloatingPoint>)
+struct flipSignIfRHSNegative_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(FloatingPoint val, FloatingPoint flip)
+	{
+		using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+		return bit_cast<FloatingPoint>(asUint ^ (ieee754::traits<AsFloat>::signMask & ieee754::impl::bitCastToUintType(flip)));
+	}
+};
+
+template <typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial>)
+struct flipSignIfRHSNegative_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial>) >
+{
+	static Vectorial __call(Vectorial val, Vectorial flip)
+	{
+		using traits_v = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits_v::scalar_type> getter_v;
+		array_set<Vectorial, typename traits_v::scalar_type> setter;
+
+		Vectorial output;
+		for (uint32_t i = 0; i < traits_v::Dimension; ++i)
+			setter(output, i, flipSignIfRHSNegative_helper<typename traits_v::scalar_type>::__call(getter_v(val, i), getter_v(flip, i)));
+
+		return output;
+	}
+};
 }
 
 template <typename T, typename U>
 NBL_CONSTEXPR_INLINE_FUNC T flipSign(T val, U flip)
 {
 	return impl::flipSign_helper<T, U>::__call(val, flip);
+}
+
+template <typename T>
+NBL_CONSTEXPR_INLINE_FUNC T flipSignIfRHSNegative(T val, T flip)
+{
+	return impl::flipSignIfRHSNegative_helper<T>::__call(val, flip);
 }
 
 }

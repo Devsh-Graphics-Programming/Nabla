@@ -126,3 +126,6 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-CI.git
 	branch = ditt
 	update = none
+[submodule "3rdparty/Vulkan-Tools"]
+	path = 3rdparty/Vulkan-Tools
+	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Tools.git

@@ -364,11 +364,26 @@ NBL_VALID_EXPRESSION(FOrdEqualIsCallable, (T), FOrdEqual<T>(experimental::declva
 template<typename T>
 NBL_BOOL_CONCEPT EqualIntrinsicCallable = IEqualIsCallable<T> || FOrdEqualIsCallable<T>;
 
+template<typename T NBL_FUNC_REQUIRES(concepts::Integral<T> || concepts::IntVector<T>)
+[[vk::ext_instruction(spv::OpINotEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> INotEqual(T lhs, T rhs);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T> || concepts::FloatingPointVector<T>)
+[[vk::ext_instruction(spv::OpFOrdNotEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdNotEqual(T lhs, T rhs);
+
+NBL_VALID_EXPRESSION(INotEqualIsCallable, (T), INotEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+NBL_VALID_EXPRESSION(FOrdNotEqualIsCallable, (T), FOrdNotEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+
+template<typename T>
+NBL_BOOL_CONCEPT NotEqualIntrinsicCallable = INotEqualIsCallable<T> || FOrdNotEqualIsCallable<T>;
+
 template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!concepts::Vector<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)))
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
 
-NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
+// need to use `spirv::` even in the namespace because it matches the HLSL intrinsic which is not namespaced at all, and will happily match anything
+NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), spirv::select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
 
 }
 

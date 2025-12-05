@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/colorspace.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -142,7 +143,7 @@ struct ComputeMicrofacetNormal
         assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
         const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
         vector_type tmpH = V + L * etaFactor;
-        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract);
+        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract && orientedEta > scalar_type(1.0));
         return tmpH;
     }
 
@@ -161,7 +162,7 @@ struct ComputeMicrofacetNormal
 
     static bool isValidMicrofacet(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, NBL_CONST_REF_ARG(fresnel::OrientedEtas<vector<scalar_type,1> >) orientedEta)
     {
-        return !transmitted || (VdotL <= -hlsl::min(orientedEta.value, orientedEta.rcp) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
+        return !transmitted || (VdotL <= -hlsl::min(orientedEta.value[0], orientedEta.rcp[0]) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
     }
 
     vector_type V;
@@ -232,6 +233,7 @@ struct Refract
         return ieee754::copySign(absNdotT, -NdotI);  // TODO: make a ieee754::copySignIntoPositive, see https://github.com/Devsh-Graphics-Programming/Nabla/pull/899#discussion_r2197473145
     }
 
+    // refraction takes eta as ior_incoming/ior_transmitted due to snell's law
     vector_type operator()(const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         return N * (getNdotI() * rcpOrientedEta + getNdotT(rcpOrientedEta*rcpOrientedEta)) - rcpOrientedEta * I;
@@ -311,7 +313,26 @@ NBL_CONCEPT_BEGIN(2)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::eta_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel(cosTheta)), ::nbl::hlsl::is_same_v, typename T::vector_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getOrientedEtaRcps()), ::nbl::hlsl::is_same_v, OrientedEtaRcps<typename T::eta_type>))
+);
+#undef cosTheta
+#undef fresnel
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+#define NBL_CONCEPT_NAME TwoSidedFresnel
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (fresnel, T)
+#define NBL_CONCEPT_PARAM_1 (cosTheta, typename T::scalar_type)
+NBL_CONCEPT_BEGIN(2)
+#define fresnel NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define cosTheta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Fresnel, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getReorientedFresnel(cosTheta)), ::nbl::hlsl::is_same_v, T))
 );
 #undef cosTheta
 #undef fresnel
@@ -322,6 +343,9 @@ struct Schlick
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
+    using eta_type = vector_type;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
 
     static Schlick<T> create(NBL_CONST_REF_ARG(T) F0)
     {
@@ -330,12 +354,21 @@ struct Schlick
         return retval;
     }
 
-    T operator()(const scalar_type clampedCosTheta)
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         assert(clampedCosTheta >= scalar_type(0.0));
         assert(hlsl::all(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0)));
         T x = 1.0 - clampedCosTheta;
         return F0 + (1.0 - F0) * x*x*x*x*x;
+    }
+
+    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        const eta_type sqrtF0 = hlsl::sqrt(F0);        
+        OrientedEtaRcps<eta_type> rcpEta;
+        rcpEta.value = (hlsl::promote<eta_type>(1.0) - sqrtF0) / (hlsl::promote<eta_type>(1.0) + sqrtF0);
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
     }
 
     T F0;
@@ -346,13 +379,16 @@ struct Conductor
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
+    using eta_type = vector_type;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
 
     static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak)
     {
         Conductor<T> retval;
         retval.eta = eta;
-        retval.etak = etak;
-        retval.etak2 = etak*etak;
+        retval.etak2 = etak * etak;
+        retval.etaLen2 = eta * eta + retval.etak2;
         return retval;
     }
 
@@ -360,32 +396,45 @@ struct Conductor
     {
         Conductor<T> retval;
         retval.eta = eta.real();
-        retval.etak = eta.imag();
-        retval.etak2 = eta.imag()*eta.imag();
+        retval.etak2 = eta.imag() * eta.imag();
+        retval.etaLen2 = eta * eta + retval.etak2;
         return retval;
     }
 
-    T operator()(const scalar_type clampedCosTheta)
+    static void __polarized(const T orientedEta, const T etaLen2, const T clampedCosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
     {
-        const scalar_type cosTheta2 = clampedCosTheta * clampedCosTheta;
-        //const float sinTheta2 = 1.0 - cosTheta2;
+        const T cosTheta_2 = clampedCosTheta * clampedCosTheta;
+        const T eta = orientedEta;
 
-        const T etaLen2 = eta * eta + etak2;
         assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
-        const T etaCosTwice = eta * clampedCosTheta * 2.0f;
+        T t1 = etaLen2 * cosTheta_2;
+        const T etaCosTwice = eta * clampedCosTheta * hlsl::promote<T>(2.0);
 
-        const T rs_common = etaLen2 + (T)(cosTheta2);
-        const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
+        const T rs_common = etaLen2 + cosTheta_2;
+        Rs = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
+        const T rp_common = t1 + hlsl::promote<T>(1.0);
+        Rp = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
+    }
 
-        const T rp_common = etaLen2 * cosTheta2 + (T)(1.0);
-        const T rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
+    {
+        T rs2, rp2;
+        __polarized(eta, etaLen2, hlsl::promote<T>(clampedCosTheta), rp2, rs2);
 
-        return (rs2 + rp2) * 0.5f;
+        return (rs2 + rp2) * hlsl::promote<T>(0.5);
+    }
+
+    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtaRcps<eta_type> rcpEta;
+        rcpEta.value = hlsl::promote<eta_type>(1.0) / eta;
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
     }
 
     T eta;
-    T etak;
     T etak2;
+    T etaLen2;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
@@ -393,6 +442,9 @@ struct Dielectric
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
+    using eta_type = vector_type;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
 
     static Dielectric<T> create(NBL_CONST_REF_ARG(OrientedEtas<T>) orientedEta)
     {
@@ -402,28 +454,281 @@ struct Dielectric
         return retval;
     }
 
-    static T __call(NBL_CONST_REF_ARG(T) orientedEta2, const scalar_type clampedCosTheta)
+    static void __polarized(const T orientedEta2, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
     {
-        const scalar_type sinTheta2 = 1.0 - clampedCosTheta * clampedCosTheta;
+        const T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta * cosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
-        const T t0 = hlsl::sqrt<T>(hlsl::max<T>(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
-        const T rs = (hlsl::promote<T>(clampedCosTheta) - t0) / (hlsl::promote<T>(clampedCosTheta) + t0);
+        T t0 = hlsl::sqrt(hlsl::max(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
+        T t2 = orientedEta2 * cosTheta;
 
-        const T t2 = orientedEta2 * clampedCosTheta;
-        const T rp = (t0 - t2) / (t0 + t2);
-
-        return (rs * rs + rp * rp) * 0.5f;
+        T rp = (t0 - t2) / (t0 + t2);
+        Rp = rp * rp;
+        T rs = (cosTheta - t0) / (cosTheta + t0);
+        Rs = rs * rs;
     }
 
-    T operator()(const scalar_type clampedCosTheta)
+    static T __call(NBL_CONST_REF_ARG(T) orientedEta2, const scalar_type clampedCosTheta)
+    {
+        T rs2, rp2;
+        __polarized(orientedEta2, hlsl::promote<T>(clampedCosTheta), rp2, rs2);
+
+        return (rs2 + rp2) * hlsl::promote<T>(0.5);
+    }
+
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         return __call(orientedEta2, clampedCosTheta);
+    }
+
+    // default to monochrome, but it is possible to have RGB fresnel without dispersion fixing the refraction Eta
+    // to be something else than the etas used to compute RGB reflectance or some sort of interpolation of them
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta.value[0]; }
+    OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
+
+    Dielectric<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtas<T> eta = OrientedEtas<T>::create(NdotI, orientedEta.value);
+        return Dielectric<T>::create(eta);
     }
 
     OrientedEtas<T> orientedEta;
     T orientedEta2;
 };
+
+// adapted from https://belcour.github.io/blog/research/publication/2017/05/01/brdf-thin-film.html
+template<typename T, bool SupportsTransmission NBL_STRUCT_CONSTRAINABLE>
+struct Iridescent;
+
+namespace impl
+{
+template<typename T, bool SupportsTransmission NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+struct iridescent_helper
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
+
+    // returns reflectance R = (rp, rs), phi is the phase shift for each plane of polarization (p,s)
+    static void phase_shift(const vector_type orientedEta, const vector_type orientedEtak, const vector_type cosTheta, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
+    {
+        vector_type cosTheta_2 = cosTheta * cosTheta;
+        vector_type sinTheta2 = hlsl::promote<vector_type>(1.0) - cosTheta_2;
+        const vector_type eta2 = orientedEta*orientedEta;
+        const vector_type etak2 = orientedEtak*orientedEtak;
+
+        vector_type z = eta2 - etak2 - sinTheta2;
+        vector_type w = hlsl::sqrt(z * z + scalar_type(4.0) * eta2 * eta2 * etak2);
+        vector_type a2 = (z + w) * hlsl::promote<vector_type>(0.5);
+        vector_type b2 = (w - z) * hlsl::promote<vector_type>(0.5);
+        vector_type b = hlsl::sqrt(b2);
+
+        const vector_type t0 = eta2 + etak2;
+        const vector_type t1 = t0 * cosTheta_2;
+
+        phiS = hlsl::atan2(hlsl::promote<vector_type>(2.0) * b * cosTheta, a2 + b2 - cosTheta_2);
+        phiP = hlsl::atan2(hlsl::promote<vector_type>(2.0) * eta2 * cosTheta * (hlsl::promote<vector_type>(2.0) * orientedEtak * hlsl::sqrt(a2) - etak2 * b), t1 - a2 + b2);
+    }
+
+    // Evaluation XYZ sensitivity curves in Fourier space
+    static vector_type evalSensitivity(vector_type opd, vector_type shift)
+    {
+        // Use Gaussian fits, given by 3 parameters: val, pos and var
+        vector_type phase = scalar_type(2.0) * numbers::pi<scalar_type> * opd * scalar_type(1.0e-9);
+        vector_type phase2 = phase * phase;
+        vector_type val = vector_type(5.4856e-13, 4.4201e-13, 5.2481e-13);
+        vector_type pos = vector_type(1.6810e+06, 1.7953e+06, 2.2084e+06);
+        vector_type var = vector_type(4.3278e+09, 9.3046e+09, 6.6121e+09);
+        vector_type xyz = val * hlsl::sqrt(scalar_type(2.0) * numbers::pi<scalar_type> * var) * hlsl::cos(pos * phase + shift) * hlsl::exp(-var * phase2);
+        xyz.x = xyz.x + scalar_type(9.7470e-14) * hlsl::sqrt(scalar_type(2.0) * numbers::pi<scalar_type> * scalar_type(4.5282e+09)) * hlsl::cos(scalar_type(2.2399e+06) * phase[0] + shift[0]) * hlsl::exp(scalar_type(-4.5282e+09) * phase2[0]);
+        return xyz / scalar_type(1.0685e-7);
+    }
+
+    template<typename Params>
+    static T __call(NBL_CONST_REF_ARG(Params) params, const scalar_type clampedCosTheta)
+    {
+        const vector_type wavelengths = vector_type(colorspace::scRGB::wavelength_R, colorspace::scRGB::wavelength_G, colorspace::scRGB::wavelength_B);
+
+        const vector_type eta12 = params.getEta12();
+        const vector_type eta23 = params.getEta23();
+        const vector_type etak23 = params.getEtak23();
+        const scalar_type cosTheta_1 = clampedCosTheta;
+        vector_type cosTheta_2;
+
+        vector_type R12p, R23p, R12s, R23s;
+        const vector_type scale = scalar_type(1.0)/eta12;
+        const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(1.0-cosTheta_1*cosTheta_1) * scale * scale;
+
+        cosTheta_2 = hlsl::sqrt(hlsl::max(cosTheta2_2, hlsl::promote<vector_type>(0.0)));
+        Dielectric<vector_type>::__polarized(eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
+
+        // Reflected part by the base
+        // if kappa==0, base material is dielectric
+        NBL_IF_CONSTEXPR(SupportsTransmission)
+            Dielectric<vector_type>::__polarized(eta23 * eta23, cosTheta_2, R23p, R23s);
+        else
+        {
+            vector_type etaLen2 = eta23 * eta23 + etak23 * etak23;
+            Conductor<vector_type>::__polarized(eta23, etaLen2, cosTheta_2, R23p, R23s);
+        }
+
+        // Check for total internal reflection
+        R12s = hlsl::mix(R12s, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+        R12p = hlsl::mix(R12p, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+
+        R23s = hlsl::mix(R23s, hlsl::promote<vector_type>(0.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+        R23p = hlsl::mix(R23p, hlsl::promote<vector_type>(0.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+
+        // Compute the transmission coefficients
+        vector_type T121p = hlsl::promote<vector_type>(1.0) - R12p;
+        vector_type T121s = hlsl::promote<vector_type>(1.0) - R12s;
+
+        // Optical Path Difference
+        const vector_type D = hlsl::promote<vector_type>(2.0 * params.getDinc()) * params.getThinFilmIor() * cosTheta_2;
+        const vector_type Dphi = hlsl::promote<vector_type>(2.0 * numbers::pi<scalar_type>) * D / wavelengths;
+
+        vector_type phi21p, phi21s, phi23p, phi23s, r123s, r123p, Rs;
+        vector_type I = hlsl::promote<vector_type>(0.0);
+
+        // Evaluate the phase shift
+        phase_shift(eta12, hlsl::promote<vector_type>(0.0), hlsl::promote<vector_type>(cosTheta_1), phi21p, phi21s);
+        phase_shift(eta23, etak23, cosTheta_2, phi23p, phi23s);
+        phi21p = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21p;
+        phi21s = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21s;
+
+        r123p = hlsl::sqrt(R12p*R23p);
+        r123s = hlsl::sqrt(R12s*R23s);
+
+        vector_type C0, Cm, Sm;
+        const vector_type S0 = hlsl::promote<vector_type>(1.0);
+
+        // Iridescence term using spectral antialiasing
+        // Reflectance term for m=0 (DC term amplitude)
+        Rs = (T121p*T121p*R23p) / (hlsl::promote<vector_type>(1.0) - R12p*R23p);
+        C0 = R12p + Rs;
+        I += C0 * S0;
+
+        // Reflectance term for m>0 (pairs of diracs)
+        Cm = Rs - T121p;
+        NBL_UNROLL for (int m=1; m<=2; ++m)
+        {
+            Cm *= r123p;
+            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(m)*D, hlsl::promote<vector_type>(m)*(phi23p+phi21p));
+            I  += Cm*Sm;
+        }
+
+        // Reflectance term for m=0 (DC term amplitude)
+        Rs = (T121s*T121s*R23s) / (hlsl::promote<vector_type>(1.0) - R12s*R23s);
+        C0 = R12s + Rs;
+        I += C0 * S0;
+
+        // Reflectance term for m>0 (pairs of diracs)
+        Cm = Rs - T121s;
+        NBL_UNROLL for (int m=1; m<=2; ++m)
+        {
+            Cm *= r123s;
+            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(m)*D, hlsl::promote<vector_type>(m) *(phi23s+phi21s));
+            I  += Cm*Sm;
+        }
+
+        return hlsl::max(colorspace::scRGB::FromXYZ(I), hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
+    }
+};
+
+template<typename T, bool SupportsTransmission NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)    
+struct iridescent_base
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
+
+    scalar_type getDinc() NBL_CONST_MEMBER_FUNC { return Dinc; }
+    vector_type getThinFilmIor() NBL_CONST_MEMBER_FUNC { return thinFilmIor; }
+    vector_type getEta12() NBL_CONST_MEMBER_FUNC { return eta12; }
+    vector_type getEta23() NBL_CONST_MEMBER_FUNC { return eta23; }
+    vector_type getEtak23() NBL_CONST_MEMBER_FUNC
+    {
+        NBL_IF_CONSTEXPR(SupportsTransmission)
+            return hlsl::promote<vector_type>(0.0);
+        else
+            return etak23;
+    }
+
+    scalar_type Dinc;       // thickness of thin film in nanometers, rec. 100-25000nm
+    vector_type thinFilmIor;
+    vector_type eta12;      // outside (usually air 1.0) -> thin-film IOR
+    vector_type eta23;      // thin-film -> base material IOR
+    vector_type etak23;     // thin-film -> complex component, k==0 makes dielectric
+};
+}
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T>)
+struct Iridescent<T, false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T>) >
+{
+    using this_t = Iridescent<T,false>;
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;  // assert dim==3?
+    using eta_type = vector_type;
+    using base_type = impl::iridescent_base<T, false>;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
+
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
+    {
+        return impl::iridescent_helper<T,false>::template __call<base_type>(__base, clampedCosTheta);
+    }
+
+    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtaRcps<eta_type> rcpEta;
+        rcpEta.value = hlsl::promote<eta_type>(1.0) / __base.eta23;
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
+    }
+
+    base_type __base;
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T>)
+struct Iridescent<T, true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T>) >
+{
+    using this_t = Iridescent<T,true>;
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;  // assert dim==3?
+    using eta_type = vector<scalar_type, 1>;
+    using base_type = impl::iridescent_base<T, true>;
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ReturnsMonochrome = vector_traits<vector_type>::Dimension == 1;
+
+    T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
+    {
+        return impl::iridescent_helper<T,true>::template __call<base_type>(__base, clampedCosTheta);
+    }
+
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return __base.eta23[0]; }
+    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtaRcps<eta_type> rcpEta;
+        rcpEta.value = hlsl::promote<eta_type>(1.0) / __base.eta23[0];
+        rcpEta.value2 = rcpEta.value * rcpEta.value;
+        return rcpEta;
+    }
+
+    this_t getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
+    {
+        const bool flip = NdotI < scalar_type(0.0);
+        this_t orientedFresnel;
+        orientedFresnel.__base.Dinc = __base.Dinc;
+        orientedFresnel.__base.thinFilmIor = __base.thinFilmIor;
+        orientedFresnel.__base.eta12 = hlsl::mix(__base.eta12, hlsl::promote<vector_type>(1.0)/__base.eta12, flip);
+        orientedFresnel.__base.eta23 = hlsl::mix(__base.eta23, hlsl::promote<vector_type>(1.0)/__base.eta23, flip);
+        orientedFresnel.__base.etak23 = hlsl::promote<vector_type>(0.0);
+        return orientedFresnel;
+    }
+
+    base_type __base;
+};
+
 
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T> || concepts::FloatingPointLikeVectorial<T>)
