@@ -563,7 +563,7 @@ struct iridescent_helper
 
         if (hlsl::any(notTIR))
         {
-            Dielectric<vector_type>::__polarized(eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
+            Dielectric<vector_type>::__polarized(eta12 * eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
 
             // Reflected part by the base
             // if kappa==0, base material is dielectric
@@ -741,7 +741,6 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
         retval.ior1 = params.ior1;
         retval.ior2 = params.ior2;
         retval.ior3 = params.ior3;
-        retval.iork3 = params.iork3;
         retval.eta12 = params.ior2/params.ior1;
         retval.eta23 = params.ior3/params.ior2;
         return retval;
@@ -753,11 +752,11 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
                                                             base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
     }
 
-    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::eta23[0]; }
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::ior1[0] / base_type::ior3[0]; }
     OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = hlsl::promote<eta_type>(1.0) / base_type::eta23[0];
+        rcpEta.value = base_type::ior1[0] / base_type::ior3[0];
         rcpEta.value2 = rcpEta.value * rcpEta.value;
         return rcpEta;
     }
@@ -767,9 +766,9 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
         const bool flip = NdotI < scalar_type(0.0);
         this_t orientedFresnel;
         orientedFresnel.D = base_type::D;
-        orientedFresnel.ior1 = base_type::ior3;
+        orientedFresnel.ior1 = hlsl::mix(base_type::ior1, base_type::ior3, flip);
         orientedFresnel.ior2 = base_type::ior2;
-        orientedFresnel.ior3 = base_type::ior1;
+        orientedFresnel.ior3 = hlsl::mix(base_type::ior3, base_type::ior1, flip);
         orientedFresnel.eta12 = hlsl::mix(base_type::eta12, hlsl::promote<vector_type>(1.0)/base_type::eta23, flip);
         orientedFresnel.eta23 = hlsl::mix(base_type::eta23, hlsl::promote<vector_type>(1.0)/base_type::eta12, flip);
         return orientedFresnel;
