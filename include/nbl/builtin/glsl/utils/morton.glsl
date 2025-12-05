@@ -22,6 +22,18 @@ uint nbl_glsl_morton_decode2d8bComponent(in uint x)
     return x;
 }
 
+uint nbl_glsl_morton_decode2d32bComponent(in uint x) 
+{
+    x &= 0x55555555u;
+    x = (x ^ (x >>  1u)) & 0x33333333u;
+    x = (x ^ (x >>  2u)) & 0x0f0f0f0fu;
+    x = (x ^ (x >>  4u)) & 0x00ff00ffu;
+    x = (x ^ (x >>  8u)) & 0x0000ffffu;
+    x = (x ^ (x >>  16u));
+    return x;
+}
+
+
 uvec2 nbl_glsl_morton_decode2d4b(in uint x)
 {
     return uvec2(nbl_glsl_morton_decode2d4bComponent(x), nbl_glsl_morton_decode2d4bComponent(x >> 1u));
@@ -30,6 +42,11 @@ uvec2 nbl_glsl_morton_decode2d4b(in uint x)
 uvec2 nbl_glsl_morton_decode2d8b(in uint x)
 {
     return uvec2(nbl_glsl_morton_decode2d8bComponent(x), nbl_glsl_morton_decode2d8bComponent(x >> 1u));
+}
+
+uvec2 nbl_glsl_morton_decode2d32b(in uint x)
+{
+    return uvec2(nbl_glsl_morton_decode2d32bComponent(x), nbl_glsl_morton_decode2d32bComponent(x >> 1u));
 }
 
 #endif

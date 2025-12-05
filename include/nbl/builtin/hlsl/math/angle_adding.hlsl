@@ -44,7 +44,7 @@ struct sincos_accumulator
         const T cosB = runningSum.real();
         const T sinB = runningSum.imag();
         // TODO: prove if we infer overflow from sign of `d` instead
-        const bool overflow = abs<T>(min<T>(a, cosB)) > max<T>(a, cosB);
+        const bool overflow = abs<T>(min<T>(cosA, cosB)) > max<T>(cosA, cosB);
         const T c = cosA * cosB - sinA * sinB;
         const T d = sinA * cosB + cosA * sinB;
 
