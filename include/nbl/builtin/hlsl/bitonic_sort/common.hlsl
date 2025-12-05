@@ -25,25 +25,27 @@ template<typename Config, class device_capabilities = void>
 struct bitonic_sort;
 
 
-template<typename KeyValue, uint32_t Log2N, typename Comparator>
+template<typename sortable_t, uint32_t Log2N, typename Comparator>
 struct LocalPasses
 {
     static const uint32_t N = 1u << Log2N;
-    void operator()(bool ascending, KeyValue data[N], NBL_CONST_REF_ARG(Comparator) comp);
+    void operator()(bool ascending, sortable_t data[N], NBL_CONST_REF_ARG(Comparator) comp);
 };
 
-template<typename KeyValue, typename Comparator>
-struct LocalPasses<KeyValue, 1, Comparator>
+// Specialization for 2 elements (Log2N=1)
+template<typename sortable_t, typename Comparator>
+struct LocalPasses<sortable_t, 1, Comparator>
 {
     static const uint32_t N = 2;
 
-    void operator()(bool ascending, KeyValue data[N], NBL_CONST_REF_ARG(Comparator) comp)
+    void operator()(bool ascending, sortable_t data[N], NBL_CONST_REF_ARG(Comparator) comp)
     {
-        const bool shouldSwap = comp(data[1], data[0]) == ascending;
+        const bool shouldSwap = comp(data[1], data[0]);
+        const bool doSwap = (shouldSwap == ascending);
 
-        KeyValue temp = data[0];
-        data[0] = shouldSwap ? data[1] : data[0];
-        data[1] = shouldSwap ? temp : data[1];
+        sortable_t temp = data[0];
+        data[0] = doSwap ? data[1] : data[0];
+        data[1] = doSwap ? temp : data[1];
     }
 };
 
