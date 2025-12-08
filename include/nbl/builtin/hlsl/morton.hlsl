@@ -361,7 +361,6 @@ struct code
     create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         this_t retVal;
-        NBL_ASSERT((impl::verifyAnyBitIntegralVec<I, D, Bits >(cartesian)));
         assert((impl::verifyAnyBitIntegralVec<I, D, Bits >(cartesian)));
         using decode_t = typename transcoder_t::decode_t;
         retVal.value = transcoder_t::encode(_static_cast<decode_t>(cartesian));
