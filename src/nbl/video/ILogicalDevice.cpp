@@ -950,7 +950,7 @@ bool ILogicalDevice::createMeshPipelines(
 
         if (params[ix].taskShader.shader != nullptr) {
             if (!features.taskShader) {
-                NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
+                NBL_LOG_ERROR("Feature `task shader` is not enabled");
                 return false;
             }
         }

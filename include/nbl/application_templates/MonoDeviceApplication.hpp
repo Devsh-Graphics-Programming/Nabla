@@ -74,6 +74,8 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 				
 				const auto supportedPreferredFormats = getPreferredDeviceFeatures().intersectWith(m_physicalDevice->getFeatures());
 				params.featuresToEnable = getRequiredDeviceFeatures().unionWith(supportedPreferredFormats);
+				params.featuresToEnable.meshShader = true;
+				params.featuresToEnable.taskShader = true;
 
 				m_device = m_physicalDevice->createLogicalDevice(std::move(params));
 				if (!m_device)

@@ -278,6 +278,8 @@ set(NBL_VIDEO_SOURCES
 	video/CVulkanComputePipeline.cpp
 	video/CVulkanMeshPipeline.cpp
 	video/CVulkanRayTracingPipeline.cpp
+	video/CVulkanComputePipeline.cpp
+	video/CVulkanMeshPipeline.cpp
 	video/CVulkanEvent.cpp
 	video/CSurfaceVulkan.cpp
 	
