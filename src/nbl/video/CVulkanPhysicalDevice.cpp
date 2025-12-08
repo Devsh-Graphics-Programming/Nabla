@@ -1547,6 +1547,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.rayQuery,VK_KHR_RAY_QUERY_EXTENSION_NAME,&rayQueryFeatures); // feature dependency taken care of
 
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT, nullptr};
+        REQUIRE_EXTENSION_IF(enabledFeatures.meshShader, VK_EXT_MESH_SHADER_EXTENSION_NAME, &meshShaderFeatures);
+
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV shaderSMBuiltinsFeaturesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV,nullptr };
         enableExtensionIfAvailable(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME,&shaderSMBuiltinsFeaturesNV);
 
@@ -1862,6 +1865,12 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         rayQueryFeatures.rayQuery = enabledFeatures.rayQuery;
 
         rayTracingPositionFetchFeatures.rayTracingPositionFetch = limits.rayTracingPositionFetch;
+
+        meshShaderFeatures.taskShader = enabledFeatures.taskShader;
+        meshShaderFeatures.meshShader = enabledFeatures.meshShader;
+        meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_FALSE;//needs to be explicitly set?
+        meshShaderFeatures.meshShaderQueries = VK_FALSE;
+        meshShaderFeatures.multiviewMeshShader = VK_FALSE;
 
         //shaderSMBuiltinsFeaturesNV [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 
