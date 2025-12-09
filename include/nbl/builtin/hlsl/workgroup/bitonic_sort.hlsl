@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
 
 #include "nbl/builtin/hlsl/bitonic_sort/common.hlsl"
+#include "nbl/builtin/hlsl/subgroup/bitonic_sort.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/memory_accessor.hlsl"
 
@@ -78,14 +79,14 @@ inline void inThreadShuffleSortPairs(
     WorkgroupType<typename config::key_t> elems[config::E],
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    uint32_t partner = stride;
+    uint32_t partner = stride >> 1;
 
     [unroll]
-    for (uint32_t i = 0u; i < config::E; i += stride * 2u)
+    for (uint32_t i = 0u; i < config::E; i += stride)
     {
         uint32_t j = i + partner;
         bool valid = j < config::E;
-        bool swap = valid && (ascending ? comp(elems[j], elems[i]) : comp(elems[i], elems[j]));
+        bool swap = valid && (comp(elems[j].key, elems[i].key) == ascending);
 
         WorkgroupType<typename config::key_t> tmp = elems[i];
 
@@ -104,26 +105,33 @@ inline void subgroupShuffleSortPairs(
     uint32_t subgroupInvocationID,
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    bool isUpper = (subgroupInvocationID & stride) != 0u;
+    uint32_t partner = stride >> 1;
+    bool isUpper = (subgroupInvocationID & partner) != 0u;
 
     [unroll]
-    for (uint32_t i = 0u; i < config::E; ++i)
+    for (uint32_t i = 0u; i < config::E; i += 2u)
     {
-        typename config::key_t partnerKey = glsl::subgroupShuffleXor(elems[i].key, stride);
-        uint32_t partnerIdx = glsl::subgroupShuffleXor(elems[i].workgroupRelativeIndex, stride);
+        uint32_t j = i + 1u;
 
-        WorkgroupType<typename config::key_t> partnerElem;
-        partnerElem.key = partnerKey;
-        partnerElem.workgroupRelativeIndex = partnerIdx;
+        typename config::key_t tradingKey = isUpper ? elems[j].key : elems[i].key;
+        uint32_t tradingIdx = isUpper ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
 
-     
-        bool keepPartner = (ascending == isUpper) ? comp(partnerElem, elems[i]) : comp(elems[i], partnerElem);
-        if (keepPartner) {
-            elems[i] = partnerElem;
-        }
+        tradingKey = glsl::subgroupShuffleXor(tradingKey, partner);
+        tradingIdx = glsl::subgroupShuffleXor(tradingIdx, partner);
+
+        elems[i].key = isUpper ? elems[i].key : tradingKey;
+        elems[i].workgroupRelativeIndex = isUpper ? elems[i].workgroupRelativeIndex : tradingIdx;
+        elems[j].key = isUpper ? tradingKey : elems[j].key;
+        elems[j].workgroupRelativeIndex = isUpper ? tradingIdx : elems[j].workgroupRelativeIndex;
+
+        bool swap = comp(elems[j].key, elems[i].key) == ascending;
+        WorkgroupType<typename config::key_t> tmp = elems[i];
+
+        elems[i].key = swap ? elems[j].key : elems[i].key;
+        elems[i].workgroupRelativeIndex = swap ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
+        elems[j].key = swap ? tmp.key : elems[j].key;
+        elems[j].workgroupRelativeIndex = swap ? tmp.workgroupRelativeIndex : elems[j].workgroupRelativeIndex;
     }
-
-    atomicOpPairs<config>(ascending, elems, comp);
 }
 
 template<typename config, typename Comp, typename SMem>
@@ -155,36 +163,30 @@ inline void workgroupShuffleSortPairs(
         bool active = (tid >= start) && (tid < end);
 
         [unroll]
-        for (uint32_t i = 0u; i < config::E; ++i)
+        for (uint32_t i = 0u; i < config::E/2; ++i)
         {
-            if (active)
+            uint32_t localIdx = isUpper ? (i + config::E/2) : i;
+            if (active && (localIdx < config::E))
             {
-                k.set(tid*config::E + i, elems[i].key);
-                idx.set(tid*config::E + i, elems[i].workgroupRelativeIndex);
+                k.set(tid*config::E + localIdx, elems[localIdx].key);
+                idx.set(tid*config::E + localIdx, elems[localIdx].workgroupRelativeIndex);
             }
         }
         smem.workgroupExecutionAndMemoryBarrier();
 
         [unroll]
-        for (uint32_t i = 0u; i < config::E; ++i)
+        for (uint32_t i = 0u; i < config::E/2; ++i)
         {
-            if (active)
+            uint32_t localIdx = isUpper ? i : (i + config::E/2);
+            if (active && (localIdx < config::E))
             {
-                uint32_t myElemIdx = tid * config::E + i;
+                uint32_t myElemIdx = tid * config::E + (isUpper ? (i + config::E/2) : i);
                 uint32_t partnerElemIdx = myElemIdx ^ stride;
                 uint32_t pTid = partnerElemIdx / config::E;
                 uint32_t partnerLocalIdx = partnerElemIdx % config::E;
 
-                WorkgroupType<typename config::key_t> partnerElem;
-                k.get(pTid*config::E + partnerLocalIdx, partnerElem.key);
-                idx.get(pTid*config::E + partnerLocalIdx, partnerElem.workgroupRelativeIndex);
-
-                bool isUpper = (myElemIdx & stride) != 0u;
-
-                bool keepPartner = (ascending == isUpper) ? comp(partnerElem, elems[i]) : comp(elems[i], partnerElem);
-                if (keepPartner) {
-                    elems[i] = partnerElem;
-                }
+                k.get(pTid*config::E + partnerLocalIdx, elems[localIdx].key);
+                idx.get(pTid*config::E + partnerLocalIdx, elems[localIdx].workgroupRelativeIndex);
             }
         }
         smem.workgroupExecutionAndMemoryBarrier();
@@ -246,8 +248,8 @@ struct BitonicSort
             uint32_t idx = tid * config::E + i;
             KVPair kvpair;
             acc.template get<KVPair>(idx, kvpair);
-            elems[i].key = kvpair.first;                      // The key to sort by (random number)
-            elems[i].workgroupRelativeIndex = kvpair.second;  // The original index to track
+            elems[i].key = kvpair.first;                      
+            elems[i].workgroupRelativeIndex = kvpair.second;  
         }
 
         typename config::comparator_t comp;
@@ -268,13 +270,12 @@ struct BitonicSort
             }
         }
 
-        // Write back sorted (sortedKey, originalIndex) pairs
         [unroll]
         for (uint32_t i = 0u; i < config::E; ++i)
         {
             KVPair output;
-            output.first = elems[i].key;                      // Sorted key
-            output.second = elems[i].workgroupRelativeIndex;  // Original index
+            output.first = elems[i].key;                     
+            output.second = elems[i].workgroupRelativeIndex;  
             acc.template set<KVPair>(tid * config::E + i, output);
         }
     }
