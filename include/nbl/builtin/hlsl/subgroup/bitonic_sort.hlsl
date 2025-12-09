@@ -1,83 +1,94 @@
-#ifndef NBL_BUILTIN_HLSL_SUBGROUP_BITONIC_SORT_INCLUDED
-#define NBL_BUILTIN_HLSL_SUBGROUP_BITONIC_SORT_INCLUDED
+#ifndef _NBL_BUILTIN_HLSL_SUBGROUP_BITONIC_SORT_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SUBGROUP_BITONIC_SORT_INCLUDED_
+
 #include "nbl/builtin/hlsl/bitonic_sort/common.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
+#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
-#include "nbl/builtin/hlsl/functional.hlsl"
+
 namespace nbl
 {
 namespace hlsl
 {
 namespace subgroup
 {
-
-template<typename KeyType, typename ValueType, typename Comparator = less<KeyType> >
-struct bitonic_sort_config
+namespace bitonic_sort
 {
-	using key_t = KeyType;
-	using value_t = ValueType;
-	using comparator_t = Comparator;
+using namespace nbl::hlsl::bitonic_sort;
+
+template<typename KeyType, typename Comparator, class device_capabilities = void>
+struct bitonic_sort_wgtype
+{
+    using WGType = WorkgroupType<KeyType>;
+    using key_t = KeyType;
+    using comparator_t = Comparator;
+
+    static void mergeStage(
+        uint32_t stage,
+        bool bitonicAscending,
+        uint32_t invocationID,
+        NBL_REF_ARG(WGType) lo,
+        NBL_REF_ARG(WGType) hi)
+    {
+        comparator_t comp;
+
+        [unroll]
+        for (uint32_t pass = 0u; pass <= stage; ++pass)
+        {
+            uint32_t stride = 1u << (stage - pass);
+            uint32_t partner = stride >> 1;
+
+            if (partner == 0u)
+            {
+                bool swap = comp(hi.key, lo.key) == bitonicAscending;
+                WGType tmp = lo;
+                lo.key = swap ? hi.key : lo.key;
+                lo.workgroupRelativeIndex = swap ? hi.workgroupRelativeIndex : lo.workgroupRelativeIndex;
+                hi.key = swap ? tmp.key : hi.key;
+                hi.workgroupRelativeIndex = swap ? tmp.workgroupRelativeIndex : hi.workgroupRelativeIndex;
+            }
+            else
+            {
+                bool isUpper = (invocationID & partner) != 0u;
+
+                // Select which element to trade and shuffle members individually
+                key_t tradingKey = isUpper ? hi.key : lo.key;
+                uint32_t tradingIdx = isUpper ? hi.workgroupRelativeIndex : lo.workgroupRelativeIndex;
+
+                tradingKey = glsl::subgroupShuffleXor(tradingKey, partner);
+                tradingIdx = glsl::subgroupShuffleXor(tradingIdx, partner);
+
+                lo.key = isUpper ? lo.key : tradingKey;
+                lo.workgroupRelativeIndex = isUpper ? lo.workgroupRelativeIndex : tradingIdx;
+                hi.key = isUpper ? tradingKey : hi.key;
+                hi.workgroupRelativeIndex = isUpper ? tradingIdx : hi.workgroupRelativeIndex;
+
+                bool swap = comp(hi.key, lo.key) == bitonicAscending;
+                WGType tmp = lo;
+                lo.key = swap ? hi.key : lo.key;
+                lo.workgroupRelativeIndex = swap ? hi.workgroupRelativeIndex : lo.workgroupRelativeIndex;
+                hi.key = swap ? tmp.key : hi.key;
+                hi.workgroupRelativeIndex = swap ? tmp.workgroupRelativeIndex : hi.workgroupRelativeIndex;
+            }
+        }
+    }
+
+    static void __call(bool ascending, NBL_REF_ARG(WGType) lo, NBL_REF_ARG(WGType) hi)
+    {
+        uint32_t id = glsl::gl_SubgroupInvocationID();
+        uint32_t log2 = glsl::gl_SubgroupSizeLog2();
+
+        [unroll]
+        for (uint32_t s = 0u; s <= log2; ++s)
+        {
+            bool dir = (s == log2) ? ascending : ((id & (1u << s)) != 0u);
+            mergeStage(s, dir, id, lo, hi);
+        }
+    }
 };
 
-template<typename Config, class device_capabilities = void>
-struct bitonic_sort;
+} // namespace bitonic_sort
+} // namespace subgroup
+} // namespace hlsl
+} // namespace nbl
 
-template<typename KeyType, typename ValueType, typename Comparator, class device_capabilities>
-struct bitonic_sort<bitonic_sort_config<KeyType, ValueType, Comparator>, device_capabilities>
-{
-	using config_t = bitonic_sort_config<KeyType, ValueType, Comparator>;
-	using key_t = typename config_t::key_t;
-	using value_t = typename config_t::value_t;
-	using comparator_t = typename config_t::comparator_t;
-
-	static void mergeStage(uint32_t stage, bool bitonicAscending, uint32_t invocationID,
-		NBL_REF_ARG(pair<key_t, value_t>) loPair, NBL_REF_ARG(pair<key_t, value_t>) hiPair)
-	{
-		comparator_t comp;
-
-		[unroll]
-		for (uint32_t pass = 0; pass <= stage; pass++)
-		{
-			const uint32_t stride = 1u << (stage - pass); // Element stride
-			const uint32_t threadStride = stride >> 1;
-			if (threadStride == 0)
-			{
-				// Local compare and swap for stage 0
-				nbl::hlsl::bitonic_sort::compareSwap(bitonicAscending, loPair, hiPair, comp);
-			}
-			else
-			{
-				// Shuffle from partner using XOR
-				const key_t pLoKey = glsl::subgroupShuffleXor<key_t>(loPair.first, threadStride);
-				const value_t pLoVal = glsl::subgroupShuffleXor<value_t>(loPair.second, threadStride);
-				const key_t pHiKey = glsl::subgroupShuffleXor<key_t>(hiPair.first, threadStride);
-				const value_t pHiVal = glsl::subgroupShuffleXor<value_t>(hiPair.second, threadStride);
-
-				const pair<key_t, value_t> partnerLoPair = make_pair(pLoKey, pLoVal);
-				const pair<key_t, value_t> partnerHiPair = make_pair(pHiKey, pHiVal);
-
-				const bool isUpper = bool(invocationID & threadStride);
-				const bool takeLarger = isUpper == bitonicAscending;
-
-				nbl::hlsl::bitonic_sort::compareExchangeWithPartner(takeLarger, loPair, partnerLoPair, hiPair, partnerHiPair, comp);
-			}
-		}
-	}
-
-	static void __call(bool ascending, NBL_REF_ARG(pair<key_t, value_t>) loPair, NBL_REF_ARG(pair<key_t, value_t>) hiPair)
-	{
-		const uint32_t invocationID = glsl::gl_SubgroupInvocationID();
-		const uint32_t subgroupSizeLog2 = glsl::gl_SubgroupSizeLog2();
-		[unroll]
-		for (uint32_t stage = 0; stage <= subgroupSizeLog2; stage++)
-		{
-			const bool bitonicAscending = (stage == subgroupSizeLog2) ? ascending : !bool(invocationID & (1u << stage));
-			mergeStage(stage, bitonicAscending, invocationID, loPair, hiPair);
-		}
-	}
-};
-
-}
-}
-}
 #endif

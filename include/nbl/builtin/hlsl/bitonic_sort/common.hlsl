@@ -3,6 +3,8 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/functional.hlsl"
+#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 
 namespace nbl
 {
@@ -40,12 +42,16 @@ struct LocalPasses<sortable_t, 1, Comparator>
 
     void operator()(bool ascending, sortable_t data[N], NBL_CONST_REF_ARG(Comparator) comp)
     {
-        const bool shouldSwap = comp(data[1], data[0]);
-        const bool doSwap = (shouldSwap == ascending);
+        // For ascending: swap if data[1] < data[0] (put smaller first)
+        // For descending: swap if data[0] < data[1] (put larger first)
+        const bool needSwap = ascending ? comp(data[1], data[0]) : comp(data[0], data[1]);
 
-        sortable_t temp = data[0];
-        data[0] = doSwap ? data[1] : data[0];
-        data[1] = doSwap ? temp : data[1];
+        if (needSwap)
+        {
+            sortable_t temp = data[0];
+            data[0] = data[1];
+            data[1] = temp;
+        }
     }
 };
 
