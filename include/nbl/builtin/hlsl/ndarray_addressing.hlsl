@@ -13,27 +13,36 @@ namespace hlsl
 namespace ndarray_addressing
 {
 
-uint32_t snakeCurve(NBL_CONST_REF_ARG(uint32_t3) coordinate, NBL_CONST_REF_ARG(uint32_t3) extents)
+template<int32_t Dims, typename U=uint16_t, typename T=typename unsigned_integer_of_size<sizeof(U)*2>::type>
+T snakeCurve(const vector<U,Dims> coordinate, const vector<U,Dims> extents)
 {
-	return (coordinate.z * extents.y + coordinate.y) * extents.x + coordinate.x;
+	T retval = _static_cast<T>(coordinate[Dims-1]);
+	for (int32_t i=Dims-2; i>=0; i--)
+	{
+		retval *= _static_cast<T>(extents[i]);
+		retval += _static_cast<T>(coordinate[i]);
+	}
+	return retval;
 }
 
-uint32_t3 snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t2) gridDimPrefixProduct)
+// TODO: make an even better one that takes precomputed reciprocals and stuff for fast integer division and modulo
+// https://github.com/milakov/int_fastdiv
+template<int32_t Dims, typename U=uint32_t, typename T=typename conditional<sizeof(U)==2,unsigned_integer_of_size_t<sizeof(U)/2>,uint16_t>::type>
+vector<T,Dims> snakeCurveInverse(const U linearIndex, const vector<T,Dims> gridDim)
 {
-	uint32_t3 index3D;
-
-	index3D.z = linearIndex / gridDimPrefixProduct.y;
-
-	const uint32_t tmp = linearIndex - (index3D.z * gridDimPrefixProduct.y);
-	index3D.y = tmp / gridDimPrefixProduct.x;
-	index3D.x = tmp - (index3D.y * gridDimPrefixProduct.x);
-
-	return index3D;
-}
-
-uint32_t3 snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t3) gridDim)
-{
-	return snakeCurveInverse(linearIndex, uint32_t2(gridDim.x, gridDim.x*gridDim.y));
+	vector<T,Dims> coord;
+	{
+		U prev = linearIndex;
+		U next;
+		for (int32_t i=0; i<Dims-1; i++)
+		{
+			next = prev/gridDim[i];
+			coord[i] = prev-next*gridDim[i];
+			prev = next;
+		}
+		coord[Dims-1] = prev;
+	}
+	return coord;
 }
 
 }
