@@ -6,6 +6,7 @@
 #define __PROPERTY_ELEMENT_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
+#include "matrix4SIMD.h"
 #include <string>
 
 namespace nbl
@@ -201,7 +202,7 @@ struct SPropertyElementData
 		bool				bvalue;
 		const char*			svalue;
 		core::vectorSIMDf	vvalue; // rgb, srgb, vector, point
-		hlsl::float32_t4x4	mvalue; // matrix, translate, rotate, scale, lookat
+		core::matrix4SIMD	mvalue; // matrix, translate, rotate, scale, lookat
 	};
 };
 
@@ -301,15 +302,15 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::BLACKBODY>
 { using type = void; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::MATRIX>
-{ using type = hlsl::float32_t4x4; };
+{ using type = core::matrix4SIMD; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::TRANSLATE>
-{ using type = hlsl::float32_t4x4; };
+{ using type = core::matrix4SIMD; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::ROTATE>
-{ using type = hlsl::float32_t4x4; };
+{ using type = core::matrix4SIMD; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SCALE>
-{ using type = hlsl::float32_t4x4; };
+{ using type = core::matrix4SIMD; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::LOOKAT>
-{ using type = hlsl::float32_t4x4; };
+{ using type = core::matrix4SIMD; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::INVALID>
 { using type = void; };
 
@@ -320,7 +321,7 @@ class CPropertyElementManager
 		static std::pair<bool, SNamedPropertyElement> createPropertyData(const char* _el, const char** _atts);
 
 		static bool retrieveBooleanValue(const std::string& _data, bool& success);
-		static hlsl::float32_t4x4 retrieveMatrix(const std::string& _data, bool& success);
+		static core::matrix4SIMD retrieveMatrix(const std::string& _data, bool& success);
 		static core::vectorSIMDf retrieveVector(const std::string& _data, bool& success);
 		static core::vectorSIMDf retrieveHex(const std::string& _data, bool& success);
 

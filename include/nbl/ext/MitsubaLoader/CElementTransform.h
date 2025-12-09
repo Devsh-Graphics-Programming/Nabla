@@ -35,7 +35,7 @@ class CElementTransform : public IElement
 		}
 		*/
 
-		hlsl::float32_t4x4 matrix;
+		core::matrix4SIMD matrix;
 };
 
 }
