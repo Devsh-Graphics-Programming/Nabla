@@ -18,6 +18,89 @@ namespace sampling
 template<typename T, uint16_t Dim NBL_STRUCT_CONSTRAINABLE>
 struct QuantizedSequence;
 
+
+namespace impl
+{
+template<typename T, uint16_t D>
+struct decode_helper;
+
+template<typename T>
+struct decode_helper<T, 1>
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
+    using return_type = vector<fp_type, 1>;
+
+    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 1>) val, const scalar_type scrambleKey)
+    {
+        scalar_type seqVal = val.getX();
+        seqVal ^= scrambleKey;
+        return hlsl::promote<return_type>(seqVal) * bit_cast<fp_type>(0x2f800004u);
+    }
+};
+template<typename T>
+struct decode_helper<T, 2>
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
+    using uvec_type = vector<scalar_type, 2>;
+    using return_type = vector<fp_type, 2>;
+
+    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 2>) val, const uvec_type scrambleKey)
+    {
+        uvec_type seqVal;
+        seqVal[0] = val.getX();
+        seqVal[1] = val.getY();
+        seqVal ^= scrambleKey;
+        return return_type(seqVal) * bit_cast<fp_type>(0x2f800004u);
+    }
+};
+template<typename T>
+struct decode_helper<T, 3>
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
+    using uvec_type = vector<scalar_type, 3>;
+    using return_type = vector<fp_type, 3>;
+
+    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 3>) val, const uvec_type scrambleKey)
+    {
+        uvec_type seqVal;
+        seqVal[0] = val.getX();
+        seqVal[1] = val.getY();
+        seqVal[2] = val.getZ();
+        seqVal ^= scrambleKey;
+        return return_type(seqVal) * bit_cast<fp_type>(0x2f800004u);
+    }
+};
+template<typename T>
+struct decode_helper<T, 4>
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
+    using uvec_type = vector<scalar_type, 4>;
+    using return_type = vector<fp_type, 4>;
+
+    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 4>) val, const uvec_type scrambleKey)
+    {
+        uvec_type seqVal;
+        seqVal[0] = val.getX();
+        seqVal[1] = val.getY();
+        seqVal[2] = val.getZ();
+        seqVal[3] = val.getW();
+        seqVal ^= scrambleKey;
+        return return_type(seqVal) * bit_cast<fp_type>(0x2f800004u);
+    }
+};
+}
+
+template<typename T, uint16_t D>
+vector<typename float_of_size<sizeof(typename vector_traits<T>::scalar_type)>::type, D> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, D>) val, const vector<typename vector_traits<T>::scalar_type, D> scrambleKey)
+{
+    return impl::decode_helper<T,D>::__call(val, scrambleKey);
+}
+
+
 #define SEQUENCE_SPECIALIZATION_CONCEPT concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> <= 4
 
 // all Dim=1
