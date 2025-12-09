@@ -1,6 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
-#include <nbl/builtin/hlsl/math/quaternion/quaternion.hlsl>
+#include <nbl/builtin/hlsl/math/quaternions.hlsl>
 // TODO: remove this header when deleting vectorSIMDf.hlsl
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/glslFunctions.h>
@@ -61,7 +61,7 @@ inline matrix<T, 3, 3> getSub3x3(NBL_CONST_REF_ARG(matrix<T, N, 4>) mat)
 
 //! Replaces curent rocation and scale by rotation represented by quaternion `quat`, leaves 4th row and 4th colum unchanged
 template<typename T, int N>
-inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(nbl::hlsl::quaternion<T>) quat)
+inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(nbl::hlsl::math::quaternion<T>) quat)
 {
 	// TODO
 	//static_assert(N == 3 || N == 4);

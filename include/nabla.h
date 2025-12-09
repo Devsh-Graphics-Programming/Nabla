@@ -54,7 +54,6 @@
 #include "vectorSIMD.h"
 #include "line3d.h"
 #include "position2d.h"
-#include "quaternion.h"
 #include "rect.h"
 #include "dimension2d.h"
 
