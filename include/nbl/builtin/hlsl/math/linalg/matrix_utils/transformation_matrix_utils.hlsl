@@ -59,36 +59,6 @@ inline matrix<T, 3, 3> getSub3x3(NBL_CONST_REF_ARG(matrix<T, N, 4>) mat)
 	return matrix<T, 3, 3>(mat);
 }
 
-//! Replaces curent rocation and scale by rotation represented by quaternion `quat`, leaves 4th row and 4th colum unchanged
-template<typename T, int N>
-inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(nbl::hlsl::math::quaternion<T>) quat)
-{
-	// TODO
-	//static_assert(N == 3 || N == 4);
-
-	outMat[0] = vector<T, 4>(
-		1 - 2 * (quat.data.y * quat.data.y + quat.data.z * quat.data.z),
-		2 * (quat.data.x * quat.data.y - quat.data.z * quat.data.w),
-		2 * (quat.data.x * quat.data.z + quat.data.y * quat.data.w),
-
-		outMat[0][3]
-	);
-
-	outMat[1] = vector<T, 4>(
-		2 * (quat.data.x * quat.data.y + quat.data.z * quat.data.w),
-		1 - 2 * (quat.data.x * quat.data.x + quat.data.z * quat.data.z),
-		2 * (quat.data.y * quat.data.z - quat.data.x * quat.data.w),
-		outMat[1][3]
-	);
-
-	outMat[2] = vector<T, 4>(
-		2 * (quat.data.x * quat.data.z - quat.data.y * quat.data.w),
-		2 * (quat.data.y * quat.data.z + quat.data.x * quat.data.w),
-		1 - 2 * (quat.data.x * quat.data.x + quat.data.y * quat.data.y),
-		outMat[2][3]
-	);
-}
-
 }
 }
 
