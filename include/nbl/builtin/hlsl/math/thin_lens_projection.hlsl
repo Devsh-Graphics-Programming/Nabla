@@ -1,5 +1,5 @@
-#ifndef _NBL_BUILTIN_HLSL_PROJECTION_PROJECTION_INCLUDED_
-#define _NBL_BUILTIN_HLSL_PROJECTION_PROJECTION_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATH_THIN_LENS_PROJECTION_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_THIN_LENS_PROJECTION_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
@@ -8,8 +8,11 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace thin_lens
+{
+
 template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
-inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovRH(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
+inline matrix<FloatingPoint, 4, 4> rhPerspectiveFovMatrix(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
 {
 	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
 	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
@@ -26,7 +29,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovRH(Floatin
 	return m;
 }
 template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
-inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovLH(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
+inline matrix<FloatingPoint, 4, 4> lhPerspectiveFovMatrix(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
 {
 	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
 	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
@@ -44,7 +47,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovLH(Floatin
 }
 
 template<typename FloatingPoint  NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
-inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoRH(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
+inline matrix<FloatingPoint, 4, 4> rhProjectionOrthoMatrix(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
 {
 	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
 	_NBL_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
@@ -60,7 +63,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoRH(FloatingPoint wi
 }
 
 template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
-inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoLH(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
+inline matrix<FloatingPoint, 4, 4> lhProjectionOrthoMatrix(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
 {
 	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
 	_NBL_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
@@ -75,6 +78,7 @@ inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoLH(FloatingPoint wi
 	return m;
 }
 
+}
 }
 }
 

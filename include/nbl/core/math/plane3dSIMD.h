@@ -4,7 +4,8 @@
 // See the original file in irrlicht source for authors
 
 #include "vectorSIMD.h"
-#include <nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl>
+#include <nbl/builtin/hlsl/math/linalg/matrix_utils/transformation_matrix_utils.hlsl>
+#include <nbl/builtin/hlsl/math/linalg/transform.hlsl>
 
 #ifndef __NBL_CORE_PLANE_3D_H_INCLUDED__
 #define __NBL_CORE_PLANE_3D_H_INCLUDED__
@@ -102,12 +103,14 @@ class plane3dSIMDf : private vectorSIMDf
 		//!
         static inline plane3dSIMDf transform(const plane3dSIMDf& _in, const hlsl::float32_t3x4& _mat)
         {
-			hlsl::float32_t4x4 inv = hlsl::getMatrix3x4As4x4<hlsl::float32_t>(_mat);
-			hlsl::inverse(inv);
+			hlsl::float32_t4x4 inv = hlsl::inverse(hlsl::math::linalg::promote_affine<4, 4, 3, 4>(_mat));
 
             vectorSIMDf normal(_in.getNormal());
             // transform by inverse transpose
-			hlsl::float32_t4 planeEq = inv[0] * hlsl::float32_t4(normal.x) + inv[1] * hlsl::float32_t4(normal.y) + inv[2] * hlsl::float32_t4(normal.z) + (hlsl::float32_t4(0, 0, 0, normal.w));
+			hlsl::float32_t4 planeEq = inv[0] * hlsl::float32_t4(normal.x, normal.x, normal.x, normal.x) +
+				inv[1] * hlsl::float32_t4(normal.y, normal.y, normal.y, normal.y) +
+				inv[2] * hlsl::float32_t4(normal.z, normal.z, normal.z, normal.z) +
+				(hlsl::float32_t4(0, 0, 0, normal.w));
 			vectorSIMDf planeEqSIMD;
 			for (int i = 0; i < 4; ++i)
 				planeEqSIMD[i] = planeEq[i];
