@@ -15,31 +15,16 @@ namespace hlsl
 namespace sampling
 {
 
-template<uint16_t BytesLog2, int32_t Dim NBL_STRUCT_CONSTRAINABLE>
+template<typename T, uint16_t Dim NBL_STRUCT_CONSTRAINABLE>
 struct QuantizedSequence;
 
-// byteslog2 = 1,2; dim = 1
-template<uint16_t BytesLog2> NBL_PARTIAL_REQ_TOP(BytesLog2 > 0 && BytesLog2 < 3)
-struct QuantizedSequence<BytesLog2, 1 NBL_PARTIAL_REQ_BOT(BytesLog2 > 0 && BytesLog2 < 3) >
+#define SEQUENCE_SPECIALIZATION_CONCEPT concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> <= 4
+
+// all Dim=1
+template<typename T> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT)
+struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT) >
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_store_bytes = uint16_t(1u) << BytesLog2;
-    using base_store_type = typename unsigned_integer_of_size<base_store_bytes>::type;
-
-    base_store_type getX() { return data; }
-    void setX(const base_store_type value) { data = value; }
-
-    base_store_type data;
-};
-
-// byteslog2 = 3,4; dim = 1
-template<uint16_t BytesLog2> NBL_PARTIAL_REQ_TOP(BytesLog2 > 2 && BytesLog2 < 5)
-struct QuantizedSequence<BytesLog2, 1 NBL_PARTIAL_REQ_BOT(BytesLog2 > 2 && BytesLog2 < 5) >
-{
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_bytes_log2 = uint16_t(2u);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_store_bytes = uint16_t(1u) << base_bytes_log2;
-    using base_store_type = typename unsigned_integer_of_size<base_store_bytes>::type;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t num_components = uint16_t(1u) << (BytesLog2 - base_bytes_log2);
-    using store_type = vector<base_store_type, num_components>;
+    using store_type = T;
 
     store_type getX() { return data; }
     void setX(const store_type value) { data = value; }
@@ -47,116 +32,234 @@ struct QuantizedSequence<BytesLog2, 1 NBL_PARTIAL_REQ_BOT(BytesLog2 > 2 && Bytes
     store_type data;
 };
 
-// byteslog2 = 2,3; dim = 2
-template<uint16_t BytesLog2> NBL_PARTIAL_REQ_TOP(BytesLog2 > 1 && BytesLog2 < 4)
-struct QuantizedSequence<BytesLog2, 2 NBL_PARTIAL_REQ_BOT(BytesLog2 > 2 && BytesLog2 < 5) >
+// uint16_t, uint32_t; Dim=2,3,4
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5) >
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_bytes_log2 = BytesLog2 - uint16_t(1u);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_store_bytes = uint16_t(1u) << base_bytes_log2;
-    using base_store_type = typename unsigned_integer_of_size<base_store_bytes>::type;
-    using store_type = vector<base_store_type, 2>;
+    using store_type = T;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = size_of_v<store_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
 
-    base_store_type getX() { return data[0]; }
-    base_store_type getY() { return data[1]; }
-    void setX(const base_store_type value) { data[0] = value; }
-    void setY(const base_store_type value) { data[1] = value; }
+    store_type getX() { return data & Mask; }
+    store_type getY() { return (data >> (BitsPerComponent * uint16_t(1u))) & Mask; }
+    template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
+    store_type getZ() { return (data >> (BitsPerComponent * uint16_t(2u))) & Mask; }
+    template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
+    store_type getW() { return (data >> (BitsPerComponent * uint16_t(3u))) & Mask; }
+
+    void setX(const store_type value)
+    {
+        data &= ~Mask;
+        data |= value & Mask;
+    }
+    void setY(const store_type value)
+    {
+        data &= ~(Mask << BitsPerComponent);
+        data |= (value & Mask) << BitsPerComponent;
+    }
+    template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
+    void setZ(const store_type value)
+    {
+        const uint16_t bits = (BitsPerComponent * uint16_t(2u));
+        data &= ~(Mask << bits);
+        data |= (value & Mask) << bits;
+    }
+    template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
+    void setW(const store_type value)
+    {
+        const uint16_t bits = (BitsPerComponent * uint16_t(3u));
+        data &= ~(Mask << bits);
+        data |= (value & Mask) << bits;
+    }
 
     store_type data;
 };
 
-// byteslog2 = 1; dim = 2,3,4
-template<uint16_t Dim> NBL_PARTIAL_REQ_TOP(Dim > 1 && Dim < 5)
-struct QuantizedSequence<1, Dim NBL_PARTIAL_REQ_BOT(Dim > 1 && Dim < 5) >
+// Dim 2,3,4 matches vector dim
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5) >
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_store_bytes = uint16_t(1u) << uint16_t(1u);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t store_bits = uint16_t(8u) * base_store_bytes;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t bits_per_component = store_bits / Dim;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t MASK = (uint16_t(1u) << bits_per_component) - uint16_t(1u);
-    using base_store_type = uint16_t;
+    using store_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
 
-    base_store_type getX() { return data & MASK; }
-    base_store_type getY() { return (data >> bits_per_component) & MASK; }
+    scalar_type getX() { return data[0]; }
+    scalar_type getY() { return data[1]; }
     template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
-    base_store_type getZ() { return (data >> (bits_per_component * uint16_t(2u))) & MASK; }
+    scalar_type getZ() { return data[2]; }
     template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
-    base_store_type getW() { return (data >> (bits_per_component * uint16_t(3u))) & MASK; }
+    scalar_type getW() { return data[3]; }
 
-    void setX(const base_store_type value)
-    {
-        data &= ~MASK;
-        data |= value & MASK;
-    }
-    void setY(const base_store_type value)
-    {
-        const uint16_t mask = MASK << bits_per_component;
-        data &= ~mask;
-        data |= (value & MASK) << bits_per_component;
-    }
+    void setX(const scalar_type value) { data[0] = value; }
+    void setY(const scalar_type value) { data[1] = value; }
     template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
-    void setZ(const base_store_type value)
-    {
-        const uint16_t bits = (bits_per_component * uint16_t(2u));
-        const uint16_t mask = MASK << bits;
-        data &= ~mask;
-        data |= (value & MASK) << bits;
-    }
+    void setZ(const scalar_type value) { data[2] = value; }
     template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
-    void setW(const base_store_type value)
-    {
-        const uint16_t bits = (bits_per_component * uint16_t(3u));
-        const uint16_t mask = MASK << bits;
-        data &= ~mask;
-        data |= (value & MASK) << bits;
-    }
+    void setW(const scalar_type value) { data[3] = value; }
 
-    base_store_type data;
+    store_type data;
 };
 
-// byteslog2 = 2,3; dim = 3
-template<uint16_t BytesLog2> NBL_PARTIAL_REQ_TOP(BytesLog2 > 1 && BytesLog2 < 4)
-struct QuantizedSequence<BytesLog2, 3 NBL_PARTIAL_REQ_BOT(BytesLog2 > 2 && BytesLog2 < 5) >
+// uint16_t2, uint32_t2; Dim=3
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 3)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 3) >
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_bytes_log2 = BytesLog2 - uint16_t(1u);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t base_store_bytes = uint16_t(1u) << base_bytes_log2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t store_bits = uint16_t(8u) * base_store_bytes;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t bits_per_component = store_bits / uint16_t(3u);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t MASK = (uint16_t(1u) << bits_per_component) - uint16_t(1u);
-    using base_store_type = typename unsigned_integer_of_size<base_store_bytes>::type;
-    using store_type = vector<base_store_type, 2>;
+    using store_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = size_of_v<store_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
 
-    base_store_type getX() { return data[0] & MASK; }
-    base_store_type getY()
+    scalar_type getX() { return data[0] & Mask; }
+    scalar_type getY()
     {
-        base_store_type y = data[0] >> bits_per_component;
-        y |= (data[1] >> bits_per_component) << (store_bits-bits_per_component);
+        scalar_type y = data[0] >> BitsPerComponent;
+        y |= (data[1] >> BitsPerComponent) << (StoreBits-BitsPerComponent);
         return y;
     }
-    base_store_type getZ() { return data[1] & MASK; }
+    scalar_type getZ() { return data[1] & Mask; }
 
-    void setX(base_store_type x)
+    void setX(const scalar_type value)
     {
-        data[0] &= ~MASK;
-        data[0] |= x & MASK;
+        data[0] &= ~Mask;
+        data[0] |= value & Mask;
     }
-    void setY(base_store_type y)
+    void setY(const scalar_type value)
     {
-        const uint16_t ybits = store_bits-bits_per_component;
+        const uint16_t ybits = StoreBits-BitsPerComponent;
         const uint16_t ymask = uint16_t(1u) << ybits;
-        data[0] &= MASK;
-        data[1] &= MASK;
-        data[0] |= (y & ymask) << bits_per_component;
-        data[1] |= (y >> (ybits) & ymask) << bits_per_component;
+        data[0] &= Mask;
+        data[1] &= Mask;
+        data[0] |= (value & ymask) << BitsPerComponent;
+        data[1] |= (value >> (ybits) & ymask) << BitsPerComponent;
     }
-    void setZ(base_store_type z)
+    void setZ(const scalar_type value)
     {
-        data[1] &= ~MASK;
-        data[1] |= z & MASK;
+        data[1] &= ~Mask;
+        data[1] |= value & Mask;
     }
 
     store_type data;
 };
 
-// not complete because we're changing the template params next commit
+// uint16_t2, uint32_t2; Dim=4
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 4)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 4) >
+{
+    using store_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = size_of_v<store_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
+
+    scalar_type getX() { return data[0] & Mask; }
+    scalar_type getY() { return data[0] >> BitsPerComponent; }
+    scalar_type getZ() { return data[1] & Mask; }
+    scalar_type getW() { return data[1] >> BitsPerComponent; }
+
+    void setX(const scalar_type value)
+    {
+        data[0] &= ~Mask;
+        data[0] |= value & Mask;
+    }
+    void setY(const scalar_type value)
+    {
+        data[0] &= Mask;
+        data[0] |= (value & Mask) << BitsPerComponent;
+    }
+    void setZ(const scalar_type value)
+    {
+        data[1] &= ~Mask;
+        data[1] |= value & Mask;
+    }
+    void setW(const scalar_type value)
+    {
+        data[1] &= Mask;
+        data[1] |= (value & Mask) << BitsPerComponent;
+    }
+
+    store_type data;
+};
+
+// uint16_t4, uint32_t4; Dim=2
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 2)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 2) >
+{
+    using store_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using base_type = vector<scalar_type, 2>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = size_of_v<store_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
+
+    base_type getX() { return data.xy; }
+    base_type getY() { return data.zw; }
+
+    void setX(const base_type value) { data.xy = value; }
+    void setY(const base_type value) { data.zw = value; }
+
+    store_type data;
+};
+
+// uint16_t4, uint32_t4; Dim=3
+// uint16_t4 --> returns uint16_t2 - 21 bits per component: 16 in x, 5 in y
+// uint16_t4 --> returns uint32_t2 - 42 bits per component: 32 in x, 10 in y
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 3)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 3) >
+{
+    using store_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using base_type = vector<scalar_type, 2>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = size_of_v<store_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t LeftoverBitsPerComponent = BitsPerComponent - size_of_v<scalar_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << LeftoverBitsPerComponent) - uint16_t(1u);
+
+    base_type getX()
+    {
+        base_type x;
+        x[0] = data[0];
+        x[1] = data[3] & Mask;
+        return x;
+    }
+    base_type getY()
+    {
+        base_type y;
+        y[0] = data[1];
+        y[1] = (data[3] >> LeftoverBitsPerComponent) & Mask;
+        return y;
+    }
+    base_type getZ()
+    {
+        base_type z;
+        z[0] = data[1];
+        z[1] = (data[3] >> (LeftoverBitsPerComponent * uint16_t(2u))) & Mask;
+        return z;
+    }
+
+    void setX(const base_type value)
+    {
+        data[0] = value[0];
+        data[3] &= ~Mask;
+        data[3] |= value[1] & Mask;
+    }
+    void setY(const base_type value)
+    {
+        data[1] = value[0];
+        data[3] &= ~Mask;
+        data[3] |= (value[1] & Mask) << LeftoverBitsPerComponent;
+    }
+    void setZ(const base_type value)
+    {
+        data[2] = value[0];
+        data[3] &= ~Mask;
+        data[3] |= (value[1] & Mask) << (LeftoverBitsPerComponent * uint16_t(2u));
+    }
+
+    store_type data;
+};
+
+#undef SEQUENCE_SPECIALIZATION_CONCEPT
 
 }
 
