@@ -224,7 +224,7 @@ struct quaternion
         mat[0][0] = scalar_type(0.5) - mat[0][0];
         mat[1][1] = scalar_type(0.5) - mat[1][1];
         mat[2][2] = scalar_type(0.5) - mat[2][2];
-        nbl::hlsl::mul(mat, scalar_type(2.0));
+        mat = nbl::hlsl::mul(mat, scalar_type(2.0));
         return hlsl::transpose(mat);    // TODO: double check transpose?
     }
 

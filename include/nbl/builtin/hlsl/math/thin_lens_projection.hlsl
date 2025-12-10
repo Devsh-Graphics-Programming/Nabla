@@ -8,6 +8,8 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace math
+{
 namespace thin_lens
 {
 
@@ -78,6 +80,7 @@ inline matrix<FloatingPoint, 4, 4> lhProjectionOrthoMatrix(FloatingPoint widthOf
 	return m;
 }
 
+}
 }
 }
 }
