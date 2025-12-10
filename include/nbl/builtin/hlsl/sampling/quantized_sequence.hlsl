@@ -22,72 +22,19 @@ struct QuantizedSequence;
 namespace impl
 {
 template<typename T, uint16_t D>
-struct decode_helper;
-
-template<typename T>
-struct decode_helper<T, 1>
+struct decode_helper
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
     using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
-    using return_type = vector<fp_type, 1>;
+    using uvec_type = vector<scalar_type, D>;
+    using sequence_type = QuantizedSequence<T, D>;
+    using return_type = vector<fp_type, D>;
 
-    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 1>) val, const scalar_type scrambleKey)
-    {
-        scalar_type seqVal = val.getX();
-        seqVal ^= scrambleKey;
-        return hlsl::promote<return_type>(seqVal) * bit_cast<fp_type>(0x2f800004u);
-    }
-};
-template<typename T>
-struct decode_helper<T, 2>
-{
-    using scalar_type = typename vector_traits<T>::scalar_type;
-    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
-    using uvec_type = vector<scalar_type, 2>;
-    using return_type = vector<fp_type, 2>;
-
-    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 2>) val, const uvec_type scrambleKey)
+    static return_type __call(NBL_CONST_REF_ARG(sequence_type) val, const uvec_type scrambleKey)
     {
         uvec_type seqVal;
-        seqVal[0] = val.getX();
-        seqVal[1] = val.getY();
-        seqVal ^= scrambleKey;
-        return return_type(seqVal) * bit_cast<fp_type>(0x2f800004u);
-    }
-};
-template<typename T>
-struct decode_helper<T, 3>
-{
-    using scalar_type = typename vector_traits<T>::scalar_type;
-    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
-    using uvec_type = vector<scalar_type, 3>;
-    using return_type = vector<fp_type, 3>;
-
-    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 3>) val, const uvec_type scrambleKey)
-    {
-        uvec_type seqVal;
-        seqVal[0] = val.getX();
-        seqVal[1] = val.getY();
-        seqVal[2] = val.getZ();
-        seqVal ^= scrambleKey;
-        return return_type(seqVal) * bit_cast<fp_type>(0x2f800004u);
-    }
-};
-template<typename T>
-struct decode_helper<T, 4>
-{
-    using scalar_type = typename vector_traits<T>::scalar_type;
-    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
-    using uvec_type = vector<scalar_type, 4>;
-    using return_type = vector<fp_type, 4>;
-
-    static return_type __call(NBL_CONST_REF_ARG(QuantizedSequence<T, 4>) val, const uvec_type scrambleKey)
-    {
-        uvec_type seqVal;
-        seqVal[0] = val.getX();
-        seqVal[1] = val.getY();
-        seqVal[2] = val.getZ();
-        seqVal[3] = val.getW();
+        NBL_UNROLL for(uint16_t i = 0; i < D; i++)
+            seqVal[i] = val.get(i);
         seqVal ^= scrambleKey;
         return return_type(seqVal) * bit_cast<fp_type>(0x2f800004u);
     }
@@ -109,8 +56,8 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEP
 {
     using store_type = T;
 
-    store_type getX() { return data; }
-    void setX(const store_type value) { data = value; }
+    store_type get(const uint16_t idx) { assert(idx > 0 && idx < 1); return data; }
+    void set(const uint16_t idx, const store_type value) { assert(idx > 0 && idx < 1); data = value; }
 
     store_type data;
 };
@@ -124,34 +71,16 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
 
-    store_type getX() { return data & Mask; }
-    store_type getY() { return (data >> (BitsPerComponent * uint16_t(1u))) & Mask; }
-    template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
-    store_type getZ() { return (data >> (BitsPerComponent * uint16_t(2u))) & Mask; }
-    template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
-    store_type getW() { return (data >> (BitsPerComponent * uint16_t(3u))) & Mask; }
+    store_type get(const uint16_t idx)
+    {
+        assert(idx > 0 && idx < Dim);
+        return (data >> (BitsPerComponent * idx)) & Mask;
+    }
 
-    void setX(const store_type value)
+    void set(const uint16_t idx, const store_type value)
     {
-        data &= ~Mask;
-        data |= value & Mask;
-    }
-    void setY(const store_type value)
-    {
-        data &= ~(Mask << BitsPerComponent);
-        data |= (value & Mask) << BitsPerComponent;
-    }
-    template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
-    void setZ(const store_type value)
-    {
-        const uint16_t bits = (BitsPerComponent * uint16_t(2u));
-        data &= ~(Mask << bits);
-        data |= (value & Mask) << bits;
-    }
-    template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
-    void setW(const store_type value)
-    {
-        const uint16_t bits = (BitsPerComponent * uint16_t(3u));
+        assert(idx > 0 && idx < Dim);
+        const uint16_t bits = (BitsPerComponent * idx);
         data &= ~(Mask << bits);
         data |= (value & Mask) << bits;
     }
@@ -166,19 +95,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
 
-    scalar_type getX() { return data[0]; }
-    scalar_type getY() { return data[1]; }
-    template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
-    scalar_type getZ() { return data[2]; }
-    template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
-    scalar_type getW() { return data[3]; }
-
-    void setX(const scalar_type value) { data[0] = value; }
-    void setY(const scalar_type value) { data[1] = value; }
-    template<typename C=bool_constant<2 < Dim> NBL_FUNC_REQUIRES(C::value && 2 < Dim)
-    void setZ(const scalar_type value) { data[2] = value; }
-    template<typename C=bool_constant<3 < Dim> NBL_FUNC_REQUIRES(C::value && 3 < Dim)
-    void setW(const scalar_type value) { data[3] = value; }
+    scalar_type get(const uint16_t idx) { assert(idx > 0 && idx < Dim); return data[idx]; }
+    void set(const uint16_t idx, const scalar_type value) { assert(idx > 0 && idx < Dim); data[idx] = value; }
 
     store_type data;
 };
@@ -193,33 +111,38 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
 
-    scalar_type getX() { return data[0] & Mask; }
-    scalar_type getY()
+    scalar_type get(const uint16_t idx)
     {
-        scalar_type y = data[0] >> BitsPerComponent;
-        y |= (data[1] >> BitsPerComponent) << (StoreBits-BitsPerComponent);
-        return y;
+        assert(idx > 0 && idx < 3);
+        if (idx < 2)
+        {
+            return data[idx] & Mask;
+        }
+        else
+        {
+            scalar_type z = data[0] >> BitsPerComponent;
+            z |= (data[1] >> BitsPerComponent) << (StoreBits-BitsPerComponent);
+            return z;
+        }
     }
-    scalar_type getZ() { return data[1] & Mask; }
 
-    void setX(const scalar_type value)
+    void set(const uint16_t idx, const scalar_type value)
     {
-        data[0] &= ~Mask;
-        data[0] |= value & Mask;
-    }
-    void setY(const scalar_type value)
-    {
-        const uint16_t ybits = StoreBits-BitsPerComponent;
-        const uint16_t ymask = uint16_t(1u) << ybits;
-        data[0] &= Mask;
-        data[1] &= Mask;
-        data[0] |= (value & ymask) << BitsPerComponent;
-        data[1] |= (value >> (ybits) & ymask) << BitsPerComponent;
-    }
-    void setZ(const scalar_type value)
-    {
-        data[1] &= ~Mask;
-        data[1] |= value & Mask;
+        assert(idx > 0 && idx < 3);
+        if (idx < 2)
+        {
+            data[idx] &= ~Mask;
+            data[idx] |= value & Mask;
+        }
+        else
+        {
+            const uint16_t zbits = StoreBits-BitsPerComponent;
+            const uint16_t zmask = uint16_t(1u) << zbits;
+            data[0] &= Mask;
+            data[1] &= Mask;
+            data[0] |= (value & zmask) << BitsPerComponent;
+            data[1] |= (value >> (zbits) & zmask) << BitsPerComponent;
+        }
     }
 
     store_type data;
@@ -235,30 +158,20 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
 
-    scalar_type getX() { return data[0] & Mask; }
-    scalar_type getY() { return data[0] >> BitsPerComponent; }
-    scalar_type getZ() { return data[1] & Mask; }
-    scalar_type getW() { return data[1] >> BitsPerComponent; }
+    scalar_type get(const uint16_t idx)
+    {
+        assert(idx > 0 && idx < 4);
+        const uint16_t i = (idx & uint16_t(2u)) >> uint16_t(1u);
+        return (data[i] >> (BitsPerComponent * (idx & uint16_t(1u)))) & Mask;
+    }
 
-    void setX(const scalar_type value)
+    void set(const uint16_t idx, const scalar_type value)
     {
-        data[0] &= ~Mask;
-        data[0] |= value & Mask;
-    }
-    void setY(const scalar_type value)
-    {
-        data[0] &= Mask;
-        data[0] |= (value & Mask) << BitsPerComponent;
-    }
-    void setZ(const scalar_type value)
-    {
-        data[1] &= ~Mask;
-        data[1] |= value & Mask;
-    }
-    void setW(const scalar_type value)
-    {
-        data[1] &= Mask;
-        data[1] |= (value & Mask) << BitsPerComponent;
+        assert(idx > 0 && idx < 4);
+        const uint16_t i = (idx & uint16_t(2u)) >> uint16_t(1u);
+        const uint16_t odd = idx & uint16_t(1u);
+        data[i] &= hlsl::mix(~Mask, Mask, bool(odd));
+        data[i] |= (value & Mask) << (BitsPerComponent * odd);
     }
 
     store_type data;
@@ -275,11 +188,22 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
 
-    base_type getX() { return data.xy; }
-    base_type getY() { return data.zw; }
+    base_type get(const uint16_t idx)
+    {
+        assert(idx > 0 && idx < 2);
+        base_type a;
+        a[0] = data[uint16_t(2u) * idx];
+        a[1] = data[uint16_t(2u) * idx + 1];
+        return a;
+    }
 
-    void setX(const base_type value) { data.xy = value; }
-    void setY(const base_type value) { data.zw = value; }
+    void set(const uint16_t idx, const base_type value)
+    {
+        assert(idx > 0 && idx < 2);
+        base_type a;
+        data[uint16_t(2u) * idx] = value[0];
+        data[uint16_t(2u) * idx + 1] = value[1];
+    }
 
     store_type data;
 };
@@ -298,45 +222,21 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LeftoverBitsPerComponent = BitsPerComponent - size_of_v<scalar_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << LeftoverBitsPerComponent) - uint16_t(1u);
 
-    base_type getX()
+    base_type get(const uint16_t idx)
     {
-        base_type x;
-        x[0] = data[0];
-        x[1] = data[3] & Mask;
-        return x;
-    }
-    base_type getY()
-    {
-        base_type y;
-        y[0] = data[1];
-        y[1] = (data[3] >> LeftoverBitsPerComponent) & Mask;
-        return y;
-    }
-    base_type getZ()
-    {
-        base_type z;
-        z[0] = data[1];
-        z[1] = (data[3] >> (LeftoverBitsPerComponent * uint16_t(2u))) & Mask;
-        return z;
+        assert(idx > 0 && idx < 3);
+        base_type a;
+        a[0] = data[idx];
+        a[1] = (data[3] >> (LeftoverBitsPerComponent * idx)) & Mask;
+        return a;
     }
 
-    void setX(const base_type value)
+    void set(const uint16_t idx, const base_type value)
     {
-        data[0] = value[0];
+        assert(idx > 0 && idx < 3);
+        data[idx] = value[0];
         data[3] &= ~Mask;
-        data[3] |= value[1] & Mask;
-    }
-    void setY(const base_type value)
-    {
-        data[1] = value[0];
-        data[3] &= ~Mask;
-        data[3] |= (value[1] & Mask) << LeftoverBitsPerComponent;
-    }
-    void setZ(const base_type value)
-    {
-        data[2] = value[0];
-        data[3] &= ~Mask;
-        data[3] |= (value[1] & Mask) << (LeftoverBitsPerComponent * uint16_t(2u));
+        data[3] |= (value[1] & Mask) << (LeftoverBitsPerComponent * idx);
     }
 
     store_type data;
