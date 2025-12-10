@@ -19,9 +19,10 @@ using namespace nbl::hlsl::bitonic_sort;
 template<
     uint16_t E_log2,
     uint16_t WG_log2,
+    typename WorkgroupType,
     typename KeyType,
-    typename ValueType,
-    typename Comparator = less<KeyType>,
+    typename SortableType,
+    typename Comparator,
     uint32_t SharedMemDWORDs = 16384u
 >
 struct bitonic_sort_config
@@ -41,27 +42,29 @@ struct bitonic_sort_config
     static const uint32_t R = (ElementsInShared < WG) ? ElementsInShared : WG;
 
     static const uint32_t Batches = (WG + R - 1u) / R;
-    
 
-    using key_t = KeyType;
-    using value_t = ValueType;
+    using wg_type = WorkgroupType;
+    using key_type = KeyType;
+    using sortable_type = SortableType;
     using comparator_t = Comparator;
-    using WGType = WorkgroupType<key_t>;
 };
 
 template<typename config, typename Comp>
 inline void atomicOpPairs(
-    bool ascending,
-    WorkgroupType<typename config::key_t> elems[config::E],
+    uint32_t BigStride,
+    uint32_t tid,
+    typename config::wg_type elems[config::E],
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    
-    LocalPasses<WorkgroupType<typename config::key_t>, 1, Comp> localSort;
+    LocalPasses<typename config::wg_type, 1, Comp> localSort;
 
     [unroll]
     for (uint32_t pairIdx = 0u; pairIdx < config::E / 2u; ++pairIdx)
     {
-        WorkgroupType<typename config::key_t> pair[2];
+        uint32_t globalPos = tid * config::E + pairIdx * 2u;
+        bool ascending = (globalPos & BigStride) == 0u;
+
+        typename config::wg_type pair[2];
         pair[0] = elems[pairIdx * 2u];
         pair[1] = elems[pairIdx * 2u + 1u];
 
@@ -75,8 +78,9 @@ inline void atomicOpPairs(
 template<typename config, typename Comp>
 inline void inThreadShuffleSortPairs(
     uint32_t stride,
-    bool ascending,
-    WorkgroupType<typename config::key_t> elems[config::E],
+    uint32_t BigStride,
+    uint32_t tid,
+    typename config::wg_type elems[config::E],
     NBL_CONST_REF_ARG(Comp) comp)
 {
     uint32_t partner = stride >> 1;
@@ -86,9 +90,13 @@ inline void inThreadShuffleSortPairs(
     {
         uint32_t j = i + partner;
         bool valid = j < config::E;
-        bool swap = valid && (comp(elems[j].key, elems[i].key) == ascending);
 
-        WorkgroupType<typename config::key_t> tmp = elems[i];
+        uint32_t globalPos = tid * config::E + i;
+        bool ascending = (globalPos & BigStride) == 0u;
+
+        bool swap = valid && (comp(elems[j], elems[i]) == ascending);
+
+        typename config::wg_type tmp = elems[i];
 
         elems[i].key = swap ? elems[j].key : elems[i].key;
         elems[i].workgroupRelativeIndex = swap ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
@@ -101,31 +109,36 @@ template<typename config, typename Comp>
 inline void subgroupShuffleSortPairs(
     uint32_t stride,
     bool ascending,
-    WorkgroupType<typename config::key_t> elems[config::E],
+    typename config::wg_type elems[config::E],
     uint32_t subgroupInvocationID,
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    uint32_t partner = stride >> 1;
-    bool isUpper = (subgroupInvocationID & partner) != 0u;
+    bool oddThread = (subgroupInvocationID & 0x1u) != 0u;
 
     [unroll]
     for (uint32_t i = 0u; i < config::E; i += 2u)
     {
         uint32_t j = i + 1u;
 
-        typename config::key_t tradingKey = isUpper ? elems[j].key : elems[i].key;
-        uint32_t tradingIdx = isUpper ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
+        typename config::key_type tradingKey = oddThread ? elems[j].key : elems[i].key;
+        uint32_t tradingIdx = oddThread ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
 
-        tradingKey = glsl::subgroupShuffleXor(tradingKey, partner);
-        tradingIdx = glsl::subgroupShuffleXor(tradingIdx, partner);
+        tradingKey = glsl::subgroupShuffleXor(tradingKey, 0x1u);
+        tradingIdx = glsl::subgroupShuffleXor(tradingIdx, 0x1u);
 
-        elems[i].key = isUpper ? elems[i].key : tradingKey;
-        elems[i].workgroupRelativeIndex = isUpper ? elems[i].workgroupRelativeIndex : tradingIdx;
-        elems[j].key = isUpper ? tradingKey : elems[j].key;
-        elems[j].workgroupRelativeIndex = isUpper ? tradingIdx : elems[j].workgroupRelativeIndex;
+        if (oddThread)
+        {
+            elems[i].key = tradingKey;
+            elems[i].workgroupRelativeIndex = tradingIdx;
+        }
+        else
+        {
+            elems[j].key = tradingKey;
+            elems[j].workgroupRelativeIndex = tradingIdx;
+        }
 
-        bool swap = comp(elems[j].key, elems[i].key) == ascending;
-        WorkgroupType<typename config::key_t> tmp = elems[i];
+        bool swap = comp(elems[j], elems[i]) == ascending;
+        typename config::wg_type tmp = elems[i];
 
         elems[i].key = swap ? elems[j].key : elems[i].key;
         elems[i].workgroupRelativeIndex = swap ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
@@ -138,14 +151,15 @@ template<typename config, typename Comp, typename SMem>
 inline void workgroupShuffleSortPairs(
     uint32_t stride,
     bool ascending,
-    WorkgroupType<typename config::key_t> elems[config::E],
+    uint32_t BigStride,
     uint32_t tid,
+    typename config::wg_type elems[config::E],
     NBL_REF_ARG(SMem) smem,
     NBL_CONST_REF_ARG(Comp) comp)
 {
     using K = accessor_adaptors::StructureOfArrays<SMem,uint32_t,uint32_t,1,config::Total>;
     using I = accessor_adaptors::StructureOfArrays<SMem,uint32_t,uint32_t,1,config::Total,
-        integral_constant<uint32_t,config::Total*sizeof(typename config::key_t)/4u> >;
+        integral_constant<uint32_t,config::Total*sizeof(typename config::key_type)/4u> >;
 
     K k = K(smem);
     I idx = I(smem);
@@ -192,14 +206,14 @@ inline void workgroupShuffleSortPairs(
         smem.workgroupExecutionAndMemoryBarrier();
     }
 
-    atomicOpPairs<config>(ascending, elems, comp);
+    atomicOpPairs<config>(BigStride, tid, elems, comp);
 }
 
 template<typename config, typename Comp, typename SMem>
 inline void ShufflesSort(
     uint32_t stride,
-    bool ascending,
-    WorkgroupType<typename config::key_t> elems[config::E],
+    uint32_t BigStride,
+    typename config::wg_type elems[config::E],
     uint32_t tid,
     uint32_t subgroupInvocationID,
     NBL_REF_ARG(SMem) smem,
@@ -207,7 +221,7 @@ inline void ShufflesSort(
 {
     if (stride == 1u)
     {
-        atomicOpPairs<config>(ascending, elems, comp);
+        atomicOpPairs<config>(BigStride, tid, elems, comp);
         return;
     }
 
@@ -218,65 +232,60 @@ inline void ShufflesSort(
     [flatten]
     if (stride < E_half)
     {
-        inThreadShuffleSortPairs<config>(stride, ascending, elems, comp);
+        inThreadShuffleSortPairs<config>(stride, BigStride, tid, elems, comp);
     }
     else [flatten] if (stride < subgroupThreshold)
     {
+        bool ascending = ((tid * config::E) & BigStride) == 0u;
         subgroupShuffleSortPairs<config>(stride, ascending, elems, subgroupInvocationID, comp);
     }
     else
     {
-        workgroupShuffleSortPairs<config>(stride, ascending, elems, tid, smem, comp);
+        bool ascending = ((tid * config::E) & BigStride) == 0u;
+        workgroupShuffleSortPairs<config>(stride, ascending, BigStride, tid, elems, smem, comp);
     }
 }
 
 template<typename config>
 struct BitonicSort
 {
-    template<typename Accessor, typename SMem>
-    static void __call(Accessor acc, SMem smem)
+    template<typename Accessor, typename SMem, typename ToWorkgroupType, typename FromWorkgroupType>
+    static void __call(Accessor acc, SMem smem, ToWorkgroupType toWgType, FromWorkgroupType fromWgType)
     {
         uint32_t tid = glsl::gl_LocalInvocationID().x;
         uint32_t subgroupInvocationID = glsl::gl_SubgroupInvocationID();
-        WorkgroupType<typename config::key_t> elems[config::E];
+        typename config::wg_type elems[config::E];
 
-        using KVPair = nbl::hlsl::pair<typename config::key_t, typename config::value_t>;
+        using sortable_t = typename config::sortable_type;
 
         [unroll]
         for (uint32_t i = 0u; i < config::E; ++i)
         {
             uint32_t idx = tid * config::E + i;
-            KVPair kvpair;
-            acc.template get<KVPair>(idx, kvpair);
-            elems[i].key = kvpair.first;                      
-            elems[i].workgroupRelativeIndex = kvpair.second;  
+            sortable_t sortable;
+            acc.template get<sortable_t>(idx, sortable);
+            elems[i] = toWgType(sortable, idx);
         }
 
         typename config::comparator_t comp;
 
-        atomicOpPairs<config>(true, elems, comp);
+        atomicOpPairs<config>(1u, tid, elems, comp);
 
         for (uint32_t BigStride = 2u; BigStride <= config::Total; BigStride <<= 1u)
         {
-            bool bitonicDir = ((tid * config::E) & BigStride) == 0u;
+            ShufflesSort<config>(BigStride, BigStride, elems, tid, subgroupInvocationID, smem, comp);
 
-            ShufflesSort<config>(BigStride, bitonicDir, elems, tid, subgroupInvocationID, smem, comp);
-
-            [unroll]
-            for (uint32_t smallStride = BigStride >> 1u; smallStride >= 1u; smallStride >>= 1u)
+            for (uint32_t stride = 1u; stride < BigStride; stride <<= 1u)
             {
-                bool mergeDir = ((tid * config::E) & smallStride) == 0u;
-                ShufflesSort<config>(smallStride, mergeDir, elems, tid, subgroupInvocationID, smem, comp);
+                ShufflesSort<config>(stride, BigStride, elems, tid, subgroupInvocationID, smem, comp);
             }
         }
 
         [unroll]
         for (uint32_t i = 0u; i < config::E; ++i)
         {
-            KVPair output;
-            output.first = elems[i].key;                     
-            output.second = elems[i].workgroupRelativeIndex;  
-            acc.template set<KVPair>(tid * config::E + i, output);
+            sortable_t output = fromWgType(elems[i]);
+            acc.template set<sortable_t>(tid * config::E + i, output);
         }
     }
 };
