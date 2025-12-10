@@ -38,19 +38,19 @@ MatT diagonal(typename matrix_traits<MatT>::scalar_type diagonal = 1)
 template<typename MatT>
 MatT identity()
 {
-	// TODO
-	// static_assert(MatT::Square);
 	return diagonal<MatT>(1);
 }
 
-template<typename T>
-inline matrix<T, 3, 4> extractSub3x4From4x4Matrix(NBL_CONST_REF_ARG(matrix<T, 4, 4>) mat)
+template <uint16_t NOut, uint16_t MOut, uint16_t NIn, uint16_t MIn, typename T NBL_FUNC_REQUIRES(NOut <= NIn && MOut <= MIn && NOut != 0 && MOut != 0)
+inline matrix<T, NOut, MOut> truncate(const NBL_CONST_REF_ARG(matrix<T, NIn, MIn>) inMatrix)
 {
-	matrix<T, 3, 4> output;
-	for (int i = 0; i < 3; ++i)
-		output[i] = mat[i];
+	matrix<T, NOut, MOut> retval;
 
-	return output;
+	for (uint16_t i = 0; i < NOut; ++i)
+		for (uint16_t j = 0; j < MOut; ++j)
+			retval[i][j] = inMatrix[i][j];
+
+	return retval;
 }
 
 template<typename T, int N>
