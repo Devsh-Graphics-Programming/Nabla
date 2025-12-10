@@ -204,7 +204,7 @@ class ITopLevelAccelerationStructure : public IDescriptor, public IAccelerationS
 			FORCE_OPACITY_MICROMAP_2_STATE_BIT = 0x1u<<4u,
 			FORCE_DISABLE_OPACITY_MICROMAPS_BIT = 0x1u<<5u,
 		};
-		// Note: `core::matrix3x4SIMD` is equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
+		// Note: `hlsl::float32_t3x4` is equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
 		template<typename _blas_ref_t>
 		struct Instance final
 		{
@@ -221,18 +221,18 @@ class ITopLevelAccelerationStructure : public IDescriptor, public IAccelerationS
 		template<typename blas_ref_t>
 		struct StaticInstance final
 		{
-			core::matrix3x4SIMD	transform = core::matrix3x4SIMD();
+			hlsl::float32_t3x4	transform = hlsl::float32_t3x4();
 			Instance<blas_ref_t> base = {};
 		};
 		template<typename blas_ref_t>
 		struct MatrixMotionInstance final
 		{
-			core::matrix3x4SIMD transform[2] = {core::matrix3x4SIMD(),core::matrix3x4SIMD()};
+			hlsl::float32_t3x4 transform[2] = {hlsl::float32_t3x4(),hlsl::float32_t3x4()};
 			Instance<blas_ref_t> base = {};
 		};
 		struct SRT
 		{
-			// TODO: some operators to convert back and forth from `core::matrix3x4SIMD
+			// TODO: some operators to convert back and forth from `hlsl::float32_t3x4
 
 			float    sx;
 			float    a;

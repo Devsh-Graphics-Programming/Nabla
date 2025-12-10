@@ -62,7 +62,7 @@ class ISkeleton : public virtual core::IReferenceCounted
 				return;
 
 			assert(m_parentJointIDs.buffer->getSize()>=m_parentJointIDs.offset+sizeof(joint_id_t)*m_jointCount);
-			assert(m_defaultTransforms.buffer->getSize()>=m_defaultTransforms.offset+sizeof(core::matrix3x4SIMD)*m_jointCount);
+			assert(m_defaultTransforms.buffer->getSize()>=m_defaultTransforms.offset+sizeof(hlsl::float32_t3x4)*m_jointCount);
 		}
 		virtual ~ISkeleton()
 		{

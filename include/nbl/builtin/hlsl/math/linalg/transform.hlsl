@@ -94,6 +94,56 @@ matrix<T, NOut, MOut> promote_affine(const matrix<T, NIn, MIn> inMatrix)
     return retval;
 }
 
+// /Arek: glm:: for normalize till dot product is fixed (ambiguity with glm namespace + linker issues)
+template<typename T>
+inline matrix<T, 3, 4> lhLookAt(
+    const vector<T, 3>& position,
+    const vector<T, 3>& target,
+    const vector<T, 3>& upVector)
+{
+    const vector<T, 3> zaxis = hlsl::normalize(target - position);
+    const vector<T, 3> xaxis = hlsl::normalize(hlsl::cross(upVector, zaxis));
+    const vector<T, 3> yaxis = hlsl::cross(zaxis, xaxis);
+
+    matrix<T, 3, 4> r;
+    r[0] = vector<T, 4>(xaxis, -hlsl::dot(xaxis, position));
+    r[1] = vector<T, 4>(yaxis, -hlsl::dot(yaxis, position));
+    r[2] = vector<T, 4>(zaxis, -hlsl::dot(zaxis, position));
+
+    return r;
+}
+
+template<typename T>
+inline matrix<T, 3, 4> rhLookAt(
+    const vector<T, 3>& position,
+    const vector<T, 3>& target,
+    const vector<T, 3>& upVector)
+{
+    const vector<T, 3> zaxis = hlsl::normalize(position - target);
+    const vector<T, 3> xaxis = hlsl::normalize(hlsl::cross(upVector, zaxis));
+    const vector<T, 3> yaxis = hlsl::cross(zaxis, xaxis);
+
+    matrix<T, 3, 4> r;
+    r[0] = vector<T, 4>(xaxis, -hlsl::dot(xaxis, position));
+    r[1] = vector<T, 4>(yaxis, -hlsl::dot(yaxis, position));
+    r[2] = vector<T, 4>(zaxis, -hlsl::dot(zaxis, position));
+
+    return r;
+}
+
+template<typename T, int16_t N, int16_t M, int16_t VecN>
+inline void setTranslation(NBL_REF_ARG(matrix<T, N, M>) outMat, NBL_CONST_REF_ARG(vector<T, VecN>) translation)
+{
+    // TODO: not sure if it will be compatible with hlsl
+    static_assert(M > 0 && N > 0);
+    static_assert(M >= VecN);
+
+    NBL_CONSTEXPR int16_t indexOfTheLastRowComponent = M - 1;
+
+    for(int i = 0; i < VecN; ++i)
+        outMat[i][indexOfTheLastRowComponent] = translation[i];
+}
+
 }
 }
 }
