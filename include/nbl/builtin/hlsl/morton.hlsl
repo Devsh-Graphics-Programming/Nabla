@@ -28,14 +28,19 @@ NBL_BOOL_CONCEPT Dimension = 1 < D && D < 5;
 template<typename T, uint16_t Bits NBL_FUNC_REQUIRES(concepts::Integral<T> && concepts::Scalar<T>) 
 NBL_CONSTEXPR_FUNC bool verifyAnyBitIntegral(T val)
 {
-  NBL_CONSTEXPR_FUNC_SCOPE_VAR T mask = ~((T(1) << Bits) - 1);
-  const bool allZero = ((val & mask) == 0);
   NBL_IF_CONSTEXPR(is_signed_v<T>)
   {
+    // include the msb
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR T mask = ~((uint64_t(1) << (Bits-1)) - 1);
+	const bool allZero = ((val & mask) == 0);
     const bool allOne = ((val & mask) == mask);
     return allZero || allOne;
+  } else
+  {
+	NBL_CONSTEXPR_FUNC_SCOPE_VAR T mask = ~((uint64_t(1) << Bits) - 1);
+	const bool allZero = ((val & mask) == 0);
+	return allZero;
   }
-  return allZero;
 }
 
 template<typename T, uint16_t Dim, uint16_t Bits NBL_FUNC_REQUIRES(concepts::Integral<T> && concepts::Scalar<T>)
