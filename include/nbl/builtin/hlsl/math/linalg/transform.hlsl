@@ -88,7 +88,7 @@ matrix<T, NOut, MOut> promote_affine(const matrix<T, NIn, MIn> inMatrix)
     NBL_UNROLL for (uint32_t row_i = NIn; row_i < NOut; row_i++)
     {
         retval[row_i] = promote<out_row_t>(0.0);
-        if (row_i >= MIn && row_i < MOut)
+        if (row_i < MOut)
             retval[row_i][row_i] = T(1.0);
     }
     return retval;
