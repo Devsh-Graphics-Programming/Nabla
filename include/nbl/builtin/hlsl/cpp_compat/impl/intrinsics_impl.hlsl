@@ -661,7 +661,11 @@ struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::BooleanScalar<B>) >
 {
 	NBL_CONSTEXPR_STATIC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
 	{
+		#ifdef __HLSL_VERSION
+		return spirv::select(condition, object1, object2);
+		#else
 		return condition ? object1 : object2;
+		#endif
 	}
 };
 
