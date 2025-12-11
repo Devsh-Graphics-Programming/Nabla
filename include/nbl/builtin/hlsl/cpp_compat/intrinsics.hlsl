@@ -156,10 +156,10 @@ inline bool any(Vector vec)
 	return cpp_compat_intrinsics_impl::any_helper<Vector>::__call(vec);
 }
 
-template<typename Condition, typename ResultType>
+template<typename ResultType, typename Condition>
 NBL_CONSTEXPR_FUNC ResultType select(Condition condition, ResultType object1, ResultType object2)
 {
-	return cpp_compat_intrinsics_impl::select_helper<Condition, ResultType>::__call(condition, object1, object2);
+	return cpp_compat_intrinsics_impl::select_helper<ResultType, Condition>::__call(condition, object1, object2);
 }
 
 /**

@@ -90,7 +90,7 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct all_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct any_helper;
-template<typename B, typename T NBL_STRUCT_CONSTRAINABLE>
+template<typename T, typename B NBL_STRUCT_CONSTRAINABLE>
 struct select_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
@@ -166,7 +166,7 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSq
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fract_helper, fract, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, all, (T), (T), bool)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), bool)
-template<typename B, typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(select_helper, select, (B)(T), (B)(T)(T), T)
+template<typename T, typename B> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(select_helper, select, (T)(B), (B)(T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, (T), (T), T)
@@ -655,9 +655,9 @@ struct subBorrow_helper
 	}
 };
 
-template<typename B, typename T>
+template<typename T, typename B>
 requires (concepts::BooleanScalar<B>)
-struct select_helper<B, T>
+struct select_helper<T, B>
 {
     using return_t = T;
 	constexpr static return_t __call(const B& condition, const T& object1, const T& object2)
@@ -666,9 +666,9 @@ struct select_helper<B, T>
 	}
 };
 
-template<typename B, typename T>
+template<typename T, typename B>
 requires (concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
-struct select_helper<B, T>
+struct select_helper<T, B>
 {
     using return_t = T;
 	constexpr static T __call(const B& condition, const T& object1, const T& object2)
@@ -974,7 +974,7 @@ struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::B
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 	{
-		return select_helper<U, T>(a, y, x);
+		return select_helper<T, U>(a, y, x);
 	}
 };
 

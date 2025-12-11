@@ -208,7 +208,7 @@ struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::EmulatedIntegralScala
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
         const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
                                                        : vector<uint32_t, 2>(operand.__getLSB() << bits, (operand.__getMSB() << bits) | (operand.__getLSB() >> shift)));
-        return select<bool, type_t>(bool(bits), shifted, operand);
+        return select<type_t, bool>(bool(bits), shifted, operand);
     }
 
     // If `_bits > 63` or `_bits < 0` the result is undefined
@@ -235,7 +235,7 @@ struct arithmetic_right_shift_operator<emulated_uint64_t>
         const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(operand.__getMSB() >> shift, 0)
                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), operand.__getMSB() >> bits));
         
-        return select<bool, type_t>(bool(bits), shifted, operand);
+        return select<type_t, bool>(bool(bits), shifted, operand);
     }
 
     // If `_bits > 63` the result is undefined
@@ -261,7 +261,7 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
         const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(uint32_t(int32_t(operand.__getMSB()) >> shift), int32_t(operand.__getMSB()) < 0 ? ~uint32_t(0) : uint32_t(0))
                                                                         : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), uint32_t(int32_t(operand.__getMSB()) >> bits)));
-        return select<bool , type_t>(bool(bits), shifted, operand);
+        return select<type_t, bool>(bool(bits), shifted, operand);
     }
 
     // If `_bits > 63` or `_bits < 0` the result is undefined
