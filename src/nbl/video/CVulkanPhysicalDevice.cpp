@@ -462,8 +462,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.supportedDepthResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedDepthResolveModes);
         properties.limits.supportedStencilResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedStencilResolveModes);
         
-        if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
-            RETURN_NULL_PHYSICAL_DEVICE;
+        //if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
+        //    RETURN_NULL_PHYSICAL_DEVICE;
 
         // not dealing with vulkan12Properties.filterMinmaxSingleComponentFormats, TODO report in usage
         properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
@@ -882,8 +882,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         // TODO sparse stuff
 
         properties.limits.variableMultisampleRate = deviceFeatures.features.variableMultisampleRate;
-        if (!deviceFeatures.features.inheritedQueries)
-            RETURN_NULL_PHYSICAL_DEVICE;
+        //if (!deviceFeatures.features.inheritedQueries)
+        //    RETURN_NULL_PHYSICAL_DEVICE;
             
 
         /* Vulkan 1.1 Core  */
@@ -1892,6 +1892,10 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
                 extensionStrings[i++] = feature.c_str();
         }
 
+        // remove inheritedQueries since llvmpipe doesn't support it
+        vk_deviceFeatures2.features.inheritedQueries = VK_FALSE;
+        //vk_deviceFeatures2.features = VkPhysicalDeviceFeatures{};
+
         // Create Device
         VkDeviceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
         vk_createInfo.pNext = &vk_deviceFeatures2;
@@ -1913,7 +1917,32 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         }
         vk_createInfo.queueCreateInfoCount = queueCreateInfos.size();
         vk_createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    
+        
+        // erase extensions not supported by llvm
+        {
+            core::vector<const char*> llvmUnsupportedExtensions = {
+                "VK_NV_shader_image_footprint",
+                "VK_KHR_fragment_shader_barycentric",
+                "VK_EXT_conservative_rasterization",
+                "VK_KHR_external_memory_win32",
+                "VK_KHR_shader_subgroup_uniform_control_flow",
+                "VK_EXT_pci_bus_info",
+                "VK_KHR_external_fence_win32",
+                "VK_KHR_external_semaphore_win32",
+                "VK_KHR_win32_keyed_mutex",
+                "VK_EXT_discard_rectangles"
+                "VK_NV_compute_shader_derivatives",
+                "VK_NV_shader_sm_builtins"
+            };
+
+            for (const char* extension : llvmUnsupportedExtensions)
+            {
+                auto it = std::find_if(extensionStrings.begin(), extensionStrings.end(), [extension](const char* s) { return std::strcmp(s, extension) == 0; });
+                if(it != extensionStrings.end())
+                    extensionStrings.erase(it);
+            }
+        }
+
         vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStrings.size());
         vk_createInfo.ppEnabledExtensionNames = extensionStrings.data();
         
