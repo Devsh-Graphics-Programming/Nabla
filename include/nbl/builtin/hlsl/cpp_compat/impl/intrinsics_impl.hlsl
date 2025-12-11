@@ -52,6 +52,14 @@ NBL_BOOL_CONCEPT MixCallingBuiltins =
 #else
 MixIsCallable<T,U>;
 #endif
+
+template<typename T, typename B>
+NBL_BOOL_CONCEPT SelectCallingBuiltins =
+#ifdef __HLSL_VERSION
+spirv::SelectIsCallable<T, B>;
+#else
+false;
+#endif
 }
 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -476,6 +484,17 @@ struct mix_helper<T, U>
 	}
 };
 
+template<typename B, typename T>
+requires(concepts::BooleanScalar<B>)
+struct select_helper<B, T>
+{
+    using return_t = T;
+	static inline return_t __call(const B condition, const T& object1, const T& object2)
+	{
+		return condition ? object1 : object2;
+	}
+};
+
 template<typename T>
 requires concepts::FloatingPointScalar<T> || concepts::IntegralScalar<T>
 struct sign_helper<T>
@@ -655,38 +674,6 @@ struct subBorrow_helper
 	}
 };
 
-template<typename B, typename T>
-NBL_PARTIAL_REQ_TOP(concepts::BooleanScalar<B>)
-struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::BooleanScalar<B>) >
-{
-	NBL_CONSTEXPR_STATIC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
-	{
-		#ifdef __HLSL_VERSION
-		return spirv::select(condition, object1, object2);
-		#else
-		return condition ? object1 : object2;
-		#endif
-	}
-};
-
-template<typename B, typename T>
-NBL_PARTIAL_REQ_TOP(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
-struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>)) >
-{
-	NBL_CONSTEXPR_STATIC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
-	{
-		using traits = hlsl::vector_traits<T>;
-		array_get<B, bool> conditionGetter;
-		array_get<T, typename traits::scalar_type> objectGetter;
-		array_set<T, typename traits::scalar_type> setter;
-
-		T selected;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(selected, i, conditionGetter(condition, i) ? objectGetter(object1, i) : objectGetter(object2, i));
-
-		return selected;
-	}
-};
 
 template<typename T>
 struct undef_helper
@@ -977,6 +964,27 @@ struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::B
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 	{
 		return select_helper<U, T>(a, y, x);
+	}
+};
+
+
+template<typename B, typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Boolean<B> && concepts::Vector<B> && concepts::Vector<T> && (extent_v<B> == extent_v<T>) && !impl::SelectCallingBuiltins<T, B>)
+struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B> && concepts::Vector<B> && concepts::Vector<T> && (extent_v<B> == extent_v<T>) && !impl::SelectCallingBuiltins<T, B>) >
+{
+    using return_t = T;
+	NBL_CONSTEXPR_STATIC return_t __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<B, bool> conditionGetter;
+		array_get<T, typename traits::scalar_type> objectGetter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		T selected;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(selected, i, conditionGetter(condition, i) ? objectGetter(object1, i) : objectGetter(object2, i));
+
+		return selected;
 	}
 };
 
