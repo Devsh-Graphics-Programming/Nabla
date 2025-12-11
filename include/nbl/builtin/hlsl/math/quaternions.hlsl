@@ -48,22 +48,10 @@ struct quaternion
         q.data = data_type(0.0, 0.0, 0.0, 1.0);
         return q;
     }
-    
-    static this_t create(scalar_type x, scalar_type y, scalar_type z, scalar_type w)
-    {
-        this_t q;
-        q.data = data_type(x, y, z, w);
-        return q;
-    }
-
-    static this_t create(NBL_CONST_REF_ARG(this_t) other)
-    {
-        return other;
-    }
 
     // angle: Rotation angle expressed in radians.
     // axis: Rotation axis, must be normalized.
-    static this_t create(scalar_type angle, const vector3_type axis)
+    static this_t create(const vector3_type axis, scalar_type angle)
     {
         this_t q;
         const scalar_type sinTheta = hlsl::sin(angle * 0.5);
@@ -72,28 +60,39 @@ struct quaternion
         return q;
     }
 
-
-    static this_t create(scalar_type pitch, scalar_type yaw, scalar_type roll)
+    template<typename U=vector<scalar_type,2> NBL_FUNC_REQUIRES(is_same_v<vector<scalar_type,2>,U>)
+    static this_t create(const U halfPitchCosSin, const U halfYawCosSin, const U halfRollCosSin)
     {
-        const scalar_type rollDiv2 = roll * scalar_type(0.5);
-        const scalar_type sr = hlsl::sin(rollDiv2);
-        const scalar_type cr = hlsl::cos(rollDiv2);
+        const scalar_type cp = halfPitchCosSin.x;
+        const scalar_type sp = halfPitchCosSin.y;
 
-        const scalar_type pitchDiv2 = pitch * scalar_type(0.5);
-        const scalar_type sp = hlsl::sin(pitchDiv2);
-        const scalar_type cp = hlsl::cos(pitchDiv2);
+        const scalar_type cy = halfYawCosSin.x;
+        const scalar_type sy = halfYawCosSin.y;
 
-        const scalar_type yawDiv2 = yaw * scalar_type(0.5);
-        const scalar_type sy = hlsl::sin(yawDiv2);
-        const scalar_type cy = hlsl::cos(yawDiv2);
+        const scalar_type cr = halfRollCosSin.x;
+        const scalar_type sr = halfRollCosSin.y;
 
-        this_t output;
-        output.data[0] = cr * sp * cy + sr * cp * sy; // x
-        output.data[1] = cr * cp * sy - sr * sp * cy; // y
-        output.data[2] = sr * cp * cy - cr * sp * sy; // z
-        output.data[3] = cr * cp * cy + sr * sp * sy; // w
+        this_t q;
+        q.data[0] = cr * sp * cy + sr * cp * sy; // x
+        q.data[1] = cr * cp * sy - sr * sp * cy; // y
+        q.data[2] = sr * cp * cy - cr * sp * sy; // z
+        q.data[3] = cr * cp * cy + sr * sp * sy; // w
 
-        return output;
+        return q;
+    }
+
+    template<typename U=scalar_type NBL_FUNC_REQUIRES(is_same_v<scalar_type,U>)
+    static this_t create(const U pitch, const U yaw, const U roll)
+    {
+        const scalar_type halfPitch = pitch * scalar_type(0.5);
+        const scalar_type halfYaw = yaw * scalar_type(0.5);
+        const scalar_type halfRoll = roll * scalar_type(0.5);
+
+        return create(
+            vector<scalar_type,2>(hlsl::cos(halfPitch), hlsl::sin(halfPitch)),
+            vector<scalar_type,2>(hlsl::cos(halfYaw), hlsl::sin(halfYaw)),
+            vector<scalar_type,2>(hlsl::cos(halfRoll), hlsl::sin(halfRoll))
+        );
     }
 
     static this_t create(NBL_CONST_REF_ARG(matrix_type) m)
@@ -165,12 +164,14 @@ struct quaternion
 
     this_t operator*(NBL_CONST_REF_ARG(this_t) other)
     {
-        return this_t::create(
+        this_t retval;
+        retval.data = data_type(
             data.w * other.data.w - data.x * other.x - data.y * other.data.y - data.z * other.data.z,
             data.w * other.data.x + data.x * other.w + data.y * other.data.z - data.z * other.data.y,
             data.w * other.data.y - data.x * other.z + data.y * other.data.w + data.z * other.data.x,
             data.w * other.data.z + data.x * other.y - data.y * other.data.x + data.z * other.data.w
         );
+        return retval;
     }
 
     static this_t lerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
