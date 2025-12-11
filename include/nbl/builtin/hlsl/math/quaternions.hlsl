@@ -95,8 +95,43 @@ struct quaternion
         );
     }
 
-    static this_t create(NBL_CONST_REF_ARG(matrix_type) m)
+    static bool __isEqual(const scalar_type a, const scalar_type b)
     {
+        return hlsl::max(a/b, b/a) <= scalar_type(1e-4);
+    }
+    static bool __dotIsZero(const vector3_type a, const vector3_type b)
+    {
+        const scalar_type ab = hlsl::dot(a, b);
+        return hlsl::abs(ab) <= scalar_type(1e-4);
+    }
+
+    static this_t create(NBL_CONST_REF_ARG(matrix_type) m, const bool dontAssertValidMatrix=false)
+    {
+        {
+            // only orthogonal and uniform scale mats can be converted
+            bool valid = __dotIsZero(m[0], m[1]);
+            valid = __dotIsZero(m[1], m[2]) && valid;
+            valid = __dotIsZero(m[0], m[2]) && valid;
+
+            const matrix_type m_T = hlsl::transpose(m);
+            const scalar_type dotCol0 = hlsl::dot(m_T[0],m_T[0]);
+            const scalar_type dotCol1 = hlsl::dot(m_T[1],m_T[1]);
+            const scalar_type dotCol2 = hlsl::dot(m_T[2],m_T[2]);
+            valid = __isEqual(dotCol0, dotCol1) && valid;
+            valid = __isEqual(dotCol1, dotCol2) && valid;
+            valid = __isEqual(dotCol0, dotCol2) && valid;
+
+            if (dontAssertValidMatrix)
+                if (!valid)
+                {
+                    this_t retval;
+                    retval.data = hlsl::promote<data_type>(bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN));
+                    return retval;
+                }
+            else
+                assert(valid);
+        }
+
         const scalar_type m00 = m[0][0], m11 = m[1][1], m22 = m[2][2];
         const scalar_type neg_m00 = bit_cast<scalar_type>(bit_cast<AsUint>(m00)^0x80000000u);
         const scalar_type neg_m11 = bit_cast<scalar_type>(bit_cast<AsUint>(m11)^0x80000000u);
@@ -106,40 +141,42 @@ struct quaternion
         const data_type Qz = data_type(m22, neg_m22, neg_m22, m22);
 
         const data_type tmp = hlsl::promote<data_type>(1.0) + Qx + Qy + Qz;
-        const data_type invscales = hlsl::promote<data_type>(0.5) / hlsl::sqrt(tmp);
-        const data_type scales = tmp * invscales * hlsl::promote<data_type>(0.5);
 
         // TODO: speed this up
         this_t retval;
         if (tmp.x > scalar_type(0.0))
         {
-            retval.data.x = (m[2][1] - m[1][2]) * invscales.x;
-            retval.data.y = (m[0][2] - m[2][0]) * invscales.x;
-            retval.data.z = (m[1][0] - m[0][1]) * invscales.x;
-            retval.data.w = scales.x;
+            const scalar_type invscales = scalar_type(0.5) / hlsl::sqrt(tmp.x);
+            retval.data.x = (m[2][1] - m[1][2]) * invscales;
+            retval.data.y = (m[0][2] - m[2][0]) * invscales;
+            retval.data.z = (m[1][0] - m[0][1]) * invscales;
+            retval.data.w = tmp.x * invscales * scalar_type(0.5);
         }
         else
         {
             if (tmp.y > scalar_type(0.0))
             {
-                retval.data.x = scales.y;
-                retval.data.y = (m[0][1] + m[1][0]) * invscales.y;
-                retval.data.z = (m[2][0] + m[0][2]) * invscales.y;
-                retval.data.w = (m[2][1] - m[1][2]) * invscales.y;
+                const scalar_type invscales = scalar_type(0.5) / hlsl::sqrt(tmp.y);
+                retval.data.x = tmp.y * invscales * scalar_type(0.5);
+                retval.data.y = (m[0][1] + m[1][0]) * invscales;
+                retval.data.z = (m[2][0] + m[0][2]) * invscales;
+                retval.data.w = (m[2][1] - m[1][2]) * invscales;
             }
             else if (tmp.z > scalar_type(0.0))
             {
-                retval.data.x = (m[0][1] + m[1][0]) * invscales.z;
-                retval.data.y = scales.z;
-                retval.data.z = (m[0][2] - m[2][0]) * invscales.z;
-                retval.data.w = (m[1][2] + m[2][1]) * invscales.z;
+                const scalar_type invscales = scalar_type(0.5) / hlsl::sqrt(tmp.z);
+                retval.data.x = (m[0][1] + m[1][0]) * invscales;
+                retval.data.y = tmp.z * invscales * scalar_type(0.5);
+                retval.data.z = (m[0][2] - m[2][0]) * invscales;
+                retval.data.w = (m[1][2] + m[2][1]) * invscales;
             }
             else
             {
-                retval.data.x = (m[0][2] + m[2][0]) * invscales.w;
-                retval.data.y = (m[1][2] + m[2][1]) * invscales.w;
-                retval.data.z = scales.w;
-                retval.data.w = (m[1][0] - m[0][1]) * invscales.w;
+                const scalar_type invscales = scalar_type(0.5) / hlsl::sqrt(tmp.w);
+                retval.data.x = (m[0][2] + m[2][0]) * invscales;
+                retval.data.y = (m[1][2] + m[2][1]) * invscales;
+                retval.data.z = tmp.w * invscales * scalar_type(0.5);
+                retval.data.w = (m[1][0] - m[0][1]) * invscales;
             }
         }
 
