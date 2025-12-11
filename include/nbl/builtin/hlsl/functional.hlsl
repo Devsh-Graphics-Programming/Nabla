@@ -241,7 +241,7 @@ struct ternary_operator
 {
    using type_t = std::invoke_result_t<F1>;
 
-   constexpr inline type_t operator()(const bool condition, const F1& lhs, const F2& rhs)
+   constexpr inline type_t operator()(const bool condition, F1& lhs, F2& rhs)
    {
       if (condition)
          return std::invoke(lhs);
@@ -255,7 +255,7 @@ struct ternary_operator
 {
    using type_t = decltype(experimental::declval<F1>().operator());
 
-   NBL_CONSTEXPR_FUNC type_t operator()(const bool condition, NBL_CONST_REF_ARG(F1) lhs, NBL_CONST_REF_ARG(F2) rhs)
+   NBL_CONSTEXPR_FUNC type_t operator()(const bool condition, NBL_REF_ARG(F1) lhs, NBL_REF_ARG(F2) rhs)
    {
       if (condition)
          return lhs();
