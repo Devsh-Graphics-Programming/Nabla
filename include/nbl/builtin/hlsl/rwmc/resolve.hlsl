@@ -16,21 +16,21 @@ namespace rwmc
 {
 		// declare concept
 #define NBL_CONCEPT_NAME ResolveAccessorBase
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(VectorScalarType)(Dims)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)(int32_t)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(VectorScalarType)(Dims)(Components)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (a,T)
-#define NBL_CONCEPT_PARAM_1 (scalar,VectorScalarType)
+#define NBL_CONCEPT_PARAM_1 (vec,vector<VectorScalarType, Components>)
 // start concept
-	NBL_CONCEPT_BEGIN(2)
+NBL_CONCEPT_BEGIN(2)
 // need to be defined AFTER the concept begins
 #define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define scalar NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define vec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_EXPR)((a.calcLuma(vector<VectorScalarType, 3>(scalar, scalar, scalar)))))
+	((NBL_CONCEPT_REQ_EXPR)((a.calcLuma(vec))))
 );
 #undef a
-#undef scalar
+#undef vec
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 /* ResolveAccessor is required to:
@@ -38,14 +38,15 @@ NBL_CONCEPT_END(
 *	- implement function called `calcLuma` which calculates luma from a 3 component pixel value
 */
 
-template<typename T, typename VectorScalarType, int32_t Dims>
-NBL_BOOL_CONCEPT ResolveAccessor = ResolveAccessorBase<T, VectorScalarType, Dims> && concepts::accessors::LoadableImage<T, VectorScalarType, Dims>;
+template<typename T, typename VectorScalarType, int32_t Dims, int32_t Components>
+NBL_BOOL_CONCEPT ResolveAccessor = ResolveAccessorBase<T, VectorScalarType, Dims, Components> && concepts::accessors::LoadableImage<T, VectorScalarType, Dims, Components>;
 
 template<typename OutputScalar>
 struct ResolveAccessorAdaptor
 {
 	using output_scalar_type = OutputScalar;
-	using output_type = vector<OutputScalar, 4>;
+	NBL_CONSTEXPR int32_t Components = 3;
+	using output_type = vector<OutputScalar, Components>;
 	NBL_CONSTEXPR int32_t image_dimension = 2;
 
 	RWTexture2DArray<float32_t4> cascade;
@@ -63,13 +64,13 @@ struct ResolveAccessorAdaptor
 		int16_t2 cascadeImageDimension = int16_t2(imgWidth, imgHeight);
 
 		if (any(uv < int16_t2(0, 0)) || any(uv > cascadeImageDimension))
-			return vector<OutputScalar, 4>(0, 0, 0, 0);
+			return promote<output_type, output_scalar_type>(0);
 
 		return cascade.Load(int32_t3(uv, int32_t(layer)));
 	}
 };
 
-template<typename CascadeAccessor, typename OutputColorTypeVec NBL_PRIMARY_REQUIRES(concepts::Vector<OutputColorTypeVec> && ResolveAccessor<CascadeAccessor, typename CascadeAccessor::output_scalar_type, CascadeAccessor::image_dimension>)
+template<typename CascadeAccessor, typename OutputColorTypeVec NBL_PRIMARY_REQUIRES(concepts::Vector<OutputColorTypeVec> && ResolveAccessor<CascadeAccessor, typename CascadeAccessor::output_scalar_type, CascadeAccessor::image_dimension, CascadeAccessor::Components>)
 struct Resolver
 {
 	using output_type = OutputColorTypeVec;
@@ -92,12 +93,10 @@ struct Resolver
 
 	output_type operator()(NBL_REF_ARG(CascadeAccessor) acc, const int16_t2 coord)
 	{
-		using scalar_t = typename vector_traits<output_type>::scalar_type;
-
 		scalar_t reciprocalBaseI = 1.f;
 		CascadeSample curr = __sampleCascade(acc, coord, 0u, reciprocalBaseI);
 
-		output_type accumulation = output_type(0.0f, 0.0f, 0.0f);
+		output_type accumulation = promote<output_type, scalar_t>(0.0f);
 		scalar_t Emin = params.initialEmin;
 
 		scalar_t prevNormalizedCenterLuma, prevNormalizedNeighbourhoodAverageLuma;
@@ -162,15 +161,15 @@ struct Resolver
 	CascadeSample __sampleCascade(NBL_REF_ARG(CascadeAccessor) acc, int16_t2 coord, uint16_t cascadeIndex, scalar_t reciprocalBaseI)
 	{
 		output_type neighbourhood[9];
-		neighbourhood[0] = acc.template get<scalar_t, 2>(coord + int16_t2(-1, -1), cascadeIndex).xyz;
-		neighbourhood[1] = acc.template get<scalar_t, 2>(coord + int16_t2(0, -1), cascadeIndex).xyz;
-		neighbourhood[2] = acc.template get<scalar_t, 2>(coord + int16_t2(1, -1), cascadeIndex).xyz;
-		neighbourhood[3] = acc.template get<scalar_t, 2>(coord + int16_t2(-1, 0), cascadeIndex).xyz;
-		neighbourhood[4] = acc.template get<scalar_t, 2>(coord + int16_t2(0, 0), cascadeIndex).xyz;
-		neighbourhood[5] = acc.template get<scalar_t, 2>(coord + int16_t2(1, 0), cascadeIndex).xyz;
-		neighbourhood[6] = acc.template get<scalar_t, 2>(coord + int16_t2(-1, 1), cascadeIndex).xyz;
-		neighbourhood[7] = acc.template get<scalar_t, 2>(coord + int16_t2(0, 1), cascadeIndex).xyz;
-		neighbourhood[8] = acc.template get<scalar_t, 2>(coord + int16_t2(1, 1), cascadeIndex).xyz;
+		neighbourhood[0] = acc.template get<scalar_t, 2>(coord + int16_t2(-1, -1), cascadeIndex);
+		neighbourhood[1] = acc.template get<scalar_t, 2>(coord + int16_t2(0, -1), cascadeIndex);
+		neighbourhood[2] = acc.template get<scalar_t, 2>(coord + int16_t2(1, -1), cascadeIndex);
+		neighbourhood[3] = acc.template get<scalar_t, 2>(coord + int16_t2(-1, 0), cascadeIndex);
+		neighbourhood[4] = acc.template get<scalar_t, 2>(coord + int16_t2(0, 0), cascadeIndex);
+		neighbourhood[5] = acc.template get<scalar_t, 2>(coord + int16_t2(1, 0), cascadeIndex);
+		neighbourhood[6] = acc.template get<scalar_t, 2>(coord + int16_t2(-1, 1), cascadeIndex);
+		neighbourhood[7] = acc.template get<scalar_t, 2>(coord + int16_t2(0, 1), cascadeIndex);
+		neighbourhood[8] = acc.template get<scalar_t, 2>(coord + int16_t2(1, 1), cascadeIndex);
 
 		// numerical robustness
 		float32_t3 excl_hood_sum = ((neighbourhood[0] + neighbourhood[1]) + (neighbourhood[2] + neighbourhood[3])) +
