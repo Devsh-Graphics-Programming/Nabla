@@ -246,7 +246,7 @@ struct quaternion
 
     static this_t flerp(const this_t start, const this_t end, const scalar_type fraction)
     {       
-        this_t retval = unnormFlerp(start,end,adjFrac,pseudoAngle);
+        this_t retval = unnormFlerp(start,end,fraction);
         retval.data = hlsl::normalize(retval.data);
         return retval;
     }
@@ -267,8 +267,10 @@ struct quaternion
         mat[0][0] = scalar_type(0.5) - mat[0][0];
         mat[1][1] = scalar_type(0.5) - mat[1][1];
         mat[2][2] = scalar_type(0.5) - mat[2][2];
-        mat *= scalar_type(2.0);
-        return hlsl::transpose(mat);    // TODO: double check transpose?
+        mat[0] = mat[0] * scalar_type(2.0);
+        mat[1] = mat[1] * scalar_type(2.0);
+        mat[2] = mat[2] * scalar_type(2.0);
+        return mat;// hlsl::transpose(mat);    // TODO: double check transpose?
     }
 
     static vector3_type slerp_delta(const vector3_type start, const vector3_type preScaledWaypoint, scalar_type cosAngleFromStart)
@@ -298,9 +300,9 @@ struct quaternion
 
 }
 
-namespace impl
-{
 
+namespace cpp_compat_intrinsics_impl
+{
 template<typename T>
 struct normalize_helper<math::truncated_quaternion<T> >
 {
@@ -310,7 +312,7 @@ struct normalize_helper<math::truncated_quaternion<T> >
         retval.data = hlsl::normalize(q.data);
         return retval;
     }
-}
+};
 
 template<typename T>
 struct normalize_helper<math::quaternion<T> >
@@ -321,8 +323,11 @@ struct normalize_helper<math::quaternion<T> >
         retval.data = hlsl::normalize(q.data);
         return retval;
     }
+};
 }
 
+namespace impl
+{
 template<typename T>
 struct static_cast_helper<math::quaternion<T>, math::truncated_quaternion<T> >
 {
