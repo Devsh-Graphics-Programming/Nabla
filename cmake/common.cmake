@@ -1185,8 +1185,8 @@ struct DeviceConfigCaps
 		-Zpr 
 		-spirv 
 		-fspv-target-env=vulkan1.3 
-		-WShadow 
-		-WConversion 
+		-Wshadow 
+		-Wconversion 
 		$<$<CONFIG:Debug>:-O0> 
 		$<$<CONFIG:Release>:-O3> 
 		$<$<CONFIG:RelWithDebInfo>:-O3> 
