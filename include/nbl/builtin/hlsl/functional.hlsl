@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
+#include "nbl/builtin/hlsl/array_accessors.hlsl"
 
 
 namespace nbl
