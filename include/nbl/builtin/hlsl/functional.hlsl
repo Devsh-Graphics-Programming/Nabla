@@ -236,7 +236,7 @@ struct maximum
 };
 
 #ifndef __HLSL_VERSION
-template<typename F1, typename F2 > requires(is_same_v<std::invoke_result_t<F1>, std::invoke_result_t<F2>()> )
+template<typename F1, typename F2 > requires(is_same_v<std::invoke_result_t<F1>, std::invoke_result_t<F2> > )
 struct ternary_operator
 {
    using type_t = std::invoke_result_t<F1>;
