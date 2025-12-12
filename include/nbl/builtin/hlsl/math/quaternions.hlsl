@@ -184,14 +184,6 @@ struct quaternion
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(truncated_quaternion<T>) first3Components)
-    {
-        this_t retval;
-        retval.data.xyz = first3Components.data;
-        retval.data.w = hlsl::sqrt(scalar_type(1.0) - hlsl::dot(first3Components.data, first3Components.data));
-        return retval;
-    }
-
     this_t operator*(scalar_type scalar)
     {
         this_t output;
@@ -211,19 +203,26 @@ struct quaternion
         return retval;
     }
 
-    static this_t lerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
+    static this_t unnormLerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
     {
-        const AsUint negationMask = hlsl::bit_cast<AsUint>(totalPseudoAngle) & AsUint(0x80000000u);
-        const data_type adjEnd = hlsl::bit_cast<scalar_type>(hlsl::bit_cast<AsUint>(end.data) ^ negationMask);
+        // TODO: benchmark uint sign flip vs just *sign(totalPseudoAngle)
+        const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, totalPseudoAngle);
 
         this_t retval;
         retval.data = hlsl::mix(start.data, adjEnd, fraction);
         return retval;
     }
 
+    static this_t unnormLerp(const this_t start, const this_t end, const scalar_type fraction)
+    {
+        return unnormLerp(start, end, fraction, hlsl::dot(start.data, end.data));
+    }
+
     static this_t lerp(const this_t start, const this_t end, const scalar_type fraction)
     {
-        return lerp(start, end, fraction, hlsl::dot(start.data, end.data));
+        this_t retval = unnormLerp(start, end, fraction);
+        retval.data = hlsl::normalize(retval.data);
+        return retval;
     }
 
     static scalar_type __adj_interpolant(const scalar_type angle, const scalar_type fraction, const scalar_type interpolantPrecalcTerm2, const scalar_type interpolantPrecalcTerm3)
@@ -234,26 +233,32 @@ struct quaternion
         return fraction + interpolantPrecalcTerm3 * k;
     }
 
-    static this_t flerp(const this_t start, const this_t end, const scalar_type fraction)
+    static this_t unnormFlerp(const this_t start, const this_t end, const scalar_type fraction)
     {
         const scalar_type pseudoAngle = hlsl::dot(start.data,end.data);
         const scalar_type interpolantPrecalcTerm = fraction - scalar_type(0.5);
         const scalar_type interpolantPrecalcTerm3 = fraction * interpolantPrecalcTerm * (fraction - scalar_type(1.0));
         const scalar_type adjFrac = __adj_interpolant(hlsl::abs(pseudoAngle),fraction,interpolantPrecalcTerm*interpolantPrecalcTerm,interpolantPrecalcTerm3);
         
-        this_t retval = lerp(start,end,adjFrac,pseudoAngle);
+        this_t retval = unnormLerp(start,end,adjFrac,pseudoAngle);
+        return retval;
+    }
+
+    static this_t flerp(const this_t start, const this_t end, const scalar_type fraction)
+    {       
+        this_t retval = unnormFlerp(start,end,adjFrac,pseudoAngle);
         retval.data = hlsl::normalize(retval.data);
         return retval;
     }
 
-    vector3_type transformVector(const vector3_type v)
+    vector3_type transformVector(const vector3_type v, const bool assumeNoScale=false) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type scale = hlsl::length(data);
+        scalar_type scale = hlsl::mix(hlsl::length(data), scalar_type(1.0), assumeNoScale);
         vector3_type direction = data.xyz;
         return v * scale + hlsl::cross(direction, v * data.w + hlsl::cross(direction, v)) * scalar_type(2.0);
     }
 
-    matrix_type constructMatrix()
+    matrix_type constructMatrix() NBL_CONST_MEMBER_FUNC
     {
         matrix_type mat;
         mat[0] = data.yzx * data.ywz + data.zxy * data.zyw * vector3_type( 1.0, 1.0,-1.0);
@@ -280,20 +285,11 @@ struct quaternion
         return precompPart * cosAngle + hlsl::cross(planeNormal, precompPart);
     }
 
-    this_t inverse()
+    this_t inverse() NBL_CONST_MEMBER_FUNC
     {
         this_t retval;
-        retval.data.x = bit_cast<scalar_type>(bit_cast<AsUint>(data.x)^0x80000000u);
-        retval.data.y = bit_cast<scalar_type>(bit_cast<AsUint>(data.y)^0x80000000u);
-        retval.data.z = bit_cast<scalar_type>(bit_cast<AsUint>(data.z)^0x80000000u);
+        retval.data.xyz = -retval.data.xyz;
         retval.data.w = data.w;
-        return retval;
-    }
-
-    static this_t normalize(NBL_CONST_REF_ARG(this_t) q)
-    {
-        this_t retval;
-        retval.data = hlsl::normalize(q.data);
         return retval;
     }
 
@@ -306,18 +302,43 @@ namespace impl
 {
 
 template<typename T>
+struct normalize_helper<math::truncated_quaternion<T> >
+{
+    static inline math::truncated_quaternion<T> __call(const math::truncated_quaternion<T> q)
+    {
+        math::truncated_quaternion<T> retval;
+        retval.data = hlsl::normalize(q.data);
+        return retval;
+    }
+}
+
+template<typename T>
+struct normalize_helper<math::quaternion<T> >
+{
+    static inline math::quaternion<T> __call(const math::quaternion<T> q)
+    {
+        math::quaternion<T> retval;
+        retval.data = hlsl::normalize(q.data);
+        return retval;
+    }
+}
+
+template<typename T>
 struct static_cast_helper<math::quaternion<T>, math::truncated_quaternion<T> >
 {
-    static inline math::quaternion<T> cast(math::truncated_quaternion<T> q)
+    static inline math::quaternion<T> cast(const math::truncated_quaternion<T> q)
     {
-        return math::quaternion<T>::create(q);
+        math::quaternion<T> retval;
+        retval.data.xyz = q.data;
+        retval.data.w = hlsl::sqrt(scalar_type(1.0) - hlsl::dot(q.data, q.data));
+        return retval;
     }
 };
 
 template<typename T>
 struct static_cast_helper<math::truncated_quaternion<T>, math::quaternion<T> >
 {
-    static inline math::truncated_quaternion<T> cast(math::quaternion<T> q)
+    static inline math::truncated_quaternion<T> cast(const math::quaternion<T> q)
     {
         math::truncated_quaternion<T> t;
         t.data.x = t.data.x;
@@ -330,7 +351,7 @@ struct static_cast_helper<math::truncated_quaternion<T>, math::quaternion<T> >
 template<typename T>
 struct static_cast_helper<matrix<T,3,3>, math::quaternion<T> >
 {
-    static inline matrix<T,3,3> cast(math::quaternion<T> q)
+    static inline matrix<T,3,3> cast(const math::quaternion<T> q)
     {
         return q.constructMatrix();
     }
