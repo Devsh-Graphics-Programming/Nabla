@@ -406,7 +406,7 @@ template<class T>
 struct is_ggx : impl::is_ggx<T, typename T::scalar_type> {};
 
 template<typename T>
-NBL_CONSTEXPR bool is_ggx_v = is_ggx<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_ggx_v = is_ggx<T>::value;
 
 }
 }
