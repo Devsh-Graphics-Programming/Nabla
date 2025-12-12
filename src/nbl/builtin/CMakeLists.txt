@@ -145,6 +145,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/indirect_commands.hlsl")
 # emulated
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/float64_t.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/float64_t_impl.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/int64_common_member_inc.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/int64_t.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/vector_t.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/matrix_t.hlsl")
