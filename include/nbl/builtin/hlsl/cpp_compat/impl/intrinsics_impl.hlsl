@@ -48,7 +48,7 @@ NBL_VALID_EXPRESSION(MixIsCallable, (T)(U), glm::mix(declval<T>(),declval<T>(),d
 template<typename T, typename U>
 NBL_BOOL_CONCEPT MixCallingBuiltins =
 #ifdef __HLSL_VERSION
-(spirv::FMixIsCallable<T> && is_same_v<T,U>) || spirv::SelectIsCallable<T,U>;
+(spirv::FMixIsCallable<T> && is_same_v<T,U>);
 #else
 MixIsCallable<T,U>;
 #endif
@@ -968,13 +968,13 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !imp
 	}
 };
 
-template<typename T, typename U> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T> && concepts::BooleanScalar<U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::BooleanScalar<U>) >
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::BooleanScalar<U> && !impl::MixCallingBuiltins<T, U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::BooleanScalar<U> && !impl::MixCallingBuiltins<T, U>) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 	{
-		return select_helper<T, U>(a, y, x);
+		return select_helper<T, U>::__call(a, y, x);
 	}
 };
 
