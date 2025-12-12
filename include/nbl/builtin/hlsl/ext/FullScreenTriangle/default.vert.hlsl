@@ -34,3 +34,4 @@ SVertexAttributes main()
     retval.uv = tc[gl_VertexIndex()];
     return retval;
 }
+

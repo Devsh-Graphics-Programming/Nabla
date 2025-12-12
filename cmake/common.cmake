@@ -1184,12 +1184,13 @@ struct DeviceConfigCaps
 		-enable-16bit-types 
 		-Zpr 
 		-spirv 
+		-Wno-local-type-template-args
 		-fspv-target-env=vulkan1.3 
 		-Wshadow 
 		-Wconversion 
 		$<$<CONFIG:Debug>:-O0> 
 		$<$<CONFIG:Release>:-O3> 
-		$<$<CONFIG:RelWithDebInfo>:-O3> 
+		$<$<CONFIG:RelWithDebInfo>:-O3>
 	)
 
 	if(NSC_DEBUG_EDIF_FILE_BIT)
