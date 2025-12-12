@@ -25,8 +25,8 @@ namespace accessors
 
 // declare concept
 #define NBL_CONCEPT_NAME LoadableImage
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)(int32_t)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)(Components)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (a,U)
 #define NBL_CONCEPT_PARAM_1 (uv,vector<uint16_t,Dims>)
@@ -38,7 +38,7 @@ NBL_CONCEPT_BEGIN(3)
 #define uv NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define layer NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(uv,layer)), ::nbl::hlsl::is_same_v, vector<T,4>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(uv,layer)), ::nbl::hlsl::is_same_v, vector<T,Components>))
 );
 #undef layer
 #undef uv
