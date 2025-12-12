@@ -71,23 +71,16 @@ struct decode_helper<T, D, true>
     using sequence_store_type = typename sequence_type::store_type;
     using sequence_scalar_type = typename vector_traits<sequence_store_type>::scalar_type;
     using return_type = vector<fp_type, D>;
-    NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = sequence_type::UNormConstant;
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = unorm_constant<8u*sizeof(scalar_type)>::value;
 
     static return_type __call(NBL_CONST_REF_ARG(sequence_type) val, const uint32_t scrambleSeed)
     {
         random::PCG32 pcg = random::PCG32::construct(scrambleSeed);
 
-        sequence_store_type scrambleKey;
-        NBL_UNROLL for(uint16_t i = 0; i < vector_traits<sequence_store_type>::Dimension; i++)
-            scrambleKey[i] = sequence_scalar_type(pcg());
-
         sequence_type scramble;
-        scramble.data = scrambleKey ^ val.data;
-
-        // sequence_type scramble;
-        // NBL_UNROLL for(uint16_t i = 0; i < D; i++)
-        //     scramble.set(i, pcg());
-        // scramble.data ^= val.data;
+        NBL_UNROLL for(uint16_t i = 0; i < D; i++)
+            scramble.set(i, pcg());
+        scramble.data ^= val.data;
 
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < D; i++)
@@ -197,13 +190,13 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
         }
         else
         {
-            const uint16_t zbits = StoreBits-BitsPerComponent;
-            const uint16_t zmask = uint16_t(1u) << zbits;
-            const scalar_type trunc_val = value >> DiscardBits;
+            const scalar_type zbits = StoreBits-BitsPerComponent;
+            const scalar_type zmask = (uint16_t(1u) << zbits) - uint16_t(1u);
+            const scalar_type trunc_val = value >> (DiscardBits-1u);
             data[0] &= Mask;
             data[1] &= Mask;
             data[0] |= (trunc_val & zmask) << BitsPerComponent;
-            data[1] |= (trunc_val >> (zbits) & zmask) << BitsPerComponent;
+            data[1] |= ((trunc_val >> zbits) & zmask) << BitsPerComponent;
         }
     }
 
