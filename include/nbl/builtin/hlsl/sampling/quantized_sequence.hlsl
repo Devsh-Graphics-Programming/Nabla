@@ -71,7 +71,8 @@ struct decode_helper<T, D, true>
     using sequence_store_type = typename sequence_type::store_type;
     using sequence_scalar_type = typename vector_traits<sequence_store_type>::scalar_type;
     using return_type = vector<fp_type, D>;
-    NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = unorm_constant<8u*sizeof(scalar_type)>::value;
+    // NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = unorm_constant<8u*sizeof(scalar_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = unorm_constant<21>::value;
 
     static return_type __call(NBL_CONST_REF_ARG(sequence_type) val, const uint32_t scrambleSeed)
     {
@@ -118,7 +119,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     using store_type = T;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE store_type Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = StoreBits - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<BitsPerComponent>::value;
 
@@ -161,13 +162,13 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = StoreBits - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<BitsPerComponent>::value;
 
     scalar_type get(const uint16_t idx)
     {
-        assert(idx > 0 && idx < 3);
+        assert(idx >= 0 && idx < 3);
         if (idx < 2)
         {
             return data[idx] & Mask;
@@ -182,15 +183,16 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 
     void set(const uint16_t idx, const scalar_type value)
     {
-        assert(idx > 0 && idx < 3);
+        assert(idx >= 0 && idx < 3);
         if (idx < 2)
         {
+            const scalar_type trunc_val = value >> DiscardBits;
             data[idx] &= ~Mask;
-            data[idx] |= (value >> DiscardBits) & Mask;
+            data[idx] |= trunc_val &Mask;
         }
         else
         {
-            const scalar_type zbits = StoreBits-BitsPerComponent;
+            const uint16_t zbits = StoreBits-BitsPerComponent;
             const scalar_type zmask = (uint16_t(1u) << zbits) - uint16_t(1u);
             const scalar_type trunc_val = value >> (DiscardBits-1u);
             data[0] &= Mask;
@@ -211,20 +213,20 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = StoreBits - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<BitsPerComponent>::value;
 
     scalar_type get(const uint16_t idx)
     {
-        assert(idx > 0 && idx < 4);
+        assert(idx >= 0 && idx < 4);
         const uint16_t i = (idx & uint16_t(2u)) >> uint16_t(1u);
         return (data[i] >> (BitsPerComponent * (idx & uint16_t(1u)))) & Mask;
     }
 
     void set(const uint16_t idx, const scalar_type value)
     {
-        assert(idx > 0 && idx < 4);
+        assert(idx >= 0 && idx < 4);
         const uint16_t i = (idx & uint16_t(2u)) >> uint16_t(1u);
         const uint16_t odd = idx & uint16_t(1u);
         data[i] &= hlsl::mix(~Mask, Mask, bool(odd));
@@ -245,7 +247,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 
     base_type get(const uint16_t idx)
     {
-        assert(idx > 0 && idx < 2);
+        assert(idx >= 0 && idx < 2);
         base_type a;
         a[0] = data[uint16_t(2u) * idx];
         a[1] = data[uint16_t(2u) * idx + 1];
@@ -254,7 +256,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 
     void set(const uint16_t idx, const base_type value)
     {
-        assert(idx > 0 && idx < 2);
+        assert(idx >= 0 && idx < 2);
         base_type a;
         data[uint16_t(2u) * idx] = value[0];
         data[uint16_t(2u) * idx + 1] = value[1];
@@ -275,13 +277,13 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LeftoverBitsPerComponent = BitsPerComponent - uint16_t(8u) * size_of_v<scalar_type>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Mask = (uint16_t(1u) << LeftoverBitsPerComponent) - uint16_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type Mask = (uint16_t(1u) << LeftoverBitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = StoreBits - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<8u*sizeof(scalar_type)>::value;
 
     base_type get(const uint16_t idx)
     {
-        assert(idx > 0 && idx < 3);
+        assert(idx >= 0 && idx < 3);
         base_type a;
         a[0] = data[idx];
         a[1] = (data[3] >> (LeftoverBitsPerComponent * idx)) & Mask;
@@ -290,7 +292,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 
     void set(const uint16_t idx, const base_type value)
     {
-        assert(idx > 0 && idx < 3);
+        assert(idx >= 0 && idx < 3);
         data[idx] = value[0];
         data[3] &= ~Mask;
         data[3] |= ((value[1] >> DiscardBits) & Mask) << (LeftoverBitsPerComponent * idx);
