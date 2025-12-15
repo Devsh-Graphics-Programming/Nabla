@@ -59,6 +59,24 @@ struct to_string_helper<hlsl::vector<T, N>>
     }
 };
 
+template<typename T, uint16_t N, uint16_t M>
+struct to_string_helper<hlsl::matrix<T,N,M>>
+{
+    static std::string __call(const hlsl::matrix<T, N, M>& matrix)
+    {
+        std::stringstream output;
+        output << '\n';
+        for (int i = 0; i < N; ++i)
+        {
+            output << "{ ";
+            for (int j = 0; j < M; ++j)
+                output << matrix[i][j] << ", ";
+            output << "}\n";
+        }
+        return output.str();
+    }
+};
+
 template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t>
 struct to_string_helper<hlsl::morton::code<Signed, Bits, D, _uint64_t>>
 {
