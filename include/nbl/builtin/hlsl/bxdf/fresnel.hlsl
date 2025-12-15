@@ -617,7 +617,7 @@ struct iridescent_helper
         NBL_UNROLL for (int m=1; m<=2; ++m)
         {
             Cm *= r123p;
-            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(m)*D, hlsl::promote<vector_type>(m)*(phi23p+phi21p));
+            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(scalar_type(m))*D, hlsl::promote<vector_type>(scalar_type(m))*(phi23p+phi21p));
             I  += Cm*Sm;
         }
 
@@ -631,7 +631,7 @@ struct iridescent_helper
         NBL_UNROLL for (int m=1; m<=2; ++m)
         {
             Cm *= r123s;
-            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(m)*D, hlsl::promote<vector_type>(m) *(phi23s+phi21s));
+            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(scalar_type(m))*D, hlsl::promote<vector_type>(scalar_type(m)) *(phi23s+phi21s));
             I  += Cm*Sm;
         }
 
