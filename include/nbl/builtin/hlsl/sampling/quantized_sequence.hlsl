@@ -164,22 +164,24 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 
     scalar_type get(const uint16_t idx)
     {
-        // assert(idx >= 0 && idx < 3);
+        assert(idx >= 0 && idx < 3);
         if (idx < 2)
         {
             return data[idx] & Mask;
         }
         else
         {
-            scalar_type z = data[0] >> BitsPerComponent;
-            z |= (data[1] >> BitsPerComponent) << DiscardBits;
+            const scalar_type zbits = scalar_type(DiscardBits);
+            const scalar_type zmask = (scalar_type(1u) << zbits) - scalar_type(1u);
+            scalar_type z = (data[0] >> BitsPerComponent) & zmask;
+            z |= ((data[1] >> BitsPerComponent) & zmask) << DiscardBits;
             return z;
         }
     }
 
     void set(const uint16_t idx, const scalar_type value)
     {
-        // assert(idx >= 0 && idx < 3);
+        assert(idx >= 0 && idx < 3);
         if (idx < 2)
         {
             const scalar_type trunc_val = value >> DiscardBits;
@@ -190,7 +192,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
         {
             const scalar_type zbits = scalar_type(DiscardBits);
             const scalar_type zmask = (scalar_type(1u) << zbits) - scalar_type(1u);
-            const scalar_type trunc_val = value >> (DiscardBits-1u);
+            const scalar_type trunc_val = value >> DiscardBits;
             data[0] &= Mask;
             data[1] &= Mask;
             data[0] |= (trunc_val & zmask) << BitsPerComponent;
