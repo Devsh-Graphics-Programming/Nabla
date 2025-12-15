@@ -18,9 +18,9 @@ namespace ndf
 
 enum MicrofacetTransformTypes : uint16_t
 {
-   MTT_REFLECT = 0b01,
-   MTT_REFRACT = 0b10,
-   MTT_REFLECT_REFRACT = 0b11
+    MTT_REFLECT = 0b01,
+    MTT_REFRACT = 0b10,
+    MTT_REFLECT_REFRACT = 0b11
 };
 
 namespace microfacet_transform_concepts
@@ -43,25 +43,38 @@ NBL_CONCEPT_END(
 template<typename T>
 struct DualMeasureQuantQuery
 {
-   using scalar_type = T;
+    using scalar_type = T;
 
-   // note in pbrt it's `abs(VdotH)*abs(LdotH)`
-   // we leverage the fact that under transmission the sign must always be negative and rest of the code already accounts for that
-   scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
-   scalar_type getNeg_rcp2_refractionDenom() NBL_CONST_MEMBER_FUNC { return neg_rcp2_refractionDenom ; }
+    template<class Interaction, class MicrofacetCache>
+    static DualMeasureQuantQuery<T> create(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    {
+        DualMeasureQuantQuery<T> retval;
+        retval.VdotHLdotH = cache.getVdotHLdotH();
+        const scalar_type VdotH = cache.getVdotH();
+        const scalar_type VdotH_etaLdotH = hlsl::mix(VdotH + orientedEta * cache.getLdotH(),
+                                                    VdotH / orientedEta + cache.getLdotH(),
+                                                    interaction.getPathOrigin() == PathOrigin::PO_SENSOR);
+        retval.neg_rcp2_refractionDenom = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
+        return retval;
+    }
 
-   scalar_type VdotHLdotH;
-   scalar_type neg_rcp2_refractionDenom;
+    // note in pbrt it's `abs(VdotH)*abs(LdotH)`
+    // we leverage the fact that under transmission the sign must always be negative and rest of the code already accounts for that
+    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
+    scalar_type getNeg_rcp2_refractionDenom() NBL_CONST_MEMBER_FUNC { return neg_rcp2_refractionDenom ; }
+
+    scalar_type VdotHLdotH;
+    scalar_type neg_rcp2_refractionDenom;
 };
 
 
 template<typename T>
 struct SDualMeasureQuant
 {
-   using value_type = T;
-   
-   T microfacetMeasure;
-   T projectedLightMeasure;
+    using value_type = T;
+    
+    T microfacetMeasure;
+    T projectedLightMeasure;
 };
 
 namespace impl
@@ -69,19 +82,19 @@ namespace impl
 template<typename T, MicrofacetTransformTypes reflect_refract>
 struct createDualMeasureQuantity_helper
 {
-   using scalar_type = typename vector_traits<T>::scalar_type;
+    using scalar_type = typename vector_traits<T>::scalar_type;
 
-   static SDualMeasureQuant<T> __call(const T microfacetMeasure, scalar_type clampedNdotV, scalar_type clampedNdotL, scalar_type VdotHLdotH, scalar_type neg_rcp2_refractionDenom)
-   {
-      assert(clampedNdotV >= scalar_type(0.0) && clampedNdotL >= scalar_type(0.0));
-      SDualMeasureQuant<T> retval;
-      retval.microfacetMeasure = microfacetMeasure;
-      // do constexpr booleans first so optimizer picks up this and short circuits
-      const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
-      retval.projectedLightMeasure = microfacetMeasure * hlsl::mix(scalar_type(0.25),VdotHLdotH*neg_rcp2_refractionDenom,transmitted)/clampedNdotV;
-      // VdotHLdotH is negative under transmission, so thats denominator is negative
-      return retval;
-   }
+    static SDualMeasureQuant<T> __call(const T microfacetMeasure, scalar_type clampedNdotV, scalar_type clampedNdotL, scalar_type VdotHLdotH, scalar_type neg_rcp2_refractionDenom)
+    {
+        assert(clampedNdotV >= scalar_type(0.0) && clampedNdotL >= scalar_type(0.0));
+        SDualMeasureQuant<T> retval;
+        retval.microfacetMeasure = microfacetMeasure;
+        // do constexpr booleans first so optimizer picks up this and short circuits
+        const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
+        retval.projectedLightMeasure = microfacetMeasure * hlsl::mix(scalar_type(0.25),VdotHLdotH*neg_rcp2_refractionDenom,transmitted)/clampedNdotV;
+        // VdotHLdotH is negative under transmission, so thats denominator is negative
+        return retval;
+    }
 };
 }
 
@@ -89,18 +102,18 @@ struct createDualMeasureQuantity_helper
 template<typename T>
 SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL)
 {
-   typename vector_traits<T>::scalar_type dummy;
-   return impl::createDualMeasureQuantity_helper<T,MTT_REFLECT>::__call(specialMeasure,clampedNdotV,clampedNdotL,dummy,dummy);
+    typename vector_traits<T>::scalar_type dummy;
+    return impl::createDualMeasureQuantity_helper<T,MTT_REFLECT>::__call(specialMeasure,clampedNdotV,clampedNdotL,dummy,dummy);
 }
 template<typename T, MicrofacetTransformTypes reflect_refract>
 SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL, typename vector_traits<T>::scalar_type VdotHLdotH, typename vector_traits<T>::scalar_type neg_rcp2_refractionDenom)
 {
-   return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,VdotHLdotH,neg_rcp2_refractionDenom);
+    return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,VdotHLdotH,neg_rcp2_refractionDenom);
 }
 template<typename T, MicrofacetTransformTypes reflect_refract, class Query>
 SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL, NBL_CONST_REF_ARG(Query) query)
 {
-   return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,query.getVdotHLdotH(),query.getNeg_rcp2_refractionDenom());
+    return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,query.getVdotHLdotH(),query.getNeg_rcp2_refractionDenom());
 }
 
 }

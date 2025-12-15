@@ -6,25 +6,35 @@ include(../cmake/common.cmake)
 
 project(Nabla-3rdparty LANGUAGES CXX C)
 enable_language(C CXX ASM ASM_NASM)
+set(BUILD_SHARED_LIBS OFF)
+set(SKIP_INSTALL_ALL ON)
+set(BUILD_TESTING OFF)
 
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
+
+# zlib
+set(ZLIB_BUILD_SHARED OFF)
+set(ZLIB_BUILD_STATIC ON)
+set(ZLIB_INSTALL OFF)
+set(ZLIB_BUILD_TESTING OFF)
+set(ZLIB_BUILD_MINIZIP OFF)
+add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
+get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
+set_target_properties(zlibstatic PROPERTIES 
+	ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>
+	DEBUG_POSTFIX "d"
+	RELWITHDEBINFO_POSTFIX "rwdi"
+	OUTPUT_NAME zlibstatic
+)
+add_library(ZLIB::ZLIB ALIAS zlibstatic) # trick projects which want to use it via alias
 
 # nlohmann_json
 set(JSON_BuildTests OFF)
 add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
 
 # simdjson
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
 add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 # freetype2
 set(FT_WITH_HARFBUZZ OFF)
@@ -87,64 +97,6 @@ endif()
 # boost
 add_subdirectory(boost boost EXCLUDE_FROM_ALL)
 
-# zlib (target is zlibstatic)
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
-set(BUILD_SHARED_LIBS OFF)
-set(SKIP_INSTALL_ALL ON)
-
-file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
-add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
-	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
-	) # clean zlib git working-tree
-endif()
-file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
-set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-
-get_target_property(ZLIB_SOURCE_DIR zlibstatic "SOURCE_DIR")
-get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
-get_filename_component(_ORIGINAL_SOURCE_ "${ZLIB_SOURCE_DIR}" ABSOLUTE)
-get_filename_component(_COPY_BIN_SOURCE_ "${ZLIB_BINARY_DIR}/copy_source" ABSOLUTE)
-
-add_custom_target(zlib_copy
-	COMMAND ${CMAKE_COMMAND} -E rm -Rf "${_COPY_BIN_SOURCE_}"
-	COMMAND ${CMAKE_COMMAND} -E copy_directory "${_ORIGINAL_SOURCE_}" "${_COPY_BIN_SOURCE_}"
-	COMMAND ${CMAKE_COMMAND} -E rm -f ${_COPY_BIN_SOURCE_}/zconf.h # no duplicates in include search paths!
-	COMMENT "Copying zlib..."
-)
-
-unset(_ORIGINAL_SOURCE_)
-unset(_COPY_BIN_SOURCE_)
-
-#https://stackoverflow.com/questions/47175912/using-cmake-how-to-stop-the-debug-and-release-subdirectories
-set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
-set_target_properties(zlibstatic PROPERTIES DEBUG_POSTFIX "d")
-if (MSVC)
-	set(ZLIB_BINARY_DIR_DEBUG "${ZLIB_BINARY_DIR}")
-	set(ZLIB_BINARY_DIR_RELEASE "${ZLIB_BINARY_DIR}")
-	set(ZLIB_BINARY_DIR_RELWITHDEBINFO "${ZLIB_BINARY_DIR}")
-	get_target_property(ZLIB_NAME zlibstatic "NAME")
-else()
-	set(ZLIB_BINARY_DIR_DEBUG ${ZLIB_BINARY_DIR})
-	set(ZLIB_BINARY_DIR_RELEASE ${ZLIB_BINARY_DIR})
-	set(ZLIB_BINARY_DIR_RELWITHDEBINFO ${ZLIB_BINARY_DIR})
-	get_target_property(ZLIB_NAME zlibstatic "OUTPUT_NAME")
-endif()
-
-get_target_property(ZLIB_DEBUG_POSTFIX zlibstatic "DEBUG_POSTFIX")
-set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR_DEBUG}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR_RELEASE}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY_RELWITHDEBINFO "${ZLIB_BINARY_DIR_RELWITHDEBINFO}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY # for PNGLIB purposes
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>	
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-CACHE INTERNAL "" FORCE)
-
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
 add_subdirectory("${DXC_SPIRV_HEADERS_DIR}" SPIRV-Headers EXCLUDE_FROM_ALL)
@@ -167,29 +119,67 @@ set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
 # libjpeg-turbo
-option(WITH_SIMD "libjpeg-turbo" ON)
-option(WITH_MEM_SRCDST "libjpeg-turbo" ON)
-option(WITH_TURBOJPEG "libjpeg-turbo" ON)
-option(ENABLE_STATIC "libjpeg-turbo" ON)
-option(ENABLE_SHARED "libjpeg-turbo" OFF)
-option(WITH_CRT_DLL "libjpeg-turbo" OFF)
-option(WITH_FUZZ "libjpeg-turbo" OFF)
-option(WITH_JAVA "libjpeg-turbo" OFF)
-set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
-set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
-add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
-NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE(simd ASM_NASM libjpeg-turbo/simd/)
+set(NBL_JPEG_CMAKE_OPTIONS
+	-DCMAKE_MSVC_RUNTIME_LIBRARY:STATIC=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>
+	-DCMAKE_POLICY_DEFAULT_CMP0057=NEW
+	-DCMAKE_POLICY_DEFAULT_CMP0091=NEW
+	-DENABLE_SHARED=OFF
+	-DENABLE_STATIC=ON
+	-DWITH_CRT_DLL=ON
+	-DWITH_SIMD=ON
+	-DWITH_MEM_SRCDST=ON
+	-DWITH_TURBOJPEG=ON
+	-DWITH_FUZZ=OFF
+	-DWITH_JAVA=OFF
+)
 
-unset(CMAKE_INSTALL_DOCDIR)
-unset(CMAKE_INSTALL_MANDIR)
+if(NOT NBL_IS_MULTI_CONFIG)
+	list(APPEND NBL_JPEG_CMAKE_OPTIONS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+endif()
+
+if(NOT CMAKE_GENERATOR MATCHES "Ninja*")
+    list(APPEND NBL_JPEG_CMAKE_OPTIONS -Ax64)
+endif()
+
+if(CMAKE_GENERATOR_TOOLSET)
+	list(APPEND NBL_JPEG_CMAKE_OPTIONS -T "${CMAKE_GENERATOR_TOOLSET}")
+endif()
+
+if(CMAKE_TOOLCHAIN_FILE)
+	list(APPEND NBL_JPEG_CMAKE_OPTIONS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+endif()
+
+# TODO: might find an alternative library which supports add_subdirectory, untill then we need to switch to a workaround just like
+# we do for DXC due to: https://github.com/libjpeg-turbo/libjpeg-turbo/blob/0b742742c873025e2a127918d4969238ace7ae5b/CMakeLists.txt#L69
+execute_process(COMMAND "${CMAKE_COMMAND}" -S "${CMAKE_CURRENT_SOURCE_DIR}/libjpeg-turbo" -B "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo" -G "${CMAKE_GENERATOR}" ${NBL_JPEG_CMAKE_OPTIONS}
+	RESULT_VARIABLE JPEG_CMAKE_RESULT
+	OUTPUT_VARIABLE JPEG_CMAKE_STREAM_PIPE
+)
+
+if(NOT "${JPEG_CMAKE_RESULT}" STREQUAL "0")
+	message(FATAL_ERROR "${JPEG_CMAKE_STREAM_PIPE}")
+endif()
+
+set(JPEG_LIB_OUTPUT "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo/$<CONFIG>/jpeg-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+add_custom_command(OUTPUT ${JPEG_LIB_OUTPUT}
+	COMMAND "${CMAKE_COMMAND}" --build "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo" -t jpeg-static --config $<CONFIG>
+	COMMENT "Building libjpeg-turbo static library"
+	VERBATIM USES_TERMINAL
+)
+add_library(jpeg-static INTERFACE ${JPEG_LIB_OUTPUT})
+target_include_directories(jpeg-static INTERFACE 
+	"${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo/src"
+	"${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo"
+)
+target_link_libraries(jpeg-static INTERFACE "${JPEG_LIB_OUTPUT}")
 
 # blake3
 add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
-#manipulating libpng cmake options from within cmake script
-set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
-option(PNG_SHARED "Build shared lib" OFF)
-option(PNG_TESTS  "Build libpng tests" OFF)
+# manipulating libpng cmake options from within cmake script
+set(PNG_BUILD_ZLIB OFF)
+set(PNG_SHARED OFF)
+set(PNG_TESTS OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
@@ -441,7 +431,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
    )
    set(MITSUBA_LOADER_DEPENDENTS ${MITSUBA_LOADER_DEPENDENTS} PARENT_SCOPE)
    set(MITSUBA_LOADER_DEPENDENT_LIBS
-      expat "${ZLIB_LIBRARY}"
+      expat zlibstatic
    )
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
@@ -454,6 +444,10 @@ if (NBL_BUILD_BULLET)
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
 
+add_library(Vulkan-Headers INTERFACE)
+target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+add_subdirectory(Vulkan-Tools/vulkaninfo vulkaninfo EXCLUDE_FROM_ALL)
+
 # Final gather
 set(NBL_3RDPARTY_TARGETS
 				lzma
@@ -464,7 +458,6 @@ set(NBL_3RDPARTY_TARGETS
 				zlibstatic
 				shaderc_util
 				shaderc
-				jpeg-static
 				bz2_static
 				simdjson
 				nlohmann_json
@@ -475,6 +468,7 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
+				vulkaninfo
 				Imath
 				freetype
 				${NBL_MSDFGEN_TARGETS}

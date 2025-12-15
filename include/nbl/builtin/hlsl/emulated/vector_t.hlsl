@@ -40,9 +40,6 @@ struct _2_component_vec
             return y;
 
         // TODO: avoid code duplication, make it constexpr
-        //using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        //TAsUint invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull);
-        //return nbl::hlsl::bit_cast<T>(invalidComponentValue);
         return nbl::hlsl::undef<T>();
     }
 
@@ -77,9 +74,6 @@ struct _3_component_vec
             return z;
 
         // TODO: avoid code duplication, make it constexpr
-        //using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        //TAsUint invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
-        //return nbl::hlsl::bit_cast<T>(invalidComponentValue);
         return nbl::hlsl::undef<T>();
     }
 
@@ -118,9 +112,6 @@ struct _4_component_vec
             return w;
 
         // TODO: avoid code duplication, make it constexpr
-        //using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        //uint64_t invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
-        //return nbl::hlsl::bit_cast<T>(invalidComponentValue);
         return nbl::hlsl::undef<T>();
     }
 
@@ -499,6 +490,15 @@ DEFINE_SCALAR_OF_SPECIALIZATION(2)
 DEFINE_SCALAR_OF_SPECIALIZATION(3)
 DEFINE_SCALAR_OF_SPECIALIZATION(4)
 #undef DEFINE_SCALAR_OF_SPECIALIZATION
+
+#define DEFINE_EXTENT_SPECIALIZATION(DIMENSION)\
+template<typename ScalarType, uint32_t I>\
+struct extent<emulated_vector_t##DIMENSION<ScalarType>, I> : extent<ScalarType[DIMENSION], I> {};
+
+DEFINE_EXTENT_SPECIALIZATION(2)
+DEFINE_EXTENT_SPECIALIZATION(3)
+DEFINE_EXTENT_SPECIALIZATION(4)
+#undef DEFINE_EXTENT_SPECIALIZATION
 
 namespace impl
 {

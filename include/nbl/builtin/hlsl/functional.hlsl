@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
+#include "nbl/builtin/hlsl/array_accessors.hlsl"
 
 
 namespace nbl
@@ -91,7 +92,7 @@ struct reference_wrapper : enable_if_t<
 
 #else // CPP
 
-#define ALIAS_STD(NAME,OP) template<typename T NBL_STRUCT_CONSTRAINABLE > struct NAME : std::NAME<T> { \
+#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
     using type_t = T;
 
 #endif
@@ -134,41 +135,6 @@ ALIAS_STD(divides,/)
     NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
 };
 
-#ifndef __HLSL_VERSION
-
-template<typename T NBL_STRUCT_CONSTRAINABLE > 
-struct bit_not : std::bit_not<T>
-{
-    using type_t = T;
-};
-
-#else
-
-template<typename T NBL_STRUCT_CONSTRAINABLE >
-struct bit_not
-{
-    using type_t = T;
-
-    T operator()(NBL_CONST_REF_ARG(T) operand) 
-    { 
-        return ~operand; 
-    }
-};
-
-// The default version above only works for fundamental scalars, vectors and matrices. This is because you can't call `~x` unless `x` is one of the former.
-// Similarly, calling `x.operator~()` is not valid for the aforementioned, and only for types overriding this operator. So, we need a specialization.
-template<typename T> NBL_PARTIAL_REQ_TOP(!(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T>))
-struct bit_not<T NBL_PARTIAL_REQ_BOT(!(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T>)) >
-{
-    using type_t = T;
-
-    T operator()(NBL_CONST_REF_ARG(T) operand)
-    {
-        return operand.operator~();
-    }
-};
-
-#endif
 
 ALIAS_STD(equal_to, ==) };
 ALIAS_STD(not_equal_to, !=) };
@@ -184,11 +150,11 @@ ALIAS_STD(less_equal, <=) };
 // GLM doesn't have operators on vectors
 #ifndef __HLSL_VERSION
 
-#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP, GLM_OP) template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)\
-struct NAME <T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
+#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP, GLM_OP) template<typename T> requires (concepts::Vectorial<T>)\
+struct NAME <T>\
 {\
     using type_t = T;\
-    vector<bool, vector_traits<T>::Dimension> operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)\
+    vector<bool, vector_traits<T>::Dimension> operator()(const T& lhs, const T& rhs)\
     {\
         return glm::GLM_OP (lhs, rhs);\
     }\
@@ -219,7 +185,7 @@ NBL_COMPARISON_VECTORIAL_SPECIALIZATION(less_equal, <=, lessThanEqual)
 
 // ------------------------------------------------------------- COMPOUND ASSIGNMENT OPERATORS --------------------------------------------------------------------
 
-#define COMPOUND_ASSIGN(NAME) template<typename T> struct NAME##_assign { \
+#define COMPOUND_ASSIGN(NAME) template<typename T NBL_STRUCT_CONSTRAINABLE> struct NAME##_assign { \
     using type_t = T; \
     using base_t = NAME <type_t>; \
     base_t baseOp; \
@@ -270,16 +236,35 @@ struct maximum
     NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
 };
 
-template<typename T NBL_STRUCT_CONSTRAINABLE >
+#ifndef __HLSL_VERSION
+template<typename F1, typename F2 > requires(is_same_v<std::invoke_result_t<F1>, std::invoke_result_t<F2> > )
 struct ternary_operator
 {
-    using type_t = T;
+   using type_t = std::invoke_result_t<F1>;
 
-    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(bool) condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
-    {
-        return select<bool, T>(condition, lhs, rhs);
-    }
+   constexpr inline type_t operator()(const bool condition, F1& lhs, F2& rhs)
+   {
+      if (condition)
+         return std::invoke(lhs);
+      else
+         return std::invoke(rhs);
+   }
 };
+#else
+template<typename F1, typename F2 NBL_PRIMARY_REQUIRES(is_same_v<decltype(experimental::declval<F1>()()),decltype(experimental::declval<F2>()())> )
+struct ternary_operator
+{
+   using type_t = decltype(experimental::declval<F1>().operator());
+
+   NBL_CONSTEXPR_FUNC type_t operator()(const bool condition, NBL_REF_ARG(F1) lhs, NBL_REF_ARG(F2) rhs)
+   {
+      if (condition)
+         return lhs();
+      else
+         return rhs();
+   }
+};
+#endif
 
 // ----------------------------------------------------------------- SHIFT OPERATORS --------------------------------------------------------------------
 
@@ -487,7 +472,35 @@ struct logical_right_shift_operator
     }
 };
 
+// ----------------------------------------------------------------- UNARY OPERATORS --------------------------------------------------------------------
+#ifndef __HLSL_VERSION
+#define NBL_UNARY_OP_SPECIALIZATION(NAME, OP) template<typename T> \
+struct NAME : std::NAME<T> { \
+    using type_t = T; \
+};
+#else
+#define NBL_UNARY_OP_SPECIALIZATION(NAME, OP) template<typename T NBL_STRUCT_CONSTRAINABLE> \
+struct NAME \
+{ \
+    using type_t = T; \
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand) \
+    { \
+        return operand.operator OP(); \
+    } \
+}; \
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T> ) \
+struct NAME<T NBL_PARTIAL_REQ_BOT(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T> ) > \
+{ \
+    using type_t = T; \
+    NBL_CONSTEXPR_FUNC T operator()(const T operand) \
+    { \
+      return (OP operand); \
+    } \
+}; 
+#endif
 
+NBL_UNARY_OP_SPECIALIZATION(bit_not, ~)
+NBL_UNARY_OP_SPECIALIZATION(negate, -)
 
 } //namespace nbl
 } //namespace hlsl

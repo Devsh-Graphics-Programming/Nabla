@@ -69,7 +69,6 @@ struct to_string_helper<hlsl::morton::code<Signed, Bits, D, _uint64_t>>
     }
 };
 
-
 }
 
 template<typename T>

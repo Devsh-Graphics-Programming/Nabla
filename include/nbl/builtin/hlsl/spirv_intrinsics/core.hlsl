@@ -393,7 +393,8 @@ template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!conc
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
 
-NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
+// need to use `spirv::` even in the namespace because it matches the HLSL intrinsic which is not namespaced at all, and will happily match anything
+NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), spirv::select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
 
 }
 

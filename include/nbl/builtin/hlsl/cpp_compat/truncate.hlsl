@@ -9,6 +9,12 @@ namespace nbl
 namespace hlsl
 {
 
+namespace concepts
+{
+  template<typename To, typename From>
+  NBL_BOOL_CONCEPT can_truncate_vector = concepts::Vectorial<To> && concepts::Vectorial<From> && concepts::same_as<typename vector_traits<To>::scalar_type, typename vector_traits<From>::scalar_type > && vector_traits<To>::Dimension <= vector_traits<From>::Dimension;
+}
+
 namespace impl
 {
 
@@ -21,44 +27,20 @@ struct Truncate
     }
 };
 
-template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>)
-struct Truncate<vector<Scalar, 1>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>) >
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::can_truncate_vector<To, From>) 
+struct Truncate<To, From NBL_PARTIAL_REQ_BOT(concepts::can_truncate_vector<To, From>) >
 {
-    NBL_CONSTEXPR_FUNC vector<Scalar, 1> operator()(const vector<Scalar, N> v)
+    NBL_CONSTEXPR_FUNC To operator()(const From v)
     {
-        vector<Scalar, 1> truncated = { v[0] };
-        return truncated;
+        array_get<From, typename vector_traits<From>::scalar_type> getter;
+        array_set<To, typename vector_traits<To>::scalar_type> setter;
+        To output;
+        [[unroll]]
+        for (int i = 0; i < vector_traits<To>::Dimension; ++i)
+            setter(output, i, getter(v, i));
+        return output;
     }
-};
 
-template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar> && N >= 2)
-struct Truncate<vector<Scalar, 2>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar> && N >= 2) >
-{
-    NBL_CONSTEXPR_FUNC vector<Scalar, 2> operator()(const vector<Scalar, N> v)
-    {
-        vector<Scalar, 2> truncated = { v[0], v[1]};
-        return truncated;
-    }
-};
-
-template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 3)
-struct Truncate<vector<Scalar, 3>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>&& N >= 3) >
-{
-    NBL_CONSTEXPR_FUNC vector<Scalar, 3> operator()(const vector<Scalar, N> v)
-    {
-        vector<Scalar, 3> truncated = { v[0], v[1], v[2] };
-        return truncated;
-    }
-};
-
-template<typename Scalar, int32_t N> NBL_PARTIAL_REQ_TOP(concepts::Scalar<Scalar>&& N >= 4)
-struct Truncate<vector<Scalar, 4>, vector<Scalar, N> NBL_PARTIAL_REQ_BOT(concepts::Scalar<Scalar>&& N >= 4) >
-{
-    NBL_CONSTEXPR_FUNC vector<Scalar, 4> operator()(const vector<Scalar, N> v)
-    {
-        vector<Scalar, 4> truncated = { v[0], v[1], v[2], v[3] };
-        return truncated;
-    }
 };
 
 } //namespace impl

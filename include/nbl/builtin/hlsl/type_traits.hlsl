@@ -732,11 +732,11 @@ struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
 template<class T, uint32_t I> 
 struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
 
-template<class T, uint16_t N> 
-struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
+template<class T, uint16_t N, uint32_t I>
+struct extent<vector<T,N>, I> : extent<T[N], I> {};
 
 template<class T, uint16_t M, uint16_t N, uint32_t I> 
-struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
+struct extent<matrix<T,N,M>, I> : extent<T[N][M], I> {};
 
 
 // Template Variables
@@ -854,12 +854,6 @@ struct float_of_size<8>
 };
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
-
-template<typename T, int N, int M>
-struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
-
-template<typename T, int N, int M>
-struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
 
 }
 }
