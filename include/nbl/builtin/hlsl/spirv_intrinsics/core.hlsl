@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
+#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
+
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
 
@@ -11,7 +13,6 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
 
 namespace nbl 
 {
@@ -115,7 +116,12 @@ NBL_CONSTEXPR_STATIC_INLINE bool is_bda_pointer_v = is_bda_pointer<T>::value;
 
 
 //! General Operations
- 
+
+//! Miscellaneous Instructions
+template<typename T>
+[[vk::ext_instruction(spv::OpUndef)]]
+T undef();
+
 //
 template<typename M, typename T>
 [[vk::ext_instruction(spv::OpAccessChain)]]
@@ -340,6 +346,11 @@ enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<Boole
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAny)]]
 enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> any(BooleanVector vec);
+
+// If Condition is a vector, ResultType must be a vector with the same number of components. Using (p -> q) = (~p v q)
+template<typename Condition, typename ResultType NBL_FUNC_REQUIRES(concepts::Boolean<Condition> && (! concepts::Vector<Condition> || (concepts::Vector<ResultType> && (extent_v<Condition> == extent_v<ResultType>))))
+[[vk::ext_instruction(spv::OpSelect)]]
+ResultType select(Condition condition, ResultType object1, ResultType object2);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpIAddCarry)]]
