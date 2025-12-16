@@ -82,7 +82,7 @@ struct CascadeAccumulator
 
         // handle super bright sample case
         if (cascade > CascadeCount - 1)
-            lowerCascadeWeight = exp2(splattingParameters.log2Start + splattingParameters.log2Base * (CascadeCount - 1) - log2Luma);
+            lowerCascadeWeight = splattingParameters.lastCascadeLuma / luma;
 
         accumulation.addSampleIntoCascadeEntry(_sample, lowerCascadeIndex, lowerCascadeWeight, higherCascadeWeight, sampleCount);
     }
