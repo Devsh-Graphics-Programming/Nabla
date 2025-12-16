@@ -319,6 +319,12 @@ NBL_CONCEPT_END(
 #undef fresnel
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+namespace impl
+{
+template<typename T>
+NBL_BOOL_CONCEPT VectorIsMonochrome = vector_traits<T>::Dimension == 1;
+}
+
 #define NBL_CONCEPT_NAME TwoSidedFresnel
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -333,6 +339,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEtaRcps()), ::nbl::hlsl::is_same_v, OrientedEtaRcps<typename T::eta_type>))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getReorientedFresnel(cosTheta)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::VectorIsMonochrome, typename T::eta_type))
 );
 #undef cosTheta
 #undef fresnel
