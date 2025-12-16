@@ -22,7 +22,7 @@ struct Promote
 };
 
 template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<To> && (concepts::IntegralLikeScalar<From> || concepts::FloatingPointLikeScalar<From>) && is_same_v<typename vector_traits<To>::scalar_type, From>)
-struct Promote<To, From NBL_PARTIAL_REQ_BOT(concepts::Vectorial<To> && is_scalar_v<From> && is_same_v<typename vector_traits<To>::scalar_type, From>) >
+struct Promote<To, From NBL_PARTIAL_REQ_BOT(concepts::Vectorial<To> && (concepts::IntegralLikeScalar<From> || concepts::FloatingPointLikeScalar<From>) && is_same_v<typename vector_traits<To>::scalar_type, From>) >
 {
     NBL_CONSTEXPR_FUNC To operator()(const From v)
     {

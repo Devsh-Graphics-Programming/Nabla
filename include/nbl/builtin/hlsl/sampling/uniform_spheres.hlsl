@@ -23,7 +23,7 @@ struct UniformHemisphere
     using vector_t2 = vector<T, 2>;
     using vector_t3 = vector<T, 3>;
 
-    static vector_t3 generate(vector_t2 _sample)
+    static vector_t3 generate(const vector_t2 _sample)
     {
         T z = _sample.x;
         T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
@@ -49,7 +49,7 @@ struct UniformSphere
     using vector_t2 = vector<T, 2>;
     using vector_t3 = vector<T, 3>;
 
-    static vector_t3 generate(vector_t2 _sample)
+    static vector_t3 generate(const vector_t2 _sample)
     {
         T z = T(1.0) - T(2.0) * _sample.x;
         T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));

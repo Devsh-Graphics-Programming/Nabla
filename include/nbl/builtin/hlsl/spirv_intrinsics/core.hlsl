@@ -347,11 +347,6 @@ template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAny)]]
 enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> any(BooleanVector vec);
 
-// If Condition is a vector, ResultType must be a vector with the same number of components. Using (p -> q) = (~p v q)
-template<typename Condition, typename ResultType NBL_FUNC_REQUIRES(concepts::Boolean<Condition> && (! concepts::Vector<Condition> || (concepts::Vector<ResultType> && (extent_v<Condition> == extent_v<ResultType>))))
-[[vk::ext_instruction(spv::OpSelect)]]
-ResultType select(Condition condition, ResultType object1, ResultType object2);
-
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpIAddCarry)]]
 AddCarryOutput<T> addCarry(T operand1, T operand2);
