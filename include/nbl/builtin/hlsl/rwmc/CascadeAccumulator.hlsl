@@ -82,11 +82,7 @@ struct CascadeAccumulator
 
         // handle super bright sample case
         if (cascade > CascadeCount - 1)
-        {
-            const cascade_layer_scalar_type log2Base = cascade_layer_scalar_type(1.0) / splattingParameters.rcpLog2Base;
-            const cascade_layer_scalar_type log2Start = splattingParameters.baseRootOfStart * log2Base;
-            lowerCascadeWeight = exp2(log2Start + log2Base * (CascadeCount - 1) - log2Luma);
-        }
+            lowerCascadeWeight = exp2(splattingParameters.log2Start + splattingParameters.log2Base * (CascadeCount - 1) - log2Luma);
 
         accumulation.addSampleIntoCascadeEntry(_sample, lowerCascadeIndex, lowerCascadeWeight, higherCascadeWeight, sampleCount);
     }
