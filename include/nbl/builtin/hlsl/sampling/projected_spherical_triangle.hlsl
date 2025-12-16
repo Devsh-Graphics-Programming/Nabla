@@ -49,7 +49,7 @@ struct ProjectedSphericalTriangle
         // pre-warp according to proj solid angle approximation
         vector4_type patch = computeBilinearPatch(receiverNormal, isBSDF);
         Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        u = bilinear.generate(rcpPdf, u);
+        u = bilinear.generate(rcpPdf, _u);
 
         // now warp the points onto a spherical triangle
         const vector3_type L = sphtri.generate(solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, u);
