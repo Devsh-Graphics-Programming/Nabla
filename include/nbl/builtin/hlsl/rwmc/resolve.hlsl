@@ -48,8 +48,6 @@ struct ResolveAccessorAdaptor
 	using output_type = vector<OutputScalar, 4>;
 	NBL_CONSTEXPR int32_t image_dimension = 2;
 
-	RWTexture2DArray<float32_t4> cascade;
-
 	float32_t calcLuma(NBL_REF_ARG(float32_t3) col)
 	{
 		return hlsl::dot<float32_t3>(colorspace::scRGB::ToXYZ()[1], col);
