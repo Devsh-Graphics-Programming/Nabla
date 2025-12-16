@@ -25,7 +25,7 @@ struct SphericalTriangle
     using scalar_type = T;
     using vector3_type = vector<T, 3>;
 
-    static SphericalTriangle<T> create(NBL_CONST_REF_ARG(vector3_type) vertex0, NBL_CONST_REF_ARG(vector3_type) vertex1, NBL_CONST_REF_ARG(vector3_type) vertex2, NBL_CONST_REF_ARG(vector3_type) origin)
+    static SphericalTriangle<T> create(const vector3_type vertex0, const vector3_type vertex1, const vector3_type vertex2, const vector3_type origin)
     {
         SphericalTriangle<T> retval;
         retval.vertex0 = nbl::hlsl::normalize(vertex0 - origin);
@@ -72,7 +72,7 @@ struct SphericalTriangle
         return solidAngleOfTriangle(dummy0,dummy1,dummy2,dummy3,dummy4,dummy5);
     }
 
-    scalar_type projectedSolidAngleOfTriangle(NBL_CONST_REF_ARG(vector3_type) receiverNormal, NBL_REF_ARG(vector3_type) cos_sides, NBL_REF_ARG(vector3_type) csc_sides, NBL_REF_ARG(vector3_type) cos_vertices)
+    scalar_type projectedSolidAngleOfTriangle(const vector3_type receiverNormal, NBL_REF_ARG(vector3_type) cos_sides, NBL_REF_ARG(vector3_type) csc_sides, NBL_REF_ARG(vector3_type) cos_vertices)
     {
         if (pyramidAngles())
             return 0.f;
@@ -106,7 +106,7 @@ namespace util
 {
   // Use this convetion e_i = v_{i+2}-v_{i+1}. vertex index is modulo by 3.
   template <typename float_t>
-  vector<float_t, 3> compInternalAngle(NBL_CONST_REF_ARG(vector<float_t, 3>) e0, NBL_CONST_REF_ARG(vector<float_t, 3>) e1, NBL_CONST_REF_ARG(vector<float_t, 3>) e2)
+  vector<float_t, 3> compInternalAngle(const vector<float_t, 3> e0, vector<float_t, 3> e1, const vector<float_t, 3> e2)
   {
     // Calculate this triangle's weight for each of its three m_vertices
     // start by calculating the lengths of its sides
