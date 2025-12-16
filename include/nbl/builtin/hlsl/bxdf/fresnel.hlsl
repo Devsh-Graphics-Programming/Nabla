@@ -756,7 +756,7 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
     OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = base_type::ior1[0] / base_type::ior3[0];
+        rcpEta.value = hlsl::promote<eta_type>(base_type::ior1[0] / base_type::ior3[0]);
         rcpEta.value2 = rcpEta.value * rcpEta.value;
         return rcpEta;
     }
