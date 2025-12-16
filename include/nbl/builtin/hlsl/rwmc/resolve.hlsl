@@ -41,32 +41,6 @@ NBL_CONCEPT_END(
 template<typename T, typename VectorScalarType, int32_t Dims>
 NBL_BOOL_CONCEPT ResolveAccessor = ResolveAccessorBase<T, VectorScalarType, Dims> && concepts::accessors::LoadableImage<T, VectorScalarType, Dims>;
 
-template<typename OutputScalar>
-struct ResolveAccessorAdaptor
-{
-	using output_scalar_type = OutputScalar;
-	using output_type = vector<OutputScalar, 4>;
-	NBL_CONSTEXPR int32_t image_dimension = 2;
-
-	float32_t calcLuma(NBL_REF_ARG(float32_t3) col)
-	{
-		return hlsl::dot<float32_t3>(colorspace::scRGB::ToXYZ()[1], col);
-	}
-
-	template<typename OutputScalarType, int32_t Dimension>
-	output_type get(vector<uint16_t, 2> uv, uint16_t layer)
-	{
-		uint32_t imgWidth, imgHeight, layers;
-		cascade.GetDimensions(imgWidth, imgHeight, layers);
-		int16_t2 cascadeImageDimension = int16_t2(imgWidth, imgHeight);
-
-		if (any(uv < int16_t2(0, 0)) || any(uv > cascadeImageDimension))
-			return vector<OutputScalar, 4>(0, 0, 0, 0);
-
-		return cascade.Load(int32_t3(uv, int32_t(layer)));
-	}
-};
-
 template<typename CascadeAccessor, typename OutputColorTypeVec NBL_PRIMARY_REQUIRES(concepts::Vector<OutputColorTypeVec> && ResolveAccessor<CascadeAccessor, typename CascadeAccessor::output_scalar_type, CascadeAccessor::image_dimension>)
 struct Resolver
 {
