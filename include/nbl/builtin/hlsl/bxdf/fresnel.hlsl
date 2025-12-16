@@ -313,9 +313,7 @@ NBL_CONCEPT_BEGIN(2)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::eta_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel(cosTheta)), ::nbl::hlsl::is_same_v, typename T::vector_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getOrientedEtaRcps()), ::nbl::hlsl::is_same_v, OrientedEtaRcps<typename T::eta_type>))
 );
 #undef cosTheta
 #undef fresnel
@@ -331,7 +329,9 @@ NBL_CONCEPT_BEGIN(2)
 #define cosTheta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Fresnel, T))
+    ((NBL_CONCEPT_REQ_TYPE)(T::eta_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getRefractionOrientedEtaRcps()), ::nbl::hlsl::is_same_v, OrientedEtaRcps<typename T::eta_type>))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel.getReorientedFresnel(cosTheta)), ::nbl::hlsl::is_same_v, T))
 );
 #undef cosTheta
@@ -362,7 +362,7 @@ struct Schlick
         return F0 + (1.0 - F0) * x*x*x*x*x;
     }
 
-    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         const eta_type sqrtF0 = hlsl::sqrt(F0);        
         OrientedEtaRcps<eta_type> rcpEta;
@@ -424,13 +424,13 @@ struct Conductor
         return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
 
-    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
-    {
-        OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = hlsl::promote<eta_type>(1.0) / eta;
-        rcpEta.value2 = rcpEta.value * rcpEta.value;
-        return rcpEta;
-    }
+    // OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    // {
+    //     OrientedEtaRcps<eta_type> rcpEta;
+    //     rcpEta.value = hlsl::promote<eta_type>(1.0) / eta;
+    //     rcpEta.value2 = rcpEta.value * rcpEta.value;
+    //     return rcpEta;
+    // }
 
     T eta;
     T etak2;
@@ -484,7 +484,7 @@ struct Dielectric
     // default to monochrome, but it is possible to have RGB fresnel without dispersion fixing the refraction Eta
     // to be something else than the etas used to compute RGB reflectance or some sort of interpolation of them
     scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta.value[0]; }
-    OrientedEtaRcps<T> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
+    OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC { return orientedEta.getReciprocals(); }
 
     Dielectric<T> getReorientedFresnel(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
     {
@@ -548,8 +548,6 @@ struct iridescent_helper
     static T __call(const vector_type _D, const vector_type ior1, const vector_type ior2, const vector_type ior3, const vector_type iork3,
                     const vector_type eta12, const vector_type eta23, const vector_type etak23, const scalar_type clampedCosTheta)
     {
-        const vector_type wavelengths = vector_type(Colorspace::wavelength_R, Colorspace::wavelength_G, Colorspace::wavelength_B);
-
         const scalar_type cosTheta_1 = clampedCosTheta;
         vector_type R12p, R23p, R12s, R23s;
         vector_type cosTheta_2;
@@ -589,7 +587,6 @@ struct iridescent_helper
 
         // Optical Path Difference
         const vector_type D = _D * cosTheta_2;
-        const vector_type Dphi = hlsl::promote<vector_type>(2.0 * numbers::pi<scalar_type>) * D / wavelengths;
 
         vector_type phi21p, phi21s, phi23p, phi23s, r123s, r123p, Rs;
         vector_type I = hlsl::promote<vector_type>(0.0);
@@ -635,7 +632,7 @@ struct iridescent_helper
             I  += Cm*Sm;
         }
 
-        return hlsl::max(colorspace::scRGB::FromXYZ(I) * hlsl::promote<vector_type>(0.5), hlsl::promote<vector_type>(0.0));
+        return hlsl::max(Colorspace::FromXYZ(I) * hlsl::promote<vector_type>(0.5), hlsl::promote<vector_type>(0.0));
     }
 };
 
@@ -652,6 +649,7 @@ struct iridescent_base
     vector_type iork3;
     vector_type eta12;      // outside (usually air 1.0) -> thin-film IOR
     vector_type eta23;      // thin-film -> base material IOR
+    vector_type eta13;
 };
 }
 
@@ -688,6 +686,7 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
         retval.eta12 = params.ior2/params.ior1;
         retval.eta23 = params.ior3/params.ior2;
         retval.etak23 = params.iork3/params.ior2;
+        retval.eta13 = params.ior3/params.ior1;
         return retval;
     }
 
@@ -697,13 +696,13 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
                                                             base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
     }
 
-    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
-    {
-        OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = hlsl::promote<eta_type>(1.0) / base_type::eta23;
-        rcpEta.value2 = rcpEta.value * rcpEta.value;
-        return rcpEta;
-    }
+    // OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    // {
+    //     OrientedEtaRcps<eta_type> rcpEta;
+    //     rcpEta.value = hlsl::promote<eta_type>(1.0) / base_type::eta13;
+    //     rcpEta.value2 = rcpEta.value * rcpEta.value;
+    //     return rcpEta;
+    // }
 
     vector_type getEtak23() NBL_CONST_MEMBER_FUNC
     {
@@ -743,6 +742,7 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
         retval.ior3 = params.ior3;
         retval.eta12 = params.ior2/params.ior1;
         retval.eta23 = params.ior3/params.ior2;
+        retval.eta13 = params.ior3/params.ior1;
         return retval;
     }
 
@@ -752,11 +752,11 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
                                                             base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
     }
 
-    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::ior3[0] / base_type::ior1[0]; }
-    OrientedEtaRcps<eta_type> getOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
+    scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::eta13[0]; }
+    OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
     {
         OrientedEtaRcps<eta_type> rcpEta;
-        rcpEta.value = hlsl::promote<eta_type>(base_type::ior1[0] / base_type::ior3[0]);
+        rcpEta.value = hlsl::promote<eta_type>(1.0) / hlsl::promote<eta_type>(base_type::eta13[0]);
         rcpEta.value2 = rcpEta.value * rcpEta.value;
         return rcpEta;
     }
@@ -771,6 +771,7 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
         orientedFresnel.ior3 = hlsl::mix(base_type::ior3, base_type::ior1, flip);
         orientedFresnel.eta12 = hlsl::mix(base_type::eta12, hlsl::promote<vector_type>(1.0)/base_type::eta23, flip);
         orientedFresnel.eta23 = hlsl::mix(base_type::eta23, hlsl::promote<vector_type>(1.0)/base_type::eta12, flip);
+        orientedFresnel.eta13 = hlsl::mix(base_type::eta13, hlsl::promote<vector_type>(1.0)/base_type::eta13, flip);
         return orientedFresnel;
     }
 

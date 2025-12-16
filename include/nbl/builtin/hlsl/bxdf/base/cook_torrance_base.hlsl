@@ -280,7 +280,7 @@ struct SCookTorrance
         const scalar_type NdotV = localV.z;
 
         fresnel_type _f = __getOrientedFresnel(fresnel, NdotV);
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getRefractionOrientedEtaRcps();
 
         const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
         const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
