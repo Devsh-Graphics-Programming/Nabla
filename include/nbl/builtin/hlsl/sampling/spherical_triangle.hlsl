@@ -33,7 +33,7 @@ struct SphericalTriangle
     }
 
     // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
-    vector3_type generate(scalar_type solidAngle, NBL_CONST_REF_ARG(vector3_type) cos_vertices, NBL_CONST_REF_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REF_ARG(vector2_type) u)
+    vector3_type generate(scalar_type solidAngle, const vector3_type cos_vertices, const vector3_type sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, const vector2_type u)
     {
         scalar_type negSinSubSolidAngle,negCosSubSolidAngle;
         math::sincos(solidAngle * u.x - numbers::pi<scalar_type>, negSinSubSolidAngle, negCosSubSolidAngle);
@@ -66,7 +66,7 @@ struct SphericalTriangle
         return retval;
     }
 
-    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, NBL_CONST_REF_ARG(vector2_type) u)
+    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, const vector2_type u)
     {
         scalar_type cos_a, cos_c, csc_b, csc_c;
         vector3_type cos_vertices, sin_vertices;
@@ -76,7 +76,7 @@ struct SphericalTriangle
         return generate(rcpPdf, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, u);
     }
 
-    vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, scalar_type solidAngle, NBL_CONST_REF_ARG(vector3_type) cos_vertices, NBL_CONST_REF_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REF_ARG(vector3_type) L)
+    vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, scalar_type solidAngle, const vector3_type cos_vertices, const vector3_type sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, const vector3_type L)
     {
         pdf = 1.0 / solidAngle;
 
@@ -102,7 +102,7 @@ struct SphericalTriangle
         return vector2_type(u,v);
     }
 
-    vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, NBL_CONST_REF_ARG(vector3_type) L)
+    vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, const vector3_type L)
     {
         scalar_type cos_a, cos_c, csc_b, csc_c;
         vector3_type cos_vertices, sin_vertices;

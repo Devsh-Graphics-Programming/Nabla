@@ -17,7 +17,7 @@ namespace sampling
 {
 
 template<typename T>
-vector<T,2> concentricMapping(vector<T,2> _u)
+vector<T,2> concentricMapping(const vector<T,2> _u)
 {
     //map [0;1]^2 to [-1;1]^2
     vector<T,2> u = 2.0f * _u - hlsl::promote<vector<T,2> >(1.0);
