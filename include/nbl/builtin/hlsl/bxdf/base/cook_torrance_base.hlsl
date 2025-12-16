@@ -304,7 +304,8 @@ struct SCookTorrance
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
-        bool transmitted = partitionRandVariable(reflectance, z, rcpChoiceProb);
+        partitionRandVariable.leftProb = reflectance;
+        bool transmitted = partitionRandVariable(z, rcpChoiceProb);
 
         const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
         bool valid;
