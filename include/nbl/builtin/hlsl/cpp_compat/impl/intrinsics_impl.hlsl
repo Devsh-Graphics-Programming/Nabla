@@ -968,8 +968,8 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !imp
 	}
 };
 
-template<typename T, typename U> NBL_PARTIAL_REQ_TOP((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::BooleanScalar<U> && !impl::MixCallingBuiltins<T, U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::BooleanScalar<U> && !impl::MixCallingBuiltins<T, U>) >
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::Boolean<U> && !impl::MixCallingBuiltins<T, U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::Boolean<U> && !impl::MixCallingBuiltins<T, U>) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
