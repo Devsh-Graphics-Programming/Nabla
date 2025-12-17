@@ -251,6 +251,24 @@ NBL_CONSTEXPR_FUNC T flipSignIfRHSNegative(T val, T flip)
 	return impl::flipSignIfRHSNegative_helper<T>::__call(val, flip);
 }
 
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC bool isSubnormal(T val)
+{
+	const uint32_t biasedExponent = extractBiasedExponent(val);
+	const typename unsigned_integer_of_size<sizeof(T)>::type mantissa = extractMantissa(val);
+	return biasedExponent == 0 && mantissa != 0u;
+}
+
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC bool isZero(T val)
+{
+	using traits_t = traits<T>;
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+
+	const AsUint exponentAndMantissaMask = ~traits_t::signMask;
+	return !(ieee754::impl::bitCastToUintType(val) & exponentAndMantissaMask);
+}
+
 }
 }
 }
