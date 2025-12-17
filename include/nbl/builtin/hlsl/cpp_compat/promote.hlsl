@@ -12,67 +12,38 @@ namespace impl
 {
 
 // partial specialize this for `T=matrix<scalar_t,,>|vector<scalar_t,>` and `U=matrix<scalar_t,,>|vector<scalar_t,>|scalar_t`
-template<typename T, typename U>
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct Promote
 {
-    T operator()(U v)
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(U) v)
     {
         return T(v);
     }
 };
 
-#ifdef __HLSL_VERSION
-
-template<typename Scalar, typename U>
-struct Promote<vector <Scalar, 1>, U>
+template<typename To, typename From> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<To> && (concepts::IntegralLikeScalar<From> || concepts::FloatingPointLikeScalar<From>) && is_same_v<typename vector_traits<To>::scalar_type, From>)
+struct Promote<To, From NBL_PARTIAL_REQ_BOT(concepts::Vectorial<To> && (concepts::IntegralLikeScalar<From> || concepts::FloatingPointLikeScalar<From>) && is_same_v<typename vector_traits<To>::scalar_type, From>) >
 {
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 1> > operator()(U v)
+    NBL_CONSTEXPR_FUNC To operator()(const From v)
     {
-        vector <Scalar, 1> promoted = {Scalar(v)};
-        return promoted;
+        array_set<To, From> setter;
+        To output;
+        [[unroll]]
+        for (int i = 0; i < vector_traits<To>::Dimension; ++i)
+            setter(output, i, v);
+        return output;
     }
 };
-
-template<typename Scalar, typename U>
-struct Promote<vector <Scalar, 2>, U>
-{
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 2> > operator()(U v)
-    {
-        vector <Scalar, 2> promoted = {Scalar(v), Scalar(v)};
-        return promoted;
-    }
-};
-
-template<typename Scalar, typename U>
-struct Promote<vector <Scalar, 3>, U>
-{
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 3> > operator()(U v)
-    {
-        vector <Scalar, 3> promoted = {Scalar(v), Scalar(v), Scalar(v)};
-        return promoted;
-    }
-};
-
-template<typename Scalar, typename U>
-struct Promote<vector <Scalar, 4>, U>
-{
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 4> > operator()(U v)
-    {
-        vector <Scalar, 4> promoted = {Scalar(v), Scalar(v), Scalar(v), Scalar(v)};
-        return promoted;
-    }
-};
-
-#endif
 
 }
 
 template<typename T, typename U>
-T promote(const U v) // TODO: use NBL_CONST_REF_ARG(U) instead of U v (circular ref)
+NBL_CONSTEXPR_FUNC T promote(NBL_CONST_REF_ARG(U) v)
 {
     impl::Promote<T,U> _promote;
     return _promote(v);
 }
+
 
 }
 }

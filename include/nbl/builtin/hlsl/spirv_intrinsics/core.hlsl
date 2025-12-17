@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
+#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
+
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
 
@@ -11,7 +13,6 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
 
 namespace nbl 
 {
@@ -115,7 +116,12 @@ NBL_CONSTEXPR_STATIC_INLINE bool is_bda_pointer_v = is_bda_pointer<T>::value;
 
 
 //! General Operations
- 
+
+//! Miscellaneous Instructions
+template<typename T>
+[[vk::ext_instruction(spv::OpUndef)]]
+T undef();
+
 //
 template<typename M, typename T>
 [[vk::ext_instruction(spv::OpAccessChain)]]
@@ -382,7 +388,8 @@ template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!conc
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
 
-NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
+// need to use `spirv::` even in the namespace because it matches the HLSL intrinsic which is not namespaced at all, and will happily match anything
+NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), spirv::select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
 
 }
 
