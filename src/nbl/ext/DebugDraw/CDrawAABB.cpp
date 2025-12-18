@@ -83,6 +83,12 @@ const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> l
 	if (!system)
 		return nullptr;
 
+	if (system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
+	{
+		logger->log("CDrawAABB directory is already mounted!", ILogger::ELL_WARNING);
+		return nullptr;
+	}
+
 	// extension should mount everything for you, regardless if content goes from virtual filesystem 
 	// or disk directly - and you should never rely on application framework to expose extension data
 
@@ -134,6 +140,12 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 
 			return params.utilities->getLogicalDevice()->compileShader({ shaderSrc.get() });
 		};
+
+	if (!system->areBuiltinsMounted())
+	{
+		params.utilities->getLogger()->log("Nabla builtins are not mounted!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
 
 	if (!system->exists(path(NBL_ARCHIVE_ENTRY) / "common.hlsl", {}))
 		mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
