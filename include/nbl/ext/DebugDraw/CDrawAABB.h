@@ -40,10 +40,9 @@ namespace nbl::ext::debug_draw
             core::smart_refctd_ptr<streaming_buffer_t> streamingBuffer = nullptr;
         };
 
-        // only used to make the 24 element index buffer and instanced pipeline on create
         struct SCreationParameters : SCachedCreationParameters
         {
-            video::IQueue* transfer = nullptr;
+            video::IQueue* transfer = nullptr;  // only used to make the 24 element index buffer and instanced pipeline on create
             core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;
 
             core::smart_refctd_ptr<video::IGPUPipelineLayout> singlePipelineLayout;
@@ -52,18 +51,24 @@ namespace nbl::ext::debug_draw
 
             inline bool validate() const
             {
-                assert(bool(assetManager));
-                assert(bool(assetManager->getSystem()));
-                assert(bool(utilities));
-                assert(bool(transfer));
-                assert(bool(renderpass));
+                const auto validation = std::to_array
+                ({
+                    std::make_pair(bool(assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
+                    std::make_pair(bool(utilities), "Invalid `creationParams.utilities` is nullptr!"),
+                    std::make_pair(bool(transfer), "Invalid `creationParams.transfer` is nullptr!"),
+                    std::make_pair(bool(renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
+                    std::make_pair(bool(utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[transfer->getFamilyIndex()].queueFlags.hasFlags(video::IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!")
+                });
 
                 system::logger_opt_ptr logger = utilities->getLogger();
-                if (!bool(utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[transfer->getFamilyIndex()].queueFlags.hasFlags(video::IQueue::FAMILY_FLAGS::TRANSFER_BIT)))
-                {
-                    logger.log("Invalid `creationParams.transfer` is not capable of transfer operations!", system::ILogger::ELL_ERROR);
-                    return false;
-                }
+                for (const auto& [ok, error] : validation)
+                    if (!ok)
+                    {
+                        logger.log(error, system::ILogger::ELL_ERROR);
+                        return false;
+                    }
+
+                assert(bool(assetManager->getSystem()));
 
                 return true;
             }
@@ -168,12 +173,23 @@ namespace nbl::ext::debug_draw
         static hlsl::float32_t3x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
 
     protected:
-	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline,
-            core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer);
-	    ~DrawAABB() override;
+        struct ConstructorParams
+        {
+            SCachedCreationParameters creationParams;
+            core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline = nullptr;
+            core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline = nullptr;
+            core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer = nullptr;
+        };
+
+	    DrawAABB(ConstructorParams&& params) :
+            m_cachedCreationParams(std::move(params.creationParams)),
+            m_singlePipeline(std::move(params.singlePipeline)),
+            m_batchPipeline(std::move(params.batchPipeline)),
+            m_indicesBuffer(std::move(params.indicesBuffer))
+        {}
+	    ~DrawAABB() override {}
 
     private:
-        //static bool validateCreationParameters(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath);
         static bool createStreamingBuffer(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);

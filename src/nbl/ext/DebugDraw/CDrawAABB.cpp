@@ -28,28 +28,28 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 		return nullptr;
 	}
 
-	smart_refctd_ptr<IGPUGraphicsPipeline> singlePipeline = nullptr;
+	ConstructorParams constructorParams;
+
 	if (params.drawMode & ADM_DRAW_SINGLE)
 	{
 		auto pipelineLayout = params.singlePipelineLayout;
 		if (!pipelineLayout)
 			pipelineLayout = createDefaultPipelineLayout(params.utilities->getLogicalDevice(), ADM_DRAW_SINGLE);
-		singlePipeline = createPipeline(params, pipelineLayout.get(), "single.vertex.hlsl", "aabb_instances.fragment.hlsl");
-		if (!singlePipeline)
+		constructorParams.singlePipeline = createPipeline(params, pipelineLayout.get(), "single.vertex.hlsl", "aabb_instances.fragment.hlsl");
+		if (!constructorParams.singlePipeline)
 		{
 			logger->log("Failed to create pipeline!", ILogger::ELL_ERROR);
 			return nullptr;
 		}
 	}
 
-	smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline = nullptr;
 	if (params.drawMode & ADM_DRAW_BATCH)
 	{
 		auto pipelineLayout = params.batchPipelineLayout;
 		if (!pipelineLayout)
 			pipelineLayout = createDefaultPipelineLayout(params.utilities->getLogicalDevice(), ADM_DRAW_BATCH);
-		batchPipeline = createPipeline(params, pipelineLayout.get(), "aabb_instances.vertex.hlsl", "aabb_instances.fragment.hlsl");
-		if (!batchPipeline)
+		constructorParams.batchPipeline = createPipeline(params, pipelineLayout.get(), "aabb_instances.vertex.hlsl", "aabb_instances.fragment.hlsl");
+		if (!constructorParams.batchPipeline)
 		{
 			logger->log("Failed to create pipeline!", ILogger::ELL_ERROR);
 			return nullptr;
@@ -62,24 +62,15 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 		return nullptr;
 	}
 
-	auto indicesBuffer = createIndicesBuffer(params);
-	if (!indicesBuffer)
+	constructorParams.indicesBuffer = createIndicesBuffer(params);
+	if (!constructorParams.indicesBuffer)
 	{
 		logger->log("Failed to create indices buffer!", ILogger::ELL_ERROR);
 		return nullptr;
 	}
 
-    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(params), singlePipeline, batchPipeline, indicesBuffer));
-}
-
-DrawAABB::DrawAABB(SCreationParameters&& params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline, smart_refctd_ptr<IGPUBuffer> indicesBuffer)
-    : m_cachedCreationParams(std::move(params)), m_singlePipeline(std::move(singlePipeline)), m_batchPipeline(std::move(batchPipeline)),
-    m_indicesBuffer(std::move(indicesBuffer))
-{
-}
-
-DrawAABB::~DrawAABB()
-{
+	constructorParams.creationParams = std::move(params);
+    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(constructorParams)));
 }
 
 // note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
