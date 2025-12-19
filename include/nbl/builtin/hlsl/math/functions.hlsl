@@ -33,9 +33,9 @@ struct lp_norm<T,0,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectoria
     {
         array_get<T, scalar_type> getter;
 
-        scalar_type retval = abs<T>(getter(v, 0));
-        for (int i = 1; i < extent<T>::value; i++)
-            retval = max<T>(abs<T>(getter(v, i)),retval);
+        scalar_type retval = abs<scalar_type>(getter(v, 0));
+        for (int i = 1; i < vector_traits<T>::Dimension; i++)
+            retval = max<scalar_type>(abs<scalar_type>(getter(v, i)),retval);
         return retval;
     }
 };
@@ -49,9 +49,9 @@ struct lp_norm<T,1,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial
     {
         array_get<T, scalar_type> getter;
 
-        scalar_type retval = abs<T>(getter(v, 0));
-        for (int i = 1; i < extent<T>::value; i++)
-            retval += abs<T>(getter(v, i));
+        scalar_type retval = abs<scalar_type>(getter(v, 0));
+        for (int i = 1; i < vector_traits<T>::Dimension; i++)
+            retval += abs<scalar_type>(getter(v, i));
         return retval;
     }
 
@@ -119,25 +119,6 @@ void frisvad(NBL_CONST_REF_ARG(T) normal, NBL_REF_ARG(T) tangent, NBL_REF_ARG(T)
         bitangent = T(b, unit - normal.y * normal.y * a, -normal.y);
     }
 }
-
-bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(float) rcpChoiceProb)
-{
-#ifdef __HLSL_VERSION
-    NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
-#else
-    NBL_CONSTEXPR float32_t NEXT_ULP_AFTER_UNITY = bit_cast<float32_t>(0x3f800001u);
-#endif
-    const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
-
-    // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
-    xi -= pickRight ? leftProb : 0.0f;
-
-    rcpChoiceProb = 1.0f / (pickRight ? (1.0f - leftProb) : leftProb);
-    xi *= rcpChoiceProb;
-
-    return pickRight;
-}
-
 
 namespace impl
 {

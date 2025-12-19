@@ -27,23 +27,7 @@ using SGGXAnisotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_t
 
 }
 
-template<typename C>
-struct traits<bxdf::reflection::SGGXIsotropic<C> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
-};
-
-template<typename C>
-struct traits<bxdf::reflection::SGGXAnisotropic<C> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
-    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
-};
+// inherit trait from cook torrance base
 
 }
 }
