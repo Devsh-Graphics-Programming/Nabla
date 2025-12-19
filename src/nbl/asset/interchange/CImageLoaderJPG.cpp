@@ -93,7 +93,7 @@ namespace jpeg
 		std::string errMsg("JPEG FATAL ERROR in ");
 		auto ctx = reinterpret_cast<CImageLoaderJPG::SContext*>(cinfo->client_data);
 		errMsg += ctx->filename;
-		ctx->logger.log(errMsg + temp1, system::ILogger::ELL_ERROR);
+		ctx->logger.log("%s", system::ILogger::ELL_ERROR, errMsg + temp1);
 	}
 
 	/*	Initialize source.  This is called by jpeg_read_header() before any

@@ -1054,7 +1054,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
         }
     }
 
-    logger->log(debug.str() + '\n');
+    logger->log("%s", system::ILogger::ELL_DEBUG, debug.str() + '\n');
 }
 
 }
