@@ -137,6 +137,8 @@ namespace nbl::ext::debug_draw
 
             const uint32_t numInstances = aabbInstances.size();
             const uint32_t instancesPerIter = streaming->getBuffer()->getSize() / sizeof(InstanceData);
+            if (numInstances > instancesPerIter)
+                return false;
             using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
             uint32_t beginOffset = 0;
             while (beginOffset < numInstances)
