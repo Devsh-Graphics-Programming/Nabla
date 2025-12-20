@@ -210,6 +210,9 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) override;
         bool dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding) override;
 
+        bool drawMeshTasks_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) override;
+        bool drawMeshTasksIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) override;
+
         bool beginRenderPass_impl(const SRenderpassBeginInfo& info, SUBPASS_CONTENTS contents) override;
         bool nextSubpass_impl(const SUBPASS_CONTENTS contents) override;
         bool endRenderPass_impl() override;

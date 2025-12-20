@@ -443,6 +443,14 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         }
         bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
 
+        bool drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY = 1, const uint32_t groupCountZ = 1);
+        template<typename T> requires std::is_integral_v<T>
+        bool drawMeshTasks(const hlsl::vector<T, 3> groupCount)
+        {
+            return drawMeshTasks(groupCount.x, groupCount.y, groupCount.z);
+        }
+        bool drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride);
+
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
@@ -704,6 +712,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         
         virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
         virtual bool dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding) = 0;
+
+        virtual bool drawMeshTasks_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
+        virtual bool drawMeshTasksIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) = 0;
 
         virtual bool beginRenderPass_impl(const SRenderpassBeginInfo& info, SUBPASS_CONTENTS contents) = 0;
         virtual bool nextSubpass_impl(const SUBPASS_CONTENTS contents) = 0;
