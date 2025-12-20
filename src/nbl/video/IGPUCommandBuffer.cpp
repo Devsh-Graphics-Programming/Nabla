@@ -1460,7 +1460,7 @@ bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t grou
         allowedRenderpassScope = outside;
     */
 
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT | queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::BOTH))
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
     if (groupCountX==0 || groupCountY==0 || groupCountZ==0)
@@ -1482,7 +1482,7 @@ bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t grou
 
 bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding)
 {
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT | queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::BOTH))
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT, RENDERPASS_SCOPE::OUTSIDE))
         return false;
     //side mission - find out what 4 is. may impact mesh in a way im not expecting
     if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
@@ -1496,6 +1496,48 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 
     m_noCommands = false;
     return dispatchIndirect_impl(binding);
+}
+
+bool IGPUCommandBuffer::drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) {
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::INSIDE))
+        return false;
+
+    if (groupCountX == 0 || groupCountY == 0 || groupCountZ == 0)
+    {
+        NBL_LOG_ERROR("invalid group counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ);
+        return false;
+    }
+
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    if (groupCountX > limits.maxMeshWorkGroupCount[0] || groupCountY > limits.maxMeshWorkGroupCount[1] || groupCountZ > limits.maxMeshWorkGroupCount[2])
+    {
+        NBL_LOG_ERROR("group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ, limits.maxMeshWorkGroupCount[0], limits.maxMeshWorkGroupCount[1], limits.maxMeshWorkGroupCount[2]);
+        return false;
+    }
+
+    m_noCommands = false;
+    return drawMeshTasks_impl(groupCountX, groupCountY, groupCountZ);
+}
+
+bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
+{
+    assert(false && "still needs to be implemented - i just lazily copied dispatch indirect");
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::INSIDE))
+        return false;
+    //4 is alignment
+    if (invalidBufferBinding(binding, 4u/*TODO: is it really 4?*/, IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+        return false;
+    //if (invalidDrawMeshTasksIndirect<hlsl::DrawArraysIndirectCommand_t>(binding, drawCount, stride))
+        //return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+    return drawMeshTasksIndirect_impl(binding, drawCount, stride);
 }
 
 
