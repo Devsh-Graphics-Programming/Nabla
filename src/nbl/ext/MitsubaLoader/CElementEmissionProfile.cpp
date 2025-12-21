@@ -4,61 +4,40 @@
 #include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
+
 #include <functional>
 
 
 namespace nbl::ext::MitsubaLoader
 {
 
-bool CElementEmissionProfile::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
+auto CElementEmissionProfile::compAddPropertyMap() -> AddPropertyMap<CElementEmissionProfile>
 {
-	if (_property.name=="filename")
-	{
-		if (_property.type!=SPropertyElementData::Type::STRING)
+	using this_t = CElementEmissionProfile;
+	AddPropertyMap<CElementEmissionProfile> retval;
+	
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(filename,STRING);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("normalization",STRING)
 		{
-			invalidXMLFileStructure(logger,"<emissionprofile>'s `filename` must be a string type, instead it's: "+_property.type);
-			return false;
+			const auto normalizeS = std::string(_property.svalue);
+			if (normalizeS == "UNIT_MAX")
+				_this->normalization = EN_UNIT_MAX;
+			else if (normalizeS == "UNIT_AVERAGE_OVER_IMPLIED_DOMAIN")
+				_this->normalization = EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN;
+			else if (normalizeS == "UNIT_AVERAGE_OVER_FULL_DOMAIN")
+				_this->normalization = EN_UNIT_AVERAGE_OVER_FULL_DOMAIN;
+			else
+			{
+				logger.log("<emissionprofile>'s `normalization` is unrecognized: \"%s\"",system::ILogger::ELL_ERROR,normalizeS.c_str());
+				_this->normalization = EN_NONE;
+			}
+			return true;
 		}
-		filename = _property.getProperty<SPropertyElementData::Type::STRING>();
-		return true;
-	}
-	else if (_property.name=="normalization")
-	{
-		if (_property.type!=SPropertyElementData::Type::STRING)
-		{
-			invalidXMLFileStructure(logger,"<emissionprofile>'s `normalization` must be a string type, instead it's: "+_property.type);
-			return false;
-		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(flatten,FLOAT);
 
-		const auto normalizeS = std::string(_property.getProperty<SPropertyElementData::Type::STRING>());
-
-		if (normalizeS=="UNIT_MAX")
-			normalization = EN_UNIT_MAX;
-		else if(normalizeS=="UNIT_AVERAGE_OVER_IMPLIED_DOMAIN")
-			normalization = EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN;
-		else if(normalizeS=="UNIT_AVERAGE_OVER_FULL_DOMAIN")
-			normalization = EN_UNIT_AVERAGE_OVER_FULL_DOMAIN;
-		else
-		{
-			invalidXMLFileStructure(logger,"<emissionprofile>'s `normalization` is unrecognized: "+ normalizeS);
-			normalization = EN_NONE;
-		}
-
-		return true;
-	}
-	else if (_property.name=="flatten") 
-	{
-		if (_property.type!=SPropertyElementData::Type::FLOAT)
-			return false;
-
-		flatten = _property.getProperty<SPropertyElementData::Type::FLOAT>();
-		return true;
-	}
-	else
-	{
-		invalidXMLFileStructure(logger,"No emission profile can have such property set with name: "+_property.name);
-		return false;
-	}
+	return retval;
 }
 
 bool CElementEmissionProfile::processChildData(IElement* _child, const std::string& name)

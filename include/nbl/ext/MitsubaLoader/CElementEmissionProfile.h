@@ -61,7 +61,8 @@ struct CElementEmissionProfile final : public IElement
 
 	std::string filename; // TODO: test destructor runs
 	E_NORMALIZE normalization;
-	float flatten; // TODO: why is this named this way?
+	// how much we flatten the profile towards a uniform distribution
+	float flatten;
 };
 
 }

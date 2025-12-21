@@ -11,48 +11,27 @@
 
 namespace nbl::ext::MitsubaLoader
 {
-
-bool CElementRFilter::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
+	
+auto CElementRFilter::compAddPropertyMap() -> AddPropertyMap<CElementRFilter>
 {
-	if (_property.type == SNamedPropertyElement::Type::INTEGER)
-	{
-		if (core::strcmpi(_property.name,std::string("lobes")))
-		{
-			invalidXMLFileStructure(logger,"\"lobes\" must be an integer property");
-			return false;
-		}
-		lanczos.lobes = _property.ivalue;
-		return true;
-	}
-	else if (_property.type == SNamedPropertyElement::Type::FLOAT)
-	{
-		if (core::strcmpi(_property.name,std::string("b"))==0)
-		{
-			mitchell.B = _property.fvalue;
-			return true;
-		}
-		else if (core::strcmpi(_property.name,std::string("c"))==0)
-		{
-			mitchell.C = _property.fvalue;
-			return true;
-		}
-		else if (core::strcmpi(_property.name,std::string("kappa"))==0)
-		{
-			kappa = _property.fvalue;
-			return true;
-		}
-		else if (core::strcmpi(_property.name,std::string("Emin"))==0)
-		{
-			Emin = _property.fvalue;
-			return true;
-		}
-		else
-			invalidXMLFileStructure(logger,"unsupported rfilter property called: "+_property.name);
-	}
-	else
-		invalidXMLFileStructure(logger,"this reconstruction filter type does not take this parameter type for parameter: " + _property.name);
+	using this_t = CElementRFilter;
+	AddPropertyMap<CElementRFilter> retval;
+	
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(sigma,FLOAT,std::is_same,Gaussian);
 
-	return false;
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(b,FLOAT,std::is_same,MitchellNetravali);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(c,FLOAT,std::is_same,MitchellNetravali);
+
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(b,FLOAT,std::is_same,CatmullRom);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(c,FLOAT,std::is_same,CatmullRom);
+
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(lobes,INTEGER,std::is_same,LanczosSinc);
+
+	// common
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(kappa,FLOAT);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(Emin,FLOAT);
+
+	return retval;
 }
 
 bool CElementRFilter::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)

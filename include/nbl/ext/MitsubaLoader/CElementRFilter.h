@@ -29,21 +29,35 @@ class CElementRFilter final : public IElement
 
 		struct Gaussian
 		{
+			constexpr static inline Type VariantType = Type::GAUSSIAN;
+
 			float sigma = NAN; // can't look at mitsuba source to figure out the default it uses
 		};
 		struct MitchellNetravali
 		{
+			constexpr static inline Type VariantType = Type::MITCHELL;
+
+			float B = 1.f / 3.f;
+			float C = 1.f / 3.f;
+		};
+		struct CatmullRom
+		{
+			constexpr static inline Type VariantType = Type::CATMULLROM;
+
 			float B = 1.f / 3.f;
 			float C = 1.f / 3.f;
 		};
 		struct LanczosSinc
 		{
+			constexpr static inline Type VariantType = Type::LANCZOS;
+
 			int32_t lobes = 3;
 		};
 
 		using variant_list_t = core::type_list<
 			Gaussian,
 			MitchellNetravali,
+			CatmullRom,
 			LanczosSinc
 		>;
 		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
@@ -112,7 +126,7 @@ class CElementRFilter final : public IElement
 		{
 			Gaussian			gaussian;
 			MitchellNetravali	mitchell;
-			MitchellNetravali	catmullrom;
+			CatmullRom			catmullrom;
 			LanczosSinc			lanczos;
 		};
 		float kappa = 0.f;

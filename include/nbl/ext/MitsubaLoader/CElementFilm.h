@@ -57,6 +57,12 @@ class CElementFilm final : public IElement
 
 			bool attachLog = true;
 		};
+		struct TiledHDR : HDR
+		{
+			constexpr static inline Type VariantType = Type::TILED_HDR;
+
+			// TODO: sure we don't have more members?
+		};
 		struct LDR
 		{
 			constexpr static inline Type VariantType = Type::LDR_FILM;
@@ -92,6 +98,7 @@ class CElementFilm final : public IElement
 		//
 		using variant_list_t = core::type_list<
 			HDR,
+			TiledHDR,
 			LDR,
 			M
 		>;
@@ -195,9 +202,9 @@ class CElementFilm final : public IElement
 		CElementRFilter rfilter;
 		union
 		{
-			HDR hdrfilm;
-			LDR ldrfilm;
-			M	mfilm;
+			HDR			hdrfilm;
+			LDR			ldrfilm;
+			M			mfilm;
 		};
 
 		constexpr static inline size_t MaxPathLen = 256;
