@@ -13,30 +13,60 @@
 namespace nbl::ext::MitsubaLoader
 {
 
+namespace impl
+{
+template<typename T>
+struct has_strictNormals
+{
+	constexpr static bool value = std::is_same_v<T,CElementIntegrator::DirectIllumination> ||
+		std::is_base_of_v<CElementIntegrator::PathTracing,T>;
+};
+template<typename T>
+struct has_granularity
+{
+	constexpr static bool value = std::is_base_of_v<CElementIntegrator::PhotonMappingBase,T> ||
+		std::is_same_v<T,CElementIntegrator::AdjointParticleTracing>;
+};
+template<typename T>
+struct has_directSamples
+{
+	constexpr static bool value = std::is_same_v<T,CElementIntegrator::PhotonMapping> ||
+		std::is_base_of_v<CElementIntegrator::MetropolisLightTransportBase,T> ||
+		std::is_same_v<T,CElementIntegrator::EnergyRedistributionPathTracing>;
+};
+}
+
 auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrator>
 {
 	using this_t = CElementIntegrator;
 	AddPropertyMap<CElementIntegrator> retval;
 
+	// common
+	// this one has really funny legacy behaviour which Mitsuba allowed contrary to its PDF docs
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("shadingSamples",INTEGER,is_any_of,AmbientOcclusion,DirectIllumination)
+		{
+			if (_this->type == Type::AO)
+				_this->ao.shadingSamples = _property.ivalue;
+			else
+				_this->direct.emitterSamples = _this->direct.bsdfSamples = _property.ivalue;
+			return true;
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(strictNormals,BOOLEAN,impl::has_strictNormals);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(granularity,INTEGER,impl::has_granularity);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(directSamples,INTEGER,impl::has_directSamples);
+
 	// ambient
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shadingSamples,INTEGER,std::is_same,AmbientOcclusion);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(rayLength,FLOAT,std::is_same,AmbientOcclusion);
 
 	// emitter hideables
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(hideEmitters,BOOLEAN,derived_from,DirectIllumination);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(hideEnvironment,BOOLEAN,derived_from,DirectIllumination);
-	
-	// this one has really funny legacy behaviour which Mitsuba allowed contrary to its PDF docs
-	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("shadingSamples",INTEGER,std::is_same,DirectIllumination)
-		{
-			_this->direct.emitterSamples = _this->direct.bsdfSamples = _property.ivalue;
-			return true;
-		}
-	);
+
 	// direct
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(emitterSamples,INTEGER,std::is_same,DirectIllumination);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(bsdfSamples,INTEGER,std::is_same,DirectIllumination);
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(strictNormals,BOOLEAN,std::is_same,DirectIllumination);
+	// COMMON: strictNormals
 
 	// monte carlo base
 	// Not using `NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED` because members have different names than XML names
@@ -54,23 +84,23 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 	);
 
 	// path tracing
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(strictNormals,BOOLEAN,derived_from,PathTracing);
+	// COMMON: strictNormals
 
 	// bidirectional path tracing
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(lightImage,BOOLEAN,std::is_same,BiDirectionalPathTracing);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(sampleDirect,BOOLEAN,std::is_same,BiDirectionalPathTracing);
 
 	// photon mapping base
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(granularity,INTEGER,derived_from,PhotonMappingBase);
+	// COMMON: granularity
 
 	// photon mapping
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(directSamples,INTEGER,std::is_same,PhotonMapping);
+	// COMMON: directSamples
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(glossySamples,INTEGER,std::is_same,PhotonMapping);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(globalPhotons,INTEGER,std::is_same,PhotonMapping);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(causticPhotons,INTEGER,std::is_same,PhotonMapping);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(volumePhotons,INTEGER,std::is_same,PhotonMapping);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(globalLookupRadius,FLOAT,std::is_same,PhotonMapping);
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(globalLookupRadius,FLOAT,std::is_same,PhotonMapping);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(causticLookupRadius,FLOAT,std::is_same,PhotonMapping);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(lookupSize,INTEGER,std::is_same,PhotonMapping);
 
 	// progressive
@@ -80,7 +110,7 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(maxPasses,INTEGER,derived_from,ProgressivePhotonMapping);
 
 	// metropolis base
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(directSamples,INTEGER,derived_from,MetropolisLightTransportBase);
+	// COMMON: directSamples
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(luminanceSamples,INTEGER,derived_from,MetropolisLightTransportBase);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(twoStage,BOOLEAN,derived_from,MetropolisLightTransportBase);
 
@@ -102,10 +132,10 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(numChains,FLOAT,std::is_same,EnergyRedistributionPathTracing);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(maxChains,FLOAT,std::is_same,EnergyRedistributionPathTracing);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(chainLength,INTEGER,std::is_same,EnergyRedistributionPathTracing);
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(directSamples,INTEGER,std::is_same,EnergyRedistributionPathTracing);
+	// COMMON: directSamples
 
 	// adjoint
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(granularity,INTEGER,std::is_same,AdjointParticleTracing);
+	// COMMON: granularity
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(bruteForce,BOOLEAN,std::is_same,AdjointParticleTracing);
 
 	// vpl
