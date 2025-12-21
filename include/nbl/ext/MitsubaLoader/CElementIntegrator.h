@@ -61,8 +61,10 @@ class CElementIntegrator final : public IElement
 			};
 		}
 
-		struct AmbientOcclusion
+		struct AmbientOcclusion final
 		{
+			constexpr static inline Type VariantType = Type::AO;
+
 			int32_t shadingSamples = 1;
 			float rayLength = -1.f;
 		};
@@ -71,8 +73,10 @@ class CElementIntegrator final : public IElement
 		bool hideEmitters = false;
 		bool hideEnvironment = false;
 	};
-		struct DirectIllumination : EmitterHideableBase
+		struct DirectIllumination final : EmitterHideableBase
 		{
+			constexpr static inline Type VariantType = Type::DIRECT;
+
 			int32_t emitterSamples = static_cast<int32_t>(0xdeadbeefu);
 			int32_t bsdfSamples = static_cast<int32_t>(0xdeadbeefu);
 			bool strictNormals = false;
@@ -84,16 +88,22 @@ class CElementIntegrator final : public IElement
 	};
 		struct PathTracing : MonteCarloTracingBase,EmitterHideableBase
 		{
+			constexpr static inline Type VariantType = Type::PATH;
+
 			bool strictNormals = false;
 		};
 		struct SimpleVolumetricPathTracing : PathTracing
 		{
+			constexpr static inline Type VariantType = Type::VOL_PATH_SIMPLE;
 		};
 		struct ExtendedVolumetricPathTracing : SimpleVolumetricPathTracing
 		{
+			constexpr static inline Type VariantType = Type::VOL_PATH;
 		};
-		struct BiDirectionalPathTracing : MonteCarloTracingBase
+		struct BiDirectionalPathTracing final : MonteCarloTracingBase
 		{
+			constexpr static inline Type VariantType = Type::BDPT;
+
 			bool lightImage = true;
 			bool sampleDirect = true;
 		};
@@ -101,26 +111,31 @@ class CElementIntegrator final : public IElement
 	{
 		int32_t granularity = 0;
 	};
-		struct PhotonMapping : PhotonMappingBase, EmitterHideableBase
+		struct PhotonMapping final : PhotonMappingBase, EmitterHideableBase
 		{
+			constexpr static inline Type VariantType = Type::PHOTONMAPPER;
+
 			int32_t directSamples = 16;
 			int32_t glossySamples = 32;
 			int32_t globalPhotons = 250000;
 			int32_t causticPhotons = 250000;
 			int32_t volumePhotons = 250000;
-			float globalLURadius = 0.05;
-			float causticLURadius = 0.0125;
-			int32_t LUSize = 120;
+			float globalLookupRadius = 0.05;
+			float causticLookupRadius = 0.0125;
+			int32_t lookupSize = 120;
 		};
 		struct ProgressivePhotonMapping : PhotonMappingBase
 		{
+			constexpr static inline Type VariantType = Type::PPM;
+
 			int32_t photonCount = 250000;
 			float initialRadius = 0.f;
 			float alpha = 0.7f;
 			int32_t maxPasses = -1;
 		};
-		struct StochasticProgressivePhotonMapping : ProgressivePhotonMapping
+		struct StochasticProgressivePhotonMapping final : ProgressivePhotonMapping
 		{
+			constexpr static inline Type VariantType = Type::SPPM;
 		};
 	struct MetropolisLightTransportBase : MonteCarloTracingBase
 	{
@@ -128,8 +143,10 @@ class CElementIntegrator final : public IElement
 		int32_t luminanceSamples = 100000;
 		bool twoStage = false;
 	};
-		struct PrimarySampleSpaceMetropolisLightTransport : MetropolisLightTransportBase
+		struct PrimarySampleSpaceMetropolisLightTransport final : MetropolisLightTransportBase
 		{
+			constexpr static inline Type VariantType = Type::PSSMLT;
+
 			bool bidirectional = true;
 			float pLarge = 0.3f;
 		};
@@ -141,30 +158,40 @@ class CElementIntegrator final : public IElement
 		bool manifoldPerturbation = false;
 		float lambda = 50.f;
 	};
-		struct PathSpaceMetropolisLightTransport : MetropolisLightTransportBase, PerturbateableBase
+		struct PathSpaceMetropolisLightTransport final : MetropolisLightTransportBase, PerturbateableBase
 		{
+			constexpr static inline Type VariantType = Type::MLT;
+
 			bool bidirectionalMutation = true;
 		};
-		struct EnergyRedistributionPathTracing : MonteCarloTracingBase, PerturbateableBase
+		struct EnergyRedistributionPathTracing final : MonteCarloTracingBase, PerturbateableBase
 		{
+			constexpr static inline Type VariantType = Type::ERPT;
+
 			float numChains = 1.f;
 			float maxChains = 0.f;
 			int32_t chainLength = 1;
 			int32_t directSamples = 16;
 		};
-		struct AdjointParticleTracing : MonteCarloTracingBase
+		struct AdjointParticleTracing final : MonteCarloTracingBase
 		{
+			constexpr static inline Type VariantType = Type::ADJ_P_TRACER;
+
 			uint32_t granularity = 200000;
 			bool bruteForce = false;
 		};
-		struct VirtualPointLights
+		struct VirtualPointLights final
 		{
+			constexpr static inline Type VariantType = Type::VPL;
+
 			int32_t maxPathDepth = 5;
 			int32_t shadowMap = 512;
 			float clamping = 0.1f;
 		};
 		struct FieldExtraction
 		{
+			constexpr static inline Type VariantType = Type::FIELD_EXTRACT;
+
 			enum Type
 			{
 				INVALID,
@@ -193,14 +220,18 @@ class CElementIntegrator final : public IElement
 		size_t childCount = 0u;
 		CElementIntegrator* children[maxChildCount] = { nullptr };
 	};
-		struct AdaptiveIntegrator : MetaIntegrator
+		struct AdaptiveIntegrator final : MetaIntegrator
 		{
+			constexpr static inline Type VariantType = Type::ADAPTIVE;
+
 			float maxError = 0.05f;
 			float pValue = 0.05f;
 			int32_t maxSampleFactor = 32;
 		};
-		struct IrradianceCacheIntegrator : MetaIntegrator
+		struct IrradianceCacheIntegrator final : MetaIntegrator
 		{
+			constexpr static inline Type VariantType = Type::IRR_CACHE;
+
 			int32_t resolution = 14;
 			float quality = 1.f;
 			bool gradients = true;
@@ -211,10 +242,32 @@ class CElementIntegrator final : public IElement
 			bool indirectOnly = false;
 			bool debug = false;
 		};
-		struct MultiChannelIntegrator : MetaIntegrator
+		struct MultiChannelIntegrator final : MetaIntegrator
 		{
+			constexpr static inline Type VariantType = Type::MULTI_CHANNEL;
 		};
 
+		//
+		using variant_list_t = core::type_list<
+			AmbientOcclusion,
+			DirectIllumination,
+			SimpleVolumetricPathTracing,
+			ExtendedVolumetricPathTracing,
+			PathTracing,
+			BiDirectionalPathTracing,
+			PhotonMapping,
+			ProgressivePhotonMapping,
+			StochasticProgressivePhotonMapping,
+			PrimarySampleSpaceMetropolisLightTransport,
+			PathSpaceMetropolisLightTransport,
+			EnergyRedistributionPathTracing,
+			AdjointParticleTracing,
+			AdaptiveIntegrator,
+			VirtualPointLights,
+			IrradianceCacheIntegrator,
+			MultiChannelIntegrator,
+			FieldExtraction
+		>;
 		//
 		static AddPropertyMap<CElementIntegrator> compAddPropertyMap();
 
