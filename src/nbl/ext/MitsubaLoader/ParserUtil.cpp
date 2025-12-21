@@ -426,7 +426,12 @@ ParserManager::ParserManager() : propertyElements({
 	{"alias",			{.create=processAlias,.retvalGoesOnStack=true}},
 	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
 }), addPropertyMaps({
-	CElementSensor::compAddPropertyMap()
+	CElementIntegrator::compAddPropertyMap(),
+	CElementSensor::compAddPropertyMap(),
+	CElementFilm::compAddPropertyMap(),
+	CElementRFilter::compAddPropertyMap(),
+	CElementSampler::compAddPropertyMap(),
+	CElementEmissionProfile::compAddPropertyMap()
 }) { }
 
 auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SNamedElement

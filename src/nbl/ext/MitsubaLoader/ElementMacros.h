@@ -5,17 +5,24 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
 
+// Return value is if there's no error during the setting once basic checks are done
+// For when you want to do custom handling of when property with string NAME and SNamedPropertyElement::Type::PROP_TYPE is getting added to this_t
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(NAME,PROP_TYPE) retval.registerCallback(SNamedPropertyElement::Type::PROP_TYPE,NAME,{\
 	.func=[](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
 
+// when you know that there's a member of `this_t` with identifier equal to NAME
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(NAME,PROP_TYPE) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(#NAME,PROP_TYPE) {\
 	_this->NAME = _property.getProperty<SNamedPropertyElement::Type::PROP_TYPE>(); \
 	return true;}})
 
-
+// Similar to `NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY` but for `this_t` which declare `variant_list_t` (list of union types)
+// this adds a compile-time filter against the constraint, such that only variant types matching the constraint are visited.
+// Useful when multiple variants derive from the same base struct, or have the same member.
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT,...) retval.template registerCallback<CONSTRAINT,__VA_ARGS__>( \
 	SNamedPropertyElement::Type::PROP_TYPE,NAME,[](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
 
+// This it to `NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED` what `NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY` is to `NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY`
+// So basically you know the member is the same across the constraint filtered types
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT,...) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED(#NAME,PROP_TYPE,CONSTRAINT,__VA_ARGS__) {\
 	_this->visit([&_property](auto& state)->void{ \
 		if constexpr (CONSTRAINT<std::remove_reference_t<decltype(state)>,__VA_ARGS__>::value) \

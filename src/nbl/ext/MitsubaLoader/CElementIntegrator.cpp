@@ -13,6 +13,14 @@
 namespace nbl::ext::MitsubaLoader
 {
 
+auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
+{
+	using this_t = CElementFilm;
+	AddPropertyMap<CElementFilm> retval;
+
+	return retval;
+}
+
 bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
 {
 	if (type>=Type::INVALID)

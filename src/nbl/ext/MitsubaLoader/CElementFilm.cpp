@@ -4,266 +4,150 @@
 #include "nbl/ext/MitsubaLoader/CElementFilm.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 #include <functional>
 
 namespace nbl::ext::MitsubaLoader
 {
 
-bool CElementFilm::addProperty(SNamedPropertyElement&& _property, system::logger_opt_ptr logger)
+
+inline bool setLimitedString(const std::string_view memberName, std::span<char> out, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)
 {
-#if 0
-	bool error = type==Type::INVALID;
-#define SET_PROPERTY(MEMBER,PROPERTY_TYPE)		[&]() -> void { \
-		if (_property.type!=PROPERTY_TYPE) { \
-			error = true; \
-			return; \
-		} \
-		MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-	}
-	auto setWidth			= SET_PROPERTY(width,SNamedPropertyElement::Type::INTEGER);
-	auto setHeight			= SET_PROPERTY(height,SNamedPropertyElement::Type::INTEGER);
-	auto setCropOffsetX		= SET_PROPERTY(cropOffsetX,SNamedPropertyElement::Type::INTEGER);
-	auto setCropOffsetY		= SET_PROPERTY(cropOffsetY,SNamedPropertyElement::Type::INTEGER);
-	auto setCropWidth		= SET_PROPERTY(cropWidth,SNamedPropertyElement::Type::INTEGER);
-	auto setCropHeight		= SET_PROPERTY(cropHeight,SNamedPropertyElement::Type::INTEGER);
-	auto setFileFormat = [&]() -> void
-	{
-		if (_property.type!=SNamedPropertyElement::Type::STRING)
-		{
-			error = true;
-			return;
-		}
-		static const core::unordered_map<std::string, FileFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-		{
-			{"openexr",		OPENEXR},
-			{"png",			PNG},
-			{"rgbe",		RGBE},
-			{"pfm",			PFM},
-			{"matlab",		MATLAB},
-			{"mathematica",	MATHEMATICA},
-			{"numpy",		NUMPY}
-		};
-		auto found = StringToType.find(_property.svalue);
-		if (found==StringToType.end())
-		{
-			error = true;
-			return;
-		}
-		fileFormat = found->second;
-	};
-	auto setPixelFormat = [&]() -> void
-	{
-		if (_property.type!=SNamedPropertyElement::Type::STRING)
-		{
-			error = true;
-			return;
-		}
-		static const core::unordered_map<std::string, PixelFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-		{
-			{"luminance",		LUMINANCE},
-			{"luminanceAlpha",	LUMINANCE_ALPHA},
-			{"rgb",				RGB},
-			{"rgba",			RGBA},
-			{"xyz",				XYZ},
-			{"xyza",			XYZA},
-			{"spectrum",		SPECTRUM},
-			{"spectrumAlpha",	SPECTRUM_ALPHA}
-		};
-		auto found = StringToType.find(_property.svalue);
-		if (found==StringToType.end())
-		{
-			error = true;
-			return;
-		}
-		pixelFormat = found->second;
-	};
-	auto setComponentFormat = [&]() -> void
-	{
-		if (_property.type!=SNamedPropertyElement::Type::STRING || type==Type::LDR_FILM || type==Type::MFILM)
-		{
-			error = true;
-			return;
-		}
-		static const core::unordered_map<std::string, ComponentFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-		{
-			{"float16",	FLOAT16},
-			{"float32",	FLOAT32},
-			{"uint32",	UINT32}
-		};
-		auto found = StringToType.find(_property.svalue);
-		if (found==StringToType.end())
-		{
-			error = true;
-			return;
-		}
-		componentFormat = found->second;
-	};
-	auto setBanner			= SET_PROPERTY(banner,SNamedPropertyElement::Type::BOOLEAN);
-	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SNamedPropertyElement::Type::BOOLEAN);
+	auto len = strlen(_property.svalue);
+	if (len>=out.size())
+		logger.log(
+			"String property assigned to %s is too long, max allowed length %d, is %d, property value: \"%s\"",
+			system::ILogger::ELL_ERROR,memberName.data(),out.size(),len,_property.svalue
+		);
+	len = std::min(out.size()-1,len);
+	memcpy(out.data(),_property.svalue,len);
+	out[len] = 0;
+	return true;
+}
+
+auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
+{
+	using this_t = CElementFilm;
+	AddPropertyMap<CElementFilm> retval;
 	
-
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(width,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(height,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cropOffsetX,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cropOffsetY,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cropWidth,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cropHeight,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("fileFormat",STRING)
 		{
-			case CElementFilm::Type::HDR_FILM:
-				func(hdrfilm);
-				break;
-			case CElementFilm::Type::LDR_FILM:
-				func(ldrfilm);
-				break;
-			case CElementFilm::Type::MFILM:
-				func(mfilm);
-				break;
-			default:
-				error = true;
-				break;
+			static const core::unordered_map<std::string,FileFormat,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+			{
+				{"openexr",		OPENEXR},
+				{"png",			PNG},
+				{"rgbe",		RGBE},
+				{"pfm",			PFM},
+				{"matlab",		MATLAB},
+				{"mathematica",	MATHEMATICA},
+				{"numpy",		NUMPY}
+			};
+			auto found = StringToType.find(_property.svalue);
+			if (found==StringToType.end())
+				return false;
+			_this->fileFormat = found->second;
+			return true;
 		}
-	};
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
-			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
-			{ \
-				if (_property.type!=PROPERTY_TYPE) { \
-					error = true; \
-					return; \
-				} \
-				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-			} \
-		}); \
-	}
-
-	auto setAttachLog = SET_PROPERTY_TEMPLATE(attachLog, SNamedPropertyElement::Type::BOOLEAN, HDR);
-	auto setTonemapMethod = [&]() -> void
-	{
-		if (_property.type != SNamedPropertyElement::Type::STRING || type == Type::LDR_FILM)
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("pixelFormat",STRING)
 		{
-			error = true;
-			return;
+			static const core::unordered_map<std::string,PixelFormat,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+			{
+				{"luminance",		LUMINANCE},
+				{"luminanceAlpha",	LUMINANCE_ALPHA},
+				{"rgb",				RGB},
+				{"rgba",			RGBA},
+				{"xyz",				XYZ},
+				{"xyza",			XYZA},
+				{"spectrum",		SPECTRUM},
+				{"spectrumAlpha",	SPECTRUM_ALPHA}
+			};
+			auto found = StringToType.find(_property.svalue);
+			if (found==StringToType.end())
+				return false;
+			_this->pixelFormat = found->second;
+			return true;
 		}
-		static const core::unordered_map<std::string, LDR::TonemapMethod, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("setComponentFormat",STRING)
 		{
-			{"gamma",	LDR::GAMMA},
-			{"reinhard",LDR::REINHARD}
-		};
-		auto found = StringToType.find(_property.svalue);
-		if (found != StringToType.end())
-		{
-			error = true;
-			return;
+			static const core::unordered_map<std::string,ComponentFormat,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+			{
+				{"float16",	FLOAT16},
+				{"float32",	FLOAT32},
+				{"uint32",	UINT32}
+			};
+			auto found = StringToType.find(_property.svalue);
+			if (found==StringToType.end())
+				return false;
+			_this->componentFormat = found->second;
+			return true;
 		}
-		ldrfilm.tonemapMethod = found->second;
-	};
-	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SNamedPropertyElement::Type::FLOAT, LDR);
-	auto setExposure = SET_PROPERTY_TEMPLATE(exposure, SNamedPropertyElement::Type::FLOAT, LDR);
-	auto setKey = SET_PROPERTY_TEMPLATE(key, SNamedPropertyElement::Type::FLOAT, LDR);
-	auto setBurn = SET_PROPERTY_TEMPLATE(burn, SNamedPropertyElement::Type::FLOAT, LDR);
-	auto setDigits = SET_PROPERTY_TEMPLATE(digits, SNamedPropertyElement::Type::INTEGER, M);
-	auto setVariable = [&]() -> void
-	{
-		if (_property.type != SNamedPropertyElement::Type::STRING || type == Type::MFILM)
-		{
-			error = true;
-			return;
-		}
-		size_t len = std::min(strlen(_property.svalue),M::MaxVarNameLen);
-		memcpy(mfilm.variable,_property.svalue,len);
-		mfilm.variable[len] = 0;
-	};
-	auto setOutputFilePath = [&]() -> void
-	{
-		if (_property.type != SNamedPropertyElement::Type::STRING)
-		{
-			error = true;
-			return;
-		}
-
-		size_t len = std::min(strlen(_property.svalue),MaxPathLen);
-		memcpy(outputFilePath,_property.svalue,len);
-		outputFilePath[len] = 0;
-	};
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(banner,BOOLEAN);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(highQualityEdges,BOOLEAN);
 	
-	auto setBloomFilePath = [&]() -> void
-	{
-		if (_property.type != SNamedPropertyElement::Type::STRING)
-		{
-			error = true;
-			return;
-		}
-
-		size_t len = std::min(strlen(_property.svalue),MaxPathLen);
-		memcpy(denoiserBloomFilePath,_property.svalue,len);
-		denoiserBloomFilePath[len] = 0;
-	};
 	
-	auto setTonemapperArgs = [&]() -> void
-	{
-		if (_property.type != SNamedPropertyElement::Type::STRING)
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(attachLog,BOOLEAN,std::is_same,HDR);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("tonemapMethod",STRING,std::is_same,LDR)
 		{
-			error = true;
-			return;
+			static const core::unordered_map<std::string,LDR::TonemapMethod,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+			{
+				{"gamma",	LDR::GAMMA},
+				{"reinhard",LDR::REINHARD}
+			};
+			auto found = StringToType.find(_property.svalue);
+			if (found==StringToType.end())
+				return false;
+			_this->ldrfilm.tonemapMethod = found->second;
+			return true;
 		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(gamma,FLOAT,std::is_same,LDR);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(exposure,FLOAT,std::is_same,LDR);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(key,FLOAT,std::is_same,LDR);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(burn,FLOAT,std::is_same,LDR);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(attachLog,INTEGER,std::is_same,HDR);
 
-		size_t len = std::min(strlen(_property.svalue),MaxTonemapperArgsLen);
-		memcpy(denoiserTonemapperArgs,_property.svalue,len);
-		denoiserTonemapperArgs[len] = 0;
-	};
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("variable",STRING,std::is_same,M)
+		{
+			return setLimitedString("variable",_this->outputFilePath,std::move(_property),logger);
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("outputFilePath",STRING)
+		{
+			return setLimitedString("outputFilePath",_this->outputFilePath,std::move(_property),logger);
+		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("bloomFilePath",STRING)
+		{
+			return setLimitedString("bloomFilePath",_this->denoiserTonemapperArgs,std::move(_property),logger);
+		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("tonemapper",STRING)
+		{
+			return setLimitedString("tonemapper",_this->denoiserTonemapperArgs,std::move(_property),logger);
+		}
+	});
 
-	auto setCascadeCount			= SET_PROPERTY(cascadeCount,SNamedPropertyElement::Type::INTEGER);
-	auto setCascadeLuminanceBase	= SET_PROPERTY(cascadeLuminanceBase,SNamedPropertyElement::Type::FLOAT);
-	auto setCascadeLuminanceStart	= SET_PROPERTY(cascadeLuminanceStart,SNamedPropertyElement::Type::FLOAT);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cascadeCount,INTEGER);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cascadeLuminanceBase,FLOAT);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cascadeLuminanceStart,FLOAT);
 
-	auto setBloomScale				= SET_PROPERTY(denoiserBloomScale,SNamedPropertyElement::Type::FLOAT);
-	auto setBloomIntensity			= SET_PROPERTY(denoiserBloomIntensity,SNamedPropertyElement::Type::FLOAT);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(denoiserBloomScale,FLOAT);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(denoiserBloomIntensity,FLOAT);
 
-	auto setEnvmapRegularizationFactor = SET_PROPERTY(envmapRegularizationFactor,SNamedPropertyElement::Type::FLOAT);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(envmapRegularizationFactor,FLOAT);
 
-	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
-	{
-		{"width",					setWidth},
-		{"height",					setHeight},
-		{"cropOffsetX",				setCropOffsetX},
-		{"cropOffsetY",				setCropOffsetY},
-		{"cropWidth",				setCropWidth},
-		{"cropHeight",				setCropHeight},
-		{"fileFormat",				setFileFormat},
-		{"pixelFormat",				setPixelFormat},
-		{"componentFormat",			setComponentFormat},
-		{"banner",					setBanner},
-		{"highQualityEdges",		setHighQualityEdges},
-		{"attachLog",				setAttachLog},
-		{"tonemapMethod",			setTonemapMethod},
-		{"gamma",					setGamma},
-		{"exposure",				setExposure},
-		{"key",						setKey},
-		{"burn",					setBurn},
-		{"digits",					setDigits},
-		{"variable",				setVariable},
-		{"outputFilePath",			setOutputFilePath},
-		{"bloomFilePath",			setBloomFilePath},
-		{"cascadeCount",			setCascadeCount},
-		{"cascadeLuminanceBase",	setCascadeLuminanceBase},
-		{"cascadeLuminanceStart",	setCascadeLuminanceStart},
-		{"bloomScale",				setBloomScale},
-		{"bloomIntensity",			setBloomIntensity},
-		{"tonemapper",				setTonemapperArgs},
-		{"envmapRegularizationFactor", setEnvmapRegularizationFactor}
-	};
 
-	auto found = SetPropertyMap.find(_property.name);
-	if (found == SetPropertyMap.end())
-	{
-		
-		invalidXMLFileStructure(logger,"No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
-		return false;
-	}
-
-	found->second();
-	return !error;
-#endif
-	assert(false);
-	return false;
+	return retval;
 }
 
 bool CElementFilm::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)

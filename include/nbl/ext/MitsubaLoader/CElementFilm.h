@@ -22,16 +22,7 @@ class CElementFilm final : public IElement
 			LDR_FILM,
 			MFILM
 		};
-		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
-		{
-			return {
-				{"hdrfilm",		Type::HDR_FILM},
-				{"tiledhdrfilm",Type::TILED_HDR},
-				{"ldrfilm",		Type::LDR_FILM},
-				{"mfilm",		Type::MFILM}
-			};
-		}
-
+		//
 		enum PixelFormat : uint8_t
 		{
 			LUMINANCE,
@@ -62,10 +53,14 @@ class CElementFilm final : public IElement
 		};
 		struct HDR
 		{
+			constexpr static inline Type VariantType = Type::HDR_FILM;
+
 			bool attachLog = true;
 		};
 		struct LDR
 		{
+			constexpr static inline Type VariantType = Type::LDR_FILM;
+
 			enum TonemapMethod
 			{
 				GAMMA,
@@ -79,7 +74,9 @@ class CElementFilm final : public IElement
 		};
 		struct M
 		{
-			M() : digits(4)
+			constexpr static inline Type VariantType = Type::MFILM;
+
+			inline M() : digits(4)
 			{
 				variable[0] = 'd';
 				variable[1] = 'a';
@@ -91,6 +88,23 @@ class CElementFilm final : public IElement
 			constexpr static inline size_t MaxVarNameLen = 63; // matlab
 			char variable[MaxVarNameLen+1];
 		};
+
+		//
+		using variant_list_t = core::type_list<
+			HDR,
+			LDR,
+			M
+		>;
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"hdrfilm",		Type::HDR_FILM},
+				{"tiledhdrfilm",Type::TILED_HDR},
+				{"ldrfilm",		Type::LDR_FILM},
+				{"mfilm",		Type::MFILM}
+			};
+		}
+		static AddPropertyMap<CElementFilm> compAddPropertyMap();
 
 		inline CElementFilm(const char* id) : IElement(id), type(Type::HDR_FILM),
 			width(768), height(576), cropOffsetX(0), cropOffsetY(0), cropWidth(INT_MAX), cropHeight(INT_MAX),
@@ -124,6 +138,32 @@ class CElementFilm final : public IElement
 			}
 		}
 
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor)
+		{
+			switch (type)
+			{
+				case CElementFilm::Type::LDR_FILM:
+					visitor(ldrfilm);
+					break;
+				case CElementFilm::Type::MFILM:
+					visitor(mfilm);
+					break;
+				default:
+					visitor(hdrfilm);
+					break;
+			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementFilm*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
+		}
+
 		bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override;
 
 		constexpr static inline auto ElementType = IElement::Type::FILM;
@@ -147,7 +187,7 @@ class CElementFilm final : public IElement
 		Type			type;
 		int32_t			width,height;
 		int32_t			cropOffsetX,cropOffsetY,cropWidth,cropHeight;
-		FileFormat		fileFormat;
+		FileFormat		fileFormat = OPENEXR;
 		PixelFormat		pixelFormat;
 		ComponentFormat	componentFormat;
 		bool banner;
