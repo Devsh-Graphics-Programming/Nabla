@@ -15,9 +15,8 @@ namespace hlsl
 namespace sampling
 {
 
-class HierarchicalImage 
+struct HierarchicalImage 
 {
-  private:
 
     static float32_t3 calculateSampleAndPdf(float32_t4 dirsX, float32_t4 dirsY, float32_t2 unnormCoord, uint32_t2 lastWarpmapPixel, NBL_REF_ARG(float32_t) pdf)
     {
@@ -48,7 +47,6 @@ class HierarchicalImage
       return L;
     }
 
-  public:
     template <typename LuminanceAccessor NBL_FUNC_REQUIRES (hierarchical_image::LuminanceReadAccessor<LuminanceAccessor>)
       static float32_t2 binarySearch(NBL_CONST_REF_ARG(LuminanceAccessor) luminanceAccessor, const uint32_t2 lumaMapSize, const float32_t2 xi, const bool aspect2x1)
     {
