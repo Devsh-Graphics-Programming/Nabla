@@ -21,14 +21,20 @@ struct InstanceData
     hlsl::float32_t4 color;
 };
 
-struct SSinglePushConstants
+struct SSinglePC
 {
     InstanceData instance;
 };
 
-struct SPushConstants
+struct SInstancedPC
 {
     uint64_t pInstanceBuffer;
+};
+
+struct PushConstants
+{
+    SSinglePC spc;
+    SInstancedPC ipc;
 };
 
 #ifdef __HLSL_VERSION
