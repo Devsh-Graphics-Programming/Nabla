@@ -22,7 +22,7 @@ class CElementEmitter : public IElement
 			INVALID,
 			POINT,
 			AREA,
-			SPOT,
+			//SPOT, // deprecated, use POINT with an IES profile instead!
 			DIRECTIONAL,
 			COLLIMATED,
 			//SKY,
@@ -31,43 +31,67 @@ class CElementEmitter : public IElement
 			ENVMAP,
 			CONSTANT
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"point",		CElementEmitter::Type::POINT},
+				{"area",		CElementEmitter::Type::AREA},
+				{"directional",	CElementEmitter::Type::DIRECTIONAL},
+				{"collimated",	CElementEmitter::Type::COLLIMATED},/*
+				{"sky",			CElementEmitter::Type::SKY},
+				{"sun",			CElementEmitter::Type::SUN},
+				{"sunsky",		CElementEmitter::Type::SUNSKY},*/
+				{"envmap",		CElementEmitter::Type::ENVMAP},
+				{"constant",	CElementEmitter::Type::CONSTANT}
+			};
+		}
 
 
 	struct SampledEmitter
 	{
-		SampledEmitter() : samplingWeight(1.f) {}
+		inline SampledEmitter() : samplingWeight(1.f) {}
 
 		float samplingWeight;
 	};
-		struct Point : SampledEmitter
+	struct DeltaDistributionEmitter : SampledEmitter
+	{
+		// Watts
+		hlsl::float32_t3 intensity = {1.f,1.f,1.f};
+	};
+	struct SolidAngleEmitter : SampledEmitter
+	{
+		// Watts Steradian^-1
+		hlsl::float32_t3 radiance = {1.f,1.f,1.f};
+	};
+	struct EmissionProfileEmitter
+	{
+		CElementEmissionProfile* emissionProfile = nullptr;
+	};
+		struct Point : DeltaDistributionEmitter, EmissionProfileEmitter
 		{
-			core::vectorSIMDf intensity = core::vectorSIMDf(1.f); // Watts Steradian^-1
+			constexpr static inline Type VariantType = Type::POINT;
 		};
-		struct Area : SampledEmitter
+		struct Area : SolidAngleEmitter, EmissionProfileEmitter
 		{
-			core::vectorSIMDf radiance = core::vectorSIMDf(1.f); // Watts Meter^-2 Steradian^-1
-			CElementEmissionProfile* emissionProfile = nullptr;
-		};
-		struct Spot : SampledEmitter
-		{
-			core::vectorSIMDf intensity = core::vectorSIMDf(1.f); // Watts Steradian^-1
-			float cutoffAngle = 20.f; // degrees, its the cone half-angle
-			float beamWidth = NAN;
-			CElementTexture* texture = nullptr;
+			constexpr static inline Type VariantType = Type::AREA;
 		};
 		struct Directional : SampledEmitter
 		{
-			core::vectorSIMDf irradiance = core::vectorSIMDf(1.f); // Watts Meter^-2
+			constexpr static inline Type VariantType = Type::DIRECTIONAL;
+
+			hlsl::float32_t3 irradiance = {1.f,1.f,1.f}; // Watts Meter^-2
 		};
 		struct Collimated : SampledEmitter
 		{
-			core::vectorSIMDf power = core::vectorSIMDf(1.f); // Watts
+			constexpr static inline Type VariantType = Type::COLLIMATED;
+
+			hlsl::float32_t3 power = {1.f,1.f,1.f}; // Watts
 		};/*
 		struct Sky : SampledEmitter
 		{
 			float turbidity = 3.f;
-			core::vectorSIMDf albedo = core::vectorSIMDf(0.15f);
-			core::vectorSIMDf sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
+			hlsl::float32_t3 albedo = {0.15f,0.15f,0.15f};
+			hlsl::float32_t3 sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
 			float stretch = 1.f; // must be [1,2]
 			int32_t resolution = 512;
 			float scale = 1.f;
@@ -75,7 +99,7 @@ class CElementEmitter : public IElement
 		struct Sun : SampledEmitter
 		{
 			float turbidity = 3.f;
-			core::vectorSIMDf sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
+			hlsl::float32_t3 sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
 			int32_t resolution = 512;
 			float scale = 1.f;
 			float sunRadiusScale = 1.f;
@@ -87,16 +111,31 @@ class CElementEmitter : public IElement
 		};*/
 		struct EnvMap : SampledEmitter
 		{
-			SPropertyElementData filename; // TODO: make sure destructor runs
-			float scale = 1.f;
-			float gamma = NAN;
+			constexpr static inline Type VariantType = Type::ENVMAP;
+			constexpr static inline uint16_t MaxPathLen = 1024u;
+
+			char	filename[MaxPathLen];
+			float	scale = 1.f;
+			float	gamma = NAN;
 			//bool cache = false;
 		};
-		struct Constant : SampledEmitter
+		struct Constant : SolidAngleEmitter
 		{
-			core::vectorSIMDf radiance = core::vectorSIMDf(1.f); // Watts Meter^-2 Steradian^-1
+			constexpr static inline Type VariantType = Type::CONSTANT;
 		};
 
+		//
+		using variant_list_t = core::type_list<
+			Point,
+			Area,
+			Directional,
+			Collimated,
+//			Sky,
+//			Sun,
+//			SunSky,
+			EnvMap,
+			Constant
+		>;
 		//
 		static AddPropertyMap<CElementEmitter> compAddPropertyMap();
 
@@ -109,12 +148,54 @@ class CElementEmitter : public IElement
 		{
 			operator=(other);
 		}
-		inline CElementEmitter(CElementEmitter&& other) : IElement(""), transform()
-		{
-			operator=(std::move(other));
-		}
 		virtual ~CElementEmitter()
 		{
+		}
+
+		template<typename Visitor>
+		inline void visit(Visitor&& func)
+		{
+			switch (type)
+			{
+				case Type::POINT:
+					func(point);
+					break;
+				case Type::AREA:
+					func(area);
+					break;
+				case Type::DIRECTIONAL:
+					func(directional);
+					break;
+				case Type::COLLIMATED:
+					func(collimated);
+					break;/*
+				case Type::SKY:
+					func(sky);
+					break;
+				case Type::SUN:
+					func(sun);
+					break;
+				case Type::SUNSKY:
+					func(sunsky);
+					break;*/
+				case Type::ENVMAP:
+					func(envmap);
+					break;
+				case Type::CONSTANT:
+					func(constant);
+					break;
+				default:
+					break;
+			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementEmitter*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
 		}
 
 		inline CElementEmitter& operator=(const CElementEmitter& other)
@@ -122,84 +203,7 @@ class CElementEmitter : public IElement
 			IElement::operator=(other);
 			transform = other.transform;
 			type = other.type;
-			switch (type)
-			{
-				case Type::POINT:
-					point = other.point;
-					break;
-				case Type::AREA:
-					area = other.area;
-					break;
-				case Type::SPOT:
-					spot = other.spot;
-					break;
-				case Type::DIRECTIONAL:
-					directional = other.directional;
-					break;
-				case Type::COLLIMATED:
-					collimated = other.collimated;
-					break;/*
-				case Type::SKY:
-					sky = other.sky;
-					break;
-				case Type::SUN:
-					sun = other.sun;
-					break;
-				case Type::SUNSKY:
-					sunsky = other.sunsky;
-					break;*/
-				case Type::ENVMAP:
-					envmap = other.envmap;
-					break;
-				case Type::CONSTANT:
-					constant = other.constant;
-					break;
-				default:
-					break;
-			}
-			return *this;
-		}
-
-		inline CElementEmitter& operator=(CElementEmitter&& other)
-		{
-			IElement::operator=(std::move(other));
-			std::swap(transform,other.transform);
-			std::swap(type,other.type);
-			switch (type)
-			{
-				case Type::POINT:
-					std::swap(point,other.point);
-					break;
-				case Type::AREA:
-					std::swap(area,other.area);
-					break;
-				case Type::SPOT:
-					std::swap(spot,other.spot);
-					break;
-				case Type::DIRECTIONAL:
-					std::swap(directional,other.directional);
-					break;
-				case Type::COLLIMATED:
-					std::swap(collimated,other.collimated);
-					break;/*
-				case Type::SKY:
-					sky,other.sky;
-					break;
-				case Type::SUN:
-					sun,other.sun;
-					break;
-				case Type::SUNSKY:
-					sunsky,other.sunsky;
-					break;*/
-				case Type::ENVMAP:
-					std::swap(envmap,other.envmap);
-					break;
-				case Type::CONSTANT:
-					std::swap(constant,other.constant);
-					break;
-				default:
-					break;
-			}
+			IElement::copyVariant(this,&other);
 			return *this;
 		}
 
@@ -209,72 +213,7 @@ class CElementEmitter : public IElement
 		inline IElement::Type getType() const override { return ElementType; }
 		std::string getLogName() const override { return "emitter"; }
 
-		bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override
-		{
-			if (!_child)
-				return true;
-			switch (_child->getType())
-			{
-				case IElement::Type::TRANSFORM:
-					{
-						auto tform = static_cast<CElementTransform*>(_child);
-						if (name!="toWorld")
-							return false;
-						//toWorldType = IElement::Type::TRANSFORM;
-						switch (type)
-						{
-							case Type::POINT:
-								[[fallthrough]];
-							case Type::SPOT:
-								[[fallthrough]];
-							case Type::DIRECTIONAL:
-								[[fallthrough]];
-							case Type::COLLIMATED:
-								[[fallthrough]];
-							case Type::AREA:
-								[[fallthrough]];
-								/*
-							case Type::SKY:
-								[[fallthrough]];
-							case Type::SUN:
-								[[fallthrough]];
-							case Type::SUNSKY:
-								[[fallthrough]];*/
-							case Type::ENVMAP:
-								transform = *tform;
-								return true;
-							default:
-								break;
-						}
-						return false;
-					}
-					break;/*
-				case IElement::Type::ANIMATION:
-					auto anim = static_cast<CElementAnimation>(_child);
-					if (anim->name!="toWorld")
-						return false;
-					toWorlType = IElement::Type::ANIMATION;
-					animation = anim;
-					return true;
-					break;*/
-				case IElement::Type::EMISSION_PROFILE: {
-					if (type == Type::AREA) {
-						area.emissionProfile = static_cast<CElementEmissionProfile*>(_child);
-						return true;
-					}
-					return false;
-				}
-				case IElement::Type::TEXTURE:
-					if (type!=SPOT || name!="texture")
-						return false;
-					spot.texture = static_cast<CElementTexture*>(_child);
-					return true;
-					break;
-				default:
-					break;
-			}
-			return false;
-		}
+		bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override;
 
 		//
 		Type type;
@@ -290,7 +229,6 @@ class CElementEmitter : public IElement
 		{
 			Point		point;
 			Area		area;
-			Spot		spot;
 			Directional	directional;
 			Collimated	collimated;/*
 			Sky			sky;

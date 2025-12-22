@@ -105,8 +105,19 @@ class CElementTexture : public IElement
 			//WIREFRAME,
 			//CURVATURE
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"bitmap",			CElementTexture::Type::BITMAP},
+				{"scale",			CElementTexture::Type::SCALE}
+			};
+		}
+
 		struct Bitmap
 		{
+			constexpr static inline Type VariantType = Type::BITMAP;
+			constexpr static inline uint16_t MaxPathLen = 1024u;
+
 			enum WRAP_MODE
 			{
 				REPEAT,
@@ -133,18 +144,18 @@ class CElementTexture : public IElement
 				Z*/
 			};
 
-			SPropertyElementData filename; // TODO: make sure destructor runs
-			WRAP_MODE wrapModeU = REPEAT;
-			WRAP_MODE wrapModeV = REPEAT;
-			float gamma = NAN;
+			char		filename[MaxPathLen];
+			WRAP_MODE	wrapModeU = REPEAT;
+			WRAP_MODE	wrapModeV = REPEAT;
+			float		gamma = NAN;
 			FILTER_TYPE filterType = EWA;
-			float maxAnisotropy = 20.f;
+			float		maxAnisotropy = 20.f;
 			//bool cache = false;
-			float uoffset = 0.f;
-			float voffset = 0.f;
-			float uscale = 1.f;
-			float vscale = 1.f;
-			CHANNEL channel = INVALID;
+			float		uoffset = 0.f;
+			float		voffset = 0.f;
+			float		uscale = 1.f;
+			float		vscale = 1.f;
+			CHANNEL		channel = INVALID;
 		};
 	struct MetaTexture
 	{
@@ -152,9 +163,14 @@ class CElementTexture : public IElement
 	};
 		struct Scale : MetaTexture
 		{
-			float	scale;
+			constexpr static inline Type VariantType = Type::SCALE;
+
+			// only monochrome scaling for now!
+			float scale = 1.f;
 		};
 
+		//
+		using variant_list_t = core::type_list<Bitmap,Scale>;
 		//
 		static AddPropertyMap<CElementTexture> compAddPropertyMap();
 
@@ -166,76 +182,40 @@ class CElementTexture : public IElement
 		{
 			operator=(other);
 		}
-		inline CElementTexture(CElementTexture&& other) : CElementTexture("")
-		{
-			operator=(std::move(other));
-		}
 		inline virtual ~CElementTexture()
 		{
+		}
+
+		template<typename Visitor>
+		inline void visit(Visitor&& func)
+		{
+			switch (type)
+			{
+				case CElementTexture::Type::BITMAP:
+					func(bitmap);
+					break;
+				case CElementTexture::Type::SCALE:
+					func(scale);
+					break;
+				default:
+					break;
+			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementTexture*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
 		}
 		
 		inline CElementTexture& operator=(const CElementTexture& other)
 		{
 			IElement::operator=(other);
 			type = other.type;
-			switch (type)
-			{
-				case CElementTexture::Type::BITMAP:
-					bitmap = other.bitmap;
-					break;
-				//case CElementTexture::Type::CHECKERBOARD:
-					//checkerboard = CheckerBoard();
-					//break;
-				//case CElementTexture::Type::GRID:
-					//grid = Grid();
-					//break;
-				case CElementTexture::Type::SCALE:
-					scale = other.scale;
-					break;
-				//case CElementTexture::Type::VERTEXCOLOR:
-					//vertexcolor = VertexColor();
-					//break;
-				//case CElementTexture::Type::WIREFRAME:
-					//wireframe = Wireframe();
-					//break;
-				//case CElementTexture::Type::CURVATURE:
-					//curvature = Curvature();
-					//break;
-				default:
-					break;
-			}
-			return *this;
-		}
-		inline CElementTexture& operator=(CElementTexture&& other)
-		{
-			IElement::operator=(other);
-			type = other.type;
-			switch (type)
-			{
-				case CElementTexture::Type::BITMAP:
-					std::swap(bitmap,other.bitmap);
-					break;
-				//case CElementTexture::Type::CHECKERBOARD:
-					//checkerboard = CheckerBoard();
-					//break;
-				//case CElementTexture::Type::GRID:
-					//grid = Grid();
-					//break;
-				case CElementTexture::Type::SCALE:
-					std::swap(scale,other.scale);
-					break;
-				//case CElementTexture::Type::VERTEXCOLOR:
-					//vertexcolor = VertexColor();
-					//break;
-				//case CElementTexture::Type::WIREFRAME:
-					//wireframe = Wireframe();
-					//break;
-				//case CElementTexture::Type::CURVATURE:
-					//curvature = Curvature();
-					//break;
-				default:
-					break;
-			}
+			IElement::copyVariant(this,&other);
 			return *this;
 		}
 
