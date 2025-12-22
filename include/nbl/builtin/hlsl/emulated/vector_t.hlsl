@@ -587,53 +587,6 @@ NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(4)
 
 #undef NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST
 
-#define NBL_EMULATED_VEC_PROMOTION(N) template<typename ComponentType>\
-struct Promote<emulated_vector_t##N <ComponentType>, ComponentType>\
-{\
-    using VecType = emulated_vector_t##N <ComponentType>;\
-    NBL_CONSTEXPR_FUNC VecType operator()(NBL_CONST_REF_ARG(ComponentType) v)\
-    {\
-        array_set<VecType, ComponentType> setter;\
-        VecType promoted;\
-        [[unroll]]\
-        for (int i = 0; i < N; ++i)\
-            setter(promoted, i, v);\
-        return promoted;\
-    }\
-};
-
-NBL_EMULATED_VEC_PROMOTION(2)
-NBL_EMULATED_VEC_PROMOTION(3)
-NBL_EMULATED_VEC_PROMOTION(4)
-
-#undef NBL_EMULATED_VEC_PROMOTION
-
-#define NBL_EMULATED_VEC_TRUNCATION(N, M) template<typename ComponentType>\
-struct Truncate<emulated_vector_t##N <ComponentType>, emulated_vector_t##M <ComponentType> >\
-{\
-    using OutputVecType = emulated_vector_t##N <ComponentType>;\
-    using InputVecType = emulated_vector_t##M <ComponentType>;\
-    NBL_CONSTEXPR_FUNC OutputVecType operator()(NBL_CONST_REF_ARG(InputVecType) vec)\
-    {\
-        array_get<InputVecType, ComponentType> getter;\
-        array_set<OutputVecType, ComponentType> setter;\
-        OutputVecType output;\
-        [[unroll]]\
-        for (int i = 0; i < N; ++i)\
-            setter(output, i, getter(vec, i));\
-        return output;\
-    }\
-};
-
-NBL_EMULATED_VEC_TRUNCATION(2, 2)
-NBL_EMULATED_VEC_TRUNCATION(2, 3)
-NBL_EMULATED_VEC_TRUNCATION(2, 4)
-NBL_EMULATED_VEC_TRUNCATION(3, 3)
-NBL_EMULATED_VEC_TRUNCATION(3, 4)
-NBL_EMULATED_VEC_TRUNCATION(4, 4)
-
-#undef NBL_EMULATED_VEC_TRUNCATION
-
 } //namespace impl
 
 }

@@ -968,8 +968,19 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !imp
 	}
 };
 
-template<typename T, typename U> NBL_PARTIAL_REQ_TOP((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::BooleanScalar<U> && !impl::MixCallingBuiltins<T, U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Vectorial<T> || concepts::Scalar<T>) && concepts::BooleanScalar<U> && !impl::MixCallingBuiltins<T, U>) >
+namespace impl
+{
+template<typename T, typename U>
+NBL_BOOL_CONCEPT MixCallingSelect =
+#ifdef __HLSL_VERSION
+spirv::SelectIsCallable<T, U>;
+#else
+concepts::Boolean<U> && (concepts::Scalar<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)) && !MixCallingBuiltins<T, U>;
+#endif
+}
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(impl::MixCallingSelect<T, U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(impl::MixCallingSelect<T, U>) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
