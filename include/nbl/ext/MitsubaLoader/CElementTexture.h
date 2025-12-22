@@ -245,7 +245,7 @@ class CElementTexture : public IElement
 		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "texture"; }
 
-		bool processChildData(IElement* _child, const std::string& name) override;
+		bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override;
 
 		//
 		Type type;

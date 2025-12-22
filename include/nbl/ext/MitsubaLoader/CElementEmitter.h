@@ -209,7 +209,7 @@ class CElementEmitter : public IElement
 		inline IElement::Type getType() const override { return ElementType; }
 		std::string getLogName() const override { return "emitter"; }
 
-		bool processChildData(IElement* _child, const std::string& name) override
+		bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override
 		{
 			if (!_child)
 				return true;

@@ -18,7 +18,7 @@ namespace nbl::ext::MitsubaLoader
 class CElementShape final : public IElement
 {
 	public:
-		enum Type
+		enum Type : uint8_t
 		{
 			INVALID,
 			CUBE,
@@ -34,51 +34,88 @@ class CElementShape final : public IElement
 			//HAIR,
 			//HEIGHTFIELD
 		};
+		static inline core::unordered_map<core::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> compStringToTypeMap()
+		{
+			return {
+				{"cube",		CElementShape::Type::CUBE},
+				{"sphere",		CElementShape::Type::SPHERE},
+				{"cylinder",	CElementShape::Type::CYLINDER},
+				{"rectangle",	CElementShape::Type::RECTANGLE},
+				{"disk",		CElementShape::Type::DISK},
+				{"obj",			CElementShape::Type::OBJ},
+				{"ply",			CElementShape::Type::PLY},
+				{"serialized",	CElementShape::Type::SERIALIZED},
+				{"shapegroup",	CElementShape::Type::SHAPEGROUP},
+				{"instance",	CElementShape::Type::INSTANCE}/*,
+				{"hair",		CElementShape::Type::HAIR},
+				{"heightfield",	CElementShape::Type::HEIGHTFIELD}*/
+			};
+		}
+
 	struct Base
 	{
 		bool flipNormals = false;
 	};
+		struct Cube : Base
+		{
+			constexpr static inline Type VariantType = Type::CUBE;
+		};
 		struct Sphere : Base
 		{
-			core::vectorSIMDf center = core::vectorSIMDf(0,0,0);
+			constexpr static inline Type VariantType = Type::SPHERE;
+			
+			hlsl::float32_t3 center = {0,0,0};
 			float radius = 1.f;
 		};
 		struct Cylinder : Base
 		{
-			core::vectorSIMDf p0 = core::vectorSIMDf(0,0,0);
-			core::vectorSIMDf p1 = core::vectorSIMDf(0,0,1);
+			constexpr static inline Type VariantType = Type::CYLINDER;
+
+			hlsl::float32_t3 p0 = {0,0,0};
+			hlsl::float32_t3 p1 = {0,0,1};
 			float radius = 1.f;
 		};
 	struct LoadedFromFileBase : Base
 	{
-		SPropertyElementData	filename;
+		constexpr static inline uint16_t MaxPathLen = 1024u;
+
+		char	filename[MaxPathLen];
 		//! Use face normals (any per-vertex normals will be discarded)
-		bool					faceNormals = false;
-		float					maxSmoothAngle = NAN;
+		bool	faceNormals = false;
+		float	maxSmoothAngle = NAN;
 	};
 		struct Obj : LoadedFromFileBase
 		{
+			constexpr static inline Type VariantType = Type::OBJ;
+
 			bool	flipTexCoords = true;
 			bool	collapse = false;
 		};
 		struct Ply : LoadedFromFileBase
 		{
-			bool	flipNormals = false;
+			constexpr static inline Type VariantType = Type::PLY;
+
 			bool	srgb = true;
 		};
 		struct Serialized : LoadedFromFileBase
 		{
+			constexpr static inline Type VariantType = Type::SERIALIZED;
+
 			int32_t	shapeIndex;
-			bool	flipNormals;
 		};
+		// geometries basically
 		struct ShapeGroup
 		{
-			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 128u;
+			constexpr static inline Type VariantType = Type::SHAPEGROUP;
+			constexpr static inline size_t MaxChildCount = 128u;
+
 			size_t childCount = 0u;
 			CElementShape* children[MaxChildCount] = { nullptr };
 		};
 		struct Instance
 		{
+			constexpr static inline Type VariantType = Type::INSTANCE;
+
 			CElementShape* parent = nullptr;
 		};/*
 		struct Hair : Base
@@ -88,17 +125,27 @@ class CElementShape final : public IElement
 			float					angleThreshold = 1.f;
 			float					reduction = 0.f;
 		};
-		struct HeightField
+		struct HeightField : Base
 		{
 			SPropertyElementData filename;
 			boolean shadingNormals;
-			boolean flipNormals;
 			int32_t width;
 			int32_t height;
 			float	scale;
 			CElementTexture* texture;
 		};*/
 
+		//
+		using variant_list_t = core::type_list<
+			Sphere,
+			Cylinder,
+			Obj,
+			Ply,
+			Serialized,
+			ShapeGroup,
+			Instance
+		>;
+		//
 		static AddPropertyMap<CElementShape> compAddPropertyMap();
 
 		inline CElementShape(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), bsdf(nullptr), emitter(nullptr)
@@ -116,104 +163,69 @@ class CElementShape final : public IElement
 		{
 		}
 
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor)
+		{
+			switch (type)
+			{
+				case CElementShape::Type::CUBE:
+					visitor(cube);
+					break;
+				case CElementShape::Type::SPHERE:
+					visitor(sphere);
+					break;
+				case CElementShape::Type::CYLINDER:
+					visitor(cylinder);
+					break;
+				case CElementShape::Type::RECTANGLE:
+					visitor(rectangle);
+					break;
+				case CElementShape::Type::DISK:
+					visitor(disk);
+					break;
+				case CElementShape::Type::OBJ:
+					visitor(obj);
+					break;
+				case CElementShape::Type::PLY:
+					visitor(ply);
+					break;
+				case CElementShape::Type::SERIALIZED:
+					visitor(serialized);
+					break;
+				case CElementShape::Type::SHAPEGROUP:
+					visitor(shapegroup);
+					break;
+				case CElementShape::Type::INSTANCE:
+					visitor(instance);
+					break;/*
+				case CElementShape::Type::HAIR:
+					visitor(hair);
+					break;
+				case CElementShape::Type::HEIGHTFIELD:
+					visitor(heightfield);
+					break;*/
+				default:
+					break;
+			}
+		}
+		template<typename Visitor>
+		inline void visit(Visitor&& visitor) const
+		{
+			const_cast<CElementShape*>(this)->visit([&]<typename T>(T& var)->void
+				{
+					visitor(const_cast<const T&>(var));
+				}
+			);
+		}
+
 		inline CElementShape& operator=(const CElementShape& other)
 		{
 			IElement::operator=(other);
 			transform = other.transform;
 			type = other.type;
-			switch (type)
-			{
-				case Type::CUBE:
-					cube = other.cube;
-					break;
-				case Type::SPHERE:
-					sphere = other.sphere;
-					break;
-				case Type::CYLINDER:
-					cylinder = other.cylinder;
-					break;
-				case Type::RECTANGLE:
-					rectangle = other.rectangle;
-					break;
-				case Type::DISK:
-					disk = other.disk;
-					break;
-				case Type::OBJ:
-					obj = other.obj;
-					break;
-				case Type::PLY:
-					ply = other.ply;
-					break;
-				case Type::SERIALIZED:
-					serialized = other.serialized;
-					break;
-				case Type::SHAPEGROUP:
-					shapegroup = other.shapegroup;
-					break;
-				case Type::INSTANCE:
-					instance = other.instance;
-					break;/*
-				case Type::HAIR:
-					hair = other.hair;
-					break;
-				case Type::HEIGHTFIELD:
-					heightfield = other.heightfield;
-					break;*/
-				default:
-					break;
-			}
+			IElement::copyVariant(this,&other);
 			bsdf = other.bsdf;
 			emitter = other.emitter;
-			return *this;
-		}
-		inline CElementShape& operator=(CElementShape&& other)
-		{
-			IElement::operator=(std::move(other));
-			std::swap(transform,other.transform);
-			std::swap(type,other.type);
-			switch (type)
-			{
-				case Type::CUBE:
-					std::swap(cube,other.cube);
-					break;
-				case Type::SPHERE:
-					std::swap(sphere,other.sphere);
-					break;
-				case Type::CYLINDER:
-					std::swap(cylinder,other.cylinder);
-					break;
-				case Type::RECTANGLE:
-					std::swap(rectangle,other.rectangle);
-					break;
-				case Type::DISK:
-					std::swap(disk,other.disk);
-					break;
-				case Type::OBJ:
-					std::swap(obj,other.obj);
-					break;
-				case Type::PLY:
-					std::swap(ply,other.ply);
-					break;
-				case Type::SERIALIZED:
-					std::swap(serialized,other.serialized);
-					break;
-				case Type::SHAPEGROUP:
-					std::swap(shapegroup,other.shapegroup);
-					break;
-				case Type::INSTANCE:
-					std::swap(instance,other.instance);
-					break;/*
-				case Type::HAIR:
-					std::swap(hair,other.hair);
-					break;
-				case Type::HEIGHTFIELD:
-					std::swap(heightfield,other.heightfield);
-					break;*/
-				default:
-					break;
-			}
-			std::swap(bsdf,other.bsdf);
-			std::swap(emitter,other.emitter);
 			return *this;
 		}
 
@@ -247,7 +259,7 @@ class CElementShape final : public IElement
 		}
 
 
-		bool processChildData(IElement* _child, const std::string& name) override;
+		bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override;
 
 		//
 		Type type;
@@ -261,7 +273,7 @@ class CElementShape final : public IElement
 		};*/
 		union
 		{
-			Base			cube;
+			Cube			cube;
 			Sphere			sphere;
 			Cylinder		cylinder;
 			Base			rectangle;

@@ -207,7 +207,7 @@ class CElementSensor final : public IElement
 		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "sensor"; }
 
-		inline bool processChildData(IElement* _child, const std::string& name) override
+		inline bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override
 		{
 			if (!_child)
 				return true;
@@ -216,8 +216,11 @@ class CElementSensor final : public IElement
 				case IElement::Type::TRANSFORM:
 					{
 						auto tform = static_cast<CElementTransform*>(_child);
-						if (name!="toWorld")
+						if (name != "toWorld")
+						{
+							logger.log("The <transform> nested inside <sensor> needs to be named \"toWorld\"",system::ILogger::ELL_ERROR);
 							return false;
+						}
 						//toWorldType = IElement::Type::TRANSFORM;
 						transform = *tform;
 						return true;
@@ -241,7 +244,10 @@ class CElementSensor final : public IElement
 					if (sampler.type!=CElementSampler::Type::INVALID)
 						return true;
 					break;
+				default:
+					break;
 			}
+			logger.log("Only valid nested children inside <sensor> are: VALID <transform>, <film>, and <sampler>. The <animation> is not supported yet.",system::ILogger::ELL_ERROR);
 			return false;
 		}
 

@@ -55,8 +55,6 @@ class IElement
 			TRANSFORM,
 			ANIMATION
 		};
-	public:
-		std::string id;
 
 		IElement(const char* _id) : id(_id ? _id:"") {}
 		virtual ~IElement() = default;
@@ -66,7 +64,7 @@ class IElement
 
 		virtual bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) = 0;
 		//! default implementation for elements that doesnt have any children
-		virtual bool processChildData(IElement* _child, const std::string& name)
+		virtual bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger)
 		{
 			return !_child;
 		}
@@ -198,6 +196,23 @@ class IElement
 
 				std::array<PropertyNameCallbackMap<Derived>,SNamedPropertyElement::Type::INVALID> byPropertyType = {};
 		};
+
+		// members
+		std::string id;
+
+	protected:
+		static inline void setLimitedString(const std::string_view memberName, std::span<char> out, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)
+		{
+			auto len = strlen(_property.svalue);
+			if (len>=out.size())
+				logger.log(
+					"String property assigned to %s is too long, max allowed length %d, is %d, property value: \"%s\"",
+					system::ILogger::ELL_ERROR,memberName.data(),out.size(),len,_property.svalue
+				);
+			len = std::min(out.size()-1,len);
+			memcpy(out.data(),_property.svalue,len);
+			out[len] = 0;
+		}
 };
 
 namespace impl

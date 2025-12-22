@@ -366,7 +366,7 @@ class CElementIntegrator final : public IElement
 		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "integrator"; }
 
-		inline bool processChildData(IElement* _child, const std::string& name) override
+		inline bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override
 		{
 			if (!_child)
 				return true;
@@ -377,10 +377,11 @@ class CElementIntegrator final : public IElement
 					[[fallthrough]];
 				case Type::MULTI_CHANNEL:
 					if (_child->getType() != IElement::Type::INTEGRATOR)
-						return false;
-					break;
+						break;
+					[[fallthrough]];
 				default:
-					break;
+					logger.log("Only IrradianceCache or MultiChannel <integrator> can only have another <integrator> nested inside", system::ILogger::ELL_ERROR);
+					return false;
 			}
 			switch (type)
 			{
@@ -396,7 +397,8 @@ class CElementIntegrator final : public IElement
 						return true;
 					}
 					break;
-				default:
+				default: // to make compiler shut up
+					assert(false);
 					break;
 			}
 			return false;

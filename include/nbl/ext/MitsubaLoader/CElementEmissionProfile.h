@@ -44,7 +44,7 @@ struct CElementEmissionProfile final : public IElement
 
 
 	inline bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override {return true;}
-	bool processChildData(IElement* _child, const std::string& name) override;
+	bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override;
 
 	constexpr static inline auto ElementType = IElement::Type::EMISSION_PROFILE;
 	inline IElement::Type getType() const override { return ElementType; }

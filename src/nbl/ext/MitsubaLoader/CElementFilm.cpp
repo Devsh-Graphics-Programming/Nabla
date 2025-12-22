@@ -11,21 +11,6 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-
-inline bool setLimitedString(const std::string_view memberName, std::span<char> out, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)
-{
-	auto len = strlen(_property.svalue);
-	if (len>=out.size())
-		logger.log(
-			"String property assigned to %s is too long, max allowed length %d, is %d, property value: \"%s\"",
-			system::ILogger::ELL_ERROR,memberName.data(),out.size(),len,_property.svalue
-		);
-	len = std::min(out.size()-1,len);
-	memcpy(out.data(),_property.svalue,len);
-	out[len] = 0;
-	return true;
-}
-
 auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
 {
 	using this_t = CElementFilm;
@@ -118,22 +103,22 @@ auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
 
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("variable",STRING,std::is_same,M)
 		{
-			return setLimitedString("variable",_this->outputFilePath,std::move(_property),logger);
+			setLimitedString("variable",_this->outputFilePath,std::move(_property),logger); return true;
 		}
 	);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("outputFilePath",STRING)
 		{
-			return setLimitedString("outputFilePath",_this->outputFilePath,std::move(_property),logger);
+			setLimitedString("outputFilePath",_this->outputFilePath,std::move(_property),logger); return true;
 		}
 	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("bloomFilePath",STRING)
 		{
-			return setLimitedString("bloomFilePath",_this->denoiserTonemapperArgs,std::move(_property),logger);
+			setLimitedString("bloomFilePath",_this->denoiserTonemapperArgs,std::move(_property),logger); return true;
 		}
 	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("tonemapper",STRING)
 		{
-			return setLimitedString("tonemapper",_this->denoiserTonemapperArgs,std::move(_property),logger);
+			setLimitedString("tonemapper",_this->denoiserTonemapperArgs,std::move(_property),logger); return true;
 		}
 	});
 

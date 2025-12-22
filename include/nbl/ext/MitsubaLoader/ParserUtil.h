@@ -86,7 +86,7 @@ class ParserManager final
 			CElementFilm,
 			CElementRFilter,
 			CElementSampler,
-///			CElementShape,
+			CElementShape,
 			CElementTransform,
 ///			CElementBSDF,
 ///			CElementTexture,

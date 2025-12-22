@@ -40,7 +40,7 @@ auto CElementEmissionProfile::compAddPropertyMap() -> AddPropertyMap<CElementEmi
 	return retval;
 }
 
-bool CElementEmissionProfile::processChildData(IElement* _child, const std::string& name)
+bool CElementEmissionProfile::processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger)
 {
 	if (!_child)
 		return true;

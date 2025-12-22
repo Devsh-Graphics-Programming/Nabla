@@ -9,7 +9,7 @@
 #include "nbl/ext/MitsubaLoader/CElementFilm.h"
 #include "nbl/ext/MitsubaLoader/CElementRFilter.h"
 #include "nbl/ext/MitsubaLoader/CElementSampler.h"
-//#include "nbl/ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/CElementTransform.h"
 //#include "nbl/ext/MitsubaLoader/CElementAnimation.h"
 //#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
@@ -308,7 +308,7 @@ void ParserManager::XMLContext::onEnd(const char* _el)
 	if (!elements.empty())
 	{
 		IElement* parent = elements.top().element;
-		if (parent && !parent->processChildData(element.element,element.name))
+		if (parent && !parent->processChildData(element.element,element.name,session->params->logger))
 		{
 			if (element.element)
 				killParseWithError(element.element->getLogName()+" could not processChildData with name: "+element.name);
@@ -417,7 +417,7 @@ ParserManager::ParserManager() : propertyElements({
 	{"film",			{.create=ParserManager::CreateElement<CElementFilm>::__call,.retvalGoesOnStack=true}},
 	{"rfilter",			{.create=ParserManager::CreateElement<CElementRFilter>::__call,.retvalGoesOnStack=true}},
 	{"sampler",			{.create=ParserManager::CreateElement<CElementSampler>::__call,.retvalGoesOnStack=true}},
-//	{"shape",			{.create=ParserManager::CreateElement<CElementShape>::__call,.retvalGoesOnStack=true}},
+	{"shape",			{.create=ParserManager::CreateElement<CElementShape>::__call,.retvalGoesOnStack=true}},
 	{"transform",		{.create=ParserManager::CreateElement<CElementTransform>::__call,.retvalGoesOnStack=true}},
 //	{"animation",		{.create=ParserManager::CreateElement<CElementAnimation>::__call,.retvalGoesOnStack=true}},
 //	{"bsdf",			{.create=ParserManager::CreateElement<CElementBSDF>::__call,.retvalGoesOnStack=true}},
@@ -432,6 +432,7 @@ ParserManager::ParserManager() : propertyElements({
 	CElementFilm::compAddPropertyMap(),
 	CElementRFilter::compAddPropertyMap(),
 	CElementSampler::compAddPropertyMap(),
+	CElementShape::compAddPropertyMap(),
 	CElementTransform::compAddPropertyMap(),
 	CElementEmissionProfile::compAddPropertyMap()
 }) { }

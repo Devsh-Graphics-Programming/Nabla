@@ -177,15 +177,21 @@ class CElementFilm final : public IElement
 		inline IElement::Type getType() const override { return ElementType; }
 		inline std::string getLogName() const override { return "film"; }
 
-		inline bool processChildData(IElement* _child, const std::string& name) override
+		inline bool processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger) override
 		{
 			if (!_child)
 				return true;
 			if (_child->getType() != IElement::Type::RFILTER)
+			{
+				logger.log("CElementFilm only expects type %d children, is %d instead",system::ILogger::ELL_ERROR,IElement::Type::RFILTER,_child->getType());
 				return false;
+			}
 			auto _rfilter = static_cast<CElementRFilter*>(_child);
 			if (_rfilter->type == CElementRFilter::Type::INVALID)
+			{
+				logger.log("CElementRFilter::Type::INVALID used as child in CElementFilm",system::ILogger::ELL_ERROR);
 				return false;
+			}
 			rfilter = *_rfilter;
 			return true;
 		}
