@@ -5,7 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_HIERARCHICAL_IMAGE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_HIERARCHICAL_IMAGE_INCLUDED_
 
-#include <nbl/builtin/hlsl/concepts/warp.hlsl>
+#include <nbl/builtin/hlsl/sampling/warp.hlsl>
 #include <nbl/builtin/hlsl/concepts/accessors/hierarchical_image.hlsl>
 
 namespace nbl
