@@ -202,19 +202,20 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 					invalidXMLFileStructure(logger,"Invalid element, name:\'"+result.name+"\' Axis can't be (0,0,0)");
 					return {};
 				}
+				// TODO: quaternion after the rework
 				using namespace nbl::hlsl::math;//::linalg;
 				result.mvalue = linalg::promote_affine<4,4>(linalg::rotation_mat<float>(hlsl::radians(atof(desiredAttributes[0])),axis));
 			}
 			break;
 		case SPropertyElementData::Type::SCALE:
 			result.mvalue = hlsl::float32_t4x4(1.f);
-			if (desiredAttributes[0])
+			if (desiredAttributes[0]) // you either get this one attribute
 			{
 				const float uniformScale = atof(desiredAttributes[0]);
 				for (auto i=0u; i<3u; i++)
 					result.mvalue[i][i] = uniformScale;
 			}
-			else
+			else // or x,y,z
 			{
 				for (auto i=0u; i<3u; i++)
 				if (desiredAttributes[i+1u])
@@ -255,9 +256,16 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 					}
 					up[index] = 1.f;
 				}
+				// TODO: after the rm-core matrix PR we need to get rid of the tranpose (I transpose only because of GLM and HLSL mixup)
+				const auto lookAtGLM = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtLH<float>(origin,target,up));
+				const auto lookAt = hlsl::transpose(lookAtGLM);
 				// mitsuba understands look-at and right-handed camera little bit differently than I do
-				const auto actualLookAt = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtLH<float>(origin,target,up));
-				result.mvalue = hlsl::inverse<hlsl::float32_t4x4>(actualLookAt);
+				const auto rotation = hlsl::inverse<hlsl::float32_t3x3>(hlsl::float32_t3x3(lookAt));
+				// set the origin to avoid numerical issues
+				for (auto r=0; r<3; r++)
+				{
+					result.mvalue[r][3] = origin[r];
+				}
 			}
 			break;
 		default:
@@ -291,8 +299,8 @@ hlsl::float32_t4x4 CPropertyElementManager::retrieveMatrix(const std::string_vie
 	std::stringstream ss;
 	ss << str;
 
-	for (auto r=0u; r<16u; r++)
-	for (auto c=0u; c<16u; c++)
+	for (auto r=0u; r<4u; r++)
+	for (auto c=0u; c<4u; c++)
 	{
 		float f = std::numeric_limits<float>::quiet_NaN();
 		ss >> f;
