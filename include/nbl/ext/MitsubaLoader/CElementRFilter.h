@@ -89,16 +89,16 @@ class CElementRFilter final : public IElement
 				case Type::TENT:
 					break;
 				case Type::GAUSSIAN:
-					visit(gaussian);
+					visitor(gaussian);
 					break;
 				case Type::MITCHELL:
-					visit(mitchell);
+					visitor(mitchell);
 					break;
 				case Type::CATMULLROM:
-					visit(catmullrom);
+					visitor(catmullrom);
 					break;
 				case Type::LANCZOS:
-					visit(lanczos);
+					visitor(lanczos);
 					break;
 				default:
 					break;

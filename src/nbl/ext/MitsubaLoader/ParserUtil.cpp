@@ -231,7 +231,7 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 				const auto& callback = nameIt->second;
 				auto* typedElement = static_cast<element_t*>(element);
 				if constexpr (!std::is_same_v<typename element_t::Type,IElement::Type>)
-				if (std::find(callback.allowedVariantTypes.begin(),callback.allowedVariantTypes.end(),typedElement->type)==callback.allowedVariantTypes.end())
+				if (!callback.allowedVariantTypes.empty() && std::find(callback.allowedVariantTypes.begin(),callback.allowedVariantTypes.end(),typedElement->type)==callback.allowedVariantTypes.end())
 				{
 					session->invalidXMLFileStructure("There's no Property named \""+property.name+"\" of Type(TODO) not supported on ElementType(TODO) of Variant(TODO)");
 					return;
