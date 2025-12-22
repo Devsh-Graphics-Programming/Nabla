@@ -15,7 +15,7 @@ auto CElementTransform::compAddPropertyMap() -> AddPropertyMap<CElementTransform
 
 	auto setMatrix = [](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
 	{
-		_this->matrix = _property.mvalue;
+		_this->matrix = mul(_property.mvalue,_this->matrix);
 		return true;
 	};
 	for (const auto& type : {

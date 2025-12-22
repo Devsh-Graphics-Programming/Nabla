@@ -225,7 +225,7 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 					nameIt = typeMap.find("");
 				if (nameIt==typeMap.end())
 				{
-					session->invalidXMLFileStructure("There's no Property named (TODO) of Type (TODO) supported by ElementType (TODO)");
+					session->invalidXMLFileStructure("There's no Property named \""+property.name+"\" of Type (TODO) supported by ElementType (TODO)");
 					return;
 				}
 				const auto& callback = nameIt->second;
@@ -233,7 +233,7 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 				if constexpr (!std::is_same_v<typename element_t::Type,IElement::Type>)
 				if (std::find(callback.allowedVariantTypes.begin(),callback.allowedVariantTypes.end(),typedElement->type)==callback.allowedVariantTypes.end())
 				{
-					session->invalidXMLFileStructure("There's no Property named (TODO) of Type (TODO) not supported on ElementType (TODO) of Variant (TODO)");
+					session->invalidXMLFileStructure("There's no Property named \""+property.name+"\" of Type(TODO) not supported on ElementType(TODO) of Variant(TODO)");
 					return;
 				}
 				callback(typedElement,std::move(property),session->params->logger);
@@ -246,7 +246,8 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 		);
 		if (unsupportedElement)
 		{
-			session->invalidXMLFileStructure("Current Element Type doesn't have a AddPropertyMap at all (no property adding supported)!");
+			const core::string typeName; // TODO = system::to_string(element->getType());
+			session->invalidXMLFileStructure("Current Element Type "+typeName+" doesn't have a AddPropertyMap at all (no property adding supported)!");
 			return;
 		}
 		return;
@@ -431,6 +432,7 @@ ParserManager::ParserManager() : propertyElements({
 	CElementFilm::compAddPropertyMap(),
 	CElementRFilter::compAddPropertyMap(),
 	CElementSampler::compAddPropertyMap(),
+	CElementTransform::compAddPropertyMap(),
 	CElementEmissionProfile::compAddPropertyMap()
 }) { }
 

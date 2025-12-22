@@ -16,7 +16,7 @@ class CElementTransform final : public IElement
 	public:
 		static AddPropertyMap<CElementTransform> compAddPropertyMap();
 
-		inline CElementTransform() : IElement(""), matrix() {}
+		inline CElementTransform() : IElement(""), matrix(1.f) {}
 		inline  ~CElementTransform() {}
 
 		inline bool onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger) override {return true;}
@@ -33,7 +33,7 @@ class CElementTransform final : public IElement
 		}
 		*/
 
-		hlsl::float32_t4x4 matrix;
+		hlsl::float32_t4x4 matrix; // TODO: HLSL diagonal(1.f)
 };
 
 }
