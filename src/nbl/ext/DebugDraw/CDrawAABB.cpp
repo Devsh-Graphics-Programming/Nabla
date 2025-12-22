@@ -226,7 +226,6 @@ bool DrawAABB::createStreamingBuffer(SCreationParameters& params)
 	const auto validation = std::to_array
 	({
 		std::make_pair(buffer->getCreationParams().usage.hasFlags(SCachedCreationParameters::RequiredUsageFlags), "Streaming buffer must be created with IBuffer::EUF_STORAGE_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
-		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & params.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "Streaming buffer must have up-streaming memory type bits enabled!"),
 		std::make_pair(binding.memory->getAllocateFlags().hasFlags(SCachedCreationParameters::RequiredAllocateFlags), "Streaming buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 		std::make_pair(binding.memory->isCurrentlyMapped(), "Streaming buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 		std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "Streaming buffer's memory current mapping access flags don't meet requirements!")
@@ -384,19 +383,6 @@ bool DrawAABB::renderSingle(const DrawParameters& params, const hlsl::shapes::AA
 	commandBuffer->drawIndexed(IndicesCount, 1, 0, 0, 0);
 
 	return true;
-}
-
-hlsl::float32_t3x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
-{
-	const auto diagonal = aabb.getExtent();
-	hlsl::float32_t3x4 transform;
-	transform[0][3] = aabb.minVx.x;
-	transform[1][3] = aabb.minVx.y;
-	transform[2][3] = aabb.minVx.z;
-	transform[0][0] = diagonal.x;
-	transform[1][1] = diagonal.y;
-	transform[2][2] = diagonal.z;
-	return transform;
 }
 
 }

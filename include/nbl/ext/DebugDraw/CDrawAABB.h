@@ -45,8 +45,8 @@ namespace nbl::ext::debug_draw
             video::IQueue* transfer = nullptr;  // only used to make the 24 element index buffer and instanced pipeline on create
             core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;
 
-            core::smart_refctd_ptr<video::IGPUPipelineLayout> singlePipelineLayout;
-            core::smart_refctd_ptr<video::IGPUPipelineLayout> batchPipelineLayout;
+            core::smart_refctd_ptr<video::IGPUPipelineLayout> singlePipelineLayout = nullptr;
+            core::smart_refctd_ptr<video::IGPUPipelineLayout> batchPipelineLayout = nullptr;
             core::smart_refctd_ptr<video::IGPURenderpass> renderpass = nullptr;
 
             inline bool validate() const
@@ -77,7 +77,7 @@ namespace nbl::ext::debug_draw
         struct DrawParameters
         {
             video::IGPUCommandBuffer* commandBuffer = nullptr;
-            hlsl::float32_t4x4 cameraMat = hlsl::float32_t4x4(1);
+            hlsl::float32_t4x4 cameraMat;
             float lineWidth = 1.f;
         };
 
@@ -102,20 +102,23 @@ namespace nbl::ext::debug_draw
         // user has to set span of filled-in InstanceData; camera matrix used in push constant
         inline bool render(const DrawParameters& params, video::ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances)
         {
+            system::logger_opt_ptr logger = m_cachedCreationParams.utilities->getLogger();
             if (!(m_cachedCreationParams.drawMode & ADM_DRAW_BATCH))
             {
-                m_cachedCreationParams.utilities->getLogger()->log("DrawAABB has not been enabled for draw batches!", system::ILogger::ELL_ERROR);
+                logger.log("DrawAABB has not been enabled for draw batches!", system::ILogger::ELL_ERROR);
                 return false;
             }
 
             using offset_t = SCachedCreationParameters::streaming_buffer_t::size_type;
-            constexpr auto MdiSizes = std::to_array<offset_t>({ sizeof(hlsl::float32_t3), sizeof(InstanceData) });
-            // shared nPoT alignment needs to be divisible by all smaller ones to satisfy an allocation from all
-            constexpr offset_t MaxAlignment = std::reduce(MdiSizes.begin(), MdiSizes.end(), 1, [](const offset_t a, const offset_t b)->offset_t {return std::lcm(a, b); });
+            constexpr offset_t MaxAlignment = sizeof(InstanceData);
             // allocator initialization needs us to round up to PoT
             const auto MaxPOTAlignment = hlsl::roundUpToPoT(MaxAlignment);
-
             auto* streaming = m_cachedCreationParams.streamingBuffer.get();
+            if (streaming->getAddressAllocator().max_alignment() < MaxPOTAlignment)
+            {
+                logger.log("Draw AABB Streaming Buffer cannot guarantee the alignments we require!");
+                return false;
+            }
 
             auto* const streamingPtr = reinterpret_cast<uint8_t*>(streaming->getBufferPointer());
             assert(streamingPtr);
@@ -126,37 +129,68 @@ namespace nbl::ext::debug_draw
             asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
             commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
+            auto srcIt = aabbInstances.begin();
             auto setInstancesRange = [&](InstanceData* data, uint32_t count) -> void {
                 for (uint32_t i = 0; i < count; i++)
                 {
                     auto inst = data + i;
-                    *inst = aabbInstances[i];
+                    *inst = *srcIt;
                     inst->transform = hlsl::mul(params.cameraMat, inst->transform);
+                    srcIt++;
+
+                    if (srcIt == aabbInstances.end())
+                        break;
                 }
-                };
+            };
 
             const uint32_t numInstances = aabbInstances.size();
-            const uint32_t instancesPerIter = streaming->getBuffer()->getSize() / sizeof(InstanceData);
+            const uint32_t instancesPerIter = streaming->max_size() / sizeof(InstanceData);
             if (numInstances > instancesPerIter)
                 return false;
             using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
-            uint32_t beginOffset = 0;
-            while (beginOffset < numInstances)
+            uint32_t blockOffset = 0u;
+            while (srcIt != aabbInstances.end())
             {
-                const uint32_t instanceCount = hlsl::min<uint32_t>(instancesPerIter, numInstances);
-                offset_t inputOffset = 0u;
+                uint32_t instanceCount = hlsl::min<uint32_t>(instancesPerIter, numInstances);
+                offset_t inputOffset = blockOffset;
                 offset_t ImaginarySizeUpperBound = 0x1 << 30;
-                suballocator_t imaginaryChunk(nullptr, inputOffset, 0, hlsl::roundUpToPoT(MaxAlignment), ImaginarySizeUpperBound);
+                suballocator_t imaginaryChunk(nullptr, inputOffset, 0, MaxPOTAlignment, ImaginarySizeUpperBound);
                 uint32_t instancesByteOffset = imaginaryChunk.alloc_addr(sizeof(InstanceData) * instanceCount, sizeof(InstanceData));
                 const uint32_t totalSize = imaginaryChunk.get_allocated_size();
+                
+                uint32_t blockSize;
+                bool allocated = false;
+                for (uint32_t t = 0; t < 2; t++)
+                {
+                    blockSize = hlsl::max(streaming->max_size(), totalSize);
+                    while (blockSize >= totalSize)
+                    {
+                        inputOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
+                        std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
+                        if (streaming->multi_allocate(waitTill, 1, &inputOffset, &blockSize, &MaxAlignment) == 0u)
+                        {
+                            allocated = true;
+                            break;
+                        }
 
-                inputOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
-                std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
-                streaming->multi_allocate(waitTill, 1, &inputOffset, &totalSize, &MaxAlignment);
+                        streaming->cull_frees();
+                        blockSize >>= 1;
+                    }
 
+                    if (allocated)
+                        break;
+                }
+
+                if (!allocated)
+                {
+                    logger.log("Failed to allocate even the smallest chunk from streaming buffer for the next drawcall batch.", system::ILogger::ELL_ERROR);
+                    return false;
+                }
+
+                instanceCount = blockSize / sizeof(InstanceData);
+                blockOffset += blockSize;
                 auto* const streamingInstancesPtr = reinterpret_cast<InstanceData*>(streamingPtr + instancesByteOffset);
                 setInstancesRange(streamingInstancesPtr, instanceCount);
-                beginOffset += instanceCount;
 
                 assert(!streaming->needsManualFlushOrInvalidate());
 
@@ -166,13 +200,24 @@ namespace nbl::ext::debug_draw
                 commandBuffer->pushConstants(m_batchPipeline->getLayout(), asset::IShader::E_SHADER_STAGE::ESS_VERTEX, 0, sizeof(SPushConstants), &pc);
                 commandBuffer->drawIndexed(IndicesCount, instanceCount, 0, 0, 0);
 
-                streaming->multi_deallocate(1, &inputOffset, &totalSize, waitInfo);
+                streaming->multi_deallocate(1, &inputOffset, &blockSize, waitInfo);
             }
 
             return true;
         }
 
-        static hlsl::float32_t3x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
+        static inline hlsl::float32_t3x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
+        {
+            const auto diagonal = aabb.getExtent();
+            hlsl::float32_t3x4 transform;
+            transform[0][3] = aabb.minVx.x;
+            transform[1][3] = aabb.minVx.y;
+            transform[2][3] = aabb.minVx.z;
+            transform[0][0] = diagonal.x;
+            transform[1][1] = diagonal.y;
+            transform[2][2] = diagonal.z;
+            return transform;
+        }
 
     protected:
         struct ConstructorParams
