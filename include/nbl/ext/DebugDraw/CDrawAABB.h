@@ -194,10 +194,10 @@ namespace nbl::ext::debug_draw
 
                 assert(!streaming->needsManualFlushOrInvalidate());
 
-                SPushConstants pc;
+                SInstancedPC pc;
                 pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
 
-                commandBuffer->pushConstants(m_batchPipeline->getLayout(), asset::IShader::E_SHADER_STAGE::ESS_VERTEX, 0, sizeof(SPushConstants), &pc);
+                commandBuffer->pushConstants(m_batchPipeline->getLayout(), asset::IShader::E_SHADER_STAGE::ESS_VERTEX, offsetof(ext::debug_draw::PushConstants, ipc), sizeof(SInstancedPC), &pc);
                 commandBuffer->drawIndexed(IndicesCount, instanceCount, 0, 0, 0);
 
                 streaming->multi_deallocate(1, &inputOffset, &blockSize, waitInfo);
@@ -237,7 +237,7 @@ namespace nbl::ext::debug_draw
 	    ~DrawAABB() override {}
 
     private:
-        static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath);
+        static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, const DrawMode mode);
         static bool createStreamingBuffer(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);
 

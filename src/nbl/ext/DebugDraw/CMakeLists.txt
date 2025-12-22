@@ -19,25 +19,58 @@ nbl_create_ext_library_project(
     ""
 )
 
-# this should be standard for all extensions
-set(_ARCHIVE_ENTRY_KEY_ "nbl/ext/DebugDraw/builtin/hlsl") # then each one has unique archive key
 get_filename_component(_ARCHIVE_ABSOLUTE_ENTRY_PATH_ "${NBL_EXT_INTERNAL_INCLUDE_DIR}" ABSOLUTE)
-get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
-get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
 
-target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ABSOLUTE_ENTRY_PATH_="${_ARCHIVE_ABSOLUTE_ENTRY_PATH_}")
-target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ENTRY_KEY_="${_ARCHIVE_ENTRY_KEY_}")
+set(NBL_DEBUG_DRAW_HLSL_MOUNT_POINT "${_ARCHIVE_ABSOLUTE_ENTRY_PATH_}/nbl/ext/DebugDraw/builtin/hlsl")
+set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/auto-gen")
+set(DEPENDS
+    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/common.hlsl
+    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/single.vertex.hlsl
+    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/aabb_instances.vertex.hlsl
+    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/aabb_instances.fragment.hlsl
+)
+target_sources(${LIB_NAME} PRIVATE ${DEPENDS})
+set_source_files_properties(${DEPENDS} PROPERTIES HEADER_FILE_ONLY ON)
 
-if(NBL_EMBED_BUILTIN_RESOURCES)
-    set(_BR_TARGET_ extDebugDrawbuiltinResourceData)
+target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ABSOLUTE_SPV_PATH_="${OUTPUT_DIRECTORY}")
 
-    LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")
-    LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "single.vertex.hlsl") # (*)
-    LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "aabb_instances.vertex.hlsl") # (*)
-    LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "aabb_instances.fragment.hlsl") # (*)
+set(SM 6_8)
+set(JSON [=[
+[
+    {
+        "INPUT": "${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/draw_aabb.unified.hlsl",
+        "KEY": "draw_aabb",
+    }
+    
+]
+]=])
+string(CONFIGURE "${JSON}" JSON)
 
-    ADD_CUSTOM_BUILTIN_RESOURCES(${_BR_TARGET_} RESOURCES_TO_EMBED "${_ARCHIVE_ABSOLUTE_ENTRY_PATH_}" "${_ARCHIVE_ENTRY_KEY_}" "nbl::ext::debug_draw::builtin" "${_OUTPUT_DIRECTORY_HEADER_}" "${_OUTPUT_DIRECTORY_SOURCE_}")
-    LINK_BUILTIN_RESOURCES_TO_TARGET(${LIB_NAME} ${_BR_TARGET_})
-endif()
+set(COMPILE_OPTIONS
+    -I "${CMAKE_CURRENT_SOURCE_DIR}"
+    -T lib_${SM}
+)
+
+NBL_CREATE_NSC_COMPILE_RULES(
+    TARGET ${LIB_NAME}SPIRV
+    LINK_TO ${LIB_NAME}
+    DEPENDS ${DEPENDS}
+    BINARY_DIR ${OUTPUT_DIRECTORY}
+    MOUNT_POINT_DEFINE NBL_DEBUG_DRAW_HLSL_MOUNT_POINT
+    COMMON_OPTIONS ${COMPILE_OPTIONS}
+    OUTPUT_VAR KEYS
+    INCLUDE nbl/ext/DebugDraw/builtin/build/spirv/keys.hpp
+    NAMESPACE nbl::ext::debug_draw::builtin::build
+    INPUTS ${JSON}
+)
+
+NBL_CREATE_RESOURCE_ARCHIVE(
+    NAMESPACE nbl::ext::debug_draw::builtin::build
+    TARGET ${LIB_NAME}_builtinsBuild
+    LINK_TO ${LIB_NAME}
+    BIND ${OUTPUT_DIRECTORY}
+    BUILTINS ${KEYS}
+)
+
 
 add_library(Nabla::ext::DebugDraw ALIAS ${LIB_NAME})
