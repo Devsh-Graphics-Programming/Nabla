@@ -14,12 +14,21 @@ namespace hlsl
 {
 namespace sampling
 {
-
+template <typename T, typename LuminanceAccessor, typename PostWarp NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::LuminanceReadAccessor<LuminanceAccessor> && Warp<PostWarp>)
 struct HierarchicalImage 
 {
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+    using vector4_type = vector<T, 4>;
+    LuminanceAccessor accessor;
+    uint32_t2 lumaMapSize;
+    bool lumaAspect2x1;
+    uint32_t2 lastWarpPixel;
 
-    static float32_t3 calculateSampleAndPdf(float32_t4 dirsX, float32_t4 dirsY, float32_t2 unnormCoord, uint32_t2 lastWarpmapPixel, NBL_REF_ARG(float32_t) pdf)
+    static vector2_type calculateSampleAndPdf(NBL_REF_ARG(scalar_type) rcpPdf, vector4_type dirsX, vector4_type dirsY, vector2_type unnormCoord, uint32_t2 lastWarpPixel)
     {
+	  // TODO(kevinyu): Convert float32_t to scalar_type
       const float32_t2 interpolant = frac(unnormCoord);
       const float32_t4x2 uvs = transpose(float32_t2x4(dirsX, dirsY));
 
@@ -42,15 +51,23 @@ struct HierarchicalImage
         yDiff // second column dFdy
       ));
 
-      pdf = abs(PostWarp::forwardDensity(uv) / (detInterpolJacobian * float32_t(lastWarpmapPixel.x * lastWarpmapPixel.y));
+      rcpPdf = abs((detInterpolJacobian * scalar_t(lastWarpPixel.x * lastWarpPixel.y) / PostWarp::forwardDensity(uv));
 
       return L;
     }
 
-    template <typename LuminanceAccessor NBL_FUNC_REQUIRES (hierarchical_image::LuminanceReadAccessor<LuminanceAccessor>)
-      static float32_t2 binarySearch(NBL_CONST_REF_ARG(LuminanceAccessor) luminanceAccessor, const uint32_t2 lumaMapSize, const float32_t2 xi, const bool aspect2x1)
+    static HierarchicalImage create(NBL_CONST_REF_ARG(LuminanceAccessor) accessor, const uint32_t2 lumaMapSize, const bool lumaAspect2x1, const uint32_t2 warpSize) 
     {
+	    HierarchicalImage<T, LuminanceAccessor, PostWarp> result;
+        result.accessor = accessor;
+        result.lumaMapSize = lumaMapSize;
+        result.lumaAspect2x1 = lumaAspect2x1;
+        result.lastWarpPixel = warpSize - uint32_t2(1, 1);
+        return result;
+    }
 
+	static vector<scalar_type, 2> binarySearch(const vector<scalar_type, 2> xi)
+    {
       uint32_t2 p = uint32_t2(0, 0);
 
       if (aspect2x1) {
@@ -92,28 +109,9 @@ struct HierarchicalImage
       return directionUV;
     }
 
-
-    template <typename WarpmapAccessor, typename PostWarp NBL_FUNC_REQUIRES(hierarchical_image::WarpmapReadAccessor<WarpmapAccessor>&& Warp<PostWarp, float32_t3>)
-    static float32_t3 sampleWarpmap(NBL_CONST_REF_ARG(WarpmapAccessor) warpmap, const uint32_t2 warpmapSize, const float32_t2 xi, NBL_REF_ARG(float32_t) pdf) {
-
-      // TODO(kevinyu): Add some comment why we substract by 1
-      const uint32_t3 lastWarpmapPixel = warpmapSize - uint32_t3(1, 1, 1);
-
-      const float32_t2 unnormCoord = xi * lastWarpmapPixel;
-      const float32_t2 interpolant = frac(unnormCoord);
-      const float32_t2 warpSampleCoord = (unnormCoord + float32_t2(0.5f, 0.5f)) / float32_t2(warpmapSize.x, warpmapSize.y);
-      const float32_t4 dirsX = warpmap.gatherU(warpSampleCoord);
-      const float32_t4 dirsY = warpmap.gatherV(warpSampleCoord);
-
-      return calculateSampleAndPdf(dirsX, dirsY, unnormCoord, lastWarpmapPixel, pdf);
-
-    }
-
-    template <typename LuminanceAccessor, typename PostWarp NBL_FUNC_REQUIRES(hierarchical_image::LuminanceReadAccessor<LuminanceAccessor>&& Warp<PostWarp, float32_t3>)
-    static float32_t3 sample(NBL_CONST_REF_ARG(LuminanceReadAccessor) luminanceMap, const uint32_t2 lumaMapSize, const bool lumaAspect2x1, const uint32_t2 warpmapSize, const float32_t2 xi, NBL_REF_ARG(float32_t) pdf) {
-
-      const uint32_t3 lastWarpmapPixel = warpmapSize - uint32_t3(1, 1, 1);
-      const float32_t2 unnormCoord = xi * lastWarpmapPixel;
+    uint32_t2 generate(NBL_REF_ARG(scalar_type) rcpPdf, vector<scalar_type, 2> xi)
+	{
+      const float32_t2 unnormCoord = xi * lastWarpPixel;
       const float32_t2 warpSampleCoord = (unnormCoord + float32_t2(0.5f, 0.5f)) / float32_t2(warpmapSize.x, warpmapSize.y);
       const float32_t2 dir0 = binarySearch(luminanceMap, lumaMapSize, warpSampleCoord + float32_t2(0, 1), lumaAspect2x1);
       const float32_t2 dir1 = binarySearch(luminanceMap, lumaMapSize, warpSampleCoord + float32_t2(1, 1), lumaAspect2x1);
@@ -123,10 +121,11 @@ struct HierarchicalImage
       const float32_t4 dirsX = float32_t4(dir0.x, dir1.x, dir2.x, dir3.x);
       const float32_t4 dirsY = float32_t4(dir1.y, dir1.y, dir2.y, dir3.y);
 
-      return calculateSampleAndPdf(dirsX, dirsY, unnormCoord, lastWarpmapPixel, pdf);
-
-    }
+      return calculateSampleAndPdf(rcpPdf, dirsX, dirsY, unnormCoord, lastWarpPixel);
+	}
 };
+
+//TODO(kevinyu): Impelemnt cached warp map sampler
 
 }
 }
