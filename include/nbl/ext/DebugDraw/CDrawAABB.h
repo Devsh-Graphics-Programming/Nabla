@@ -147,11 +147,12 @@ namespace nbl::ext::debug_draw
             uint32_t remainingInstancesBytes = numInstances * sizeof(InstanceData);
             while (srcIt != aabbInstances.end())
             {
-                uint32_t blockByteSize = hlsl::min<uint32_t>(streaming->max_size(), core::alignUp(remainingInstancesBytes, MaxAlignment));
+                uint32_t blockByteSize = core::alignUp(remainingInstancesBytes, MaxAlignment);
                 bool allocated = false;
 
                 offset_t blockOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
-                for (uint32_t t = 0; t < 2; t++)
+                const uint32_t smallestAlloc = hlsl::max<uint32_t>(core::alignUp(sizeof(InstanceData), MaxAlignment), streaming->getAddressAllocator().min_size());
+                while (blockByteSize >= smallestAlloc)
                 {
                     std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
                     if (streaming->multi_allocate(waitTill, 1, &blockOffset, &blockByteSize, &MaxAlignment) == 0u)
@@ -159,7 +160,9 @@ namespace nbl::ext::debug_draw
                         allocated = true;
                         break;
                     }
+
                     streaming->cull_frees();
+                    blockByteSize >>= 1;
                 }
 
                 if (!allocated)
