@@ -5,7 +5,7 @@
 #include "CSmoothNormalGenerator.h"
 
 #include "nbl/core/declarations.h"
-#include "nbl/builtin/hlsl/shapes/spherical_triangle.hlsl"
+#include "nbl/builtin/hlsl/shapes/triangle.hlsl"
 
 #include <algorithm>
 
@@ -58,7 +58,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		const auto faceNormal = normalize(cross(v1 - v0, v2 - v0));
 
 		//set data for m_vertices
-		const auto angleWages = hlsl::shapes::util::compInternalAngle(v2 - v1, v0 - v2, v1 - v2);
+		const auto angleWages = hlsl::shapes::util::anglesFromTriangleEdges(v2 - v1, v0 - v2, v1 - v2);
 
 		vertices.add({ i,	0,	faceNormal * angleWages.x, v0});
 		vertices.add({ i + 1,	0,	faceNormal * angleWages.y,v1});

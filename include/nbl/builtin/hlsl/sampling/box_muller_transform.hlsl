@@ -21,7 +21,7 @@ struct BoxMullerTransform
     using scalar_type = T;
     using vector2_type = vector<T,2>;
 
-    vector2_type operator()(vector2_type xi)
+    vector2_type operator()(const vector2_type xi)
     {
         scalar_type sinPhi, cosPhi;
         math::sincos<scalar_type>(2.0 * numbers::pi<scalar_type> * xi.y - numbers::pi<scalar_type>, sinPhi, cosPhi);

@@ -25,14 +25,14 @@ struct SphericalRectangle
     using vector4_type = vector<Scalar, 4>;
     using matrix3x3_type = matrix<Scalar, 3, 3>;
 
-    static SphericalRectangle<scalar_type> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(matrix3x3_type) basis)
+    static SphericalRectangle<scalar_type> create(const vector3_type observer, const vector3_type rectangleOrigin, const matrix3x3_type basis)
     {
         SphericalRectangle<scalar_type> retval;
         retval.r0 = nbl::hlsl::mul(basis, rectangleOrigin - observer);
         return retval;
     }
 
-    static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
+    static SphericalRectangle<Scalar> create(const vector3_type observer, const vector3_type rectangleOrigin, const vector3_type T, vector3_type B, const vector3_type N)
     {
         SphericalRectangle<scalar_type> retval;
         matrix3x3_type TBN = nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, N));
@@ -40,7 +40,7 @@ struct SphericalRectangle
         return retval;
     }
 
-    scalar_type solidAngleOfRectangle(NBL_CONST_REF_ARG(vector<scalar_type, 2>) rectangleExtents)
+    scalar_type solidAngleOfRectangle(const vector<scalar_type, 2> rectangleExtents)
     {
         const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + rectangleExtents.x, r0.y + rectangleExtents.y, -r0.x);
         const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(r0.z * r0.z) + denorm_n_z * denorm_n_z);

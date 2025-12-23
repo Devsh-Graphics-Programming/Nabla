@@ -41,7 +41,8 @@ struct SSmoothDielectric
 
         scalar_type rcpChoiceProb;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
-        bool transmitted = partitionRandVariable(reflectance, u.z, rcpChoiceProb);
+        partitionRandVariable.leftProb = reflectance;
+        bool transmitted = partitionRandVariable(u.z, rcpChoiceProb);
 
         ray_dir_info_type V = interaction.getV();
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), interaction.getN());
@@ -128,7 +129,8 @@ struct SThinSmoothDielectric
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
-        const bool transmitted = partitionRandVariable(reflectionProb, z, rcpChoiceProb);
+        partitionRandVariable.leftProb = reflectionProb;
+        const bool transmitted = partitionRandVariable(z, rcpChoiceProb);
         remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
         ray_dir_info_type V = interaction.getV();

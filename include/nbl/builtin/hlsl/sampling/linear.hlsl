@@ -21,7 +21,7 @@ struct Linear
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
 
-    static Linear<T> create(NBL_CONST_REF_ARG(vector2_type) linearCoeffs)   // start and end importance values (start, end)
+    static Linear<T> create(const vector2_type linearCoeffs)   // start and end importance values (start, end)
     {
         Linear<T> retval;
         retval.linearCoeffStart = linearCoeffs[0];
@@ -32,7 +32,7 @@ struct Linear
         return retval;
     }
 
-    scalar_type generate(scalar_type u)
+    scalar_type generate(const scalar_type u)
     {
         return hlsl::mix(u, (linearCoeffStart - hlsl::sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max);
     }

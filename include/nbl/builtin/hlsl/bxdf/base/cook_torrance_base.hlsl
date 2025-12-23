@@ -280,7 +280,7 @@ struct SCookTorrance
         const scalar_type NdotV = localV.z;
 
         fresnel_type _f = __getOrientedFresnel(fresnel, NdotV);
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getOrientedEtaRcps();
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = _f.getRefractionOrientedEtaRcps();
 
         const vector3_type upperHemisphereV = ieee754::flipSignIfRHSNegative<vector3_type>(localV, hlsl::promote<vector3_type>(NdotV));
         const vector3_type localH = ndf.generateH(upperHemisphereV, u.xy);
@@ -304,7 +304,8 @@ struct SCookTorrance
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
-        bool transmitted = partitionRandVariable(reflectance, z, rcpChoiceProb);
+        partitionRandVariable.leftProb = reflectance;
+        bool transmitted = partitionRandVariable(z, rcpChoiceProb);
 
         const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
         bool valid;
