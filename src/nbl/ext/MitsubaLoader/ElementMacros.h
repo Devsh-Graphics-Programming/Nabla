@@ -13,6 +13,7 @@
 // when you know that there's a member of `this_t` with identifier equal to NAME
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(NAME,PROP_TYPE) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY(#NAME,PROP_TYPE) \
 		{\
+			static_assert(SNamedPropertyElement::Type::PROP_TYPE!=SNamedPropertyElement::Type::STRING); \
 			_this->NAME = _property.getProperty<SNamedPropertyElement::Type::PROP_TYPE>(); \
 			return true; \
 		} \
@@ -29,7 +30,7 @@
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT,...) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED(#NAME,PROP_TYPE,CONSTRAINT  __VA_OPT__(,) __VA_ARGS__) \
 	{\
 		bool success = false; \
-		_this->visit([&_property,&success](auto& state)->void \
+		_this->visit([&_property,logger,&success](auto& state)->void \
 			{ \
 				if constexpr (CONSTRAINT<std::remove_reference_t<decltype(state)> __VA_OPT__(,) __VA_ARGS__>::value) \
 				{
@@ -45,6 +46,7 @@
 // This it to `NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED` what `NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY` is to `NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY`
 // So basically you know the member is the same across the constraint filtered types
 #define NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT,...) NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(NAME,PROP_TYPE,CONSTRAINT  __VA_OPT__(,) __VA_ARGS__) \
+					static_assert(SNamedPropertyElement::Type::PROP_TYPE!=SNamedPropertyElement::Type::STRING); \
 					state. ## NAME = _property.getProperty<SNamedPropertyElement::Type::PROP_TYPE>(); \
 					success = true; \
 NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END

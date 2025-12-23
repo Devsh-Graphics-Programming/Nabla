@@ -17,7 +17,12 @@ auto CElementEmissionProfile::compAddPropertyMap() -> AddPropertyMap<CElementEmi
 	using this_t = CElementEmissionProfile;
 	AddPropertyMap<CElementEmissionProfile> retval;
 	
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(filename,STRING);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("filename",STRING)
+		{
+			setLimitedString("filename",_this->filename,_property,logger);
+			return true;
+		}
+	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("normalization",STRING)
 		{
 			const auto normalizeS = std::string(_property.svalue);

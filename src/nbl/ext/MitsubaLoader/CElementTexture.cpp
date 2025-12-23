@@ -37,7 +37,7 @@ auto CElementTexture::compAddPropertyMap() -> AddPropertyMap<CElementTexture>
 	// bitmap
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,std::is_same,Bitmap)
 		{
-			setLimitedString("filename",_this->bitmap.filename,std::move(_property),logger); return true;
+			setLimitedString("filename",_this->bitmap.filename,_property,logger); return true;
 		}
 	);
 	// special
@@ -85,8 +85,7 @@ auto CElementTexture::compAddPropertyMap() -> AddPropertyMap<CElementTexture>
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(voffset,FLOAT,std::is_same,Bitmap);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(uscale,FLOAT,std::is_same,Bitmap);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(vscale,FLOAT,std::is_same,Bitmap);
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(vscale,FLOAT,std::is_same,Bitmap);
-	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,std::is_same,Bitmap)
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("channel",STRING,std::is_same,Bitmap)
 		{
 			static const core::unordered_map<std::string,Bitmap::CHANNEL,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 			{

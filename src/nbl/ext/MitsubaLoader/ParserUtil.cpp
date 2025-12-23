@@ -12,9 +12,9 @@
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/CElementTransform.h"
 //#include "nbl/ext/MitsubaLoader/CElementAnimation.h"
-//#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
+#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
 //#include "nbl/ext/MitsubaLoader/CElementTexture.h"
-//#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 #include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
 
 #include "expat/lib/expat.h"
@@ -420,9 +420,9 @@ ParserManager::ParserManager() : propertyElements({
 	{"shape",			{.create=ParserManager::CreateElement<CElementShape>::__call,.retvalGoesOnStack=true}},
 	{"transform",		{.create=ParserManager::CreateElement<CElementTransform>::__call,.retvalGoesOnStack=true}},
 //	{"animation",		{.create=ParserManager::CreateElement<CElementAnimation>::__call,.retvalGoesOnStack=true}},
-//	{"bsdf",			{.create=ParserManager::CreateElement<CElementBSDF>::__call,.retvalGoesOnStack=true}},
-//	{"texture",			{.create=ParserManager::CreateElement<CElementTexture>::__call,.retvalGoesOnStack=true}},
-//	{"emitter",			{.create=ParserManager::CreateElement<CElementEmitter>::__call,.retvalGoesOnStack=true}},
+	{"bsdf",			{.create=ParserManager::CreateElement<CElementBSDF>::__call,.retvalGoesOnStack=true}},
+	{"texture",			{.create=ParserManager::CreateElement<CElementTexture>::__call,.retvalGoesOnStack=true}},
+	{"emitter",			{.create=ParserManager::CreateElement<CElementEmitter>::__call,.retvalGoesOnStack=true}},
 	{"emissionprofile", {.create=ParserManager::CreateElement<CElementEmissionProfile>::__call,.retvalGoesOnStack=true}},
 	{"alias",			{.create=processAlias,.retvalGoesOnStack=true}},
 	{"ref",				{.create=processRef,.retvalGoesOnStack=true}}
@@ -434,6 +434,9 @@ ParserManager::ParserManager() : propertyElements({
 	CElementSampler::compAddPropertyMap(),
 	CElementShape::compAddPropertyMap(),
 	CElementTransform::compAddPropertyMap(),
+	CElementBSDF::compAddPropertyMap(),
+	CElementTexture::compAddPropertyMap(),
+	CElementEmitter::compAddPropertyMap(),
 	CElementEmissionProfile::compAddPropertyMap()
 }) { }
 

@@ -34,7 +34,7 @@ auto CElementShape::compAddPropertyMap() -> AddPropertyMap<CElementShape>
 	// LoadedFromFileBase
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,derived_from,LoadedFromFileBase)
 		{
-			setLimitedString("filename",_this->serialized.filename,std::move(_property),logger); return true;
+			setLimitedString("filename",_this->serialized.filename,_property,logger); return true;
 		}
 	);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(faceNormals,BOOLEAN,derived_from,LoadedFromFileBase);

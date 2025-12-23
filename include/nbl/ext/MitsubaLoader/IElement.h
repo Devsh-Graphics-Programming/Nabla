@@ -196,12 +196,27 @@ class IElement
 
 				std::array<PropertyNameCallbackMap<Derived>,SNamedPropertyElement::Type::INVALID> byPropertyType = {};
 		};
+		//
+		template<typename Derived>
+		struct ProcessChildCallback
+		{
+			using element_t = Derived;
+			// TODO: list or map of supported variants (if `visit` is present)
+			using func_t = bool(*)(Derived*,IElement* _child,const system::logger_opt_ptr);
+
+			inline bool operator()(Derived* d, IElement* _child, const system::logger_opt_ptr l) const {return func(d,_child,l);}
+
+			func_t func;
+			// TODO: allowed IElement types
+		};
+		template<typename Derived>
+		using ProcessChildCallbackMap = core::unordered_map<core::string,ProcessChildCallback<Derived>,core::CaseInsensitiveHash,core::CaseInsensitiveEquals>;
 
 		// members
 		std::string id;
 
 	protected:
-		static inline void setLimitedString(const std::string_view memberName, std::span<char> out, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)
+		static inline void setLimitedString(const std::string_view memberName, std::span<char> out, const SNamedPropertyElement& _property, const system::logger_opt_ptr logger)
 		{
 			auto len = strlen(_property.svalue);
 			if (len>=out.size())

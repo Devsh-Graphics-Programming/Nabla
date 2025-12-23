@@ -17,59 +17,40 @@ class CElementTexture : public IElement
 	public:
 		struct FloatOrTexture
 		{
-			FloatOrTexture(CElementTexture* _tex)
+			inline FloatOrTexture(CElementTexture* _tex)
+			{
+				value = std::numeric_limits<float>::quiet_NaN();
+				texture = _tex;
+			}
+			inline FloatOrTexture(const float _value)
+			{
+				value = _value;
+				texture = nullptr;
+			}
+			inline FloatOrTexture(const FloatOrTexture&) = default;
+
+			inline FloatOrTexture& operator=(const FloatOrTexture&) = default;
+
+			float value = 0.f;
+			CElementTexture* texture = nullptr;
+		};
+		struct SpectrumOrTexture
+		{
+			inline SpectrumOrTexture(CElementTexture* _tex)
 			{
 				value.type = SPropertyElementData::Type::INVALID;
 				texture = _tex;
 			}
-			FloatOrTexture(float _value)
-			{
-				value.type = SPropertyElementData::Type::FLOAT;
-				value.fvalue = _value;
-				texture = nullptr;
-			}
-			FloatOrTexture(const SPropertyElementData& _other) : FloatOrTexture(nullptr)
+			inline SpectrumOrTexture(const SPropertyElementData& _other) : SpectrumOrTexture(nullptr)
 			{
 				operator=(_other);
 			}
-			FloatOrTexture(SPropertyElementData&& _other) : FloatOrTexture(nullptr)
+			inline SpectrumOrTexture(SPropertyElementData&& _other) : SpectrumOrTexture(nullptr)
 			{
 				operator=(std::move(_other));
 			}
-			inline FloatOrTexture& operator=(const SPropertyElementData& _other)
-			{
-				return operator=(SPropertyElementData(_other));
-			}
-			inline FloatOrTexture& operator=(SPropertyElementData&& _other)
-			{
-				switch (_other.type)
-				{
-					case SPropertyElementData::Type::INVALID:
-					case SPropertyElementData::Type::FLOAT:
-						value = std::move(_other);
-						break;
-					default:
-						_NBL_DEBUG_BREAK_IF(true);
-						break;
-				}
-				return *this;
-			}
+			inline SpectrumOrTexture(const float _value) : SpectrumOrTexture(SPropertyElementData{_value}) {}
 
-			SPropertyElementData value = {};
-			CElementTexture* texture = nullptr; // only used if value.type==INVALID
-		};
-		struct SpectrumOrTexture : FloatOrTexture
-		{
-			SpectrumOrTexture(CElementTexture* _tex) : FloatOrTexture(_tex) {}
-			SpectrumOrTexture(float _value) : FloatOrTexture(_value) {}
-			SpectrumOrTexture(const SPropertyElementData& _other) : SpectrumOrTexture(nullptr)
-			{
-				operator=(_other);
-			}
-			SpectrumOrTexture(SPropertyElementData&& _other) : SpectrumOrTexture(nullptr)
-			{
-				operator=(std::move(_other));
-			}
 			inline SpectrumOrTexture& operator=(const SPropertyElementData& _other)
 			{
 				return operator=(SPropertyElementData(_other));
@@ -90,8 +71,12 @@ class CElementTexture : public IElement
 						_NBL_DEBUG_BREAK_IF(true);
 						break;
 				}
+				texture = nullptr;
 				return *this;
 			}
+
+			SPropertyElementData value = {};
+			CElementTexture* texture = nullptr;
 		};
 
 		enum Type

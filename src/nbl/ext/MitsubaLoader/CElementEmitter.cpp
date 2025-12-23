@@ -67,47 +67,49 @@ auto CElementEmitter::compAddPropertyMap() -> AddPropertyMap<CElementEmitter>
 		}
 	});
 
-	// spectrum setting
-#define ADD_SPECTRUM(MEMBER,CONSTRAINT,...) { \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,FLOAT,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
-			state. ## MEMBER.x = state. ## MEMBER.y = state. ## MEMBER.z = _property.getProperty<SPropertyElementData::Type::FLOAT>(); \
-			success = true; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,RGB,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
-			state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::RGB>(); \
-			success = true; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,SRGB,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
-			state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
-			success = true; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,SPECTRUM,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
-			state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SPECTRUM>(); \
-			success = true; \
-		NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
-	}
-
 	// base
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(samplingWeight,FLOAT,derived_from,SampledEmitter);
 
+// spectrum setting
+#define ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(MEMBER,CONSTRAINT,...) { \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,FLOAT,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER.x = state. ## MEMBER.y = state. ## MEMBER.z = _property.getProperty<SPropertyElementData::Type::FLOAT>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,RGB,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::RGB>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,SRGB,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,SPECTRUM,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SPECTRUM>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+}
+
 	// delta
-	ADD_SPECTRUM(intensity,derived_from,DeltaDistributionEmitter);
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(intensity,derived_from,DeltaDistributionEmitter);
 	// point covered by delta
 
 	// non zero solid angle
-	ADD_SPECTRUM(radiance,derived_from,SolidAngleEmitter);
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(radiance,derived_from,SolidAngleEmitter);
 	// area covered by solid angle
 
 	// directional
-	ADD_SPECTRUM(irradiance,std::is_same,Directional);
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(irradiance,std::is_same,Directional);
 
 	// collimated
-	ADD_SPECTRUM(power,std::is_same,Collimated);
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(power,std::is_same,Collimated);
+
+#undef ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED
 
 	// environment map
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,std::is_same,EnvMap)
 		{
-			setLimitedString("filename",_this->envmap.filename,std::move(_property),logger); return true;
+			setLimitedString("filename",_this->envmap.filename,_property,logger); return true;
 		}
 	);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(scale,FLOAT,std::is_same,EnvMap);

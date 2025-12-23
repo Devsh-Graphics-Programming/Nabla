@@ -166,16 +166,15 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 			return true;
 		}
 	);
-	// TODO: redo
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("undefined",FLOAT,std::is_same,FieldExtraction)
 		{
-			_this->field.undefined = _property; // TODO: redo
+			_this->field.undefined = _property;
 			return true;
 		}
 	);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("undefined",SPECTRUM,std::is_same,FieldExtraction)
 		{
-			_this->field.undefined = _property; // TODO: redo
+			_this->field.undefined = _property;
 			return true;
 		}
 	);

@@ -103,22 +103,22 @@ auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
 
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("variable",STRING,std::is_same,M)
 		{
-			setLimitedString("variable",_this->outputFilePath,std::move(_property),logger); return true;
+			setLimitedString("variable",_this->outputFilePath,_property,logger); return true;
 		}
 	);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("outputFilePath",STRING)
 		{
-			setLimitedString("outputFilePath",_this->outputFilePath,std::move(_property),logger); return true;
+			setLimitedString("outputFilePath",_this->outputFilePath,_property,logger); return true;
 		}
 	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("bloomFilePath",STRING)
 		{
-			setLimitedString("bloomFilePath",_this->denoiserTonemapperArgs,std::move(_property),logger); return true;
+			setLimitedString("bloomFilePath",_this->denoiserTonemapperArgs,_property,logger); return true;
 		}
 	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("tonemapper",STRING)
 		{
-			setLimitedString("tonemapper",_this->denoiserTonemapperArgs,std::move(_property),logger); return true;
+			setLimitedString("tonemapper",_this->denoiserTonemapperArgs,_property,logger); return true;
 		}
 	});
 

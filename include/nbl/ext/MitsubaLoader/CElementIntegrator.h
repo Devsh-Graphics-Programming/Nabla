@@ -212,7 +212,8 @@ class CElementIntegrator final : public IElement
 			}
 
 			Type field;
-			SPropertyElementData undefined; // TODO: test destructor runs
+			// TODO: Specral properties really need a redo
+			SPropertyElementData undefined;
 		};
 	struct MetaIntegrator
 	{

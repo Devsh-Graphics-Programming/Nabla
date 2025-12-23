@@ -34,9 +34,9 @@ set(NBL_EXT_MITSUBA_LOADER_SRC
 	CElementSampler.cpp
 	CElementTransform.cpp
 	CElementShape.cpp
-#	CElementBSDF.cpp
-#	CElementTexture.cpp
-#	CElementEmitter.cpp
+	CElementBSDF.cpp
+	CElementTexture.cpp
+	CElementEmitter.cpp
 	CElementEmissionProfile.cpp
 	ParserUtil.cpp
 	CSerializedLoader.cpp
