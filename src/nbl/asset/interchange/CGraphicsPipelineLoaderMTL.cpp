@@ -894,7 +894,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
                     sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().string().c_str(), currMaterial->name.c_str());
-                    logger.log(tmpbuf, system::ILogger::ELL_WARNING);
+                    logger.log("%s", system::ILogger::ELL_WARNING, tmpbuf);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
                     currMaterial->params.opacity = (1.f - readFloat());
