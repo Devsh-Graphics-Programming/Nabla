@@ -5,7 +5,7 @@
 #include "nbl/ext/DebugDraw/CDrawAABB.h"
 
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
-#include "nbl/ext/debug_draw/builtin/CArchive.h"
+#include "nbl/ext/debug_draw/builtin/build/CArchive.h"
 #endif
 
 #include "nbl/ext/DebugDraw/builtin/build/spirv/keys.hpp"
@@ -75,32 +75,30 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
     return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(constructorParams)));
 }
 
-// note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
-constexpr std::string_view NBL_ARCHIVE_ENTRY = NBL_DEBUG_DRAW_HLSL_MOUNT_POINT;
+// extension data mount alias
+constexpr std::string_view NBL_EXT_MOUNT_ENTRY = "nbl/ext/DebugDraw";
 
-const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const core::string& spvPath, const std::string_view archiveAlias)
+const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias)
 {
 	assert(system);
 
 	if (!system)
 		return nullptr;
 
-	if (system->exists(path(NBL_ARCHIVE_ENTRY) / spvPath.c_str(), {}))
-	{
-		logger->log("CDrawAABB .spv directory is already mounted!", ILogger::ELL_WARNING);
+	// the key is deterministic, we are validating presence of required .spv
+	const auto composed = path(archiveAlias.data()) / nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(device);
+	if (system->exists(composed, {}))
 		return nullptr;
-	}
 
 	// extension should mount everything for you, regardless if content goes from virtual filesystem 
 	// or disk directly - and you should never rely on application framework to expose extension data
-#ifdef NBL_EMBED_BUILTIN_RESOURCES
+	#ifdef NBL_EMBED_BUILTIN_RESOURCES
 	auto archive = make_smart_refctd_ptr<builtin::build::CArchive>(smart_refctd_ptr(logger));
-	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
-#else
-	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::move(NBL_ARCHIVE_ENTRY), smart_refctd_ptr(logger), system);
-	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
-#endif
+	#else
+	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::string_view(NBL_DEBUG_DRAW_HLSL_MOUNT_POINT), smart_refctd_ptr(logger), system);
+	#endif
 
+	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
 	return smart_refctd_ptr(archive);
 }
 
@@ -108,14 +106,13 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 {
 	system::logger_opt_ptr logger = params.utilities->getLogger();
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
-
-	const auto key = nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(params.utilities->getLogicalDevice());
-	mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), key, NBL_ARCHIVE_ENTRY);
+	auto* device = params.utilities->getLogicalDevice();
+	mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), params.utilities->getLogicalDevice(), NBL_EXT_MOUNT_ENTRY);
 
 	auto getShader = [&](const core::string& key)->smart_refctd_ptr<IShader> {
 		IAssetLoader::SAssetLoadParams lp = {};
 		lp.logger = params.utilities->getLogger();
-		lp.workingDirectory = NBL_DEBUG_DRAW_HLSL_MOUNT_POINT;
+		lp.workingDirectory = NBL_EXT_MOUNT_ENTRY;
 		auto bundle = params.assetManager->getAsset(key.c_str(), lp);
 
 		const auto contents = bundle.getContents();
@@ -135,6 +132,7 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 		return IAsset::castDown<IShader>(contents[0]);
 	};
 
+	const auto key = nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(device);
 	smart_refctd_ptr<IShader> unifiedShader = getShader(key);
 	if (!unifiedShader)
 	{
