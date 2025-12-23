@@ -60,8 +60,8 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(rayLength,FLOAT,std::is_same,AmbientOcclusion);
 
 	// emitter hideables
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(hideEmitters,BOOLEAN,derived_from,DirectIllumination);
-	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(hideEnvironment,BOOLEAN,derived_from,DirectIllumination);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(hideEmitters,BOOLEAN,derived_from,EmitterHideableBase);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(hideEnvironment,BOOLEAN,derived_from,EmitterHideableBase);
 
 	// direct
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(emitterSamples,INTEGER,std::is_same,DirectIllumination);

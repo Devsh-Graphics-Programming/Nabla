@@ -267,8 +267,8 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 	// we still push nullptr (failed creation) onto the stack, we only stop parse on catastrphic failure
 	if (!found->second.retvalGoesOnStack)
 		return;
-	if (created.element && created.name.size())
-		session->handles[created.name] = created.element;
+	if (created.element && created.element->id.size())
+		session->handles[created.element->id] = created.element;
 	session->elements.push(std::move(created));
 }
 
