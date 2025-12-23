@@ -145,7 +145,7 @@ namespace nbl::ext::debug_draw
 
             const uint32_t numInstances = aabbInstances.size();
             uint32_t remainingInstancesBytes = numInstances * sizeof(InstanceData);
-            while (srcIt != aabbInstances.end() && remainingInstancesBytes > 0u)
+            while (srcIt != aabbInstances.end())
             {
                 uint32_t blockByteSize = hlsl::min<uint32_t>(streaming->max_size(), core::alignUp(remainingInstancesBytes, MaxAlignment));
                 bool allocated = false;
@@ -178,7 +178,7 @@ namespace nbl::ext::debug_draw
                     m_cachedCreationParams.utilities->getLogicalDevice()->flushMappedMemoryRanges(1, &flushRange);
                 }
 
-                remainingInstancesBytes -= blockByteSize;
+                remainingInstancesBytes -= instanceCount * sizeof(InstanceData);
 
                 SInstancedPC pc;
                 pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + blockOffset;
