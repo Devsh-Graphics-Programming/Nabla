@@ -128,9 +128,9 @@ NBL_CONSTEXPR bool NBL_CONCEPT_NAME = BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_CONCEPT_E
 namespace impl\
 {\
 template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST), typename enable=void>\
-struct CONCEPT_NAME : false_type {};\
+struct CONCEPT_NAME : ::nbl::hlsl::false_type {};\
 template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST)>\
-struct CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST), make_void_t<decltype( __VA_ARGS__ )> > : true_type {};\
+struct CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST), ::nbl::hlsl::make_void_t<decltype( __VA_ARGS__ )> > : ::nbl::hlsl::true_type {};\
 }\
 template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST)>\
 NBL_BOOL_CONCEPT CONCEPT_NAME = impl::CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST)>::value\

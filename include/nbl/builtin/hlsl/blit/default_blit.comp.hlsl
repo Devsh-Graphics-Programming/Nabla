@@ -59,6 +59,7 @@ using namespace nbl::hlsl::blit;
 // TODO: push constants
 
 [numthreads(ConstevalParameters::WorkGroupSize,1,1)]
+[shader("compute")]
 void main()
 {
 	InImgAccessor inImgA;

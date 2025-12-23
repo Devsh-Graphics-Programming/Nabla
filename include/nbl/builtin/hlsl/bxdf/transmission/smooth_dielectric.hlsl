@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
+#include "nbl/builtin/hlsl/sampling/basic.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
@@ -39,7 +40,9 @@ struct SSmoothDielectric
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, interaction.getNdotV(_clamp))[0];
 
         scalar_type rcpChoiceProb;
-        bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        partitionRandVariable.leftProb = reflectance;
+        bool transmitted = partitionRandVariable(u.z, rcpChoiceProb);
 
         ray_dir_info_type V = interaction.getV();
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), interaction.getN());
@@ -121,11 +124,13 @@ struct SThinSmoothDielectric
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
 
         // we are only allowed one choice for the entire ray, so make the probability a weighted sum
-        const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, luminosityContributionHint);
+        const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, interaction.getLuminosityContributionHint());
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
-        const bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        partitionRandVariable.leftProb = reflectionProb;
+        const bool transmitted = partitionRandVariable(z, rcpChoiceProb);
         remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
         ray_dir_info_type V = interaction.getV();
@@ -161,7 +166,7 @@ struct SThinSmoothDielectric
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
         const spectral_type sampleValue = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted);
 
-        const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
+        const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,interaction.getLuminosityContributionHint());
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         return quotient_pdf_type::create(sampleValue / sampleProb, _pdf);
@@ -172,7 +177,6 @@ struct SThinSmoothDielectric
     }
 
     fresnel::Dielectric<spectral_type> fresnel;
-    spectral_type luminosityContributionHint;
 };
 
 }

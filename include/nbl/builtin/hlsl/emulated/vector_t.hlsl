@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_VECTOR_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
+#include <nbl/builtin/hlsl/portable/int64_t.hlsl>
 #include <nbl/builtin/hlsl/functional.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
@@ -23,7 +24,7 @@ struct _2_component_vec
 
     static_assert(sizeof(T) <= 8);
 
-    NBL_CONSTEXPR_INLINE_FUNC void setComponent(uint32_t componentIdx, T val)
+    NBL_CONSTEXPR_FUNC void setComponent(uint32_t componentIdx, T val)
     {
         if (componentIdx == 0)
             x = val;
@@ -31,7 +32,7 @@ struct _2_component_vec
             y = val;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
+    NBL_CONSTEXPR_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
     {
         if (componentIdx == 0)
             return x;
@@ -39,9 +40,7 @@ struct _2_component_vec
             return y;
 
         // TODO: avoid code duplication, make it constexpr
-        using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        TAsUint invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull);
-        return nbl::hlsl::bit_cast<T>(invalidComponentValue);
+        return nbl::hlsl::undef<T>();
     }
 
     NBL_CONSTEXPR_STATIC uint32_t Dimension = 2;
@@ -55,7 +54,7 @@ struct _3_component_vec
     T z;
 
 
-    NBL_CONSTEXPR_INLINE_FUNC void setComponent(uint32_t componentIdx, T val)
+    NBL_CONSTEXPR_FUNC void setComponent(uint32_t componentIdx, T val)
     {
         if (componentIdx == 0)
             x = val;
@@ -65,7 +64,7 @@ struct _3_component_vec
             z = val;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
+    NBL_CONSTEXPR_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
     {
         if (componentIdx == 0)
             return x;
@@ -75,9 +74,7 @@ struct _3_component_vec
             return z;
 
         // TODO: avoid code duplication, make it constexpr
-        using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        TAsUint invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
-        return nbl::hlsl::bit_cast<T>(invalidComponentValue);
+        return nbl::hlsl::undef<T>();
     }
 
     NBL_CONSTEXPR_STATIC uint32_t Dimension = 3;
@@ -91,7 +88,7 @@ struct _4_component_vec
     T z;
     T w;
 
-    NBL_CONSTEXPR_INLINE_FUNC void setComponent(uint32_t componentIdx, T val)
+    NBL_CONSTEXPR_FUNC void setComponent(uint32_t componentIdx, T val)
     {
         if (componentIdx == 0)
             x = val;
@@ -103,7 +100,7 @@ struct _4_component_vec
             w = val;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
+    NBL_CONSTEXPR_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
     {
         if (componentIdx == 0)
             return x;
@@ -115,133 +112,207 @@ struct _4_component_vec
             return w;
 
         // TODO: avoid code duplication, make it constexpr
-        using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        uint64_t invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
-        return nbl::hlsl::bit_cast<T>(invalidComponentValue);
+        return nbl::hlsl::undef<T>();
     }
 
     NBL_CONSTEXPR_STATIC uint32_t Dimension = 4;
 };
 
-template <typename ComponentType, typename CRTP, bool IsComponentTypeFundamental = is_fundamental<ComponentType>::value>
-struct emulated_vector : CRTP
+template <typename ComponentType, typename CRTP NBL_STRUCT_CONSTRAINABLE >
+struct emulated_vector;
+
+// Generic ComponentType vectors still have to be partial specialized based on whether they're fundamental and/or integral
+
+#define NBL_EMULATED_VECTOR_UNARY_OPERATOR(OP)\
+NBL_CONSTEXPR_FUNC this_t operator OP() NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, this_t::getComponent(i).operator OP());\
+    return output;\
+}
+
+#define NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(OP)\
+NBL_CONSTEXPR_FUNC this_t operator OP (component_t val) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, this_t::getComponent(i) OP val);\
+    return output;\
+}\
+NBL_CONSTEXPR_FUNC this_t operator OP (this_t other) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, this_t::getComponent(i) OP other.getComponent(i));\
+    return output;\
+}
+
+#define NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(OP) NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(OP)\
+NBL_CONSTEXPR_FUNC this_t operator OP(vector<component_t, CRTP::Dimension> other) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, this_t::getComponent(i) OP other[i]);\
+    return output;\
+}
+
+#define NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(OP) NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator OP (this_t other) NBL_CONST_MEMBER_FUNC \
+{\
+    vector<bool, CRTP::Dimension> output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output[i] = CRTP::getComponent(i) OP other.getComponent(i);\
+    return output;\
+}
+
+#define NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(OP) NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(OP)\
+NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator OP (vector<component_t, CRTP::Dimension> other) NBL_CONST_MEMBER_FUNC \
+{\
+    vector<bool, CRTP::Dimension> output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output[i] = CRTP::getComponent(i) OP other[i];\
+    return output;\
+}
+
+#define NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM \
+using this_t = emulated_vector<ComponentType, CRTP>;\
+using component_t = ComponentType;\
+NBL_CONSTEXPR_STATIC this_t create(this_t other)\
+{\
+    CRTP output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, other.getComponent(i));\
+}\
+NBL_CONSTEXPR_FUNC component_t calcComponentSum() NBL_CONST_MEMBER_FUNC \
+{\
+    component_t sum = CRTP::getComponent(0);\
+    [[unroll]]\
+    for (uint32_t i = 1u; i < CRTP::Dimension; ++i)\
+        sum = sum + CRTP::getComponent(i);\
+    return sum;\
+}
+
+#define NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM \
+NBL_CONSTEXPR_STATIC this_t create(vector<component_t, CRTP::Dimension> other)\
+{\
+    this_t output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, other[i]);\
+    return output;\
+}
+
+// Fundamental, integral
+template <typename ComponentType, typename CRTP> NBL_PARTIAL_REQ_TOP(is_fundamental_v<ComponentType> && concepts::IntegralLikeScalar<ComponentType>)
+struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(is_fundamental_v<ComponentType>&& concepts::IntegralLikeScalar<ComponentType>) > : CRTP
 {
-    using this_t = emulated_vector<ComponentType, CRTP>;
-    using component_t = ComponentType;
-
-    NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
-    {
-        CRTP output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, other.getComponent(i));
-    }
-    NBL_CONSTEXPR_STATIC_INLINE this_t create(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, other[i]);
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(component_t val)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) + val);
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) + other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) + other[i]);
-
-        return output;
-    }
-    
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(component_t val)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - val);
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - other[i]);
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(component_t val)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * val);
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * other[i]);
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_INLINE_FUNC component_t calcComponentSum()
-    {
-        component_t sum = 0;
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            sum = sum + CRTP::getComponent(i);
-
-        return sum;
-    }
+    // Creation for fundamental type
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM
+    // Operators, including integral
+    NBL_EMULATED_VECTOR_UNARY_OPERATOR(~)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(&)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(|)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(^)
+    NBL_EMULATED_VECTOR_UNARY_OPERATOR(-)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(+)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(-)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(*)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(/)
+    // Comparison operators
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(==)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(!=)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(<)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(<=)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>=)
 };
 
+// Fundamental, not integral
+template <typename ComponentType, typename CRTP> NBL_PARTIAL_REQ_TOP(is_fundamental_v<ComponentType> && !concepts::IntegralLikeScalar<ComponentType>)
+struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(is_fundamental_v<ComponentType> && !concepts::IntegralLikeScalar<ComponentType>) > : CRTP
+{
+    // Creation for fundamental type
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM
+    // Operators
+    NBL_EMULATED_VECTOR_UNARY_OPERATOR(-)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(+)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(-)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(*)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(/)
+    // Comparison operators
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(==)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(!=)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(<)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(<=)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>)
+    NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>=)
+};
+
+// Not fundamental, integral
+template <typename ComponentType, typename CRTP> NBL_PARTIAL_REQ_TOP(!is_fundamental_v<ComponentType> && concepts::IntegralLikeScalar<ComponentType>)
+struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(!is_fundamental_v<ComponentType> && concepts::IntegralLikeScalar<ComponentType>) > : CRTP
+{
+    // Creation
+    NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM
+    // Operators, including integral
+    NBL_EMULATED_VECTOR_UNARY_OPERATOR(~)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(&)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(|)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(^)
+    NBL_EMULATED_VECTOR_UNARY_OPERATOR(-)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(+)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(-)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(*)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(/)
+    // Comparison operators
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(==)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(!=)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(<)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(<=)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>=)
+};
+
+// Not fundamental, not integral
+template <typename ComponentType, typename CRTP> NBL_PARTIAL_REQ_TOP(!is_fundamental_v<ComponentType> && !concepts::IntegralLikeScalar<ComponentType>)
+struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(!is_fundamental_v<ComponentType> && !concepts::IntegralLikeScalar<ComponentType>) > : CRTP
+{
+    // Creation
+    NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM
+    // Operators
+    NBL_EMULATED_VECTOR_UNARY_OPERATOR(-)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(+)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(-)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(*)
+    NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(/)
+    // Comparison operators
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(==)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(!=)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(<)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(<=)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>)
+    NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>=)
+};
+
+#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM
+#undef NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM
+#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR
+#undef NBL_EMULATED_VECTOR_COMPARISON_OPERATOR
+#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR
+#undef NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR
+#undef NBL_EMULATED_VECTOR_UNARY_OPERATOR
+
+// ----------------------------------------------------- EMULATED FLOAT SPECIALIZATION --------------------------------------------------------------------
+
 #define DEFINE_OPERATORS_FOR_TYPE(...)\
-NBL_CONSTEXPR_INLINE_FUNC this_t operator+(__VA_ARGS__ val)\
+NBL_CONSTEXPR_FUNC this_t operator+(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
@@ -250,7 +321,7 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator+(__VA_ARGS__ val)\
     return output;\
 }\
 \
-NBL_CONSTEXPR_INLINE_FUNC this_t operator-(__VA_ARGS__ val)\
+NBL_CONSTEXPR_FUNC this_t operator-(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
@@ -259,7 +330,7 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator-(__VA_ARGS__ val)\
     return output;\
 }\
 \
-NBL_CONSTEXPR_INLINE_FUNC this_t operator*(__VA_ARGS__ val)\
+NBL_CONSTEXPR_FUNC this_t operator*(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
@@ -269,14 +340,14 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator*(__VA_ARGS__ val)\
 }\
 \
 
-// TODO: some of code duplication could be avoided
-template <typename ComponentType, typename CRTP>
-struct emulated_vector<ComponentType, CRTP, false> : CRTP
-{
-    using component_t = ComponentType;
-    using this_t = emulated_vector<ComponentType, CRTP, false>;
 
-    NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
+template <bool FastMath, bool FlushDenormToZero, typename CRTP>
+struct emulated_vector<emulated_float64_t<FastMath, FlushDenormToZero>, CRTP> : CRTP
+{
+    using component_t = emulated_float64_t<FastMath, FlushDenormToZero>;
+    using this_t = emulated_vector<component_t, CRTP>;
+
+    NBL_CONSTEXPR_STATIC this_t create(this_t other)
     {
         this_t output;
 
@@ -287,17 +358,17 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     }
 
     template<typename T>
-    NBL_CONSTEXPR_STATIC_INLINE this_t create(vector<T, CRTP::Dimension> other)
+    NBL_CONSTEXPR_STATIC this_t create(vector<T, CRTP::Dimension> other)
     {
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, ComponentType::create(other[i]));
+            output.setComponent(i, component_t::create(other[i]));
 
         return output;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(this_t other)
+    NBL_CONSTEXPR_FUNC this_t operator+(this_t other) NBL_CONST_MEMBER_FUNC
     {
         this_t output;
 
@@ -306,7 +377,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
 
         return output;
     }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(this_t other)
+    NBL_CONSTEXPR_FUNC this_t operator-(this_t other) NBL_CONST_MEMBER_FUNC
     {
         this_t output;
 
@@ -315,7 +386,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
 
         return output;
     }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(this_t other)
+    NBL_CONSTEXPR_FUNC this_t operator*(this_t other) NBL_CONST_MEMBER_FUNC
     {
         this_t output;
 
@@ -338,9 +409,9 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     DEFINE_OPERATORS_FOR_TYPE(int32_t)
     DEFINE_OPERATORS_FOR_TYPE(int64_t)
 
-    NBL_CONSTEXPR_INLINE_FUNC ComponentType calcComponentSum()
+    NBL_CONSTEXPR_FUNC component_t calcComponentSum() NBL_CONST_MEMBER_FUNC
     {
-        ComponentType sum = ComponentType::create(0);
+        component_t sum = component_t::create(0);
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
             sum = sum + CRTP::getComponent(i);
 
@@ -420,12 +491,21 @@ DEFINE_SCALAR_OF_SPECIALIZATION(3)
 DEFINE_SCALAR_OF_SPECIALIZATION(4)
 #undef DEFINE_SCALAR_OF_SPECIALIZATION
 
+#define DEFINE_EXTENT_SPECIALIZATION(DIMENSION)\
+template<typename ScalarType, uint32_t I>\
+struct extent<emulated_vector_t##DIMENSION<ScalarType>, I> : extent<ScalarType[DIMENSION], I> {};
+
+DEFINE_EXTENT_SPECIALIZATION(2)
+DEFINE_EXTENT_SPECIALIZATION(3)
+DEFINE_EXTENT_SPECIALIZATION(4)
+#undef DEFINE_EXTENT_SPECIALIZATION
+
 namespace impl
 {
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t2<To>, vector<From, 2>, void>
 {
-    static inline emulated_vector_t2<To> cast(vector<From, 2> vec)
+    NBL_CONSTEXPR_STATIC emulated_vector_t2<To> cast(NBL_CONST_REF_ARG(vector<From, 2>) vec)
     {
         emulated_vector_t2<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -438,7 +518,7 @@ struct static_cast_helper<emulated_vector_t2<To>, vector<From, 2>, void>
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 {
-    static inline emulated_vector_t3<To> cast(vector<From, 3> vec)
+    NBL_CONSTEXPR_STATIC emulated_vector_t3<To> cast(NBL_CONST_REF_ARG(vector<From, 3>) vec)
     {
         emulated_vector_t3<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -452,7 +532,7 @@ struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t4<To>, vector<From, 4>, void>
 {
-    static inline emulated_vector_t4<To> cast(vector<From, 4> vec)
+    NBL_CONSTEXPR_STATIC emulated_vector_t4<To> cast(NBL_CONST_REF_ARG(vector<From, 4>) vec)
     {
         emulated_vector_t4<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -470,12 +550,13 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
     using OutputVecType = vector<ToComponentType, N>;
     using InputVecType = emulated_vector_t<FromComponentType, N>;
 
-    static inline OutputVecType cast(InputVecType vec)
+    NBL_CONSTEXPR_STATIC OutputVecType cast(NBL_CONST_REF_ARG(InputVecType) vec)
     {
         array_get<InputVecType, FromComponentType> getter;
         array_set<OutputVecType, ToComponentType> setter;
         
         OutputVecType output;
+        [[unroll]]
         for (int i = 0; i < N; ++i)
             setter(output, i, _static_cast<ToComponentType>(getter(vec, i)));
 
@@ -483,7 +564,30 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
     }
 };
 
-}
+#define NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(N) template<typename ToComponentType, typename FromComponentType>\
+struct static_cast_helper<emulated_vector_t##N <ToComponentType>, emulated_vector_t##N <FromComponentType>, void>\
+{\
+    using OutputVecType = emulated_vector_t##N <ToComponentType>;\
+    using InputVecType = emulated_vector_t##N <FromComponentType>;\
+    NBL_CONSTEXPR_STATIC OutputVecType cast(NBL_CONST_REF_ARG(InputVecType) vec)\
+    {\
+        array_get<InputVecType, FromComponentType> getter;\
+        array_set<OutputVecType, ToComponentType> setter;\
+        OutputVecType output;\
+        [[unroll]]\
+        for (int i = 0; i < N; ++i)\
+            setter(output, i, _static_cast<ToComponentType>(getter(vec, i)));\
+        return output;\
+    }\
+};
+
+NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(2)
+NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(3)
+NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(4)
+
+#undef NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST
+
+} //namespace impl
 
 }
 }

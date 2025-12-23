@@ -15,7 +15,7 @@ class CStdoutLogger : public IThreadsafeLogger
 	protected:
 		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
 		{
-			printf(constructLogString(fmt, logLevel, args).data());
+			printf("%s", constructLogString(fmt, logLevel, args).data());
 			fflush(stdout);
 		}
 

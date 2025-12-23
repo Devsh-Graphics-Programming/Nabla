@@ -107,11 +107,12 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
             isInfinity = true;
             return bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
         }
-        isInfinity = false;
         scalar_type NdotH2 = cache.getNdotH2();
         scalar_type nom = exp2<scalar_type>((NdotH2 - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * NdotH2));
         scalar_type denom = a2 * NdotH2 * NdotH2;
-        return numbers::inv_pi<scalar_type> * nom / denom;
+        scalar_type ndf = numbers::inv_pi<scalar_type> * nom / denom;
+        isInfinity = hlsl::isinf(ndf);
+        return ndf;
     }
 
     scalar_type C2(scalar_type NdotX2)
@@ -141,7 +142,9 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         scalar_type NdotH2 = cache.getNdotH2();
         scalar_type nom = exp<scalar_type>(-(cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2) / NdotH2);
         scalar_type denom = a2 * NdotH2 * NdotH2;
-        return numbers::inv_pi<scalar_type> * nom / denom;
+        scalar_type ndf = numbers::inv_pi<scalar_type> * nom / denom;
+        isInfinity = hlsl::isinf(ndf);
+        return ndf;
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
@@ -277,12 +280,7 @@ struct Beckmann
         quant_query_type quant_query;   // only has members for refraction
         NBL_IF_CONSTEXPR(SupportsTransmission)
         {
-            quant_query.VdotHLdotH = cache.getVdotHLdotH();
-            const scalar_type VdotH = cache.getVdotH();
-            const scalar_type VdotH_etaLdotH = hlsl::mix(VdotH + orientedEta * cache.getLdotH(),
-                                                        VdotH / orientedEta + cache.getLdotH(),
-                                                        interaction.getPathOrigin() == PathOrigin::PO_SENSOR);
-            quant_query.neg_rcp2_refractionDenom = scalar_type(-1.0) / (VdotH_etaLdotH * VdotH_etaLdotH);
+            quant_query = quant_query_type::template create<Interaction, MicrofacetCache>(interaction, cache, orientedEta);
         }
         return quant_query;
     }
@@ -337,8 +335,15 @@ struct Beckmann
     quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_REF_ARG(bool) isInfinity)
     {
         scalar_type D = query.getNdf();
-        scalar_type dg1 = query.getNdf() / (scalar_type(1.0) + query.getLambdaV());
-        isInfinity = D == bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+        isInfinity = hlsl::isinf(D);
+        if (isInfinity)
+        {
+            quant_type dmq;
+            dmq.microfacetMeasure = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+            dmq.projectedLightMeasure = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+            return dmq;
+        }
+        scalar_type dg1 = D / (scalar_type(1.0) + query.getLambdaV());
         return createDualMeasureQuantity<T, reflect_refract, quant_query_type>(dg1, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query);
     }
 
