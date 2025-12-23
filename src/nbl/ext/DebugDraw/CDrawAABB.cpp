@@ -78,14 +78,14 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 // note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
 constexpr std::string_view NBL_ARCHIVE_ENTRY = NBL_DEBUG_DRAW_HLSL_MOUNT_POINT;
 
-const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
+const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const core::string& spvPath, const std::string_view archiveAlias)
 {
 	assert(system);
 
 	if (!system)
 		return nullptr;
 
-	if (system->exists(path(NBL_ARCHIVE_ENTRY), {}))
+	if (system->exists(path(NBL_ARCHIVE_ENTRY) / spvPath.c_str(), {}))
 	{
 		logger->log("CDrawAABB .spv directory is already mounted!", ILogger::ELL_WARNING);
 		return nullptr;
@@ -109,8 +109,8 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 	system::logger_opt_ptr logger = params.utilities->getLogger();
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
 
-	if (!system->exists(path(NBL_ARCHIVE_ENTRY), {}))
-		mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
+	const auto key = nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(params.utilities->getLogicalDevice());
+	mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), key, NBL_ARCHIVE_ENTRY);
 
 	auto getShader = [&](const core::string& key)->smart_refctd_ptr<IShader> {
 		IAssetLoader::SAssetLoadParams lp = {};
@@ -135,9 +135,7 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 		return IAsset::castDown<IShader>(contents[0]);
 	};
 
-	auto key = nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(params.utilities->getLogicalDevice());
 	smart_refctd_ptr<IShader> unifiedShader = getShader(key);
-
 	if (!unifiedShader)
 	{
 		params.utilities->getLogger()->log("Could not compile shaders!", ILogger::ELL_ERROR);

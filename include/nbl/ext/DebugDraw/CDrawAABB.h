@@ -91,7 +91,7 @@ namespace nbl::ext::debug_draw
         static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::ILogicalDevice* device, DrawMode mode = ADM_DRAW_BATCH);
 
         //! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
-        static const core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const std::string_view archiveAlias = "");
+        static const core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const core::string& spvPath, const std::string_view archiveAlias = "");
 
         inline const SCachedCreationParameters& getCreationParameters() const { return m_cachedCreationParams; }
 
