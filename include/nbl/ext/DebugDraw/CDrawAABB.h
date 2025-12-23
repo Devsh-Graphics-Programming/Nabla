@@ -144,63 +144,49 @@ namespace nbl::ext::debug_draw
             };
 
             const uint32_t numInstances = aabbInstances.size();
-            const uint32_t instancesPerIter = streaming->max_size() / sizeof(InstanceData);
-            if (numInstances > instancesPerIter)
-                return false;
-            using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
-            uint32_t blockOffset = 0u;
-            while (srcIt != aabbInstances.end())
+            uint32_t remainingInstancesBytes = numInstances * sizeof(InstanceData);
+            while (srcIt != aabbInstances.end() && remainingInstancesBytes > 0u)
             {
-                uint32_t instanceCount = hlsl::min<uint32_t>(instancesPerIter, numInstances);
-                offset_t inputOffset = blockOffset;
-                offset_t ImaginarySizeUpperBound = 0x1 << 30;
-                suballocator_t imaginaryChunk(nullptr, inputOffset, 0, MaxPOTAlignment, ImaginarySizeUpperBound);
-                uint32_t instancesByteOffset = imaginaryChunk.alloc_addr(sizeof(InstanceData) * instanceCount, sizeof(InstanceData));
-                const uint32_t totalSize = imaginaryChunk.get_allocated_size();
-                
-                uint32_t blockSize;
+                uint32_t blockByteSize = hlsl::min<uint32_t>(streaming->max_size(), core::alignUp(remainingInstancesBytes, MaxAlignment));
                 bool allocated = false;
+
+                offset_t blockOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
                 for (uint32_t t = 0; t < 2; t++)
                 {
-                    blockSize = hlsl::max(streaming->max_size(), totalSize);
-                    while (blockSize >= totalSize)
+                    std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
+                    if (streaming->multi_allocate(waitTill, 1, &blockOffset, &blockByteSize, &MaxAlignment) == 0u)
                     {
-                        inputOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
-                        std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
-                        if (streaming->multi_allocate(waitTill, 1, &inputOffset, &blockSize, &MaxAlignment) == 0u)
-                        {
-                            allocated = true;
-                            break;
-                        }
-
-                        streaming->cull_frees();
-                        blockSize >>= 1;
-                    }
-
-                    if (allocated)
+                        allocated = true;
                         break;
+                    }
+                    streaming->cull_frees();
                 }
 
                 if (!allocated)
                 {
-                    logger.log("Failed to allocate even the smallest chunk from streaming buffer for the next drawcall batch.", system::ILogger::ELL_ERROR);
+                    logger.log("Failed to allocate a chunk from streaming buffer for the next drawcall batch.", system::ILogger::ELL_ERROR);
                     return false;
                 }
 
-                instanceCount = blockSize / sizeof(InstanceData);
-                blockOffset += blockSize;
-                auto* const streamingInstancesPtr = reinterpret_cast<InstanceData*>(streamingPtr + instancesByteOffset);
+                const uint32_t instanceCount = blockByteSize / sizeof(InstanceData);                
+                auto* const streamingInstancesPtr = reinterpret_cast<InstanceData*>(streamingPtr + blockOffset);
                 setInstancesRange(streamingInstancesPtr, instanceCount);
 
-                assert(!streaming->needsManualFlushOrInvalidate());
+                if (streaming->needsManualFlushOrInvalidate())
+                {
+                    const video::ILogicalDevice::MappedMemoryRange flushRange(streaming->getBuffer()->getBoundMemory().memory, blockOffset, blockByteSize);
+                    m_cachedCreationParams.utilities->getLogicalDevice()->flushMappedMemoryRanges(1, &flushRange);
+                }
+
+                remainingInstancesBytes -= blockByteSize;
 
                 SInstancedPC pc;
-                pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
+                pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + blockOffset;
 
                 commandBuffer->pushConstants(m_batchPipeline->getLayout(), asset::IShader::E_SHADER_STAGE::ESS_VERTEX, offsetof(ext::debug_draw::PushConstants, ipc), sizeof(SInstancedPC), &pc);
                 commandBuffer->drawIndexed(IndicesCount, instanceCount, 0, 0, 0);
 
-                streaming->multi_deallocate(1, &inputOffset, &blockSize, waitInfo);
+                streaming->multi_deallocate(1, &blockOffset, &blockByteSize, waitInfo);
             }
 
             return true;
