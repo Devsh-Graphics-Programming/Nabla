@@ -295,7 +295,32 @@
 				"CMAKE_BUILD_TYPE": "Debug",
 				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
-		}
+		},
+		{
+            "name": "n4ce-configure-windows-msvc",
+            "hidden": false,
+            "binaryDir": "build/production/n4ce",
+            "cacheVariables": {
+                "NBL_STATIC_BUILD": "OFF",
+				"NBL_SKIP_BUILD_OPTIONS_VALIDATION": "ON",
+                "CMAKE_SUPPRESS_REGENERATION": "OFF",
+                "NBL_COMPILER_DYNAMIC_RUNTIME": "ON",
+                "NBL_EMBED_BUILTIN_RESOURCES": "ON",
+                "NBL_UPDATE_GIT_SUBMODULE": "OFF",
+                "NBL_COMPILE_WITH_CUDA": "OFF",
+                "NBL_BUILD_OPTIX": "OFF",
+                "NBL_BUILD_MITSUBA_LOADER": "OFF",
+                "NBL_BUILD_RADEON_RAYS": "OFF",
+                "_NBL_COMPILE_WITH_OPEN_EXR_": "ON",
+                "NBL_EXPLICIT_MODULE_LOAD_LOG": "ON",
+                "NBL_CPACK_NO_BUILD_DIRECTORY_MODULES": "ON",
+                "GIT_FAIL_IF_NONZERO_EXIT": "OFF"
+            },
+            "displayName": "[N4CE]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+            "description": "Configure as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
+            "generator": "Visual Studio 17 2022",
+            "toolset": "v143"
+        }
 	],
 	"buildPresets": [
 		{
