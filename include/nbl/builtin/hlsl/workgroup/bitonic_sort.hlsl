@@ -1,10 +1,11 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BITONIC_SORT_INCLUDED_
 
-#include "nbl/builtin/hlsl/bitonic_sort/common.hlsl"
-#include "nbl/builtin/hlsl/subgroup/bitonic_sort.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
-#include "nbl/builtin/hlsl/memory_accessor.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 
 namespace nbl
 {
@@ -14,285 +15,317 @@ namespace workgroup
 {
 namespace bitonic_sort
 {
-using namespace nbl::hlsl::bitonic_sort;
 
-template<
-    uint16_t E_log2,
-    uint16_t WG_log2,
-    typename WorkgroupType,
-    typename KeyType,
-    typename SortableType,
-    typename Comparator,
-    uint32_t SharedMemDWORDs = 16384u
->
+// Configuration Template
+template<uint16_t E_log2,uint16_t WG_log2,typename Comparator,uint32_t SharedMemDWORDs = 16384u>
 struct bitonic_sort_config
 {
     static const uint32_t ElementsPerThreadLog2 = E_log2;
     static const uint32_t WorkgroupSizeLog2 = WG_log2;
-    static const uint32_t E = 1u << E_log2;
+    static const uint32_t E = 1u << E_log2;  
     static const uint32_t WG = 1u << WG_log2;
     static const uint32_t WorkgroupSize = WG;
-    static const uint32_t Total = WG * E;
+    static const uint32_t TotalElements = WG * E; 
     static const uint32_t SharedmemDWORDs = SharedMemDWORDs;
 
-    // R = number of elements that can fit in shared memory before barrier
-    // Required shared mem per element = 2 * sizeof(uint32_t) for key + index
-    static const uint32_t ElementsInShared = SharedMemDWORDs / 2u;  // 2 DWORDs per element
-
-    static const uint32_t R = (ElementsInShared < WG) ? ElementsInShared : WG;
-
-    static const uint32_t Batches = (WG + R - 1u) / R;
-
-    using wg_type = WorkgroupType;
-    using key_type = KeyType;
-    using sortable_type = SortableType;
     using comparator_t = Comparator;
 };
 
-template<typename config, typename Comp>
-inline void atomicOpPairs(
-    uint32_t BigStride,
-    uint32_t tid,
-    typename config::wg_type elems[config::E],
-    NBL_CONST_REF_ARG(Comp) comp)
+template<typename T, typename Comp>
+inline void compareAndSwap(bool ascending, NBL_REF_ARG(T) a, NBL_REF_ARG(T) b, NBL_CONST_REF_ARG(Comp) comp)
 {
-    LocalPasses<typename config::wg_type, 1, Comp> localSort;
-
-    [unroll]
-    for (uint32_t pairIdx = 0u; pairIdx < config::E / 2u; ++pairIdx)
+    bool needSwap = ascending ? comp(b, a) : comp(a, b);
+    if (needSwap)
     {
-        uint32_t globalPos = tid * config::E + pairIdx * 2u;
-        bool ascending = (globalPos & BigStride) == 0u;
-
-        typename config::wg_type pair[2];
-        pair[0] = elems[pairIdx * 2u];
-        pair[1] = elems[pairIdx * 2u + 1u];
-
-        localSort(ascending, pair, comp);
-
-        elems[pairIdx * 2u] = pair[0];
-        elems[pairIdx * 2u + 1u] = pair[1];
+        T tmp = a;
+        a = b;
+        b = tmp;
     }
 }
 
-template<typename config, typename Comp>
+// ===========================================
+// In-Thread Shuffle + Sort
+// For stride < E/2: operations within single thread's data
+// Uses local_t = key + 2 bits for position tracking
+// ===========================================
+template<typename config, typename sortable_t, typename local_t, typename Comp>
 inline void inThreadShuffleSortPairs(
     uint32_t stride,
-    uint32_t BigStride,
+    uint32_t stageSize,
     uint32_t tid,
-    typename config::wg_type elems[config::E],
+    sortable_t lo[config::E / 2u],
+    sortable_t hi[config::E / 2u],
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    uint32_t partner = stride >> 1;
+    const uint32_t PairsPerThread = config::E / 2u;
 
     [unroll]
-    for (uint32_t i = 0u; i < config::E; i += stride)
+    for (uint32_t i = 0u; i < PairsPerThread; ++i)
     {
-        uint32_t j = i + partner;
-        bool valid = j < config::E;
+        uint32_t pairGlobalIdx = tid * PairsPerThread + i;
+        bool ascending = ((pairGlobalIdx / stageSize) & 0x1u) == 0u;
 
-        uint32_t globalPos = tid * config::E + i;
-        bool ascending = (globalPos & BigStride) == 0u;
-
-        bool swap = valid && (comp(elems[j], elems[i]) == ascending);
-
-        typename config::wg_type tmp = elems[i];
-
-        elems[i].key = swap ? elems[j].key : elems[i].key;
-        elems[i].workgroupRelativeIndex = swap ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
-        elems[j].key = swap ? tmp.key : elems[j].key;
-        elems[j].workgroupRelativeIndex = swap ? tmp.workgroupRelativeIndex : elems[j].workgroupRelativeIndex;
-    }
-}
-
-template<typename config, typename Comp>
-inline void subgroupShuffleSortPairs(
-    uint32_t stride,
-    bool ascending,
-    typename config::wg_type elems[config::E],
-    uint32_t subgroupInvocationID,
-    NBL_CONST_REF_ARG(Comp) comp)
-{
-    bool oddThread = (subgroupInvocationID & 0x1u) != 0u;
-
-    [unroll]
-    for (uint32_t i = 0u; i < config::E; i += 2u)
-    {
-        uint32_t j = i + 1u;
-
-        typename config::key_type tradingKey = oddThread ? elems[j].key : elems[i].key;
-        uint32_t tradingIdx = oddThread ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
-
-        tradingKey = glsl::subgroupShuffleXor(tradingKey, 0x1u);
-        tradingIdx = glsl::subgroupShuffleXor(tradingIdx, 0x1u);
-
-        if (oddThread)
+        if (stride == 1u)
         {
-            elems[i].key = tradingKey;
-            elems[i].workgroupRelativeIndex = tradingIdx;
+            local_t loLocal = local_t::create(lo[i], i * 2u);
+            local_t hiLocal = local_t::create(hi[i], i * 2u + 1u);
+
+            compareAndSwap(ascending, loLocal, hiLocal, comp);
+
+            lo[i] = sortable_t(loLocal.data >> local_t::SHIFT);
+            hi[i] = sortable_t(hiLocal.data >> local_t::SHIFT);
         }
         else
         {
-            elems[j].key = tradingKey;
-            elems[j].workgroupRelativeIndex = tradingIdx;
+            uint32_t partner = i ^ stride;
+            if (partner > i && partner < PairsPerThread)
+            {
+                if (((i / stride) & 0x1u) == 0u)
+                {
+                    compareAndSwap(ascending, lo[i], lo[partner], comp);
+                    compareAndSwap(ascending, hi[i], hi[partner], comp);
+                }
+            }
         }
-
-        bool swap = comp(elems[j], elems[i]) == ascending;
-        typename config::wg_type tmp = elems[i];
-
-        elems[i].key = swap ? elems[j].key : elems[i].key;
-        elems[i].workgroupRelativeIndex = swap ? elems[j].workgroupRelativeIndex : elems[i].workgroupRelativeIndex;
-        elems[j].key = swap ? tmp.key : elems[j].key;
-        elems[j].workgroupRelativeIndex = swap ? tmp.workgroupRelativeIndex : elems[j].workgroupRelativeIndex;
     }
 }
 
-template<typename config, typename Comp, typename SMem>
-inline void workgroupShuffleSortPairs(
+// ===========================================
+// Subgroup Shuffle + Sort
+// For E < stride <= E * SubgroupSize
+// Uses subgroup_t = key (upper 32) + position (lower 32)
+// ===========================================
+template<typename config, typename sortable_t, typename subgroup_t, typename Comp>
+inline void subgroupShuffleSortPairs(
     uint32_t stride,
-    bool ascending,
-    uint32_t BigStride,
+    uint32_t stageSize,
     uint32_t tid,
-    typename config::wg_type elems[config::E],
-    NBL_REF_ARG(SMem) smem,
+    sortable_t lo[config::E / 2u],
+    sortable_t hi[config::E / 2u],
+    uint32_t subgroupInvocationID,
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    using K = accessor_adaptors::StructureOfArrays<SMem,uint32_t,uint32_t,1,config::Total>;
-    using I = accessor_adaptors::StructureOfArrays<SMem,uint32_t,uint32_t,1,config::Total,
-        integral_constant<uint32_t,config::Total*sizeof(typename config::key_type)/4u> >;
+    const uint32_t PairsPerThread = config::E / 2u;
 
-    K k = K(smem);
-    I idx = I(smem);
+    uint32_t laneStride = stride / PairsPerThread;
 
-    const uint32_t R = config::R;
-    const uint32_t A = config::Batches;
+    bool oddThread = (subgroupInvocationID / laneStride) & 0x1u;
 
-    bool isUpper = ((tid * config::E) & stride) != 0u;
+    uint32_t loPos[PairsPerThread];
+    uint32_t hiPos[PairsPerThread];
 
     [unroll]
-    for (uint32_t a = 0u; a < A; ++a)
+    for (uint32_t i = 0u; i < PairsPerThread; ++i)
     {
-        uint32_t start = a * R;
-        uint32_t end = min((a+1u)*R, config::WG);
-        bool active = (tid >= start) && (tid < end);
+        uint32_t pairGlobalIdx = tid * PairsPerThread + i;
+        uint32_t myLoPos = pairGlobalIdx * 2u;
+        uint32_t myHiPos = pairGlobalIdx * 2u + 1u;
 
-        [unroll]
-        for (uint32_t i = 0u; i < config::E/2; ++i)
+        sortable_t selected = oddThread ? lo[i] : hi[i];
+        uint32_t selectedPos = oddThread ? myLoPos : myHiPos;
+
+        subgroup_t packed = subgroup_t::create(selected, selectedPos);
+
+        uint64_t shuffled = glsl::subgroupShuffleXor(packed.data, laneStride);
+
+        sortable_t received = sortable_t(shuffled >> subgroup_t::SHIFT);
+        uint32_t receivedPos = uint32_t(shuffled) & ((1u << subgroup_t::SHIFT) - 1u);
+
+        if (oddThread)
         {
-            uint32_t localIdx = isUpper ? (i + config::E/2) : i;
-            if (active && (localIdx < config::E))
-            {
-                k.set(tid*config::E + localIdx, elems[localIdx].key);
-                idx.set(tid*config::E + localIdx, elems[localIdx].workgroupRelativeIndex);
-            }
+            lo[i] = received;
+            loPos[i] = receivedPos;
+            hiPos[i] = myHiPos;  // hi unchanged
         }
-        smem.workgroupExecutionAndMemoryBarrier();
-
-        [unroll]
-        for (uint32_t i = 0u; i < config::E/2; ++i)
+        else
         {
-            uint32_t localIdx = isUpper ? i : (i + config::E/2);
-            if (active && (localIdx < config::E))
-            {
-                uint32_t myElemIdx = tid * config::E + (isUpper ? (i + config::E/2) : i);
-                uint32_t partnerElemIdx = myElemIdx ^ stride;
-                uint32_t pTid = partnerElemIdx / config::E;
-                uint32_t partnerLocalIdx = partnerElemIdx % config::E;
-
-                k.get(pTid*config::E + partnerLocalIdx, elems[localIdx].key);
-                idx.get(pTid*config::E + partnerLocalIdx, elems[localIdx].workgroupRelativeIndex);
-            }
+            hi[i] = received;
+            hiPos[i] = receivedPos;
+            loPos[i] = myLoPos;  // lo unchanged
         }
-        smem.workgroupExecutionAndMemoryBarrier();
     }
 
-    atomicOpPairs<config>(BigStride, tid, elems, comp);
+    [unroll]
+    for (uint32_t i = 0u; i < PairsPerThread; ++i)
+    {
+        uint32_t minPos = loPos[i] < hiPos[i] ? loPos[i] : hiPos[i];
+        uint32_t blockSize = stageSize * 2u;
+        bool ascending = ((minPos / blockSize) & 0x1u) == 0u;
+        compareAndSwap(ascending, lo[i], hi[i], comp);
+    }
 }
 
-template<typename config, typename Comp, typename SMem>
-inline void ShufflesSort(
+// ===========================================
+// Workgroup Shuffle + Sort (via Shared Memory)
+// For stride >= E * SubgroupSize
+// ===========================================
+template<typename config, typename sortable_t, typename workgroup_t, typename SMem, typename Comp>
+inline void workgroupShuffleSortPairs(
     uint32_t stride,
-    uint32_t BigStride,
-    typename config::wg_type elems[config::E],
+    uint32_t stageSize,
     uint32_t tid,
-    uint32_t subgroupInvocationID,
+    sortable_t lo[config::E / 2u],
+    sortable_t hi[config::E / 2u],
     NBL_REF_ARG(SMem) smem,
     NBL_CONST_REF_ARG(Comp) comp)
 {
-    if (stride == 1u)
+    const uint32_t PairsPerThread = config::E / 2u;
+
+    uint32_t threadStride = stride / PairsPerThread;
+    uint32_t partnerThread = tid ^ threadStride;
+
+    bool oddThread = (tid / threadStride) & 0x1u;
+
+    uint32_t loPos[PairsPerThread];
+    uint32_t hiPos[PairsPerThread];
+
+    [unroll]
+    for (uint32_t i = 0u; i < PairsPerThread; ++i)
     {
-        atomicOpPairs<config>(BigStride, tid, elems, comp);
-        return;
+        uint32_t pairGlobalIdx = tid * PairsPerThread + i;
+        uint32_t myLoPos = pairGlobalIdx * 2u;
+        uint32_t myHiPos = pairGlobalIdx * 2u + 1u;
+
+        uint32_t smemIdx = (tid * PairsPerThread + i) * 2u;
+
+        sortable_t selected = oddThread ? lo[i] : hi[i];
+        uint32_t selectedPos = oddThread ? myLoPos : myHiPos;
+
+        smem.set(smemIdx, selected);
+        smem.set(smemIdx + 1u, selectedPos);
     }
 
-    const uint32_t E_half = config::E / 2u;
-    const uint32_t subgroupThreshold = E_half * glsl::gl_SubgroupSize();
-    const uint32_t workgroupThreshold = E_half * config::WG;
+    smem.workgroupExecutionAndMemoryBarrier();
 
-    [flatten]
-    if (stride < E_half)
+    [unroll]
+    for (uint32_t i = 0u; i < PairsPerThread; ++i)
     {
-        inThreadShuffleSortPairs<config>(stride, BigStride, tid, elems, comp);
+        uint32_t pairGlobalIdx = tid * PairsPerThread + i;
+        uint32_t myLoPos = pairGlobalIdx * 2u;
+        uint32_t myHiPos = pairGlobalIdx * 2u + 1u;
+
+        uint32_t partnerSmemIdx = (partnerThread * PairsPerThread + i) * 2u;
+
+        sortable_t received = smem.get(partnerSmemIdx);
+        uint32_t receivedPos = smem.get(partnerSmemIdx + 1u);
+
+        if (oddThread)
+        {
+            lo[i] = received;
+            loPos[i] = receivedPos;
+            hiPos[i] = myHiPos;  // hi unchanged
+        }
+        else
+        {
+            hi[i] = received;
+            hiPos[i] = receivedPos;
+            loPos[i] = myLoPos;  // lo unchanged
+        }
     }
-    else [flatten] if (stride < subgroupThreshold)
+
+    smem.workgroupExecutionAndMemoryBarrier();
+
+    [unroll]
+    for (uint32_t i = 0u; i < PairsPerThread; ++i)
     {
-        bool ascending = ((tid * config::E) & BigStride) == 0u;
-        subgroupShuffleSortPairs<config>(stride, ascending, elems, subgroupInvocationID, comp);
-    }
-    else
-    {
-        bool ascending = ((tid * config::E) & BigStride) == 0u;
-        workgroupShuffleSortPairs<config>(stride, ascending, BigStride, tid, elems, smem, comp);
+        uint32_t minPos = loPos[i] < hiPos[i] ? loPos[i] : hiPos[i];
+        uint32_t blockSize = stageSize * 2u;
+        bool ascending = ((minPos / blockSize) & 0x1u) == 0u;
+        compareAndSwap(ascending, lo[i], hi[i], comp);
     }
 }
 
+// Main BitonicSort Entry Point
 template<typename config>
 struct BitonicSort
 {
-    template<typename Accessor, typename SMem, typename ToWorkgroupType, typename FromWorkgroupType>
-    static void __call(Accessor acc, SMem smem, ToWorkgroupType toWgType, FromWorkgroupType fromWgType)
+    template<
+        typename sortable_t,
+        typename local_t,
+        typename subgroup_t,
+        typename workgroup_t,
+        typename Accessor,
+        typename SMem,
+        typename Comp
+    >
+    static void __call(
+        NBL_REF_ARG(Accessor) acc,
+        NBL_REF_ARG(SMem) smem,
+        NBL_CONST_REF_ARG(Comp) comp)
     {
         uint32_t tid = glsl::gl_LocalInvocationID().x;
         uint32_t subgroupInvocationID = glsl::gl_SubgroupInvocationID();
-        typename config::wg_type elems[config::E];
+        uint32_t subgroupSize = glsl::gl_SubgroupSize();
 
-        using sortable_t = typename config::sortable_type;
+        const uint32_t PairsPerThread = config::E / 2u;
+
+        // Each thread holds E/2 pairs: lo[E/2] and hi[E/2]
+        sortable_t lo[PairsPerThread];
+        sortable_t hi[PairsPerThread];
 
         [unroll]
-        for (uint32_t i = 0u; i < config::E; ++i)
+        for (uint32_t i = 0u; i < PairsPerThread; ++i)
         {
-            uint32_t idx = tid * config::E + i;
-            sortable_t sortable;
-            acc.template get<sortable_t>(idx, sortable);
-            elems[i] = toWgType(sortable, idx);
+            uint32_t baseIdx = tid * config::E;
+            acc.template get<sortable_t>(baseIdx + i * 2u, lo[i]);
+            acc.template get<sortable_t>(baseIdx + i * 2u + 1u, hi[i]);
         }
 
-        typename config::comparator_t comp;
-
-        atomicOpPairs<config>(1u, tid, elems, comp);
-
-        for (uint32_t BigStride = 2u; BigStride <= config::Total; BigStride <<= 1u)
+        // Pair 0 ascending, Pair 1 descending, Pair 2 ascending, etc. (ADAD pattern)
+        [unroll]
+        for (uint32_t i = 0u; i < PairsPerThread; ++i)
         {
-            ShufflesSort<config>(BigStride, BigStride, elems, tid, subgroupInvocationID, smem, comp);
+            uint32_t pairGlobalIdx = tid * PairsPerThread + i;
+            bool ascending = (pairGlobalIdx & 0x1u) == 0u;
+            compareAndSwap(ascending, lo[i], hi[i], comp);
+        }
 
-            for (uint32_t stride = 1u; stride < BigStride; stride <<= 1u)
+        // Main bitonic sort stages
+        const uint32_t totalPairs = config::TotalElements / 2u;
+        const uint32_t pairsPerSubgroup = subgroupSize * PairsPerThread;
+
+        for (uint32_t stageSize = 2u; stageSize <= totalPairs; stageSize <<= 1u)
+        {
+            for (uint32_t stride = stageSize; stride >= 1u; stride >>= 1u)
             {
-                ShufflesSort<config>(stride, BigStride, elems, tid, subgroupInvocationID, smem, comp);
+                // Thresholds use < (strictly less than) per pseudocode:
+                // stride < PairsPerThread -> in-thread
+                // stride < PairsPerThread * SubgroupSize -> subgroup
+                // stride < PairsPerThread * WorkgroupSize -> workgroup
+                if (stride < PairsPerThread)
+                {
+                    // In-thread operations: stride within single thread's data
+                    inThreadShuffleSortPairs<config, sortable_t, local_t>(
+                        stride, stageSize, tid, lo, hi, comp);
+                }
+                else if (stride < pairsPerSubgroup)
+                {
+                    // Subgroup shuffle operations: stride crosses threads within subgroup
+                    subgroupShuffleSortPairs<config, sortable_t, subgroup_t>(
+                        stride, stageSize, tid, lo, hi, subgroupInvocationID, comp);
+                }
+                else
+                {
+                    // Workgroup shuffle via shared memory: stride crosses subgroups
+                    workgroupShuffleSortPairs<config, sortable_t, workgroup_t>(
+                        stride, stageSize, tid, lo, hi, smem, comp);
+                }
             }
         }
 
         [unroll]
-        for (uint32_t i = 0u; i < config::E; ++i)
+        for (uint32_t i = 0u; i < PairsPerThread; ++i)
         {
-            sortable_t output = fromWgType(elems[i]);
-            acc.template set<sortable_t>(tid * config::E + i, output);
+            uint32_t baseIdx = tid * config::E;
+            acc.template set<sortable_t>(baseIdx + i * 2u, lo[i]);
+            acc.template set<sortable_t>(baseIdx + i * 2u + 1u, hi[i]);
         }
     }
 };
 
-} // bitonic_sort
-} // workgroup
-} // hlsl
-} // nbl
+} // namespace bitonic_sort
+} // namespace workgroup
+} // namespace hlsl
+} // namespace nbl
 
 #endif
