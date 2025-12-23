@@ -7,6 +7,8 @@
 
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/concepts/vector.hlsl"
+#include "nbl/builtin/hlsl/array_accessors.hlsl"
 
 
 namespace nbl
@@ -79,7 +81,7 @@ struct reference_wrapper : enable_if_t<
 // TODO: partial specializations for T being a special SPIR-V type for image ops, etc.
 
 
-#define ALIAS_STD(NAME,OP) template<typename T> struct NAME { \
+#define ALIAS_STD(NAME,OP) template<typename T NBL_STRUCT_CONSTRAINABLE > struct NAME { \
     using type_t = T; \
     \
     T operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
@@ -89,7 +91,6 @@ struct reference_wrapper : enable_if_t<
 
 
 #else // CPP
-
 
 #define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
     using type_t = T;
@@ -135,16 +136,56 @@ ALIAS_STD(divides,/)
 };
 
 
-ALIAS_STD(greater,>) };
-ALIAS_STD(less,<) };
-ALIAS_STD(greater_equal,>=) };
-ALIAS_STD(less_equal,<=) };
+ALIAS_STD(equal_to, ==) };
+ALIAS_STD(not_equal_to, !=) };
+ALIAS_STD(greater, >) };
+ALIAS_STD(less, <) };
+ALIAS_STD(greater_equal, >=) };
+ALIAS_STD(less_equal, <=) };
 
 #undef ALIAS_STD
 
-// ------------------------ Compound assignment operators ----------------------
+// The above comparison operators return bool on STD, but in HLSL they're supposed to yield bool vectors, so here's a specialization so that they return `vector<bool, N>` for vectorial types
 
-#define COMPOUND_ASSIGN(NAME) template<typename T> struct NAME##_assign { \
+// GLM doesn't have operators on vectors
+#ifndef __HLSL_VERSION
+
+#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP, GLM_OP) template<typename T> requires (concepts::Vectorial<T>)\
+struct NAME <T>\
+{\
+    using type_t = T;\
+    vector<bool, vector_traits<T>::Dimension> operator()(const T& lhs, const T& rhs)\
+    {\
+        return glm::GLM_OP (lhs, rhs);\
+    }\
+};
+
+#else 
+
+#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP, GLM_OP) template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)\
+struct NAME <T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
+{\
+    using type_t = T;\
+    vector<bool, vector_traits<T>::Dimension> operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)\
+    {\
+        return lhs OP rhs;\
+    }\
+};
+
+#endif
+
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(equal_to, ==, equal)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(not_equal_to, !=, notEqual)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(greater, >, greaterThan)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(less, <, lessThan)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(greater_equal, >=, greaterThanEqual)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(less_equal, <=, lessThanEqual)
+
+#undef NBL_COMPARISON_VECTORIAL_SPECIALIZATION
+
+// ------------------------------------------------------------- COMPOUND ASSIGNMENT OPERATORS --------------------------------------------------------------------
+
+#define COMPOUND_ASSIGN(NAME) template<typename T NBL_STRUCT_CONSTRAINABLE> struct NAME##_assign { \
     using type_t = T; \
     using base_t = NAME <type_t>; \
     base_t baseOp; \
@@ -163,9 +204,9 @@ COMPOUND_ASSIGN(divides)
 
 #undef COMPOUND_ASSIGN
 
-// ----------------- End of compound assignment ops ----------------
+// ---------------------------------------------------------------- MIN, MAX, TERNARY -------------------------------------------------------------------------
 
-// Min, Max and Ternary Operator don't use ALIAS_STD because they don't exist in STD
+// Min, Max, and Ternary and Shift operators don't use ALIAS_STD because they don't exist in STD
 // TODO: implement as mix(rhs<lhs,lhs,rhs) (SPIR-V intrinsic from the extended set & glm on C++)
 template<typename T>
 struct minimum
@@ -195,18 +236,273 @@ struct maximum
     NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
 };
 
-template<typename T>
+#ifndef __HLSL_VERSION
+template<typename F1, typename F2 > requires(is_same_v<std::invoke_result_t<F1>, std::invoke_result_t<F2> > )
 struct ternary_operator
+{
+   using type_t = std::invoke_result_t<F1>;
+
+   constexpr inline type_t operator()(const bool condition, F1& lhs, F2& rhs)
+   {
+      if (condition)
+         return std::invoke(lhs);
+      else
+         return std::invoke(rhs);
+   }
+};
+#else
+template<typename F1, typename F2 NBL_PRIMARY_REQUIRES(is_same_v<decltype(experimental::declval<F1>()()),decltype(experimental::declval<F2>()())> )
+struct ternary_operator
+{
+   using type_t = decltype(experimental::declval<F1>().operator());
+
+   NBL_CONSTEXPR_FUNC type_t operator()(const bool condition, NBL_REF_ARG(F1) lhs, NBL_REF_ARG(F2) rhs)
+   {
+      if (condition)
+         return lhs();
+      else
+         return rhs();
+   }
+};
+#endif
+
+// ----------------------------------------------------------------- SHIFT OPERATORS --------------------------------------------------------------------
+
+template<typename T NBL_STRUCT_CONSTRAINABLE >
+struct left_shift_operator
 {
     using type_t = T;
 
-    T operator()(bool condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
     {
-        return condition ? lhs : rhs;
+        return operand << bits;
     }
 };
 
-}
-}
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::IntVector<T>)
+struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::IntVector<T>) >
+{
+    using type_t = T;
+    using scalar_t = scalar_type_t<T>;
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand << bits;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        return operand << bits;
+    }
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(!concepts::IntVector<T> && concepts::IntegralLikeVectorial<T>)
+struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVector<T> && concepts::IntegralLikeVectorial<T>) >
+{
+    using type_t = T;
+    using scalar_t = typename vector_traits<T>::scalar_type;
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        left_shift_operator<scalar_t> leftShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, leftShift(getter(operand, i), getter(bits, i)));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        left_shift_operator<scalar_t> leftShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, leftShift(getter(operand, i), bits));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(vector<uint16_t, vector_traits<T>::Dimension>) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        left_shift_operator<scalar_t> leftShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, leftShift(getter(operand, i), bits[i]));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(uint16_t) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        left_shift_operator<scalar_t> leftShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, leftShift(getter(operand, i), bits));
+        }
+        return shifted;
+    }
+};
+
+template<typename T NBL_STRUCT_CONSTRAINABLE >
+struct arithmetic_right_shift_operator
+{
+    using type_t = T;
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand >> bits;
+    }
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::IntVector<T>)
+struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::IntVector<T>) >
+{
+    using type_t = T;
+    using scalar_t = scalar_type_t<T>;
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand >> bits;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        return operand >> bits;
+    }
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(!concepts::IntVector<T>&& concepts::IntegralLikeVectorial<T>)
+struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(!concepts::IntVector<T>&& concepts::IntegralLikeVectorial<T>) >
+{
+    using type_t = T;
+    using scalar_t = typename vector_traits<T>::scalar_type;
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        arithmetic_right_shift_operator<scalar_t> rightShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, rightShift(getter(operand, i), getter(bits, i)));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        arithmetic_right_shift_operator<scalar_t> rightShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, rightShift(getter(operand, i), bits));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(vector<uint16_t, vector_traits<T>::Dimension>) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        arithmetic_right_shift_operator<scalar_t> rightShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, rightShift(getter(operand, i), bits[i]));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(uint16_t) bits)
+    {
+        array_get<T, scalar_t> getter;
+        array_set<T, scalar_t> setter;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR uint16_t extent = uint16_t(extent_v<T>);
+        arithmetic_right_shift_operator<scalar_t> rightShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            setter(shifted, i, rightShift(getter(operand, i), bits));
+        }
+        return shifted;
+    }
+};
+
+// Left unimplemented for vectorial types by default
+template<typename T NBL_STRUCT_CONSTRAINABLE >
+struct logical_right_shift_operator
+{
+    using type_t = T;
+    using unsigned_type_t = make_unsigned_t<T>;
+
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        arithmetic_right_shift_operator<unsigned_type_t> arithmeticRightShift;
+        return _static_cast<T>(arithmeticRightShift(_static_cast<unsigned_type_t>(operand), _static_cast<unsigned_type_t>(bits)));
+    }
+};
+
+// ----------------------------------------------------------------- UNARY OPERATORS --------------------------------------------------------------------
+#ifndef __HLSL_VERSION
+#define NBL_UNARY_OP_SPECIALIZATION(NAME, OP) template<typename T> \
+struct NAME : std::NAME<T> { \
+    using type_t = T; \
+};
+#else
+#define NBL_UNARY_OP_SPECIALIZATION(NAME, OP) template<typename T NBL_STRUCT_CONSTRAINABLE> \
+struct NAME \
+{ \
+    using type_t = T; \
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(T) operand) \
+    { \
+        return operand.operator OP(); \
+    } \
+}; \
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T> ) \
+struct NAME<T NBL_PARTIAL_REQ_BOT(concepts::Scalar<T> || concepts::Vector<T> || concepts::Matrix<T> ) > \
+{ \
+    using type_t = T; \
+    NBL_CONSTEXPR_FUNC T operator()(const T operand) \
+    { \
+      return (OP operand); \
+    } \
+}; 
+#endif
+
+NBL_UNARY_OP_SPECIALIZATION(bit_not, ~)
+NBL_UNARY_OP_SPECIALIZATION(negate, -)
+
+} //namespace nbl
+} //namespace hlsl
 
 #endif
