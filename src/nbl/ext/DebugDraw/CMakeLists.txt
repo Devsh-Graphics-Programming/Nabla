@@ -43,6 +43,7 @@ set(JSON [=[
 string(CONFIGURE "${JSON}" JSON)
 
 set(COMPILE_OPTIONS
+    -I "${NBL_ROOT_PATH}/include" # a workaround due to debug draw ext common header which is not part of Nabla builtin archive
     -I "${CMAKE_CURRENT_SOURCE_DIR}"
     -T lib_${SM}
 )
