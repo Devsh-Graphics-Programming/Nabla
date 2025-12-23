@@ -25,14 +25,10 @@ set(NBL_DEBUG_DRAW_HLSL_MOUNT_POINT "${_ARCHIVE_ABSOLUTE_ENTRY_PATH_}/nbl/ext/De
 set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/auto-gen")
 set(DEPENDS
     ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/common.hlsl
-    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/single.vertex.hlsl
-    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/aabb_instances.vertex.hlsl
-    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/aabb_instances.fragment.hlsl
+    ${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/draw_aabb.unified.hlsl
 )
 target_sources(${LIB_NAME} PRIVATE ${DEPENDS})
 set_source_files_properties(${DEPENDS} PROPERTIES HEADER_FILE_ONLY ON)
-
-target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ABSOLUTE_SPV_PATH_="${OUTPUT_DIRECTORY}")
 
 set(SM 6_8)
 set(JSON [=[

@@ -76,7 +76,7 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 }
 
 // note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
-constexpr std::string_view NBL_ARCHIVE_ENTRY = _ARCHIVE_ABSOLUTE_SPV_PATH_;
+constexpr std::string_view NBL_ARCHIVE_ENTRY = NBL_DEBUG_DRAW_HLSL_MOUNT_POINT;
 
 const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
 {
@@ -85,7 +85,7 @@ const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> l
 	if (!system)
 		return nullptr;
 
-	if (system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
+	if (system->exists(path(NBL_ARCHIVE_ENTRY), {}))
 	{
 		logger->log("CDrawAABB .spv directory is already mounted!", ILogger::ELL_WARNING);
 		return nullptr;
@@ -93,9 +93,13 @@ const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> l
 
 	// extension should mount everything for you, regardless if content goes from virtual filesystem 
 	// or disk directly - and you should never rely on application framework to expose extension data
-
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+	auto archive = make_smart_refctd_ptr<builtin::build::CArchive>(smart_refctd_ptr(logger));
+	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
+#else
 	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::move(NBL_ARCHIVE_ENTRY), smart_refctd_ptr(logger), system);
 	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
+#endif
 
 	return smart_refctd_ptr(archive);
 }
@@ -105,13 +109,13 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 	system::logger_opt_ptr logger = params.utilities->getLogger();
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
 
-	if (!system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
-        mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
+	if (!system->exists(path(NBL_ARCHIVE_ENTRY), {}))
+		mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
 
 	auto getShader = [&](const core::string& key)->smart_refctd_ptr<IShader> {
 		IAssetLoader::SAssetLoadParams lp = {};
 		lp.logger = params.utilities->getLogger();
-		lp.workingDirectory = _ARCHIVE_ABSOLUTE_SPV_PATH_;
+		lp.workingDirectory = NBL_DEBUG_DRAW_HLSL_MOUNT_POINT;
 		auto bundle = params.assetManager->getAsset(key.c_str(), lp);
 
 		const auto contents = bundle.getContents();
