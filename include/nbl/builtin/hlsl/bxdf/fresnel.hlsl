@@ -431,14 +431,6 @@ struct Conductor
         return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
 
-    // OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
-    // {
-    //     OrientedEtaRcps<eta_type> rcpEta;
-    //     rcpEta.value = hlsl::promote<eta_type>(1.0) / eta;
-    //     rcpEta.value2 = rcpEta.value * rcpEta.value;
-    //     return rcpEta;
-    // }
-
     T eta;
     T etak2;
     T etaLen2;
