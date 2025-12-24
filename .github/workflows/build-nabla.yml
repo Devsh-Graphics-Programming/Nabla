@@ -364,6 +364,17 @@ jobs:
           sparse-checkout: |
             smoke
 
+      - name: Download VulkanSDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+            install_runtime: true
+            cache: false
+            stripdown: true
+            install_lavapipe: true
+
+      - name: Add lavapipe driver
+        run: reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\Vulkan\Drivers" /v "C:\lavapipe\share\vulkan\icd.d\lvp_icd.x86_64.json" /t REG_DWORD /d 0 /f
+
       - name: Download Nabla install artifact
         uses: actions/download-artifact@v4
         with:
@@ -385,4 +396,4 @@ jobs:
         run: cmake --build smoke/out --config ${{ matrix.config }}
 
       - name: CTest Smoke
-        run: ctest --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
+        run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}

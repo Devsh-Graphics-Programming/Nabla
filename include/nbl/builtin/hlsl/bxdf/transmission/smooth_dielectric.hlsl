@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
+#include "nbl/builtin/hlsl/sampling/basic.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
@@ -21,16 +22,7 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<C
 struct SSmoothDielectric
 {
     using this_t = SSmoothDielectric<Config>;
-    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
-    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
+    BXDF_CONFIG_TYPE_ALIASES(Config);
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
@@ -48,7 +40,9 @@ struct SSmoothDielectric
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, interaction.getNdotV(_clamp))[0];
 
         scalar_type rcpChoiceProb;
-        bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        partitionRandVariable.leftProb = reflectance;
+        bool transmitted = partitionRandVariable(u.z, rcpChoiceProb);
 
         ray_dir_info_type V = interaction.getV();
         Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), interaction.getN());
@@ -63,11 +57,16 @@ struct SSmoothDielectric
     }
 
     // eval and pdf return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    {
+        return 0;
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         return 0;
     }
 
+    // smooth BxDFs are isotropic by definition
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         return quotient_pdf_type::create(1.0, bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity));
@@ -97,18 +96,13 @@ struct SThinSmoothDielectric
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    static this_t create(NBL_CONST_REF_ARG(fresnel::Dielectric<spectral_type>) f, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
-    {
-        this_t retval;
-        retval.fresnel = f;
-        retval.luminosityContributionHint = luminosityContributionHint;
-        return retval;
-    }
     static this_t create(NBL_CONST_REF_ARG(fresnel::Dielectric<spectral_type>) f)
     {
         static_assert(vector_traits<spectral_type>::Dimension == 3);
-        const spectral_type rec709 = spectral_type(0.2126, 0.7152, 0.0722);
-        return create(f, rec709);
+        this_t retval;
+        retval.fresnel = f;
+        retval.luminosityContributionHint = spectral_type(0.2126, 0.7152, 0.0722);  // rec709
+        return retval;
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
@@ -130,11 +124,13 @@ struct SThinSmoothDielectric
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
 
         // we are only allowed one choice for the entire ray, so make the probability a weighted sum
-        const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, luminosityContributionHint);
+        const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, interaction.getLuminosityContributionHint());
 
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
-        const bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
+        sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
+        partitionRandVariable.leftProb = reflectionProb;
+        const bool transmitted = partitionRandVariable(z, rcpChoiceProb);
         remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
         ray_dir_info_type V = interaction.getV();
@@ -154,19 +150,23 @@ struct SThinSmoothDielectric
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    {
+        return 0;
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         return 0;
     }
 
-    // isotropic only?
+    // smooth BxDFs are isotropic by definition
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
         const spectral_type sampleValue = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted);
 
-        const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
+        const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,interaction.getLuminosityContributionHint());
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         return quotient_pdf_type::create(sampleValue / sampleProb, _pdf);
@@ -177,7 +177,6 @@ struct SThinSmoothDielectric
     }
 
     fresnel::Dielectric<spectral_type> fresnel;
-    spectral_type luminosityContributionHint;
 };
 
 }
@@ -186,6 +185,7 @@ template<typename C>
 struct traits<bxdf::transmission::SSmoothDielectric<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
@@ -194,6 +194,7 @@ template<typename C>
 struct traits<bxdf::transmission::SThinSmoothDielectric<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };

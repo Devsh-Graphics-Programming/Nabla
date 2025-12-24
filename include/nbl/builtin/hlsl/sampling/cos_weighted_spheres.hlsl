@@ -22,26 +22,26 @@ struct ProjectedHemisphere
     using vector_t2 = vector<T, 2>;
     using vector_t3 = vector<T, 3>;
     
-    static vector_t3 generate(vector_t2 _sample)
+    static vector_t3 generate(const vector_t2 _sample)
     {
         vector_t2 p = concentricMapping<T>(_sample * T(0.99999) + T(0.000005));
         T z = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - p.x * p.x - p.y * p.y));
         return vector_t3(p.x, p.y, z);
     }
 
-    static T pdf(T L_z)
+    static T pdf(const T L_z)
     {
         return L_z * numbers::inv_pi<float>;
     }
 
     template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(const T L)
     {
         return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
     template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(const vector_t3 L)
     {
         return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
@@ -54,7 +54,7 @@ struct ProjectedSphere
     using vector_t3 = vector<T, 3>;
     using hemisphere_t = ProjectedHemisphere<T>;
 
-    static vector_t3 generate(vector_t3 _sample)
+    static vector_t3 generate(NBL_REF_ARG(vector_t3) _sample)
     {
         vector_t3 retval = hemisphere_t::generate(_sample.xy);
         const bool chooseLower = _sample.z > T(0.5);
@@ -77,7 +77,7 @@ struct ProjectedSphere
     }
 
     template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(const vector_t3 L)
     {
         return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }

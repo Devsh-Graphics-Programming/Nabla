@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include <boost/preprocessor/punctuation/remove_parens.hpp>
 
 namespace nbl
 {
@@ -19,52 +20,100 @@ namespace ndf
 namespace dummy_impl
 {
 using sample_t = SLightSample<ray_dir_info::SBasic<float> >;
-using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float> > >;
+using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float>, vector<float, 3> > >;
 using cache_t = SAnisotropicMicrofacetCache<SIsotropicMicrofacetCache<float> >;
-struct MetaQuery   // nonsense struct, just put in all the functions to pass the ndf query concepts
-{
-    using scalar_type = float;
-
-    scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return 0; }
-    scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return 0; }
-    scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return 0; }
-
-    scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return 0; }
-    scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return 0; }
-    scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return 0; }
-    scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return 0; }
-    BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return BxDFClampMode::BCM_NONE; }
-};
 }
 
 #define NBL_CONCEPT_NAME NDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (ndf, T)
-#define NBL_CONCEPT_PARAM_1 (query, dummy_impl::MetaQuery)
+#define NBL_CONCEPT_PARAM_1 (quant_query, typename T::quant_query_type)
 #define NBL_CONCEPT_PARAM_2 (_sample, dummy_impl::sample_t)
 #define NBL_CONCEPT_PARAM_3 (interaction, dummy_impl::interaction_t)
 #define NBL_CONCEPT_PARAM_4 (cache, dummy_impl::cache_t)
-NBL_CONCEPT_BEGIN(5)
+#define NBL_CONCEPT_PARAM_5 (dg1_query, typename T::dg1_query_type)
+#define NBL_CONCEPT_PARAM_6 (g2_query, typename T::g2g1_query_type)
+#define NBL_CONCEPT_PARAM_7 (is_inf, bool)
+NBL_CONCEPT_BEGIN(8)
 #define ndf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define quant_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define dg1_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+#define g2_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
+#define is_inf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::cache_t>(cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::MetaQuery>(query)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::MetaQuery, dummy_impl::cache_t>(query, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::MetaQuery, dummy_impl::sample_t, dummy_impl::interaction_t>(query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::MetaQuery, dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::quant_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::dg1_query_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::g2g1_query_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::quant_query_type))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::GuaranteedVNDF), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(quant_query, _sample, interaction, cache, is_inf)), ::nbl::hlsl::is_same_v, typename T::quant_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::sample_t, dummy_impl::interaction_t>(dg1_query, quant_query, _sample, interaction, is_inf)), ::nbl::hlsl::is_same_v, typename T::quant_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(g2_query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(g2_query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
+#undef is_inf
+#undef g2_query
+#undef dg1_query
 #undef cache
 #undef interaction
 #undef _sample
-#undef query
+#undef quant_query
 #undef ndf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+#define NBL_CONCEPT_NAME NDF_CanOverwriteDG
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (ndf, T)
+#define NBL_CONCEPT_PARAM_1 (quant_query, typename T::quant_query_type)
+#define NBL_CONCEPT_PARAM_2 (_sample, dummy_impl::sample_t)
+#define NBL_CONCEPT_PARAM_3 (interaction, dummy_impl::interaction_t)
+#define NBL_CONCEPT_PARAM_4 (cache, dummy_impl::cache_t)
+#define NBL_CONCEPT_PARAM_5 (g2_query, typename T::g2g1_query_type)
+NBL_CONCEPT_BEGIN(6)
+#define ndf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define quant_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define g2_query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NDF, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template Dcorrelated<dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(g2_query, quant_query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::quant_type))
+);
+#undef g2_query
+#undef cache
+#undef interaction
+#undef _sample
+#undef quant_query
+#undef ndf
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+
+#define NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IS_ANISO) template<class Interaction>\
+NBL_CONSTEXPR_STATIC_INLINE bool RequiredInteraction = IS_ANISO ? surface_interactions::Anisotropic<Interaction> : surface_interactions::Isotropic<Interaction>;\
+template<class MicrofacetCache>\
+NBL_CONSTEXPR_STATIC_INLINE bool RequiredMicrofacetCache = IS_ANISO ? AnisotropicMicrofacetCache<MicrofacetCache> : ReadableIsotropicMicrofacetCache<MicrofacetCache>;\
+
+#define NBL_HLSL_NDF_CONSTEXPR_DECLS(ANISO,REFLECT_REFRACT) NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = ANISO;\
+NBL_CONSTEXPR_STATIC_INLINE MicrofacetTransformTypes SupportedPaths = REFLECT_REFRACT;\
+NBL_CONSTEXPR_STATIC_INLINE bool SupportsTransmission = REFLECT_REFRACT != MTT_REFLECT;\
+NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);\
+
+#define NBL_HLSL_NDF_TYPE_ALIASES(...) using this_t = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(0, __VA_ARGS__));\
+using scalar_type = T;\
+using base_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(1, __VA_ARGS__));\
+using quant_type = SDualMeasureQuant<scalar_type>;\
+using vector2_type = vector<T, 2>;\
+using vector3_type = vector<T, 3>;\
+using dg1_query_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(2, __VA_ARGS__));\
+using g2g1_query_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(3, __VA_ARGS__));\
+using quant_query_type = BOOST_PP_REMOVE_PARENS(BOOST_PP_SEQ_ELEM(4, __VA_ARGS__));\
 
 }
 }
