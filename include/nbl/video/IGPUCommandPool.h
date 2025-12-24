@@ -588,7 +588,6 @@ class IGPUCommandPool::CCopyQueryPoolResultsCmd final : public IFixedSizeCommand
         core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
-//i dont really understand how to mirror this with mesh pipeline yet
 class IGPUCommandPool::CBindGraphicsPipelineCmd final : public IFixedSizeCommand<CBindGraphicsPipelineCmd>
 {
     public:
