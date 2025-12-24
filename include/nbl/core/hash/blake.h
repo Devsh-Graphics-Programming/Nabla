@@ -4,9 +4,12 @@
 #ifndef _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
 #define _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
 
+
+#include "nbl/config/BuildConfigOptions.h"
 #include "blake3.h"
 
 #include <span>
+
 
 namespace nbl::core
 {

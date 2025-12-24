@@ -2,51 +2,23 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "quaternion.h"
-#include "matrix3x4SIMD.h"
-#include "matrix4SIMD.h"
-#include "nbl/asset/format/decodePixels.h"
+
+//#include "quaternion.h"
+//#include "matrix3x4SIMD.h"
+//#include "matrix4SIMD.h"
+//#include "nbl/asset/format/decodePixels.h"
 
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+#include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
+#include "glm/gtc/matrix_transform.hpp"
+
+
+namespace nbl::ext::MitsubaLoader
 {
 
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::FLOAT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::FLOAT>() const
-{ return fvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::INTEGER>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::INTEGER>() const
-{ return ivalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::BOOLEAN>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::BOOLEAN>() const
-{ return bvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::STRING>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::STRING>() const
-{ return svalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::RGB>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::RGB>() const
-{ return vvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SRGB>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const
-{ return vvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SPECTRUM>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SPECTRUM>() const
-{ return vvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::VECTOR>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const
-{ return vvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::POINT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const
-{ return vvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::MATRIX>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::MATRIX>() const
-{ return mvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::TRANSLATE>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::TRANSLATE>() const
-{ return mvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::ROTATE>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::ROTATE>() const
-{ return mvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SCALE>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SCALE>() const
-{ return mvalue; }
-template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::LOOKAT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::LOOKAT>() const
-{ return mvalue; }
-
-const core::unordered_map<std::string,SPropertyElementData::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> SPropertyElementData::StringToType = {
+CPropertyElementManager::CPropertyElementManager() : StringToType({
 	{"float",		SPropertyElementData::Type::FLOAT},
 	{"integer",		SPropertyElementData::Type::INTEGER},
 	{"boolean",		SPropertyElementData::Type::BOOLEAN},
@@ -62,38 +34,31 @@ const core::unordered_map<std::string,SPropertyElementData::Type,core::CaseInsen
 	{"lookat",		SPropertyElementData::Type::LOOKAT},
 	{"point",		SPropertyElementData::Type::POINT},
 	{"vector",		SPropertyElementData::Type::VECTOR}
-};
-const char* SPropertyElementData::attributeStrings[SPropertyElementData::Type::INVALID][SPropertyElementData::MaxAttributes] = {
-	{"value"}, // FLOAT
-	{"value"}, // INTEGER
-	{"value"}, // BOOLEAN
-	{"value"}, // STRING
-	{"value","intent"}, // RGB
-	{"value","intent"}, // SRGB
-	{"value","intent","filename"}, // SPECTRUM
-	{"temperature","scale"}, // BLACKBODY
-	{"value"}, // MATRIX
-	{"x","y","z"}, // TRANSLATE
-	{"angle","x","y","z"}, // ROTATE
-	{"value","x","y","z"}, // SCALE
-	{"origin","target","up"}, // LOOKAT
-	{"x","y","z"}, // POINT
-	{"x","y","z","w"} // VECTOR
-};
+}) {}
 
-std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
+
+std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts, system::logger_opt_ptr logger) const
 {
-	SNamedPropertyElement result(_el);
+	SNamedPropertyElement result = {};
+	auto found = StringToType.find(_el);
+	if (found!=StringToType.end())
+		result.type = found->second;
 
+	// initialization returns strings from `_atts` which match expected attributes
 	const char* desiredAttributes[SPropertyElementData::MaxAttributes] = { nullptr };
-	if (!result.initialize(_atts, desiredAttributes))
+	if (!result.initialize(_atts,desiredAttributes))
 	{
-		_NBL_DEBUG_BREAK_IF(true);
-		return std::make_pair(false, SNamedPropertyElement());
+		invalidXMLFileStructure(logger,"Failed to Intialize Named Property Element.");
+		return {};
 	}
 
-	bool success = true;
-	#define FAIL_IF_ATTRIBUTE_NULL(N) if (!desiredAttributes[N]) {success = false; break;}
+    auto printFailure = [&](const uint8_t attrId)->void{invalidXMLFileStructure(logger,"invalid element, name:\'"+result.name+"\' value:\'"+desiredAttributes[attrId]+"\'");};
+
+	#define FAIL_IF_ATTRIBUTE_NULL(N) if (!desiredAttributes[N]) \
+	{ \
+		invalidXMLFileStructure(logger,"Invalid element, name:\'"+result.name+"\' Attribute #"+std::to_string(N)+"not found"); \
+		return {}; \
+	}
 	switch (result.type)
 	{
 		case SPropertyElementData::Type::FLOAT:
@@ -106,35 +71,52 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			break;
 		case SPropertyElementData::Type::BOOLEAN:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
-			result.bvalue = retrieveBooleanValue(desiredAttributes[0],success);
+			if (auto ret=retrieveBooleanValue(desiredAttributes[0],logger); ret.has_value())
+				result.bvalue = ret.value();
+			else
+			{
+				printFailure(0);
+				return {};
+			}
 			break;
 		case SPropertyElementData::Type::STRING:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
 			{
 				auto len = strlen(desiredAttributes[0]);
-				auto* tmp = (char*)_NBL_ALIGNED_MALLOC(len + 1u, 64u);
-				strcpy(tmp, desiredAttributes[0]); tmp[len] = 0;
+				auto* tmp = (char*)_NBL_ALIGNED_MALLOC(len+1u,64u);
+				strcpy(tmp,desiredAttributes[0]); tmp[len]=0;
 				result.svalue = tmp;
 			}
 			break;
 		case SPropertyElementData::Type::RGB:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
-			result.vvalue = retrieveVector(desiredAttributes[0], success);
+			result.vvalue = retrieveVector(desiredAttributes[0],logger);
+			if (core::isnan(result.vvalue[0]))
+			{
+				printFailure(0);
+				return {};
+			}
 			break;
 		case SPropertyElementData::Type::SRGB:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
 			{
-				bool tryVec = true;
-				result.vvalue = retrieveVector(desiredAttributes[0], tryVec);
-				if (!tryVec)
-					result.vvalue = retrieveHex(desiredAttributes[0], success);
+				result.vvalue = retrieveVector(desiredAttributes[0],logger);
+				if (core::isnan(result.vvalue[0]))
+				{
+					result.vvalue = retrieveHex(desiredAttributes[0],logger);
+					if (core::isnan(result.vvalue[0]))
+					{
+						printFailure(0);
+						return {};
+					}
+				}
 				for (auto i=0; i<3u; i++)
 					result.vvalue[i] = core::srgb2lin(result.vvalue[i]);
 				result.type = SPropertyElementData::Type::RGB; // now its an RGB value
 			}
 			break;
 		case SPropertyElementData::Type::VECTOR:
-			result.vvalue.set(core::nan<float>(),core::nan<float>(),core::nan<float>(),core::nan<float>());
+			result.vvalue = hlsl::float32_t4(core::nan<float>());
 			for (auto i=0u; i<4u; i++)
 			{
 				if (desiredAttributes[i])
@@ -144,31 +126,46 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 					// once a component is missing, the rest need to be missing too
 					for (auto j=i+1; j<4u; j++)
 					if (desiredAttributes[j])
-						success = false;
+					{
+						printFailure(0);
+						return {};
+					}
 					break;
 				}
 			}
 			break;
 		case SPropertyElementData::Type::POINT:
-			result.vvalue.set(0.f, 0.f, 0.f);
+			result.vvalue = hlsl::float32_t4(0.f,0.f,0.f,core::nan<float>());
 			for (auto i=0u; i<3u; i++)
 			{
 				if (desiredAttributes[i])
 					result.vvalue[i] = atof(desiredAttributes[i]);
 				else
 				{
-					success = false;
-					break;
+					printFailure(0);
+					return {};
 				}
 			}
 			break;
 		case SPropertyElementData::Type::SPECTRUM:
-			assert(!desiredAttributes[1]); // no intent, TODO
-			assert(!desiredAttributes[2]); // does not come from a file
+			if (desiredAttributes[1]||desiredAttributes[2])
 			{
-				std::string data(desiredAttributes[0]);
-				assert(data.find(':')==std::string::npos); // no hand specified wavelengths
-				result.vvalue = retrieveVector(data,success); // TODO: convert between mitsuba spectral buckets and Rec. 709
+				invalidXMLFileStructure(logger,"Spectrum intent and loading from file unsupported!");
+				return {};
+			}
+			{
+				std::string_view data(desiredAttributes[0]);
+				if (data.find(':')!=std::string::npos)
+				{
+					invalidXMLFileStructure(logger,"Manually specified wavelengths for spectral curve knots are unsupported!");
+					return {};
+				}
+				result.vvalue = retrieveVector(data,logger); // TODO: convert between mitsuba spectral buckets and Rec. 709
+				if (core::isnan(result.vvalue[0]))
+				{
+					printFailure(0);
+					return {};
+				}
 			}
 			break;
 		case SPropertyElementData::Type::BLACKBODY:
@@ -176,66 +173,79 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			break;
 		case SPropertyElementData::Type::MATRIX:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
-			result.mvalue = retrieveMatrix(desiredAttributes[0],success);
+			result.mvalue = retrieveMatrix(desiredAttributes[0],logger);
+			if (core::isnan(result.mvalue[0][0]))
+			{
+				printFailure(0);
+				return {};
+			}
 			break;
 		case SPropertyElementData::Type::TRANSLATE:
-			result.vvalue.set(0.f, 0.f, 0.f);
+			result.mvalue = hlsl::float32_t4x4(1.f);
+			// we're a bit more lax about what items we need present
 			for (auto i=0u; i<3u; i++)
 			if (desiredAttributes[i])
-				result.vvalue[i] = atof(desiredAttributes[i]);
-			{
-				core::matrix3x4SIMD m;
-				m.setTranslation(result.vvalue);
-				result.mvalue = core::matrix4SIMD(m);
-			}
+				result.mvalue[i][3] = atof(desiredAttributes[i]);
 			break;
 		case SPropertyElementData::Type::ROTATE:
 			FAIL_IF_ATTRIBUTE_NULL(0u) // have to have an angle
-			result.vvalue.set(0.f, 0.f, 0.f);
-			for (auto i=0u; i<3u; i++)
-			if (desiredAttributes[i+1])
-				result.vvalue[i] = atof(desiredAttributes[i+1]);
-			if ((core::vectorSIMDf(0.f) == result.vvalue).all())
+			result.mvalue = hlsl::float32_t4x4(1.f);
 			{
-				success = false;
-				break;
-			}
-			result.vvalue = core::normalize(result.vvalue);
-			{
-				core::matrix3x4SIMD m;
-				m.setRotation(core::quaternion::fromAngleAxis(core::radians(atof(desiredAttributes[0])),result.vvalue));
-				result.mvalue = core::matrix4SIMD(m);
+				auto axis = hlsl::float32_t3(0.f);
+				// again some laxness
+				for (auto i=0u; i<3u; i++)
+				if (desiredAttributes[i+1])
+					axis[i] = atof(desiredAttributes[i+1]);
+				axis = hlsl::normalize(axis);
+				if (core::isnan(axis.x))
+				{
+					invalidXMLFileStructure(logger,"Invalid element, name:\'"+result.name+"\' Axis can't be (0,0,0)");
+					return {};
+				}
+				// TODO: quaternion after the rework
+				using namespace nbl::hlsl::math;//::linalg;
+				result.mvalue = linalg::promote_affine<4,4>(linalg::rotation_mat<float>(hlsl::radians(atof(desiredAttributes[0])),axis));
 			}
 			break;
 		case SPropertyElementData::Type::SCALE:
-			result.vvalue.set(1.f, 1.f, 1.f);
-			if (desiredAttributes[0])
+			result.mvalue = hlsl::float32_t4x4(1.f);
+			if (desiredAttributes[0]) // you either get this one attribute
 			{
-				float uniformScale = atof(desiredAttributes[0]);
-				result.vvalue.set(uniformScale, uniformScale, uniformScale);
+				const float uniformScale = atof(desiredAttributes[0]);
+				for (auto i=0u; i<3u; i++)
+					result.mvalue[i][i] = uniformScale;
 			}
-			else
-			for (auto i=0u; i<3u; i++)
-			if (desiredAttributes[i+1u])
-				result.vvalue[i] = atof(desiredAttributes[i+1u]);
+			else // or x,y,z
 			{
-				core::matrix3x4SIMD m;
-				m.setScale(result.vvalue);
-				result.mvalue = core::matrix4SIMD(m);
+				for (auto i=0u; i<3u; i++)
+				if (desiredAttributes[i+1u])
+					result.mvalue[i][i] = atof(desiredAttributes[i+1u]);
 			}
 			break;
 		case SPropertyElementData::Type::LOOKAT:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
 			FAIL_IF_ATTRIBUTE_NULL(1u)
+			result.mvalue = hlsl::float32_t4x4(1.f);
 			{
-				core::vectorSIMDf origin,target,up;
-				origin = retrieveVector(desiredAttributes[0u], success);
-				target = retrieveVector(desiredAttributes[1u], success);
-				if (desiredAttributes[2u])
-					up = retrieveVector(desiredAttributes[2u],success);
-				else
+				const hlsl::float32_t3 origin = retrieveVector(desiredAttributes[0u],logger).xyz;
+				if (core::isnan(origin.x))
 				{
-					auto viewDirection = target - origin;
+					printFailure(0);
+					return {};
+				}
+				const hlsl::float32_t3 target = retrieveVector(desiredAttributes[1u],logger).xyz;
+				if (core::isnan(target.x))
+				{
+					printFailure(1);
+					return {};
+				}
+				auto up = hlsl::float32_t3(core::nan<float>());
+				if (desiredAttributes[2u])
+					up = retrieveVector(desiredAttributes[2u],logger).xyz;
+				if (core::isnan(up.x))
+				{
+					up = hlsl::float32_t3(0.f);
+					const auto viewDirection = target - origin;
 					float maxDot = viewDirection[0];
 					uint32_t index = 0u;
 					for (auto i = 1u; i < 3u; i++)
@@ -246,75 +256,73 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 					}
 					up[index] = 1.f;
 				}
+				// TODO: after the rm-core matrix PR we need to get rid of the tranpose (I transpose only because of GLM and HLSL mixup)
+				const auto lookAtGLM = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtLH<float>(origin,target,up));
+				const auto lookAt = hlsl::transpose(lookAtGLM);
 				// mitsuba understands look-at and right-handed camera little bit differently than I do
-				core::matrix4SIMD(core::matrix3x4SIMD::buildCameraLookAtMatrixLH(origin,target,up)).getInverseTransform(result.mvalue);
+				const auto rotation = hlsl::inverse<hlsl::float32_t3x3>(hlsl::float32_t3x3(lookAt));
+				// set the origin to avoid numerical issues
+				for (auto r=0; r<3; r++)
+				{
+					result.mvalue[r][3] = origin[r];
+				}
 			}
 			break;
 		default:
-			success = false;
-			break;
+			invalidXMLFileStructure(logger,"Unsupported element type, name:\'"+result.name+"\'");
+			return {};
 	}
+	#undef FAIL_IF_ATTRIBUTE_NULL
 
-	_NBL_DEBUG_BREAK_IF(!success);
-	if (success)
-		return std::make_pair(true, std::move(result));
-
-	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\'"); // in the future print values
-	return std::make_pair(false, SNamedPropertyElement());
+	return result;
 }
 
-bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, bool& success)
+std::optional<bool> CPropertyElementManager::retrieveBooleanValue(const std::string_view& _data, system::logger_opt_ptr logger)
 {
-	if (_data == "true")
-	{
+	if (_data=="true")
 		return true;
-	}
-	else if (_data == "false")
-	{
+	else if (_data=="false")
 		return false;
-	}
 	else
 	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("Invalid boolean specified.");
-		success = false;
-		return false; // so GCC doesn't moan
+		invalidXMLFileStructure(logger,"Invalid boolean specified.");
+		return {};
 	}
 }
 
-core::matrix4SIMD CPropertyElementManager::retrieveMatrix(const std::string& _data, bool& success)
+hlsl::float32_t4x4 CPropertyElementManager::retrieveMatrix(const std::string_view& _data, system::logger_opt_ptr logger)
 {
-	std::string str = _data;
-	std::replace(str.begin(), str.end(), ',', ' ');
+	std::string str(_data);
+	std::replace(str.begin(),str.end(),',',' ');
 
-	core::matrix4SIMD matrixData;
+	hlsl::float32_t4x4 matrixData;
 	std::stringstream ss;
 	ss << str;
 
-	for (auto i=0u; i<16u; i++)
+	for (auto r=0u; r<4u; r++)
+	for (auto c=0u; c<4u; c++)
 	{
 		float f = std::numeric_limits<float>::quiet_NaN();
 		ss >> f;
 
-		if (isnan(f))
+		if (core::isnan(f))
 		{
-			_NBL_DEBUG_BREAK_IF(true);
-			ParserLog::invalidXMLFileStructure("Invalid matrix specified.");
-			success = false;
-			return core::matrix4SIMD();
+			invalidXMLFileStructure(logger,"Invalid matrix specified.");
+			matrixData[0][0] = f;
+			return matrixData;
 		}
-		matrixData.pointer()[i] = f;
+		matrixData[r][c] = f;
 	}
 
 	return matrixData;
 }
 
-core::vectorSIMDf CPropertyElementManager::retrieveVector(const std::string& _data, bool& success)
+hlsl::float32_t4 CPropertyElementManager::retrieveVector(const std::string_view& _data, system::logger_opt_ptr logger)
 {
-	std::string str = _data;
+	std::string str(_data);
 	std::replace(str.begin(), str.end(), ',', ' ');
 
-	float vectorData[4];
+	hlsl::float32_t4 retval;
 	std::stringstream ss;
 	ss << str;
 
@@ -323,55 +331,49 @@ core::vectorSIMDf CPropertyElementManager::retrieveVector(const std::string& _da
 		float f = std::numeric_limits<float>::quiet_NaN();
 		ss >> f;
 
-		vectorData[i] = f;
+		retval[i] = f;
 
 		if (isnan(f))
 		{
-			if (i == 1)
+			if (i==1) // second not present
 			{
-				vectorData[2] = vectorData[1] = vectorData[0];
-				vectorData[3] = 0.0f;
-				break;
+				// make monochrome RGB or scalar XYZ
+				retval[2] = retval[1] = retval[0];
+				retval[3] = 0.0f;
 			}
-			else if (i == 3)
+			else if (i==3) // last not present
 			{
-				vectorData[3] = 0.0f;
-				break;
+				// allow last coordinate to be 0
+				retval[3] = 0.0f;
 			}
-			success = false;
-			return core::vectorSIMDf();
+			return retval;
 		}
 	}
 
-	return core::vectorSIMDf(vectorData);
+	return retval;
 }
 
-core::vectorSIMDf CPropertyElementManager::retrieveHex(const std::string& _data, bool& success)
+hlsl::float32_t4 CPropertyElementManager::retrieveHex(const std::string_view& _data, system::logger_opt_ptr logger)
 {
-	core::vectorSIMDf zero;
 	auto ptr = _data.begin();
+	const auto invalid = hlsl::float32_t4(std::numeric_limits<float>::quiet_NaN());
+	// not a hex
 	if (_data.size()!=7u || *ptr!='#')
-	{
-		success = false;
-		return zero;
-	}
+		return invalid;
 
-	core::vectorSIMDf retval(0.f, 0.f, 0.f, 255.f);
-	for (auto i = 0; i < 3; i++)
-	for (auto j = 4; j >=0;j-=4)
+	hlsl::float32_t4 retval(0.f, 0.f, 0.f, 255.f);
+	for (auto i=0; i<3; i++)
+	for (auto j=4; j>=0;j-=4)
 	{
 		char c = *(++ptr);
 		if (!isxdigit(c))
-		{
-			success = false;
-			return zero;
-		}
+			return invalid;
+		// case insensitiveness
 		int intval = (c >= 'A') ? (c - 'A' + 10) : (c - '0');
-		retval[i] += float(intval <<j);
+		// written form of hex is obviously big endian
+		retval[i] += float(intval<<j);
 	}
 	return retval/255.f;
 }
 
-}
-}
 }

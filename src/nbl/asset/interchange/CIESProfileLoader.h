@@ -1,16 +1,17 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef __NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED__
-#define __NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED_
+#define _NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED_
 
 #include "nbl/asset/ICPUImage.h"
-#include "nbl/asset/ICPUShader.h"
 
 #include "nbl/asset/IAssetManager.h"
-
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/utils/CIESProfileParser.h"
+
+#if 0 // TODO: Arek
+
+#include "nbl/asset/utils/CIESProfileParser.h" // TODO: move to `src/asset/interchange`
 #include "nbl/asset/metadata/CIESProfileMetadata.h"
 
 namespace nbl::asset 
@@ -62,4 +63,6 @@ class CIESProfileLoader final : public asset::IAssetLoader
 		uint32_t _hierarchyLevel = 0u) override;
 };
 } // namespace nbl::asset
+#endif // end TODO: Arek
+
 #endif // __NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED__

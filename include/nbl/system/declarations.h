@@ -5,6 +5,7 @@
 #define _NBL_SYSTEM_DECLARATIONS_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
+#include "nbl/core/definitions.h"
 
 // basic stuff
 #include "nbl/system/DynamicLibraryFunctionPointer.h"

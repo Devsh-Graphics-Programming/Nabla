@@ -180,7 +180,7 @@ namespace core
 	//! DOCUMENTATION TODO
 	struct CaseInsensitiveHash
 	{
-		inline std::size_t operator()(const std::string& val) const
+		inline std::size_t operator()(const std::string_view val) const
 		{
 			std::size_t seed = 0;
 			for (auto it = val.begin(); it != val.end(); it++)
@@ -192,7 +192,7 @@ namespace core
 	};
 	struct CaseInsensitiveEquals
 	{
-		inline bool operator()(const std::string& A, const std::string& B) const
+		inline bool operator()(const std::string_view A, const std::string_view B) const
 		{
 			return core::strcmpi(A, B)==0;
 		}

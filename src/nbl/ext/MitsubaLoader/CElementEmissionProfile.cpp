@@ -1,83 +1,55 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 #include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
+
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+
+namespace nbl::ext::MitsubaLoader
 {
 
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementEmissionProfile>(const char** _atts, ParserManager* _util)
+auto CElementEmissionProfile::compAddPropertyMap() -> AddPropertyMap<CElementEmissionProfile>
 {
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr, "");
-
-	CElementEmissionProfile* obj = _util->objects.construct<CElementEmissionProfile>(id);
-	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
-
-	return CElementFactory::return_type(obj, std::move(name));
-}
-
-bool CElementEmissionProfile::addProperty(SNamedPropertyElement&& _property)  {
-	if (_property.name == "filename") {
-		if (_property.type != SPropertyElementData::Type::STRING) {
-			return false;
+	using this_t = CElementEmissionProfile;
+	AddPropertyMap<CElementEmissionProfile> retval;
+	
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("filename",STRING)
+		{
+			setLimitedString("filename",_this->filename,_property,logger);
+			return true;
 		}
-		filename = _property.getProperty<SPropertyElementData::Type::STRING>();
-		return true;
-	}
-	else if (_property.name == "normalization") {
-		if (_property.type != SPropertyElementData::Type::STRING)
-			return false;
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("normalization",STRING)
+		{
+			const auto normalizeS = std::string(_property.svalue);
+			if (normalizeS == "UNIT_MAX")
+				_this->normalization = EN_UNIT_MAX;
+			else if (normalizeS == "UNIT_AVERAGE_OVER_IMPLIED_DOMAIN")
+				_this->normalization = EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN;
+			else if (normalizeS == "UNIT_AVERAGE_OVER_FULL_DOMAIN")
+				_this->normalization = EN_UNIT_AVERAGE_OVER_FULL_DOMAIN;
+			else
+			{
+				logger.log("<emissionprofile>'s `normalization` is unrecognized: \"%s\"",system::ILogger::ELL_ERROR,normalizeS.c_str());
+				_this->normalization = EN_NONE;
+			}
+			return true;
+		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(flatten,FLOAT);
 
-		const auto normalizeS = std::string(_property.getProperty<SPropertyElementData::Type::STRING>());
-
-		if (normalizeS == "UNIT_MAX")
-			normalization = EN_UNIT_MAX;
-		else if(normalizeS == "UNIT_AVERAGE_OVER_IMPLIED_DOMAIN")
-			normalization = EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN;
-		else if(normalizeS == "UNIT_AVERAGE_OVER_FULL_DOMAIN")
-			normalization = EN_UNIT_AVERAGE_OVER_FULL_DOMAIN;
-		else
-			normalization = EN_NONE;
-
-		return true;
-	}
-	else if (_property.name == "flatten") 
-	{
-		if (_property.type != SPropertyElementData::Type::FLOAT)
-			return false;
-
-		flatten = _property.getProperty<SPropertyElementData::Type::FLOAT>();
-
-		return true;
-	}
-	else {
-		ParserLog::invalidXMLFileStructure("No emission profile can have such property set with name: " + _property.name);
-		return false;
-	}
+	return retval;
 }
 
-bool CElementEmissionProfile::processChildData(IElement* _child, const std::string& name)
+bool CElementEmissionProfile::processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger)
 {
 	if (!_child)
 		return true;
 	return false;
 }
 
-}
-}
 }
