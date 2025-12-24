@@ -1520,16 +1520,28 @@ bool IGPUCommandBuffer::drawMeshTasks(const uint32_t groupCountX, const uint32_t
 
 bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
-    assert(false && "still needs to be implemented - i just lazily copied dispatch indirect");
-    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::INSIDE))
+	if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
-    //4 is alignment
-    if (invalidBufferBinding(binding, 4u/*TODO: is it really 4?*/, IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+    if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT)){
         return false;
-    //if (invalidDrawMeshTasksIndirect<hlsl::DrawArraysIndirectCommand_t>(binding, drawCount, stride))
-        //return false;
+    }
+    
+    if (drawCount) {
+        if (drawCount==1u)
+            stride = sizeof(DrawMeshTasksIndirectCommand_t);
+        if (stride&0x3u || stride<sizeof(DrawMeshTasksIndirectCommand_t)) {
+            NBL_LOG_ERROR("invalid command buffer stride (%d)!", stride);
+            return false;
+        }
+        if (drawCount > getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount) {
+            NBL_LOG_ERROR("draw count (%d) exceeds maximum allowed amount (%d)!", drawCount, getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount);
+            return false;
+        }
+        if (invalidBufferRange({ binding.offset,stride * (drawCount - 1u) + sizeof(IndirectCommand),binding.buffer }, alignof(uint32_t), IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+            return false;
+    } // i get the feeling the vk command shouldnt be called if drawCount is 0, but this is how drawindirect does it
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
