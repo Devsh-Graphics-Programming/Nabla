@@ -88,9 +88,11 @@ class CElementIntegrator final : public IElement
 	};
 		struct PathTracing : MonteCarloTracingBase,EmitterHideableBase
 		{
-			constexpr static inline Type VariantType = Type::PATH;
-
 			bool strictNormals = false;
+		};
+		struct UniDirectionalPathTracing final : PathTracing
+		{
+			constexpr static inline Type VariantType = Type::PATH;
 		};
 		struct SimpleVolumetricPathTracing : PathTracing
 		{
@@ -100,7 +102,7 @@ class CElementIntegrator final : public IElement
 		{
 			constexpr static inline Type VariantType = Type::VOL_PATH;
 		};
-		struct BiDirectionalPathTracing final : MonteCarloTracingBase
+		struct BiDirectionalPathTracing final : PathTracing
 		{
 			constexpr static inline Type VariantType = Type::BDPT;
 
@@ -252,9 +254,9 @@ class CElementIntegrator final : public IElement
 		using variant_list_t = core::type_list<
 			AmbientOcclusion,
 			DirectIllumination,
+			UniDirectionalPathTracing,
 			SimpleVolumetricPathTracing,
 			ExtendedVolumetricPathTracing,
-			PathTracing,
 			BiDirectionalPathTracing,
 			PhotonMapping,
 			ProgressivePhotonMapping,
@@ -377,7 +379,7 @@ class CElementIntegrator final : public IElement
 				case Type::IRR_CACHE:
 					[[fallthrough]];
 				case Type::MULTI_CHANNEL:
-					if (_child->getType() != IElement::Type::INTEGRATOR)
+					if (_child->getType() == IElement::Type::INTEGRATOR)
 						break;
 					[[fallthrough]];
 				default:
@@ -411,9 +413,9 @@ class CElementIntegrator final : public IElement
 		{
 			AmbientOcclusion							ao;
 			DirectIllumination							direct;
+			PathTracing									path;
 			SimpleVolumetricPathTracing					volpath_simple;
 			ExtendedVolumetricPathTracing				volpath;
-			PathTracing									path;
 			BiDirectionalPathTracing					bdpt;
 			PhotonMapping								photonmapper;
 			ProgressivePhotonMapping					ppm;

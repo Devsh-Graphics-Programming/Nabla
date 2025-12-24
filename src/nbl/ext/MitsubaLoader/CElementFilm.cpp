@@ -126,8 +126,11 @@ auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cascadeLuminanceBase,FLOAT);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(cascadeLuminanceStart,FLOAT);
 
+	const auto floatPropType = SNamedPropertyElement::Type::FLOAT;
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(denoiserBloomScale,FLOAT);
+	retval.byPropertyType[floatPropType]["bloomScale"] = retval.byPropertyType[floatPropType]["denoiserBloomScale"]; // alias
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(denoiserBloomIntensity,FLOAT);
+	retval.byPropertyType[floatPropType]["bloomIntensity"] = retval.byPropertyType[floatPropType]["denoiserBloomIntensity"]; // alias
 
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_PROPERTY(envmapRegularizationFactor,FLOAT);
 

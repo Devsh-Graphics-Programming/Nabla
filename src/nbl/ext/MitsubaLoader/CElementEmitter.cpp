@@ -60,7 +60,7 @@ auto CElementEmitter::compAddPropertyMap() -> AddPropertyMap<CElementEmitter>
 			const auto lookAt = hlsl::transpose(lookAtGLM);
 			// turn lookat into a rotation matrix
 			const auto rotation = hlsl::inverse<hlsl::float32_t3x3>(hlsl::float32_t3x3(lookAt));
-			_NBL_DEBUG_BREAK_IF(true); // no idea if matrix is correct
+			//_NBL_DEBUG_BREAK_IF(true); // no idea if matrix is correct, looks okay
 			for (auto r=0; r<3; r++)
 				_this->transform.matrix[r].xyz = rotation[r];
 			return true;

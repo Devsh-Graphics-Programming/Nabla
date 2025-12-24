@@ -127,7 +127,7 @@ class CElementBSDF : public IElement
 		{
 			alpha = defaultAlpha;
 		}
-		virtual inline ~RoughSpecularBase() {}
+		inline ~RoughSpecularBase() {}
 
 		inline RoughSpecularBase& operator=(const RoughSpecularBase& other)
 		{

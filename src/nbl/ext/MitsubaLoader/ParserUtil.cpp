@@ -66,7 +66,8 @@ bool ParserManager::SessionContext::parse(IFile* _file)
 	XML_SetUserData(parser,&ctx);
 
 	const size_t size = _file->getSize();
-	const char* buff = reinterpret_cast<const char*>(const_cast<const IFile*>(_file)->getMappedPointer());
+	const void* const origPtr = const_cast<const IFile*>(_file)->getMappedPointer();
+	const char* buff = reinterpret_cast<const char*>(origPtr);
 	if (!buff)
 	{
 		buff = reinterpret_cast<const char*>(_NBL_ALIGNED_MALLOC(size,4096u));
@@ -79,7 +80,7 @@ bool ParserManager::SessionContext::parse(IFile* _file)
 		}
 	}
 	XML_Status parseStatus = XML_Parse(parser,buff,size,0);
-	if (_file->getMappedPointer()!=buff)	
+	if (origPtr!=buff)	
 		_NBL_ALIGNED_FREE(const_cast<char*>(buff));
 
 	XML_ParserFree(parser);
@@ -225,7 +226,9 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 					nameIt = typeMap.find("");
 				if (nameIt==typeMap.end())
 				{
-					session->invalidXMLFileStructure("There's no Property named \""+property.name+"\" of Type (TODO) supported by ElementType (TODO)");
+					core::string msg = "There's no Property named \""+property.name+"\" of Type ";
+					msg += property.type+" supported by <"+element->getLogName()+">";
+					session->invalidXMLFileStructure(msg);
 					return;
 				}
 				const auto& callback = nameIt->second;
@@ -233,7 +236,10 @@ void ParserManager::XMLContext::parseElement(const char* _el, const char** _atts
 				if constexpr (!std::is_same_v<typename element_t::Type,IElement::Type>)
 				if (!callback.allowedVariantTypes.empty() && std::find(callback.allowedVariantTypes.begin(),callback.allowedVariantTypes.end(),typedElement->type)==callback.allowedVariantTypes.end())
 				{
-					session->invalidXMLFileStructure("There's no Property named \""+property.name+"\" of Type(TODO) not supported on ElementType(TODO) of Variant(TODO)");
+					core::string msg = "There's no Property named \""+property.name+"\" of Type ";
+					msg += property.type+" supported by <"+element->getLogName()+"> of Variant ";
+					msg += std::to_string(typedElement->type);
+					session->invalidXMLFileStructure(msg);
 					return;
 				}
 				callback(typedElement,std::move(property),session->params->logger);
@@ -311,7 +317,7 @@ void ParserManager::XMLContext::onEnd(const char* _el)
 		if (parent && !parent->processChildData(element.element,element.name,session->params->logger))
 		{
 			if (element.element)
-				killParseWithError(element.element->getLogName()+" could not processChildData with name: "+element.name);
+				killParseWithError("<"+parent->getLogName()+ "> could not processChildData of <"+element.element->getLogName()+"> with name: "+element.name);
 			else
 				killParseWithError("Failed to add a nullptr child with name: "+element.name);
 		}
@@ -384,7 +390,7 @@ struct ParserManager::CreateElement<Element>
 		auto found = StringToTypeMap.find(type);
 		if (found==StringToTypeMap.end())
 		{
-			ctx->invalidXMLFileStructure("unknown type");
+			ctx->invalidXMLFileStructure(core::string("unknown type in <")+std::to_string((uint8_t)Element::ElementType)+" type=\""+type+"\">");
 			return {};
 		}
 

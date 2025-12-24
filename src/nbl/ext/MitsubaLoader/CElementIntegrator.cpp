@@ -212,11 +212,12 @@ bool CElementIntegrator::onEndTag(CMitsubaMetadata* metadata, system::logger_opt
 	{
 	}
 
-	if (metadata->m_global.m_integrator.type!=Type::INVALID)
+	/* Nested integrators rely on closing branch to post-order visit here to set the root one as the main one in the metadata
+	if (metadata->m_global.m_integrator.type!=Type::INVALID) // D
 	{
 		invalidXMLFileStructure(logger,"already specified an integrator, NOT overwriting.");
 		return true;
-	}
+	}*/
 	metadata->m_global.m_integrator = *this;
 
 	return true;

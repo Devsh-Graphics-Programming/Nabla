@@ -14,6 +14,8 @@ namespace nbl::ext::MitsubaLoader
 
 struct CElementEmissionProfile final : public IElement
 {
+	constexpr static inline uint16_t MaxPathLen = 1024u;
+
 	static AddPropertyMap<CElementEmissionProfile> compAddPropertyMap();
 
 	inline CElementEmissionProfile(const char* id) : IElement(id), normalization(EN_NONE), flatten(0.0) /*no blending by default*/ {}
@@ -22,23 +24,12 @@ struct CElementEmissionProfile final : public IElement
 	{
 		operator=(other);
 	}
-	inline CElementEmissionProfile(CElementEmissionProfile&& other) : IElement("")
-	{
-		operator=(std::move(other));
-	}
 	inline ~CElementEmissionProfile() {}
 
 	inline CElementEmissionProfile& operator=(const CElementEmissionProfile& other)
 	{
 		IElement::operator=(other);
-		filename = other.filename;
-		return *this;
-	}
-
-	inline CElementEmissionProfile& operator=(CElementEmissionProfile&& other)
-	{
-		IElement::operator=(std::move(other));
-		std::swap(filename, other.filename);
+		memcpy(filename,other.filename,MaxPathLen);
 		return *this;
 	}
 
@@ -59,7 +50,7 @@ struct CElementEmissionProfile final : public IElement
 
 	};
 
-	std::string filename; // TODO: test destructor runs
+	char filename[MaxPathLen];
 	E_NORMALIZE normalization;
 	// how much we flatten the profile towards a uniform distribution
 	float flatten;

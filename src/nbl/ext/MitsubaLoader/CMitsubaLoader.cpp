@@ -261,11 +261,11 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 	if (fileSize<maxStringSize)
 		return false;
 
-	size_t pos = 3;
-	bool utf16;
+	size_t pos = 0;
+	bool utf16 = false;
 	{
 		system::IFile::success_t success;
-		_file->read(success,tempBuff,0,pos);
+		_file->read(success,tempBuff,pos,3);
 		if (!success)
 			return false;
 		if (tempBuff[0] == 0xEFu && tempBuff[1] == 0xBBu && tempBuff[2] == 0xBFu)

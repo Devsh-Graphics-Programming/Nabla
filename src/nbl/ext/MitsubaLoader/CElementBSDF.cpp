@@ -98,8 +98,9 @@ auto CElementBSDF::compAddPropertyMap() -> AddPropertyMap<CElementBSDF>
 	// conductor
 	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(eta,derived_from,AllConductor);
 	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(k,derived_from,AllConductor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(extEta,FLOAT,derived_from,AllConductor);
 	// adding twice cause two property types are allowed
-	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(extEta,FLOAT,derived_from,AllConductor)
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(extEta,STRING,derived_from,AllConductor)
 		state.extEta = TransmissiveBase::findIOR(_property.getProperty<SPropertyElementData::Type::STRING>(),logger);
 		success = true;
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END;
@@ -348,7 +349,7 @@ SET_TEXTURE_CONSTRAINED_END
 		SET_TEXTURE_CONSTRAINED_SIMPLE(specularReflectance,impl::has_specularReflectance),
 		SET_TEXTURE_CONSTRAINED_SIMPLE(specularTransmittance,derived_from,TransmissiveBase),
 		SET_TEXTURE_CONSTRAINED_SIMPLE(sigmaA,derived_from,AllCoating),
-		SET_TEXTURE_CONSTRAINED("",is_any_of,BumpMap,NormalMap)
+		SET_TEXTURE_CONSTRAINED(,is_any_of,BumpMap,NormalMap)
 			state.texture = _texture;
 			success = true;
 		SET_TEXTURE_CONSTRAINED_END,
@@ -371,13 +372,13 @@ SET_TEXTURE_CONSTRAINED_END
 				logger.log("No <bsdf> can have <texture> nested inside it with name \"%s\"!",system::ILogger::ELL_ERROR,name.c_str());
 				return false;
 			}
-			if (found->second(this,_child,logger))
+			if (!found->second(this,_child,logger))
 			{
 				logger.log(
 					"Failed to parse <texture> with name \"%s\" nested inside <bsdf> of type %d!",
 					system::ILogger::ELL_ERROR,name.c_str(),type
 				);
-				return true;
+				return false;
 			}
 			return true;
 		}
@@ -397,7 +398,7 @@ SET_TEXTURE_CONSTRAINED_END
 			if (meta_common.childCount<maxChildCount)
 			{
 				auto _bsdf = static_cast<CElementBSDF*>(_child);
-				twosided.bsdf[twosided.childCount++] = _bsdf;
+				meta_common.bsdf[meta_common.childCount++] = _bsdf;
 				return true;
 			}
 			logger.log("<bsdf type=\"%d\"> cannot have more than %d other <bsdf>s nested inside it!",system::ILogger::ELL_ERROR,type,maxChildCount);
