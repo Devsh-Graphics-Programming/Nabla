@@ -141,7 +141,7 @@ auto CElementBSDF::compAddPropertyMap() -> AddPropertyMap<CElementBSDF>
 		std::string token;
 		while (std::getline(sstr,token,','))
 		{
-			if (state.weightCount)
+			if (state.weightCount>=MixtureBSDF::MaxChildCount)
 			{
 				logger.log("<bsdf> MaxChildCount of %d exceeded!",system::ILogger::ELL_ERROR,MetaBSDF::MaxChildCount);
 				break;
