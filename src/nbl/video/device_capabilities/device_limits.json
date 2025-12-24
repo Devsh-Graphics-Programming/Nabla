@@ -340,6 +340,123 @@
             ]
         },
         {
+            "comment": ["VkPhysicalDeviceMeshShaderPropertiesEXT - task"],
+            "entries":[
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskWorkGroupTotalCount",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskWorkGroupCount[3]",
+                    "value": "{MinMaxWorkgroupCount,MinMaxWorkgroupCount,MinMaxWorkgroupCount}"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskWorkGroupInvocations",
+                    "value": "MinMaxWorkgroupInvocations"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskWorkGroupSize[3]",
+                    "value": "{MinMaxWorkgroupInvocations,MinMaxWorkgroupInvocations,64u}"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskPayloadSize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskSharedMemorySize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxTaskPayloadAndSharedMemorySize",
+                    "value": 0
+                }
+            ]
+        },
+        {
+            "comment": ["VkPhysicalDeviceMeshShaderPropertiesEXT - mesh"],
+            "entries":[
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshWorkGroupCount[3]",
+                    "value": "{MinMaxWorkgroupCount,MinMaxWorkgroupCount,MinMaxWorkgroupCount}"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshWorkGroupInvocations",
+                    "value": "MinMaxWorkgroupInvocations"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshWorkGroupSize[3]",
+                    "value": "{MinMaxWorkgroupInvocations,MinMaxWorkgroupInvocations,64u}"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshSharedMemorySize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshPayloadAndSharedMemorySize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputMemorySize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshPayloadAndOutputMemorySize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputVertices",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputPrimitives",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputLayers",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshMultiviewViewCount",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputPerVertexGranularity",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxMeshOutputPerPrimitiveGranularity",
+                    "value": 0
+                }
+
+                
+            ]
+        },
+        {
             "comment": [],
             "entries": [
                 {
