@@ -85,7 +85,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 # boost
+set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE) #forcing boost to be in release
 add_subdirectory(boost boost EXCLUDE_FROM_ALL)
+set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "" FORCE) #restoring config from boost
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
