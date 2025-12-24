@@ -732,6 +732,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                    cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
         VkPhysicalDeviceMaintenance5FeaturesKHR                         maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT              graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT };
+        VkPhysicalDeviceMeshShaderFeaturesEXT                           meshShaderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
+
+        //do we hate macros?
+#define AddExtensionToPNextIfSupported(name, feat) if (isExtensionSupported(name)) addToPNextChain(&feat);
+        
+        AddExtensionToPNextIfSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME, meshShaderFeatures);
 
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
@@ -817,6 +823,45 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             
         features.geometryShader = deviceFeatures.features.geometryShader;
         features.tessellationShader = deviceFeatures.features.tessellationShader;
+
+        //check if features are existant first
+        //potentially put a copy of VkPhysicalDeviceMeshShaderFeaturesEXT directly into features
+        //depends on the less obvious properties
+        if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
+            features.taskShader = meshShaderFeatures.taskShader;
+            features.meshShader = meshShaderFeatures.meshShader;
+            //TODO
+            //VkBool32           multiviewMeshShader;
+            //VkBool32           primitiveFragmentShadingRateMeshShader;
+            //VkBool32           meshShaderQueries;
+
+            //VkPhysicalDeviceMeshShaderPropertiesEXT
+            //#define LIMIT_INIT_MESH(limitMemberName) properties.limits.limitMemberName = meshShaderProperties.limitMemberName
+            //LIMIT_INIT_MESH(maxTaskWorkGroupTotalCount);
+            //LIMIT_INIT_MESH(maxTaskWorkGroupInvocations);
+            //LIMIT_INIT_MESH(maxTaskPayloadSize);
+            //LIMIT_INIT_MESH(maxTaskSharedMemorySize);
+            //LIMIT_INIT_MESH(maxTaskPayloadAndSharedMemorySize);
+            //LIMIT_INIT_MESH(maxMeshWorkGroupInvocations);
+            //LIMIT_INIT_MESH(maxMeshSharedMemorySize);
+            //LIMIT_INIT_MESH(maxMeshPayloadAndSharedMemorySize);
+            //LIMIT_INIT_MESH(maxMeshOutputMemorySize);
+            //LIMIT_INIT_MESH(maxMeshOutputComponents);
+            //LIMIT_INIT_MESH(maxMeshOutputVertices);
+            //LIMIT_INIT_MESH(maxMeshOutputPrimitives);
+            //LIMIT_INIT_MESH(maxMeshOutputLayers);
+            //LIMIT_INIT_MESH(maxMeshMultiviewViewCount);
+            //LIMIT_INIT_MESH(maxMeshOutputPerVertexGranularity);
+            //LIMIT_INIT_MESH(maxMeshOutputPerPrimitiveGranularity);
+
+            //for(uint8_t i = 0; i < 3; i++){
+            //    LIMIT_INIT_MESH(maxTaskWorkGroupCount[i]);
+            //    LIMIT_INIT_MESH(maxTaskWorkGroupSize[i]);
+            //    LIMIT_INIT_MESH(maxMeshWorkGroupCount[i]);
+            //    LIMIT_INIT_MESH(maxMeshWorkGroupSize[i]);
+            //}
+            //#undef LIMIT_INIT_MESH
+        }
             
         if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
             RETURN_NULL_PHYSICAL_DEVICE;
@@ -1502,6 +1547,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.rayQuery,VK_KHR_RAY_QUERY_EXTENSION_NAME,&rayQueryFeatures); // feature dependency taken care of
 
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT, nullptr};
+        REQUIRE_EXTENSION_IF(enabledFeatures.meshShader, VK_EXT_MESH_SHADER_EXTENSION_NAME, &meshShaderFeatures);
+
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV shaderSMBuiltinsFeaturesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV,nullptr };
         enableExtensionIfAvailable(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME,&shaderSMBuiltinsFeaturesNV);
 
@@ -1817,6 +1865,12 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         rayQueryFeatures.rayQuery = enabledFeatures.rayQuery;
 
         rayTracingPositionFetchFeatures.rayTracingPositionFetch = limits.rayTracingPositionFetch;
+
+        meshShaderFeatures.taskShader = enabledFeatures.taskShader;
+        meshShaderFeatures.meshShader = enabledFeatures.meshShader;
+        meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_FALSE;//needs to be explicitly set?
+        meshShaderFeatures.meshShaderQueries = VK_FALSE;
+        meshShaderFeatures.multiviewMeshShader = VK_FALSE;
 
         //shaderSMBuiltinsFeaturesNV [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 
