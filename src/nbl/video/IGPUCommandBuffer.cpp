@@ -1484,7 +1484,6 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT, RENDERPASS_SCOPE::OUTSIDE))
         return false;
-    //side mission - find out what 4 is. may impact mesh in a way im not expecting
     if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
         return false;
 
