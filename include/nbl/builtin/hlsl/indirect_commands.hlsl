@@ -37,6 +37,14 @@ struct DispatchIndirectCommand_t
 	uint32_t  num_groups_z;
 };
 
+// distinct struct, new name with the same data - https://docs.vulkan.org/refpages/latest/refpages/source/VkDrawMeshTasksIndirectCommandEXT.html
+struct DrawMeshTasksIndirectCommand_t
+{
+    uint32_t num_groups_x;
+    uint32_t num_groups_y;
+    uint32_t num_groups_z;
+};
+
 struct TraceRaysIndirectCommand_t
 {
     uint64_t raygenShaderRecordAddress;
