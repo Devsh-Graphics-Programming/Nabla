@@ -82,7 +82,7 @@ struct LuminanceMapSampler
 			p.x |= 1;
 		}
 
-		// TODO(kevinyu): Add some comment why we add xi.
+		// If we don`t add xi, the sample will clump to the lowest corner of environment map texel. We add xi to simulate uniform distribution within a pixel and make the sample continuous. This is why we compute the pdf not from the normalized luminance of the texel, instead from the reciprocal of the Jacobian.
 		const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) / vector2_type(_mapSize);
 		return directionUV;
 	}
