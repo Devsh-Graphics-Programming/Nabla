@@ -154,6 +154,14 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		smart_refctd_ptr<IShader> vertex, fragment;
 	} shaders;
 
+	if (creationParams.spirv.has_value())
+	{
+		// TODO: since prebuild is experminetal currently I don't validate anything
+		auto& spirv = creationParams.spirv.value();
+		shaders.vertex = spirv.vertex;
+		shaders.fragment = spirv.fragment;
+	}
+	else
 	{		
 		//! proxy the system, we will touch it gently
 		auto system = smart_refctd_ptr<ISystem>(creationParams.assetManager->getSystem());
@@ -269,18 +277,18 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 
 		shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
 		shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
+	}
 
-		if (!shaders.vertex)
-		{
-			creationParams.utilities->getLogger()->log("Failed to compile vertex shader!", ILogger::ELL_ERROR);
-			return nullptr;
-		}
+	if (!shaders.vertex)
+	{
+		creationParams.utilities->getLogger()->log("Failed to create vertex shader!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
 
-		if (!shaders.fragment)
-		{
-			creationParams.utilities->getLogger()->log("Failed to compile fragment shader!", ILogger::ELL_ERROR);
-			return nullptr;
-		}
+	if (!shaders.fragment)
+	{
+		creationParams.utilities->getLogger()->log("Failed to create fragment shader!", ILogger::ELL_ERROR);
+		return nullptr;
 	}
 	
 	SVertexInputParams vertexInputParams{};
