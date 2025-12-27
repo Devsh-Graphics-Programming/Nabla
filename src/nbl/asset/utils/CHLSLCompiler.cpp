@@ -115,11 +115,11 @@ static bool fixup_spirv_target_ver(std::vector<std::wstring>& arguments, system:
         const auto found = AllowedSuffices.find(suffix);
         if (found!=AllowedSuffices.end())
             return true;
-        logger.log("Compile flag error: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env= found but with unsupported value `%s`.", system::ILogger::ELL_ERROR, "TODO: write wchar to char convert usage");
+        logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env= found but with unsupported value `%s`.", system::ILogger::ELL_ERROR, "TODO: write wchar to char convert usage");
         return false;
     }
 
-    logger.log("Compile flag error: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+    logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, as it is required by Nabla.", system::ILogger::ELL_WARNING);
     arguments.push_back(L"-fspv-target-env=vulkan1.3");
     return true;
 }
@@ -148,7 +148,7 @@ static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, syste
     }
     else
     {
-        logger.log("Compile flag error: Required compile flag not found -HV. Force enabling -HV 202x, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+        logger.log("Compile flag warning: Required compile flag not found -HV. Force enabling -HV 202x, as it is required by Nabla.", system::ILogger::ELL_WARNING);
         arguments.push_back(L"-HV");
         arguments.push_back(L"202x");
     }
@@ -254,7 +254,7 @@ static void add_required_arguments_if_not_present(std::vector<std::wstring>& arg
     {
         bool missing = set.find(required[j]) == set.end();
         if (missing) {
-            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, required[j]);
+            logger.log("Compile flag warning: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, required[j]);
             arguments.push_back(required[j]);
         }
     }

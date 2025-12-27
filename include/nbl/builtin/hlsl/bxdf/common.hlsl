@@ -615,7 +615,7 @@ struct SIsotropicMicrofacetCache
 
         // not coming from the medium (reflected) OR
         // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) )
-        const bool valid = ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(transmitted, VdotL, retval.absNdotH, computeMicrofacetNormal.orientedEta);
+        const bool valid = ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(transmitted, VdotL, retval.absNdotH, fresnel::OrientedEtas<monochrome_type>::create(1.0, computeMicrofacetNormal.orientedEta));
         if (valid)
         {
             retval.VdotH = hlsl::dot<vector3_type>(computeMicrofacetNormal.V,H);
@@ -638,7 +638,7 @@ struct SIsotropicMicrofacetCache
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV,NdotL);
 
         ComputeMicrofacetNormal<scalar_type> computeMicrofacetNormal = ComputeMicrofacetNormal<scalar_type>::create(V,L,N,1.0);
-        computeMicrofacetNormal.orientedEta = orientedEtas;
+        computeMicrofacetNormal.orientedEta = orientedEtas.value[0];
         
         return create(transmitted, computeMicrofacetNormal, VdotL, N, H);
     }
@@ -664,7 +664,7 @@ struct SIsotropicMicrofacetCache
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(),_sample.getNdotL());
 
         ComputeMicrofacetNormal<scalar_type> computeMicrofacetNormal = ComputeMicrofacetNormal<scalar_type>::create(V,L,N,1.0);
-        computeMicrofacetNormal.orientedEta = orientedEtas;
+        computeMicrofacetNormal.orientedEta = orientedEtas.value[0];
         
         return create(transmitted, computeMicrofacetNormal, hlsl::dot<vector3_type>(V, L), N, H);
     }

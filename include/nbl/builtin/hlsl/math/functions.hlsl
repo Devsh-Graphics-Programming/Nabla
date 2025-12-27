@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_MATH_FUNCTIONS_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
@@ -119,25 +120,6 @@ void frisvad(NBL_CONST_REF_ARG(T) normal, NBL_REF_ARG(T) tangent, NBL_REF_ARG(T)
         bitangent = T(b, unit - normal.y * normal.y * a, -normal.y);
     }
 }
-
-bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(float) rcpChoiceProb)
-{
-#ifdef __HLSL_VERSION
-    NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
-#else
-    NBL_CONSTEXPR float32_t NEXT_ULP_AFTER_UNITY = bit_cast<float32_t>(0x3f800001u);
-#endif
-    const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
-
-    // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
-    xi -= pickRight ? leftProb : 0.0f;
-
-    rcpChoiceProb = 1.0f / (pickRight ? (1.0f - leftProb) : leftProb);
-    xi *= rcpChoiceProb;
-
-    return pickRight;
-}
-
 
 namespace impl
 {
