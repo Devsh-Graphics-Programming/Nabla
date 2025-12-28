@@ -47,14 +47,6 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                     future.set_result(value);
                 }
         };
-		
-		#ifndef NBL_EMBED_BUILTIN_RESOURCES
-        constexpr std::string_view getBuiltinResourcesDirectoryPath()
-        {
-            std::string_view retval = NBL_BUILTIN_RESOURCES_DIRECTORY_PATH;
-            return retval;
-        }
-		#endif
 
         //
         inline void addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
@@ -78,6 +70,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         //
         virtual inline bool isDirectory(const system::path& p) const
         {
+            // TODO: fix bug, input "nbl/ext/DebugDraw/builtin/hlsl" -> returs true when no such dir present in mounted stuff due to how it uses parent paths in loop (goes up up till matches "nbl" builtin archive and thinks it resolved the requested dir)
             if (isPathReadOnly(p))
                 return p.extension()==""; // TODO: this is a temporary decision until we figure out how to check if a file is directory in android APK
             else

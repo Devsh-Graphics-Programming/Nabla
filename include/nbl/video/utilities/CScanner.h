@@ -13,10 +13,6 @@
 namespace nbl::video
 {
 
-#include "nbl/builtin/glsl/scan/parameters_struct.glsl"
-#include "nbl/builtin/glsl/scan/default_scheduler.glsl"
-static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
-
 /**
 Utility class to help you perform the equivalent of `std::inclusive_scan` and `std::exclusive_scan` with data on the GPU.
 

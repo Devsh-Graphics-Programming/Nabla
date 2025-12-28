@@ -125,7 +125,7 @@ class CElementFilm : public IElement
 		PixelFormat		pixelFormat;
 		ComponentFormat	componentFormat;
 		bool banner;
-		int32_t highQualityEdges;
+		bool highQualityEdges;
 		CElementRFilter rfilter;
 		union
 		{
@@ -137,10 +137,14 @@ class CElementFilm : public IElement
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxPathLen = 256;
 		char outputFilePath[MaxPathLen+1] = {0};
 		char denoiserBloomFilePath[MaxPathLen+1] = {0};
+		int32_t cascadeCount = 1;
+		float cascadeLuminanceBase = core::nan<float>();
+		float cascadeLuminanceStart = core::nan<float>();
 		float denoiserBloomScale = 0.0f;
 		float denoiserBloomIntensity = 0.0f;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;
 		char denoiserTonemapperArgs[MaxTonemapperArgsLen+1] = {0};
+		float envmapRegularizationFactor = 0.5f; // 1.0f means based envmap luminance, 0.0f means uniform
 };
 
 

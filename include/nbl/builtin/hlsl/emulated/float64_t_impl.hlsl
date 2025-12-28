@@ -41,7 +41,7 @@ namespace hlsl
 {
 namespace emulated_float64_t_impl
 {
-NBL_CONSTEXPR_INLINE_FUNC uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
+NBL_CONSTEXPR_FUNC uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
 {
     uint64_t2 output;
     output.x = mantissa64 >> (64 - ieee754::traits<float64_t>::mantissaBitCnt);
@@ -74,7 +74,7 @@ inline uint64_t castFloat32ToStorageType(float32_t val)
     }
 };
 
-NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
+NBL_CONSTEXPR_FUNC bool isZero(uint64_t val)
 {
     return (val << 1) == 0ull;
 }
@@ -137,18 +137,18 @@ inline uint64_t reinterpretAsFloat64BitPattern<int64_t>(int64_t val)
     return sign | reinterpretAsFloat64BitPattern(absVal);
 };
 
-NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t value)
+NBL_CONSTEXPR_FUNC uint64_t flushDenormToZero(uint64_t value)
 {
     const uint64_t biasBits = value & ieee754::traits<float64_t>::exponentMask;
     return biasBits ? value : (value & ieee754::traits<float64_t>::signMask);
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
+NBL_CONSTEXPR_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
 {
     return  signShifted | expShifted | mantissa;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
 {
     lhs &= ~ieee754::traits<float64_t>::signMask;
     rhs &= ~ieee754::traits<float64_t>::signMask;
@@ -156,18 +156,18 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
     return lhs == rhs && lhs == ieee754::traits<float64_t>::inf;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
 {
     return !bool((lhs | rhs) << 1);
 }
 
-NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
 {
     return !bool((lhs) << 1) && (lhs == rhs);
 }
 
 template<bool FastMath, typename Op>
-NBL_CONSTEXPR_INLINE_FUNC bool operatorLessAndGreaterCommonImplementation(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_FUNC bool operatorLessAndGreaterCommonImplementation(uint64_t lhs, uint64_t rhs)
 {
     if (!FastMath)
     {

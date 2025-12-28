@@ -242,6 +242,9 @@ namespace impl
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct equal_helper;
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct notEqual_helper;
+
 #ifdef __HLSL_VERSION
 
 template<typename Vectorial>
@@ -268,6 +271,30 @@ struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::EqualIntrinsicCallable<
     }
 };
 
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(spirv::NotEqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>)
+struct notEqual_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::NotEqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        return spirv::INotEqual<Vectorial>(lhs, rhs);
+    }
+};
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(spirv::NotEqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>)
+struct notEqual_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::NotEqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        return spirv::FOrdNotEqual<Vectorial>(lhs, rhs);
+    }
+};
+
 #else
 
 template<typename Vectorial>
@@ -290,6 +317,26 @@ struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>
     }
 };
 
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
+struct notEqual_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        using traits = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits::scalar_type> getter;
+		array_set<return_t, bool> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+            setter(output, i, getter(lhs, i) != getter(rhs, i));
+
+        return output;
+    }
+};
+
 #endif
 }
 
@@ -297,6 +344,12 @@ template<typename T>
 inline vector<bool,vector_traits<T>::Dimension> equal(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
 	return impl::equal_helper<T>::__call(x, y);
+}
+
+template<typename T>
+inline vector<bool,vector_traits<T>::Dimension> notEqual(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+{
+	return impl::notEqual_helper<T>::__call(x, y);
 }
 
 }
