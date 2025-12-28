@@ -64,12 +64,10 @@ struct Texture
         return retval;
     }
 
-	static inline float32_t eval(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(SInfo) info, NBL_CONST_REF_ARG(uint32_t2) position)
+	static inline float32_t eval(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(SInfo) info, NBL_CONST_REF_ARG(float32_t2) uv)
     {
 	    // We don't currently support generating IES images that exploit symmetries or reduced domains, all are full octahederal mappings of a sphere.
 		// If we did, we'd rely on MIRROR and CLAMP samplers to do some of the work for us while handling the discontinuity due to corner sampling. 
-
-        const float32_t2 uv = float32_t2(position) * info.inv;
         const float32_t3 dir = octahedral_t::uvToDir(uv);
         const polar_t polar = polar_t::createFromCartesian(dir);
 
@@ -87,6 +85,12 @@ struct Texture
         blendV *= info.maxValueRecip;
 
         return blendV;
+    }
+
+	static inline float32_t eval(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(SInfo) info, NBL_CONST_REF_ARG(uint32_t2) position)
+    {
+        const float32_t2 uv = float32_t2(position) * info.inv;
+        return eval(accessor, info, uv);
     }
 };
 

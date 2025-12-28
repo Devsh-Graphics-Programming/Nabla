@@ -881,20 +881,3 @@ source_group(TREE "${NBL_ROOT_PATH}"
     PREFIX "Source Files"
     FILES  ${NABLA_SOURCE_FILES}
 )
-
-# we want HLSL intelisense with all fancy features
-# NOTE: don't use HLSL Tools component but map .hlsl 
-# file ext to C++ intellisense in VS settings
-
-# https://marketplace.visualstudio.com/items?itemName=TimGJones.HLSLToolsforVisualStudio
-# intellisense doesn't work in VS2026 with the ext even tho I seem to have correct config, 
-# there is syntax highlighting however it cannot resolve any #include file and
-# in VS2022 this ext literally breaks the IDE making it unresponsive.
-# One could not use it at all and rely on C++ intellisense for .hlsl files,
-# but then I found I must right click in a .hlsl file -> Rescan -> Rescan File 
-# to resolve include files, "Rescan solution" doesn't work
-target_sources(Nabla PRIVATE "${NBL_ROOT_PATH}/include/shadertoolsconfig.json")
-source_group(TREE "${NBL_ROOT_PATH}"
-    PREFIX "HLSL Tools"
-    FILES  "${NBL_ROOT_PATH}/include/shadertoolsconfig.json"
-)
