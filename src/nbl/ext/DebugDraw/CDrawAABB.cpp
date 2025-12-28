@@ -3,7 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/ext/DebugDraw/CDrawAABB.h"
-#include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
+
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+#include "nbl/ext/debug_draw/builtin/build/CArchive.h"
+#endif
+
+#include "nbl/ext/DebugDraw/builtin/build/spirv/keys.hpp"
 
 using namespace nbl;
 using namespace core;
@@ -19,28 +24,34 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 {
 	auto* const logger = params.utilities->getLogger();
 
-	if (!validateCreationParameters(params))
+	if (!params.validate())
 	{
 		logger->log("Failed creation parameters validation!", ILogger::ELL_ERROR);
 		return nullptr;
 	}
 
-	smart_refctd_ptr<IGPUGraphicsPipeline> singlePipeline = nullptr;
+	ConstructorParams constructorParams;
+
 	if (params.drawMode & ADM_DRAW_SINGLE)
 	{
-		singlePipeline = createPipeline(params, params.singlePipelineLayout.get(), "single.vertex.hlsl", "aabb_instances.fragment.hlsl");
-		if (!singlePipeline)
+		auto pipelineLayout = params.singlePipelineLayout;
+		if (!pipelineLayout)
+			pipelineLayout = createDefaultPipelineLayout(params.utilities->getLogicalDevice(), ADM_DRAW_SINGLE);
+		constructorParams.singlePipeline = createPipeline(params, pipelineLayout.get(), ADM_DRAW_SINGLE);
+		if (!constructorParams.singlePipeline)
 		{
 			logger->log("Failed to create pipeline!", ILogger::ELL_ERROR);
 			return nullptr;
 		}
 	}
 
-	smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline = nullptr;
 	if (params.drawMode & ADM_DRAW_BATCH)
 	{
-		batchPipeline = createPipeline(params, params.batchPipelineLayout.get(), "aabb_instances.vertex.hlsl", "aabb_instances.fragment.hlsl");
-		if (!batchPipeline)
+		auto pipelineLayout = params.batchPipelineLayout;
+		if (!pipelineLayout)
+			pipelineLayout = createDefaultPipelineLayout(params.utilities->getLogicalDevice(), ADM_DRAW_BATCH);
+		constructorParams.batchPipeline = createPipeline(params, pipelineLayout.get(), ADM_DRAW_BATCH);
+		if (!constructorParams.batchPipeline)
 		{
 			logger->log("Failed to create pipeline!", ILogger::ELL_ERROR);
 			return nullptr;
@@ -53,118 +64,77 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 		return nullptr;
 	}
 
-	auto indicesBuffer = createIndicesBuffer(params);
-	if (!indicesBuffer)
+	constructorParams.indicesBuffer = createIndicesBuffer(params);
+	if (!constructorParams.indicesBuffer)
 	{
 		logger->log("Failed to create indices buffer!", ILogger::ELL_ERROR);
 		return nullptr;
 	}
 
-    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(params), singlePipeline, batchPipeline, indicesBuffer));
+	constructorParams.creationParams = std::move(params);
+    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(constructorParams)));
 }
 
-DrawAABB::DrawAABB(SCreationParameters&& params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline, smart_refctd_ptr<IGPUBuffer> indicesBuffer)
-    : m_cachedCreationParams(std::move(params)), m_singlePipeline(std::move(singlePipeline)), m_batchPipeline(std::move(batchPipeline)),
-    m_indicesBuffer(std::move(indicesBuffer))
-{
-}
+// extension data mount alias
+constexpr std::string_view NBL_EXT_MOUNT_ENTRY = "nbl/ext/DebugDraw";
 
-DrawAABB::~DrawAABB()
-{
-}
-
-// note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
-constexpr std::string_view NBL_ARCHIVE_ENTRY = _ARCHIVE_ENTRY_KEY_;
-
-const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
+const smart_refctd_ptr<IFileArchive> DrawAABB::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias)
 {
 	assert(system);
 
 	if (!system)
 		return nullptr;
 
+	// the key is deterministic, we are validating presence of required .spv
+	const auto composed = path(archiveAlias.data()) / nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(device);
+	if (system->exists(composed, {}))
+		return nullptr;
+
 	// extension should mount everything for you, regardless if content goes from virtual filesystem 
 	// or disk directly - and you should never rely on application framework to expose extension data
+	#ifdef NBL_EMBED_BUILTIN_RESOURCES
+	auto archive = make_smart_refctd_ptr<builtin::build::CArchive>(smart_refctd_ptr(logger));
+	#else
+	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::string_view(NBL_DEBUG_DRAW_HLSL_MOUNT_POINT), smart_refctd_ptr(logger), system);
+	#endif
 
-#ifdef NBL_EMBED_BUILTIN_RESOURCES
-	auto archive = make_smart_refctd_ptr<builtin::CArchive>(smart_refctd_ptr(logger));
 	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
-#else
-	auto NBL_EXTENSION_MOUNT_DIRECTORY_ENTRY = (path(_ARCHIVE_ABSOLUTE_ENTRY_PATH_) / NBL_ARCHIVE_ENTRY).make_preferred();
-	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::move(NBL_EXTENSION_MOUNT_DIRECTORY_ENTRY), smart_refctd_ptr(logger), system);
-	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
-#endif
-
 	return smart_refctd_ptr(archive);
 }
 
-bool DrawAABB::validateCreationParameters(SCreationParameters& creationParams)
+smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParameters& params, const IGPUPipelineLayout* pipelineLayout, DrawMode mode)
 {
-	const auto validation = std::to_array
-	({
-		std::make_pair(bool(creationParams.assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
-		std::make_pair(bool(creationParams.assetManager->getSystem()), "Invalid `creationParams.assetManager->getSystem()` is nullptr!"),
-		std::make_pair(bool(creationParams.utilities), "Invalid `creationParams.utilities` is nullptr!"),
-		std::make_pair(bool(creationParams.transfer), "Invalid `creationParams.transfer` is nullptr!"),
-		std::make_pair(bool(creationParams.renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
-		(creationParams.assetManager && creationParams.utilities && creationParams.transfer && creationParams.renderpass) ? std::make_pair(bool(creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required DrawAABB::S_CREATION_PARAMETERS!")
-		});
+	system::logger_opt_ptr logger = params.utilities->getLogger();
+	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
+	auto* device = params.utilities->getLogicalDevice();
+	mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), params.utilities->getLogicalDevice(), NBL_EXT_MOUNT_ENTRY);
 
-	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
-	for (const auto& [ok, error] : validation)
-		if (!ok)
+	auto getShader = [&](const core::string& key)->smart_refctd_ptr<IShader> {
+		IAssetLoader::SAssetLoadParams lp = {};
+		lp.logger = params.utilities->getLogger();
+		lp.workingDirectory = NBL_EXT_MOUNT_ENTRY;
+		auto bundle = params.assetManager->getAsset(key.c_str(), lp);
+
+		const auto contents = bundle.getContents();
+
+		if (contents.empty())
 		{
-			logger.log(error, ILogger::ELL_ERROR);
-			return false;
+			logger.log("Failed to load shader %s from disk", ILogger::ELL_ERROR, key.c_str());
+			return nullptr;
 		}
 
-	return true;
-}
-
-smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParameters& params, const IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath)
-{
-	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
-	auto* set = params.assetManager->getCompilerSet();
-	auto compiler = set->getShaderCompiler(IShader::E_CONTENT_TYPE::ECT_HLSL);
-	auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
-	auto includeLoader = includeFinder->getDefaultFileSystemLoader();
-	includeFinder->addSearchPath(NBL_ARCHIVE_ENTRY.data(), includeLoader);
-
-	auto compileShader = [&](const std::string& filePath, IShader::E_SHADER_STAGE stage) -> smart_refctd_ptr<IShader>
+		if (bundle.getAssetType() != IAsset::ET_SHADER)
 		{
-			IAssetLoader::SAssetLoadParams lparams = {};
-			lparams.logger = params.utilities->getLogger();
-			lparams.workingDirectory = NBL_ARCHIVE_ENTRY.data();
-			auto bundle = params.assetManager->getAsset(filePath, lparams);
-			if (bundle.getContents().empty() || bundle.getAssetType() != IAsset::ET_SHADER)
-			{
-				params.utilities->getLogger()->log("Shader %s not found!", ILogger::ELL_ERROR, filePath.c_str());
-				exit(-1);
-			}
+			logger.log("Loaded asset has wrong type!", ILogger::ELL_ERROR);
+			return nullptr;
+		}
 
-			const auto assets = bundle.getContents();
-			assert(assets.size() == 1);
-			smart_refctd_ptr<IShader> shaderSrc = IAsset::castDown<IShader>(assets[0]);
-			if (!shaderSrc)
-				return nullptr;
+		return IAsset::castDown<IShader>(contents[0]);
+	};
 
-			CHLSLCompiler::SOptions options = {};
-			options.stage = stage;
-			options.preprocessorOptions.sourceIdentifier = filePath;
-			options.preprocessorOptions.logger = params.utilities->getLogger();
-			options.preprocessorOptions.includeFinder = includeFinder.get();
-			shaderSrc = compiler->compileToSPIRV((const char*)shaderSrc->getContent()->getPointer(), options);
-
-			return params.utilities->getLogicalDevice()->compileShader({ shaderSrc.get() });
-		};
-
-	if (!system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
-		mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
-
-	auto vertexShader = compileShader(vsPath, IShader::E_SHADER_STAGE::ESS_VERTEX);
-	auto fragmentShader = compileShader(fsPath, IShader::E_SHADER_STAGE::ESS_FRAGMENT);
-
-	if (!vertexShader || !fragmentShader)
+	const auto key = nbl::ext::debug_draw::builtin::build::get_spirv_key<"draw_aabb">(device);
+	smart_refctd_ptr<IShader> unifiedShader = getShader(key);
+	if (!unifiedShader)
 	{
 		params.utilities->getLogger()->log("Could not compile shaders!", ILogger::ELL_ERROR);
 		return nullptr;
@@ -172,8 +142,8 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 
 	video::IGPUGraphicsPipeline::SCreationParams pipelineParams[1] = {};
 	pipelineParams[0].layout = pipelineLayout;
-	pipelineParams[0].vertexShader = { .shader = vertexShader.get(), .entryPoint = "main" };
-	pipelineParams[0].fragmentShader = { .shader = fragmentShader.get(), .entryPoint = "main" };
+	pipelineParams[0].vertexShader = { .shader = unifiedShader.get(), .entryPoint = (mode & ADM_DRAW_SINGLE) ? "aabb_vertex_single" : "aabb_vertex_instances" };
+	pipelineParams[0].fragmentShader = { .shader = unifiedShader.get(), .entryPoint = "aabb_fragment" };
 	pipelineParams[0].cached = {
 		.primitiveAssembly = {
 			.primitiveType = asset::E_PRIMITIVE_TOPOLOGY::EPT_LINE_LIST,
@@ -200,8 +170,6 @@ bool DrawAABB::createStreamingBuffer(SCreationParameters& params)
 		{
 			bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> flags(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
 
-			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
-				flags |= IDeviceMemoryAllocation::EMCAF_READ;
 			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
 				flags |= IDeviceMemoryAllocation::EMCAF_WRITE;
 
@@ -239,7 +207,6 @@ bool DrawAABB::createStreamingBuffer(SCreationParameters& params)
 	const auto validation = std::to_array
 	({
 		std::make_pair(buffer->getCreationParams().usage.hasFlags(SCachedCreationParameters::RequiredUsageFlags), "Streaming buffer must be created with IBuffer::EUF_STORAGE_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
-		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & params.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "Streaming buffer must have up-streaming memory type bits enabled!"),
 		std::make_pair(binding.memory->getAllocateFlags().hasFlags(SCachedCreationParameters::RequiredAllocateFlags), "Streaming buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 		std::make_pair(binding.memory->isCurrentlyMapped(), "Streaming buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 		std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "Streaming buffer's memory current mapping access flags don't meet requirements!")
@@ -288,16 +255,72 @@ smart_refctd_ptr<IGPUBuffer> DrawAABB::createIndicesBuffer(SCreationParameters& 
 	unitAABBIndices[22] = 3;
 	unitAABBIndices[23] = 7;
 
+	auto* device = params.utilities->getLogicalDevice();
+	smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf;
+	{
+		smart_refctd_ptr<nbl::video::IGPUCommandPool> cmdpool = device->createCommandPool(params.transfer->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+		if (!cmdpool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, { &cmdbuf, 1 }))
+		{
+			params.utilities->getLogger()->log("Failed to create Command Buffer for index buffer!\n");
+			return nullptr;
+		}
+	}
+
 	IGPUBuffer::SCreationParams bufparams;
 	bufparams.size = sizeof(uint32_t) * unitAABBIndices.size();
-	bufparams.usage = IGPUBuffer::EUF_INDEX_BUFFER_BIT | IGPUBuffer::EUF_TRANSFER_DST_BIT;
+	bufparams.usage = IGPUBuffer::EUF_INDEX_BUFFER_BIT | IGPUBuffer::EUF_TRANSFER_DST_BIT | IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
 
 	smart_refctd_ptr<IGPUBuffer> indicesBuffer;
-	params.utilities->createFilledDeviceLocalBufferOnDedMem(
-		SIntendedSubmitInfo{ .queue = params.transfer },
-		std::move(bufparams),
-		unitAABBIndices.data()
-	).move_into(indicesBuffer);
+	{
+		indicesBuffer = device->createBuffer(std::move(bufparams));
+		if (!indicesBuffer)
+		{
+			params.utilities->getLogger()->log("Failed to create index buffer!\n");
+			return nullptr;
+		}
+
+		video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs = indicesBuffer->getMemoryReqs();
+		reqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+
+		auto bufMem = device->allocate(reqs, indicesBuffer.get());
+		if (!bufMem.isValid())
+		{
+			params.utilities->getLogger()->log("Failed to allocate device memory compatible with index buffer!\n");
+			return nullptr;
+		}
+	}
+
+	{
+		cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+		cmdbuf->beginDebugMarker("Fill indices buffer begin");
+
+		SBufferRange<IGPUBuffer> bufRange = { .offset = 0, .size = indicesBuffer->getSize(), .buffer = indicesBuffer };
+		cmdbuf->updateBuffer(bufRange, unitAABBIndices.data());
+
+		cmdbuf->endDebugMarker();
+		cmdbuf->end();
+	}
+
+	smart_refctd_ptr<ISemaphore> idxBufProgress;
+	constexpr auto FinishedValue = 25;
+	{
+		constexpr auto StartedValue = 0;
+		idxBufProgress = device->createSemaphore(StartedValue);
+
+		IQueue::SSubmitInfo submitInfos[1] = {};
+		const IQueue::SSubmitInfo::SCommandBufferInfo cmdbufs[] = { {.cmdbuf = cmdbuf.get()} };
+		submitInfos[0].commandBuffers = cmdbufs;
+		const IQueue::SSubmitInfo::SSemaphoreInfo signals[] = { {.semaphore = idxBufProgress.get(),.value = FinishedValue,.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS} };
+		submitInfos[0].signalSemaphores = signals;
+
+		params.transfer->submit(submitInfos);
+	}
+
+	const ISemaphore::SWaitInfo waitInfos[] = { {
+				.semaphore = idxBufProgress.get(),
+				.value = FinishedValue
+			} };
+	device->blockForSemaphores(waitInfos);
 
 	return indicesBuffer;
 }
@@ -307,17 +330,19 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createPipelineLayout
 	return device->createPipelineLayout({ &pcRange , 1 }, nullptr, nullptr, nullptr, nullptr);
 }
 
-core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createDefaultPipelineLayout(video::ILogicalDevice* device)
+core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createDefaultPipelineLayout(video::ILogicalDevice* device, DrawMode mode)
 {
+	const uint32_t offset = (mode & ADM_DRAW_BATCH) ? offsetof(ext::debug_draw::PushConstants, ipc) : offsetof(ext::debug_draw::PushConstants, spc);
+	const uint32_t pcSize = (mode & ADM_DRAW_BATCH) ? sizeof(SInstancedPC) : sizeof(SSinglePC);
 	SPushConstantRange pcRange = {
 		.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX,
-		.offset = 0,
-		.size = sizeof(SPushConstants)
+		.offset = offset,
+		.size = pcSize
 	};
-	return device->createPipelineLayout({ &pcRange , 1 }, nullptr, nullptr, nullptr, nullptr);
+	return createPipelineLayoutFromPCRange(device, pcRange);
 }
 
-bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color, const hlsl::float32_t4x4& cameraMat)
+bool DrawAABB::renderSingle(const DrawParameters& params, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color)
 {
 	if (!(m_cachedCreationParams.drawMode & ADM_DRAW_SINGLE))
 	{
@@ -325,101 +350,21 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 		return false;
 	}
 
+	auto& commandBuffer = params.commandBuffer;
 	commandBuffer->bindGraphicsPipeline(m_singlePipeline.get());
-	commandBuffer->setLineWidth(1.f);
+	commandBuffer->setLineWidth(params.lineWidth);
 	asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
 	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
-	SSinglePushConstants pc;
-
-	hlsl::float32_t4x4 instanceTransform = getTransformFromAABB(aabb);
-	pc.instance.transform = hlsl::mul(cameraMat, instanceTransform);
+	SSinglePC pc;
+	hlsl::float32_t3x4 instanceTransform = getTransformFromAABB(aabb);
+	pc.instance.transform = math::linalg::promoted_mul(params.cameraMat, instanceTransform);
 	pc.instance.color = color;
 	
-	commandBuffer->pushConstants(m_singlePipeline->getLayout(), ESS_VERTEX, 0, sizeof(SSinglePushConstants), &pc);
+	commandBuffer->pushConstants(m_singlePipeline->getLayout(), ESS_VERTEX, offsetof(ext::debug_draw::PushConstants, spc), sizeof(SSinglePC), &pc);
 	commandBuffer->drawIndexed(IndicesCount, 1, 0, 0, 0);
 
 	return true;
-}
-
-bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat)
-{
-	if (!(m_cachedCreationParams.drawMode & ADM_DRAW_BATCH))
-	{
-		m_cachedCreationParams.utilities->getLogger()->log("DrawAABB has not been enabled for draw batches!", ILogger::ELL_ERROR);
-		return false;
-	}
-
-	using offset_t = SCachedCreationParameters::streaming_buffer_t::size_type;
-	constexpr auto MdiSizes = std::to_array<offset_t>({ sizeof(float32_t3), sizeof(InstanceData) });
-	// shared nPoT alignment needs to be divisible by all smaller ones to satisfy an allocation from all
-	constexpr offset_t MaxAlignment = std::reduce(MdiSizes.begin(), MdiSizes.end(), 1, [](const offset_t a, const offset_t b)->offset_t {return std::lcm(a, b); });
-	// allocator initialization needs us to round up to PoT
-	const auto MaxPOTAlignment = roundUpToPoT(MaxAlignment);
-
-	auto* streaming = m_cachedCreationParams.streamingBuffer.get();
-
-	auto* const streamingPtr = reinterpret_cast<uint8_t*>(streaming->getBufferPointer());
-	assert(streamingPtr);
-
-	commandBuffer->bindGraphicsPipeline(m_batchPipeline.get());
-	commandBuffer->setLineWidth(1.f);
-	asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
-	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
-
-	std::vector<InstanceData> instances(aabbInstances.size());
-	for (uint32_t i = 0; i < aabbInstances.size(); i++)
-	{
-		auto& inst = instances[i];
-		inst = aabbInstances[i];
-		inst.transform = hlsl::mul(cameraMat, inst.transform);
-	}
-
-	auto instancesIt = instances.begin();
-	const uint32_t instancesPerIter = streaming->getBuffer()->getSize() / sizeof(InstanceData);
-	using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
-	while (instancesIt != instances.end())
-    {
-		const uint32_t instanceCount = min(instancesPerIter, instances.size());
-        offset_t inputOffset = 0u;
-	    offset_t ImaginarySizeUpperBound = 0x1 << 30;
-	    suballocator_t imaginaryChunk(nullptr, inputOffset, 0, roundUpToPoT(MaxAlignment), ImaginarySizeUpperBound);
-	    uint32_t instancesByteOffset = imaginaryChunk.alloc_addr(sizeof(InstanceData) * instanceCount, sizeof(InstanceData));
-	    const uint32_t totalSize = imaginaryChunk.get_allocated_size();
-
-	    inputOffset = SCachedCreationParameters::streaming_buffer_t::invalid_value;
-		std::chrono::steady_clock::time_point waitTill = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u);
-	    streaming->multi_allocate(waitTill, 1, &inputOffset, &totalSize, &MaxAlignment);
-
-	    memcpy(streamingPtr + instancesByteOffset, std::addressof(*instancesIt), sizeof(InstanceData) * instanceCount);
-		instancesIt += instanceCount;
-
-	    assert(!streaming->needsManualFlushOrInvalidate());
-
-	    SPushConstants pc;
-	    pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
-
-	    commandBuffer->pushConstants(m_batchPipeline->getLayout(), ESS_VERTEX, 0, sizeof(SPushConstants), &pc);
-	    commandBuffer->drawIndexed(IndicesCount, instanceCount, 0, 0, 0);
-
-	    streaming->multi_deallocate(1, &inputOffset, &totalSize, waitInfo);
-    }
-
-	return true;
-}
-
-hlsl::float32_t4x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb)
-{
-	const auto diagonal = aabb.getExtent();
-	hlsl::float32_t4x4 transform;
-	transform[0][3] = aabb.minVx.x;
-	transform[1][3] = aabb.minVx.y;
-	transform[2][3] = aabb.minVx.z;
-	transform[3][3] = 1.f;
-	transform[0][0] = diagonal.x;
-	transform[1][1] = diagonal.y;
-	transform[2][2] = diagonal.z;
-	return transform;
 }
 
 hlsl::float32_t4x4 DrawAABB::getTransformFromOBB(const hlsl::shapes::OBB<3, float>& obb)

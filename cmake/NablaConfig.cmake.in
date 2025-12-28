@@ -1,0 +1,32 @@
+@PACKAGE_INIT@
+
+set(Nabla_ROOT "${PACKAGE_PREFIX_DIR}")
+set(Nabla_GIT_INFO_JSON_FILE "${PACKAGE_PREFIX_DIR}/include/nabla_git_info.json")
+set(Nabla_DXC_GIT_INFO_JSON_FILE "${PACKAGE_PREFIX_DIR}/include/dxc_git_info.json")
+
+if(NOT EXISTS "${Nabla_GIT_INFO_JSON_FILE}")
+    message(FATAL_ERROR "Nabla: Git info JSON not found at \"${Nabla_GIT_INFO_JSON_FILE}\"")
+endif()
+
+if(NOT EXISTS "${Nabla_DXC_GIT_INFO_JSON_FILE}")
+    message(FATAL_ERROR "Nabla: DXC Git info JSON not found at \"${Nabla_DXC_GIT_INFO_JSON_FILE}\"")
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/NablaExportTargets.cmake")
+check_required_components(Nabla)
+
+if(NABLA_FIND_PACKAGE_VERBOSE)
+  message(STATUS
+    "\n-- Nabla_ROOT = ${Nabla_ROOT}"
+    "\n-- Nabla_VERSION = ${Nabla_VERSION}"
+  )
+
+  file(READ "${Nabla_GIT_INFO_JSON_FILE}" _nabla_git_info_raw)
+  file(READ "${Nabla_DXC_GIT_INFO_JSON_FILE}" _nabla_dxc_git_info_raw)
+  message(STATUS
+    "-- Nabla module git info:"
+    "\n${_nabla_git_info_raw}"
+    "-- Nabla's DXC module git info:"
+    "\n${_nabla_dxc_git_info_raw}"
+  )
+endif()

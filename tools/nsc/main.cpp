@@ -153,6 +153,7 @@ public:
 			});
 		};
 		
+		auto preprocessOnly = findOutputFlag("-P") != m_arguments.end();
 		auto output_flag_pos_fc = findOutputFlag("-Fc");
 		auto output_flag_pos_fo = findOutputFlag("-Fo");
 		if (output_flag_pos_fc != m_arguments.end() && output_flag_pos_fo != m_arguments.end()) {
@@ -195,7 +196,8 @@ public:
 				return false;
 			}
 		
-			m_logger->log("Compiled shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
+			std::string outputType = preprocessOnly ? "Preprocessed" : "Compiled";
+			m_logger->log(outputType + " shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
@@ -227,13 +229,27 @@ public:
 		}
 
 		auto start = std::chrono::high_resolution_clock::now();
-		auto compilation_result = compile_shader(shader.get(), shaderStage, file_to_compile);
+		smart_refctd_ptr<IShader> compilation_result;
+		std::string preprocessing_result;
+		std::string_view result_view;
+		if (preprocessOnly)
+		{
+			preprocessing_result = preprocess_shader(shader.get(), shaderStage, file_to_compile);
+			result_view = preprocessing_result;
+		}
+		else
+		{
+			compilation_result = compile_shader(shader.get(), shaderStage, file_to_compile);
+			result_view = { (const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize() };
+		}
 		auto end = std::chrono::high_resolution_clock::now();
 
-		// writie compiled shader to file as bytes
-		if (compilation_result) 
+		// write compiled/preprocessed shader to file as bytes
+		std::string operationType = preprocessOnly ? "preprocessing" : "compilation";
+		const bool success = preprocessOnly ? preprocessing_result != std::string{} : bool(compilation_result);
+		if (success) 
 		{
-			m_logger->log("Shader compilation successful.", ILogger::ELL_INFO);
+			m_logger->log("Shader " + operationType + " successful.", ILogger::ELL_INFO);
 			const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 			m_logger->log("Took %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
 			{
@@ -258,7 +274,7 @@ public:
 				return false;
 			}
 
-			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
+			output_file.write(result_view.data(), result_view.size());
 
 			if (output_file.fail()) 
 			{
@@ -279,7 +295,7 @@ public:
 		}
 		else 
 		{
-			m_logger->log("Shader compilation failed.", ILogger::ELL_ERROR);
+			m_logger->log("Shader " + operationType + " failed.", ILogger::ELL_ERROR);
 			return false;
 		}
 	}
@@ -290,6 +306,28 @@ public:
 
 
 private:
+
+	std::string preprocess_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier) {
+		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
+
+		CHLSLCompiler::SPreprocessorOptions options = {};
+		options.sourceIdentifier = sourceIdentifier;
+		options.logger = m_logger.get();
+
+		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
+		auto includeLoader = includeFinder->getDefaultFileSystemLoader();
+
+		// because before real compilation we do preprocess the input it doesn't really matter we proxy include search direcotries further with dxcOptions since at the end all includes are resolved to single file
+		for (const auto& it : m_include_search_paths)
+			includeFinder->addSearchPath(it, includeLoader);
+
+		options.includeFinder = includeFinder.get();
+
+		const char* code_ptr = (const char*)shader->getContent()->getPointer();
+		std::string_view code({ code_ptr, strlen(code_ptr)});
+
+		return hlslcompiler->preprocessShader(std::string(code), shaderStage, options, nullptr);
+	}
 
 	core::smart_refctd_ptr<IShader> compile_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier) {
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));

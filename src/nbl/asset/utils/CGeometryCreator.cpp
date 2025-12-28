@@ -83,7 +83,6 @@ template <typename IndexT>
 	requires(std::is_same_v<IndexT, uint16_t> || std::is_same_v<IndexT, uint32_t>)
 static ICPUPolygonGeometry::SDataView createIndexView(size_t indexCount, size_t maxIndex)
 {
-	
 	const auto bytesize = sizeof(IndexT) * indexCount;
 	auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 
@@ -662,6 +661,72 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 	return retval;
 }
 
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createPrism(
+	float radius, float length, uint16_t sideCount) const
+{
+	using namespace hlsl;
+
+	if (sideCount < 3) return nullptr;
+
+	const auto halfIx = sideCount;
+	const uint32_t u32_vertexCount = 2 * sideCount;
+	if (u32_vertexCount > std::numeric_limits<uint16_t>::max())
+		return nullptr;
+	const auto vertexCount = static_cast<uint16_t>(u32_vertexCount);
+
+	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	retval->setIndexing(IPolygonGeometryBase::TriangleList());
+
+	// Create indices
+	using index_t = uint16_t;
+	{
+		constexpr uint32_t RowCount = 2u;
+		const auto IndexCount = RowCount * 3 * sideCount;
+		auto indexView = createIndexView<index_t>(IndexCount, vertexCount - 1);
+		auto u = reinterpret_cast<index_t*>(indexView.src.buffer->getPointer());
+
+		for (uint16_t i = 0u, j = 0u; i < halfIx; ++i)
+		{
+			u[j++] = i;
+			u[j++] = (i + 1u) != halfIx ? (i + 1u):0u;
+			u[j++] = i + halfIx;
+			u[j++] = i + halfIx;
+			u[j++] = (i + 1u)!= halfIx ? (i + 1u):0u;
+			u[j++] = (i + 1u)!= halfIx ? (i + 1u + halfIx) : halfIx;
+		}
+
+		retval->setIndexView(std::move(indexView));
+	}
+
+	// Create vertex attributes with NONE usage because we have no clue how they'll be used
+	hlsl::float32_t3* positions;
+
+  {
+    shapes::AABB<4, float32_t> aabb;
+    aabb.maxVx = float32_t4(radius, radius, length, 0.0f);
+    aabb.minVx = float32_t4(-radius, -radius, 0.0f, 0.0f);
+    auto positionView = createPositionView(vertexCount, aabb);
+    positions = reinterpret_cast<decltype(positions)>(positionView.src.buffer->getPointer());
+    retval->setPositionView(std::move(positionView));
+  }
+
+	const float invSideCount = 1.f / static_cast<float>(sideCount);
+	const float step = 2.f * numbers::pi<float32_t> * invSideCount;
+	for (uint32_t i = 0u; i < sideCount; ++i)
+	{
+		const auto f_i = static_cast<float>(i);
+		hlsl::float32_t3 p(std::cos(f_i * step), std::sin(f_i * step), 0.f);
+		p *= radius;
+
+		positions[i] = { p.x, p.y, p.z };
+
+		positions[i + halfIx] = { p.x, p.y, length };
+	}
+
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
+	return retval;
+}
+
 core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	const uint16_t tesselationCylinder,
 	const uint16_t tesselationCone,
@@ -683,7 +748,7 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	});
 	const auto coneTransform = hlsl::math::linalg::rotation_mat(hlsl::numbers::pi<hlsl::float32_t> * -0.5f, hlsl::float32_t3(1.f, 0.f, 0.f));
 	geometries->push_back({
-		.transform = hlsl::float32_t3x4(coneTransform),
+		.transform = hlsl::math::linalg::promote_affine<3, 4>(coneTransform),
 		.geometry = cone
 	});
 	return collection;

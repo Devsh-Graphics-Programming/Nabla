@@ -636,27 +636,38 @@ template<bool C, class T, class F>
 using conditional_t = typename conditional<C,T,F>::type;
 
 
-// Template variables
+// Template Variables
+template<class T, T val>
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR T integral_constant_v = integral_constant<T, val>::value;
 template<typename A, typename B>
-NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_same_v = is_same<A, B>::value;
 template<class T>
-NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_unsigned_v = is_unsigned<T>::value;
 template<class T>
-NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_integral_v = is_integral<T>::value;
 template<class T>
-NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_floating_point_v = is_floating_point<T>::value;
 template<class T>
-NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_signed_v = is_signed<T>::value;
 template<class T>
-NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_scalar_v = is_scalar<T>::value;
 template<class T>
-NBL_CONSTEXPR uint64_t size_of_v = size_of<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint64_t size_of_v = size_of<T>::value;
 template<class T>
-NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint32_t alignment_of_v = alignment_of<T>::value;
+template<typename T>
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_fundamental_v = is_fundamental<T>::value;
+
 
 // Overlapping definitions
 template<typename T>
 using make_void_t = typename make_void<T>::type;
+
+template<typename T>
+using make_signed_t = typename make_signed<T>::type;
+
+template<typename T>
+using make_unsigned_t = typename make_unsigned<T>::type;
 
 template<bool C, typename T, T A, T B>
 struct conditional_value
@@ -674,7 +685,7 @@ template<class T, uint32_t N>
 struct is_vector<vector<T, N> > : bool_constant<true> {};
 
 template<typename T>
-NBL_CONSTEXPR bool is_vector_v = is_vector<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_vector_v = is_vector<T>::value;
 
 #ifndef __HLSL_VERSION
 template<typename T>
@@ -685,7 +696,7 @@ template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
 template<class T>
-NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_matrix_v = is_matrix<T>::value;
 
 
 template<class T>
@@ -721,16 +732,16 @@ struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
 template<class T, uint32_t I> 
 struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
 
-template<class T, uint16_t N> 
-struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
+template<class T, uint16_t N, uint32_t I>
+struct extent<vector<T,N>, I> : extent<T[N], I> {};
 
 template<class T, uint16_t M, uint16_t N, uint32_t I> 
-struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
+struct extent<matrix<T,N,M>, I> : extent<T[N][M], I> {};
 
 
 // Template Variables
 template<class T, uint32_t N = 0>
-NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint64_t extent_v = extent<T, N>::value;
 
 
 template<typename T,bool=is_scalar<T>::value>
@@ -843,15 +854,6 @@ struct float_of_size<8>
 };
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
-
-template<typename T, int N>
-struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
-
-template<typename T, int N, int M>
-struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
-
-template<typename T, int N, int M>
-struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
 
 }
 }

@@ -17,6 +17,7 @@ auto CJITIncludeLoader::getInclude(const system::path& searchPath, const std::st
 }
 
 
+
 std::string CJITIncludeLoader::collectDeviceCaps(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features)
 {
     #include "nbl/video/device_capabilities_traits_jit.h"

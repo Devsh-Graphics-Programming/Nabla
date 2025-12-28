@@ -6,8 +6,8 @@
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
 
-#include <nbl/core/declarations.h>
 
+#include <cstdio>
 #include <ostream>
 
 #include <nbl/asset/material_compiler/IR.h>
@@ -20,15 +20,34 @@ namespace nbl::asset::material_compiler
 // TODO: we need a GLSL to C++ compatibility wrapper
 #define uint uint32_t
 #define uvec2 uint64_t
+struct nbl_glsl_MC_emitter_t
+{
+	uvec2 emissive;
+	uvec2 emissionProfile;
+	float orientation[6]; // LSB of orientation[0] is 1 if right handed; [0:3] y axis [3:6] z axis
+};
+
+#define NBL_MC_INVALID_EMITTER_ID 0xffffffffu
+
 struct nbl_glsl_MC_oriented_material_t
 {
-    uvec2 emissive;
+	uint emitter_id;
     uint prefetch_offset;
     uint prefetch_count;
     uint instr_offset;
     uint rem_pdf_count;
     uint nprecomp_count;
     uint genchoice_count;
+
+	struct stream_t
+	{
+		uint32_t first;
+		uint32_t count;
+	};
+	stream_t get_rem_and_pdf() const { return { instr_offset, rem_pdf_count }; }
+	stream_t get_gen_choice() const { return { instr_offset + rem_pdf_count, genchoice_count }; }
+	stream_t get_norm_precomp() const { return { instr_offset + rem_pdf_count + genchoice_count, nprecomp_count }; }
+	stream_t get_tex_prefetch() const { return { prefetch_offset, prefetch_count }; }
 };
 struct nbl_glsl_MC_material_data_t
 {
@@ -37,6 +56,7 @@ struct nbl_glsl_MC_material_data_t
 };
 #undef uint
 #undef uvec2
+using emitter_t = nbl_glsl_MC_emitter_t;
 using oriented_material_t = nbl_glsl_MC_oriented_material_t;
 using material_data_t = nbl_glsl_MC_material_data_t;
 
@@ -270,17 +290,19 @@ public:
 	#undef SWITCH_REG_CNT_FOR_PARAM_NUM
 		}
 
+
 		using VTID = uint64_t;// asset::ICPUVirtualTexture::SMasterTextureData;
-#include "nbl/nblpack.h"
+
+	#include "nbl/nblpack.h"
 		struct STextureData {
-			
-			VTID vtid;
+			STextureData() = default;
+
+			VTID vtid = 0xdeadbeefull;// VTID::invalid();
 			union {
 				uint32_t prefetch_reg;//uint32
-				uint32_t scale;//float
-
+				uint32_t scale = 0u;//float
 			};
-			STextureData() : vtid(/*VTID::invalid()*/0xdeadbeefBADC0FFEull), scale(0u) {}
+
 			bool operator==(const STextureData& rhs) const { return memcmp(this,&rhs,sizeof(rhs))==0; }
 			struct hash
 			{
@@ -380,17 +402,14 @@ public:
 	#include "nbl/nblpack.h"
 		struct STextureOrConstant
 		{
-			inline void setConst(core::vector3df_SIMD c)
-			{
-//				constant = core::rgb32f_to_rgb19e7(c.pointer);
-			}
+			inline void setConst(core::vector3df_SIMD c) {}// { constant = core::rgb32f_to_rgb19e7(c.pointer); }
 			inline void setPrefetchReg(uint32_t r) { prefetch = r; }
 
 			inline core::vector3df_SIMD getConst() const 
 			{ 
+				return {};
 //				auto c = core::rgb19e7_to_rgb32f(constant);
 //				return core::vector3df_SIMD(c.x, c.y, c.z);
-				return core::vector3df_SIMD(0.f,0.f,0.f)/0.f;
 			}
 
 			union
@@ -506,28 +525,27 @@ public:
 		#include "nbl/nblpack.h"
 			struct prefetch_instr_t
 			{
-				prefetch_instr_t() : qword{ 0ull, 0ull }{}
+				prefetch_instr_t() : qword{ 0ull, 0ull } {}
 
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_SHIFT = 0u;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_WIDTH = 8u;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_SHIFT = DWORD4_DST_REG_SHIFT + DWORD4_DST_REG_WIDTH;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_WIDTH = 2u;
 
-				inline void setDstReg(uint32_t r) { s.dword4 = core::bitfieldInsert(s.dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-				inline void setRegCnt(uint32_t c) { s.dword4 = core::bitfieldInsert(s.dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				inline void setDstReg(uint32_t r) { dword4 = core::bitfieldInsert(dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline void setRegCnt(uint32_t c) { dword4 = core::bitfieldInsert(dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
-				inline uint32_t getDstReg() const { return core::bitfieldExtract(s.dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-				inline uint32_t getRegCnt() const { return core::bitfieldExtract(s.dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				inline uint32_t getDstReg() const { return core::bitfieldExtract(dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline uint32_t getRegCnt() const { return core::bitfieldExtract(dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
-				union{
+				union {
 					uint64_t qword[2];
 					uint32_t dword[4];
-					struct{
+					struct {
 						STextureData tex_data;
 						uint32_t dword4;
-					} s;
+					} PACK_STRUCT;
 				};
-				
 			} PACK_STRUCT;
 		#include "nbl/nblunpack.h"
 			static_assert(sizeof(prefetch_instr_t) == sizeof_uvec4);
@@ -542,6 +560,22 @@ public:
 	};
 	struct result_t;
 	struct SContext;
+
+	inline static instr_stream::VTID packTexture(SContext* ctx, const IR::INode::STextureSource& tex)
+	{
+		// cache, obviously
+		const SContext::VTallocKey cacheKey = { tex.image.get(),tex.sampler.get() };
+		if (auto found = ctx->VTallocMap.find(cacheKey); found != ctx->VTallocMap.end())
+			return found->second;
+
+		auto addr = ctx->vt.alloc(cacheKey.first->getCreationParameters().image.get(), cacheKey.second);
+		{
+			std::pair<SContext::VTallocKey, instr_stream::VTID> item{ cacheKey,addr };
+			ctx->VTallocMap.insert(item);
+		}
+
+		return addr;
+	}
 
 	enum E_GENERATOR_STREAM_TYPE
 	{
@@ -570,6 +604,7 @@ protected:
 		"NDF_PHONG"
 	};
 	static std::string genPreprocDefinitions(const result_t& _res, E_GENERATOR_STREAM_TYPE _generatorChoiceStream);
+	emitter_t lowerEmitter(CMaterialCompilerGLSLBackendCommon::SContext* _ctx, const IR::CEmitterNode* node);
 
 	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 
@@ -611,92 +646,107 @@ public:
 		core::unordered_map<VTallocKey, instr_stream::VTID, VTallocKeyHash> VTallocMap;
 
 	public:
-		struct VT
+#if 0
+		class VT
 		{
-			using addr_t = uint64_t;//asset::ICPUVirtualTexture::SMasterTextureData;
-			struct alloc_t
-			{
-				asset::E_FORMAT format;
-				asset::VkExtent3D extent;
-				asset::ICPUImage::SSubresourceRange subresource;
-				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
-				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
-			};
-			struct commit_t
-			{
-				addr_t addr;
-				core::smart_refctd_ptr<asset::ICPUImage> image;
-				asset::ICPUImage::SSubresourceRange subresource;
-				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
-				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
-				asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
-			};
+			public:
+				VT() = default;
+				VT(core::smart_refctd_ptr<asset::ICPUVirtualTexture>&& _vt) : vt(std::move(_vt))
+				{
+				}
 
-			addr_t alloc(const alloc_t a, core::smart_refctd_ptr<asset::ICPUImage>&& texture, asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border)
-			{
-/*
-				addr_t addr = vt->alloc(a.format, a.extent, a.subresource, a.uwrap, a.vwrap);
+				auto* getCPUVirtualTexture() { return vt.get(); }
+				const auto* getCPUVirtualTexture() const { return vt.get(); }
 
-				commit_t cm{ addr, std::move(texture), a.subresource, a.uwrap, a.vwrap, border };
-				pendingCommits.push_back(std::move(cm));
+				using addr_t = asset::ICPUVirtualTexture::SMasterTextureData;
+				addr_t alloc(const ICPUImage* image, const asset::ICPUSampler* sampler, std::string&& texNameHint="UNKNOWN UNTIL MATERIAL COMPILER V2")
+				{
+					constexpr uint8_t baseMipLevel = 0u;
+					const auto& origCreationParams = image->getCreationParameters();
 
-				return addr;
-*/
-				return 0xdeadbeefBADC0FFEull;
-			}
+					commit_t cm = {};
+					cm.texNameHint = std::move(texNameHint);
+					const auto extent = vt->computeAdjustedSubresourceExtent(origCreationParams.extent, baseMipLevel);
+					cm.image = vt->createResizedImage(image,extent,baseMipLevel);
+					if (cm.image.get()!=image)
+					{
+						// TODO: remvoe when using Nabla's ILogger from `master` branch
+						printf(
+							"Material Compiler GLSL: Texture \"%s\" either sub-mip-tail sized or too large, rescaled from [%d,%d] to [%d,%d] !",
+							cm.texNameHint.c_str(),origCreationParams.extent.width,origCreationParams.extent.height,extent.width,extent.height
+						);
+						os::Printer::log("",ELL_WARNING);
+					}
+					cm.subresource = {};
+					cm.subresource.baseMipLevel = 0u;
+					cm.subresource.levelCount = IImage::calculateFullMipPyramidLevelCount(extent,origCreationParams.type);
+					cm.subresource.baseArrayLayer = 0u;
+					cm.subresource.layerCount = 1u;
 
-			bool commit(const commit_t& cm)
-			{
-//				auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
-//				return vt->commit(cm.addr, texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
-return false;
-			}
-			//! @returns if all commits succeeded
-			bool commitAll()
-			{
-//				vt->shrink();
+					cm.uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapU);
+					cm.vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapV);
+					cm.border = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(sampler->getParams().BorderColor);
 
-				bool success = true;
-				for (commit_t& cm : pendingCommits)
-					success &= commit(cm);
-				pendingCommits.clear();
-				return success;
-			}
+					const auto addr = cm.addr = vt->alloc(origCreationParams.format,extent,cm.subresource,cm.uwrap,cm.vwrap);
+					if (addr_t::is_invalid(addr))
+					{
+						// TODO: remvoe when using Nabla's ILogger from `master` branch
+						printf("Material Compiler GLSL: Failed to allocate Virtual Texture Pages for texture \"%s\"!",cm.texNameHint.c_str());
+						os::Printer::log("",ELL_ERROR);
+					}
+					else
+						pendingCommits.push_back(std::move(cm));
 
-			core::vector<commit_t> pendingCommits;
-//			core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
+					return addr;
+				}
+
+				//! @returns if all commits succeeded
+				bool commitAll()
+				{
+					vt->shrink();
+
+					bool success = true;
+					for (commit_t& cm : pendingCommits)
+					{
+						auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(),cm.uwrap,cm.vwrap,cm.border).first;
+						if (texture.get())
+							success = vt->commit(cm.addr,texture.get(),cm.subresource,cm.uwrap,cm.vwrap,cm.border) && success;
+						else
+						{
+							success = false;
+							// TODO: remvoe when using Nabla's ILogger from `master` branch
+							printf("Material Compiler GLSL: Failed to commit Texture \"%s\" to Virtual Texture address {%ju,%ju,%ju}!",cm.texNameHint.c_str(),cm.addr.pgTab_x,cm.addr.pgTab_y,cm.addr.pgTab_layer);
+							os::Printer::log("",ELL_ERROR);
+						}
+					}
+					pendingCommits.clear();
+					return success;
+				}
+
+			protected:
+				core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt; // TODO: encapsulate
+				struct commit_t
+				{
+					std::string texNameHint;
+					addr_t addr;
+					core::smart_refctd_ptr<asset::ICPUImage> image;
+					asset::ICPUImage::SSubresourceRange subresource;
+					asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
+					asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
+					asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
+				};
+				core::vector<commit_t> pendingCommits;
 		} vt;
 	};
+#endif
 
 	struct result_t
 	{
-		// TODO: should probably use <nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl> here, actually material compiler should just make `nbl_glsl_MC_oriented_material_t`
-		struct instr_streams_t
-		{
-			struct stream_t
-			{
-				uint32_t first;
-				uint32_t count;
-			};
-
-			stream_t get_rem_and_pdf() const { return { offset, rem_and_pdf_count }; }
-			stream_t get_gen_choice() const { return {offset + rem_and_pdf_count, gen_choice_count}; }
-			stream_t get_norm_precomp() const { return { offset + rem_and_pdf_count + gen_choice_count, norm_precomp_count }; }
-
-			uint32_t offset;
-			uint32_t rem_and_pdf_count;
-			uint32_t gen_choice_count;
-			uint32_t norm_precomp_count;
-
-			stream_t get_tex_prefetch() const { return { prefetch_offset, tex_prefetch_count }; }
-
-			uint32_t prefetch_offset;
-			uint32_t tex_prefetch_count;
-		};
 
 		instr_stream::traversal_t instructions;
 		instr_stream::tex_prefetch::prefetch_stream_t prefetch_stream;
 		core::vector<instr_stream::SBSDFUnion> bsdfData;
+		core::vector<emitter_t> emitterData;
 
 		//TODO flags like alpha tex always present etc..
 		bool noPrefetchStream;
@@ -713,7 +763,7 @@ return false;
 		core::unordered_set<instr_stream::E_NDF> NDFs;
 
 		//one element for each input IR root node
-		core::unordered_map<const IR::INode*, instr_streams_t> streams;
+		core::unordered_map<const IR::INode*, oriented_material_t> materials;
 
 		//has to go after #version and before required user-provided descriptors and functions
 		std::string fragmentShaderSource_declarations;
@@ -721,7 +771,7 @@ return false;
 		std::string fragmentShaderSource;
 	};
 
-	void debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const;
+	void debugPrint(std::ostream& _out, const oriented_material_t& _material, const result_t& _res, const SContext* _ctx) const;
 
 	virtual result_t compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream=EGST_PRESENT);
 };

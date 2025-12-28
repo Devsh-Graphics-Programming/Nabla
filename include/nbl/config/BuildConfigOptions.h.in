@@ -2,24 +2,18 @@
 #define __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__
 
 // TODO: figure out _ and _ suffixes and prefixes
-
-#cmakedefine _NBL_DEBUG
-#cmakedefine _NBL_RELWITHDEBINFO
-
-// architecture (TODO: rethink)
-#cmakedefine __NBL_COMPILE_WITH_ARM_SIMD_
+/*
+    DO NOT put any defines which are platform, toolset or architecture
+    specific, such defines go through CMake usage requirements and are
+    visible both in build & install interface, putting them in headers
+    breaks portable usage of the library
+*/
 
 // libraries
 #cmakedefine _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_OPEN_EXR_
 
-// OS
-#cmakedefine _NBL_PLATFORM_WINDOWS_
-#cmakedefine _NBL_PLATFORM_LINUX_
-#cmakedefine _NBL_PLATFORM_OSX_
-#cmakedefine _NBL_PLATFORM_ANDROID_
-
-// graphics API backend
+// graphics API backend // TODO: never used?
 #cmakedefine _NBL_COMPILE_WITH_VULKAN_
 
 // loaders
@@ -32,10 +26,10 @@
 #cmakedefine _NBL_COMPILE_WITH_JPG_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_PNG_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_TGA_LOADER_
-#ifdef _NBL_COMPILE_WITH_OPEN_EXR_
+#ifdef _NBL_COMPILE_WITH_OPEN_EXR_ // ? TODO
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_LOADER_
 #endif
-#ifdef _NBL_COMPILE_WITH_GLI_
+#ifdef _NBL_COMPILE_WITH_GLI_ // ? TODO
 #cmakedefine _NBL_COMPILE_WITH_GLI_LOADER_
 #endif
 #cmakedefine _NBL_COMPILE_WITH_GLTF_LOADER_
@@ -47,10 +41,10 @@
 #cmakedefine _NBL_COMPILE_WITH_TGA_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_JPG_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_PNG_WRITER_
-#ifdef _NBL_COMPILE_WITH_OPEN_EXR_
+#ifdef _NBL_COMPILE_WITH_OPEN_EXR_ // ? TODO
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_WRITER_
 #endif
-#ifdef _NBL_COMPILE_WITH_GLI_
+#ifdef _NBL_COMPILE_WITH_GLI_ // ? TODO
 #cmakedefine _NBL_COMPILE_WITH_GLI_WRITER_
 #endif
 #cmakedefine _NBL_COMPILE_WITH_GLTF_WRITER_
@@ -60,18 +54,16 @@
 #cmakedefine _NBL_BUILD_OPTIX_
 
 // extra config
-#cmakedefine __NBL_FAST_MATH
+#cmakedefine __NBL_FAST_MATH // TODO: it should not really be there, its usage requirement
 #cmakedefine NBL_EMBED_BUILTIN_RESOURCES
 
 #cmakedefine _NBL_BUILD_DPL_
 
 #cmakedefine NBL_BUILD_DEBUG_DRAW
 
+// !
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
-
-// DXC compile flags
-#cmakedefine DXC_COMPILE_FLAGS "@DXC_COMPILE_FLAGS@"
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 #define _NBL_EG_PRFNT_LEVEL @_NBL_EG_PRFNT_LEVEL@
@@ -84,13 +76,7 @@
 #endif
 #endif
 
-#define NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "@NBL_BUILTIN_RESOURCES_DIRECTORY_PATH@"
-#define SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH "@SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH@"
-#define BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH "@BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH@"
-#define DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH "@DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH@"
-
-// DLL exports
-#cmakedefine _NBL_SHARED_BUILD_
+// Nabla API definition for shared library usage, empty for static build
 #ifdef _NBL_SHARED_BUILD_
     #if defined(__NBL_BUILDING_NABLA__) // currently compiling nabla, this define is passed through the commandline
         #if defined(_MSC_VER)
@@ -108,10 +94,5 @@
 #else
     #define NBL_API2
 #endif
-
-// any other target definitions for using Nabla as framework in another project
-#ifndef __NBL_BUILDING_NABLA__
-#include "define.h"
-#endif // __NBL_BUILDING_NABLA__
 
 #endif // __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__

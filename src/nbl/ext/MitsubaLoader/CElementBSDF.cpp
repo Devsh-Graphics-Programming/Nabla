@@ -525,7 +525,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 			}
 		});
 	};
-	auto processWeight = SET_FLOAT(weight, BlendBSDF);
+	auto processWeight = SET_SPECTRUM(weight, BlendBSDF);
 	auto processOpacity = SET_SPECTRUM(opacity, Mask);
 	auto processTransmittance = SET_SPECTRUM(transmittance, DiffuseTransmitter);
 	// TODO: set HK and IRAWAN parameters
