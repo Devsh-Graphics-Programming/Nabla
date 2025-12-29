@@ -269,33 +269,25 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 	static auto findBestObbAxesFromTriangleNormalAndEdgeVectors = [](
 		const VertexCollection& vertices,
 		const hlsl::float32_t3 normal,
-		const std::array<hlsl::float32_t3, 3> edges,
+		const std::array<hlsl::float32_t3, 3>& edges,
 		Axes& bestAxes, 
 		hlsl::float32_t& bestVal)
 		{	
-			hlsl::float32_t3 dmax, dmin, dlen;
-
 			// The operands are assumed to be orthogonal and unit normals	
 			const auto yExtremeProjs = findExtremalProjs_OneDir(normal, vertices);
-			dmin.y = yExtremeProjs.minProj;
-			dmax.y = yExtremeProjs.maxProj;
-			dlen.y = dmax.y - dmin.y;
+			const auto yLen = yExtremeProjs.maxProj - yExtremeProjs.minProj;
 
 			for (const auto& edge : edges)
 			{
 				const auto binormal = hlsl::cross(edge, normal);
 
 				const auto xExtremeProjs = findExtremalProjs_OneDir(edge, vertices);
-				dmin.x = xExtremeProjs.minProj;
-				dmax.x = xExtremeProjs.maxProj;
-				dlen.x = dmax.x - dmin.x;
+				const auto xLen = xExtremeProjs.maxProj - xExtremeProjs.minProj;
 
 				const auto zExtremeProjs = findExtremalProjs_OneDir(binormal, vertices);
-				dmin.z = zExtremeProjs.minProj;
-				dmax.z = zExtremeProjs.maxProj;
-				dlen.z = dmax.z - dmin.z;
+				const auto zLen = zExtremeProjs.maxProj - zExtremeProjs.minProj;
 
-				const auto quality = getQualityValue(dlen);
+				const auto quality = getQualityValue({xLen, yLen, zLen});
 				if (quality < bestVal)
 				{
 					bestVal = quality;
@@ -312,7 +304,7 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 
 	static auto findBaseTriangle = [](const ExtremalVertices& extremalVertices, const VertexCollection& vertices)-> LargeBaseTriangle
 		{
-			hlsl::float32_t eps = 0.000001f;
+			constexpr hlsl::float32_t eps = 0.000001f;
 
 			std::array<hlsl::float32_t3, 3> baseTriangleVertices;
 			Edges edges;
@@ -364,10 +356,6 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 		const LargeBaseTriangle& baseTriangle,
 		Axes& bestAxes, hlsl::float32_t& bestVal)
 		{
-			hlsl::float32_t3 f0, f1, f2; // Edge vectors towards minVert; 
-			hlsl::float32_t3 g0, g1, g2; // Edge vectors towards maxVert; 
-			hlsl::float32_t3 n0, n1, n2; // Unit normals of top tetra tris
-			hlsl::float32_t3 m0, m1, m2; // Unit normals of bottom tetra tris		
 
 			// Find furthest points above and below the plane of the base triangle for tetra constructions 
 			// For each found valid point, search for the best OBB axes based on the 3 arising triangles
@@ -375,28 +363,28 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 			if (upperLowerTetraVertices.minVert)
 			{
 				const auto minVert = *upperLowerTetraVertices.minVert;
-				f0 = normalize(minVert - baseTriangle.vertices[0]);
-				f1 = normalize(minVert - baseTriangle.vertices[1]);
-				f2 = normalize(minVert - baseTriangle.vertices[2]);
-				n0 = normalize(cross(f1, baseTriangle.edges[0]));
-				n1 = normalize(cross(f2, baseTriangle.edges[1]));
-				n2 = normalize(cross(f0, baseTriangle.edges[2]));
+				const auto f0 = normalize(minVert - baseTriangle.vertices[0]);
+				const auto f1 = normalize(minVert - baseTriangle.vertices[1]);
+				const auto f2 = normalize(minVert - baseTriangle.vertices[2]);
+				const auto n0 = normalize(cross(f1, baseTriangle.edges[0]));
+				const auto n1 = normalize(cross(f2, baseTriangle.edges[1]));
+				const auto n2 = normalize(cross(f0, baseTriangle.edges[2]));
 				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, n0, { baseTriangle.edges[0], f1, f0 }, bestAxes, bestVal);
 				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, n1, { baseTriangle.edges[1], f2, f1 }, bestAxes, bestVal);
 				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, n2, { baseTriangle.edges[2], f0, f2 }, bestAxes, bestVal);
 			}
 			if (upperLowerTetraVertices.maxVert)
 			{
-				const auto maxVert = *upperLowerTetraVertices.minVert;
-				g0 = normalize(maxVert - baseTriangle.vertices[0]);
-				g1 = normalize(maxVert - baseTriangle.vertices[1]);
-				g2 = normalize(maxVert - baseTriangle.vertices[2]);
-				m0 = normalize(cross(g1, baseTriangle.edges[0]));
-				m1 = normalize(cross(g2, baseTriangle.edges[1]));
-				m2 = normalize(cross(g0, baseTriangle.edges[2]));
-				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, m0, { baseTriangle.edges[0], g1, g0 }, bestAxes, bestVal);
-				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, m1, { baseTriangle.edges[1], g2, g1 }, bestAxes, bestVal);
-				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, m2, { baseTriangle.edges[2], g0, g2 }, bestAxes, bestVal);
+				const auto maxVert = *upperLowerTetraVertices.maxVert;
+				const auto f0 = normalize(maxVert - baseTriangle.vertices[0]);
+				const auto f1 = normalize(maxVert - baseTriangle.vertices[1]);
+				const auto f2 = normalize(maxVert - baseTriangle.vertices[2]);
+				const auto n0 = normalize(cross(f1, baseTriangle.edges[0]));
+				const auto n1 = normalize(cross(f2, baseTriangle.edges[1]));
+				const auto n2 = normalize(cross(f0, baseTriangle.edges[2]));
+				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, n0, { baseTriangle.edges[0], f1, f0 }, bestAxes, bestVal);
+				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, n1, { baseTriangle.edges[1], f2, f1 }, bestAxes, bestVal);
+				findBestObbAxesFromTriangleNormalAndEdgeVectors(vertices, n2, { baseTriangle.edges[2], f0, f2 }, bestAxes, bestVal);
 			}
 		};
 
@@ -406,11 +394,8 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 		const hlsl::float32_t3& localMax) -> hlsl::shapes::OBB<3, hlsl::float32_t>
 		{
 			const auto localMid = 0.5f * (localMin + localMax);
-			auto globalMid = axes[0] * localMid.x;
-			globalMid += axes[1] * localMid.y;
-			globalMid += axes[2] * localMid.z;
 			return {
-				.mid = globalMid,
+				.mid = axes[0] * localMid.x + axes[1] * localMid.y + axes[2] * localMid.z,
 				.axes = axes,
 				.ext = 0.5f * (localMax - localMin)
 			};
