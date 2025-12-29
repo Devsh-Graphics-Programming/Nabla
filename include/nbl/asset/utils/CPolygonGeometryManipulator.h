@@ -10,6 +10,7 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
+#include "nbl/builtin/hlsl/shapes/obb.hlsl"
 
 namespace nbl::asset
 {
