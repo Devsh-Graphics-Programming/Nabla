@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#include "nbl/asset/utils/shaderCompiler_serialization.h"
 
 #include <sstream>
 #include <regex>
@@ -11,9 +10,257 @@
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
 
 using namespace nbl;
 using namespace nbl::asset;
+
+// -> serialization
+// SMacroData, simple container used in SPreprocessorArgs
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<IShaderCompiler::SMacroDefinition>
+    {
+        using value_t = IShaderCompiler::SMacroDefinition;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "identifier", p.identifier },
+                { "definition", p.definition },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("identifier").get_to(p.identifier);
+            j.at("definition").get_to(p.definition);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<IShaderCompiler::SMacroDefinition>)
+
+// SPreprocessorData, holds serialized info for Preprocessor options used during compilation
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SPreprocessorArgs>
+    {
+        using value_t = SEntry::SPreprocessorArgs;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "sourceIdentifier", p.sourceIdentifier },
+                { "extraDefines", p.extraDefines},
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("sourceIdentifier").get_to(p.sourceIdentifier);
+            j.at("extraDefines").get_to(p.extraDefines);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SPreprocessorArgs>)
+
+// Optimizer pass has its own method for easier vector serialization
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<ISPIRVOptimizer::E_OPTIMIZER_PASS>
+    {
+        using value_t = ISPIRVOptimizer::E_OPTIMIZER_PASS;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t value = static_cast<uint32_t>(p);
+            j = ::json{
+                { "optPass", value },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t aux;
+            j.at("optPass").get_to(aux);
+            p = static_cast<ISPIRVOptimizer::E_OPTIMIZER_PASS>(aux);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<ISPIRVOptimizer::E_OPTIMIZER_PASS>)
+
+// SCompilerArgs, holds serialized info for all Compilation options
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SCompilerArgs>
+    {
+        using value_t = SEntry::SCompilerArgs;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t shaderStage = static_cast<uint32_t>(p.stage);
+            uint32_t spirvVersion = static_cast<uint32_t>(p.targetSpirvVersion);
+            uint32_t debugFlags = static_cast<uint32_t>(p.debugInfoFlags.value);
+
+            j = ::json{
+                { "shaderStage", shaderStage },
+                { "spirvVersion", spirvVersion },
+                { "optimizerPasses", p.optimizerPasses },
+                { "debugFlags", debugFlags },
+                { "preprocessorArgs", p.preprocessorArgs },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t shaderStage, spirvVersion, debugFlags;
+            j.at("shaderStage").get_to(shaderStage);
+            j.at("spirvVersion").get_to(spirvVersion);
+            j.at("optimizerPasses").get_to(p.optimizerPasses);
+            j.at("debugFlags").get_to(debugFlags);
+            j.at("preprocessorArgs").get_to(p.preprocessorArgs);
+            p.stage = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
+            p.targetSpirvVersion = static_cast<IShaderCompiler::E_SPIRV_VERSION>(spirvVersion);
+            p.debugInfoFlags = core::bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(debugFlags);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SCompilerArgs>)
+
+// Serialize clock's time point
+using time_point_t = nbl::system::IFileBase::time_point_t;
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<time_point_t>
+    {
+        using value_t = time_point_t;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            auto ticks = p.time_since_epoch().count();
+            j = ::json{
+                { "ticks", ticks },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint64_t ticks;
+            j.at("ticks").get_to(ticks);
+            p = time_point_t(time_point_t::clock::duration(ticks));
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<time_point_t>)
+
+// SDependency serialization. Dependencies will be saved in a vector for easier vectorization
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SPreprocessingDependency>
+    {
+        using value_t = SEntry::SPreprocessingDependency;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "requestingSourceDir", p.requestingSourceDir },
+                { "identifier", p.identifier },
+                { "hash", p.hash.data },
+                { "standardInclude", p.standardInclude },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("requestingSourceDir").get_to(p.requestingSourceDir);
+            j.at("identifier").get_to(p.identifier);
+            j.at("hash").get_to(p.hash.data);
+            j.at("standardInclude").get_to(p.standardInclude);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SPreprocessingDependency>)
+
+// We serialize shader creation parameters into a json, along with indexing info into the .bin buffer where the cache is serialized
+struct CPUShaderCreationParams {
+    IShader::E_SHADER_STAGE stage;
+    std::string filepathHint;
+    uint64_t codeByteSize = 0;
+    uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
+
+    CPUShaderCreationParams(IShader::E_SHADER_STAGE _stage, std::string_view _filepathHint, uint64_t _codeByteSize, uint64_t _offset)
+        : stage(_stage), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset) {}
+    CPUShaderCreationParams() {};
+};
+
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<CPUShaderCreationParams>
+    {
+        using value_t = CPUShaderCreationParams;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t stage = static_cast<uint32_t>(p.stage);
+            j = ::json{
+                { "stage", stage },
+                { "filepathHint", p.filepathHint },
+                { "codeByteSize", p.codeByteSize },
+                { "offset", p.offset },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t stage;
+            j.at("stage").get_to(stage);
+            j.at("filepathHint").get_to(p.filepathHint);
+            j.at("codeByteSize").get_to(p.codeByteSize);
+            j.at("offset").get_to(p.offset);
+            p.stage = static_cast<IShader::E_SHADER_STAGE>(stage);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<CPUShaderCreationParams>)
+
+// Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry>
+    {
+        using value_t = SEntry;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "mainFileContents", p.mainFileContents },
+                { "compilerArgs", p.compilerArgs },
+                { "hash", p.hash.data },
+                { "lookupHash", p.lookupHash },
+                { "dependencies", p.dependencies },
+                { "uncompressedContentHash", p.uncompressedContentHash.data },
+                { "uncompressedSize", p.uncompressedSize },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("mainFileContents").get_to(p.mainFileContents);
+            j.at("compilerArgs").get_to(p.compilerArgs);
+            j.at("hash").get_to(p.hash.data);
+            j.at("lookupHash").get_to(p.lookupHash);
+            j.at("dependencies").get_to(p.dependencies);
+            j.at("uncompressedContentHash").get_to(p.uncompressedContentHash.data);
+            j.at("uncompressedSize").get_to(p.uncompressedSize);
+            p.spirv = nullptr;
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry>)
+// <- serialization
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
