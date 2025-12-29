@@ -208,7 +208,7 @@ namespace nbl::ext::debug_draw
             return transform;
         }
 
-        static hlsl::float32_t4x4 getTransformFromOBB(const hlsl::shapes::OBB<3, float>& aabb);
+        static hlsl::float32_t3x4 getTransformFromOBB(const hlsl::shapes::OBB<3, float>& aabb);
 
     protected:
         struct ConstructorParams

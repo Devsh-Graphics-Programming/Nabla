@@ -367,25 +367,17 @@ bool DrawAABB::renderSingle(const DrawParameters& params, const hlsl::shapes::AA
 	return true;
 }
 
-hlsl::float32_t4x4 DrawAABB::getTransformFromOBB(const hlsl::shapes::OBB<3, float>& obb)
+hlsl::float32_t3x4 DrawAABB::getTransformFromOBB(const hlsl::shapes::OBB<3, float>& obb)
 {
 	const auto obbScale = obb.ext * 2.0f;
-	const auto obbMat = hlsl::transpose(float32_t4x4{
-		hlsl::float32_t4(obb.axes[0] * obbScale.x, 0),
-		hlsl::float32_t4(obb.axes[1] * obbScale.y, 0),
-		hlsl::float32_t4(obb.axes[2] * obbScale.z, 0),
-		hlsl::float32_t4(obb.mid, 1)
-	});
-
-	const auto translateUnitCube = float32_t4x4{
-		hlsl::float32_t4(1, 0, 0, -0.5f),
-		hlsl::float32_t4(0, 1, 0, -0.5f),
-		hlsl::float32_t4(0, 0, 1, -0.5f),
-		hlsl::float32_t4(0, 0, 0, 1),
+	const auto axesScaleX = obb.axes[0] * obbScale.x;
+	const auto axesScaleY = obb.axes[1] * obbScale.y;
+	const auto axesScaleZ = obb.axes[2] * obbScale.z;
+	return float32_t3x4{
+    axesScaleX.x, axesScaleY.x, axesScaleZ.x, obb.mid.x - (0.5 * (axesScaleX.x + axesScaleY.x + axesScaleZ.x)),
+    axesScaleX.y, axesScaleY.y, axesScaleZ.y, obb.mid.y - (0.5 * (axesScaleX.y + axesScaleY.y + axesScaleZ.y)),
+    axesScaleX.z, axesScaleY.z, axesScaleZ.z, obb.mid.z - (0.5 * (axesScaleX.z + axesScaleY.z + axesScaleZ.z)),
 	};
-
-	const auto transform = mul(obbMat, translateUnitCube);
-	return transform;
 }
 
 }
