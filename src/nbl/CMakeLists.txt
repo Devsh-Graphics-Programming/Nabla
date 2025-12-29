@@ -780,14 +780,6 @@ add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
-nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
-
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	nbl_install_builtin_resources(nblBuiltinResourceData)
-	nbl_install_builtin_resources(spirvBuiltinResourceData)
-	nbl_install_builtin_resources(boostBuiltinResourceData)
-endif()
-
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
