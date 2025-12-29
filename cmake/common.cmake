@@ -350,13 +350,6 @@ function(nbl_install_media _FILE)
 	nbl_install_lib_spec("${_FILE}" "")
 endfunction()
 
-function(nbl_install_builtin_resources _TARGET_)
-	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
-	
-	nbl_install_headers_spec("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
-endfunction()
-
 function(NBL_TEST_MODULE_INSTALL_FILE _NBL_FILEPATH_)
 	file(RELATIVE_PATH _NBL_REL_INSTALL_DEST_ "${NBL_ROOT_PATH}" "${_NBL_FILEPATH_}")
 	cmake_path(GET _NBL_REL_INSTALL_DEST_ PARENT_PATH _NBL_REL_INSTALL_DEST_)
