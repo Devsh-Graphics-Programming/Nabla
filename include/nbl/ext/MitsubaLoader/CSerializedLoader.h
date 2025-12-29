@@ -21,7 +21,7 @@ class CSerializedLoader final : public asset::IGeometryLoader
 	public:
 		inline CSerializedLoader() = default;
 
-		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
+		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override
 		{
 			FileHeader header;
 
