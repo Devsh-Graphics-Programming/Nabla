@@ -99,7 +99,7 @@ namespace nbl
                     if (!this->errorMsg)
                         this->errorMsg = errorMsg;
 
-                    if constexpr (std::is_same_v<typename T, double>)
+                    if constexpr (std::is_same_v<T, double>)
                         return -1.0;
                     else
                         return 0;
