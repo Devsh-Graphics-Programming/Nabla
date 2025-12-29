@@ -689,6 +689,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 			target_compile_definitions(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INTERFACE_COMPILE_DEFINITIONS>") # workaround because must use Nabla headers without linking Nabla to itself..
 			target_include_directories(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>")
 			target_include_directories(Nabla PRIVATE "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+			target_include_directories(Nabla INTERFACE "$<BUILD_INTERFACE:${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}>")
 		endforeach()
 	
 		add_dependencies(Nabla ${NBL_TARGETS})
