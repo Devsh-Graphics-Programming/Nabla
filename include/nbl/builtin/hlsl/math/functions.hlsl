@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_MATH_FUNCTIONS_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
