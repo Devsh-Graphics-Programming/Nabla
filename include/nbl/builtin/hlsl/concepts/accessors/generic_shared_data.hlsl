@@ -69,7 +69,7 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 template<typename T, typename V, typename I=uint32_t>
-NBL_BOOL_CONCEPT GenericDataAccessor = GenericWriteAccessor<T,V,I> && GenericWriteAccessor<T,V,I>;
+NBL_BOOL_CONCEPT GenericDataAccessor = GenericReadAccessor<T,V,I> && GenericWriteAccessor<T,V,I>;
 
 }
 }
