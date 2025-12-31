@@ -283,24 +283,26 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override;
 
         // pipelines
+        void createGraphicsPipelines_impl(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
+            const SSpecializationValidationResult& validation
+        ) override;     
+
         void createComputePipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
             const SSpecializationValidationResult& validation
         ) override;
-        void createGraphicsPipelines_impl(
-            IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUGraphicsPipeline::SCreationParams> createInfos,
-            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
-            const SSpecializationValidationResult& validation
-        ) override;
+
         void createMeshPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUMeshPipeline::SCreationParams> createInfos,
+            const std::span<const IGPUMeshPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUMeshPipeline>* const output,
             const SSpecializationValidationResult& validation
-        ) override; //final?
+        ) override;
 
         void createRayTracingPipelines_impl(
             IGPUPipelineCache* const pipelineCache,

@@ -59,21 +59,20 @@ namespace nbl::video
         struct SCreationParams final : public SPipelineCreationParams<const IGPUMeshPipeline>
         {
         public:
-#define base_flag(F) static_cast<uint64_t>(pipeline_t::FLAGS::F)
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::FLAGS::F)
             enum class FLAGS : uint64_t
             {
                 NONE = base_flag(NONE),
                 DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
                 ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
-                VIEW_INDEX_FROM_DEVICE_INDEX = 1 << 3,
+                VIEW_INDEX_FROM_DEVICE_INDEX = 1<<3,
                 FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
                 EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
             };
-#undef base_flag
+            #undef base_flag
 
             inline SSpecializationValidationResult valid() const
             {
-                //this seems like the place to check if the mesh extension exists, but the raytracing pipeline doesnt do it here
                 if (!layout)
                     return {};
                 SSpecializationValidationResult retval = { .count = 0,.dataSize = 0 };
@@ -146,7 +145,7 @@ namespace nbl::video
             }
         };
 
-        inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const { return m_flags; }
+        inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
 
         // Vulkan: const VkPipeline*
         virtual const void* getNativeHandle() const = 0;
@@ -154,9 +153,8 @@ namespace nbl::video
     protected:
         // not explicit?
         IGPUMeshPipeline(const SCreationParams& params) :
-            IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached, params.renderpass), m_flags(params.flags)
-        {
-        }
+          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached, params.renderpass), m_flags(params.flags)
+        {}
         virtual ~IGPUMeshPipeline() override = default;
 
         const core::bitflag<SCreationParams::FLAGS> m_flags;

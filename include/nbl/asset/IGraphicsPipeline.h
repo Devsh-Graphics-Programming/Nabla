@@ -4,7 +4,7 @@
 
 #include "nbl/asset/IShader.h"
 #include "nbl/asset/RasterizationStates.h"
-#include "nbl/asset/IPipeline.h"
+#include "nbl/asset/IRasterizationPipeline.h"
 #include "nbl/asset/IRenderpass.h"
 
 #include <span>
@@ -71,7 +71,7 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
     public:
         constexpr static inline uint8_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
-        struct SCachedCreationParams final
+        struct SCachedCreationParams final// : public IRasterizationPipelineBase::SCachedCreationParams
         {
             SVertexInputParams vertexInput = {};
             SPrimitiveAssemblyParams primitiveAssembly = {};
@@ -82,14 +82,13 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
 };
 
 template<typename PipelineLayoutType, typename RenderpassType>
-class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphicsPipelineBase
+class IGraphicsPipeline : public IRasterizationPipeline<PipelineLayoutType, RenderpassType>, public IGraphicsPipelineBase
 {
     protected:
         using renderpass_t = RenderpassType;
 
     public:
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_params;}
-        inline const renderpass_t* getRenderpass() const {return m_renderpass.get();}
 
 
         static inline bool hasRequiredStages(const core::bitflag<hlsl::ShaderStage>& stagePresence, E_PRIMITIVE_TOPOLOGY primitiveType)
@@ -110,12 +109,11 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
 
     protected:
         explicit IGraphicsPipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams, renderpass_t* renderpass) :
-            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(layout)),
-            m_params(cachedParams), m_renderpass(core::smart_refctd_ptr<renderpass_t>(renderpass))
+            IRasterizationPipeline<PipelineLayoutType, renderpass_t>(layout, renderpass),
+            m_params(cachedParams)
         {}
 
         SCachedCreationParams m_params = {};
-        core::smart_refctd_ptr<renderpass_t> m_renderpass = nullptr;
 };
 
 }

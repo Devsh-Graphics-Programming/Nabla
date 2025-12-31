@@ -38,12 +38,7 @@ struct DispatchIndirectCommand_t
 };
 
 // distinct struct, new name with the same data - https://docs.vulkan.org/refpages/latest/refpages/source/VkDrawMeshTasksIndirectCommandEXT.html
-struct DrawMeshTasksIndirectCommand_t
-{
-    uint32_t num_groups_x;
-    uint32_t num_groups_y;
-    uint32_t num_groups_z;
-};
+using DrawMeshTasksIndirectCommand_t = DispatchIndirectCommand_t;
 
 struct TraceRaysIndirectCommand_t
 {

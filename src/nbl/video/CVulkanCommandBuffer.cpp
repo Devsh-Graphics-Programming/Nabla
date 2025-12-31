@@ -418,7 +418,8 @@ bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* c
     return true;
 }
 
-bool CVulkanCommandBuffer::bindMeshPipeline_impl(const IGPUMeshPipeline* const pipeline) {
+bool CVulkanCommandBuffer::bindMeshPipeline_impl(const IGPUMeshPipeline* const pipeline) 
+{
     getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanMeshPipeline*>(pipeline)->getInternalObject());
     return true;
 }
@@ -640,7 +641,7 @@ bool CVulkanCommandBuffer::dispatch_impl(const uint32_t groupCountX, const uint3
 
 bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding)
 {
-    getFunctionTable().vkCmdDispatchIndirect(m_cmdbuf, static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(), binding.offset);
+    getFunctionTable().vkCmdDispatchIndirect(m_cmdbuf,static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),binding.offset);
     return true;
 }
 
@@ -655,7 +656,6 @@ bool CVulkanCommandBuffer::drawMeshTasksIndirect_impl(const asset::SBufferBindin
     getFunctionTable().vkCmdDrawMeshTasksIndirectEXT(m_cmdbuf, static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(), binding.offset, drawCount, stride);
     return true;
 }
-
 
 
 bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)

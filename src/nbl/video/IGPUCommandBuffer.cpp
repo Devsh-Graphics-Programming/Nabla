@@ -983,7 +983,7 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
         return false;
     }
 
-    m_boundGraphicsPipeline = pipeline;
+    m_boundRasterizationPipeline = reinterpret_cast<IGPURasterizationPipeline const*>(pipeline);
 
     m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
@@ -1034,7 +1034,7 @@ bool IGPUCommandBuffer::bindMeshPipeline(const IGPUMeshPipeline* const pipeline)
         return false;
     }
 
-    m_boundMeshPipeline = pipeline;
+    m_boundRasterizationPipeline = reinterpret_cast<IGPURasterizationPipeline const*>(pipeline);
 
     m_noCommands = false;
     return bindMeshPipeline_impl(pipeline);
@@ -1460,7 +1460,7 @@ bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t grou
         allowedRenderpassScope = outside;
     */
 
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT, RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
     if (groupCountX==0 || groupCountY==0 || groupCountZ==0)
@@ -1484,6 +1484,7 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT, RENDERPASS_SCOPE::OUTSIDE))
         return false;
+    //side mission - find out what 4 is. may impact mesh in a way im not expecting
     if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
         return false;
 
@@ -1518,18 +1519,18 @@ bool IGPUCommandBuffer::drawMeshTasks(const uint32_t groupCountX, const uint32_t
     return drawMeshTasks_impl(groupCountX, groupCountY, groupCountZ);
 }
 
-bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
+bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
 {
-	if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
     if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT)){
         return false;
     }
-    
+
     if (drawCount) {
         if (drawCount==1u)
-            stride = sizeof(DrawMeshTasksIndirectCommand_t);
-        if (stride&0x3u || stride<sizeof(DrawMeshTasksIndirectCommand_t)) {
+            stride = sizeof(hlsl::DrawMeshTasksIndirectCommand_t);
+        if (stride&0x3u || stride<sizeof(hlsl::DrawMeshTasksIndirectCommand_t)) {
             NBL_LOG_ERROR("invalid command buffer stride (%d)!", stride);
             return false;
         }
@@ -1537,7 +1538,7 @@ bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const 
             NBL_LOG_ERROR("draw count (%d) exceeds maximum allowed amount (%d)!", drawCount, getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount);
             return false;
         }
-        if (invalidBufferRange({ binding.offset,stride * (drawCount - 1u) + sizeof(IndirectCommand),binding.buffer }, alignof(uint32_t), IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+        if (invalidBufferRange({ binding.offset,stride * (drawCount - 1u) + sizeof(hlsl::DrawMeshTasksIndirectCommand_t),binding.buffer }, alignof(uint32_t), IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
             return false;
     } // i get the feeling the vk command shouldnt be called if drawCount is 0, but this is how drawindirect does it
 
@@ -1550,7 +1551,6 @@ bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const 
     m_noCommands = false;
     return drawMeshTasksIndirect_impl(binding, drawCount, stride);
 }
-
 
 bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
 {

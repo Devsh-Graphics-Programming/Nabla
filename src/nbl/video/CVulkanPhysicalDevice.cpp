@@ -734,10 +734,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT              graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT };
         VkPhysicalDeviceMeshShaderFeaturesEXT                           meshShaderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
 
-        //do we hate macros?
-#define AddExtensionToPNextIfSupported(name, feat) if (isExtensionSupported(name)) addToPNextChain(&feat);
-        
-        AddExtensionToPNextIfSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME, meshShaderFeatures);
+        if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
+            addToPNextChain(&meshShaderFeatures);
+        }
 
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
@@ -828,8 +827,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //potentially put a copy of VkPhysicalDeviceMeshShaderFeaturesEXT directly into features
         //depends on the less obvious properties
         if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
-            features.taskShader = meshShaderFeatures.taskShader;
             features.meshShader = meshShaderFeatures.meshShader;
+            features.taskShader = meshShaderFeatures.taskShader;
             //TODO
             //VkBool32           multiviewMeshShader;
             //VkBool32           primitiveFragmentShadingRateMeshShader;
@@ -1536,6 +1535,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         enableExtensionIfAvailable(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
 
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT, nullptr};
+        REQUIRE_EXTENSION_IF(enabledFeatures.meshShader, VK_EXT_MESH_SHADER_EXTENSION_NAME, &meshShaderFeatures);
+
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,nullptr };
         VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rayTracingMaintenance1Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure,VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,&accelerationStructureFeatures); // feature dependency taken care of
@@ -1546,9 +1548,6 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.rayQuery,VK_KHR_RAY_QUERY_EXTENSION_NAME,&rayQueryFeatures); // feature dependency taken care of
-
-        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT, nullptr};
-        REQUIRE_EXTENSION_IF(enabledFeatures.meshShader, VK_EXT_MESH_SHADER_EXTENSION_NAME, &meshShaderFeatures);
 
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV shaderSMBuiltinsFeaturesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV,nullptr };
         enableExtensionIfAvailable(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME,&shaderSMBuiltinsFeaturesNV);
