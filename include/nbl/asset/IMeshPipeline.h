@@ -3,25 +3,27 @@
 
 #include "nbl/asset/IShader.h"
 #include "nbl/asset/RasterizationStates.h"
-#include "nbl/asset/IRasterizationPipeline.h"
+#include "nbl/asset/IPipeline.h"
 
 
 namespace nbl::asset {
     class IMeshPipelineBase : public virtual core::IReferenceCounted {
     public:
         constexpr static inline uint8_t MESH_SHADER_STAGE_COUNT = 3u; //i dont know what this is going to be used for yet, might be redundant
-        
-        struct SCachedCreationParams final : public IRasterizationPipelineBase::SCachedCreationParams
-        {
+        struct SCachedCreationParams final {
+            SRasterizationParams rasterization = {};
+            SBlendParams blend = {};
+            uint32_t subpassIx = 0u; //this subpass stuff is eluding me rn. i might just need to crack open the vulkan documentation
             uint8_t requireFullSubgroups = false;
         };
 
     };
 
     template<typename PipelineLayoutType, typename RenderpassType>
-    class IMeshPipeline : public IRasterizationPipeline<PipelineLayoutType, RenderpassType>, public IMeshPipelineBase {
+    class IMeshPipeline : public IPipeline<PipelineLayoutType>, public IMeshPipelineBase {
     protected:
         using renderpass_t = RenderpassType;
+        //using base_creation_params_t = IPipeline<PipelineLayoutType>;//compute uses this, idk if its necessary yet
     public:
 
         static inline bool hasRequiredStages(const core::bitflag<hlsl::ShaderStage>& stagePresence)
@@ -42,12 +44,13 @@ namespace nbl::asset {
 
     protected:
         explicit IMeshPipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams, renderpass_t* renderpass) :
-            IRasterizationPipeline<PipelineLayoutType, renderpass_t>(layout, renderpass),
-            m_params(cachedParams)
+            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(layout)),
+            m_params(cachedParams), m_renderpass(core::smart_refctd_ptr<renderpass_t>(renderpass))
         {
         }
 
         SCachedCreationParams m_params = {};
+        core::smart_refctd_ptr<renderpass_t> m_renderpass = nullptr;
     };
 
 }

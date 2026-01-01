@@ -117,7 +117,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/glm.git
 [submodule "docker/msvc-winsdk"]
 	path = docker/msvc-winsdk
-	url = git@github.com:Devsh-Graphics-Programming/docker-nanoserver-msvc-winsdk.git
+	url = ../docker-nanoserver-msvc-winsdk
 [submodule "3rdparty/gtl"]
 	path = 3rdparty/gtl
 	url = https://github.com/greg7mdp/gtl.git

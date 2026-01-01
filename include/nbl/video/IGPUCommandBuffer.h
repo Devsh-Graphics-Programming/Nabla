@@ -332,6 +332,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
         bool bindMeshPipeline(const IGPUMeshPipeline* const pipeline);
         bool bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline);
+        
         bool bindDescriptorSets(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
@@ -444,7 +445,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
 
         bool drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY = 1, const uint32_t groupCountZ = 1);
-        bool drawMeshTasks(const hlsl::vector<uint16_t, 3> groupCount)        {
+        inline bool drawMeshTasks(const hlsl::vector<uint16_t, 3> groupCount)        {
             return drawMeshTasks(groupCount.x, groupCount.y, groupCount.z);
         }
         bool drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);
@@ -593,13 +594,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
 
-        //either return IGPURasterizationPipeline* here or add getBoundMeshPipeline()
         //const IGPUGraphicsPipeline* getBoundGraphicsPipeline() const {
         //    auto* ret = dynamic_cast<IGPUGraphicsPipeline*>(m_boundRasterizationPipeline);
         //    nbl_assert(ret);
         //    return ret;
         //}
-        const IGPURasterizationPipeline* getBoundGraphicsPipeline() const { return m_boundRasterizationPipeline; }
+        
+        const IGPUPipelineBase* getBoundGraphicsPipeline() const { return m_boundRasterizationPipeline; }
         const IGPUComputePipeline* getBoundComputePipeline() const { return m_boundComputePipeline; }
         const IGPURayTracingPipeline* getBoundRayTracingPipeline() const { return m_boundRayTracingPipeline; }
 
@@ -947,7 +948,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // operations as they'll be performed in order
         core::vector<std::variant<TLASTrackingWrite,TLASTrackingCopy,TLASTrackingRead>> m_TLASTrackingOps;
 
-        const IGPURasterizationPipeline* m_boundRasterizationPipeline;
+        const IGPUPipelineBase* m_boundRasterizationPipeline;
         const IGPUComputePipeline* m_boundComputePipeline;
         const IGPURayTracingPipeline* m_boundRayTracingPipeline;
     

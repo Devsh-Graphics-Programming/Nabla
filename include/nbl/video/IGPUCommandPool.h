@@ -599,11 +599,11 @@ class IGPUCommandPool::CBindGraphicsPipelineCmd final : public IFixedSizeCommand
 
 class IGPUCommandPool::CBindComputePipelineCmd final : public IFixedSizeCommand<CBindComputePipelineCmd>
 {
-public:
-    CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+    public:
+        CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
+    private:
+        core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
 };
 
 class IGPUCommandPool::CBindMeshPipelineCmd final : public IFixedSizeCommand<CBindMeshPipelineCmd>
@@ -613,6 +613,15 @@ public:
 
 private:
     core::smart_refctd_ptr<const IGPUMeshPipeline> m_pipeline;
+};
+
+class IGPUCommandPool::CBindRayTracingPipelineCmd final : public IFixedSizeCommand<CBindRayTracingPipelineCmd>
+{
+    public:
+        CBindRayTracingPipelineCmd(core::smart_refctd_ptr<const IGPURayTracingPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPURayTracingPipeline> m_pipeline;
 };
 
 class IGPUCommandPool::CPushConstantsCmd final : public IFixedSizeCommand<CPushConstantsCmd>
@@ -881,14 +890,6 @@ class IGPUCommandPool::CTraceRaysIndirectCmd final : public IFixedSizeCommand<CT
         core::smart_refctd_ptr<const IGPUBuffer> m_bindingBuffer;
 };
 
-class IGPUCommandPool::CBindRayTracingPipelineCmd final : public IFixedSizeCommand<CBindRayTracingPipelineCmd>
-{
-    public:
-        CBindRayTracingPipelineCmd(core::smart_refctd_ptr<const IGPURayTracingPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
-
-    private:
-        core::smart_refctd_ptr<const IGPURayTracingPipeline> m_pipeline;
-};
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandPool::CREATE_FLAGS)
 
 }

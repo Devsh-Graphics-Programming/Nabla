@@ -7,13 +7,12 @@
 #include "nbl/video/IGPUPipelineLayout.h"
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUPipeline.h"
-#include "nbl/video/IGPURasterizationPipeline.h"
 
 
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public IGPURasterizationPipeline, public IGPUPipeline<asset::IGraphicsPipeline<const IGPUPipelineLayout, const IGPURenderpass>>
+class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const IGPUPipelineLayout, const IGPURenderpass>>
 {
         using pipeline_t = asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPURenderpass>;
 
