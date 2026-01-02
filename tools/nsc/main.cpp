@@ -200,6 +200,12 @@ public:
 			m_logger->log(outputType + " shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
 		}
 
+		DepfileConfig depfileConfig = parseDepfileArgs(m_arguments);
+		if (depfileConfig.enabled && depfileConfig.path.empty())
+			depfileConfig.path = output_filepath + ".d";
+		if (depfileConfig.enabled)
+			m_logger->log("Dependency file will be saved to %s", ILogger::ELL_INFO, depfileConfig.path.c_str());
+
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
 		if (!no_nbl_builtins) {
 			m_system->unmountBuiltins();
@@ -234,12 +240,12 @@ public:
 		std::string_view result_view;
 		if (preprocessOnly)
 		{
-			preprocessing_result = preprocess_shader(shader.get(), shaderStage, file_to_compile);
+			preprocessing_result = preprocess_shader(shader.get(), shaderStage, file_to_compile, depfileConfig);
 			result_view = preprocessing_result;
 		}
 		else
 		{
-			compilation_result = compile_shader(shader.get(), shaderStage, file_to_compile);
+			compilation_result = compile_shader(shader.get(), shaderStage, file_to_compile, depfileConfig);
 			result_view = { (const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize() };
 		}
 		auto end = std::chrono::high_resolution_clock::now();
@@ -291,6 +297,9 @@ public:
 				return false;
 			}
 
+			if (depfileConfig.enabled)
+				m_logger->log("Dependency file written to %s", ILogger::ELL_INFO, depfileConfig.path.c_str());
+
 			return true;
 		}
 		else 
@@ -307,7 +316,49 @@ public:
 
 private:
 
-	std::string preprocess_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier) {
+	struct DepfileConfig
+	{
+		bool enabled = false;
+		std::string path;
+	};
+
+	DepfileConfig parseDepfileArgs(std::vector<std::string>& args)
+	{
+		DepfileConfig cfg;
+		for (auto it = args.begin(); it != args.end();)
+		{
+			const std::string& arg = *it;
+			if (arg == "-MD" || arg == "-M")
+			{
+				cfg.enabled = true;
+				it = args.erase(it);
+				continue;
+			}
+			if (arg == "-MF")
+			{
+				if (it + 1 == args.end())
+				{
+					m_logger->log("Incorrect arguments. Expecting filename after -MF.", ILogger::ELL_ERROR);
+					return cfg;
+				}
+				cfg.enabled = true;
+				cfg.path = *(it + 1);
+				it = args.erase(it, it + 2);
+				continue;
+			}
+			if (arg.rfind("-MF", 0) == 0 && arg.size() > 3)
+			{
+				cfg.enabled = true;
+				cfg.path = arg.substr(3);
+				it = args.erase(it);
+				continue;
+			}
+			++it;
+		}
+		return cfg;
+	}
+
+	std::string preprocess_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& depfileConfig) {
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SPreprocessorOptions options = {};
@@ -322,6 +373,8 @@ private:
 			includeFinder->addSearchPath(it, includeLoader);
 
 		options.includeFinder = includeFinder.get();
+		options.depfile = depfileConfig.enabled;
+		options.depfilePath = depfileConfig.path;
 
 		const char* code_ptr = (const char*)shader->getContent()->getPointer();
 		std::string_view code({ code_ptr, strlen(code_ptr)});
@@ -329,7 +382,7 @@ private:
 		return hlslcompiler->preprocessShader(std::string(code), shaderStage, options, nullptr);
 	}
 
-	core::smart_refctd_ptr<IShader> compile_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier) {
+	core::smart_refctd_ptr<IShader> compile_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& depfileConfig) {
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
@@ -348,6 +401,8 @@ private:
 			includeFinder->addSearchPath(it, includeLoader);
 
 		options.preprocessorOptions.includeFinder = includeFinder.get();
+		options.preprocessorOptions.depfile = depfileConfig.enabled;
+		options.preprocessorOptions.depfilePath = depfileConfig.path;
 
 		return hlslcompiler->compileToSPIRV((const char*)shader->getContent()->getPointer(), options);
 	}

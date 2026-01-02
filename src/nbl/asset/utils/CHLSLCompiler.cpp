@@ -111,12 +111,23 @@ static bool fixup_spirv_target_ver(std::vector<std::wstring>& arguments, system:
     for (auto targetEnvArgumentPos=arguments.begin(); targetEnvArgumentPos!=arguments.end(); targetEnvArgumentPos++)
     if (targetEnvArgumentPos->find(Prefix)==0)
     {
-        const auto suffix = targetEnvArgumentPos->substr(Prefix.length());
+        auto suffix = targetEnvArgumentPos->substr(Prefix.length());
+        auto trim = [](std::wstring& value) {
+            auto isTrimChar = [](wchar_t c) {
+                return c == L' ' || c == L'\t' || c == L'\r' || c == L'\n' || c == L'"';
+            };
+            while (!value.empty() && isTrimChar(value.front()))
+                value.erase(value.begin());
+            while (!value.empty() && isTrimChar(value.back()))
+                value.pop_back();
+        };
+        trim(suffix);
         const auto found = AllowedSuffices.find(suffix);
         if (found!=AllowedSuffices.end())
             return true;
-        logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env= found but with unsupported value `%s`.", system::ILogger::ELL_ERROR, "TODO: write wchar to char convert usage");
-        return false;
+        logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, previous value `%ls` is unsupported.", system::ILogger::ELL_WARNING, suffix.c_str());
+        *targetEnvArgumentPos = L"-fspv-target-env=vulkan1.3";
+        return true;
     }
 
     logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, as it is required by Nabla.", system::ILogger::ELL_WARNING);
@@ -353,6 +364,21 @@ namespace nbl::wave
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    const bool depfileEnabled = preprocessOptions.depfile;
+    if (depfileEnabled)
+    {
+        if (preprocessOptions.depfilePath.empty())
+        {
+            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+            return {};
+        }
+    }
+
+    std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
+    auto* dependenciesOut = dependencies;
+    if (depfileEnabled && !dependenciesOut)
+        dependenciesOut = &localDependencies;
+
     // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
     // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
     size_t line_index = 0;
@@ -367,8 +393,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
 
     // preprocess
-    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependencies) /* if dependencies were passed, we assume we want caching*/, 
-        [&dxc_compile_flags_override, &stage, &dependencies](nbl::wave::context& context) -> void
+    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
+        [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
                 dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
@@ -377,9 +403,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             if (context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
                 stage = context.get_hooks().m_pragmaStage;
 
-            if (dependencies) {
-                *dependencies = std::move(context.get_dependencies());
-            }
+            if (dependenciesOut)
+                *dependenciesOut = std::move(context.get_dependencies());
         }
     );
     
@@ -396,13 +421,31 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
+    if (resolvedString.empty())
+        return resolvedString;
+
+    if (depfileEnabled)
+    {
+        IShaderCompiler::DepfileWriteParams params = {};
+        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
+        std::filesystem::path targetPath = preprocessOptions.depfilePath;
+        if (targetPath.extension() == ".d")
+            targetPath.replace_extension();
+        params.depfilePath = depfilePathString;
+        params.outputPath = targetPath.generic_string();
+        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        params.system = m_system.get();
+        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
+            return {};
+    }
+
     return resolvedString;
 }
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     std::vector<std::string> extra_dxc_compile_flags = {};
-    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
+    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags, dependencies);
 }
 
 core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
