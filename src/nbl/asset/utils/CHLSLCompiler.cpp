@@ -428,11 +428,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     {
         IShaderCompiler::DepfileWriteParams params = {};
         const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
-        std::filesystem::path targetPath = preprocessOptions.depfilePath;
-        if (targetPath.extension() == ".d")
-            targetPath.replace_extension();
         params.depfilePath = depfilePathString;
-        params.outputPath = targetPath.generic_string();
         params.sourceIdentifier = preprocessOptions.sourceIdentifier;
         params.system = m_system.get();
         if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))

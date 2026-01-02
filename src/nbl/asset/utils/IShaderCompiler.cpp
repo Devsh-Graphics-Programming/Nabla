@@ -114,14 +114,14 @@ bool IShaderCompiler::writeDepfile(
 		for (const char c : normalized)
 		{
 			if (c == ' ' || c == '#')
-				out.emplace_back('\\');
+				out.push_back('\\');
 			if (c == '$')
 			{
-				out.emplace_back('$');
-				out.emplace_back('$');
+				out.push_back('$');
+				out.push_back('$');
 				continue;
 			}
-			out.emplace_back(c);
+			out.push_back(c);
 		}
 		return out;
 	};
@@ -217,10 +217,6 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		IShaderCompiler::DepfileWriteParams params = {};
 		const std::string depfilePathString = options.preprocessorOptions.depfilePath.generic_string();
 		params.depfilePath = depfilePathString;
-		auto targetPath = options.preprocessorOptions.depfilePath;
-		if (targetPath.extension() == ".d")
-			targetPath.replace_extension();
-		params.outputPath = targetPath.generic_string();
 		params.sourceIdentifier = options.preprocessorOptions.sourceIdentifier;
 		params.system = m_system.get();
 		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);

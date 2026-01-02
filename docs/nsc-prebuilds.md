@@ -60,7 +60,7 @@ Keys are strings that match the output layout:
 - `INPUT` (string, required): path to `.hlsl` (relative to `CMAKE_CURRENT_SOURCE_DIR` or absolute).
 - `KEY` (string, required): base key (prefer without `.spv`; it is always appended, so using `foo.spv` will result in `foo.spv.spv`).
 - `COMPILE_OPTIONS` (array of strings, optional): per-input extra options (e.g. `["-T","cs_6_8"]`).
-- `DEPENDS` (array of strings, optional): per-input dependencies (extra files that should trigger rebuild).
+- `DEPENDS` (array of strings, optional): extra per-input dependencies that are not discovered via `#include` (see below).
 - `CAPS` (array, optional): permutation caps (see below).
 
 You can register many rules in a single call, and you can call the function multiple times to append rules to the same `TARGET`.
@@ -87,18 +87,9 @@ The helper also exposes CMake options that append NSC debug flags **only for Deb
 
 ## Source files and rebuild dependencies (important)
 
-Make sure shader inputs and includes are:
+NSC supports depfiles and the CMake custom commands consume them, so **changes in any `#include`d HLSL file automatically trigger recompilation of the affected `.spv` outputs**. In most cases you no longer need to list includes manually.
 
-1. Marked as header-only on your target (so the IDE shows them, but the build system doesn't try to compile them with default HLSL rules like `fxc`):
-
-```cmake
-target_sources(${EXECUTABLE_NAME} PRIVATE ${DEPENDS})
-set_source_files_properties(${DEPENDS} PROPERTIES HEADER_FILE_ONLY ON)
-```
-
-2. Listed as dependencies of the NSC custom commands (so editing any of them triggers a rebuild of the `.spv` outputs).
-
-This is what the `DEPENDS` argument of `NBL_CREATE_NSC_COMPILE_RULES` (and/or per-input JSON `DEPENDS`) is for. Always include the main `INPUT` file itself and any files it includes; otherwise the build system might not re-run `nsc` when you change them.
+Use `DEPENDS` only for **extra** inputs that are not discovered via `#include` (e.g. a generated header that is not included, a config file read by a custom include generator, or any non-HLSL file that should trigger a rebuild). You can register those extra dependencies if you need them, but in most projects `DEPENDS` should stay empty.
 
 ## Minimal usage (no permutations)
 
@@ -106,12 +97,6 @@ Example pattern (as in `examples_tests/27_MPMCScheduler/CMakeLists.txt`):
 
 ```cmake
 set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/auto-gen")
-set(DEPENDS
-  app_resources/common.hlsl
-  app_resources/shader.comp.hlsl
-)
-target_sources(${EXECUTABLE_NAME} PRIVATE ${DEPENDS})
-set_source_files_properties(${DEPENDS} PROPERTIES HEADER_FILE_ONLY ON)
 
 set(JSON [=[
 [
@@ -128,7 +113,6 @@ set(JSON [=[
 NBL_CREATE_NSC_COMPILE_RULES(
   TARGET ${EXECUTABLE_NAME}SPIRV
   LINK_TO ${EXECUTABLE_NAME}
-  DEPENDS ${DEPENDS}
   BINARY_DIR ${OUTPUT_DIRECTORY}
   MOUNT_POINT_DEFINE NBL_THIS_EXAMPLE_BUILD_MOUNT_POINT
   COMMON_OPTIONS -I ${CMAKE_CURRENT_SOURCE_DIR}
