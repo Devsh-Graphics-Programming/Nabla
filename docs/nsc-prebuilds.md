@@ -91,6 +91,11 @@ NSC supports depfiles and the CMake custom commands consume them, so **changes i
 
 Use `DEPENDS` only for **extra** inputs that are not discovered via `#include` (e.g. a generated header that is not included, a config file read by a custom include generator, or any non-HLSL file that should trigger a rebuild). You can register those extra dependencies if you need them, but in most projects `DEPENDS` should stay empty.
 
+By default `NBL_CREATE_NSC_COMPILE_RULES` also collects `*.hlsl` files for IDE visibility. It recursively scans the current source directory (or `GLOB_DIR` if provided), adds those files as header-only, and groups them under `HLSL Files`. If you do not want this behavior, pass `DISCARD_DEFAULT_GLOB`.
+
+- `GLOB_DIR` (optional): root directory for the default `*.hlsl` scan.
+- `DISCARD_DEFAULT_GLOB` (flag): disables the default scan and IDE grouping.
+
 ## Minimal usage (no permutations)
 
 Example pattern (as in `examples_tests/27_MPMCScheduler/CMakeLists.txt`):
@@ -282,6 +287,8 @@ If the error looks like a preprocessing issue, note that we use Boost.Wave as th
 <details>
 <summary>NSC rules + archive + runtime key usage</summary>
 
+NSC emits depfiles and the custom commands consume them, so changes in `#include`d HLSL files automatically trigger recompilation of the affected outputs. In most cases you do not need to list includes manually. Use `DEPENDS` only for extra inputs that are not discovered via `#include`.
+
 ### CMake (`CMakeLists.txt`)
 
 ```cmake
@@ -290,12 +297,6 @@ include(common)
 nbl_create_executable_project("" "" "" "")
 
 set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/auto-gen")
-set(DEPENDS
-  app_resources/common.hlsl
-  app_resources/shader.hlsl
-)
-target_sources(${EXECUTABLE_NAME} PRIVATE ${DEPENDS})
-set_source_files_properties(${DEPENDS} PROPERTIES HEADER_FILE_ONLY ON)
 
 set(JSON [=[
 [
@@ -303,7 +304,6 @@ set(JSON [=[
     "INPUT": "app_resources/shader.hlsl",
     "KEY": "shader",
     "COMPILE_OPTIONS": ["-T", "lib_6_8"],
-    "DEPENDS": [],
     "CAPS": [
       {
         "kind": "limits",
@@ -325,7 +325,6 @@ set(JSON [=[
 NBL_CREATE_NSC_COMPILE_RULES(
   TARGET ${EXECUTABLE_NAME}SPIRV
   LINK_TO ${EXECUTABLE_NAME}
-  DEPENDS ${DEPENDS}
   BINARY_DIR ${OUTPUT_DIRECTORY}
   MOUNT_POINT_DEFINE NBL_THIS_EXAMPLE_BUILD_MOUNT_POINT
   COMMON_OPTIONS -I ${CMAKE_CURRENT_SOURCE_DIR}

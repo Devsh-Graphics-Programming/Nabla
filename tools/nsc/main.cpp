@@ -3,8 +3,11 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <cstdio>
 #include <string>
 #include <algorithm>
+#include <stdexcept>
+#include <argparse/argparse.hpp>
 
 #include "nbl/asset/metadata/CHLSLMetadata.h"
 #include "nlohmann/json.hpp"
@@ -15,6 +18,41 @@ using namespace nbl::system;
 using namespace nbl::core;
 using namespace nbl::asset;
 
+class NscLogger final : public system::IThreadsafeLogger
+{
+public:
+	NscLogger(core::smart_refctd_ptr<system::IFile>&& logFile, const core::bitflag<E_LOG_LEVEL> logLevelMask, const core::bitflag<E_LOG_LEVEL> consoleMask)
+		: IThreadsafeLogger(logLevelMask), m_logFile(std::move(logFile)), m_logPos(m_logFile ? m_logFile->getSize() : 0ull), m_consoleMask(consoleMask)
+	{
+	}
+
+private:
+	void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
+	{
+		const auto line = constructLogString(fmt, logLevel, args);
+		size_t lineSize = line.size();
+		while (lineSize > 0 && line[lineSize - 1] == '\0')
+			--lineSize;
+		if (lineSize == 0)
+			return;
+		if (m_logFile)
+		{
+			system::IFile::success_t succ;
+			m_logFile->write(succ, line.data(), m_logPos, lineSize);
+			m_logPos += succ.getBytesProcessed();
+		}
+		if (logLevel & m_consoleMask.value)
+		{
+			std::fwrite(line.data(), 1, lineSize, stdout);
+			std::fflush(stdout);
+		}
+	}
+
+	core::smart_refctd_ptr<system::IFile> m_logFile;
+	size_t m_logPos = 0ull;
+	core::bitflag<E_LOG_LEVEL> m_consoleMask;
+};
+
 class ShaderCompiler final : public system::IApplicationFramework
 {
 	using base_t = system::IApplicationFramework;
@@ -24,71 +62,120 @@ public:
 
 	bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
 	{
-		const auto argc = argv.size();
-		const bool insufficientArguments = argc < 2;
-
-		if (not insufficientArguments)
+		const auto rawArgs = std::vector<std::string>(argv.begin(), argv.end());
+		auto expandArgs = [](const std::vector<std::string>& args)
 		{
-			// 1) NOTE: imo each example should be able to dump build info & have such mode, maybe it could go straight to IApplicationFramework main
-			// 2) TODO: this whole "serialize" logic should go to the GitInfo struct and be static or something, it should be standardized
-
-			if (argv[1] == "--dump-build-info")
+			std::vector<std::string> expanded;
+			expanded.reserve(args.size());
+			for (const auto& arg : args)
 			{
-				json j;
-
-				auto& modules = j["modules"];
-
-				auto serialize = [&](const gtml::GitInfo& info, std::string_view target) -> void 
+				if (arg.rfind("-MF", 0) == 0 && arg.size() > 3)
 				{
-					auto& s = modules[target.data()];
-
-					s["isPopulated"] = info.isPopulated;
-					if (info.hasUncommittedChanges.has_value()) 
-						s["hasUncommittedChanges"] = info.hasUncommittedChanges.value();
-					else
-						s["hasUncommittedChanges"] = "UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE";
-
-					s["commitAuthorName"] = info.commitAuthorName;
-					s["commitAuthorEmail"] = info.commitAuthorEmail;
-					s["commitHash"] = info.commitHash;
-					s["commitShortHash"] = info.commitShortHash;
-					s["commitDate"] = info.commitDate;
-					s["commitSubject"] = info.commitSubject;
-					s["commitBody"] = info.commitBody;
-					s["describe"] = info.describe;
-					s["branchName"] = info.branchName;
-					s["latestTag"] = info.latestTag;
-					s["latestTagName"] = info.latestTagName;
-				};
-
-				serialize(gtml::nabla_git_info, "nabla");
-				serialize(gtml::dxc_git_info, "dxc");
-
-				const auto pretty = j.dump(4);
-				std::cout << pretty << std::endl;
-
-				std::filesystem::path oPath = "build-info.json";
-
-				// TOOD: use argparse for it
-				if (argc > 3 && argv[2] == "--file")
-					oPath = argv[3];
-
-				std::ofstream outFile(oPath);
-				if (outFile.is_open()) 
-				{
-					outFile << pretty;
-					outFile.close();
-					printf("Saved \"%s\"\n", oPath.string().c_str());
+					expanded.push_back("-MF");
+					expanded.push_back(arg.substr(3));
+					continue;
 				}
-				else
+				if (arg.rfind("-Fo", 0) == 0 && arg.size() > 3)
 				{
-					printf("Failed to open \"%s\" for writing\n", oPath.string().c_str());
-					exit(-1);
+					expanded.push_back("-Fo");
+					expanded.push_back(arg.substr(3));
+					continue;
 				}
-
-				// in this mode terminate with 0 if all good
-				exit(0);
+				if (arg.rfind("-Fc", 0) == 0 && arg.size() > 3)
+				{
+					expanded.push_back("-Fc");
+					expanded.push_back(arg.substr(3));
+					continue;
+				}
+				expanded.push_back(arg);
 			}
+			return expanded;
+		};
+
+		argparse::ArgumentParser program("nsc");
+		program.add_argument("--dump-build-info").default_value(false).implicit_value(true);
+		program.add_argument("--file").default_value(std::string{});
+		program.add_argument("-P").default_value(false).implicit_value(true);
+		program.add_argument("-no-nbl-builtins").default_value(false).implicit_value(true);
+		program.add_argument("-MD").default_value(false).implicit_value(true);
+		program.add_argument("-M").default_value(false).implicit_value(true);
+		program.add_argument("-MF").default_value(std::string{});
+		program.add_argument("-Fo").default_value(std::string{});
+		program.add_argument("-Fc").default_value(std::string{});
+		program.add_argument("-log").default_value(std::string{});
+		program.add_argument("-nolog").default_value(false).implicit_value(true);
+		program.add_argument("-quiet").default_value(false).implicit_value(true);
+		program.add_argument("-verbose").default_value(false).implicit_value(true);
+
+		std::vector<std::string> unknownArgs;
+		try
+		{
+			unknownArgs = program.parse_known_args(expandArgs(rawArgs));
+		}
+		catch (const std::runtime_error& err)
+		{
+			std::cerr << err.what() << std::endl << program;
+			return false;
+		}
+
+		if (program.get<bool>("--dump-build-info"))
+		{
+			json j;
+
+			auto& modules = j["modules"];
+
+			auto serialize = [&](const gtml::GitInfo& info, std::string_view target) -> void 
+			{
+				auto& s = modules[target.data()];
+
+				s["isPopulated"] = info.isPopulated;
+				if (info.hasUncommittedChanges.has_value()) 
+					s["hasUncommittedChanges"] = info.hasUncommittedChanges.value();
+				else
+					s["hasUncommittedChanges"] = "UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE";
+
+				s["commitAuthorName"] = info.commitAuthorName;
+				s["commitAuthorEmail"] = info.commitAuthorEmail;
+				s["commitHash"] = info.commitHash;
+				s["commitShortHash"] = info.commitShortHash;
+				s["commitDate"] = info.commitDate;
+				s["commitSubject"] = info.commitSubject;
+				s["commitBody"] = info.commitBody;
+				s["describe"] = info.describe;
+				s["branchName"] = info.branchName;
+				s["latestTag"] = info.latestTag;
+				s["latestTagName"] = info.latestTagName;
+			};
+
+			serialize(gtml::nabla_git_info, "nabla");
+			serialize(gtml::dxc_git_info, "dxc");
+
+			const auto pretty = j.dump(4);
+			std::cout << pretty << std::endl;
+
+			std::filesystem::path oPath = "build-info.json";
+
+			if (program.is_used("--file"))
+			{
+				const auto filePath = program.get<std::string>("--file");
+				if (!filePath.empty())
+					oPath = filePath;
+			}
+
+			std::ofstream outFile(oPath);
+			if (outFile.is_open()) 
+			{
+				outFile << pretty;
+				outFile.close();
+				printf("Saved \"%s\"\n", oPath.string().c_str());
+			}
+			else
+			{
+				printf("Failed to open \"%s\" for writing\n", oPath.string().c_str());
+				exit(-1);
+			}
+
+			exit(0);
 		}
 
 		if (not isAPILoaded())
@@ -105,102 +192,119 @@ public:
 		if (!m_system)
 			return false;
 
-		m_logger = make_smart_refctd_ptr<CStdoutLogger>(core::bitflag(ILogger::ELL_DEBUG) | ILogger::ELL_INFO | ILogger::ELL_WARNING |	ILogger::ELL_PERFORMANCE | ILogger::ELL_ERROR);
+		const auto defaultConsoleMask = core::bitflag(ILogger::ELL_WARNING) | ILogger::ELL_ERROR;
+		m_logger = make_smart_refctd_ptr<CStdoutLogger>(defaultConsoleMask);
 
-		if (insufficientArguments) 
+		if (rawArgs.size() < 2)
 		{
 			m_logger->log("Insufficient arguments.", ILogger::ELL_ERROR);
 			return false;
 		}
+		std::string file_to_compile = rawArgs.back();
 
-		m_arguments = std::vector<std::string>(argv.begin() + 1, argv.end()-1); // turn argv into vector for convenience
-
-		std::string file_to_compile = argv.back();
-
-		if (!m_system->exists(file_to_compile, IFileBase::ECF_READ)) {
-			m_logger->log("Incorrect arguments. Expecting last argument to be filename of the shader intended to compile.", ILogger::ELL_ERROR);
+		if (!m_system->exists(file_to_compile, IFileBase::ECF_READ))
+		{
+			m_logger->log("Input shader file does not exist: %s", ILogger::ELL_ERROR, file_to_compile.c_str());
 			return false;
 		}
-		std::string output_filepath = "";
 
-		auto builtin_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-no-nbl-builtins");
-		if (builtin_flag_pos != m_arguments.end()) {
-			m_logger->log("Unmounting builtins.");
-			m_system->unmountBuiltins();
-			no_nbl_builtins = true;
-			m_arguments.erase(builtin_flag_pos);
-		}
-
-		auto split = [&](const std::string& str, char delim) 
+		const bool preprocessOnly = program.get<bool>("-P");
+		const bool outputFlagFc = program.is_used("-Fc");
+		const bool outputFlagFo = program.is_used("-Fo");
+		if (outputFlagFc && outputFlagFo)
 		{
-			std::vector<std::string> strings;
-			size_t start, end = 0;
-		
-			while ((start = str.find_first_not_of(delim, end)) != std::string::npos) 
-			{
-			    end = str.find(delim, start);
-			    strings.push_back(str.substr(start, end - start));
-			}
-		
-			return strings;
-		};
-		
-		auto findOutputFlag = [&](const std::string_view& outputFlag)
-		{
-			return std::find_if(m_arguments.begin(), m_arguments.end(), [&](const std::string& argument) 
-			{
-				return argument.find(outputFlag.data()) != std::string::npos;
-			});
-		};
-		
-		auto preprocessOnly = findOutputFlag("-P") != m_arguments.end();
-		auto output_flag_pos_fc = findOutputFlag("-Fc");
-		auto output_flag_pos_fo = findOutputFlag("-Fo");
-		if (output_flag_pos_fc != m_arguments.end() && output_flag_pos_fo != m_arguments.end()) {
 			m_logger->log("Invalid arguments. Passed both -Fo and -Fc.", ILogger::ELL_ERROR);
 			return false;
 		}
-		auto output_flag_pos = output_flag_pos_fc != m_arguments.end() ? output_flag_pos_fc : output_flag_pos_fo;
-		if (output_flag_pos == m_arguments.end()) 
+		if (!outputFlagFc && !outputFlagFo)
 		{
 			m_logger->log("Missing arguments. Expecting `-Fc {filename}` or `-Fo {filename}`.", ILogger::ELL_ERROR);
 			return false;
 		}
-		else
-		{
-			// we need to assume -Fc may be passed with output file name quoted together with "", so we split it (DXC does it)
-			const auto& outputFlag = *output_flag_pos;
-			auto outputFlagVector = split(outputFlag, ' ');
-		
-			if(outputFlag == "-Fc" || outputFlag == "-Fo")
-			{
-			    if (output_flag_pos + 1 != m_arguments.end()) 
-			    {
-					output_filepath = *(output_flag_pos + 1);
-			    }
-			    else 
-			    {
-					m_logger->log("Incorrect arguments. Expecting filename after %s.", ILogger::ELL_ERROR, outputFlag);
-					return false;
-			    }
-			}
-			else
-			{
-			    output_filepath = outputFlagVector[1];
-			}
-			m_arguments.erase(output_flag_pos, output_flag_pos+2);
 
-			if (output_filepath.empty())
-			{
-				m_logger->log("Invalid output file path!" + output_filepath, ILogger::ELL_ERROR);
-				return false;
-			}
-		
-			std::string outputType = preprocessOnly ? "Preprocessed" : "Compiled";
-			m_logger->log(outputType + " shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
+		std::string output_filepath = outputFlagFc ? program.get<std::string>("-Fc") : program.get<std::string>("-Fo");
+		if (output_filepath.empty())
+		{
+			m_logger->log("Invalid output file path.", ILogger::ELL_ERROR);
+			return false;
 		}
 
-		DepfileConfig depfileConfig = parseDepfileArgs(m_arguments);
+		const bool quietFlag = program.get<bool>("-quiet");
+		const bool verboseFlag = program.get<bool>("-verbose");
+		if (quietFlag && verboseFlag)
+		{
+			m_logger->log("Invalid arguments. Passed both -quiet and -verbose.", ILogger::ELL_ERROR);
+			return false;
+		}
+
+		LogConfig logConfig;
+		if (verboseFlag)
+			logConfig.quiet = false;
+		if (quietFlag)
+			logConfig.quiet = true;
+
+		logConfig.noLog = program.get<bool>("-nolog");
+		if (program.is_used("-log"))
+		{
+			logConfig.path = program.get<std::string>("-log");
+			if (logConfig.path.empty())
+			{
+				m_logger->log("Incorrect arguments. Expecting filename after -log.", ILogger::ELL_ERROR);
+				return false;
+			}
+		}
+
+		if (logConfig.noLog && !logConfig.path.empty())
+		{
+			m_logger->log("Invalid arguments. Passed both -nolog and -log.", ILogger::ELL_ERROR);
+			return false;
+		}
+
+		const auto consoleMask = logConfig.quiet ? (core::bitflag(ILogger::ELL_WARNING) | ILogger::ELL_ERROR) : core::bitflag(ILogger::ELL_ALL);
+		m_logger = make_smart_refctd_ptr<CStdoutLogger>(consoleMask);
+
+		if (!logConfig.noLog)
+		{
+			const std::filesystem::path logPath = logConfig.path.empty() ? std::filesystem::path(output_filepath).concat(".log") : std::filesystem::path(logConfig.path);
+			const auto parentDirectory = logPath.parent_path();
+			if (!parentDirectory.empty() && !std::filesystem::exists(parentDirectory))
+				std::filesystem::create_directories(parentDirectory);
+
+			m_system->deleteFile(logPath);
+
+			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+			m_system->createFile(future, logPath, system::IFileBase::ECF_WRITE);
+			core::smart_refctd_ptr<system::IFile> logFile;
+			if (future.wait())
+				future.acquire().move_into(logFile);
+
+			if (logFile)
+				m_logger = make_smart_refctd_ptr<NscLogger>(std::move(logFile), core::bitflag(ILogger::ELL_ALL), consoleMask);
+			else
+				m_logger->log("Failed to open log file: %s", ILogger::ELL_ERROR, logPath.string().c_str());
+		}
+
+		const char* action = preprocessOnly ? "Preprocessing" : "Compiling";
+		m_logger->log("%s %s", ILogger::ELL_INFO, action, file_to_compile.c_str());
+		const char* outputType = preprocessOnly ? "Preprocessed" : "Compiled";
+		m_logger->log("%s shader code will be saved to %s", ILogger::ELL_INFO, outputType, output_filepath.c_str());
+
+		m_arguments = std::move(unknownArgs);
+		if (!m_arguments.empty() && m_arguments.back() == file_to_compile)
+			m_arguments.pop_back();
+
+		no_nbl_builtins = program.get<bool>("-no-nbl-builtins");
+		if (no_nbl_builtins)
+		{
+			m_logger->log("Unmounting builtins.");
+			m_system->unmountBuiltins();
+		}
+
+		DepfileConfig depfileConfig;
+		if (program.get<bool>("-MD") || program.get<bool>("-M") || program.is_used("-MF"))
+			depfileConfig.enabled = true;
+		if (program.is_used("-MF"))
+			depfileConfig.path = program.get<std::string>("-MF");
 		if (depfileConfig.enabled && depfileConfig.path.empty())
 			depfileConfig.path = output_filepath + ".d";
 		if (depfileConfig.enabled)
@@ -215,12 +319,11 @@ public:
 #endif
 		if (std::find(m_arguments.begin(), m_arguments.end(), "-E") == m_arguments.end())
 		{
-			//Insert '-E main' into arguments if no entry point is specified
 			m_arguments.push_back("-E");
 			m_arguments.push_back("main");
 		}
 
-		for (size_t i = 0; i < m_arguments.size() - 1; ++i) // -I must be given with second arg, no need to include iteration over last one
+		for (size_t i = 0; i + 1 < m_arguments.size(); ++i)
 		{
 			const auto& arg = m_arguments[i];
 			if (arg == "-I")
@@ -250,7 +353,6 @@ public:
 		}
 		auto end = std::chrono::high_resolution_clock::now();
 
-		// write compiled/preprocessed shader to file as bytes
 		std::string operationType = preprocessOnly ? "preprocessing" : "compilation";
 		const bool success = preprocessOnly ? preprocessing_result != std::string{} : bool(compilation_result);
 		if (success) 
@@ -316,47 +418,18 @@ public:
 
 private:
 
+	struct LogConfig
+	{
+		bool quiet = true;
+		bool noLog = false;
+		std::string path;
+	};
+
 	struct DepfileConfig
 	{
 		bool enabled = false;
 		std::string path;
 	};
-
-	DepfileConfig parseDepfileArgs(std::vector<std::string>& args)
-	{
-		DepfileConfig cfg;
-		for (auto it = args.begin(); it != args.end();)
-		{
-			const std::string& arg = *it;
-			if (arg == "-MD" || arg == "-M")
-			{
-				cfg.enabled = true;
-				it = args.erase(it);
-				continue;
-			}
-			if (arg == "-MF")
-			{
-				if (it + 1 == args.end())
-				{
-					m_logger->log("Incorrect arguments. Expecting filename after -MF.", ILogger::ELL_ERROR);
-					return cfg;
-				}
-				cfg.enabled = true;
-				cfg.path = *(it + 1);
-				it = args.erase(it, it + 2);
-				continue;
-			}
-			if (arg.rfind("-MF", 0) == 0 && arg.size() > 3)
-			{
-				cfg.enabled = true;
-				cfg.path = arg.substr(3);
-				it = args.erase(it);
-				continue;
-			}
-			++it;
-		}
-		return cfg;
-	}
 
 	std::string preprocess_shader(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& depfileConfig) {
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
@@ -448,7 +521,7 @@ private:
 
 	bool no_nbl_builtins{ false };
 	smart_refctd_ptr<ISystem> m_system;
-	smart_refctd_ptr<CStdoutLogger> m_logger;
+	smart_refctd_ptr<ILogger> m_logger;
 	std::vector<std::string> m_arguments, m_include_search_paths;
 	core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
 

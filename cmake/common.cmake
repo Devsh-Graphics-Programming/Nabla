@@ -1209,6 +1209,7 @@ struct DeviceConfigCaps
 
 	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
 		list(APPEND REQUIRED_OPTIONS
+			-no-nbl-builtins
 			-I "${NBL_ROOT_PATH}/include"
 			-I "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
 			-I "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
@@ -1217,7 +1218,8 @@ struct DeviceConfigCaps
 	endif()
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
-    cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
+    set(OPTIONAL_SINGLE_ARGS GLOB_DIR)
+    cmake_parse_arguments(IMPL "DISCARD_DEFAULT_GLOB" "${REQUIRED_SINGLE_ARGS};${OPTIONAL_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
 
 	if(NOT TARGET ${IMPL_TARGET})
@@ -1294,6 +1296,10 @@ namespace @IMPL_NAMESPACE@ {
 	list(FILTER MP_DEFINES EXCLUDE REGEX "^${IMPL_MOUNT_POINT_DEFINE}=")
 	list(APPEND MP_DEFINES ${IMPL_MOUNT_POINT_DEFINE}="${IMPL_BINARY_DIR}")
 	set_target_properties(${IMPL_TARGET} PROPERTIES NBL_MOUNT_POINT_DEFINES "${MP_DEFINES}")
+
+	set(RTE "NSC Rules")
+	set(IN "${RTE}/In")
+	set(OUT "${RTE}/Out")
 
     string(JSON JSON_LENGTH LENGTH "${IMPL_INPUTS}")
     math(EXPR LAST_INDEX "${JSON_LENGTH} - 1")
@@ -1482,6 +1488,7 @@ namespace @IMPL_NAMESPACE@ {
 				set(FINAL_KEY_REL_PATH "$<CONFIG>/${FINAL_KEY}")
 				set(TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY_REL_PATH}")
 				set(DEPFILE_PATH "${TARGET_OUTPUT}.d")
+				set(NBL_NSC_LOG_PATH "${TARGET_OUTPUT}.log")
 
 				set(NBL_NSC_DEPFILE_ARGS "")
 				if(NSC_USE_DEPFILE)
@@ -1496,11 +1503,18 @@ namespace @IMPL_NAMESPACE@ {
 					"${CONFIG_FILE}"
 				)
 
+				get_filename_component(NBL_NSC_INPUT_NAME "${TARGET_INPUT}" NAME)
+				set(NBL_NSC_BYPRODUCTS "${NBL_NSC_LOG_PATH}")
+				if(NSC_USE_DEPFILE)
+					list(APPEND NBL_NSC_BYPRODUCTS "${DEPFILE_PATH}")
+				endif()
+
 				set(NBL_NSC_CUSTOM_COMMAND_ARGS
 					OUTPUT "${TARGET_OUTPUT}"
+					BYPRODUCTS ${NBL_NSC_BYPRODUCTS}
 					COMMAND ${NBL_NSC_COMPILE_COMMAND}
 					DEPENDS ${DEPENDS_ON}
-					COMMENT "Creating \"${TARGET_OUTPUT}\""
+					COMMENT "${NBL_NSC_INPUT_NAME}"
 					VERBATIM
 					COMMAND_EXPAND_LISTS
 				)
@@ -1508,15 +1522,37 @@ namespace @IMPL_NAMESPACE@ {
 					list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS DEPFILE "${DEPFILE_PATH}")
 				endif()
 				add_custom_command(${NBL_NSC_CUSTOM_COMMAND_ARGS})
-				set_source_files_properties("${TARGET_OUTPUT}" PROPERTIES GENERATED TRUE)
+				set(NBL_NSC_OUT_FILES "${TARGET_OUTPUT}" "${NBL_NSC_LOG_PATH}")
+				if(NSC_USE_DEPFILE)
+					list(APPEND NBL_NSC_OUT_FILES "${DEPFILE_PATH}")
+				endif()
 
-				set(HEADER_ONLY_LIKE "${CONFIG_FILE}" "${TARGET_INPUT}" "${TARGET_OUTPUT}")
+				set_source_files_properties(${NBL_NSC_OUT_FILES} PROPERTIES GENERATED TRUE)
+
+				set(HEADER_ONLY_LIKE "${CONFIG_FILE}" "${TARGET_INPUT}" ${NBL_NSC_OUT_FILES})
 				target_sources(${IMPL_TARGET} PRIVATE ${HEADER_ONLY_LIKE})
 
 				set_source_files_properties(${HEADER_ONLY_LIKE} PROPERTIES 
 					HEADER_FILE_ONLY ON
 					VS_TOOL_OVERRIDE None
 				)
+				if(CMAKE_CONFIGURATION_TYPES)
+					foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
+						set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${FINAL_KEY}")
+						set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
+						if(NSC_USE_DEPFILE)
+							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.d")
+						endif()
+						source_group("${OUT}/${_CFG}" FILES ${NBL_NSC_OUT_FILES_IDE})
+					endforeach()
+				else()
+					set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${FINAL_KEY}")
+					set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
+					if(NSC_USE_DEPFILE)
+						list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.d")
+					endif()
+					source_group("${OUT}" FILES ${NBL_NSC_OUT_FILES_IDE})
+				endif()
 
 				set_source_files_properties("${TARGET_OUTPUT}" PROPERTIES
 					NBL_SPIRV_REGISTERED_INPUT "${TARGET_INPUT}"
@@ -1558,12 +1594,23 @@ namespace @IMPL_NAMESPACE@ {
 		list(APPEND KEYS ${ACCESS_KEY})
 	endforeach()
 
-	set(RTE "NSC Rules")
-	set(IN "${RTE}/In")
-	set(OUT "${RTE}/Out")
-
 	source_group("${IN}" FILES ${CONFIGS} ${INPUTS})
-	source_group("${OUT}" FILES ${SPIRVs})
+	if(NOT IMPL_DISCARD_DEFAULT_GLOB)
+		set(GLOB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+		if(IMPL_GLOB_DIR)
+			set(GLOB_ROOT "${IMPL_GLOB_DIR}")
+		endif()
+		get_filename_component(GLOB_ROOT "${GLOB_ROOT}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+		file(GLOB_RECURSE IMPL_HLSL_GLOB CONFIGURE_DEPENDS "${GLOB_ROOT}/*.hlsl")
+		if(IMPL_HLSL_GLOB)
+			target_sources(${IMPL_TARGET} PRIVATE ${IMPL_HLSL_GLOB})
+			set_source_files_properties(${IMPL_HLSL_GLOB} PROPERTIES 
+				HEADER_FILE_ONLY ON
+				VS_TOOL_OVERRIDE None
+			)
+			source_group("HLSL Files" FILES ${IMPL_HLSL_GLOB})
+		endif()
+	endif()
 
 	set(${IMPL_OUTPUT_VAR} ${KEYS} PARENT_SCOPE)
 endfunction()
