@@ -43,6 +43,14 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
 {
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
 	const DWORD fileAccess = ((flags.value&IFile::ECF_READ) ? FILE_GENERIC_READ:0)|(writeAccess ? FILE_GENERIC_WRITE:0);
+	const bool hasShareFlags = flags.value & (IFile::ECF_SHARE_READ | IFile::ECF_SHARE_WRITE | IFile::ECF_SHARE_DELETE);
+	DWORD shareMode = hasShareFlags ? 0 : FILE_SHARE_READ;
+	if (flags.value & IFile::ECF_SHARE_READ)
+		shareMode |= FILE_SHARE_READ;
+	if (flags.value & IFile::ECF_SHARE_WRITE)
+		shareMode |= FILE_SHARE_WRITE;
+	if (flags.value & IFile::ECF_SHARE_DELETE)
+		shareMode |= FILE_SHARE_DELETE;
 
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
@@ -51,8 +59,8 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
 		p.make_preferred(); // Replace "/" separators with "\"
 
     // only write access should create new files if they don't exist
-	const auto creationDisposition = writeAccess ? OPEN_ALWAYS:OPEN_EXISTING;
-	HANDLE _native = CreateFileA(p.string().data(), fileAccess, FILE_SHARE_READ, &secAttribs, creationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
+	const auto creationDisposition = writeAccess ? OPEN_ALWAYS : OPEN_EXISTING;
+	HANDLE _native = CreateFileA(p.string().data(), fileAccess, shareMode, &secAttribs, creationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (_native==INVALID_HANDLE_VALUE)
     {
         auto e = GetLastError();
