@@ -1222,6 +1222,16 @@ struct DeviceConfigCaps
     cmake_parse_arguments(IMPL "DISCARD_DEFAULT_GLOB" "${REQUIRED_SINGLE_ARGS};${OPTIONAL_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
 
+	set(IMPL_HLSL_GLOB "")
+	if(NOT IMPL_DISCARD_DEFAULT_GLOB)
+		set(GLOB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+		if(IMPL_GLOB_DIR)
+			set(GLOB_ROOT "${IMPL_GLOB_DIR}")
+		endif()
+		get_filename_component(GLOB_ROOT "${GLOB_ROOT}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+		file(GLOB_RECURSE IMPL_HLSL_GLOB CONFIGURE_DEPENDS "${GLOB_ROOT}/*.hlsl")
+	endif()
+
 	if(NOT TARGET ${IMPL_TARGET})
 		add_library(${IMPL_TARGET} INTERFACE)
 	endif()
@@ -1595,21 +1605,13 @@ namespace @IMPL_NAMESPACE@ {
 	endforeach()
 
 	source_group("${IN}" FILES ${CONFIGS} ${INPUTS})
-	if(NOT IMPL_DISCARD_DEFAULT_GLOB)
-		set(GLOB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
-		if(IMPL_GLOB_DIR)
-			set(GLOB_ROOT "${IMPL_GLOB_DIR}")
-		endif()
-		get_filename_component(GLOB_ROOT "${GLOB_ROOT}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-		file(GLOB_RECURSE IMPL_HLSL_GLOB CONFIGURE_DEPENDS "${GLOB_ROOT}/*.hlsl")
-		if(IMPL_HLSL_GLOB)
-			target_sources(${IMPL_TARGET} PRIVATE ${IMPL_HLSL_GLOB})
-			set_source_files_properties(${IMPL_HLSL_GLOB} PROPERTIES 
-				HEADER_FILE_ONLY ON
-				VS_TOOL_OVERRIDE None
-			)
-			source_group("HLSL Files" FILES ${IMPL_HLSL_GLOB})
-		endif()
+	if(IMPL_HLSL_GLOB)
+		target_sources(${IMPL_TARGET} PRIVATE ${IMPL_HLSL_GLOB})
+		set_source_files_properties(${IMPL_HLSL_GLOB} PROPERTIES 
+			HEADER_FILE_ONLY ON
+			VS_TOOL_OVERRIDE None
+		)
+		source_group("HLSL Files" FILES ${IMPL_HLSL_GLOB})
 	endif()
 
 	set(${IMPL_OUTPUT_VAR} ${KEYS} PARENT_SCOPE)

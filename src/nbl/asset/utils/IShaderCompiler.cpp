@@ -54,13 +54,30 @@ bool IShaderCompiler::writeDepfile(
 	std::vector<std::string> depPaths;
 	depPaths.reserve(dependencies.size() + 1);
 
-	auto addDepPath = [&depPaths](const std::filesystem::path& path)
+	auto addDepPath = [&depPaths, &params](std::filesystem::path path)
 	{
 		if (path.empty())
 			return;
-		if (!std::filesystem::exists(path))
+		if (path.is_relative())
+		{
+			if (params.workingDirectory.empty())
+				return;
+			path = std::filesystem::path(params.workingDirectory) / path;
+		}
+		std::error_code ec;
+		std::filesystem::path normalized = std::filesystem::weakly_canonical(path, ec);
+		if (ec)
+		{
+			normalized = std::filesystem::absolute(path, ec);
+			if (ec)
+				return;
+		}
+		if (normalized.empty() || !std::filesystem::exists(normalized))
 			return;
-		depPaths.emplace_back(path.generic_string());
+		auto normalizedString = normalized.generic_string();
+		if (normalizedString.find_first_of("\r\n") != std::string::npos)
+			return;
+		depPaths.emplace_back(std::move(normalizedString));
 	};
 
 	if (!params.sourceIdentifier.empty())
@@ -132,10 +149,15 @@ bool IShaderCompiler::writeDepfile(
 		return false;
 	}
 
+	const auto depfilePath = std::filesystem::path(depfilePathString);
+	auto tempPath = depfilePath;
+	tempPath += ".tmp";
+	params.system->deleteFile(tempPath);
+
 	core::smart_refctd_ptr<system::IFile> depfile;
 	{
 		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-		params.system->createFile(future, system::path(depfilePathString), system::IFileBase::ECF_WRITE);
+		params.system->createFile(future, tempPath, system::IFileBase::ECF_WRITE);
 		if (!future.wait())
 		{
 			logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
@@ -195,6 +217,15 @@ bool IShaderCompiler::writeDepfile(
 		logger.log("Failed to write depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
 		return false;
 	}
+	depfile = nullptr;
+
+	params.system->deleteFile(depfilePath);
+	const std::error_code moveError = params.system->moveFileOrDirectory(tempPath, depfilePath);
+	if (moveError)
+	{
+		logger.log("Failed to replace depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
 	return true;
 }
 
@@ -218,6 +249,8 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		const std::string depfilePathString = options.preprocessorOptions.depfilePath.generic_string();
 		params.depfilePath = depfilePathString;
 		params.sourceIdentifier = options.preprocessorOptions.sourceIdentifier;
+		if (!params.sourceIdentifier.empty())
+			params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
 		params.system = m_system.get();
 		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);
 	};

@@ -15,6 +15,7 @@
 #include <regex>
 #include <iterator>
 #include <codecvt>
+#include <filesystem>
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
@@ -430,6 +431,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
         params.depfilePath = depfilePathString;
         params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        if (!params.sourceIdentifier.empty())
+            params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
         params.system = m_system.get();
         if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
             return {};
