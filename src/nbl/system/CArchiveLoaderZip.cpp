@@ -35,7 +35,16 @@ struct SZIPFileCentralDirFileHeader
 	// extra field (variable size)
 	// file comment (variable size)
 
+	static constexpr uint32_t ExpectedSignature = 0x02014b50u;
+
+	size_t calcSize() const
+	{
+		return sizeof(SZIPFileCentralDirFileHeader) + FilenameLength + ExtraFieldLength + FileCommentLength;
+	}
 } PACK_STRUCT;
+
+static_assert(sizeof(SZIPFileCentralDirFileHeader) == 46);
+
 struct SZIPFileCentralDirEnd
 {
 	static inline constexpr uint32_t ExpectedSig = 0x06054b50u;
@@ -65,8 +74,12 @@ struct SGZIPMemberHeader
 	uint32_t time;
 	uint8_t  extraFlags; // slow compress = 2, fast compress = 4
 	uint8_t  operatingSystem;
+
+	static constexpr uint16_t ExpectedSignature = 0x8b1fu;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
+
+static_assert(sizeof(SGZIPMemberHeader) == 10);
 
 enum E_GZIP_FLAGS
 {
@@ -92,7 +105,288 @@ constexpr int16_t ZIP_INFO_IN_DATA_DESCRIPTOR = 0x0008;
 using namespace nbl;
 using namespace nbl::system;
 
+core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromGZIP(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
+{
+	std::shared_ptr<core::vector<IFileArchive::SFileList::SEntry>> items = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>();
+	core::vector<SZIPFileHeader> itemsMetadata;
 
+	items->reserve(1u);
+	itemsMetadata.reserve(1u);
+	auto addItem = [&items, &itemsMetadata](const std::string& _path, const size_t offset, const SZIPFileHeader& meta) -> void
+	{
+		// we need to have a filename or we skip
+		if (_path.empty())
+			return;
+
+		auto& item = items->emplace_back();
+		item.pathRelativeToArchive = _path;
+		item.size = meta.DataDescriptor.UncompressedSize;
+		item.offset = offset;
+		item.ID = itemsMetadata.size();
+		item.allocatorType = meta.CompressionMethod ? IFileArchive::EAT_VIRTUAL_ALLOC : IFileArchive::EAT_NULL;
+		itemsMetadata.push_back(meta);
+	};
+
+	std::string filename;
+	size_t gzipFileOffset = 0ull;
+	auto readStringFromFile = [&file, &gzipFileOffset](auto charCallback) -> bool
+		{
+			char c = 0x45; // make sure we start with non-zero char
+			while (c)
+			{
+				IFile::success_t success;
+				file->read(success, &c, gzipFileOffset, sizeof(c));
+				if (!success)
+					return false;
+				gzipFileOffset += success.getBytesToProcess();
+				charCallback(c);
+			}
+			// if string is not null terminated, something went wrong reading the file
+			return !c;
+		};
+
+	SGZIPMemberHeader gzipHeader;
+	{
+		IFile::success_t success;
+		file->read(success, &gzipHeader, gzipFileOffset, sizeof(gzipHeader));
+		if (!success)
+			return nullptr;
+		gzipFileOffset += sizeof(gzipHeader);
+	}
+
+	//! The gzip file format seems to think that there can be multiple files in a gzip file
+	//! TODO: But OLD Irrlicht Impl doesn't honor it!?
+	if (gzipHeader.sig != SGZIPMemberHeader::ExpectedSignature)
+		return nullptr;
+
+	// now get the file info
+	if (gzipHeader.flags & EGZF_EXTRA_FIELDS)
+	{
+		// read lenth of extra data
+		uint16_t dataLen;
+		IFile::success_t success;
+		file->read(success, &dataLen, gzipFileOffset, sizeof(dataLen));
+		if (!success)
+			return nullptr;
+		gzipFileOffset += success.getBytesToProcess();
+		// skip the extra data
+		gzipFileOffset += dataLen;
+	}
+	//
+	if (gzipHeader.flags & EGZF_FILE_NAME)
+	{
+		filename.clear();
+		if (!readStringFromFile([&](const char c) {filename.push_back(c); }))
+			return nullptr;
+	}
+	//
+	if (gzipHeader.flags & EGZF_COMMENT)
+	{
+		if (!readStringFromFile([](const char c) {}))
+			return nullptr;
+	}
+	// skip crc16
+	if (gzipHeader.flags & EGZF_CRC16)
+		gzipFileOffset += 2;
+
+
+	SZIPFileHeader header{};
+	header.FilenameLength = filename.length();
+	header.CompressionMethod = gzipHeader.compressionMethod;
+	header.DataDescriptor.CompressedSize = file->getSize() - (gzipFileOffset + sizeof(uint64_t));
+
+	const size_t itemOffset = gzipFileOffset;
+
+	gzipFileOffset += header.DataDescriptor.CompressedSize;
+	// read CRC
+	{
+		IFile::success_t success;
+		file->read(success, &header.DataDescriptor.CRC32, gzipFileOffset, sizeof(header.DataDescriptor.CRC32));
+		if (!success)
+			return nullptr;
+		gzipFileOffset += success.getBytesToProcess();
+	}
+	// read uncompressed size
+	{
+		IFile::success_t success;
+		file->read(success, &header.DataDescriptor.UncompressedSize, gzipFileOffset, sizeof(header.DataDescriptor.UncompressedSize));
+		if (!success)
+			return nullptr;
+		gzipFileOffset += success.getBytesToProcess();
+	}
+
+	//
+	addItem(filename, itemOffset, header);
+
+	assert(items->size() == itemsMetadata.size());
+	if (items->empty())
+		return nullptr;
+
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file), core::smart_refctd_ptr(m_logger.get()), items, std::move(itemsMetadata));
+}
+core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
+{
+	SZIPFileCentralDirEnd dirEnd;
+	{
+		dirEnd.Sig = 0u;
+		// First place where the end record could be stored
+		size_t endOfCentralDirectoryOffset = file->getSize() - sizeof(SZIPFileCentralDirEnd) + 1ull;
+		while (dirEnd.Sig != SZIPFileCentralDirEnd::ExpectedSig)
+		{
+			IFile::success_t success;
+			file->read(success, &dirEnd, --endOfCentralDirectoryOffset, sizeof(dirEnd));
+			if (!success)
+				return nullptr;
+		}
+	}
+
+	// multiple disks are not supported
+	if (dirEnd.NumberDisk != 0)
+	{
+		assert(false);
+		return nullptr;
+	}
+
+	std::shared_ptr<core::vector<IFileArchive::SFileList::SEntry>> items = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>();
+	core::vector<SZIPFileHeader> itemsMetadata;
+
+	items->reserve(dirEnd.TotalEntries);
+	itemsMetadata.reserve(dirEnd.TotalEntries);
+	auto addItem = [&items, &itemsMetadata](const std::string& _path, const size_t offset, const SZIPFileHeader& meta) -> void
+	{
+		// we need to have a filename or we skip
+		if (_path.empty())
+			return;
+
+		auto& item = items->emplace_back();
+		item.pathRelativeToArchive = _path;
+		item.size = meta.DataDescriptor.UncompressedSize;
+		item.offset = offset;
+		item.ID = itemsMetadata.size();
+		item.allocatorType = meta.CompressionMethod ? IFileArchive::EAT_VIRTUAL_ALLOC : IFileArchive::EAT_NULL;
+		itemsMetadata.push_back(meta);
+	};
+
+	size_t centralDirectoryOffset = dirEnd.Offset;
+	for (int i = 0; i < dirEnd.TotalEntries; ++i)
+	{
+		SZIPFileCentralDirFileHeader centralDirectoryHeader;
+		{
+			IFile::success_t success;
+			file->read(success, &centralDirectoryHeader, centralDirectoryOffset, sizeof(SZIPFileCentralDirFileHeader));
+			if (!success)
+				return nullptr;
+		}
+		centralDirectoryOffset += centralDirectoryHeader.calcSize();
+
+		if (centralDirectoryHeader.Sig != SZIPFileCentralDirFileHeader::ExpectedSignature)
+		{
+			// .zip file is corrupted
+			assert(false);
+			return nullptr;
+		}
+
+		SZIPFileHeader localFileHeader;
+		{
+			IFile::success_t success;
+			file->read(success, &localFileHeader, centralDirectoryHeader.RelativeOffsetOfLocalHeader, sizeof(SZIPFileHeader));
+			if (!success)
+				return nullptr;
+		}
+
+		std::string filename;
+		filename.resize(localFileHeader.FilenameLength);
+		{
+			IFile::success_t success;
+			const size_t filenameOffset = centralDirectoryHeader.RelativeOffsetOfLocalHeader + sizeof(SZIPFileHeader);
+			file->read(success, filename.data(), filenameOffset, localFileHeader.FilenameLength);
+			// TODO: assertion
+			if (!success)
+				return nullptr;
+		}
+		
+		// AES encryption
+		if ((localFileHeader.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (localFileHeader.CompressionMethod == 99))
+		{
+			SZipFileExtraHeader extraHeader;
+			SZipFileAESExtraData data;
+
+			size_t localOffset = centralDirectoryHeader.RelativeOffsetOfLocalHeader + sizeof(SZIPFileHeader) + localFileHeader.FilenameLength;
+			size_t offset = localOffset + localFileHeader.ExtraFieldLength;
+			while (true)
+			{
+				{
+					IFile::success_t success;
+					file->read(success, &extraHeader, localOffset, sizeof(extraHeader));
+					if (!success)
+						break;
+					localOffset += success.getBytesToProcess();
+					if (localOffset > offset)
+						break;
+				}
+
+				if (extraHeader.ID != 0x9901u)
+					continue;
+
+				{
+					IFile::success_t success;
+					file->read(success, &data, localOffset, sizeof(data));
+					if (!success)
+						break;
+					localOffset += success.getBytesToProcess();
+					if (localOffset > offset)
+						break;
+				}
+				if (data.Vendor[0] == 'A' && data.Vendor[1] == 'E')
+				{
+#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
+					// encode values into Sig
+					// AE-Version | Strength | ActualMode
+					localFileHeader.Sig =
+						((data.Version & 0xff) << 24) |
+						(data.EncryptionStrength << 16) |
+						(data.CompressionMode);
+					break;
+#else
+					filename.clear(); // no support, can't decrypt
+#endif
+				}
+			}
+		}
+
+		const size_t fileDataOffset = centralDirectoryHeader.RelativeOffsetOfLocalHeader + localFileHeader.calcSize();
+		addItem(filename, fileDataOffset, localFileHeader);
+	}
+
+	assert(items->size() == itemsMetadata.size());
+	if (items->empty())
+		return nullptr;
+
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file), core::smart_refctd_ptr(m_logger.get()), items, std::move(itemsMetadata));
+}
+
+core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
+{
+	if (!file)
+		return nullptr;
+
+	uint16_t sig;
+	IFile::success_t success;
+	file->read(success, &sig, 0, sizeof(sig));
+	if (!success)
+		return nullptr;
+
+	const bool isGZIP = sig == SGZIPMemberHeader::ExpectedSignature;
+	if (isGZIP)
+	{
+		return createArchiveFromGZIP(std::move(file), password);
+	}
+	else
+	{
+		return createArchiveFromZIP(std::move(file), password);
+	}
+}
+#if 0
 core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
 {
 	if (!file)
@@ -338,32 +632,6 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 		return nullptr;
 
 	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()), items, std::move(itemsMetadata));
-}
-
-#if 0
-bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
-{
-	std::filesystem::path ZipFileName = "";
-	SZIPFileCentralDirFileHeader entry;
-	{
-		system::future<size_t> fut;
-		m_file->read(fut, &entry, offset, sizeof(SZIPFileCentralDirFileHeader));
-		fut.get();
-		offset += sizeof(SZIPFileCentralDirFileHeader);
-	}
-
-	if (entry.Sig != 0x02014b50)
-		return false; // central dir headers end here.
-
-	const long pos = offset;
-	offset = entry.RelativeOffsetOfLocalHeader;
-	scanZipHeader(offset, true);
-	offset = pos + entry.FilenameLength + entry.ExtraFieldLength + entry.FileCommentLength;
-	m_fileInfo.back().header.DataDescriptor.CompressedSize = entry.CompressedSize;
-	m_fileInfo.back().header.DataDescriptor.UncompressedSize = entry.UncompressedSize;
-	m_fileInfo.back().header.DataDescriptor.CRC32 = entry.CRC32;
-	m_files.back().size = entry.UncompressedSize;
-	return true;
 }
 #endif
 
