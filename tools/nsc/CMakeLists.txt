@@ -2,6 +2,9 @@ nbl_create_executable_project("" "" "" "")
 
 enable_testing()
 
+add_dependencies(${EXECUTABLE_NAME} argparse)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE $<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>)
+
 set(GODBOLT_BINARY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/compiler-explorer")
 set(GODBOLT_BINARY_PRETEST_DIRECTORY "${GODBOLT_BINARY_DIRECTORY}/pre-test")
 set(NBL_NSC_COMPILE_DIRECTORY "${GODBOLT_BINARY_PRETEST_DIRECTORY}/.compile/$<CONFIG>")
