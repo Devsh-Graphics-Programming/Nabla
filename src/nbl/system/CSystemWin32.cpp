@@ -43,11 +43,8 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
 {
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
 	const DWORD fileAccess = ((flags.value&IFile::ECF_READ) ? FILE_GENERIC_READ:0)|(writeAccess ? FILE_GENERIC_WRITE:0);
-	const bool hasShareFlags = flags.value & (IFile::ECF_SHARE_READ | IFile::ECF_SHARE_WRITE | IFile::ECF_SHARE_DELETE);
-	DWORD shareMode = hasShareFlags ? 0 : FILE_SHARE_READ;
-	if (flags.value & IFile::ECF_SHARE_READ)
-		shareMode |= FILE_SHARE_READ;
-	if (flags.value & IFile::ECF_SHARE_WRITE)
+	DWORD shareMode = FILE_SHARE_READ;
+	if (flags.value & IFile::ECF_SHARE_READ_WRITE)
 		shareMode |= FILE_SHARE_WRITE;
 	if (flags.value & IFile::ECF_SHARE_DELETE)
 		shareMode |= FILE_SHARE_DELETE;

@@ -111,7 +111,7 @@ public:
 private:
     static constexpr auto kDeleteRetries = 3u;
     static constexpr auto kDeleteDelay = std::chrono::milliseconds(100);
-    static constexpr auto kLogFlags = bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_WRITE) | IFileBase::ECF_SHARE_READ | IFileBase::ECF_SHARE_WRITE | IFileBase::ECF_SHARE_DELETE;
+    static constexpr auto kLogFlags = bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_WRITE) | IFileBase::ECF_SHARE_READ_WRITE | IFileBase::ECF_SHARE_DELETE;
 
     static inline std::string formatMessageOnly(const std::string_view& fmt, va_list args)
     {

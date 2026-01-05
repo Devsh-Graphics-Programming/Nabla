@@ -26,8 +26,7 @@ class IFileBase : public core::IReferenceCounted
 			ECF_MAPPABLE = 0b0100,
 			//! Implies ECF_MAPPABLE
 			ECF_COHERENT = 0b1100,
-			ECF_SHARE_READ = 0b10000,
-			ECF_SHARE_WRITE = 0b100000,
+			ECF_SHARE_READ_WRITE = 0b100000,
 			ECF_SHARE_DELETE = 0b1000000
 		};
 
