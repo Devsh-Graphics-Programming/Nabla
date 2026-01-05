@@ -1,19 +1,19 @@
-#include "..\..\..\..\include\nbl\ext\MitsubaLoader\CMitsubaLoader.h"
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "os.h"
 
 #include <cwchar>
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
+#if 0
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 #include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
+#endif
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -24,57 +24,10 @@ namespace nbl
 {
 using namespace asset;
 
-namespace ext
-{
-namespace MitsubaLoader
+namespace ext::MitsubaLoader
 {
 
-_NBL_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
-R"(#version 430 core
-
-layout (location = 0) in vec3 vPosition;
-layout (location = 2) in vec2 vUV;
-layout (location = 3) in vec3 vNormal;
-
-layout (location = 0) out vec3 WorldPos;
-layout (location = 1) flat out uint InstanceIndex;
-layout (location = 2) out vec3 Normal;
-layout (location = 3) out vec2 UV;
-
-#include <nbl/builtin/glsl/utils/common.glsl>
-#include <nbl/builtin/glsl/utils/transform.glsl>
-
-#ifndef _NBL_VERT_SET1_BINDINGS_DEFINED_
-#define _NBL_VERT_SET1_BINDINGS_DEFINED_
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    nbl_glsl_SBasicViewParameters params;
-} CamData;
-#endif //_NBL_VERT_SET1_BINDINGS_DEFINED_
-
-#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
-
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-	nbl_glsl_ext_Mitsuba_Loader_instance_data_t data[];
-} InstData;
-
-void main()
-{
-	mat4x3 tform = InstData.data[gl_InstanceIndex].tform;
-	mat4 mvp = nbl_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
-	gl_Position = nbl_glsl_pseudoMul4x4with3x1(mvp, vPosition);
-	WorldPos = nbl_glsl_pseudoMul3x4with3x1(tform, vPosition);
-	mat3 normalMat = mat3(InstData.data[gl_InstanceIndex].normalMatrixRow0,InstData.data[gl_InstanceIndex].normalMatrixRow1,InstData.data[gl_InstanceIndex].normalMatrixRow2);
-	Normal = transpose(normalMat)*normalize(vNormal);
-	UV = vUV;
-	InstanceIndex = gl_InstanceIndex;
-}
-
-)";
-
-_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
-R"(#version 430 core
-#extension GL_EXT_shader_integer_mix : require
-)";
+#if 0 // old material compiler
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_INPUT_OUTPUT =
 R"(
 layout (location = 0) in vec3 WorldPos;
@@ -166,62 +119,9 @@ void main()
 }
 #endif
 )";
-
-_NBL_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "nbl/builtin/specialized_shader/loaders/mitsuba_xml/default";
-
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t PREFETCH_INSTR_BUF_BINDING = 6u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t EMITTER_DATA_BUF_BINDING = 7u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 6u;
-
-template <typename AssetT>
-static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr) // TODO: @Crisspl this is duplicate code
-{
-	asset::SAssetBundle bundle(nullptr,{ asset });
-	_assetMgr->changeAssetKey(bundle, path);
-	_assetMgr->insertAssetIntoCache(bundle);
-}
-// @Crisspl TODO this needs to use the IAssetLoaderOverride instead
-template<typename AssetType, IAsset::E_TYPE assetType>
-static auto getBuiltinAsset(const char* _key, IAssetManager* _assetMgr) -> std::enable_if_t<std::is_base_of_v<asset::IAsset, AssetType>, core::smart_refctd_ptr<AssetType>>
-{
-	size_t storageSz = 1ull;
-	asset::SAssetBundle bundle;
-	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	auto assets = bundle.getContents();
-	if (assets.empty())
-		return nullptr;
-	//assert(!assets.empty());
-
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
-
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createSpecShader(const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
-{
-	auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
-	asset::ICPUSpecializedShader::SInfo info(nullptr, nullptr, "main", _stage);
-	auto specd = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shader), std::move(info));
-
-	return specd;
-}
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertexShader(asset::IAssetManager* _manager, const char* _glsl)
-{
-	auto vs = createSpecShader(_glsl, asset::ISpecializedShader::ESS_VERTEX);
-
-	insertAssetIntoCache(vs, VERTEX_SHADER_CACHE_KEY, _manager);
-
-	return vs;
-}
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
 {
-	std::string source = 
+	std::string source =
 		FRAGMENT_SHADER_PROLOGUE +
 		_mcRes.fragmentShaderSource_declarations +
 		FRAGMENT_SHADER_INPUT_OUTPUT +
@@ -232,44 +132,25 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader
 
 	return createSpecShader(source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
 }
-static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPipeline(core::smart_refctd_ptr<asset::ICPUPipelineLayout>&& _layout, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _vertshader, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _fragshader)
-{
-	auto vs = std::move(_vertshader);
-	auto fs = std::move(_fragshader);
-	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
+#endif
 
-	SRasterizationParams rasterParams;
-	rasterParams.faceCullingMode = asset::EFCM_NONE;
-	rasterParams.frontFaceIsCCW = 1;
-	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		std::move(_layout),
-		shaders, shaders+2,
-		//all the params will be overriden with those loaded with meshes
-		SVertexInputParams(),
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		rasterParams
-	);
-
-	return pipeline;
-}
-
-static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_refctd_ptr<asset::ICPUImage>&& _img) // TODO: this should seriously be a utility somewhere
+#if 0
+static core::smart_refctd_ptr<ICPUImageView> createImageView(core::smart_refctd_ptr<ICPUImage>&& _img) // TODO: this should seriously be a utility somewhere
 {
 	const auto& iparams = _img->getCreationParameters();
 
-	asset::ICPUImageView::SCreationParams params;
+	ICPUImageView::SCreationParams params;
 	params.format = iparams.format;
 	params.subresourceRange.baseArrayLayer = 0u;
 	params.subresourceRange.layerCount = iparams.arrayLayers;
 	assert(params.subresourceRange.layerCount == 1u);
 	params.subresourceRange.baseMipLevel = 0u;
 	params.subresourceRange.levelCount = iparams.mipLevels;
-	params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-	params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+	params.viewType = IImageView<ICPUImage>::ET_2D;
+	params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
 	params.image = std::move(_img);
 
-	return asset::ICPUImageView::create(std::move(params));
+	return ICPUImageView::create(std::move(params));
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, const ICPUSampler::SParams& _samplerParams, bool fromNormalMap)
 {
@@ -363,158 +244,82 @@ static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const a
 
 	return outImg;
 }
-
-core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, const asset::ICPUVirtualTexture* _vt)
-{
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
-	{
-		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
-		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
-		auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
-
-		_vt->getDSlayoutBindings(bindings->data(), samplers->data(), PAGE_TAB_TEX_BINDING, PHYS_PAGE_VIEWS_BINDING);
-		auto* b = bindings->data() + (bindings->size() - DS0_BINDING_COUNT_WO_VT);
-		b[0].binding = PRECOMPUTED_VT_DATA_BINDING;
-		b[0].count = 1u;
-		b[0].samplers = nullptr;
-		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[0].type = asset::EDT_STORAGE_BUFFER;
-
-		b[1].binding = INSTR_BUF_BINDING;
-		b[1].count = 1u;
-		b[1].samplers = nullptr;
-		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[1].type = asset::EDT_STORAGE_BUFFER;
-
-		b[2].binding = BSDF_BUF_BINDING;
-		b[2].count = 1u;
-		b[2].samplers = nullptr;
-		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[2].type = asset::EDT_STORAGE_BUFFER;
-
-		b[3].binding = INSTANCE_DATA_BINDING;
-		b[3].count = 1u;
-		b[3].samplers = nullptr;
-		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-		b[3].type = asset::EDT_STORAGE_BUFFER;
-
-		b[4].binding = PREFETCH_INSTR_BUF_BINDING;
-		b[4].count = 1u;
-		b[4].samplers = nullptr;
-		b[4].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[4].type = asset::EDT_STORAGE_BUFFER;
-
-		b[5].binding = EMITTER_DATA_BUF_BINDING;
-		b[5].count = 1u;
-		b[5].samplers = nullptr;
-		b[5].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[5].type = asset::EDT_STORAGE_BUFFER;
-
-		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data() + bindings->size());
-	}
-	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", _manager);
-
-	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
-}
-
-CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs) : asset::IRenderpassIndependentPipelineLoader(_manager), m_filesystem(_fs)
-{
-#ifdef _NBL_DEBUG
-	setDebugName("CMitsubaLoader");
 #endif
-}
 
-void CMitsubaLoader::initialize()
+bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
-	IRenderpassIndependentPipelineLoader::initialize();
-
-	auto* glslc = m_assetMgr->getGLSLCompiler();
-
-	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_filesystem));
-}
-
-bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
-{
-	constexpr uint32_t stackSize = 16u*1024u;
+	constexpr uint32_t stackSize = 16u<<10u;
 	char tempBuff[stackSize+1];
 	tempBuff[stackSize] = 0;
 
 	static const char* stringsToFind[] = { "<?xml", "version", "scene"};
 	static const wchar_t* stringsToFindW[] = { L"<?xml", L"version", L"scene"};
 	constexpr uint32_t maxStringSize = 8u; // "version\0"
-	static_assert(stackSize > 2u*maxStringSize, "WTF?");
+	static_assert(stackSize>2u*maxStringSize);
 
-	const size_t prevPos = _file->getPos();
 	const auto fileSize = _file->getSize();
-	if (fileSize < maxStringSize)
+	if (fileSize<maxStringSize)
 		return false;
 
-	_file->seek(0);
-	_file->read(tempBuff, 3u);
+	size_t pos = 0;
 	bool utf16 = false;
-	if (tempBuff[0]==0xEFu && tempBuff[1]==0xBBu && tempBuff[2]==0xBFu)
-		utf16 = false;
-	else if (reinterpret_cast<uint16_t*>(tempBuff)[0]==0xFEFFu)
 	{
-		utf16 = true;
-		_file->seek(2);
-	}
-	else
-		_file->seek(0);
-	while (true)
-	{
-		auto pos = _file->getPos();
-		if (pos >= fileSize)
-			break;
-		if (pos > maxStringSize)
-			_file->seek(_file->getPos()-maxStringSize);
-		_file->read(tempBuff,stackSize);
-		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
-		if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff, stringsToFind[i])!=nullptr))
+		system::IFile::success_t success;
+		_file->read(success,tempBuff,pos,3);
+		if (!success)
+			return false;
+		if (tempBuff[0] == 0xEFu && tempBuff[1] == 0xBBu && tempBuff[2] == 0xBFu)
+			utf16 = false;
+		else if (reinterpret_cast<uint16_t*>(tempBuff)[0] == 0xFEFFu)
 		{
-			_file->seek(prevPos);
-			return true;
+			utf16 = true;
+			pos = 2;
 		}
+		else
+			pos = 0;
 	}
-	_file->seek(prevPos);
+
+	while (pos<fileSize)
+	{
+		if (pos>maxStringSize)
+			pos -= maxStringSize;
+		system::ISystem::future_t<size_t> bytesRead;
+		_file->read(bytesRead,tempBuff,pos,stackSize);
+		if (!bytesRead.wait())
+			return false;
+		tempBuff[bytesRead.copy()] = '\0';
+		// TODO: should we require all 3 are found?
+		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
+		if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff,stringsToFind[i])!=nullptr))
+			return true;
+	}
 	return false;
 }
 
-const char** CMitsubaLoader::getAssociatedFileExtensions() const
+SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	static const char* ext[]{ "xml", nullptr };
-	return ext;
-}
-
-asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
-{
-	ParserManager parserManager(m_assetMgr->getFileSystem(),_override);
-	if (!parserManager.parse(_file))
+	auto result = m_parser.parse(_file,{.logger=_params.logger,.system=m_system.get(),._override=_override});
+	if (!result)
 		return {};
 
-	if (_params.loaderFlags & IAssetLoader::ELPF_LOAD_METADATA_ONLY)
+	auto scene = core::make_smart_refctd_ptr<ICPUScene>();
+	if (_params.loaderFlags&IAssetLoader::ELPF_LOAD_METADATA_ONLY)
 	{
-		auto emptyMesh = core::make_smart_refctd_ptr<asset::ICPUMesh>();
-		return SAssetBundle(std::move(parserManager.m_metadata),{ std::move(emptyMesh) });
+		return SAssetBundle(std::move(result.metadata),{std::move(scene)});
 	}
 	else
 	{
-		//
-		auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
+#if 0
 		SContext ctx(
-			m_assetMgr->getGeometryCreator(),
-			m_assetMgr->getMeshManipulator(),
-			asset::IAssetLoader::SAssetLoadContext{ 
-				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+//			m_assetMgr->getGeometryCreator(),
+//			m_assetMgr->getMeshManipulator(),
+			IAssetLoader::SAssetLoadContext{ 
+				IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,_params.logger,_file->getFileName().parent_path()),
 				_file
 			},
 			_override,
 			parserManager.m_metadata.get()
 		);
-		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_assetMgr))
-		{
-			createAndCacheVertexShader(m_assetMgr, DUMMY_VERTEX_SHADER);
-		}
 
 		core::map<core::smart_refctd_ptr<asset::ICPUMesh>,std::pair<std::string,CElementShape::Type>> meshes;
 		for (auto& shapepair : parserManager.shapegroups)
@@ -545,7 +350,9 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			for (auto mb : mesh.first.get()->getMeshBuffers())
 				mb->setInstanceCount(instanceCount);
 		}
+#endif
 
+#if 0
 		// TODO: put IR and stuff in metadata so that we can recompile the materials after load
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get(), decltype(ctx.backend)::EGST_PRESENT_WITH_AOV_EXTRACTION);
 		ctx.backend_ctx.vt.commitAll();
@@ -623,11 +430,12 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				parserManager.m_metadata->m_global.m_envMapImages.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*contentRange.begin()));
 			}
 		}
-
-		return asset::SAssetBundle(std::move(parserManager.m_metadata),std::move(meshSmartPtrArray));
+#endif
+		return asset::SAssetBundle(std::move(result.metadata),{std::move(scene)});
 	}
 }
 
+#if 0
 core::vector<SContext::shape_ass_type> CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
 	if (!shape)
@@ -1379,27 +1187,20 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 	return ds0;
 }
+#endif
 
 using namespace std::string_literals;
 
 SContext::SContext(
-	const asset::IGeometryCreator* _geomCreator,
-	const asset::IMeshManipulator* _manipulator,
+//	const asset::IGeometryCreator* _geomCreator,
+//	const asset::IMeshManipulator* _manipulator,
 	const asset::IAssetLoader::SAssetLoadContext& _ctx,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CMitsubaMetadata* _metadata
-) : creator(_geomCreator), manipulator(_manipulator), inner(_ctx), override_(_override), meta(_metadata),
-	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
+) : /*creator(_geomCreator), manipulator(_manipulator),*/ inner(_ctx), override_(_override), meta(_metadata)
+//,ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
-	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
-		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages
-		VT_PAGE_SZ_LOG2, 
-		VT_PAGE_PADDING, 
-		VT_MAX_ALLOCATABLE_TEX_SZ_LOG2
-	);
-	meta->m_global.m_VT = core::smart_refctd_ptr<ICPUVirtualTexture>(backend_ctx.vt.getCPUVirtualTexture());
 }
 
-}
 }
 }

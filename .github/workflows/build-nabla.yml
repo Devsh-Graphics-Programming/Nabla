@@ -146,11 +146,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
+            const headSha = context.payload.pull_request ? context.payload.pull_request.head.sha : context.sha;
             const response = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: `Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})`,
-              head_sha: context.sha,
+              head_sha: headSha,
               status: 'in_progress'
             });
             return response.data.id;
