@@ -45,6 +45,7 @@ struct ProtoPipeline final
 			video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
 			asset::SBlendParams blendParams = {},
+			asset::SRasterizationParams rasterizationParams = DefaultRasterParams,
 			const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform=hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT
 		)
 		{
@@ -68,7 +69,7 @@ struct ProtoPipeline final
 				params[0].cached = {
 					.vertexInput = {}, // The Full Screen Triangle doesn't use any HW vertex input state
 					.primitiveAssembly = {},
-					.rasterization = DefaultRasterParams,
+					.rasterization = rasterizationParams,
 					.blend = blendParams,
 					.subpassIx = subpassIx
 				};
