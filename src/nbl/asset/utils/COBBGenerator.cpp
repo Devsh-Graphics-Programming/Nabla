@@ -151,14 +151,18 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 		return result;
 	};
 
+	static auto getSqDist = [](hlsl::float32_t3 a, hlsl::float32_t3 b) -> hlsl::float32_t
+	{
+		return hlsl::dot(a - b, a - b);
+	};
 
 	static auto findFurthestPointPair = [](const ExtremalVertices& extremalVertices) -> std::pair<hlsl::float32_t3, hlsl::float32_t3>
 	{
 		int indexFurthestPair = 0;
-		auto maxSqDist = hlsl::dot(extremalVertices.maxPtr()[0], extremalVertices.minPtr()[0]);
+		auto maxSqDist = getSqDist(extremalVertices.maxPtr()[0], extremalVertices.minPtr()[0]);
 		for (int k = 1; k < SAMPLE_DIR_COUNT; k++)
 		{
-			const auto sqDist = hlsl::dot(extremalVertices.maxPtr()[k], extremalVertices.minPtr()[k]);
+			const auto sqDist = getSqDist(extremalVertices.maxPtr()[k], extremalVertices.minPtr()[k]);
 			if (sqDist > maxSqDist) { maxSqDist = sqDist; indexFurthestPair = k; }
 		}
 		return {
@@ -167,7 +171,7 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 		};
 	};
 
-	static auto sqDistPointInfiniteEdge = [](const hlsl::float32_t3& q, const hlsl::float32_t3& p0, const hlsl::float32_t3& v) -> hlsl::float32_t
+	static auto getSqDistPointInfiniteEdge = [](const hlsl::float32_t3& q, const hlsl::float32_t3& p0, const hlsl::float32_t3& v) -> hlsl::float32_t
 	{
 		const auto u0 = q - p0;
 		const auto t = dot(v, u0);
@@ -177,11 +181,11 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 
 	static auto findFurthestPointFromInfiniteEdge = [](const hlsl::float32_t3& p0, const hlsl::float32_t3& e0, const VertexCollection& vertices)
 	{
-		auto maxSqDist = sqDistPointInfiniteEdge(vertices[0], p0, e0);
+		auto maxSqDist = getSqDistPointInfiniteEdge(vertices[0], p0, e0);
 		int maxIndex = 0;
 		for (size_t i = 1; i < vertices.size; i++)
 		{
-			const auto sqDist = sqDistPointInfiniteEdge(vertices[i], p0, e0);
+			const auto sqDist = getSqDistPointInfiniteEdge(vertices[i], p0, e0);
 			if (sqDist > maxSqDist)
 			{	maxSqDist = sqDist;
 				maxIndex = i;
@@ -314,7 +318,7 @@ hlsl::shapes::OBB<> COBBGenerator::compute(const VertexCollection& vertices)
 
 			// Degenerate case 1:
 			// If the found furthest points are located very close, return OBB aligned with the initial AABB 
-			if (hlsl::dot(baseTriangleVertices[0], baseTriangleVertices[1]) < eps) 
+			if (getSqDist(baseTriangleVertices[0], baseTriangleVertices[1]) < eps) 
 			{
 				return {
 					.vertices = baseTriangleVertices,
