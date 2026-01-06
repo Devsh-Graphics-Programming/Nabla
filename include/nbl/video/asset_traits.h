@@ -9,10 +9,6 @@
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/video/IGPUDescriptorSet.h"
-#include "nbl/asset/ICPUComputePipeline.h"
-#include "nbl/video/IGPUComputePipeline.h"
-#include "nbl/asset/ICPUGraphicsPipeline.h"
-#include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/asset/ICPUSampler.h"
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/asset/ICPUImageView.h"
@@ -21,6 +17,13 @@
 #include "nbl/video/IGPUAccelerationStructure.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/video/IGPUPolygonGeometry.h"
+
+#include "nbl/asset/ICPUGraphicsPipeline.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/asset/ICPUComputePipeline.h"
+#include "nbl/video/IGPUComputePipeline.h"
+#include "nbl/asset/ICPUMeshPipeline.h"
+#include "nbl/video/IGPUMeshPipeline.h"
 #include "nbl/asset/ICPURayTracingPipeline.h"
 #include "nbl/video/IGPURayTracingPipeline.h"
 
@@ -96,19 +99,6 @@ struct asset_traits<asset::ICPUPipelineCache>
 	using lookup_t = const video_t*;
 };
 
-template<>
-struct asset_traits<asset::ICPUComputePipeline>
-{
-	// the asset type
-	using asset_t = asset::ICPUComputePipeline;
-	// Pipeline Layout references Descriptor Set Layouts
-	constexpr static inline bool HasChildren = true;
-	// the video type
-	using video_t = IGPUComputePipeline;
-	// lookup type
-	using lookup_t = const video_t*;
-};
-
 
 template<>
 struct asset_traits<asset::ICPURenderpass>
@@ -119,19 +109,6 @@ struct asset_traits<asset::ICPURenderpass>
 	constexpr static inline bool HasChildren = false;
 	// the video type
 	using video_t = IGPURenderpass;
-	// lookup type
-	using lookup_t = const video_t*;
-};
-
-template<>
-struct asset_traits<asset::ICPUGraphicsPipeline>
-{
-	// the asset type
-	using asset_t = asset::ICPUGraphicsPipeline;
-	// we reference a pipeline layout and a renderpass
-	constexpr static inline bool HasChildren = true;
-	// the video type
-	using video_t = IGPUGraphicsPipeline;
 	// lookup type
 	using lookup_t = const video_t*;
 };
@@ -245,6 +222,45 @@ struct asset_traits<asset::ICPUPolygonGeometry>
 	using lookup_t = const video_t*;
 };
 
+
+template<>
+struct asset_traits<asset::ICPUGraphicsPipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPUGraphicsPipeline;
+	// we reference a pipeline layout and a renderpass
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUGraphicsPipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+template<>
+struct asset_traits<asset::ICPUComputePipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPUComputePipeline;
+	// Pipeline Layout references Descriptor Set Layouts
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUComputePipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+template<>
+struct asset_traits<asset::ICPUMeshPipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPUMeshPipeline;
+	// Pipeline Layout references Descriptor Set Layouts
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUMeshPipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
 
 template<>
 struct asset_traits<asset::ICPURayTracingPipeline>

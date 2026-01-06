@@ -1020,17 +1020,29 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createPipelineCache(initialData,notThreadsafe);
         }
 
-        bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output);
-
         bool createGraphicsPipelines(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
         );
 
-        bool createRayTracingPipelines(IGPUPipelineCache* const pipelineCache,
-          const std::span<const IGPURayTracingPipeline::SCreationParams> params,
-          core::smart_refctd_ptr<IGPURayTracingPipeline>* const output);
+        bool createComputePipelines(
+            IGPUPipelineCache* const pipelineCache, 
+            const std::span<const IGPUComputePipeline::SCreationParams> params, 
+            core::smart_refctd_ptr<IGPUComputePipeline>* const output
+        );
+
+        bool createMeshPipelines(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPUMeshPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPUMeshPipeline>* const output
+        );
+
+        bool createRayTracingPipelines(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPURayTracingPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPURayTracingPipeline>* const output
+        );
         
         // queries
         inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)
@@ -1276,16 +1288,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             return retval;
         }
+        virtual void createGraphicsPipelines_impl(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
+            const SSpecializationValidationResult& validation
+        ) = 0;
         virtual void createComputePipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
             const SSpecializationValidationResult& validation
         ) = 0;
-        virtual void createGraphicsPipelines_impl(
+        virtual void createMeshPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
-            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
+            const std::span<const IGPUMeshPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPUMeshPipeline>* const output,
             const SSpecializationValidationResult& validation
         ) = 0;
         virtual void createRayTracingPipelines_impl(

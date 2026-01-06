@@ -406,15 +406,21 @@ bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const asset:
     return true;
 }
 
+bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
+{
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject());
+    return true;
+}
+
 bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* const pipeline)
 {
     getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
-bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
+bool CVulkanCommandBuffer::bindMeshPipeline_impl(const IGPUMeshPipeline* const pipeline) 
 {
-    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject());
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanMeshPipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
@@ -636,6 +642,18 @@ bool CVulkanCommandBuffer::dispatch_impl(const uint32_t groupCountX, const uint3
 bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding)
 {
     getFunctionTable().vkCmdDispatchIndirect(m_cmdbuf,static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),binding.offset);
+    return true;
+}
+
+bool CVulkanCommandBuffer::drawMeshTasks_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ)
+{
+    getFunctionTable().vkCmdDrawMeshTasksEXT(m_cmdbuf, groupCountX, groupCountY, groupCountZ);
+    return true;
+}
+
+bool CVulkanCommandBuffer::drawMeshTasksIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
+{
+    getFunctionTable().vkCmdDrawMeshTasksIndirectEXT(m_cmdbuf, static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(), binding.offset, drawCount, stride);
     return true;
 }
 
