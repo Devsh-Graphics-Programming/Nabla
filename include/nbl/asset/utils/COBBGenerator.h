@@ -11,15 +11,17 @@
 
 namespace nbl::asset
 {
-  class COBBGenerator
-  {
-    public:
 
-      using VertexCollection = CPolygonGeometryManipulator::VertexCollection;
+class COBBGenerator
+{
+  public:
 
-      static hlsl::shapes::OBB<> compute(const VertexCollection& vertices);
+    using VertexCollection = CPolygonGeometryManipulator::VertexCollection;
 
-  };
+    static hlsl::shapes::OBB<> compute(const VertexCollection& vertices);
+
+};
+
 }
 
 #endif
