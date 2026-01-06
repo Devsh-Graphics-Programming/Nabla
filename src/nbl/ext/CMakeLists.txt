@@ -66,6 +66,18 @@ if(NBL_BUILD_DEBUG_DRAW)
     )
 endif()
 
+if(NBL_BUILD_ENVMAP_IMPORTANCE_SAMPLING)
+    add_subdirectory(EnvmapImportanceSampling)
+    set(NBL_EXT_ENVMAP_IMPORTANCE_SAMPLING_INCLUDE_DIRS
+        ${NBL_EXT_ENVMAP_IMPORTANCE_SAMPLING_INCLUDE_DIRS}
+        PARENT_SCOPE
+    )
+    set(NBL_EXT_ENVMAP_IMPORTANCE_SAMPLING_LIB
+        ${NBL_EXT_ENVMAP_IMPORTANCE_SAMPLING_LIB}
+        PARENT_SCOPE
+    )
+endif()
+
 propagate_changed_variables_to_parent_scope()
 
 NBL_ADJUST_FOLDERS(ext)
