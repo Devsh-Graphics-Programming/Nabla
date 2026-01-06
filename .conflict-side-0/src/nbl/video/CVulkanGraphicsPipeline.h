@@ -1,0 +1,35 @@
+#ifndef _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
+#define _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
+
+
+#include "nbl/video/IGPUGraphicsPipeline.h"
+
+
+namespace nbl::video
+{
+
+class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
+{
+    public:
+        CVulkanGraphicsPipeline(const SCreationParams& params, const VkPipeline vk_pipeline) :
+            IGPUGraphicsPipeline(params), m_vkPipeline(vk_pipeline)
+        {
+            if (params.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_STATISTICS))
+                populateExecutableInfo(params.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
+        }
+
+        inline const void* getNativeHandle() const override {return &m_vkPipeline;}
+
+        inline VkPipeline getInternalObject() const {return m_vkPipeline;}
+
+        void populateExecutableInfo(bool includeInternalRepresentations) override;
+
+    private:
+        ~CVulkanGraphicsPipeline();
+
+        const VkPipeline m_vkPipeline;
+};
+
+}
+
+#endif

@@ -1,0 +1,41 @@
+#version 460 core
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 8
+#endif
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+#include <nbl/builtin/glsl/scan/descriptors.glsl>
+#include <nbl/builtin/glsl/scan/virtual_workgroup.glsl>
+#include <nbl/builtin/glsl/scan/default_scheduler.glsl>
+
+#ifndef _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
+nbl_glsl_scan_Parameters_t scanParams;
+nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
+{
+	return scanParams;
+}
+#define _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
+#endif
+
+uint nbl_glsl_scan_getIndirectElementCount();
+
+#ifndef _NBL_GLSL_SCAN_GET_SCHEDULER_PARAMETERS_DEFINED_
+nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
+nbl_glsl_scan_DefaultSchedulerParameters_t nbl_glsl_scan_getSchedulerParameters()
+{
+	nbl_glsl_scan_scheduler_computeParameters(nbl_glsl_scan_getIndirectElementCount(),scanParams,schedulerParams);
+	return schedulerParams;
+}
+#define _NBL_GLSL_SCAN_GET_SCHEDULER_PARAMETERS_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_MAIN_DEFINED_
+void main()
+{
+	if (bool(nbl_glsl_scan_getIndirectElementCount()))
+		nbl_glsl_scan_main();
+}
+#define _NBL_GLSL_MAIN_DEFINED_
+#endif

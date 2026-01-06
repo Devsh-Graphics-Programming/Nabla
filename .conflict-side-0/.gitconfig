@@ -1,0 +1,2 @@
+[alias]
+    devsh = "!f() { git -c submodule.ci.update=checkout -c submodule.Ditt-Reference-Scenes.update=checkout \"$@\"; }; f"

@@ -1,0 +1,3 @@
+#undef NBL_LOG
+#undef NBL_LOG_ERROR
+#undef NBL_LOG_FUNCTION

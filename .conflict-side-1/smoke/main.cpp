@@ -1,0 +1,83 @@
+#define ENABLE_SMOKE
+
+using namespace nbl;
+using namespace nbl::system;
+using namespace nbl::core;
+using namespace nbl::asset;
+
+#ifdef ENABLE_SMOKE
+
+class Smoke final : public system::IApplicationFramework
+{
+    using base_t = system::IApplicationFramework;
+
+public:
+    using base_t::base_t;
+
+    bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
+    {
+        const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
+
+        if (sdk)
+        {
+            auto dir = std::filesystem::absolute(std::filesystem::path(sdk).make_preferred()).string();
+            std::cout << "[INFO]: NBL_INSTALL_DIRECTORY = \"" << dir.c_str() << "\"\n";
+        }
+        else
+            std::cerr << "[INFO]: NBL_INSTALL_DIRECTORY env was not defined!\n";
+
+        if (isAPILoaded())
+        {
+            std::cout << "[INFO]: Loaded Nabla API\n";
+        }
+        else
+        {
+            std::cerr << "[ERROR]: Could not load Nabla API, terminating!\n";
+            return false;
+        }
+
+        exportGpuProfiles();
+
+        return true;
+    }
+
+    void workLoopBody() override {}
+    bool keepRunning() override { return false; }
+
+private:
+    static void exportGpuProfiles()
+    {
+        std::string arg2 = "-o";
+        std::string buf;
+        std::string arg1;
+        std::string arg3;
+
+        for (size_t i = 0;; i++)
+        {
+            auto stringifiedIndex = std::to_string(i);
+            arg1 = "--json=" + stringifiedIndex;
+            arg3 = "device_" + stringifiedIndex + ".json";
+            std::array<const char*, 3> args = { arg1.data(), arg2.data(), arg3.data() };
+
+            int code = nbl::video::vulkaninfo(args);
+
+            if (code != 0)
+                break;
+
+            // print out file content
+            std::ifstream input(arg3);
+            
+            while (std::getline(input, buf))
+            {
+                std::cout << buf << "\n";
+            }
+
+            std::cout << "\n\n";
+        }
+    }
+};
+
+NBL_MAIN_FUNC(Smoke)
+#else
+int main() { return 0; }
+#endif
