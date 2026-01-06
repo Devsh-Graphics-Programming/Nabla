@@ -184,21 +184,21 @@ struct quaternion
         return retval;
     }
 
-    this_t operator*(scalar_type scalar)
+    this_t operator*(scalar_type scalar) NBL_CONST_MEMBER_FUNC
     {
         this_t output;
         output.data = data * scalar;
         return output;
     }
 
-    this_t operator*(NBL_CONST_REF_ARG(this_t) other)
+    this_t operator*(NBL_CONST_REF_ARG(this_t) other) NBL_CONST_MEMBER_FUNC
     {
         this_t retval;
         retval.data = data_type(
-            data.w * other.data.w - data.x * other.x - data.y * other.data.y - data.z * other.data.z,
-            data.w * other.data.x + data.x * other.w + data.y * other.data.z - data.z * other.data.y,
-            data.w * other.data.y - data.x * other.z + data.y * other.data.w + data.z * other.data.x,
-            data.w * other.data.z + data.x * other.y - data.y * other.data.x + data.z * other.data.w
+            data.w * other.data.x + data.x * other.data.w + data.y * other.data.z - data.z * other.data.y,
+            data.w * other.data.y - data.x * other.data.z + data.y * other.data.w + data.z * other.data.x,
+            data.w * other.data.z + data.x * other.data.y - data.y * other.data.x + data.z * other.data.w,
+            data.w * other.data.w - data.x * other.data.x - data.y * other.data.y - data.z * other.data.z
         );
         return retval;
     }
@@ -270,7 +270,7 @@ struct quaternion
         mat[0] = mat[0] * scalar_type(2.0);
         mat[1] = mat[1] * scalar_type(2.0);
         mat[2] = mat[2] * scalar_type(2.0);
-        return mat;// hlsl::transpose(mat);    // TODO: double check transpose?
+        return mat;
     }
 
     static vector3_type slerp_delta(const vector3_type start, const vector3_type preScaledWaypoint, scalar_type cosAngleFromStart)
@@ -335,7 +335,7 @@ struct static_cast_helper<math::quaternion<T>, math::truncated_quaternion<T> >
     {
         math::quaternion<T> retval;
         retval.data.xyz = q.data;
-        retval.data.w = hlsl::sqrt(scalar_type(1.0) - hlsl::dot(q.data, q.data));
+        retval.data.w = hlsl::sqrt(T(1.0) - hlsl::dot(q.data, q.data));
         return retval;
     }
 };
