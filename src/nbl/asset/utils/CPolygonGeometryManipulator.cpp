@@ -528,62 +528,6 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 	return clone;
 }
 
-//
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon, uint32_t normalAttrID, VxCmpFunction vxcmp)
-{
-	if (inbuffer == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		return nullptr;
-	}
-
-	//Mesh has to have unique primitives
-	if (inbuffer->getIndexType() != E_INDEX_TYPE::EIT_UNKNOWN)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		return nullptr;
-	}
-
-    core::smart_refctd_ptr<ICPUMeshBuffer> outbuffer;
-    if (makeNewMesh)
-    {
-        outbuffer = core::move_and_static_cast<ICPUMeshBuffer>(inbuffer->clone(0u));
-
-        const auto normalAttr = inbuffer->getNormalAttributeIx();
-        auto normalBinding = inbuffer->getBindingNumForAttribute(normalAttr);
-        const auto oldPipeline = inbuffer->getPipeline();
-        auto vertexParams = oldPipeline->getCachedCreationParams().vertexInput;
-        bool notUniqueBinding = false;
-        for (uint16_t attr=0u; attr<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; attr++)
-        if (attr!=normalAttr && (vertexParams.enabledAttribFlags&(0x1u<<attr))!=0u && vertexParams.attributes[attr].binding==normalBinding)
-            notUniqueBinding = true;
-        if (notUniqueBinding)
-        {
-            int32_t firstBindingNotUsed = hlsl::findLSB(vertexParams.enabledBindingFlags^0xffffu);
-            assert(firstBindingNotUsed>0 && firstBindingNotUsed<SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
-            normalBinding = static_cast<uint32_t>(firstBindingNotUsed);
-
-            vertexParams.attributes[normalAttr].binding = normalBinding;
-            vertexParams.enabledBindingFlags |= 0x1u<<normalBinding;
-        }
-
-        const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(inbuffer->getAttribFormat(normalAttr));
-        auto normalBuf = ICPUBuffer::create({ normalFormatBytesize*IMeshManipulator::upperBoundVertexID(inbuffer) });
-        outbuffer->setVertexBufferBinding({0ull,std::move(normalBuf)},normalBinding);
-
-        auto pipeline = core::move_and_static_cast<ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
-        vertexParams.bindings[normalBinding].stride = normalFormatBytesize;
-        vertexParams.attributes[normalAttr].relativeOffset = 0u;
-        pipeline->getCachedCreationParams().vertexInput = vertexParams;
-        outbuffer->setPipeline(std::move(pipeline));
-    }
-    else
-        outbuffer = core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer);
-	CSmoothNormalGenerator::calculateNormals(outbuffer.get(), epsilon, normalAttrID, vxcmp);
-
-	return outbuffer;
-}
-
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric)
 {
 	if (!_inbuffer)
