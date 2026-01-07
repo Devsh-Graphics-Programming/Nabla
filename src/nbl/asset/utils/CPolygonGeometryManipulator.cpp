@@ -19,10 +19,6 @@
 namespace nbl::asset
 {
 
-hlsl::shapes::OBB<> CPolygonGeometryManipulator::calculateOBB(const VertexCollection& vertices)
-{
-  return COBBGenerator::compute(vertices);
-}
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* inGeo)
 {

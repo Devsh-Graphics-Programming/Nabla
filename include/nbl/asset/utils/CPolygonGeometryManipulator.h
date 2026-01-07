@@ -10,6 +10,7 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
+#include "nbl/asset/utils/COBBGenerator.h"
 #include "nbl/builtin/hlsl/shapes/obb.hlsl"
 
 namespace nbl::asset
@@ -232,26 +233,13 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_COUNT
 		};
 
-		struct VertexCollection
-		{
-			using FetchFn = std::function<hlsl::float32_t3(size_t vertexIndex)>;
-			FetchFn fetch;
-			size_t size;
+    template <typename FetchVertexFn> 
+      requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
+    static hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn)
+    {
+			return COBBGenerator::compute(vertexCount, std::forward<FetchVertexFn>(fetchFn));
+    }
 
-			static auto fromSpan(std::span<const hlsl::float32_t3> vertices) -> VertexCollection
-			{
-				return VertexCollection{
-					.fetch = [data = vertices.data()](size_t vertexIndex)-> hlsl::float32_t3
-					{
-						return data[vertexIndex];
-					},
-					.size = vertices.size()
-				};
-			}
-
-			hlsl::float32_t3 operator[](size_t index) const { return fetch(index); }
-		};
-    static hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(const VertexCollection& vertexCollection);
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
 
 		using SSNGVertexData = CSmoothNormalGenerator::VertexData;

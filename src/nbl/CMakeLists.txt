@@ -186,7 +186,6 @@ set(NBL_ASSET_SOURCES
 # Meshes
 	asset/utils/CForsythVertexCacheOptimizer.cpp
 	asset/utils/CSmoothNormalGenerator.cpp
-	asset/utils/COBBGenerator.cpp
 	asset/utils/CGeometryCreator.cpp
 	asset/utils/CPolygonGeometryManipulator.cpp
 	asset/utils/COverdrawPolygonGeometryOptimizer.cpp
