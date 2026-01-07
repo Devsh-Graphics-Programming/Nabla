@@ -134,9 +134,9 @@ struct quaternion
         }
 
         const scalar_type m00 = m[0][0], m11 = m[1][1], m22 = m[2][2];
-        const scalar_type neg_m00 = bit_cast<scalar_type>(bit_cast<AsUint>(m00)^0x80000000u);
-        const scalar_type neg_m11 = bit_cast<scalar_type>(bit_cast<AsUint>(m11)^0x80000000u);
-        const scalar_type neg_m22 = bit_cast<scalar_type>(bit_cast<AsUint>(m22)^0x80000000u);
+        const scalar_type neg_m00 = -m00;
+        const scalar_type neg_m11 = -m11;
+        const scalar_type neg_m22 = -m22;
         const data_type Qx = data_type(m00, m00, neg_m00, neg_m00);
         const data_type Qy = data_type(m11, neg_m11, m11, neg_m11);
         const data_type Qz = data_type(m22, neg_m22, neg_m22, m22);
@@ -186,7 +186,7 @@ struct quaternion
             }
         }
 
-        retval.data = hlsl::normalize(retval.data);
+        retval.data = hlsl::normalize(retval.data) / hlsl::sqrt(hlsl::dot(m[0], m[0])); // restore uniform scale
         return retval;
     }
 
@@ -211,6 +211,8 @@ struct quaternion
 
     static this_t unnormLerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
     {
+        assert(hlsl::length(start.data) == scalar_type(1.0));
+        assert(hlsl::length(end.data) == scalar_type(1.0));
         // TODO: benchmark uint sign flip vs just *sign(totalPseudoAngle)
         const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, hlsl::promote<data_type>(totalPseudoAngle));
 
@@ -241,6 +243,9 @@ struct quaternion
 
     static this_t unnormFlerp(const this_t start, const this_t end, const scalar_type fraction)
     {
+        assert(hlsl::length(start.data) == scalar_type(1.0));
+        assert(hlsl::length(end.data) == scalar_type(1.0));
+
         const scalar_type pseudoAngle = hlsl::dot(start.data,end.data);
         const scalar_type interpolantPrecalcTerm = fraction - scalar_type(0.5);
         const scalar_type interpolantPrecalcTerm3 = fraction * interpolantPrecalcTerm * (fraction - scalar_type(1.0));
@@ -259,9 +264,10 @@ struct quaternion
 
     vector3_type transformVector(const vector3_type v, const bool assumeNoScale=false) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type scale = hlsl::mix(hlsl::length(data), scalar_type(1.0), assumeNoScale);
-        vector3_type direction = data.xyz;
-        return v * scale + hlsl::cross(direction, v * data.w + hlsl::cross(direction, v)) * scalar_type(2.0);
+        const scalar_type scaleRcp = scalar_type(1.0) / hlsl::sqrt(hlsl::dot(data, data));
+        const vector3_type modV = v * scalar_type(2.0) * scaleRcp;
+        const vector3_type direction = data.xyz;
+        return v / scaleRcp + hlsl::cross(direction, modV * data.w + hlsl::cross(direction, modV));
     }
 
     matrix_type constructMatrix() NBL_CONST_MEMBER_FUNC
@@ -336,8 +342,10 @@ struct normalize_helper<math::truncated_quaternion<T> >
 {
     static inline math::truncated_quaternion<T> __call(const math::truncated_quaternion<T> q)
     {
+        assert(hlsl::length(q.data) == scalar_type(1.0));
+
         math::truncated_quaternion<T> retval;
-        retval.data = hlsl::normalize(q.data);
+        retval.data = q.data;   // should be normalized by definition (dropped component should be 1.0)
         return retval;
     }
 };
