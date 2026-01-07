@@ -433,20 +433,22 @@ class COBBGenerator
         const hlsl::float32_t3& localMax) -> hlsl::shapes::OBB<3, hlsl::float32_t>
         {
           const auto localMid = 0.5f * (localMin + localMax);
-          return {
-            .mid = axes[0] * localMid.x + axes[1] * localMid.y + axes[2] * localMid.z,
-            .axes = axes,
-            .ext = 0.5f * (localMax - localMin)
-          };
+          const hlsl::float32_t3 axesArray[3] = {axes[0], axes[1], axes[2]};
+          return hlsl::shapes::OBB<3, hlsl::float32_t>::create(
+            axes[0] * localMid.x + axes[1] * localMid.y + axes[2] * localMid.z,
+            0.5f * (localMax - localMin),
+            axesArray
+          );
         };
 
-      static auto computeObb = [](const Axes& axes, const VertexCollection& vertices)
+      static auto computeObb = [](const Axes& axes, const VertexCollection& vertices, hlsl::float32_t& quality)
         {
           const auto extremalX = findExtremalProjs_OneDir(axes[0], vertices);
           const auto extremalY = findExtremalProjs_OneDir(axes[1], vertices);
           const auto extremalZ = findExtremalProjs_OneDir(axes[2], vertices);
           const auto localMin = hlsl::float32_t3{ extremalX.minProj, extremalY.minProj, extremalZ.minProj };
           const auto localMax = hlsl::float32_t3{ extremalX.maxProj, extremalY.maxProj, extremalZ.maxProj };
+          quality = getQualityValue(localMax - localMin);
           return buildObbFromAxesAndLocalMinMax(axes, localMin, localMax);
         };
 
@@ -465,7 +467,8 @@ class COBBGenerator
 
         const auto v = normalize(cross(u, r));
         const auto w = normalize(cross(u, v));
-        return computeObb({ u, v, w }, vertices);
+        hlsl::float32_t quality;
+        return computeObb({ u, v, w }, vertices, quality);
       };
 
       const auto extremals = findExtremals_7FixedDirs(vertices);
@@ -506,10 +509,11 @@ class COBBGenerator
       // Find improved OBB axes based on constructed di-tetrahedral shape raised from base triangle
       findImprovedObbAxesFromUpperAndLowerTetrasOfBaseTriangle(selectedVertices, baseTriangle, bestAxes, bestVal);
 
-      const auto obb = computeObb(bestAxes, vertices);
+      hlsl::float32_t improvedObbQuality;
+      const auto obb = computeObb(bestAxes, vertices, improvedObbQuality);
 
       // Check if the OBB extent is still smaller than the intial AABB
-      if (getQualityValue(2.f * obb.ext) < alVal)
+      if (improvedObbQuality < alVal)
         return obb;
       return hlsl::shapes::OBB<>::createAxisAligned(alMid, alLen);
 

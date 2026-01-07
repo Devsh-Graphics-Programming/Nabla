@@ -369,15 +369,7 @@ bool DrawAABB::renderSingle(const DrawParameters& params, const hlsl::shapes::AA
 
 hlsl::float32_t3x4 DrawAABB::getTransformFromOBB(const hlsl::shapes::OBB<3, float>& obb)
 {
-	const auto obbScale = obb.ext * 2.0f;
-	const auto axesScaleX = obb.axes[0] * obbScale.x;
-	const auto axesScaleY = obb.axes[1] * obbScale.y;
-	const auto axesScaleZ = obb.axes[2] * obbScale.z;
-	return float32_t3x4{
-    axesScaleX.x, axesScaleY.x, axesScaleZ.x, obb.mid.x - (0.5 * (axesScaleX.x + axesScaleY.x + axesScaleZ.x)),
-    axesScaleX.y, axesScaleY.y, axesScaleZ.y, obb.mid.y - (0.5 * (axesScaleX.y + axesScaleY.y + axesScaleZ.y)),
-    axesScaleX.z, axesScaleY.z, axesScaleZ.z, obb.mid.z - (0.5 * (axesScaleX.z + axesScaleY.z + axesScaleZ.z)),
-	};
+	return obb.transform;
 }
 
 }

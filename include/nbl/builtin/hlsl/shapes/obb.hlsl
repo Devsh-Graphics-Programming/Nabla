@@ -17,22 +17,47 @@ struct OBB
 	using scalar_t = Scalar;
 	using point_t = vector<Scalar,D>;
 
-	static OBB createAxisAligned(point_t mid, point_t len)
+	NBL_CONSTEXPR_STATIC_INLINE OBB create(point_t mid, point_t ext, const point_t axes[D])
 	{
-		OBB ret;
-		ret.mid = mid;
-		ret.ext = len * 0.5f;
-		for (auto dim_i = 0; dim_i < D; dim_i++)
+		point_t obbScale = ext * 2.0f;
+		point_t axesScale[D];
+		for (int dim_i = 0; dim_i < D; dim_i++)
 		{
-			ret.axes[dim_i] = point_t(0);
-			ret.axes[dim_i][dim_i] = 1;
+			axesScale[dim_i] = axes[dim_i] * obbScale[dim_i];
+		}
+		OBB ret;
+		for (int row_i = 0; row_i < D; row_i++)
+		{
+		  for (int col_i = 0; col_i < D; col_i++)
+		  {
+				ret.transform[row_i][col_i] = axesScale[col_i][row_i];
+		  }
+		}
+		for (int dim_i = 0; dim_i < D; dim_i++)
+		{
+			scalar_t sum = 0; 
+			for (int dim_j = 0; dim_j < D; dim_j++)
+			{
+				sum += axesScale[dim_j][dim_i];
+			}
+			ret.transform[dim_i][D] = mid[dim_i] - (0.5 * sum);
 		}
 		return ret;
+	  
 	}
 
-	point_t mid;
-	std::array<point_t, D> axes;
-	point_t ext;
+	NBL_CONSTEXPR_STATIC_INLINE OBB createAxisAligned(point_t mid, point_t len)
+	{
+		point_t axes[D];
+		for (auto dim_i = 0; dim_i < D; dim_i++)
+		{
+			axes[dim_i] = point_t(0);
+			axes[dim_i][dim_i] = 1;
+		}
+		return create(mid, len * 0.5f, axes);
+	}
+
+	matrix<scalar_t, D, D + 1> transform;
 };
 
 }
