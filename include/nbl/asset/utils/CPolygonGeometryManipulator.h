@@ -235,7 +235,7 @@ class NBL_API2 CPolygonGeometryManipulator
 
     template <typename FetchVertexFn> 
       requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
-    static hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn)
+    static inline hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn)
     {
 			return COBBGenerator::compute(vertexCount, std::forward<FetchVertexFn>(fetchFn));
     }
