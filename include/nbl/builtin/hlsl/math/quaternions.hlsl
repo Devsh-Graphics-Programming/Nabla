@@ -296,18 +296,17 @@ struct quaternion
         if (cosA <= (scalar_type(1.0) - threshold)) // spherical interpolation
         {
             this_t retval;
-
-            const scalar_type A = hlsl::acos(cosA);
             const scalar_type sinARcp  = scalar_type(1.0) / hlsl::sqrt(scalar_type(1.0) - cosA * cosA);
-            const scalar_type sinAt = hlsl::sin(fraction * A);
+            const scalar_type sinAt = hlsl::sin(fraction * hlsl::acos(cosA));
+            const scalar_type sinAt_over_sinA = sinAt*sinARcp;
+            const scalar_type scale = hlsl::sqrt(scalar_type(1.0)-sinAt*sinAt) - sinAt_over_sinA*cosA; //cosAt-cos(A)sin(tA)/sin(A) = (sin(A)cos(tA)-cos(A)sin(tA))/sin(A)
             const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, hlsl::promote<data_type>(totalPseudoAngle));
-            retval.data = (hlsl::sin((scalar_type(1.0) - fraction) * A) * start.data + sinAt * adjEnd) * sinARcp;
+            retval.data = scale * start.data + sinAt_over_sinA * adjEnd;
 
             return retval;
         }
         else
             return unnormLerp(start, end, fraction, totalPseudoAngle);
-            // return hlsl::normalize(unnormLerp(start, end, fraction, totalPseudoAngle));
     }
 
     this_t inverse() NBL_CONST_MEMBER_FUNC
