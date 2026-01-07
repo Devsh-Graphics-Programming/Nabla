@@ -51,12 +51,13 @@ struct quaternion
 
     // angle: Rotation angle expressed in radians.
     // axis: Rotation axis, must be normalized.
-    static this_t create(const vector3_type axis, scalar_type angle)
+    template<typename U=vector3_type, typename F=scalar_type NBL_FUNC_REQUIRES(is_same_v<vector3_type,U> && is_same_v<scalar_type,F>)
+    static this_t create(const U axis, const F angle, const F uniformScale = scalar_type(1.0))
     {
         this_t q;
         const scalar_type sinTheta = hlsl::sin(angle * 0.5);
         const scalar_type cosTheta = hlsl::cos(angle * 0.5);
-        q.data = data_type(axis * sinTheta, cosTheta);
+        q.data = data_type(axis * sinTheta, cosTheta) * uniformScale;
         return q;
     }
 
@@ -301,7 +302,7 @@ struct quaternion
         if (cosA <= (scalar_type(1.0) - threshold)) // spherical interpolation
         {
             this_t retval;
-            const scalar_type sinARcp  = scalar_type(1.0) / hlsl::sqrt(scalar_type(1.0) - cosA * cosA);
+            const scalar_type sinARcp = scalar_type(1.0) / hlsl::sqrt(scalar_type(1.0) - cosA * cosA);
             const scalar_type sinAt = hlsl::sin(fraction * hlsl::acos(cosA));
             const scalar_type sinAt_over_sinA = sinAt*sinARcp;
             const scalar_type scale = hlsl::sqrt(scalar_type(1.0)-sinAt*sinAt) - sinAt_over_sinA*cosA; //cosAt-cos(A)sin(tA)/sin(A) = (sin(A)cos(tA)-cos(A)sin(tA))/sin(A)
