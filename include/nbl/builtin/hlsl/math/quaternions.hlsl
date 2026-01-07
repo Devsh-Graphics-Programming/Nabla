@@ -206,10 +206,10 @@ struct quaternion
     static this_t unnormLerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
     {
         // TODO: benchmark uint sign flip vs just *sign(totalPseudoAngle)
-        const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, totalPseudoAngle);
+        const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, hlsl::promote<data_type>(totalPseudoAngle));
 
         this_t retval;
-        retval.data = hlsl::mix(start.data, adjEnd, fraction);
+        retval.data = hlsl::mix(start.data, adjEnd, hlsl::promote<data_type>(fraction));
         return retval;
     }
 
@@ -287,10 +287,33 @@ struct quaternion
         return precompPart * cosAngle + hlsl::cross(planeNormal, precompPart);
     }
 
+    static this_t slerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type threshold = numeric_limits<scalar_type>::epsilon)
+    {
+        const scalar_type totalPseudoAngle = hlsl::dot(start.data, end.data);
+
+        // make sure we use the short rotation
+        const scalar_type cosA = ieee754::flipSignIfRHSNegative<scalar_type>(totalPseudoAngle, totalPseudoAngle);
+        if (cosA <= (scalar_type(1.0) - threshold)) // spherical interpolation
+        {
+            this_t retval;
+
+            const scalar_type A = hlsl::acos(cosA);
+            const scalar_type sinARcp  = scalar_type(1.0) / hlsl::sqrt(scalar_type(1.0) - cosA * cosA);
+            const scalar_type sinAt = hlsl::sin(fraction * A);
+            const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, hlsl::promote<data_type>(totalPseudoAngle));
+            retval.data = (hlsl::sin((scalar_type(1.0) - fraction) * A) * start.data + sinAt * adjEnd) * sinARcp;
+
+            return retval;
+        }
+        else
+            return unnormLerp(start, end, fraction, totalPseudoAngle);
+            // return hlsl::normalize(unnormLerp(start, end, fraction, totalPseudoAngle));
+    }
+
     this_t inverse() NBL_CONST_MEMBER_FUNC
     {
         this_t retval;
-        retval.data.xyz = -retval.data.xyz;
+        retval.data.xyz = -data.xyz;
         retval.data.w = data.w;
         return retval;
     }
