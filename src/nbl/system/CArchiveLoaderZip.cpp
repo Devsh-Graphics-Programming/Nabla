@@ -20,9 +20,7 @@ struct SZIPFileCentralDirFileHeader
 	uint16_t CompressionMethod;
 	uint16_t LastModFileTime;
 	uint16_t LastModFileDate;
-	uint32_t CRC32;
-	uint32_t CompressedSize;
-	uint32_t UncompressedSize;
+	nbl::system::CArchiveLoaderZip::SZIPFileDataDescriptor DataDescriptor;
 	uint16_t FilenameLength;
 	uint16_t ExtraFieldLength;
 	uint16_t FileCommentLength;
@@ -353,6 +351,9 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(cor
 				}
 			}
 		}
+
+		// copying the data descriptor from the central directory header because it is always valid (data descriptor from local file header may be invalid when bit 3 in general purpose bit flag is set)
+		localFileHeader.DataDescriptor = centralDirectoryHeader.DataDescriptor;
 
 		const size_t fileDataOffset = centralDirectoryHeader.RelativeOffsetOfLocalHeader + localFileHeader.calcSize();
 		addItem(filename, fileDataOffset, localFileHeader);
