@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/math/linalg/matrix_runtime_traits.hlsl"
 
 namespace nbl
 {
@@ -96,31 +97,12 @@ struct quaternion
         );
     }
 
-    static bool __isEqual(const scalar_type a, const scalar_type b)
-    {
-        return hlsl::max(a/b, b/a) <= scalar_type(1e-4);
-    }
-    static bool __dotIsZero(const vector3_type a, const vector3_type b)
-    {
-        const scalar_type ab = hlsl::dot(a, b);
-        return hlsl::abs(ab) <= scalar_type(1e-4);
-    }
-
     static this_t create(NBL_CONST_REF_ARG(matrix_type) m, const bool dontAssertValidMatrix=false)
     {
         {
             // only orthogonal and uniform scale mats can be converted
-            bool valid = __dotIsZero(m[0], m[1]);
-            valid = __dotIsZero(m[1], m[2]) && valid;
-            valid = __dotIsZero(m[0], m[2]) && valid;
-
-            const matrix_type m_T = hlsl::transpose(m);
-            const scalar_type dotCol0 = hlsl::dot(m_T[0],m_T[0]);
-            const scalar_type dotCol1 = hlsl::dot(m_T[1],m_T[1]);
-            const scalar_type dotCol2 = hlsl::dot(m_T[2],m_T[2]);
-            valid = __isEqual(dotCol0, dotCol1) && valid;
-            valid = __isEqual(dotCol1, dotCol2) && valid;
-            valid = __isEqual(dotCol0, dotCol2) && valid;
+            linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(m);
+            bool valid = traits.orthogonal && traits.uniformScale;
 
             if (dontAssertValidMatrix)
                 if (!valid)
