@@ -367,9 +367,4 @@ bool DrawAABB::renderSingle(const DrawParameters& params, const hlsl::shapes::AA
 	return true;
 }
 
-hlsl::float32_t3x4 DrawAABB::getTransformFromOBB(const hlsl::shapes::OBB<3, float>& obb)
-{
-	return obb.transform;
-}
-
 }
