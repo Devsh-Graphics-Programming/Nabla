@@ -17,27 +17,29 @@ namespace hlsl
 namespace sampling
 {
 
-template <typename T, typename LuminanceAccessor NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::LuminanceReadAccessor<LuminanceAccessor>)
+template <typename T, typename LuminanceAccessorT NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT>)
 struct LuminanceMapSampler
 {
 	using scalar_type = T;
 	using vector2_type = vector<scalar_type, 2>;
 	using vector4_type = vector<scalar_type, 4>;
 
-	LuminanceAccessor _map;
-	uint32_t _mapSize;
+	LuminanceAccessorT _map;
+	uint32_t2 _mapSize;
+  uint32_t2 _lastWarpPixel;
 	bool _aspect2x1;
 
-	static LuminanceMapSampler<T, LuminanceAccessor> create(NBL_CONST_REF_ARG(LuminanceAccessor) lumaMap, vector2_type mapSize, bool aspect2x1)
+	static LuminanceMapSampler<T, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1, uint32_t2 warpSize)
 	{
-	  LuminanceAccessor result;
+	  LuminanceMapSampler<T, LuminanceAccessorT> result;
 	  result._map = lumaMap;
 	  result._mapSize = mapSize;
+    result._lastWarpPixel = warpSize - uint32_t2(1, 1);
 	  result._aspect2x1 = aspect2x1;
 	  return result;
 	}
 
-	static bool choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi)
+	static bool choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(float32_t) xi)
 	{
 		// numerical resilience against IEEE754
 		scalar_type dummy = 0.0f;
@@ -46,8 +48,9 @@ struct LuminanceMapSampler
 		return partition(xi, dummy);
 	}
 
-	vector2_type binarySearch(const vector2_type xi)
+	vector2_type binarySearch(const uint32_t2 coord)
 	{
+    float32_t2 xi = float32_t2(coord)/ _lastWarpPixel;
 		uint32_t2 p = uint32_t2(0, 0);
 		const uint32_t2 mip2x1 = findMSB(_mapSize.x) - 1;
 
@@ -87,18 +90,18 @@ struct LuminanceMapSampler
 		return directionUV;
 	}
 
-	matrix<scalar_type, 4, 2> sampleUvs(vector2_type sampleCoord) NBL_CONST_MEMBER_FUNC
+	matrix<scalar_type, 4, 2> sampleUvs(uint32_t2 sampleCoord) NBL_CONST_MEMBER_FUNC
 	{
-		const vector2_type dir0 = binarySearch(_map, _mapSize, sampleCoord + vector2_type(0, 1), _aspect2x1);
-		const vector2_type dir1 = binarySearch(_map, _mapSize, sampleCoord + vector2_type(1, 1), _aspect2x1);
-		const vector2_type dir2 = binarySearch(_map, _mapSize, sampleCoord + vector2_type(1, 0), _aspect2x1);
-		const vector2_type dir3 = binarySearch(_map, _mapSize, sampleCoord, _aspect2x1);
-		return {
+		const vector2_type dir0 = binarySearch(sampleCoord + vector2_type(0, 1));
+		const vector2_type dir1 = binarySearch(sampleCoord + vector2_type(1, 1));
+		const vector2_type dir2 = binarySearch(sampleCoord + vector2_type(1, 0));
+		const vector2_type dir3 = binarySearch(sampleCoord);
+		return matrix<scalar_type, 4, 2>(
 			dir0,
 			dir1,
 			dir2,
 			dir3
-		};
+		);
 	}
 };
 
@@ -110,7 +113,7 @@ struct HierarchicalImage
 	using vector3_type = vector<T, 3>;
 	using vector4_type = vector<T, 4>;
 	HierarchicalSamplerT sampler;
-	uint32_t warpSize;
+	uint32_t2 warpSize;
 	uint32_t2 lastWarpPixel;
 
 	static HierarchicalImage create(NBL_CONST_REF_ARG(HierarchicalSamplerT) sampler, uint32_t2 warpSize) 
@@ -143,7 +146,7 @@ struct HierarchicalImage
 		const vector2_type yDiff = yVals[1] - yVals[0];
 		const vector2_type uv = yDiff * interpolant.y + yVals[0];
 
-		const WarpResult warpResult = PostWarpT::warp(uv);
+		const WarpResult<float32_t3> warpResult = PostWarpT::warp(uv);
 
 		const scalar_type detInterpolJacobian = determinant(matrix<float32_t, 2, 2>(
 			lerp(xDiffs[0], xDiffs[1], interpolant.y), // first column dFdx
