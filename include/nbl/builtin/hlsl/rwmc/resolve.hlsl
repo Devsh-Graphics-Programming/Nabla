@@ -27,7 +27,7 @@ namespace rwmc
 #define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define scalar NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_EXPR)((a.calcLuma(vector<VectorScalarType, 3>(scalar, scalar, scalar)))))
+	((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.calcLuma(vec)), ::nbl::hlsl::is_same_v, VectorScalarType))
 );
 #undef a
 #undef scalar
