@@ -22,22 +22,22 @@ struct QuantizedSequence;
 
 namespace impl
 {
-template<uint16_t Bits>
+template<typename FloatScalar, uint16_t Bits>
 struct unorm_constant;
 template<>
-struct unorm_constant<4> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3d888889u; };
+struct unorm_constant<float,4> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3d888889u; };
 template<>
-struct unorm_constant<5> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3d042108u; };
+struct unorm_constant<float,5> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3d042108u; };
 template<>
-struct unorm_constant<8> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3b808081u; };
+struct unorm_constant<float,8> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3b808081u; };
 template<>
-struct unorm_constant<10> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3a802008u; };
+struct unorm_constant<float,10> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x3a802008u; };
 template<>
-struct unorm_constant<16> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x37800080u; };
+struct unorm_constant<float,16> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x37800080u; };
 template<>
-struct unorm_constant<21> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x35000004u; };
+struct unorm_constant<float,21> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x35000004u; };
 template<>
-struct unorm_constant<32> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x2f800004u; };
+struct unorm_constant<float,32> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x2f800004u; };
 
 template<typename T, uint16_t D, bool EncodeScramble>
 struct decode_helper;
@@ -46,30 +46,28 @@ template<typename T, uint16_t D>
 struct decode_helper<T, D, false>
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
-    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
-    using uvec_type = vector<scalar_type, D>;
+    using uvec_type = vector<uint32_t, D>;
     using sequence_type = QuantizedSequence<T, D>;
-    using return_type = vector<fp_type, D>;
-    NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = unorm_constant<8u*sizeof(scalar_type)>::value;
+    using return_type = vector<float32_t, D>;
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = unorm_constant<float,8u*sizeof(scalar_type)>::value;
 
     static return_type __call(NBL_CONST_REF_ARG(sequence_type) val, const uvec_type scrambleKey)
     {
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < D; i++)
             seqVal[i] = val.get(i) ^ scrambleKey[i];
-        return return_type(seqVal) * bit_cast<fp_type>(UNormConstant);
+        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(scalar_type)> >(UNormConstant);
     }
 };
 template<typename T, uint16_t D>
 struct decode_helper<T, D, true>
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
-    using fp_type = typename float_of_size<sizeof(scalar_type)>::type;
-    using uvec_type = vector<scalar_type, D>;
+    using uvec_type = vector<uint32_t, D>;
     using sequence_type = QuantizedSequence<T, D>;
     using sequence_store_type = typename sequence_type::store_type;
     using sequence_scalar_type = typename vector_traits<sequence_store_type>::scalar_type;
-    using return_type = vector<fp_type, D>;
+    using return_type = vector<float32_t, D>;
     NBL_CONSTEXPR_STATIC_INLINE scalar_type UNormConstant = sequence_type::UNormConstant;
 
     static return_type __call(NBL_CONST_REF_ARG(sequence_type) val, const uvec_type scrambleKey)
@@ -82,25 +80,26 @@ struct decode_helper<T, D, true>
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < D; i++)
             seqVal[i] = scramble.get(i);
-        return return_type(seqVal) * bit_cast<fp_type>(UNormConstant);
+        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(scalar_type)> >(UNormConstant);
     }
 };
+
+template<typename T>
+NBL_BOOL_CONCEPT SequenceSpecialization = concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> <= 4;
 }
 
 template<typename T, uint16_t D, bool EncodeScramble=false>
-vector<typename float_of_size<sizeof(typename vector_traits<T>::scalar_type)>::type, D> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, D>) val, const vector<typename vector_traits<T>::scalar_type, D> scrambleKey)
+vector<float_of_size_t<sizeof(typename vector_traits<T>::scalar_type)>, D> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, D>) val, const vector<typename vector_traits<T>::scalar_type, D> scrambleKey)
 {
     return impl::decode_helper<T,D,EncodeScramble>::__call(val, scrambleKey);
 }
 
-#define SEQUENCE_SPECIALIZATION_CONCEPT concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> <= 4
-
 // all Dim=1
-template<typename T> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT)
-struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT) >
+template<typename T> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T>)
+struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T>) >
 {
     using store_type = T;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<8u*sizeof(store_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,8u*sizeof(store_type)>::value;
 
     store_type get(const uint16_t idx) { assert(idx > 0 && idx < 1); return data; }
     void set(const uint16_t idx, const store_type value) { assert(idx > 0 && idx < 1); data = value; }
@@ -109,15 +108,15 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEP
 };
 
 // uint16_t, uint32_t; Dim=2,3,4
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5) >
 {
     using store_type = T;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE store_type Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = StoreBits - BitsPerComponent;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<BitsPerComponent>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,BitsPerComponent>::value;
 
     store_type get(const uint16_t idx)
     {
@@ -137,12 +136,12 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 };
 
 // Dim 2,3,4 matches vector dim
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5) >
 {
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<8u*sizeof(scalar_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,8u*sizeof(scalar_type)>::value;
 
     scalar_type get(const uint16_t idx) { assert(idx > 0 && idx < Dim); return data[idx]; }
     void set(const uint16_t idx, const scalar_type value) { assert(idx > 0 && idx < Dim); data[idx] = value; }
@@ -151,8 +150,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 };
 
 // uint16_t2, uint32_t2; Dim=3
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 3)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 3) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 2 && Dim == 3)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 2 && Dim == 3) >
 {
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -160,7 +159,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE scalar_type Mask = (scalar_type(1u) << BitsPerComponent) - scalar_type(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<scalar_type>) - BitsPerComponent;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<BitsPerComponent>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,BitsPerComponent>::value;
 
     scalar_type get(const uint16_t idx)
     {
@@ -204,8 +203,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 };
 
 // uint16_t2, uint32_t2; Dim=4
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 4)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 2 && Dim == 4) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 2 && Dim == 4)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 2 && Dim == 4) >
 {
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -213,7 +212,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE scalar_type Mask = (uint16_t(1u) << BitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<scalar_type>) - BitsPerComponent;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<BitsPerComponent>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,BitsPerComponent>::value;
 
     scalar_type get(const uint16_t idx)
     {
@@ -235,13 +234,13 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 };
 
 // uint16_t4, uint32_t4; Dim=2
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 2)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 2) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 4 && Dim == 2)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 4 && Dim == 2) >
 {
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     using base_type = vector<scalar_type, 2>;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<8u*sizeof(scalar_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,8u*sizeof(scalar_type)>::value;
 
     base_type get(const uint16_t idx)
     {
@@ -266,8 +265,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 // uint16_t4, uint32_t4; Dim=3
 // uint16_t4 --> returns uint16_t2 - 21 bits per component: 16 in x, 5 in y
 // uint16_t4 --> returns uint32_t2 - 42 bits per component: 32 in x, 10 in y
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 3)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == 4 && Dim == 3) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 4 && Dim == 3)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 4 && Dim == 3) >
 {
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -277,7 +276,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LeftoverBitsPerComponent = BitsPerComponent - uint16_t(8u) * size_of_v<scalar_type>;
     NBL_CONSTEXPR_STATIC_INLINE scalar_type Mask = (uint16_t(1u) << LeftoverBitsPerComponent) - uint16_t(1u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<base_type>) - BitsPerComponent;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<8u*sizeof(scalar_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = impl::unorm_constant<float,8u*sizeof(scalar_type)>::value;
 
     base_type get(const uint16_t idx)
     {
@@ -298,8 +297,6 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(SEQUENCE_SPECIALIZATION_CONC
 
     store_type data;
 };
-
-#undef SEQUENCE_SPECIALIZATION_CONCEPT
 
 }
 
