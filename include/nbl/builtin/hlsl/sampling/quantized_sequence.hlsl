@@ -117,6 +117,14 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
 
+    static QuantizedSequence<T, Dim> create(const vector<store_type, Dim> value)
+    {
+        QuantizedSequence<T, Dim> seq;
+        NBL_UNROLL for (uint16_t i = 0; i < Dim; i++)
+            seq.set(i, value[i]);
+        return seq;
+    }
+
     store_type get(const uint16_t idx)
     {
         assert(idx > 0 && idx < Dim);
@@ -155,6 +163,14 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<scalar_type>) - BitsPerComponent;
+
+    static QuantizedSequence<T, Dim> create(const vector<scalar_type, Dim> value)
+    {
+        QuantizedSequence<T, Dim> seq;
+        NBL_UNROLL for (uint16_t i = 0; i < Dim; i++)
+            seq.set(i, value[i]);
+        return seq;
+    }
 
     scalar_type get(const uint16_t idx)
     {
@@ -196,6 +212,14 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+
+    static QuantizedSequence<T, Dim> create(const vector<scalar_type, Dim> value)
+    {
+        QuantizedSequence<T, Dim> seq;
+        NBL_UNROLL for (uint16_t i = 0; i < Dim; i++)
+            seq.set(i, value[i]);
+        return seq;
+    }
 
     scalar_type get(const uint16_t idx)
     {
