@@ -98,6 +98,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct lgamma_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct beta_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct gamma_helper;
 
 #ifdef __HLSL_VERSION
 
@@ -603,6 +605,88 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 			return T(0.0);
 
 		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
+	}
+};
+
+// incomplete gamma function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	NBL_CONSTEXPR_STATIC_INLINE T epsilon = 1e-15;
+	NBL_CONSTEXPR_STATIC_INLINE T big = 4503599627370496.0;
+	NBL_CONSTEXPR_STATIC_INLINE T bigInv = 2.22044604925031308085e-16;
+
+	static T __call(T a, T x)
+	{
+        assert(a >= T(0.0) && x >= T(0.0));
+
+        if (x == T(0.0))
+            return T(0.0);
+
+        T ax = (a * log_helper<T>::__call(x)) - x - lgamma_helper<T>::__call(a);
+        if (ax < T(-709.78271289338399))
+            return hlsl::mix(T(0.0), T(1.0), a < x);
+
+        if (x <= T(1.0) || x <= a)
+        {
+            T r2 = a;
+            T c2 = T(1.0);
+            T ans2 = T(1.0);
+
+            do {
+                r2 = r2 + T(1.0);
+                c2 = c2 * x / r2;
+                ans2 += c2;
+            } while ((c2 / ans2) > epsilon);
+
+            return exp_helper<T>::__call(ax) * ans2 / a;
+        }
+
+        int c = 0;
+        T y = T(1.0) - a;
+        T z = x + y + T(1.0);
+        T p3 = T(1.0);
+        T q3 = x;
+        T p2 = x + T(1.0);
+        T q2 = z * x;
+        T ans = p2 / q2;
+        T error;
+
+        do {
+            c++;
+            y += T(1.0);
+            z += T(2.0);
+            T yc = y * c;
+            T p = (p2 * z) - (p3 * yc);
+            T q = (q2 * z) - (q3 * yc);
+
+            if (q != T(0.0))
+            {
+                T nextans = p / q;
+                error = abs_helper<T>::__call((ans - nextans) / nextans);
+                ans = nextans;
+            }
+            else
+            {
+                error = 1;
+            }
+
+            p3 = p2;
+            p2 = p;
+            q3 = q2;
+            q2 = q;
+
+            if (abs_helper<T>::__call(p) > big)
+            {
+                p3 *= bigInv;
+                p2 *= bigInv;
+                q3 *= bigInv;
+                q2 *= bigInv;
+            }
+        } while (error > epsilon);
+
+        return T(1.0) - (exp_helper<T>::__call(ax) * ans);
 	}
 };
 
