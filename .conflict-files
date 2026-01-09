@@ -1,3 +1,0 @@
-ancestorEntries = ["src/nbl/ext/CMakeLists.txt"]
-ourEntries = ["src/nbl/ext/CMakeLists.txt"]
-theirEntries = ["src/nbl/ext/CMakeLists.txt"]
