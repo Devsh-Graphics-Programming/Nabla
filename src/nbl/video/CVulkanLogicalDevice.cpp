@@ -1121,7 +1121,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
 
         if (requireFullSubgroups)
         {
-            assert(stage==hlsl::ShaderStage::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
+            assert(stage == hlsl::ShaderStage::ESS_COMPUTE || stage == hlsl::ShaderStage::ESS_MESH || stage == hlsl::ShaderStage::ESS_TASK);
             retval.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT;
         }
     }
@@ -1176,8 +1176,8 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     for (const auto& info : createInfos)
     {
         initPipelineCreateInfo(outCreateInfo,info);
-        const auto& spec = info.shader;
-        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(spec, hlsl::ShaderStage::ESS_COMPUTE, info.cached.requireFullSubgroups, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
+        
+        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(info.shader, hlsl::ShaderStage::ESS_COMPUTE, info.cached.requireFullSubgroups, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
@@ -1202,26 +1202,136 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
 
-void CVulkanLogicalDevice::createGraphicsPipelines_impl(
-    IGPUPipelineCache* const pipelineCache,
-    const std::span<const IGPUGraphicsPipeline::SCreationParams> createInfos,
-    core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
-    const SSpecializationValidationResult& validation
-)
-{
-    auto getVkStencilOpStateFrom = [](const asset::SStencilOpParams& params)->VkStencilOpState
-    {
-        return {
-            .failOp = static_cast<VkStencilOp>(params.failOp),
-            .passOp = static_cast<VkStencilOp>(params.passOp),
-            .depthFailOp = static_cast<VkStencilOp>(params.depthFailOp),
-            .compareOp = static_cast<VkCompareOp>(params.compareOp)
-        };
+void PopulateViewport(VkPipelineViewportStateCreateInfo& outViewport, nbl::asset::SRasterizationParams const& raster) {
+    outViewport.viewportCount = raster.viewportCount;
+    // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
+    outViewport.scissorCount = raster.viewportCount;
+}
+
+
+void PopulateRaster(VkPipelineRasterizationStateCreateInfo& outRaster, nbl::asset::SRasterizationParams const& raster) {
+    outRaster.depthClampEnable = raster.depthClampEnable;
+    outRaster.rasterizerDiscardEnable = raster.rasterizerDiscard;
+    outRaster.polygonMode = static_cast<VkPolygonMode>(raster.polygonMode);
+    outRaster.cullMode = static_cast<VkCullModeFlags>(raster.faceCullingMode);
+    outRaster.frontFace = raster.frontFaceIsCCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+    outRaster.depthBiasEnable = raster.depthBiasEnable;
+}
+
+void PopulateMultisample(VkPipelineMultisampleStateCreateInfo& outMultisample, nbl::asset::SRasterizationParams const& raster) {
+    outMultisample.rasterizationSamples = static_cast<VkSampleCountFlagBits>(0x1 << raster.samplesLog2);
+    if (raster.minSampleShadingUnorm > 0) {
+        outMultisample.sampleShadingEnable = true;
+        outMultisample.minSampleShading = float(raster.minSampleShadingUnorm) / 255.f;
+    }
+    else {
+        outMultisample.sampleShadingEnable = false;
+        outMultisample.minSampleShading = 0.f;
+    }
+    outMultisample.pSampleMask = raster.sampleMask;
+    outMultisample.alphaToCoverageEnable = raster.alphaToCoverageEnable;
+    outMultisample.alphaToOneEnable = raster.alphaToOneEnable;
+}
+VkStencilOpState getVkStencilOpStateFrom(const asset::SStencilOpParams& params) {
+    return {
+        .failOp = static_cast<VkStencilOp>(params.failOp),
+        .passOp = static_cast<VkStencilOp>(params.passOp),
+        .depthFailOp = static_cast<VkStencilOp>(params.depthFailOp),
+        .compareOp = static_cast<VkCompareOp>(params.compareOp)
     };
+}
 
-    const auto& features = getEnabledFeatures();
+void PopulateDepthStencil(VkPipelineDepthStencilStateCreateInfo& outDepthStencil, nbl::asset::SRasterizationParams const& raster) {
+    outDepthStencil.depthTestEnable = raster.depthTestEnable();
+    outDepthStencil.depthWriteEnable = raster.depthWriteEnable;
+    outDepthStencil.depthCompareOp = static_cast<VkCompareOp>(raster.depthCompareOp);
+    outDepthStencil.depthBoundsTestEnable = raster.depthBoundsTestEnable;
+    outDepthStencil.stencilTestEnable = raster.stencilTestEnable();
+    outDepthStencil.front = getVkStencilOpStateFrom(raster.frontStencilOps);
+    outDepthStencil.back = getVkStencilOpStateFrom(raster.backStencilOps);
+}
 
-    core::vector<VkDynamicState> vk_dynamicStates = {
+void PopulateColorBlend(
+    VkPipelineColorBlendStateCreateInfo& outColorBlend,
+    VkPipelineColorBlendAttachmentState*& outColorBlendAttachmentState,
+    nbl::asset::SBlendParams const& blend,
+    nbl::asset::IRenderpass::SCreationParams::SSubpassDescription const& subpass
+) {
+    //outColorBlend->flags no attachment order access yet
+    outColorBlend.logicOpEnable = blend.logicOp != asset::ELO_NO_OP;
+    outColorBlend.logicOp = getVkLogicOpFromLogicOp(blend.logicOp);
+    outColorBlend.pAttachments = outColorBlendAttachmentState;
+    for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++) {
+        if (subpass.colorAttachments[i].render.used()) {
+            const auto& params = blend.blendParams[i];
+            outColorBlendAttachmentState->blendEnable = params.blendEnabled();
+            outColorBlendAttachmentState->srcColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcColorFactor));
+            outColorBlendAttachmentState->dstColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstColorFactor));
+            outColorBlendAttachmentState->colorBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.colorBlendOp));
+            outColorBlendAttachmentState->srcAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcAlphaFactor));
+            outColorBlendAttachmentState->dstAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstAlphaFactor));
+            outColorBlendAttachmentState->alphaBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.alphaBlendOp));
+            outColorBlendAttachmentState->colorWriteMask = getVkColorComponentFlagsFromColorWriteMask(params.colorWriteMask);
+            outColorBlendAttachmentState++;
+            //^that pointer iterator is how we ensure the attachments or consecutive
+        }
+    }
+    outColorBlend.attachmentCount = std::distance<const VkPipelineColorBlendAttachmentState*>(outColorBlend.pAttachments, outColorBlendAttachmentState);
+}
+
+template<typename SCreationParams>
+void PopulateMeshGraphicsCommonData(
+    const std::span<const SCreationParams> createInfos,
+    core::vector<VkGraphicsPipelineCreateInfo>& vk_createInfos,
+
+    core::vector<VkPipelineViewportStateCreateInfo>& vk_viewportStates,
+    core::vector<VkPipelineRasterizationStateCreateInfo>& vk_rasterizationStates,
+    core::vector<VkPipelineMultisampleStateCreateInfo>& vk_multisampleStates,
+    core::vector<VkPipelineDepthStencilStateCreateInfo>& vk_depthStencilStates,
+    core::vector<VkPipelineColorBlendStateCreateInfo>& vk_colorBlendStates,
+    core::vector<VkPipelineColorBlendAttachmentState>& vk_colorBlendAttachmentStates,
+
+    core::vector<VkDynamicState>& vk_dynamicStates,
+    const VkPipelineDynamicStateCreateInfo& vk_dynamicStateCreateInfo
+) {
+    //the main concern is lifetime, so don't want to construct, move, or copy anything in here
+
+    auto outColorBlendAttachmentState = vk_colorBlendAttachmentStates.data(); //the pointer iterator is used
+
+
+    for (uint32_t i = 0; i < createInfos.size(); i++) { //whats the maximum number of pipelines that can be created at once? uint32_t to be safe
+        auto& info = createInfos[i];
+        const auto& blend = info.cached.blend;
+        const auto& raster = info.cached.rasterization;
+        const auto& subpass = info.renderpass->getCreationParameters().subpasses[info.cached.subpassIx];
+
+        initPipelineCreateInfo(&vk_createInfos[i], info);
+
+        PopulateViewport(vk_viewportStates[i], raster);
+        PopulateRaster(vk_rasterizationStates[i], raster);
+        PopulateMultisample(vk_multisampleStates[i], raster);
+        PopulateDepthStencil(vk_depthStencilStates[i], raster);
+        PopulateColorBlend(vk_colorBlendStates[i], outColorBlendAttachmentState, blend, subpass);
+        //PopulateDynamicState(dynState, ?)
+
+
+        vk_createInfos[i].pViewportState = &vk_viewportStates[i];
+        vk_createInfos[i].pRasterizationState = &vk_rasterizationStates[i];
+        vk_createInfos[i].pMultisampleState = &vk_multisampleStates[i];
+        vk_createInfos[i].pDepthStencilState = &vk_depthStencilStates[i];
+        vk_createInfos[i].pColorBlendState = &vk_colorBlendStates[i];
+        vk_createInfos[i].pDynamicState = &vk_dynamicStateCreateInfo;
+        vk_createInfos[i].renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject();
+        vk_createInfos[i].subpass = info.cached.subpassIx;
+        //handle
+        //index
+        //layout?
+        // ^ handled in initPipelineCreateInfo
+    }
+}
+
+core::vector<VkDynamicState> getDefaultDynamicStates(SPhysicalDeviceFeatures const& features) {
+    core::vector<VkDynamicState> ret = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_LINE_WIDTH,
@@ -1231,19 +1341,164 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
         VK_DYNAMIC_STATE_STENCIL_REFERENCE
     };
-    if (features.depthBounds)
-        vk_dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    if (features.depthBounds) {
+        ret.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    }
     // TODO: VK_DYNAMIC_STATE_DISCARD_RECTANGLE_EXT, VK_DYNAMIC_STATE_DISCARD_RECTANGLE_ENABLE_EXT, VK_DYNAMIC_STATE_DISCARD_RECTANGLE_MODE_EXT
-    
-    const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { 
+
+    return ret;
+}
+
+//maximum cleanliness,i tried it and im not a big fan
+//struct CommonPipelineStruct {
+//    VkPipelineRasterizationStateCreateInfo vk_rasterizationStates{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0 };
+//    VkPipelineMultisampleStateCreateInfo vk_multisampleStates{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0 };
+//    VkPipelineDepthStencilStateCreateInfo vk_depthStencilStates{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0 };
+//    VkPipelineColorBlendStateCreateInfo vk_colorBlendStates{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0 };
+//    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates{ IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments };
+//};
+
+
+void CVulkanLogicalDevice::createMeshPipelines_impl(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPUMeshPipeline::SCreationParams> createInfos,
+    core::smart_refctd_ptr<IGPUMeshPipeline>* const output,
+    const SSpecializationValidationResult& validation
+) {
+    const auto& features = getEnabledFeatures();
+
+    const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject() : VK_NULL_HANDLE;
+
+    core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr });
+
+    core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(createInfos.size() * IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
+
+    core::vector<VkDynamicState> vk_dynamicStates = getDefaultDynamicStates(features);
+
+    const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0u,
         .dynamicStateCount = static_cast<uint32_t>(vk_dynamicStates.size()),
         .pDynamicStates = vk_dynamicStates.data()
     };
+    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(), {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr, // the extensions that interest us have a dynamic state variant anyway
+        .flags = 0, // must be 0
+        .viewportCount = 0,
+        .pViewports = nullptr,
+        .scissorCount = 0,
+        .pScissors = nullptr,
+                                                                      });
 
-    const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
+    PopulateMeshGraphicsCommonData(
+        createInfos, vk_createInfos,
+
+        vk_viewportStates,
+        vk_rasterizationStates,
+        vk_multisampleStates,
+        vk_depthStencilStates,
+        vk_colorBlendStates,
+        vk_colorBlendAttachmentStates,
+
+        vk_dynamicStates, vk_dynamicStateCreateInfo
+    );
+
+    //not used in mesh pipelines
+    for (auto& outCreateInfo : vk_createInfos) {
+        outCreateInfo.pVertexInputState = nullptr;
+        outCreateInfo.pInputAssemblyState = nullptr;
+        outCreateInfo.pTessellationState = nullptr;
+    }
+    auto outCreateInfo = vk_createInfos.data();
+
+    const auto maxShaderStages = createInfos.size() * IGPUMeshPipeline::MESH_SHADER_STAGE_COUNT;
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages, { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr });
+    core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages, { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0 });
+    core::vector<std::string> entryPoints(maxShaderStages);
+    core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages, {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr });
+    core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages, { 0,nullptr,0,nullptr });
+    core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
+    core::vector<uint8_t> specializationData(validation.dataSize);
+    auto outShaderStage = vk_shaderStage.data();
+    auto outEntryPoints = entryPoints.data();
+    auto outShaderModule = vk_shaderModule.data();
+    auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
+    auto outSpecInfo = vk_specializationInfos.data();
+    auto outSpecMapEntry = vk_specializationMapEntry.data();
+    auto outSpecData = specializationData.data();
+
+    //shader
+    for (const auto& info : createInfos)
+    {
+        outCreateInfo->pStages = outShaderStage;
+        auto processSpecShader = [&](IGPUPipelineBase::SShaderSpecInfo spec, hlsl::ShaderStage shaderStage)
+            {
+                if (spec.shader)
+                {
+                    *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec,
+                                                                         shaderStage,
+                                                                         false,
+                                                                         outShaderModule,
+                                                                         outEntryPoints,
+                                                                         outRequiredSubgroupSize,
+                                                                         outSpecInfo,
+                                                                         outSpecMapEntry,
+                                                                         outSpecData
+                    );
+                    outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
+                }
+            };
+        processSpecShader(info.taskShader, hlsl::ShaderStage::ESS_TASK);
+        processSpecShader(info.meshShader, hlsl::ShaderStage::ESS_MESH);
+        processSpecShader(info.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+
+        outCreateInfo++;
+    }
+
+    auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
+    std::stringstream debugNameBuilder;
+    if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache, vk_createInfos.size(), vk_createInfos.data(), nullptr, vk_pipelines) == VK_SUCCESS)
+    {
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            const auto& createInfo = createInfos[i];
+            const VkPipeline vk_pipeline = vk_pipelines[i];
+            // break the lifetime cause of the aliasing
+            std::uninitialized_default_construct_n(output + i, 1);
+            output[i] = core::make_smart_refctd_ptr<CVulkanMeshPipeline>(createInfos[i], vk_pipeline);
+            debugNameBuilder.str("");
+            auto buildDebugName = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage stage)
+                {
+                    if (spec.shader != nullptr)
+                        debugNameBuilder << spec.shader->getFilepathHint() << "(" << spec.entryPoint << "," << stage << ")\n";
+                };
+            buildDebugName(createInfo.taskShader, hlsl::ESS_TASK);
+            buildDebugName(createInfo.meshShader, hlsl::ESS_MESH);
+            buildDebugName(createInfo.fragmentShader, hlsl::ESS_FRAGMENT);
+            output[i]->setObjectDebugName(debugNameBuilder.str().c_str());
+        }
+    }
+    else
+        std::fill_n(output, vk_createInfos.size(), nullptr);
+}
+
+void CVulkanLogicalDevice::createGraphicsPipelines_impl(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPUGraphicsPipeline::SCreationParams> createInfos,
+    core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
+    const SSpecializationValidationResult& validation
+)
+{
+    const auto& features = getEnabledFeatures();
+
+    const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject() : VK_NULL_HANDLE;
     // Interesting things to put in pNext:
     // - AttachmentSampleCountInfoAMD
     // - Graphics Pipeline Library styff
@@ -1252,24 +1507,26 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     // - Discard Rectangle State
     // - Fragment Shading Rate State Creation Info
     // - Piepline Robustness 
-    core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(),{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr});
 
-    const auto maxShaderStages = createInfos.size()*IGPUGraphicsPipeline::GRAPHICS_SHADER_STAGE_COUNT;
-    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages,{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr});
-    core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages,{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0});
-    core::vector<std::string> entryPoints(maxShaderStages);
-    core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages,{
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
-    });
-    core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages,{0,nullptr,0,nullptr});
-    core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
-    core::vector<uint8_t> specializationData(validation.dataSize);
-    core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkVertexInputBindingDescription> vk_inputBinding(createInfos.size()*asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
-    core::vector<VkVertexInputAttributeDescription> vk_inputAttribute(createInfos.size()*asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT);
-    core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssembly(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineTessellationStateCreateInfo> vk_tessellation(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(),{
+    //maximum cleanliness, I create a struct that holds this for mesh and graphics?
+    core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr });
+
+    core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(createInfos.size() * IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
+
+    core::vector<VkDynamicState> vk_dynamicStates = getDefaultDynamicStates(features);
+
+    const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0u,
+        .dynamicStateCount = static_cast<uint32_t>(vk_dynamicStates.size()),
+        .pDynamicStates = vk_dynamicStates.data()
+    };
+    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(), {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = nullptr, // the extensions that interest us have a dynamic state variant anyway
         .flags = 0, // must be 0
@@ -1277,68 +1534,54 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         .pViewports = nullptr,
         .scissorCount = 0,
         .pScissors = nullptr,
-    });
-    core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(createInfos.size()*IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
+                                                                      });
+
+    PopulateMeshGraphicsCommonData(
+        createInfos, vk_createInfos,
+
+        vk_viewportStates,
+        vk_rasterizationStates,
+        vk_multisampleStates,
+        vk_depthStencilStates,
+        vk_colorBlendStates,
+        vk_colorBlendAttachmentStates,
+
+        vk_dynamicStates, vk_dynamicStateCreateInfo
+    );
+
+
+    core::vector<VkVertexInputBindingDescription> vk_inputBinding(createInfos.size() * asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
+    core::vector<VkVertexInputAttributeDescription> vk_inputAttribute(createInfos.size() * asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT);
+    core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssembly(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineTessellationStateCreateInfo> vk_tessellation(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,nullptr,0 });
+    core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(), { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0 });
 
     auto outCreateInfo = vk_createInfos.data();
-    auto outShaderStage = vk_shaderStage.data();
-    auto outEntryPoints = entryPoints.data();
-    auto outShaderModule = vk_shaderModule.data();
-    auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
-    auto outSpecInfo = vk_specializationInfos.data();
-    auto outSpecMapEntry = vk_specializationMapEntry.data();
-    auto outSpecData = specializationData.data();
     auto outVertexInput = vk_vertexInput.data();
     auto outInputBinding = vk_inputBinding.data();
     auto outInputAttribute = vk_inputAttribute.data();
-    auto outInputAssembly = vk_inputAssembly.data();
     auto outTessellation = vk_tessellation.data();
-    auto outViewport = vk_viewportStates.data();
-    auto outRaster = vk_rasterizationStates.data();
-    auto outMultisample = vk_multisampleStates.data();
-    auto outDepthStencil = vk_depthStencilStates.data();
-    auto outColorBlend = vk_colorBlendStates.data();
-    auto outColorBlendAttachmentState = vk_colorBlendAttachmentStates.data();
+    auto outInputAssembly = vk_inputAssembly.data();
 
+    //ill acknowledge this additional looping is a little ugly
+    //input and tess
     for (const auto& info : createInfos)
     {
-        initPipelineCreateInfo(outCreateInfo,info);
-        outCreateInfo->pStages = outShaderStage;
-        auto processSpecShader = [&](IGPUPipelineBase::SShaderSpecInfo spec, hlsl::ShaderStage shaderStage)
         {
-            if (spec.shader)
-            {
-              *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
-              outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
-            }
-        };
-        processSpecShader(info.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
-        processSpecShader(info.tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL);
-        processSpecShader(info.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
-        processSpecShader(info.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
-        processSpecShader(info.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
-
-        // when dealing with mesh shaders, the vertex input and assembly state will be null
-        {
-            {
-                const auto& vertexInputParams = info.cached.vertexInput;
-                outVertexInput->pVertexBindingDescriptions = outInputBinding;
-                for (auto b=0u; b<asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; b++)
-                if (vertexInputParams.enabledBindingFlags&(1<<b))
+            const auto& vertexInputParams = info.cached.vertexInput;
+            outVertexInput->pVertexBindingDescriptions = outInputBinding;
+            for (auto b = 0u; b < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; b++)
+                if (vertexInputParams.enabledBindingFlags & (1 << b))
                 {
                     outInputBinding->binding = b;
                     outInputBinding->stride = vertexInputParams.bindings[b].stride;
                     outInputBinding->inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
                     outInputBinding++;
                 }
-                outVertexInput->vertexBindingDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
-                outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
-                for (auto l=0u; l<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
-                if (vertexInputParams.enabledAttribFlags&(1<<l))
+            outVertexInput->vertexBindingDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions, outInputBinding);
+            outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
+            for (auto l = 0u; l < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
+                if (vertexInputParams.enabledAttribFlags & (1 << l))
                 {
                     outInputAttribute->location = l;
                     outInputAttribute->binding = vertexInputParams.attributes[l].binding;
@@ -1346,16 +1589,15 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
                     outInputAttribute->offset = vertexInputParams.attributes[l].relativeOffset;
                     outInputAttribute++;
                 }
-                outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputAttributeDescription*>(outVertexInput->pVertexAttributeDescriptions,outInputAttribute);
-            }
-            outCreateInfo->pVertexInputState = outVertexInput++;
-            {
-                const auto& primAssParams = info.cached.primitiveAssembly;
-                outInputAssembly->topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
-                outInputAssembly->primitiveRestartEnable = primAssParams.primitiveRestartEnable;
-            }
-            outCreateInfo->pInputAssemblyState = outInputAssembly++;
+            outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputAttributeDescription*>(outVertexInput->pVertexAttributeDescriptions, outInputAttribute);
         }
+        outCreateInfo->pVertexInputState = outVertexInput++;
+        {
+            const auto& primAssParams = info.cached.primitiveAssembly;
+            outInputAssembly->topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
+            outInputAssembly->primitiveRestartEnable = primAssParams.primitiveRestartEnable;
+        }
+        outCreateInfo->pInputAssemblyState = outInputAssembly++;
 
         if (info.tesselationControlShader.shader || info.tesselationEvaluationShader.shader)
         {
@@ -1363,96 +1605,76 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
             outCreateInfo->pTessellationState = outTessellation++;
         }
 
-        const auto& raster = info.cached.rasterization;
-        {
-            outViewport->viewportCount = raster.viewportCount;
-            // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
-            outViewport->scissorCount = raster.viewportCount;
-            outCreateInfo->pViewportState = outViewport++;
-        }
-        {
-            outRaster->depthClampEnable = raster.depthClampEnable;
-            outRaster->rasterizerDiscardEnable = raster.rasterizerDiscard;
-            outRaster->polygonMode = static_cast<VkPolygonMode>(raster.polygonMode);
-            outRaster->cullMode = static_cast<VkCullModeFlags>(raster.faceCullingMode);
-            outRaster->frontFace = raster.frontFaceIsCCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE:VK_FRONT_FACE_CLOCKWISE;
-            outRaster->depthBiasEnable = raster.depthBiasEnable;
-            outCreateInfo->pRasterizationState = outRaster++;
-        }
-        {
-            outMultisample->rasterizationSamples = static_cast<VkSampleCountFlagBits>(0x1<<raster.samplesLog2);
-            if (raster.minSampleShadingUnorm>0)
-            {
-                outMultisample->sampleShadingEnable = true;
-                outMultisample->minSampleShading = float(raster.minSampleShadingUnorm)/255.f;
-            }
-            else
-            {
-                outMultisample->sampleShadingEnable = false;
-                outMultisample->minSampleShading = 0.f;
-            }
-            outMultisample->pSampleMask = raster.sampleMask;
-            outMultisample->alphaToCoverageEnable = raster.alphaToCoverageEnable;
-            outMultisample->alphaToOneEnable = raster.alphaToOneEnable;
-            outCreateInfo->pMultisampleState = outMultisample++;
-        }
-        {
-            //outDepthStencil->flags no attachment order access yet
-            outDepthStencil->depthTestEnable = raster.depthTestEnable();
-            outDepthStencil->depthWriteEnable = raster.depthWriteEnable;
-            outDepthStencil->depthCompareOp = static_cast<VkCompareOp>(raster.depthCompareOp);
-            outDepthStencil->depthBoundsTestEnable = raster.depthBoundsTestEnable;
-            outDepthStencil->stencilTestEnable = raster.stencilTestEnable();
-            outDepthStencil->front = getVkStencilOpStateFrom(raster.frontStencilOps);
-            outDepthStencil->back = getVkStencilOpStateFrom(raster.backStencilOps);
-            outCreateInfo->pDepthStencilState = outDepthStencil++;
-        }
-        {
-            const auto& blend = info.cached.blend;
-            const auto& subpass = info.renderpass->getCreationParameters().subpasses[info.cached.subpassIx];
-            //outColorBlend->flags no attachment order access yet
-            outColorBlend->logicOpEnable = blend.logicOp!=asset::ELO_NO_OP;
-            outColorBlend->logicOp = getVkLogicOpFromLogicOp(blend.logicOp);
-            outColorBlend->pAttachments = outColorBlendAttachmentState;
-            for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
-            if (subpass.colorAttachments[i].render.used())
-            {
-                const auto& params = blend.blendParams[i];
-                outColorBlendAttachmentState->blendEnable = params.blendEnabled();
-                outColorBlendAttachmentState->srcColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcColorFactor));
-                outColorBlendAttachmentState->dstColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstColorFactor));
-                outColorBlendAttachmentState->colorBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.colorBlendOp));
-                outColorBlendAttachmentState->srcAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcAlphaFactor));
-                outColorBlendAttachmentState->dstAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstAlphaFactor));
-                outColorBlendAttachmentState->alphaBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.alphaBlendOp));
-                outColorBlendAttachmentState->colorWriteMask = getVkColorComponentFlagsFromColorWriteMask(params.colorWriteMask);
-                outColorBlendAttachmentState++;
-            }
-            outColorBlend->attachmentCount = std::distance<const VkPipelineColorBlendAttachmentState*>(outColorBlend->pAttachments,outColorBlendAttachmentState);
-            outCreateInfo->pColorBlendState = outColorBlend++;
-        }
-        outCreateInfo->pDynamicState = &vk_dynamicStateCreateInfo;
-        outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject();
-        outCreateInfo->subpass = info.cached.subpassIx;
         outCreateInfo++;
     }
+
+    const auto maxShaderStages = createInfos.size() * IGPUGraphicsPipeline::GRAPHICS_SHADER_STAGE_COUNT;
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages, { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr });
+    core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages, { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0 });
+    core::vector<std::string> entryPoints(maxShaderStages);
+    core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages, {
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
+                                                                                              });
+    core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages, { 0,nullptr,0,nullptr });
+    core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
+    core::vector<uint8_t> specializationData(validation.dataSize);
+
+    outCreateInfo = vk_createInfos.data();
+    auto outShaderStage = vk_shaderStage.data();
+    auto outEntryPoints = entryPoints.data();
+    auto outShaderModule = vk_shaderModule.data();
+    auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
+    auto outSpecInfo = vk_specializationInfos.data();
+    auto outSpecMapEntry = vk_specializationMapEntry.data();
+    auto outSpecData = specializationData.data();
+
+    //shader
+    for (const auto& info : createInfos)
+    {
+        outCreateInfo->pStages = outShaderStage;
+        auto processSpecShader = [&](IGPUPipelineBase::SShaderSpecInfo spec, hlsl::ShaderStage shaderStage)
+            {
+                if (spec.shader)
+                {
+                    *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec,
+                                                                         shaderStage,
+                                                                         false,
+                                                                         outShaderModule,
+                                                                         outEntryPoints,
+                                                                         outRequiredSubgroupSize,
+                                                                         outSpecInfo,
+                                                                         outSpecMapEntry,
+                                                                         outSpecData
+                    );
+                    outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
+                }
+            };
+        processSpecShader(info.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
+        processSpecShader(info.tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL);
+        processSpecShader(info.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
+        processSpecShader(info.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
+        processSpecShader(info.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+
+        outCreateInfo++;
+    }
+
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
     std::stringstream debugNameBuilder;
-    if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev,vk_pipelineCache,vk_createInfos.size(),vk_createInfos.data(),nullptr,vk_pipelines)==VK_SUCCESS)
+    if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache, vk_createInfos.size(), vk_createInfos.data(), nullptr, vk_pipelines) == VK_SUCCESS)
     {
-        for (size_t i=0ull; i<createInfos.size(); ++i)
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
         {
             const auto& createInfo = createInfos[i];
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
-            std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i],vk_pipeline);
+            std::uninitialized_default_construct_n(output + i, 1);
+            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i], vk_pipeline);
             debugNameBuilder.str("");
             auto buildDebugName = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage stage)
-            {
-                if (spec.shader != nullptr)
-                  debugNameBuilder <<spec.shader->getFilepathHint() << "(" << spec.entryPoint << "," << stage << ")\n";
-            };
+                {
+                    if (spec.shader != nullptr)
+                        debugNameBuilder << spec.shader->getFilepathHint() << "(" << spec.entryPoint << "," << stage << ")\n";
+                };
             buildDebugName(createInfo.vertexShader, hlsl::ESS_VERTEX);
             buildDebugName(createInfo.tesselationControlShader, hlsl::ESS_TESSELLATION_CONTROL);
             buildDebugName(createInfo.tesselationEvaluationShader, hlsl::ESS_TESSELLATION_EVALUATION);
@@ -1462,7 +1684,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         }
     }
     else
-        std::fill_n(output,vk_createInfos.size(),nullptr);
+        std::fill_n(output, vk_createInfos.size(), nullptr);
 }
 
 void CVulkanLogicalDevice::createRayTracingPipelines_impl(
