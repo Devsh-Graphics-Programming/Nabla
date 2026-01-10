@@ -43,14 +43,18 @@ For each registered input it generates:
 - One `.spv` output **per CMake configuration** (`Debug/`, `Release/`, `RelWithDebInfo/`).
 - If you use `CAPS`, it generates a **cartesian product** of permutations and emits a `.spv` for each.
 - A generated header (you choose the path via `INCLUDE`) containing:
-  - a primary template `get_spirv_key<Key>(limits, features)` and `get_spirv_key<Key>(device)`
+- a primary template `get_spirv_key<Key>(...args)` and `get_spirv_key<Key>(device, ...args)`
+- `get_spirv_key` returns a small owning buffer with `.view()`
+- arguments must follow the **kind order** as it appears in `CAPS` (first appearance), validated structurally by required member names/types for each kind (including `limits`/`features`, no strong typing)
+  - `get_spirv_key<Key>(device, ...)` expects only **non-device** kinds in that same order; `limits`/`features` are injected from the device
+  - note: an order-agnostic API would require enforcing unique member sets across kinds to guarantee unambiguous matching; we keep a conventional order instead to stay flexible without extra constraints
   - explicit specializations for each registered base `KEY`
   - the returned key already includes the build config prefix (compiled into the header).
 
 Keys are strings that match the output layout:
 
 ```
-<CONFIG>/<KEY>(.<capName>_<value>)(.<capName>_<value>)....spv
+<CONFIG>/<KEY>(__<kind>.<capName>_<value>)(.<capName>_<value>)....spv
 ```
 
 ## The JSON "INPUTS" format
@@ -145,17 +149,50 @@ auto bundle = assetMgr->getAsset(key.c_str(), loadParams);
 
 Each `CAPS` entry looks like:
 
-- `kind` (string, optional): `"limits"` or `"features"` (defaults to `"limits"` if omitted/invalid).
+- `kind` (string, optional): `"limits"`, `"features"`, or `"custom"` (defaults to `"limits"` if omitted/invalid).
+- `struct` (string, required for `kind="custom"`): name of the custom permutation struct (valid C/C++ identifier). If you use `limits` or `features` here, do not also use the built-in `limits`/`features` kinds in the same rule.
 - `name` (string, required): identifier used in both generated HLSL config and C++ key (must be a valid C/C++ identifier).
 - `type` (string, required): `bool`, `uint16_t`, `uint32_t`, `uint64_t`.
 - `values` (array of numbers, required): the values you want to prebuild.
   - for `bool`, values must be `0` or `1`.
 
-At build time, NSC compiles each combination of values (cartesian product). At runtime, `get_spirv_key` appends suffixes using the `limits`/`features` you pass in.
+At build time, NSC compiles each combination of values (cartesian product). At runtime, `get_spirv_key` appends suffixes using the structs you pass in for `limits`/`features` (duck-typed by required members) and any custom kinds. Each group starts with `__limits`, `__features`, or `__<customStruct>`, followed by `.member_<value>` entries. Group order follows the **first appearance of each kind in `CAPS`** (and this same order is the required argument order for `get_spirv_key`); groups with no members are omitted.
+
+### Grouping caps by kind (optional)
+
+To avoid repeating the same `kind`, you can group caps with `members`:
+
+```cmake
+set(JSON [=[
+[
+  {
+    "INPUT": "app_resources/shader.hlsl",
+    "KEY": "shader",
+    "COMPILE_OPTIONS": ["-T", "lib_6_8"],
+    "CAPS": [
+      {
+        "kind": "custom",
+        "struct": "userA",
+        "members": [
+          { "name": "mode", "type": "uint32_t", "values": [0, 1] },
+          { "name": "quality", "type": "uint32_t", "values": [1, 2, 4] }
+        ]
+      },
+      {
+        "kind": "features",
+        "members": [
+          { "name": "shaderFloat64", "type": "bool", "values": [0, 1] }
+        ]
+      }
+    ]
+  }
+]
+]=])
+```
 
 ### Example: mixing `limits` and `features`
 
-This example permutes over one device limit and one device feature (order matters: the suffix order matches the `CAPS` array order):
+This example permutes over one device limit and one device feature. Suffix order follows the `CAPS` order (`__limits` then `__features` here), and member order within each group follows the `CAPS` order for that group:
 
 ```cmake
 set(JSON [=[
@@ -188,6 +225,47 @@ NBL_CREATE_NSC_COMPILE_RULES(
   OUTPUT_VAR KEYS
   INPUTS ${JSON}
 )
+```
+
+## Custom permutation structs
+
+If you need permutations based on data outside of device `limits`/`features`, define a custom struct in C++ and use `kind: "custom"` with `struct` set to the parameter name. At runtime you can pass any struct type that exposes the required members with matching types; **argument order follows the `CAPS` kind order**. Using custom names `limits` or `features` is allowed, but you cannot mix them with the built-in `limits`/`features` kinds in the same rule.
+
+Example:
+
+```cmake
+set(JSON [=[
+[
+  {
+    "INPUT": "app_resources/fft.hlsl",
+    "KEY": "fft",
+    "COMPILE_OPTIONS": ["-T", "cs_6_8"],
+    "CAPS": [
+      {
+        "kind": "custom",
+        "struct": "fftConfig",
+        "name": "passCount",
+        "type": "uint32_t",
+        "values": [4, 8]
+      }
+    ]
+  }
+]
+]=])
+
+NBL_CREATE_NSC_COMPILE_RULES(
+  # ...
+  OUTPUT_VAR KEYS
+  INPUTS ${JSON}
+)
+```
+
+Runtime usage:
+
+```cpp
+nbl::this_example::FFTConfig cfg = {};
+cfg.passCount = 4;
+auto key = nbl::this_example::builtin::build::get_spirv_key<"fft">(device, cfg);
 ```
 
 This produces `3 * 2 = 6` permutations per build configuration, and `KEYS` contains all of them (for example):
