@@ -1220,8 +1220,13 @@ struct DeviceConfigCaps
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
     set(OPTIONAL_SINGLE_ARGS GLOB_DIR)
-    cmake_parse_arguments(IMPL "DISCARD_DEFAULT_GLOB" "${REQUIRED_SINGLE_ARGS};${OPTIONAL_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
+    cmake_parse_arguments(IMPL "DISCARD_DEFAULT_GLOB;DISABLE_CUSTOM_COMMANDS" "${REQUIRED_SINGLE_ARGS};${OPTIONAL_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
+
+	set(_NBL_DISABLE_CUSTOM_COMMANDS FALSE)
+	if(NBL_NSC_DISABLE_CUSTOM_COMMANDS OR IMPL_DISABLE_CUSTOM_COMMANDS)
+		set(_NBL_DISABLE_CUSTOM_COMMANDS TRUE)
+	endif()
 
 	set(IMPL_HLSL_GLOB "")
 	if(NOT IMPL_DISCARD_DEFAULT_GLOB)
@@ -1279,6 +1284,7 @@ $<TARGET_PROPERTY:@IMPL_TARGET@,NBL_HEADER_CONTENT>
 		set_target_properties(${IMPL_TARGET} PROPERTIES NBL_HEADER_GENERATED_RULE ON)
 
 		set(HEADER_ITEM_VIEW [=[
+#include <cstdint>
 #include <string>
 #include "nbl/core/string/SpirvKeyHelpers.h"
 
@@ -1408,6 +1414,119 @@ namespace @IMPL_NAMESPACE@ {
 			endif()
 		endmacro()
 
+		macro(NBL_REQUIRE_PYTHON)
+			if(NOT Python3_EXECUTABLE)
+				find_package(Python3 COMPONENTS Interpreter REQUIRED)
+			endif()
+		endmacro()
+
+		macro(NBL_NORMALIZE_FLOAT_LITERAL _CAP_NAME _VALUE _MANTISSA_DIGITS _TYPE_LABEL _OUT_VAR)
+			NBL_REQUIRE_PYTHON()
+			set(_NBL_RAW "${_VALUE}")
+			if(_TYPE_LABEL STREQUAL "float")
+				if("${_NBL_RAW}" MATCHES "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?[fF]$")
+					string(REGEX REPLACE "[fF]$" "" _NBL_RAW "${_NBL_RAW}")
+				endif()
+			elseif(_TYPE_LABEL STREQUAL "double")
+				if("${_NBL_RAW}" MATCHES "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?[dD]$")
+					string(REGEX REPLACE "[dD]$" "" _NBL_RAW "${_NBL_RAW}")
+				endif()
+			endif()
+
+			set(_NBL_CANON_DONE FALSE)
+			if("${_NBL_RAW}" MATCHES "^[+-]?[0-9]\\.([0-9]+)e([+-][0-9]+)$")
+				set(_NBL_MANTISSA "${CMAKE_MATCH_1}")
+				set(_NBL_EXPONENT "${CMAKE_MATCH_2}")
+				string(LENGTH "${_NBL_MANTISSA}" _NBL_MANTISSA_LEN)
+				string(LENGTH "${_NBL_EXPONENT}" _NBL_EXPONENT_LEN)
+				math(EXPR _NBL_EXPONENT_DIGITS "${_NBL_EXPONENT_LEN} - 1")
+				if(_NBL_MANTISSA_LEN EQUAL ${_MANTISSA_DIGITS} AND _NBL_EXPONENT_DIGITS GREATER_EQUAL 2 AND _NBL_EXPONENT_DIGITS LESS_EQUAL 3)
+					string(TOLOWER "${_NBL_RAW}" _NBL_CANON)
+					set(_NBL_CANON_DONE TRUE)
+				endif()
+			endif()
+
+			if(NOT _NBL_CANON_DONE)
+				set(_NBL_PY_SCRIPT [=[
+import sys,math,struct
+t=sys.argv[1]
+s=sys.argv[2]
+if t=="float" and s[-1:] in ("f","F"):
+    s=s[:-1]
+if t=="double" and s[-1:] in ("d","D"):
+    s=s[:-1]
+try:
+    x=float(s)
+except Exception:
+    sys.exit(2)
+if t=="float":
+    x=struct.unpack("!f",struct.pack("!f",x))[0]
+if not math.isfinite(x):
+    sys.exit(2)
+p=8 if t=="float" else 16
+sign="-" if x<0 else ""
+x=abs(x)
+if x==0.0:
+    sys.stdout.write(sign+"0."+"0"*p+"e+00")
+    sys.exit(0)
+m=x
+e=0
+while m>=10.0:
+    m/=10.0
+    e+=1
+while m<1.0:
+    m*=10.0
+    e-=1
+digits=[0]*(p+1)
+digits[0]=int(m)
+frac=m-digits[0]
+for i in range(1,p+1):
+    frac*=10.0
+    d=int(frac)
+    if d>9:
+        d=9
+    digits[i]=d
+    frac-=d
+frac*=10.0
+rd=int(frac)
+if rd>9:
+    rd=9
+rem=frac-rd
+ru = rd>5 or (rd==5 and (rem>0 or (digits[p]%2)))
+if ru:
+    i=p
+    while i>=0 and digits[i]==9:
+        digits[i]=0
+        i-=1
+    if i>=0:
+        digits[i]+=1
+    else:
+        digits[0]=1
+        for j in range(1,p+1):
+            digits[j]=0
+        e+=1
+es="-" if e<0 else "+"
+if e<0:
+    e=-e
+ew=3 if e>=100 else 2
+sys.stdout.write(sign+str(digits[0])+"."+("".join(str(d) for d in digits[1:]))+"e"+es+str(e).zfill(ew))
+]=])
+				execute_process(
+					COMMAND "${Python3_EXECUTABLE}" -c "${_NBL_PY_SCRIPT}" "${_TYPE_LABEL}" "${_NBL_RAW}"
+					RESULT_VARIABLE _NBL_FMT_RESULT
+					OUTPUT_VARIABLE _NBL_CANON
+					OUTPUT_STRIP_TRAILING_WHITESPACE
+				)
+				if(NOT _NBL_FMT_RESULT EQUAL 0)
+					ERROR_WHILE_PARSING_ITEM(
+						"Invalid CAP value \"${_VALUE}\" for ${_CAP_NAME}\n"
+						"${_TYPE_LABEL} values must be numbers or numeric strings."
+					)
+				endif()
+			endif()
+			set(${_OUT_VAR} "${_NBL_CANON}")
+		endmacro()
+
         set(CAP_NAMES "")
         set(CAP_TYPES "")
 		set(CAP_KINDS "")
@@ -1436,10 +1555,10 @@ namespace @IMPL_NAMESPACE@ {
 							string(JSON CAP_NAME GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} members ${MEMBER_IDX} name)
 							string(JSON CAP_TYPE GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} members ${MEMBER_IDX} type)
 
-							if(NOT CAP_TYPE MATCHES "^(bool|uint16_t|uint32_t|uint64_t)$")
+							if(NOT CAP_TYPE MATCHES "^(bool|uint16_t|uint32_t|uint64_t|int16_t|int32_t|int64_t|float|double)$")
 								ERROR_WHILE_PARSING_ITEM(
 									"Invalid CAP type \"${CAP_TYPE}\" for ${CAP_NAME}\n"
-									"Allowed types are: bool, uint16_t, uint32_t, uint64_t"
+									"Allowed types are: bool, uint16_t, uint32_t, uint64_t, int16_t, int32_t, int64_t, float, double"
 								)
 							endif()
 
@@ -1451,7 +1570,28 @@ namespace @IMPL_NAMESPACE@ {
 								string(JSON VALUE GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} members ${MEMBER_IDX} values ${VAL_IDX})
 								string(JSON VAL_TYPE TYPE "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} members ${MEMBER_IDX} values ${VAL_IDX})
 
-								if(NOT VAL_TYPE STREQUAL "NUMBER")
+								if(CAP_TYPE STREQUAL "float")
+									if(NOT (VAL_TYPE STREQUAL "STRING" OR VAL_TYPE STREQUAL "NUMBER"))
+										ERROR_WHILE_PARSING_ITEM(
+											"Invalid CAP value \"${VALUE}\" for ${CAP_NAME}\n"
+											"Float values must be numbers or numeric strings."
+										)
+									endif()
+									NBL_NORMALIZE_FLOAT_LITERAL("${CAP_NAME}" "${VALUE}" 8 "float" VALUE)
+								elseif(CAP_TYPE STREQUAL "double")
+									if(NOT (VAL_TYPE STREQUAL "STRING" OR VAL_TYPE STREQUAL "NUMBER"))
+										ERROR_WHILE_PARSING_ITEM(
+											"Invalid CAP value \"${VALUE}\" for ${CAP_NAME}\n"
+											"Double values must be numbers or numeric strings."
+										)
+									endif()
+									NBL_NORMALIZE_FLOAT_LITERAL("${CAP_NAME}" "${VALUE}" 16 "double" VALUE)
+								elseif(NOT VAL_TYPE STREQUAL "NUMBER")
+									ERROR_WHILE_PARSING_ITEM(
+										"Invalid CAP value \"${VALUE}\" for CAP \"${CAP_NAME}\" of type ${CAP_TYPE}\n"
+										"Use numbers for uint*_t and 0/1 for bools."
+									)
+								elseif(NOT VAL_TYPE STREQUAL "NUMBER")
 									ERROR_WHILE_PARSING_ITEM(
 										"Invalid CAP value \"${VALUE}\" for CAP \"${CAP_NAME}\" of type ${CAP_TYPE}\n"
 										"Use numbers for uint*_t and 0/1 for bools."
@@ -1466,7 +1606,6 @@ namespace @IMPL_NAMESPACE@ {
 										)
 									endif()
 								endif()
-
 								list(APPEND VALUES "${VALUE}")
 							endforeach()
 
@@ -1499,10 +1638,10 @@ namespace @IMPL_NAMESPACE@ {
 
 					NBL_NSC_RESOLVE_CAP_KIND("${CAP_KIND_RAW}" "${CAP_STRUCT}" "${CAP_NAME}" CAP_KIND)
 
-					if(NOT CAP_TYPE MATCHES "^(bool|uint16_t|uint32_t|uint64_t)$")
+					if(NOT CAP_TYPE MATCHES "^(bool|uint16_t|uint32_t|uint64_t|int16_t|int32_t|int64_t|float|double)$")
 						ERROR_WHILE_PARSING_ITEM(
 							"Invalid CAP type \"${CAP_TYPE}\" for ${CAP_NAME}\n"
-							"Allowed types are: bool, uint16_t, uint32_t, uint64_t"
+							"Allowed types are: bool, uint16_t, uint32_t, uint64_t, int16_t, int32_t, int64_t, float, double"
 						)
 					endif()
 
@@ -1514,7 +1653,23 @@ namespace @IMPL_NAMESPACE@ {
 						string(JSON VALUE GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} values ${VAL_IDX})
 						string(JSON VAL_TYPE TYPE "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} values ${VAL_IDX})
 
-						if(NOT VAL_TYPE STREQUAL "NUMBER")
+						if(CAP_TYPE STREQUAL "float")
+							if(NOT (VAL_TYPE STREQUAL "STRING" OR VAL_TYPE STREQUAL "NUMBER"))
+								ERROR_WHILE_PARSING_ITEM(
+									"Invalid CAP value \"${VALUE}\" for ${CAP_NAME}\n"
+									"Float values must be numbers or numeric strings."
+								)
+							endif()
+							NBL_NORMALIZE_FLOAT_LITERAL("${CAP_NAME}" "${VALUE}" 8 "float" VALUE)
+						elseif(CAP_TYPE STREQUAL "double")
+							if(NOT (VAL_TYPE STREQUAL "STRING" OR VAL_TYPE STREQUAL "NUMBER"))
+								ERROR_WHILE_PARSING_ITEM(
+									"Invalid CAP value \"${VALUE}\" for ${CAP_NAME}\n"
+									"Double values must be numbers or numeric strings."
+								)
+							endif()
+							NBL_NORMALIZE_FLOAT_LITERAL("${CAP_NAME}" "${VALUE}" 16 "double" VALUE)
+						elseif(NOT VAL_TYPE STREQUAL "NUMBER")
 							ERROR_WHILE_PARSING_ITEM(
 								"Invalid CAP value \"${VALUE}\" for CAP \"${CAP_NAME}\" of type ${CAP_TYPE}\n"
 								"Use numbers for uint*_t and 0/1 for bools."
@@ -1529,7 +1684,6 @@ namespace @IMPL_NAMESPACE@ {
 								)
 							endif()
 						endif()
-
 						list(APPEND VALUES "${VALUE}")
 					endforeach()
 
@@ -1690,6 +1844,18 @@ namespace @IMPL_NAMESPACE@ {
 					set(DIGITS 5)
 				elseif(TYPE STREQUAL "uint32_t")
 					set(DIGITS 10)
+				elseif(TYPE STREQUAL "int16_t")
+					set(DIGITS 6)
+				elseif(TYPE STREQUAL "int32_t")
+					set(DIGITS 11)
+				elseif(TYPE STREQUAL "int64_t")
+					set(DIGITS 20)
+				elseif(TYPE STREQUAL "uint64_t")
+					set(DIGITS 20)
+				elseif(TYPE STREQUAL "float")
+					set(DIGITS 16)
+				elseif(TYPE STREQUAL "double")
+					set(DIGITS 24)
 				else()
 					set(DIGITS 20)
 				endif()
@@ -1852,12 +2018,80 @@ namespace nbl::core::detail {
 		string(CONFIGURE "${HEADER_ITEM_VIEW}" HEADER_ITEM_EVAL @ONLY)
 		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_EVAL}")
 
-		function(GENERATE_KEYS PREFIX CAP_INDEX CAPS_EVAL_PART)
+		function(GENERATE_KEYS PREFIX CAP_INDEX)
+			set(CAPS_VALUES_PART "${ARGN}")
 			if(NUM_CAPS EQUAL 0 OR CAP_INDEX EQUAL ${NUM_CAPS})
 				set(FINAL_KEY "${BASE_KEY}${PREFIX}.spv") # always add ext even if its already there to make sure asset loader always is able to load as IShader
 				set(CONFIG_FILE_TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY}")
 				set(CONFIG_FILE "${CONFIG_FILE_TARGET_OUTPUT}.config")
-				set(CAPS_EVAL "${CAPS_EVAL_PART}")
+				set(CAPS_EVAL "")
+				if(NUM_CAPS GREATER 0)
+					set(CAPS_EVAL_LIMITS "")
+					set(CAPS_EVAL_FEATURES "")
+					set(_NBL_CUSTOM_KIND_LIST "")
+					foreach(_NBL_KIND IN LISTS ORDERED_KINDS)
+						if(NOT _NBL_KIND STREQUAL "limits" AND NOT _NBL_KIND STREQUAL "features")
+							list(APPEND _NBL_CUSTOM_KIND_LIST "${_NBL_KIND}")
+							set(_NBL_CUSTOM_LINES_${_NBL_KIND} "")
+						endif()
+					endforeach()
+
+					math(EXPR _NBL_LAST_CAP "${NUM_CAPS} - 1")
+					foreach(i RANGE 0 ${_NBL_LAST_CAP})
+						list(GET CAP_NAMES ${i} _NBL_CAP_NAME)
+						list(GET CAP_TYPES ${i} _NBL_CAP_TYPE)
+						list(GET CAP_KINDS ${i} _NBL_CAP_KIND)
+						list(GET CAPS_VALUES_PART ${i} _NBL_CAP_VALUE)
+						set(MEMBER_NAME "${_NBL_CAP_NAME}")
+						set(MEMBER_TYPE "${_NBL_CAP_TYPE}")
+						set(MEMBER_VALUE "${_NBL_CAP_VALUE}")
+						string(CONFIGURE [=[
+NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBER_VALUE@; // got permuted
+]=] _NBL_MEMBER_LINE @ONLY)
+						if(_NBL_CAP_KIND STREQUAL "limits")
+							string(APPEND CAPS_EVAL_LIMITS "${_NBL_MEMBER_LINE}")
+						elseif(_NBL_CAP_KIND STREQUAL "features")
+							string(APPEND CAPS_EVAL_FEATURES "${_NBL_MEMBER_LINE}")
+						else()
+							set(_NBL_CUSTOM_LINE_VAR "_NBL_CUSTOM_LINES_${_NBL_CAP_KIND}")
+							set(${_NBL_CUSTOM_LINE_VAR} "${${_NBL_CUSTOM_LINE_VAR}}${_NBL_MEMBER_LINE}")
+						endif()
+					endforeach()
+
+					if(CAPS_EVAL_LIMITS)
+						string(APPEND CAPS_EVAL "// limits\n")
+						string(APPEND CAPS_EVAL "${CAPS_EVAL_LIMITS}\n")
+					endif()
+					if(CAPS_EVAL_FEATURES)
+						string(APPEND CAPS_EVAL "// features\n")
+						string(APPEND CAPS_EVAL "${CAPS_EVAL_FEATURES}\n")
+					endif()
+
+					set(_NBL_HAS_CUSTOM FALSE)
+					foreach(_NBL_KIND IN LISTS _NBL_CUSTOM_KIND_LIST)
+						if(_NBL_CUSTOM_LINES_${_NBL_KIND})
+							set(_NBL_HAS_CUSTOM TRUE)
+						endif()
+					endforeach()
+
+					if(_NBL_HAS_CUSTOM)
+						string(APPEND CAPS_EVAL "// custom structs\n")
+						foreach(_NBL_KIND IN LISTS ORDERED_KINDS)
+							if(NOT _NBL_KIND STREQUAL "limits" AND NOT _NBL_KIND STREQUAL "features")
+								if(_NBL_CUSTOM_LINES_${_NBL_KIND})
+									set(NBL_KIND_NAME "${_NBL_KIND}")
+									set(MEMBER_LINES "${_NBL_CUSTOM_LINES_${_NBL_KIND}}")
+									string(CONFIGURE [=[
+struct @NBL_KIND_NAME@
+{
+@MEMBER_LINES@};
+]=] _NBL_KIND_STRUCT @ONLY)
+									string(APPEND CAPS_EVAL "${_NBL_KIND_STRUCT}\n")
+								endif()
+							endif()
+						endforeach()
+					endif()
+				endif()
 				string(CONFIGURE "${DEVICE_CONFIG_VIEW}" CONFIG_CONTENT @ONLY)
 				file(WRITE "${CONFIG_FILE}" "${CONFIG_CONTENT}")
 
@@ -1899,11 +2133,11 @@ namespace nbl::core::detail {
 				if(NSC_USE_DEPFILE)
 					list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS DEPFILE "${DEPFILE_PATH}")
 				endif()
-				if(NOT NBL_NSC_DISABLE_CUSTOM_COMMANDS)
+				if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
 					add_custom_command(${NBL_NSC_CUSTOM_COMMAND_ARGS})
 				endif()
 				set(NBL_NSC_OUT_FILES "")
-				if(NOT NBL_NSC_DISABLE_CUSTOM_COMMANDS)
+				if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
 					set(NBL_NSC_OUT_FILES "${TARGET_OUTPUT}" "${NBL_NSC_LOG_PATH}")
 					if(NSC_USE_DEPFILE)
 						list(APPEND NBL_NSC_OUT_FILES "${DEPFILE_PATH}")
@@ -1921,7 +2155,7 @@ namespace nbl::core::detail {
 					HEADER_FILE_ONLY ON
 					VS_TOOL_OVERRIDE None
 				)
-				if(NOT NBL_NSC_DISABLE_CUSTOM_COMMANDS)
+				if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
 					if(CMAKE_CONFIGURATION_TYPES)
 						foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
 							set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${FINAL_KEY}")
@@ -1970,13 +2204,14 @@ namespace nbl::core::detail {
 			endif()
 			foreach(V IN LISTS VALUES)
 				set(NEW_PREFIX "${PREFIX}${KEY_PREFIX}${CURRENT_CAP}_${V}")
-				set(NEW_EVAL "${CAPS_EVAL_PART}NBL_CONSTEXPR_STATIC_INLINE ${CURRENT_TYPE} ${CURRENT_CAP} = (${CURRENT_TYPE}) ${V}; // got permuted\n")
+				set(NEW_VALUES "${CAPS_VALUES_PART}")
+				list(APPEND NEW_VALUES "${V}")
 				math(EXPR NEXT_INDEX "${CAP_INDEX} + 1")
-				GENERATE_KEYS("${NEW_PREFIX}" "${NEXT_INDEX}" "${NEW_EVAL}")
+				GENERATE_KEYS("${NEW_PREFIX}" "${NEXT_INDEX}" ${NEW_VALUES})
 			endforeach()
 		endfunction()
 
-       	GENERATE_KEYS("" 0 "")
+       	GENERATE_KEYS("" 0)
 
     endforeach()
 

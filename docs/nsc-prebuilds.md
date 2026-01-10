@@ -44,7 +44,7 @@ For each registered input it generates:
 - If you use `CAPS`, it generates a **cartesian product** of permutations and emits a `.spv` for each.
 - A generated header (you choose the path via `INCLUDE`) containing:
 - a primary template `get_spirv_key<Key>(...args)` and `get_spirv_key<Key>(device, ...args)`
-- `get_spirv_key` returns a small owning buffer with `.view()`
+- `get_spirv_key` returns a small owning buffer; use `.view()` or implicit `std::string_view` to consume it
 - arguments must follow the **kind order** as it appears in `CAPS` (first appearance), validated structurally by required member names/types for each kind (including `limits`/`features`, no strong typing)
   - `get_spirv_key<Key>(device, ...)` expects only **non-device** kinds in that same order; `limits`/`features` are injected from the device
   - note: an order-agnostic API would require enforcing unique member sets across kinds to guarantee unambiguous matching; we keep a conventional order instead to stay flexible without extra constraints
@@ -137,8 +137,9 @@ Then include the generated header and use the key to load the SPIR-V:
 ```cpp
 #include "nbl/this_example/builtin/build/spirv/keys.hpp"
 // ...
-auto key = nbl::this_example::builtin::build::get_spirv_key<"shader">(device);
-auto bundle = assetMgr->getAsset(key.c_str(), loadParams);
+auto keyBuf = nbl::this_example::builtin::build::get_spirv_key<"shader">(device);
+std::string_view key = keyBuf;
+auto bundle = assetMgr->getAsset(key.data(), loadParams);
 ```
 
 `OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). This list is intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`.
@@ -152,11 +153,35 @@ Each `CAPS` entry looks like:
 - `kind` (string, optional): `"limits"`, `"features"`, or `"custom"` (defaults to `"limits"` if omitted/invalid).
 - `struct` (string, required for `kind="custom"`): name of the custom permutation struct (valid C/C++ identifier). If you use `limits` or `features` here, do not also use the built-in `limits`/`features` kinds in the same rule.
 - `name` (string, required): identifier used in both generated HLSL config and C++ key (must be a valid C/C++ identifier).
-- `type` (string, required): `bool`, `uint16_t`, `uint32_t`, `uint64_t`.
+- `type` (string, required): `bool`, `uint16_t`, `uint32_t`, `uint64_t`, `int16_t`, `int32_t`, `int64_t`, `float`, `double`.
 - `values` (array of numbers, required): the values you want to prebuild.
   - for `bool`, values must be `0` or `1`.
+  - for signed integer types, negative values are allowed.
+  - for `float`/`double`, you can provide **numbers or numeric strings** (e.g. `-1`, `-1.0`, `1e-3`, or `-1.f` for floats). Values are **normalized** to canonical scientific notation (1 digit before the decimal, 8 digits after for `float` or 16 for `double`, signed exponent with 2 or 3 digits). The normalized text becomes part of the key.
 
 At build time, NSC compiles each combination of values (cartesian product). At runtime, `get_spirv_key` appends suffixes using the structs you pass in for `limits`/`features` (duck-typed by required members) and any custom kinds. Each group starts with `__limits`, `__features`, or `__<customStruct>`, followed by `.member_<value>` entries. Group order follows the **first appearance of each kind in `CAPS`** (and this same order is the required argument order for `get_spirv_key`); groups with no members are omitted.
+
+Each generated `.config` file defines a `DeviceConfigCaps` struct for HLSL. It includes:
+- flat members for `limits`/`features` (backwards compatibility with older shaders)
+- nested structs for custom kinds only, e.g. `DeviceConfigCaps::userA`
+
+Example shape:
+
+```hlsl
+struct DeviceConfigCaps
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t maxImageDimension2D = 16384u;
+    NBL_CONSTEXPR_STATIC_INLINE bool shaderCullDistance = true;
+
+    struct userA
+    {
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t mode = 0u;
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t quality = 1u;
+    };
+};
+```
+
+For more complex usage and regression-style checks (constexpr vs runtime), see `examples_tests/73_SpirvKeysTest`.
 
 ### Grouping caps by kind (optional)
 
@@ -267,6 +292,33 @@ nbl::this_example::FFTConfig cfg = {};
 cfg.passCount = 4;
 auto key = nbl::this_example::builtin::build::get_spirv_key<"fft">(device, cfg);
 ```
+
+Constexpr usage with extra structs (order must match `CAPS` kind order, first appearance):
+
+```cpp
+struct MyLimits { uint32_t maxImageDimension2D; };
+struct MyFeatures { bool shaderCullDistance; };
+struct UserA { uint32_t mode; uint32_t quality; };
+struct UserB { bool useAlternatePath; bool useFastPath; };
+
+constexpr UserA userA = { 0u, 1u };
+constexpr UserB userB = { false, true };
+constexpr MyLimits limits = { 16384u };
+constexpr MyFeatures features = { true };
+
+static constexpr auto keyBuf =
+    nbl::this_example::builtin::build::get_spirv_key<"shader_cd">(userA, userB, limits, features);
+static constexpr std::string_view keyView = keyBuf;
+
+```
+
+## Common pitfalls
+
+- Argument order must follow the **first appearance of each kind in `CAPS`**; this is an intentional convention to keep the API flexible.
+- `get_spirv_key` returns a buffer; prefer `std::string_view key = buf;` or `buf.view()` to consume it.
+- Do not store a `std::string_view` from a temporary buffer; keep the buffer alive.
+- `float`/`double` CAP values are normalized to canonical scientific notation (1 digit before the decimal, 8 or 16 digits after, signed exponent); values passed to `get_spirv_key` must match one of the CAP values exactly.
+- `constexpr` key generation works with `float`/`double` members when the values match the CAP list.
 
 This produces `3 * 2 = 6` permutations per build configuration, and `KEYS` contains all of them (for example):
 
