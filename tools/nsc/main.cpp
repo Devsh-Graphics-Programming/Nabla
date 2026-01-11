@@ -105,6 +105,9 @@ public:
         if (!m_file)
             return;
 
+        std::error_code ec;
+        std::filesystem::resize_file(m_logPath, 0, ec);
+
         m_fileLogger = make_smart_refctd_ptr<TrimFileLogger>(smart_refctd_ptr(m_file), true, m_fileMask);
     }
 
@@ -260,6 +263,8 @@ public:
         const auto consoleMask = bitflag(ILogger::ELL_WARNING) | ILogger::ELL_ERROR;
 
         m_logger = make_smart_refctd_ptr<ShaderLogger>(m_system, logPath, fileMask, consoleMask, noLog);
+        const auto configName = std::filesystem::path(outputFilepath).parent_path().filename().string();
+        const auto configLabel = configName.empty() ? "Unknown" : configName;
 
         m_arguments = std::move(unknownArgs);
         if (!m_arguments.empty() && m_arguments.back() == fileToCompile)
@@ -278,9 +283,7 @@ public:
         if (program.is_used("-MF"))
             dep.path = program.get<std::string>("-MF");
         if (dep.enabled && dep.path.empty())
-            dep.path = outputFilepath + ".d";
-        if (dep.enabled)
-            m_logger->log("Dependency file will be saved to %s", ILogger::ELL_INFO, dep.path.c_str());
+            dep.path = outputFilepath + ".dep";
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
         if (!noNblBuiltins)
@@ -303,10 +306,33 @@ public:
                 m_include_search_paths.emplace_back(m_arguments[i + 1]);
         }
 
+        if (verbose)
+        {
+            auto join = [](const std::vector<std::string>& items)
+            {
+                std::string out;
+                for (const auto& item : items)
+                {
+                    if (!out.empty())
+                        out.push_back(' ');
+                    out.append(item);
+                }
+                return out;
+            };
+            m_logger->log("Verbose logging enabled.", ILogger::ELL_DEBUG);
+            m_logger->log("Variant: %s", ILogger::ELL_DEBUG, configLabel.c_str());
+            if (!rawArgs.empty())
+                m_logger->log("Compiler: %s", ILogger::ELL_DEBUG, rawArgs.front().c_str());
+            m_logger->log("Command line: %s", ILogger::ELL_DEBUG, join(rawArgs).c_str());
+            m_logger->log("Input: %s", ILogger::ELL_DEBUG, fileToCompile.c_str());
+            m_logger->log("Output: %s", ILogger::ELL_DEBUG, outputFilepath.c_str());
+            if (dep.enabled)
+                m_logger->log("Depfile: %s", ILogger::ELL_DEBUG, dep.path.c_str());
+        }
+
         const char* const action = preprocessOnly ? "Preprocessing" : "Compiling";
         const char* const outType = preprocessOnly ? "Preprocessed" : "Compiled";
         m_logger->log("%s %s", ILogger::ELL_INFO, action, fileToCompile.c_str());
-        m_logger->log("%s shader code will be saved to %s", ILogger::ELL_INFO, outType, outputFilepath.c_str());
 
         auto [shader, shaderStage] = open_shader_file(fileToCompile);
         if (!shader || shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
@@ -326,9 +352,14 @@ public:
             return false;
         }
 
-        const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
         m_logger->log("Shader %s successful.", ILogger::ELL_INFO, op);
-        m_logger->log("Took %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
+        if (dep.enabled)
+        {
+            const bool depWritten = m_system->exists(dep.path, IFileBase::ECF_READ);
+            if (!depWritten)
+                m_logger->log("Dependency file missing at %s", ILogger::ELL_WARNING, dep.path.c_str());
+            m_logger->log(depWritten ? "Depfile written successfully." : "Depfile write failed.", depWritten ? ILogger::ELL_INFO : ILogger::ELL_WARNING);
+        }
 
         const auto outParent = std::filesystem::path(outputFilepath).parent_path();
         if (!outParent.empty() && !std::filesystem::exists(outParent))
@@ -362,8 +393,8 @@ public:
             return false;
         }
 
-        if (dep.enabled)
-            m_logger->log("Dependency file written to %s", ILogger::ELL_INFO, dep.path.c_str());
+        const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+        m_logger->log("Took %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
 
         return true;
     }

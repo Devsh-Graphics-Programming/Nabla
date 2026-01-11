@@ -13,6 +13,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include "nbl/core/hash/fnv1a64.h"
+
 namespace nbl::core
 {
 
