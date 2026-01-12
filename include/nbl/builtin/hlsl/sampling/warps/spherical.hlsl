@@ -38,14 +38,14 @@ struct Spherical
 		return warpResult;
 	}
 
-    template <typename CodomainT NBL_FUNC_REQUIRES(is_same_v<CodomainT, codomain_type>) 
+	template <typename CodomainT NBL_FUNC_REQUIRES(is_same_v<CodomainT, codomain_type>) 
 	static domain_type inverseWarp(const CodomainT v)
 	{
-	    float32_t2 uv = float32_t2(atan(v.y, v.x), acos(v.z));
+		float32_t2 uv = float32_t2(atan(v.y, v.x), acos(v.z));
 		uv.x *= (numbers::inv_pi<float32_t> * 0.5);
 		if (v.y < 0.0f)
-          uv.x += 1.0f;
-	    uv.y *= numbers::inv_pi<float32_t>;
+		  uv.x += 1.0f;
+		uv.y *= numbers::inv_pi<float32_t>;
 		return uv;
 	}
 
