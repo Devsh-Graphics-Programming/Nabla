@@ -29,9 +29,11 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/struct_declare.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/bda_accessor.hlsl")
 # luma metering
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/luma_meter/common.hlsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/luma_meter/luma_meter.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/luma_meter/geom_mean.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/luma_meter/histogram.hlsl")
 # tonemapper
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tonemapper/operators.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tonemapper/operators/reinhard.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tonemapper/operators/aces.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/legacy_bda_accessor.hlsl")
 # bump mapping
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/bump_mapping/fragment.glsl") # TODO: rename to `frag.glsl`

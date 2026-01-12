@@ -21,135 +21,24 @@ namespace hlsl
 namespace luma_meter
 {
 
-template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, typename TexAccessor>
-struct geom_meter {
-    using float_t = typename SharedAccessor::type;
-    using float_t2 = typename conditional<is_same_v<float_t, float32_t>, float32_t2, float16_t2>::type;
-    using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
-    using this_t = geom_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
-
-    static this_t create(float_t2 lumaMinMax, float_t sampleCount)
-    {
-        this_t retval;
-        retval.lumaMinMax = lumaMinMax;
-        retval.sampleCount = sampleCount;
-        return retval;
-    }
-
-    float_t __reduction(float_t value, NBL_REF_ARG(SharedAccessor) sdata)
-    {
-        return workgroup::reduction < plus < float_t >, GroupSize >::
-            template __call <SharedAccessor>(value, sdata);
-    }
-
-    float_t __computeLumaLog2(
-        NBL_CONST_REF_ARG(MeteringWindow) window,
-        NBL_REF_ARG(TexAccessor) tex,
-        float_t2 shiftedCoord
-    )
-    {
-        float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
-        float_t3 color = tex.get(uvPos);
-        float_t luma = (float_t)TexAccessor::toXYZ(color);
-
-        luma = clamp(luma, lumaMinMax.x, lumaMinMax.y);
-
-        return log2(luma);
-    }
-
-    void __uploadFloat(
-        NBL_REF_ARG(ValueAccessor) val_accessor,
-        float_t val,
-        float_t minLog2,
-        float_t rangeLog2
-    )
-    {
-        uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
-        uint32_t workgroupIndex = (workGroupCount.x * workGroupCount.y * workGroupCount.z) / 64;
-        uint32_t fixedPointBitsLeft = 32 - uint32_t(ceil(log2(workGroupCount.x * workGroupCount.y * workGroupCount.z))) + glsl::gl_SubgroupSizeLog2();
-
-        uint32_t lumaSumBitPattern = uint32_t(clamp((val - minLog2) * rangeLog2, 0.f, float32_t((1 << fixedPointBitsLeft) - 1)));
-
-        val_accessor.atomicAdd(workgroupIndex & ((1 << glsl::gl_SubgroupSizeLog2()) - 1), lumaSumBitPattern);
-    }
-
-    float_t __downloadFloat(
-        NBL_REF_ARG(ValueAccessor) val_accessor,
-        uint32_t index,
-        float_t minLog2,
-        float_t rangeLog2
-    )
-    {
-        float_t luma = (float_t)val_accessor.get(index & ((1 << glsl::gl_SubgroupSizeLog2()) - 1));
-        return luma / rangeLog2 + minLog2;
-    }
-
-    void sampleLuma(
-        NBL_CONST_REF_ARG(MeteringWindow) window,
-        NBL_REF_ARG(ValueAccessor) val,
-        NBL_REF_ARG(TexAccessor) tex,
-        NBL_REF_ARG(SharedAccessor) sdata,
-        float_t2 tileOffset,
-        float_t2 viewportSize
-    )
-    {
-        uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t2 coord = math::Morton<uint32_t>::decode2d(tid);
-
-        float_t luma = 0.0f;
-        float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
-        float_t lumaLog2 = __computeLumaLog2(window, tex, shiftedCoord);
-        float_t lumaLog2Sum = __reduction(lumaLog2, sdata);
-
-        if (tid == 0) {
-            __uploadFloat(
-                val,
-                lumaLog2Sum,
-                log2(lumaMinMax.x),
-                log2(lumaMinMax.y / lumaMinMax.x)
-            );
-        }
-    }
-
-    float_t gatherLuma(
-        NBL_REF_ARG(ValueAccessor) val
-    )
-    {
-        uint32_t tid = glsl::gl_SubgroupInvocationID();
-        float_t luma = glsl::subgroupAdd(
-            __downloadFloat(
-                val,
-                tid,
-                log2(lumaMinMax.x),
-                log2(lumaMinMax.y / lumaMinMax.x)
-            )
-        );
-
-        uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
-        uint32_t fixedPointBitsLeft = 32 - uint32_t(ceil(log2(workGroupCount.x * workGroupCount.y * workGroupCount.z))) + glsl::gl_SubgroupSizeLog2();
-
-        return (luma / (1 << fixedPointBitsLeft)) / sampleCount;
-    }
-
-    float_t sampleCount;
-    float_t2 lumaMinMax;
-};
-
 template<uint32_t GroupSize, uint16_t BinCount, typename HistogramAccessor, typename SharedAccessor, typename TexAccessor>
-struct median_meter {
+struct median_meter
+{
     using int_t = typename SharedAccessor::type;
     using float_t  = float32_t;
     using float_t2 = typename conditional<is_same_v<float_t, float32_t>, float32_t2, float16_t2>::type;
     using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
     using this_t = median_meter<GroupSize, BinCount, HistogramAccessor, SharedAccessor, TexAccessor>;
 
-    static this_t create(float_t2 lumaMinMax) {
+    static this_t create(float_t2 lumaMinMax)
+    {
         this_t retval;
         retval.lumaMinMax = lumaMinMax;
         return retval;
     }
 
-    int_t __inclusive_scan(float_t value, NBL_REF_ARG(SharedAccessor) sdata) {
+    int_t __inclusive_scan(float_t value, NBL_REF_ARG(SharedAccessor) sdata)
+    {
         return workgroup::inclusive_scan < plus < int_t >, GroupSize >::
             template __call <SharedAccessor>(value, sdata);
     }
@@ -158,7 +47,8 @@ struct median_meter {
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(TexAccessor) tex,
         float_t2 shiftedCoord
-    ) {
+    )
+    {
         float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
         float_t3 color = tex.get(uvPos);
         float_t luma = (float_t)TexAccessor::toXYZ(color);
@@ -170,7 +60,8 @@ struct median_meter {
         float_t val,
         float_t minLog2,
         float_t rangeLog2
-    ) {
+    )
+    {
         uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
         uint32_t fixedPointBitsLeft = 32 - uint32_t(ceil(log2(workGroupCount.x * workGroupCount.y * workGroupCount.z))) + glsl::gl_SubgroupSizeLog2();
 
@@ -181,7 +72,8 @@ struct median_meter {
         int_t val,
         float_t minLog2,
         float_t rangeLog2
-    ) {
+    )
+    {
         return val / rangeLog2 + minLog2;
     }
 
@@ -192,7 +84,8 @@ struct median_meter {
         NBL_REF_ARG(SharedAccessor) sdata,
         float_t2 tileOffset,
         float_t2 viewportSize
-    ) {
+    )
+    {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         
         for (uint32_t vid = tid; vid < BinCount; vid += GroupSize) {
@@ -252,7 +145,8 @@ struct median_meter {
     float_t gatherLuma(
         NBL_REF_ARG(HistogramAccessor) histo,
         NBL_REF_ARG(SharedAccessor) sdata
-    ) {
+    )
+    {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
 
         for (uint32_t vid = tid; vid < BinCount; vid += GroupSize) {
