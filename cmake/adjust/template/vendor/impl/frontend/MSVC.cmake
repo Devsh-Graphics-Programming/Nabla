@@ -30,7 +30,7 @@ set(_NBL_MSVC_DEBUG_COMPILE_OPTIONS
 	/Od # https://learn.microsoft.com/en-us/cpp/build/reference/od-disable-debug?view=msvc-170
 	/Oy- # https://learn.microsoft.com/en-us/cpp/build/reference/oy-frame-pointer-omission?view=msvc-170
 )
-if(NOT NBL_SANITIZE_ADDRESS)
+if(NBL_DEBUG_RTC_ENABLED AND NOT NBL_SANITIZE_ADDRESS)
 	list(APPEND _NBL_MSVC_DEBUG_COMPILE_OPTIONS /RTC1)
 endif()
 

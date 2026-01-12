@@ -50,6 +50,7 @@ option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 
 option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
+option(NBL_DEBUG_RTC_ENABLED "Enable Runtime Checks for Debug builds" OFF)
 
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
 
