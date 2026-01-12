@@ -1,56 +1,33 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
+#include "nbl/ext/MitsubaLoader/CElementTransform.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+
+namespace nbl::ext::MitsubaLoader
 {
 
-	
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementTransform>(const char** _atts, ParserManager* _util)
+auto CElementTransform::compAddPropertyMap() -> AddPropertyMap<CElementTransform>
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return CElementFactory::return_type(nullptr,"");
-	if (core::strcmpi(_atts[0], "name"))
-		return CElementFactory::return_type(nullptr,"");
-	
-	return CElementFactory::return_type(_util->objects.construct<CElementTransform>(),_atts[1]);
-}
+	using this_t = CElementTransform;
+	AddPropertyMap<CElementTransform> retval;
 
-bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
-{
-	switch (_property.type)
+	auto setMatrix = [](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
 	{
-		case SNamedPropertyElement::Type::MATRIX:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::TRANSLATE:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::ROTATE:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::SCALE:
-			[[fallthrough]];
-		case SNamedPropertyElement::Type::LOOKAT:
-			matrix = core::concatenateBFollowedByA(_property.mvalue, matrix);
-			break;
-		default:
-			{
-				ParserLog::invalidXMLFileStructure("The transform element does not take child property: "+_property.type);
-				_NBL_DEBUG_BREAK_IF(true);
-				return false;
-			}
-			break;
-	}
+		_this->matrix = mul(_property.mvalue,_this->matrix);
+		return true;
+	};
+	for (const auto& type : {
+		SNamedPropertyElement::Type::MATRIX,
+		SNamedPropertyElement::Type::TRANSLATE,
+		SNamedPropertyElement::Type::ROTATE,
+		SNamedPropertyElement::Type::SCALE,
+		SNamedPropertyElement::Type::LOOKAT
+	})
+		retval.registerCallback(type,"",{.func=setMatrix});
 
-	return true;
+	return retval;
 }
 
-}
-}
 }
