@@ -39,7 +39,7 @@ struct LuminanceMapSampler
 	  return result;
 	}
 
-	static bool choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(float32_t) xi)
+	static bool choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi)
 	{
 		// numerical resilience against IEEE754
 		scalar_type dummy = 0.0f;
