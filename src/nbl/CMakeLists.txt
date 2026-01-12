@@ -394,6 +394,9 @@ nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebI
 nbl_adjust_definitions()
 
 option(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION "Enable to optimise CWaveStringResolver.cpp in Debug configuration, uses RWDI compile options for the TU" ON)
+if(NBL_SANITIZE_ADDRESS)
+	set(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION OFF CACHE BOOL "" FORCE)
+endif()
 if(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION)
 	set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
 		# just enabling inlining and optimisations will help a lot
