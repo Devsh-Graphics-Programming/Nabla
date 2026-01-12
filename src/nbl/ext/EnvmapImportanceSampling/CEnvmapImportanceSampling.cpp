@@ -70,45 +70,103 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapImportanceSampling::cre
 		return IAsset::castDown<IShader>(contents[0]);
 	};
 
-	const auto key = nbl::ext::envmap_importance_sampling::builtin::build::get_spirv_key<"measure_luma">(device);
+	const auto key = nbl::ext::envmap_importance_sampling::builtin::build::get_spirv_key<"gen_luma">(device);
 	smart_refctd_ptr<IShader> genLumaShader = getShader(key);
 	if (!genLumaShader)
 	{
-		params.utilities->getLogger()->log("Could not compile shaders!", ILogger::ELL_ERROR);
+		logger.log("Could not compile shaders!", ILogger::ELL_ERROR);
 		return nullptr;
 	}
 
-	return nullptr;
+  video::IGPUComputePipeline::SCreationParams pipelineParams[1] = {};
+  pipelineParams[0].layout = pipelineLayout;
+  pipelineParams[0].shader = { .shader = genLumaShader.get(), .entryPoint = "main" };
+
+  smart_refctd_ptr<IGPUComputePipeline> pipeline;
+  params.utilities->getLogicalDevice()->createComputePipelines(nullptr, pipelineParams, &pipeline);
+  if (!pipeline)
+  {
+    logger.log("Could not create pipeline!", ILogger::ELL_ERROR);
+    return nullptr;
+  }
+
+  return pipeline;
+}
+
+
+core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapImportanceSampling::createGenLumaPipelineLayout(video::ILogicalDevice* device, const smart_refctd_ptr<video::IGPUSampler>* sampler)
+{
+  asset::SPushConstantRange pcRange = {
+    .stageFlags = hlsl::ESS_COMPUTE,
+    .offset = 0,
+    .size = sizeof(SLumaGenPushConstants)
+  };
+
+  const IGPUDescriptorSetLayout::SBinding bindings[] = {
+    {
+      .binding = 0u,
+      .type = nbl::asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
+      .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+      .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
+      .count = 1u,
+      .immutableSamplers = sampler
+    },
+    {
+      .binding = 1u,
+      .type = nbl::asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
+      .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+      .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
+      .count = 1u
+    }
+  };
+
+  const auto setLayout = device->createDescriptorSetLayout(bindings);
+	return device->createPipelineLayout({ &pcRange, 1 }, setLayout, nullptr, nullptr, nullptr);
 
 }
 
-//
-// core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapImportanceSampling::createLumaGenPipelineLayout(video::ILogicalDevice* device)
-// {
-//   asset::SPushConstantRange pcRange = {
-//     .stageFlags = hlsl::ESS_COMPUTE,
-//     .offset = 0,
-//     .size = sizeof(SLumaGenPushConstants)
-//   };
-//
-//   const IGPUDescriptorSetLayout::SBinding bindings[] = {
-//     {
-//       .binding = 0u,
-//       .type = nbl::asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
-//       .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
-//       .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
-//       .count = 1u,
-//       .immutableSamplers = &defaultSampler
-//     },
-//     {
-//       .binding = 1u,
-//       .type = nbl::asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
-//       .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
-//       .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
-//       .count = 1u
-//     }
-//   };
-//
-// }
+core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::createMeasureLumaPipelineLayout(video::ILogicalDevice* device)
+{
+  asset::SPushConstantRange pcRange = {
+    .stageFlags = hlsl::ESS_COMPUTE,
+		.offset = 0,
+		.size = sizeof(SLumaMeasurePushConstants)
+  };
 
+  const IGPUDescriptorSetLayout::SBinding bindings[] = {
+    {
+      .binding = 0u,
+      .type = nbl::asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
+      .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+      .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
+      .count = 1u,
+    }
+  };
+
+  const auto setLayout = device->createDescriptorSetLayout(bindings);
+	return device->createPipelineLayout({ &pcRange, 1 }, setLayout, nullptr, nullptr, nullptr);
+}
+
+core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::createGenWarpMapPipelineLayout(video::ILogicalDevice* device)
+{
+  const IGPUDescriptorSetLayout::SBinding bindings[] = {
+    {
+      .binding = 0u,
+      .type = nbl::asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
+      .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+      .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
+      .count = 1u,
+    },
+    {
+      .binding = 1u,
+      .type = nbl::asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
+      .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+      .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
+      .count = 1u
+    }
+  };
+
+  const auto setLayout = device->createDescriptorSetLayout(bindings);
+	return device->createPipelineLayout({}, setLayout, nullptr, nullptr, nullptr);
+}
 }
