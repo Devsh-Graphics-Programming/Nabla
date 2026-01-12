@@ -70,14 +70,24 @@ namespace nbl::wave
                 stream << i->get_value();
             resolvedString = stream.str();
         }
-        catch (boost::wave::preprocess_exception& e)
+        catch (const boost::wave::cpp_exception& e)
         {
-            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
+            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]", system::ILogger::ELL_ERROR, e.what(), e.description(), e.file_name(), e.line_no(), e.column_no());
+            return {};
+        }
+        catch (const boost::wave::cpplexer::lexing_exception& e)
+        {
+            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]", system::ILogger::ELL_ERROR, e.what(), e.description(), e.file_name(), e.line_no(), e.column_no());
+            return {};
+        }
+        catch (const std::exception& e)
+        {
+            preprocessOptions.logger.log("Exception caught. %s", system::ILogger::ELL_ERROR, e.what());
             return {};
         }
         catch (...)
         {
-            preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
+            preprocessOptions.logger.log("Unknown exception caught!", system::ILogger::ELL_ERROR);
             return {};
         }
 

@@ -118,6 +118,44 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::string_view definition;
 		};
 
+		// Forward declaration for dependency access.
+		struct CCache;
+
+		struct SPreprocessingDependency
+		{
+			public:
+				// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
+				inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash) :
+					requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
+				{}
+
+				inline SPreprocessingDependency(SPreprocessingDependency&) = default;
+				inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
+				inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
+				inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;
+
+				// Needed for json vector serialization. Making it private and declaring from_json(_, SEntry&) as friend didn't work
+				inline SPreprocessingDependency() {}
+
+				inline const system::path& getRequestingSourceDir() const { return requestingSourceDir; }
+				inline std::string_view getIdentifier() const { return identifier; }
+				inline bool isStandardInclude() const { return standardInclude; }
+				inline const core::blake3_hash_t& getHash() const { return hash; }
+
+			private:
+				friend void to_json(nlohmann::json& j, const SPreprocessingDependency& dependency);
+				friend void from_json(const nlohmann::json& j, SPreprocessingDependency& dependency);
+				friend class CCache;
+
+				// path or identifier
+				system::path requestingSourceDir = "";
+				std::string identifier = "";
+				// hash of the contents - used to check against a found_t
+				core::blake3_hash_t hash = {};
+				// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
+				bool standardInclude = false;
+		};
+
 		//
 		using E_SPIRV_VERSION = nbl::hlsl::SpirvVersion;
 
@@ -136,6 +174,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
+			std::span<const std::string> forceIncludes = {};
+			std::string_view codeForCache = {};
+			bool applyForceIncludes = true;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
 			system::path depfilePath = {};
@@ -153,7 +194,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		};
 
 		// Forward declaration for SCompilerOptions use
-		struct CCache;
 		/*
 			@stage shaderStage, can be ESS_ALL_OR_LIBRARY to make multi-entrypoint shaders
 			@targetSpirvVersion spirv version
@@ -185,7 +225,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			SPreprocessorOptions preprocessorOptions = {};
 			CCache* readCache = nullptr;
 			CCache* writeCache = nullptr;
+			bool* cacheHit = nullptr;
+			const std::vector<SPreprocessingDependency>* dependencyOverrides = nullptr;
 		};
+
+		static std::string applyForceIncludes(std::string_view code, std::span<const std::string> forceIncludes);
+		static bool probeShaderCache(const CCache* cache, std::string_view code, const SCompilerOptions& options, const CIncludeFinder* finder);
 
 		class CCache final : public IReferenceCounted
 		{
@@ -193,7 +238,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			public:
 				// Used to check compatibility of Caches before reading
-				constexpr static inline std::string_view VERSION = "1.1.0";
+				constexpr static inline std::string_view VERSION = "1.2.1";
 
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
@@ -201,40 +246,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					friend class CCache;
 
-					struct SPreprocessingDependency
-					{
-						public:
-							// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
-							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash) :
-								requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
-							{}
-
-							inline SPreprocessingDependency(SPreprocessingDependency&) = default;
-							inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
-							inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
-							inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;
-
-							// Needed for json vector serialization. Making it private and declaring from_json(_, SEntry&) as friend didn't work
-							inline SPreprocessingDependency() {}
-
-							inline const system::path& getRequestingSourceDir() const { return requestingSourceDir; }
-							inline std::string_view getIdentifier() const { return identifier; }
-							inline bool isStandardInclude() const { return standardInclude; }
-
-						private:
-							friend void to_json(nlohmann::json& j, const SEntry::SPreprocessingDependency& dependency);
-							friend void from_json(const nlohmann::json& j, SEntry::SPreprocessingDependency& dependency);
-							friend class CCache;
-
-							// path or identifier
-							system::path requestingSourceDir = "";
-							std::string identifier = "";
-							// hash of the contents - used to check against a found_t
-							core::blake3_hash_t hash = {};
-							// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
-							bool standardInclude = false;
-
-					};
+					using SPreprocessingDependency = IShaderCompiler::SPreprocessingDependency;
 
 					struct SCompilerArgs; // Forward declaration for SPreprocessorArgs's friend declaration
 
@@ -250,6 +262,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								for (auto definesIt = extraDefines.begin(), otherDefinesIt = other.extraDefines.begin(); definesIt != extraDefines.end(); definesIt++, otherDefinesIt++)
 								if (definesIt->identifier != otherDefinesIt->identifier || definesIt->definition != otherDefinesIt->definition)
 									return false;
+
+								if (forceIncludes != other.forceIncludes) return false;
 
 								return true;
 							}
@@ -275,11 +289,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								for (auto define : options.extraDefines)
 									extraDefines.emplace_back(std::string(define.identifier), std::string(define.definition));
 
+								for (const auto& inc : options.forceIncludes)
+									forceIncludes.emplace_back(inc);
+
 								// Sort them so equality and hashing are well defined
 								std::sort(extraDefines.begin(), extraDefines.end(), [](const SMacroDefinition& lhs, const SMacroDefinition& rhs) {return lhs.identifier < rhs.identifier; });
 							};
 							std::string sourceIdentifier;
 							std::vector<SMacroDefinition> extraDefines;
+							std::vector<std::string> forceIncludes;
 					};
 					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and decompressShader
 					struct SCompilerArgs final
@@ -351,6 +369,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							hashable.insert(hashable.end(), defines.identifier.begin(), defines.identifier.end());
 							hashable.insert(hashable.end(), defines.definition.begin(), defines.definition.end());
 						}
+						for (const auto& inc : compilerArgs.preprocessorArgs.forceIncludes)
+							hashable.insert(hashable.end(), inc.begin(), inc.end());
 
 						// Insert rest of stuff from this struct. We're going to treat stage, targetSpirvVersion and debugInfoFlags.value as byte arrays for simplicity
 						hashable.insert(hashable.end(), reinterpret_cast<uint8_t*>(&compilerArgs.stage), reinterpret_cast<uint8_t*>(&compilerArgs.stage) + sizeof(compilerArgs.stage));
@@ -400,6 +420,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				inline void insert(SEntry&& entry)
 				{
+					if (auto found = m_container.find(entry); found != m_container.end())
+						m_container.erase(found);
 					m_container.insert(std::move(entry));
 				}
 
@@ -420,6 +442,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				}
 
 				NBL_API2 core::smart_refctd_ptr<asset::IShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
+				NBL_API2 bool contains(const SEntry& mainFile, const CIncludeFinder* finder) const;
+				NBL_API2 bool findEntryForCode(std::string_view code, const SCompilerOptions& options, const CIncludeFinder* finder, SEntry& outEntry) const;
+				NBL_API2 core::smart_refctd_ptr<asset::IShader> decompressEntry(const SEntry& entry) const;
 		
 				inline CCache() {}
 
@@ -453,6 +478,79 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
 
+		class CPreprocessCache final : public IReferenceCounted
+		{
+			public:
+				constexpr static inline std::string_view VERSION = "2.0";
+
+				struct SEntry
+				{
+					core::blake3_hash_t prefixHash = {};
+					std::string preprocessedPrefix;
+					std::vector<std::string> macroDefs;
+					std::vector<std::string> dxcFlags;
+					uint32_t pragmaStage = static_cast<uint32_t>(IShader::E_SHADER_STAGE::ESS_UNKNOWN);
+					CCache::SEntry::dependency_container_t dependencies;
+				};
+
+				enum class ELoadStatus : uint8_t
+				{
+					Missing,
+					Invalid,
+					Loaded
+				};
+
+				enum class EProbeStatus : uint8_t
+				{
+					Hit,
+					NoPrefix,
+					Missing,
+					Invalid,
+					PrefixChanged,
+					DependenciesChanged,
+					EntryInvalid
+				};
+
+				struct SProbeResult
+				{
+					std::string codeStorage;
+					std::string_view prefix = {};
+					std::string_view body = {};
+					core::blake3_hash_t prefixHash = {};
+					EProbeStatus status = EProbeStatus::EntryInvalid;
+					bool hasPrefix = false;
+					bool cacheHit = false;
+				};
+
+				inline bool hasEntry() const { return m_hasEntry; }
+				inline const SEntry& getEntry() const { return m_entry; }
+				inline void setEntry(SEntry&& entry) { m_entry = std::move(entry); m_hasEntry = true; }
+
+				NBL_API2 core::smart_refctd_ptr<ICPUBuffer> serialize() const;
+				NBL_API2 static core::smart_refctd_ptr<CPreprocessCache> deserialize(const std::span<const uint8_t> serializedCache);
+				NBL_API2 static core::smart_refctd_ptr<CPreprocessCache> loadFromFile(const system::path& path, ELoadStatus& status);
+				NBL_API2 static bool writeToFile(const system::path& path, const CPreprocessCache& cache);
+				NBL_API2 static SProbeResult probe(std::string_view code, const CPreprocessCache* cache, ELoadStatus loadStatus, const SPreprocessorOptions& preprocessOptions);
+				NBL_API2 static const char* getProbeReason(EProbeStatus status);
+				NBL_API2 bool validateDependencies(const CIncludeFinder* finder) const;
+				NBL_API2 std::string buildCombinedCode(std::string_view body, std::string_view sourceIdentifier) const;
+
+			private:
+				bool m_hasEntry = false;
+				SEntry m_entry;
+		};
+
+		struct SPreprocessCacheResult
+		{
+			bool ok = true;
+			bool cacheUsed = false;
+			bool cacheHit = false;
+			bool cacheUpdated = false;
+			CPreprocessCache::EProbeStatus status = CPreprocessCache::EProbeStatus::EntryInvalid;
+			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+			std::string code;
+		};
+
 		struct DepfileWriteParams
 		{
 			system::ISystem* system = nullptr;
@@ -465,6 +563,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		static bool writeDepfile(const DepfileWriteParams& params, const CCache::SEntry::dependency_container_t& dependencies, const CIncludeFinder* includeFinder = nullptr, system::logger_opt_ptr logger = nullptr);
 
 		core::smart_refctd_ptr<IShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const;
+		SPreprocessCacheResult preprocessWithCache(std::string_view code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache& cache, CPreprocessCache::ELoadStatus loadStatus, std::string_view sourceIdentifier) const;
 
 		inline core::smart_refctd_ptr<IShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
 		{
@@ -593,6 +692,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
 
 		virtual core::smart_refctd_ptr<IShader> compileToSPIRV_impl(const std::string_view code, const SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const = 0;
+		virtual bool preprocessPrefixForCache(std::string_view code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache::SEntry& outEntry) const;
 
 		core::smart_refctd_ptr<system::ISystem> m_system;
 

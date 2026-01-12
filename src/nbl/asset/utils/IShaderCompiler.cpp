@@ -4,18 +4,101 @@
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
+#include "nbl/core/hash/blake.h"
 
 #include <sstream>
 #include <regex>
 #include <iterator>
 #include <filesystem>
 #include <algorithm>
+#include <fstream>
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
 
 using namespace nbl;
 using namespace nbl::asset;
+
+namespace
+{
+	void splitPrefix(std::string_view code, std::string_view& prefix, std::string_view& body)
+	{
+		size_t pos = 0;
+		size_t prefixEnd = 0;
+		bool inContinuation = false;
+		bool inBlockComment = false;
+
+		while (pos < code.size())
+		{
+			const size_t lineStart = pos;
+			size_t lineEnd = code.find('\n', pos);
+			if (lineEnd == std::string_view::npos)
+				lineEnd = code.size();
+
+			std::string_view line = code.substr(lineStart, lineEnd - lineStart);
+			if (!line.empty() && line.back() == '\r')
+				line.remove_suffix(1);
+
+			bool directiveLine = false;
+			if (inContinuation || inBlockComment)
+			{
+				directiveLine = true;
+			}
+			else
+			{
+				size_t i = 0;
+				if (line.size() >= 3 && static_cast<unsigned char>(line[0]) == 0xEF &&
+					static_cast<unsigned char>(line[1]) == 0xBB && static_cast<unsigned char>(line[2]) == 0xBF)
+					i = 3;
+				while (i < line.size() && (line[i] == ' ' || line[i] == '\t'))
+					++i;
+				if (i == line.size())
+				{
+					directiveLine = true;
+				}
+				else if (line[i] == '#')
+				{
+					directiveLine = true;
+				}
+				else if (line[i] == '/' && i + 1 < line.size() && line[i + 1] == '/')
+				{
+					directiveLine = true;
+				}
+				else if (line[i] == '/' && i + 1 < line.size() && line[i + 1] == '*')
+				{
+					directiveLine = true;
+					if (line.find("*/", i + 2) == std::string_view::npos)
+						inBlockComment = true;
+				}
+			}
+
+			if (!directiveLine)
+				break;
+
+			prefixEnd = lineEnd < code.size() ? lineEnd + 1 : lineEnd;
+
+			if (inBlockComment && line.find("*/") != std::string_view::npos)
+				inBlockComment = false;
+
+			bool continuation = false;
+			if (!line.empty())
+			{
+				size_t j = line.size();
+				while (j > 0 && (line[j - 1] == ' ' || line[j - 1] == '\t'))
+					--j;
+				if (j > 0 && line[j - 1] == '\\')
+					continuation = true;
+			}
+			inContinuation = continuation;
+			if (lineEnd == code.size())
+				break;
+			pos = lineEnd + 1;
+		}
+
+		prefix = code.substr(0, prefixEnd);
+		body = code.substr(prefixEnd);
+	}
+}
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
@@ -233,6 +316,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 {
 	const bool depfileEnabled = options.preprocessorOptions.depfile;
 	const bool supportsDependencies = options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL;
+	const auto* dependencyOverrides = options.dependencyOverrides;
 
 	auto writeDepfileFromDependencies = [&](const CCache::SEntry::dependency_container_t& dependencies) -> bool
 	{
@@ -255,15 +339,21 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);
 	};
 
+	const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
 	CCache::SEntry entry;
 	if (options.readCache || options.writeCache)
-		entry = CCache::SEntry(code, options);
+		entry = CCache::SEntry(cacheCode, options);
+
+	if (options.cacheHit)
+		*options.cacheHit = false;
 
 	if (options.readCache)
 	{
 		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
 		if (found != options.readCache->m_container.end())
 		{
+			if (options.cacheHit)
+				*options.cacheHit = true;
 			if (options.writeCache)
 			{
 				CCache::SEntry writeEntry = *found;
@@ -278,10 +368,13 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 
 	CCache::SEntry::dependency_container_t depfileDependencies;
 	CCache::SEntry::dependency_container_t* dependenciesPtr = nullptr;
-	if (options.writeCache)
-		dependenciesPtr = &entry.dependencies;
-	else if (depfileEnabled && supportsDependencies)
-		dependenciesPtr = &depfileDependencies;
+	if (!dependencyOverrides)
+	{
+		if (options.writeCache)
+			dependenciesPtr = &entry.dependencies;
+		else if (depfileEnabled && supportsDependencies)
+			dependenciesPtr = &depfileDependencies;
+	}
 
 	auto retVal = compileToSPIRV_impl(code, options, dependenciesPtr);
 	if (retVal)
@@ -290,9 +383,17 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
 	}
 
+	if (retVal && options.writeCache && dependencyOverrides)
+	{
+		entry.dependencies.clear();
+		entry.dependencies.reserve(dependencyOverrides->size());
+		for (const auto& dep : *dependencyOverrides)
+			entry.dependencies.emplace_back(dep.getRequestingSourceDir(), dep.getIdentifier(), dep.isStandardInclude(), dep.getHash());
+	}
+
 	if (retVal && depfileEnabled && supportsDependencies)
 	{
-		const auto* deps = options.writeCache ? &entry.dependencies : &depfileDependencies;
+		const auto* deps = dependencyOverrides ? dependencyOverrides : (options.writeCache ? &entry.dependencies : &depfileDependencies);
 		if (!writeDepfileFromDependencies(*deps))
 			return nullptr;
 	}
@@ -513,6 +614,27 @@ core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntr
     return found->decompressShader();
 }
 
+bool IShaderCompiler::CCache::contains(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+{
+    return find_impl(mainFile, finder) != m_container.end();
+}
+
+bool IShaderCompiler::CCache::findEntryForCode(std::string_view code, const SCompilerOptions& options, const IShaderCompiler::CIncludeFinder* finder, SEntry& outEntry) const
+{
+    const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
+    const CCache::SEntry entry(cacheCode, options);
+    const auto found = find_impl(entry, finder);
+    if (found == m_container.end())
+        return false;
+    outEntry = SEntry(*found);
+    return true;
+}
+
+core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::decompressEntry(const SEntry& entry) const
+{
+    return entry.decompressShader();
+}
+
 IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
     auto found = m_container.find(mainFile);
@@ -634,6 +756,485 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     }
 
     return retVal;
+}
+
+static std::string normalizeLinePath(std::string_view path)
+{
+    std::string out(path);
+    std::replace(out.begin(), out.end(), '\\', '/');
+	return out;
+}
+
+std::string IShaderCompiler::applyForceIncludes(std::string_view code, std::span<const std::string> forceIncludes)
+{
+    if (forceIncludes.empty())
+        return std::string(code);
+
+    size_t reserveSize = code.size();
+    for (const auto& inc : forceIncludes)
+        reserveSize += inc.size() + 16;
+
+    std::string out;
+    out.reserve(reserveSize);
+    for (const auto& inc : forceIncludes)
+    {
+        const auto incPath = std::filesystem::path(inc).generic_string();
+        out.append("#include \"");
+        out.append(incPath);
+        out.append("\"\n");
+    }
+    out.append(code);
+    return out;
+}
+
+bool IShaderCompiler::probeShaderCache(const CCache* cache, std::string_view code, const SCompilerOptions& options, const CIncludeFinder* finder)
+{
+    if (!cache)
+        return false;
+    const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
+    const CCache::SEntry entry(cacheCode, options);
+    return cache->contains(entry, finder);
+}
+
+bool IShaderCompiler::preprocessPrefixForCache(std::string_view code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache::SEntry& outEntry) const
+{
+    outEntry = {};
+    std::vector<CCache::SEntry::SPreprocessingDependency> deps;
+    auto text = preprocessShader(std::string(code), stage, preprocessOptions, &deps);
+    if (text.empty())
+        return false;
+    outEntry.preprocessedPrefix = std::move(text);
+    outEntry.dependencies = std::move(deps);
+    outEntry.pragmaStage = static_cast<uint32_t>(stage);
+    return true;
+}
+
+IShaderCompiler::CPreprocessCache::SProbeResult IShaderCompiler::CPreprocessCache::probe(std::string_view code, const CPreprocessCache* cache, ELoadStatus loadStatus, const SPreprocessorOptions& preprocessOptions)
+{
+	SProbeResult result = {};
+	const CIncludeFinder* finder = preprocessOptions.includeFinder;
+	std::string_view codeToSplit = code;
+	if (preprocessOptions.applyForceIncludes && !preprocessOptions.forceIncludes.empty())
+	{
+		result.codeStorage = applyForceIncludes(code, preprocessOptions.forceIncludes);
+		codeToSplit = result.codeStorage;
+	}
+	splitPrefix(codeToSplit, result.prefix, result.body);
+	result.hasPrefix = !result.prefix.empty();
+	if (!result.hasPrefix)
+	{
+		result.status = EProbeStatus::NoPrefix;
+		result.cacheHit = false;
+		return result;
+	}
+
+	{
+		core::blake3_hasher hasher;
+		hasher.update(result.prefix.data(), result.prefix.size());
+		result.prefixHash = static_cast<core::blake3_hash_t>(hasher);
+	}
+	const bool hasEntry = cache && cache->hasEntry();
+	if (!hasEntry)
+	{
+		result.cacheHit = false;
+		if (loadStatus == ELoadStatus::Missing)
+			result.status = EProbeStatus::Missing;
+		else if (loadStatus == ELoadStatus::Invalid)
+			result.status = EProbeStatus::Invalid;
+		else
+			result.status = EProbeStatus::EntryInvalid;
+		return result;
+	}
+
+	const bool prefixMatch = cache->getEntry().prefixHash == result.prefixHash;
+	const bool depsValid = cache->validateDependencies(finder);
+	if (prefixMatch && depsValid)
+	{
+		result.cacheHit = true;
+		result.status = EProbeStatus::Hit;
+		return result;
+	}
+
+	result.cacheHit = false;
+	if (!prefixMatch)
+		result.status = EProbeStatus::PrefixChanged;
+	else if (!depsValid)
+		result.status = EProbeStatus::DependenciesChanged;
+	else
+		result.status = EProbeStatus::EntryInvalid;
+
+	return result;
+}
+
+const char* IShaderCompiler::CPreprocessCache::getProbeReason(EProbeStatus status)
+{
+	switch (status)
+	{
+	case EProbeStatus::Missing:
+		return "cache file missing; first build, cleaned, output moved, or out of date";
+	case EProbeStatus::Invalid:
+		return "cache file invalid or version mismatch";
+	case EProbeStatus::PrefixChanged:
+		return "prefix changed; cache invalidated";
+	case EProbeStatus::DependenciesChanged:
+		return "dependencies changed; cache invalidated";
+	case EProbeStatus::EntryInvalid:
+		return "cache entry invalid";
+	case EProbeStatus::NoPrefix:
+		return "no prefix";
+	case EProbeStatus::Hit:
+		return "hit";
+	default:
+		return "unknown";
+	}
+}
+
+IShaderCompiler::SPreprocessCacheResult IShaderCompiler::preprocessWithCache(std::string_view code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache& cache, CPreprocessCache::ELoadStatus loadStatus, std::string_view sourceIdentifier) const
+{
+    SPreprocessCacheResult result = {};
+    result.stage = stage;
+
+    const auto probe = CPreprocessCache::probe(code, &cache, loadStatus, preprocessOptions);
+    result.status = probe.status;
+    if (!probe.hasPrefix)
+        return result;
+
+    if (probe.cacheHit)
+    {
+        result.cacheHit = true;
+        result.cacheUsed = true;
+    }
+    else
+    {
+        CPreprocessCache::SEntry entry;
+        IShader::E_SHADER_STAGE prefixStage = stage;
+        SPreprocessorOptions preCacheOpt = preprocessOptions;
+        preCacheOpt.depfile = false;
+        if (!preprocessPrefixForCache(probe.prefix, prefixStage, preCacheOpt, entry))
+        {
+            result.ok = false;
+            return result;
+        }
+        entry.prefixHash = probe.prefixHash;
+        entry.pragmaStage = static_cast<uint32_t>(prefixStage);
+        cache.setEntry(std::move(entry));
+        result.cacheUsed = true;
+        result.cacheUpdated = true;
+    }
+
+    if (!cache.hasEntry())
+    {
+        result.ok = false;
+        return result;
+    }
+
+    result.code = cache.buildCombinedCode(probe.body, sourceIdentifier);
+    if (result.code.empty())
+    {
+        result.ok = false;
+        return result;
+    }
+
+    const auto& entry = cache.getEntry();
+    if (entry.pragmaStage != static_cast<uint32_t>(IShader::E_SHADER_STAGE::ESS_UNKNOWN))
+        result.stage = static_cast<IShader::E_SHADER_STAGE>(entry.pragmaStage);
+
+    return result;
+}
+
+core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CPreprocessCache::serialize() const
+{
+    if (!m_hasEntry)
+        return nullptr;
+
+    auto write_bytes = [](std::vector<uint8_t>& out, const void* data, size_t size)
+    {
+        const auto* ptr = reinterpret_cast<const uint8_t*>(data);
+        out.insert(out.end(), ptr, ptr + size);
+    };
+    auto write_u32 = [&write_bytes](std::vector<uint8_t>& out, uint32_t value)
+    {
+        write_bytes(out, &value, sizeof(value));
+    };
+    auto write_string = [&write_u32, &write_bytes](std::vector<uint8_t>& out, std::string_view value)
+    {
+        write_u32(out, static_cast<uint32_t>(value.size()));
+        if (!value.empty())
+            write_bytes(out, value.data(), value.size());
+    };
+
+    std::vector<uint8_t> out;
+    out.reserve(m_entry.preprocessedPrefix.size() + 256);
+    const uint32_t magic = 0x50435250u;
+    write_u32(out, magic);
+    write_string(out, VERSION);
+    write_bytes(out, &m_entry.prefixHash, sizeof(m_entry.prefixHash));
+    write_u32(out, m_entry.pragmaStage);
+    write_string(out, m_entry.preprocessedPrefix);
+
+    write_u32(out, static_cast<uint32_t>(m_entry.macroDefs.size()));
+    for (const auto& macro : m_entry.macroDefs)
+        write_string(out, macro);
+
+    write_u32(out, static_cast<uint32_t>(m_entry.dxcFlags.size()));
+    for (const auto& flag : m_entry.dxcFlags)
+        write_string(out, flag);
+
+    write_u32(out, static_cast<uint32_t>(m_entry.dependencies.size()));
+    for (const auto& dep : m_entry.dependencies)
+    {
+        const auto dir = dep.getRequestingSourceDir().generic_string();
+        write_string(out, dir);
+        write_string(out, dep.getIdentifier());
+        const uint8_t standardInclude = dep.isStandardInclude() ? 1u : 0u;
+        write_bytes(out, &standardInclude, sizeof(standardInclude));
+        write_bytes(out, dep.getHash().data, sizeof(dep.getHash().data));
+    }
+
+    auto buffer = ICPUBuffer::create({ out.size() });
+    if (!buffer)
+        return nullptr;
+    std::memcpy(buffer->getPointer(), out.data(), out.size());
+    return buffer;
+}
+
+core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPreprocessCache::deserialize(const std::span<const uint8_t> serializedCache)
+{
+    if (serializedCache.empty())
+        return nullptr;
+
+    auto read_bytes = [](const std::span<const uint8_t> data, size_t& offset, void* dst, size_t size) -> bool
+    {
+        if (offset + size > data.size())
+            return false;
+        std::memcpy(dst, data.data() + offset, size);
+        offset += size;
+        return true;
+    };
+    auto read_u32 = [&read_bytes](const std::span<const uint8_t> data, size_t& offset, uint32_t& out) -> bool
+    {
+        return read_bytes(data, offset, &out, sizeof(out));
+    };
+    auto read_string = [&read_u32, &read_bytes](const std::span<const uint8_t> data, size_t& offset, std::string& out) -> bool
+    {
+        uint32_t size = 0;
+        if (!read_u32(data, offset, size))
+            return false;
+        if (offset + size > data.size())
+            return false;
+        out.assign(reinterpret_cast<const char*>(data.data() + offset), size);
+        offset += size;
+        return true;
+    };
+
+    size_t offset = 0;
+    uint32_t magic = 0;
+    if (!read_u32(serializedCache, offset, magic))
+        return nullptr;
+    if (magic != 0x50435250u)
+        return nullptr;
+
+    std::string version;
+    if (!read_string(serializedCache, offset, version))
+        return nullptr;
+    if (version != VERSION)
+        return nullptr;
+
+    auto retVal = core::make_smart_refctd_ptr<CPreprocessCache>();
+    auto& entry = retVal->m_entry;
+    if (!read_bytes(serializedCache, offset, &entry.prefixHash, sizeof(entry.prefixHash)))
+        return nullptr;
+    if (!read_u32(serializedCache, offset, entry.pragmaStage))
+        return nullptr;
+    if (!read_string(serializedCache, offset, entry.preprocessedPrefix))
+        return nullptr;
+
+    uint32_t macroCount = 0;
+    if (!read_u32(serializedCache, offset, macroCount))
+        return nullptr;
+    entry.macroDefs.clear();
+    entry.macroDefs.reserve(macroCount);
+    for (uint32_t i = 0; i < macroCount; ++i)
+    {
+        std::string macro;
+        if (!read_string(serializedCache, offset, macro))
+            return nullptr;
+        entry.macroDefs.emplace_back(std::move(macro));
+    }
+
+    uint32_t flagCount = 0;
+    if (!read_u32(serializedCache, offset, flagCount))
+        return nullptr;
+    entry.dxcFlags.clear();
+    entry.dxcFlags.reserve(flagCount);
+    for (uint32_t i = 0; i < flagCount; ++i)
+    {
+        std::string flag;
+        if (!read_string(serializedCache, offset, flag))
+            return nullptr;
+        entry.dxcFlags.emplace_back(std::move(flag));
+    }
+
+    uint32_t depCount = 0;
+    if (!read_u32(serializedCache, offset, depCount))
+        return nullptr;
+    entry.dependencies.clear();
+    entry.dependencies.reserve(depCount);
+    for (uint32_t i = 0; i < depCount; ++i)
+    {
+        std::string dir;
+        std::string identifier;
+        if (!read_string(serializedCache, offset, dir))
+            return nullptr;
+        if (!read_string(serializedCache, offset, identifier))
+            return nullptr;
+        uint8_t standardInclude = 0;
+        if (!read_bytes(serializedCache, offset, &standardInclude, sizeof(standardInclude)))
+            return nullptr;
+        core::blake3_hash_t hash = {};
+        if (!read_bytes(serializedCache, offset, hash.data, sizeof(hash.data)))
+            return nullptr;
+        entry.dependencies.emplace_back(system::path(dir), identifier, standardInclude != 0, hash);
+    }
+
+    retVal->m_hasEntry = true;
+    return retVal;
+}
+
+core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPreprocessCache::loadFromFile(const system::path& path, ELoadStatus& status)
+{
+    status = ELoadStatus::Missing;
+    if (!std::filesystem::exists(path))
+        return nullptr;
+
+    std::ifstream in(path, std::ios::binary);
+    if (!in)
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    in.seekg(0, std::ios::end);
+    const auto size = static_cast<size_t>(in.tellg());
+    in.seekg(0, std::ios::beg);
+    if (!size)
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    std::vector<uint8_t> data(size);
+    if (!in.read(reinterpret_cast<char*>(data.data()), data.size()))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    auto cache = deserialize(std::span<const uint8_t>(data.data(), data.size()));
+    if (!cache)
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    status = ELoadStatus::Loaded;
+    return cache;
+}
+
+bool IShaderCompiler::CPreprocessCache::writeToFile(const system::path& path, const CPreprocessCache& cache)
+{
+    auto buffer = cache.serialize();
+    if (!buffer)
+        return false;
+
+    const auto parent = path.parent_path();
+    if (!parent.empty() && !std::filesystem::exists(parent))
+        std::filesystem::create_directories(parent);
+
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out)
+        return false;
+
+    out.write(reinterpret_cast<const char*>(buffer->getPointer()), buffer->getSize());
+    return bool(out);
+}
+
+bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinder* finder) const
+{
+    if (!m_hasEntry || !finder)
+        return false;
+
+    for (const auto& dep : m_entry.dependencies)
+    {
+        IIncludeLoader::found_t header;
+        if (dep.isStandardInclude())
+            header = finder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+        else
+            header = finder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+
+        if (!header || header.hash != dep.getHash())
+            return false;
+    }
+    return true;
+}
+
+std::string IShaderCompiler::CPreprocessCache::buildCombinedCode(std::string_view body, std::string_view sourceIdentifier) const
+{
+    if (!m_hasEntry)
+        return std::string(body);
+
+    std::string out;
+    size_t reserve = m_entry.preprocessedPrefix.size() + body.size();
+    for (const auto& m : m_entry.macroDefs)
+        reserve += m.size() + 16;
+    for (const auto& f : m_entry.dxcFlags)
+        reserve += f.size() + 1;
+    reserve += 64;
+    out.reserve(reserve);
+
+    if (!m_entry.dxcFlags.empty())
+    {
+        out.append("#pragma dxc_compile_flags ");
+        for (size_t i = 0; i < m_entry.dxcFlags.size(); ++i)
+        {
+            if (i)
+                out.push_back(' ');
+            out.append(m_entry.dxcFlags[i]);
+        }
+        out.push_back('\n');
+    }
+
+    if (!m_entry.preprocessedPrefix.empty())
+    {
+        out.append(m_entry.preprocessedPrefix);
+        if (out.back() != '\n')
+            out.push_back('\n');
+    }
+
+    for (const auto& macro : m_entry.macroDefs)
+    {
+        const auto eq = macro.find('=');
+        std::string_view name = eq == std::string::npos ? std::string_view(macro) : std::string_view(macro).substr(0, eq);
+        std::string_view def = eq == std::string::npos ? std::string_view() : std::string_view(macro).substr(eq + 1);
+        out.append("#define ");
+        out.append(name);
+        if (!def.empty())
+        {
+            out.push_back(' ');
+            out.append(def);
+        }
+        out.push_back('\n');
+    }
+
+    if (!sourceIdentifier.empty())
+    {
+        out.append("#line 1 \"");
+        out.append(normalizeLinePath(sourceIdentifier));
+        out.append("\"\n");
+    }
+
+    out.append(body);
+    return out;
 }
 
 static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }

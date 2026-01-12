@@ -51,10 +51,16 @@ For each registered input it generates:
   - explicit specializations for each registered base `KEY`
   - the returned key already includes the build config prefix (compiled into the header).
 
-Keys are strings that match the output layout:
+Keys are hashed to keep filenames short and stable across long permutation strings. The **full key string** is built as:
 
 ```
-<CONFIG>/<KEY>(__<kind>.<capName>_<value>)(.<capName>_<value>)....spv
+<KEY>(__<kind>.<capName>_<value>)(.<capName>_<value>)....spv
+```
+
+Then `FNV-1a 64-bit` is computed from that full key (no `<CONFIG>` prefix), and the **final output key** is:
+
+```
+<CONFIG>/<hash>.spv
 ```
 
 ## The JSON "INPUTS" format
@@ -100,6 +106,38 @@ By default `NBL_CREATE_NSC_COMPILE_RULES` also collects `*.hlsl` files for IDE v
 - `GLOB_DIR` (optional): root directory for the default `*.hlsl` scan.
 - `DISCARD_DEFAULT_GLOB` (flag): disables the default scan and IDE grouping.
 
+## Cache layers (SPIR-V + preprocess)
+
+There are two independent caches:
+
+- `NSC_SHADER_CACHE` (default `ON`) -> SPIR-V cache (`<hash>.spv.ppcache`) for full compilation results.
+- `NSC_PREPROCESS_CACHE` (default `ON`) -> preprocessor prefix cache (`<hash>.spv.ppcache.pre`) to avoid repeating Boost.Wave include work when only the main shader changes.
+- Both caches are used only for compilation (not `-P` preprocess-only runs).
+- When preprocess cache is enabled and used, NSC also writes a combined preprocessed view (`<hash>.spv.pre.hlsl`) next to the outputs.
+  - This file is the exact input fed to DXC on the preprocess-cache path, so it's ready to paste into Godbolt for repros (use the same flags/includes).
+
+With `-verbose`, `.log` shows:
+
+- `Cache: <path>` and `Cache hit!/miss! ...` for SPIR-V cache.
+- `Preprocess cache: <path>` and `Preprocess cache hit!/miss! ...` for the prefix cache.
+- Timing lines (performance):
+  - `Shader cache lookup took: ...`
+  - `Preprocess cache lookup took: ...`
+  - `Total cache probe took: ...`
+  - `Preprocess took: ...` (only on compile path)
+  - `Compile took: ...` (only on compile path)
+  - `Total build time: ...` (preprocess + compile)
+  - `Total took: ...` (overall tool runtime)
+
+You can redirect both caches into a shared directory with:
+
+- `NSC_CACHE_DIR` (path). The cache files keep the same relative layout as `BINARY_DIR` (including `<CONFIG>/<hash>`), but live under the given root. This is handy for CI or persistent cache volumes.
+
+The preprocess cache key is based on the **prefix** of the input file (leading directives/comments plus forced includes), and cache validity is checked against include dependency hashes. That means:
+
+- edits to the shader body still hit (fast path)
+- changes to prefix directives, forced-includes, or included headers cause a cold run
+
 ## Minimal usage (no permutations)
 
 Example pattern (as in `examples_tests/27_MPMCScheduler/CMakeLists.txt`):
@@ -142,7 +180,7 @@ std::string_view key = keyBuf;
 auto bundle = assetMgr->getAsset(key.data(), loadParams);
 ```
 
-`OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). This list is intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`.
+`OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). These are already hashed (e.g. `Debug/123456789.spv`) and are intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`.
 
 ## Permutations via `CAPS`
 
@@ -181,7 +219,7 @@ struct DeviceConfigCaps
 };
 ```
 
-For more complex usage and regression-style checks (constexpr vs runtime), see `examples_tests/73_SpirvKeysTest`.
+For more complex usage and regression-style checks (constexpr vs runtime, hashing, mixed payloads), see `examples_tests/73_SpirvKeysTest`.
 
 ### Grouping caps by kind (optional)
 

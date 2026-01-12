@@ -136,6 +136,9 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 
 std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    if (preprocessOptions.applyForceIncludes && !preprocessOptions.forceIncludes.empty())
+        code = IShaderCompiler::applyForceIncludes(code, preprocessOptions.forceIncludes);
+
     if (!preprocessOptions.extraDefines.empty())
     {
         std::ostringstream insertion;

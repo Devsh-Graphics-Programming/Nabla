@@ -51,7 +51,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//}
 
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const override;
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const;
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr, std::vector<std::string>* macro_defs = nullptr) const;
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
@@ -118,6 +118,9 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			return std::span(RequiredArguments);
 		}
 		
+	protected:
+		bool preprocessPrefixForCache(std::string_view code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache::SEntry& outEntry) const override;
+
 	protected:
 		// This can't be a unique_ptr due to it being an undefined type 
 		// when Nabla is used as a lib

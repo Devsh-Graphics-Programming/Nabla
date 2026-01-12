@@ -9,6 +9,8 @@
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
+#include <algorithm>
+
 #include "nbl/asset/utils/IShaderCompiler.h"
 
 namespace nbl::wave
@@ -279,6 +281,70 @@ class context : private boost::noncopyable
         void reset_macro_definitions()
         {
             macros.reset_macromap(); macros.init_predefined_macros();
+        }
+        void dump_macro_definitions(std::vector<std::string>& out) const
+        {
+            out.clear();
+            std::vector<std::string> names;
+            names.reserve(std::distance(macro_names_begin(), macro_names_end()));
+            for (auto it = macro_names_begin(); it != macro_names_end(); ++it)
+                names.emplace_back(util::to_string<std::string>(*it));
+            std::sort(names.begin(), names.end());
+            for (const auto& name : names)
+            {
+                bool has_params = false;
+                bool is_predefined = false;
+                position_type pos;
+                std::vector<token_type> parameters;
+                token_sequence_type definition;
+                if (!get_macro_definition(name, has_params, is_predefined, pos, parameters, definition))
+                    continue;
+                if (is_predefined)
+                    continue;
+                if (name.size() >= 2 && name[0] == '_' && name[1] == '_')
+                    continue;
+
+                std::string params_str;
+                if (has_params)
+                {
+                    bool first_param = true;
+                    for (const auto& tok : parameters)
+                    {
+                        auto tok_str = util::to_string<std::string>(tok.get_value());
+                        if (tok_str == ",")
+                            continue;
+                        if (!first_param)
+                            params_str.append(", ");
+                        params_str.append(tok_str);
+                        first_param = false;
+                    }
+                }
+
+                std::string def_str;
+                std::string prev_tok;
+                for (const auto& tok : definition)
+                {
+                    auto tok_str = util::to_string<std::string>(tok.get_value());
+                    if (!def_str.empty())
+                    {
+                        if (!(prev_tok == "__VA_OPT__" && tok_str == "("))
+                            def_str.push_back(' ');
+                    }
+                    def_str.append(tok_str);
+                    prev_tok = std::move(tok_str);
+                }
+
+                std::string full = name;
+                if (has_params)
+                {
+                    full.push_back('(');
+                    full.append(params_str);
+                    full.push_back(')');
+                }
+                full.push_back('=');
+                full.append(def_str);
+                out.push_back(std::move(full));
+            }
         }
 
         // Iterate over names of defined macros
