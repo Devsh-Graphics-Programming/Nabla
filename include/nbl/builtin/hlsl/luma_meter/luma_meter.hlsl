@@ -94,10 +94,7 @@ struct geom_meter {
     )
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t2 coord = {
-            morton2d_decode_x(tid),
-            morton2d_decode_y(tid)
-        };
+        uint32_t2 coord = math::Morton<uint32_t>::decode2d(tid);
 
         float_t luma = 0.0f;
         float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
@@ -204,10 +201,7 @@ struct median_meter {
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t2 coord = {
-            morton2d_decode_x(tid),
-            morton2d_decode_y(tid)
-        };
+        uint32_t2 coord = math::Morton<uint32_t>::decode2d(tid);
 
         float_t luma = 0.0f;
         float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
