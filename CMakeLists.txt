@@ -173,8 +173,9 @@ option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
 option(NBL_FAST_MATH "Enable fast low-precision math" OFF) # the reason OFF is by default now is the var controling it at build time was set AFTER BuildConfigOptions was generated - resulting in the feature being always OFF regardless the value xD - so just for sanity, keeping the same behaviour by default
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
-option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
+option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
+option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)

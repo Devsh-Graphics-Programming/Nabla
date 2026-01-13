@@ -1,48 +1,40 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MISTUBA_LOADER_C_MITSUBA_LOADER_CONTEXT_H_INCLUDED_
+#define _NBL_EXT_MISTUBA_LOADER_C_MITSUBA_LOADER_CONTEXT_H_INCLUDED_
 
-#ifndef __C_MITSUBA_LOADER_CONTEXT_H_INCLUDED__
-#define __C_MITSUBA_LOADER_CONTEXT_H_INCLUDED__
 
-
-#include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/utils/IGeometryCreator.h"
-#include "nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
+//#include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/interchange/CIESProfileLoader.h"
 
-#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
+//#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
+//#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
-namespace nbl
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
+
+class CMitsubaMetadata;
 
 struct SContext
 {
 	public:
 		SContext(
-			const asset::IGeometryCreator* _geomCreator,
-			const asset::IMeshManipulator* _manipulator,
+//			const asset::IGeometryCreator* _geomCreator,
+//			const asset::IMeshManipulator* _manipulator,
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
 			CMitsubaMetadata* _metadata
 		);
 
-		const asset::IGeometryCreator* creator;
-		const asset::IMeshManipulator* manipulator;
+//		const asset::IGeometryCreator* creator;
+//		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		CMitsubaMetadata* meta;
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_SZ_LOG2 = 7u;//128
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2 = 4u;//16
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_PADDING = 8u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u;//4096
-
+#if 0
 		//
 		using group_ass_type = core::vector<core::smart_refctd_ptr<asset::ICPUMesh>>;
 		//core::map<const CElementShape::ShapeGroup*, group_ass_type> groupCache;
@@ -171,21 +163,6 @@ struct SContext
 			return params;
 		}
 
-		inline core::smart_refctd_ptr<asset::ICPUSampler> getSampler(const asset::ICPUSampler::SParams& params) const
-		{
-			const std::string samplerKey = samplerCacheKey(params);
-			const asset::IAsset::E_TYPE types[2] = {asset::IAsset::ET_SAMPLER,asset::IAsset::ET_TERMINATING_ZERO};
-			auto samplerBundle = override_->findCachedAsset(samplerKey,types,inner,0u);
-			if (samplerBundle.getContents().empty())
-			{
-				auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-				override_->insertAssetIntoCache(asset::SAssetBundle(nullptr,{sampler}),samplerKey,inner,0);
-				return sampler;
-			}
-			else
-				return core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
-		}
-
 		//index of root node in IR
 		using bsdf_type = const CMitsubaMaterialCompilerFrontend::front_and_back_t;
 		//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
@@ -214,67 +191,14 @@ struct SContext
 		};
 		core::unordered_multimap<const shape_ass_type::pointee*, SInstanceData> mapMesh2instanceData;
 
-		struct SPipelineCacheKey
-		{
-			asset::SVertexInputParams vtxParams;
-			asset::SPrimitiveAssemblyParams primParams;
-
-			inline bool operator==(const SPipelineCacheKey& rhs) const
-			{
-				return memcmp(&vtxParams, &rhs.vtxParams, sizeof(vtxParams)) == 0 && memcmp(&primParams, &rhs.primParams, sizeof(primParams)) == 0;
-			}
-
-			struct hash
-			{
-				inline size_t operator()(const SPipelineCacheKey& k) const
-				{
-					constexpr size_t BYTESZ = sizeof(k.vtxParams) + sizeof(k.primParams);
-					uint8_t mem[BYTESZ]{};
-					uint8_t* ptr = mem;
-					memcpy(ptr, &k.vtxParams, sizeof(k.vtxParams));
-					ptr += sizeof(k.vtxParams);
-					memcpy(ptr, &k.primParams, sizeof(k.primParams));
-					ptr += sizeof(k.primParams);
-
-					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), BYTESZ));
-				}
-			};
-		};
 		core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
-
+#endif
 		//material compiler
-		core::smart_refctd_ptr<asset::material_compiler::IR> ir;
-		CMitsubaMaterialCompilerFrontend frontend;
-		asset::material_compiler::CMaterialCompilerGLSLRasterBackend::SContext backend_ctx;
-		asset::material_compiler::CMaterialCompilerGLSLRasterBackend backend;
+//		core::smart_refctd_ptr<asset::material_compiler::IR> ir;
+//		CMitsubaMaterialCompilerFrontend frontend;
 
 	private:
-		// TODO: commonalize this to all loaders
-		static std::string samplerCacheKey(const asset::ICPUSampler::SParams& samplerParams)
-		{
-			std::string samplerCacheKey = "__Sampler";
-
-			if (samplerParams.MinFilter==asset::ISampler::ETF_LINEAR)
-				samplerCacheKey += "?trilinear";
-			else
-				samplerCacheKey += "?nearest";
-
-			static const char* wrapModeName[] =
-			{
-				"?repeat",
-				"?clamp_to_edge",
-				"?clamp_to_border",
-				"?mirror",
-				"?mirror_clamp_to_edge",
-				"?mirror_clamp_to_border"
-			};
-			samplerCacheKey += wrapModeName[samplerParams.TextureWrapU];
-			samplerCacheKey += wrapModeName[samplerParams.TextureWrapV];
-
-			return samplerCacheKey;
-		}
 };
 
-}}}
-
+}
 #endif
