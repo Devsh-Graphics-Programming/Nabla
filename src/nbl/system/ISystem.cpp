@@ -337,6 +337,8 @@ void ISystem::unmountBuiltins() {
     };
 
     removeByKey("nbl");
+    removeByKey("nbl/builtin");
+    removeByKey("nbl/video");
     removeByKey("spirv");
     removeByKey("boost");
 }

@@ -120,6 +120,10 @@ inline void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
         { "identifier", dependency.identifier },
         { "hash", dependency.hash.data },
         { "standardInclude", dependency.standardInclude },
+        { "absolutePath", dependency.absolutePath },
+        { "fileSize", dependency.fileSize },
+        { "lastWriteTime", dependency.lastWriteTime },
+        { "hasFileInfo", dependency.hasFileInfo },
     };
 }
 
@@ -129,6 +133,14 @@ inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependenc
     j.at("identifier").get_to(dependency.identifier);
     j.at("hash").get_to(dependency.hash.data);
     j.at("standardInclude").get_to(dependency.standardInclude);
+    if (j.contains("absolutePath"))
+        j.at("absolutePath").get_to(dependency.absolutePath);
+    if (j.contains("fileSize"))
+        j.at("fileSize").get_to(dependency.fileSize);
+    if (j.contains("lastWriteTime"))
+        j.at("lastWriteTime").get_to(dependency.lastWriteTime);
+    if (j.contains("hasFileInfo"))
+        j.at("hasFileInfo").get_to(dependency.hasFileInfo);
 }
 
 // We serialize shader creation parameters into a json, along with indexing info into the .bin buffer where the cache is serialized

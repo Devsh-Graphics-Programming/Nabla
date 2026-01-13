@@ -34,8 +34,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					system::path absolutePath = {};
 					std::string contents = {};
 					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
-					// Could be used in the future for early rejection of cache hit
-					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
+					uint64_t fileSize = 0;
+					int64_t lastWriteTime = 0;
+					bool hasFileInfo = false;
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
@@ -125,8 +126,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 			public:
 				// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
-				inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash) :
-					requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
+				inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash,
+					const system::path& _absolutePath = {}, uint64_t _fileSize = 0, int64_t _lastWriteTime = 0, bool _hasFileInfo = false) :
+					requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash),
+					absolutePath(_absolutePath), fileSize(_fileSize), lastWriteTime(_lastWriteTime), hasFileInfo(_hasFileInfo)
 				{}
 
 				inline SPreprocessingDependency(SPreprocessingDependency&) = default;
@@ -141,6 +144,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				inline std::string_view getIdentifier() const { return identifier; }
 				inline bool isStandardInclude() const { return standardInclude; }
 				inline const core::blake3_hash_t& getHash() const { return hash; }
+				inline const system::path& getAbsolutePath() const { return absolutePath; }
+				inline uint64_t getFileSize() const { return fileSize; }
+				inline int64_t getLastWriteTime() const { return lastWriteTime; }
+				inline bool getHasFileInfo() const { return hasFileInfo; }
 
 			private:
 				friend void to_json(nlohmann::json& j, const SPreprocessingDependency& dependency);
@@ -154,6 +161,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				core::blake3_hash_t hash = {};
 				// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 				bool standardInclude = false;
+				system::path absolutePath = {};
+				uint64_t fileSize = 0;
+				int64_t lastWriteTime = 0;
+				bool hasFileInfo = false;
 		};
 
 		//
@@ -238,7 +249,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			public:
 				// Used to check compatibility of Caches before reading
-				constexpr static inline std::string_view VERSION = "1.2.1";
+				constexpr static inline std::string_view VERSION = "1.2.4";
 
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
@@ -481,7 +492,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class CPreprocessCache final : public IReferenceCounted
 		{
 			public:
-				constexpr static inline std::string_view VERSION = "2.0";
+				constexpr static inline std::string_view VERSION = "2.2";
 
 				struct SEntry
 				{

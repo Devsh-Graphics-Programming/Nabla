@@ -11,6 +11,7 @@
 #include <iterator>
 #include <filesystem>
 #include <algorithm>
+#include <unordered_map>
 #include <fstream>
 
 #include <lzma/C/LzmaEnc.h>
@@ -388,7 +389,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		entry.dependencies.clear();
 		entry.dependencies.reserve(dependencyOverrides->size());
 		for (const auto& dep : *dependencyOverrides)
-			entry.dependencies.emplace_back(dep.getRequestingSourceDir(), dep.getIdentifier(), dep.isStandardInclude(), dep.getHash());
+			entry.dependencies.emplace_back(dep.getRequestingSourceDir(), dep.getIdentifier(), dep.isStandardInclude(), dep.getHash(), dep.getAbsolutePath(), dep.getFileSize(), dep.getLastWriteTime(), dep.getHasFileInfo());
 	}
 
 	if (retVal && depfileEnabled && supportsDependencies)
@@ -478,7 +479,11 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    return { f->getFileName(),std::move(contents) };
+    found_t ret = {};
+    ret.absolutePath = path;
+    ret.contents = std::move(contents);
+    ret.fileSize = size;
+    return ret;
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
@@ -500,6 +505,18 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         retVal = std::move(contents);
     else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
 
+    if (retVal.fileSize == 0 && !retVal.contents.empty())
+        retVal.fileSize = retVal.contents.size();
+    if (!retVal.absolutePath.empty())
+    {
+        std::error_code ec;
+        const auto fileTime = std::filesystem::last_write_time(retVal.absolutePath, ec);
+        if (!ec)
+        {
+            retVal.lastWriteTime = fileTime.time_since_epoch().count();
+            retVal.hasFileInfo = true;
+        }
+    }
 
     core::blake3_hasher hasher;
     hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
@@ -517,6 +534,19 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
         retVal = std::move(contents);
     else retVal = std::move(trySearchPaths(includeName));
 
+    if (retVal.fileSize == 0 && !retVal.contents.empty())
+        retVal.fileSize = retVal.contents.size();
+    if (!retVal.absolutePath.empty())
+    {
+        std::error_code ec;
+        const auto fileTime = std::filesystem::last_write_time(retVal.absolutePath, ec);
+        if (!ec)
+        {
+            retVal.lastWriteTime = fileTime.time_since_epoch().count();
+            retVal.hasFileInfo = true;
+        }
+    }
+
     core::blake3_hasher hasher;
     hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
     retVal.hash = static_cast<core::blake3_hash_t>(hasher);
@@ -527,7 +557,16 @@ void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPat
 {
     if (!loader)
         return;
-    m_loaders.emplace_back(LoaderSearchPath{ loader, searchPath });
+    if (searchPath.empty())
+    {
+        m_loaders.emplace_back(LoaderSearchPath{ loader, searchPath });
+        return;
+    }
+    const auto insertPos = std::find_if(m_loaders.begin(), m_loaders.end(), [](const LoaderSearchPath& entry)
+        {
+            return entry.searchPath.empty();
+        });
+    m_loaders.insert(insertPos, LoaderSearchPath{ loader, searchPath });
 }
 
 void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd)
@@ -641,17 +680,98 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
     // go through all dependencies
     if (found!=m_container.end())
     {
+        std::unordered_map<system::path, bool> fileStatus;
+        std::unordered_map<std::string, bool> logicalStatus;
         for (const auto& dependency : found->dependencies)
         {
-            IIncludeLoader::found_t header;
-            if (dependency.standardInclude)
-                header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
-            else
-                header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
-
-            if (header.hash != dependency.hash)
+            if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
             {
-                return m_container.end();
+                if (auto it = fileStatus.find(dependency.getAbsolutePath()); it != fileStatus.end())
+                {
+                    if (!it->second)
+                        return m_container.end();
+                    continue;
+                }
+            }
+            else
+            {
+                std::string key;
+                key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
+                key.append(dependency.getRequestingSourceDir().string());
+                key.push_back('|');
+                key.append(dependency.getIdentifier());
+                key.push_back('|');
+                key.push_back(dependency.isStandardInclude() ? '1' : '0');
+                if (auto it = logicalStatus.find(key); it != logicalStatus.end())
+                {
+                    if (!it->second)
+                        return m_container.end();
+                    continue;
+                }
+            }
+
+            bool valid = false;
+            if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+            {
+                std::error_code ec;
+                std::filesystem::directory_entry entry(dependency.getAbsolutePath(), ec);
+                if (!ec)
+                {
+                    const auto time = entry.last_write_time(ec);
+                    if (!ec)
+                    {
+                        const auto ticks = time.time_since_epoch().count();
+                        if (dependency.getLastWriteTime() == ticks)
+                        {
+                            const auto size = entry.file_size(ec);
+                            if (!ec && size == dependency.getFileSize())
+                                valid = true;
+                        }
+                    }
+                }
+            }
+
+            if (!valid)
+            {
+                if (!finder)
+                    return m_container.end();
+                IIncludeLoader::found_t header;
+                if (dependency.standardInclude)
+                    header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
+                else
+                    header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
+
+                if (header.hash != dependency.hash)
+                {
+                    if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+                        fileStatus.emplace(dependency.getAbsolutePath(), false);
+                    else
+                    {
+                        std::string key;
+                        key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
+                        key.append(dependency.getRequestingSourceDir().string());
+                        key.push_back('|');
+                        key.append(dependency.getIdentifier());
+                        key.push_back('|');
+                        key.push_back(dependency.isStandardInclude() ? '1' : '0');
+                        logicalStatus.emplace(std::move(key), false);
+                    }
+                    return m_container.end();
+                }
+            }
+
+            if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+                fileStatus.emplace(dependency.getAbsolutePath(), true);
+            else
+            {
+                std::string key;
+                key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
+                key.append(dependency.getRequestingSourceDir().string());
+                key.push_back('|');
+                key.append(dependency.getIdentifier());
+                key.push_back('|');
+                key.push_back(dependency.isStandardInclude() ? '1' : '0');
+                logicalStatus.emplace(std::move(key), true);
             }
         }
     }
@@ -986,9 +1106,17 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CPreprocessCache::serialize(
         const auto dir = dep.getRequestingSourceDir().generic_string();
         write_string(out, dir);
         write_string(out, dep.getIdentifier());
+        const auto abs = dep.getAbsolutePath().generic_string();
+        write_string(out, abs);
         const uint8_t standardInclude = dep.isStandardInclude() ? 1u : 0u;
         write_bytes(out, &standardInclude, sizeof(standardInclude));
         write_bytes(out, dep.getHash().data, sizeof(dep.getHash().data));
+        const uint64_t fileSize = dep.getFileSize();
+        write_bytes(out, &fileSize, sizeof(fileSize));
+        const int64_t lastWriteTime = dep.getLastWriteTime();
+        write_bytes(out, &lastWriteTime, sizeof(lastWriteTime));
+        const uint8_t hasFileInfo = dep.getHasFileInfo() ? 1u : 0u;
+        write_bytes(out, &hasFileInfo, sizeof(hasFileInfo));
     }
 
     auto buffer = ICPUBuffer::create({ out.size() });
@@ -1088,13 +1216,25 @@ core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPrep
             return nullptr;
         if (!read_string(serializedCache, offset, identifier))
             return nullptr;
+        std::string absolutePath;
+        if (!read_string(serializedCache, offset, absolutePath))
+            return nullptr;
         uint8_t standardInclude = 0;
         if (!read_bytes(serializedCache, offset, &standardInclude, sizeof(standardInclude)))
             return nullptr;
         core::blake3_hash_t hash = {};
         if (!read_bytes(serializedCache, offset, hash.data, sizeof(hash.data)))
             return nullptr;
-        entry.dependencies.emplace_back(system::path(dir), identifier, standardInclude != 0, hash);
+        uint64_t fileSize = 0;
+        if (!read_bytes(serializedCache, offset, &fileSize, sizeof(fileSize)))
+            return nullptr;
+        int64_t lastWriteTime = 0;
+        if (!read_bytes(serializedCache, offset, &lastWriteTime, sizeof(lastWriteTime)))
+            return nullptr;
+        uint8_t hasFileInfo = 0;
+        if (!read_bytes(serializedCache, offset, &hasFileInfo, sizeof(hasFileInfo)))
+            return nullptr;
+        entry.dependencies.emplace_back(system::path(dir), identifier, standardInclude != 0, hash, system::path(absolutePath), fileSize, lastWriteTime, hasFileInfo != 0);
     }
 
     retVal->m_hasEntry = true;
@@ -1164,16 +1304,97 @@ bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinde
     if (!m_hasEntry || !finder)
         return false;
 
+    std::unordered_map<system::path, bool> fileStatus;
+    std::unordered_map<std::string, bool> logicalStatus;
     for (const auto& dep : m_entry.dependencies)
     {
-        IIncludeLoader::found_t header;
-        if (dep.isStandardInclude())
-            header = finder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+        if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+        {
+            if (auto it = fileStatus.find(dep.getAbsolutePath()); it != fileStatus.end())
+            {
+                if (!it->second)
+                    return false;
+                continue;
+            }
+        }
         else
-            header = finder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+        {
+            std::string key;
+            key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
+            key.append(dep.getRequestingSourceDir().string());
+            key.push_back('|');
+            key.append(dep.getIdentifier());
+            key.push_back('|');
+            key.push_back(dep.isStandardInclude() ? '1' : '0');
+            if (auto it = logicalStatus.find(key); it != logicalStatus.end())
+            {
+                if (!it->second)
+                    return false;
+                continue;
+            }
+        }
 
-        if (!header || header.hash != dep.getHash())
-            return false;
+    bool valid = false;
+    if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+    {
+        std::error_code ec;
+        std::filesystem::directory_entry entry(dep.getAbsolutePath(), ec);
+        if (!ec)
+        {
+            const auto time = entry.last_write_time(ec);
+            if (!ec)
+            {
+                const auto ticks = time.time_since_epoch().count();
+                if (dep.getLastWriteTime() == ticks)
+                {
+                    const auto size = entry.file_size(ec);
+                    if (!ec && size == dep.getFileSize())
+                        valid = true;
+                }
+            }
+        }
+    }
+
+        if (!valid)
+        {
+            IIncludeLoader::found_t header;
+            if (dep.isStandardInclude())
+                header = finder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+            else
+                header = finder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+
+            if (!header || header.hash != dep.getHash())
+            {
+                if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+                    fileStatus.emplace(dep.getAbsolutePath(), false);
+                else
+                {
+                    std::string key;
+                    key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
+                    key.append(dep.getRequestingSourceDir().string());
+                    key.push_back('|');
+                    key.append(dep.getIdentifier());
+                    key.push_back('|');
+                    key.push_back(dep.isStandardInclude() ? '1' : '0');
+                    logicalStatus.emplace(std::move(key), false);
+                }
+                return false;
+            }
+        }
+
+        if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+            fileStatus.emplace(dep.getAbsolutePath(), true);
+        else
+        {
+            std::string key;
+            key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
+            key.append(dep.getRequestingSourceDir().string());
+            key.push_back('|');
+            key.append(dep.getIdentifier());
+            key.push_back('|');
+            key.push_back(dep.isStandardInclude() ? '1' : '0');
+            logicalStatus.emplace(std::move(key), true);
+        }
     }
     return true;
 }
