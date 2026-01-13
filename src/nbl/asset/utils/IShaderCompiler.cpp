@@ -5,7 +5,6 @@
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 #include "nbl/core/hash/blake.h"
-
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -13,6 +12,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <fstream>
+#include <cstring>
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
@@ -480,9 +480,15 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     assert(success);
 
     found_t ret = {};
-    ret.absolutePath = path;
+    ret.absolutePath = f->getFileName();
     ret.contents = std::move(contents);
     ret.fileSize = size;
+    if (auto precomputed = f->getPrecomputedHash())
+    {
+        static_assert(sizeof(ret.hash.data) == sizeof(*precomputed));
+        std::memcpy(ret.hash.data, &(*precomputed), sizeof(ret.hash.data));
+        ret.hasHash = true;
+    }
     return ret;
 }
 
@@ -518,9 +524,13 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         }
     }
 
-    core::blake3_hasher hasher;
-    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    if (!retVal.hasHash)
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+        retVal.hasHash = true;
+    }
     return retVal;
 }
 
@@ -547,9 +557,13 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
         }
     }
 
-    core::blake3_hasher hasher;
-    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    if (!retVal.hasHash)
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+        retVal.hasHash = true;
+    }
     return retVal;
 }
 

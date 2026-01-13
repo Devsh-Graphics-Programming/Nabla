@@ -41,6 +41,7 @@ class IFileBase : public core::IReferenceCounted
 		//! Optional, if not present this means that the hash was not already precomputed for you.
 		// Equivalent to calling `xxHash256(getMappedPointer(),getSize(),&retval.x)`
 		// Only really available for built-in resources or some other files that had to be read in their entirety at some point.
+		// Non-empty return means the file comes from an archive that embeds a precomputed hash.
 		virtual inline std::optional<hlsl::uint64_t4> getPrecomputedHash() const {return {};}
 
 		//!

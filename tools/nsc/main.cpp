@@ -409,7 +409,7 @@ public:
             if (dep.enabled)
                 m_logger->log("Depfile: %s", ILogger::ELL_DEBUG, dep.path.c_str());
             if (shaderCache.enabled)
-                m_logger->log("Cache: %s", ILogger::ELL_DEBUG, shaderCache.path.string().c_str());
+                m_logger->log("Shader Cache: %s", ILogger::ELL_DEBUG, shaderCache.path.string().c_str());
             if (preCache.enabled)
                 m_logger->log("Preprocess cache: %s", ILogger::ELL_DEBUG, preCache.path.string().c_str());
         }

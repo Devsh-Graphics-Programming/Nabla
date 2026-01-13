@@ -10,6 +10,8 @@
 #include "nbl/system/CFileView.h"
 #include "nbl/system/IFileViewAllocator.h"
 
+#include <optional>
+
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/system/CFileViewAPKAllocator.h"
 #endif
@@ -22,12 +24,20 @@ template<typename T>
 class CInnerArchiveFile : public CFileView<T>
 {
 		std::atomic_flag* alive;
+		std::optional<hlsl::uint64_t4> m_precomputedHash;
 	public:
 		template<typename... Args>
-		CInnerArchiveFile(std::atomic_flag* _flag, Args&&... args) : CFileView<T>(std::forward<Args>(args)...), alive(_flag)
+		CInnerArchiveFile(std::atomic_flag* _flag, std::optional<hlsl::uint64_t4> precomputedHash, Args&&... args)
+			: CFileView<T>(std::forward<Args>(args)...), alive(_flag), m_precomputedHash(std::move(precomputedHash))
 		{
 		}
 		~CInnerArchiveFile() = default;
+
+		// Non-empty return means the file came from an archive that embeds a precomputed hash.
+		std::optional<hlsl::uint64_t4> getPrecomputedHash() const override
+		{
+			return m_precomputedHash;
+		}
 
 		static void* operator new(size_t size) noexcept
 		{
@@ -144,6 +154,7 @@ class CFileArchive : public IFileArchive
 				// coast is clear, do placement new
 				new (file, &m_fileFlags[found->ID]) CInnerArchiveFile<Allocator>(
 					m_fileFlags+found->ID,
+					std::move(fileBuffer.precomputedHash),
 					getDefaultAbsolutePath()/found->pathRelativeToArchive,
 					flags,
 					fileBuffer.initialModified,
@@ -162,6 +173,7 @@ class CFileArchive : public IFileArchive
 			void* buffer;
 			size_t size;
 			void* allocatorState;
+			std::optional<hlsl::uint64_t4> precomputedHash = {};
 			// TODO: Implement this !!!
 			IFileBase::time_point_t initialModified = std::chrono::utc_clock::now();
 		};

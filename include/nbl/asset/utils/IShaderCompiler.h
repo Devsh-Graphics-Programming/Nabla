@@ -33,10 +33,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					system::path absolutePath = {};
 					std::string contents = {};
-					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					core::blake3_hash_t hash = {};
 					uint64_t fileSize = 0;
 					int64_t lastWriteTime = 0;
 					bool hasFileInfo = false;
+					bool hasHash = false;
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
