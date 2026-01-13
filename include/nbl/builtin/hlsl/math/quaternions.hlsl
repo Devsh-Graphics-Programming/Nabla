@@ -52,16 +52,19 @@ struct quaternion
 
     // angle: Rotation angle expressed in radians.
     // axis: Rotation axis, must be normalized.
-    template<typename U=vector3_type, typename F=scalar_type NBL_FUNC_REQUIRES(is_same_v<vector3_type,U> && is_same_v<scalar_type,F>)
-    static this_t create(const U axis, const F angle, const F uniformScale = scalar_type(1.0))
+    template<typename U=vector3_type, typename F=scalar_type NBL_FUNC_REQUIRES(is_same_v<vector3_type,U> && is_same_v<typename vector_traits<U>::scalar_type,F>)
+    static this_t create(const U axis, const F angle, const F uniformScale = F(1.0))
     {
+        using scalar_t = typename vector_traits<U>::scalar_type;
         this_t q;
-        const scalar_type sinTheta = hlsl::sin(angle * 0.5);
-        const scalar_type cosTheta = hlsl::cos(angle * 0.5);
+        const scalar_t halfAngle = angle * scalar_t(0.5);
+        const scalar_t sinTheta = hlsl::sin(halfAngle);
+        const scalar_t cosTheta = hlsl::cos(halfAngle);
         q.data = data_type(axis * sinTheta, cosTheta) * uniformScale;
         return q;
     }
 
+    // applies rotation equivalent to 3x3 matrix in order of pitch * yaw * roll
     template<typename U=vector<scalar_type,2> NBL_FUNC_REQUIRES(is_same_v<vector<scalar_type,2>,U>)
     static this_t create(const U halfPitchCosSin, const U halfYawCosSin, const U halfRollCosSin)
     {
@@ -99,10 +102,12 @@ struct quaternion
 
     static this_t create(NBL_CONST_REF_ARG(matrix_type) m, const bool dontAssertValidMatrix=false)
     {
+        scalar_type uniformScaleSq;
         {
             // only orthogonal and uniform scale mats can be converted
             linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(m);
             bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformScaleSq);
+            uniformScaleSq = traits.uniformScaleSq;
 
             if (dontAssertValidMatrix)
                 if (!valid)
@@ -168,7 +173,7 @@ struct quaternion
             }
         }
 
-        retval.data = hlsl::normalize(retval.data) / hlsl::sqrt(hlsl::dot(m[0], m[0])); // restore uniform scale
+        retval.data = hlsl::normalize(retval.data) * hlsl::rsqrt(uniformScaleSq); // restore uniform scale
         return retval;
     }
 
@@ -193,10 +198,9 @@ struct quaternion
 
     static this_t unnormLerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
     {
-        assert(hlsl::length(start.data) == scalar_type(1.0));
-        assert(hlsl::length(end.data) == scalar_type(1.0));
-        // TODO: benchmark uint sign flip vs just *sign(totalPseudoAngle)
-        const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, hlsl::promote<data_type>(totalPseudoAngle));
+        assert(testing::relativeApproxCompare(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4)));
+        assert(testing::relativeApproxCompare(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4)));
+        const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type,scalar_type>(end.data, totalPseudoAngle);
 
         this_t retval;
         retval.data = hlsl::mix(start.data, adjEnd, hlsl::promote<data_type>(fraction));
@@ -225,8 +229,8 @@ struct quaternion
 
     static this_t unnormFlerp(const this_t start, const this_t end, const scalar_type fraction)
     {
-        assert(hlsl::length(start.data) == scalar_type(1.0));
-        assert(hlsl::length(end.data) == scalar_type(1.0));
+        assert(testing::relativeApproxCompare(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4)));
+        assert(testing::relativeApproxCompare(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4)));
 
         const scalar_type pseudoAngle = hlsl::dot(start.data,end.data);
         const scalar_type interpolantPrecalcTerm = fraction - scalar_type(0.5);
@@ -252,7 +256,7 @@ struct quaternion
         return v / scaleRcp + hlsl::cross(direction, modV * data.w + hlsl::cross(direction, modV));
     }
 
-    matrix_type constructMatrix() NBL_CONST_MEMBER_FUNC
+    matrix_type __constructMatrix() NBL_CONST_MEMBER_FUNC
     {
         matrix_type mat;
         mat[0] = data.yzx * data.ywz + data.zxy * data.zyw * vector3_type( 1.0, 1.0,-1.0);
@@ -294,7 +298,7 @@ struct quaternion
             const scalar_type sinAt = hlsl::sin(fraction * hlsl::acos(cosA));
             const scalar_type sinAt_over_sinA = sinAt*sinARcp;
             const scalar_type scale = hlsl::sqrt(scalar_type(1.0)-sinAt*sinAt) - sinAt_over_sinA*cosA; //cosAt-cos(A)sin(tA)/sin(A) = (sin(A)cos(tA)-cos(A)sin(tA))/sin(A)
-            const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type>(end.data, hlsl::promote<data_type>(totalPseudoAngle));
+            const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type,scalar_type>(end.data, totalPseudoAngle);
             retval.data = scale * start.data + sinAt_over_sinA * adjEnd;
 
             return retval;
@@ -324,8 +328,7 @@ struct normalize_helper<math::truncated_quaternion<T> >
 {
     static inline math::truncated_quaternion<T> __call(const math::truncated_quaternion<T> q)
     {
-        assert(hlsl::length(q.data) == scalar_type(1.0));
-
+        assert(testing::relativeApproxCompare(hlsl::length(q.data), scalar_type(1.0), scalar_type(1e-4)));
         math::truncated_quaternion<T> retval;
         retval.data = q.data;   // should be normalized by definition (dropped component should be 1.0)
         return retval;
@@ -363,6 +366,7 @@ struct static_cast_helper<math::truncated_quaternion<T>, math::quaternion<T> >
 {
     static inline math::truncated_quaternion<T> cast(const math::quaternion<T> q)
     {
+        assert(testing::relativeApproxCompare(hlsl::length(q.data), scalar_type(1.0), scalar_type(1e-4)));
         math::truncated_quaternion<T> t;
         t.data.x = t.data.x;
         t.data.y = t.data.y;
@@ -376,7 +380,16 @@ struct static_cast_helper<matrix<T,3,3>, math::quaternion<T> >
 {
     static inline matrix<T,3,3> cast(const math::quaternion<T> q)
     {
-        return q.constructMatrix();
+        return q.__constructMatrix();
+    }
+};
+
+template<typename T>
+struct static_cast_helper<math::quaternion<T>, matrix<T,3,3> >
+{
+    static inline math::quaternion<T> cast(const matrix<T,3,3> m)
+    {
+        return math::quaternion<T>::create(m, true);
     }
 };
 }
