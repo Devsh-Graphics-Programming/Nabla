@@ -102,7 +102,7 @@ struct quaternion
         {
             // only orthogonal and uniform scale mats can be converted
             linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(m);
-            bool valid = traits.orthogonal && traits.uniformScale;
+            bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformScaleSq);
 
             if (dontAssertValidMatrix)
                 if (!valid)

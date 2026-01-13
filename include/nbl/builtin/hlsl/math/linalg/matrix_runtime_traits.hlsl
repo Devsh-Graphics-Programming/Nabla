@@ -33,28 +33,34 @@ struct RuntimeTraits
         {
             bool orthogonal = true;
             NBL_UNROLL for (uint16_t i = 0; i < N; i++)
-                orthogonal = testing::relativeApproxCompare(hlsl::dot(m[i], m[(i+1)%N]), scalar_t(0.0), 1e-4) && orthogonal;
+                orthogonal = orthogonal && testing::relativeApproxCompare(hlsl::dot(m[i], m[(i+1)%N]), scalar_t(0.0), 1e-4);
             retval.orthogonal = orthogonal;
         }
         {
             const matrix_t m_T = hlsl::transpose(m);
             scalar_t dots[N];
             NBL_UNROLL for (uint16_t i = 0; i < N; i++)
-                dots[i] = hlsl::dot(m[i], m[i]);
+                dots[i] = hlsl::dot(m[i], m_T[i]);
 
-            bool uniformScale = true;
-            NBL_UNROLL for (uint16_t i = 0; i < N-1; i++)
-                uniformScale = testing::relativeApproxCompare(dots[i], dots[i+1], 1e-4) && uniformScale;
+            scalar_t uniformScaleSq = hlsl::dot(m[0], m_T[0]);
+            NBL_UNROLL for (uint16_t i = 1; i < N; i++)
+            {
+                if (!testing::relativeApproxCompare(hlsl::dot(m[i], m_T[i]), uniformScaleSq, 1e-4))
+                {
+                    uniformScaleSq = bit_cast<scalar_t>(numeric_limits<scalar_t>::quiet_NaN);
+                    break;
+                }
+            }
 
-            retval.uniformScale = uniformScale;
-            retval.orthonormal = uniformScale && retval.orthogonal && testing::relativeApproxCompare(dots[0], scalar_t(1.0), 1e-5);
+            retval.uniformScaleSq = uniformScaleSq;
+            retval.orthonormal = retval.orthogonal && testing::relativeApproxCompare(uniformScaleSq, scalar_t(1.0), 1e-5);
         }
         return retval;
     }
     
     bool invertible;
     bool orthogonal;
-    bool uniformScale;
+    scalar_t uniformScaleSq;
     bool orthonormal;
 };
 
