@@ -4,6 +4,7 @@
 #ifndef _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
 
+
 #include "nbl/system/declarations.h"
 
 #include "nbl/system/ISystem.h"
@@ -11,10 +12,11 @@
 
 #include "nbl/asset/interchange/SAssetBundle.h"
 
+
 namespace nbl::asset
 {
 
-class IMeshManipulator;
+class CPolygonGeometryManipulator;
 
 //! A class automating process of loading Assets from resources, eg. files
 /**
@@ -86,8 +88,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		enum E_LOADER_PARAMETER_FLAGS : uint64_t
 		{
 			ELPF_NONE = 0,											//!< default value, it doesn't do anything
-			ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
-			ELPF_DONT_COMPILE_GLSL = 0x2,							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
+			/*deprecated*/ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
+			/*deprecated*/ELPF_DONT_COMPILE_GLSL = 0x2,							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
 			ELPF_LOAD_METADATA_ONLY = 0x4							//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
 		};
 
@@ -107,7 +109,6 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				decryptionKey(rhs.decryptionKey),
 				cacheFlags(rhs.cacheFlags),
 				loaderFlags(rhs.loaderFlags),
-				meshManipulatorOverride(rhs.meshManipulatorOverride),
 				logger(rhs.logger),
 				workingDirectory(rhs.workingDirectory)
 			{
@@ -117,7 +118,6 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			const uint8_t* decryptionKey;
 			E_CACHING_FLAGS cacheFlags;
 			E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
-			IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
 		};

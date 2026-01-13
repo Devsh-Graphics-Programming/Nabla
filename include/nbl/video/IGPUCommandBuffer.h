@@ -7,7 +7,6 @@
 
 #include "nbl/builtin/hlsl/indirect_commands.hlsl"
 
-#include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IQueue.h"
 
@@ -93,7 +92,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 case STATE::EXECUTABLE:
                     [[fallthrough]];
                 case STATE::PENDING:
-                    if (m_noCommands)
+                    if (!m_noCommands)
                         return false;
                     [[fallthrough]];
                 default:
@@ -261,13 +260,21 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         inline bool buildAccelerationStructures(const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> infos, const IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,buildRangeInfos); totalGeometryCount)
-                return buildAccelerationStructures_impl(infos,buildRangeInfos,totalGeometryCount);
+            if (buildAccelerationStructures_impl(infos,buildRangeInfos,totalGeometryCount))
+            {
+                m_noCommands = false;
+                return true;
+            }
             return false;
         }
         inline bool buildAccelerationStructures(const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo> infos, const IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (buildAccelerationStructures_common(infos,buildRangeInfos))
-                return buildAccelerationStructures_impl(infos,buildRangeInfos);
+            if (buildAccelerationStructures_impl(infos,buildRangeInfos))
+            {
+                m_noCommands = false;
+                return true;
+            }
             return false;
         }
         // We don't allow different indirect command addresses due to https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
@@ -300,28 +307,36 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
             if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,maxPrimitiveOrInstanceCounts,indirectRangeBuffer); totalGeometryCount)
             {
+                bool success;
                 if constexpr(std::is_same_v<AccelerationStructure,IGPUBottomLevelAccelerationStructure>)
-                    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts,totalGeometryCount);
+                    success = buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts,totalGeometryCount);
                 else
-                    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+                    success = buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+                if (success)
+                    m_noCommands = false;
+                return success;
             }
             return false;
         }
         
         //! acceleration structure transfers
-        bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo);
-        bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo);
-        bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        bool copyAccelerationStructure(const AccelerationStructure::CopyInfo& copyInfo);
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        bool copyAccelerationStructureToMemory(const AccelerationStructure::DeviceCopyToMemoryInfo& copyInfo);
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        bool copyAccelerationStructureFromMemory(const AccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
 
         //! state setup
         bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
         bool bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline);
+        bool bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline);
         bool bindDescriptorSets(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
             const uint32_t dynamicOffsetCount=0u, const uint32_t* const dynamicOffsets=nullptr
         );
-        bool pushConstants(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues);
+        bool pushConstants(const IGPUPipelineLayout* const layout, const core::bitflag<hlsl::ShaderStage> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues);
         bool bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings);
         bool bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType);
 
@@ -523,8 +538,44 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         };
         bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
 
+        bool setRayTracingPipelineStackSize(uint32_t pipelineStackSize);
+        bool traceRays(
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, 
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          uint32_t width, uint32_t height, uint32_t depth);
+        bool traceRaysIndirect(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding);
+
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
+
+        // in case you want the commandbuffer to hold onto things as long as its not RESET
+        template<typename Iterator>
+        inline bool recordReferences(Iterator begin, const Iterator end)
+        {
+            auto oit = reserveReferences(std::distance(begin,end));
+            if (oit)
+            while (begin!=end)
+                *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(begin++));
+            return oit;
+        }
+        inline bool recordReferences(const std::span<const IReferenceCounted*> refs) {return recordReferences(refs.begin(),refs.end());}
+
+        // in case you want the commandbuffer to overwrite the BLAS tracking, e.g. you recorded TLAS building commands directly using `getNativeHandle()` to get the commandbuffer
+        template<typename Iterator>
+        inline bool recordBLASReferenceOverwrite(IGPUTopLevelAccelerationStructure* tlas, Iterator beginBLASes, const Iterator endBLASes)
+        {
+            const auto size = std::distance(beginBLASes,endBLASes);
+            auto oit = reserveReferences(size);
+            if (oit)
+            {
+                m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit,size},.dst=tlas});
+                while (beginBLASes!=endBLASes)
+                    *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(beginBLASes++));
+            }
+            return oit;
+        }
 
         virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
@@ -534,6 +585,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
         inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
+        const IGPUGraphicsPipeline* getBoundGraphicsPipeline() const { return m_boundGraphicsPipeline; }
+        const IGPUComputePipeline* getBoundComputePipeline() const { return m_boundComputePipeline; }
+        const IGPURayTracingPipeline* getBoundRayTracingPipeline() const { return m_boundRayTracingPipeline; }
 
     protected: 
         friend class IQueue;
@@ -612,18 +666,19 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const pMaxInstanceCounts
         ) = 0;
 
-        virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-        virtual bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) = 0;
-        virtual bool copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) = 0;
+        virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) = 0;
+        virtual bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst) = 0;
+        virtual bool copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
 
         virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
         virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
+        virtual bool bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline) = 0;
         virtual bool bindDescriptorSets_impl(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
             const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets = nullptr
         ) = 0;
-        virtual bool pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) = 0;
+        virtual bool pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<hlsl::ShaderStage> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) = 0;
         virtual bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) = 0;
         virtual bool bindIndexBuffer_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType) = 0;
 
@@ -663,6 +718,16 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
+        virtual bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) = 0;
+        virtual bool traceRays_impl(
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+            uint32_t width, uint32_t height, uint32_t depth) = 0;
+        virtual bool traceRaysIndirect_impl(
+          const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) = 0;
+
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
         virtual void releaseResourcesBackToPool_impl() {}
@@ -684,6 +749,11 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_state = STATE::INITIAL;
 
             m_boundDescriptorSetsRecord.clear();
+            m_TLASTrackingOps.clear();
+            m_boundGraphicsPipeline= nullptr;
+            m_boundComputePipeline= nullptr;
+            m_boundRayTracingPipeline= nullptr;
+            m_haveRtPipelineStackSize = false;
 
             m_commandList.head = nullptr;
             m_commandList.tail = nullptr;
@@ -697,6 +767,11 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             deleteCommandList();
             m_boundDescriptorSetsRecord.clear();
+            m_TLASTrackingOps.clear();
+            m_boundGraphicsPipeline= nullptr;
+            m_boundComputePipeline= nullptr;
+            m_boundRayTracingPipeline= nullptr;
+            m_haveRtPipelineStackSize = false;
             releaseResourcesBackToPool_impl();
         }
 
@@ -806,6 +881,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
+
+        bool invalidShaderGroups(
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
+            core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         
         // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>
@@ -819,16 +901,44 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
+        core::smart_refctd_ptr<const core::IReferenceCounted>* reserveReferences(const uint32_t size);
+
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
+        
+        // If the user wants the builds and copies to be tracking, and make the TLAS remember the BLASes that have been built into it.
+        // The Command Pool already tracks resources referenced in the Build Infos or Copies From Memory (Deserializations), so we only need pointers into those records.
+        struct TLASTrackingWrite
+        {
+            std::span<const core::smart_refctd_ptr<const IReferenceCounted>> src;
+            IGPUTopLevelAccelerationStructure* dst;
+        };
+        struct TLASTrackingCopy
+        {
+            const IGPUTopLevelAccelerationStructure* src;
+            IGPUTopLevelAccelerationStructure* dst;
+        };
+        struct TLASTrackingRead
+        {
+            const IGPUTopLevelAccelerationStructure* src;
+            // For a copy to memory (Serialization), we need to dump the BLASes references
+            core::smart_refctd_dynamic_array<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> dst;
+        };
+        // operations as they'll be performed in order
+        core::vector<std::variant<TLASTrackingWrite,TLASTrackingCopy,TLASTrackingRead>> m_TLASTrackingOps;
+
+        const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
+        const IGPUComputePipeline* m_boundComputePipeline;
+        const IGPURayTracingPipeline* m_boundRayTracingPipeline;
     
         IGPUCommandPool::CCommandSegmentListPool::SCommandSegmentList m_commandList = {};
 
         uint64_t m_resetCheckedStamp;
         STATE m_state = STATE::INITIAL;
         bool m_noCommands = true;
+        bool m_haveRtPipelineStackSize = false;
         // only useful while recording
         SInheritanceInfo m_cachedInheritanceInfo;
         core::bitflag<USAGE> m_recordingFlags = USAGE::NONE;
@@ -838,6 +948,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 
 #ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
+extern template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::CopyInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );

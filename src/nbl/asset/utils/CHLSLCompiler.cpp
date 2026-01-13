@@ -10,9 +10,12 @@
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
+
+
 #include <regex>
 #include <iterator>
 #include <codecvt>
+#include <filesystem>
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
@@ -24,7 +27,7 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_8";
 static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) {
     switch (stage)
     {
@@ -44,6 +47,14 @@ static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) 
         return L"as";
     case asset::IShader::E_SHADER_STAGE::ESS_MESH:
         return L"ms";
+    case asset::IShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
+    case asset::IShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
+    case asset::IShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
+    case asset::IShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
+    case asset::IShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
+    case asset::IShader::E_SHADER_STAGE::ESS_CALLABLE: [[fallthrough]];
+    case asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY:
+        return L"lib";
     default:
         return nullptr;
     };
@@ -93,6 +104,37 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
+static bool fixup_spirv_target_ver(std::vector<std::wstring>& arguments, system::logger_opt_ptr& logger)
+{
+    constexpr std::wstring_view Prefix = L"-fspv-target-env=";
+    const std::set<std::wstring_view> AllowedSuffices = {L"vulkan1.1spirv1.4",L"vulkan1.2",L"vulkan1.3"};
+
+    for (auto targetEnvArgumentPos=arguments.begin(); targetEnvArgumentPos!=arguments.end(); targetEnvArgumentPos++)
+    if (targetEnvArgumentPos->find(Prefix)==0)
+    {
+        auto suffix = targetEnvArgumentPos->substr(Prefix.length());
+        auto trim = [](std::wstring& value) {
+            auto isTrimChar = [](wchar_t c) {
+                return c == L' ' || c == L'\t' || c == L'\r' || c == L'\n' || c == L'"';
+            };
+            while (!value.empty() && isTrimChar(value.front()))
+                value.erase(value.begin());
+            while (!value.empty() && isTrimChar(value.back()))
+                value.pop_back();
+        };
+        trim(suffix);
+        const auto found = AllowedSuffices.find(suffix);
+        if (found!=AllowedSuffices.end())
+            return true;
+        logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, previous value `%ls` is unsupported.", system::ILogger::ELL_WARNING, suffix.c_str());
+        *targetEnvArgumentPos = L"-fspv-target-env=vulkan1.3";
+        return true;
+    }
+
+    logger.log("Compile flag warning: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+    arguments.push_back(L"-fspv-target-env=vulkan1.3");
+    return true;
+}
 
 static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, system::logger_opt_ptr& logger)
 {
@@ -118,7 +160,7 @@ static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, syste
     }
     else
     {
-        logger.log("Compile flag error: Required compile flag not found -HV. Force enabling -HV 202x, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+        logger.log("Compile flag warning: Required compile flag not found -HV. Force enabling -HV 202x, as it is required by Nabla.", system::ILogger::ELL_WARNING);
         arguments.push_back(L"-HV");
         arguments.push_back(L"202x");
     }
@@ -126,7 +168,7 @@ static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, syste
 
 static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset::IShader::E_SHADER_STAGE shaderStageOverrideFromPragma, system::logger_opt_ptr& logger) {
 
-    constexpr int MajorReqVersion = 6, MinorReqVersion = 7;
+    constexpr int MajorReqVersion = 6, MinorReqVersion = 8;
     auto overrideStageStr = ShaderStageToString(shaderStageOverrideFromPragma);
     if (shaderStageOverrideFromPragma != IShader::E_SHADER_STAGE::ESS_UNKNOWN && !overrideStageStr)
     {
@@ -134,6 +176,7 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
             system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
         return;
     }
+    // still unknown, then we take value from commandline arguments (precedence: pragma > DXC specific command line > compile option)
     bool setDefaultValue = true;
     auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
     if (foundShaderStageArgument != arguments.end() && foundShaderStageArgument +1 != arguments.end()) {
@@ -200,6 +243,9 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
     }
     if (setDefaultValue) 
     { 
+        // if stage is still not known, lets go with library
+        if (shaderStageOverrideFromPragma==IShader::E_SHADER_STAGE::ESS_UNKNOWN)
+            overrideStageStr = ShaderStageToString(hlsl::ShaderStage::ESS_ALL_OR_LIBRARY);
         // in case of no -T
         // push back default values for -T argument
         // can be safely pushed to the back of argument list as output files should be evicted from args before passing to this func
@@ -220,7 +266,7 @@ static void add_required_arguments_if_not_present(std::vector<std::wstring>& arg
     {
         bool missing = set.find(required[j]) == set.end();
         if (missing) {
-            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, required[j]);
+            logger.log("Compile flag warning: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, required[j]);
             arguments.push_back(required[j]);
         }
     }
@@ -310,12 +356,30 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
     return result;
 }
 
-
 #include "nbl/asset/utils/waveContext.h"
 
+namespace nbl::wave
+{
+    extern nbl::core::string preprocess(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
+}
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    const bool depfileEnabled = preprocessOptions.depfile;
+    if (depfileEnabled)
+    {
+        if (preprocessOptions.depfilePath.empty())
+        {
+            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+            return {};
+        }
+    }
+
+    std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
+    auto* dependenciesOut = dependencies;
+    if (depfileEnabled && !dependenciesOut)
+        dependenciesOut = &localDependencies;
+
     // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
     // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
     size_t line_index = 0;
@@ -329,40 +393,24 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
-    nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
-    // If dependencies were passed, we assume we want caching
-    context.set_caching(bool(dependencies));
-    context.add_macro_definition("__HLSL_VERSION");
-   
-    // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
-    // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
-    // to match boost wave syntax
-    // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
-    for (const auto& define : preprocessOptions.extraDefines)
-        context.add_macro_definition(define.identifier.data()+core::string("=")+define.definition.data());
-
     // preprocess
-    core::string resolvedString;
-    try
-    {
-        std::stringstream stream = std::stringstream();
-        for (auto i=context.begin(); i!=context.end(); i++)
-            stream << i->get_value();
-        resolvedString = stream.str();
-    }
-    catch (boost::wave::preprocess_exception& e)
-    {
-        preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
-        return {};
-    }
-    catch (...)
-    {
-        preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
-        return {};
-    }
+    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
+        [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
+        {
+            if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
+                dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
+
+            // pragma overrides what we passed in
+            if (context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
+                stage = context.get_hooks().m_pragmaStage;
+
+            if (dependenciesOut)
+                *dependenciesOut = std::move(context.get_dependencies());
+        }
+    );
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
-    if constexpr (true)
+    if constexpr (false)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
@@ -374,14 +422,20 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
-    if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
-        dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
+    if (resolvedString.empty())
+        return resolvedString;
 
-    if(context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
-        stage = context.get_hooks().m_pragmaStage;
-
-    if (dependencies) {
-        *dependencies = std::move(context.get_dependencies());
+    if (depfileEnabled)
+    {
+        IShaderCompiler::DepfileWriteParams params = {};
+        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
+        params.depfilePath = depfilePathString;
+        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        if (!params.sourceIdentifier.empty())
+            params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
+        params.system = m_system.get();
+        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
+            return {};
     }
 
     return resolvedString;
@@ -390,10 +444,10 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     std::vector<std::string> extra_dxc_compile_flags = {};
-    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
+    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags, dependencies);
 }
 
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     auto hlslOptions = option_cast(options);
     auto logger = hlslOptions.preprocessorOptions.logger;
@@ -404,6 +458,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     }
     std::vector<std::string> dxc_compile_flags = {};
     IShader::E_SHADER_STAGE stage = options.stage;
+
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
     if (newCode.empty()) return nullptr;
 
@@ -411,33 +466,50 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
    
     std::vector<std::wstring> arguments = {};
-    if (dxc_compile_flags.size()) { // #pragma dxc_compile_flags takes priority
+    if (!dxc_compile_flags.empty()) // #pragma dxc_compile_flags takes priority
         populate_arguments_with_type_conversion(arguments, dxc_compile_flags, logger);
-    }
-    else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
-        populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
-    }
-    else { // lastly default arguments
-        const auto required = CHLSLCompiler::getRequiredArguments();
-        arguments = {};
-        for (size_t i = 0; i < required.size(); i++)
-            arguments.push_back(required[i]);
-        arguments.push_back(L"-HV");
-        arguments.push_back(L"202x");
-        // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
-        arguments.push_back(L"-E");
-        arguments.push_back(L"main");
-        // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
-        // This is how we can get more optimizer options.
-        // 
-        // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
-        // optimization levels greater than zero; they will all invoke the same optimization recipe. 
-        // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-        if (hlslOptions.spirvOptimizer)
-            arguments.push_back(L"-O0");
-    }
-    if (dxc_compile_flags.empty())
+    else
     {
+        if (hlslOptions.dxcOptions.size()) // second in order of priority is command line arguments
+            populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
+        else // lastly default arguments from polymorphic options
+        {
+            const auto required = CHLSLCompiler::getRequiredArguments();
+            arguments = {};
+            for (size_t i = 0; i < required.size(); i++)
+                arguments.push_back(required[i]);
+            //
+            switch (options.preprocessorOptions.targetSpirvVersion)
+            {
+                case hlsl::SpirvVersion::ESV_1_4:
+                    arguments.push_back(L"-fspv-target-env=vulkan1.1spirv1.4");
+                case hlsl::SpirvVersion::ESV_1_5:
+                    arguments.push_back(L"-fspv-target-env=vulkan1.2");
+                    break;
+                case hlsl::SpirvVersion::ESV_1_6:
+                    arguments.push_back(L"-fspv-target-env=vulkan1.3");
+                    break;
+                default:
+                    logger.log("Invalid `IShaderCompiler::SCompilerOptions::targetSpirvVersion`", system::ILogger::ELL_ERROR);
+                    return nullptr;
+                    break;
+            }
+            if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY) 
+            {
+                arguments.push_back(L"-E");
+                // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
+                arguments.push_back(L"main");
+            }
+            // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+            // This is how we can get more optimizer options.
+            // 
+            // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+            // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+            // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+            if (hlslOptions.spirvOptimizer)
+                arguments.push_back(L"-O0");
+        }
+        //
         auto set = std::unordered_set<std::wstring>();
         for (int i = 0; i < arguments.size(); i++)
             set.insert(arguments[i]);
@@ -459,6 +531,9 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
         if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
             add_if_missing(L"-fspv-debug=vulkan-with-source");
     }
+
+    if (!fixup_spirv_target_ver(arguments, logger))
+        return nullptr;
 
     try_upgrade_shader_stage(arguments, stage, logger);
     try_upgrade_hlsl_version(arguments, logger);
@@ -488,11 +563,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     auto outSpirv = ICPUBuffer::create({ compileResult.objectBlob->GetBufferSize() });
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
     
-    // Optimizer step
+    // Optimizer step (TODO: improve by working on `compileResult.objectBlob->GetBufferPointer()` directly)
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
 
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
+    return core::make_smart_refctd_ptr<asset::IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
 
 

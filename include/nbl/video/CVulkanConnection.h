@@ -13,6 +13,8 @@
 namespace nbl::video
 {
 
+NBL_API2 int vulkaninfo(const std::span<const char*> args);
+
 class NBL_API2 CVulkanConnection final : public IAPIConnection
 {
     public:
@@ -26,6 +28,7 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
         inline E_API_TYPE getAPIType() const override {return EAT_VULKAN;}
 
         inline IDebugCallback* getDebugCallback() const override {return m_debugCallback.get();}
+
 
         bool startCapture() override;
         bool endCapture() override;

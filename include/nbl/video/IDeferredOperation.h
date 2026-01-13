@@ -30,7 +30,15 @@ class IDeferredOperation : public IBackendObject
         {
             const auto retval = execute_impl();
             if (retval==STATUS::COMPLETED || retval==STATUS::_ERROR)
+            {
+                std::lock_guard lock(m_completionMutex);
+                if (m_callback)
+                {
+                    m_callback(this);
+                    m_callback = {};
+                }
                 m_resourceTracking.clear();
+            }
             return retval;
         }
 
@@ -66,6 +74,8 @@ class IDeferredOperation : public IBackendObject
     private:
         friend class ILogicalDevice;
         // when we improve allocators, etc. we'll stop using STL containers here
+        std::mutex m_completionMutex;
+        std::function<void(IDeferredOperation*)> m_callback;
         core::vector<core::smart_refctd_ptr<const IReferenceCounted>> m_resourceTracking;
 };
 

@@ -15,7 +15,7 @@ CColoredStdoutLoggerWin32::CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> 
 void CColoredStdoutLoggerWin32::threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args)
 {
 	SetConsoleTextAttribute(m_native_console, getConsoleColor(logLevel));
-	printf(constructLogString(fmt, logLevel, args).data());
+	printf("%s", constructLogString(fmt, logLevel, args).data());
 	fflush(stdout);
 	SetConsoleTextAttribute(m_native_console, 15); // restore to white
 }

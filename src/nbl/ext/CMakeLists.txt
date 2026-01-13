@@ -13,17 +13,6 @@ option(NBL_BUILD_TEXT_RENDERING "Enable Nabla Text Rendering extension building 
 # proper configuration handle! The only thing each extension should 
 # pass as an internal cache variable is it's target name.
 
-if (NBL_BUILD_BULLET)
-    add_subdirectory(Bullet)
-    set(NBL_EXT_BULLET_INCLUDE_DIRS
-        ${NBL_EXT_BULLET_INCLUDE_DIRS}
-        PARENT_SCOPE
-    )
-    set(NBL_EXT_BULLET_LIB
-        ${NBL_EXT_BULLET_LIB}
-        PARENT_SCOPE
-    )
-endif()
 
 if (NBL_BUILD_MITSUBA_LOADER)
     add_subdirectory(MitsubaLoader)
@@ -33,18 +22,6 @@ if (NBL_BUILD_MITSUBA_LOADER)
     )
     set(NBL_EXT_MITSUBA_LOADER_LIB
         ${NBL_EXT_MITSUBA_LOADER_LIB}
-        PARENT_SCOPE
-    )
-endif()
-
-if (NBL_BUILD_RADEON_RAYS)
-    add_subdirectory(RadeonRays)
-    set(NBL_EXT_RADEON_RAYS_INCLUDE_DIRS
-        ${NBL_EXT_RADEON_RAYS_INCLUDE_DIRS}
-        PARENT_SCOPE
-    )
-    set(NBL_EXT_RADEON_RAYS_LIB
-        ${NBL_EXT_RADEON_RAYS_LIB}
         PARENT_SCOPE
     )
 endif()
@@ -77,4 +54,18 @@ if(NBL_BUILD_TEXT_RENDERING)
 	add_subdirectory(TextRendering)
 endif()
 
+if(NBL_BUILD_DEBUG_DRAW)
+    add_subdirectory(DebugDraw)
+    set(NBL_EXT_DEBUG_DRAW_INCLUDE_DIRS
+        ${NBL_EXT_DEBUG_DRAW_INCLUDE_DIRS}
+        PARENT_SCOPE
+    )
+    set(NBL_EXT_DEBUG_DRAW_LIB
+        ${NBL_EXT_DEBUG_DRAW_LIB}
+        PARENT_SCOPE
+    )
+endif()
+
 propagate_changed_variables_to_parent_scope()
+
+NBL_ADJUST_FOLDERS(ext)

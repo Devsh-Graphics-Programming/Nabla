@@ -37,6 +37,24 @@ struct DispatchIndirectCommand_t
 	uint32_t  num_groups_z;
 };
 
+struct TraceRaysIndirectCommand_t
+{
+    uint64_t raygenShaderRecordAddress;
+    uint64_t raygenShaderRecordSize;
+    uint64_t missShaderBindingTableAddress;
+    uint64_t missShaderBindingTableSize;
+    uint64_t missShaderBindingTableStride;
+    uint64_t hitShaderBindingTableAddress;
+    uint64_t hitShaderBindingTableSize;
+    uint64_t hitShaderBindingTableStride;
+    uint64_t callableShaderBindingTableAddress;
+    uint64_t callableShaderBindingTableSize;
+    uint64_t callableShaderBindingTableStride;
+	uint32_t  width;
+	uint32_t  height;
+	uint32_t  depth;
+};
+
 }
 }
 

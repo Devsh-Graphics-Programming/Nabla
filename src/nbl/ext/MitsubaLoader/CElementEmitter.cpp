@@ -1,287 +1,208 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
+#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
+
+#include "nbl/type_traits.h" // legacy stuff for `is_any_of`
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+#include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
+#include "glm/gtc/matrix_transform.hpp"
+
+
+namespace nbl::ext::MitsubaLoader
 {
 
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementEmitter>(const char** _atts, ParserManager* _util)
+auto CElementEmitter::compAddPropertyMap() -> AddPropertyMap<CElementEmitter>
 {
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr,"");
+	using this_t = CElementEmitter;
+	AddPropertyMap<CElementEmitter> retval;
 
-	static const core::unordered_map<std::string, CElementEmitter::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	// funky transform setting
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("position",POINT)
+		{
+			if (_this->type!=Type::POINT && _this->type!=Type::COLLIMATED)
+				return false;
+			for (auto r=0; r<3; r++)
+				_this->transform.matrix[r][3] = _property.vvalue[r];
+			return true;
+		}
+	});
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("direction",VECTOR)
+		{
+			// for point lights direction gets concatenated with IES rotation
+			if (_this->type!=Type::POINT && _this->type!=Type::DIRECTIONAL && _this->type!=Type::COLLIMATED)
+				return false;
+			hlsl::float32_t3 up = {0,0,0};
+			{
+				uint32_t index = 0u;
+				{
+					float maxDot = std::abs(_property.vvalue[0]);
+					for (auto i=1u; i<3u; i++)
+					{
+						float thisAbs = std::abs(_property.vvalue[i]);
+						if (thisAbs < maxDot)
+						{
+							maxDot = thisAbs;
+							index = i;
+						}
+					}
+				}
+				up[index] = hlsl::sign(_property.vvalue[index]);
+			}
+			// TODO: check if correct
+			const hlsl::float32_t3 target = (-_property.vvalue).xyz;
+			// TODO: after the rm-core matrix PR we need to get rid of the tranpose (I transpose only because of GLM and HLSL mixup)
+			const auto lookAtGLM = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtRH<float>({},target,up));
+			const auto lookAt = hlsl::transpose(lookAtGLM);
+			// turn lookat into a rotation matrix
+			const auto rotation = hlsl::inverse<hlsl::float32_t3x3>(hlsl::float32_t3x3(lookAt));
+			//_NBL_DEBUG_BREAK_IF(true); // no idea if matrix is correct, looks okay
+			for (auto r=0; r<3; r++)
+				_this->transform.matrix[r].xyz = rotation[r];
+			return true;
+		}
+	});
+
+	// base
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(samplingWeight,FLOAT,derived_from,SampledEmitter);
+
+// spectrum setting
+#define ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(MEMBER,CONSTRAINT,...) { \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,FLOAT,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER.x = state. ## MEMBER.y = state. ## MEMBER.z = _property.getProperty<SPropertyElementData::Type::FLOAT>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,RGB,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::RGB>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,SRGB,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED(MEMBER,SPECTRUM,CONSTRAINT __VA_OPT__(,) __VA_ARGS__) \
+		state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SPECTRUM>(); \
+		success = true; \
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_VARIANT_PROPERTY_CONSTRAINED_END; \
+}
+
+	// delta
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(intensity,derived_from,DeltaDistributionEmitter);
+	// point covered by delta
+
+	// non zero solid angle
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(radiance,derived_from,SolidAngleEmitter);
+	// area covered by solid angle
+
+	// directional
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(irradiance,std::is_same,Directional);
+
+	// collimated
+	ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED(power,std::is_same,Collimated);
+
+#undef ADD_VARIANT_SPECTRUM_PROPERTY_CONSTRAINED
+
+	// environment map
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,std::is_same,EnvMap)
+		{
+			setLimitedString("filename",_this->envmap.filename,_property,logger); return true;
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(scale,FLOAT,std::is_same,EnvMap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(gamma,FLOAT,std::is_same,EnvMap);
+
+#undef ADD_SPECTRUM
+	return retval;
+}
+
+bool CElementEmitter::processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger)
+{
+	if (!_child)
+		return true;
+
+	switch (_child->getType())
 	{
-		{"point",		CElementEmitter::Type::POINT},
-		{"area",		CElementEmitter::Type::AREA},
-		{"spot",		CElementEmitter::Type::SPOT},
-		{"directional",	CElementEmitter::Type::DIRECTIONAL},
-		{"collimated",	CElementEmitter::Type::COLLIMATED},/*
-		{"sky",			CElementEmitter::Type::SKY},
-		{"sun",			CElementEmitter::Type::SUN},
-		{"sunsky",		CElementEmitter::Type::SUNSKY},*/
-		{"envmap",		CElementEmitter::Type::ENVMAP},
-		{"constant",	CElementEmitter::Type::CONSTANT}
-	};
-
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr, "");
-	}
-
-	CElementEmitter* obj = _util->objects.construct<CElementEmitter>(id);
-	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
-
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementEmitter::Type::POINT:
-			obj->point = CElementEmitter::Point();
-			break;
-		case CElementEmitter::Type::AREA:
-			obj->area = CElementEmitter::Area();
-			break;
-		case CElementEmitter::Type::SPOT:
-			obj->spot = CElementEmitter::Spot();
-			break;
-		case CElementEmitter::Type::DIRECTIONAL:
-			obj->directional = CElementEmitter::Directional();
-			break;
-		case CElementEmitter::Type::COLLIMATED:
-			obj->collimated = CElementEmitter::Collimated();
+		case IElement::Type::TRANSFORM:
+			{
+				auto tform = static_cast<CElementTransform*>(_child);
+				if (name!="toWorld")
+				{
+					logger.log("The <transform> nested inside <emitter> needs to be named \"toWorld\"",system::ILogger::ELL_ERROR);
+					return false;
+				}
+				//toWorldType = IElement::Type::TRANSFORM;
+				switch (type)
+				{
+					case Type::POINT:
+						[[fallthrough]];
+					case Type::DIRECTIONAL:
+						[[fallthrough]];
+					case Type::COLLIMATED:
+						[[fallthrough]];
+					case Type::AREA:
+						[[fallthrough]];
+						/*
+					case Type::SKY:
+						[[fallthrough]];
+					case Type::SUN:
+						[[fallthrough]];
+					case Type::SUNSKY:
+						[[fallthrough]];*/
+					case Type::ENVMAP:
+						transform = *tform;
+						return true;
+					default:
+						logger.log("<emitter type=\"%d\"> does not support <transform name=\"toWorld\">",system::ILogger::ELL_ERROR,type);
+						return false;
+				}
+			}
 			break;/*
-		case CElementEmitter::Type::SKY:
-			obj->sky = CElementEmitter::Sky();
-			break;
-		case CElementEmitter::Type::SUN:
-			obj->ply = CElementEmitter::Sun();
-			break;
-		case CElementEmitter::Type::SUNSKY:
-			obj->serialized = CElementEmitter::SunSky();
+		case IElement::Type::ANIMATION:
+			auto anim = static_cast<CElementAnimation>(_child);
+			if (anim->name!="toWorld")
+				return false;
+			toWorlType = IElement::Type::ANIMATION;
+			animation = anim;
+			return true;
 			break;*/
-		case CElementEmitter::Type::ENVMAP:
-			obj->envmap = CElementEmitter::EnvMap();
-			break;
-		case CElementEmitter::Type::CONSTANT:
-			obj->constant = CElementEmitter::Constant();
-			break;
+		case IElement::Type::EMISSION_PROFILE:
+			if (type!=Type::AREA && type!=Type::POINT)
+			{
+				logger.log("<emitter type=\"%d\"> does not support nested emission profiles, only Point and Area lights do",system::ILogger::ELL_ERROR,type);
+				return false;
+			}
+			area.emissionProfile = static_cast<CElementEmissionProfile*>(_child);
+			return true;
 		default:
 			break;
 	}
-	return CElementFactory::return_type(obj, std::move(name));
+	logger.log("<emitter type=\"%d\"> does not support nested <%s> elements",system::ILogger::ELL_ERROR,type,_child->getLogName());
+	return false;
 }
 
-bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
-{
-	bool error = false;
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
-		{
-			case Type::POINT:
-				func(point);
-				break;
-			case Type::AREA:
-				func(area);
-				break;
-			case Type::SPOT:
-				func(spot);
-				break;
-			case Type::DIRECTIONAL:
-				func(directional);
-				break;
-			case Type::COLLIMATED:
-				func(collimated);
-				break;/*
-			case Type::SKY:
-				func(sky);
-				break;
-			case Type::SUN:
-				func(sun);
-				break;
-			case Type::SUNSKY:
-				func(sunsky);
-				break;*/
-			case Type::ENVMAP:
-				func(envmap);
-				break;
-			case Type::CONSTANT:
-				func(constant);
-				break;
-			default:
-				error = true;
-				break;
-		}
-	};
-
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
-			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
-			{ \
-				if (_property.type!=PROPERTY_TYPE) { \
-					error = true; \
-					return; \
-				} \
-				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-			} \
-		}); \
-	}
-#define SET_SPECTRUM(MEMBER, ... )		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
-			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
-			{ \
-				switch (_property.type) { \
-					case SPropertyElementData::Type::FLOAT: \
-						state. ## MEMBER.x = state. ## MEMBER.y = state. ## MEMBER.z = _property.getProperty<SPropertyElementData::Type::FLOAT>(); \
-						break; \
-					case SPropertyElementData::Type::RGB: \
-						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::RGB>(); \
-						break; \
-					case SPropertyElementData::Type::SRGB: \
-						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
-						break; \
-					case SPropertyElementData::Type::SPECTRUM: \
-						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SPECTRUM>(); \
-						break; \
-					default: \
-						error = true; \
-						break; \
-				} \
-			} \
-		}); \
-	}
-
-	auto setSamplingWeight = SET_PROPERTY_TEMPLATE(samplingWeight, SNamedPropertyElement::Type::FLOAT, Point,Area,Spot,Directional,Collimated,/*Sky,Sun,SunSky,*/EnvMap,Constant);
-	auto setIntensity = SET_SPECTRUM(intensity, Point,Spot);
-	auto setPosition = [&]() -> void {
-		if (_property.type!=SNamedPropertyElement::Type::POINT || type!=Type::POINT)
-		{
-			error = true;
-			return;
-		}
-		transform.matrix.setTranslation(_property.vvalue);
-	};
-	auto setRadiance = SET_SPECTRUM(radiance, Area,Constant);
-	auto setCutoffAngle = SET_PROPERTY_TEMPLATE(cutoffAngle, SNamedPropertyElement::Type::FLOAT, Spot);
-	auto setBeamWidth = SET_PROPERTY_TEMPLATE(beamWidth, SNamedPropertyElement::Type::FLOAT, Spot);
-	auto setDirection = [&]() -> void {
-		if (_property.type != SNamedPropertyElement::Type::VECTOR || type != Type::DIRECTIONAL)
-		{
-			error = true;
-			return;
-		}
-		core::vectorSIMDf up(0.f);
-		float maxDot = _property.vvalue[0];
-		uint32_t index = 0u;
-		for (auto i=1u; i<3u; i++)
-		if (_property.vvalue[i] < maxDot)
-		{
-			maxDot = _property.vvalue[i];
-			index = i;
-		}
-		up[index] = 1.f;
-		// hope it works
-		core::matrix3x4SIMD tmp;
-		core::matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(),-_property.vvalue,up).getInverse(tmp);
-		transform.matrix = core::matrix4SIMD(tmp);
-		_NBL_DEBUG_BREAK_IF(true); // no idea if matrix is correct
-	};
-	auto setPower = SET_SPECTRUM(power, Collimated);
-	auto setFilename = [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			if constexpr (std::is_same<state_type,EnvMap>::value)
-			{
-				envmap.filename = std::move(_property);
-			}
-		});
-	};
-	auto setScale = SET_PROPERTY_TEMPLATE(scale, SNamedPropertyElement::Type::FLOAT, EnvMap);
-	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SNamedPropertyElement::Type::FLOAT, EnvMap);
-	//auto setCache = SET_PROPERTY_TEMPLATE(cache, SNamedPropertyElement::Type::BOOLEAN, EnvMap);
-#undef SET_SPECTRUM
-#undef SET_PROPERTY_TEMPLATE
-	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
-	{
-		{"samplingWeight",	setSamplingWeight},
-		{"intensity",		setIntensity},
-		{"position",		setPosition},
-		{"radiance",		setRadiance},
-		{"cutoffAngle",		setCutoffAngle},
-		{"beamWidth",		setBeamWidth},
-		{"direction",		setDirection},
-		{"power",			setPower},/*
-		{"turbidity",		setTurbidity},
-		{"",				set},
-		{"sunRadiusScale",	setSunRadiusScale},*/
-		{"filename",		setFilename},
-		{"scale",			setScale},
-		{"gamma",			setGamma}//,
-		//{"cache",			setCache},
-	};
-
-	auto found = SetPropertyMap.find(_property.name);
-	if (found==SetPropertyMap.end())
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No Emitter can have such property set with name: " + _property.name);
-		return false;
-	}
-
-	found->second();
-	return !error;
-}
-
-bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* metadata)
+bool CElementEmitter::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)
 {
 	// TODO: some more validation
 	switch (type)
 	{
 		case Type::INVALID:
-			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
+			logger.log("<emitter>'s type not specified!",system::ILogger::ELL_ERROR);
 			_NBL_DEBUG_BREAK_IF(true);
 			return true;
 			break;
-		case Type::SPOT:
-			if (std::isnan(spot.beamWidth))
-				spot.beamWidth = spot.cutoffAngle * 0.75f;
-		default:
-			break;
-	}
-
-	switch (type)
-	{
 		case Type::AREA:
 			break;
 		default:
-			metadata->m_global.m_emitters.push_back(*this);
+			// TODO: slap into the scene instead!
+//			globalMetadata->m_global.m_emitters.push_back(*this);
 			break;
 	}
-
 
 	return true;
 }
 
-}
-}
 }

@@ -15,9 +15,9 @@ struct matrix final : private glm::mat<N,M,T>
     using Base::Base;
     using Base::operator[];
 
-    // For assigning to same dimension use implicit ctor, and even then only allow for dimension truncation
-    template<uint16_t X, uint16_t Y> requires ((X!=N || Y!=M) && X>=N && Y>=M)
-    explicit matrix(matrix<T,X,Y> const& m) : Base(reinterpret_cast<glm::mat<X,Y,T> const&>(m)) {}
+    // For assigning to same dimension and type use implicit ctor, and even then only allow for dimension truncation
+    template<typename U, uint16_t X, uint16_t Y> requires ((!std::is_same_v<T,U> || X!=N || Y!=M) && X>=N && Y>=M)
+    explicit matrix(matrix<U,X,Y> const& m) : Base(reinterpret_cast<glm::mat<X,Y,U> const&>(m)) {}
 
     matrix(matrix const&) = default;
     explicit matrix(Base const& base) : Base(base) {}
@@ -34,7 +34,7 @@ struct matrix final : private glm::mat<N,M,T>
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
     {
-        return matrix<T, N, K>(glm::operator*(reinterpret_cast<Base const&>(rhs), reinterpret_cast<matrix<T, M, K>::Base const&>(lhs)));
+        return matrix<T, N, K>(glm::operator*(reinterpret_cast<matrix<T, M, K>::Base const&>(rhs), reinterpret_cast<Base const&>(lhs)));
     }
     inline friend vector<T, N> mul(matrix const& lhs, vector<T, M> const& rhs)
     {
@@ -43,6 +43,15 @@ struct matrix final : private glm::mat<N,M,T>
     inline friend vector<T, M> mul(vector<T, N> const& lhs, matrix const& rhs)
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
+    }
+
+    inline friend bool operator==(matrix const& lhs, matrix const& rhs)
+    {
+        return glm::operator==(reinterpret_cast<Base const&>(lhs), reinterpret_cast<Base const&>(rhs));
+    }
+    inline friend bool operator!=(matrix const& lhs, matrix const& rhs)
+    {
+        return glm::operator!=(reinterpret_cast<Base const&>(lhs), reinterpret_cast<Base const&>(rhs));
     }
 };
 #endif

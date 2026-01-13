@@ -1,260 +1,118 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
+#include "nbl/ext/MitsubaLoader/CElementTexture.h"
+
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
-{
 
-
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementTexture>(const char** _atts, ParserManager* _util)
+namespace nbl::ext::MitsubaLoader
 {
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr,"");
-
-	static const core::unordered_map<std::string, CElementTexture::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+inline CElementTexture::Bitmap::WRAP_MODE getWrapMode(const SPropertyElementData& _property)
+{
+	using mode_e = CElementTexture::Bitmap::WRAP_MODE;
+	static const core::unordered_map<std::string,mode_e,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToWrap =
 	{
-		{"bitmap",			CElementTexture::Type::BITMAP},
-		{"scale",			CElementTexture::Type::SCALE}
+		{"repeat",	mode_e::REPEAT},
+		{"mirror",	mode_e::MIRROR},
+		{"clamp",	mode_e::CLAMP},
+		{"zero",	mode_e::ZERO},
+		{"one",		mode_e::ONE}
 	};
-
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr,"");
-	}
-
-	CElementTexture* obj = _util->objects.construct<CElementTexture>(id);
-	if (!obj)
-		return CElementFactory::return_type(nullptr,"");
-
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementTexture::Type::BITMAP:
-			obj->bitmap = CElementTexture::Bitmap();
-			break;
-		case CElementTexture::Type::SCALE:
-			obj->scale = CElementTexture::Scale();
-			break;
-		default:
-			break;
-	}
-	return CElementFactory::return_type(obj, std::move(name));
+	assert(_property.type==SPropertyElementData::Type::STRING);
+	auto found = StringToWrap.find(_property.getProperty<SPropertyElementData::Type::STRING>());
+	if (found != StringToWrap.end())
+		return found->second;
+	return mode_e::REPEAT;
 }
 
-bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
+auto CElementTexture::compAddPropertyMap() -> AddPropertyMap<CElementTexture>
 {
-	if (type==CElementTexture::Type::SCALE)
-	{
-		if (_property.type!=SPropertyElementData::Type::FLOAT)
-			return false;
-		scale.scale = _property.fvalue;
-		return true;
-	}
+	using this_t = CElementTexture;
+	AddPropertyMap<CElementTexture> retval;
 
-
-	bool error = false;
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
+	// bitmap
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,std::is_same,Bitmap)
 		{
-			case CElementTexture::Type::BITMAP:
-				func(bitmap);
-				break;
-			case CElementTexture::Type::SCALE:
-				func(scale);
-				break;
-			default:
-				error = true;
-				break;
+			setLimitedString("filename",_this->bitmap.filename,_property,logger); return true;
 		}
-	};
-
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
-			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
-			{ \
-				if (_property.type!=PROPERTY_TYPE) { \
-					error = true; \
-					return; \
-				} \
-				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-			} \
-		}); \
-	}
-
-	auto processFilename = [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			if constexpr (std::is_same<state_type,Bitmap>::value)
-			{
-				bitmap.filename = std::move(_property);
-			}
-		});
-	};
-	auto getWrapMode = [&]() -> Bitmap::WRAP_MODE {
-		static const core::unordered_map<std::string, Bitmap::WRAP_MODE, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToWrap =
+	);
+	// special
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("wrapMode",STRING,std::is_same,Bitmap)
 		{
-			{"repeat",	Bitmap::WRAP_MODE::REPEAT},
-			{"mirror",	Bitmap::WRAP_MODE::MIRROR},
-			{"clamp",	Bitmap::WRAP_MODE::CLAMP},
-			{"zero",	Bitmap::WRAP_MODE::ZERO},
-			{"one",		Bitmap::WRAP_MODE::ONE}
-		};
-		auto found = StringToWrap.end();
-		if (_property.type == SPropertyElementData::Type::STRING)
-			found = StringToWrap.find(_property.getProperty<SPropertyElementData::Type::STRING>());
-		if (found != StringToWrap.end())
-			return found->second;
-		return Bitmap::WRAP_MODE::REPEAT;
-	};
-	auto processWrapMode = [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			if constexpr (std::is_same<state_type,Bitmap>::value)
+			_this->bitmap.wrapModeV = _this->bitmap.wrapModeU = getWrapMode(_property);
+			return true;
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("wrapModeU",STRING,std::is_same,Bitmap)
+		{
+			_this->bitmap.wrapModeU = getWrapMode(_property);
+			return true;
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("wrapModeV",STRING,std::is_same,Bitmap)
+		{
+			_this->bitmap.wrapModeV = getWrapMode(_property);
+			return true;
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(gamma,FLOAT,std::is_same,Bitmap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filterType",STRING,std::is_same,Bitmap)
+		{
+			static const core::unordered_map<std::string,Bitmap::FILTER_TYPE,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 			{
-				auto value = getWrapMode();
-				state.wrapModeU = value;
-				state.wrapModeV = value;
-			}
-		});
-	};
-	auto processWrapModeU =  [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			if constexpr (std::is_same<state_type,Bitmap>::value)
+				{"ewa",			Bitmap::FILTER_TYPE::EWA},
+				{"trilinear",	Bitmap::FILTER_TYPE::TRILINEAR},
+				{"nearest",		Bitmap::FILTER_TYPE::NEAREST}
+			};
+			auto found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
+			if (found==StringToType.end())
+				return false;
+			_this->bitmap.filterType = found->second;
+			return true;
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(maxAnisotropy,FLOAT,std::is_same,Bitmap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("cache",BOOLEAN,std::is_same,Bitmap)
+		{
+			return true; // silently drop
+		}
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(uoffset,FLOAT,std::is_same,Bitmap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(voffset,FLOAT,std::is_same,Bitmap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(uscale,FLOAT,std::is_same,Bitmap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(vscale,FLOAT,std::is_same,Bitmap);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("channel",STRING,std::is_same,Bitmap)
+		{
+			static const core::unordered_map<std::string,Bitmap::CHANNEL,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 			{
-				state.wrapModeU = getWrapMode();
-			}
-		});
-	};
-	auto processWrapModeV =  [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
+				{"r",	Bitmap::CHANNEL::R},
+				{"g",	Bitmap::CHANNEL::G},
+				{"b",	Bitmap::CHANNEL::B},
+				{"a",	Bitmap::CHANNEL::A}/*,
+				{"x",	Bitmap::CHANNEL::X},
+				{"y",	Bitmap::CHANNEL::Y},
+				{"z",	Bitmap::CHANNEL::Z}*/
+			};
+			auto found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
+			if (found==StringToType.end())
+				return false;
+			_this->bitmap.channel = found->second;
+			return true;
+		}
+	);
 
-			if constexpr (std::is_same<state_type,Bitmap>::value)
-			{
-				state.wrapModeV = getWrapMode();
-			}
-		});
-	};
-	auto processGamma = SET_PROPERTY_TEMPLATE(gamma,SPropertyElementData::Type::FLOAT,Bitmap);
-	auto processFilterType = [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
+	// scale
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(scale,FLOAT,std::is_same,Scale);
 
-			if constexpr (std::is_same<state_type,Bitmap>::value)
-			{
-				static const core::unordered_map<std::string,Bitmap::FILTER_TYPE,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
-				{
-					{"ewa",			Bitmap::FILTER_TYPE::EWA},
-					{"trilinear",	Bitmap::FILTER_TYPE::TRILINEAR},
-					{"nearest",		Bitmap::FILTER_TYPE::NEAREST}
-				};
-				auto found = StringToType.end();
-				if (_property.type==SPropertyElementData::Type::STRING)
-					found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
-				if (found==StringToType.end())
-				{
-					error = true;
-					return;
-				}
-				state.filterType = found->second;
-			}
-		});
-	};
-	auto processMaxAnisotropy = SET_PROPERTY_TEMPLATE(maxAnisotropy,SPropertyElementData::Type::FLOAT,Bitmap);
-	auto processCache = []() -> void {}; // silently drop
-	auto processUoffset = SET_PROPERTY_TEMPLATE(uoffset,SPropertyElementData::Type::FLOAT,Bitmap);
-	auto processVoffset = SET_PROPERTY_TEMPLATE(voffset,SPropertyElementData::Type::FLOAT,Bitmap);
-	auto processUscale = SET_PROPERTY_TEMPLATE(uscale,SPropertyElementData::Type::FLOAT,Bitmap);
-	auto processVscale = SET_PROPERTY_TEMPLATE(vscale,SPropertyElementData::Type::FLOAT,Bitmap);
-	auto processChannel = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			if constexpr (std::is_same<state_type, Bitmap>::value)
-			{
-				static const core::unordered_map<std::string, Bitmap::CHANNEL, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-				{
-					{"r",	Bitmap::CHANNEL::R},
-					{"g",	Bitmap::CHANNEL::G},
-					{"b",	Bitmap::CHANNEL::B},
-					{"a",	Bitmap::CHANNEL::A}/*,
-					{"x",	Bitmap::CHANNEL::X},
-					{"y",	Bitmap::CHANNEL::Y},
-					{"z",	Bitmap::CHANNEL::Z}*/
-				};
-				auto found = StringToType.end();
-				if (_property.type == SPropertyElementData::Type::STRING)
-					found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
-				if (found == StringToType.end())
-				{
-					error = true;
-					return;
-				}
-				state.channel = found->second;
-			}
-		});
-	};
-
-
-	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
-	{
-		{"filename",		processFilename},
-		{"wrapMode",		processWrapMode},
-		{"wrapModeU",		processWrapModeU},
-		{"wrapModeV",		processWrapModeV},
-		{"gamma",			processGamma},
-		{"filterType",		processFilterType},
-		{"maxAnisotropy",	processMaxAnisotropy},
-		{"cache",			processCache},
-		{"uoffset",			processUoffset},
-		{"voffset",			processVoffset},
-		{"uscale",			processUscale},
-		{"vscale",			processVscale},
-		{"channel",			processChannel}
-	};
-	
-	auto found = SetPropertyMap.find(_property.name);
-	if (found==SetPropertyMap.end())
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: "+_property.name);
-		return false;
-	}
-
-	found->second();
-	return !error;
+	return retval;
 }
 
 
-bool CElementTexture::processChildData(IElement* _child, const std::string& name)
+bool CElementTexture::processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger)
 {
 	if (!_child)
 		return true;
@@ -271,27 +129,21 @@ bool CElementTexture::processChildData(IElement* _child, const std::string& name
 						break;
 					default:
 						_NBL_DEBUG_BREAK_IF(true);
-						ParserLog::invalidXMLFileStructure("No supported texture can have a texture as child element, except for \"scale\"");
+						logger.log("Only <texture type=\"scale\"> can have nested <texture> elements",system::ILogger::ELL_ERROR);
 						return false;
-						break;
 				}
 			}
-			break;
+			return true;
 		default:
-			return false;
 			break;
 	}
-	return true;
+	logger.log("<texture type=\"%d\"> does not support nested <%s> elements",system::ILogger::ELL_ERROR,type,_child->getLogName());
+	return false;
 }
 
-bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
+bool CElementTexture::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 	
 	// TODO: Validation
 	{
@@ -300,6 +152,4 @@ bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	return true;
 }
 
-}
-}
 }

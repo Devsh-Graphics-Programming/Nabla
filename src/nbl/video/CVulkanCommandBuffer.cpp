@@ -377,22 +377,31 @@ bool CVulkanCommandBuffer::copyImage_impl(const IGPUImage* const srcImage, const
 }
 
 
-bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact)
 {
-    const auto info = getVkCopyAccelerationStructureInfoFrom(copyInfo);
+	VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(src->getNativeHandle());
+	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(dst->getNativeHandle());
+	info.mode = compact ? VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR:VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR;
     getFunctionTable().vkCmdCopyAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
-bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst)
 {
-    const auto info = getVkCopyAccelerationStructureToMemoryInfoFrom(copyInfo);
+	VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(src->getNativeHandle());
+	info.dst = getVkDeviceOrHostAddress(dst);
+	info.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_SERIALIZE_KHR;
     getFunctionTable().vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf,&info);
     return true;
 }
 
-bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst)
 {
-    const auto info = getVkCopyMemoryToAccelerationStructureInfoFrom(copyInfo);
+    VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+    info.src = getVkDeviceOrHostAddress(src);
+    info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(dst->getNativeHandle());
+    info.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_DESERIALIZE_KHR;
     getFunctionTable().vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
@@ -406,6 +415,12 @@ bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* c
 bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
 {
     getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject());
+    return true;
+}
+
+bool CVulkanCommandBuffer::bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline)
+{
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, static_cast<const CVulkanRayTracingPipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
@@ -449,7 +464,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
                 dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
 
             getFunctionTable().vkCmdBindDescriptorSets(
-                m_cmdbuf,static_cast<VkPipelineBindPoint>(pipelineBindPoint),vk_pipelineLayout,
+                m_cmdbuf,getVkPipelineBindPointFrom(pipelineBindPoint),vk_pipelineLayout,
                 firstSet+first, last-first, vk_descriptorSets+first,
                 dynamicOffsetCount, dynamicOffsets+dynamicOffsetsBindOffset
             );
@@ -464,7 +479,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
     return true;
 }
 
-bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
+bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<hlsl::ShaderStage> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
 {
     getFunctionTable().vkCmdPushConstants(m_cmdbuf,static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),getVkShaderStageFlagsFromShaderStage(stageFlags),offset,size,pValues);
     return true;
@@ -655,7 +670,7 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
         .renderArea = info.renderArea,
         // Implicitly but could be optimizedif needed
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-00902
-        .clearValueCount = vk_clearValues.size()/sizeof(VkClearValue),
+        .clearValueCount = static_cast<uint32_t>(vk_clearValues.size()/sizeof(VkClearValue)),
         // Implicit
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-04962
         .pClearValues = vk_clearValues.data()
@@ -823,6 +838,38 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
     return true;
 }
 
+bool CVulkanCommandBuffer::setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize)
+{
+    getFunctionTable().vkCmdSetRayTracingPipelineStackSizeKHR(m_cmdbuf, pipelineStackSize);
+    return true;
+}
+
+bool CVulkanCommandBuffer::traceRays_impl(
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+    uint32_t width, uint32_t height, uint32_t depth)
+{
+    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupRange.size);
+    const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(missGroupsRange, missGroupStride);
+    const auto vk_hitGroupsRegion = getVkStridedDeviceAddressRegion(hitGroupsRange, hitGroupStride);
+    const auto vk_callableGroupsRegion = getVkStridedDeviceAddressRegion(callableGroupsRange, callableGroupStride);
+
+    getFunctionTable().vkCmdTraceRaysKHR(m_cmdbuf, 
+        &vk_raygenGroupRegion, 
+        &vk_missGroupsRegion, 
+        &vk_hitGroupsRegion, 
+        &vk_callableGroupsRegion, 
+        width, height, depth);
+    return true;
+}
+
+bool CVulkanCommandBuffer::traceRaysIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
+{
+    getFunctionTable().vkCmdTraceRaysIndirect2KHR(m_cmdbuf, indirectBinding.buffer->getDeviceAddress() + indirectBinding.offset);
+    return true;
+}
 bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
     IGPUCommandPool::StackAllocation<VkCommandBuffer> vk_commandBuffers(m_cmdpool,count);

@@ -3,6 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
+
+#include "nbl/asset/ICPUPipeline.h"
 #include "nbl/asset/utils/spvUtils.h"
 
 #include "nbl_spirv_cross/spirv_parser.hpp"
@@ -106,14 +108,15 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
     }
 }
 
-core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
+core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const ICPUPipelineBase::SShaderSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
 {
-    if (info.shader->getStage() != IShader::E_SHADER_STAGE::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
+    if (info.valid()==ICPUPipelineBase::SShaderSpecInfo::INVALID_SPEC_INFO)
         return nullptr;
 
     CStageIntrospectionData::SParams params;
     params.entryPoint = info.entryPoint;
-    params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+    params.shader = core::smart_refctd_ptr<const IShader>(info.shader);
+    params.stage = hlsl::ShaderStage::ESS_COMPUTE;
 
     auto introspection = introspect(params);
 
@@ -173,14 +176,13 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
         layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
     }
 
-    ICPUComputePipeline::SCreationParams pplnCreationParams = { {.layout = layout.get()} };
-    pplnCreationParams.shader = info;
-    pplnCreationParams.layout = layout.get();
-    return ICPUComputePipeline::create(pplnCreationParams);
+    auto pipeline = ICPUComputePipeline::create(layout.get());
+    pipeline->getSpecInfos(hlsl::ShaderStage::ESS_COMPUTE)[0] = info;
+    return pipeline;
 }
 
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
-NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
+NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUPipelineBase::SShaderSpecInfo::spec_constant_map_t* specConstants)
 {
     if (!stageData)
         return false;
@@ -216,7 +218,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                         if (specConstantFound == specConstants->end())
                             return false;
 
-                        descInfo.count = specConstantFound->second;
+                        descInfo.count = (specConstantFound->second.size() != 0);
                     }
                     else
                     {
@@ -278,13 +280,13 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
     auto a = pc.size;
     if (pc.present())
     {
-        std::span<core::bitflag<ICPUShader::E_SHADER_STAGE>> pcRangesSpan = {
+        std::span<core::bitflag<hlsl::ShaderStage>> pcRangesSpan = {
             m_pushConstantBytes.data() + pc.offset,
             pc.size
         };
 
         // iterate over all bytes used
-        const IShader::E_SHADER_STAGE shaderStage = stageData->getParams().shader->getStage();
+        const IShader::E_SHADER_STAGE shaderStage = stageData->getParams().stage;
         for (auto it = pcRangesSpan.begin(); it != pcRangesSpan.end(); ++it)
             *it |= shaderStage;
     }
@@ -616,7 +618,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
 {
     const ICPUBuffer* spv = params.shader->getContent();
     spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize() / 4u);
-    const IShader::E_SHADER_STAGE shaderStage = params.shader->getStage();
+    const IShader::E_SHADER_STAGE shaderStage = params.stage;
 
     spv::ExecutionModel stage = ESS2spvExecModel(shaderStage);
     if (stage == spv::ExecutionModelMax)
@@ -1052,7 +1054,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
         }
     }
 
-    logger->log(debug.str() + '\n');
+    logger->log("%s", system::ILogger::ELL_DEBUG, debug.str() + '\n');
 }
 
 }

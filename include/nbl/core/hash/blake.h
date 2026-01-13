@@ -4,9 +4,12 @@
 #ifndef _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
 #define _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
 
+
+#include "nbl/config/BuildConfigOptions.h"
 #include "blake3.h"
 
 #include <span>
+
 
 namespace nbl::core
 {
@@ -88,6 +91,14 @@ struct blake3_hasher::update_impl<U[N],Dummy>
 	static inline void __call(blake3_hasher& hasher, const U input[N])
 	{
 		update_impl<std::span<U>>::__call(hasher,input);
+	}
+};
+template<typename CharT, typename Dummy>
+struct blake3_hasher::update_impl<std::basic_string_view<CharT>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const std::basic_string_view<CharT> input)
+	{
+			hasher.update(input.data(),input.size()*sizeof(CharT));
 	}
 };
 }

@@ -1,82 +1,62 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_C_SMOOTH_NORMAL_GENERATOR_H_INCLUDED_
+#define _NBL_ASSET_C_SMOOTH_NORMAL_GENERATOR_H_INCLUDED_
 
-#ifndef __NBL_ASSET_C_SMOOTH_NORMAL_GENERATOR_H_INCLUDED__
-#define __NBL_ASSET_C_SMOOTH_NORMAL_GENERATOR_H_INCLUDED__
-
-
-#include <iostream>
-#include <functional>
-
-#include "nbl/core/math/glslFunctions.h"
-
-#include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/utils/IMeshManipulator.h"
+#include "nbl/asset/utils/CVertexHashGrid.h"
 
 
-namespace nbl 
-{	
-namespace asset 
+namespace nbl::asset 
 {
 
+// TODO: implement a class template that take position type(either float32_t3 or float64_t3 as template argument
 class CSmoothNormalGenerator
 {
-public:
-	static core::smart_refctd_ptr<asset::ICPUMeshBuffer> calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction function);
-
-	CSmoothNormalGenerator() = delete;
-	~CSmoothNormalGenerator() = delete;
-
-private:
-	class VertexHashMap
-	{
 	public:
-		struct BucketBounds
-		{
-			core::vector<IMeshManipulator::SSNGVertexData>::iterator begin;
-			core::vector<IMeshManipulator::SSNGVertexData>::iterator end;
-		};
+		CSmoothNormalGenerator() = delete;
+		~CSmoothNormalGenerator() = delete;
 
-	public:
-		VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
+    struct VertexData
+    {
+      uint32_t index;									     //offset of the vertex into index buffer
+			uint32_t hash;
+      hlsl::float32_t3 weightedNormal;
+      hlsl::float32_t3 position;							   //position of the vertex in 3D space
 
-		//inserts vertex into hash table
-		void add(IMeshManipulator::SSNGVertexData&& vertex);
+			hlsl::float32_t3 getPosition() const
+			{
+				return position;
+			}
 
-		//sorts hashtable and sets iterators at beginnings of bucktes
-		void validate();
+			void setHash(uint32_t hash)
+			{
+				this->hash = hash;
+			}
 
-		//
-		std::array<uint32_t, 8> getNeighboringCellHashes(const IMeshManipulator::SSNGVertexData& vertex);
+			uint32_t getHash() const
+			{
+				return hash;
+			};
 
-		inline uint32_t getBucketCount() const { return buckets.size(); }
-		inline BucketBounds getBucketBoundsById(uint32_t index) { return { buckets[index], buckets[index + 1] }; }
-		BucketBounds getBucketBoundsByHash(uint32_t hash);
+    };
+
+		using VxCmpFunction = std::function<bool(const VertexData&, const VertexData&, const ICPUPolygonGeometry*)>;
+
+		using VertexHashMap = CVertexHashGrid<VertexData>;
+
+	  struct Result
+	  {
+			VertexHashMap vertexHashGrid;
+			core::smart_refctd_ptr<ICPUPolygonGeometry> geom;
+	  };
+		static Result calculateNormals(const ICPUPolygonGeometry* polygon, float epsilon, VxCmpFunction function);
 
 	private:
-		static constexpr uint32_t invalidHash = 0xFFFFFFFF;
 
-	private:
-		//holds iterators pointing to beginning of each bucket, last iterator points to vertices.end()
-		core::vector<core::vector<IMeshManipulator::SSNGVertexData>::iterator> buckets;
-		core::vector<IMeshManipulator::SSNGVertexData> vertices;
-		const uint32_t hashTableMaxSize;
-		const float cellSize;
-
-	private:
-		uint32_t hash(const IMeshManipulator::SSNGVertexData& vertex) const;
-		uint32_t hash(const core::vector3du32_SIMD& position) const;
-
-	};
-
-private:
-	static VertexHashMap setupData(const asset::ICPUMeshBuffer* buffer, float epsilon);
-	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
-
+		static VertexHashMap setupData(const ICPUPolygonGeometry* polygon, float epsilon);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> processConnectedVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, VxCmpFunction vxcmp);
 };
 
 }
-}
-
 #endif

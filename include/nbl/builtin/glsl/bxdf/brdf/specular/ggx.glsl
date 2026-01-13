@@ -5,6 +5,7 @@
 #ifndef _NBL_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
 #define _NBL_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
 
+#include <nbl/builtin/glsl/sampling/concentric_mapping.glsl>
 #include <nbl/builtin/glsl/bxdf/common_samples.glsl>
 #include <nbl/builtin/glsl/bxdf/fresnel.glsl>
 #include <nbl/builtin/glsl/bxdf/ndf/ggx.glsl>
@@ -102,10 +103,9 @@ vec3 nbl_glsl_ggx_cos_generate(in vec3 localV, in vec2 u, in float _ax, in float
     vec3 T1 = lensq > 0.0 ? vec3(-V.y, V.x, 0.0)*inversesqrt(lensq) : vec3(1.0,0.0,0.0);
     vec3 T2 = cross(V,T1);
 
-    float r = sqrt(u.x);
-    float phi = 2.0 * nbl_glsl_PI * u.y;
-    float t1 = r * cos(phi);
-    float t2 = r * sin(phi);
+    vec2 t = nbl_glsl_concentricMapping(u);
+    float t1 = t[0];
+    float t2 = t[1];
     float s = 0.5 * (1.0 + V.z);
     t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
     

@@ -21,7 +21,16 @@ namespace hlsl
 {
 
 template<typename Scalar>
-using complex_t = std::complex<Scalar>;
+struct complex_t : public std::complex<Scalar>
+{
+    using base_t = std::complex<Scalar>;
+    complex_t(const Scalar real = Scalar(), const Scalar imag = Scalar()) : base_t(real, imag) {}
+    static complex_t create(const Scalar real, const Scalar imag)
+    {
+        complex_t retVal(real, imag);
+        return retVal;
+    }
+};
 
 // Fast mul by i
 template<typename Scalar>
@@ -52,6 +61,7 @@ namespace nbl
 namespace hlsl
 {
 
+// TODO: make this BDA compatible (no unspecialized templates yet)
 template<typename Scalar>
 struct complex_t
 {
@@ -228,28 +238,28 @@ struct divides< complex_t<Scalar> >
 // Out of line generic initialization of static member data not yet supported so we X-Macro identities for Scalar types we want to support
 // (left X-Macro here since it's pretty readable)
 
-#define COMPLEX_ARITHMETIC_IDENTITIES(SCALAR) \
+#define COMPLEX_ARITHMETIC_IDENTITIES(SCALAR, COMPONENT) \
 template<> \
-const static complex_t< SCALAR > plus< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(0), promote< SCALAR , uint32_t>(0)}; \
+const static complex_t< SCALAR > plus< complex_t< SCALAR > >::identity = { promote< SCALAR, COMPONENT>(0), promote< SCALAR, COMPONENT>(0)}; \
 template<> \
-const static complex_t< SCALAR > minus< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(0),  promote< SCALAR , uint32_t>(0)}; \
+const static complex_t< SCALAR > minus< complex_t< SCALAR > >::identity = { promote< SCALAR, COMPONENT>(0),  promote< SCALAR, COMPONENT>(0)}; \
 template<> \
-const static complex_t< SCALAR > multiplies< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(1),  promote< SCALAR , uint32_t>(0)}; \
+const static complex_t< SCALAR > multiplies< complex_t< SCALAR > >::identity = { promote< SCALAR, COMPONENT>(1),  promote< SCALAR, COMPONENT>(0)}; \
 template<> \
-const static complex_t< SCALAR > divides< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(1),  promote< SCALAR , uint32_t>(0)};
+const static complex_t< SCALAR > divides< complex_t< SCALAR > >::identity = { promote< SCALAR, COMPONENT>(1),  promote< SCALAR, COMPONENT>(0)};
 
-COMPLEX_ARITHMETIC_IDENTITIES(float16_t)
-COMPLEX_ARITHMETIC_IDENTITIES(float16_t2)
-COMPLEX_ARITHMETIC_IDENTITIES(float16_t3)
-COMPLEX_ARITHMETIC_IDENTITIES(float16_t4)  
-COMPLEX_ARITHMETIC_IDENTITIES(float32_t)
-COMPLEX_ARITHMETIC_IDENTITIES(float32_t2)
-COMPLEX_ARITHMETIC_IDENTITIES(float32_t3)
-COMPLEX_ARITHMETIC_IDENTITIES(float32_t4)  
-COMPLEX_ARITHMETIC_IDENTITIES(float64_t)
-COMPLEX_ARITHMETIC_IDENTITIES(float64_t2)
-COMPLEX_ARITHMETIC_IDENTITIES(float64_t3)
-COMPLEX_ARITHMETIC_IDENTITIES(float64_t4)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t, float16_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t2, float16_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t3, float16_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t4, float16_t)  
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t, float32_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t2, float32_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t3, float32_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t4, float32_t)  
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t, float64_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t2, float64_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t3, float64_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t4, float64_t)
 
 #undef COMPLEX_ARITHMETIC_IDENTITIES
 
@@ -425,22 +435,6 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     complex_t<Scalar> retVal = { value.imag(), -value.real() };
     return retVal;
 }
-
-template<typename Scalar>
-struct ternary_operator< complex_t<Scalar> >
-{
-    using type_t = complex_t<Scalar>;
-
-    complex_t<Scalar> operator()(bool condition, NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs)
-    {
-        const vector<Scalar, 2> lhsVector = vector<Scalar, 2>(lhs.real(), lhs.imag());
-        const vector<Scalar, 2> rhsVector = vector<Scalar, 2>(rhs.real(), rhs.imag());
-        const vector<Scalar, 2> resultVector = condition ? lhsVector : rhsVector;
-        const complex_t<Scalar> result = { resultVector.x, resultVector.y };
-        return result;
-    }
-};
-
 
 }
 }

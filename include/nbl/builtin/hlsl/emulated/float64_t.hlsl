@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/emulated/float64_t_impl.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
 
 namespace nbl
 {
@@ -96,8 +97,8 @@ namespace hlsl
             {
                 if(!FastMath)
                 {
-                    const bool isRhsInf = hlsl::isinf(rhs.data);
-                    if (hlsl::isinf(data))
+                    const bool isRhsInf = cpp_compat_intrinsics_impl::isinf_uint_impl(rhs.data);
+                    if (cpp_compat_intrinsics_impl::isinf_uint_impl(data))
                     {
                         if (isRhsInf && ((data ^ rhs.data) & ieee754::traits<float64_t>::signMask))
                             return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | ieee754::traits<float64_t>::signMask);
@@ -115,7 +116,7 @@ namespace hlsl
                  
                 if(!FastMath)
                 {
-                    if (hlsl::isinf(data))
+                    if (cpp_compat_intrinsics_impl::isinf_uint_impl(data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | ieee754::extractSignPreserveBitPattern(max(data, rhs.data)));
                 }
 
@@ -153,14 +154,20 @@ namespace hlsl
                     if ((data | ieee754::traits<float64_t>::signMask) == (rhs.data | ieee754::traits<float64_t>::signMask))
                         return _static_cast<this_t>(0ull);
 
-                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64 ? 0ull : rhsNormMantissa >> shiftAmount;
+                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64u ? 0ull : rhsNormMantissa >> shiftAmount;
                     uint64_t rhsNormMantissaLow = 0ull;
                     if (shiftAmount < 128)
                     {
                         if (shiftAmount >= 64)
+                        {
                             rhsNormMantissaLow = rhsNormMantissa >> (shiftAmount - 64);
+                        }
                         else
-                            rhsNormMantissaLow = rhsNormMantissa << (64 - shiftAmount);
+                        {
+                            const uint32_t lowMantissaShiftAmount = 64 - shiftAmount;
+                            if(lowMantissaShiftAmount < 64)
+                                rhsNormMantissaLow = rhsNormMantissa << lowMantissaShiftAmount;
+                        }
                     }
 
                     const int64_t mantissaDiff = int64_t(lhsNormMantissa) - int64_t(rhsNormMantissaHigh);
@@ -178,7 +185,7 @@ namespace hlsl
                 }
                 else
                 {
-                    rhsNormMantissa >>= shiftAmount;
+                    rhsNormMantissa = shiftAmount > 63 ? 0ull : rhsNormMantissa >> shiftAmount;
                     resultMantissa = lhsNormMantissa + rhsNormMantissa;
 
                     if (resultMantissa & 1ull << 53)
@@ -225,9 +232,9 @@ namespace hlsl
                 uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
                 if (!FastMath)
                 {
-                    if (hlsl::isnan(data) || hlsl::isnan(rhs.data))
+                    if (cpp_compat_intrinsics_impl::isnan_uint_impl(data) || cpp_compat_intrinsics_impl::isnan_uint_impl(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
-                    if (hlsl::isinf(data) || hlsl::isinf(rhs.data))
+                    if (cpp_compat_intrinsics_impl::isinf_uint_impl(data) || cpp_compat_intrinsics_impl::isinf_uint_impl(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
                     if (emulated_float64_t_impl::isZero(data) || emulated_float64_t_impl::isZero(rhs.data))
                         return bit_cast<this_t>(sign);
@@ -288,7 +295,7 @@ namespace hlsl
 
                 if(!FastMath)
                 {
-                    if (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data))
+                    if (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
                     if (emulated_float64_t_impl::areBothZero(data, rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
@@ -296,9 +303,9 @@ namespace hlsl
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
                     if (emulated_float64_t_impl::areBothInfinity(data, rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | ieee754::traits<float64_t>::signMask);
-                    if (hlsl::isinf(data))
+                    if (cpp_compat_intrinsics_impl::isinf_uint_impl(data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
-                    if (hlsl::isinf(rhs.data))
+                    if (cpp_compat_intrinsics_impl::isinf_uint_impl(rhs.data))
                         return bit_cast<this_t>(sign);
                 }
 
@@ -345,7 +352,7 @@ namespace hlsl
         {
             if (!FastMath)
             {
-                if (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data))
+                if (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data))
                     return false;
                 if (emulated_float64_t_impl::areBothZero(data, rhs.data))
                     return true;
@@ -355,7 +362,7 @@ namespace hlsl
         }
         bool operator!=(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (!FastMath && (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data)))
+            if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) == rhs);
@@ -370,14 +377,14 @@ namespace hlsl
         }
         bool operator<=(this_t rhs) NBL_CONST_MEMBER_FUNC 
         { 
-            if (!FastMath && (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data)))
+            if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) > bit_cast<this_t>(rhs.data));
         }
         bool operator>=(this_t rhs)
         {
-            if (!FastMath && (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data)))
+            if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) < bit_cast<this_t>(rhs.data));
@@ -386,6 +393,59 @@ namespace hlsl
         this_t flipSign()
         {
             return bit_cast<this_t>(data ^ ieee754::traits<float64_t>::signMask);
+        }
+
+        /**
+        * @brief Computes sqare root estimation.
+        * 
+        * Can be less precise when FastMath is disabled.
+        * sqrt(inf) = inf
+        * sqrt(-0) = -0
+        * sqrt(NaN) = NaN
+        */
+        static this_t sqrt(this_t number)
+        {
+            bool isZero = !(number.data & 0x7FFFFFFFFFFFFFFFull);
+            if (isZero)
+                return number;
+
+            static const uint64_t MaxFloat64AsUint64 = 0x7FEFFFFFFFFFFFFFull;
+            if (number.data > MaxFloat64AsUint64)
+            {
+                bool isInf = cpp_compat_intrinsics_impl::isinf_uint_impl(number.data);
+                if (isInf)
+                    return number;
+
+                // when (number.data > MaxFloat64AsUint64) and is not infinity, we can be sure that number is either NaN or negative
+                return bit_cast<this_t>(ieee754::traits<this_t>::quietNaN);
+            }
+
+            const float f32InverseSquareRoot = nbl::hlsl::rsqrt(_static_cast<float>(number));
+
+            // find sqrt approximation using the Newton-Raphson method
+            this_t inverseSquareRoot = _static_cast<this_t>(f32InverseSquareRoot);
+            const int Iterations = 5;
+            static const this_t Half = this_t::create(0.5f);
+            static const this_t ThreeHalfs = this_t::create(1.5f);
+            const this_t x2 = number * Half;
+            [[unroll]]
+            for (int i = 0; i < Iterations; ++i)
+            {
+                inverseSquareRoot = inverseSquareRoot * (ThreeHalfs - (x2 * inverseSquareRoot * inverseSquareRoot));
+            }
+
+            if (FastMath)
+            {
+                return this_t::create(1.0f) / inverseSquareRoot;
+            }
+            else
+            {
+                // 2 Newton-Raphson iterations to increase precision
+                this_t squareRoot = this_t::create(1.0f) / inverseSquareRoot;
+                squareRoot = Half * (squareRoot + number / squareRoot);
+                squareRoot = Half * (squareRoot + number / squareRoot);
+                return squareRoot;
+            }
         }
 
         NBL_CONSTEXPR_STATIC bool isFastMathSupported = FastMath;
@@ -411,25 +471,25 @@ inline int extractExponent(__VA_ARGS__ x)\
 }\
 \
 template<>\
-NBL_CONSTEXPR_INLINE_FUNC __VA_ARGS__ replaceBiasedExponent(__VA_ARGS__ x, typename unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type biasedExp)\
+NBL_CONSTEXPR_FUNC __VA_ARGS__ replaceBiasedExponent(__VA_ARGS__ x, typename unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type biasedExp)\
 {\
     return __VA_ARGS__(replaceBiasedExponent(x.data, biasedExp));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC __VA_ARGS__ fastMulExp2(__VA_ARGS__ x, int n)\
+NBL_CONSTEXPR_FUNC __VA_ARGS__ fastMulExp2(__VA_ARGS__ x, int n)\
 {\
     return __VA_ARGS__(replaceBiasedExponent(x.data, extractBiasedExponent(x) + uint32_t(n)));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type extractMantissa(__VA_ARGS__ x)\
+NBL_CONSTEXPR_FUNC unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type extractMantissa(__VA_ARGS__ x)\
 {\
     return extractMantissa(x.data);\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC uint64_t extractNormalizeMantissa(__VA_ARGS__ x)\
+NBL_CONSTEXPR_FUNC uint64_t extractNormalizeMantissa(__VA_ARGS__ x)\
 {\
     return extractNormalizeMantissa(x.data);\
 }\
@@ -497,7 +557,7 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
                     return bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
                 if (exponent < ieee754::traits<ToAsFloat>::exponentMin)
                     return bit_cast<To>(-ieee754::traits<ToAsFloat>::inf);
-                if (hlsl::isnan(v.data))
+                if (cpp_compat_intrinsics_impl::isinf_uint_impl(v.data))
                     return bit_cast<To>(ieee754::traits<ToAsFloat>::quietNaN);
             }
 
@@ -574,10 +634,30 @@ DEFINE_BIT_CAST_SPEC(emulated_float64_t<false, true>);
 
 namespace ieee754
 {
+namespace impl
+{
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, true> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, false> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, false> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, true> x) { return x.data; }
+}
+
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, true>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, false>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, false>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, true>);
+}
+
+namespace concepts
+{
+namespace impl
+{
+template<bool FastMath, bool FlushDenormToZero>
+struct is_emulating_floating_point_scalar<emulated_float64_t<FastMath, FlushDenormToZero> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool value = true;
+};
+}
 }
 
 }

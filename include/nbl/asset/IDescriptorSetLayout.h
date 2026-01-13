@@ -93,7 +93,7 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 					return m_bindingNumbers[index.data];
 				}
 
-				inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const storage_range_index_t index) const
+				inline core::bitflag<hlsl::ShaderStage> getStageFlags(const storage_range_index_t index) const
 				{
 					assert(index.data < m_count);
 					return m_stageFlags[index.data];
@@ -120,11 +120,11 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 				// The following are merely convenience functions for one off use.
 				// If you already have an index (the result of `findBindingStorageIndex`) lying around use the above functions for quick lookups, and to avoid unnecessary binary searches.
 
-				inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const binding_number_t binding) const
+				inline core::bitflag<hlsl::ShaderStage> getStageFlags(const binding_number_t binding) const
 				{
 					const auto index = findBindingStorageIndex(binding);
 					if (!index)
-						return IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+						return hlsl::ShaderStage::ESS_UNKNOWN;
 
 					return getStageFlags(index);
 				}
@@ -147,6 +147,16 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 					return getStorageOffset(index);
 				}
 
+				// Weird functions for exceptional situations
+				inline storage_range_index_t findBindingStorageIndex(const storage_offset_t offset) const
+				{
+					const auto found = std::upper_bound(m_storageOffsets,m_storageOffsets+m_count,offset,[](storage_offset_t a, storage_offset_t b)->bool{return a.data<b.data;});
+					const auto ix = m_storageOffsets-found;
+					if (ix>=m_count)
+						return {};
+					return storage_range_index_t(ix);
+				}
+
 				inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
 
 			private:
@@ -159,7 +169,7 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 				{
 					uint32_t binding;
 					core::bitflag<typename SBindingBase::E_CREATE_FLAGS> createFlags;
-					core::bitflag<IShader::E_SHADER_STAGE> stageFlags;
+					core::bitflag<hlsl::ShaderStage> stageFlags;
 					uint32_t count;
 
 					inline bool operator< (const SBuildInfo& other) const { return binding < other.binding; }
@@ -202,13 +212,13 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 						offset += m_count * sizeof(binding_number_t);
 						assert(core::is_aligned_ptr(m_bindingNumbers));
 
-						assert(alignof(core::bitflag<IShader::E_SHADER_STAGE>) <= alignof(decltype(m_bindingNumbers[0])));
+						assert(alignof(core::bitflag<hlsl::ShaderStage>) <= alignof(decltype(m_bindingNumbers[0])));
 
-						m_stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(m_data.get() + offset);
-						offset += m_count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>);
+						m_stageFlags = reinterpret_cast<core::bitflag<hlsl::ShaderStage>*>(m_data.get() + offset);
+						offset += m_count * sizeof(core::bitflag<hlsl::ShaderStage>);
 						assert(core::is_aligned_ptr(m_stageFlags));
 
-						assert(alignof(core::bitflag<IShader::E_SHADER_STAGE>) >= alignof(storage_offset_t));
+						assert(alignof(core::bitflag<hlsl::ShaderStage>) >= alignof(storage_offset_t));
 
 						m_storageOffsets = reinterpret_cast<storage_offset_t*>(m_data.get() + offset);
 						offset += m_count * sizeof(storage_offset_t);
@@ -227,7 +237,7 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 					const size_t result = m_count * (
 						sizeof(binding_number_t) +
 						sizeof(core::bitflag<typename SBindingBase::E_CREATE_FLAGS>) +
-						sizeof(core::bitflag<IShader::E_SHADER_STAGE>) +
+						sizeof(core::bitflag<hlsl::ShaderStage>) +
 						sizeof(storage_offset_t));
 					return result;
 				}
@@ -251,7 +261,7 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 
 				binding_number_t* m_bindingNumbers = nullptr;
 				core::bitflag<typename SBindingBase::E_CREATE_FLAGS>* m_createFlags = nullptr;
-				core::bitflag<IShader::E_SHADER_STAGE>* m_stageFlags = nullptr;
+				core::bitflag<hlsl::ShaderStage>* m_stageFlags = nullptr;
 				storage_offset_t* m_storageOffsets = nullptr;
 
 				std::unique_ptr<uint8_t[]> m_data = nullptr;
@@ -315,7 +325,7 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 			uint32_t binding;
 			IDescriptor::E_TYPE type;
 			core::bitflag<E_CREATE_FLAGS> createFlags;
-			core::bitflag<IShader::E_SHADER_STAGE> stageFlags;
+			core::bitflag<hlsl::ShaderStage> stageFlags;
 			uint32_t count;
 			// Use this if you want immutable samplers that are baked into the DS layout itself.
 			// If it's `nullptr` then the samplers used are mutable and can be specified while writing the image descriptor to a binding while updating the DS.
@@ -330,7 +340,8 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				bindings[i].binding = i;
 				bindings[i].type = type;
 				bindings[i].createFlags = SBinding::E_CREATE_FLAGS::ECF_NONE;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL;
+
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
 				bindings[i].count = counts ? counts[i]:1u;
 				bindings[i].samplers = nullptr;
 			}
@@ -354,7 +365,7 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				for (uint32_t b = 0u; b < bindingCnt; ++b)
 				{
 					auto bindingNumber = m_descriptorRedirects[t].m_bindingNumbers[b];
-					CBindingRedirect::template binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
+					CBindingRedirect::binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
 					// TODO: std::find instead?
 					for (uint32_t ob = 0u; ob < otherBindingCnt; ++ob)
 					{

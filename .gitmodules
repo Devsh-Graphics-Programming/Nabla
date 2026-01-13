@@ -27,9 +27,6 @@
 	path = 3rdparty/libexpat
 	url = git@github.com:Devsh-Graphics-Programming/libexpat.git
 	branch = master
-[submodule "3rdparty/glm"]
-	path = 3rdparty/glm
-	url = git@github.com:AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
 	url = git@github.com:Devsh-Graphics-Programming/freetype.git
@@ -39,9 +36,6 @@
 [submodule "3rdparty/gli"]
 	path = 3rdparty/gli
 	url = git@github.com:Devsh-Graphics-Programming/gli.git
-[submodule "3rdparty/parallel-hashmap"]
-	path = 3rdparty/parallel-hashmap
-	url = git@github.com:Devsh-Graphics-Programming/parallel-hashmap.git
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = git@github.com:Devsh-Graphics-Programming/jitify.git
@@ -54,6 +48,7 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
+	update = none
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
 	url = git@github.com:devshgraphicsprogramming/SPIRV-Cross.git
@@ -89,7 +84,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
 [submodule "3rdparty/boost/superproject"]
 	path = 3rdparty/boost/superproject
-	url = git@github.com:boostorg/boost.git
+	url = ../boost.git
 [submodule "3rdparty/argparse"]
 	path = 3rdparty/argparse
 	url = git@github.com:p-ranav/argparse.git
@@ -117,3 +112,20 @@
 [submodule "docker/compiler-explorer"]
 	path = docker/compiler-explorer
 	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = git@github.com:Devsh-Graphics-Programming/glm.git
+[submodule "docker/msvc-winsdk"]
+	path = docker/msvc-winsdk
+	url = ../docker-nanoserver-msvc-winsdk
+[submodule "3rdparty/gtl"]
+	path = 3rdparty/gtl
+	url = https://github.com/greg7mdp/gtl.git
+[submodule "ci"]
+	path = ci
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-CI.git
+	branch = ditt
+	update = none
+[submodule "3rdparty/Vulkan-Tools"]
+	path = 3rdparty/Vulkan-Tools
+	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Tools.git
