@@ -16,6 +16,7 @@
 #include <iterator>
 #include <codecvt>
 #include <filesystem>
+#include <chrono>
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
@@ -363,7 +364,7 @@ namespace nbl::wave
     extern nbl::core::string preprocess(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
 }
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies, std::vector<std::string>* macro_defs) const
 {
     const bool depfileEnabled = preprocessOptions.depfile;
     if (depfileEnabled)
@@ -374,6 +375,9 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             return {};
         }
     }
+
+    if (preprocessOptions.applyForceIncludes && !preprocessOptions.forceIncludes.empty())
+        code = IShaderCompiler::applyForceIncludes(code, preprocessOptions.forceIncludes);
 
     std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
     auto* dependenciesOut = dependencies;
@@ -395,7 +399,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     // preprocess
     core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
-        [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
+        [&dxc_compile_flags_override, &stage, &dependenciesOut, macro_defs](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
                 dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
@@ -406,6 +410,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
             if (dependenciesOut)
                 *dependenciesOut = std::move(context.get_dependencies());
+            if (macro_defs)
+                context.dump_macro_definitions(*macro_defs);
         }
     );
     
@@ -444,7 +450,24 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     std::vector<std::string> extra_dxc_compile_flags = {};
-    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags, dependencies);
+    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags, dependencies, nullptr);
+}
+
+bool CHLSLCompiler::preprocessPrefixForCache(std::string_view code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache::SEntry& outEntry) const
+{
+    outEntry = {};
+    std::vector<CCache::SEntry::SPreprocessingDependency> deps;
+    std::vector<std::string> dxcFlags;
+    std::vector<std::string> macroDefs;
+    auto text = preprocessShader(std::string(code), stage, preprocessOptions, dxcFlags, &deps, &macroDefs);
+    if (text.empty())
+        return false;
+    outEntry.preprocessedPrefix = std::move(text);
+    outEntry.dependencies = std::move(deps);
+    outEntry.dxcFlags = std::move(dxcFlags);
+    outEntry.macroDefs = std::move(macroDefs);
+    outEntry.pragmaStage = static_cast<uint32_t>(stage);
+    return true;
 }
 
 core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
@@ -459,7 +482,11 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     std::vector<std::string> dxc_compile_flags = {};
     IShader::E_SHADER_STAGE stage = options.stage;
 
+    using clock_t = std::chrono::high_resolution_clock;
+    const auto preprocessStart = clock_t::now();
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
+    const auto preprocessEnd = clock_t::now();
+    logger.log("Preprocess took: %lld ms.", system::ILogger::ELL_PERFORMANCE, static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(preprocessEnd - preprocessStart).count()));
     if (newCode.empty()) return nullptr;
 
     // Suffix is the shader model version
@@ -543,6 +570,7 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     for (size_t i = 0; i < argc; i++)
         argsArray[i] = arguments[i].c_str();
     
+    const auto compileStart = clock_t::now();
     auto compileResult = dxcCompile( 
         this,
         m_dxcCompilerTypes,
@@ -551,6 +579,9 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
         argc,
         hlslOptions
     );
+    const auto compileEnd = clock_t::now();
+    logger.log("Compile took: %lld ms.", system::ILogger::ELL_PERFORMANCE, static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(compileEnd - compileStart).count()));
+    logger.log("Total build time: %lld ms.", system::ILogger::ELL_PERFORMANCE, static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(compileEnd - preprocessStart).count()));
 
     if (argsArray)
         delete[] argsArray;

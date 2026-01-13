@@ -106,6 +106,7 @@ def execute(args):
 
 #include "nbl/system/CFileArchive.h"
 #include "nbl/core/def/smart_refctd_ptr.h"
+#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
 #include "{os.path.basename(outputBuiltinPath)}"
 #include <memory>
 
@@ -129,7 +130,7 @@ class {NBL_BR_API} CArchive final : public nbl::system::CFileArchive
 		file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SFileList::found_t& found) override
 		{{
 				auto resource = get_resource_runtime(found->pathRelativeToArchive.string());
-				return {{const_cast<uint8_t*>(resource.contents),resource.size,nullptr}};
+				return {{const_cast<uint8_t*>(resource.contents),resource.size,nullptr,nbl::hlsl::uint64_t4{{resource.xx256Hash[0],resource.xx256Hash[1],resource.xx256Hash[2],resource.xx256Hash[3]}}}};
 		}}			
 }};
 }}

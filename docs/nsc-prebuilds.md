@@ -43,14 +43,24 @@ For each registered input it generates:
 - One `.spv` output **per CMake configuration** (`Debug/`, `Release/`, `RelWithDebInfo/`).
 - If you use `CAPS`, it generates a **cartesian product** of permutations and emits a `.spv` for each.
 - A generated header (you choose the path via `INCLUDE`) containing:
-  - a primary template `get_spirv_key<Key>(limits, features)` and `get_spirv_key<Key>(device)`
+- a primary template `get_spirv_key<Key>(...args)` and `get_spirv_key<Key>(device, ...args)`
+- `get_spirv_key` returns a small owning buffer; use `.view()` or implicit `std::string_view` to consume it
+- arguments must follow the **kind order** as it appears in `CAPS` (first appearance), validated structurally by required member names/types for each kind (including `limits`/`features`, no strong typing)
+  - `get_spirv_key<Key>(device, ...)` expects only **non-device** kinds in that same order; `limits`/`features` are injected from the device
+  - note: an order-agnostic API would require enforcing unique member sets across kinds to guarantee unambiguous matching; we keep a conventional order instead to stay flexible without extra constraints
   - explicit specializations for each registered base `KEY`
   - the returned key already includes the build config prefix (compiled into the header).
 
-Keys are strings that match the output layout:
+Keys are hashed to keep filenames short and stable across long permutation strings. The **full key string** is built as:
 
 ```
-<CONFIG>/<KEY>(.<capName>_<value>)(.<capName>_<value>)....spv
+<KEY>(__<kind>.<capName>_<value>)(.<capName>_<value>)....spv
+```
+
+Then `FNV-1a 64-bit` is computed from that full key (no `<CONFIG>` prefix), and the **final output key** is:
+
+```
+<CONFIG>/<hash>.spv
 ```
 
 ## The JSON "INPUTS" format
@@ -96,6 +106,38 @@ By default `NBL_CREATE_NSC_COMPILE_RULES` also collects `*.hlsl` files for IDE v
 - `GLOB_DIR` (optional): root directory for the default `*.hlsl` scan.
 - `DISCARD_DEFAULT_GLOB` (flag): disables the default scan and IDE grouping.
 
+## Cache layers (SPIR-V + preprocess)
+
+There are two independent caches:
+
+- `NSC_SHADER_CACHE` (default `ON`) -> SPIR-V cache (`<hash>.spv.ppcache`) for full compilation results.
+- `NSC_PREPROCESS_CACHE` (default `ON`) -> preprocessor prefix cache (`<hash>.spv.ppcache.pre`) to avoid repeating Boost.Wave include work when only the main shader changes.
+- Both caches are used only for compilation (not `-P` preprocess-only runs).
+- When preprocess cache is enabled and used, NSC also writes a combined preprocessed view (`<hash>.spv.pre.hlsl`) next to the outputs.
+  - This file is the exact input fed to DXC on the preprocess-cache path, so it's ready to paste into Godbolt for repros (use the same flags/includes).
+
+With `-verbose`, `.log` shows:
+
+- `Cache: <path>` and `Cache hit!/miss! ...` for SPIR-V cache.
+- `Preprocess cache: <path>` and `Preprocess cache hit!/miss! ...` for the prefix cache.
+- Timing lines (performance):
+  - `Shader cache lookup took: ...`
+  - `Preprocess cache lookup took: ...`
+  - `Total cache probe took: ...`
+  - `Preprocess took: ...` (only on compile path)
+  - `Compile took: ...` (only on compile path)
+  - `Total build time: ...` (preprocess + compile)
+  - `Total took: ...` (overall tool runtime)
+
+You can redirect both caches into a shared directory with:
+
+- `NSC_CACHE_DIR` (path). The cache files keep the same relative layout as `BINARY_DIR` (including `<CONFIG>/<hash>`), but live under the given root. This is handy for CI or persistent cache volumes.
+
+The preprocess cache key is based on the **prefix** of the input file (leading directives/comments plus forced includes), and cache validity is checked against include dependency hashes. That means:
+
+- edits to the shader body still hit (fast path)
+- changes to prefix directives, forced-includes, or included headers cause a cold run
+
 ## Minimal usage (no permutations)
 
 Example pattern (as in `examples_tests/27_MPMCScheduler/CMakeLists.txt`):
@@ -133,11 +175,12 @@ Then include the generated header and use the key to load the SPIR-V:
 ```cpp
 #include "nbl/this_example/builtin/build/spirv/keys.hpp"
 // ...
-auto key = nbl::this_example::builtin::build::get_spirv_key<"shader">(device);
-auto bundle = assetMgr->getAsset(key.c_str(), loadParams);
+auto keyBuf = nbl::this_example::builtin::build::get_spirv_key<"shader">(device);
+std::string_view key = keyBuf;
+auto bundle = assetMgr->getAsset(key.data(), loadParams);
 ```
 
-`OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). This list is intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`.
+`OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). These are already hashed (e.g. `Debug/123456789.spv`) and are intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`.
 
 ## Permutations via `CAPS`
 
@@ -145,17 +188,74 @@ auto bundle = assetMgr->getAsset(key.c_str(), loadParams);
 
 Each `CAPS` entry looks like:
 
-- `kind` (string, optional): `"limits"` or `"features"` (defaults to `"limits"` if omitted/invalid).
+- `kind` (string, optional): `"limits"`, `"features"`, or `"custom"` (defaults to `"limits"` if omitted/invalid).
+- `struct` (string, required for `kind="custom"`): name of the custom permutation struct (valid C/C++ identifier). If you use `limits` or `features` here, do not also use the built-in `limits`/`features` kinds in the same rule.
 - `name` (string, required): identifier used in both generated HLSL config and C++ key (must be a valid C/C++ identifier).
-- `type` (string, required): `bool`, `uint16_t`, `uint32_t`, `uint64_t`.
+- `type` (string, required): `bool`, `uint16_t`, `uint32_t`, `uint64_t`, `int16_t`, `int32_t`, `int64_t`, `float`, `double`.
 - `values` (array of numbers, required): the values you want to prebuild.
   - for `bool`, values must be `0` or `1`.
+  - for signed integer types, negative values are allowed.
+  - for `float`/`double`, you can provide **numbers or numeric strings** (e.g. `-1`, `-1.0`, `1e-3`, or `-1.f` for floats). Values are **normalized** to canonical scientific notation (1 digit before the decimal, 8 digits after for `float` or 16 for `double`, signed exponent with 2 or 3 digits). The normalized text becomes part of the key.
 
-At build time, NSC compiles each combination of values (cartesian product). At runtime, `get_spirv_key` appends suffixes using the `limits`/`features` you pass in.
+At build time, NSC compiles each combination of values (cartesian product). At runtime, `get_spirv_key` appends suffixes using the structs you pass in for `limits`/`features` (duck-typed by required members) and any custom kinds. Each group starts with `__limits`, `__features`, or `__<customStruct>`, followed by `.member_<value>` entries. Group order follows the **first appearance of each kind in `CAPS`** (and this same order is the required argument order for `get_spirv_key`); groups with no members are omitted.
+
+Each generated `.config` file defines a `DeviceConfigCaps` struct for HLSL. It includes:
+- flat members for `limits`/`features` (backwards compatibility with older shaders)
+- nested structs for custom kinds only, e.g. `DeviceConfigCaps::userA`
+
+Example shape:
+
+```hlsl
+struct DeviceConfigCaps
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t maxImageDimension2D = 16384u;
+    NBL_CONSTEXPR_STATIC_INLINE bool shaderCullDistance = true;
+
+    struct userA
+    {
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t mode = 0u;
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t quality = 1u;
+    };
+};
+```
+
+For more complex usage and regression-style checks (constexpr vs runtime, hashing, mixed payloads), see `examples_tests/73_SpirvKeysTest`.
+
+### Grouping caps by kind (optional)
+
+To avoid repeating the same `kind`, you can group caps with `members`:
+
+```cmake
+set(JSON [=[
+[
+  {
+    "INPUT": "app_resources/shader.hlsl",
+    "KEY": "shader",
+    "COMPILE_OPTIONS": ["-T", "lib_6_8"],
+    "CAPS": [
+      {
+        "kind": "custom",
+        "struct": "userA",
+        "members": [
+          { "name": "mode", "type": "uint32_t", "values": [0, 1] },
+          { "name": "quality", "type": "uint32_t", "values": [1, 2, 4] }
+        ]
+      },
+      {
+        "kind": "features",
+        "members": [
+          { "name": "shaderFloat64", "type": "bool", "values": [0, 1] }
+        ]
+      }
+    ]
+  }
+]
+]=])
+```
 
 ### Example: mixing `limits` and `features`
 
-This example permutes over one device limit and one device feature (order matters: the suffix order matches the `CAPS` array order):
+This example permutes over one device limit and one device feature. Suffix order follows the `CAPS` order (`__limits` then `__features` here), and member order within each group follows the `CAPS` order for that group:
 
 ```cmake
 set(JSON [=[
@@ -189,6 +289,74 @@ NBL_CREATE_NSC_COMPILE_RULES(
   INPUTS ${JSON}
 )
 ```
+
+## Custom permutation structs
+
+If you need permutations based on data outside of device `limits`/`features`, define a custom struct in C++ and use `kind: "custom"` with `struct` set to the parameter name. At runtime you can pass any struct type that exposes the required members with matching types; **argument order follows the `CAPS` kind order**. Using custom names `limits` or `features` is allowed, but you cannot mix them with the built-in `limits`/`features` kinds in the same rule.
+
+Example:
+
+```cmake
+set(JSON [=[
+[
+  {
+    "INPUT": "app_resources/fft.hlsl",
+    "KEY": "fft",
+    "COMPILE_OPTIONS": ["-T", "cs_6_8"],
+    "CAPS": [
+      {
+        "kind": "custom",
+        "struct": "fftConfig",
+        "name": "passCount",
+        "type": "uint32_t",
+        "values": [4, 8]
+      }
+    ]
+  }
+]
+]=])
+
+NBL_CREATE_NSC_COMPILE_RULES(
+  # ...
+  OUTPUT_VAR KEYS
+  INPUTS ${JSON}
+)
+```
+
+Runtime usage:
+
+```cpp
+nbl::this_example::FFTConfig cfg = {};
+cfg.passCount = 4;
+auto key = nbl::this_example::builtin::build::get_spirv_key<"fft">(device, cfg);
+```
+
+Constexpr usage with extra structs (order must match `CAPS` kind order, first appearance):
+
+```cpp
+struct MyLimits { uint32_t maxImageDimension2D; };
+struct MyFeatures { bool shaderCullDistance; };
+struct UserA { uint32_t mode; uint32_t quality; };
+struct UserB { bool useAlternatePath; bool useFastPath; };
+
+constexpr UserA userA = { 0u, 1u };
+constexpr UserB userB = { false, true };
+constexpr MyLimits limits = { 16384u };
+constexpr MyFeatures features = { true };
+
+static constexpr auto keyBuf =
+    nbl::this_example::builtin::build::get_spirv_key<"shader_cd">(userA, userB, limits, features);
+static constexpr std::string_view keyView = keyBuf;
+
+```
+
+## Common pitfalls
+
+- Argument order must follow the **first appearance of each kind in `CAPS`**; this is an intentional convention to keep the API flexible.
+- `get_spirv_key` returns a buffer; prefer `std::string_view key = buf;` or `buf.view()` to consume it.
+- Do not store a `std::string_view` from a temporary buffer; keep the buffer alive.
+- `float`/`double` CAP values are normalized to canonical scientific notation (1 digit before the decimal, 8 or 16 digits after, signed exponent); values passed to `get_spirv_key` must match one of the CAP values exactly.
+- `constexpr` key generation works with `float`/`double` members when the values match the CAP list.
 
 This produces `3 * 2 = 6` permutations per build configuration, and `KEYS` contains all of them (for example):
 
