@@ -250,10 +250,17 @@ struct quaternion
 
     vector3_type transformVector(const vector3_type v, const bool assumeNoScale=false) NBL_CONST_MEMBER_FUNC
     {
-        const scalar_type scaleRcp = scalar_type(1.0) / hlsl::sqrt(hlsl::dot(data, data));
-        const vector3_type modV = v * scalar_type(2.0) * scaleRcp;
+        const scalar_type scaleRcp = hlsl::rsqrt(hlsl::dot(data, data));
+        vector3_type retV = v;
+        scalar_type modVScale = scalar_type(2.0);
+        if (!assumeNoScale)
+        {
+            retV /= scaleRcp;
+            modVScale *= scaleRcp;
+        }
+        const vector3_type modV = v * modVScale;
         const vector3_type direction = data.xyz;
-        return v / scaleRcp + hlsl::cross(direction, modV * data.w + hlsl::cross(direction, modV));
+        return retV + hlsl::cross(direction, modV * data.w + hlsl::cross(direction, modV));
     }
 
     matrix_type __constructMatrix() NBL_CONST_MEMBER_FUNC
@@ -293,6 +300,9 @@ struct quaternion
         const scalar_type cosA = ieee754::flipSignIfRHSNegative<scalar_type>(totalPseudoAngle, totalPseudoAngle);
         if (cosA <= (scalar_type(1.0) - threshold)) // spherical interpolation
         {
+            assert(testing::relativeApproxCompare(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4)));
+            assert(testing::relativeApproxCompare(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4)));
+
             this_t retval;
             const scalar_type sinARcp = scalar_type(1.0) / hlsl::sqrt(scalar_type(1.0) - cosA * cosA);
             const scalar_type sinAt = hlsl::sin(fraction * hlsl::acos(cosA));
