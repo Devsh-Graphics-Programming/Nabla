@@ -224,26 +224,42 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromGZIP(co
 }
 core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
 {
+	const size_t fileSize = file->getSize();
+	if (fileSize < sizeof(SZIPFileCentralDirEnd))
+		return nullptr;
+
 	SZIPFileCentralDirEnd dirEnd;
 	{
 		dirEnd.Sig = 0u;
-		// First place where the end record could be stored
-		size_t endOfCentralDirectoryOffset = file->getSize() - sizeof(SZIPFileCentralDirEnd) + 1ull;
-		while (dirEnd.Sig != SZIPFileCentralDirEnd::ExpectedSig)
+		constexpr size_t kMaxZipCommentSize = 0xffffu;
+		size_t endOfCentralDirectoryOffset = fileSize - sizeof(SZIPFileCentralDirEnd);
+		const size_t minEndOffset = (fileSize > sizeof(SZIPFileCentralDirEnd) + kMaxZipCommentSize) ? (fileSize - sizeof(SZIPFileCentralDirEnd) - kMaxZipCommentSize) : 0u;
+		bool found = false;
+		while (true)
 		{
 			IFile::success_t success;
-			file->read(success, &dirEnd, --endOfCentralDirectoryOffset, sizeof(dirEnd));
-			if (!success)
-				return nullptr;
+			file->read(success, &dirEnd, endOfCentralDirectoryOffset, sizeof(dirEnd));
+			if (success && dirEnd.Sig == SZIPFileCentralDirEnd::ExpectedSig)
+			{
+				found = true;
+				break;
+			}
+			if (endOfCentralDirectoryOffset == minEndOffset)
+				break;
+			--endOfCentralDirectoryOffset;
 		}
+		if (!found)
+			return nullptr;
 	}
 
 	// multiple disks are not supported
-	if (dirEnd.NumberDisk != 0)
+	if (dirEnd.NumberDisk != 0 || dirEnd.NumberStart != 0)
 	{
 		assert(false);
 		return nullptr;
 	}
+	if (dirEnd.Offset > fileSize || dirEnd.Size > fileSize - dirEnd.Offset)
+		return nullptr;
 
 	std::shared_ptr<core::vector<IFileArchive::SFileList::SEntry>> items = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>();
 	core::vector<SZIPFileHeader> itemsMetadata;
@@ -270,12 +286,13 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(cor
 	{
 		SZIPFileCentralDirFileHeader centralDirectoryHeader;
 		{
+			if (centralDirectoryOffset > fileSize || fileSize - centralDirectoryOffset < sizeof(SZIPFileCentralDirFileHeader))
+				return nullptr;
 			IFile::success_t success;
 			file->read(success, &centralDirectoryHeader, centralDirectoryOffset, sizeof(SZIPFileCentralDirFileHeader));
 			if (!success)
 				return nullptr;
 		}
-		centralDirectoryOffset += centralDirectoryHeader.calcSize();
 
 		if (centralDirectoryHeader.Sig != SZIPFileCentralDirFileHeader::ExpectedSignature)
 		{
@@ -284,13 +301,30 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(cor
 			return nullptr;
 		}
 
+		const size_t centralHeaderSize = centralDirectoryHeader.calcSize();
+		if (centralHeaderSize < sizeof(SZIPFileCentralDirFileHeader))
+			return nullptr;
+		if (centralDirectoryOffset + centralHeaderSize > fileSize)
+			return nullptr;
+		centralDirectoryOffset += centralHeaderSize;
+
 		SZIPFileHeader localFileHeader;
 		{
+			const size_t localHeaderOffset = centralDirectoryHeader.RelativeOffsetOfLocalHeader;
+			if (localHeaderOffset > fileSize || fileSize - localHeaderOffset < sizeof(SZIPFileHeader))
+				return nullptr;
 			IFile::success_t success;
-			file->read(success, &localFileHeader, centralDirectoryHeader.RelativeOffsetOfLocalHeader, sizeof(SZIPFileHeader));
+			file->read(success, &localFileHeader, localHeaderOffset, sizeof(SZIPFileHeader));
 			if (!success)
 				return nullptr;
 		}
+		if (localFileHeader.Sig != SZIPFileHeader::ExpectedSignature)
+			return nullptr;
+		const size_t localHeaderSize = localFileHeader.calcSize();
+		if (localHeaderSize < sizeof(SZIPFileHeader))
+			return nullptr;
+		if (centralDirectoryHeader.RelativeOffsetOfLocalHeader + localHeaderSize > fileSize)
+			return nullptr;
 
 		std::string filename;
 		filename.resize(localFileHeader.FilenameLength);
@@ -311,28 +345,36 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(cor
 
 			size_t localOffset = centralDirectoryHeader.RelativeOffsetOfLocalHeader + sizeof(SZIPFileHeader) + localFileHeader.FilenameLength;
 			size_t offset = localOffset + localFileHeader.ExtraFieldLength;
-			while (true)
+			while (localOffset + sizeof(extraHeader) <= offset)
 			{
 				{
 					IFile::success_t success;
 					file->read(success, &extraHeader, localOffset, sizeof(extraHeader));
 					if (!success)
 						break;
-					localOffset += success.getBytesToProcess();
-					if (localOffset > offset)
-						break;
+					localOffset += sizeof(extraHeader);
 				}
 
-				if (extraHeader.ID != 0x9901u)
-					continue;
+				if (extraHeader.Size < 0)
+					break;
+				const size_t extraSize = static_cast<uint16_t>(extraHeader.Size);
+				if (extraSize == 0)
+					break;
+				if (localOffset + extraSize > offset)
+					break;
 
+				if (extraHeader.ID != 0x9901u)
+				{
+					localOffset += extraSize;
+					continue;
+				}
+
+				if (extraSize < sizeof(SZipFileAESExtraData))
+					break;
 				{
 					IFile::success_t success;
 					file->read(success, &data, localOffset, sizeof(data));
 					if (!success)
-						break;
-					localOffset += success.getBytesToProcess();
-					if (localOffset > offset)
 						break;
 				}
 				if (data.Vendor[0] == 'A' && data.Vendor[1] == 'E')
@@ -349,6 +391,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchiveFromZIP(cor
 					filename.clear(); // no support, can't decrypt
 #endif
 				}
+				localOffset += extraSize;
 			}
 		}
 
