@@ -345,14 +345,14 @@ class COBBGenerator
         {
           constexpr hlsl::float32_t eps = 0.000001f;
 
-          std::array<hlsl::float32_t3, 3> baseTriangleVertices;
+          std::array<hlsl::float32_t3, 3> baseTriangleVertices = {};
           Edges edges;
 
           // Find the furthest point pair among the selected min and max point pairs
           std::tie(baseTriangleVertices[0], baseTriangleVertices[1]) = findFurthestPointPair(extremalVertices);
 
           // Degenerate case 1:
-          // If the found furthest points are located very close, return OBB aligned with the initial AABB 
+          // no need to compute third vertices, since base triangle is invalid
           if (getSqDist(baseTriangleVertices[0], baseTriangleVertices[1]) < eps) 
           {
             return {
@@ -366,9 +366,9 @@ class COBBGenerator
 
           // Find a third point furthest away from line given by p0, e0 to define the large base triangle
           const auto furthestPointRes = findFurthestPointFromInfiniteEdge(vertices[0], edges[0], vertices);
+          baseTriangleVertices[2] = furthestPointRes.point;
 
           // Degenerate case 2:
-          // If the third point is located very close to the line, return an OBB aligned with the line 
           if (furthestPointRes.sqDist < eps)
           {
             return {
@@ -491,8 +491,13 @@ class COBBGenerator
 
       const auto baseTriangle = findBaseTriangle(extremals.vertices, vertices);
 
+      // Degenerate case 1:
+      // If the found furthest points are located very close, return OBB aligned with the initial AABB 
       if (baseTriangle.flag == LargeBaseTriangle::SECOND_POINT_CLOSE)
         return hlsl::shapes::OBB<>::createAxisAligned(alMid, alLen);
+
+      // Degenerate case 2:
+      // If the third point is located very close to the line, return an OBB aligned with the line 
       if (baseTriangle.flag == LargeBaseTriangle::THIRD_POINT_CLOSE)
         return computeLineAlignedObb(baseTriangle.edges[0], vertices);
 
