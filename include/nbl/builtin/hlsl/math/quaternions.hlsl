@@ -173,7 +173,7 @@ struct quaternion
             }
         }
 
-        retval.data = hlsl::normalize(retval.data) * hlsl::rsqrt(uniformScaleSq); // restore uniform scale
+        retval.data = hlsl::normalize(retval.data) * hlsl::sqrt(uniformScaleSq); // restore uniform scale
         return retval;
     }
 
