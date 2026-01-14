@@ -52,8 +52,8 @@ struct quaternion
 
     // angle: Rotation angle expressed in radians.
     // axis: Rotation axis, must be normalized.
-    template<typename U=vector3_type, typename F=scalar_type NBL_FUNC_REQUIRES(is_same_v<vector3_type,U> && is_same_v<typename vector_traits<U>::scalar_type,F>)
-    static this_t create(const U axis, const F angle, const F uniformScale = F(1.0))
+    template<typename U=vector3_type NBL_FUNC_REQUIRES(is_same_v<vector3_type,U>)
+    static this_t create(const U axis, const typename vector_traits<U>::scalar_type angle, const typename vector_traits<U>::scalar_type uniformScale = typename vector_traits<U>::scalar_type(1.0))
     {
         using scalar_t = typename vector_traits<U>::scalar_type;
         this_t q;
@@ -64,7 +64,7 @@ struct quaternion
         return q;
     }
 
-    // applies rotation equivalent to 3x3 matrix in order of pitch * yaw * roll
+    // applies rotation equivalent to 3x3 matrix in order of pitch * yaw * roll (X * Y * Z) -- mul(roll,mul(yaw,mul(pitch,v)))
     template<typename U=vector<scalar_type,2> NBL_FUNC_REQUIRES(is_same_v<vector<scalar_type,2>,U>)
     static this_t create(const U halfPitchCosSin, const U halfYawCosSin, const U halfRollCosSin)
     {
@@ -333,18 +333,6 @@ struct quaternion
 
 namespace cpp_compat_intrinsics_impl
 {
-template<typename T>
-struct normalize_helper<math::truncated_quaternion<T> >
-{
-    static inline math::truncated_quaternion<T> __call(const math::truncated_quaternion<T> q)
-    {
-        assert(testing::relativeApproxCompare(hlsl::length(q.data), scalar_type(1.0), scalar_type(1e-4)));
-        math::truncated_quaternion<T> retval;
-        retval.data = q.data;   // should be normalized by definition (dropped component should be 1.0)
-        return retval;
-    }
-};
-
 template<typename T>
 struct normalize_helper<math::quaternion<T> >
 {
