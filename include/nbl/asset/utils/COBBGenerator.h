@@ -349,7 +349,7 @@ class COBBGenerator
         {
           constexpr hlsl::float32_t eps = 0.000001f;
 
-          std::array<hlsl::float32_t3, 3> baseTriangleVertices = {};
+          std::array<hlsl::float32_t3, 3> baseTriangleVertices = {}; // p0, p1, p2
           Edges edges;
 
           // Find the furthest point pair among the selected min and max point pairs
