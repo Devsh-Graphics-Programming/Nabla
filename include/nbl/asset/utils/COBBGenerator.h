@@ -123,7 +123,7 @@ class COBBGenerator
 
         // Slab 0: dir {1, 0, 0}
         proj = firstVertex.x;
-        minProjections[0] = minProjections[0] = proj;
+        minProjections[0] = maxProjections[0] = proj;
         minVertices[0] = firstVertex; maxVertices[0] = firstVertex;
         // Slab 1: dir {0, 1, 0}
         proj = firstVertex.y;
