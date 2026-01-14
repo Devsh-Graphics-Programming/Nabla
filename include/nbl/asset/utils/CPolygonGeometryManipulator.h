@@ -235,9 +235,9 @@ class NBL_API2 CPolygonGeometryManipulator
 
     template <typename FetchVertexFn> 
       requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
-    static inline hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn)
+    static inline hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn, float epsilon = 1.525e-5f)
     {
-			return COBBGenerator::compute(vertexCount, std::forward<FetchVertexFn>(fetchFn));
+			return COBBGenerator::compute(vertexCount, std::forward<FetchVertexFn>(fetchFn), epsilon);
     }
 
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);

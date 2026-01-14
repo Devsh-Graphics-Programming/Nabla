@@ -44,7 +44,7 @@ class COBBGenerator
 
     template <typename FetchVertexFn> 
       requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
-    static hlsl::shapes::OBB<> compute(size_t vertexCount, FetchVertexFn&& fetchFn)
+    static hlsl::shapes::OBB<> compute(size_t vertexCount, FetchVertexFn&& fetchFn, float epsilon)
     {
       // Algorithm from Game Engine Gems 2, Fast Computation of Tight-Fitting Oriented Bounding Box
       // Credit to Thomas Larsson and Linus Källberg
@@ -286,17 +286,16 @@ class COBBGenerator
           return Result{ tMinProj, tMaxProj, tMinVert, tMaxVert };
         };
 
-      static auto findUpperLowerTetraPoints = [](
+      static auto findUpperLowerTetraPoints = [epsilon](
         const hlsl::float32_t3& n,
         const VertexCollection& vertices,
         const hlsl::float32_t3& p0)
         {
-          const auto eps = 0.000001f;
           const auto extremalPoints = findExtremalPoints_OneDir(n, vertices);
           const auto triProj = hlsl::dot(p0, n);
 
-          const auto maxVert = extremalPoints.maxProj - eps > triProj ? std::optional(extremalPoints.maxVert) : std::nullopt;
-          const auto minVert = extremalPoints.minProj + eps < triProj ? std::optional(extremalPoints.minVert) : std::nullopt;
+          const auto maxVert = extremalPoints.maxProj - epsilon > triProj ? std::optional(extremalPoints.maxVert) : std::nullopt;
+          const auto minVert = extremalPoints.minProj + epsilon < triProj ? std::optional(extremalPoints.minVert) : std::nullopt;
 
           struct Result
           {
@@ -345,10 +344,8 @@ class COBBGenerator
         };
 
 
-      static auto findBaseTriangle = [](const ExtremalVertices& extremalVertices, const VertexCollection& vertices)-> LargeBaseTriangle
+      static auto findBaseTriangle = [epsilon](const ExtremalVertices& extremalVertices, const VertexCollection& vertices)-> LargeBaseTriangle
         {
-          constexpr hlsl::float32_t eps = 0.000001f;
-
           std::array<hlsl::float32_t3, 3> baseTriangleVertices = {}; // p0, p1, p2
           Edges edges;
 
@@ -357,7 +354,7 @@ class COBBGenerator
 
           // Degenerate case 1:
           // no need to compute third vertices, since base triangle is invalid
-          if (getSqDist(baseTriangleVertices[0], baseTriangleVertices[1]) < eps) 
+          if (getSqDist(baseTriangleVertices[0], baseTriangleVertices[1]) < epsilon) 
           {
             return {
               .vertices = baseTriangleVertices,
@@ -373,7 +370,7 @@ class COBBGenerator
           baseTriangleVertices[2] = furthestPointRes.point;
 
           // Degenerate case 2:
-          if (furthestPointRes.sqDist < eps)
+          if (furthestPointRes.sqDist < epsilon)
           {
             return {
               .vertices = baseTriangleVertices,
@@ -456,7 +453,7 @@ class COBBGenerator
           return buildObbFromAxesAndLocalMinMax(axes, localMin, localMax);
         };
 
-      static auto computeLineAlignedObb = [](const hlsl::float32_t3& u, const VertexCollection& vertices)
+      static auto computeLineAlignedObb = [epsilon](const hlsl::float32_t3& u, const VertexCollection& vertices)
       {
         // Given u, build any orthonormal base u, v, w 
 
@@ -467,7 +464,7 @@ class COBBGenerator
         else { r.z = 0; }
 
         const auto sqLen = hlsl::dot(r, r);
-        if (sqLen < FLT_EPSILON) { r.x = r.y = r.z = 1; }
+        if (sqLen < epsilon) { r.x = r.y = r.z = 1; }
 
         const auto v = normalize(cross(u, r));
         const auto w = normalize(cross(u, v));
