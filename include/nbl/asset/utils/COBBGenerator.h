@@ -46,6 +46,9 @@ class COBBGenerator
       requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
     static hlsl::shapes::OBB<> compute(size_t vertexCount, FetchVertexFn&& fetchFn)
     {
+      // Algorithm from Game Engine Gems 2, Fast Computation of Tight-Fitting Oriented Bounding Box
+      // Credit to Thomas Larsson and Linus Källberg
+
       constexpr size_t SAMPLE_DIR_COUNT = 7;		// Number of sample directions
       constexpr size_t SAMPLE_COUNT = SAMPLE_DIR_COUNT * 2;
 
