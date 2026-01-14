@@ -225,7 +225,8 @@ class COBBGenerator
         {
           const auto sqDist = getSqDistPointInfiniteEdge(vertices[i], p0, e0);
           if (sqDist > maxSqDist)
-          {	maxSqDist = sqDist;
+          {	
+            maxSqDist = sqDist;
             maxIndex = i;
           }
         }
@@ -368,7 +369,7 @@ class COBBGenerator
           edges[0] = hlsl::normalize(baseTriangleVertices[0] - baseTriangleVertices[1]);
 
           // Find a third point furthest away from line given by p0, e0 to define the large base triangle
-          const auto furthestPointRes = findFurthestPointFromInfiniteEdge(vertices[0], edges[0], vertices);
+          const auto furthestPointRes = findFurthestPointFromInfiniteEdge(baseTriangleVertices[0], edges[0], vertices);
           baseTriangleVertices[2] = furthestPointRes.point;
 
           // Degenerate case 2:
