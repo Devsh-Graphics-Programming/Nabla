@@ -328,8 +328,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool copyAccelerationStructureFromMemory(const AccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
 
         //! state setup
-        bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
         bool bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline);
+        bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
+        bool bindMeshPipeline(const IGPUMeshPipeline* const pipeline);
+
         bool bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline);
         bool bindDescriptorSets(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
@@ -441,6 +443,12 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             return dispatch(groupCount.x,groupCount.y,groupCount.z);
         }
         bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
+
+        bool drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY = 1, const uint32_t groupCountZ = 1);
+        inline bool drawMeshTasks(const hlsl::vector<uint16_t, 3> groupCount)        {
+            return drawMeshTasks(groupCount.x, groupCount.y, groupCount.z);
+        }
+        bool drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);
 
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
@@ -585,7 +593,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
         inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
-        const IGPUGraphicsPipeline* getBoundGraphicsPipeline() const { return m_boundGraphicsPipeline; }
+        const IGPUPipelineBase* getBoundGraphicsPipeline() const { return m_boundRasterizationPipeline; }
         const IGPUComputePipeline* getBoundComputePipeline() const { return m_boundComputePipeline; }
         const IGPURayTracingPipeline* getBoundRayTracingPipeline() const { return m_boundRayTracingPipeline; }
 
@@ -670,8 +678,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst) = 0;
         virtual bool copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
 
-        virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
         virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
+        virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
+        virtual bool bindMeshPipeline_impl(const IGPUMeshPipeline* const pipeline) = 0;
         virtual bool bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline) = 0;
         virtual bool bindDescriptorSets_impl(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
@@ -715,6 +724,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
         virtual bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
 
+        virtual bool drawMeshTasks_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
+        virtual bool drawMeshTasksIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) = 0;
+
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
@@ -750,7 +762,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
             m_boundDescriptorSetsRecord.clear();
             m_TLASTrackingOps.clear();
-            m_boundGraphicsPipeline= nullptr;
+            m_boundRasterizationPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
             m_haveRtPipelineStackSize = false;
@@ -768,7 +780,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             deleteCommandList();
             m_boundDescriptorSetsRecord.clear();
             m_TLASTrackingOps.clear();
-            m_boundGraphicsPipeline= nullptr;
+            m_boundRasterizationPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
             m_haveRtPipelineStackSize = false;
@@ -929,7 +941,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // operations as they'll be performed in order
         core::vector<std::variant<TLASTrackingWrite,TLASTrackingCopy,TLASTrackingRead>> m_TLASTrackingOps;
 
-        const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
+        const IGPUPipelineBase* m_boundRasterizationPipeline;
         const IGPUComputePipeline* m_boundComputePipeline;
         const IGPURayTracingPipeline* m_boundRayTracingPipeline;
     

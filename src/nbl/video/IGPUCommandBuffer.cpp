@@ -963,6 +963,32 @@ template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IG
 template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
 
 
+bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
+{
+    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
+    // we cannot check renderpass-pipeline compatibility here.
+    // And checking before every drawcall would be performance suicide.
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!pipeline || !this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("incompatible pipeline device!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_boundRasterizationPipeline = reinterpret_cast<IGPUPipelineBase const*>(pipeline);
+
+    m_noCommands = false;
+    return bindGraphicsPipeline_impl(pipeline);
+}
+
 bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
@@ -988,7 +1014,7 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
     return true;
 }
 
-bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
+bool IGPUCommandBuffer::bindMeshPipeline(const IGPUMeshPipeline* const pipeline)
 {
     // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
     // we cannot check renderpass-pipeline compatibility here.
@@ -1002,16 +1028,16 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
         return false;
     }
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindMeshPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUMeshPipeline>(pipeline)))
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
     }
 
-    m_boundGraphicsPipeline = pipeline;
+    m_boundRasterizationPipeline = reinterpret_cast<IGPUPipelineBase const*>(pipeline);
 
     m_noCommands = false;
-    return bindGraphicsPipeline_impl(pipeline);
+    return bindMeshPipeline_impl(pipeline);
 }
 
 bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline)
@@ -1462,6 +1488,59 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
     return dispatchIndirect_impl(binding);
 }
 
+bool IGPUCommandBuffer::drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) {
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::INSIDE))
+        return false;
+
+    if (groupCountX == 0 || groupCountY == 0 || groupCountZ == 0)
+    {
+        NBL_LOG_ERROR("invalid group counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ);
+        return false;
+    }
+
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    if (groupCountX > limits.maxMeshWorkGroupCount[0] || groupCountY > limits.maxMeshWorkGroupCount[1] || groupCountZ > limits.maxMeshWorkGroupCount[2])
+    {
+        NBL_LOG_ERROR("group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ, limits.maxMeshWorkGroupCount[0], limits.maxMeshWorkGroupCount[1], limits.maxMeshWorkGroupCount[2]);
+        return false;
+    }
+
+    m_noCommands = false;
+    return drawMeshTasks_impl(groupCountX, groupCountY, groupCountZ);
+}
+
+bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+        return false;
+    if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT)){
+        return false;
+    }
+
+    if (drawCount) {
+        if (drawCount==1u)
+            stride = sizeof(hlsl::DrawMeshTasksIndirectCommand_t);
+        if (stride&0x3u || stride<sizeof(hlsl::DrawMeshTasksIndirectCommand_t)) {
+            NBL_LOG_ERROR("invalid command buffer stride (%d)!", stride);
+            return false;
+        }
+        if (drawCount > getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount) {
+            NBL_LOG_ERROR("draw count (%d) exceeds maximum allowed amount (%d)!", drawCount, getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount);
+            return false;
+        }
+        if (invalidBufferRange({ binding.offset,stride * (drawCount - 1u) + sizeof(hlsl::DrawMeshTasksIndirectCommand_t),binding.buffer }, alignof(uint32_t), IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+            return false;
+    } // i get the feeling the vk command shouldnt be called if drawCount is 0, but this is how drawindirect does it
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+    return drawMeshTasksIndirect_impl(binding, drawCount, stride);
+}
 
 bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
 {
