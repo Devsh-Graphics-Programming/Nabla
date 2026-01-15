@@ -3,6 +3,10 @@
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 cmake_minimum_required(VERSION 3.31..4.2.0)
 
+if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+	set(CMAKE_POLICY_VERSION_MINIMUM 3.31 CACHE STRING "Minimum policy version for third-party projects")
+endif()
+
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
 # also we should update deps which throw warnings about < 3.10 compatibility
@@ -46,6 +50,7 @@ option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 
 option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
+option(NBL_DEBUG_RTC_ENABLED "Enable Runtime Checks for Debug builds" OFF)
 
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
 
