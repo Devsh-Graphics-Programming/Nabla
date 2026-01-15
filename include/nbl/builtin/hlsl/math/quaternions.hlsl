@@ -128,7 +128,6 @@ struct quaternion
         const data_type Qy = data_type(m11, neg_m11, m11, neg_m11);
         const data_type Qz = data_type(m22, neg_m22, neg_m22, m22);
 
-        // const data_type tmp = hlsl::promote<data_type>(1.0) + Qx + Qy + Qz;
         const data_type tmp = Qx + Qy + Qz;
 
         // TODO: speed this up
@@ -364,11 +363,11 @@ struct static_cast_helper<math::truncated_quaternion<T>, math::quaternion<T> >
 {
     static inline math::truncated_quaternion<T> cast(const math::quaternion<T> q)
     {
-        assert(testing::relativeApproxCompare(hlsl::length(q.data), scalar_type(1.0), scalar_type(1e-4)));
+        assert(testing::relativeApproxCompare(hlsl::length(q.data), T(1.0), T(1e-4)));
         math::truncated_quaternion<T> t;
-        t.data.x = t.data.x;
-        t.data.y = t.data.y;
-        t.data.z = t.data.z;
+        t.data.x = q.data.x;
+        t.data.y = q.data.y;
+        t.data.z = q.data.z;
         return t;
     }
 };
