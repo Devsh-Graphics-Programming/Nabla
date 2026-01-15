@@ -119,6 +119,12 @@ struct quaternion
             else
                 assert(valid);
         }
+        if (uniformScaleSq < numeric_limits<scalar_type>::min)
+        {
+            this_t retval;
+            retval.data = hlsl::promote<data_type>(bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN));
+            return retval;
+        }
 
         const scalar_type uniformScale = hlsl::sqrt(uniformScaleSq);
         matrix_type m = _m;
