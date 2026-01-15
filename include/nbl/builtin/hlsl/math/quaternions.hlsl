@@ -100,12 +100,12 @@ struct quaternion
         );
     }
 
-    static this_t create(NBL_CONST_REF_ARG(matrix_type) m, const bool dontAssertValidMatrix=false)
+    static this_t create(NBL_CONST_REF_ARG(matrix_type) _m, const bool dontAssertValidMatrix=false)
     {
         scalar_type uniformScaleSq;
         {
             // only orthogonal and uniform scale mats can be converted
-            linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(m);
+            linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(_m);
             bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformScaleSq);
             uniformScaleSq = traits.uniformScaleSq;
 
@@ -119,6 +119,10 @@ struct quaternion
             else
                 assert(valid);
         }
+
+        const scalar_type uniformScale = hlsl::sqrt(uniformScaleSq);
+        matrix_type m = _m;
+        m /= uniformScale;
 
         const scalar_type m00 = m[0][0], m11 = m[1][1], m22 = m[2][2];
         const scalar_type neg_m00 = -m00;
@@ -172,7 +176,7 @@ struct quaternion
             }
         }
 
-        retval.data = hlsl::normalize(retval.data) * hlsl::sqrt(uniformScaleSq); // restore uniform scale
+        retval.data = hlsl::normalize(retval.data) * uniformScale; // restore uniform scale
         return retval;
     }
 
