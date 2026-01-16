@@ -329,7 +329,9 @@ struct quaternion
     this_t operator-() NBL_CONST_MEMBER_FUNC
     {
         this_t retval;
-        retval.data.xyz = -data.xyz;
+        retval.data.x = -data.x;
+        retval.data.y = -data.y;
+        retval.data.z = -data.z;
         retval.data.w = data.w;
         return retval;
     }
