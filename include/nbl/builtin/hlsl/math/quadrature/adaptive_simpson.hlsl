@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_ADAPTIVE_SIMPSON_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
 
 namespace nbl
 {
@@ -24,8 +25,8 @@ struct integrate_helper
     {
         float_t d = float_t(0.5) * (a + b);
         float_t e = float_t(0.5) * (b + c);
-        float_t fd = f.__call(d);
-        float_t fe = f.__call(e);
+        float_t fd = f(d);
+        float_t fe = f(e);
 
         float_t h = c - a;
         float_t I0 = (float_t(1.0) / float_t(12.0)) * h * (fa + float_t(4.0) * fd + fb);
@@ -48,8 +49,8 @@ struct integrate_helper<F, float_t, 0>
     {
         float_t d = float_t(0.5) * (a + b);
         float_t e = float_t(0.5) * (b + c);
-        float_t fd = f.__call(d);
-        float_t fe = f.__call(e);
+        float_t fd = f(d);
+        float_t fe = f(e);
 
         float_t h = c - a;
         float_t I0 = (float_t(1.0) / float_t(12.0)) * h * (fa + float_t(4.0) * fd + fb);
@@ -60,20 +61,37 @@ struct integrate_helper<F, float_t, 0>
         return Ip + (float_t(1.0) / float_t(15.0)) * (Ip - I);
     }
 };
+
+#define NBL_CONCEPT_NAME FuncOneArg
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (F)(T)
+#define NBL_CONCEPT_PARAM_0 (func, F)
+#define NBL_CONCEPT_PARAM_1 (x, T)
+NBL_CONCEPT_BEGIN(2)
+#define func NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define x NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointScalar, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((func(x)), ::nbl::hlsl::is_same_v, T))
+);
+#undef x
+#undef func
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 }
 
-template<class F, typename float_t, uint32_t Depth=6> // F has function __call(x)
+template<class F, typename float_t=decltype(declval<F>()(0)), uint32_t Depth=6 NBL_PRIMARY_REQUIRES(impl::FuncOneArg<F,float_t>)
 struct AdaptiveSimpson
 {
+    // eps: absolute tolerance on the integral estimate
     static float_t __call(NBL_REF_ARG(F) f, float_t x0, float_t x1, float_t eps = 1e-6)
     {
         int count = 0;
         float_t a = x0;
         float_t b = float_t(0.5) * (x0 + x1);
         float_t c = x1;
-        float_t fa = f.__call(a);
-        float_t fb = f.__call(b);
-        float_t fc = f.__call(c);
+        float_t fa = f(a);
+        float_t fb = f(b);
+        float_t fc = f(c);
         float_t I = (c - a) * (float_t(1.0) / float_t(6.0)) * (fa + float_t(4.0) * fb + fc);
         return impl::integrate_helper<F, float_t, Depth>::__call(f, a, b, c, fa, fb, fc, I, eps, count);
     }
@@ -85,9 +103,9 @@ namespace impl
 template<class F, typename float_t>
 struct InnerIntegrand
 {
-    float __call(float_t x)
+    float_t operator()(float_t x)
     {
-        return f.__call(x, y);
+        return f(x, y);
     }
 
     F f;
@@ -97,7 +115,7 @@ struct InnerIntegrand
 template<class F, typename float_t, uint32_t Depth>
 struct OuterIntegrand
 {
-    float __call(float_t y)
+    float_t operator()(float_t y)
     {
         using func_t = InnerIntegrand<F, float_t>;
         func_t innerFunc;
@@ -111,11 +129,28 @@ struct OuterIntegrand
     float_t x1;
     float_t eps;
 };
+
+#define NBL_CONCEPT_NAME FuncTwoArgs
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (F)(T)
+#define NBL_CONCEPT_PARAM_0 (func, F)
+#define NBL_CONCEPT_PARAM_1 (x, T)
+NBL_CONCEPT_BEGIN(2)
+#define func NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define x NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointScalar, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((func(x,x)), ::nbl::hlsl::is_same_v, T))
+);
+#undef x
+#undef func
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 }
 
-template<class F, typename float_t, uint32_t Depth=6> // F has function __call(x)
+template<class F, typename float_t=decltype(declval<F>()(0)), uint32_t Depth=6 NBL_PRIMARY_REQUIRES(impl::FuncTwoArgs<F,float_t>)
 struct AdaptiveSimpson2D
 {
+    // eps: absolute tolerance on the integral estimate
     static float_t __call(NBL_REF_ARG(F) f, float32_t2 x0, float32_t2 x1, float_t eps = 1e-6)
     {
         using func_t = impl::OuterIntegrand<F, float_t, Depth>;
