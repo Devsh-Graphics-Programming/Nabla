@@ -326,16 +326,6 @@ struct quaternion
             return unnormLerp(start, end, fraction, totalPseudoAngle);
     }
 
-    this_t operator-() NBL_CONST_MEMBER_FUNC
-    {
-        this_t retval;
-        retval.data.x = -data.x;
-        retval.data.y = -data.y;
-        retval.data.z = -data.z;
-        retval.data.w = data.w;
-        return retval;
-    }
-
     data_type data;
 };
 
@@ -401,6 +391,18 @@ struct static_cast_helper<math::quaternion<T>, matrix<T,3,3> >
         return math::quaternion<T>::create(m, true);
     }
 };
+}
+
+template<typename T>
+math::quaternion<T> inverse(const math::quaternion<T> q)
+{
+    math::quaternion<T> retval;
+    retval.data.x = -q.data.x;
+    retval.data.y = -q.data.y;
+    retval.data.z = -q.data.z;
+    retval.data.w = q.data.w;
+    retval.data /= hlsl::dot(q.data,q.data);
+    return retval;
 }
 
 }
