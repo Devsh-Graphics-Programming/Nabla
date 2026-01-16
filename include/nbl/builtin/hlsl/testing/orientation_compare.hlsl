@@ -20,11 +20,13 @@ struct OrientationCompareHelper
         using traits = nbl::hlsl::vector_traits<FloatingPointVector>;
         using scalar_t = typename traits::scalar_type;
 
-        const scalar_t dotLR = hlsl::dot(lhs, rhs);
-        if (dotLR < scalar_t(0.0))
+        const scalar_t dotLR = hlsl::abs(hlsl::dot(lhs, rhs));
+        const scalar_t dotLL = hlsl::dot(lhs,lhs);
+        const scalar_t dotRR = hlsl::dot(rhs,rhs);
+        if (dotLL < numeric_limits<scalar_t>::min || dotRR < numeric_limits<scalar_t>::min)
             return false;
 
-        const scalar_t scale = hlsl::sqrt(hlsl::dot(lhs,lhs) * hlsl::dot(rhs,rhs));
+        const scalar_t scale = hlsl::sqrt(dotLL * dotRR);
         return relativeApproxCompare<scalar_t>(dotLR, scale, maxAllowedDifference);
     }
 };
