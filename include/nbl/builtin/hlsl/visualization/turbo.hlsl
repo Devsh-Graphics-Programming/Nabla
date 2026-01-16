@@ -18,7 +18,7 @@ struct Turbo
 {
     static const float32_t3 RGB_LUT[256];
 
-    static float32_t3 map(float x)
+    static float32_t3 __call(float x)
     {
         x = hlsl::clamp(x, 0.f, 1.f);
         int i = int(x * 255.f);
@@ -28,7 +28,7 @@ struct Turbo
     }
 };
 
-inline const float32_t3 Turbo::RGB_LUT[256] = {
+NBL_CONSTEXPR_INLINE_OOL_MEMBER float32_t3 Turbo::RGB_LUT[256] = {
     float32_t3(0.18995,0.07176,0.23217),
     float32_t3(0.19483,0.08339,0.26149),
     float32_t3(0.19956,0.09498,0.29024),
