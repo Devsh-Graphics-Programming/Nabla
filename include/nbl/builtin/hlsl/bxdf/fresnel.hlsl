@@ -695,14 +695,6 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
                                                             base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
     }
 
-    // OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
-    // {
-    //     OrientedEtaRcps<eta_type> rcpEta;
-    //     rcpEta.value = hlsl::promote<eta_type>(1.0) / base_type::eta13;
-    //     rcpEta.value2 = rcpEta.value * rcpEta.value;
-    //     return rcpEta;
-    // }
-
     vector_type getEtak23() NBL_CONST_MEMBER_FUNC
     {
         return etak23;
