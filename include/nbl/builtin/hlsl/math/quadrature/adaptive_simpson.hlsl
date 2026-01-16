@@ -21,7 +21,7 @@ namespace impl
 template<class F, typename float_t, uint32_t Depth> // F has function __call(x)
 struct integrate_helper
 {
-    static float_t __call(NBL_REF_ARG(F) f, float_t a, float_t b, float_t c, float_t fa, float_t fb, float_t fc, float_t I, float_t eps, NBL_REF_ARG(int) count)
+    static float_t __call(NBL_CONST_REF_ARG(F) f, float_t a, float_t b, float_t c, float_t fa, float_t fb, float_t fc, float_t I, float_t eps, NBL_REF_ARG(int) count)
     {
         float_t d = float_t(0.5) * (a + b);
         float_t e = float_t(0.5) * (b + c);
@@ -45,7 +45,7 @@ struct integrate_helper
 template<class F, typename float_t>
 struct integrate_helper<F, float_t, 0>
 {
-    static float_t __call(NBL_REF_ARG(F) f, float_t a, float_t b, float_t c, float_t fa, float_t fb, float_t fc, float_t I, float_t eps, NBL_REF_ARG(int) count)
+    static float_t __call(NBL_CONST_REF_ARG(F) f, float_t a, float_t b, float_t c, float_t fa, float_t fb, float_t fc, float_t I, float_t eps, NBL_REF_ARG(int) count)
     {
         float_t d = float_t(0.5) * (a + b);
         float_t e = float_t(0.5) * (b + c);
@@ -83,7 +83,7 @@ template<class F, typename float_t=decltype(declval<F>()(0)), uint32_t Depth=6 N
 struct AdaptiveSimpson
 {
     // eps: absolute tolerance on the integral estimate
-    static float_t __call(NBL_REF_ARG(F) f, float_t x0, float_t x1, float_t eps = 1e-6)
+    static float_t __call(NBL_CONST_REF_ARG(F) f, float_t x0, float_t x1, float_t eps = 1e-6)
     {
         int count = 0;
         float_t a = x0;
@@ -103,7 +103,7 @@ namespace impl
 template<class F, typename float_t>
 struct InnerIntegrand
 {
-    float_t operator()(float_t x)
+    float_t operator()(float_t x) NBL_CONST_MEMBER_FUNC
     {
         return f(x, y);
     }
@@ -115,7 +115,7 @@ struct InnerIntegrand
 template<class F, typename float_t, uint32_t Depth>
 struct OuterIntegrand
 {
-    float_t operator()(float_t y)
+    float_t operator()(float_t y) NBL_CONST_MEMBER_FUNC
     {
         using func_t = InnerIntegrand<F, float_t>;
         func_t innerFunc;
@@ -151,7 +151,7 @@ template<class F, typename float_t=decltype(declval<F>()(0)), uint32_t Depth=6 N
 struct AdaptiveSimpson2D
 {
     // eps: absolute tolerance on the integral estimate
-    static float_t __call(NBL_REF_ARG(F) f, float32_t2 x0, float32_t2 x1, float_t eps = 1e-6)
+    static float_t __call(NBL_CONST_REF_ARG(F) f, float32_t2 x0, float32_t2 x1, float_t eps = 1e-6)
     {
         using func_t = impl::OuterIntegrand<F, float_t, Depth>;
         func_t outerFunc;
