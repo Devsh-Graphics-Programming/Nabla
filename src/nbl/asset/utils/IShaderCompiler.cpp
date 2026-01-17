@@ -239,12 +239,15 @@ inline void collectFileInfoMismatchesParallel(const DepContainer& deps, std::vec
     for (size_t i = 0; i < count; ++i)
     {
         const auto& dep = deps[i];
-        if (!dep.getHasFileInfo())
+        const auto& path = dep.getAbsolutePath();
+        const bool hasAbsolutePath = !path.empty() && path.is_absolute();
+        const bool hasFileInfo = dep.getHasFileInfo() && hasAbsolutePath;
+        if (!hasFileInfo)
         {
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
-            if (!dep.getAbsolutePath().empty())
+            if (!path.empty())
             {
-                if (matchBuiltinResourceHash(dep.getAbsolutePath(), dep.getHash()))
+                if (matchBuiltinResourceHash(path, dep.getHash()))
                     continue;
             }
             else
@@ -254,12 +257,6 @@ inline void collectFileInfoMismatchesParallel(const DepContainer& deps, std::vec
                     continue;
             }
 #endif
-            out.push_back(i);
-            continue;
-        }
-        const auto& path = dep.getAbsolutePath();
-        if (path.empty())
-        {
             out.push_back(i);
             continue;
         }
@@ -886,18 +883,19 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
                 }
 
                 valid = true;
-                if (header.hasFileInfo)
+                if (header.hasFileInfo && dependency.getAbsolutePath().is_absolute())
                 {
                     dependency.setFileInfo(header.fileSize, header.lastWriteTime, true);
                     updated = true;
                 }
             }
 
-            if (valid && dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+            if (valid && dependency.getHasFileInfo() && dependency.getAbsolutePath().is_absolute())
             {
                 uint64_t size = 0;
                 int64_t ticks = 0;
-                if (getFileInfoCached(dependency.getAbsolutePath(), size, ticks, system))
+                if (getFileInfoCached(dependency.getAbsolutePath(), size, ticks, system) &&
+                    (dependency.getFileSize() != size || dependency.getLastWriteTime() != ticks))
                 {
                     dependency.setFileInfo(size, ticks, true);
                     updated = true;
@@ -1866,7 +1864,7 @@ bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinde
                         if (hash == dep.getHash())
                         {
                             valid = true;
-                            if (!dep.getHasFileInfo())
+                            if (!dep.getHasFileInfo() && dep.getAbsolutePath().is_absolute())
                             {
                                 dep.setFileInfo(file->getSize(), file->getLastWriteTime().time_since_epoch().count(), true);
                                 updated = true;
@@ -1903,18 +1901,19 @@ bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinde
             }
 
             valid = true;
-            if (header.hasFileInfo)
+            if (header.hasFileInfo && dep.getAbsolutePath().is_absolute())
             {
                 dep.setFileInfo(header.fileSize, header.lastWriteTime, true);
                 updated = true;
             }
         }
 
-        if (valid && dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+        if (valid && dep.getHasFileInfo() && dep.getAbsolutePath().is_absolute())
         {
             uint64_t size = 0;
             int64_t ticks = 0;
-            if (getFileInfoCached(dep.getAbsolutePath(), size, ticks, system))
+            if (getFileInfoCached(dep.getAbsolutePath(), size, ticks, system) &&
+                (dep.getFileSize() != size || dep.getLastWriteTime() != ticks))
             {
                 dep.setFileInfo(size, ticks, true);
                 updated = true;
