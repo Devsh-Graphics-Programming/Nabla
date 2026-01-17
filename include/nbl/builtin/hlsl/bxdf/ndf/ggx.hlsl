@@ -279,8 +279,8 @@ struct GGX
         quant_type dmq;
         if (isInfinity)
         {
-            dmq.microfacetMeasure = scalar_type(0.0);
-            dmq.projectedLightMeasure = scalar_type(0.0);
+            dmq.microfacetMeasure = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+            dmq.projectedLightMeasure = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
             return dmq;
         }
 
@@ -337,8 +337,8 @@ struct GGX
         if (isInfinity)
         {
             quant_type dmq;
-            dmq.microfacetMeasure = scalar_type(0.0);
-            dmq.projectedLightMeasure = scalar_type(0.0);
+            dmq.microfacetMeasure = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
+            dmq.projectedLightMeasure = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
             return dmq;
         }
         dg *= correlated_wo_numerator<LS, Interaction, MicrofacetCache>(query, _sample, interaction, cache);
@@ -406,7 +406,7 @@ template<class T>
 struct is_ggx : impl::is_ggx<T, typename T::scalar_type> {};
 
 template<typename T>
-NBL_CONSTEXPR bool is_ggx_v = is_ggx<T>::value;
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR bool is_ggx_v = is_ggx<T>::value;
 
 }
 }

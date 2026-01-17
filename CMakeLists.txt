@@ -3,6 +3,10 @@
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 cmake_minimum_required(VERSION 3.31..4.2.0)
 
+if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+	set(CMAKE_POLICY_VERSION_MINIMUM 3.31 CACHE STRING "Minimum policy version for third-party projects")
+endif()
+
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
 # also we should update deps which throw warnings about < 3.10 compatibility
@@ -28,7 +32,7 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla
-	VERSION 0.8.0.1 
+	VERSION 0.9.0.0 
 	HOMEPAGE_URL "https://www.devsh.eu/nabla"
 	LANGUAGES CXX C
 )
@@ -46,6 +50,7 @@ option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 
 option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
+option(NBL_DEBUG_RTC_ENABLED "Enable Runtime Checks for Debug builds" OFF)
 
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
 
@@ -173,8 +178,9 @@ option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
 option(NBL_FAST_MATH "Enable fast low-precision math" OFF) # the reason OFF is by default now is the var controling it at build time was set AFTER BuildConfigOptions was generated - resulting in the feature being always OFF regardless the value xD - so just for sanity, keeping the same behaviour by default
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
-option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
+option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
+option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)

@@ -394,6 +394,9 @@ nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebI
 nbl_adjust_definitions()
 
 option(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION "Enable to optimise CWaveStringResolver.cpp in Debug configuration, uses RWDI compile options for the TU" ON)
+if(NBL_SANITIZE_ADDRESS OR NBL_DEBUG_RTC_ENABLED)
+	set(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION OFF CACHE BOOL "" FORCE)
+endif()
 if(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION)
 	set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
 		# just enabling inlining and optimisations will help a lot
@@ -689,6 +692,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 			target_compile_definitions(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INTERFACE_COMPILE_DEFINITIONS>") # workaround because must use Nabla headers without linking Nabla to itself..
 			target_include_directories(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>")
 			target_include_directories(Nabla PRIVATE "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+			target_include_directories(Nabla INTERFACE "$<BUILD_INTERFACE:${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}>")
 		endforeach()
 	
 		add_dependencies(Nabla ${NBL_TARGETS})
@@ -780,14 +784,6 @@ add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
-nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
-
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	nbl_install_builtin_resources(nblBuiltinResourceData)
-	nbl_install_builtin_resources(spirvBuiltinResourceData)
-	nbl_install_builtin_resources(boostBuiltinResourceData)
-endif()
-
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 

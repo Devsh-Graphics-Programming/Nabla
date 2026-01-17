@@ -90,7 +90,7 @@ inline int extractExponent(T x)
 }
 
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
+NBL_CONSTEXPR_FUNC T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
 	return impl::castBackToFloatType<T>(glsl::bitfieldInsert(ieee754::impl::bitCastToUintType(x), biasedExp, traits<AsFloat>::mantissaBitCnt, traits<AsFloat>::exponentBitCnt));
@@ -98,20 +98,20 @@ NBL_CONSTEXPR_INLINE_FUNC T replaceBiasedExponent(T x, typename unsigned_integer
 
 // performs no overflow tests, returns x*exp2(n)
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC T fastMulExp2(T x, int n)
+NBL_CONSTEXPR_FUNC T fastMulExp2(T x, int n)
 {
 	return replaceBiasedExponent(x, extractBiasedExponent(x) + uint32_t(n));
 }
 
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractMantissa(T x)
+NBL_CONSTEXPR_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractMantissa(T x)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 	return ieee754::impl::bitCastToUintType(x) & traits<typename float_of_size<sizeof(T)>::type>::mantissaMask;
 }
 
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractNormalizeMantissa(T x)
+NBL_CONSTEXPR_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractNormalizeMantissa(T x)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
@@ -119,21 +119,21 @@ NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type ext
 }
 
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSign(T x)
+NBL_CONSTEXPR_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSign(T x)
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
 	return (ieee754::impl::bitCastToUintType(x) & traits<AsFloat>::signMask) >> ((sizeof(T) * 8) - 1);
 }
 
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSignPreserveBitPattern(T x)
+NBL_CONSTEXPR_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSignPreserveBitPattern(T x)
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
 	return ieee754::impl::bitCastToUintType(x) & traits<AsFloat>::signMask;
 }
 
 template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
-NBL_CONSTEXPR_INLINE_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint from)
+NBL_CONSTEXPR_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint from)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
 
@@ -204,12 +204,12 @@ struct flipSign_helper<Vectorial, BoolVector NBL_PARTIAL_REQ_BOT(concepts::Float
 	}
 };
 
-template <typename T NBL_STRUCT_CONSTRAINABLE>
+template <typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct flipSignIfRHSNegative_helper;
 
 template <typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeScalar<FloatingPoint>)
-struct flipSignIfRHSNegative_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<FloatingPoint>) >
+struct flipSignIfRHSNegative_helper<FloatingPoint, FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(FloatingPoint val, FloatingPoint flip)
 	{
@@ -222,7 +222,7 @@ struct flipSignIfRHSNegative_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::
 
 template <typename Vectorial>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial>)
-struct flipSignIfRHSNegative_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial>) >
+struct flipSignIfRHSNegative_helper<Vectorial, Vectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial>) >
 {
 	static Vectorial __call(Vectorial val, Vectorial flip)
 	{
@@ -232,7 +232,29 @@ struct flipSignIfRHSNegative_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Floa
 
 		Vectorial output;
 		for (uint32_t i = 0; i < traits_v::Dimension; ++i)
-			setter(output, i, flipSignIfRHSNegative_helper<typename traits_v::scalar_type>::__call(getter_v(val, i), getter_v(flip, i)));
+			setter(output, i, flipSignIfRHSNegative_helper<typename traits_v::scalar_type,typename traits_v::scalar_type>::__call(getter_v(val, i), getter_v(flip, i)));
+
+		return output;
+	}
+};
+
+template <typename Vectorial, typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::FloatingPointLikeScalar<FloatingPoint>)
+struct flipSignIfRHSNegative_helper<Vectorial, FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial> && concepts::FloatingPointLikeScalar<FloatingPoint>) >
+{
+	static Vectorial __call(Vectorial val, FloatingPoint flip)
+	{
+		using traits_v = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits_v::scalar_type> getter_v;
+		array_set<Vectorial, typename traits_v::scalar_type> setter;
+
+		using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		const AsUint signBitFlip = ieee754::traits<AsFloat>::signMask & ieee754::impl::bitCastToUintType(flip);
+
+		Vectorial output;
+		for (uint32_t i = 0; i < traits_v::Dimension; ++i)
+			setter(output, i, bit_cast<FloatingPoint>(ieee754::impl::bitCastToUintType(getter_v(val, i)) ^ signBitFlip));
 
 		return output;
 	}
@@ -240,15 +262,33 @@ struct flipSignIfRHSNegative_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Floa
 }
 
 template <typename T, typename U>
-NBL_CONSTEXPR_INLINE_FUNC T flipSign(T val, U flip)
+NBL_CONSTEXPR_FUNC T flipSign(T val, U flip)
 {
 	return impl::flipSign_helper<T, U>::__call(val, flip);
 }
 
-template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC T flipSignIfRHSNegative(T val, T flip)
+template <typename T, typename U=T>
+NBL_CONSTEXPR_FUNC T flipSignIfRHSNegative(T val, U flip)
 {
-	return impl::flipSignIfRHSNegative_helper<T>::__call(val, flip);
+	return impl::flipSignIfRHSNegative_helper<T, U>::__call(val, flip);
+}
+
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC bool isSubnormal(T val)
+{
+	const uint32_t biasedExponent = extractBiasedExponent(val);
+	const typename unsigned_integer_of_size<sizeof(T)>::type mantissa = extractMantissa(val);
+	return biasedExponent == 0 && mantissa != 0u;
+}
+
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC bool isZero(T val)
+{
+	using traits_t = traits<T>;
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+
+	const AsUint exponentAndMantissaMask = ~traits_t::signMask;
+	return !(ieee754::impl::bitCastToUintType(val) & exponentAndMantissaMask);
 }
 
 }
