@@ -41,6 +41,7 @@ Runtime compilation is still useful for prototyping, but (assuming you don't use
 For each registered input it generates:
 
 - One `.spv` output **per CMake configuration** (`Debug/`, `Release/`, `RelWithDebInfo/`).
+- A matching `.spv.hash` sidecar for fast up-to-date checks on cache hits.
 - If you use `CAPS`, it generates a **cartesian product** of permutations and emits a `.spv` for each.
 - A generated header (you choose the path via `INCLUDE`) containing:
 - a primary template `get_spirv_key<Key>(...args)` and `get_spirv_key<Key>(device, ...args)`
@@ -54,7 +55,7 @@ For each registered input it generates:
 Keys are hashed to keep filenames short and stable across long permutation strings. The **full key string** is built as:
 
 ```
-<KEY>(__<kind>.<capName>_<value>)(.<capName>_<value>)....spv
+<KEY>__<kind>.<capName>_<value>.<capName>_<value>...spv
 ```
 
 Then `FNV-1a 64-bit` is computed from that full key (no `<CONFIG>` prefix), and the **final output key** is:
@@ -118,15 +119,19 @@ There are two independent caches:
 
 With `-verbose`, `.log` shows:
 
-- `Cache: <path>` and `Cache hit!/miss! ...` for SPIR-V cache.
+- `Shader Cache: <path>` and `Cache hit!/miss! ...` for SPIR-V cache.
 - `Preprocess cache: <path>` and `Preprocess cache hit!/miss! ...` for the prefix cache.
 - Timing lines (performance):
+  - `Shader cache load took: ...`
+  - `Shader cache validate took: ...`
   - `Shader cache lookup took: ...`
+  - `Shader cache write took: ...` (only when deps metadata changed on hit)
   - `Preprocess cache lookup took: ...`
   - `Total cache probe took: ...`
   - `Preprocess took: ...` (only on compile path)
   - `Compile took: ...` (only on compile path)
   - `Total build time: ...` (preprocess + compile)
+  - `Write output took: ...` (only when output file is written)
   - `Total took: ...` (overall tool runtime)
 
 You can redirect both caches into a shared directory with:
@@ -361,8 +366,8 @@ static constexpr std::string_view keyView = keyBuf;
 This produces `3 * 2 = 6` permutations per build configuration, and `KEYS` contains all of them (for example):
 
 ```
-Debug/shader.maxComputeSharedMemorySize_16384.shaderFloat64_0.spv
-Debug/shader.maxComputeSharedMemorySize_16384.shaderFloat64_1.spv
+Debug/6014683721143225910.spv
+Debug/10493750182651038558.spv
 ...
 ```
 

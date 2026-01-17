@@ -5,17 +5,326 @@
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 #include "nbl/core/hash/blake.h"
+#include "nbl/core/hash/xxHash256.h"
 #include <sstream>
 #include <regex>
 #include <iterator>
 #include <filesystem>
+#include <chrono>
 #include <algorithm>
 #include <unordered_map>
 #include <fstream>
 #include <cstring>
+#include <array>
+#include <atomic>
+#include <mutex>
+#include <thread>
+
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+#include "nbl/builtin/CArchive.h"
+#include "spirv/builtin/CArchive.h"
+#include "boost/builtin/CArchive.h"
+#include "nbl/devicegen/builtin/CArchive.h"
+#endif
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
+
+namespace
+{
+struct FileInfoCacheEntry
+{
+    uint64_t size = 0;
+    int64_t ticks = 0;
+    bool ok = false;
+};
+
+std::unordered_map<nbl::system::path, FileInfoCacheEntry> g_fileInfoCache;
+std::mutex g_fileInfoCacheMutex;
+
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+inline bool tryGetBuiltinResource(const std::string& normalized, const nbl::system::SBuiltinFile*& outFile, std::string& outRel, std::string_view& outPrefix)
+{
+    auto tryNamespace = [&](std::string_view prefix, const nbl::system::SBuiltinFile& (*getResource)(const std::string&)) -> bool
+    {
+        if (normalized.rfind(prefix, 0) != 0)
+            return false;
+        std::string rel = normalized.substr(prefix.size());
+        if (!rel.empty() && (rel.front() == '/' || rel.front() == '\\'))
+            rel.erase(rel.begin());
+        const auto& resource = getResource(rel);
+        if (!resource.contents || resource.size == 0)
+            return false;
+        outFile = &resource;
+        outRel = std::move(rel);
+        outPrefix = prefix;
+        return true;
+    };
+
+    if (tryNamespace(nbl::builtin::pathPrefix, nbl::builtin::get_resource_runtime))
+        return true;
+    if (tryNamespace(spirv::builtin::pathPrefix, spirv::builtin::get_resource_runtime))
+        return true;
+    if (tryNamespace(boost::builtin::pathPrefix, boost::builtin::get_resource_runtime))
+        return true;
+    if (tryNamespace(nbl::devicegen::builtin::pathPrefix, nbl::devicegen::builtin::get_resource_runtime))
+        return true;
+
+    return false;
+}
+
+inline bool tryGetBuiltinResourceHash(const nbl::system::path& path, nbl::core::blake3_hash_t& outHash)
+{
+    if (path.empty())
+        return false;
+    const std::string normalized = path.generic_string();
+    const nbl::system::SBuiltinFile* resource = nullptr;
+    std::string rel;
+    std::string_view prefix;
+    if (!tryGetBuiltinResource(normalized, resource, rel, prefix))
+        return false;
+    std::memcpy(outHash.data, resource->xx256Hash.data(), sizeof(outHash.data));
+    return true;
+}
+
+inline bool matchBuiltinResourceHash(const nbl::system::path& path, const nbl::core::blake3_hash_t& expected)
+{
+    nbl::core::blake3_hash_t hash = {};
+    if (!tryGetBuiltinResourceHash(path, hash))
+        return false;
+    return hash == expected;
+}
+
+class CBuiltinArchiveIncludeLoader final : public nbl::asset::IShaderCompiler::IIncludeLoader
+{
+    public:
+        using IIncludeLoader = nbl::asset::IShaderCompiler::IIncludeLoader;
+
+        IIncludeLoader::found_t getInclude(const nbl::system::path& searchPath, const std::string& includeName) const override
+        {
+            std::string normalized = nbl::system::path(includeName).generic_string();
+            if (!searchPath.empty())
+            {
+                const std::string search = nbl::system::path(searchPath).generic_string();
+                if (normalized.rfind(search, 0) != 0)
+                    normalized = (nbl::system::path(search) / includeName).generic_string();
+            }
+
+            const nbl::system::SBuiltinFile* resource = nullptr;
+            std::string rel;
+            std::string_view prefix;
+            if (!tryGetBuiltinResource(normalized, resource, rel, prefix))
+                return {};
+
+            IIncludeLoader::found_t ret = {};
+            ret.absolutePath = nbl::system::path(std::string(prefix)) / rel;
+            ret.contents.assign(reinterpret_cast<const char*>(resource->contents), resource->size);
+            if (!ret.contents.empty() && ret.contents.back() != '\n' && ret.contents.back() != '\r')
+                ret.contents.push_back('\n');
+            std::memcpy(ret.hash.data, resource->xx256Hash.data(), sizeof(ret.hash.data));
+            ret.hasHash = true;
+            ret.fileSize = resource->size;
+            ret.hasFileInfo = false;
+            return ret;
+        }
+};
+#endif
+
+inline bool getFileInfoFast(const nbl::system::path& path, uint64_t& sizeOut, int64_t& timeOut)
+{
+#ifdef _WIN32
+    WIN32_FILE_ATTRIBUTE_DATA data = {};
+    if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &data))
+        return false;
+    ULARGE_INTEGER size = {};
+    size.HighPart = data.nFileSizeHigh;
+    size.LowPart = data.nFileSizeLow;
+    ULARGE_INTEGER time = {};
+    time.HighPart = data.ftLastWriteTime.dwHighDateTime;
+    time.LowPart = data.ftLastWriteTime.dwLowDateTime;
+    sizeOut = size.QuadPart;
+    using file_clock = std::chrono::file_clock;
+    const auto duration = file_clock::duration{ static_cast<file_clock::rep>(time.QuadPart) };
+    const auto fileTp = std::chrono::time_point<file_clock>{ duration };
+    const auto utcTp = std::chrono::clock_cast<nbl::system::IFileBase::time_point_t::clock>(fileTp);
+    timeOut = utcTp.time_since_epoch().count();
+    return true;
+#else
+    std::error_code ec;
+    std::filesystem::directory_entry entry(path, ec);
+    if (ec)
+        return false;
+    const auto time = entry.last_write_time(ec);
+    if (ec)
+        return false;
+    const auto size = entry.file_size(ec);
+    if (ec)
+        return false;
+    sizeOut = size;
+    const auto utcTp = std::chrono::clock_cast<nbl::system::IFileBase::time_point_t::clock>(time);
+    timeOut = utcTp.time_since_epoch().count();
+    return true;
+#endif
+}
+
+inline bool getFileInfoFast(const nbl::system::path& path, uint64_t& sizeOut, int64_t& timeOut, nbl::system::ISystem* system)
+{
+    if (getFileInfoFast(path, sizeOut, timeOut))
+        return true;
+    if (!system || path.empty())
+        return false;
+
+    nbl::system::ISystem::future_t<nbl::core::smart_refctd_ptr<nbl::system::IFile>> future;
+    system->createFile(future, path, nbl::system::IFile::ECF_READ);
+    if (!future.wait())
+        return false;
+    nbl::core::smart_refctd_ptr<nbl::system::IFile> file;
+    if (auto lock = future.acquire(); lock)
+        lock.move_into(file);
+    if (!file)
+        return false;
+    sizeOut = file->getSize();
+    timeOut = file->getLastWriteTime().time_since_epoch().count();
+    return true;
+}
+
+inline bool getFileInfoCached(const nbl::system::path& path, uint64_t& sizeOut, int64_t& timeOut, nbl::system::ISystem* system)
+{
+    if (path.empty())
+        return false;
+
+    {
+        std::lock_guard<std::mutex> lock(g_fileInfoCacheMutex);
+        const auto it = g_fileInfoCache.find(path);
+        if (it != g_fileInfoCache.end())
+        {
+            if (!it->second.ok)
+                return false;
+            sizeOut = it->second.size;
+            timeOut = it->second.ticks;
+            return true;
+        }
+    }
+
+    uint64_t size = 0;
+    int64_t ticks = 0;
+    const bool ok = getFileInfoFast(path, size, ticks, system);
+    {
+        std::lock_guard<std::mutex> lock(g_fileInfoCacheMutex);
+        g_fileInfoCache.emplace(path, FileInfoCacheEntry{ size, ticks, ok });
+    }
+    if (!ok)
+        return false;
+    sizeOut = size;
+    timeOut = ticks;
+    return true;
+}
+
+template<typename DepContainer>
+inline void collectFileInfoMismatchesParallel(const DepContainer& deps, std::vector<size_t>& out, nbl::system::ISystem* system)
+{
+    const size_t count = deps.size();
+    if (!count)
+        return;
+
+    std::vector<size_t> fileInfoIndices;
+    fileInfoIndices.reserve(count);
+    std::unordered_map<nbl::system::path, bool> seenPaths;
+    seenPaths.reserve(count);
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        const auto& dep = deps[i];
+        if (!dep.getHasFileInfo())
+        {
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+            if (!dep.getAbsolutePath().empty())
+            {
+                if (matchBuiltinResourceHash(dep.getAbsolutePath(), dep.getHash()))
+                    continue;
+            }
+            else
+            {
+                const nbl::system::path logicalPath(dep.getIdentifier());
+                if (matchBuiltinResourceHash(logicalPath, dep.getHash()))
+                    continue;
+            }
+#endif
+            out.push_back(i);
+            continue;
+        }
+        const auto& path = dep.getAbsolutePath();
+        if (path.empty())
+        {
+            out.push_back(i);
+            continue;
+        }
+        if (seenPaths.emplace(path, true).second)
+            fileInfoIndices.push_back(i);
+    }
+
+    const size_t fileCount = fileInfoIndices.size();
+    if (!fileCount)
+        return;
+
+    unsigned threads = std::thread::hardware_concurrency();
+    if (!threads)
+        threads = 1u;
+    if (threads > 32u)
+        threads = 32u;
+    if (threads > fileCount)
+        threads = static_cast<unsigned>(fileCount);
+
+    if (threads <= 1u || fileCount < 32u)
+    {
+        for (size_t k = 0; k < fileCount; ++k)
+        {
+            const size_t i = fileInfoIndices[k];
+            const auto& dep = deps[i];
+            const auto& path = dep.getAbsolutePath();
+            uint64_t size = 0;
+            int64_t ticks = 0;
+            if (path.empty() || !getFileInfoFast(path, size, ticks) || dep.getLastWriteTime() != ticks || dep.getFileSize() != size)
+                out.push_back(i);
+        }
+        return;
+    }
+
+    std::vector<std::vector<size_t>> perThread(threads);
+    const size_t chunk = (fileCount + threads - 1u) / threads;
+    std::vector<std::thread> workers;
+    workers.reserve(threads);
+    for (unsigned t = 0; t < threads; ++t)
+    {
+        const size_t start = t * chunk;
+        if (start >= fileCount)
+            break;
+        const size_t end = std::min(start + chunk, fileCount);
+        workers.emplace_back([&deps, &perThread, &fileInfoIndices, t, start, end, system]()
+        {
+            auto& local = perThread[t];
+            for (size_t k = start; k < end; ++k)
+            {
+                const size_t i = fileInfoIndices[k];
+                const auto& dep = deps[i];
+                const auto& path = dep.getAbsolutePath();
+                uint64_t size = 0;
+                int64_t ticks = 0;
+                if (path.empty() || !getFileInfoFast(path, size, ticks) || dep.getLastWriteTime() != ticks || dep.getFileSize() != size)
+                    local.push_back(i);
+            }
+        });
+    }
+    for (auto& worker : workers)
+        worker.join();
+    for (auto& local : perThread)
+        out.insert(out.end(), local.begin(), local.end());
+}
+}
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -107,238 +416,9 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
 }
 
-bool IShaderCompiler::writeDepfile(
-	const DepfileWriteParams& params,
-	const CCache::SEntry::dependency_container_t& dependencies,
-	const CIncludeFinder* includeFinder,
-	system::logger_opt_ptr logger)
-{
-	std::string depfilePathString;
-	if (!params.depfilePath.empty())
-		depfilePathString = std::string(params.depfilePath);
-	else
-		depfilePathString = std::string(params.outputPath) + ".d";
-
-	if (depfilePathString.empty())
-	{
-		logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
-		return false;
-	}
-
-	const auto parentDirectory = std::filesystem::path(depfilePathString).parent_path();
-	if (!parentDirectory.empty() && !std::filesystem::exists(parentDirectory))
-	{
-		if (!std::filesystem::create_directories(parentDirectory))
-		{
-			logger.log("Failed to create parent directory for depfile.", system::ILogger::ELL_ERROR);
-			return false;
-		}
-	}
-
-	std::vector<std::string> depPaths;
-	depPaths.reserve(dependencies.size() + 1);
-
-	auto addDepPath = [&depPaths, &params](std::filesystem::path path)
-	{
-		if (path.empty())
-			return;
-		if (path.is_relative())
-		{
-			if (params.workingDirectory.empty())
-				return;
-			path = std::filesystem::path(params.workingDirectory) / path;
-		}
-		std::error_code ec;
-		std::filesystem::path normalized = std::filesystem::weakly_canonical(path, ec);
-		if (ec)
-		{
-			normalized = std::filesystem::absolute(path, ec);
-			if (ec)
-				return;
-		}
-		if (normalized.empty() || !std::filesystem::exists(normalized))
-			return;
-		auto normalizedString = normalized.generic_string();
-		if (normalizedString.find_first_of("\r\n") != std::string::npos)
-			return;
-		depPaths.emplace_back(std::move(normalizedString));
-	};
-
-	if (!params.sourceIdentifier.empty())
-	{
-		std::filesystem::path rootPath{std::string(params.sourceIdentifier)};
-		if (rootPath.is_relative())
-		{
-			if (!params.workingDirectory.empty())
-				rootPath = std::filesystem::absolute(std::filesystem::path(params.workingDirectory) / rootPath);
-			else
-				rootPath = std::filesystem::absolute(rootPath);
-		}
-		addDepPath(rootPath);
-	}
-
-	for (const auto& dep : dependencies)
-	{
-		if (includeFinder)
-		{
-			IShaderCompiler::IIncludeLoader::found_t header = dep.isStandardInclude() ?
-				includeFinder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier())) :
-				includeFinder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
-
-			if (!header)
-				continue;
-			addDepPath(header.absolutePath);
-		}
-		else
-		{
-			std::filesystem::path candidate = dep.isStandardInclude() ? std::filesystem::path(std::string(dep.getIdentifier())) : (dep.getRequestingSourceDir() / std::string(dep.getIdentifier()));
-			if (candidate.is_relative())
-			{
-				if (!params.workingDirectory.empty())
-					candidate = std::filesystem::absolute(std::filesystem::path(params.workingDirectory) / candidate);
-				else
-					candidate = std::filesystem::absolute(candidate);
-			}
-			addDepPath(candidate);
-		}
-	}
-
-	std::sort(depPaths.begin(), depPaths.end());
-	depPaths.erase(std::unique(depPaths.begin(), depPaths.end()), depPaths.end());
-
-	auto escapeDepPath = [](const std::string& path) -> std::string
-	{
-		std::string normalized = path;
-		std::replace(normalized.begin(), normalized.end(), '\\', '/');
-		std::string out;
-		out.reserve(normalized.size());
-		for (const char c : normalized)
-		{
-			if (c == ' ' || c == '#')
-				out.push_back('\\');
-			if (c == '$')
-			{
-				out.push_back('$');
-				out.push_back('$');
-				continue;
-			}
-			out.push_back(c);
-		}
-		return out;
-	};
-
-	if (!params.system)
-	{
-		logger.log("Depfile system is null.", system::ILogger::ELL_ERROR);
-		return false;
-	}
-
-	const auto depfilePath = std::filesystem::path(depfilePathString);
-	auto tempPath = depfilePath;
-	tempPath += ".tmp";
-	params.system->deleteFile(tempPath);
-
-	core::smart_refctd_ptr<system::IFile> depfile;
-	{
-		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-		params.system->createFile(future, tempPath, system::IFileBase::ECF_WRITE);
-		if (!future.wait())
-		{
-			logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
-			return false;
-		}
-		future.acquire().move_into(depfile);
-	}
-	if (!depfile)
-	{
-		logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
-		return false;
-	}
-
-	std::string targetPathString;
-	if (params.outputPath.empty())
-	{
-		std::filesystem::path targetPath = depfilePathString;
-		if (targetPath.extension() == ".d")
-			targetPath.replace_extension();
-		targetPathString = targetPath.generic_string();
-	}
-	else
-	{
-		targetPathString = std::string(params.outputPath);
-	}
-	if (targetPathString.empty())
-	{
-		logger.log("Depfile target path is empty.", system::ILogger::ELL_ERROR);
-		return false;
-	}
-	const std::string target = escapeDepPath(std::filesystem::path(targetPathString).generic_string());
-	std::vector<std::string> escapedDeps;
-	escapedDeps.reserve(depPaths.size());
-	for (const auto& depPath : depPaths)
-		escapedDeps.emplace_back(escapeDepPath(depPath));
-
-	std::string depfileContents;
-	depfileContents.append(target);
-	depfileContents.append(":");
-	if (!escapedDeps.empty())
-	{
-		depfileContents.append(" \\\n");
-		for (size_t index = 0; index < escapedDeps.size(); ++index)
-		{
-			depfileContents.append(" ");
-			depfileContents.append(escapedDeps[index]);
-			if (index + 1 < escapedDeps.size())
-				depfileContents.append(" \\\n");
-		}
-	}
-	depfileContents.append("\n");
-
-	system::IFile::success_t success;
-	depfile->write(success, depfileContents.data(), 0, depfileContents.size());
-	if (!success)
-	{
-		logger.log("Failed to write depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
-		return false;
-	}
-	depfile = nullptr;
-
-	params.system->deleteFile(depfilePath);
-	const std::error_code moveError = params.system->moveFileOrDirectory(tempPath, depfilePath);
-	if (moveError)
-	{
-		logger.log("Failed to replace depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
-		return false;
-	}
-	return true;
-}
-
 core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
-	const bool depfileEnabled = options.preprocessorOptions.depfile;
-	const bool supportsDependencies = options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL;
 	const auto* dependencyOverrides = options.dependencyOverrides;
-
-	auto writeDepfileFromDependencies = [&](const CCache::SEntry::dependency_container_t& dependencies) -> bool
-	{
-		if (!depfileEnabled)
-			return true;
-
-		if (options.preprocessorOptions.depfilePath.empty())
-		{
-			options.preprocessorOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
-			return false;
-		}
-
-		IShaderCompiler::DepfileWriteParams params = {};
-		const std::string depfilePathString = options.preprocessorOptions.depfilePath.generic_string();
-		params.depfilePath = depfilePathString;
-		params.sourceIdentifier = options.preprocessorOptions.sourceIdentifier;
-		if (!params.sourceIdentifier.empty())
-			params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
-		params.system = m_system.get();
-		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);
-	};
 
 	const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
 	CCache::SEntry entry;
@@ -350,7 +430,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 
 	if (options.readCache)
 	{
-		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder, true, nullptr);
 		if (found != options.readCache->m_container.end())
 		{
 			if (options.cacheHit)
@@ -361,20 +441,15 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 				options.writeCache->insert(std::move(writeEntry));
 			}
 			auto shader = found->decompressShader();
-			if (depfileEnabled && !writeDepfileFromDependencies(found->dependencies))
-				return nullptr;
 			return shader;
 		}
 	}
 
-	CCache::SEntry::dependency_container_t depfileDependencies;
 	CCache::SEntry::dependency_container_t* dependenciesPtr = nullptr;
 	if (!dependencyOverrides)
 	{
 		if (options.writeCache)
 			dependenciesPtr = &entry.dependencies;
-		else if (depfileEnabled && supportsDependencies)
-			dependenciesPtr = &depfileDependencies;
 	}
 
 	auto retVal = compileToSPIRV_impl(code, options, dependenciesPtr);
@@ -390,13 +465,6 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		entry.dependencies.reserve(dependencyOverrides->size());
 		for (const auto& dep : *dependencyOverrides)
 			entry.dependencies.emplace_back(dep.getRequestingSourceDir(), dep.getIdentifier(), dep.isStandardInclude(), dep.getHash(), dep.getAbsolutePath(), dep.getFileSize(), dep.getLastWriteTime(), dep.getHasFileInfo());
-	}
-
-	if (retVal && depfileEnabled && supportsDependencies)
-	{
-		const auto* deps = dependencyOverrides ? dependencyOverrides : (options.writeCache ? &entry.dependencies : &depfileDependencies);
-		if (!writeDepfileFromDependencies(*deps))
-			return nullptr;
 	}
 
 	if (options.writeCache)
@@ -478,23 +546,40 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     f->read(succ, contents.data(), 0, size);
     const bool success = bool(succ);
     assert(success);
+    if (!contents.empty() && contents.back() != '\n' && contents.back() != '\r')
+        contents.push_back('\n');
 
     found_t ret = {};
-    ret.absolutePath = f->getFileName();
+    ret.absolutePath = path;
     ret.contents = std::move(contents);
-    ret.fileSize = size;
     if (auto precomputed = f->getPrecomputedHash())
     {
         static_assert(sizeof(ret.hash.data) == sizeof(*precomputed));
         std::memcpy(ret.hash.data, &(*precomputed), sizeof(ret.hash.data));
         ret.hasHash = true;
+        ret.hasFileInfo = false;
+    }
+    else
+    {
+        ret.fileSize = size;
+        const auto fileTime = f->getLastWriteTime();
+        ret.lastWriteTime = fileTime.time_since_epoch().count();
+        ret.hasFileInfo = true;
     }
     return ret;
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
-    : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
+    : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(core::smart_refctd_ptr(system)))
+    , m_system(std::move(system))
 {
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+    auto builtinLoader = core::make_smart_refctd_ptr<CBuiltinArchiveIncludeLoader>();
+    addSearchPath(std::string(nbl::builtin::pathPrefix), builtinLoader);
+    addSearchPath(std::string(spirv::builtin::pathPrefix), builtinLoader);
+    addSearchPath(std::string(boost::builtin::pathPrefix), builtinLoader);
+    addSearchPath(std::string(nbl::devicegen::builtin::pathPrefix), builtinLoader);
+#endif
     addSearchPath("", m_defaultFileSystemLoader);
 }
 
@@ -513,7 +598,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 
     if (retVal.fileSize == 0 && !retVal.contents.empty())
         retVal.fileSize = retVal.contents.size();
-    if (!retVal.absolutePath.empty())
+    if (!retVal.hasFileInfo && !retVal.absolutePath.empty() && !retVal.hasHash)
     {
         std::error_code ec;
         const auto fileTime = std::filesystem::last_write_time(retVal.absolutePath, ec);
@@ -526,9 +611,9 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 
     if (!retVal.hasHash)
     {
-        core::blake3_hasher hasher;
-        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+        std::array<uint64_t, 4> hash = {};
+        core::XXHash_256(retVal.contents.data(), retVal.contents.size(), hash.data());
+        std::memcpy(retVal.hash.data, hash.data(), sizeof(retVal.hash.data));
         retVal.hasHash = true;
     }
     return retVal;
@@ -546,7 +631,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
 
     if (retVal.fileSize == 0 && !retVal.contents.empty())
         retVal.fileSize = retVal.contents.size();
-    if (!retVal.absolutePath.empty())
+    if (!retVal.hasFileInfo && !retVal.absolutePath.empty() && !retVal.hasHash)
     {
         std::error_code ec;
         const auto fileTime = std::filesystem::last_write_time(retVal.absolutePath, ec);
@@ -559,9 +644,9 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
 
     if (!retVal.hasHash)
     {
-        core::blake3_hasher hasher;
-        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+        std::array<uint64_t, 4> hash = {};
+        core::XXHash_256(retVal.contents.data(), retVal.contents.size(), hash.data());
+        std::memcpy(retVal.hash.data, hash.data(), sizeof(retVal.hash.data));
         retVal.hasHash = true;
     }
     return retVal;
@@ -661,7 +746,7 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 
 core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    const auto found = find_impl(mainFile, finder);
+    const auto found = find_impl(mainFile, finder, true, nullptr);
     if (found==m_container.end())
         return nullptr;
     return found->decompressShader();
@@ -669,14 +754,14 @@ core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntr
 
 bool IShaderCompiler::CCache::contains(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    return find_impl(mainFile, finder) != m_container.end();
+    return find_impl(mainFile, finder, true, nullptr) != m_container.end();
 }
 
-bool IShaderCompiler::CCache::findEntryForCode(std::string_view code, const SCompilerOptions& options, const IShaderCompiler::CIncludeFinder* finder, SEntry& outEntry) const
+bool IShaderCompiler::CCache::findEntryForCode(std::string_view code, const SCompilerOptions& options, const IShaderCompiler::CIncludeFinder* finder, SEntry& outEntry, bool validateDependencies, bool* depsUpdated) const
 {
     const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
     const CCache::SEntry entry(cacheCode, options);
-    const auto found = find_impl(entry, finder);
+    const auto found = find_impl(entry, finder, validateDependencies, depsUpdated);
     if (found == m_container.end())
         return false;
     outEntry = SEntry(*found);
@@ -688,16 +773,45 @@ core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::decompressEntry(
     return entry.decompressShader();
 }
 
-IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder, bool validateDependencies, bool* depsUpdated) const
 {
     auto found = m_container.find(mainFile);
+    if (found == m_container.end() || !validateDependencies)
+        return found;
+    if (depsUpdated)
+        *depsUpdated = false;
+    bool updated = false;
+    auto* system = finder ? finder->getSystem() : nullptr;
     // go through all dependencies
     if (found!=m_container.end())
     {
+        std::vector<size_t> mismatches;
+        mismatches.reserve(found->dependencies.size());
+        collectFileInfoMismatchesParallel(found->dependencies, mismatches, system);
+        if (mismatches.empty())
+            return found;
+        if (!finder)
+            return m_container.end();
+
         std::unordered_map<system::path, bool> fileStatus;
         std::unordered_map<std::string, bool> logicalStatus;
-        for (const auto& dependency : found->dependencies)
+        fileStatus.reserve(mismatches.size());
+        logicalStatus.reserve(mismatches.size());
+        for (size_t idx : mismatches)
         {
+            const auto& dependency = found->dependencies[idx];
+            auto makeLogicalKey = [&dependency]()
+            {
+                std::string key;
+                key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
+                key.append(dependency.getRequestingSourceDir().string());
+                key.push_back('|');
+                key.append(dependency.getIdentifier());
+                key.push_back('|');
+                key.push_back(dependency.isStandardInclude() ? '1' : '0');
+                return key;
+            };
+
             if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
             {
                 if (auto it = fileStatus.find(dependency.getAbsolutePath()); it != fileStatus.end())
@@ -709,13 +823,7 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
             }
             else
             {
-                std::string key;
-                key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
-                key.append(dependency.getRequestingSourceDir().string());
-                key.push_back('|');
-                key.append(dependency.getIdentifier());
-                key.push_back('|');
-                key.push_back(dependency.isStandardInclude() ? '1' : '0');
+                auto key = makeLogicalKey();
                 if (auto it = logicalStatus.find(key); it != logicalStatus.end())
                 {
                     if (!it->second)
@@ -725,30 +833,43 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
             }
 
             bool valid = false;
-            if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+            bool precomputedChecked = false;
+            if (!dependency.getAbsolutePath().empty())
             {
-                std::error_code ec;
-                std::filesystem::directory_entry entry(dependency.getAbsolutePath(), ec);
-                if (!ec)
+                if (auto* system = finder->getSystem())
                 {
-                    const auto time = entry.last_write_time(ec);
-                    if (!ec)
+                    system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+                    system->createFile(future, dependency.getAbsolutePath(), system::IFile::ECF_READ);
+                    if (future.wait())
                     {
-                        const auto ticks = time.time_since_epoch().count();
-                        if (dependency.getLastWriteTime() == ticks)
+                        core::smart_refctd_ptr<system::IFile> file;
+                        if (auto lock = future.acquire(); lock)
+                            lock.move_into(file);
+                        if (file)
                         {
-                            const auto size = entry.file_size(ec);
-                            if (!ec && size == dependency.getFileSize())
-                                valid = true;
+                            if (auto precomputed = file->getPrecomputedHash())
+                            {
+                                precomputedChecked = true;
+                                core::blake3_hash_t hash = {};
+                                std::memcpy(hash.data, &(*precomputed), sizeof(hash.data));
+                                if (hash == dependency.getHash())
+                                    valid = true;
+                                else
+                                {
+                                    if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+                                        fileStatus.emplace(dependency.getAbsolutePath(), false);
+                                    else
+                                        logicalStatus.emplace(makeLogicalKey(), false);
+                                    return m_container.end();
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            if (!valid)
+            if (!valid && !precomputedChecked)
             {
-                if (!finder)
-                    return m_container.end();
                 IIncludeLoader::found_t header;
                 if (dependency.standardInclude)
                     header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
@@ -760,36 +881,38 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
                     if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
                         fileStatus.emplace(dependency.getAbsolutePath(), false);
                     else
-                    {
-                        std::string key;
-                        key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
-                        key.append(dependency.getRequestingSourceDir().string());
-                        key.push_back('|');
-                        key.append(dependency.getIdentifier());
-                        key.push_back('|');
-                        key.push_back(dependency.isStandardInclude() ? '1' : '0');
-                        logicalStatus.emplace(std::move(key), false);
-                    }
+                        logicalStatus.emplace(makeLogicalKey(), false);
                     return m_container.end();
+                }
+
+                valid = true;
+                if (header.hasFileInfo)
+                {
+                    dependency.setFileInfo(header.fileSize, header.lastWriteTime, true);
+                    updated = true;
+                }
+            }
+
+            if (valid && dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
+            {
+                uint64_t size = 0;
+                int64_t ticks = 0;
+                if (getFileInfoCached(dependency.getAbsolutePath(), size, ticks, system))
+                {
+                    dependency.setFileInfo(size, ticks, true);
+                    updated = true;
                 }
             }
 
             if (dependency.getHasFileInfo() && !dependency.getAbsolutePath().empty())
                 fileStatus.emplace(dependency.getAbsolutePath(), true);
             else
-            {
-                std::string key;
-                key.reserve(dependency.getIdentifier().size() + dependency.getRequestingSourceDir().string().size() + 4);
-                key.append(dependency.getRequestingSourceDir().string());
-                key.push_back('|');
-                key.append(dependency.getIdentifier());
-                key.push_back('|');
-                key.push_back(dependency.isStandardInclude() ? '1' : '0');
-                logicalStatus.emplace(std::move(key), true);
-            }
+                logicalStatus.emplace(makeLogicalKey(), true);
         }
     }
 
+    if (depsUpdated)
+        *depsUpdated = updated;
     return found;
 }
 
@@ -798,28 +921,66 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     size_t shaderBufferSize = 0;
     core::vector<size_t> offsets(m_container.size());
     core::vector<uint64_t> sizes(m_container.size());
-    json entries;
+    json entries = json::array();
     core::vector<CPUShaderCreationParams> shaderCreationParams;
+    std::vector<uint8_t> depsBuffer;
+    depsBuffer.reserve(m_container.size() * 64u);
 
-    // In a first loop over entries we add all entries and their shader creation parameters to a json, and get the size of the shaders buffer
+    auto write_bytes = [](std::vector<uint8_t>& out, const void* data, size_t size)
+    {
+        const auto* ptr = reinterpret_cast<const uint8_t*>(data);
+        out.insert(out.end(), ptr, ptr + size);
+    };
+    auto write_u32 = [&write_bytes](std::vector<uint8_t>& out, uint32_t value)
+    {
+        write_bytes(out, &value, sizeof(value));
+    };
+    auto write_string = [&write_u32, &write_bytes](std::vector<uint8_t>& out, std::string_view value)
+    {
+        write_u32(out, static_cast<uint32_t>(value.size()));
+        if (!value.empty())
+            write_bytes(out, value.data(), value.size());
+    };
+
+    write_u32(depsBuffer, static_cast<uint32_t>(m_container.size()));
     size_t i = 0u;
     for (auto& entry : m_container) {
-        // Add the entry as a json array
-        entries.emplace_back(entry);
+        json entryJson{
+            { "mainFileContents", entry.mainFileContents },
+            { "compilerArgs", entry.compilerArgs },
+            { "hash", entry.hash.data },
+            { "lookupHash", entry.lookupHash },
+            { "uncompressedContentHash", entry.uncompressedContentHash.data },
+            { "uncompressedSize", entry.uncompressedSize },
+        };
+        entries.emplace_back(std::move(entryJson));
 
-        // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
-        // (where the params array has been moved) we don't have to read the json to get the offsets again
         offsets[i] = shaderBufferSize;
         sizes[i] = entry.spirv->getSize();
-
-        // And add the params to the shader creation parameters array
         shaderCreationParams.emplace_back(entry.compilerArgs.stage, entry.compilerArgs.preprocessorArgs.sourceIdentifier.data(), sizes[i], shaderBufferSize);
-        // Enlarge the shader buffer by the size of the current shader
         shaderBufferSize += sizes[i];
+
+        write_u32(depsBuffer, static_cast<uint32_t>(entry.dependencies.size()));
+        for (const auto& dep : entry.dependencies)
+        {
+            const auto dir = dep.getRequestingSourceDir().generic_string();
+            write_string(depsBuffer, dir);
+            write_string(depsBuffer, dep.getIdentifier());
+            const auto abs = dep.getAbsolutePath().generic_string();
+            write_string(depsBuffer, abs);
+            const uint8_t standardInclude = dep.isStandardInclude() ? 1u : 0u;
+            write_bytes(depsBuffer, &standardInclude, sizeof(standardInclude));
+            write_bytes(depsBuffer, dep.getHash().data, sizeof(dep.getHash().data));
+            const uint64_t fileSize = dep.getFileSize();
+            write_bytes(depsBuffer, &fileSize, sizeof(fileSize));
+            const int64_t lastWriteTime = dep.getLastWriteTime();
+            write_bytes(depsBuffer, &lastWriteTime, sizeof(lastWriteTime));
+            const uint8_t hasFileInfo = dep.getHasFileInfo() ? 1u : 0u;
+            write_bytes(depsBuffer, &hasFileInfo, sizeof(hasFileInfo));
+        }
         i++;
     }
 
-    // Create the containerJson
     json containerJson{
         { "version", VERSION },
         { "entries", std::move(entries) },
@@ -828,66 +989,185 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     std::string dumpedContainerJson = std::move(containerJson.dump());
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
 
-    // Create a buffer able to hold all shaders + the containerJson
-    size_t retValSize = shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength;
+    size_t retValSize = shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + sizeof(uint64_t) + dumpedContainerJsonLength + depsBuffer.size();
     core::vector<uint8_t> retVal(retValSize);
 
-    // first SHADER_BUFFER_SIZE_BYTES (8) in the buffer are the size of the shader buffer
     memcpy(retVal.data(), &shaderBufferSize, SHADER_BUFFER_SIZE_BYTES);
+    memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES, &dumpedContainerJsonLength, sizeof(uint64_t));
 
-    // Loop over entries again, adding each one's shader to the buffer. 
     i = 0u;
+    const size_t shaderOffset = SHADER_BUFFER_SIZE_BYTES + sizeof(uint64_t);
     for (auto& entry : m_container) {
-        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.spirv->getPointer(), sizes[i]);
+        memcpy(retVal.data() + shaderOffset + offsets[i], entry.spirv->getPointer(), sizes[i]);
         i++;
     }
 
-    // Might as well memcpy everything
-    memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
+    const size_t jsonOffset = shaderOffset + shaderBufferSize;
+    memcpy(retVal.data() + jsonOffset, dumpedContainerJson.data(), dumpedContainerJsonLength);
+    if (!depsBuffer.empty())
+        memcpy(retVal.data() + jsonOffset + dumpedContainerJsonLength, depsBuffer.data(), depsBuffer.size());
 
     auto memoryResource = core::make_smart_refctd_ptr<core::adoption_memory_resource<decltype(retVal)>>(std::move(retVal));
     return ICPUBuffer::create({ { retValSize }, memoryResource->getBacker().data(),std::move(memoryResource)}, core::adopt_memory);
 }
 
-core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
+core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache, bool skipDependencies)
 {
     auto retVal = core::make_smart_refctd_ptr<CCache>();
 
-    // First get the size of the shader buffer, stored in the first 8 bytes
-    const uint64_t* cacheStart = reinterpret_cast<const uint64_t*>(serializedCache.data());
-    uint64_t shaderBufferSize = cacheStart[0];
-    // Next up get the json that stores the container data
-    std::span<const char> cacheAsChar = { reinterpret_cast<const char*>(serializedCache.data()), serializedCache.size() };
-    std::string_view containerJsonString(cacheAsChar.begin() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, cacheAsChar.end());
-    json containerJson = json::parse(containerJsonString);
+    if (serializedCache.size() < SHADER_BUFFER_SIZE_BYTES)
+        return nullptr;
 
-    // Check that this cache is from the currently supported version
+    uint64_t shaderBufferSize = 0;
+    std::memcpy(&shaderBufferSize, serializedCache.data(), SHADER_BUFFER_SIZE_BYTES);
+
+    const size_t minOldHeader = SHADER_BUFFER_SIZE_BYTES + shaderBufferSize;
+    if (serializedCache.size() < minOldHeader)
+        return nullptr;
+
+    bool hasBinaryDeps = false;
+    uint64_t jsonSize = 0;
+    size_t jsonOffset = 0;
+    size_t depsOffset = 0;
+    size_t shaderOffset = SHADER_BUFFER_SIZE_BYTES;
+
+    const size_t minNewHeader = SHADER_BUFFER_SIZE_BYTES + sizeof(uint64_t) + shaderBufferSize;
+    if (serializedCache.size() >= minNewHeader)
     {
-        std::string version;
-        containerJson.at("version").get_to(version);
-        if (version != VERSION) {
-            return nullptr;
+        std::memcpy(&jsonSize, serializedCache.data() + SHADER_BUFFER_SIZE_BYTES, sizeof(jsonSize));
+        const size_t candidateJsonOffset = SHADER_BUFFER_SIZE_BYTES + sizeof(uint64_t) + shaderBufferSize;
+        if (candidateJsonOffset + jsonSize <= serializedCache.size())
+        {
+            hasBinaryDeps = true;
+            jsonOffset = candidateJsonOffset;
+            depsOffset = candidateJsonOffset + jsonSize;
+            shaderOffset = SHADER_BUFFER_SIZE_BYTES + sizeof(uint64_t);
         }
     }
 
-    // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
+    if (!hasBinaryDeps)
+    {
+        jsonOffset = SHADER_BUFFER_SIZE_BYTES + shaderBufferSize;
+        jsonSize = serializedCache.size() - jsonOffset;
+        shaderOffset = SHADER_BUFFER_SIZE_BYTES;
+    }
+
+    std::string_view containerJsonString(reinterpret_cast<const char*>(serializedCache.data() + jsonOffset), jsonSize);
+    json containerJson;
+    if (skipDependencies)
+    {
+        bool skipNext = false;
+        auto cb = [&skipNext](int, json::parse_event_t event, json& parsed)
+        {
+            if (event == json::parse_event_t::key && parsed.is_string() && parsed.get_ref<const std::string&>() == "dependencies")
+            {
+                skipNext = true;
+                return true;
+            }
+            if (skipNext)
+            {
+                skipNext = false;
+                return false;
+            }
+            return true;
+        };
+        containerJson = json::parse(containerJsonString, cb, true, true);
+    }
+    else
+    {
+        containerJson = json::parse(containerJsonString);
+    }
+
+    std::string version;
+    containerJson.at("version").get_to(version);
+    if (version != VERSION)
+        return nullptr;
+
     std::vector<SEntry> entries;
     std::vector<CPUShaderCreationParams> shaderCreationParams;
     containerJson.at("entries").get_to(entries);
     containerJson.at("shaderCreationParams").get_to(shaderCreationParams);
 
-    // We must now recreate the shaders, add them to each entry, then move the entry into the multiset
     for (auto i = 0u; i < entries.size(); i++) {
-        // Create buffer to hold the code
         auto code = ICPUBuffer::create({ shaderCreationParams[i].codeByteSize });
-        // Copy the shader bytecode into the buffer
-
-        memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
+        memcpy(code->getPointer(), serializedCache.data() + shaderOffset + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         code->setContentHash(code->computeContentHash());
         entries[i].spirv = std::move(code);
-
-        retVal->insert(std::move(entries[i]));
     }
+
+    if (hasBinaryDeps && !skipDependencies)
+    {
+        auto read_bytes = [](const std::span<const uint8_t> data, size_t& offset, void* dst, size_t size) -> bool
+        {
+            if (offset + size > data.size())
+                return false;
+            std::memcpy(dst, data.data() + offset, size);
+            offset += size;
+            return true;
+        };
+        auto read_u32 = [&read_bytes](const std::span<const uint8_t> data, size_t& offset, uint32_t& out) -> bool
+        {
+            return read_bytes(data, offset, &out, sizeof(out));
+        };
+        auto read_string = [&read_u32, &read_bytes](const std::span<const uint8_t> data, size_t& offset, std::string& out) -> bool
+        {
+            uint32_t size = 0;
+            if (!read_u32(data, offset, size))
+                return false;
+            if (offset + size > data.size())
+                return false;
+            out.assign(reinterpret_cast<const char*>(data.data() + offset), size);
+            offset += size;
+            return true;
+        };
+
+        size_t offset = depsOffset;
+        uint32_t entryCount = 0;
+        if (!read_u32(serializedCache, offset, entryCount))
+            return nullptr;
+        if (entryCount != entries.size())
+            return nullptr;
+
+        for (uint32_t i = 0; i < entryCount; ++i)
+        {
+            uint32_t depCount = 0;
+            if (!read_u32(serializedCache, offset, depCount))
+                return nullptr;
+            entries[i].dependencies.clear();
+            entries[i].dependencies.reserve(depCount);
+            for (uint32_t d = 0; d < depCount; ++d)
+            {
+                std::string dir;
+                std::string identifier;
+                std::string absolutePath;
+                if (!read_string(serializedCache, offset, dir))
+                    return nullptr;
+                if (!read_string(serializedCache, offset, identifier))
+                    return nullptr;
+                if (!read_string(serializedCache, offset, absolutePath))
+                    return nullptr;
+                uint8_t standardInclude = 0;
+                if (!read_bytes(serializedCache, offset, &standardInclude, sizeof(standardInclude)))
+                    return nullptr;
+                core::blake3_hash_t hash = {};
+                if (!read_bytes(serializedCache, offset, hash.data, sizeof(hash.data)))
+                    return nullptr;
+                uint64_t fileSize = 0;
+                if (!read_bytes(serializedCache, offset, &fileSize, sizeof(fileSize)))
+                    return nullptr;
+                int64_t lastWriteTime = 0;
+                if (!read_bytes(serializedCache, offset, &lastWriteTime, sizeof(lastWriteTime)))
+                    return nullptr;
+                uint8_t hasFileInfo = 0;
+                if (!read_bytes(serializedCache, offset, &hasFileInfo, sizeof(hasFileInfo)))
+                    return nullptr;
+                entries[i].dependencies.emplace_back(system::path(dir), identifier, standardInclude != 0, hash, system::path(absolutePath), fileSize, lastWriteTime, hasFileInfo != 0);
+            }
+        }
+    }
+
+    for (auto& entry : entries)
+        retVal->insert(std::move(entry));
 
     return retVal;
 }
@@ -981,7 +1261,15 @@ IShaderCompiler::CPreprocessCache::SProbeResult IShaderCompiler::CPreprocessCach
 	}
 
 	const bool prefixMatch = cache->getEntry().prefixHash == result.prefixHash;
-	const bool depsValid = cache->validateDependencies(finder);
+	if (!prefixMatch)
+	{
+		result.cacheHit = false;
+		result.status = EProbeStatus::PrefixChanged;
+		return result;
+	}
+	bool depsUpdated = false;
+	const bool depsValid = cache->validateDependencies(finder, &depsUpdated);
+	result.depsUpdated = depsUpdated;
 	if (prefixMatch && depsValid)
 	{
 		result.cacheHit = true;
@@ -1037,6 +1325,8 @@ IShaderCompiler::SPreprocessCacheResult IShaderCompiler::preprocessWithCache(std
     {
         result.cacheHit = true;
         result.cacheUsed = true;
+        if (probe.depsUpdated)
+            result.cacheUpdated = true;
     }
     else
     {
@@ -1080,6 +1370,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CPreprocessCache::serialize(
 {
     if (!m_hasEntry)
         return nullptr;
+    ensurePrefixLoaded();
 
     auto write_bytes = [](std::vector<uint8_t>& out, const void* data, size_t size)
     {
@@ -1104,7 +1395,8 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CPreprocessCache::serialize(
     write_string(out, VERSION);
     write_bytes(out, &m_entry.prefixHash, sizeof(m_entry.prefixHash));
     write_u32(out, m_entry.pragmaStage);
-    write_string(out, m_entry.preprocessedPrefix);
+    const uint32_t prefixSize = static_cast<uint32_t>(m_entry.preprocessedPrefix.size());
+    write_u32(out, prefixSize);
 
     write_u32(out, static_cast<uint32_t>(m_entry.macroDefs.size()));
     for (const auto& macro : m_entry.macroDefs)
@@ -1132,6 +1424,8 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CPreprocessCache::serialize(
         const uint8_t hasFileInfo = dep.getHasFileInfo() ? 1u : 0u;
         write_bytes(out, &hasFileInfo, sizeof(hasFileInfo));
     }
+    if (prefixSize)
+        write_bytes(out, m_entry.preprocessedPrefix.data(), m_entry.preprocessedPrefix.size());
 
     auto buffer = ICPUBuffer::create({ out.size() });
     if (!buffer)
@@ -1188,7 +1482,8 @@ core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPrep
         return nullptr;
     if (!read_u32(serializedCache, offset, entry.pragmaStage))
         return nullptr;
-    if (!read_string(serializedCache, offset, entry.preprocessedPrefix))
+    uint32_t prefixSize = 0;
+    if (!read_u32(serializedCache, offset, prefixSize))
         return nullptr;
 
     uint32_t macroCount = 0;
@@ -1251,11 +1546,23 @@ core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPrep
         entry.dependencies.emplace_back(system::path(dir), identifier, standardInclude != 0, hash, system::path(absolutePath), fileSize, lastWriteTime, hasFileInfo != 0);
     }
 
+    if (offset + prefixSize > serializedCache.size())
+        return nullptr;
+    if (prefixSize)
+    {
+        entry.preprocessedPrefix.assign(reinterpret_cast<const char*>(serializedCache.data() + offset), prefixSize);
+        offset += prefixSize;
+    }
+
+    retVal->m_prefixLoaded = true;
+    retVal->m_backingPath.clear();
+    retVal->m_prefixOffset = 0;
+    retVal->m_prefixSize = 0;
     retVal->m_hasEntry = true;
     return retVal;
 }
 
-core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPreprocessCache::loadFromFile(const system::path& path, ELoadStatus& status)
+core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPreprocessCache::loadFromFile(const system::path& path, ELoadStatus& status, bool loadPrefix)
 {
     status = ELoadStatus::Missing;
     if (!std::filesystem::exists(path))
@@ -1277,22 +1584,193 @@ core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPrep
         return nullptr;
     }
 
-    std::vector<uint8_t> data(size);
-    if (!in.read(reinterpret_cast<char*>(data.data()), data.size()))
+    auto read_bytes = [&in](void* dst, size_t count) -> bool
+    {
+        return bool(in.read(reinterpret_cast<char*>(dst), count));
+    };
+    auto read_u32 = [&read_bytes](uint32_t& out) -> bool
+    {
+        return read_bytes(&out, sizeof(out));
+    };
+    auto read_string = [&read_u32, &read_bytes](std::string& out) -> bool
+    {
+        uint32_t len = 0;
+        if (!read_u32(len))
+            return false;
+        if (!len)
+        {
+            out.clear();
+            return true;
+        }
+        out.resize(len);
+        return read_bytes(out.data(), len);
+    };
+
+    uint32_t magic = 0;
+    if (!read_u32(magic) || magic != 0x50435250u)
     {
         status = ELoadStatus::Invalid;
         return nullptr;
     }
 
-    auto cache = deserialize(std::span<const uint8_t>(data.data(), data.size()));
-    if (!cache)
+    std::string version;
+    if (!read_string(version) || version != VERSION)
     {
         status = ELoadStatus::Invalid;
         return nullptr;
     }
 
+    auto retVal = core::make_smart_refctd_ptr<CPreprocessCache>();
+    auto& entry = retVal->m_entry;
+    if (!read_bytes(&entry.prefixHash, sizeof(entry.prefixHash)))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+    if (!read_u32(entry.pragmaStage))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    uint32_t prefixSize = 0;
+    if (!read_u32(prefixSize))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    uint32_t macroCount = 0;
+    if (!read_u32(macroCount))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+    entry.macroDefs.clear();
+    entry.macroDefs.reserve(macroCount);
+    for (uint32_t i = 0; i < macroCount; ++i)
+    {
+        std::string macro;
+        if (!read_string(macro))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        entry.macroDefs.emplace_back(std::move(macro));
+    }
+
+    uint32_t flagCount = 0;
+    if (!read_u32(flagCount))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+    entry.dxcFlags.clear();
+    entry.dxcFlags.reserve(flagCount);
+    for (uint32_t i = 0; i < flagCount; ++i)
+    {
+        std::string flag;
+        if (!read_string(flag))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        entry.dxcFlags.emplace_back(std::move(flag));
+    }
+
+    uint32_t depCount = 0;
+    if (!read_u32(depCount))
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+    entry.dependencies.clear();
+    entry.dependencies.reserve(depCount);
+    for (uint32_t i = 0; i < depCount; ++i)
+    {
+        std::string dir;
+        std::string identifier;
+        if (!read_string(dir) || !read_string(identifier))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        std::string absolutePath;
+        if (!read_string(absolutePath))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        uint8_t standardInclude = 0;
+        if (!read_bytes(&standardInclude, sizeof(standardInclude)))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        core::blake3_hash_t hash = {};
+        if (!read_bytes(hash.data, sizeof(hash.data)))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        uint64_t fileSize = 0;
+        if (!read_bytes(&fileSize, sizeof(fileSize)))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        int64_t lastWriteTime = 0;
+        if (!read_bytes(&lastWriteTime, sizeof(lastWriteTime)))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        uint8_t hasFileInfo = 0;
+        if (!read_bytes(&hasFileInfo, sizeof(hasFileInfo)))
+        {
+            status = ELoadStatus::Invalid;
+            return nullptr;
+        }
+        entry.dependencies.emplace_back(system::path(dir), identifier, standardInclude != 0, hash, system::path(absolutePath), fileSize, lastWriteTime, hasFileInfo != 0);
+    }
+
+    const auto prefixOffset = static_cast<uint64_t>(in.tellg());
+    if (prefixOffset + prefixSize > size)
+    {
+        status = ELoadStatus::Invalid;
+        return nullptr;
+    }
+
+    if (loadPrefix)
+    {
+        entry.preprocessedPrefix.clear();
+        if (prefixSize)
+        {
+            entry.preprocessedPrefix.resize(prefixSize);
+            if (!read_bytes(entry.preprocessedPrefix.data(), prefixSize))
+            {
+                status = ELoadStatus::Invalid;
+                return nullptr;
+            }
+        }
+        retVal->m_prefixLoaded = true;
+        retVal->m_backingPath.clear();
+        retVal->m_prefixOffset = 0;
+        retVal->m_prefixSize = 0;
+    }
+    else
+    {
+        if (prefixSize)
+            in.seekg(static_cast<std::streamoff>(prefixSize), std::ios::cur);
+        retVal->m_prefixLoaded = false;
+        retVal->m_backingPath = path;
+        retVal->m_prefixOffset = prefixOffset;
+        retVal->m_prefixSize = prefixSize;
+    }
+
+    retVal->m_hasEntry = true;
     status = ELoadStatus::Loaded;
-    return cache;
+    return retVal;
 }
 
 bool IShaderCompiler::CPreprocessCache::writeToFile(const system::path& path, const CPreprocessCache& cache)
@@ -1313,15 +1791,40 @@ bool IShaderCompiler::CPreprocessCache::writeToFile(const system::path& path, co
     return bool(out);
 }
 
-bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinder* finder) const
+bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinder* finder, bool* depsUpdated) const
 {
     if (!m_hasEntry || !finder)
         return false;
+    if (depsUpdated)
+        *depsUpdated = false;
+    bool updated = false;
+    auto* system = finder->getSystem();
+
+    std::vector<size_t> mismatches;
+    mismatches.reserve(m_entry.dependencies.size());
+    collectFileInfoMismatchesParallel(m_entry.dependencies, mismatches, system);
+    if (mismatches.empty())
+        return true;
 
     std::unordered_map<system::path, bool> fileStatus;
     std::unordered_map<std::string, bool> logicalStatus;
-    for (const auto& dep : m_entry.dependencies)
+    fileStatus.reserve(mismatches.size());
+    logicalStatus.reserve(mismatches.size());
+    for (size_t idx : mismatches)
     {
+        const auto& dep = m_entry.dependencies[idx];
+        auto makeLogicalKey = [&dep]()
+        {
+            std::string key;
+            key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
+            key.append(dep.getRequestingSourceDir().string());
+            key.push_back('|');
+            key.append(dep.getIdentifier());
+            key.push_back('|');
+            key.push_back(dep.isStandardInclude() ? '1' : '0');
+            return key;
+        };
+
         if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
         {
             if (auto it = fileStatus.find(dep.getAbsolutePath()); it != fileStatus.end())
@@ -1333,13 +1836,7 @@ bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinde
         }
         else
         {
-            std::string key;
-            key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
-            key.append(dep.getRequestingSourceDir().string());
-            key.push_back('|');
-            key.append(dep.getIdentifier());
-            key.push_back('|');
-            key.push_back(dep.isStandardInclude() ? '1' : '0');
+            auto key = makeLogicalKey();
             if (auto it = logicalStatus.find(key); it != logicalStatus.end())
             {
                 if (!it->second)
@@ -1348,76 +1845,128 @@ bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinde
             }
         }
 
-    bool valid = false;
-    if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
-    {
-        std::error_code ec;
-        std::filesystem::directory_entry entry(dep.getAbsolutePath(), ec);
-        if (!ec)
+        bool valid = false;
+        bool precomputedChecked = false;
+        if (system && !dep.getAbsolutePath().empty())
         {
-            const auto time = entry.last_write_time(ec);
-            if (!ec)
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            system->createFile(future, dep.getAbsolutePath(), system::IFile::ECF_READ);
+            if (future.wait())
             {
-                const auto ticks = time.time_since_epoch().count();
-                if (dep.getLastWriteTime() == ticks)
+                core::smart_refctd_ptr<system::IFile> file;
+                if (auto lock = future.acquire(); lock)
+                    lock.move_into(file);
+                if (file)
                 {
-                    const auto size = entry.file_size(ec);
-                    if (!ec && size == dep.getFileSize())
-                        valid = true;
+                    if (auto precomputed = file->getPrecomputedHash())
+                    {
+                        precomputedChecked = true;
+                        core::blake3_hash_t hash = {};
+                        std::memcpy(hash.data, &(*precomputed), sizeof(hash.data));
+                        if (hash == dep.getHash())
+                        {
+                            valid = true;
+                            if (!dep.getHasFileInfo())
+                            {
+                                dep.setFileInfo(file->getSize(), file->getLastWriteTime().time_since_epoch().count(), true);
+                                updated = true;
+                            }
+                        }
+                        else
+                        {
+                            if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+                                fileStatus.emplace(dep.getAbsolutePath(), false);
+                            else
+                                logicalStatus.emplace(makeLogicalKey(), false);
+                            return false;
+                        }
+                    }
                 }
             }
         }
-    }
 
-        if (!valid)
+        if (!valid && !precomputedChecked)
         {
+            const std::string identifier(dep.getIdentifier());
             IIncludeLoader::found_t header;
             if (dep.isStandardInclude())
-                header = finder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+                header = finder->getIncludeStandard(dep.getRequestingSourceDir(), identifier);
             else
-                header = finder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
-
-            if (!header || header.hash != dep.getHash())
+                header = finder->getIncludeRelative(dep.getRequestingSourceDir(), identifier);
+            if (header.hash != dep.getHash())
             {
                 if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
                     fileStatus.emplace(dep.getAbsolutePath(), false);
                 else
-                {
-                    std::string key;
-                    key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
-                    key.append(dep.getRequestingSourceDir().string());
-                    key.push_back('|');
-                    key.append(dep.getIdentifier());
-                    key.push_back('|');
-                    key.push_back(dep.isStandardInclude() ? '1' : '0');
-                    logicalStatus.emplace(std::move(key), false);
-                }
+                    logicalStatus.emplace(makeLogicalKey(), false);
                 return false;
+            }
+
+            valid = true;
+            if (header.hasFileInfo)
+            {
+                dep.setFileInfo(header.fileSize, header.lastWriteTime, true);
+                updated = true;
+            }
+        }
+
+        if (valid && dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
+        {
+            uint64_t size = 0;
+            int64_t ticks = 0;
+            if (getFileInfoCached(dep.getAbsolutePath(), size, ticks, system))
+            {
+                dep.setFileInfo(size, ticks, true);
+                updated = true;
             }
         }
 
         if (dep.getHasFileInfo() && !dep.getAbsolutePath().empty())
             fileStatus.emplace(dep.getAbsolutePath(), true);
         else
-        {
-            std::string key;
-            key.reserve(dep.getIdentifier().size() + dep.getRequestingSourceDir().string().size() + 4);
-            key.append(dep.getRequestingSourceDir().string());
-            key.push_back('|');
-            key.append(dep.getIdentifier());
-            key.push_back('|');
-            key.push_back(dep.isStandardInclude() ? '1' : '0');
-            logicalStatus.emplace(std::move(key), true);
-        }
+            logicalStatus.emplace(makeLogicalKey(), true);
     }
+
+    if (depsUpdated)
+        *depsUpdated = updated;
     return true;
 }
+
+void IShaderCompiler::CPreprocessCache::ensurePrefixLoaded() const
+{
+    if (m_prefixLoaded)
+        return;
+    if (m_prefixSize == 0)
+    {
+        m_prefixLoaded = true;
+        return;
+    }
+    if (m_backingPath.empty())
+        return;
+
+    std::ifstream in(m_backingPath, std::ios::binary);
+    if (!in)
+        return;
+    in.seekg(static_cast<std::streamoff>(m_prefixOffset), std::ios::beg);
+    if (!in)
+        return;
+
+    std::string prefix;
+    prefix.resize(m_prefixSize);
+    if (!in.read(prefix.data(), prefix.size()))
+        return;
+
+    m_entry.preprocessedPrefix = std::move(prefix);
+    m_prefixLoaded = true;
+}
+
 
 std::string IShaderCompiler::CPreprocessCache::buildCombinedCode(std::string_view body, std::string_view sourceIdentifier) const
 {
     if (!m_hasEntry)
         return std::string(body);
 
+    ensurePrefixLoaded();
     std::string out;
     size_t reserve = m_entry.preprocessedPrefix.size() + body.size();
     for (const auto& m : m_entry.macroDefs)

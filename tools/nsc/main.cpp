@@ -17,6 +17,7 @@
 #include <argparse/argparse.hpp>
 #include "nbl/asset/metadata/CHLSLMetadata.h"
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
+#include "nbl/core/hash/blake.h"
 #include "nbl/core/hash/fnv1a64.h"
 #include "nlohmann/json.hpp"
 
@@ -86,8 +87,8 @@ public:
             return;
 
         const auto parent = std::filesystem::path(m_logPath).parent_path();
-        if (!parent.empty() && !std::filesystem::exists(parent))
-            std::filesystem::create_directories(parent);
+        if (!parent.empty() && m_system && !m_system->exists(parent, IFileBase::ECF_READ))
+            m_system->createDirectory(parent);
 
         for (auto attempt = 0u; attempt < kDeleteRetries; ++attempt)
         {
@@ -386,6 +387,33 @@ public:
                 m_include_search_paths.emplace_back(m_arguments[i + 1]);
         }
 
+        auto addIncludePath = [&](const std::filesystem::path& path)
+        {
+            if (path.empty())
+                return;
+            std::error_code ec;
+            const auto normalized = std::filesystem::weakly_canonical(path, ec).generic_string();
+            if (normalized.empty())
+                return;
+            if (std::find(m_include_search_paths.begin(), m_include_search_paths.end(), normalized) == m_include_search_paths.end())
+                m_include_search_paths.emplace_back(normalized);
+        };
+
+        if (!rawArgs.empty())
+        {
+            std::error_code ec;
+            std::filesystem::path exePath = rawArgs.front();
+            if (std::filesystem::exists(exePath, ec))
+            {
+                exePath = std::filesystem::weakly_canonical(exePath, ec);
+                if (!ec)
+                {
+                    const auto root = exePath.parent_path().parent_path().parent_path();
+                    addIncludePath(root / "include");
+                }
+            }
+        }
+
         if (verbose)
         {
             auto join = [](const std::vector<std::string>& items)
@@ -427,7 +455,7 @@ public:
 
         const auto start = std::chrono::high_resolution_clock::now();
         const std::string preprocessedOutputPath = outputFilepath + ".pre.hlsl";
-        const auto job = runShaderJob(shader.get(), shaderStage, fileToCompile, dep, shaderCache, preCache, preprocessOnly, preprocessedOutputPath, verbose);
+        const auto job = runShaderJob(shader.get(), shaderStage, fileToCompile, dep, shaderCache, preCache, preprocessOnly, outputFilepath, preprocessedOutputPath, verbose);
         const auto end = std::chrono::high_resolution_clock::now();
 
         const char* const op = preprocessOnly ? "preprocessing" : "compilation";
@@ -447,23 +475,49 @@ public:
         }
 
         const auto outParent = std::filesystem::path(outputFilepath).parent_path();
-        if (!outParent.empty() && !std::filesystem::exists(outParent))
+        if (!outParent.empty() && m_system && !m_system->exists(outParent, IFileBase::ECF_READ))
         {
-            if (!std::filesystem::create_directories(outParent))
+            if (!m_system->createDirectory(outParent))
             {
                 m_logger->log("Failed to create parent directory for output %s.", ILogger::ELL_ERROR, outputFilepath.c_str());
                 return false;
             }
         }
 
-        if (!writeBinaryFile(m_system.get(), std::filesystem::path(outputFilepath), job.view.data(), job.view.size()))
+        if (!job.view.empty())
         {
-            m_logger->log("Failed to write output file: %s", ILogger::ELL_ERROR, outputFilepath.c_str());
-            return false;
+            const auto writeStart = std::chrono::high_resolution_clock::now();
+            if (!writeBinaryFile(m_system.get(), std::filesystem::path(outputFilepath), job.view.data(), job.view.size()))
+            {
+                m_logger->log("Failed to write output file: %s", ILogger::ELL_ERROR, outputFilepath.c_str());
+                return false;
+            }
+            OutputHashRecord record = {};
+            record.size = job.view.size();
+            {
+                core::blake3_hasher hasher;
+                hasher.update(job.view.data(), job.view.size());
+                record.hash = static_cast<core::blake3_hash_t>(hasher);
+            }
+            const auto hashPath = makeOutputHashPath(std::filesystem::path(outputFilepath));
+            if (!writeBinaryFile(m_system.get(), hashPath, &record, sizeof(record)))
+                m_logger->log("Failed to write output hash file: %s", ILogger::ELL_WARNING, hashPath.string().c_str());
+            const auto writeEnd = std::chrono::high_resolution_clock::now();
+            if (verbose)
+            {
+                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(writeEnd - writeStart).count();
+                m_logger->log("Write output took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(duration));
+            }
+        }
+        else if (verbose)
+        {
+            m_logger->log("Output up to date. Skipping write.", ILogger::ELL_DEBUG);
         }
 
         const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
         m_logger->log("Total took: %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
+
+        flushSystemQueue(m_system.get(), std::filesystem::path(outputFilepath));
 
         return true;
     }
@@ -507,9 +561,21 @@ private:
         std::string_view view;
     };
 
+    struct OutputHashRecord
+    {
+        core::blake3_hash_t hash = {};
+        uint64_t size = 0;
+    };
+
     static std::filesystem::path makeCachePath(std::filesystem::path outputPath)
     {
         outputPath += ".ppcache";
+        return outputPath;
+    }
+
+    static std::filesystem::path makeOutputHashPath(std::filesystem::path outputPath)
+    {
+        outputPath += ".hash";
         return outputPath;
     }
 
@@ -519,7 +585,7 @@ private:
         return outputPath;
     }
 
-    static smart_refctd_ptr<IShaderCompiler::CCache> loadShaderCache(system::ISystem* system, const std::filesystem::path& path, CacheLoadStatus& status)
+    static smart_refctd_ptr<IShaderCompiler::CCache> loadShaderCache(system::ISystem* system, const std::filesystem::path& path, CacheLoadStatus& status, bool skipDependencies)
     {
         status = CacheLoadStatus::Missing;
         if (!system)
@@ -531,17 +597,21 @@ private:
         if (!system->exists(path, IFileBase::ECF_READ))
             return nullptr;
 
-        ISystem::future_t<smart_refctd_ptr<IFile>> future;
-        system->createFile(future, path, IFileBase::ECF_READ);
-        if (!future.wait())
+        auto openFile = [&](const core::bitflag<IFileBase::E_CREATE_FLAGS> flags) -> smart_refctd_ptr<IFile>
         {
-            status = CacheLoadStatus::Invalid;
-            return nullptr;
-        }
+            ISystem::future_t<smart_refctd_ptr<IFile>> future;
+            system->createFile(future, path, flags);
+            if (!future.wait())
+                return nullptr;
+            smart_refctd_ptr<IFile> file;
+            if (auto lock = future.acquire(); lock)
+                lock.move_into(file);
+            return file;
+        };
 
-        smart_refctd_ptr<IFile> file;
-        if (auto lock = future.acquire(); lock)
-            lock.move_into(file);
+        smart_refctd_ptr<IFile> file = openFile(bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_READ) | IFileBase::ECF_MAPPABLE);
+        if (!file)
+            file = openFile(bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_READ));
         if (!file)
         {
             status = CacheLoadStatus::Invalid;
@@ -555,16 +625,27 @@ private:
             return nullptr;
         }
 
-        std::vector<uint8_t> data(size);
-        IFile::success_t succ;
-        file->read(succ, data.data(), 0, size);
-        if (!succ || succ.getBytesProcessed(true) != size)
+        const auto* mapped = static_cast<const uint8_t*>(file->getMappedPointer());
+        std::vector<uint8_t> data;
+        std::span<const uint8_t> serialized;
+        if (mapped)
         {
-            status = CacheLoadStatus::Invalid;
-            return nullptr;
+            serialized = std::span<const uint8_t>(mapped, size);
+        }
+        else
+        {
+            data.resize(size);
+            IFile::success_t succ;
+            file->read(succ, data.data(), 0, size);
+            if (!succ || succ.getBytesProcessed(true) != size)
+            {
+                status = CacheLoadStatus::Invalid;
+                return nullptr;
+            }
+            serialized = std::span<const uint8_t>(data.data(), data.size());
         }
 
-        auto cache = IShaderCompiler::CCache::deserialize(std::span<const uint8_t>(data.data(), data.size()));
+        auto cache = IShaderCompiler::CCache::deserialize(serialized, skipDependencies);
         if (!cache)
         {
             status = CacheLoadStatus::Invalid;
@@ -575,19 +656,84 @@ private:
         return cache;
     }
 
+    static bool getFileInfo(system::ISystem* system, const std::filesystem::path& path, uint64_t& sizeOut, int64_t& timeOut)
+    {
+        if (!system || !system->exists(path, IFileBase::ECF_READ))
+            return false;
+
+        ISystem::future_t<smart_refctd_ptr<IFile>> future;
+        system->createFile(future, path, IFileBase::ECF_READ);
+        if (!future.wait())
+            return false;
+
+        smart_refctd_ptr<IFile> file;
+        if (auto lock = future.acquire(); lock)
+            lock.move_into(file);
+        if (!file)
+            return false;
+
+        sizeOut = file->getSize();
+        timeOut = file->getLastWriteTime().time_since_epoch().count();
+        return sizeOut != 0;
+    }
+
+    static bool readBinaryFile(system::ISystem* system, const std::filesystem::path& path, void* data, size_t size)
+    {
+        if (!system)
+            return false;
+        if (!system->exists(path, IFileBase::ECF_READ))
+            return false;
+
+        ISystem::future_t<smart_refctd_ptr<IFile>> future;
+        system->createFile(future, path, IFileBase::ECF_READ);
+        if (!future.wait())
+            return false;
+
+        smart_refctd_ptr<IFile> file;
+        if (auto lock = future.acquire(); lock)
+            lock.move_into(file);
+        if (!file || file->getSize() != size)
+            return false;
+
+        IFile::success_t succ;
+        file->read(succ, data, 0, size);
+        return succ.getBytesProcessed(true) == size;
+    }
+
     static bool writeBinaryFile(system::ISystem* system, const std::filesystem::path& path, const void* data, size_t size)
     {
         if (!system)
             return false;
 
         const auto parent = path.parent_path();
-        if (!parent.empty() && !std::filesystem::exists(parent))
-            std::filesystem::create_directories(parent);
+        if (!parent.empty() && !system->exists(parent, IFileBase::ECF_READ))
+            system->createDirectory(parent);
 
-        system->deleteFile(path);
+        if (!system->exists(path, IFileBase::ECF_READ))
+        {
+            ISystem::future_t<smart_refctd_ptr<IFile>> future;
+            system->createFile(future, path, bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_WRITE) | IFileBase::ECF_SHARE_READ_WRITE | IFileBase::ECF_SHARE_DELETE);
+            if (!future.wait())
+                return false;
+
+            smart_refctd_ptr<IFile> file;
+            if (auto lock = future.acquire(); lock)
+                lock.move_into(file);
+            if (!file)
+                return false;
+
+            IFile::success_t succ;
+            file->write(succ, data, 0, size);
+            return succ.getBytesProcessed(true) == size;
+        }
+
+        std::filesystem::path tempPath = path;
+        tempPath += ".tmp";
+        tempPath += std::to_string(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+        system->deleteFile(tempPath);
 
         ISystem::future_t<smart_refctd_ptr<IFile>> future;
-        system->createFile(future, path, bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_WRITE) | IFileBase::ECF_SHARE_READ_WRITE | IFileBase::ECF_SHARE_DELETE);
+        system->createFile(future, tempPath, bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_WRITE) | IFileBase::ECF_SHARE_READ_WRITE | IFileBase::ECF_SHARE_DELETE);
         if (!future.wait())
             return false;
 
@@ -599,7 +745,34 @@ private:
 
         IFile::success_t succ;
         file->write(succ, data, 0, size);
-        return succ.getBytesProcessed(true) == size;
+        if (succ.getBytesProcessed(true) != size)
+        {
+            system->deleteFile(tempPath);
+            return false;
+        }
+
+        file = nullptr;
+        system->deleteFile(path);
+        const std::error_code moveError = system->moveFileOrDirectory(tempPath, path);
+        if (moveError)
+        {
+            system->deleteFile(tempPath);
+            return false;
+        }
+        return true;
+    }
+
+    static void flushSystemQueue(system::ISystem* system, const std::filesystem::path& path)
+    {
+        if (!system)
+            return;
+
+        ISystem::future_t<smart_refctd_ptr<IFile>> future;
+        system->createFile(future, path, IFileBase::ECF_READ);
+        if (!future.wait())
+            return;
+        if (auto lock = future.acquire(); lock)
+            lock.discard();
     }
 
     static bool writeShaderCache(system::ISystem* system, const std::filesystem::path& path, const IShaderCompiler::CCache& cache)
@@ -630,6 +803,7 @@ private:
 
         for (const auto& a : args)
         {
+            if (split(a, "-I")) continue;
             if (split(a, "-MF")) continue;
             if (split(a, "-Fo")) continue;
             if (split(a, "-Fc")) continue;
@@ -694,7 +868,7 @@ private:
             m_logger->log("Saved \"%s\"", ILogger::ELL_INFO, oPath.string().c_str());
     }
 
-    RunResult runShaderJob(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& dep, const ShaderCacheConfig& shaderCache, const PreprocessCacheConfig& preCache, const bool preprocessOnly, std::string_view preprocessedOutputPath, const bool verbose)
+    RunResult runShaderJob(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& dep, const ShaderCacheConfig& shaderCache, const PreprocessCacheConfig& preCache, const bool preprocessOnly, std::string_view outputFilepath, std::string_view preprocessedOutputPath, const bool verbose)
     {
         RunResult r;
         auto makeIncludeFinder = [&]()
@@ -707,12 +881,15 @@ private:
         };
 
         const char* codePtr = (const char*)shader->getContent()->getPointer();
-        std::string_view code(codePtr, std::strlen(codePtr));
+        const size_t codeSize = shader->getContent()->getSize();
+        std::string_view code(codePtr, codeSize);
+        if (!code.empty() && code.back() == '\0')
+            code.remove_suffix(1);
         CHLSLCompiler::SPreprocessorOptions preOpt = {};
         preOpt.sourceIdentifier = sourceIdentifier;
         preOpt.logger = m_logger.get();
         preOpt.forceIncludes = std::span<const std::string>(m_force_includes);
-        preOpt.depfile = dep.enabled;
+        preOpt.depfile = false;
         preOpt.depfilePath = dep.path;
         preOpt.codeForCache = code;
 
@@ -731,20 +908,25 @@ private:
 
         const bool useShaderCache = shaderCache.enabled && !preprocessOnly;
         const bool usePreCache = preCache.enabled && !preprocessOnly;
+        const bool validateCacheDeps = true;
 
         struct ShaderCacheProbeResult
         {
             CacheLoadStatus status = CacheLoadStatus::Missing;
             bool hit = false;
             bool entryReady = false;
+            bool depsUpdated = false;
             smart_refctd_ptr<IShaderCompiler::CCache> cacheObj;
             IShaderCompiler::CCache::SEntry entry;
             std::chrono::nanoseconds duration = {};
+            std::chrono::nanoseconds loadDuration = {};
+            std::chrono::nanoseconds validateDuration = {};
         };
 
         struct PreprocessCacheProbeResult
         {
             bool skipped = false;
+            bool updateSkipped = false;
             bool ok = false;
             IShaderCompiler::SPreprocessCacheResult result = {};
             IShaderCompiler::CPreprocessCache::ELoadStatus loadStatus = IShaderCompiler::CPreprocessCache::ELoadStatus::Missing;
@@ -760,15 +942,21 @@ private:
         if (useShaderCache)
         {
             const auto start = clock_t::now();
-            auto finder = makeIncludeFinder();
-            shaderProbe.cacheObj = loadShaderCache(m_system.get(), shaderCache.path, shaderProbe.status);
+            const auto loadStart = clock_t::now();
+            shaderProbe.cacheObj = loadShaderCache(m_system.get(), shaderCache.path, shaderProbe.status, false);
+            const auto loadEnd = clock_t::now();
             if (!shaderProbe.cacheObj)
                 shaderProbe.cacheObj = make_smart_refctd_ptr<IShaderCompiler::CCache>();
             if (shaderProbe.status == CacheLoadStatus::Loaded)
             {
-                shaderProbe.hit = shaderProbe.cacheObj->findEntryForCode(code, opt, finder.get(), shaderProbe.entry);
+                auto finder = makeIncludeFinder();
+                const auto validateStart = clock_t::now();
+                shaderProbe.hit = shaderProbe.cacheObj->findEntryForCode(code, opt, finder.get(), shaderProbe.entry, validateCacheDeps, &shaderProbe.depsUpdated);
+                const auto validateEnd = clock_t::now();
                 shaderProbe.entryReady = shaderProbe.hit;
+                shaderProbe.validateDuration = validateEnd - validateStart;
             }
+            shaderProbe.loadDuration = loadEnd - loadStart;
             shaderProbe.duration = clock_t::now() - start;
         }
 
@@ -784,7 +972,7 @@ private:
             {
                 const auto start = clock_t::now();
                 auto finder = makeIncludeFinder();
-                preProbe.cacheObj = IShaderCompiler::CPreprocessCache::loadFromFile(preCache.path, preProbe.loadStatus);
+                preProbe.cacheObj = IShaderCompiler::CPreprocessCache::loadFromFile(preCache.path, preProbe.loadStatus, false);
                 if (!preProbe.cacheObj)
                     preProbe.cacheObj = make_smart_refctd_ptr<IShaderCompiler::CPreprocessCache>();
 
@@ -819,7 +1007,7 @@ private:
             return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
         };
 
-        auto writeDepfileFromDependencies = [&](const IShaderCompiler::CCache::SEntry::dependency_container_t& dependencies) -> bool
+        auto writeDepfileFromDependencies = [&](const IShaderCompiler::CCache::SEntry::dependency_container_t& dependencies, bool allowSkipIfExists) -> bool
         {
             if (!dep.enabled)
                 return true;
@@ -828,26 +1016,125 @@ private:
                 m_logger->log("Depfile path is empty.", ILogger::ELL_ERROR);
                 return false;
             }
-            IShaderCompiler::DepfileWriteParams params = {};
-            const std::string depfilePathString = preOpt.depfilePath.generic_string();
-            params.depfilePath = depfilePathString;
-            params.sourceIdentifier = preOpt.sourceIdentifier;
-            if (!params.sourceIdentifier.empty())
-                params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
-            params.system = m_system.get();
-            return IShaderCompiler::writeDepfile(params, dependencies, nullptr, preOpt.logger);
+            if (allowSkipIfExists && m_system && m_system->exists(preOpt.depfilePath, IFileBase::ECF_READ))
+                return true;
+
+            auto escapeDepPath = [](const std::string& path) -> std::string
+            {
+                std::string normalized = path;
+                std::replace(normalized.begin(), normalized.end(), '\\', '/');
+                std::string out;
+                out.reserve(normalized.size());
+                for (const char c : normalized)
+                {
+                    if (c == ' ' || c == '#')
+                        out.push_back('\\');
+                    if (c == '$')
+                    {
+                        out.push_back('$');
+                        out.push_back('$');
+                        continue;
+                    }
+                    out.push_back(c);
+                }
+                return out;
+            };
+
+            std::vector<std::string> depPaths;
+            depPaths.reserve(dependencies.size() + 1);
+
+            auto addDepPath = [&](std::filesystem::path path)
+            {
+                if (path.empty())
+                    return;
+                if (path.is_relative())
+                    return;
+                auto normalized = path.generic_string();
+                if (normalized.empty() || normalized.find_first_of("\r\n") != std::string::npos)
+                    return;
+                depPaths.emplace_back(std::move(normalized));
+            };
+
+            if (!preOpt.sourceIdentifier.empty())
+                addDepPath(std::filesystem::path(std::string(preOpt.sourceIdentifier)));
+
+            for (const auto& depEntry : dependencies)
+            {
+                if (!depEntry.getHasFileInfo())
+                    continue;
+                const auto& absPath = depEntry.getAbsolutePath();
+                if (absPath.empty())
+                    continue;
+                addDepPath(absPath);
+            }
+
+            std::sort(depPaths.begin(), depPaths.end());
+            depPaths.erase(std::unique(depPaths.begin(), depPaths.end()), depPaths.end());
+
+            std::filesystem::path targetPath = preOpt.depfilePath;
+            if (targetPath.extension() == ".d")
+                targetPath.replace_extension();
+            const std::string target = escapeDepPath(targetPath.generic_string());
+
+            std::string depfileContents;
+            depfileContents.append(target);
+            depfileContents.append(":");
+            if (!depPaths.empty())
+            {
+                depfileContents.append(" \\\n");
+                for (size_t index = 0; index < depPaths.size(); ++index)
+                {
+                    depfileContents.append(" ");
+                    depfileContents.append(escapeDepPath(depPaths[index]));
+                    if (index + 1 < depPaths.size())
+                        depfileContents.append(" \\\n");
+                }
+            }
+            depfileContents.append("\n");
+
+            return writeBinaryFile(m_system.get(), std::filesystem::path(preOpt.depfilePath), depfileContents.data(), depfileContents.size());
+        };
+
+        auto isOutputUpToDate = [&](const IShaderCompiler::CCache::SEntry& entry) -> bool
+        {
+            if (outputFilepath.empty())
+                return false;
+            uint64_t outSize = 0;
+            int64_t outTime = 0;
+            if (!getFileInfo(m_system.get(), std::filesystem::path(outputFilepath), outSize, outTime))
+                return false;
+            if (entry.uncompressedSize == 0 || outSize != entry.uncompressedSize)
+                return false;
+            const auto hashPath = makeOutputHashPath(std::filesystem::path(outputFilepath));
+            OutputHashRecord record = {};
+            const bool hashOk = readBinaryFile(m_system.get(), hashPath, &record, sizeof(record));
+            if (!hashOk || record.size != entry.uncompressedSize || record.hash != entry.uncompressedContentHash)
+                return false;
+            uint64_t hashSize = 0;
+            int64_t hashTime = 0;
+            if (!getFileInfo(m_system.get(), hashPath, hashSize, hashTime))
+                return false;
+            return outTime <= hashTime;
         };
 
         if (verbose && (useShaderCache || usePreCache))
         {
             if (useShaderCache)
+            {
+                if (shaderProbe.loadDuration.count())
+                    m_logger->log("Shader cache load took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(toMs(shaderProbe.loadDuration)));
+                if (shaderProbe.validateDuration.count())
+                    m_logger->log("Shader cache validate took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(toMs(shaderProbe.validateDuration)));
                 m_logger->log("Shader cache lookup took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(toMs(shaderProbe.duration)));
+            }
             if (usePreCache)
                 m_logger->log("Preprocess cache lookup took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(toMs(preProbe.duration)));
             m_logger->log("Total cache probe took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(toMs(std::chrono::duration_cast<std::chrono::nanoseconds>(probeEnd - probeStart))));
         }
 
         smart_refctd_ptr<IShaderCompiler::CCache> cacheObj = shaderProbe.cacheObj;
+        if (!cacheObj && dep.enabled && !preprocessOnly)
+            cacheObj = make_smart_refctd_ptr<IShaderCompiler::CCache>();
         CacheLoadStatus cacheStatus = shaderProbe.status;
         const bool shaderCacheHitExpected = shaderProbe.hit;
 
@@ -898,7 +1185,6 @@ private:
                 m_logger->log("Preprocess cache failed (ignored, shader cache hit).", ILogger::ELL_DEBUG);
             }
         }
-
         if (usePreCache && preProbe.result.cacheUpdated && preProbe.cacheObj)
             IShaderCompiler::CPreprocessCache::writeToFile(preCache.path, *preProbe.cacheObj);
 
@@ -906,14 +1192,50 @@ private:
         {
             if (verbose)
                 m_logger->log("Shader cache hit: using cached SPIR-V.", ILogger::ELL_DEBUG);
+            if (shaderProbe.depsUpdated)
+            {
+                const auto cacheWriteStart = clock_t::now();
+                if (!writeShaderCache(m_system.get(), shaderCache.path, *cacheObj))
+                    m_logger->log("Failed to write shader cache: %s", ILogger::ELL_WARNING, shaderCache.path.string().c_str());
+                if (verbose)
+                {
+                    const auto cacheWriteEnd = clock_t::now();
+                    m_logger->log("Shader cache write took: %lld ms.", ILogger::ELL_PERFORMANCE,
+                        static_cast<long long>(toMs(cacheWriteEnd - cacheWriteStart)));
+                }
+            }
+            if (isOutputUpToDate(shaderProbe.entry))
+            {
+                const auto hitDepfileStart = clock_t::now();
+                if (!writeDepfileFromDependencies(shaderProbe.entry.dependencies, true))
+                    return r;
+                const auto hitDepfileEnd = clock_t::now();
+                r.ok = true;
+                if (verbose)
+                {
+                    m_logger->log("HIT timings: decompress=0 ms, depfile=%lld ms.", ILogger::ELL_PERFORMANCE,
+                        static_cast<long long>(toMs(hitDepfileEnd - hitDepfileStart)));
+                }
+                return r;
+            }
+            const auto hitDecompressStart = clock_t::now();
             r.compiled = cacheObj->decompressEntry(shaderProbe.entry);
+            const auto hitDecompressEnd = clock_t::now();
             r.ok = bool(r.compiled);
             if (!r.ok)
                 return r;
             r.view = { (const char*)r.compiled->getContent()->getPointer(), r.compiled->getContent()->getSize() };
 
-            if (!writeDepfileFromDependencies(shaderProbe.entry.dependencies))
+            const auto hitDepfileStart = clock_t::now();
+            if (!writeDepfileFromDependencies(shaderProbe.entry.dependencies, true))
                 return r;
+            const auto hitDepfileEnd = clock_t::now();
+            if (verbose)
+            {
+                m_logger->log("HIT timings: decompress=%lld ms, depfile=%lld ms.", ILogger::ELL_PERFORMANCE,
+                    static_cast<long long>(toMs(hitDecompressEnd - hitDecompressStart)),
+                    static_cast<long long>(toMs(hitDepfileEnd - hitDepfileStart)));
+            }
 
             return r;
         }
@@ -946,6 +1268,10 @@ private:
             opt.writeCache = cacheObj.get();
             opt.cacheHit = &cacheHit;
         }
+        else if (dep.enabled && cacheObj)
+        {
+            opt.writeCache = cacheObj.get();
+        }
 
         if (preprocessedReady)
         {
@@ -957,7 +1283,9 @@ private:
 
         auto compileFinder = makeIncludeFinder();
         opt.preprocessorOptions.includeFinder = compileFinder.get();
+        const auto compileStart = clock_t::now();
         r.compiled = hlslcompiler->compileToSPIRV(codeToCompile, opt);
+        const auto compileEnd = clock_t::now();
         r.ok = bool(r.compiled);
         if (r.ok)
             r.view = { (const char*)r.compiled->getContent()->getPointer(), r.compiled->getContent()->getSize() };
@@ -978,6 +1306,34 @@ private:
             }
             if (!writeShaderCache(m_system.get(), shaderCache.path, *cacheObj))
                 m_logger->log("Failed to write shader cache: %s", ILogger::ELL_WARNING, shaderCache.path.string().c_str());
+        }
+
+        if (dep.enabled && r.ok)
+        {
+            const IShaderCompiler::CCache::SEntry::dependency_container_t* deps = nullptr;
+            IShaderCompiler::CCache::SEntry depEntry;
+            if (preCacheObj && preCacheObj->hasEntry())
+            {
+                deps = &preCacheObj->getEntry().dependencies;
+            }
+            else if (cacheObj)
+            {
+                if (cacheObj->findEntryForCode(code, opt, compileFinder.get(), depEntry, validateCacheDeps))
+                    deps = &depEntry.dependencies;
+            }
+
+            if (!deps)
+            {
+                m_logger->log("Depfile requested but dependencies unavailable.", ILogger::ELL_ERROR);
+                r.ok = false;
+                return r;
+            }
+
+            if (!writeDepfileFromDependencies(*deps, false))
+            {
+                r.ok = false;
+                return r;
+            }
         }
 
         return r;

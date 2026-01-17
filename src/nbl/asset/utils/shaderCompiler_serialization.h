@@ -200,7 +200,8 @@ inline void from_json(const json& j, SEntry& entry)
     j.at("compilerArgs").get_to(entry.compilerArgs);
     j.at("hash").get_to(entry.hash.data);
     j.at("lookupHash").get_to(entry.lookupHash);
-    j.at("dependencies").get_to(entry.dependencies);
+    if (j.contains("dependencies"))
+        j.at("dependencies").get_to(entry.dependencies);
     j.at("uncompressedContentHash").get_to(entry.uncompressedContentHash.data);
     j.at("uncompressedSize").get_to(entry.uncompressedSize);
     entry.spirv = nullptr;

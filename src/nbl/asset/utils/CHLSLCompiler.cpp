@@ -17,6 +17,7 @@
 #include <codecvt>
 #include <filesystem>
 #include <chrono>
+#include <unordered_set>
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
@@ -366,22 +367,12 @@ namespace nbl::wave
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies, std::vector<std::string>* macro_defs) const
 {
-    const bool depfileEnabled = preprocessOptions.depfile;
-    if (depfileEnabled)
-    {
-        if (preprocessOptions.depfilePath.empty())
-        {
-            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
-            return {};
-        }
-    }
-
     if (preprocessOptions.applyForceIncludes && !preprocessOptions.forceIncludes.empty())
         code = IShaderCompiler::applyForceIncludes(code, preprocessOptions.forceIncludes);
 
     std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
     auto* dependenciesOut = dependencies;
-    if (depfileEnabled && !dependenciesOut)
+    if (!dependenciesOut)
         dependenciesOut = &localDependencies;
 
     // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
@@ -409,7 +400,36 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
                 stage = context.get_hooks().m_pragmaStage;
 
             if (dependenciesOut)
+            {
                 *dependenciesOut = std::move(context.get_dependencies());
+                if (!dependenciesOut->empty())
+                {
+                    std::unordered_set<std::string> seen;
+                    seen.reserve(dependenciesOut->size());
+                    std::vector<CCache::SEntry::SPreprocessingDependency> unique;
+                    unique.reserve(dependenciesOut->size());
+                    for (auto& dep : *dependenciesOut)
+                    {
+                        std::string key;
+                        if (!dep.getAbsolutePath().empty())
+                        {
+                            key = dep.getAbsolutePath().string();
+                        }
+                        else
+                        {
+                            key.reserve(dep.getRequestingSourceDir().string().size() + dep.getIdentifier().size() + 4);
+                            key.append(dep.getRequestingSourceDir().string());
+                            key.push_back('|');
+                            key.append(dep.getIdentifier());
+                            key.push_back('|');
+                            key.push_back(dep.isStandardInclude() ? '1' : '0');
+                        }
+                        if (seen.insert(key).second)
+                            unique.emplace_back(std::move(dep));
+                    }
+                    *dependenciesOut = std::move(unique);
+                }
+            }
             if (macro_defs)
                 context.dump_macro_definitions(*macro_defs);
         }
@@ -430,19 +450,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     if (resolvedString.empty())
         return resolvedString;
-
-    if (depfileEnabled)
-    {
-        IShaderCompiler::DepfileWriteParams params = {};
-        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
-        params.depfilePath = depfilePathString;
-        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
-        if (!params.sourceIdentifier.empty())
-            params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
-        params.system = m_system.get();
-        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
-            return {};
-    }
 
     return resolvedString;
 }

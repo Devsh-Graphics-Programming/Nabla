@@ -1207,14 +1207,14 @@ struct DeviceConfigCaps
 	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=vulkan-with-source>)
 	endif()
 
+	list(APPEND REQUIRED_OPTIONS
+		-I "${NBL_ROOT_PATH}/include"
+		-I "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
+		-I "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
+		-I "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
+	)
 	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
-		list(APPEND REQUIRED_OPTIONS
-			-no-nbl-builtins
-			-I "${NBL_ROOT_PATH}/include"
-			-I "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
-			-I "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
-			-I "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
-		)
+		list(APPEND REQUIRED_OPTIONS -no-nbl-builtins)
 	endif()
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
@@ -1275,7 +1275,7 @@ $<TARGET_PROPERTY:@IMPL_TARGET@,NBL_HEADER_CONTENT>
 		target_sources(${IMPL_TARGET} PUBLIC ${INCLUDE_FILE})
 		set_source_files_properties(${INCLUDE_FILE} PROPERTIES 
 			HEADER_FILE_ONLY ON
-			VS_TOOL_OVERRIDE None
+			GENERATED TRUE
 		)
 
 		target_compile_definitions(${IMPL_TARGET} INTERFACE $<TARGET_PROPERTY:${IMPL_TARGET},NBL_MOUNT_POINT_DEFINES>)
@@ -1724,6 +1724,10 @@ sys.stdout.write(str(h))
 		if(NOT IS_ABSOLUTE "${TARGET_INPUT}")
 			set(TARGET_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_INPUT}")
 		endif()
+		if(IMPL_HLSL_GLOB)
+			get_filename_component(_ABS_TARGET_INPUT "${TARGET_INPUT}" ABSOLUTE)
+			list(REMOVE_ITEM IMPL_HLSL_GLOB "${TARGET_INPUT}" "${_ABS_TARGET_INPUT}")
+		endif()
 
 		get_target_property(CANONICAL_IDENTIFIERS ${IMPL_TARGET} NBL_CANONICAL_IDENTIFIERS)
 
@@ -2073,8 +2077,11 @@ namespace nbl::core::detail {
 						set(MEMBER_NAME "${_NBL_CAP_NAME}")
 						set(MEMBER_TYPE "${_NBL_CAP_TYPE}")
 						set(MEMBER_VALUE "${_NBL_CAP_VALUE}")
+						if(MEMBER_TYPE STREQUAL "double" AND MEMBER_VALUE STREQUAL "1.7976931348623165e+308")
+							set(MEMBER_VALUE "1.7976931348623157e+308")
+						endif()
 						if(MEMBER_TYPE STREQUAL "double")
-							set(MEMBER_VALUE "${_NBL_CAP_VALUE}L")
+							set(MEMBER_VALUE "${MEMBER_VALUE}L")
 						endif()
 						string(CONFIGURE [=[
 NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBER_VALUE@;
@@ -2127,7 +2134,16 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 					set(CAPS_EVAL "	// no caps\n")
 				endif()
 				string(CONFIGURE "${DEVICE_CONFIG_VIEW}" CONFIG_CONTENT @ONLY)
-				file(WRITE "${CONFIG_FILE}" "${CONFIG_CONTENT}")
+				set(_NBL_CONFIG_WRITE TRUE)
+				if(EXISTS "${CONFIG_FILE}")
+					file(READ "${CONFIG_FILE}" _NBL_CONFIG_OLD)
+					if(_NBL_CONFIG_OLD STREQUAL "${CONFIG_CONTENT}")
+						set(_NBL_CONFIG_WRITE FALSE)
+					endif()
+				endif()
+				if(_NBL_CONFIG_WRITE)
+					file(WRITE "${CONFIG_FILE}" "${CONFIG_CONTENT}")
+				endif()
 				list(APPEND DEPENDS_ON "${TARGET_INPUT}" "${CONFIG_FILE}")
 
 				# generate keys and commands for compiling shaders
@@ -2178,6 +2194,20 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 
 				get_filename_component(NBL_NSC_INPUT_NAME "${TARGET_INPUT}" NAME)
 				get_filename_component(NBL_NSC_CONFIG_NAME "${CONFIG_FILE}" NAME)
+				set(NBL_NSC_COMMENT_LEFT "${NBL_NSC_INPUT_NAME}")
+				set(NBL_NSC_COMMENT_RIGHT "${NBL_NSC_CONFIG_NAME}")
+				if(NBL_NSC_INPUT_NAME MATCHES "\\.in\\.hlsl$")
+					set(NBL_NSC_COMMENT_LEFT "${NBL_NSC_CONFIG_NAME}")
+					set(NBL_NSC_COMMENT_RIGHT "${NBL_NSC_INPUT_NAME}")
+				endif()
+				set(NBL_NSC_MAIN_DEPENDENCY "${TARGET_INPUT}")
+				if(TARGET nsc)
+					if(CMAKE_GENERATOR MATCHES "Visual Studio")
+						list(APPEND DEPENDS_ON "$<TARGET_FILE:nsc>")
+					else()
+						list(APPEND DEPENDS_ON nsc)
+					endif()
+				endif()
 				set(NBL_NSC_BYPRODUCTS "${NBL_NSC_LOG_PATH}")
 				if(NSC_USE_DEPFILE)
 					list(APPEND NBL_NSC_BYPRODUCTS "${DEPFILE_PATH}")
@@ -2195,10 +2225,13 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 					BYPRODUCTS ${NBL_NSC_BYPRODUCTS}
 					COMMAND ${NBL_NSC_COMPILE_COMMAND}
 					DEPENDS ${DEPENDS_ON}
-					COMMENT "${NBL_NSC_INPUT_NAME} (${NBL_NSC_CONFIG_NAME})"
+					COMMENT "${NBL_NSC_COMMENT_LEFT} (${NBL_NSC_COMMENT_RIGHT})"
 					VERBATIM
 					COMMAND_EXPAND_LISTS
 				)
+				if(NBL_NSC_MAIN_DEPENDENCY)
+					list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS MAIN_DEPENDENCY "${NBL_NSC_MAIN_DEPENDENCY}")
+				endif()
 				if(NSC_USE_DEPFILE)
 					list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS DEPFILE "${DEPFILE_PATH}")
 				endif()
@@ -2221,23 +2254,54 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 					set_source_files_properties(${NBL_NSC_OUT_FILES} PROPERTIES GENERATED TRUE)
 				endif()
 
-				set(HEADER_ONLY_LIKE "${TARGET_INPUT}")
+				set(HEADER_ONLY_LIKE "")
+				set(ADD_INPUT_AS_HEADER_ONLY TRUE)
+				if(NOT _NBL_DISABLE_CUSTOM_COMMANDS AND CMAKE_GENERATOR MATCHES "Visual Studio")
+					set(ADD_INPUT_AS_HEADER_ONLY FALSE)
+				endif()
+				if(ADD_INPUT_AS_HEADER_ONLY)
+					list(APPEND HEADER_ONLY_LIKE "${TARGET_INPUT}")
+				endif()
 				if(NBL_NSC_OUT_FILES AND NOT CMAKE_CONFIGURATION_TYPES)
 					list(APPEND HEADER_ONLY_LIKE ${NBL_NSC_OUT_FILES})
 				endif()
-				target_sources(${IMPL_TARGET} PRIVATE ${HEADER_ONLY_LIKE} "${CONFIG_FILE}")
-
-				set_source_files_properties(${HEADER_ONLY_LIKE} PROPERTIES 
-					HEADER_FILE_ONLY ON
-					VS_TOOL_OVERRIDE None
-				)
-				set_source_files_properties("${CONFIG_FILE}" PROPERTIES
-					GENERATED TRUE
-					VS_TOOL_OVERRIDE None
-				)
+				if(HEADER_ONLY_LIKE AND IMPL_HLSL_GLOB)
+					foreach(_HLSL_SOURCE IN LISTS IMPL_HLSL_GLOB)
+						list(REMOVE_ITEM HEADER_ONLY_LIKE "${_HLSL_SOURCE}")
+					endforeach()
+				endif()
+				if(HEADER_ONLY_LIKE)
+					list(REMOVE_DUPLICATES HEADER_ONLY_LIKE)
+					target_sources(${IMPL_TARGET} PRIVATE ${HEADER_ONLY_LIKE})
+					set_source_files_properties(${HEADER_ONLY_LIKE} PROPERTIES 
+						HEADER_FILE_ONLY ON
+					)
+				endif()
+				set(ADD_CONFIG_AS_HEADER_ONLY TRUE)
+				if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
+					if(CMAKE_GENERATOR MATCHES "Visual Studio" AND NBL_NSC_MAIN_DEPENDENCY STREQUAL "${CONFIG_FILE}")
+						set(ADD_CONFIG_AS_HEADER_ONLY FALSE)
+					endif()
+				endif()
+				if(ADD_CONFIG_AS_HEADER_ONLY)
+					target_sources(${IMPL_TARGET} PRIVATE "${CONFIG_FILE}")
+					set_source_files_properties("${CONFIG_FILE}" PROPERTIES
+						GENERATED TRUE
+						HEADER_FILE_ONLY ON
+					)
+					if(CMAKE_GENERATOR MATCHES "Visual Studio")
+						set_source_files_properties("${CONFIG_FILE}" PROPERTIES
+							VS_EXCLUDED_FROM_BUILD TRUE
+							VS_TOOL_OVERRIDE "None"
+						)
+					endif()
+				endif()
 				if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
 					if(CMAKE_CONFIGURATION_TYPES)
 						foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
+							if(_CFG STREQUAL "")
+								continue()
+							endif()
 							set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${HASHED_KEY}")
 							set(TARGET_OUTPUT_IDE_PREPROCESSED "${TARGET_OUTPUT_IDE}.pre.hlsl")
 							if(NSC_CACHE_DIR)
@@ -2255,14 +2319,17 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 							if(NSC_SHADER_CACHE)
 								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_CACHE}")
 							endif()
+							set(ADD_PREPROCESSED_IDE TRUE)
 							if(NSC_PREPROCESS_CACHE)
 								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PRECACHE}")
-								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PREPROCESSED}")
+								if(ADD_PREPROCESSED_IDE)
+									list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PREPROCESSED}")
+								endif()
 							endif()
+							list(REMOVE_DUPLICATES NBL_NSC_OUT_FILES_IDE)
 							target_sources(${IMPL_TARGET} PRIVATE ${NBL_NSC_OUT_FILES_IDE})
 							set_source_files_properties(${NBL_NSC_OUT_FILES_IDE} PROPERTIES
 								HEADER_FILE_ONLY ON
-								VS_TOOL_OVERRIDE None
 								GENERATED TRUE
 							)
 							if(NSC_SHADER_CACHE)
@@ -2270,7 +2337,15 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 							endif()
 							if(NSC_PREPROCESS_CACHE)
 								set_source_files_properties("${TARGET_OUTPUT_IDE_PRECACHE}" PROPERTIES HEADER_FILE_ONLY OFF)
-								set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES HEADER_FILE_ONLY ON)
+								if(ADD_PREPROCESSED_IDE)
+									set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES HEADER_FILE_ONLY ON)
+									if(CMAKE_GENERATOR MATCHES "Visual Studio")
+										set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES
+											VS_EXCLUDED_FROM_BUILD TRUE
+											VS_TOOL_OVERRIDE "None"
+										)
+									endif()
+								endif()
 							endif()
 							source_group("${OUT}/${_CFG}" FILES ${NBL_NSC_OUT_FILES_IDE})
 						endforeach()
@@ -2292,14 +2367,17 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 						if(NSC_SHADER_CACHE)
 								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_CACHE}")
 						endif()
+						set(ADD_PREPROCESSED_IDE TRUE)
 						if(NSC_PREPROCESS_CACHE)
 								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PRECACHE}")
-								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PREPROCESSED}")
+								if(ADD_PREPROCESSED_IDE)
+									list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PREPROCESSED}")
+								endif()
 						endif()
+						list(REMOVE_DUPLICATES NBL_NSC_OUT_FILES_IDE)
 						target_sources(${IMPL_TARGET} PRIVATE ${NBL_NSC_OUT_FILES_IDE})
 						set_source_files_properties(${NBL_NSC_OUT_FILES_IDE} PROPERTIES
 							HEADER_FILE_ONLY ON
-							VS_TOOL_OVERRIDE None
 							GENERATED TRUE
 						)
 						if(NSC_SHADER_CACHE)
@@ -2307,7 +2385,15 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 						endif()
 						if(NSC_PREPROCESS_CACHE)
 							set_source_files_properties("${TARGET_OUTPUT_IDE_PRECACHE}" PROPERTIES HEADER_FILE_ONLY OFF)
-							set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES HEADER_FILE_ONLY ON)
+							if(ADD_PREPROCESSED_IDE)
+								set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES HEADER_FILE_ONLY ON)
+								if(CMAKE_GENERATOR MATCHES "Visual Studio")
+									set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES
+										VS_EXCLUDED_FROM_BUILD TRUE
+										VS_TOOL_OVERRIDE "None"
+									)
+								endif()
+							endif()
 						endif()
 						source_group("${OUT}" FILES ${NBL_NSC_OUT_FILES_IDE})
 					endif()
@@ -2367,12 +2453,35 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 
 	source_group("${IN}/autogen" FILES ${CONFIGS})
 	source_group("${IN}" FILES ${INPUTS})
+	if(IMPL_HLSL_GLOB AND INPUTS)
+		set(_NBL_INPUTS_ABS "")
+		foreach(_IN_FILE IN LISTS INPUTS)
+			get_filename_component(_IN_ABS "${_IN_FILE}" ABSOLUTE)
+			string(TOLOWER "${_IN_ABS}" _IN_ABS_LOWER)
+			list(APPEND _NBL_INPUTS_ABS "${_IN_ABS_LOWER}")
+		endforeach()
+		set(_NBL_HLSL_FILTERED "")
+		foreach(_HLSL_FILE IN LISTS IMPL_HLSL_GLOB)
+			get_filename_component(_HLSL_ABS "${_HLSL_FILE}" ABSOLUTE)
+			string(TOLOWER "${_HLSL_ABS}" _HLSL_ABS_LOWER)
+			list(FIND _NBL_INPUTS_ABS "${_HLSL_ABS_LOWER}" _HLSL_INDEX)
+			if(_HLSL_INDEX EQUAL -1)
+				list(APPEND _NBL_HLSL_FILTERED "${_HLSL_FILE}")
+			endif()
+		endforeach()
+		set(IMPL_HLSL_GLOB "${_NBL_HLSL_FILTERED}")
+	endif()
 	if(IMPL_HLSL_GLOB)
 		target_sources(${IMPL_TARGET} PRIVATE ${IMPL_HLSL_GLOB})
 		set_source_files_properties(${IMPL_HLSL_GLOB} PROPERTIES 
 			HEADER_FILE_ONLY ON
-			VS_TOOL_OVERRIDE None
 		)
+		if(CMAKE_GENERATOR MATCHES "Visual Studio")
+			set_source_files_properties(${IMPL_HLSL_GLOB} PROPERTIES
+				VS_EXCLUDED_FROM_BUILD TRUE
+				VS_TOOL_OVERRIDE "None"
+			)
+		endif()
 		source_group("HLSL Files" FILES ${IMPL_HLSL_GLOB})
 	endif()
 
