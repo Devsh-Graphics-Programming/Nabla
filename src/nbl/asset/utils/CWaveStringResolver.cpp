@@ -43,11 +43,14 @@ using namespace nbl;
 using namespace nbl::asset;
 
 #include "nbl/asset/utils/waveContext.h"
+#include <chrono>
 
 namespace nbl::wave
 {
     std::string preprocess(std::string& code, const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post)
     {
+        using clock_t = std::chrono::high_resolution_clock;
+        const auto setupStart = clock_t::now();
         nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
         context.set_caching(withCaching);
         context.add_macro_definition("__HLSL_VERSION");
@@ -63,12 +66,20 @@ namespace nbl::wave
 
         // preprocess
         core::string resolvedString;
+        const auto setupEnd = clock_t::now();
+        auto lexStart = setupEnd;
+        auto lexEnd = setupEnd;
         try
         {
-            auto stream = std::stringstream();
-            for (auto i= context.begin(); i!= context.end(); i++)
-                stream << i->get_value();
-            resolvedString = stream.str();
+            const size_t reserve = code.size() + (code.size() / 2);
+            resolvedString.reserve(reserve);
+            lexStart = clock_t::now();
+            for (auto i = context.begin(); i != context.end(); ++i)
+            {
+                const auto& value = i->get_value();
+                resolvedString.append(value.c_str(), value.size());
+            }
+            lexEnd = clock_t::now();
         }
         catch (const boost::wave::cpp_exception& e)
         {
@@ -91,7 +102,14 @@ namespace nbl::wave
             return {};
         }
 
+        const auto postStart = clock_t::now();
         post(context);
+        const auto postEnd = clock_t::now();
+
+        preprocessOptions.logger.log("Wave timings: setup=%lld ms, lex=%lld ms, post=%lld ms.", system::ILogger::ELL_PERFORMANCE,
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(setupEnd - setupStart).count()),
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(lexEnd - lexStart).count()),
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(postEnd - postStart).count()));
 
         return resolvedString;
     }

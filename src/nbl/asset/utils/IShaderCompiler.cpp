@@ -46,6 +46,17 @@ struct FileInfoCacheEntry
 std::unordered_map<nbl::system::path, FileInfoCacheEntry> g_fileInfoCache;
 std::mutex g_fileInfoCacheMutex;
 
+struct IncludeCacheEntry
+{
+    uint64_t size = 0;
+    int64_t ticks = 0;
+    nbl::core::blake3_hash_t hash = {};
+    std::string contents;
+};
+
+std::unordered_map<nbl::system::path, IncludeCacheEntry> g_includeCache;
+std::mutex g_includeCacheMutex;
+
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
 inline bool tryGetBuiltinResource(const std::string& normalized, const nbl::system::SBuiltinFile*& outFile, std::string& outRel, std::string_view& outPrefix)
 {
@@ -526,6 +537,27 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     if (std::filesystem::exists(path))
         path = std::filesystem::canonical(path);
 
+    uint64_t fileSize = 0;
+    int64_t lastWriteTime = 0;
+    const bool infoOk = getFileInfoFast(path, fileSize, lastWriteTime, m_system.get());
+    if (infoOk)
+    {
+        std::lock_guard<std::mutex> lock(g_includeCacheMutex);
+        auto it = g_includeCache.find(path);
+        if (it != g_includeCache.end() && it->second.size == fileSize && it->second.ticks == lastWriteTime)
+        {
+            found_t ret = {};
+            ret.absolutePath = path;
+            ret.contents = it->second.contents;
+            ret.hash = it->second.hash;
+            ret.hasHash = true;
+            ret.fileSize = fileSize;
+            ret.lastWriteTime = lastWriteTime;
+            ret.hasFileInfo = true;
+            return ret;
+        }
+    }
+
     core::smart_refctd_ptr<system::IFile> f;
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
@@ -558,10 +590,26 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     }
     else
     {
-        ret.fileSize = size;
-        const auto fileTime = f->getLastWriteTime();
-        ret.lastWriteTime = fileTime.time_since_epoch().count();
+        ret.fileSize = infoOk ? fileSize : size;
+        ret.lastWriteTime = infoOk ? lastWriteTime : f->getLastWriteTime().time_since_epoch().count();
         ret.hasFileInfo = true;
+    }
+    if (!ret.hasHash)
+    {
+        std::array<uint64_t, 4> hash = {};
+        core::XXHash_256(ret.contents.data(), ret.contents.size(), hash.data());
+        std::memcpy(ret.hash.data, hash.data(), sizeof(ret.hash.data));
+        ret.hasHash = true;
+    }
+    if (infoOk)
+    {
+        IncludeCacheEntry entry = {};
+        entry.size = fileSize;
+        entry.ticks = lastWriteTime;
+        entry.hash = ret.hash;
+        entry.contents = ret.contents;
+        std::lock_guard<std::mutex> lock(g_includeCacheMutex);
+        g_includeCache[path] = std::move(entry);
     }
     return ret;
 }

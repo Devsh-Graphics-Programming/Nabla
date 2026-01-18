@@ -22,8 +22,6 @@
 #include <combaseapi.h>
 #include <sstream>
 #include <dxc/dxcapi.h>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -367,8 +365,21 @@ namespace nbl::wave
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies, std::vector<std::string>* macro_defs) const
 {
+    using clock_t = std::chrono::high_resolution_clock;
+    const auto preprocessStart = clock_t::now();
+    auto forceIncludesStart = preprocessStart;
+    auto forceIncludesEnd = preprocessStart;
+    auto pragmaStart = preprocessStart;
+    auto pragmaEnd = preprocessStart;
+    auto waveStart = preprocessStart;
+    auto waveEnd = preprocessStart;
+
     if (preprocessOptions.applyForceIncludes && !preprocessOptions.forceIncludes.empty())
+    {
+        forceIncludesStart = clock_t::now();
         code = IShaderCompiler::applyForceIncludes(code, preprocessOptions.forceIncludes);
+        forceIncludesEnd = clock_t::now();
+    }
 
     std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
     auto* dependenciesOut = dependencies;
@@ -377,18 +388,46 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
     // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
-    size_t line_index = 0;
-    for (size_t i = 0; i < code.size(); i++) {
-        if (code[i] == '\n') {
-            auto line = code.substr(line_index, i - line_index);
-            boost::trim(line);
-            if (boost::starts_with(line, "#pragma"))
-                code.insert(i++, 1, '\n');
-            line_index = i;
-        }
+    pragmaStart = clock_t::now();
+    size_t extra_newlines = 0;
+    size_t line_start = 0;
+    for (size_t i = 0; i < code.size(); ++i)
+    {
+        if (code[i] != '\n')
+            continue;
+        size_t j = line_start;
+        while (j < i && (code[j] == ' ' || code[j] == '\t' || code[j] == '\r'))
+            ++j;
+        if (j + 7 <= i && code.compare(j, 7, "#pragma") == 0)
+            ++extra_newlines;
+        line_start = i + 1;
     }
+    if (extra_newlines)
+    {
+        std::string patched;
+        patched.reserve(code.size() + extra_newlines);
+        line_start = 0;
+        for (size_t i = 0; i < code.size(); ++i)
+        {
+            if (code[i] != '\n')
+                continue;
+            size_t j = line_start;
+            while (j < i && (code[j] == ' ' || code[j] == '\t' || code[j] == '\r'))
+                ++j;
+            const bool is_pragma = (j + 7 <= i) && (code.compare(j, 7, "#pragma") == 0);
+            patched.append(code, line_start, i - line_start + 1);
+            if (is_pragma)
+                patched.push_back('\n');
+            line_start = i + 1;
+        }
+        if (line_start < code.size())
+            patched.append(code, line_start, code.size() - line_start);
+        code = std::move(patched);
+    }
+    pragmaEnd = clock_t::now();
 
     // preprocess
+    waveStart = clock_t::now();
     core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
         [&dxc_compile_flags_override, &stage, &dependenciesOut, macro_defs](nbl::wave::context& context) -> void
         {
@@ -434,6 +473,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
                 context.dump_macro_definitions(*macro_defs);
         }
     );
+    waveEnd = clock_t::now();
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
     if constexpr (false)
@@ -450,6 +490,12 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     if (resolvedString.empty())
         return resolvedString;
+
+    preprocessOptions.logger.log("Preprocess breakdown: force_includes=%lld ms, pragma_pass=%lld ms, wave_total=%lld ms, total=%lld ms.", system::ILogger::ELL_PERFORMANCE,
+        static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(forceIncludesEnd - forceIncludesStart).count()),
+        static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(pragmaEnd - pragmaStart).count()),
+        static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(waveEnd - waveStart).count()),
+        static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(waveEnd - preprocessStart).count()));
 
     return resolvedString;
 }
