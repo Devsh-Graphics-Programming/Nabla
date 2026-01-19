@@ -51,16 +51,6 @@ struct matrix final : private glm::mat<N,M,T>
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
     }
-    template<typename ScalarT>
-    inline friend matrix mul(const ScalarT lhs, matrix const& rhs)
-    {
-        return matrix(glm::operator*(lhs, reinterpret_cast<Base const&>(rhs)));
-    }
-    template<typename ScalarT>
-    inline friend matrix mul(matrix const& lhs, const ScalarT rhs)
-    {
-        return matrix(glm::operator*(reinterpret_cast<Base const&>(lhs), rhs));
-    }
     inline friend bool operator==(matrix const& lhs, matrix const& rhs)
     {
         return glm::operator==(reinterpret_cast<Base const&>(lhs), reinterpret_cast<Base const&>(rhs));
