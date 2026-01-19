@@ -40,14 +40,33 @@ template<>
 struct unorm_constant<float,32> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x2f800004u; };
 
 template<typename Q, typename F>
+struct encode_helper
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
+    using sequence_type = Q;
+    using unorm_vec_type = vector<F, Dim>;
+    using unsigned_scalar_type = unsigned_integer_of_size_t<sizeof(F)>; 
+    using uvec_type = vector<unsigned_scalar_type, Dim>;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormMultiplier = (1u << (8u * size_of_v<unsigned_scalar_type> - 1u)) - 1u;
+
+    static sequence_type __call(const unorm_vec_type unormvec)
+    {
+        uvec_type asuint;
+        NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
+            asuint[i] = unsigned_scalar_type(unormvec[i] * UNormMultiplier);
+        return sequence_type::create(asuint);
+    }
+};
+
+template<typename Q, typename F>
 struct decode_before_scramble_helper
 {
-    using scalar_type = typename Q::scalar_type;
+    using unsigned_scalar_type = typename Q::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
     using uvec_type = vector<uint32_t, Dim>;
     using sequence_type = Q;
     using return_type = vector<F, Dim>;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = unorm_constant<float32_t,8u*sizeof(scalar_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = unorm_constant<float32_t,8u*sizeof(unsigned_scalar_type)>::value;
 
     return_type operator()(const uvec_type scrambleKey)
     {
@@ -55,7 +74,7 @@ struct decode_before_scramble_helper
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
             seqVal[i] = val.get(i);
         seqVal ^= scrambleKey;
-        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(scalar_type)> >(UNormConstant);
+        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(unsigned_scalar_type)> >(UNormConstant);
     }
 
     sequence_type val;
@@ -63,7 +82,7 @@ struct decode_before_scramble_helper
 template<typename Q, typename F>
 struct decode_after_scramble_helper
 {
-    using scalar_type = typename Q::scalar_type;
+    using unsigned_scalar_type = typename Q::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
     using uvec_type = vector<uint32_t, Dim>;
     using sequence_type = Q;
@@ -78,39 +97,53 @@ struct decode_after_scramble_helper
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
             seqVal[i] = scramble.get(i);
-        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(scalar_type)> >(UNormConstant);
+        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(unsigned_scalar_type)> >(UNormConstant);
     }
 
     sequence_type val;
 };
 
 template<typename T>
-NBL_BOOL_CONCEPT SequenceSpecialization = concepts::IntVector<T> && size_of_v<typename vector_traits<T>::scalar_type> <= 4;
+NBL_BOOL_CONCEPT SequenceSpecialization = concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> <= 4;
 }
 
 // all Dim=1
 template<typename T> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T>)
 struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T>) >
 {
+    using this_t = QuantizedSequence<T, 1>;
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = 8u*size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = uint16_t(1u);
 
+    static this_t create(const store_type value)
+    {
+        this_t seq;
+        seq.data = value;
+        return seq;
+    }
+
     store_type get(const uint16_t idx) { assert(idx > 0 && idx < 1); return data; }
     void set(const uint16_t idx, const store_type value) { assert(idx > 0 && idx < 1); data = value; }
 
     template<typename F>
+    static this_t encode(const vector<F, Dimension> value)
+    {
+        return impl::encode_helper<this_t,F>::__call(value);
+    }
+
+    template<typename F>
     vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
     {
-        impl::decode_before_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, Dimension>) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
     {
-        impl::decode_after_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
@@ -122,16 +155,18 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T
 template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5)
 struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == 1 && Dim > 1 && Dim < 5) >
 {
+    using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
-    using scalar_type = typename vector_traits<T>::scalar_type;
+    using scalar_type = store_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
-    static QuantizedSequence<T, Dim> create(const vector<store_type, Dim> value)
+    static this_t create(const vector<store_type, Dimension> value)
     {
-        QuantizedSequence<T, Dim> seq;
-        NBL_UNROLL for (uint16_t i = 0; i < Dim; i++)
+        this_t seq;
+        seq.data = store_type(0u);
+        NBL_UNROLL for (uint16_t i = 0; i < Dimension; i++)
             seq.set(i, value[i]);
         return seq;
     }
@@ -149,16 +184,22 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     }
 
     template<typename F>
+    static this_t encode(const vector<F, Dimension> value)
+    {
+        return impl::encode_helper<this_t,F>::__call(value);
+    }
+
+    template<typename F>
     vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
     {
-        impl::decode_before_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, Dimension>) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
     {
-        impl::decode_after_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
@@ -170,25 +211,39 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5)
 struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && vector_traits<T>::Dimension == Dim && Dim > 1 && Dim < 5) >
 {
+    using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = 8u*size_of_v<scalar_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
+    static this_t create(const store_type value)
+    {
+        this_t seq;
+        seq.data = value;
+        return seq;
+    }
+
     scalar_type get(const uint16_t idx) { assert(idx > 0 && idx < Dim); return data[idx]; }
     void set(const uint16_t idx, const scalar_type value) { assert(idx > 0 && idx < Dim); data[idx] = value; }
 
     template<typename F>
+    static this_t encode(const vector<F, Dimension> value)
+    {
+        return impl::encode_helper<this_t,F>::__call(value);
+    }
+
+    template<typename F>
     vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
     {
-        impl::decode_before_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, Dimension>) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
     {
-        impl::decode_after_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
@@ -200,6 +255,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 2 && Dim == 3)
 struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 2 && Dim == 3) >
 {
+    using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
@@ -207,10 +263,11 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<scalar_type>) - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
-    static QuantizedSequence<T, Dim> create(const vector<scalar_type, Dim> value)
+    static this_t create(const vector<scalar_type, Dimension> value)
     {
-        QuantizedSequence<T, Dim> seq;
-        NBL_UNROLL for (uint16_t i = 0; i < Dim; i++)
+        this_t seq;
+        seq.data = hlsl::promote<store_type>(0u);
+        NBL_UNROLL for (uint16_t i = 0; i < Dimension; i++)
             seq.set(i, value[i]);
         return seq;
     }
@@ -245,16 +302,22 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     }
 
     template<typename F>
+    static this_t encode(const vector<F, Dimension> value)
+    {
+        return impl::encode_helper<this_t,F>::__call(value);
+    }
+
+    template<typename F>
     vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
     {
-        impl::decode_before_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, Dimension>) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
     {
-        impl::decode_after_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
@@ -266,16 +329,18 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 2 && vector_traits<T>::Dimension == 2 && Dim == 4)
 struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 2 && vector_traits<T>::Dimension == 2 && Dim == 4) >
 {
+    using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
-    static QuantizedSequence<T, Dim> create(const vector<scalar_type, Dim> value)
+    static this_t create(const vector<scalar_type, Dimension> value)
     {
-        QuantizedSequence<T, Dim> seq;
-        NBL_UNROLL for (uint16_t i = 0; i < Dim; i++)
+        this_t seq;
+        seq.data = hlsl::promote<store_type>(0u);
+        NBL_UNROLL for (uint16_t i = 0; i < Dimension; i++)
             seq.set(i, value[i]);
         return seq;
     }
@@ -307,16 +372,22 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     }
 
     template<typename F>
+    static this_t encode(const vector<F, Dimension> value)
+    {
+        return impl::encode_helper<this_t,F>::__call(value);
+    }
+
+    template<typename F>
     vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
     {
-        impl::decode_before_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, Dimension>) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
     {
-        impl::decode_after_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
@@ -331,6 +402,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 4 && Dim == 3)
 struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 4 && Dim == 3) >
 {
+    using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     using base_type = vector<scalar_type, 2>;
@@ -391,14 +463,14 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     template<typename F>
     vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
     {
-        impl::decode_before_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(QuantizedSequence<T, Dimension>) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
     {
-        impl::decode_after_scramble_helper<QuantizedSequence<T, Dimension>,F> helper;
+        impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
