@@ -117,7 +117,9 @@ struct quaternion
                     return retval;
                 }
             else
+            {
                 assert(valid);
+            }
         }
         if (uniformScaleSq < numeric_limits<scalar_type>::min)
         {
