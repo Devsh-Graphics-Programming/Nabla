@@ -431,14 +431,6 @@ struct Conductor
         return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
 
-    // OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
-    // {
-    //     OrientedEtaRcps<eta_type> rcpEta;
-    //     rcpEta.value = hlsl::promote<eta_type>(1.0) / eta;
-    //     rcpEta.value2 = rcpEta.value * rcpEta.value;
-    //     return rcpEta;
-    // }
-
     T eta;
     T etak2;
     T etaLen2;
@@ -563,30 +555,43 @@ struct iridescent_helper
             const vector_type scale = scalar_type(1.0)/eta12;
             const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(scalar_type(1.0)-cosTheta_1*cosTheta_1) * scale * scale;
             notTIR = cosTheta2_2 > hlsl::promote<vector_type>(0.0);
-            cosTheta_2 = hlsl::sqrt(hlsl::max(cosTheta2_2, hlsl::promote<vector_type>(0.0)));
+            cosTheta_2 = hlsl::mix(hlsl::promote<vector_type>(0.0), hlsl::sqrt(cosTheta2_2), notTIR);
         }
 
-        if (hlsl::any(notTIR))
+        NBL_UNROLL for (uint32_t i = 0; i < vector_traits<vector_type>::Dimension; i++)
         {
-            Dielectric<vector_type>::__polarized(eta12 * eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
+            // Check for total internal reflection
+            if (notTIR[i])
+            {
+                using monochrome_type = vector<scalar_type, 1>;
+                monochrome_type p12, s12, p23, s23;
+                Dielectric<monochrome_type>::__polarized(hlsl::promote<monochrome_type>(eta12[i] * eta12[i]), hlsl::promote<monochrome_type>(cosTheta_1), p12, s12);
 
-            // Reflected part by the base
-            // if kappa==0, base material is dielectric
-            NBL_IF_CONSTEXPR(SupportsTransmission)
-                Dielectric<vector_type>::__polarized(eta23 * eta23, cosTheta_2, R23p, R23s);
+                const monochrome_type eta23_2 = hlsl::promote<monochrome_type>(eta23[i] * eta23[i]);
+
+                // Reflected part by the base
+                // if kappa==0, base material is dielectric
+                NBL_IF_CONSTEXPR(SupportsTransmission)
+                    Dielectric<monochrome_type>::__polarized(eta23_2, hlsl::promote<monochrome_type>(cosTheta_2[i]), p23, s23);
+                else
+                {
+                    const monochrome_type etaLen2 = eta23_2 + hlsl::promote<monochrome_type>(etak23[i] * etak23[i]);
+                    Conductor<monochrome_type>::__polarized(hlsl::promote<monochrome_type>(eta23[i]), etaLen2, hlsl::promote<monochrome_type>(cosTheta_2[i]), p23, s23);
+                }
+
+                R12p[i] = p12[0];
+                R12s[i] = s12[0];
+                R23p[i] = p23[0];
+                R23s[i] = s23[0];
+            }
             else
             {
-                vector_type etaLen2 = eta23 * eta23 + etak23 * etak23;
-                Conductor<vector_type>::__polarized(eta23, etaLen2, cosTheta_2, R23p, R23s);
+                R12s[i] = scalar_type(0.0);
+                R12p[i] = scalar_type(0.0);
+                R23s[i] = scalar_type(0.0);
+                R23p[i] = scalar_type(0.0);
             }
         }
-
-        // Check for total internal reflection
-        const vector_type notTIRFactor = vector_type(notTIR); // 0 when TIR, 1 otherwise
-        R12s = R12s * notTIRFactor;
-        R12p = R12p * notTIRFactor;
-        R23s = R23s * notTIRFactor;
-        R23p = R23p * notTIRFactor;
 
         // Compute the transmission coefficients
         vector_type T121p = hlsl::promote<vector_type>(1.0) - R12p;
@@ -702,14 +707,6 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
         return impl::iridescent_helper<T,false>::template __call<Colorspace>(base_type::D, base_type::ior1, base_type::ior2, base_type::ior3, base_type::iork3,
                                                             base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
     }
-
-    // OrientedEtaRcps<eta_type> getRefractionOrientedEtaRcps() NBL_CONST_MEMBER_FUNC
-    // {
-    //     OrientedEtaRcps<eta_type> rcpEta;
-    //     rcpEta.value = hlsl::promote<eta_type>(1.0) / base_type::eta13;
-    //     rcpEta.value2 = rcpEta.value * rcpEta.value;
-    //     return rcpEta;
-    // }
 
     vector_type getEtak23() NBL_CONST_MEMBER_FUNC
     {
