@@ -28,6 +28,12 @@ struct BoxMullerTransform
         return vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(-2.0 * nbl::hlsl::log(xi.x)) * stddev;
     }
 
+    vector2_type backwardPdf(const vector2_type outPos)
+    {
+        const vector2_type outPos2 = outPos * outPos;
+        return vector2_type(nbl::hlsl::exp(scalar_type(-0.5) * (outPos2.x + outPos2.y)), numbers::pi<scalar_type> * scalar_type(0.5) * hlsl::atan2(outPos.y, outPos.x));
+    }
+
     T stddev;
 };
 

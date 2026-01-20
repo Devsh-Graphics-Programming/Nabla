@@ -49,11 +49,11 @@ struct ProjectedSphericalTriangle
         // pre-warp according to proj solid angle approximation
         vector4_type patch = computeBilinearPatch(receiverNormal, isBSDF);
         Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        u = bilinear.generate(rcpPdf, _u);
+        u = bilinear.generate(_u);
 
         // now warp the points onto a spherical triangle
         const vector3_type L = sphtri.generate(solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, u);
-        rcpPdf *= solidAngle;
+        rcpPdf = solidAngle / bilinear.backwardPdf(u);
 
         return L;
     }
@@ -73,7 +73,7 @@ struct ProjectedSphericalTriangle
 
         vector4_type patch = computeBilinearPatch(receiverNormal, receiverWasBSDF);
         Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        return pdf * bilinear.pdf(u);
+        return pdf * bilinear.backwardPdf(u);
     }
 
     scalar_type pdf(const vector3_type receiverNormal, bool receiverWasBSDF, const vector3_type L)
@@ -83,7 +83,7 @@ struct ProjectedSphericalTriangle
 
         vector4_type patch = computeBilinearPatch(receiverNormal, receiverWasBSDF);
         Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        return pdf * bilinear.pdf(u);
+        return pdf * bilinear.backwardPdf(u);
     }
 
     shapes::SphericalTriangle<T> tri;
