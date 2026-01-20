@@ -508,6 +508,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					core::blake3_hash_t prefixHash = {};
 					std::string preprocessedPrefix;
 					std::vector<std::string> macroDefs;
+					std::string macroBlock;
 					std::vector<std::string> dxcFlags;
 					uint32_t pragmaStage = static_cast<uint32_t>(IShader::E_SHADER_STAGE::ESS_UNKNOWN);
 					CCache::SEntry::dependency_container_t dependencies;

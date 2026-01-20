@@ -109,11 +109,12 @@ By default `NBL_CREATE_NSC_COMPILE_RULES` also collects `*.hlsl` files for IDE v
 
 ## Cache layers (SPIR-V + preprocess)
 
-There are two independent caches:
+There are three independent cache layers:
 
 - `NSC_SHADER_CACHE` (default `ON`) -> SPIR-V cache (`<hash>.spv.ppcache`) for full compilation results.
 - `NSC_PREPROCESS_CACHE` (default `ON`) -> preprocessor prefix cache (`<hash>.spv.ppcache.pre`) to avoid repeating Boost.Wave include work when only the main shader changes.
-- Both caches are used only for compilation (not `-P` preprocess-only runs).
+- `NSC_PREPROCESS_PREAMBLE` (default `ON`) -> preamble mode: reuse cached preprocessed prefix + macro state and run Wave only on the body, then compile without re-lexing the prefix.
+- All layers are used only for compilation (not `-P` preprocess-only runs).
 - When preprocess cache is enabled and used, NSC also writes a combined preprocessed view (`<hash>.spv.pre.hlsl`) next to the outputs.
   - This file is the exact input fed to DXC on the preprocess-cache path, so it's ready to paste into Godbolt for repros (use the same flags/includes).
 
@@ -128,13 +129,26 @@ With `-verbose`, `.log` shows:
   - `Shader cache write took: ...` (only when deps metadata changed on hit)
   - `Preprocess cache lookup took: ...`
   - `Total cache probe took: ...`
+  - `Preamble body preprocess took: ...` (only when preamble mode is used)
   - `Preprocess took: ...` (only on compile path)
   - `Compile took: ...` (only on compile path)
   - `Total build time: ...` (preprocess + compile)
   - `Write output took: ...` (only when output file is written)
   - `Total took: ...` (overall tool runtime)
 
-You can redirect both caches into a shared directory with:
+You can also toggle layers directly on the `nsc` CLI:
+
+- `-nbl-shader-cache`
+- `-nbl-preprocess-cache`
+- `-nbl-preprocess-preamble`
+- `-nbl-stdout-log` (mirror the log file output to stdout)
+
+Related CMake options:
+
+- `NSC_PREPROCESS_PREAMBLE` (default `ON`)
+- `NSC_STDOUT_LOG` (default `OFF`)
+
+You can redirect the caches into a shared directory with:
 
 - `NSC_CACHE_DIR` (path). The cache files keep the same relative layout as `BINARY_DIR` (including `<CONFIG>/<hash>`), but live under the given root. This is handy for CI or persistent cache volumes.
 

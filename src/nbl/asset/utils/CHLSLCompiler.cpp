@@ -27,6 +27,32 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
+static std::string buildMacroBlock(const std::vector<std::string>& macros)
+{
+    if (macros.empty())
+        return {};
+    size_t reserve = 0;
+    for (const auto& macro : macros)
+        reserve += macro.size() + 12;
+    std::string out;
+    out.reserve(reserve);
+    for (const auto& macro : macros)
+    {
+        const size_t eq = macro.find('=');
+        const std::string_view name = eq == std::string::npos ? std::string_view(macro) : std::string_view(macro).substr(0, eq);
+        const std::string_view def = eq == std::string::npos ? std::string_view() : std::string_view(macro).substr(eq + 1);
+        out.append("#define ");
+        out.append(name);
+        if (!def.empty())
+        {
+            out.push_back(' ');
+            out.append(def);
+        }
+        out.push_back('\n');
+    }
+    return out;
+}
+
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_8";
 static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) {
     switch (stage)
@@ -519,6 +545,7 @@ bool CHLSLCompiler::preprocessPrefixForCache(std::string_view code, IShader::E_S
     outEntry.dependencies = std::move(deps);
     outEntry.dxcFlags = std::move(dxcFlags);
     outEntry.macroDefs = std::move(macroDefs);
+    outEntry.macroBlock = buildMacroBlock(outEntry.macroDefs);
     outEntry.pragmaStage = static_cast<uint32_t>(stage);
     return true;
 }
@@ -537,7 +564,17 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
 
     using clock_t = std::chrono::high_resolution_clock;
     const auto preprocessStart = clock_t::now();
-    auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
+    std::string newCode;
+    if (hlslOptions.assumePreprocessed)
+    {
+        newCode = std::string(code);
+        if (!hlslOptions.dxcCompileFlagsOverride.empty())
+            dxc_compile_flags.assign(hlslOptions.dxcCompileFlagsOverride.begin(), hlslOptions.dxcCompileFlagsOverride.end());
+    }
+    else
+    {
+        newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
+    }
     const auto preprocessEnd = clock_t::now();
     logger.log("Preprocess took: %lld ms.", system::ILogger::ELL_PERFORMANCE, static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(preprocessEnd - preprocessStart).count()));
     if (newCode.empty()) return nullptr;

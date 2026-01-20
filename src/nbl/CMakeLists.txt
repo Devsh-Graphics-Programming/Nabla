@@ -395,12 +395,21 @@ nbl_adjust_definitions()
 
 option(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION "Enable to optimise CWaveStringResolver.cpp in Debug configuration, uses RWDI compile options for the TU" ON)
 if(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION)
-	set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
-		# just enabling inlining and optimisations will help a lot
-		COMPILE_OPTIONS "$<$<CONFIG:Debug>:${NBL_CXX_RELWITHDEBINFO_COMPILE_OPTIONS}>"
-		# trade is you cannot mix with PCH + set this property per config (it seems), different compile options would lead to corrruptions and undefined behaviours
-		SKIP_PRECOMPILE_HEADERS ON
-	)
+	if(MSVC)
+		set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
+			# just enabling inlining and optimisations will help a lot
+			COMPILE_OPTIONS "$<$<CONFIG:Debug>:${NBL_CXX_RELWITHDEBINFO_COMPILE_OPTIONS};/Zi>"
+			# trade is you cannot mix with PCH + set this property per config (it seems), different compile options would lead to corrruptions and undefined behaviours
+			SKIP_PRECOMPILE_HEADERS ON
+		)
+	else()
+		set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
+			# just enabling inlining and optimisations will help a lot
+			COMPILE_OPTIONS "$<$<CONFIG:Debug>:${NBL_CXX_RELWITHDEBINFO_COMPILE_OPTIONS}>"
+			# trade is you cannot mix with PCH + set this property per config (it seems), different compile options would lead to corrruptions and undefined behaviours
+			SKIP_PRECOMPILE_HEADERS ON
+		)
+	endif()
 endif()
 
 if(NBL_EXPLICIT_MODULE_LOAD_LOG)

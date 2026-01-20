@@ -52,21 +52,29 @@ namespace nbl::wave
         using clock_t = std::chrono::high_resolution_clock;
         const auto setupStart = clock_t::now();
         nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
+        const auto contextEnd = clock_t::now();
+
         context.set_caching(withCaching);
         context.add_macro_definition("__HLSL_VERSION");
         context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
         context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
+        const auto builtinsEnd = clock_t::now();
 
-        // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
-        // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
-        // to match boost wave syntax
-        // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
+        const auto extraStart = builtinsEnd;
         for (const auto& define : preprocessOptions.extraDefines)
-            context.add_macro_definition(define.identifier.data() + core::string("=") + define.definition.data());
+        {
+            core::string macro;
+            macro.reserve(define.identifier.size() + define.definition.size() + 1);
+            macro.append(define.identifier.data(), define.identifier.size());
+            macro.push_back('=');
+            macro.append(define.definition.data(), define.definition.size());
+            context.add_macro_definition(macro);
+        }
+        const auto extraEnd = clock_t::now();
 
         // preprocess
         core::string resolvedString;
-        const auto setupEnd = clock_t::now();
+        const auto setupEnd = extraEnd;
         auto lexStart = setupEnd;
         auto lexEnd = setupEnd;
         try
@@ -106,6 +114,10 @@ namespace nbl::wave
         post(context);
         const auto postEnd = clock_t::now();
 
+        preprocessOptions.logger.log("Wave setup breakdown: context=%lld ms, builtins=%lld ms, extra_defines=%lld ms.", system::ILogger::ELL_PERFORMANCE,
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(contextEnd - setupStart).count()),
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(builtinsEnd - contextEnd).count()),
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(extraEnd - builtinsEnd).count()));
         preprocessOptions.logger.log("Wave timings: setup=%lld ms, lex=%lld ms, post=%lld ms.", system::ILogger::ELL_PERFORMANCE,
             static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(setupEnd - setupStart).count()),
             static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(lexEnd - lexStart).count()),

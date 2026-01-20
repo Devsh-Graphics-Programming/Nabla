@@ -339,6 +339,32 @@ using namespace nbl::asset;
 
 namespace
 {
+	std::string buildMacroBlock(const std::vector<std::string>& macros)
+	{
+		if (macros.empty())
+			return {};
+		size_t reserve = 0;
+		for (const auto& macro : macros)
+			reserve += macro.size() + 12;
+		std::string out;
+		out.reserve(reserve);
+		for (const auto& macro : macros)
+		{
+			const size_t eq = macro.find('=');
+			const std::string_view name = eq == std::string::npos ? std::string_view(macro) : std::string_view(macro).substr(0, eq);
+			const std::string_view def = eq == std::string::npos ? std::string_view() : std::string_view(macro).substr(eq + 1);
+			out.append("#define ");
+			out.append(name);
+			if (!def.empty())
+			{
+				out.push_back(' ');
+				out.append(def);
+			}
+			out.push_back('\n');
+		}
+		return out;
+	}
+
 	void splitPrefix(std::string_view code, std::string_view& prefix, std::string_view& body)
 	{
 		size_t pos = 0;
@@ -1544,6 +1570,7 @@ core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPrep
             return nullptr;
         entry.macroDefs.emplace_back(std::move(macro));
     }
+    entry.macroBlock = buildMacroBlock(entry.macroDefs);
 
     uint32_t flagCount = 0;
     if (!read_u32(serializedCache, offset, flagCount))
@@ -1704,6 +1731,7 @@ core::smart_refctd_ptr<IShaderCompiler::CPreprocessCache> IShaderCompiler::CPrep
         }
         entry.macroDefs.emplace_back(std::move(macro));
     }
+    entry.macroBlock = buildMacroBlock(entry.macroDefs);
 
     uint32_t flagCount = 0;
     if (!read_u32(flagCount))

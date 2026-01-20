@@ -33,6 +33,8 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
 			std::span<const std::string> dxcOptions; // TODO: span is a VIEW to memory, so to something which we should treat immutable - why not span of string_view then? Since its span we force users to keep those std::strings alive anyway but now we cannnot even make nice constexpr & pass such expression here directly
+			std::span<const std::string> dxcCompileFlagsOverride = {};
+			bool assumePreprocessed = false;
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
