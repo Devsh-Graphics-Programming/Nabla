@@ -252,8 +252,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 };
 
 // uint32_t2; Dim=3 -- should never use uint16_t2 instead of uint32_t
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 2 && Dim == 3)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 2 && Dim == 3) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(is_same_v<T,uint32_t2> && Dim == 3)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint32_t2> && Dim == 3) >
 {
     using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
@@ -326,8 +326,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 };
 
 // uint16_t2; Dim=4 -- should use uint16_t4 instead of uint32_t2
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 2 && vector_traits<T>::Dimension == 2 && Dim == 4)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 2 && vector_traits<T>::Dimension == 2 && Dim == 4) >
+template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(is_same_v<T,uint16_t2> && Dim == 4)
+struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Dim == 4) >
 {
     using this_t = QuantizedSequence<T, Dim>;
     using store_type = T;
@@ -348,7 +348,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     scalar_type get(const uint16_t idx)
     {
         assert(idx >= 0 && idx < 4);
-        if (idx >= 0 && idx < 2) // x y
+        if (idx < 2) // x y
         {
             return glsl::bitfieldExtract(data[0], BitsPerComponent * idx, BitsPerComponent);
         }
@@ -361,7 +361,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     void set(const uint16_t idx, const scalar_type value)
     {
         assert(idx >= 0 && idx < 4);
-        if (idx >= 0 && idx < 2) // x y
+        if (idx < 2) // x y
         {
             glsl::bitfieldInsert(data[0], value, BitsPerComponent * idx, BitsPerComponent);
         }
@@ -396,91 +396,6 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 };
 
 // no uint16_t4, uint32_t4; Dim=2
-
-// uint32_t4; Dim=3 --> returns uint32_t2 - 42 bits per component: 32 in x, 10 in y
-// use uint32_t2 instead of uint16_t4
-template<typename T, uint16_t Dim> NBL_PARTIAL_REQ_TOP(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 4 && Dim == 3)
-struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T> && size_of_v<typename vector_traits<T>::scalar_type> == 4 && vector_traits<T>::Dimension == 4 && Dim == 3) >
-{
-    using this_t = QuantizedSequence<T, Dim>;
-    using store_type = T;
-    using scalar_type = typename vector_traits<T>::scalar_type;
-    using base_type = vector<scalar_type, 2>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
-
-    base_type get(const uint16_t idx)
-    {
-        assert(idx >= 0 && idx < 3);
-        if (idx == 0)   // x
-        {
-            base_type x;
-            x[0] = data[0];
-            x[1] = glsl::bitfieldExtract(data[1], 0u, 10u);
-            return x;
-        }
-        else if (idx == 1)  // y
-        {
-            base_type y;
-            y[0] = glsl::bitfieldExtract(data[1], 10u, 22u);
-            y[0] |= glsl::bitfieldExtract(data[2], 0u, 10u) << 22u;
-            y[1] = glsl::bitfieldExtract(data[2], 10u, 10u);
-            return y;
-        }
-        else    // z
-        {
-            base_type z;
-            z[0] = glsl::bitfieldInsert(data[2], 20u, 12u);
-            z[0] |= glsl::bitfieldInsert(data[3], 0u, 20u) << 12u;
-            z[1] = glsl::bitfieldInsert(data[3], 20u, 10u);
-            return z;
-        }
-    }
-
-    void set(const uint16_t idx, const base_type value)
-    {
-        assert(idx >= 0 && idx < 3);
-        if (idx == 0)   // x
-        {
-            data[0] = value[0];
-            glsl::bitfieldInsert(data[1], value[1], 0u, 10u);
-        }
-        else if (idx == 1)  // y
-        {
-            glsl::bitfieldInsert(data[1], value[0], 10u, 22u);
-            glsl::bitfieldInsert(data[2], value[0] >> 22u, 0u, 10u);
-            glsl::bitfieldInsert(data[2], value[1], 10u, 10u);
-        }
-        else    // z
-        {
-            glsl::bitfieldInsert(data[2], value[0], 20u, 12u);
-            glsl::bitfieldInsert(data[3], value[0] >> 12u, 0u, 20u);
-            glsl::bitfieldInsert(data[3], value[1], 20u, 10u);
-        }
-    }
-
-    template<typename F>
-    vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
-    {
-        impl::decode_before_scramble_helper<this_t,F> helper;
-        helper.val.data = data;
-        return helper(scrambleKey);
-    }
-    template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
-    {
-        impl::decode_after_scramble_helper<this_t,F> helper;
-        helper.val.data = data;
-        return helper(scrambleKey);
-    }
-
-    store_type data;
-    // data[0] = | -- x 32 bits -- |
-    // data[1] = MSB | -- y 22 bits -- | -- x 10 bits -- | LSB
-    // data[2] = MSB | -- z 12 bits -- | -- y 20 bits -- | LSB
-    // data[3] = | -- z 30 bits -- |
-};
 
 }
 
