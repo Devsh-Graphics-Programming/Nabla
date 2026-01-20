@@ -23,20 +23,24 @@ if(NBL_SANITIZE_ADDRESS)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} COMPILE_OPTIONS 
 		/fsanitize=address # https://learn.microsoft.com/en-us/cpp/build/reference/fsanitize?view=msvc-170
 	)
-
-	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG COMPILE_OPTIONS
-		/RTC1 # https://learn.microsoft.com/en-us/cpp/build/reference/rtc-run-time-error-checks?view=msvc-170
-	)
 endif()
 
-NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG COMPILE_OPTIONS
+set(_NBL_MSVC_DEBUG_COMPILE_OPTIONS
 	/Ob0 # https://learn.microsoft.com/en-us/cpp/build/reference/ob-inline-function-expansion?view=msvc-170
 	/Od # https://learn.microsoft.com/en-us/cpp/build/reference/od-disable-debug?view=msvc-170
 	/Oy- # https://learn.microsoft.com/en-us/cpp/build/reference/oy-frame-pointer-omission?view=msvc-170
+)
+if(NBL_DEBUG_RTC_ENABLED AND NOT NBL_SANITIZE_ADDRESS)
+	list(APPEND _NBL_MSVC_DEBUG_COMPILE_OPTIONS /RTC1)
+endif()
+
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG COMPILE_OPTIONS
+	${_NBL_MSVC_DEBUG_COMPILE_OPTIONS}
 
 	LINK_OPTIONS
 		/INCREMENTAL # https://learn.microsoft.com/en-us/cpp/build/reference/incremental-link-incrementally?view=msvc-170
 )
+unset(_NBL_MSVC_DEBUG_COMPILE_OPTIONS)
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELEASE COMPILE_OPTIONS
 	/O2 # https://learn.microsoft.com/en-us/cpp/build/reference/o1-o2-minimize-size-maximize-speed?view=msvc-170

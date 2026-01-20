@@ -16,6 +16,34 @@ include_guard(GLOBAL)
 
 include(ProcessorCount)
 
+# tmp for external projects, to be removed later when I get rid of them (dxc + jpeg currently)
+function(nbl_append_sanitize_address_cmake_options out_list)
+	if(NOT NBL_SANITIZE_ADDRESS)
+		return()
+	endif()
+
+	if(MSVC)
+		set(_NBL_ASAN_FLAG "/fsanitize=address")
+	else()
+		set(_NBL_ASAN_FLAG "-fsanitize=address")
+		set(_NBL_ASAN_LINK_SUFFIX " ${_NBL_ASAN_FLAG}")
+	endif()
+
+	list(APPEND ${out_list}
+		"-DCMAKE_C_FLAGS:STRING=${CMAKE_C_FLAGS} ${_NBL_ASAN_FLAG}"
+		"-DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS} ${_NBL_ASAN_FLAG}"
+	)
+	if(DEFINED _NBL_ASAN_LINK_SUFFIX)
+		list(APPEND ${out_list}
+			"-DCMAKE_EXE_LINKER_FLAGS:STRING=${CMAKE_EXE_LINKER_FLAGS}${_NBL_ASAN_LINK_SUFFIX}"
+			"-DCMAKE_SHARED_LINKER_FLAGS:STRING=${CMAKE_SHARED_LINKER_FLAGS}${_NBL_ASAN_LINK_SUFFIX}"
+		)
+	endif()
+	unset(_NBL_ASAN_FLAG)
+	unset(_NBL_ASAN_LINK_SUFFIX)
+	set(${out_list} "${${out_list}}" PARENT_SCOPE)
+endfunction()
+
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
