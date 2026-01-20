@@ -6,6 +6,7 @@
 
 using json = nlohmann::json;
 using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
+using CacheCompression = nbl::asset::IShaderCompiler::CCache::ECompression;
 
 
 namespace nbl::asset
@@ -183,6 +184,7 @@ inline void from_json(const json& j, CPUShaderCreationParams& creationParams)
 
 inline void to_json(json& j, const SEntry& entry)
 {
+    uint32_t compression = static_cast<uint32_t>(entry.compression);
     j = json{
         { "mainFileContents", entry.mainFileContents },
         { "compilerArgs", entry.compilerArgs },
@@ -191,6 +193,7 @@ inline void to_json(json& j, const SEntry& entry)
         { "dependencies", entry.dependencies },
         { "uncompressedContentHash", entry.uncompressedContentHash.data },
         { "uncompressedSize", entry.uncompressedSize },
+        { "compression", compression },
     };
 }
 
@@ -204,6 +207,16 @@ inline void from_json(const json& j, SEntry& entry)
         j.at("dependencies").get_to(entry.dependencies);
     j.at("uncompressedContentHash").get_to(entry.uncompressedContentHash.data);
     j.at("uncompressedSize").get_to(entry.uncompressedSize);
+    if (j.contains("compression"))
+    {
+        uint32_t compression = 0;
+        j.at("compression").get_to(compression);
+        entry.compression = static_cast<CacheCompression>(compression);
+    }
+    else
+    {
+        entry.compression = CacheCompression::LZMA;
+    }
     entry.spirv = nullptr;
 }
 

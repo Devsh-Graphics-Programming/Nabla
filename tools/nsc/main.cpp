@@ -200,9 +200,11 @@ public:
         program.add_argument("-verbose").default_value(false).implicit_value(true);
         program.add_argument("-shader-cache").default_value(false).implicit_value(true);
         program.add_argument("-shader-cache-file").default_value(std::string{});
+        program.add_argument("-shader-cache-compression").default_value(std::string{});
         program.add_argument("-preprocess-cache").default_value(false).implicit_value(true);
         program.add_argument("-preprocess-cache-file").default_value(std::string{});
         program.add_argument("-nbl-shader-cache").default_value(false).implicit_value(true);
+        program.add_argument("-nbl-shader-cache-compression").default_value(std::string{});
         program.add_argument("-nbl-preprocess-cache").default_value(false).implicit_value(true);
         program.add_argument("-nbl-preprocess-preamble").default_value(false).implicit_value(true);
         program.add_argument("-nbl-stdout-log").default_value(false).implicit_value(true);
@@ -296,6 +298,24 @@ public:
         if (!preprocessCachePathOverride.empty())
             preprocessCacheEnabled = true;
         bool preambleEnabled = program.get<bool>("-nbl-preprocess-preamble");
+        const std::string compressionArgPrimary = program.get<std::string>("-nbl-shader-cache-compression");
+        std::string compressionArg = !compressionArgPrimary.empty() ? compressionArgPrimary : program.get<std::string>("-shader-cache-compression");
+        IShaderCompiler::CCache::ECompression shaderCacheCompression = IShaderCompiler::CCache::ECompression::LZMA;
+        if (!compressionArg.empty())
+        {
+            std::transform(compressionArg.begin(), compressionArg.end(), compressionArg.begin(),
+                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (compressionArg == "raw")
+                shaderCacheCompression = IShaderCompiler::CCache::ECompression::RAW;
+            else if (compressionArg == "lzma")
+                shaderCacheCompression = IShaderCompiler::CCache::ECompression::LZMA;
+            else
+            {
+                if (m_logger)
+                    m_logger->log("Invalid shader cache compression: %s (expected raw or lzma).", ILogger::ELL_ERROR, compressionArg.c_str());
+                return false;
+            }
+        }
         if (quiet && verbose)
         {
             if (m_logger)
@@ -376,6 +396,7 @@ public:
         ShaderCacheConfig shaderCache;
         shaderCache.enabled = shaderCacheEnabled && !preprocessOnly;
         shaderCache.verbose = verbose;
+        shaderCache.compression = shaderCacheCompression;
         if (shaderCache.enabled)
             shaderCache.path = shaderCachePathOverride.empty() ? makeCachePath(outputFilepath) : std::filesystem::path(shaderCachePathOverride);
 
@@ -557,6 +578,7 @@ private:
         bool enabled = false;
         bool verbose = false;
         std::filesystem::path path;
+        IShaderCompiler::CCache::ECompression compression = IShaderCompiler::CCache::ECompression::LZMA;
     };
 
     struct PreprocessCacheConfig
@@ -757,7 +779,7 @@ private:
         };
 
         const uint32_t magic = 0x4E534349u;
-        const uint32_t version = 1u;
+        const uint32_t version = 2u;
         write_u32(magic);
         write_u32(version);
         write_string(std::string_view(IShaderCompiler::CCache::VERSION));
@@ -777,6 +799,8 @@ private:
             write_u64(spirvSize);
             write_u64(entry.uncompressedSize);
             write_hash(entry.uncompressedContentHash);
+            const uint8_t compression = static_cast<uint8_t>(entry.compression);
+            write_bytes(&compression, sizeof(compression));
             write_u32(static_cast<uint32_t>(entry.dependencies.size()));
             for (const auto& dep : entry.dependencies)
             {
@@ -1330,13 +1354,33 @@ private:
         }
 
         file = nullptr;
-        system->deleteFile(path);
         const std::error_code moveError = system->moveFileOrDirectory(tempPath, path);
-        if (moveError)
+        if (!moveError)
+            return true;
+
+        if (!system->exists(path, IFileBase::ECF_READ))
         {
             system->deleteFile(tempPath);
             return false;
         }
+
+        std::filesystem::path backupPath = path;
+        backupPath += ".bak";
+        backupPath += std::to_string(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+        system->deleteFile(backupPath);
+        if (system->moveFileOrDirectory(path, backupPath))
+        {
+            system->deleteFile(tempPath);
+            return false;
+        }
+        if (system->moveFileOrDirectory(tempPath, path))
+        {
+            system->moveFileOrDirectory(backupPath, path);
+            system->deleteFile(tempPath);
+            system->deleteFile(backupPath);
+            return false;
+        }
+        system->deleteFile(backupPath);
         return true;
     }
 
@@ -1558,7 +1602,7 @@ private:
         uint32_t version = 0;
         if (!read_u32(offset, magic) || !read_u32(offset, version))
             return false;
-        if (magic != 0x4E534349u || version != 1u)
+        if (magic != 0x4E534349u || version != 2u)
         {
             if (reason)
                 *reason = "index header";
@@ -1609,8 +1653,10 @@ private:
             uint64_t spirvSize = 0;
             uint64_t uncompressedSize = 0;
             core::blake3_hash_t uncompressedHash = {};
+            uint8_t compression = 0;
             uint32_t depCount = 0;
-            if (!read_u64(offset, spirvOffset) || !read_u64(offset, spirvSize) || !read_u64(offset, uncompressedSize) || !read_hash(offset, uncompressedHash) || !read_u32(offset, depCount))
+            if (!read_u64(offset, spirvOffset) || !read_u64(offset, spirvSize) || !read_u64(offset, uncompressedSize) || !read_hash(offset, uncompressedHash) ||
+                !read_bytes(offset, &compression, sizeof(compression)) || !read_u32(offset, depCount))
                 return false;
 
             const bool match = (hash == targetHash);
@@ -1672,6 +1718,7 @@ private:
             outEntry.dependencies = std::move(deps);
             outEntry.uncompressedSize = uncompressedSize;
             outEntry.uncompressedContentHash = uncompressedHash;
+            outEntry.compression = static_cast<IShaderCompiler::CCache::ECompression>(compression);
             return true;
         }
 
@@ -1903,6 +1950,7 @@ private:
             shaderProbe.loadDuration = loadEnd - loadStart;
             if (!shaderProbe.cacheObj)
                 shaderProbe.cacheObj = make_smart_refctd_ptr<IShaderCompiler::CCache>();
+            shaderProbe.cacheObj->setDefaultCompression(shaderCache.compression);
             if (shaderProbe.status == CacheLoadStatus::Loaded)
             {
                 auto finder = makeIncludeFinder();
@@ -2096,6 +2144,7 @@ private:
             auto fullCache = loadShaderCache(m_system.get(), shaderCache.path, fullStatus, false, false);
             if (!fullCache)
                 return false;
+            fullCache->setDefaultCompression(shaderCache.compression);
             cacheObj = std::move(fullCache);
             shaderProbe.cachePartial = false;
             return true;
@@ -2231,6 +2280,8 @@ private:
         smart_refctd_ptr<IShaderCompiler::CCache> cacheObj = shaderProbe.cacheObj;
         if (!cacheObj && dep.enabled && !preprocessOnly)
             cacheObj = make_smart_refctd_ptr<IShaderCompiler::CCache>();
+        if (cacheObj)
+            cacheObj->setDefaultCompression(shaderCache.compression);
         CacheLoadStatus cacheStatus = shaderProbe.status;
         const bool shaderCacheHitExpected = shaderProbe.hit;
 

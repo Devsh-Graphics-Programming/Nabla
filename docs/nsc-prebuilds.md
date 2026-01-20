@@ -112,6 +112,7 @@ By default `NBL_CREATE_NSC_COMPILE_RULES` also collects `*.hlsl` files for IDE v
 There are three independent cache layers:
 
 - `NSC_SHADER_CACHE` (default `ON`) -> SPIR-V cache (`<hash>.spv.ppcache`) for full compilation results.
+- `NSC_SHADER_CACHE_COMPRESSION` (default `raw`) -> compression used for shader cache entries (`raw` or `lzma`).
 - `NSC_PREPROCESS_CACHE` (default `ON`) -> preprocessor prefix cache (`<hash>.spv.ppcache.pre`) to avoid repeating Boost.Wave include work when only the main shader changes.
 - `NSC_PREPROCESS_PREAMBLE` (default `ON`) -> preamble mode: reuse cached preprocessed prefix + macro state and run Wave only on the body, then compile without re-lexing the prefix.
 - All layers are used only for compilation (not `-P` preprocess-only runs).
@@ -139,6 +140,7 @@ With `-verbose`, `.log` shows:
 You can also toggle layers directly on the `nsc` CLI:
 
 - `-nbl-shader-cache`
+- `-nbl-shader-cache-compression <raw|lzma>`
 - `-nbl-preprocess-cache`
 - `-nbl-preprocess-preamble`
 - `-nbl-stdout-log` (mirror the log file output to stdout)
@@ -147,6 +149,7 @@ Related CMake options:
 
 - `NSC_PREPROCESS_PREAMBLE` (default `ON`)
 - `NSC_STDOUT_LOG` (default `OFF`)
+- `NSC_SHADER_CACHE_COMPRESSION` (default `raw`)
 
 You can redirect the caches into a shared directory with:
 

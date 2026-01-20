@@ -503,6 +503,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 
 	if (options.writeCache)
 	{
+		entry.compression = options.writeCache->getDefaultCompression();
 		if (entry.setContent(retVal->getContent()))
 			options.writeCache->insert(std::move(entry));
 	}
@@ -1024,6 +1025,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
             { "lookupHash", entry.lookupHash },
             { "uncompressedContentHash", entry.uncompressedContentHash.data },
             { "uncompressedSize", entry.uncompressedSize },
+            { "compression", static_cast<uint32_t>(entry.compression) },
         };
         entries.emplace_back(std::move(entryJson));
 
@@ -1406,6 +1408,7 @@ IShaderCompiler::SPreprocessCacheResult IShaderCompiler::preprocessWithCache(std
         IShader::E_SHADER_STAGE prefixStage = stage;
         SPreprocessorOptions preCacheOpt = preprocessOptions;
         preCacheOpt.depfile = false;
+        preCacheOpt.applyForceIncludes = false;
         if (!preprocessPrefixForCache(probe.prefix, prefixStage, preCacheOpt, entry))
         {
             result.ok = false;
@@ -2104,6 +2107,12 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
     uncompressedContentHash = uncompressedSpirvBuffer->getContentHash();
     uncompressedSize = uncompressedSpirvBuffer->getSize();
 
+    if (compression == ECompression::RAW)
+    {
+        spirv = core::smart_refctd_ptr<asset::ICPUBuffer>(const_cast<asset::ICPUBuffer*>(uncompressedSpirvBuffer));
+        return static_cast<bool>(spirv);
+    }
+
     size_t propsSize = LZMA_PROPS_SIZE;
     size_t destLen = uncompressedSpirvBuffer->getSize() + uncompressedSpirvBuffer->getSize() / 3 + 128;
     core::vector<uint8_t> compressedSpirv(propsSize + destLen);
@@ -2131,6 +2140,14 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
 
 core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
 {
+    if (compression == ECompression::RAW)
+    {
+        if (!spirv)
+            return nullptr;
+        auto buffer = spirv;
+        return core::make_smart_refctd_ptr<asset::IShader>(std::move(buffer), IShader::E_CONTENT_TYPE::ECT_SPIRV, compilerArgs.preprocessorArgs.sourceIdentifier.data());
+    }
+
     auto uncompressedBuf = ICPUBuffer::create({ uncompressedSize });
     uncompressedBuf->setContentHash(uncompressedContentHash);
 

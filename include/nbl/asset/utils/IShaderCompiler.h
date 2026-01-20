@@ -258,9 +258,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			public:
 				// Used to check compatibility of Caches before reading
-				constexpr static inline std::string_view VERSION = "1.2.6";
+				constexpr static inline std::string_view VERSION = "1.2.7";
 
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
+
+				enum class ECompression : uint8_t
+				{
+					LZMA = 0u,
+					RAW = 1u
+				};
 
 				struct SEntry
 				{
@@ -416,7 +422,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					inline SEntry(const SEntry& other)
 						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash),
 						lookupHash(other.lookupHash), dependencies(other.dependencies), spirv(other.spirv),
-						uncompressedContentHash(other.uncompressedContentHash), uncompressedSize(other.uncompressedSize) {}
+						uncompressedContentHash(other.uncompressedContentHash), uncompressedSize(other.uncompressedSize),
+						compression(other.compression) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
@@ -436,6 +443,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
 					core::blake3_hash_t uncompressedContentHash;
 					size_t uncompressedSize;
+					ECompression compression = ECompression::LZMA;
 				};
 
 				inline void insert(SEntry&& entry)
@@ -458,7 +466,18 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					auto retVal = core::make_smart_refctd_ptr<CCache>();
 					for (auto& entry : m_container)
 						retVal->m_container.emplace(entry);
+					retVal->m_defaultCompression = m_defaultCompression;
 					return retVal;
+				}
+
+				inline void setDefaultCompression(ECompression compression)
+				{
+					m_defaultCompression = compression;
+				}
+
+				inline ECompression getDefaultCompression() const
+				{
+					return m_defaultCompression;
 				}
 
 				NBL_API2 core::smart_refctd_ptr<asset::IShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
@@ -494,6 +513,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				using EntrySet = core::unordered_set<SEntry, Hash, KeyEqual>;
 				EntrySet m_container;
+				ECompression m_defaultCompression = ECompression::LZMA;
 
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder, bool validateDependencies, bool* depsUpdated) const;
 		};
