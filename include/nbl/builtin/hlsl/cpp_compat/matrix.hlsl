@@ -51,7 +51,6 @@ struct matrix final : private glm::mat<N,M,T>
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
     }
-
     inline friend bool operator==(matrix const& lhs, matrix const& rhs)
     {
         return glm::operator==(reinterpret_cast<Base const&>(lhs), reinterpret_cast<Base const&>(rhs));

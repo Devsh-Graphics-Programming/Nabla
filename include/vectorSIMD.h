@@ -887,6 +887,42 @@ namespace core
 		}
 	};
 
+	// temporary solution until vectorSIMD gets deleted
+	inline hlsl::float32_t4 convertToHLSLVector(const vectorSIMDf& vec)
+	{
+		hlsl::float32_t4 retval;
+		retval.x = vec.x;
+		retval.y = vec.y;
+		retval.z = vec.z;
+		retval.w = vec.w;
+
+		return retval;
+	}
+
+	// temporary solution until vectorSIMD gets deleted
+	inline vectorSIMDf constructVecorSIMDFromHLSLVector(const hlsl::float32_t4& vec)
+	{
+		vectorSIMDf retval;
+		retval.x = vec.x;
+		retval.y = vec.y;
+		retval.z = vec.z;
+		retval.w = vec.w;
+
+		return retval;
+	}
+
+	// temporary solution until vectorSIMD gets deleted
+	inline vectorSIMDf constructVecorSIMDFromHLSLVector(const hlsl::float32_t3& vec)
+	{
+		vectorSIMDf retval;
+		retval.x = vec.x;
+		retval.y = vec.y;
+		retval.z = vec.z;
+		retval.w = 0.0f;
+
+		return retval;
+	}
+
 } // end namespace core
 } // end namespace nbl
 
