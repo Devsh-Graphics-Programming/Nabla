@@ -663,6 +663,13 @@ struct iridescent_base
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
+    template<bool SupportsTransmission, typename Colorspace>
+    T __call(const vector_type iork3, const vector_type etak23, const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
+    {
+        return impl::iridescent_helper<T,false>::template __call<Colorspace>(D, ior1, ior2, ior3, iork3,
+                                                            eta12, eta23, etak23, clampedCosTheta);
+    }
+
     vector_type D;
     vector_type ior1;
     vector_type ior2;
@@ -672,6 +679,14 @@ struct iridescent_base
     vector_type eta23;      // thin-film -> base material IOR
     vector_type eta13;
 };
+
+
+// workaround due to DXC bug: github.com/microsoft/DirectXShaderCompiler/issues/5966
+template<typename T, bool SupportsTransmission, typename Colorspace>
+T __iridescent_base__call_const(NBL_CONST_REF_ARG(iridescent_base<T>) _this, const T iork3, const T etak23, const typename vector_traits<T>::scalar_type clampedCosTheta)
+{
+    return _this.template __call<SupportsTransmission, Colorspace>(iork3, etak23, clampedCosTheta);
+}
 }
 
 template<typename T, typename Colorspace>
@@ -713,8 +728,7 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
 
     T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
-        return impl::iridescent_helper<T,false>::template __call<Colorspace>(base_type::D, base_type::ior1, base_type::ior2, base_type::ior3, base_type::iork3,
-                                                            base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
+        return impl::__iridescent_base__call_const<T, false, Colorspace>(this, base_type::iork3, getEtak23(), clampedCosTheta);
     }
 
     vector_type getEtak23() NBL_CONST_MEMBER_FUNC
@@ -761,8 +775,7 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
 
     T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
-        return impl::iridescent_helper<T,true>::template __call<Colorspace>(base_type::D, base_type::ior1, base_type::ior2, base_type::ior3, getEtak23(),
-                                                            base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
+        return impl::__iridescent_base__call_const<T, true, Colorspace>(this, getEtak23(), getEtak23(), clampedCosTheta);
     }
 
     scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::eta13[0]; }
