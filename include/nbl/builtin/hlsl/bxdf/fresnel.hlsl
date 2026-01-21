@@ -508,10 +508,8 @@ struct iridescent_helper
     using vector_type = T;
 
     // returns phi, the phase shift for each plane of polarization (p,s)
-    static void phase_shift(const vector_type ior1, const vector_type ior2, const vector_type iork2, const vector_type cosTheta, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
+    static void phase_shift(const vector_type ior1, const vector_type ior2, const vector_type iork2, const vector_type cosTheta, const vector_type cosTheta2, const vector_type sinTheta2, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
     {
-        const vector_type cosTheta2 = cosTheta * cosTheta;
-        const vector_type sinTheta2 = hlsl::promote<vector_type>(1.0) - cosTheta2;
         const vector_type ior1_2 = ior1*ior1;
         const vector_type ior2_2 = ior2*ior2;
         const vector_type iork2_2 = iork2*iork2;
@@ -523,6 +521,7 @@ struct iridescent_helper
         const vector_type a = hlsl::sqrt(a2);
         const vector_type b = hlsl::sqrt(b2);
 
+        // TODO: very optimizable, especially atan2 usage
         phiS = hlsl::atan2(scalar_type(2.0) * ior1 * b * cosTheta, a2 + b2 - ior1_2*cosTheta2);
         const vector_type k2_plus_one = hlsl::promote<vector_type>(1.0) + iork2_2;
         phiP = hlsl::atan2(scalar_type(2.0) * ior1 * ior2_2 * cosTheta * (scalar_type(2.0) * iork2 * a - (hlsl::promote<vector_type>(1.0) - iork2_2) * b),
@@ -549,11 +548,11 @@ struct iridescent_helper
     {
         const scalar_type cosTheta_1 = clampedCosTheta;
         vector_type R12p, R23p, R12s, R23s;
-        vector_type cosTheta_2;
+        vector_type cosTheta_2, cosTheta2_2;
         vector<bool,vector_traits<vector_type>::Dimension> notTIR;
         {
             const vector_type scale = scalar_type(1.0)/eta12;
-            const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(scalar_type(1.0)-cosTheta_1*cosTheta_1) * scale * scale;
+            cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(scalar_type(1.0)-cosTheta_1*cosTheta_1) * scale * scale;
             notTIR = cosTheta2_2 > hlsl::promote<vector_type>(0.0);
             cosTheta_2 = hlsl::mix(hlsl::promote<vector_type>(0.0), hlsl::sqrt(cosTheta2_2), notTIR);
         }
@@ -604,8 +603,18 @@ struct iridescent_helper
         vector_type I = hlsl::promote<vector_type>(0.0);
 
         // Evaluate the phase shift
-        phase_shift(ior1, ior2, hlsl::promote<vector_type>(0.0), hlsl::promote<vector_type>(cosTheta_1), phi21s, phi21p);
-        phase_shift(ior2, ior3, iork3, cosTheta_2, phi23s, phi23p);
+        {
+            const vector_type ct = hlsl::promote<vector_type>(cosTheta_1);
+            const vector_type ct2 = ct * ct;
+            const vector_type st2 = hlsl::promote<vector_type>(1.0) - ct2;
+            phase_shift(ior1, ior2, hlsl::promote<vector_type>(0.0), ct, ct2, st2, phi21s, phi21p);
+        }
+        {
+            const vector_type ct = hlsl::promote<vector_type>(cosTheta_2);
+            const vector_type ct2 = cosTheta2_2;
+            const vector_type st2 = hlsl::promote<vector_type>(1.0) - ct2;
+            phase_shift(ior2, ior3, iork3, ct, ct2, st2, phi23s, phi23p);
+        }
         phi21p = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21p;
         phi21s = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21s;
 
