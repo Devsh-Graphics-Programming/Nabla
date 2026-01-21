@@ -60,9 +60,12 @@ struct ProjectedSphericalTriangle
 
     vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, const vector3_type receiverNormal, bool isBSDF, const vector2_type u)
     {
-        scalar_type cos_a, cos_c, csc_b, csc_c;
+        const scalar_type cos_a = tri.cos_sides[0];
+        const scalar_type cos_c = tri.cos_sides[2];
+        const scalar_type csc_b = tri.csc_sides[1];
+        const scalar_type csc_c = tri.csc_sides[2];
         vector3_type cos_vertices, sin_vertices;
-        const scalar_type solidAngle = tri.solidAngleOfTriangle(cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c);
+        const scalar_type solidAngle = tri.solidAngle(cos_vertices, sin_vertices);
         return generate(rcpPdf, solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, receiverNormal, isBSDF, u);
     }
 
