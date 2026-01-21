@@ -19,7 +19,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 
 		// main pseudo-pool properties
 		using joint_t = ITransformTree::node_t;
-		using skinning_matrix_t = core::matrix3x4SIMD;
+		using skinning_matrix_t = hlsl::float32_t3x4;
 		using recomputed_stamp_t = ITransformTree::recomputed_stamp_t;
 		using inverse_bind_pose_offset_t = uint32_t;
 
@@ -35,7 +35,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t inverse_bind_pose_offset_prop_ix = 3u;
 
 		// for the inverse bind pose pool
-		using inverse_bind_pose_t = core::matrix3x4SIMD;
+		using inverse_bind_pose_t = hlsl::float32_t3x4;
 		static inline constexpr uint32_t inverse_bind_pose_prop_ix = 0u;
 		
 

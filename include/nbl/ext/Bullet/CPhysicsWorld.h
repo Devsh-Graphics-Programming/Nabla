@@ -24,7 +24,7 @@ class CPhysicsWorld : public core::IReferenceCounted
         struct RigidBodyData
         {
             btCollisionShape *shape;
-            core::matrix3x4SIMD trans;
+            hlsl::float32_t3x4 trans;
             core::vectorSIMDf inertia;
             float mass;
         };
