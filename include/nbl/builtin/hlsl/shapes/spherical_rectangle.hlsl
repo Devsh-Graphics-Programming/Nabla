@@ -17,6 +17,40 @@ namespace hlsl
 namespace shapes
 {
 
+// What are we likely to do with a Spherical Rectangle?
+// 1) Initialize it multiple times from different observers
+// 2) Sample it repeatedly
+
+// How are we likely to get a spherical rect?
+// 1) from OBB matrix (with a model space z-axis scale thats irrelevant - but should be forced to 1.f to not mess with distance)
+// 2) in a compressed form
+
+// So, to bring multiple world-space observers into Spherical Rectangle's own space, we need the basis matrix.
+// The matrix should be a matrix<scalar_type,3,4> where the last column is the translation, a 3x3 matrix with a pre-transform translation (worldSpace rectangle origin to be subtracted).
+
+// You can compute it from an OBB matrix (as given by/to imguizmo to position a [0,1]^2 rectangle mesh where Z+ is the front face.
+
+// Now, can apply translation:
+// 1) post-rotation so a it automatically gets added during a affine pseudo-mul of a 3x4, so pseudo_mul(basis,observer)
+// 2) pre-rotation so you keep a worldspace rectangle origin and subtract it before, e.g. mul(basis,worldSpaceOrigin-observer) - this one is possibly better due to next point
+
+// So we need to store:
+// 1) first two COLUMNS of the original OBB matrix (rows of 3x3 basis matrix with the scale still in there), thats kinda your right and up vectors
+// 2) pre-rotation translation / the world-space translation of the rectangle
+// Theoretically you could get away with not storing one of the up vector components but its not always the same component you can reconstruct (plane orthogonal to up isn't always the XY plane).
+// Could compress up vector as a rotation of the default vector orthogonal to right as given by the frisvad-basis function around the right vector plus a scale
+// but that becomes a very expensive decompression step involving a quaternion with uniform scale.
+
+template<typename Scalar>
+struct CompressedSphericalRectangle
+{
+    using vector3_type = vector<Scalar, 3>;
+
+    vector3_type origin;
+    vector3_type right;
+    vector3_type up;
+};
+
 template<typename Scalar>
 struct SphericalRectangle
 {
@@ -34,6 +68,11 @@ struct SphericalRectangle
         retval.basis[1] = up / retval.extents[1];
         retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
         return retval;
+    }
+
+    static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(CompressedSphericalRectangle<Scalar>) compressed)
+    {
+        return create(compressed.origin, compressed.right, compressed.up);
     }
 
     scalar_type solidAngle(const vector3_type observer)
