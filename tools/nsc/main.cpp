@@ -208,6 +208,7 @@ public:
         program.add_argument("-nbl-preprocess-cache").default_value(false).implicit_value(true);
         program.add_argument("-nbl-preprocess-preamble").default_value(false).implicit_value(true);
         program.add_argument("-nbl-stdout-log").default_value(false).implicit_value(true);
+        program.add_argument("-nbl-report").default_value(std::string{});
 
         std::vector<std::string> unknownArgs;
         try
@@ -289,6 +290,7 @@ public:
         const bool quiet = program.get<bool>("-quiet");
         const bool verbose = program.get<bool>("-verbose");
         const bool stdoutLog = program.get<bool>("-nbl-stdout-log");
+        const std::string reportPath = program.get<std::string>("-nbl-report");
         bool shaderCacheEnabled = program.get<bool>("-shader-cache") || program.get<bool>("-nbl-shader-cache");
         const std::string shaderCachePathOverride = program.is_used("-shader-cache-file") ? program.get<std::string>("-shader-cache-file") : std::string{};
         if (!shaderCachePathOverride.empty())
@@ -496,7 +498,7 @@ public:
 
         const auto start = std::chrono::high_resolution_clock::now();
         const std::string preprocessedOutputPath = outputFilepath + ".pre.hlsl";
-        const auto job = runShaderJob(shader.get(), shaderStage, fileToCompile, dep, shaderCache, preCache, preprocessOnly, outputFilepath, preprocessedOutputPath, verbose);
+        auto job = runShaderJob(shader.get(), shaderStage, fileToCompile, dep, shaderCache, preCache, preprocessOnly, outputFilepath, preprocessedOutputPath, verbose, !reportPath.empty());
         const auto end = std::chrono::high_resolution_clock::now();
 
         const char* const op = preprocessOnly ? "preprocessing" : "compilation";
@@ -525,6 +527,9 @@ public:
             }
         }
 
+        bool outputWritten = false;
+        long long outputWriteMs = 0;
+        uint64_t outputSize = 0;
         if (!job.view.empty())
         {
             const auto writeStart = std::chrono::high_resolution_clock::now();
@@ -533,6 +538,8 @@ public:
                 m_logger->log("Failed to write output file: %s", ILogger::ELL_ERROR, outputFilepath.c_str());
                 return false;
             }
+            outputWritten = true;
+            outputSize = static_cast<uint64_t>(job.view.size());
             OutputHashRecord record = {};
             record.size = job.view.size();
             {
@@ -544,10 +551,10 @@ public:
             if (!writeBinaryFile(m_system.get(), hashPath, &record, sizeof(record)))
                 m_logger->log("Failed to write output hash file: %s", ILogger::ELL_WARNING, hashPath.string().c_str());
             const auto writeEnd = std::chrono::high_resolution_clock::now();
+            outputWriteMs = std::chrono::duration_cast<std::chrono::milliseconds>(writeEnd - writeStart).count();
             if (verbose)
             {
-                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(writeEnd - writeStart).count();
-                m_logger->log("Write output took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(duration));
+                m_logger->log("Write output took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(outputWriteMs));
             }
         }
         else if (verbose)
@@ -555,8 +562,31 @@ public:
             m_logger->log("Output up to date. Skipping write.", ILogger::ELL_DEBUG);
         }
 
-        const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
-        m_logger->log("Total took: %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
+        const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        const auto overallEnd = std::chrono::high_resolution_clock::now();
+        const auto totalWithOutputMs = std::chrono::duration_cast<std::chrono::milliseconds>(overallEnd - start).count();
+        m_logger->log("Total took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(totalMs));
+
+        if (!reportPath.empty() && !job.report.is_null())
+        {
+            job.report["version"] = 1;
+            job.report["input"] = fileToCompile;
+            job.report["config"] = configLabel;
+            job.report["builtins"] = !noNblBuiltins;
+            job.report["preprocess_only"] = preprocessOnly;
+            job.report["output"]["path"] = outputFilepath;
+            job.report["output"]["written"] = outputWritten;
+            job.report["output"]["ms"] = outputWriteMs;
+            job.report["output"]["size"] = outputSize;
+            job.report["depfile"]["enabled"] = dep.enabled;
+            job.report["depfile"]["path"] = dep.path;
+            job.report["total_ms"] = totalMs;
+            job.report["total_with_output_ms"] = totalWithOutputMs;
+
+            const auto reportDump = job.report.dump(2);
+            if (!writeBinaryFile(m_system.get(), std::filesystem::path(reportPath), reportDump.data(), reportDump.size()))
+                m_logger->log("Failed to write report: %s", ILogger::ELL_WARNING, reportPath.c_str());
+        }
 
         flushSystemQueue(m_system.get(), std::filesystem::path(outputFilepath));
 
@@ -602,6 +632,7 @@ private:
         std::string text;
         smart_refctd_ptr<IShader> compiled;
         std::string_view view;
+        json report;
     };
 
     struct OutputHashRecord
@@ -1812,9 +1843,20 @@ private:
             m_logger->log("Saved \"%s\"", ILogger::ELL_INFO, oPath.string().c_str());
     }
 
-    RunResult runShaderJob(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& dep, const ShaderCacheConfig& shaderCache, const PreprocessCacheConfig& preCache, const bool preprocessOnly, std::string_view outputFilepath, std::string_view preprocessedOutputPath, const bool verbose)
+    RunResult runShaderJob(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& dep, const ShaderCacheConfig& shaderCache, const PreprocessCacheConfig& preCache, const bool preprocessOnly, std::string_view outputFilepath, std::string_view preprocessedOutputPath, const bool verbose, const bool reportEnabled)
     {
         RunResult r;
+        if (reportEnabled)
+        {
+            r.report = json::object();
+            r.report["shader_cache"] = json::object();
+            r.report["preprocess_cache"] = json::object();
+            r.report["preamble"] = json::object();
+            r.report["compile"] = json::object();
+            r.report["preprocess"] = json::object();
+            r.report["output"] = json::object();
+            r.report["depfile"] = json::object();
+        }
         auto makeIncludeFinder = [&]()
         {
             auto finder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
@@ -1877,6 +1919,19 @@ private:
         const bool useShaderCache = shaderCache.enabled && !preprocessOnly;
         const bool usePreCache = preCache.enabled && !preprocessOnly;
         const bool validateCacheDeps = true;
+        if (reportEnabled)
+        {
+            r.report["shader_cache"]["enabled"] = useShaderCache;
+            r.report["preprocess_cache"]["enabled"] = usePreCache;
+            r.report["preamble"]["enabled"] = usePreCache && preCache.preamble;
+            r.report["compile"]["called"] = false;
+            r.report["compile"]["ms"] = 0;
+            r.report["preprocess"]["called"] = false;
+            r.report["preprocess"]["ms"] = 0;
+            r.report["depfile"]["enabled"] = dep.enabled;
+            r.report["depfile"]["written"] = false;
+            r.report["depfile"]["ms"] = 0;
+        }
 
         struct ShaderCacheProbeResult
         {
@@ -1911,7 +1966,34 @@ private:
         ShaderCacheProbeResult shaderProbe;
         PreprocessCacheProbeResult preProbe;
         using clock_t = std::chrono::high_resolution_clock;
+        auto toMs = [](const std::chrono::nanoseconds duration) -> long long
+        {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+        };
+        auto cacheMissReason = [](CacheLoadStatus status) -> const char*
+        {
+            if (status == CacheLoadStatus::Missing)
+                return "cache file missing; first build, cleaned, output moved, or out of date";
+            if (status == CacheLoadStatus::Invalid)
+                return "cache file invalid or version mismatch";
+            return "input/deps/options changed; cache invalidated";
+        };
         const auto probeStart = clock_t::now();
+
+        core::smart_refctd_ptr<IShaderCompiler::CIncludeFinder> sharedFinder;
+        auto getFinder = [&]() -> IShaderCompiler::CIncludeFinder*
+        {
+            if (!sharedFinder)
+                sharedFinder = makeIncludeFinder();
+            return sharedFinder.get();
+        };
+        core::smart_refctd_ptr<CHLSLCompiler> sharedCompiler;
+        auto getCompiler = [&]() -> CHLSLCompiler*
+        {
+            if (!sharedCompiler)
+                sharedCompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
+            return sharedCompiler.get();
+        };
 
         if (useShaderCache)
         {
@@ -1953,9 +2035,9 @@ private:
             shaderProbe.cacheObj->setDefaultCompression(shaderCache.compression);
             if (shaderProbe.status == CacheLoadStatus::Loaded)
             {
-                auto finder = makeIncludeFinder();
+                auto* finder = getFinder();
                 const auto validateStart = clock_t::now();
-                shaderProbe.hit = shaderProbe.cacheObj->findEntryForCode(code, opt, finder.get(), shaderProbe.entry, validateCacheDeps, &shaderProbe.depsUpdated);
+                shaderProbe.hit = shaderProbe.cacheObj->findEntryForCode(code, opt, finder, shaderProbe.entry, validateCacheDeps, &shaderProbe.depsUpdated);
                 const auto validateEnd = clock_t::now();
                 shaderProbe.entryReady = shaderProbe.hit;
                 shaderProbe.validateDuration = validateEnd - validateStart;
@@ -1976,7 +2058,7 @@ private:
             else
             {
                 const auto start = clock_t::now();
-                auto finder = makeIncludeFinder();
+                auto* finder = getFinder();
                 bool preIndexExists = false;
                 if (m_system)
                     preIndexExists = m_system->exists(makePreprocessCacheIndexPath(preCache.path), IFileBase::ECF_READ);
@@ -2031,7 +2113,7 @@ private:
                         cacheObj->setEntry(std::move(entry));
 
                         bool depsUpdated = false;
-                        const bool depsValid = cacheObj->validateDependencies(finder.get(), &depsUpdated);
+                        const bool depsValid = cacheObj->validateDependencies(finder, &depsUpdated);
                         if (depsValid)
                         {
                             IShader::E_SHADER_STAGE stageOverrideThread = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
@@ -2074,9 +2156,9 @@ private:
                             preProbe.cacheObj = make_smart_refctd_ptr<IShaderCompiler::CPreprocessCache>();
                     }
 
-                    auto localCompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
+                    auto* localCompiler = getCompiler();
                     CHLSLCompiler::SPreprocessorOptions preOptThread = preOpt;
-                    preOptThread.includeFinder = finder.get();
+                    preOptThread.includeFinder = finder;
                     IShader::E_SHADER_STAGE stageOverrideThread = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
                     preProbe.result = localCompiler->preprocessWithCache(code, stageOverrideThread, preOptThread, *preProbe.cacheObj, preProbe.loadStatus, sourceIdentifier);
                     preProbe.ok = preProbe.result.ok;
@@ -2092,9 +2174,40 @@ private:
         }
 
         const auto probeEnd = clock_t::now();
+        if (reportEnabled)
+        {
+            r.report["cache_probe_ms"] = toMs(probeEnd - probeStart);
+            auto& sc = r.report["shader_cache"];
+            sc["hit"] = shaderProbe.hit;
+            sc["used_index"] = shaderProbe.usedIndex;
+            sc["probe_ms"] = toMs(shaderProbe.duration);
+            sc["load_ms"] = toMs(shaderProbe.loadDuration);
+            sc["validate_ms"] = toMs(shaderProbe.validateDuration);
+            sc["status"] = useShaderCache ? (shaderProbe.hit ? "hit" : "miss") : "disabled";
+            if (useShaderCache && !shaderProbe.hit)
+                sc["miss_reason"] = cacheMissReason(shaderProbe.status);
+
+            auto& pc = r.report["preprocess_cache"];
+            pc["hit"] = preProbe.result.cacheHit;
+            pc["used"] = preProbe.result.cacheUsed;
+            pc["skipped"] = preProbe.skipped;
+            pc["updated"] = preProbe.result.cacheUpdated;
+            pc["probe_ms"] = toMs(preProbe.duration);
+            if (!usePreCache)
+                pc["status"] = "disabled";
+            else if (preProbe.skipped)
+                pc["status"] = "skipped";
+            else if (preProbe.result.cacheHit)
+                pc["status"] = "hit";
+            else
+                pc["status"] = "miss";
+            if (usePreCache && !preProbe.skipped && !preProbe.result.cacheHit)
+                pc["miss_reason"] = IShaderCompiler::CPreprocessCache::getProbeReason(preProbe.result.status);
+        }
 
         std::string preprocessedCode;
         bool preprocessedReady = false;
+        bool preprocessedFromFullPreprocess = false;
         bool preprocessedNeedsWrite = false;
         bool preambleUsed = false;
         std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> preambleDependencies;
@@ -2104,20 +2217,6 @@ private:
         std::string_view codeToCompile = code;
         smart_refctd_ptr<IShaderCompiler::CPreprocessCache> preCacheObj;
         IShader::E_SHADER_STAGE stageOverride = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
-        auto cacheMissReason = [](CacheLoadStatus status) -> const char*
-        {
-            if (status == CacheLoadStatus::Missing)
-                return "cache file missing; first build, cleaned, output moved, or out of date";
-            if (status == CacheLoadStatus::Invalid)
-                return "cache file invalid or version mismatch";
-            return "input/deps/options changed; cache invalidated";
-        };
-
-        auto toMs = [](const std::chrono::nanoseconds duration) -> long long
-        {
-            return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        };
-
         auto ensureIndexSpirvLoaded = [&](IShaderCompiler::CCache::SEntry& entry) -> bool
         {
             if (entry.spirv)
@@ -2308,11 +2407,12 @@ private:
             {
                 stageOverride = preProbe.result.stage;
                 preCacheObj = preProbe.cacheObj;
-                if (!preCache.preamble)
+                if (!preCache.preamble || !preProbe.result.cacheHit)
                 {
                     preprocessedCode = std::move(preProbe.result.code);
                     preprocessedReady = true;
                     preprocessedNeedsWrite = !preprocessedOutputPath.empty();
+                    preprocessedFromFullPreprocess = true;
                 }
             }
         }
@@ -2406,16 +2506,21 @@ private:
             }
             if (isOutputUpToDate(shaderProbe.entry))
             {
-                const auto hitDepfileStart = clock_t::now();
-                if (!writeDepfileFromDependencies(shaderProbe.entry.dependencies, true))
-                    return r;
-                const auto hitDepfileEnd = clock_t::now();
-                r.ok = true;
-                if (verbose)
-                {
-                    m_logger->log("HIT timings: decompress=0 ms, depfile=%lld ms.", ILogger::ELL_PERFORMANCE,
-                        static_cast<long long>(toMs(hitDepfileEnd - hitDepfileStart)));
-                }
+            const auto hitDepfileStart = clock_t::now();
+            if (!writeDepfileFromDependencies(shaderProbe.entry.dependencies, true))
+                return r;
+            const auto hitDepfileEnd = clock_t::now();
+            if (reportEnabled)
+            {
+                r.report["depfile"]["written"] = m_system && m_system->exists(preOpt.depfilePath, IFileBase::ECF_READ);
+                r.report["depfile"]["ms"] = toMs(hitDepfileEnd - hitDepfileStart);
+            }
+            r.ok = true;
+            if (verbose)
+            {
+                m_logger->log("HIT timings: decompress=0 ms, depfile=%lld ms.", ILogger::ELL_PERFORMANCE,
+                    static_cast<long long>(toMs(hitDepfileEnd - hitDepfileStart)));
+            }
                 return r;
             }
             const auto hitDecompressStart = clock_t::now();
@@ -2432,6 +2537,11 @@ private:
             if (!writeDepfileFromDependencies(shaderProbe.entry.dependencies, true))
                 return r;
             const auto hitDepfileEnd = clock_t::now();
+            if (reportEnabled)
+            {
+                r.report["depfile"]["written"] = m_system && m_system->exists(preOpt.depfilePath, IFileBase::ECF_READ);
+                r.report["depfile"]["ms"] = toMs(hitDepfileEnd - hitDepfileStart);
+            }
             if (verbose)
             {
                 m_logger->log("HIT timings: decompress=%lld ms, depfile=%lld ms.", ILogger::ELL_PERFORMANCE,
@@ -2442,12 +2552,12 @@ private:
             return r;
         }
 
-        auto hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
+        auto* hlslcompiler = getCompiler();
         clock_t::duration preambleBodyDuration = {};
         clock_t::duration preambleAssembleDuration = {};
         clock_t::duration preambleProbeDuration = {};
         clock_t::duration preambleFinderDuration = {};
-        const bool usePreamble = preCache.preamble && preCacheObj && preCacheObj->hasEntry();
+        const bool usePreamble = preCache.preamble && preCacheObj && preCacheObj->hasEntry() && !preprocessedFromFullPreprocess;
         if (usePreamble)
         {
             const auto preambleStart = clock_t::now();
@@ -2464,54 +2574,16 @@ private:
 
             const auto& entry = preCacheObj->getEntry();
 
-            const auto preambleFinderStart = clock_t::now();
-            auto finder = makeIncludeFinder();
-            preambleFinderDuration = clock_t::now() - preambleFinderStart;
             auto bodyStage = stageOverride;
             CHLSLCompiler::SPreprocessorOptions bodyOpt = preOpt;
             bodyOpt.applyForceIncludes = false;
-            bodyOpt.includeFinder = finder.get();
-            if (!entry.macroBlock.empty())
-            {
-                std::string withDefines;
-                withDefines.reserve(body.size() + entry.macroBlock.size());
-                withDefines.append(entry.macroBlock);
-                withDefines.append(body);
-                body = std::move(withDefines);
-                bodyOpt.extraDefines = {};
-            }
-            else if (!entry.macroDefs.empty())
-            {
-                size_t reserve = body.size();
-                for (const auto& macro : entry.macroDefs)
-                    reserve += macro.size() + 12;
-                std::string withDefines;
-                withDefines.reserve(reserve);
-                for (const auto& macro : entry.macroDefs)
-                {
-                    const auto eq = macro.find('=');
-                    const std::string_view name = eq == std::string::npos ? std::string_view(macro) : std::string_view(macro).substr(0, eq);
-                    const std::string_view def = eq == std::string::npos ? std::string_view() : std::string_view(macro).substr(eq + 1);
-                    withDefines.append("#define ");
-                    withDefines.append(name);
-                    if (!def.empty())
-                    {
-                        withDefines.push_back(' ');
-                        withDefines.append(def);
-                    }
-                    withDefines.push_back('\n');
-                }
-                withDefines.append(body);
-                body = std::move(withDefines);
-                bodyOpt.extraDefines = {};
-            }
 
             std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> bodyDeps;
             std::vector<std::string> bodyDxcFlags;
             std::string bodyPreprocessed;
             if (!body.empty())
             {
-                const auto bodyHasInclude = [](std::string_view text) -> bool
+                const auto bodyHasDirective = [](std::string_view text) -> bool
                 {
                     size_t pos = 0;
                     while (pos < text.size())
@@ -2524,23 +2596,127 @@ private:
                             ++i;
                         if (i < lineEnd && text[i] == '#')
                         {
-                            ++i;
-                            while (i < lineEnd && (text[i] == ' ' || text[i] == '\t'))
-                                ++i;
-                            if (lineEnd - i >= 7 && text.compare(i, 7, "include") == 0)
-                                return true;
+                            return true;
                         }
                         pos = lineEnd + 1;
                     }
                     return false;
                 };
-                const bool hasInclude = bodyHasInclude(body);
-                auto* bodyDepsOut = hasInclude ? &bodyDeps : nullptr;
-                const auto bodyPreprocessStart = clock_t::now();
-                bodyPreprocessed = hlslcompiler->preprocessShader(std::move(body), bodyStage, bodyOpt, bodyDxcFlags, bodyDepsOut, nullptr);
-                preambleBodyDuration = clock_t::now() - bodyPreprocessStart;
-                if (bodyPreprocessed.empty())
-                    return r;
+                const auto macroName = [](const std::string& macro) -> std::string_view
+                {
+                    std::string_view name(macro);
+                    const auto eq = name.find('=');
+                    if (eq != std::string_view::npos)
+                        name = name.substr(0, eq);
+                    const auto paren = name.find('(');
+                    if (paren != std::string_view::npos)
+                        name = name.substr(0, paren);
+                    while (!name.empty() && (name.back() == ' ' || name.back() == '\t'))
+                        name.remove_suffix(1);
+                    return name;
+                };
+                const auto bodyUsesMacros = [&](std::string_view text) -> bool
+                {
+                    static constexpr std::string_view kBuiltinMacros[] =
+                    {
+                        "__LINE__",
+                        "__FILE__",
+                        "__COUNTER__",
+                        "__DATE__",
+                        "__TIME__",
+                        "__TIMESTAMP__"
+                    };
+                    for (const auto builtin : kBuiltinMacros)
+                    {
+                        if (text.find(builtin) != std::string_view::npos)
+                            return true;
+                    }
+                    for (const auto& macro : entry.macroDefs)
+                    {
+                        const std::string_view name = macroName(macro);
+                        if (!name.empty() && text.find(name) != std::string_view::npos)
+                            return true;
+                    }
+                    return false;
+                };
+                const bool hasDirective = bodyHasDirective(body);
+                const bool needsPreprocess = hasDirective || bodyUsesMacros(body);
+                if (needsPreprocess)
+                {
+                    if (!entry.macroBlock.empty())
+                    {
+                        std::string withDefines;
+                        withDefines.reserve(body.size() + entry.macroBlock.size());
+                        withDefines.append(entry.macroBlock);
+                        withDefines.append(body);
+                        body = std::move(withDefines);
+                        bodyOpt.extraDefines = {};
+                    }
+                    else if (!entry.macroDefs.empty())
+                    {
+                        size_t reserve = body.size();
+                        for (const auto& macro : entry.macroDefs)
+                            reserve += macro.size() + 12;
+                        std::string withDefines;
+                        withDefines.reserve(reserve);
+                        for (const auto& macro : entry.macroDefs)
+                        {
+                            const auto eq = macro.find('=');
+                            const std::string_view name = eq == std::string::npos ? std::string_view(macro) : std::string_view(macro).substr(0, eq);
+                            const std::string_view def = eq == std::string::npos ? std::string_view() : std::string_view(macro).substr(eq + 1);
+                            withDefines.append("#define ");
+                            withDefines.append(name);
+                            if (!def.empty())
+                            {
+                                withDefines.push_back(' ');
+                                withDefines.append(def);
+                            }
+                            withDefines.push_back('\n');
+                        }
+                        withDefines.append(body);
+                        body = std::move(withDefines);
+                        bodyOpt.extraDefines = {};
+                    }
+
+                    const auto bodyHasInclude = [](std::string_view text) -> bool
+                    {
+                        size_t pos = 0;
+                        while (pos < text.size())
+                        {
+                            size_t lineEnd = text.find('\n', pos);
+                            if (lineEnd == std::string_view::npos)
+                                lineEnd = text.size();
+                            size_t i = pos;
+                            while (i < lineEnd && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r'))
+                                ++i;
+                            if (i < lineEnd && text[i] == '#')
+                            {
+                                ++i;
+                                while (i < lineEnd && (text[i] == ' ' || text[i] == '\t'))
+                                    ++i;
+                                if (lineEnd - i >= 7 && text.compare(i, 7, "include") == 0)
+                                    return true;
+                            }
+                            pos = lineEnd + 1;
+                        }
+                        return false;
+                    };
+                    const bool hasInclude = bodyHasInclude(body);
+                    auto* bodyDepsOut = hasInclude ? &bodyDeps : nullptr;
+                    const auto preambleFinderStart = clock_t::now();
+                    auto* finder = getFinder();
+                    preambleFinderDuration = clock_t::now() - preambleFinderStart;
+                    bodyOpt.includeFinder = finder;
+                    const auto bodyPreprocessStart = clock_t::now();
+                    bodyPreprocessed = hlslcompiler->preprocessShader(std::move(body), bodyStage, bodyOpt, bodyDxcFlags, bodyDepsOut, nullptr);
+                    preambleBodyDuration = clock_t::now() - bodyPreprocessStart;
+                    if (bodyPreprocessed.empty())
+                        return r;
+                }
+                else
+                {
+                    bodyPreprocessed = body;
+                }
             }
 
             stageOverride = bodyStage;
@@ -2631,6 +2807,16 @@ private:
             m_logger->log("Preamble body preprocess took: %lld ms.", ILogger::ELL_PERFORMANCE,
                 static_cast<long long>(toMs(preambleDuration)));
         }
+        if (reportEnabled)
+        {
+            auto& p = r.report["preamble"];
+            p["used"] = preambleUsed;
+            p["probe_ms"] = toMs(preambleProbeDuration);
+            p["finder_ms"] = toMs(preambleFinderDuration);
+            p["body_ms"] = toMs(preambleBodyDuration);
+            p["assemble_ms"] = toMs(preambleAssembleDuration);
+            p["total_ms"] = toMs(preambleDuration);
+        }
 
         if (preprocessOnly)
         {
@@ -2645,6 +2831,11 @@ private:
             {
                 const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(preprocessEnd - preprocessStart).count();
                 m_logger->log("Preprocess took: %lld ms.", ILogger::ELL_PERFORMANCE, static_cast<long long>(duration));
+            }
+            if (reportEnabled)
+            {
+                r.report["preprocess"]["called"] = true;
+                r.report["preprocess"]["ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(preprocessEnd - preprocessStart).count();
             }
             return r;
         }
@@ -2689,14 +2880,19 @@ private:
             codeToCompile = preprocessedCode;
         }
 
-        auto compileFinder = makeIncludeFinder();
-        opt.preprocessorOptions.includeFinder = compileFinder.get();
+        auto* compileFinder = getFinder();
+        opt.preprocessorOptions.includeFinder = compileFinder;
         const auto compileStart = clock_t::now();
         r.compiled = hlslcompiler->compileToSPIRV(codeToCompile, opt);
         const auto compileEnd = clock_t::now();
         r.ok = bool(r.compiled);
         if (r.ok)
             r.view = { (const char*)r.compiled->getContent()->getPointer(), r.compiled->getContent()->getSize() };
+        if (reportEnabled)
+        {
+            r.report["compile"]["called"] = true;
+            r.report["compile"]["ms"] = toMs(compileEnd - compileStart);
+        }
         if (verbose)
         {
             m_logger->log("Compile call took: %lld ms.", ILogger::ELL_PERFORMANCE,
@@ -2746,7 +2942,7 @@ private:
             else if (cacheObj)
             {
                 const auto depLookupStart = clock_t::now();
-                const bool depFound = cacheObj->findEntryForCode(code, opt, compileFinder.get(), depEntry, validateCacheDeps);
+                const bool depFound = cacheObj->findEntryForCode(code, opt, compileFinder, depEntry, validateCacheDeps);
                 const auto depLookupEnd = clock_t::now();
                 if (verbose)
                 {
@@ -2771,6 +2967,11 @@ private:
                 return r;
             }
             const auto depfileEnd = clock_t::now();
+            if (reportEnabled)
+            {
+                r.report["depfile"]["written"] = m_system && m_system->exists(preOpt.depfilePath, IFileBase::ECF_READ);
+                r.report["depfile"]["ms"] = toMs(depfileEnd - depfileStart);
+            }
             if (verbose)
             {
                 m_logger->log("Depfile write took: %lld ms.", ILogger::ELL_PERFORMANCE,

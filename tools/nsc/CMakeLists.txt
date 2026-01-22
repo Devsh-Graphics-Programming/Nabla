@@ -60,6 +60,8 @@ add_test(NAME NBL_NSC_DUMP_BUILD_INFO_TEST
   COMMAND_EXPAND_LISTS
 )
 
+add_subdirectory(test/cache_layers)
+
 if(NBL_ENABLE_DOCKER_INTEGRATION)
 
 find_program(DOCKER_EXE NAMES docker REQUIRED)

@@ -137,6 +137,15 @@ With `-verbose`, `.log` shows:
   - `Write output took: ...` (only when output file is written)
   - `Total took: ...` (overall tool runtime)
 
+When `-nbl-report` is provided, NSC also writes a JSON report containing:
+
+- `shader_cache` (hit/lookup/load/validate times)
+- `preprocess_cache` (hit/lookup status)
+- `preamble` (used + body/prefix timings)
+- `compile` and `preprocess` timings
+- `output` + `depfile` metadata
+- `total_ms` and `total_with_output_ms`
+
 You can also toggle layers directly on the `nsc` CLI:
 
 - `-nbl-shader-cache`
@@ -144,6 +153,7 @@ You can also toggle layers directly on the `nsc` CLI:
 - `-nbl-preprocess-cache`
 - `-nbl-preprocess-preamble`
 - `-nbl-stdout-log` (mirror the log file output to stdout)
+- `-nbl-report <path>` (write a JSON report with cache hits, timings, and output metadata)
 
 Related CMake options:
 

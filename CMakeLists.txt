@@ -33,6 +33,7 @@ project(Nabla
 	LANGUAGES CXX C
 )
 enable_language(C CXX ASM ASM_NASM)
+enable_testing()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
