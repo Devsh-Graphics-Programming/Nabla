@@ -21,28 +21,27 @@ template<typename Scalar>
 struct SphericalRectangle
 {
     using scalar_type = Scalar;
+    using vector2_type = vector<Scalar, 2>;
     using vector3_type = vector<Scalar, 3>;
     using matrix3x3_type = matrix<Scalar, 3, 3>;
 
-    static SphericalRectangle<scalar_type> create(const vector3_type observer, const vector3_type rectangleOrigin, const matrix3x3_type basis)
+    static SphericalRectangle<Scalar> create(const vector3_type rectangleOrigin, const vector3_type right, const vector3_type up)
     {
         SphericalRectangle<scalar_type> retval;
-        retval.r0 = nbl::hlsl::mul(basis, rectangleOrigin - observer);
+        retval.origin = rectangleOrigin;
+        retval.extents = vector2_type(hlsl::length(right), hlsl::length(up));
+        retval.basis[0] = right / retval.extents[0];
+        retval.basis[1] = up / retval.extents[1];
+        retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
         return retval;
     }
 
-    static SphericalRectangle<Scalar> create(const vector3_type observer, const vector3_type rectangleOrigin, const vector3_type T, vector3_type B, const vector3_type N)
+    scalar_type solidAngle(const vector3_type observer)
     {
-        SphericalRectangle<scalar_type> retval;
-        matrix3x3_type TBN = nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, N));
-        retval.r0 = nbl::hlsl::mul(TBN, rectangleOrigin - observer);
-        return retval;
-    }
+        const vector3_type r0 = hlsl::mul(basis, origin - observer);
 
-    scalar_type solidAngle(const vector<scalar_type, 2> rectangleExtents)
-    {
         using vector4_type = vector<Scalar, 4>;
-        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + rectangleExtents.x, r0.y + rectangleExtents.y, -r0.x);
+        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + extents.x, r0.y + extents.y, -r0.x);
         const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(r0.z * r0.z) + denorm_n_z * denorm_n_z);
         const vector4_type cosGamma = vector4_type(
             -n_z[0] * n_z[1],
@@ -57,7 +56,9 @@ struct SphericalRectangle
         return angle_adder.getSumofArccos() - scalar_type(2.0) * numbers::pi<float>;
     }
 
-    vector3_type r0;
+    vector3_type origin;
+    vector2_type extents;
+    matrix3x3_type basis;
 };
 
 }
