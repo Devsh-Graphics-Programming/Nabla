@@ -53,7 +53,9 @@ its dependency tracking.
 
 Each cache entry is validated against its dependency graph and compilation
 inputs. Any change in inputs, options, or includes invalidates the cache and
-forces a cold run. The tests do not enable "fast unsafe" paths.
+forces a cold run. When caches are enabled, `nsc` uses fast-safe validation:
+mtime/size mismatches force a miss without hashing, so hits are never stale.
+The tests do not enable "fast unsafe" paths.
 
 ## Test overview (CMake/CTest)
 
@@ -121,30 +123,30 @@ The JSON report fields used by the tests include:
 ## Example timings (Release)
 
 Measured from JSON reports (total_with_output_ms).
-Cold-run and hit numbers are medians of 7 runs. Each hit sample is preceded by its cold-run seed.
+Cold-run and hit numbers are medians of 5 runs. Each hit sample is preceded by its cold-run seed.
 Baseline is "No cache cold" per builtins mode. Relative vs no-cache is baseline / row.
 Values below 1.0x mean slower than baseline.
 Machine: AMD Ryzen 5 5600G with Radeon Graphics.
 Config: Release, builtins OFF/ON (two baselines).
-Includes stress: the proxy pulls three heavy builtins (intrinsics/matrix/vector). The full preprocessed output is ~10.6k lines (measured from the Release preprocess-cache `.spv.pre.hlsl`).
+Includes stress: the proxy pulls three heavy builtins (intrinsics/matrix/vector). The full preprocessed output is ~11.3k lines (11274, measured from the Release preprocess-cache `.spv.pre.hlsl`).
 
 Cold runs (no cache hits; preamble split can still be used):
 
 | Scenario | Caches enabled | Preprocess path | total_with_output_ms (builtins OFF) | Relative vs no-cache (OFF) | total_with_output_ms (builtins ON) | Relative vs no-cache (ON) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Baseline no-cache cold | none | full preprocess | 1302 | 1.00x | 684 | 1.00x |
-| Cold run (preprocess cache enabled) | shader + preprocess | full preprocess | 1529 | 0.85x | 890 | 0.77x |
-| Cold run (all caches enabled) | shader + preprocess + preamble | full preprocess | 1502 | 0.87x | 895 | 0.76x |
+| Baseline no-cache cold | none | full preprocess | 1233 | 1.00x | 693 | 1.00x |
+| Cold run (preprocess cache enabled) | shader + preprocess | full preprocess | 1449 | 0.85x | 912 | 0.76x |
+| Cold run (all caches enabled) | shader + preprocess + preamble | full preprocess | 1276 | 0.97x | 748 | 0.93x |
 
-Note: "Cold run (all caches enabled)" is still a cache miss and uses full preprocess; `preamble.used` stays false on miss. Small deltas between the cold rows are measurement noise.
+Note: "Cold run (all caches enabled)" is still a cache miss and uses full preprocess; `preamble.used` stays false on miss. Small deltas between the cold rows (including an occasional slight speedup vs baseline) are measurement noise and OS caching effects.
 
 Hit paths (caches enabled as configured by the test target):
 
 | Scenario | Caches enabled | Hit path | total_with_output_ms (builtins OFF) | Speedup vs no-cache (OFF) | total_with_output_ms (builtins ON) | Speedup vs no-cache (ON) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Shader cache hit | shader + preprocess + preamble | cached SPIR-V | 19 | 68.5x | 17 | 40.2x |
-| Preprocess cache hit | shader + preprocess | preprocessed code + compile | 421 | 3.09x | 381 | 1.80x |
-| Preamble cache hit | shader + preprocess + preamble | prefix reuse + body preprocess + compile | 226 | 5.76x | 207 | 3.30x |
+| Shader cache hit | shader + preprocess + preamble | cached SPIR-V | 17 | 72.5x | 19 | 36.5x |
+| Preprocess cache hit | shader + preprocess | preprocessed code + compile | 404 | 3.05x | 412 | 1.68x |
+| Preamble cache hit | shader + preprocess + preamble | prefix reuse + body preprocess + compile | 219 | 5.63x | 251 | 2.76x |
 
 These numbers are expected to vary across machines and drivers.
 Builtins ON uses embedded archives, which reduces filesystem IO and typically improves cold-run times.
@@ -154,13 +156,13 @@ Builtins ON uses embedded archives, which reduces filesystem IO and typically im
 From the build directory:
 
 ```
-ctest -C Debug -R NBL_NSC_CACHE_ --output-on-failure
+ctest -C Release -R NBL_NSC_CACHE_ --output-on-failure
 ```
 
 Repeat runs for sampling:
 
 ```
-ctest -C Debug -R NBL_NSC_CACHE_ --repeat until-fail:5 --output-on-failure
+ctest -C Release -R NBL_NSC_CACHE_ --repeat until-pass:5 --output-on-failure
 ```
 
 ## Tuning knobs

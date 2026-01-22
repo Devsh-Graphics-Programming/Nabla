@@ -11,6 +11,7 @@
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
 #include <algorithm>
+#include <unordered_set>
 
 #include "nbl/asset/utils/IShaderCompiler.h"
 
@@ -47,6 +48,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
 {
     preprocessing_hooks(const nbl::asset::IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
         : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
+        , m_preserveComments(_preprocessOptions.preserveComments), m_emitLineDirectives(_preprocessOptions.emitLineDirectives), m_emitPragmaDirectives(_preprocessOptions.emitPragmaDirectives)
     {
         hash_token_occurences = 0;
     }
@@ -158,6 +160,9 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     asset::IShader::E_SHADER_STAGE m_pragmaStage;
     int hash_token_occurences;
     std::vector<std::string> m_dxc_compile_flags_override;
+    const bool m_preserveComments;
+    const bool m_emitLineDirectives;
+    const bool m_emitPragmaDirectives;
 
 };
 
@@ -189,21 +194,29 @@ class context : private boost::noncopyable
         typedef typename iteration_context_stack_type::size_type iter_size_type;
 
         context* this_() { return this; }           // avoid warning in constructor
+        static boost::wave::language_support make_language(const preprocessing_hooks& hooks)
+        {
+            boost::wave::language_support lang = support_cpp20;
+            if (hooks.m_preserveComments)
+                lang = boost::wave::language_support(lang | support_option_preserve_comments);
+            if (hooks.m_emitLineDirectives)
+                lang = boost::wave::language_support(lang | support_option_emit_line_directives);
+            if (hooks.m_emitPragmaDirectives)
+                lang = boost::wave::language_support(lang | support_option_emit_pragma_directives);
+            lang = boost::wave::language_support(lang | support_option_include_guard_detection);
+            return lang;
+        }
 
     public:
         context(target_iterator_type const& first_, target_iterator_type const& last_, char const* fname, preprocessing_hooks const& hooks_)
             : first(first_), last(last_), filename(fname)
             , has_been_initialized(false)
             , current_relative_filename(fname)
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+            , current_filename(fname ? fname : "")
+#endif
             , macros(*this_())
-            , language(language_support(
-                support_cpp20
-                | support_option_preserve_comments
-                | support_option_emit_line_directives
-                | support_option_emit_pragma_directives
-//                | support_option_emit_contnewlines
-//                | support_option_insert_whitespace
-            ))
+            , language(make_language(hooks_))
             , hooks(hooks_)
         {
             macros.init_predefined_macros(fname);
@@ -507,9 +520,34 @@ class context : private boost::noncopyable
         }
 
     public:
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        void set_current_filename(char const* real_name)
+        {
+            current_filename = real_name ? real_name : "";
+        }
+        std::string const& get_current_filename() const
+        {
+            return current_filename;
+        }
+        bool has_pragma_once(std::string const& filename)
+        {
+            return pragma_once_headers.find(filename) != pragma_once_headers.end();
+        }
+        bool add_pragma_once_header(std::string const& filename, std::string const& guard_name)
+        {
+            get_hooks().detected_include_guard(derived(), filename, guard_name);
+            return pragma_once_headers.insert(filename).second;
+        }
+        bool add_pragma_once_header(token_type const& pragma_, std::string const& filename)
+        {
+            get_hooks().detected_pragma_once(derived(), pragma_, filename);
+            return pragma_once_headers.insert(filename).second;
+        }
+#endif
+
         void set_current_relative_filename(char const* real_name)
         {
-            current_relative_filename = real_name;
+            current_relative_filename = real_name ? real_name : "";
         }
         std::string const& get_current_relative_filename() const
         {
@@ -532,6 +570,10 @@ class context : private boost::noncopyable
         bool has_been_initialized;          // set cwd once
 
         std::string current_relative_filename;        // real relative name of current preprocessed file
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        std::string current_filename;
+        std::unordered_set<std::string> pragma_once_headers;
+#endif
 
         // Nabla Additions Start
         // these are temporaries!
@@ -591,6 +633,15 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file, file_path.c_str(), act_pos);
         return false;
     }
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    std::string pragma_once_key;
+    if (!result.absolutePath.empty())
+        pragma_once_key = result.absolutePath.string();
+    else
+        pragma_once_key = file_path;
+    if (!pragma_once_key.empty() && ctx.has_pragma_once(pragma_once_key))
+        return true;
+#endif
 
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {
@@ -600,6 +651,10 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     ctx.located_include_content = std::move(result.contents);
     // the new include file determines the actual current directory
     ctx.set_current_directory(result.absolutePath);
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    if (!pragma_once_key.empty())
+        ctx.set_current_filename(pragma_once_key.c_str());
+#endif
 
     {
         // preprocess the opened file
