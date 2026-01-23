@@ -217,7 +217,7 @@ struct Unidirectional
             // trace new ray
             ray.origin = intersection + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
             ray.direction = bxdfSample;
-            if (nee_type::IsPolygonMethodProjectedSolidAngle)
+            NBL_IF_CONSTEXPR (nee_type::IsPolygonMethodProjectedSolidAngle)
             {
                 ray.normalAtOrigin = interaction.getN();
                 ray.wasBSDFAtOrigin = isBSDF;
@@ -232,7 +232,7 @@ struct Unidirectional
     {
         vector3_type finalContribution = ray.payload.throughput;
         // #ifdef USE_ENVMAP
-        //     vec2 uv = SampleSphericalMap(_immutable.direction);
+        //     vec2 uv = SampleSphericalMap(ray.direction);
         //     finalContribution *= textureLod(envMap, uv, 0.0).rgb;
         // #else
         const vector3_type kConstantEnvLightRadiance = vector3_type(0.15, 0.21, 0.3);   // TODO: match spectral_type
@@ -247,6 +247,13 @@ struct Unidirectional
         //scalar_type meanLumaSq = 0.0;
         vector3_type uvw = rand3d(0u, sampleIndex, 0u);
         ray_type ray = rayGen.generate(uvw);
+        ray.initPayload();
+
+        NBL_IF_CONSTEXPR (nee_type::IsPolygonMethodProjectedSolidAngle)
+        {
+            ray.normalAtOrigin = hlsl::promote<vector3_type>(0.0);
+            ray.wasBSDFAtOrigin = false;
+        }
 
         // bounces
         bool hit = true;
