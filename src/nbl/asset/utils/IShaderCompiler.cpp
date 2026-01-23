@@ -56,8 +56,18 @@ struct IncludeCacheEntry
 
 std::unordered_map<nbl::system::path, IncludeCacheEntry> g_includeCache;
 std::mutex g_includeCacheMutex;
+std::unordered_map<nbl::system::path, nbl::system::path> g_canonicalCache;
+std::mutex g_canonicalCacheMutex;
 
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
+struct BuiltinIncludeCacheEntry
+{
+    nbl::asset::IShaderCompiler::IIncludeLoader::found_t value;
+};
+
+std::unordered_map<std::string, BuiltinIncludeCacheEntry> g_builtinIncludeCache;
+std::mutex g_builtinIncludeCacheMutex;
+
 inline bool tryGetBuiltinResource(const std::string& normalized, const nbl::system::SBuiltinFile*& outFile, std::string& outRel, std::string_view& outPrefix)
 {
     auto tryNamespace = [&](std::string_view prefix, const nbl::system::SBuiltinFile& (*getResource)(const std::string&)) -> bool
@@ -125,6 +135,13 @@ class CBuiltinArchiveIncludeLoader final : public nbl::asset::IShaderCompiler::I
                     normalized = (nbl::system::path(search) / includeName).generic_string();
             }
 
+            {
+                std::lock_guard<std::mutex> lock(g_builtinIncludeCacheMutex);
+                const auto it = g_builtinIncludeCache.find(normalized);
+                if (it != g_builtinIncludeCache.end())
+                    return it->second.value;
+            }
+
             const nbl::system::SBuiltinFile* resource = nullptr;
             std::string rel;
             std::string_view prefix;
@@ -140,6 +157,10 @@ class CBuiltinArchiveIncludeLoader final : public nbl::asset::IShaderCompiler::I
             ret.hasHash = true;
             ret.fileSize = resource->size;
             ret.hasFileInfo = false;
+            {
+                std::lock_guard<std::mutex> lock(g_builtinIncludeCacheMutex);
+                g_builtinIncludeCache.emplace(normalized, BuiltinIncludeCacheEntry{ ret });
+            }
             return ret;
         }
 };
@@ -287,7 +308,7 @@ inline void collectFileInfoMismatchesParallel(const DepContainer& deps, std::vec
     if (threads > fileCount)
         threads = static_cast<unsigned>(fileCount);
 
-    if (threads <= 1u || fileCount < 32u)
+    if (threads <= 1u || fileCount < 64u)
     {
         for (size_t k = 0; k < fileCount; ++k)
         {
@@ -464,7 +485,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 
 	if (options.readCache)
 	{
-		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder, true, nullptr);
+		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder, true, nullptr, options.preprocessorOptions.fastSafeValidation);
 		if (found != options.readCache->m_container.end())
 		{
 			if (options.cacheHit)
@@ -561,8 +582,25 @@ IShaderCompiler::CFileSystemIncludeLoader::CFileSystemIncludeLoader(core::smart_
 auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const -> found_t
 {
     system::path path = searchPath / includeName;
-    if (std::filesystem::exists(path))
-        path = std::filesystem::canonical(path);
+    if (!path.empty())
+    {
+        const auto rawPath = path;
+        {
+            std::lock_guard<std::mutex> lock(g_canonicalCacheMutex);
+            const auto it = g_canonicalCache.find(rawPath);
+            if (it != g_canonicalCache.end())
+                path = it->second;
+        }
+        if (path == rawPath && std::filesystem::exists(path))
+        {
+            auto canonicalPath = std::filesystem::canonical(path);
+            {
+                std::lock_guard<std::mutex> lock(g_canonicalCacheMutex);
+                g_canonicalCache.emplace(rawPath, canonicalPath);
+            }
+            path = std::move(canonicalPath);
+        }
+    }
 
     uint64_t fileSize = 0;
     int64_t lastWriteTime = 0;
@@ -816,24 +854,24 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     return {};
 }
 
-core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder, bool fastSafeValidation) const
 {
-    const auto found = find_impl(mainFile, finder, true, nullptr);
+    const auto found = find_impl(mainFile, finder, true, nullptr, fastSafeValidation);
     if (found==m_container.end())
         return nullptr;
     return found->decompressShader();
 }
 
-bool IShaderCompiler::CCache::contains(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+bool IShaderCompiler::CCache::contains(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder, bool fastSafeValidation) const
 {
-    return find_impl(mainFile, finder, true, nullptr) != m_container.end();
+    return find_impl(mainFile, finder, true, nullptr, fastSafeValidation) != m_container.end();
 }
 
-bool IShaderCompiler::CCache::findEntryForCode(std::string_view code, const SCompilerOptions& options, const IShaderCompiler::CIncludeFinder* finder, SEntry& outEntry, bool validateDependencies, bool* depsUpdated) const
+bool IShaderCompiler::CCache::findEntryForCode(std::string_view code, const SCompilerOptions& options, const IShaderCompiler::CIncludeFinder* finder, SEntry& outEntry, bool validateDependencies, bool* depsUpdated, bool fastSafeValidation) const
 {
     const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
     const CCache::SEntry entry(cacheCode, options);
-    const auto found = find_impl(entry, finder, validateDependencies, depsUpdated);
+    const auto found = find_impl(entry, finder, validateDependencies, depsUpdated, fastSafeValidation);
     if (found == m_container.end())
         return false;
     outEntry = SEntry(*found);
@@ -845,7 +883,7 @@ core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::decompressEntry(
     return entry.decompressShader();
 }
 
-IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder, bool validateDependencies, bool* depsUpdated) const
+IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder, bool validateDependencies, bool* depsUpdated, bool fastSafeValidation) const
 {
     auto found = m_container.find(mainFile);
     if (found == m_container.end() || !validateDependencies)
@@ -862,6 +900,8 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
         collectFileInfoMismatchesParallel(found->dependencies, mismatches, system);
         if (mismatches.empty())
             return found;
+        if (fastSafeValidation)
+            return m_container.end();
         if (!finder)
             return m_container.end();
 
@@ -1281,7 +1321,7 @@ bool IShaderCompiler::probeShaderCache(const CCache* cache, std::string_view cod
         return false;
     const std::string_view cacheCode = options.preprocessorOptions.codeForCache.empty() ? code : options.preprocessorOptions.codeForCache;
     const CCache::SEntry entry(cacheCode, options);
-    return cache->contains(entry, finder);
+    return cache->contains(entry, finder, options.preprocessorOptions.fastSafeValidation);
 }
 
 bool IShaderCompiler::preprocessPrefixForCache(std::string_view code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, CPreprocessCache::SEntry& outEntry) const
@@ -1319,6 +1359,11 @@ IShaderCompiler::CPreprocessCache::SProbeResult IShaderCompiler::CPreprocessCach
 	{
 		core::blake3_hasher hasher;
 		hasher.update(result.prefix.data(), result.prefix.size());
+		const uint8_t waveFlags =
+			(static_cast<uint8_t>(preprocessOptions.preserveComments) << 0u) |
+			(static_cast<uint8_t>(preprocessOptions.emitLineDirectives) << 1u) |
+			(static_cast<uint8_t>(preprocessOptions.emitPragmaDirectives) << 2u);
+		hasher.update(&waveFlags, sizeof(waveFlags));
 		result.prefixHash = static_cast<core::blake3_hash_t>(hasher);
 	}
 	const bool hasEntry = cache && cache->hasEntry();
@@ -1342,7 +1387,7 @@ IShaderCompiler::CPreprocessCache::SProbeResult IShaderCompiler::CPreprocessCach
 		return result;
 	}
 	bool depsUpdated = false;
-	const bool depsValid = cache->validateDependencies(finder, &depsUpdated);
+	const bool depsValid = cache->validateDependencies(finder, &depsUpdated, preprocessOptions.fastSafeValidation);
 	result.depsUpdated = depsUpdated;
 	if (prefixMatch && depsValid)
 	{
@@ -1868,7 +1913,7 @@ bool IShaderCompiler::CPreprocessCache::writeToFile(const system::path& path, co
     return bool(out);
 }
 
-bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinder* finder, bool* depsUpdated) const
+bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinder* finder, bool* depsUpdated, bool fastSafeValidation) const
 {
     if (!m_hasEntry || !finder)
         return false;
@@ -1882,6 +1927,8 @@ bool IShaderCompiler::CPreprocessCache::validateDependencies(const CIncludeFinde
     collectFileInfoMismatchesParallel(m_entry.dependencies, mismatches, system);
     if (mismatches.empty())
         return true;
+    if (fastSafeValidation)
+        return false;
 
     std::unordered_map<system::path, bool> fileStatus;
     std::unordered_map<std::string, bool> logicalStatus;

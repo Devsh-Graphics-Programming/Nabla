@@ -42,7 +42,7 @@ For each registered input it generates:
 
 - One `.spv` output **per CMake configuration** (`Debug/`, `Release/`, `RelWithDebInfo/`).
 - A matching `.spv.hash` sidecar for fast up-to-date checks on cache hits.
-- If you use `CAPS`, it generates a **cartesian product** of permutations and emits a `.spv` for each.
+- If you use `CAPS`, it generates a **cartesian product** of permutations and emits a `.spv` for each (or a single `.spv` in `UNITY_BUILD` mode; see below).
 - A generated header (you choose the path via `INCLUDE`) containing:
 - a primary template `get_spirv_key<Key>(...args)` and `get_spirv_key<Key>(device, ...args)`
 - `get_spirv_key` returns a small owning buffer; use `.view()` or implicit `std::string_view` to consume it
@@ -212,7 +212,7 @@ std::string_view key = keyBuf;
 auto bundle = assetMgr->getAsset(key.data(), loadParams);
 ```
 
-`OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). These are already hashed (e.g. `Debug/123456789.spv`) and are intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`.
+`OUTPUT_VAR` (here: `KEYS`) is assigned the list of **all** produced access keys (all configurations + all permutations). These are already hashed (e.g. `Debug/123456789.spv`) and are intended to be fed into `NBL_CREATE_RESOURCE_ARCHIVE(BUILTINS ${KEYS})`. In `UNITY_BUILD` mode this list contains one entry per base `KEY` (all permutations share a single `.spv`).
 
 ## Permutations via `CAPS`
 
@@ -230,6 +230,66 @@ Each `CAPS` entry looks like:
   - for `float`/`double`, you can provide **numbers or numeric strings** (e.g. `-1`, `-1.0`, `1e-3`, or `-1.f` for floats). Values are **normalized** to canonical scientific notation (1 digit before the decimal, 8 digits after for `float` or 16 for `double`, signed exponent with 2 or 3 digits). The normalized text becomes part of the key.
 
 At build time, NSC compiles each combination of values (cartesian product). At runtime, `get_spirv_key` appends suffixes using the structs you pass in for `limits`/`features` (duck-typed by required members) and any custom kinds. Each group starts with `__limits`, `__features`, or `__<customStruct>`, followed by `.member_<value>` entries. Group order follows the **first appearance of each kind in `CAPS`** (and this same order is the required argument order for `get_spirv_key`); groups with no members are omitted.
+
+## Unity build for permutations (single `.spv`)
+
+`UNITY_BUILD` is an optional mode for `NBL_CREATE_NSC_COMPILE_RULES` that emits a **single `.spv`** per input `KEY`, while still supporting all permutation structs. It works by compiling a single HLSL unit that includes your input multiple times, once per permutation, and **renames each entrypoint** to a unique mangled name.
+
+Usage:
+
+```cmake
+NBL_CREATE_NSC_COMPILE_RULES(
+  TARGET ${EXECUTABLE_NAME}SPIRV
+  LINK_TO ${EXECUTABLE_NAME}
+  BINARY_DIR ${OUTPUT_DIRECTORY}
+  MOUNT_POINT_DEFINE NBL_THIS_EXAMPLE_BUILD_MOUNT_POINT
+  COMMON_OPTIONS -I ${CMAKE_CURRENT_SOURCE_DIR} -T lib_6_8
+  OUTPUT_VAR KEYS
+  INCLUDE nbl/this_example/builtin/build/spirv/keys.hpp
+  NAMESPACE nbl::this_example::builtin::build
+  INPUTS ${JSON}
+  UNITY_BUILD
+  ENTRYPOINTS entryA entryB
+)
+```
+
+Constraints:
+
+- `UNITY_BUILD` **requires a `lib_*` profile** (e.g. `-T lib_6_8`). Non-lib profiles require a single `-E` entrypoint and cannot host multiple entrypoints in one `.spv`.
+- `ENTRYPOINTS` is **mandatory** in `UNITY_BUILD`. The names must be valid C identifiers.
+- `UNITY_BUILD` does not allow `-E` options; entrypoints are taken from `ENTRYPOINTS`.
+- Your input file must be safe to include multiple times (no `#pragma once` or include guards on the main input).
+- Per-permutation macros must not alter guarded includes. Permutations are intended to be consumed via `DeviceConfigCaps`, not by redefining macros that affect heavy headers.
+
+How it works:
+
+- For each permutation, NSC auto-generates a wrapper block:
+  - creates a unique `DeviceConfigCaps__nbl_p<hash>` with that permutation's values
+  - `#define`s `DeviceConfigCaps` and each entrypoint name to a mangled symbol
+  - `#include`s the original input file
+  - `#undef`s the aliases
+- Mangled entrypoint name is:
+
+```
+<entrypoint>__nbl_p<hash>
+```
+
+`<hash>` is `FNV-1a 64-bit` of the **full permutation key string** (the same string used for hashing outputs in normal mode).
+
+Runtime usage:
+
+```cpp
+auto keyBuf = nbl::this_example::builtin::build::get_spirv_key<"shader">(device);
+auto entry = nbl::this_example::builtin::build::get_spirv_entrypoint<"shader", "entryA">(device);
+// load .spv by key, pick entrypoint by name
+```
+
+Notes:
+
+- `get_spirv_key` returns the **file key** (same for all permutations in unity mode).
+- `get_spirv_entrypoint` returns the **mangled entrypoint** for the current permutation.
+- `get_spirv_entrypoint` uses the same `KEY` and permutation args as `get_spirv_key`.
+- If you need different entrypoint lists per input, use separate `NBL_CREATE_NSC_COMPILE_RULES` calls.
 
 Each generated `.config` file defines a `DeviceConfigCaps` struct for HLSL. It includes:
 - flat members for `limits`/`features` (backwards compatibility with older shaders)

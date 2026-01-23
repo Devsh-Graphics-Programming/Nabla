@@ -37,4 +37,8 @@ tools/nsc/bin/*
 */__pycache__/*
 __pycache__/*
 *.pyc
+Testing/
+nsc_cache_lzma/
+nsc_cache_*/
+_tmp/
 

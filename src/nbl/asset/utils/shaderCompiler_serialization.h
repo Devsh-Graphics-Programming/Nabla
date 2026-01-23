@@ -37,6 +37,9 @@ inline void to_json(json& j, const SEntry::SPreprocessorArgs& preprocArgs)
         { "sourceIdentifier", preprocArgs.sourceIdentifier },
         { "extraDefines", preprocArgs.extraDefines},
         { "forceIncludes", preprocArgs.forceIncludes},
+        { "preserveComments", preprocArgs.preserveComments},
+        { "emitLineDirectives", preprocArgs.emitLineDirectives},
+        { "emitPragmaDirectives", preprocArgs.emitPragmaDirectives},
     };
 }
 
@@ -45,6 +48,12 @@ inline void from_json(const json& j, SEntry::SPreprocessorArgs& preprocArgs)
     j.at("sourceIdentifier").get_to(preprocArgs.sourceIdentifier);
     j.at("extraDefines").get_to(preprocArgs.extraDefines);
     j.at("forceIncludes").get_to(preprocArgs.forceIncludes);
+    if (j.contains("preserveComments"))
+        j.at("preserveComments").get_to(preprocArgs.preserveComments);
+    if (j.contains("emitLineDirectives"))
+        j.at("emitLineDirectives").get_to(preprocArgs.emitLineDirectives);
+    if (j.contains("emitPragmaDirectives"))
+        j.at("emitPragmaDirectives").get_to(preprocArgs.emitPragmaDirectives);
 }
 
 // Optimizer pass has its own method for easier vector serialization

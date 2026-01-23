@@ -197,6 +197,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::span<const std::string> forceIncludes = {};
 			std::string_view codeForCache = {};
 			bool applyForceIncludes = true;
+			bool preserveComments = true;
+			bool emitLineDirectives = true;
+			bool emitPragmaDirectives = true;
+			bool fastSafeValidation = false;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
 			system::path depfilePath = {};
@@ -290,6 +294,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 									return false;
 
 								if (forceIncludes != other.forceIncludes) return false;
+								if (preserveComments != other.preserveComments) return false;
+								if (emitLineDirectives != other.emitLineDirectives) return false;
+								if (emitPragmaDirectives != other.emitPragmaDirectives) return false;
 
 								return true;
 							}
@@ -318,12 +325,19 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								for (const auto& inc : options.forceIncludes)
 									forceIncludes.emplace_back(inc);
 
+								preserveComments = options.preserveComments;
+								emitLineDirectives = options.emitLineDirectives;
+								emitPragmaDirectives = options.emitPragmaDirectives;
+
 								// Sort them so equality and hashing are well defined
 								std::sort(extraDefines.begin(), extraDefines.end(), [](const SMacroDefinition& lhs, const SMacroDefinition& rhs) {return lhs.identifier < rhs.identifier; });
 							};
 							std::string sourceIdentifier;
 							std::vector<SMacroDefinition> extraDefines;
 							std::vector<std::string> forceIncludes;
+							bool preserveComments = true;
+							bool emitLineDirectives = true;
+							bool emitPragmaDirectives = true;
 					};
 					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and decompressShader
 					struct SCompilerArgs final
@@ -383,7 +397,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					inline SEntry(const std::string_view _mainFileContents, const SCompilerOptions& compilerOptions) : mainFileContents(std::move(std::string(_mainFileContents))), compilerArgs(compilerOptions)
 					{
 						// Form the hashable for the compiler data
-						size_t preprocessorArgsHashableSize = compilerArgs.preprocessorArgs.sourceIdentifier.size() + compilerArgs.preprocessorArgs.extraDefines.size() * sizeof(SMacroDefinition);
+						size_t preprocessorArgsHashableSize = compilerArgs.preprocessorArgs.sourceIdentifier.size() + compilerArgs.preprocessorArgs.extraDefines.size() * sizeof(SMacroDefinition) + 3u;
 						size_t compilerArgsHashableSize = sizeof(compilerArgs.stage) + sizeof(compilerArgs.targetSpirvVersion) + sizeof(compilerArgs.debugInfoFlags.value) + compilerArgs.optimizerPasses.size();
 						std::vector<uint8_t> hashable;
 						hashable.reserve(preprocessorArgsHashableSize + compilerArgsHashableSize + mainFileContents.size());
@@ -397,6 +411,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						}
 						for (const auto& inc : compilerArgs.preprocessorArgs.forceIncludes)
 							hashable.insert(hashable.end(), inc.begin(), inc.end());
+						hashable.push_back(static_cast<uint8_t>(compilerArgs.preprocessorArgs.preserveComments));
+						hashable.push_back(static_cast<uint8_t>(compilerArgs.preprocessorArgs.emitLineDirectives));
+						hashable.push_back(static_cast<uint8_t>(compilerArgs.preprocessorArgs.emitPragmaDirectives));
 
 						// Insert rest of stuff from this struct. We're going to treat stage, targetSpirvVersion and debugInfoFlags.value as byte arrays for simplicity
 						hashable.insert(hashable.end(), reinterpret_cast<uint8_t*>(&compilerArgs.stage), reinterpret_cast<uint8_t*>(&compilerArgs.stage) + sizeof(compilerArgs.stage));
@@ -480,9 +497,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return m_defaultCompression;
 				}
 
-				NBL_API2 core::smart_refctd_ptr<asset::IShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
-				NBL_API2 bool contains(const SEntry& mainFile, const CIncludeFinder* finder) const;
-				NBL_API2 bool findEntryForCode(std::string_view code, const SCompilerOptions& options, const CIncludeFinder* finder, SEntry& outEntry, bool validateDependencies = true, bool* depsUpdated = nullptr) const;
+				NBL_API2 core::smart_refctd_ptr<asset::IShader> find(const SEntry& mainFile, const CIncludeFinder* finder, bool fastSafeValidation = false) const;
+				NBL_API2 bool contains(const SEntry& mainFile, const CIncludeFinder* finder, bool fastSafeValidation = false) const;
+				NBL_API2 bool findEntryForCode(std::string_view code, const SCompilerOptions& options, const CIncludeFinder* finder, SEntry& outEntry, bool validateDependencies = true, bool* depsUpdated = nullptr, bool fastSafeValidation = false) const;
 				NBL_API2 core::smart_refctd_ptr<asset::IShader> decompressEntry(const SEntry& entry) const;
 		
 				inline CCache() {}
@@ -515,7 +532,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				EntrySet m_container;
 				ECompression m_defaultCompression = ECompression::LZMA;
 
-				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder, bool validateDependencies, bool* depsUpdated) const;
+				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder, bool validateDependencies, bool* depsUpdated, bool fastSafeValidation) const;
 		};
 
 		class CPreprocessCache final : public IReferenceCounted
@@ -582,7 +599,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				NBL_API2 static bool writeToFile(const system::path& path, const CPreprocessCache& cache);
 				NBL_API2 static SProbeResult probe(std::string_view code, const CPreprocessCache* cache, ELoadStatus loadStatus, const SPreprocessorOptions& preprocessOptions);
 				NBL_API2 static const char* getProbeReason(EProbeStatus status);
-				NBL_API2 bool validateDependencies(const CIncludeFinder* finder, bool* depsUpdated = nullptr) const;
+				NBL_API2 bool validateDependencies(const CIncludeFinder* finder, bool* depsUpdated = nullptr, bool fastSafeValidation = false) const;
 				NBL_API2 std::string buildCombinedCode(std::string_view body, std::string_view sourceIdentifier) const;
 
 			private:

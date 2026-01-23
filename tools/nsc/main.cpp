@@ -14,6 +14,7 @@
 #include <cstring>
 #include <cstdarg>
 #include <cctype>
+#include <unordered_set>
 #include <vector>
 #include <argparse/argparse.hpp>
 #include "nbl/asset/metadata/CHLSLMetadata.h"
@@ -1453,7 +1454,7 @@ private:
             reserveSize += def.identifier.size() + def.definition.size();
         for (const auto& inc : options.preprocessorOptions.forceIncludes)
             reserveSize += inc.size();
-        reserveSize += sizeof(options.stage) + sizeof(options.preprocessorOptions.targetSpirvVersion) + sizeof(options.debugInfoFlags.value);
+        reserveSize += sizeof(options.stage) + sizeof(options.preprocessorOptions.targetSpirvVersion) + sizeof(options.debugInfoFlags.value) + 3u;
         reserveSize += cacheCode.size();
 
         std::vector<IShaderCompiler::SMacroDefinition> defines;
@@ -1476,6 +1477,9 @@ private:
         }
         for (const auto& inc : options.preprocessorOptions.forceIncludes)
             hashable.insert(hashable.end(), inc.begin(), inc.end());
+        hashable.push_back(static_cast<uint8_t>(options.preprocessorOptions.preserveComments));
+        hashable.push_back(static_cast<uint8_t>(options.preprocessorOptions.emitLineDirectives));
+        hashable.push_back(static_cast<uint8_t>(options.preprocessorOptions.emitPragmaDirectives));
 
         const auto stage = options.stage;
         const auto spirvVersion = options.preprocessorOptions.targetSpirvVersion;
@@ -1520,6 +1524,9 @@ private:
         for (const auto& inc : options.preprocessorOptions.forceIncludes)
             forceIncludes.push_back(inc);
         pre["forceIncludes"] = std::move(forceIncludes);
+        pre["preserveComments"] = options.preprocessorOptions.preserveComments;
+        pre["emitLineDirectives"] = options.preprocessorOptions.emitLineDirectives;
+        pre["emitPragmaDirectives"] = options.preprocessorOptions.emitPragmaDirectives;
 
         json j;
         j["shaderStage"] = static_cast<uint32_t>(options.stage);
@@ -1871,14 +1878,20 @@ private:
         std::string_view code(codePtr, codeSize);
         if (!code.empty() && code.back() == '\0')
             code.remove_suffix(1);
+        const bool useShaderCache = shaderCache.enabled && !preprocessOnly;
+        const bool usePreCache = preCache.enabled && !preprocessOnly;
+        const bool needCacheKey = useShaderCache || usePreCache;
         CHLSLCompiler::SPreprocessorOptions preOpt = {};
         preOpt.sourceIdentifier = sourceIdentifier;
         preOpt.logger = m_logger.get();
         preOpt.forceIncludes = std::span<const std::string>(m_force_includes);
         preOpt.depfile = false;
         preOpt.depfilePath = dep.path;
+        preOpt.preserveComments = preprocessOnly;
+        preOpt.emitLineDirectives = preprocessOnly;
+        preOpt.fastSafeValidation = useShaderCache || usePreCache;
         std::string codeForCacheStorage;
-        if (!sourceIdentifier.empty())
+        if (needCacheKey && !sourceIdentifier.empty())
         {
             uint64_t srcSize = 0;
             int64_t srcTime = 0;
@@ -1900,7 +1913,7 @@ private:
                 }
             }
         }
-        if (preOpt.codeForCache.empty())
+        if (needCacheKey && preOpt.codeForCache.empty())
             preOpt.codeForCache = code;
 
         CHLSLCompiler::SOptions opt = {};
@@ -1916,8 +1929,6 @@ private:
             return writeBinaryFile(m_system.get(), std::filesystem::path(std::string(path)), contents.data(), contents.size());
         };
 
-        const bool useShaderCache = shaderCache.enabled && !preprocessOnly;
-        const bool usePreCache = preCache.enabled && !preprocessOnly;
         const bool validateCacheDeps = true;
         if (reportEnabled)
         {
@@ -2037,7 +2048,7 @@ private:
             {
                 auto* finder = getFinder();
                 const auto validateStart = clock_t::now();
-                shaderProbe.hit = shaderProbe.cacheObj->findEntryForCode(code, opt, finder, shaderProbe.entry, validateCacheDeps, &shaderProbe.depsUpdated);
+                shaderProbe.hit = shaderProbe.cacheObj->findEntryForCode(code, opt, finder, shaderProbe.entry, validateCacheDeps, &shaderProbe.depsUpdated, opt.preprocessorOptions.fastSafeValidation);
                 const auto validateEnd = clock_t::now();
                 shaderProbe.entryReady = shaderProbe.hit;
                 shaderProbe.validateDuration = validateEnd - validateStart;
@@ -2113,7 +2124,7 @@ private:
                         cacheObj->setEntry(std::move(entry));
 
                         bool depsUpdated = false;
-                        const bool depsValid = cacheObj->validateDependencies(finder, &depsUpdated);
+                        const bool depsValid = cacheObj->validateDependencies(finder, &depsUpdated, preOpt.fastSafeValidation);
                         if (depsValid)
                         {
                             IShader::E_SHADER_STAGE stageOverrideThread = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
@@ -2127,12 +2138,20 @@ private:
                             preProbe.result.cacheUpdated = depsUpdated;
                             preProbe.result.status = IShaderCompiler::CPreprocessCache::EProbeStatus::Hit;
                             preProbe.result.stage = stageOverrideThread;
-                            preProbe.result.code = cacheObj->buildCombinedCode(codeProbe.body, sourceIdentifier);
-                            preProbe.ok = !preProbe.result.code.empty();
-                            if (preProbe.ok)
+                            if (preCache.preamble)
+                            {
+                                preProbe.ok = true;
                                 preProbe.duration = clock_t::now() - start;
+                            }
                             else
-                                preIndexHit = false;
+                            {
+                                preProbe.result.code = cacheObj->buildCombinedCode(codeProbe.body, sourceIdentifier);
+                                preProbe.ok = !preProbe.result.code.empty();
+                                if (preProbe.ok)
+                                    preProbe.duration = clock_t::now() - start;
+                                else
+                                    preIndexHit = false;
+                            }
                         }
                         else
                         {
@@ -2407,7 +2426,7 @@ private:
             {
                 stageOverride = preProbe.result.stage;
                 preCacheObj = preProbe.cacheObj;
-                if (!preCache.preamble || !preProbe.result.cacheHit)
+                if (!preCache.preamble)
                 {
                     preprocessedCode = std::move(preProbe.result.code);
                     preprocessedReady = true;
@@ -2469,7 +2488,7 @@ private:
                     if (ensureFullCacheForWrite(cacheObj))
                     {
                         IShaderCompiler::CCache::SEntry fullEntry;
-                        if (cacheObj->findEntryForCode(code, opt, nullptr, fullEntry, false, nullptr))
+                        if (cacheObj->findEntryForCode(code, opt, nullptr, fullEntry, false, nullptr, false))
                         {
                             fullEntry.dependencies.clear();
                             fullEntry.dependencies.reserve(shaderProbe.entry.dependencies.size());
@@ -2583,25 +2602,6 @@ private:
             std::string bodyPreprocessed;
             if (!body.empty())
             {
-                const auto bodyHasDirective = [](std::string_view text) -> bool
-                {
-                    size_t pos = 0;
-                    while (pos < text.size())
-                    {
-                        size_t lineEnd = text.find('\n', pos);
-                        if (lineEnd == std::string_view::npos)
-                            lineEnd = text.size();
-                        size_t i = pos;
-                        while (i < lineEnd && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r'))
-                            ++i;
-                        if (i < lineEnd && text[i] == '#')
-                        {
-                            return true;
-                        }
-                        pos = lineEnd + 1;
-                    }
-                    return false;
-                };
                 const auto macroName = [](const std::string& macro) -> std::string_view
                 {
                     std::string_view name(macro);
@@ -2615,8 +2615,29 @@ private:
                         name.remove_suffix(1);
                     return name;
                 };
-                const auto bodyUsesMacros = [&](std::string_view text) -> bool
+                struct StringViewHash
                 {
+                    size_t operator()(std::string_view value) const noexcept
+                    {
+                        return std::hash<std::string_view>{}(value);
+                    }
+                };
+                struct BodyScanResult
+                {
+                    bool hasDirective = false;
+                    bool usesMacro = false;
+                    bool hasInclude = false;
+                };
+                const auto buildMacroNameSet = [&](const std::vector<std::string>& macros)
+                {
+                    std::unordered_set<std::string_view, StringViewHash> names;
+                    names.reserve(macros.size() + 8);
+                    for (const auto& macro : macros)
+                    {
+                        const std::string_view name = macroName(macro);
+                        if (!name.empty())
+                            names.emplace(name);
+                    }
                     static constexpr std::string_view kBuiltinMacros[] =
                     {
                         "__LINE__",
@@ -2627,20 +2648,136 @@ private:
                         "__TIMESTAMP__"
                     };
                     for (const auto builtin : kBuiltinMacros)
-                    {
-                        if (text.find(builtin) != std::string_view::npos)
-                            return true;
-                    }
-                    for (const auto& macro : entry.macroDefs)
-                    {
-                        const std::string_view name = macroName(macro);
-                        if (!name.empty() && text.find(name) != std::string_view::npos)
-                            return true;
-                    }
-                    return false;
+                        names.emplace(builtin);
+                    return names;
                 };
-                const bool hasDirective = bodyHasDirective(body);
-                const bool needsPreprocess = hasDirective || bodyUsesMacros(body);
+                const auto scanBody = [&](std::string_view text, const std::unordered_set<std::string_view, StringViewHash>& macroNames) -> BodyScanResult
+                {
+                    BodyScanResult result = {};
+                    bool atLineStart = true;
+                    bool inLineComment = false;
+                    bool inBlockComment = false;
+                    bool inString = false;
+                    char stringDelim = 0;
+
+                    auto isIdentStart = [](char c) { return (c == '_') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); };
+                    auto isIdentChar = [](char c) { return (c == '_') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); };
+
+                    size_t i = 0;
+                    while (i < text.size())
+                    {
+                        const char c = text[i];
+                        const char next = (i + 1 < text.size()) ? text[i + 1] : '\0';
+
+                        if (inLineComment)
+                        {
+                            if (c == '\n')
+                            {
+                                inLineComment = false;
+                                atLineStart = true;
+                            }
+                            ++i;
+                            continue;
+                        }
+                        if (inBlockComment)
+                        {
+                            if (c == '*' && next == '/')
+                            {
+                                inBlockComment = false;
+                                i += 2;
+                                continue;
+                            }
+                            if (c == '\n')
+                                atLineStart = true;
+                            else
+                                atLineStart = false;
+                            ++i;
+                            continue;
+                        }
+                        if (inString)
+                        {
+                            if (c == '\\' && i + 1 < text.size())
+                            {
+                                i += 2;
+                                continue;
+                            }
+                            if (c == stringDelim)
+                                inString = false;
+                            if (c == '\n')
+                                atLineStart = true;
+                            else
+                                atLineStart = false;
+                            ++i;
+                            continue;
+                        }
+
+                        if (c == '/' && next == '/')
+                        {
+                            inLineComment = true;
+                            i += 2;
+                            continue;
+                        }
+                        if (c == '/' && next == '*')
+                        {
+                            inBlockComment = true;
+                            i += 2;
+                            continue;
+                        }
+                        if (c == '"' || c == '\'')
+                        {
+                            inString = true;
+                            stringDelim = c;
+                            atLineStart = false;
+                            ++i;
+                            continue;
+                        }
+
+                        if (c == '\n')
+                        {
+                            atLineStart = true;
+                            ++i;
+                            continue;
+                        }
+
+                        if (atLineStart)
+                        {
+                            if (c == ' ' || c == '\t' || c == '\r')
+                            {
+                                ++i;
+                                continue;
+                            }
+                            if (c == '#')
+                            {
+                                result.hasDirective = true;
+                                size_t j = i + 1;
+                                while (j < text.size() && (text[j] == ' ' || text[j] == '\t'))
+                                    ++j;
+                                if (j + 7 <= text.size() && text.compare(j, 7, "include") == 0)
+                                    result.hasInclude = true;
+                            }
+                            atLineStart = false;
+                        }
+
+                        if (isIdentStart(c))
+                        {
+                            size_t j = i + 1;
+                            while (j < text.size() && isIdentChar(text[j]))
+                                ++j;
+                            const std::string_view ident(text.data() + i, j - i);
+                            if (!macroNames.empty() && macroNames.find(ident) != macroNames.end())
+                                result.usesMacro = true;
+                            i = j;
+                            continue;
+                        }
+
+                        atLineStart = false;
+                        ++i;
+                    }
+                    return result;
+                };
+                const auto macroNames = buildMacroNameSet(entry.macroDefs);
+                const auto scan = scanBody(body, macroNames);
+                const bool needsPreprocess = scan.hasDirective || scan.usesMacro;
                 if (needsPreprocess)
                 {
                     if (!entry.macroBlock.empty())
@@ -2678,31 +2815,7 @@ private:
                         bodyOpt.extraDefines = {};
                     }
 
-                    const auto bodyHasInclude = [](std::string_view text) -> bool
-                    {
-                        size_t pos = 0;
-                        while (pos < text.size())
-                        {
-                            size_t lineEnd = text.find('\n', pos);
-                            if (lineEnd == std::string_view::npos)
-                                lineEnd = text.size();
-                            size_t i = pos;
-                            while (i < lineEnd && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r'))
-                                ++i;
-                            if (i < lineEnd && text[i] == '#')
-                            {
-                                ++i;
-                                while (i < lineEnd && (text[i] == ' ' || text[i] == '\t'))
-                                    ++i;
-                                if (lineEnd - i >= 7 && text.compare(i, 7, "include") == 0)
-                                    return true;
-                            }
-                            pos = lineEnd + 1;
-                        }
-                        return false;
-                    };
-                    const bool hasInclude = bodyHasInclude(body);
-                    auto* bodyDepsOut = hasInclude ? &bodyDeps : nullptr;
+                    auto* bodyDepsOut = scan.hasInclude ? &bodyDeps : nullptr;
                     const auto preambleFinderStart = clock_t::now();
                     auto* finder = getFinder();
                     preambleFinderDuration = clock_t::now() - preambleFinderStart;
@@ -2942,7 +3055,7 @@ private:
             else if (cacheObj)
             {
                 const auto depLookupStart = clock_t::now();
-                const bool depFound = cacheObj->findEntryForCode(code, opt, compileFinder, depEntry, validateCacheDeps);
+                const bool depFound = cacheObj->findEntryForCode(code, opt, compileFinder, depEntry, validateCacheDeps, nullptr, opt.preprocessorOptions.fastSafeValidation);
                 const auto depLookupEnd = clock_t::now();
                 if (verbose)
                 {

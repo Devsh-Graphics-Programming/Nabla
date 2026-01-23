@@ -24,6 +24,38 @@ struct SpirvKeyBuilder
 	}
 };
 
+template<nbl::core::StringLiteral Key>
+struct SpirvFileKeyBuilder
+{
+	template<typename... Args>
+	static constexpr auto build(const Args&... args)
+	{
+		return SpirvKeyBuilder<Key>::build(args...);
+	}
+
+	template<class Device, typename... Args>
+	static constexpr auto build_from_device(const Device* device, const Args&... args)
+	{
+		return SpirvKeyBuilder<Key>::build_from_device(device, args...);
+	}
+};
+
+template<nbl::core::StringLiteral Key, nbl::core::StringLiteral Entry>
+struct SpirvEntrypointBuilder
+{
+	template<typename... Args>
+	static constexpr void build(const Args&...)
+	{
+		static_assert(SpirvKeyBuilderMissing<Key>::value, "Unknown SPIR-V key");
+	}
+
+	template<class Device, typename... Args>
+	static constexpr void build_from_device(const Device*, const Args&...)
+	{
+		static_assert(SpirvKeyBuilderMissing<Key>::value, "Unknown SPIR-V key");
+	}
+};
+
 template<class Device>
 concept spirv_device_has_limits = requires(const Device* device)
 {

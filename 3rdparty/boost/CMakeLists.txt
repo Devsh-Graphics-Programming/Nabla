@@ -120,10 +120,11 @@ endforeach()
 # include will lead to ABI mismatch hence we update the target and let inherit options
 target_compile_definitions(boost_wave
 	PUBLIC BOOST_WAVE_ENABLE_COMMANDLINE_MACROS=1
-	PUBLIC BOOST_WAVE_SUPPORT_PRAGMA_ONCE=0
+	PUBLIC BOOST_WAVE_SUPPORT_PRAGMA_ONCE=1
 	PUBLIC BOOST_WAVE_EMIT_PRAGMA_DIRECTIVES=1
 	PUBLIC BOOST_WAVE_SERIALIZATION=0
 	PUBLIC BOOST_WAVE_SUPPORT_INCLUDE_NEXT=0
+	PUBLIC BOOST_WAVE_USE_STRICT_LEXER=0
 	
 	# threading option: https://github.com/boostorg/wave/issues/237#issuecomment-2710251773
 	PUBLIC BOOST_WAVE_SUPPORT_THREADING=0

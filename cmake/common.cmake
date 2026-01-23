@@ -1223,7 +1223,7 @@ struct DeviceConfigCaps
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
     set(OPTIONAL_SINGLE_ARGS GLOB_DIR EXPORT_RULES)
-    cmake_parse_arguments(IMPL "DISCARD_DEFAULT_GLOB;DISABLE_CUSTOM_COMMANDS" "${REQUIRED_SINGLE_ARGS};${OPTIONAL_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
+    cmake_parse_arguments(IMPL "DISCARD_DEFAULT_GLOB;DISABLE_CUSTOM_COMMANDS;UNITY_BUILD" "${REQUIRED_SINGLE_ARGS};${OPTIONAL_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS;ENTRYPOINTS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
 
 	set(_NBL_DISABLE_CUSTOM_COMMANDS FALSE)
@@ -1292,6 +1292,7 @@ $<TARGET_PROPERTY:@IMPL_TARGET@,NBL_HEADER_CONTENT>
 		set(HEADER_ITEM_VIEW [=[
 #include <cstdint>
 #include <string>
+#include "nbl/core/hash/fnv1a64.h"
 #include "nbl/core/string/SpirvKeyHelpers.h"
 
 ]=])
@@ -1311,14 +1312,28 @@ namespace @IMPL_NAMESPACE@ {
 	requires ((... && !std::is_pointer_v<std::remove_cvref_t<Args>>))
 	inline constexpr typename nbl::core::detail::StringLiteralBufferType<Key>::type get_spirv_key(const Args&... args)
 	{
-		return nbl::core::detail::SpirvKeyBuilder<Key>::build(args...);
+		return nbl::core::detail::SpirvFileKeyBuilder<Key>::build(args...);
 	}
 
 	template<nbl::core::StringLiteral Key, class Device, typename... Args>
 	inline std::string get_spirv_key(const Device* device, const Args&... args)
 	{
-		const auto key = nbl::core::detail::SpirvKeyBuilder<Key>::build_from_device(device, args...);
+		const auto key = nbl::core::detail::SpirvFileKeyBuilder<Key>::build_from_device(device, args...);
 		return std::string(key.view());
+	}
+
+	template<nbl::core::StringLiteral Key, nbl::core::StringLiteral Entry, typename... Args>
+	requires ((... && !std::is_pointer_v<std::remove_cvref_t<Args>>))
+	inline constexpr auto get_spirv_entrypoint(const Args&... args)
+	{
+		return nbl::core::detail::SpirvEntrypointBuilder<Key, Entry>::build(args...);
+	}
+
+	template<nbl::core::StringLiteral Key, nbl::core::StringLiteral Entry, class Device, typename... Args>
+	inline std::string get_spirv_entrypoint(const Device* device, const Args&... args)
+	{
+		const auto entry = nbl::core::detail::SpirvEntrypointBuilder<Key, Entry>::build_from_device(device, args...);
+		return std::string(entry.view());
 	}
 }
 
@@ -1425,6 +1440,88 @@ namespace @IMPL_NAMESPACE@ {
 				find_package(Python3 COMPONENTS Interpreter REQUIRED)
 			endif()
 		endmacro()
+
+		macro(NBL_NSC_HAS_LIB_PROFILE _OUT_VAR)
+			set(_NBL_HAS_LIB_PROFILE FALSE)
+			set(_NBL_SEEN_T FALSE)
+			foreach(_NBL_OPT IN LISTS COMPILE_OPTIONS IMPL_COMMON_OPTIONS)
+				if(_NBL_OPT MATCHES "^\\$<")
+					continue()
+				endif()
+				if(_NBL_SEEN_T)
+					if(_NBL_OPT MATCHES "^lib_")
+						set(_NBL_HAS_LIB_PROFILE TRUE)
+					endif()
+					set(_NBL_SEEN_T FALSE)
+				elseif(_NBL_OPT STREQUAL "-T")
+					set(_NBL_SEEN_T TRUE)
+				elseif(_NBL_OPT MATCHES "^-Tlib_")
+					set(_NBL_HAS_LIB_PROFILE TRUE)
+				endif()
+			endforeach()
+			set(${_OUT_VAR} ${_NBL_HAS_LIB_PROFILE})
+		endmacro()
+
+		macro(NBL_NSC_HAS_ENTRYPOINT_OPTION _OUT_VAR)
+			set(_NBL_HAS_ENTRYPOINT FALSE)
+			set(_NBL_SEEN_E FALSE)
+			foreach(_NBL_OPT IN LISTS COMPILE_OPTIONS IMPL_COMMON_OPTIONS)
+				if(_NBL_OPT MATCHES "^\\$<")
+					continue()
+				endif()
+				if(_NBL_SEEN_E)
+					set(_NBL_HAS_ENTRYPOINT TRUE)
+					set(_NBL_SEEN_E FALSE)
+				elseif(_NBL_OPT STREQUAL "-E")
+					set(_NBL_SEEN_E TRUE)
+				elseif(_NBL_OPT MATCHES "^-E.+")
+					set(_NBL_HAS_ENTRYPOINT TRUE)
+				endif()
+			endforeach()
+			set(${_OUT_VAR} ${_NBL_HAS_ENTRYPOINT})
+		endmacro()
+
+		if(IMPL_UNITY_BUILD)
+			if(NOT IMPL_ENTRYPOINTS)
+				ERROR_WHILE_PARSING_ITEM(
+					"UNITY_BUILD requires ENTRYPOINTS."
+				)
+			endif()
+			set(_NBL_ENTRYPOINTS ${IMPL_ENTRYPOINTS})
+			list(LENGTH _NBL_ENTRYPOINTS _NBL_ENTRYPOINT_COUNT)
+			if(_NBL_ENTRYPOINT_COUNT EQUAL 0)
+				ERROR_WHILE_PARSING_ITEM(
+					"UNITY_BUILD requires ENTRYPOINTS."
+				)
+			endif()
+			foreach(_NBL_ENTRY IN LISTS _NBL_ENTRYPOINTS)
+				if(NOT _NBL_ENTRY MATCHES "^[A-Za-z_][A-Za-z0-9_]*$")
+					ERROR_WHILE_PARSING_ITEM(
+						"Invalid ENTRYPOINTS entry \"${_NBL_ENTRY}\".\n"
+						"Entrypoint names must be valid C identifiers."
+					)
+				endif()
+			endforeach()
+			list(REMOVE_DUPLICATES _NBL_ENTRYPOINTS)
+			list(LENGTH _NBL_ENTRYPOINTS _NBL_ENTRYPOINTS_UNIQ_COUNT)
+			if(NOT _NBL_ENTRYPOINTS_UNIQ_COUNT EQUAL _NBL_ENTRYPOINT_COUNT)
+				ERROR_WHILE_PARSING_ITEM(
+					"ENTRYPOINTS contains duplicates."
+				)
+			endif()
+			NBL_NSC_HAS_LIB_PROFILE(_NBL_HAS_LIB_PROFILE)
+			if(NOT _NBL_HAS_LIB_PROFILE)
+				ERROR_WHILE_PARSING_ITEM(
+					"UNITY_BUILD requires a lib_* profile (use -T lib_* in COMPILE_OPTIONS or COMMON_OPTIONS)."
+				)
+			endif()
+			NBL_NSC_HAS_ENTRYPOINT_OPTION(_NBL_HAS_ENTRYPOINT_OPT)
+			if(_NBL_HAS_ENTRYPOINT_OPT)
+				ERROR_WHILE_PARSING_ITEM(
+					"UNITY_BUILD does not allow -E entrypoint options; use ENTRYPOINTS."
+				)
+			endif()
+		endif()
 
 		macro(NBL_NORMALIZE_FLOAT_LITERAL _CAP_NAME _VALUE _MANTISSA_DIGITS _TYPE_LABEL _OUT_VAR)
 			NBL_REQUIRE_PYTHON()
@@ -1849,6 +1946,20 @@ sys.stdout.write(str(h))
 
 		list(LENGTH CAP_NAMES CAP_COUNT)
 
+		set(NBL_NSC_UNITY_CONTENT "")
+		if(IMPL_UNITY_BUILD)
+			set(NBL_NSC_UNITY_ENTRYPOINTS ${IMPL_ENTRYPOINTS})
+			set(NBL_NSC_UNITY_INPUT_RAW "${TARGET_INPUT}")
+			file(TO_CMAKE_PATH "${TARGET_INPUT}" NBL_NSC_UNITY_INPUT_PATH)
+			set(NBL_NSC_UNITY_FINAL_KEY "${BASE_KEY}.spv")
+			NBL_HASH_SPIRV_KEY("${NBL_NSC_UNITY_FINAL_KEY}" NBL_NSC_UNITY_HASH)
+			set(NBL_NSC_UNITY_HASHED_KEY "${NBL_NSC_UNITY_HASH}.spv")
+			set(NBL_NSC_UNITY_OUTPUT_REL_PATH "$<CONFIG>/${NBL_NSC_UNITY_HASHED_KEY}")
+			set(NBL_NSC_UNITY_OUTPUT "${IMPL_BINARY_DIR}/${NBL_NSC_UNITY_OUTPUT_REL_PATH}")
+			set(NBL_NSC_UNITY_INPUT "${IMPL_BINARY_DIR}/${NBL_NSC_UNITY_HASH}.unity.hlsl")
+			set(NBL_NSC_UNITY_CONTENT "#include <nbl/builtin/hlsl/cpp_compat/basic.h>\n")
+		endif()
+
 		set(RETVAL_FMT "${BASE_KEY}")
 		set(RETVAL_ARGS "")
 		set(CX_CAPACITY 0)
@@ -2055,6 +2166,77 @@ namespace nbl::core::detail {
 		string(CONFIGURE "${HEADER_ITEM_VIEW}" HEADER_ITEM_EVAL @ONLY)
 		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_EVAL}")
 
+		if(IMPL_UNITY_BUILD)
+			set(UNITY_FILE_KEY_FMT "${BASE_KEY}.spv")
+			string(CONFIGURE [=[
+namespace nbl::core::detail {
+	template<>
+	struct SpirvFileKeyBuilder<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>
+	{
+		template<typename... Args>
+		@SPIRV_BUILD_REQUIRES@
+		static constexpr typename StringLiteralBufferType<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>::type build(const Args&... args)
+		{
+			(void)std::forward_as_tuple(args...);
+			typename StringLiteralBufferType<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>::type nbl_spirv_full = {};
+			nbl::core::detail::append_printf_s<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@UNITY_FILE_KEY_FMT@")>(nbl_spirv_full);
+			typename StringLiteralBufferType<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>::type retval = {};
+			retval.append("$<CONFIG>/");
+			nbl::core::detail::put(retval, nbl::core::FNV1a_64(nbl_spirv_full.view()));
+			retval.append(".spv");
+			return retval;
+		}
+
+		template<class Device, typename... Args>
+		@SPIRV_BUILD_FROM_DEVICE_REQUIRES@
+		static constexpr typename StringLiteralBufferType<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>::type build_from_device(const Device* device, const Args&... args)
+		{
+			return build(@SPIRV_BUILD_FROM_DEVICE_ARGS_JOINED@);
+		}
+	};
+}
+
+]=] UNITY_FILE_KEY_EVAL @ONLY)
+			set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${UNITY_FILE_KEY_EVAL}")
+
+			foreach(_NBL_ENTRY IN LISTS IMPL_ENTRYPOINTS)
+				string(LENGTH "${_NBL_ENTRY}" _NBL_ENTRY_LEN)
+				math(EXPR _NBL_ENTRY_CAP "${_NBL_ENTRY_LEN} + 7 + 20")
+				set(ENTRY_NAME "${_NBL_ENTRY}")
+				set(ENTRY_CAPACITY "${_NBL_ENTRY_CAP}")
+				string(CONFIGURE [=[
+namespace nbl::core::detail {
+	template<>
+	struct SpirvEntrypointBuilder<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@"), NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@ENTRY_NAME@")>
+	{
+		template<typename... Args>
+		@SPIRV_BUILD_REQUIRES@
+		static constexpr StringLiteralBuffer<@ENTRY_CAPACITY@ + 1> build(const Args&... args)
+		{
+@SPIRV_ARG_DECLS@			typename StringLiteralBufferType<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>::type nbl_spirv_full = {};
+			nbl::core::detail::append_printf_s<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@RETVAL_FMT@")>(nbl_spirv_full@RETVAL_ARGS_STR@);
+			const auto nbl_spirv_hash = nbl::core::FNV1a_64(nbl_spirv_full.view());
+			StringLiteralBuffer<@ENTRY_CAPACITY@ + 1> retval = {};
+			retval.append("@ENTRY_NAME@");
+			retval.append("__nbl_p");
+			nbl::core::detail::put(retval, nbl_spirv_hash);
+			return retval;
+		}
+
+		template<class Device, typename... Args>
+		@SPIRV_BUILD_FROM_DEVICE_REQUIRES@
+		static constexpr StringLiteralBuffer<@ENTRY_CAPACITY@ + 1> build_from_device(const Device* device, const Args&... args)
+		{
+			return build(@SPIRV_BUILD_FROM_DEVICE_ARGS_JOINED@);
+		}
+	};
+}
+
+]=] UNITY_ENTRY_EVAL @ONLY)
+				set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${UNITY_ENTRY_EVAL}")
+			endforeach()
+		endif()
+
 		function(GENERATE_KEYS PREFIX CAP_INDEX)
 			set(CAPS_VALUES_PART "${ARGN}")
 			if(NUM_CAPS EQUAL 0 OR CAP_INDEX EQUAL ${NUM_CAPS})
@@ -2139,6 +2321,34 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 				endif()
 				if(CAPS_EVAL STREQUAL "")
 					set(CAPS_EVAL "	// no caps\n")
+				endif()
+				if(IMPL_UNITY_BUILD)
+					set(_NBL_UNITY_STRUCT "DeviceConfigCaps__nbl_p${FINAL_KEY_HASH}")
+					set(_NBL_UNITY_ENTRY_DEFS "")
+					set(_NBL_UNITY_ENTRY_UNDEFS "")
+					foreach(_NBL_ENTRY IN LISTS NBL_NSC_UNITY_ENTRYPOINTS)
+						string(APPEND _NBL_UNITY_ENTRY_DEFS "#define ${_NBL_ENTRY} ${_NBL_ENTRY}__nbl_p${FINAL_KEY_HASH}\n")
+						string(APPEND _NBL_UNITY_ENTRY_UNDEFS "#undef ${_NBL_ENTRY}\n")
+					endforeach()
+					set(UNITY_STRUCT "${_NBL_UNITY_STRUCT}")
+					set(UNITY_ENTRY_DEFS "${_NBL_UNITY_ENTRY_DEFS}")
+					set(UNITY_ENTRY_UNDEFS "${_NBL_UNITY_ENTRY_UNDEFS}")
+					set(UNITY_INPUT_PATH "${NBL_NSC_UNITY_INPUT_PATH}")
+					string(CONFIGURE [=[
+
+struct @UNITY_STRUCT@
+{
+@CAPS_EVAL@
+};
+#define DeviceConfigCaps @UNITY_STRUCT@
+@UNITY_ENTRY_DEFS@#include "@UNITY_INPUT_PATH@"
+@UNITY_ENTRY_UNDEFS@#undef DeviceConfigCaps
+
+]=] _NBL_UNITY_BLOCK @ONLY)
+					set(_NBL_UNITY_CONTENT "${NBL_NSC_UNITY_CONTENT}")
+					string(APPEND _NBL_UNITY_CONTENT "${_NBL_UNITY_BLOCK}")
+					set(NBL_NSC_UNITY_CONTENT "${_NBL_UNITY_CONTENT}" PARENT_SCOPE)
+					return()
 				endif()
 				string(CONFIGURE "${DEVICE_CONFIG_VIEW}" CONFIG_CONTENT @ONLY)
 				set(_NBL_CONFIG_WRITE TRUE)
@@ -2490,6 +2700,328 @@ NBL_CONSTEXPR_STATIC_INLINE @MEMBER_TYPE@ @MEMBER_NAME@ = (@MEMBER_TYPE@) @MEMBE
 		endfunction()
 
        	GENERATE_KEYS("" 0)
+
+		if(IMPL_UNITY_BUILD)
+			set(NBL_NSC_UNITY_CONTENT "${NBL_NSC_UNITY_CONTENT}")
+			set(_NBL_UNITY_WRITE TRUE)
+			if(EXISTS "${NBL_NSC_UNITY_INPUT}")
+				file(READ "${NBL_NSC_UNITY_INPUT}" _NBL_UNITY_OLD)
+				if(_NBL_UNITY_OLD STREQUAL "${NBL_NSC_UNITY_CONTENT}")
+					set(_NBL_UNITY_WRITE FALSE)
+				endif()
+			endif()
+			if(_NBL_UNITY_WRITE)
+				file(WRITE "${NBL_NSC_UNITY_INPUT}" "${NBL_NSC_UNITY_CONTENT}")
+			endif()
+
+			set(NBL_NSC_REGISTERED_INPUT "${NBL_NSC_UNITY_INPUT_RAW}")
+			set(NBL_NSC_COMPILE_INPUT "${NBL_NSC_UNITY_INPUT}")
+			set(NBL_NSC_DEPENDS_ON "${DEPENDS_ON}")
+			list(APPEND NBL_NSC_DEPENDS_ON "${NBL_NSC_UNITY_INPUT}" "${NBL_NSC_REGISTERED_INPUT}")
+
+			set(FINAL_KEY_REL_PATH "${NBL_NSC_UNITY_OUTPUT_REL_PATH}")
+			set(TARGET_OUTPUT "${NBL_NSC_UNITY_OUTPUT}")
+			set(DEPFILE_PATH "${TARGET_OUTPUT}.dep")
+			set(NBL_NSC_LOG_PATH "${TARGET_OUTPUT}.log")
+			set(NBL_NSC_PREPROCESSED_PATH "${TARGET_OUTPUT}.pre.hlsl")
+			if(NSC_CACHE_DIR)
+				get_filename_component(NBL_NSC_CACHE_ROOT "${NSC_CACHE_DIR}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
+				file(RELATIVE_PATH NBL_NSC_CACHE_REL "${IMPL_BINARY_DIR}" "${TARGET_OUTPUT}")
+				set(NBL_NSC_CACHE_PATH "${NBL_NSC_CACHE_ROOT}/${NBL_NSC_CACHE_REL}.ppcache")
+				set(NBL_NSC_PREPROCESS_CACHE_PATH "${NBL_NSC_CACHE_ROOT}/${NBL_NSC_CACHE_REL}.ppcache.pre")
+			else()
+				set(NBL_NSC_CACHE_PATH "${TARGET_OUTPUT}.ppcache")
+				set(NBL_NSC_PREPROCESS_CACHE_PATH "${TARGET_OUTPUT}.ppcache.pre")
+			endif()
+
+			set(NBL_NSC_DEPFILE_ARGS "")
+			if(NSC_USE_DEPFILE)
+				set(NBL_NSC_DEPFILE_ARGS -MD -MF "${DEPFILE_PATH}")
+			endif()
+
+			set(NBL_NSC_CACHE_ARGS "")
+			if(NSC_SHADER_CACHE)
+				list(APPEND NBL_NSC_CACHE_ARGS -nbl-shader-cache)
+				list(APPEND NBL_NSC_CACHE_ARGS -nbl-shader-cache-compression "${NSC_SHADER_CACHE_COMPRESSION}")
+				if(NSC_CACHE_DIR)
+					list(APPEND NBL_NSC_CACHE_ARGS -shader-cache-file "${NBL_NSC_CACHE_PATH}")
+				endif()
+			endif()
+			if(NSC_PREPROCESS_CACHE)
+				list(APPEND NBL_NSC_CACHE_ARGS -nbl-preprocess-cache)
+				if(NSC_CACHE_DIR)
+					list(APPEND NBL_NSC_CACHE_ARGS -preprocess-cache-file "${NBL_NSC_PREPROCESS_CACHE_PATH}")
+				endif()
+				if(NSC_PREPROCESS_PREAMBLE)
+					list(APPEND NBL_NSC_CACHE_ARGS -nbl-preprocess-preamble)
+				endif()
+			endif()
+			if(NSC_STDOUT_LOG)
+				list(APPEND NBL_NSC_CACHE_ARGS -nbl-stdout-log)
+			endif()
+			set(NBL_NSC_REPORT_ARGS "")
+			if(NSC_JSON_REPORT)
+				set(NBL_NSC_REPORT_PATH "${TARGET_OUTPUT}.report.json")
+				list(APPEND NBL_NSC_REPORT_ARGS -nbl-report "${NBL_NSC_REPORT_PATH}")
+			endif()
+
+			set(NBL_NSC_COMPILE_COMMAND
+				"$<TARGET_FILE:nsc>"
+				-Fc "${TARGET_OUTPUT}"
+				${COMPILE_OPTIONS} ${REQUIRED_OPTIONS} ${IMPL_COMMON_OPTIONS}
+				${NBL_NSC_DEPFILE_ARGS}
+				$<$<BOOL:${NBL_NSC_VERBOSE}>:-verbose>
+				${NBL_NSC_CACHE_ARGS}
+				${NBL_NSC_REPORT_ARGS}
+				"${NBL_NSC_COMPILE_INPUT}"
+			)
+
+			get_filename_component(NBL_NSC_INPUT_NAME "${NBL_NSC_REGISTERED_INPUT}" NAME)
+			get_filename_component(NBL_NSC_CONFIG_NAME "${NBL_NSC_UNITY_INPUT}" NAME)
+			set(NBL_NSC_COMMENT_LEFT "${NBL_NSC_INPUT_NAME}")
+			set(NBL_NSC_COMMENT_RIGHT "${NBL_NSC_CONFIG_NAME}")
+			set(NBL_NSC_MAIN_DEPENDENCY "${NBL_NSC_REGISTERED_INPUT}")
+			if(TARGET nsc)
+				if(CMAKE_GENERATOR MATCHES "Visual Studio")
+					list(APPEND NBL_NSC_DEPENDS_ON "$<TARGET_FILE:nsc>")
+				else()
+					list(APPEND NBL_NSC_DEPENDS_ON nsc)
+				endif()
+			endif()
+			set(NBL_NSC_BYPRODUCTS "${NBL_NSC_LOG_PATH}")
+			if(NSC_USE_DEPFILE)
+				list(APPEND NBL_NSC_BYPRODUCTS "${DEPFILE_PATH}")
+			endif()
+			if(NSC_SHADER_CACHE)
+				list(APPEND NBL_NSC_BYPRODUCTS "${NBL_NSC_CACHE_PATH}")
+			endif()
+			if(NSC_PREPROCESS_CACHE)
+				list(APPEND NBL_NSC_BYPRODUCTS "${NBL_NSC_PREPROCESS_CACHE_PATH}")
+				list(APPEND NBL_NSC_BYPRODUCTS "${NBL_NSC_PREPROCESSED_PATH}")
+			endif()
+			if(NSC_JSON_REPORT)
+				list(APPEND NBL_NSC_BYPRODUCTS "${NBL_NSC_REPORT_PATH}")
+			endif()
+
+			set(NBL_NSC_CUSTOM_COMMAND_ARGS
+				OUTPUT "${TARGET_OUTPUT}"
+				BYPRODUCTS ${NBL_NSC_BYPRODUCTS}
+				COMMAND ${NBL_NSC_COMPILE_COMMAND}
+				DEPENDS ${NBL_NSC_DEPENDS_ON}
+				COMMENT "${NBL_NSC_COMMENT_LEFT} (${NBL_NSC_COMMENT_RIGHT})"
+				VERBATIM
+				COMMAND_EXPAND_LISTS
+			)
+			if(NBL_NSC_MAIN_DEPENDENCY)
+				list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS MAIN_DEPENDENCY "${NBL_NSC_MAIN_DEPENDENCY}")
+			endif()
+			if(NSC_USE_DEPFILE)
+				list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS DEPFILE "${DEPFILE_PATH}")
+			endif()
+			if(IMPL_EXPORT_RULES)
+				set(_NBL_EXPORT_INDEX "${_NBL_EXPORT_RULE_INDEX}")
+				set(${IMPL_EXPORT_RULES}_COMMAND_${_NBL_EXPORT_INDEX} ${NBL_NSC_COMPILE_COMMAND} PARENT_SCOPE)
+				set(${IMPL_EXPORT_RULES}_OUTPUT_${_NBL_EXPORT_INDEX} "${TARGET_OUTPUT}" PARENT_SCOPE)
+				set(${IMPL_EXPORT_RULES}_LOG_${_NBL_EXPORT_INDEX} "${NBL_NSC_LOG_PATH}" PARENT_SCOPE)
+				if(NSC_SHADER_CACHE)
+					set(${IMPL_EXPORT_RULES}_CACHE_SHADER_${_NBL_EXPORT_INDEX} "${NBL_NSC_CACHE_PATH}" PARENT_SCOPE)
+				else()
+					set(${IMPL_EXPORT_RULES}_CACHE_SHADER_${_NBL_EXPORT_INDEX} "" PARENT_SCOPE)
+				endif()
+				if(NSC_PREPROCESS_CACHE)
+					set(${IMPL_EXPORT_RULES}_CACHE_PREPROCESS_${_NBL_EXPORT_INDEX} "${NBL_NSC_PREPROCESS_CACHE_PATH}" PARENT_SCOPE)
+					set(${IMPL_EXPORT_RULES}_PREPROCESSED_${_NBL_EXPORT_INDEX} "${NBL_NSC_PREPROCESSED_PATH}" PARENT_SCOPE)
+				else()
+					set(${IMPL_EXPORT_RULES}_CACHE_PREPROCESS_${_NBL_EXPORT_INDEX} "" PARENT_SCOPE)
+					set(${IMPL_EXPORT_RULES}_PREPROCESSED_${_NBL_EXPORT_INDEX} "" PARENT_SCOPE)
+				endif()
+				if(NSC_USE_DEPFILE)
+					set(${IMPL_EXPORT_RULES}_DEPFILE_${_NBL_EXPORT_INDEX} "${DEPFILE_PATH}" PARENT_SCOPE)
+				else()
+					set(${IMPL_EXPORT_RULES}_DEPFILE_${_NBL_EXPORT_INDEX} "" PARENT_SCOPE)
+				endif()
+				if(NSC_JSON_REPORT)
+					set(${IMPL_EXPORT_RULES}_REPORT_${_NBL_EXPORT_INDEX} "${NBL_NSC_REPORT_PATH}" PARENT_SCOPE)
+				else()
+					set(${IMPL_EXPORT_RULES}_REPORT_${_NBL_EXPORT_INDEX} "" PARENT_SCOPE)
+				endif()
+				math(EXPR _NBL_EXPORT_INDEX_NEXT "${_NBL_EXPORT_INDEX} + 1")
+				set(_NBL_EXPORT_RULE_INDEX "${_NBL_EXPORT_INDEX_NEXT}" PARENT_SCOPE)
+				set(${IMPL_EXPORT_RULES}_COUNT "${_NBL_EXPORT_INDEX_NEXT}" PARENT_SCOPE)
+			endif()
+			if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
+				add_custom_command(${NBL_NSC_CUSTOM_COMMAND_ARGS})
+			endif()
+			set(NBL_NSC_OUT_FILES "")
+			if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
+				set(NBL_NSC_OUT_FILES "${TARGET_OUTPUT}" "${NBL_NSC_LOG_PATH}")
+				if(NSC_USE_DEPFILE)
+					list(APPEND NBL_NSC_OUT_FILES "${DEPFILE_PATH}")
+				endif()
+				if(NSC_SHADER_CACHE)
+					list(APPEND NBL_NSC_OUT_FILES "${NBL_NSC_CACHE_PATH}")
+				endif()
+				if(NSC_PREPROCESS_CACHE)
+					list(APPEND NBL_NSC_OUT_FILES "${NBL_NSC_PREPROCESS_CACHE_PATH}")
+					list(APPEND NBL_NSC_OUT_FILES "${NBL_NSC_PREPROCESSED_PATH}")
+				endif()
+				set_source_files_properties(${NBL_NSC_OUT_FILES} PROPERTIES GENERATED TRUE)
+			endif()
+
+			set(HEADER_ONLY_LIKE "")
+			set(ADD_INPUT_AS_HEADER_ONLY TRUE)
+			if(NOT _NBL_DISABLE_CUSTOM_COMMANDS AND CMAKE_GENERATOR MATCHES "Visual Studio")
+				set(ADD_INPUT_AS_HEADER_ONLY FALSE)
+			endif()
+			if(ADD_INPUT_AS_HEADER_ONLY)
+				list(APPEND HEADER_ONLY_LIKE "${NBL_NSC_REGISTERED_INPUT}")
+			endif()
+			if(NBL_NSC_OUT_FILES AND NOT CMAKE_CONFIGURATION_TYPES)
+				list(APPEND HEADER_ONLY_LIKE ${NBL_NSC_OUT_FILES})
+			endif()
+			if(HEADER_ONLY_LIKE AND IMPL_HLSL_GLOB)
+				foreach(_HLSL_SOURCE IN LISTS IMPL_HLSL_GLOB)
+					list(REMOVE_ITEM HEADER_ONLY_LIKE "${_HLSL_SOURCE}")
+				endforeach()
+			endif()
+			if(HEADER_ONLY_LIKE)
+				list(REMOVE_DUPLICATES HEADER_ONLY_LIKE)
+				target_sources(${IMPL_TARGET} PRIVATE ${HEADER_ONLY_LIKE})
+				set_source_files_properties(${HEADER_ONLY_LIKE} PROPERTIES 
+					HEADER_FILE_ONLY ON
+				)
+			endif()
+			set(ADD_CONFIG_AS_HEADER_ONLY TRUE)
+			if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
+				if(CMAKE_GENERATOR MATCHES "Visual Studio" AND NBL_NSC_MAIN_DEPENDENCY STREQUAL "${NBL_NSC_UNITY_INPUT}")
+					set(ADD_CONFIG_AS_HEADER_ONLY FALSE)
+				endif()
+			endif()
+			if(ADD_CONFIG_AS_HEADER_ONLY)
+				target_sources(${IMPL_TARGET} PRIVATE "${NBL_NSC_UNITY_INPUT}")
+				set_source_files_properties("${NBL_NSC_UNITY_INPUT}" PROPERTIES
+					GENERATED TRUE
+					HEADER_FILE_ONLY ON
+				)
+				if(CMAKE_GENERATOR MATCHES "Visual Studio")
+					set_source_files_properties("${NBL_NSC_UNITY_INPUT}" PROPERTIES
+						VS_EXCLUDED_FROM_BUILD TRUE
+						VS_TOOL_OVERRIDE "None"
+					)
+				endif()
+			endif()
+			if(NOT _NBL_DISABLE_CUSTOM_COMMANDS)
+				if(CMAKE_CONFIGURATION_TYPES)
+					foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
+						if(_CFG STREQUAL "")
+							continue()
+						endif()
+						set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${NBL_NSC_UNITY_HASHED_KEY}")
+						set(TARGET_OUTPUT_IDE_PREPROCESSED "${TARGET_OUTPUT_IDE}.pre.hlsl")
+						if(NSC_CACHE_DIR)
+							file(RELATIVE_PATH TARGET_OUTPUT_IDE_REL "${IMPL_BINARY_DIR}" "${TARGET_OUTPUT_IDE}")
+							set(TARGET_OUTPUT_IDE_CACHE "${NBL_NSC_CACHE_ROOT}/${TARGET_OUTPUT_IDE_REL}.ppcache")
+							set(TARGET_OUTPUT_IDE_PRECACHE "${NBL_NSC_CACHE_ROOT}/${TARGET_OUTPUT_IDE_REL}.ppcache.pre")
+						else()
+							set(TARGET_OUTPUT_IDE_CACHE "${TARGET_OUTPUT_IDE}.ppcache")
+							set(TARGET_OUTPUT_IDE_PRECACHE "${TARGET_OUTPUT_IDE}.ppcache.pre")
+						endif()
+						set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
+						if(NSC_USE_DEPFILE)
+							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.dep")
+						endif()
+						if(NSC_SHADER_CACHE)
+							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_CACHE}")
+						endif()
+						set(ADD_PREPROCESSED_IDE TRUE)
+						if(NSC_PREPROCESS_CACHE)
+							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PRECACHE}")
+							if(ADD_PREPROCESSED_IDE)
+								list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PREPROCESSED}")
+							endif()
+						endif()
+						list(REMOVE_DUPLICATES NBL_NSC_OUT_FILES_IDE)
+						target_sources(${IMPL_TARGET} PRIVATE ${NBL_NSC_OUT_FILES_IDE})
+						set_source_files_properties(${NBL_NSC_OUT_FILES_IDE} PROPERTIES
+							HEADER_FILE_ONLY ON
+							GENERATED TRUE
+						)
+						if(NSC_SHADER_CACHE)
+							set_source_files_properties("${TARGET_OUTPUT_IDE_CACHE}" PROPERTIES HEADER_FILE_ONLY OFF)
+						endif()
+						if(NSC_PREPROCESS_CACHE)
+							set_source_files_properties("${TARGET_OUTPUT_IDE_PRECACHE}" PROPERTIES HEADER_FILE_ONLY OFF)
+							if(ADD_PREPROCESSED_IDE)
+								set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES HEADER_FILE_ONLY ON)
+								if(CMAKE_GENERATOR MATCHES "Visual Studio")
+									set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES
+										VS_EXCLUDED_FROM_BUILD TRUE
+										VS_TOOL_OVERRIDE "None"
+									)
+								endif()
+							endif()
+						endif()
+						source_group("${OUT}/${_CFG}" FILES ${NBL_NSC_OUT_FILES_IDE})
+					endforeach()
+				else()
+					set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${NBL_NSC_UNITY_HASHED_KEY}")
+					set(TARGET_OUTPUT_IDE_PREPROCESSED "${TARGET_OUTPUT_IDE}.pre.hlsl")
+					if(NSC_CACHE_DIR)
+						file(RELATIVE_PATH TARGET_OUTPUT_IDE_REL "${IMPL_BINARY_DIR}" "${TARGET_OUTPUT_IDE}")
+						set(TARGET_OUTPUT_IDE_CACHE "${NBL_NSC_CACHE_ROOT}/${TARGET_OUTPUT_IDE_REL}.ppcache")
+						set(TARGET_OUTPUT_IDE_PRECACHE "${NBL_NSC_CACHE_ROOT}/${TARGET_OUTPUT_IDE_REL}.ppcache.pre")
+					else()
+						set(TARGET_OUTPUT_IDE_CACHE "${TARGET_OUTPUT_IDE}.ppcache")
+						set(TARGET_OUTPUT_IDE_PRECACHE "${TARGET_OUTPUT_IDE}.ppcache.pre")
+					endif()
+					set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
+					if(NSC_USE_DEPFILE)
+						list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.dep")
+					endif()
+					if(NSC_SHADER_CACHE)
+						list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_CACHE}")
+					endif()
+					set(ADD_PREPROCESSED_IDE TRUE)
+					if(NSC_PREPROCESS_CACHE)
+						list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PRECACHE}")
+						if(ADD_PREPROCESSED_IDE)
+							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE_PREPROCESSED}")
+						endif()
+					endif()
+					list(REMOVE_DUPLICATES NBL_NSC_OUT_FILES_IDE)
+					target_sources(${IMPL_TARGET} PRIVATE ${NBL_NSC_OUT_FILES_IDE})
+					set_source_files_properties(${NBL_NSC_OUT_FILES_IDE} PROPERTIES
+						HEADER_FILE_ONLY ON
+						GENERATED TRUE
+					)
+					if(NSC_SHADER_CACHE)
+						set_source_files_properties("${TARGET_OUTPUT_IDE_CACHE}" PROPERTIES HEADER_FILE_ONLY OFF)
+					endif()
+					if(NSC_PREPROCESS_CACHE)
+						set_source_files_properties("${TARGET_OUTPUT_IDE_PRECACHE}" PROPERTIES HEADER_FILE_ONLY OFF)
+						if(ADD_PREPROCESSED_IDE)
+							set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES HEADER_FILE_ONLY ON)
+							if(CMAKE_GENERATOR MATCHES "Visual Studio")
+								set_source_files_properties("${TARGET_OUTPUT_IDE_PREPROCESSED}" PROPERTIES
+									VS_EXCLUDED_FROM_BUILD TRUE
+									VS_TOOL_OVERRIDE "None"
+								)
+							endif()
+						endif()
+					endif()
+					source_group("${OUT}" FILES ${NBL_NSC_OUT_FILES_IDE})
+				endif()
+			endif()
+
+			set_source_files_properties("${TARGET_OUTPUT}" PROPERTIES
+				NBL_SPIRV_REGISTERED_INPUT "${NBL_NSC_REGISTERED_INPUT}"
+				NBL_SPIRV_PERMUTATION_CONFIG "${NBL_NSC_UNITY_INPUT}"
+				NBL_SPIRV_BINARY_DIR "${IMPL_BINARY_DIR}"
+				NBL_SPIRV_ACCESS_KEY "${FINAL_KEY_REL_PATH}"
+			)
+
+			set_property(TARGET ${IMPL_TARGET} APPEND PROPERTY NBL_SPIRV_OUTPUTS "${TARGET_OUTPUT}")
+		endif()
 
     endforeach()
 
