@@ -1,13 +1,11 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED_
+#define _C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED_
 
-#ifndef __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
-#define __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
 
-#include "nbl/core/Types.h"
-
-#include "nbl/asset/material_compiler/IR.h"
+//#include "nbl/asset/material_compiler/IR.h"
 
 #include "nbl/ext/MitsubaLoader/CElementBSDF.h"
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
@@ -23,6 +21,7 @@ struct SContext;
 class CMitsubaMaterialCompilerFrontend
 {
     public:
+#ifdef 0
         using IRNode = asset::material_compiler::IR::INode;
         using EmitterNode = asset::material_compiler::IR::CEmitterNode;
         enum E_IMAGE_VIEW_SEMANTIC : uint8_t
@@ -60,8 +59,8 @@ class CMitsubaMaterialCompilerFrontend
         tex_ass_type getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const;
 
         IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+#endif
 };
 
 }
-
 #endif

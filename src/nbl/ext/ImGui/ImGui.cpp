@@ -340,6 +340,7 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		rasterizationParams.faceCullingMode = EFCM_NONE;
 		rasterizationParams.depthWriteEnable = false;
 		rasterizationParams.depthBoundsTestEnable = false;
+		rasterizationParams.depthCompareOp = ECO_ALWAYS;
 		rasterizationParams.viewportCount = creationParams.viewportCount;
 	}
 
