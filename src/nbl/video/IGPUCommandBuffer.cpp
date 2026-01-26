@@ -50,14 +50,6 @@ bool IGPUCommandBuffer::checkStateBeforeRecording(const core::bitflag<queue_flag
 
 bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritanceInfo* inheritanceInfo)
 {
-    // Using Vulkan 1.2 VUIDs here because we don't want to confuse ourselves with Dynamic Rendering being core
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00049
-    if (m_state == STATE::RECORDING || m_state == STATE::PENDING)
-    {
-        NBL_LOG_ERROR("command buffer must not be in RECORDING or PENDING state!");
-        return false;
-    }
-
     const bool whollyInsideRenderpass = flags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT);
     const auto physDev = getOriginDevice()->getPhysicalDevice();
     if (m_level==IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
@@ -126,6 +118,14 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     }
 
     checkForParentPoolReset();
+    
+    // Using Vulkan 1.2 VUIDs here because we don't want to confuse ourselves with Dynamic Rendering being core
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00049
+    if (m_state == STATE::RECORDING || m_state == STATE::PENDING)
+    {
+        NBL_LOG_ERROR("command buffer must not be in RECORDING or PENDING state!");
+        return false;
+    }
 
     // still not initial and pool wasn't reset
     if (m_state!=STATE::INITIAL)
