@@ -15,8 +15,4 @@
 #include "nbl/core/math/floatutil.tcc"
 #include "nbl/core/math/glslFunctions.tcc"
 
-// implementations [deprecated]
-#include "matrix3x4SIMD_impl.h"
-#include "matrix4SIMD_impl.h"
-
 #endif

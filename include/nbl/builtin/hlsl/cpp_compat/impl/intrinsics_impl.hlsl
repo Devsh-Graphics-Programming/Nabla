@@ -839,6 +839,17 @@ struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT> && conce
 	}
 };
 
+template<typename LhsT, typename RhsT>
+NBL_PARTIAL_REQ_TOP((concepts::Matrix<LhsT> && concepts::Scalar<RhsT>) || (concepts::Scalar<LhsT> && concepts::Matrix<RhsT>))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT((concepts::Matrix<LhsT> && concepts::Scalar<RhsT>) || (concepts::Scalar<LhsT> && concepts::Matrix<RhsT>)) >
+{
+	using return_t = hlsl::conditional_t<hlsl::is_matrix_v<LhsT>, LhsT, RhsT>;
+	static inline return_t __call(LhsT lhs, RhsT rhs)
+	{
+		return mul(lhs, rhs);
+	}
+};
+
 #define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME, REQUIREMENT, RETURN_TYPE)\
 template<typename T>\
 NBL_PARTIAL_REQ_TOP(REQUIREMENT)\

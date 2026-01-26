@@ -8,6 +8,8 @@
 #include <sstream>
 #include <regex>
 #include <iterator>
+#include <filesystem>
+#include <algorithm>
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
@@ -21,40 +23,287 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
 }
 
+bool IShaderCompiler::writeDepfile(
+	const DepfileWriteParams& params,
+	const CCache::SEntry::dependency_container_t& dependencies,
+	const CIncludeFinder* includeFinder,
+	system::logger_opt_ptr logger)
+{
+	std::string depfilePathString;
+	if (!params.depfilePath.empty())
+		depfilePathString = std::string(params.depfilePath);
+	else
+		depfilePathString = std::string(params.outputPath) + ".d";
+
+	if (depfilePathString.empty())
+	{
+		logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+		return false;
+	}
+
+	const auto parentDirectory = std::filesystem::path(depfilePathString).parent_path();
+	if (!parentDirectory.empty() && !std::filesystem::exists(parentDirectory))
+	{
+		if (!std::filesystem::create_directories(parentDirectory))
+		{
+			logger.log("Failed to create parent directory for depfile.", system::ILogger::ELL_ERROR);
+			return false;
+		}
+	}
+
+	std::vector<std::string> depPaths;
+	depPaths.reserve(dependencies.size() + 1);
+
+	auto addDepPath = [&depPaths, &params](std::filesystem::path path)
+	{
+		if (path.empty())
+			return;
+		if (path.is_relative())
+		{
+			if (params.workingDirectory.empty())
+				return;
+			path = std::filesystem::path(params.workingDirectory) / path;
+		}
+		std::error_code ec;
+		std::filesystem::path normalized = std::filesystem::weakly_canonical(path, ec);
+		if (ec)
+		{
+			normalized = std::filesystem::absolute(path, ec);
+			if (ec)
+				return;
+		}
+		if (normalized.empty() || !std::filesystem::exists(normalized))
+			return;
+		auto normalizedString = normalized.generic_string();
+		if (normalizedString.find_first_of("\r\n") != std::string::npos)
+			return;
+		depPaths.emplace_back(std::move(normalizedString));
+	};
+
+	if (!params.sourceIdentifier.empty())
+	{
+		std::filesystem::path rootPath{std::string(params.sourceIdentifier)};
+		if (rootPath.is_relative())
+		{
+			if (!params.workingDirectory.empty())
+				rootPath = std::filesystem::absolute(std::filesystem::path(params.workingDirectory) / rootPath);
+			else
+				rootPath = std::filesystem::absolute(rootPath);
+		}
+		addDepPath(rootPath);
+	}
+
+	for (const auto& dep : dependencies)
+	{
+		if (includeFinder)
+		{
+			IShaderCompiler::IIncludeLoader::found_t header = dep.isStandardInclude() ?
+				includeFinder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier())) :
+				includeFinder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+
+			if (!header)
+				continue;
+			addDepPath(header.absolutePath);
+		}
+		else
+		{
+			std::filesystem::path candidate = dep.isStandardInclude() ? std::filesystem::path(std::string(dep.getIdentifier())) : (dep.getRequestingSourceDir() / std::string(dep.getIdentifier()));
+			if (candidate.is_relative())
+			{
+				if (!params.workingDirectory.empty())
+					candidate = std::filesystem::absolute(std::filesystem::path(params.workingDirectory) / candidate);
+				else
+					candidate = std::filesystem::absolute(candidate);
+			}
+			addDepPath(candidate);
+		}
+	}
+
+	std::sort(depPaths.begin(), depPaths.end());
+	depPaths.erase(std::unique(depPaths.begin(), depPaths.end()), depPaths.end());
+
+	auto escapeDepPath = [](const std::string& path) -> std::string
+	{
+		std::string normalized = path;
+		std::replace(normalized.begin(), normalized.end(), '\\', '/');
+		std::string out;
+		out.reserve(normalized.size());
+		for (const char c : normalized)
+		{
+			if (c == ' ' || c == '#')
+				out.push_back('\\');
+			if (c == '$')
+			{
+				out.push_back('$');
+				out.push_back('$');
+				continue;
+			}
+			out.push_back(c);
+		}
+		return out;
+	};
+
+	if (!params.system)
+	{
+		logger.log("Depfile system is null.", system::ILogger::ELL_ERROR);
+		return false;
+	}
+
+	const auto depfilePath = std::filesystem::path(depfilePathString);
+	auto tempPath = depfilePath;
+	tempPath += ".tmp";
+	params.system->deleteFile(tempPath);
+
+	core::smart_refctd_ptr<system::IFile> depfile;
+	{
+		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+		params.system->createFile(future, tempPath, system::IFileBase::ECF_WRITE);
+		if (!future.wait())
+		{
+			logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+			return false;
+		}
+		future.acquire().move_into(depfile);
+	}
+	if (!depfile)
+	{
+		logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
+
+	std::string targetPathString;
+	if (params.outputPath.empty())
+	{
+		std::filesystem::path targetPath = depfilePathString;
+		if (targetPath.extension() == ".d")
+			targetPath.replace_extension();
+		targetPathString = targetPath.generic_string();
+	}
+	else
+	{
+		targetPathString = std::string(params.outputPath);
+	}
+	if (targetPathString.empty())
+	{
+		logger.log("Depfile target path is empty.", system::ILogger::ELL_ERROR);
+		return false;
+	}
+	const std::string target = escapeDepPath(std::filesystem::path(targetPathString).generic_string());
+	std::vector<std::string> escapedDeps;
+	escapedDeps.reserve(depPaths.size());
+	for (const auto& depPath : depPaths)
+		escapedDeps.emplace_back(escapeDepPath(depPath));
+
+	std::string depfileContents;
+	depfileContents.append(target);
+	depfileContents.append(":");
+	if (!escapedDeps.empty())
+	{
+		depfileContents.append(" \\\n");
+		for (size_t index = 0; index < escapedDeps.size(); ++index)
+		{
+			depfileContents.append(" ");
+			depfileContents.append(escapedDeps[index]);
+			if (index + 1 < escapedDeps.size())
+				depfileContents.append(" \\\n");
+		}
+	}
+	depfileContents.append("\n");
+
+	system::IFile::success_t success;
+	depfile->write(success, depfileContents.data(), 0, depfileContents.size());
+	if (!success)
+	{
+		logger.log("Failed to write depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
+	depfile = nullptr;
+
+	params.system->deleteFile(depfilePath);
+	const std::error_code moveError = params.system->moveFileOrDirectory(tempPath, depfilePath);
+	if (moveError)
+	{
+		logger.log("Failed to replace depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
+	return true;
+}
+
 core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
-    CCache::SEntry entry;
-    if (options.readCache || options.writeCache)
-        entry = CCache::SEntry(code, options);
+	const bool depfileEnabled = options.preprocessorOptions.depfile;
+	const bool supportsDependencies = options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL;
 
-    if (options.readCache)
-    {
-        auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
-        if (found != options.readCache->m_container.end())
-        {
-            if (options.writeCache)
-            {
-                CCache::SEntry writeEntry = *found;
-                options.writeCache->insert(std::move(writeEntry));
-            }
-            return found->decompressShader();
-        }
-    }
+	auto writeDepfileFromDependencies = [&](const CCache::SEntry::dependency_container_t& dependencies) -> bool
+	{
+		if (!depfileEnabled)
+			return true;
 
-    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies:nullptr);
-    // compute the SPIR-V shader content hash
-    if (retVal)
-    {
-        auto backingBuffer = retVal->getContent();
-        const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
-    }
+		if (options.preprocessorOptions.depfilePath.empty())
+		{
+			options.preprocessorOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+			return false;
+		}
 
-    if (options.writeCache)
-    {
-        if (entry.setContent(retVal->getContent()))
-            options.writeCache->insert(std::move(entry));
-    }
-    return retVal;
+		IShaderCompiler::DepfileWriteParams params = {};
+		const std::string depfilePathString = options.preprocessorOptions.depfilePath.generic_string();
+		params.depfilePath = depfilePathString;
+		params.sourceIdentifier = options.preprocessorOptions.sourceIdentifier;
+		if (!params.sourceIdentifier.empty())
+			params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
+		params.system = m_system.get();
+		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);
+	};
+
+	CCache::SEntry entry;
+	if (options.readCache || options.writeCache)
+		entry = CCache::SEntry(code, options);
+
+	if (options.readCache)
+	{
+		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+		if (found != options.readCache->m_container.end())
+		{
+			if (options.writeCache)
+			{
+				CCache::SEntry writeEntry = *found;
+				options.writeCache->insert(std::move(writeEntry));
+			}
+			auto shader = found->decompressShader();
+			if (depfileEnabled && !writeDepfileFromDependencies(found->dependencies))
+				return nullptr;
+			return shader;
+		}
+	}
+
+	CCache::SEntry::dependency_container_t depfileDependencies;
+	CCache::SEntry::dependency_container_t* dependenciesPtr = nullptr;
+	if (options.writeCache)
+		dependenciesPtr = &entry.dependencies;
+	else if (depfileEnabled && supportsDependencies)
+		dependenciesPtr = &depfileDependencies;
+
+	auto retVal = compileToSPIRV_impl(code, options, dependenciesPtr);
+	if (retVal)
+	{
+		auto backingBuffer = retVal->getContent();
+		const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+	}
+
+	if (retVal && depfileEnabled && supportsDependencies)
+	{
+		const auto* deps = options.writeCache ? &entry.dependencies : &depfileDependencies;
+		if (!writeDepfileFromDependencies(*deps))
+			return nullptr;
+	}
+
+	if (options.writeCache)
+	{
+		if (entry.setContent(retVal->getContent()))
+			options.writeCache->insert(std::move(entry));
+	}
+
+	return retVal;
 }
 
 std::string IShaderCompiler::preprocessShader(
@@ -72,7 +321,6 @@ std::string IShaderCompiler::preprocessShader(
 
     return preprocessShader(std::move(code), stage, preprocessOptions, dependencies);
 }
-
 auto IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const -> IIncludeLoader::found_t
 {
     core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
@@ -97,7 +345,7 @@ core::vector<std::string> IShaderCompiler::IIncludeGenerator::parseArgumentsFrom
     std::stringstream ss{ _path };
     std::string arg;
     while (std::getline(ss, arg, '/'))
-        args.push_back(std::move(arg));
+        args.emplace_back(std::move(arg));
 
     return args;
 }
@@ -178,7 +426,7 @@ void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPat
 {
     if (!loader)
         return;
-    m_loaders.push_back(LoaderSearchPath{ loader, searchPath });
+    m_loaders.emplace_back(LoaderSearchPath{ loader, searchPath });
 }
 
 void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd)
@@ -301,7 +549,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     size_t i = 0u;
     for (auto& entry : m_container) {
         // Add the entry as a json array
-        entries.push_back(entry);
+        entries.emplace_back(entry);
 
         // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
         // (where the params array has been moved) we don't have to read the json to get the offsets again

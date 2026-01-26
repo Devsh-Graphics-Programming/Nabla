@@ -260,7 +260,7 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 				const auto lookAtGLM = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtLH<float>(origin,target,up));
 				const auto lookAt = hlsl::transpose(lookAtGLM);
 				// mitsuba understands look-at and right-handed camera little bit differently than I do
-				const auto rotation = hlsl::inverse<hlsl::float32_t3x3>(hlsl::float32_t3x3(lookAt));
+				const auto rotation = hlsl::inverse(hlsl::float32_t3x3(lookAt));
 				// set the origin to avoid numerical issues
 				for (auto r=0; r<3; r++)
 				{
