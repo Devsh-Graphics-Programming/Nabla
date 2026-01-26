@@ -42,7 +42,7 @@ struct ProtoPipeline final
 		inline core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
 			const video::IGPUPipelineBase::SShaderSpecInfo& fragShader,
 			video::IGPUPipelineLayout* layout,
-			video::IGPURenderpass* renderpass,
+			const video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
 			asset::SBlendParams blendParams = {},
 			const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform=hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT
