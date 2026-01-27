@@ -35,6 +35,12 @@ struct ProtoPipeline final
 		inline ProtoPipeline(asset::IAssetManager* assMan, video::ILogicalDevice* device, system::ILogger* logger=nullptr)
 		{
 			m_vxShader = createDefaultVertexShader(assMan,device,logger);
+			m_vxEntryPoint = "main";
+		}
+
+		inline ProtoPipeline(core::smart_refctd_ptr<asset::IShader> vertexShader, const char* vertexEntryPoint="main") : m_vxShader(std::move(vertexShader))
+		{
+			m_vxEntryPoint = vertexEntryPoint ? vertexEntryPoint : "main";
 		}
 
 		inline operator bool() const {return m_vxShader.get();}
@@ -63,7 +69,7 @@ struct ProtoPipeline final
 
 				IGPUGraphicsPipeline::SCreationParams params[1];
 				params[0].layout = layout;
-				params[0].vertexShader = { .shader = m_vxShader.get(), .entryPoint = "main", .entries = &specConstants };
+				params[0].vertexShader = { .shader = m_vxShader.get(), .entryPoint = m_vxEntryPoint, .entries = &specConstants };
 				params[0].fragmentShader = fragShader;
 				params[0].cached = {
 					.vertexInput = {}, // The Full Screen Triangle doesn't use any HW vertex input state
@@ -82,6 +88,7 @@ struct ProtoPipeline final
 
 
 		core::smart_refctd_ptr<asset::IShader> m_vxShader;
+		std::string m_vxEntryPoint = "main";
 		// The default is correct for us
 		constexpr static inline asset::SRasterizationParams DefaultRasterParams = {
 			.faceCullingMode = asset::EFCM_NONE,

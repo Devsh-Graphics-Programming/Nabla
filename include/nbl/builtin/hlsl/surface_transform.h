@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 namespace nbl
@@ -174,8 +175,7 @@ inline float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
 template<typename TwoColumns>
 TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 {
-    using namespace glsl; // IN HLSL mode, C++ doens't need this to access `inverse`
-    return mul(inverse(transformMatrix(transform)),dDx_dDy);
+    return mul(::nbl::hlsl::inverse(transformMatrix(transform)),dDx_dDy);
 }
 
 }
