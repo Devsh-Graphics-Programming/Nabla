@@ -1551,7 +1551,6 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
 
     for (const auto& info : createInfos)
     {
-
         core::unordered_map<ShaderModuleKey, uint32_t, ShaderModuleKey::HashFunction> shaderIndexes;
         auto getVkShaderIndex = [&](const IGPUPipelineBase::SShaderSpecInfo& spec)
         {
@@ -1633,6 +1632,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         {
           outCreateInfo->pDynamicState = &vk_dynamicStateCreateInfo;
         }
+        outCreateInfo++;
     }
 
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);

@@ -21,7 +21,7 @@ struct ResolveParameters
 	float NOverKappa;
 };
 
-ResolveParameters computeResolveParameters(float base, uint32_t sampleCount, float minReliableLuma, float kappa, uint32_t cascadeSize)
+inline ResolveParameters computeResolveParameters(float base, uint32_t sampleCount, float minReliableLuma, float kappa, uint32_t cascadeSize)
 {
 	ResolveParameters retval;
 	retval.lastCascadeIndex = cascadeSize - 1u;

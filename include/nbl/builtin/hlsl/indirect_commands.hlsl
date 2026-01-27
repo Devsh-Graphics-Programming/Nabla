@@ -50,9 +50,9 @@ struct TraceRaysIndirectCommand_t
     uint64_t callableShaderBindingTableAddress;
     uint64_t callableShaderBindingTableSize;
     uint64_t callableShaderBindingTableStride;
-	uint32_t  width;
-	uint32_t  height;
-	uint32_t  depth;
+	uint32_t width;
+	uint32_t height;
+	uint32_t depth;
 };
 
 }
