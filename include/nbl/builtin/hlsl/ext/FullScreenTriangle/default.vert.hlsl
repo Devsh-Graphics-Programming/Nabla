@@ -21,8 +21,12 @@ const static float32_t2 tc[3] = {
 
 [[vk::constant_id(0)]] const uint32_t SwapchainTransform = 0;
 
+#ifndef NBL_EXT_FULLSCREEN_TRIANGLE_VS_ENTRYPOINT
+#define NBL_EXT_FULLSCREEN_TRIANGLE_VS_ENTRYPOINT main
+#endif
+
 [shader("vertex")]
-SVertexAttributes main()
+SVertexAttributes NBL_EXT_FULLSCREEN_TRIANGLE_VS_ENTRYPOINT()
 {
     using namespace ::nbl::hlsl::glsl;
 
