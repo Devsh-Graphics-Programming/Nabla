@@ -684,50 +684,21 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::invalidShaderGroups(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
-    core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const
+bool IGPUCommandBuffer::invalidShaderGroups(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const
 {
+    if (!sbt.valid(flags))
+        return true;
 
     using PipelineFlag = IGPURayTracingPipeline::SCreationParams::FLAGS;
     using PipelineFlags = core::bitflag<PipelineFlag>;
 
-    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03696
-    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03697
-    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03512
-    const auto shouldHaveHitGroup = flags & 
-      (PipelineFlags(PipelineFlag::NO_NULL_ANY_HIT_SHADERS) | 
-        PipelineFlag::NO_NULL_CLOSEST_HIT_SHADERS |
-        PipelineFlag::NO_NULL_INTERSECTION_SHADERS);
-    if (shouldHaveHitGroup && !hitGroupsRange.buffer)
-    {
-        NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
-        return true;
-    }
-
-    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03511
-    const auto shouldHaveMissGroup = flags & PipelineFlag::NO_NULL_MISS_SHADERS;
-    if (shouldHaveMissGroup && !missGroupsRange.buffer)
-    {
-        NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
-        return true;
-    }
-
     const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
-    auto invalidBufferRegion = [this, &limits](const asset::SBufferRange<const IGPUBuffer>& range, uint32_t stride, const char* groupName) -> bool
+    auto invalidBufferRegion = [this, &limits](const asset::SStridedRange<const IGPUBuffer>& stRange, const char* groupName) -> bool
     {
+        const auto& range = stRange.range;
         const IGPUBuffer* const buffer = range.buffer.get();
-
-        if (!buffer) return false;
-
-        if (!range.isValid())
-        {
-            NBL_LOG_ERROR("%s buffer range is not valid!", groupName);
-            return true;
-        }
+        if (!buffer)
+            return false;
 
         if (!(buffer->getCreationParams().usage & IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
         {
@@ -743,13 +714,13 @@ bool IGPUCommandBuffer::invalidShaderGroups(
         }
 
         // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pHitShaderBindingTable-03690
-        if (stride % limits.shaderGroupHandleAlignment)
+        if (stRange.stride % limits.shaderGroupHandleAlignment)
         {
             NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", groupName, limits.shaderGroupHandleAlignment);
             return true;
         }
 
-        if (stride > limits.maxShaderGroupStride)
+        if (stRange.stride > limits.maxShaderGroupStride)
         {
             NBL_LOG_ERROR("%s buffer stride must not exceed %u!", groupName, limits.shaderGroupHandleAlignment);
             return true;
@@ -765,10 +736,11 @@ bool IGPUCommandBuffer::invalidShaderGroups(
         return false;
     };
 
-    if (invalidBufferRegion(raygenGroupRange, raygenGroupRange.size, "Raygen Group")) return true;
-    if (invalidBufferRegion(missGroupsRange, missGroupStride, "Miss groups")) return true;
-    if (invalidBufferRegion(hitGroupsRange, hitGroupStride, "Hit groups")) return true;
-    if (invalidBufferRegion(callableGroupsRange, callableGroupStride, "Callable groups")) return true;
+    if (invalidBufferRegion({.range=sbt.raygen,.stride=limits.shaderGroupHandleAlignment},"Raygen Group")) return true;
+    if (invalidBufferRegion(sbt.miss,"Miss groups")) return true;
+    if (invalidBufferRegion(sbt.hit,"Hit groups")) return true;
+    if (invalidBufferRegion(sbt.callable,"Callable groups")) return true;
+
     return false;
 }
 
@@ -1945,12 +1917,7 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
     return setRayTracingPipelineStackSize_impl(pipelineStackSize);
 }
 
-bool IGPUCommandBuffer::traceRays(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-    uint32_t width, uint32_t height, uint32_t depth)
+bool IGPUCommandBuffer::traceRays(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const uint32_t width, const uint32_t height, const uint32_t depth)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -1983,11 +1950,7 @@ bool IGPUCommandBuffer::traceRays(
     }
     const auto flags = m_boundRayTracingPipeline->getCreationFlags();
 
-    if (invalidShaderGroups(raygenGroupRange, 
-        missGroupsRange, missGroupStride, 
-        hitGroupsRange, hitGroupStride, 
-        callableGroupsRange, callableGroupStride,
-        flags))
+    if (invalidShaderGroups(sbt,flags))
     {
         NBL_LOG_ERROR("invalid shader groups for traceRays command!");
         return false;
@@ -2000,11 +1963,13 @@ bool IGPUCommandBuffer::traceRays(
         return false;
     }
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
-        core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRange.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(
+        m_commandList, 
+        core::smart_refctd_ptr(sbt.raygen.buffer),
+        core::smart_refctd_ptr(sbt.miss.range.buffer),
+        core::smart_refctd_ptr(sbt.hit.range.buffer),
+        core::smart_refctd_ptr(sbt.callable.range.buffer)
+    ))
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
@@ -2012,12 +1977,7 @@ bool IGPUCommandBuffer::traceRays(
 
     m_noCommands = false;
 
-    return traceRays_impl(
-        raygenGroupRange, 
-        missGroupsRange, missGroupStride,
-        hitGroupsRange, hitGroupStride,
-        callableGroupsRange, callableGroupStride,
-        width, height, depth);
+    return traceRays_impl(sbt, width, height, depth);
 }
 
 bool IGPUCommandBuffer::traceRaysIndirect(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
