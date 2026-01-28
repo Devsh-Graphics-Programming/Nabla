@@ -110,16 +110,16 @@ struct quaternion
             uniformScaleSq = traits.uniformScaleSq;
 
             if (dontAssertValidMatrix)
+            {
                 if (!valid)
                 {
                     this_t retval;
                     retval.data = hlsl::promote<data_type>(bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN));
                     return retval;
                 }
-            else
-            {
-                assert(valid);
             }
+            else
+                assert(valid);
         }
         if (uniformScaleSq < numeric_limits<scalar_type>::min)
         {
