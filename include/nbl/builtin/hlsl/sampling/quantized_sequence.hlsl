@@ -5,9 +5,11 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_QUANTIZED_SEQUENCE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_QUANTIZED_SEQUENCE_INCLUDED_
 
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/bit.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
-#include "nbl/builtin/hlsl/random/pcg.hlsl"
 
 namespace nbl
 {
@@ -160,6 +162,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     using scalar_type = store_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<scalar_type>) - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
     static this_t create(const vector<store_type, Dimension> value)
@@ -180,7 +183,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     void set(const uint16_t idx, const store_type value)
     {
         assert(idx > 0 && idx < Dim);
-        glsl::bitfieldInsert(data, value, BitsPerComponent * idx, BitsPerComponent);
+        data = glsl::bitfieldInsert(data, value >> DiscardBits, BitsPerComponent * idx, BitsPerComponent);
     }
 
     template<typename F>
@@ -290,15 +293,16 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint32_t2> && Di
     void set(const uint16_t idx, const scalar_type value)
     {
         assert(idx >= 0 && idx < 3);
+        const scalar_type trunc_val = value >> DiscardBits;
         if (idx == 0)   // x
-            glsl::bitfieldInsert(data[0], value, 0u, BitsPerComponent);
+            data[0] = glsl::bitfieldInsert(data[0], trunc_val, 0u, BitsPerComponent);
         else if (idx == 1)  // y
         {
-            glsl::bitfieldInsert(data[0], value, BitsPerComponent, DiscardBits);
-            glsl::bitfieldInsert(data[1], value >> DiscardBits, 0u, DiscardBits - 1u);
+            data[0] = glsl::bitfieldInsert(data[0], trunc_val, BitsPerComponent, DiscardBits);
+            data[1] = glsl::bitfieldInsert(data[1], trunc_val >> DiscardBits, 0u, DiscardBits - 1u);
         }
         else    // z
-            glsl::bitfieldInsert(data[1], value, DiscardBits - 1u, BitsPerComponent);
+            data[1] = glsl::bitfieldInsert(data[1], trunc_val, DiscardBits - 1u, BitsPerComponent);
     }
 
     template<typename F>
@@ -334,6 +338,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t StoreBits = uint16_t(8u) * size_of_v<store_type>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = StoreBits / Dim;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = (uint16_t(8u) * size_of_v<scalar_type>) - BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
     static this_t create(const vector<scalar_type, Dimension> value)
@@ -361,13 +366,14 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
     void set(const uint16_t idx, const scalar_type value)
     {
         assert(idx >= 0 && idx < 4);
+        const scalar_type trunc_val = value >> DiscardBits;
         if (idx < 2) // x y
         {
-            glsl::bitfieldInsert(data[0], value, BitsPerComponent * idx, BitsPerComponent);
+            data[0] = glsl::bitfieldInsert(data[0], trunc_val, BitsPerComponent * idx, BitsPerComponent);
         }
         else    // z w
         {
-            glsl::bitfieldInsert(data[1], value, BitsPerComponent * (idx & uint16_t(1u)), BitsPerComponent);
+            data[1] = glsl::bitfieldInsert(data[1], trunc_val, BitsPerComponent * (idx & uint16_t(1u)), BitsPerComponent);
         }
     }
 
