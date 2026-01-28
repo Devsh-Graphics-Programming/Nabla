@@ -41,7 +41,8 @@ struct unorm_constant<float,21> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0
 template<>
 struct unorm_constant<float,32> { NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0x2f800004u; };
 
-template<typename Q, typename F>
+// FullWidth if intend to decode before scramble, not if decode after scramble
+template<typename Q, typename F, bool FullWidth=true>
 struct encode_helper
 {
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
@@ -49,7 +50,8 @@ struct encode_helper
     using input_type = vector<F, Dim>;
     using uniform_storage_scalar_type = unsigned_integer_of_size_t<sizeof(F)>; 
     using uniform_storage_type = vector<uniform_storage_scalar_type, Dim>; // type that holds uint bit representation of a unorm that can have 1s in MSB (normalized w.r.t whole scalar)
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormMultiplier = (1u << (8u * size_of_v<uniform_storage_scalar_type> - 1u)) - 1u;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Bits = FullWidth ? (8u * size_of_v<uniform_storage_scalar_type> - 1u) : sequence_type::BitsPerComponent;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormMultiplier = (1u << Bits) - 1u;
 
     static sequence_type __call(const input_type unormvec)
     {
@@ -129,10 +131,10 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T
     store_type get(const uint16_t idx) { assert(idx >= 0 && idx < 1); return data; }
     void set(const uint16_t idx, const store_type value) { assert(idx >= 0 && idx < 1); data = value; }
 
-    template<typename F>
+    template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F>::__call(value);
+        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
     }
 
     template<typename F>
@@ -186,10 +188,10 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
         data = glsl::bitfieldInsert(data, value >> DiscardBits, BitsPerComponent * idx, BitsPerComponent);
     }
 
-    template<typename F>
+    template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F>::__call(value);
+        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
     }
 
     template<typename F>
@@ -230,10 +232,10 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     scalar_type get(const uint16_t idx) { assert(idx >= 0 && idx < Dim); return data[idx]; }
     void set(const uint16_t idx, const scalar_type value) { assert(idx >= 0 && idx < Dim); data[idx] = value; }
 
-    template<typename F>
+    template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F>::__call(value);
+        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
     }
 
     template<typename F>
@@ -305,10 +307,10 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint32_t2> && Di
             data[1] = glsl::bitfieldInsert(data[1], trunc_val, DiscardBits - 1u, BitsPerComponent);
     }
 
-    template<typename F>
+    template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F>::__call(value);
+        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
     }
 
     template<typename F>
@@ -377,10 +379,10 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
         }
     }
 
-    template<typename F>
+    template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F>::__call(value);
+        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
     }
 
     template<typename F>
