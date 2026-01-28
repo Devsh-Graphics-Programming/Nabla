@@ -48,7 +48,7 @@ struct encode_helper
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
     using sequence_type = Q;
     using input_type = vector<F, Dim>;
-    using uniform_storage_scalar_type = unsigned_integer_of_size_t<sizeof(F)>; 
+    using uniform_storage_scalar_type = unsigned_integer_of_size_t<sizeof(F)>;
     using uniform_storage_type = vector<uniform_storage_scalar_type, Dim>; // type that holds uint bit representation of a unorm that can have 1s in MSB (normalized w.r.t whole scalar)
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Bits = FullWidth ? (8u * size_of_v<uniform_storage_scalar_type> - 1u) : sequence_type::BitsPerComponent;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormMultiplier = (1u << Bits) - 1u;
