@@ -46,16 +46,16 @@ struct encode_helper
 {
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
     using sequence_type = Q;
-    using unorm_vec_type = vector<F, Dim>;
-    using unsigned_scalar_type = unsigned_integer_of_size_t<sizeof(F)>; 
-    using uvec_type = vector<unsigned_scalar_type, Dim>;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormMultiplier = (1u << (8u * size_of_v<unsigned_scalar_type> - 1u)) - 1u;
+    using input_type = vector<F, Dim>;
+    using uniform_storage_scalar_type = unsigned_integer_of_size_t<sizeof(F)>; 
+    using uniform_storage_type = vector<uniform_storage_scalar_type, Dim>; // type that holds uint bit representation of a unorm that can have 1s in MSB (normalized w.r.t whole scalar)
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormMultiplier = (1u << (8u * size_of_v<uniform_storage_scalar_type> - 1u)) - 1u;
 
-    static sequence_type __call(const unorm_vec_type unormvec)
+    static sequence_type __call(const input_type unormvec)
     {
-        uvec_type asuint;
+        uniform_storage_type asuint;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
-            asuint[i] = unsigned_scalar_type(unormvec[i] * UNormMultiplier);
+            asuint[i] = uniform_storage_scalar_type(unormvec[i] * UNormMultiplier);
         return sequence_type::create(asuint);
     }
 };
@@ -63,12 +63,12 @@ struct encode_helper
 template<typename Q, typename F>
 struct decode_before_scramble_helper
 {
-    using unsigned_scalar_type = typename Q::scalar_type;
+    using storage_scalar_type = typename Q::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
     using uvec_type = vector<uint32_t, Dim>;
     using sequence_type = Q;
     using return_type = vector<F, Dim>;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = unorm_constant<float32_t,8u*sizeof(unsigned_scalar_type)>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t UNormConstant = unorm_constant<float32_t,8u*sizeof(storage_scalar_type)>::value;
 
     return_type operator()(const uvec_type scrambleKey)
     {
@@ -76,7 +76,7 @@ struct decode_before_scramble_helper
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
             seqVal[i] = val.get(i);
         seqVal ^= scrambleKey;
-        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(unsigned_scalar_type)> >(UNormConstant);
+        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(storage_scalar_type)> >(UNormConstant);
     }
 
     sequence_type val;
@@ -84,7 +84,7 @@ struct decode_before_scramble_helper
 template<typename Q, typename F>
 struct decode_after_scramble_helper
 {
-    using unsigned_scalar_type = typename Q::scalar_type;
+    using storage_scalar_type = typename Q::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dim = Q::Dimension;
     using uvec_type = vector<uint32_t, Dim>;
     using sequence_type = Q;
@@ -99,7 +99,7 @@ struct decode_after_scramble_helper
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
             seqVal[i] = scramble.get(i);
-        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(unsigned_scalar_type)> >(UNormConstant);
+        return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(storage_scalar_type)> >(UNormConstant);
     }
 
     sequence_type val;
@@ -126,8 +126,8 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T
         return seq;
     }
 
-    store_type get(const uint16_t idx) { assert(idx > 0 && idx < 1); return data; }
-    void set(const uint16_t idx, const store_type value) { assert(idx > 0 && idx < 1); data = value; }
+    store_type get(const uint16_t idx) { assert(idx >= 0 && idx < 1); return data; }
+    void set(const uint16_t idx, const store_type value) { assert(idx >= 0 && idx < 1); data = value; }
 
     template<typename F>
     static this_t encode(const vector<F, Dimension> value)
@@ -176,13 +176,13 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
 
     store_type get(const uint16_t idx)
     {
-        assert(idx > 0 && idx < Dim);
+        assert(idx >= 0 && idx < Dim);
         return glsl::bitfieldExtract(data, BitsPerComponent * idx, BitsPerComponent);
     }
 
     void set(const uint16_t idx, const store_type value)
     {
-        assert(idx > 0 && idx < Dim);
+        assert(idx >= 0 && idx < Dim);
         data = glsl::bitfieldInsert(data, value >> DiscardBits, BitsPerComponent * idx, BitsPerComponent);
     }
 
@@ -227,8 +227,8 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
         return seq;
     }
 
-    scalar_type get(const uint16_t idx) { assert(idx > 0 && idx < Dim); return data[idx]; }
-    void set(const uint16_t idx, const scalar_type value) { assert(idx > 0 && idx < Dim); data[idx] = value; }
+    scalar_type get(const uint16_t idx) { assert(idx >= 0 && idx < Dim); return data[idx]; }
+    void set(const uint16_t idx, const scalar_type value) { assert(idx >= 0 && idx < Dim); data[idx] = value; }
 
     template<typename F>
     static this_t encode(const vector<F, Dimension> value)
