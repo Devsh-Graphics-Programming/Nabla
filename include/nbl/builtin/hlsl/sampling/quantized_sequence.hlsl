@@ -185,7 +185,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     void set(const uint16_t idx, const store_type value)
     {
         assert(idx >= 0 && idx < Dim);
-        data = glsl::bitfieldInsert(data, value >> DiscardBits, BitsPerComponent * idx, BitsPerComponent);
+        data = glsl::bitfieldInsert(data, scalar_type(value >> DiscardBits), BitsPerComponent * idx, BitsPerComponent);
     }
 
     template<typename F, bool FullWidth>
@@ -346,7 +346,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
     static this_t create(const vector<scalar_type, Dimension> value)
     {
         this_t seq;
-        seq.data = hlsl::promote<store_type>(0u);
+        seq.data = store_type(0u,0u);
         NBL_UNROLL for (uint16_t i = 0; i < Dimension; i++)
             seq.set(i, value[i]);
         return seq;
@@ -361,7 +361,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
         }
         else    // z w
         {
-            return glsl::bitfieldExtract(data[1], BitsPerComponent * (idx & uint16_t(1u)), BitsPerComponent);
+            return glsl::bitfieldExtract(data[1], BitsPerComponent * (idx - uint16_t(2u)), BitsPerComponent);
         }
     }
 
@@ -375,7 +375,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
         }
         else    // z w
         {
-            data[1] = glsl::bitfieldInsert(data[1], trunc_val, BitsPerComponent * (idx & uint16_t(1u)), BitsPerComponent);
+            data[1] = glsl::bitfieldInsert(data[1], trunc_val, BitsPerComponent * (idx - uint16_t(2u)), BitsPerComponent);
         }
     }
 
