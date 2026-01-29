@@ -22,16 +22,33 @@ namespace glsl
 #ifndef __HLSL_VERSION
 
 // GLM Aliases
-template<typename genIUType>
-genIUType bitfieldExtract(genIUType Value, int Offset, int Bits)
+namespace impl
 {
-	return glm::bitfieldExtract<genIUType>(Value, Offset, Bits);
-}
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitfieldInsert;
 
-template<typename genIUType>
-genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Offset, int Bits)
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
+struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
 {
-	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
+    static T __call( T base, T insert, uint32_t offset, uint32_t bits )
+    {
+        return glm::bitfieldInsert<T>(base, insert, offset, bits);
+    }
+};
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitfieldExtract;
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
+{
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return glm::bitfieldExtract<T>(val, offsetBits, numBits);
+    }
+};
 }
 
 template<typename genIUType>
@@ -184,21 +201,25 @@ void memoryBarrierShared() {
 namespace impl 
 {
 
-template<typename T, bool isSigned, bool isIntegral>
-struct bitfieldExtract {};
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitfieldInsert;
 
-template<typename T, bool isSigned>
-struct bitfieldExtract<T, isSigned, false>
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
+struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
 {
-    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T base, T insert, uint32_t offset, uint32_t bits )
     {
-        static_assert( is_integral<T>::value, "T is not an integral type!" );
-        return val;
+        return spirv::bitFieldInsert<T>(base, insert, offset, bits);
     }
 };
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitfieldExtract;
+
 template<typename T>
-struct bitfieldExtract<T, true, true>
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
@@ -207,7 +228,8 @@ struct bitfieldExtract<T, true, true>
 };
 
 template<typename T>
-struct bitfieldExtract<T, false, true>
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
@@ -218,24 +240,48 @@ struct bitfieldExtract<T, false, true>
 } //namespace impl
 
 template<typename T>
-T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
-{
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
-}
-
-template<typename T>
-T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
-{
-    return spirv::bitFieldInsert<T>(base, insert, offset, bits);
-}
-
-template<typename T>
 T bitfieldReverse(T value)
 {
     return spirv::bitReverse<T>(value);
 }
 
 #endif
+
+namespace impl 
+{
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2)
+struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2) >
+{
+    static T __call( T base, T insert, uint32_t offset, uint32_t bits )
+    {
+        const T mask = (T(1u) << T(bits) - T(1u)) << offset;
+        return (base & ~mask) | ((insert << T(offset)) & mask);
+    }
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2) >
+{
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return (val >> T(offsetBits)) & T(T(1u) << T(numBits) - T(1u));
+    }
+};
+}
+
+template<typename T>
+T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    return impl::bitfieldExtract<T>::__call(val, offsetBits, numBits);
+}
+
+template<typename T>
+T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
+{
+    return impl::bitfieldInsert<T>::__call(base, insert, offset, bits);
+}
 
 namespace impl
 {
