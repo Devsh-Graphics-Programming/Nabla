@@ -255,32 +255,46 @@ struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_t
 {
     static T __call( T base, T insert, uint32_t offset, uint32_t bits )
     {
-        const T mask = (T(1u) << T(bits) - T(1u)) << offset;
-        return (base & ~mask) | ((insert << T(offset)) & mask);
+        const T mask = (T(1u) << bits) - T(1u);
+        const T shifted_mask = mask << offset;
+        return (base & ~shifted_mask) | ((insert & mask) << T(offset));
     }
 };
 
 template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2)
-struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2) >
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        return (val >> T(offsetBits)) & T(T(1u) << T(numBits) - T(1u));
+        const T ret = (val >> T(offsetBits)) & T((T(1u) << numBits) - T(1u));
+        if (ret & (T(1u) << (numBits-1u)))
+            ret |= T(~0ull) << numBits;
+        return ret;
     }
 };
-}
 
 template<typename T>
-T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 2) >
 {
-    return impl::bitfieldExtract<T>::__call(val, offsetBits, numBits);
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return (val >> T(offsetBits)) & T((T(1u) << numBits) - T(1u));
+    }
+};
 }
 
 template<typename T>
 T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 {
     return impl::bitfieldInsert<T>::__call(base, insert, offset, bits);
+}
+
+template<typename T>
+T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    return impl::bitfieldExtract<T>::__call(val, offsetBits, numBits);
 }
 
 namespace impl
