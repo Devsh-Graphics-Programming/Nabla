@@ -15,7 +15,6 @@ struct ProtoPipeline final
 		static core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias = "nbl/ext/FullScreenTriangle");
 
 		ProtoPipeline(asset::IAssetManager* assMan, video::ILogicalDevice* device, system::ILogger* logger=nullptr);
-		ProtoPipeline(core::smart_refctd_ptr<asset::IShader> vertexShader, const char* vertexEntryPoint="__nbl__hlsl__ext__FullScreenTriangle__vertex_main");
 
 		operator bool() const;
 

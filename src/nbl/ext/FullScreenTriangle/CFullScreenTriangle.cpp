@@ -73,8 +73,6 @@ ProtoPipeline::ProtoPipeline(IAssetManager* assMan, ILogicalDevice* device, ILog
 	m_vxShader = createDefaultVertexShader(assMan, device, logger);
 }
 
-ProtoPipeline::ProtoPipeline(smart_refctd_ptr<IShader> vertexShader, const char*) : m_vxShader(std::move(vertexShader)) {}
-
 ProtoPipeline::operator bool() const
 {
 	return m_vxShader.get();
