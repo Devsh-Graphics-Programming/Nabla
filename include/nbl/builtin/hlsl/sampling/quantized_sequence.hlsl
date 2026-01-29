@@ -58,7 +58,10 @@ struct encode_helper
         uniform_storage_type asuint;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
             asuint[i] = uniform_storage_scalar_type(unormvec[i] * UNormMultiplier);
-        return sequence_type::create(asuint);
+        NBL_IF_CONSTEXPR(Dim==1)
+            return sequence_type::create(asuint[0]);
+        else
+            return sequence_type::create(asuint);
     }
 };
 
@@ -134,7 +137,7 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T
     template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
+        return impl::encode_helper<this_t,F,true>::__call(value);
     }
 
     template<typename F>
@@ -235,7 +238,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     template<typename F, bool FullWidth>
     static this_t encode(const vector<F, Dimension> value)
     {
-        return impl::encode_helper<this_t,F,FullWidth>::__call(value);
+        return impl::encode_helper<this_t,F,true>::__call(value);
     }
 
     template<typename F>
@@ -346,7 +349,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint16_t2> && Di
     static this_t create(const vector<scalar_type, Dimension> value)
     {
         this_t seq;
-        seq.data = store_type(0u,0u);
+        seq.data = hlsl::promote<store_type, scalar_type>(0u);
         NBL_UNROLL for (uint16_t i = 0; i < Dimension; i++)
             seq.set(i, value[i]);
         return seq;
