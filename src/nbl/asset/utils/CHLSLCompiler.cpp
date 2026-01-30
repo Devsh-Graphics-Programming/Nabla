@@ -313,7 +313,7 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
     DxcBuffer sourceBuffer;
     sourceBuffer.Ptr = src->GetBufferPointer();
     sourceBuffer.Size = src->GetBufferSize();
-    sourceBuffer.Encoding = 0;
+    sourceBuffer.Encoding = CP_UTF8;
 
     ComPtr<IDxcResult> compileResult;
     res = dxc->m_dxcCompiler->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(compileResult.GetAddressOf()));
