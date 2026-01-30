@@ -3,6 +3,7 @@
 
 #include "nbl/asset/IPipelineLayout.h"
 #include "nbl/video/declarations.h"
+#include "nbl/builtin/hlsl/workgroup2/arithmetic_config.hlsl"
 
 namespace nbl::ext::envmap_importance_sampling
 {
@@ -55,56 +56,61 @@ class EnvmapImportanceSampling final : public core::IReferenceCounted
 
     static core::smart_refctd_ptr<video::IGPUPipelineLayout> createGenLumaPipelineLayout(video::ILogicalDevice* device);
 
-    static core::smart_refctd_ptr<video::IGPUPipelineLayout> createMeasureLumaPipelineLayout(video::ILogicalDevice* device);
-
-    static core::smart_refctd_ptr<video::IGPUPipelineLayout> createGenWarpMapPipelineLayout(video::ILogicalDevice* device);
+    static core::smart_refctd_ptr<video::IGPUPipelineLayout> createGenWarpPipelineLayout(video::ILogicalDevice* device);
 
     //! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
     static core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias = "");
 
     static core::smart_refctd_ptr<video::IGPUComputePipeline> createGenLumaPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
 
-    static core::smart_refctd_ptr<video::IGPUComputePipeline> createMeasureLumaPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
+    static core::smart_refctd_ptr<video::IGPUComputePipeline> createGenWarpPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
 
     static core::smart_refctd_ptr<video::IGPUImageView> createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, std::string_view debugName = "");
 
     static core::smart_refctd_ptr<video::IGPUImageView> createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, std::string_view debugName = "");
 
-    bool computeWarpMap(video::IGPUCommandBuffer* cmdBuf, float envMapRegularizationFactor, float& pdfNormalizationFactor, float& maxEmittanceLuma);
+    void computeWarpMap(video::IGPUCommandBuffer* cmdBuf);
 
-		// returns if RIS should be enabled based on variance calculations
-    inline bool computeWarpMap(video::IGPUCommandBuffer* cmdBuf, float envMapRegularizationFactor, float& pdfNormalizationFactor)
-    {
-      [[maybe_unused]] float dummy;
-      return computeWarpMap(cmdBuf, envMapRegularizationFactor, pdfNormalizationFactor, dummy);
-    }
-
+    // use this to synchronize warp map after computeWarpMap call
+    nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t getWarpMapBarrier(
+      core::bitflag<nbl::asset::PIPELINE_STAGE_FLAGS> dstStageMask,
+      core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
+      nbl::video::IGPUImage::LAYOUT oldLayout);
 
     inline core::smart_refctd_ptr<video::IGPUImageView> getLumaMapView()
     {
       return m_lumaMap;
     }
 
+    inline core::smart_refctd_ptr<video::IGPUImageView> getWarpMapView()
+    {
+      return m_warpMap;
+    }
+
   protected:
     struct ConstructorParams
     {
       SCachedCreationParameters creationParams;
-      hlsl::uint32_t2 lumaWorkgroupSize;
-      hlsl::uint32_t2 warpWorkgroupSize;
+      hlsl::uint32_t2 lumaWorkgroupCount;
+      hlsl::uint32_t2 warpWorkgroupCount;
       core::smart_refctd_ptr<video::IGPUImageView> lumaMap;
       core::smart_refctd_ptr<video::IGPUImageView> warpMap;
       core::smart_refctd_ptr<video::IGPUComputePipeline> genLumaPipeline;
       core::smart_refctd_ptr<video::IGPUDescriptorSet> genLumaDescriptorSet;
+      core::smart_refctd_ptr<video::IGPUComputePipeline> genWarpPipeline;
+      core::smart_refctd_ptr<video::IGPUDescriptorSet> genWarpDescriptorSet;
     };
 
     explicit EnvmapImportanceSampling(ConstructorParams&& params) : 
       m_cachedCreationParams(std::move(params.creationParams)),
-      m_lumaWorkgroupSize(params.lumaWorkgroupSize),
-      m_warpWorkgroupSize(params.warpWorkgroupSize),
+      m_lumaWorkgroupCount(params.lumaWorkgroupCount),
+      m_warpWorkgroupCount(params.warpWorkgroupCount),
       m_lumaMap(std::move(params.lumaMap)),
       m_warpMap(std::move(params.warpMap)),
       m_genLumaPipeline(std::move(params.genLumaPipeline)), 
-      m_genLumaDescriptorSet(std::move(params.genLumaDescriptorSet))
+      m_genLumaDescriptorSet(std::move(params.genLumaDescriptorSet)),
+      m_genWarpPipeline(std::move(params.genWarpPipeline)), 
+      m_genWarpDescriptorSet(std::move(params.genWarpDescriptorSet))
     {}
 
     ~EnvmapImportanceSampling() override {}
@@ -113,14 +119,17 @@ class EnvmapImportanceSampling final : public core::IReferenceCounted
 
     SCachedCreationParameters m_cachedCreationParams;
 
-    hlsl::uint32_t2 m_lumaWorkgroupSize;
-    hlsl::uint32_t2 m_warpWorkgroupSize;
+    hlsl::uint32_t2 m_lumaWorkgroupCount;
+    hlsl::uint32_t2 m_warpWorkgroupCount;
 
     core::smart_refctd_ptr<video::IGPUImageView> m_lumaMap;
     core::smart_refctd_ptr<video::IGPUImageView> m_warpMap;
 
     core::smart_refctd_ptr<video::IGPUComputePipeline> m_genLumaPipeline;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> m_genLumaDescriptorSet;
+
+    core::smart_refctd_ptr<video::IGPUComputePipeline> m_genWarpPipeline;
+    core::smart_refctd_ptr<video::IGPUDescriptorSet> m_genWarpDescriptorSet;
   
 };
 

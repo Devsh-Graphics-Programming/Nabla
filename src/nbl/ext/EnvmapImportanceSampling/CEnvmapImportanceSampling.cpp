@@ -22,9 +22,51 @@ namespace
 {
   constexpr std::string_view NBL_EXT_MOUNT_ENTRY = "nbl/ext/EnvmapImportanceSampling";
 
-  void generateMipmap(video::IGPUCommandBuffer* cmdBuf, core::smart_refctd_ptr<IGPUImageView> textureView)
+  // image must have the first mip layout set to transfer src, and the rest to dst
+  void generateMipmap(video::IGPUCommandBuffer* cmdBuf, IGPUImage* image)
   {
-    
+    const auto mipLevels = image->getCreationParameters().mipLevels;
+    const auto extent = image->getCreationParameters().extent;
+    for (uint32_t mip_i = 1; mip_i < mipLevels; mip_i++)
+    {
+      
+      const IGPUCommandBuffer::SImageBlit blit = {
+        .srcMinCoord = {0, 0, 0},
+        .srcMaxCoord = {extent.width >> (mip_i - 1), extent.height >> (mip_i - 1), 1},
+        .dstMinCoord = {0, 0, 0},
+        .dstMaxCoord = {extent.width >> mip_i, extent.height >> mip_i, 1},
+        .layerCount = 1,
+        .srcBaseLayer = 0,
+        .dstBaseLayer = 0,
+        .srcMipLevel = mip_i - 1,
+        .dstMipLevel = mip_i,
+        .aspectMask = IGPUImage::E_ASPECT_FLAGS::EAF_COLOR_BIT,
+      };
+      cmdBuf->blitImage(image, IImage::LAYOUT::TRANSFER_SRC_OPTIMAL, image, IImage::LAYOUT::TRANSFER_DST_OPTIMAL, { &blit, 1 }, IGPUSampler::E_TEXTURE_FILTER::ETF_LINEAR);
+
+      IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barrier = {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
+            .srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
+            .dstAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT
+          }
+        },
+        .image = image,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = mip_i,
+          .levelCount = 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
+        .newLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
+      };               
+      cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = {&barrier, 1} });
+
+    }
   }
 
   core::smart_refctd_ptr<IGPUImageView> createTexture(video::ILogicalDevice* device, const asset::VkExtent3D extent, E_FORMAT format, uint32_t mipLevels = 1u, uint32_t layers = 0u)
@@ -39,14 +81,14 @@ namespace
     imgParams.mipLevels = mipLevels;
     imgParams.samples = IImage::ESCF_1_BIT;
     imgParams.type = IImage::ET_2D;
-    imgParams.usage = IImage::EUF_STORAGE_BIT;
+    imgParams.usage = IImage::EUF_STORAGE_BIT | IImage::EUF_TRANSFER_SRC_BIT | IImage::EUF_TRANSFER_DST_BIT | IImage::EUF_SAMPLED_BIT;
     const auto image = device->createImage(std::move(imgParams));
     auto imageMemReqs = image->getMemoryReqs();
     imageMemReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
     device->allocate(imageMemReqs, image.get());
 
     IGPUImageView::SCreationParams viewparams;
-    viewparams.subUsages = IImage::EUF_STORAGE_BIT;
+    viewparams.subUsages = IImage::EUF_STORAGE_BIT | IImage::EUF_SAMPLED_BIT;
     viewparams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
     viewparams.format = format;
     viewparams.image = std::move(image);
@@ -77,8 +119,6 @@ namespace
   }
 }
 
-
-
 core::smart_refctd_ptr<EnvmapImportanceSampling> EnvmapImportanceSampling::create(SCreationParameters&& params)
 {
 	auto* const logger = params.utilities->getLogger();
@@ -106,40 +146,59 @@ core::smart_refctd_ptr<EnvmapImportanceSampling> EnvmapImportanceSampling::creat
 
   ConstructorParams constructorParams;
   
-  constructorParams.lumaWorkgroupSize = calcWorkgroupSize(EnvMapPoTExtent, params.genLumaMapWorkgroupDimension);
-
+  constructorParams.lumaWorkgroupCount = calcWorkgroupSize(EnvMapPoTExtent, params.genLumaMapWorkgroupDimension);
   constructorParams.lumaMap = createLumaMap(device, EnvMapPoTExtent, MipCountLuminance);
 
 	const auto upscale = 0;
 	const asset::VkExtent3D WarpMapExtent = {EnvMapPoTExtent.width<<upscale,EnvMapPoTExtent.height<<upscale,EnvMapPoTExtent.depth};
+  constructorParams.warpWorkgroupCount = calcWorkgroupSize(WarpMapExtent, params.genWarpMapWorkgroupDimension);
   constructorParams.warpMap = createWarpMap(device, WarpMapExtent);
-  constructorParams.warpWorkgroupSize = calcWorkgroupSize(WarpMapExtent, params.genWarpMapWorkgroupDimension);
 
   const auto genLumaPipelineLayout = createGenLumaPipelineLayout(device);
   constructorParams.genLumaPipeline = createGenLumaPipeline(params, genLumaPipelineLayout.get());
   const auto genLumaDescriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, genLumaPipelineLayout->getDescriptorSetLayouts());
   const auto genLumaDescriptorSet = genLumaDescriptorPool->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(genLumaPipelineLayout->getDescriptorSetLayouts()[0]));
 
+  const auto genWarpPipelineLayout = createGenWarpPipelineLayout(device);
+  constructorParams.genWarpPipeline = createGenWarpPipeline(params, genWarpPipelineLayout.get());
+  const auto genWarpDescriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, genWarpPipelineLayout->getDescriptorSetLayouts());
+  const auto genWarpDescriptorSet = genWarpDescriptorPool->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(genWarpPipelineLayout->getDescriptorSetLayouts()[0]));
+
   IGPUDescriptorSet::SDescriptorInfo envMapDescriptorInfo; 
   envMapDescriptorInfo.desc = params.envMap;
   envMapDescriptorInfo.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
 
-  IGPUDescriptorSet::SDescriptorInfo lumaMapDescriptorInfo;
-  lumaMapDescriptorInfo.desc = constructorParams.lumaMap;
-  lumaMapDescriptorInfo.info.image.imageLayout = IImage::LAYOUT::GENERAL;
+  IGPUDescriptorSet::SDescriptorInfo lumaMapGeneralDescriptorInfo;
+  lumaMapGeneralDescriptorInfo.desc = constructorParams.lumaMap;
+  lumaMapGeneralDescriptorInfo.info.image.imageLayout = IImage::LAYOUT::GENERAL;
+
+  IGPUDescriptorSet::SDescriptorInfo lumaMapReadDescriptorInfo;
+  lumaMapReadDescriptorInfo.desc = constructorParams.lumaMap;
+  lumaMapReadDescriptorInfo.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
+
+  IGPUDescriptorSet::SDescriptorInfo warpMapDescriptorInfo;
+  warpMapDescriptorInfo.desc = constructorParams.warpMap;
+  warpMapDescriptorInfo.info.image.imageLayout = IImage::LAYOUT::GENERAL;
 
   const IGPUDescriptorSet::SWriteDescriptorSet writes[] = {
     {
       .dstSet = genLumaDescriptorSet.get(), .binding = 0, .count = 1, .info = &envMapDescriptorInfo
     },
     {
-      .dstSet = genLumaDescriptorSet.get(), .binding = 1, .count = 1, .info = &lumaMapDescriptorInfo
-    }
+      .dstSet = genLumaDescriptorSet.get(), .binding = 1, .count = 1, .info = &lumaMapGeneralDescriptorInfo
+    },
+    {
+      .dstSet = genWarpDescriptorSet.get(), .binding = 0, .count = 1, .info = &lumaMapReadDescriptorInfo
+    },
+    {
+      .dstSet = genWarpDescriptorSet.get(), .binding = 1, .count = 1, .info = &warpMapDescriptorInfo
+    },
   };
 
   device->updateDescriptorSets(writes, {});
 
   constructorParams.genLumaDescriptorSet = genLumaDescriptorSet;
+  constructorParams.genWarpDescriptorSet = genWarpDescriptorSet;
 
   constructorParams.creationParams = std::move(params);
 
@@ -148,12 +207,12 @@ core::smart_refctd_ptr<EnvmapImportanceSampling> EnvmapImportanceSampling::creat
 
 core::smart_refctd_ptr<video::IGPUImageView> EnvmapImportanceSampling::createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, const std::string_view debugName)
 {
-    return createTexture(device, extent, EF_R32_SFLOAT, mipCount);
+  return createTexture(device, extent, EF_R32_SFLOAT, mipCount);
 }
 
 core::smart_refctd_ptr<video::IGPUImageView> EnvmapImportanceSampling::createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, const std::string_view debugName)
 {
-    return createTexture(device, extent, EF_R32G32_SFLOAT);
+  return createTexture(device, extent, EF_R32G32_SFLOAT);
 }
 
 smart_refctd_ptr<IFileArchive> EnvmapImportanceSampling::mount(core::smart_refctd_ptr<ILogger> logger, ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias)
@@ -200,8 +259,9 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapImportanceSampling::cre
   options.preprocessorOptions.logger = logger.get();
   options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
 
+  const auto workgroupDimStr = std::to_string(params.genLumaMapWorkgroupDimension);
   const IShaderCompiler::SMacroDefinition defines[] = {
-    { "WORKGROUP_DIM", "16" },
+    { "WORKGROUP_DIM", workgroupDimStr.data() },
   };
 
   options.preprocessorOptions.extraDefines = defines;
@@ -229,6 +289,60 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapImportanceSampling::cre
   return pipeline;
 }
 
+core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapImportanceSampling::createGenWarpPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout)
+{
+	system::logger_opt_ptr logger = params.utilities->getLogger();
+	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
+	auto* device = params.utilities->getLogicalDevice();
+  mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), params.utilities->getLogicalDevice(), NBL_EXT_MOUNT_ENTRY);
+
+  const auto shaderSource = getShaderSource(params.assetManager.get(), "gen_warp.comp.hlsl", logger.get());
+  auto compiler = make_smart_refctd_ptr<asset::CHLSLCompiler>(smart_refctd_ptr(system));
+  CHLSLCompiler::SOptions options = {};
+  options.stage = IShader::E_SHADER_STAGE::ESS_COMPUTE;
+  options.preprocessorOptions.targetSpirvVersion = device->getPhysicalDevice()->getLimits().spirvVersion;
+  options.spirvOptimizer = nullptr;
+
+#ifndef _NBL_DEBUG
+		ISPIRVOptimizer::E_OPTIMIZER_PASS optPasses = ISPIRVOptimizer::EOP_STRIP_DEBUG_INFO;
+		auto opt = make_smart_refctd_ptr<ISPIRVOptimizer>(std::span<ISPIRVOptimizer::E_OPTIMIZER_PASS>(&optPasses, 1));
+		options.spirvOptimizer = opt.get();
+#else
+		options.debugInfoFlags |= IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
+#endif
+  options.preprocessorOptions.sourceIdentifier = shaderSource->getFilepathHint();
+  options.preprocessorOptions.logger = logger.get();
+  options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
+
+  const auto workgroupDimStr = std::to_string(params.genWarpMapWorkgroupDimension);
+  const IShaderCompiler::SMacroDefinition defines[] = {
+    { "WORKGROUP_DIM", workgroupDimStr.data() },
+  };
+
+  options.preprocessorOptions.extraDefines = defines;
+
+  const auto overridenUnspecialized = compiler->compileToSPIRV((const char*)shaderSource->getContent()->getPointer(), options);
+  const auto shader = device->compileShader({ overridenUnspecialized.get() });
+	if (!shader)
+	{
+		logger.log("Could not compile shaders!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+  video::IGPUComputePipeline::SCreationParams pipelineParams[1] = {};
+  pipelineParams[0].layout = pipelineLayout;
+  pipelineParams[0].shader = { .shader = shader.get(), .entryPoint = "main" };
+
+  smart_refctd_ptr<IGPUComputePipeline> pipeline;
+  params.utilities->getLogicalDevice()->createComputePipelines(nullptr, pipelineParams, &pipeline);
+  if (!pipeline)
+  {
+    logger.log("Could not create pipeline!", ILogger::ELL_ERROR);
+    return nullptr;
+  }
+
+  return pipeline;
+}
 
 core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapImportanceSampling::createGenLumaPipelineLayout(video::ILogicalDevice* device)
 {
@@ -260,29 +374,7 @@ core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapImportanceSampling::cr
 
 }
 
-core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::createMeasureLumaPipelineLayout(video::ILogicalDevice* device)
-{
-  asset::SPushConstantRange pcRange = {
-    .stageFlags = hlsl::ESS_COMPUTE,
-		.offset = 0,
-		.size = sizeof(SLumaMeasurePushConstants)
-  };
-
-  const IGPUDescriptorSetLayout::SBinding bindings[] = {
-    {
-      .binding = 0u,
-      .type = nbl::asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
-      .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
-      .stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
-      .count = 1u,
-    }
-  };
-
-  const auto setLayout = device->createDescriptorSetLayout(bindings);
-	return device->createPipelineLayout({ &pcRange, 1 }, setLayout, nullptr, nullptr, nullptr);
-}
-
-core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::createGenWarpMapPipelineLayout(video::ILogicalDevice* device)
+core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::createGenWarpPipelineLayout(video::ILogicalDevice* device)
 {
   const IGPUDescriptorSetLayout::SBinding bindings[] = {
     {
@@ -305,46 +397,200 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::crea
 	return device->createPipelineLayout({}, setLayout, nullptr, nullptr, nullptr);
 }
 
-bool EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf, const float envMapRegularizationFactor, float& pdfNormalizationFactor, float& maxEmittanceLuma)
+void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
 {
-  bool enableRIS = false;
-  
-  SLumaGenPushConstants pcData = {};
-  pcData.luminanceScales = { 0.2126729f, 0.7151522f, 0.0721750f, 0.0f };
+  const auto lumaMapImage = m_lumaMap->getCreationParameters().image.get();
+  const auto lumaMapMipLevels = lumaMapImage->getCreationParameters().mipLevels;
+  const auto lumaMapExtent = lumaMapImage->getCreationParameters().extent;
+
+  const auto warpMapImage = m_warpMap->getCreationParameters().image.get();
+
   {
-    const auto imageExtent = m_lumaMap->getCreationParameters().image->getCreationParameters().extent;
-    pcData.lumaMapResolution = {imageExtent.width, imageExtent.height};
+    IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barriers[] = {
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::NONE,
+            .srcAccessMask = ACCESS_FLAGS::NONE,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .dstAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS
+          }
+        },
+        .image = lumaMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = 0u,
+          .levelCount = lumaMapMipLevels,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::UNDEFINED,
+        .newLayout = IImage::LAYOUT::GENERAL,
+      }
+    };                
+    cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
   }
 
-  IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barrier;                
-  barrier.barrier = {
-    .dep = {
-      .srcStageMask = PIPELINE_STAGE_FLAGS::NONE,
-      .srcAccessMask = ACCESS_FLAGS::NONE,
-      .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
-      .dstAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS
-    }
-  };
-  barrier.image = m_lumaMap->getCreationParameters().image.get();
-  barrier.subresourceRange = {
-    .aspectMask = IImage::EAF_COLOR_BIT,
-    .baseMipLevel = 0u,
-    .levelCount = m_lumaMap->getCreationParameters().image->getCreationParameters().mipLevels,
-    .baseArrayLayer = 0u,
-    .layerCount = 1u
-  };
-  barrier.oldLayout = IImage::LAYOUT::UNDEFINED;
-  barrier.newLayout = IImage::LAYOUT::GENERAL;
-  cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = {&barrier, 1} });
+  // Gen Luma Map
+  {
+    SLumaGenPushConstants pcData = {};
+    pcData.luminanceScales = { 0.2126729f, 0.7151522f, 0.0721750f, 0.0f };
+    pcData.lumaMapResolution = {lumaMapExtent.width, lumaMapExtent.height};
 
-  cmdBuf->bindComputePipeline(m_genLumaPipeline.get());
-  cmdBuf->pushConstants(m_genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
-    0, sizeof(SLumaGenPushConstants), &pcData);
-  cmdBuf->bindDescriptorSets(EPBP_COMPUTE, m_genLumaPipeline->getLayout(),
-    0, 1, &m_genLumaDescriptorSet.get());
-  cmdBuf->dispatch(m_lumaWorkgroupSize.x, m_lumaWorkgroupSize.y, 1);
-  
-  return enableRIS;
-  
+    cmdBuf->bindComputePipeline(m_genLumaPipeline.get());
+    cmdBuf->pushConstants(m_genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
+      0, sizeof(SLumaGenPushConstants), &pcData);
+    cmdBuf->bindDescriptorSets(EPBP_COMPUTE, m_genLumaPipeline->getLayout(),
+      0, 1, &m_genLumaDescriptorSet.get());
+    cmdBuf->dispatch(m_lumaWorkgroupCount.x, m_lumaWorkgroupCount.y, 1);
+  }
+
+  // Generate luminance mip map
+  {
+    IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barriers[] = {
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .srcAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
+            .dstAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT
+          }
+        },
+        .image = lumaMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = 0u,
+          .levelCount = 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::GENERAL,
+        .newLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
+      },
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::NONE,
+            .srcAccessMask = ACCESS_FLAGS::NONE,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
+            .dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
+          }
+        },
+        .image = lumaMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = 1u,
+          .levelCount = lumaMapMipLevels - 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::GENERAL,
+        .newLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
+      }
+    };                
+    cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+    generateMipmap(cmdBuf, lumaMapImage);
+  }
+
+  {
+    IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barriers[] = {
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
+            .srcAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .dstAccessMask = ACCESS_FLAGS::SHADER_READ_BITS
+          }
+        },
+        .image = lumaMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = 0u,
+          .levelCount = lumaMapMipLevels - 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
+        .newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
+      },
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
+            .srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .dstAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS
+          }
+        },
+        .image = lumaMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = lumaMapMipLevels - 1,
+          .levelCount = 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
+        .newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
+      },
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::NONE,
+            .srcAccessMask = ACCESS_FLAGS::NONE,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .dstAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS
+          }
+        },
+        .image = warpMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = 0,
+          .levelCount = 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::UNDEFINED,
+        .newLayout = IImage::LAYOUT::GENERAL,
+      }
+    };                
+    cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+    cmdBuf->bindComputePipeline(m_genWarpPipeline.get());
+    cmdBuf->bindDescriptorSets(EPBP_COMPUTE, m_genWarpPipeline->getLayout(),
+      0, 1, &m_genWarpDescriptorSet.get());
+    cmdBuf->dispatch(m_warpWorkgroupCount.x, m_warpWorkgroupCount.y, 1);
+  }
+
 }
+
+nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t EnvmapImportanceSampling::getWarpMapBarrier(
+  core::bitflag<nbl::asset::PIPELINE_STAGE_FLAGS> dstStageMask,
+  core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
+  nbl::video::IGPUImage::LAYOUT newLayout)
+{
+  const auto warpMapImage = m_warpMap->getCreationParameters().image.get();
+  return {
+    .barrier = {
+      .dep = {
+        .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+        .srcAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask
+      }
+    },
+    .image = warpMapImage,
+    .subresourceRange = {
+      .aspectMask = IImage::EAF_COLOR_BIT,
+      .baseMipLevel = 0,
+      .levelCount = 1,
+      .baseArrayLayer = 0u,
+      .layerCount = 1u
+    },
+    .oldLayout = IImage::LAYOUT::GENERAL,
+    .newLayout = newLayout,
+  };
+}
+
 }
