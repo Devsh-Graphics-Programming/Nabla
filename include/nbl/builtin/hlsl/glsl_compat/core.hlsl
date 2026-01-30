@@ -29,7 +29,7 @@ struct bitfieldInsert;
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
-struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
+struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4) >
 {
     static T __call( T base, T insert, uint32_t offset, uint32_t bits )
     {
@@ -42,7 +42,7 @@ struct bitfieldExtract;
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
-struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4) >
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
@@ -206,7 +206,7 @@ struct bitfieldInsert;
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
-struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
+struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4) >
 {
     static T __call( T base, T insert, uint32_t offset, uint32_t bits )
     {
@@ -219,7 +219,7 @@ struct bitfieldExtract;
 
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
-struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4) >
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
@@ -228,8 +228,8 @@ struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<typename v
 };
 
 template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4)
-struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> == 4) >
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4)
+struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<typename vector_traits<T>::scalar_type> && size_of_v<typename vector_traits<T>::scalar_type> >= 4) >
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
