@@ -13,8 +13,8 @@ namespace hierarchical_image
 {
 // declare concept
 #define NBL_CONCEPT_NAME LuminanceReadAccessor
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(ScalarT)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (a,U)
 #define NBL_CONCEPT_PARAM_1 (coord,uint32_t2)
@@ -26,8 +26,8 @@ NBL_CONCEPT_BEGIN(3)
 #define coord NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define level NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get(coord,level)) , ::nbl::hlsl::is_same_v, float32_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template gather(coord,level)) , ::nbl::hlsl::is_same_v, float32_t4))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get(coord,level)) , ::nbl::hlsl::is_same_v, ScalarT))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template gather(coord,level)) , ::nbl::hlsl::is_same_v, vector<ScalarT, 4>))
 );
 #undef level
 #undef coord

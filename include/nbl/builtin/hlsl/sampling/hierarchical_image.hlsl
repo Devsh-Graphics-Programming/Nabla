@@ -17,7 +17,7 @@ namespace hlsl
 namespace sampling
 {
 
-template <typename T, typename LuminanceAccessorT NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT>)
+template <typename T, typename LuminanceAccessorT NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, T>)
 struct LuminanceMapSampler
 {
 	using scalar_type = T;
@@ -44,7 +44,7 @@ struct LuminanceMapSampler
 		// numerical resilience against IEEE754
 		scalar_type dummy = 0.0f;
 		PartitionRandVariable<scalar_type> partition;
-		partition.leftProb = 1.0f / (1.0f + second/ first);
+		partition.leftProb = 1.0f / (1.0f + (second / first));
 		return partition(xi, dummy);
 	}
 
@@ -52,16 +52,15 @@ struct LuminanceMapSampler
 	{
     float32_t2 xi = float32_t2(coord)/ _lastWarpPixel;
 		uint32_t2 p = uint32_t2(0, 0);
-		const uint32_t2 mip2x1 = findMSB(_mapSize.x) - 1;
+		const uint32_t2 mip2x1 = findMSB(_mapSize.y);
 
 		if (_aspect2x1) {
 			// do one split in the X axis first cause penultimate full mip would have been 2x1
 			p.x = choseSecond(_map.get(uint32_t2(0, 0), mip2x1), _map.get(uint32_t2(0, 1), mip2x1), xi.x) ? 1 : 0;
 		}
 
-		for (uint32_t i = mip2x1; i != 0;)
+		for (int i = mip2x1 - 1; i >= 0; i--)
 		{
-			--i;
 			p <<= 1;
 			const vector4_type values = _map.gather(p, i);
 			scalar_type wx_0, wx_1;
@@ -124,7 +123,6 @@ struct HierarchicalImage
 		result.lastWarpPixel = warpSize - uint32_t2(1, 1);
 		return result;
 	}
-
 
 	uint32_t2 generate(NBL_REF_ARG(scalar_type) rcpPdf, vector2_type xi) NBL_CONST_MEMBER_FUNC
 	{
