@@ -1,14 +1,14 @@
 #include "nbl/builtin/hlsl/sampling/warps/spherical.hlsl"
 #include "nbl/builtin/hlsl/workgroup2/arithmetic.hlsl"
 
-#include "nbl/ext/EnvmapImportanceSampling/builtin/hlsl/common.hlsl"
+#include "common.hlsl"
 
 using namespace nbl;
 using namespace nbl::hlsl;
 using namespace nbl::hlsl::ext::envmap_importance_sampling;
 
 // TODO(kevinyu): Temporary to make nsc works
-using config_t = nbl::hlsl::workgroup2::ArithmeticConfiguration<4, 4, 2>;
+using config_t = WORKGROUP_CONFIG_T;
 
 [[vk::push_constant]] SLumaMeasurePushConstants pc;
 
@@ -115,7 +115,7 @@ struct LumaAccessor
 
 [numthreads(config_t::WorkgroupSize, 1, 1)]
 [shader("compute")]
-void main(uint32_t3 threadID : SV_DispatchThreadID)
+void main(uint32_t localInvocationIndex : SV_GroupIndex, uint32_t3 groupID: SV_GroupID)
 {	
     ScratchProxy scratchAccessor;
     
@@ -138,6 +138,6 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
     
     measurement.maxLuma = workgroup2::reduction<config_t, maximum<float32_t>, device_capabilities>::template __call<LumaAccessor, ScratchProxy>(lumaAccessor, scratchAccessor);
     
-    if (all(threadID == uint32_t3(0, 0, 0))) 
-      vk::RawBufferStore<SLumaMeasurement>(pc.lumaMeasurementBuf, measurement);
+    if (localInvocationIndex == 0) 
+      vk::RawBufferStore<SLumaMeasurement>(pc.lumaMeasurementBuf + (groupID.x * sizeof(SLumaMeasurement)), measurement);
 }
