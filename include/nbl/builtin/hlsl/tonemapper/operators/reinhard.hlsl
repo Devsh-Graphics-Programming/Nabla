@@ -28,7 +28,7 @@ struct Reinhard
 		this_t retval;
 
 		const float_t unit = 1.0;
-		retval.keyAndManualLinearExposure = key * exp2(EV);
+		retval.keyAndManualLinearExposure = key * exp2(-EV);
 		retval.rcpWhite2 = unit / (WhitePointRelToEV * WhitePointRelToEV);
 
 		return retval;
