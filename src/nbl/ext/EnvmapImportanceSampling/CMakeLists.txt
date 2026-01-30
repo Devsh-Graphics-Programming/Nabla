@@ -17,7 +17,8 @@ set(NBL_ENVMAP_IMPORTANCE_SAMPLING_HLSL_MOUNT_POINT "${_ARCHIVE_ABSOLUTE_ENTRY_P
 set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/auto-gen")
 set(DEPENDS
     ${NBL_ENVMAP_IMPORTANCE_SAMPLING_HLSL_MOUNT_POINT}/common.hlsl
-    ${NBL_ENVMAP_IMPORTANCE_SAMPLING_HLSL_MOUNT_POINT}/gen_warpmap.comp.hlsl
+    ${NBL_ENVMAP_IMPORTANCE_SAMPLING_HLSL_MOUNT_POINT}/gen_luma.comp.hlsl
+    ${NBL_ENVMAP_IMPORTANCE_SAMPLING_HLSL_MOUNT_POINT}/gen_warp.comp.hlsl
     ${NBL_ENVMAP_IMPORTANCE_SAMPLING_HLSL_MOUNT_POINT}/measure_luma.comp.hlsl
 )
 
@@ -42,7 +43,7 @@ NBL_CREATE_RESOURCE_ARCHIVE(
     BUILTINS
         common.hlsl
         gen_luma.comp.hlsl
-        gen_warpmap.comp.hlsl
+        gen_warp.comp.hlsl
         measure_luma.comp.hlsl
 
 )
