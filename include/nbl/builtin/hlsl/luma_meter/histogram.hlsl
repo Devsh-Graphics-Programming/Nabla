@@ -11,7 +11,7 @@
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
-#include "nbl/builtin/hlsl/math/morton.hlsl"
+#include "nbl/builtin/hlsl/morton.hlsl"
 #include "nbl/builtin/hlsl/luma_meter/common.hlsl"
 
 namespace nbl
@@ -94,7 +94,9 @@ struct median_meter
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t2 coord = math::Morton<uint32_t>::decode2d(tid);
+        morton::code<false, 32, 2> mc;
+        mc.value = tid;
+        uint32_t2 coord = _static_cast<uint32_t2>(mc);
 
         float_t luma = 0.0f;
         float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
