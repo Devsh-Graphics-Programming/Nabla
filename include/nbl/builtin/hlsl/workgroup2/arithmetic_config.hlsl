@@ -205,7 +205,7 @@ struct SArithmeticConfiguration
         #undef DEFINE_ASSIGN
     }
 
-    std::string getConfigTemplateStructString()
+    std::string getConfigTemplateStructString() NBL_CONST_MEMBER_FUNC 
     {
         std::ostringstream os;
         os << "nbl::hlsl::workgroup2::ArithmeticConfiguration<" << WorkgroupSizeLog2 << "," << SubgroupSizeLog2 << "," << ItemsPerInvocation_0 << ">;";
