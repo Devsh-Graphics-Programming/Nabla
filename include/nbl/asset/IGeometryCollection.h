@@ -29,9 +29,9 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                     return false;
                 if (jointRedirectView.src)
                 {
-                    if (!jointRedirectView.isFormattedScalarInteger())
+                    if (!jointRedirectView.composed.isFormattedScalarInteger())
                         return false;
-                    if (jointRedirectView.getElementCount()<geometry->getJointCount()*2)
+                    if (jointRedirectView.getElementCount()<geometry->getJointCount())
                         return false;
                 }
                 else
