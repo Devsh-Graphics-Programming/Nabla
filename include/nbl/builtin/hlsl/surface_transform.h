@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 namespace nbl
@@ -64,7 +65,7 @@ inline float32_t2x2 transformMatrix(const FLAG_BITS transform)
     return float32_t2x2(_nan,_nan,_nan,_nan);
 }
 
-//! [width,height] might switch to [height, width] in orientations such as 90°CW
+//! [width,height] might switch to [height, width] in orientations such as 90ï¿½CW
 //! Usecase: Find out how big the viewport has to be after or before a tranform is applied
 inline uint16_t2 transformedExtents(const FLAG_BITS transform, const uint16_t2 screenSize)
 {
@@ -93,7 +94,7 @@ inline float transformedAspectRatio(const FLAG_BITS transform, const uint16_t2 s
 }
 
 //! Use this function to apply the INVERSE of swapchain tranformation to the screenspace coordinate `coord` 
-//! For example when the device orientation is 90°CW then this transforms the point 90°CCW.
+//! For example when the device orientation is 90ï¿½CW then this transforms the point 90ï¿½CCW.
 //! Usecase = [Gather]:
 //!   Applications such as raytracing in shaders where you would want to generate rays from screen space coordinates. 
 //! Warnings: 
@@ -174,7 +175,7 @@ inline float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
 template<typename TwoColumns>
 TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 {
-	return mul(inverse(transformMatrix(transform)),dDx_dDy);
+	return mul(inverse(transformMatrix(transform)), dDx_dDy);
 }
 
 }
@@ -182,4 +183,5 @@ TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 }
 
 #endif // _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
+
 

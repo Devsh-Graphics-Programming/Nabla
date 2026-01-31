@@ -6,16 +6,19 @@
 #define _NBL_BUILTIN_HLSL_IES_SAMPLER_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/bit.hlsl"
+#include "nbl/builtin/hlsl/algorithm.hlsl"
 #include "nbl/builtin/hlsl/math/polar.hlsl"
 #include "nbl/builtin/hlsl/math/octahedral.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/ies/profile.hlsl"
 
-namespace nbl 
+namespace nbl
 {
-namespace hlsl 
+namespace hlsl
 {
-namespace ies 
+namespace ies
 {
 namespace concepts
 {
@@ -27,26 +30,26 @@ NBL_CONCEPT_BEGIN(1)
 #define accessor NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define req_key_t uint32_t
 #define req_key_t2 uint32_t2
-#define req_value_t float32_t
+#define req_angle_t float32_t
+#define req_candela_t float32_t
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(accessor_t::key_t))
-    ((NBL_CONCEPT_REQ_TYPE)(accessor_t::key_t2))
-    ((NBL_CONCEPT_REQ_TYPE)(accessor_t::value_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((req_key_t(0)), is_same_v, typename accessor_t::key_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((req_key_t2(0, 0)), is_same_v, typename accessor_t::key_t2))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((req_value_t(0)), is_same_v, typename accessor_t::value_t))
+    ((NBL_CONCEPT_REQ_TYPE)(accessor_t::angle_t))
+    ((NBL_CONCEPT_REQ_TYPE)(accessor_t::candela_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((req_angle_t(0)), is_same_v, typename accessor_t::angle_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((req_candela_t(0)), is_same_v, typename accessor_t::candela_t))
 
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.getProperties()), is_same_v, ProfileProperties))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.value(req_key_t2(0, 0))), is_same_v, typename accessor_t::candela_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.vAnglesCount()), is_same_v, req_key_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.hAnglesCount()), is_same_v, req_key_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.getProperties()), is_same_v, ProfileProperties))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template vAngle<req_key_t>((req_key_t)0)), is_same_v, req_value_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template hAngle<req_key_t>((req_key_t)0)), is_same_v, req_value_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template value<req_key_t2>((req_key_t2)0)), is_same_v, req_value_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.vAngle(req_key_t(0))), is_same_v, typename accessor_t::angle_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.hAngle(req_key_t(0))), is_same_v, typename accessor_t::angle_t))
 );
 #undef accessor
 #undef req_key_t
 #undef req_key_t2
-#undef req_value_t
+#undef req_angle_t
+#undef req_candela_t
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 template<typename accessor_t>
@@ -57,109 +60,106 @@ template<typename Accessor NBL_FUNC_REQUIRES(concepts::IsIESAccessor<Accessor>)
 struct CandelaSampler
 {
     using accessor_t = Accessor;
-    using value_t = typename accessor_t::value_t;
+    using angle_t = typename accessor_t::angle_t;
+    using candela_t = typename accessor_t::candela_t;
     using symmetry_t = ProfileProperties::LuminairePlanesSymmetry;
-	using polar_t = math::Polar<float32_t>;
-	using octahedral_t = math::OctahedralTransform<float32_t>;
+    using polar_t = math::Polar<float32_t>;
+    using octahedral_t = math::OctahedralTransform<float32_t>;
+    using vector2_type = float32_t2;
 
-    static value_t sample(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(math::Polar<float32_t>) polar)
+    vector2_type halfMinusHalfPixel;
+
+    static inline CandelaSampler create(NBL_CONST_REF_ARG(vector2_type) lastTexelRcp)
     {
-        // TODO: DXC seems to have a bug and cannot use symmetry_t directly with == operator https://godbolt.devsh.eu/z/P9Kc5x
-        const ProfileProperties::LuminairePlanesSymmetry symmetry = accessor.getProperties().getSymmetry();
-        const float32_t vAngle = degrees(polar.theta);
-        const float32_t hAngle = degrees(wrapPhi(polar.phi, symmetry));
-
-        const float32_t vABack = accessor.vAngle(accessor.vAnglesCount() - 1u);
-        if (vAngle > vABack)
-            return 0.f;
-
-        const uint32_t j0 = getVLB(accessor, vAngle);
-        const uint32_t j1 = getVUB(accessor, vAngle);
-        const uint32_t i0 = (symmetry == ProfileProperties::LuminairePlanesSymmetry::ISOTROPIC) ? 0u : getHLB(accessor, hAngle);
-        const uint32_t i1 = (symmetry == ProfileProperties::LuminairePlanesSymmetry::ISOTROPIC) ? 0u : getHUB(accessor, hAngle);
-
-        const float32_t uReciprocal = ((i1 == i0) ? 1.f : 1.f / (accessor.hAngle(i1) - accessor.hAngle(i0)));
-        const float32_t vReciprocal = ((j1 == j0) ? 1.f : 1.f / (accessor.vAngle(j1) - accessor.vAngle(j0)));
-
-        const float32_t u = ((hAngle - accessor.hAngle(i0)) * uReciprocal);
-        const float32_t v = ((vAngle - accessor.vAngle(j0)) * vReciprocal);
-
-        const float32_t s0 = (accessor.value(uint32_t2(i0, j0)) * (1.f - v) + accessor.value(uint32_t2(i0, j1)) * v);
-        const float32_t s1 = (accessor.value(uint32_t2(i1, j0)) * (1.f - v) + accessor.value(uint32_t2(i1, j1)) * v);
-
-        return s0 * (1.f - u) + s1 * u;
+        CandelaSampler retval;
+        retval.halfMinusHalfPixel = vector2_type(0.5f, 0.5f) / (vector2_type(1.f, 1.f) + lastTexelRcp);
+        return retval;
     }
 
-	static value_t sample(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(float32_t2) uv)
-	{
-		const float32_t3 dir = octahedral_t::uvToDir(uv);
-        const polar_t polar = polar_t::createFromCartesian(dir);
-		return sample(accessor, polar);
-	}
+    inline candela_t operator()(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(polar_t) polar) NBL_CONST_MEMBER_FUNC
+    {
+        assert(polar.theta >= float32_t(0.0) && polar.theta <= numbers::pi<float32_t>);
+        assert(hlsl::abs(polar.phi) <= numbers::pi<float32_t> * float32_t(2.0));
 
-    static float32_t wrapPhi(const float32_t phi, const symmetry_t symmetry)
+        const symmetry_t symmetry = accessor.getProperties().getSymmetry();
+        const angle_t vAngle = degrees(polar.theta);
+        const angle_t hAngle = degrees(__wrapPhi(polar.phi, symmetry));
+
+#define NBL_IES_DEF_ANGLE_ACC(T, EXPR) struct T { using value_type = angle_t; accessor_t acc; value_type operator[](uint32_t idx) NBL_CONST_MEMBER_FUNC { return EXPR; } };
+
+        NBL_IES_DEF_ANGLE_ACC(VAcc, acc.vAngle(idx))
+        NBL_IES_DEF_ANGLE_ACC(HAcc, acc.hAngle(idx))
+
+        VAcc vAcc; vAcc.acc = accessor; HAcc hAcc; hAcc.acc = accessor;
+
+#undef NBL_IES_DEF_ANGLE_ACC
+
+        const uint32_t vCount = accessor.vAnglesCount();
+        const uint32_t hCount = accessor.hAnglesCount();
+        const angle_t vABack = vAcc[vCount - 1u];
+        if (vAngle > vABack)
+            return candela_t(0);
+
+        const uint32_t vUbRaw = __upperBound(vAcc, vCount, vAngle);
+        const uint32_t vLb = __lowerFromUpper(vUbRaw);
+        const uint32_t vUb = __clampUpper(vUbRaw, vCount);
+
+        const bool isotropic = (symmetry == symmetry_t::ISOTROPIC);
+        const uint32_t hUbRaw = isotropic ? 0u : __upperBound(hAcc, hCount, hAngle);
+        const uint32_t hLb = isotropic ? 0u : __lowerFromUpper(hUbRaw);
+        const uint32_t hUb = isotropic ? 0u : __clampUpper(hUbRaw, hCount);
+
+        const angle_t uReciprocal = (hUb == hLb) ? angle_t(1) : angle_t(1) / (hAcc[hUb] - hAcc[hLb]);
+        const angle_t vReciprocal = (vUb == vLb) ? angle_t(1) : angle_t(1) / (vAcc[vUb] - vAcc[vLb]);
+
+        const angle_t u = (hAngle - hAcc[hLb]) * uReciprocal;
+        const angle_t v = (vAngle - vAcc[vLb]) * vReciprocal;
+
+        const candela_t s0 = accessor.value(uint32_t2(hLb, vLb)) * (angle_t(1) - v) + accessor.value(uint32_t2(hLb, vUb)) * v;
+        const candela_t s1 = accessor.value(uint32_t2(hUb, vLb)) * (angle_t(1) - v) + accessor.value(uint32_t2(hUb, vUb)) * v;
+
+        return s0 * (angle_t(1) - u) + s1 * u;
+    }
+
+    inline candela_t operator()(NBL_CONST_REF_ARG(accessor_t) accessor, NBL_CONST_REF_ARG(float32_t2) uv) NBL_CONST_MEMBER_FUNC
+    {
+        const float32_t3 dir = octahedral_t::uvToDir(uv, halfMinusHalfPixel);
+        const polar_t polar = polar_t::createFromCartesian(dir);
+        return operator()(accessor, polar);
+    }
+
+    template<typename View>
+    static inline uint32_t __upperBound(NBL_REF_ARG(View) view, const uint32_t count, const angle_t angle) { return nbl::hlsl::upper_bound(view, 0u, count, angle); }
+
+    static inline uint32_t __lowerFromUpper(const uint32_t ubRaw) { return ubRaw > 0u ? (ubRaw - 1u) : 0u; }
+
+    static inline uint32_t __clampUpper(const uint32_t ubRaw, const uint32_t count) { return ubRaw < count ? ubRaw : (count - 1u); }
+
+    static inline angle_t __wrapPhi(const angle_t phi, const symmetry_t symmetry)
     {
         switch (symmetry)
         {
-        case symmetry_t::ISOTROPIC: //! axial symmetry
-            return 0.0f;
-        case symmetry_t::QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap onto [0, 90] degrees range
-        {
-            NBL_CONSTEXPR float32_t M_HALF_PI = numbers::pi<float32_t> * 0.5f;
-            float32_t wrapPhi = abs(phi); //! first MIRROR
-            if (wrapPhi > M_HALF_PI) //! then REPEAT
-                wrapPhi = hlsl::clamp(M_HALF_PI - (wrapPhi - M_HALF_PI), 0.f, M_HALF_PI);
-            return wrapPhi; //! eg. maps (in degrees) 91,269,271 -> 89 and 179,181,359 -> 1
-        }
-        case symmetry_t::HALF_SYMETRIC: //! phi MIRROR wrap onto [0, 180] degrees range
-        case symmetry_t::OTHER_HALF_SYMMETRIC: //! eg. maps (in degress) 181 -> 179 or 359 -> 1
-            return abs(phi);
-        case symmetry_t::NO_LATERAL_SYMMET: //! plot onto whole (in degress) [0, 360] range
-        {
-            NBL_CONSTEXPR float32_t M_TWICE_PI = numbers::pi<float32_t> *2.f;
-            return (phi < 0.f) ? (phi + M_TWICE_PI) : phi;
-        }
-        }
-        return 69.f;
-    }
-
-    struct impl_t
-    {
-        static uint32_t getVUB(NBL_CONST_REF_ARG(accessor_t) accessor, const float32_t angle)
-        {
-            for (uint32_t i = 0u; i < accessor.vAnglesCount(); ++i)
-                if (accessor.vAngle(i) > angle)
-                    return i;
-            return accessor.vAnglesCount();
+            case symmetry_t::ISOTROPIC: //! axial symmetry
+                return angle_t(0.0);
+            case symmetry_t::QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap onto [0, 90] degrees range
+            {
+                const angle_t HalfPI = numbers::pi<angle_t> * angle_t(0.5);
+                angle_t wrapPhi = hlsl::abs(phi); //! first MIRROR
+                if (wrapPhi > HalfPI) //! then REPEAT
+                    wrapPhi = hlsl::clamp(HalfPI - (wrapPhi - HalfPI), angle_t(0), HalfPI);
+                return wrapPhi; //! eg. maps (in degrees) 91,269,271 -> 89 and 179,181,359 -> 1
+            }
+            case symmetry_t::HALF_SYMETRIC: //! phi MIRROR wrap onto [0, 180] degrees range
+            case symmetry_t::OTHER_HALF_SYMMETRIC: //! eg. maps (in degress) 181 -> 179 or 359 -> 1
+                return hlsl::abs(phi);
+            case symmetry_t::NO_LATERAL_SYMMET: //! plot onto whole (in degress) [0, 360] range
+            {
+                const angle_t TwicePI = numbers::pi<angle_t> * angle_t(2.0);
+                return (phi < angle_t(0)) ? (phi + TwicePI) : phi;
+            }
         }
 
-        static uint32_t getHUB(NBL_CONST_REF_ARG(accessor_t) accessor, const float32_t angle)
-        {
-            for (uint32_t i = 0u; i < accessor.hAnglesCount(); ++i)
-                if (accessor.hAngle(i) > angle)
-                    return i;
-            return accessor.hAnglesCount();
-        }
-    };
-
-    static uint32_t getVLB(NBL_CONST_REF_ARG(accessor_t) accessor, const float32_t angle)
-    {
-        return (uint32_t)hlsl::max((int64_t)impl_t::getVUB(accessor, angle) - 1ll, 0ll);
-    }
-
-    static uint32_t getHLB(NBL_CONST_REF_ARG(accessor_t) accessor, const float32_t angle)
-    {
-        return (uint32_t)hlsl::max((int64_t)impl_t::getHUB(accessor, angle) - 1ll, 0ll);
-    }
-
-    static uint32_t getVUB(NBL_CONST_REF_ARG(accessor_t) accessor, const float32_t angle)
-    {
-        return (uint32_t)hlsl::min((int64_t)impl_t::getVUB(accessor, angle), (int64_t)(accessor.vAnglesCount() - 1u));
-    }
-
-    static uint32_t getHUB(NBL_CONST_REF_ARG(accessor_t) accessor, const float32_t angle)
-    {
-        return (uint32_t)hlsl::min((int64_t)impl_t::getHUB(accessor, angle), (int64_t)(accessor.hAnglesCount() - 1u));
+        return bit_cast<angle_t>(numeric_limits<float32_t>::quiet_NaN);
     }
 };
 

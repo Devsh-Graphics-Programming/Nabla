@@ -6,6 +6,7 @@
 #define _NBL_BUILTIN_HLSL_IES_PROFILE_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/basic.h"
 
 namespace nbl 
 {
@@ -16,31 +17,21 @@ namespace ies
 
 struct ProfileProperties
 {
-    //! max 16K resolution
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_WIDTH = 15360u;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MAX_TEXTURE_HEIGHT = 8640u;
-
-    // TODO: This constraint is hack because the mitsuba loader and its material compiler use Virtual Texturing, and there's some bug with IES not sampling sub 128x128 mip levels
-    // don't want to spend time to fix this since we'll be using descriptor indexing for the next iteration
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MIN_TEXTURE_WIDTH = 128u;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_MIN_TEXTURE_HEIGHT = 128u;
-
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_DEFAULT_TEXTURE_WIDTH = 1024u;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CDC_DEFAULT_TEXTURE_HEIGHT = 1024u;
-
-    NBL_CONSTEXPR_STATIC_INLINE float32_t MAX_VANGLE = 180.f;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t MAX_HANGLE = 360.f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t MaxVAngleDegrees = 180.f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t MaxHAngleDegrees = 360.f;
 
 	// TODO: could change to uint8_t once we get implemented
     // https://github.com/microsoft/hlsl-specs/pull/538
-	using packed_flags_t = uint16_t;
+	using packed_flags_t = uint32_t;
 
-    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t VERSION_BITS = 2u;
-    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TYPE_BITS    = 2u;
-    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SYMM_BITS    = 3u;
-    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t VERSION_MASK = (packed_flags_t(1u) << VERSION_BITS) - packed_flags_t(1u);
-    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TYPE_MASK    = (packed_flags_t(1u) << TYPE_BITS)    - packed_flags_t(1u);
-    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SYMM_MASK    = (packed_flags_t(1u) << SYMM_BITS)    - packed_flags_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t VersionBits  = 2u;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TypeBits     = 2u;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SymmetryBits = 3u;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t VersionMask  = (packed_flags_t(1u) << VersionBits) - packed_flags_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TypeMask     = (packed_flags_t(1u) << TypeBits) - packed_flags_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SymmetryMask = (packed_flags_t(1u) << SymmetryBits) - packed_flags_t(1u);
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t TypeShift    = VersionBits;
+    NBL_CONSTEXPR_STATIC_INLINE packed_flags_t SymmetryShift = VersionBits + TypeBits;
 
     enum Version : packed_flags_t
     {
@@ -68,39 +59,35 @@ struct ProfileProperties
 
     Version getVersion() NBL_CONST_MEMBER_FUNC
     {
-        return (Version)( packed & VERSION_MASK );
+        return (Version)(packed & VersionMask);
     }
 
     PhotometricType getType() NBL_CONST_MEMBER_FUNC
     {
-        const packed_flags_t shift = VERSION_BITS;
-        return (PhotometricType)((packed >> shift) & TYPE_MASK);
+        return (PhotometricType)((packed >> TypeShift) & TypeMask);
     }
 
     LuminairePlanesSymmetry getSymmetry() NBL_CONST_MEMBER_FUNC
     {
-        const packed_flags_t shift = VERSION_BITS + TYPE_BITS;
-        return (LuminairePlanesSymmetry)((packed >> shift) & SYMM_MASK);
+        return (LuminairePlanesSymmetry)((packed >> SymmetryShift) & SymmetryMask);
     }
 
     void setVersion(Version v)
     {
-        packed_flags_t vBits = (packed_flags_t)(v) & VERSION_MASK;
-        packed = (packed & ~VERSION_MASK) | vBits;
+        packed_flags_t vBits = (packed_flags_t)(v) & VersionMask;
+        packed = (packed & ~VersionMask) | vBits;
     }
 
     void setType(PhotometricType t)
     {
-        const packed_flags_t shift = VERSION_BITS;
-        packed_flags_t tBits = ((packed_flags_t)(t) & TYPE_MASK) << shift;
-        packed = (packed & ~(TYPE_MASK << shift)) | tBits;
+        packed_flags_t tBits = ((packed_flags_t)(t) & TypeMask) << TypeShift;
+        packed = (packed & ~(TypeMask << TypeShift)) | tBits;
     }
 
     void setSymmetry(LuminairePlanesSymmetry s)
     {
-        const packed_flags_t shift = VERSION_BITS + TYPE_BITS;
-        packed_flags_t sBits = ((packed_flags_t)(s) & SYMM_MASK) << shift;
-        packed = (packed & ~(SYMM_MASK << shift)) | sBits;
+        packed_flags_t sBits = ((packed_flags_t)(s) & SymmetryMask) << SymmetryShift;
+        packed = (packed & ~(SymmetryMask << SymmetryShift)) | sBits;
     }
 
 	float32_t maxCandelaValue;        //! Max candela sample value
@@ -111,6 +98,7 @@ struct ProfileProperties
 };
 
 }
+
 }
 }
 

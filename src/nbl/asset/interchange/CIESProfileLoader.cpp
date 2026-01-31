@@ -15,11 +15,10 @@ bool CIESProfileLoader::isALoadableFileFormat(system::IFile* _file, const system
         for (const auto& it : CIESProfileParser::VALID_SIGNATURES)
             if (versionBuffer.find(it.data()) != std::string::npos)
                 return true;
-
-        logger.log("%s: Invalid IES signature for \"%s\" file!", system::ILogger::ELL_ERROR, __FUNCTION__, fName);
+        logger.log("%s: Invalid IES signature for \"%s\" file!", system::ILogger::ELL_DEBUG, __FUNCTION__, fName);
     }
     else
-        logger.log("%s: Failed to read \"%s\" file!", system::ILogger::ELL_ERROR, __FUNCTION__, fName);
+        logger.log("%s: Failed to read \"%s\" file!", system::ILogger::ELL_DEBUG, __FUNCTION__, fName);
 
     return false;
 }
@@ -61,7 +60,7 @@ asset::SAssetBundle CIESProfileLoader::loadAsset(system::IFile* _file, const ass
     else
     {
         const auto optimalResolution = profile.getAccessor().properties.optimalIESResolution;
-        cpuImageView = profile.createIESTexture(0.f, false, optimalResolution.x, optimalResolution.y);
+        cpuImageView = profile.createIESTexture(optimalResolution);
     }
 
     return asset::SAssetBundle(std::move(meta), { core::smart_refctd_ptr(cpuImageView) });

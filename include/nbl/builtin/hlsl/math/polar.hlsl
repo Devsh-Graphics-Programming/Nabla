@@ -22,20 +22,20 @@ struct Polar
     using vector3_type = vector<T, 3>;
 
     // input must be normalized
-    static Polar<T> createFromCartesian(NBL_CONST_REF_ARG(vector3_type) dir)
+    static Polar<T> createFromCartesian(const vector3_type dir)
     {
         Polar<T> retval;
-        retval.theta = acos(dir.z);
-        retval.phi = atan2(dir.y, dir.x);
+        retval.theta = hlsl::acos<scalar_type>(dir.z);
+        retval.phi = hlsl::atan2<scalar_type>(dir.y, dir.x);
         return retval;
     }
 
-    static vector3_type ToCartesian(NBL_CONST_REF_ARG(scalar_type) theta, NBL_CONST_REF_ARG(scalar_type) phi)
+    static vector3_type ToCartesian(const scalar_type theta, const scalar_type phi)
     {
         return vector<T, 3>(
-            cos(phi) * cos(theta),
-            sin(phi) * cos(theta),
-            sin(theta)
+            hlsl::cos<scalar_type>(phi) * hlsl::cos<scalar_type>(theta),
+            hlsl::sin<scalar_type>(phi) * hlsl::cos<scalar_type>(theta),
+            hlsl::sin<scalar_type>(theta)
         );
     }
 

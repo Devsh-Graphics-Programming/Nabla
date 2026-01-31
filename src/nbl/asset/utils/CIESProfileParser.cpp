@@ -112,9 +112,12 @@ bool CIESProfileParser::parse(CIESProfile& result)
     if (vSize < 2)
         return false;
 
+    using angle_t = CIESProfile::accessor_t::angle_t;
+    using candela_t = CIESProfile::accessor_t::candela_t;
+
     auto& vAngles = result.accessor.vAngles;
     for (int i = 0; i < vSize; i++) {
-        vAngles[i] = static_cast<CIESProfile::accessor_t::value_t>(getDouble("vertical angle truncated"));
+        vAngles[i] = static_cast<angle_t>(getDouble("vertical angle truncated"));
     }
     if (!std::is_sorted(vAngles.begin(), vAngles.end())) {
         errorMsg = "Vertical angles should be sorted";
@@ -131,7 +134,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
 
     auto& hAngles = result.accessor.hAngles;
     for (int i = 0; i < hSize; i++) {
-        hAngles[i] = static_cast<CIESProfile::accessor_t::value_t>(getDouble("horizontal angle truncated"));
+        hAngles[i] = static_cast<angle_t>(getDouble("horizontal angle truncated"));
         if (i != 0 && hAngles[i - 1] > hAngles[i])
             return false; // Angles should be sorted
     }
@@ -175,7 +178,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
         const double factor = ballastFactor * candelaMultiplier;
         for (int i = 0; i < hSize; i++)
             for (int j = 0; j < vSize; j++)
-                result.accessor.setValue(hlsl::uint32_t2(i, j), static_cast<CIESProfile::accessor_t::value_t>(factor * getDouble("intensity value truncated")));
+                result.accessor.setValue(hlsl::uint32_t2(i, j), static_cast<candela_t>(factor * getDouble("intensity value truncated")));
     }
 
     float totalEmissionIntegral = 0.0, nonZeroEmissionDomainSize = 0.0;
@@ -227,8 +230,8 @@ bool CIESProfileParser::parse(CIESProfile& result)
         const uint32_t maxDimMeasureSize = core::sqrt(FULL_SOLID_ANGLE/smallestRangeSolidAngle);
         result.accessor.properties.optimalIESResolution = decltype(result.accessor.properties.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
         auto& res = result.accessor.properties.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
-		res.x = core::max(res.x,CIESProfile::properties_t::CDC_MIN_TEXTURE_WIDTH);
-		res.y = core::max(res.y,CIESProfile::properties_t::CDC_MIN_TEXTURE_HEIGHT);
+		res.x = core::max(res.x, CIESProfile::texture_t::MinTextureWidth);
+		res.y = core::max(res.y, CIESProfile::texture_t::MinTextureHeight);
     }
 
     assert(nonZeroEmissionDomainSize >= 0.f);

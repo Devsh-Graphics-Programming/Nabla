@@ -7,6 +7,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
+#include "nbl/builtin/hlsl/math/functions.hlsl"
 
 namespace nbl
 {
@@ -23,48 +24,53 @@ struct OctahedralTransform
     using vector2_type  = vector<T, 2>;
     using vector3_type  = vector<T, 3>;
 
-    // F : [0, 1]^2 -> S^2
-    static vector3_type uvToDir(NBL_CONST_REF_ARG(vector2_type) uv)
+    // F : [-1, 1]^2 -> S^2
+    static vector3_type ndcToDir(NBL_CONST_REF_ARG(vector2_type) ndc)
     {
-        vector3_type p = vector3_type((uv * scalar_type(2) - scalar_type(1)), scalar_type(0));
-		const scalar_type a_x = abs(p.x); const scalar_type a_y = abs(p.y);
+        const vector2_type a = abs(ndc);
+        vector3_type p = vector3_type(ndc, scalar_type(1) - a.x - a.y);
 
-        p.z = scalar_type(1) - a_x - a_y;
-
-        if (p.z < scalar_type(0)) 
-        {
-            p.x = (p.x < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - a_y);
-            p.y = (p.y < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - a_x);
-        }
+        if (p.z < scalar_type(0))
+            p.xy = __foldToUpperHemisphere(ndc);
 
         return hlsl::normalize(p);
+    }
+
+    // F : [0, 1]^2 -> S^2 (UV with half-texel handling)
+    static vector3_type uvToDir(NBL_CONST_REF_ARG(vector2_type) uv, NBL_CONST_REF_ARG(vector2_type) halfMinusHalfPixel)
+    {
+        const vector2_type ndc = (uv - vector2_type(scalar_type(0.5), scalar_type(0.5))) / halfMinusHalfPixel;
+        return ndcToDir(ndc);
     }
 
     // F^-1 : S^2 -> [-1, 1]^2
     static vector2_type dirToNDC(NBL_CONST_REF_ARG(vector3_type) d)
     {
-        vector3_type dir = hlsl::normalize(d);
-        const scalar_type sum = dot(vector3_type(scalar_type(1), scalar_type(1), scalar_type(1)), abs(dir));
-        vector3_type s = dir / sum;
+        const scalar_type sum = lpNorm<vector3_type, 1>(d);
+        vector3_type s = d / sum;
 
         if (s.z < scalar_type(0))
-        {
-            s.x = (s.x < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - abs(s.y));
-            s.y = (s.y < scalar_type(0) ? scalar_type(-1) : scalar_type(1)) * (scalar_type(1) - abs(s.x));
-        }
+            s.xy = __foldToUpperHemisphere(s.xy);
 
         return s.xy;
     }
 
-    // transforms direction vector into UV for corner sampling
+    // transforms direction vector into UV with half-texel handling
     // dir in S^2, halfMinusHalfPixel in [0, 0.5)^2,
     // where halfMinusHalfPixel = 0.5-0.5/texSize
-    // and texSize.x >= 1, texSize.y >= 1
-    // NOTE/TODO: not best place to keep it here
-    static vector2_type toCornerSampledUV(NBL_CONST_REF_ARG(vector3_type) dir, NBL_CONST_REF_ARG(vector2_type) halfMinusHalfPixel)
+    static vector2_type dirToUV(NBL_CONST_REF_ARG(vector3_type) dir, NBL_CONST_REF_ARG(vector2_type) halfMinusHalfPixel)
     {
-        // note: cornerSampled(NDC*0.5+0.5) = NDC*0.5*(1-1/texSize)+0.5
         return dirToNDC(dir) * halfMinusHalfPixel + scalar_type(0.5);
+    }
+
+    static vector2_type __foldToUpperHemisphere(NBL_CONST_REF_ARG(vector2_type) v)
+    {
+        // Use copySign instead of sign() to preserve -0 and avoid DXC corner cases.
+        const vector2_type factor = vector2_type(
+            ieee754::copySign(scalar_type(1), v.x),
+            ieee754::copySign(scalar_type(1), v.y));
+        const vector2_type swapped = vector2_type(v.y, v.x);
+        return factor * (vector2_type(scalar_type(1), scalar_type(1)) - abs(swapped));
     }
 };
 

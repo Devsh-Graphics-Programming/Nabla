@@ -7,20 +7,29 @@ using namespace nbl;
 using namespace asset;
 
 template<class ExecutionPolicy>
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, hlsl::uint32_t2 resolution) const
 {
-    const bool inFlattenDomain = flatten >= 0.0 && flatten <= 1.0; // [0, 1] range for blend equation, 1 is normally invalid but we use it to for special implied domain flatten mode
-    assert(inFlattenDomain);
+    uint32_t width = resolution.x;
+    uint32_t height = resolution.y;
 
-    if (width > properties_t::CDC_MAX_TEXTURE_WIDTH)
-        width = properties_t::CDC_MAX_TEXTURE_WIDTH;
+    if (width > texture_t::MaxTextureWidth)
+        width = texture_t::MaxTextureWidth;
 
-    if (height > properties_t::CDC_MAX_TEXTURE_HEIGHT)
-        height = properties_t::CDC_MAX_TEXTURE_HEIGHT;
+    if (height > texture_t::MaxTextureHeight)
+        height = texture_t::MaxTextureHeight;
 
-    // TODO: If no symmetry (no folding in half and abuse of mirror sampler) make dimensions odd-sized so middle texel taps the south pole
-    width = core::max(width,properties_t::CDC_MIN_TEXTURE_WIDTH);
-    height = core::max(height,properties_t::CDC_MIN_TEXTURE_HEIGHT);
+    width = core::max(width, texture_t::MinTextureWidth);
+    height = core::max(height, texture_t::MinTextureHeight);
+
+    auto makeOdd = [](uint32_t value, const uint32_t maxValue) -> uint32_t
+    {
+        if (value & 1u)
+            return value;
+        return (value < maxValue) ? (value + 1u) : (value - 1u);
+    };
+    // TODO: remove this once we exploit symmetries and fold the domain.
+    width = makeOdd(width, texture_t::MaxTextureWidth);
+    height = makeOdd(height, texture_t::MaxTextureHeight);
 
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -65,11 +74,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         state.outRange.extent = creationParams.extent;
 
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
-		const auto tInfo = texture_t::createInfo(accessor, hlsl::uint32_t2(width, height), flatten, fullDomainFlatten);
+		const auto texture = texture_t::create(accessor.properties.maxCandelaValue, hlsl::uint32_t2(width, height));
 
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
-			auto texel = texture_t::eval(accessor, tInfo, hlsl::uint32_t2(position.x, position.y));
+            const auto texel = texture.__call(accessor, hlsl::uint32_t2(position.x, position.y));
 
             asset::IImageFilter::IState::ColorValue color;
             constexpr float UI16_MAX_D = static_cast<float>(std::numeric_limits<std::uint16_t>::max());
@@ -97,11 +106,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 }
 
 //! Explicit instantiations
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const bool, uint32_t, uint32_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const bool, uint32_t, uint32_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const bool, uint32_t, uint32_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, hlsl::uint32_t2) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, hlsl::uint32_t2) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, hlsl::uint32_t2) const;
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(hlsl::uint32_t2 resolution) const
 {
-    return createIESTexture(std::execution::seq, flatten, fullDomainFlatten, width, height);
+    return createIESTexture(std::execution::seq, resolution);
 }

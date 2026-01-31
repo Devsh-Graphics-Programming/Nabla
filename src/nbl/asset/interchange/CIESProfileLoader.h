@@ -9,8 +9,6 @@
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-#if 0 // TODO: Arek
-
 #include "nbl/asset/utils/CIESProfileParser.h" // TODO: move to `src/asset/interchange`
 #include "nbl/asset/metadata/CIESProfileMetadata.h"
 
@@ -46,6 +44,5 @@ class CIESProfileLoader final : public asset::IAssetLoader
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 } // namespace nbl::asset
-#endif // end TODO: Arek
 
 #endif // __NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED__
