@@ -263,6 +263,7 @@ class CElementSensor final : public IElement
 		};*/
 		union
 		{
+			CameraBase			base;
 			PerspectivePinhole	perspective;
 			PerspectiveThinLens	thinlens;
 			Orthographic		orthographic;
