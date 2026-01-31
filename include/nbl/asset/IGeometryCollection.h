@@ -21,7 +21,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         inline const auto& getAABB() const {return m_aabb;}
 
         //
-        struct SGeometryReference
+        struct SGeometryReference final
         {
             inline operator bool() const
             {

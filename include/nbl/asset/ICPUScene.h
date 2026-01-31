@@ -8,13 +8,14 @@
 #include "nbl/core/containers/CMemoryPool.h"
 
 #include "nbl/asset/IScene.h"
+#include "nbl/asset/ICPUMorphTargets.h"
 #include "nbl/asset/material_compiler3/CTrueIR.h"
 
 
 namespace nbl::asset
 {
 // 
-class NBL_API2 ICPUScene final : public IAsset, public IScene
+class ICPUScene final : public IAsset, public IScene
 {
         using base_t = IScene;
         using material_table_allocator_t = core::GeneralpurposeAddressAllocatorST<uint32_t>;
@@ -82,6 +83,7 @@ class NBL_API2 ICPUScene final : public IAsset, public IScene
         
         //
         using material_table_offset_t = uint32_t;
+        constexpr static inline material_table_offset_t InvalidMaterialTable = ~0u;
         material_table_offset_t allocateMaterialTable(const ICPUMorphTargets* targets)
         {
             if (!targets)
@@ -121,12 +123,20 @@ class NBL_API2 ICPUScene final : public IAsset, public IScene
                     return morphTargets.size()==initialTransforms.size();
                 }
 
-                inline size_t resize(const size_t newSize)
+                inline void reserve(const size_t newSize)
+                {
+                    morphTargets.reserve(newSize);
+                    materials.reserve(newSize);
+                    if (!initialTransforms.empty())
+                        initialTransforms.reserve(newSize);
+                }
+
+                inline void resize(const size_t newSize)
                 {
                     morphTargets.resize(newSize);
-                    materials.resize(newSize);
+                    materials.resize(newSize,InvalidMaterialTable);
                     if (!initialTransforms.empty())
-                        initialTransforms.resize(newSize);
+                        initialTransforms.resize(newSize,ICPUGeometryCollection::SGeometryReference{}.transform);
                 }
 
                 inline void erase(const size_t first, const size_t last)
@@ -139,6 +149,15 @@ class NBL_API2 ICPUScene final : public IAsset, public IScene
 
                 inline size_t size() const {return morphTargets.size();}
             
+                inline std::span<core::smart_refctd_ptr<ICPUMorphTargets>> getMorphTargets() {return morphTargets;}
+                inline std::span<const core::smart_refctd_ptr<ICPUMorphTargets>> getMorphTargets() const {return morphTargets;}
+            
+                inline std::span<material_table_offset_t> getMaterialTables() {return materials;}
+                inline std::span<const material_table_offset_t> getMaterialTables() const {return materials;}
+            
+                inline std::span<hlsl::float32_t3x4> getInitialTransforms() {return initialTransforms;}
+                inline std::span<const hlsl::float32_t3x4> getInitialTransforms() const {return initialTransforms;}
+
             private:
                 friend class ICPUScene;
 
@@ -153,12 +172,6 @@ class NBL_API2 ICPUScene final : public IAsset, public IScene
         //
         inline SInstanceStorage& getInstances() {return m_instances;}
         inline const SInstanceStorage& getInstances() const {return m_instances;}
-
-        inline void setInstanceInitialTransform(const uint32_t index, const hlsl::float32_t3x4& xform)
-        {
-            if (index<m_instances.size())
-                m_instances.initialTransforms[index] = xform;
-        }
 
         enum class EEnvLightType : uint8_t
         {

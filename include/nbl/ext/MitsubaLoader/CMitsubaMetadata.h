@@ -37,9 +37,15 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		{
 			public:
 				inline CPolygonGeometry() : asset::IPolygonGeometryMetadata(), IGeometry() {}
+				inline CPolygonGeometry(CPolygonGeometry&& other) : CPolygonGeometry() {operator=(std::move(other));}
 				inline ~CPolygonGeometry() = default;
 
-				inline CPolygonGeometry& operator=(CPolygonGeometry&& other) = default;
+				inline CPolygonGeometry& operator=(CPolygonGeometry&& other)
+				{
+					asset::IPolygonGeometryMetadata::operator=(std::move(other));
+					IGeometry::operator=(std::move(other));
+					return *this;
+				}
 		};
 		class CGeometryCollection final : public asset::IGeometryCollectionMetadata, public CID
 		{

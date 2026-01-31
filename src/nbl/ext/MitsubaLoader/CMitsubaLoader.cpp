@@ -295,6 +295,55 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		//
 		ctx.scene->m_ambientLight = result.ambient;
 
+		// TODO: abstract/move away since many loaders will need to do this
+		core::unordered_map<const ICPUGeometryCollection*,core::smart_refctd_ptr<ICPUMorphTargets>> morphTargetCache;
+		auto createMorphTargets = [&_params,&morphTargetCache](core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->core::smart_refctd_ptr<ICPUMorphTargets>
+		{
+			auto found = morphTargetCache.find(collection.get());
+			if (found!=morphTargetCache.end())
+				return found->second;
+			auto targets = core::make_smart_refctd_ptr<ICPUMorphTargets>();
+			if (targets)
+			{
+				morphTargetCache[collection.get()] = targets;
+				targets->getTargets()->push_back({.geoCollection=std::move(collection)});
+			}
+			return targets;
+		};
+
+		//
+		auto& instances = ctx.scene->getInstances();
+		instances.reserve(result.shapegroups.size());
+		auto addToScene = [&](const CElementShape* shape, core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->void
+		{
+			assert(shape && collection);
+			auto targets = createMorphTargets(std::move(collection));
+			if (!targets)
+			{
+				_params.logger.log("Failed to create ICPUMorphTargets for Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+				return;
+			}
+			const auto index = instances.size();
+			instances.resize(index+1);
+			instances.getMorphTargets()[index] = std::move(targets);
+			// TODO: add materials (incl emission) to the instances
+			/*
+				auto emitter = shape->obtainEmitter();
+				auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf, &emitter, getAbsoluteTransform());
+
+				SContext::SInstanceData instance(
+					tform,
+					bsdf,
+		#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+					shape->bsdf ? shape->bsdf->id : "",
+		#endif
+					emitter,
+					CElementEmitter{} // no backface emission
+				);
+			*/
+			instances.getInitialTransforms()[index] = shape->getTransform();
+		};
+
 		// first go over all actually used shapes which are not shapegroups (regular shapes and instances)
 		for (auto& shapepair : result.shapegroups)
 		{
@@ -306,8 +355,17 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			if (shapedef->type!=CElementShape::Type::INSTANCE)
 			{
 				auto geometry = ctx.loadBasicShape(_hierarchyLevel,shapedef);
-				// TODO: add to geometry collection, make a morph target, and add to scene
-				shapedef->getAbsoluteTransform();
+				if (!geometry)
+					continue;
+				auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
+				if (!collection)
+				{
+					_params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shapedef->id.c_str());
+					continue;
+				}
+				// we don't put a transform on the geometry, because we want the transform on the instance
+				collection->getGeometries()->push_back({.geometry=std::move(geometry)});
+				addToScene(shapedef,std::move(collection));
 			}
 			else // mitsuba is weird and lists instances under a shapegroup instead of having instances reference the shapegroup
 			{
@@ -316,34 +374,13 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 				if (!parent) // we should probably assert this
 					continue;
 				assert(parent->type==CElementShape::Type::SHAPEGROUP);
-				const CElementShape::ShapeGroup* shapegroup = &parent->shapegroup;
-				auto collection = ctx.loadShapeGroup(_hierarchyLevel,shapegroup);
-				// TODO: make a morph target and add to scene with transform of
-				shapedef->getAbsoluteTransform();
+				auto collection = ctx.loadShapeGroup(_hierarchyLevel,&parent->shapegroup);
+				addToScene(shapedef,std::move(collection));
 			}
 		}
 		result.shapegroups.clear();
 
 #if 0
-		// TODO: add materials (incl emission) to the instances
-	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh)
-	{
-		auto emitter = shape->obtainEmitter();
-		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
-		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf, &emitter, core::matrix4SIMD(tform));
-
-		SContext::SInstanceData instance(
-			tform,
-			bsdf,
-#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-			shape->bsdf ? shape->bsdf->id : "",
-#endif
-			emitter,
-			CElementEmitter{} // no backface emission
-		);
-		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
-	};
-
 		// TODO: put IR and stuff in metadata so that we can recompile the materials after load
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get(), decltype(ctx.backend)::EGST_PRESENT_WITH_AOV_EXTRACTION);
 		ctx.backend_ctx.vt.commitAll();
@@ -775,31 +812,47 @@ auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape
 	auto found = groupCache.find(shapegroup);
 	if (found!=groupCache.end())
 		return found->second;
-
-	const auto children = shapegroup->children;
-#if 0
-	core::vector<SContext::shape_ass_type> meshes;
-	for (auto i=0u; i<shapegroup->childCount; i++)
+	
+	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
+	if (!collection)
+		inner.params.logger.log("Failed to create an ICPUGeometryCollection for Shape Group",system::ILogger::ELL_ERROR);
+	else
 	{
-		auto child = children[i];
-		if (!child)
-			continue;
+		auto* geometries = collection->getGeometries();
+		const auto children = shapegroup->children;
+		for (auto i=0u; i<shapegroup->childCount; i++)
+		{
+			auto child = children[i];
+			if (!child)
+				continue;
 
-		assert(child->type!=CElementShape::Type::INSTANCE);
-		if (child->type != CElementShape::Type::SHAPEGROUP) {
-			auto lowermesh = loadBasicShape(hierarchyLevel, child, relTform);
-			meshes.push_back(std::move(lowermesh));
+			assert(child->type!=CElementShape::Type::INSTANCE);
+			if (child->type!=CElementShape::Type::SHAPEGROUP)
+			{
+				auto geometry = loadBasicShape(hierarchyLevel,child);
+				if (geometry)
+					geometries->push_back({.transform=child->getTransform(),.geometry=std::move(geometry)});
+			}
+			else
+			{
+				auto nestedCollection = loadShapeGroup(hierarchyLevel,&child->shapegroup);
+				if (!nestedCollection)
+					continue;
+				auto* nestedGeometries = nestedCollection->getGeometries();
+				for (auto& ref : *nestedGeometries)
+				{
+					auto& newRef = geometries->emplace_back(std::move(ref));
+					// thankfully because SHAPEGROUPS are not allowed to have transforms we don't need to rack them up
+					//if (newRef.hasTransform())
+					//	newRef.transform = hlsl::mul(thisTransform,newRef.transform);
+					//else
+					//	newRef.transform = thisTransform;
+				}
+			}
 		}
-		else {
-			auto lowermeshes = loadShapeGroup(hierarchyLevel, &child->shapegroup, relTform);
-			meshes.insert(meshes.begin(), std::make_move_iterator(lowermeshes.begin()), std::make_move_iterator(lowermeshes.end()));
-		}
+		groupCache.insert({shapegroup,collection});
 	}
-
-	ctx.groupCache.insert({shapegroup,meshes});
-	return meshes;
-#endif
-	return nullptr;
+	return collection;
 }
 
 #if 0
@@ -837,6 +890,15 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 	auto found = shapeCache.find(shape);
 	if (found!=shapeCache.end())
 		return found->second.geom;
+
+	core::smart_refctd_ptr<asset::ICPUPolygonGeometry> geo;
+	auto exiter = core::makeRAIIExiter<>([&]()->void
+		{
+			if (geo)
+				return;
+			this->inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+		}
+	);
 
 #if 0
 	constexpr uint32_t UV_ATTRIB_ID = 2u;
@@ -883,21 +945,21 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 		else
 			return nullptr;
 	};
-
-	core::smart_refctd_ptr<asset::ICPUMesh> mesh,newMesh;
+#endif
 	bool flipNormals = false;
 	bool faceNormals = false;
-	float maxSmoothAngle = NAN;
+	float maxSmoothAngle = hlsl::bit_cast<float>(hlsl::numeric_limits<float>::quiet_NaN);
 	switch (shape->type)
 	{
+#if 0
 		case CElementShape::Type::CUBE:
 		{
 			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
 
 			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCubeMesh(core::vector3df(2.f)), m_assetMgr);
 			flipNormals = flipNormals!=shape->cube.flipNormals;
-		}
 			break;
+		}
 		case CElementShape::Type::SPHERE:
 			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createSphereMesh(1.f,64u,64u), m_assetMgr);
 			flipNormals = flipNormals!=shape->sphere.flipNormals;
@@ -939,6 +1001,8 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createDiskMesh(1.f,64u), m_assetMgr);
 			flipNormals = flipNormals!=shape->disk.flipNormals;
 			break;
+#endif
+#if 0
 		case CElementShape::Type::OBJ:
 			mesh = loadModel(shape->obj.filename);
 			flipNormals = flipNormals!=shape->obj.flipNormals;
@@ -1014,61 +1078,63 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;
+#endif
 		case CElementShape::Type::SHAPEGROUP:
 			[[fallthrough]];
 		case CElementShape::Type::INSTANCE:
 			assert(false);
 			break;
 		default:
-			_NBL_DEBUG_BREAK_IF(true);
+//			_NBL_DEBUG_BREAK_IF(true);
 			break;
 	}
 	//
-	if (!mesh)
-		return nullptr;
-
-	// mesh including meshbuffers needs to be cloned because instance counts and base instances will be changed
-	if (!newMesh)
-		newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
-	// flip normals if necessary
-	if (flipNormals)
+	if (geo)
 	{
-		for (auto& meshbuffer : mesh->getMeshBufferVector())
+#if 0
+		// mesh including meshbuffers needs to be cloned because instance counts and base instances will be changed
+		if (!newMesh)
+			newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
+		// flip normals if necessary
+		if (flipNormals)
 		{
-			auto binding = meshbuffer->getIndexBufferBinding();
-			binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
-			meshbuffer->setIndexBufferBinding(std::move(binding));
-			ctx.manipulator->flipSurfaces(meshbuffer.get());
-		}
-	}
-	// recompute normalis if necessary
-	if (faceNormals || !std::isnan(maxSmoothAngle))
-	for (auto& meshbuffer : mesh->getMeshBufferVector())
-	{
-		const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
-
-		// TODO: make these mesh manipulator functions const-correct
-		auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer.get());
-		ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
-		ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
-			[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
+			for (auto& meshbuffer : mesh->getMeshBufferVector())
 			{
-				if (faceNormals)
-					return a.indexOffset == b.indexOffset;
-				else
-					return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-			});
-		meshbuffer = std::move(newMeshBuffer);
-	}
-	IMeshManipulator::recalculateBoundingBox(newMesh.get());
-	mesh = std::move(newMesh);
+				auto binding = meshbuffer->getIndexBufferBinding();
+				binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
+				meshbuffer->setIndexBufferBinding(std::move(binding));
+				ctx.manipulator->flipSurfaces(meshbuffer.get());
+			}
+		}
+		// recompute normalis if necessary
+		if (faceNormals || !std::isnan(maxSmoothAngle))
+			for (auto& meshbuffer : mesh->getMeshBufferVector())
+			{
+				const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
 
-	addInstance(mesh);
-	// cache and return
-	ctx.shapeCache.insert({ shape,mesh });
-	return mesh;
+				// TODO: make these mesh manipulator functions const-correct
+				auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer.get());
+				ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
+				ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
+					[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
+					{
+						if (faceNormals)
+							return a.indexOffset == b.indexOffset;
+						else
+							return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
+					});
+				meshbuffer = std::move(newMeshBuffer);
+			}
+		IMeshManipulator::recalculateBoundingBox(newMesh.get());
+		mesh = std::move(newMesh);
 #endif
-	return nullptr;
+		// cache and return
+		CMitsubaMetadata::SGeometryMetaPair geoMeta = {.geom=std::move(geo)};
+		geoMeta.meta.m_id = shape->id;
+		geoMeta.meta.type = shape->type;
+		shapeCache.insert({shape,std::move(geoMeta)});
+	}
+	return geo;
 }
 
 }
