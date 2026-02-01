@@ -17,7 +17,10 @@ namespace nbl::video
 class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainResources
 {
 	public:
-		inline CDefaultSwapchainFramebuffers(ILogicalDevice* device, const asset::E_FORMAT format, const IGPURenderpass::SCreationParams::SSubpassDependency* dependencies) : m_device(device)
+		inline CDefaultSwapchainFramebuffers(
+			ILogicalDevice* device, const asset::E_FORMAT format, const IGPURenderpass::SCreationParams::SSubpassDependency* dependencies,
+			IGPURenderpass::LOAD_OP loadOp = IGPURenderpass::LOAD_OP::CLEAR
+		) : m_device(device)
 		{
 			// If we create the framebuffers by default, we also need to default the renderpass (except dependencies)
 			static const IGPURenderpass::SCreationParams::SColorAttachmentDescription colorAttachments[] = {
@@ -27,7 +30,7 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 						.samples = IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT,
 						.mayAlias = false
 					},
-					/*.loadOp = */IGPURenderpass::LOAD_OP::CLEAR,
+					/*.loadOp = */loadOp,
 					/*.storeOp = */IGPURenderpass::STORE_OP::STORE,
 					/*.initialLayout = */IGPUImage::LAYOUT::UNDEFINED, // because we clear we don't care about contents
 					/*.finalLayout = */ IGPUImage::LAYOUT::PRESENT_SRC // transition to presentation right away so we can skip a barrier
@@ -49,6 +52,10 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 		{
 			if (!m_renderpass)
 				m_renderpass = m_device->createRenderpass(m_params);
+			return m_renderpass.get();
+		}
+		inline const IGPURenderpass* getRenderpass() const
+		{
 			return m_renderpass.get();
 		}
 

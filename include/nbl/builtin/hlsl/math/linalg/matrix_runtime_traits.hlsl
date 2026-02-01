@@ -56,7 +56,7 @@ struct RuntimeTraits
     
     bool invertible;
     bool orthogonal;
-    scalar_t uniformScaleSq;
+    scalar_t uniformScaleSq; // TODO: rename to `uniformColumnSqNorm` and move this whole header to `nbl/builtin/hlsl/matrix_utils/` and associated namespace
     bool orthonormal;
 };
 

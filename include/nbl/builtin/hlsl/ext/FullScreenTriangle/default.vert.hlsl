@@ -22,7 +22,7 @@ const static float32_t2 tc[3] = {
 [[vk::constant_id(0)]] const uint32_t SwapchainTransform = 0;
 
 [shader("vertex")]
-SVertexAttributes main()
+SVertexAttributes __nbl__hlsl__ext__FullScreenTriangle__vertex_main()
 {
     using namespace ::nbl::hlsl::glsl;
 
