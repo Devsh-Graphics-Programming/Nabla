@@ -6,7 +6,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
-#include "nbl/builtin/hlsl/math/linalg/matrix_runtime_traits.hlsl"
+#include "nbl/builtin/hlsl/matrix_utils/matrix_runtime_traits.hlsl"
 
 namespace nbl
 {

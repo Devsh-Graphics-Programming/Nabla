@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_RUNTIME_TRAITS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_RUNTIME_TRAITS_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATRIX_UTILS_MATRIX_RUNTIME_TRAITS_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATRIX_UTILS_MATRIX_RUNTIME_TRAITS_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
@@ -56,7 +56,7 @@ struct RuntimeTraits
     
     bool invertible;
     bool orthogonal;
-    scalar_t uniformScaleSq; // TODO: rename to `uniformColumnSqNorm` and move this whole header to `nbl/builtin/hlsl/matrix_utils/` and associated namespace
+    scalar_t uniformScaleSq; // TODO: rename to `uniformColumnSqNorm`
     bool orthonormal;
 };
 

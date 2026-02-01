@@ -1,6 +1,5 @@
-#ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
-#include <nbl/builtin/hlsl/math/quaternions.hlsl>
+#ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_INCLUDED_
 // TODO: remove this header when deleting vectorSIMDf.hlsl
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/glslFunctions.h>
