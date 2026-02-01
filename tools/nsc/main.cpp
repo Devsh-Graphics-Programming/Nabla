@@ -472,34 +472,6 @@ private:
         for (const auto& p : m_include_search_paths)
             includeFinder->addSearchPath(p, includeLoader);
 
-        if (preprocessOnly)
-        {
-            CHLSLCompiler::SPreprocessorOptions opt = {};
-            opt.sourceIdentifier = sourceIdentifier;
-            opt.logger = m_logger.get();
-            opt.includeFinder = includeFinder.get();
-            opt.depfile = dep.enabled;
-            opt.depfilePath = dep.path;
-
-            const char* codePtr = (const char*)shader->getContent()->getPointer();
-            std::string_view code(codePtr, std::strlen(codePtr));
-
-            r.text = hlslcompiler->preprocessShader(std::string(code), shaderStage, opt, nullptr);
-            r.ok = !r.text.empty();
-            r.view = r.text;
-            return r;
-        }
-
-        CHLSLCompiler::SOptions opt = {};
-        opt.stage = shaderStage;
-        opt.preprocessorOptions.sourceIdentifier = sourceIdentifier;
-        opt.preprocessorOptions.logger = m_logger.get();
-        opt.preprocessorOptions.includeFinder = includeFinder.get();
-        opt.preprocessorOptions.depfile = dep.enabled;
-        opt.preprocessorOptions.depfilePath = dep.path;
-        opt.debugInfoFlags = bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT);
-        opt.dxcOptions = std::span<std::string>(m_arguments);
-
         // need this struct becuase fields of IShaderCompiler::SMacroDefinition are string views
         struct SMacroDefinitionBuffer
         {
@@ -524,7 +496,7 @@ private:
                 if (equalPos == std::string::npos)
                 {
                     identifier = argumentTmp;
-                    definition = "";
+                    definition = "1";
                 }
                 else
                 {
@@ -541,7 +513,35 @@ private:
                 macroDefinitions.emplace_back(macroDefinitionBuffer.identifier, macroDefinitionBuffer.definition);
         }
 
+        if (preprocessOnly)
+        {
+            CHLSLCompiler::SPreprocessorOptions opt = {};
+            opt.sourceIdentifier = sourceIdentifier;
+            opt.logger = m_logger.get();
+            opt.includeFinder = includeFinder.get();
+            opt.depfile = dep.enabled;
+            opt.depfilePath = dep.path;
+            opt.extraDefines = macroDefinitions;
+
+            const char* codePtr = (const char*)shader->getContent()->getPointer();
+            std::string_view code(codePtr, std::strlen(codePtr));
+
+            r.text = hlslcompiler->preprocessShader(std::string(code), shaderStage, opt, nullptr);
+            r.ok = !r.text.empty();
+            r.view = r.text;
+            return r;
+        }
+
+        CHLSLCompiler::SOptions opt = {};
+        opt.stage = shaderStage;
+        opt.preprocessorOptions.sourceIdentifier = sourceIdentifier;
+        opt.preprocessorOptions.logger = m_logger.get();
+        opt.preprocessorOptions.includeFinder = includeFinder.get();
+        opt.preprocessorOptions.depfile = dep.enabled;
+        opt.preprocessorOptions.depfilePath = dep.path;
         opt.preprocessorOptions.extraDefines = macroDefinitions;
+        opt.debugInfoFlags = bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT);
+        opt.dxcOptions = std::span<std::string>(m_arguments);
 
         r.compiled = hlslcompiler->compileToSPIRV((const char*)shader->getContent()->getPointer(), opt);
         r.ok = bool(r.compiled);

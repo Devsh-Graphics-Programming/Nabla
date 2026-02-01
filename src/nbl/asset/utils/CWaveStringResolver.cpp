@@ -59,17 +59,18 @@ namespace nbl::wave
         // to match boost wave syntax
         // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
 
-        for (const auto& define : preprocessOptions.extraDefines)
-        {
-            const std::string macroDefinition = define.identifier.data() + core::string("=") + define.definition.data();
-            const bool isMacroAdded = context.add_macro_definition(macroDefinition);
-            assert(isMacroAdded);
-        }
-
         // preprocess
         core::string resolvedString;
         try
         {
+            for (const auto& define : preprocessOptions.extraDefines)
+            {
+                std::string macroDefinition(define.identifier);
+                macroDefinition.push_back('=');
+                macroDefinition.append(define.definition);
+                context.add_macro_definition(macroDefinition);
+            }
+
             auto stream = std::stringstream();
             for (auto i = context.begin(); i != context.end(); i++)
                 stream << i->get_value();
