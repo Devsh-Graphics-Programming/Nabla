@@ -105,7 +105,7 @@ struct median_meter
         float_t binSize = (lumaMinMax.y - lumaMinMax.x) / BinCount;
         uint32_t binIndex = (uint32_t)((luma - lumaMinMax.x) / binSize);
 
-        sdata.atomicAdd(binIndex, float2Int(luma, lumaMinMax.x, lumaMinMax.y - lumaMinMax.x));
+        sdata.atomicAdd(binIndex, __float2Int(luma, lumaMinMax.x, lumaMinMax.y - lumaMinMax.x));
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
@@ -114,8 +114,8 @@ struct median_meter
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        float_t sum = inclusive_scan(histogram_value, sdata);
-        histo.atomicAdd(tid, float2Int(sum, lumaMinMax.x, lumaMinMax.y - lumaMinMax.x));
+        float_t sum = __inclusive_scan(histogram_value, sdata);
+        histo.atomicAdd(tid, __float2Int(sum, lumaMinMax.x, lumaMinMax.y - lumaMinMax.x));
 
         const bool is_last_wg_invocation = tid == (GroupSize - 1);
         const static uint32_t RoundedBinCount = 1 + (BinCount - 1) / GroupSize;
@@ -137,7 +137,7 @@ struct median_meter
             // no aliasing anymore
             float_t atVid;
             sdata.get(vid, atVid);
-            sum = inclusive_scan(atVid, sdata);
+            sum = __inclusive_scan(atVid, sdata);
             if (vid < BinCount) {
                 histo.atomicAdd(vid, __float2Int(sum, lumaMinMax.x, lumaMinMax.y - lumaMinMax.x));
             }
