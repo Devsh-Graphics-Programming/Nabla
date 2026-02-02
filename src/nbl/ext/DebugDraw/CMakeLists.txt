@@ -37,7 +37,6 @@ set(JSON [=[
         "INPUT": "${NBL_DEBUG_DRAW_HLSL_MOUNT_POINT}/draw_aabb.unified.hlsl",
         "KEY": "draw_aabb",
     }
-    
 ]
 ]=])
 string(CONFIGURE "${JSON}" JSON)
@@ -68,6 +67,5 @@ NBL_CREATE_RESOURCE_ARCHIVE(
     BIND ${OUTPUT_DIRECTORY}
     BUILTINS ${KEYS}
 )
-
 
 add_library(Nabla::ext::DebugDraw ALIAS ${LIB_NAME})

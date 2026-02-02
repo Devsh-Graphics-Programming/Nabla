@@ -87,24 +87,24 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 
 		enum E_LOADER_PARAMETER_FLAGS : uint64_t
 		{
-			ELPF_NONE = 0,											//!< default value, it doesn't do anything
-			/*deprecated*/ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
-			/*deprecated*/ELPF_DONT_COMPILE_GLSL = 0x2,							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
-			ELPF_LOAD_METADATA_ONLY = 0x4							//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
+			ELPF_NONE = 0,									//!< default value, it doesn't do anything
+//[[deprecated]] ELPF_RIGHT_HANDED_MESHES = 0x1,	//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
+//[[deprecated]] ELPF_DONT_COMPILE_GLSL = 0x2,		//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
+			ELPF_LOAD_METADATA_ONLY = 0x4					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
 		};
 
 		struct SAssetLoadParams
 		{
-			SAssetLoadParams(size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
-				E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, 
-				system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
+			inline SAssetLoadParams(const size_t _decryptionKeyLen = 0u, const uint8_t* const _decryptionKey = nullptr,
+				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS _loaderFlags = ELPF_NONE, 
+				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
 					logger(std::move(_logger)), workingDirectory(cwd)
 			{
 			}
 
-			SAssetLoadParams(const SAssetLoadParams& rhs, bool _reload = false) :
+			inline SAssetLoadParams(const SAssetLoadParams& rhs, const bool _reload=false) :
 				decryptionKeyLen(rhs.decryptionKeyLen),
 				decryptionKey(rhs.decryptionKey),
 				cacheFlags(rhs.cacheFlags),

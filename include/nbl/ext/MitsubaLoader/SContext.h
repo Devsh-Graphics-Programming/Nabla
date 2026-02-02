@@ -9,15 +9,14 @@
 //#include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/interchange/CIESProfileLoader.h"
 
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 //#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-//#include "nbl/ext/MitsubaLoader/CElementShape.h"
+
 
 namespace nbl::ext::MitsubaLoader
 {
 
-class CMitsubaMetadata;
-
-struct SContext
+struct SContext final
 {
 	public:
 		SContext(
@@ -28,19 +27,29 @@ struct SContext
 			CMitsubaMetadata* _metadata
 		);
 
+		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUPolygonGeometry>;
+		shape_ass_type loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape);
+		using group_ass_type = core::smart_refctd_ptr<asset::ICPUGeometryCollection>;
+		group_ass_type loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+
+		inline void transferMetadata()
+		{
+			meta->setPolygonGeometryMeta(std::move(shapeCache));
+		}
+
 //		const asset::IGeometryCreator* creator;
 //		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		CMitsubaMetadata* meta;
+		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
+	private:
+		//
+		core::unordered_map<const CElementShape::ShapeGroup*,group_ass_type> groupCache;
+		//
+		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryMetaPair> shapeCache;
 #if 0
-		//
-		using group_ass_type = core::vector<core::smart_refctd_ptr<asset::ICPUMesh>>;
-		//core::map<const CElementShape::ShapeGroup*, group_ass_type> groupCache;
-		//
-		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
-		core::map<const CElementShape*, shape_ass_type> shapeCache;
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
 		//image, scale
@@ -167,37 +176,8 @@ struct SContext
 		using bsdf_type = const CMitsubaMaterialCompilerFrontend::front_and_back_t;
 		//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
 		core::unordered_map<const CElementBSDF*, bsdf_type> instrStreamCache;
-
-		struct SInstanceData
-		{
-			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitterFront, const CElementEmitter& _emitterBack) :
-				tform(_tform), bsdf(_bsdf),
-#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-				bsdf_id(_id),
 #endif
-				emitter{_emitterFront, _emitterBack}
-			{}
-
-			core::matrix3x4SIMD tform;
-			SContext::bsdf_type bsdf;
-#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-			std::string bsdf_id;
-#endif
-			struct {
-				// type is invalid if not used
-				CElementEmitter front;
-				CElementEmitter back;
-			} emitter;
-		};
-		core::unordered_multimap<const shape_ass_type::pointee*, SInstanceData> mapMesh2instanceData;
-
-		core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
-#endif
-		//material compiler
-//		core::smart_refctd_ptr<asset::material_compiler::IR> ir;
-//		CMitsubaMaterialCompilerFrontend frontend;
-
-	private:
+		core::smart_refctd_ptr<asset::material_compiler3::CFrontendIR> frontIR;
 };
 
 }
