@@ -66,6 +66,16 @@ if(NBL_BUILD_DEBUG_DRAW)
     )
 endif()
 
+add_subdirectory(FullScreenTriangle)
+set(NBL_EXT_FULL_SCREEN_TRIANGLE_INCLUDE_DIRS
+    ${NBL_EXT_FULL_SCREEN_TRIANGLE_INCLUDE_DIRS}
+    PARENT_SCOPE
+)
+set(NBL_EXT_FULL_SCREEN_TRIANGLE_LIB
+    ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB}
+    PARENT_SCOPE
+)
+
 propagate_changed_variables_to_parent_scope()
 
 NBL_ADJUST_FOLDERS(ext)

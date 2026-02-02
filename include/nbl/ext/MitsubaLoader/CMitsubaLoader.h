@@ -9,7 +9,6 @@
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-//#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 
@@ -57,12 +56,8 @@ class CMitsubaLoader final : public asset::ISceneLoader
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
-#if 0
-		//
-		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
-		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
-		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 
+#if 0
 		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
 		void cacheEmissionProfile(SContext& ctx, const CElementEmissionProfile* profile);
 
