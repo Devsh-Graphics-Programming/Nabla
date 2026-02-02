@@ -169,6 +169,7 @@ endif()
 
 make_directory("${NBL_DOCKER_CTX_DIR}/Runtimes")
 make_directory("${NBL_DOCKER_CTX_DIR}/Nabla")
+make_directory("${NBL_DOCKER_CTX_DIR}/Examples")
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${DXIL_DLL}" "${NBL_DOCKER_CTX_DIR}/Runtimes"
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${UCRTBASED_DLL}" "${NBL_DOCKER_CTX_DIR}/Runtimes"
@@ -208,6 +209,9 @@ FROM @BASE_IMAGE@
 COPY --link --from=compress ["C:/pack/windows-artifacts.tar.zst", "C:/pack/"]
 COPY --link --from=compress ["C:/pack/nabla-artifacts.tar.zst", "C:/pack/"]
 COPY hlsl.local.properties.cmake C:/Compiler-Explorer/etc/config/hlsl.local.properties
+
+# counting sort
+COPY --link Examples/ C:/Compiler-Explorer/examples/hlsl/
 
 ENV NBL_INSTALL_DIRECTORY=@NBL_DOCKER_CT_NSC_VOLUME_TARGET@ `
 NBL_EXPLICIT_MODULE_LOAD_LOG=ON
@@ -265,6 +269,9 @@ endif()
 set(NBL_CE_HEALTHY_CHECK_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py")
 set(NBL_CE_ENDPOINT_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/endpoint.py")
 set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl-basic-compile-payload.json")
+set(NBL_NSC_EXAMPLES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/examples")
+
+get_target_property(NBL_CE_COUNTING_SORT_EXAMPLE_PATH countingsort SOURCE_DIR)
 
 # to avoid "too long input" errors we proxy build instructions to CMake script and write it to build directory
 string(CONFIGURE [=[
@@ -307,6 +314,11 @@ execute_process(COMMAND "@CMAKE_COMMAND@" -E copy_directory_if_different
   "$<PATH:NORMAL_PATH,@NBL_NSC_PREINSTALL_DIRECTORY@>"
   "@NBL_DOCKER_CTX_DIR@/Nabla"
   COMMAND_ERROR_IS_FATAL ANY
+)
+
+message(STATUS "Copying examples")
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" -E copy_directory_if_different "@NBL_NSC_EXAMPLES_DIR@/" "@NBL_DOCKER_CTX_DIR@/Examples/"
 )
 
 message(STATUS "Building NSC Godbolt image")
