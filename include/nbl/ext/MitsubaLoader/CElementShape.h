@@ -10,7 +10,7 @@
 #include "nbl/ext/MitsubaLoader/CElementBSDF.h"
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 
-#include "nbl/builtin/hlsl/math/linalg/matrix_utils.hlsl"
+#include "nbl/builtin/hlsl/math/linalg/basic.hlsl"
 
 
 namespace nbl::ext::MitsubaLoader
