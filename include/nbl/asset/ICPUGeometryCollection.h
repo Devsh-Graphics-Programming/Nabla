@@ -24,11 +24,15 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         inline E_TYPE getAssetType() const override {return AssetType;}
 
         //
-        inline bool valid() const //override
+        inline bool valid() const override
         {
             for (const auto& ref : m_geometries)
-            if (!ref.geometry->valid())
-                return false;
+            {
+                if (!ref.operator bool() || !ref.geometry->valid())
+                    return false;
+                if (ref.jointRedirectView.src && ref.jointRedirectView.composed.getRange<hlsl::shapes::AABB<1,uint32_t>>().maxVx[0]>=getJointCount())
+                    return false;
+            }
             return true;
         }
 
@@ -61,6 +65,8 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
             return false;
         }
 
+        //
+        inline const core::vector<SGeometryReference>& getGeometries() const {return base_t::getGeometries();}
         //
         inline core::vector<SGeometryReference>* getGeometries()
         {

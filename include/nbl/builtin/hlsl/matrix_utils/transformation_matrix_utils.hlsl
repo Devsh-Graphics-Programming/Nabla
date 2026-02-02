@@ -72,7 +72,7 @@ inline matrix<Tout, N, M> getCastedMatrix(const matrix<Tin, N, M>& in)
 	return out;
 }
 
-// TODO: use portable_float when merged
+// TODO: remove
 //! multiplies matrices a and b, 3x4 matrices are treated as 4x4 matrices with 4th row set to (0, 0, 0 ,1)
 template<typename T>
 inline matrix<T, 3, 4> concatenateBFollowedByA(const matrix<T, 3, 4>& a, const matrix<T, 3, 4>& b)

@@ -175,7 +175,7 @@ inline float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
 template<typename TwoColumns>
 TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 {
-	return mul(inverse(transformMatrix(transform)), dDx_dDy);
+    return mul(::nbl::hlsl::inverse(transformMatrix(transform)),dDx_dDy);
 }
 
 }
