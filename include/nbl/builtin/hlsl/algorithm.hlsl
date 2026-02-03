@@ -73,20 +73,16 @@ namespace impl
         rhs ^= lhs;
         lhs ^= rhs;
     }
-#else
-    template<typename T>
-    NBL_CONSTEXPR_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
-    {
-        std::swap(lhs, rhs);
-    }
 #endif
 }
 
+#ifdef __HLSL_VERSION
 template<typename T>
 NBL_CONSTEXPR_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
 {
     impl::swap<T>(lhs, rhs);
 }
+#endif
 
 
 namespace impl

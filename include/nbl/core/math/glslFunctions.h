@@ -362,6 +362,7 @@ NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 template<typename T>
 NBL_FORCE_INLINE T normalize(const T& v)
 {
+	// TODO: THIS CREATES AMGIGUITY WITH GLM:: NAMESPACE!
 	auto d = dot<T>(v, v);
 #ifdef __NBL_FAST_MATH
 	return v * core::inversesqrt<T>(d);
@@ -371,6 +372,7 @@ NBL_FORCE_INLINE T normalize(const T& v)
 }
 
 // TODO : matrixCompMult, outerProduct, inverse
+// Arek: old and to be killed (missing .tcc include?), no definition in Nabla causing linker errors
 template<typename T>
 NBL_FORCE_INLINE T transpose(const T& m);
 template<>

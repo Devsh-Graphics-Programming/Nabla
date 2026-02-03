@@ -154,7 +154,14 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		smart_refctd_ptr<IShader> vertex, fragment;
 	} shaders;
 
-	{		
+	if (creationParams.spirv.has_value())
+	{
+		auto& spirv = creationParams.spirv.value();
+		shaders.vertex = spirv.vertex;
+		shaders.fragment = spirv.fragment;
+	}
+	else
+	{
 		//! proxy the system, we will touch it gently
 		auto system = smart_refctd_ptr<ISystem>(creationParams.assetManager->getSystem());
 
