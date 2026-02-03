@@ -21,13 +21,13 @@ namespace hlsl
 namespace luma_meter
 {
 
-template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, typename TexAccessor>
+template<uint32_t WorkgroupSize, uint16_t SubgroupSize, typename ValueAccessor, typename SharedAccessor, typename TexAccessor>
 struct geom_meter
 {
     using float_t = typename SharedAccessor::type;
     using float_t2 = typename conditional<is_same_v<float_t, float32_t>, float32_t2, float16_t2>::type;
     using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
-    using this_t = geom_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
+    using this_t = geom_meter<WorkgroupSize, SubgroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxWorkgroupIncrement = 0x1000u;
 
@@ -43,7 +43,7 @@ struct geom_meter
 
     float_t __reduction(float_t value, NBL_REF_ARG(SharedAccessor) sdata)
     {
-        return workgroup::reduction < plus < float_t >, GroupSize >::
+        return workgroup::reduction < plus < float_t >, WorkgroupSize >::
             template __call <SharedAccessor>(value, sdata);
     }
 
@@ -69,8 +69,11 @@ struct geom_meter
         float_t rangeLog2
     )
     {
-        uint32_t lumaVal = uint32_t((val / (32.0 * 32.0)) * float_t(MaxWorkgroupIncrement) + 0.5); // 32*32 subgroups
-        val_accessor.atomicAdd(0u, lumaVal);
+        const uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
+        const uint32_t3 workgroupID = glsl::gl_WorkGroupID();
+        const uint32_t index = (workgroupID.y * workGroupCount.x + workgroupID.x) & (SubgroupSize - 1u);
+        uint32_t lumaVal = uint32_t(val / float_t(WorkgroupSize) * float_t(MaxWorkgroupIncrement) + 0.5);
+        val_accessor.atomicAdd(index, lumaVal);
     }
 
     float_t __downloadFloat(
@@ -80,8 +83,9 @@ struct geom_meter
         float_t rangeLog2
     )
     {
-        float_t luma = float_t(val_accessor.get(0u));
-        return luma / float_t(MaxWorkgroupIncrement) * rcpFirstPassWGCount * rangeLog2 + minLog2;
+        uint32_t lumaVal = val_accessor.get(index);
+        lumaVal = glsl::subgroupAdd(lumaVal);
+        return float_t(lumaVal) / float_t(MaxWorkgroupIncrement) * rcpFirstPassWGCount * rangeLog2 + minLog2;
     }
 
     void sampleLuma(
@@ -118,14 +122,6 @@ struct geom_meter
     )
     {
         uint32_t tid = glsl::gl_SubgroupInvocationID();
-        // float_t luma = glsl::subgroupAdd(
-        //     __downloadFloat(
-        //         val,
-        //         tid,
-        //         log2(lumaMinMax.x),
-        //         log2(lumaMinMax.y / lumaMinMax.x)
-        //     )
-        // );
         float_t luma = __downloadFloat(
                 val,
                 tid,
@@ -133,7 +129,7 @@ struct geom_meter
                 log2(lumaMax / lumaMin)
             );
 
-        return luma;// / sampleCount;
+        return luma;
     }
 
     float_t lumaMin;

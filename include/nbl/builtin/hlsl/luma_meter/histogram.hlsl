@@ -21,14 +21,14 @@ namespace hlsl
 namespace luma_meter
 {
 
-template<uint32_t GroupSize, uint16_t BinCount, typename HistogramAccessor, typename SharedAccessor, typename TexAccessor>
+template<uint32_t WorkgroupSize, uint16_t BinCount, typename HistogramAccessor, typename SharedAccessor, typename TexAccessor>
 struct median_meter
 {
     using int_t = typename SharedAccessor::type;
     using float_t  = float32_t;
     using float_t2 = typename conditional<is_same_v<float_t, float32_t>, float32_t2, float16_t2>::type;
     using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
-    using this_t = median_meter<GroupSize, BinCount, HistogramAccessor, SharedAccessor, TexAccessor>;
+    using this_t = median_meter<WorkgroupSize, BinCount, HistogramAccessor, SharedAccessor, TexAccessor>;
 
     static this_t create(float_t lumaMin, float_t lumaMax, float_t lowerBoundPercentile, float_t upperBoundPercentile)
     {
@@ -42,7 +42,7 @@ struct median_meter
 
     int_t __inclusive_scan(float_t value, NBL_REF_ARG(SharedAccessor) sdata)
     {
-        return workgroup::inclusive_scan < plus < int_t >, GroupSize >::
+        return workgroup::inclusive_scan < plus < int_t >, WorkgroupSize >::
             template __call <SharedAccessor>(value, sdata);
     }
 
@@ -70,7 +70,7 @@ struct median_meter
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         
-        for (uint32_t vid = tid; vid < BinCount; vid += GroupSize) {
+        for (uint32_t vid = tid; vid < BinCount; vid += WorkgroupSize) {
             sdata.set(vid, 0);
         }
 
@@ -105,7 +105,7 @@ struct median_meter
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
 
-        for (uint32_t vid = tid; vid < BinCount; vid += GroupSize) {
+        for (uint32_t vid = tid; vid < BinCount; vid += WorkgroupSize) {
             sdata.set(
                 vid,
                 histo.get(vid)
