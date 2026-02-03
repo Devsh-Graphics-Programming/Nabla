@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/math/quaternions.hlsl>
 
 namespace nbl
 {
@@ -71,7 +72,7 @@ inline matrix<Tout, N, M> getCastedMatrix(const matrix<Tin, N, M>& in)
 	return out;
 }
 
-// TODO: use portable_float when merged
+// TODO: remove
 //! multiplies matrices a and b, 3x4 matrices are treated as 4x4 matrices with 4th row set to (0, 0, 0 ,1)
 template<typename T>
 inline matrix<T, 3, 4> concatenateBFollowedByA(const matrix<T, 3, 4>& a, const matrix<T, 3, 4>& b)
@@ -125,30 +126,16 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixRH(
 
 //! Replaces curent rocation and scale by rotation represented by quaternion `quat`, leaves 4th row and 4th colum unchanged
 template<typename T, uint32_t N>
-inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(core::quaternion) quat)
+inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(math::quaternion<T>) quat)
 {
 	static_assert(N == 3 || N == 4);
+	matrix<T, 3, 3> mat = _static_cast<matrix<T, 3, 3>>(quat);
 
-	outMat[0] = vector<T, 4>(
-		1 - 2 * (quat.y * quat.y + quat.z * quat.z),
-		2 * (quat.x * quat.y - quat.z * quat.w),
-		2 * (quat.x * quat.z + quat.y * quat.w),
-		outMat[0][3]
-	);
+	outMat[0] = mat[0];
 
-	outMat[1] = vector<T, 4>(
-		2 * (quat.x * quat.y + quat.z * quat.w),
-		1 - 2 * (quat.x * quat.x + quat.z * quat.z),
-		2 * (quat.y * quat.z - quat.x * quat.w),
-		outMat[1][3]
-	);
+	outMat[1] = mat[1];
 
-	outMat[2] = vector<T, 4>(
-		2 * (quat.x * quat.z - quat.y * quat.w),
-		2 * (quat.y * quat.z + quat.x * quat.w),
-		1 - 2 * (quat.x * quat.x + quat.y * quat.y),
-		outMat[2][3]
-	);
+	outMat[2] = mat[2];
 }
 
 template<typename T, uint32_t N>

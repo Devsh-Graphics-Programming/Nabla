@@ -119,30 +119,32 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
             return (m_alignment > 0 && !(m_alignment & (m_alignment - 1)));
         }
 
-protected:
-    inline void discardContent_impl() override
-    {
-        if (m_data)
-            m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
-        m_data = nullptr;
-        m_mem_resource = nullptr;
-        m_creationParams.size = 0ull;
-    }
+    protected:
+        inline void discardContent_impl() override
+        {
+            if (m_data)
+                m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
+            m_data = nullptr;
+            m_mem_resource = nullptr;
+            m_creationParams.size = 0ull;
+        }
 
-private:
-    ICPUBuffer(SCreationParams&& params) :
-        asset::IBuffer({ params.size, EUF_TRANSFER_DST_BIT }), m_data(params.data),
-        m_mem_resource(params.memoryResource), m_alignment(params.alignment) {}
+    private:
+        // TODO: we should remove the addition of TRANSFER_DST_BIT because its the asset converter patcher that handles that
+        // But we need LLVM-pipe CI first so I don't have to test 70 examples by hand
+        inline ICPUBuffer(SCreationParams&& params) : asset::IBuffer({params.size,params.usage|EUF_TRANSFER_DST_BIT}),
+            m_data(params.data), m_mem_resource(params.memoryResource), m_alignment(params.alignment) {}
 
-    ~ICPUBuffer() override {
-        discardContent_impl();
-    }
+        inline ~ICPUBuffer() override
+        {
+            discardContent_impl();
+        }
 
-    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 
-    void* m_data;
-    core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
-    size_t m_alignment;
+        void* m_data;
+        core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
+        size_t m_alignment;
 };
 
 } // end namespace nbl::asset
