@@ -101,9 +101,7 @@ struct geom_meter
         mc.value = tid;
         uint32_t2 coord = _static_cast<uint32_t2>(mc);
 
-        float_t luma = 0.0f;
-        // float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
-        float_t2 shiftedCoord = float_t2(glsl::gl_GlobalInvocationID().xy) / viewportSize;
+        float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
         float_t lumaLog2 = __computeLumaLog2(window, tex, shiftedCoord);
         lumaLog2 = (lumaLog2 - log2(lumaMinMax.x)) / log2(lumaMinMax.y / lumaMinMax.x);
         float_t lumaLog2Sum = __reduction(lumaLog2, sdata);
