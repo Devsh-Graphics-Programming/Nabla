@@ -30,10 +30,13 @@ struct median_meter
     using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
     using this_t = median_meter<GroupSize, BinCount, HistogramAccessor, SharedAccessor, TexAccessor>;
 
-    static this_t create(float_t2 lumaMinMax)
+    static this_t create(float_t lumaMin, float_t lumaMax, float_t lowerBoundPercentile, float_t upperBoundPercentile)
     {
         this_t retval;
-        retval.lumaMinMax = lumaMinMax;
+        retval.lumaMin = lumaMin;
+        retval.lumaMax = lumaMax;
+        retval.lowerBoundPercentile = lowerBoundPercentile;
+        retval.upperBoundPercentile = upperBoundPercentile;
         return retval;
     }
 
@@ -53,7 +56,7 @@ struct median_meter
         float_t3 color = tex.get(uvPos);
         float_t luma = (float_t)TexAccessor::toXYZ(color);
 
-        return clamp(luma, lumaMinMax.x, lumaMinMax.y);
+        return clamp(luma, lumaMin, lumaMax);
     }
 
     void sampleLuma(
@@ -80,7 +83,7 @@ struct median_meter
         float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
         float_t luma = __computeLuma(window, tex, shiftedCoord);
 
-        float_t scaledLogLuma = log2(luma / lumaMinMax.x) / log2(lumaMinMax.y / lumaMinMax.x);
+        float_t scaledLogLuma = log2(luma / lumaMin) / log2(lumaMax / lumaMin);
         uint32_t binIndex = int_t(scaledLogLuma * float_t(BinCount-1u) + 0.5);
         sdata.atomicAdd(binIndex, 1u);
 
@@ -108,15 +111,12 @@ struct median_meter
                 histo.get(vid)
             );
         }
-
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        // TODO: choose percentile in push constant
         int_t lower, upper;
         if (tid == 0)
         {
-            uint32_t percentile40 = uint32_t(BinCount * 0.4);
-            // lower bound
+            const uint32_t lowerPercentile = uint32_t(BinCount * lowerBoundPercentile);
             uint32_t lo = 0u;
             uint32_t hi = BinCount;
             int_t v;
@@ -124,7 +124,7 @@ struct median_meter
             {
                 uint32_t mid = lo + (hi - lo) / 2;
                 sdata.get(mid, v);
-                if (percentile40 <= v)
+                if (lowerPercentile <= v)
                     hi = mid;
                 else
                     lo = mid + 1;
@@ -134,8 +134,7 @@ struct median_meter
         }
         if (tid == 1)
         {
-            uint32_t percentile60 = uint32_t(BinCount * 0.6);
-            // upper bound
+            const uint32_t upperPercentile = uint32_t(BinCount * upperBoundPercentile);
             uint32_t lo = 0u;
             uint32_t hi = BinCount;
             int_t v;
@@ -143,7 +142,7 @@ struct median_meter
             {
                 uint32_t mid = lo + (hi - lo) / 2;
                 sdata.get(mid, v);
-                if (percentile60 >= v)
+                if (upperPercentile >= v)
                     lo = mid + 1;
                 else
                     hi = mid;
@@ -151,16 +150,18 @@ struct median_meter
 
             upper = lo;
         }
-
         sdata.workgroupExecutionAndMemoryBarrier();
 
         lower = workgroup::Broadcast(lower, sdata, 0);
         upper = workgroup::Broadcast(upper, sdata, 1);
 
-        return ((float_t(lower) + float_t(upper)) * 0.5 / float_t(BinCount-1u)) * log2(lumaMinMax.y/lumaMinMax.x) + log2(lumaMinMax.x);
+        return ((float_t(lower) + float_t(upper)) * 0.5 / float_t(BinCount-1u)) * log2(lumaMax/lumaMin) + log2(lumaMin);
     }
 
-    float_t2 lumaMinMax;
+    float_t lumaMin;
+    float_t lumaMax;
+    float_t lowerBoundPercentile;
+    float_t upperBoundPercentile;
 };
 
 // template<uint32_t GroupSize, uint16_t BinCount, typename HistogramAccessor, typename SharedAccessor, typename TexAccessor>
