@@ -204,7 +204,7 @@ struct SCookTorrance
                                     localH.z * (VdotH * rcpEta.value[0] + LdotH) - NdotV * rcpEta.value[0], transmitted);
         // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
         // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
-        if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
+        if (hlsl::isnan(NdotL) || ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
         {
             valid = false;
             return sample_type::createInvalid();    // should check if sample direction is invalid
