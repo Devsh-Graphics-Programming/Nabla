@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_TONE_MAPPER_OPERATORS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_TONE_MAPPER_OPERATORS_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_TONE_MAPPER_ACES_INCLUDED_
+#define _NBL_BUILTIN_HLSL_TONE_MAPPER_ACES_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
@@ -29,7 +29,7 @@ struct ACES
 		this_t retval;
 		retval.gamma = Contrast;
 		const float_t reinhardMatchCorrection = 0.77321666f; // middle grays get exposed to different values between tonemappers given the same key
-		retval.exposure = EV + log2(key * reinhardMatchCorrection);
+		retval.exposure = -EV + log2(key * reinhardMatchCorrection);
 		return retval;
 	}
 
