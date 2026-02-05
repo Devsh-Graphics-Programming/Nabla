@@ -71,7 +71,7 @@ class IGPUCommandPool : public IBackendObject
             m_commandListPool.clear();
             return reset_impl();
         }
-        inline uint32_t getResetCounter() { return m_resetCount.load(); }
+        inline uint64_t getResetCounter() { return m_resetCount.load(); }
 
         // recycles unused memory from the command pool back to the system
         virtual void trim() = 0; // no extra stuff needed for `CCommandSegmentListPool` because it trims unused blocks at runtime

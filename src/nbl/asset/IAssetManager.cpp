@@ -88,7 +88,7 @@
 #endif
 
 #include "nbl/asset/interchange/CBufferLoaderBIN.h"
-//#include "nbl/asset/interchange/CIESProfileLoader.h"
+#include "nbl/asset/interchange/CIESProfileLoader.h"
 
 #include "nbl/asset/utils/CGeometryCreator.h"
 
@@ -188,7 +188,7 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
-//    addAssetLoader(core::make_smart_refctd_ptr<asset::CIESProfileLoader>());
+addAssetLoader(core::make_smart_refctd_ptr<asset::CIESProfileLoader>());
 
     for (auto& loader : m_loaders.vector)
         loader->initialize();

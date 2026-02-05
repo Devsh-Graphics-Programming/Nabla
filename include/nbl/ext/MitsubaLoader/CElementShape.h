@@ -10,6 +10,8 @@
 #include "nbl/ext/MitsubaLoader/CElementBSDF.h"
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 
+#include "nbl/builtin/hlsl/math/linalg/basic.hlsl"
+
 
 namespace nbl::ext::MitsubaLoader
 {
@@ -236,15 +238,14 @@ class CElementShape final : public IElement
 		inline std::string getLogName() const override { return "shape"; }
 
 		
-		inline hlsl::float32_t3x4 getAbsoluteTransform() const
+		inline hlsl::float32_t3x4 getTransform() const
 		{
 			// explicit truncation
 			auto local = hlsl::float32_t3x4(transform.matrix);
-			// TODO restore at some point (and make it actually work??)
-			// note: INSTANCE can only contain SHAPEGROUP and the latter doesnt have its own transform
 
-			//if (type==CElementShape::INSTANCE && instance.parent)
-			//	return mul(instance.parent->getAbsoluteTransform(),local);
+			// SHAPEGROUP cannot have its own transformation
+			assert(type!=Type::SHAPEGROUP || hlsl::math::linalg::diagonal<hlsl::float32_t3x4>(1)==local);
+
 			return local;
 		}
 

@@ -6,7 +6,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
-#include "nbl/builtin/hlsl/math/linalg/matrix_runtime_traits.hlsl"
+#include "nbl/builtin/hlsl/matrix_utils/matrix_runtime_traits.hlsl"
 
 namespace nbl
 {
@@ -102,31 +102,33 @@ struct quaternion
 
     static this_t create(NBL_CONST_REF_ARG(matrix_type) _m, const bool dontAssertValidMatrix=false)
     {
-        scalar_type uniformScaleSq;
+        scalar_type uniformColumnSqNorm;
         {
             // only orthogonal and uniform scale mats can be converted
             linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(_m);
-            bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformScaleSq);
-            uniformScaleSq = traits.uniformScaleSq;
+            bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformColumnSqNorm);
+            uniformColumnSqNorm = traits.uniformColumnSqNorm;
 
             if (dontAssertValidMatrix)
+            {
                 if (!valid)
                 {
                     this_t retval;
                     retval.data = hlsl::promote<data_type>(bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN));
                     return retval;
                 }
+            }
             else
                 assert(valid);
         }
-        if (uniformScaleSq < numeric_limits<scalar_type>::min)
+        if (uniformColumnSqNorm < numeric_limits<scalar_type>::min)
         {
             this_t retval;
             retval.data = hlsl::promote<data_type>(bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN));
             return retval;
         }
 
-        const scalar_type uniformScale = hlsl::sqrt(uniformScaleSq);
+        const scalar_type uniformScale = hlsl::sqrt(uniformColumnSqNorm);
         matrix_type m = _m;
         m /= uniformScale;
 
@@ -146,9 +148,9 @@ struct quaternion
         {
             const scalar_type scales = hlsl::sqrt(tmp.x + scalar_type(1.0));
             const scalar_type invscales = scalar_type(0.5) / scales;
-            retval.data.x = (m[1][2] - m[2][1]) * invscales;
-            retval.data.y = (m[2][0] - m[0][2]) * invscales;
-            retval.data.z = (m[0][1] - m[1][0]) * invscales;
+            retval.data.x = (m[2][1] - m[1][2]) * invscales;
+            retval.data.y = (m[0][2] - m[2][0]) * invscales;
+            retval.data.z = (m[1][0] - m[0][1]) * invscales;
             retval.data.w = scales * scalar_type(0.5);
         }
         else
@@ -158,27 +160,27 @@ struct quaternion
                 const scalar_type scales = hlsl::sqrt(tmp.y + scalar_type(1.0));
                 const scalar_type invscales = scalar_type(0.5) / scales;
                 retval.data.x = scales * scalar_type(0.5);
-                retval.data.y = (m[1][0] + m[0][1]) * invscales;
-                retval.data.z = (m[0][2] + m[2][0]) * invscales;
-                retval.data.w = (m[1][2] - m[2][1]) * invscales;
+                retval.data.y = (m[0][1] + m[1][0]) * invscales;
+                retval.data.z = (m[2][0] + m[0][2]) * invscales;
+                retval.data.w = (m[2][1] - m[1][2]) * invscales;
             }
             else if (tmp.z > scalar_type(0.0))
             {
                 const scalar_type scales = hlsl::sqrt(tmp.z + scalar_type(1.0));
                 const scalar_type invscales = scalar_type(0.5) / scales;
-                retval.data.x = (m[1][0] + m[0][1]) * invscales;
+                retval.data.x = (m[0][1] + m[1][0]) * invscales;
                 retval.data.y = scales * scalar_type(0.5);
-                retval.data.z = (m[2][1] + m[1][2]) * invscales;
-                retval.data.w = (m[2][0] - m[0][2]) * invscales;
+                retval.data.z = (m[1][2] + m[2][1]) * invscales;
+                retval.data.w = (m[0][2] - m[2][0]) * invscales;
             }
             else
             {
                 const scalar_type scales = hlsl::sqrt(tmp.w + scalar_type(1.0));
                 const scalar_type invscales = scalar_type(0.5) / scales;
-                retval.data.x = (m[2][0] + m[0][2]) * invscales;
-                retval.data.y = (m[2][1] + m[1][2]) * invscales;
+                retval.data.x = (m[0][2] + m[2][0]) * invscales;
+                retval.data.y = (m[1][2] + m[2][1]) * invscales;
                 retval.data.z = scales * scalar_type(0.5);
-                retval.data.w = (m[0][1] - m[1][0]) * invscales;
+                retval.data.w = (m[1][0] - m[0][1]) * invscales;
             }
         }
 
@@ -284,7 +286,8 @@ struct quaternion
         mat[0] = mat[0] * scalar_type(2.0);
         mat[1] = mat[1] * scalar_type(2.0);
         mat[2] = mat[2] * scalar_type(2.0);
-        return mat;
+
+        return hlsl::transpose(mat);
     }
 
     static vector3_type slerp_delta(const vector3_type start, const vector3_type preScaledWaypoint, scalar_type cosAngleFromStart)

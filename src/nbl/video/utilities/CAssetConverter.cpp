@@ -2480,7 +2480,7 @@ class MetaDeviceMemoryAllocator final
 							// bind everything
 							for (auto i=0; i<combinedCount; i++)
 							{
-								const auto& toBind = binItems[i];
+								const auto& toBind = binItemsIt[i];
 								bool bindSuccess = false;
 								const IDeviceMemoryBacked::SMemoryBinding binding = {
 									.memory = allocation.memory.get(),
