@@ -8,65 +8,12 @@
 #include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/metadata/CMTLMetadata.h"
 
 namespace nbl::asset
 {
-
-#include "nbl/nblpack.h"
-class SObjVertex
-{
-public:
-    inline bool operator<(const SObjVertex& other) const
-    {
-        if (pos[0]==other.pos[0])
-        {
-            if (pos[1]==other.pos[1])
-            {
-                if (pos[2]==other.pos[2])
-                {
-                    if (uv[0]==other.uv[0])
-                    {
-                        if (uv[1]==other.uv[1])
-                            return normal32bit<other.normal32bit;
-
-                        return uv[1]<other.uv[1];
-                    }
-                    return uv[0]<other.uv[0];
-                }
-                return pos[2]<other.pos[2];
-            }
-            return pos[1]<other.pos[1];
-        }
-
-        return pos[0]<other.pos[0];
-    }
-    inline bool operator==(const SObjVertex& other) const
-    {
-        return pos[0]==other.pos[0]&&pos[1]==other.pos[1]&&pos[2]==other.pos[2]&&uv[0]==other.uv[0]&&uv[1]==other.uv[1]&&normal32bit==other.normal32bit;
-    }
-    float pos[3];
-    float uv[2];
-    CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32> normal32bit;
-} PACK_STRUCT;
-#include "nbl/nblunpack.h"
-
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public IGeometryLoader
 {
-    struct SContext
-    {
-        SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
-														: inner(_innerCtx), topHierarchyLevel(_topHierarchyLevel), loaderOverride(_override) {}
-
-        IAssetLoader::SAssetLoadContext inner;
-		uint32_t topHierarchyLevel;
-        IAssetLoader::IAssetLoaderOverride* loaderOverride;
-
-        const bool useGroups = false;
-        const bool useMaterials = true;
-    };
-
 protected:
 	//! destructor
 	virtual ~COBJMeshFileLoader();
@@ -119,16 +66,8 @@ private:
 	// indices are changed to 0-based index instead of 1-based from the obj file
 	bool retrieveVertexIndices(char* vertexData, int32_t* idx, const char* bufEnd, uint32_t vbsize, uint32_t vtsize, uint32_t vnsize);
 
-    std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
-
 	IAssetManager* AssetManager;
 	system::ISystem* System;
-
-	template<typename aType>
-	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-	{
-		performOnCertainOrientation(varToHandle);
-	}
 };
 
 } // end namespace nbl::asset

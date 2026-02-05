@@ -41,15 +41,8 @@ class CPLYMeshWriter : public IGeometryWriter
             size_t fileOffset = 0;
         };
 
-        void writeBinary(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
-        void writeText(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
-
-        void writeAttribBinary(SContext& context, ICPUPolygonGeometry* geom, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
-
-        //! Creates new geometry with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
-        static core::smart_refctd_ptr<ICPUPolygonGeometry> createCopyNormalizedReplacedWithTrueInt(const ICPUPolygonGeometry* geom);
-
-        static std::string getTypeString(asset::E_FORMAT _t);
+        void writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, SContext& context) const;
+        void writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, SContext& context) const;
 
         template<typename T>
         void writeVectorAsText(SContext& context, const T* _vec, size_t _elementsToWrite, bool flipVectors = false) const

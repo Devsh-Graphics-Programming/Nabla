@@ -52,7 +52,7 @@ class CSTLMeshWriter : public IGeometryWriter
         void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
 
         // write face information to file
-        void writeFaceText(const core::vectorSIMDf& v1, const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
+        void writeFaceText(const core::vectorSIMDf& v1, const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, const uint32_t* idx, const asset::ICPUPolygonGeometry::SDataView& normalView, const bool flipHandedness, SContext* context);
 };
 
 } // end namespace

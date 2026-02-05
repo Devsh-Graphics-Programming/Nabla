@@ -8,6 +8,7 @@
 #include "CPLYMeshFileLoader.h"
 
 #include <numeric>
+#include <cstdlib>
 
 #include "nbl/asset/IAssetManager.h"
 
@@ -71,9 +72,9 @@ struct SContext
 				return EF_R16_SINT;
 			else if (strcmp(typeString, "ushort")==0 || strcmp(typeString, "uint16")==0)
 				return EF_R16_UINT;
-			else if (strcmp(typeString, "long")==0 || strcmp(typeString, "int")==0 || strcmp(typeString, "int16")==0)
+			else if (strcmp(typeString, "long")==0 || strcmp(typeString, "int")==0 || strcmp(typeString, "int32")==0)
 				return EF_R32_SINT;
-			else if (strcmp(typeString, "ulong")==0 || strcmp(typeString, "uint16")==0)
+			else if (strcmp(typeString, "ulong")==0 || strcmp(typeString, "uint")==0 || strcmp(typeString, "uint32")==0)
 				return EF_R32_UINT;
 			else if (strcmp(typeString, "float")==0 || strcmp(typeString, "float32")==0)
 				return EF_R32_SFLOAT;
@@ -347,7 +348,7 @@ struct SContext
 			}
 			return 0;
 		}
-		return std::atoi(getNextWord());
+		return std::strtod(getNextWord(), nullptr);
 	}
 	// read the next thing from the file and move the start pointer along
 	void getData(void* dst, const E_FORMAT f)
@@ -388,8 +389,20 @@ struct SContext
 				prop.skip(*this);
 				continue;
 			}
-			// conversion required? 
-			if (it.dstFmt!=prop.type)
+			if (!IsBinaryFile)
+			{
+				if (isIntegerFormat(prop.type))
+				{
+					uint64_t tmp = getInt(prop.type);
+					encodePixels(it.dstFmt,it.ptr,&tmp);
+				}
+				else
+				{
+					hlsl::float64_t tmp = getFloat(prop.type);
+					encodePixels(it.dstFmt,it.ptr,&tmp);
+				}
+			}
+			else if (it.dstFmt!=prop.type)
 			{
 				assert(isIntegerFormat(it.dstFmt)==isIntegerFormat(prop.type));
 				if (isIntegerFormat(it.dstFmt))
@@ -638,7 +651,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				_params.logger.log("Multiple `vertex` elements not supported!", system::ILogger::ELL_ERROR);
 				return {};
 			}
-			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {};
+			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {}, uvView = {};
+			core::vector<ICPUPolygonGeometry::SDataView> extraViews;
 			for (auto& vertexProperty : el.Properties)
 			{
 				const auto& propertyName = vertexProperty.Name;
@@ -662,10 +676,14 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					negotiateFormat(normalView,1);
 				else if (propertyName=="nz")
 					negotiateFormat(normalView,2);
+				else if (propertyName=="u" || propertyName=="s")
+					negotiateFormat(uvView,0);
+				else if (propertyName=="v" || propertyName=="t")
+					negotiateFormat(uvView,1);
 				else
 				{
 // TODO: record the `propertyName`
-					geometry->getAuxAttributeViews()->push_back(createView(vertexProperty.type,el.Count));
+					extraViews.push_back(createView(vertexProperty.type,el.Count));
 				}
 			}
 			auto setFinalFormat = [&ctx](ICPUPolygonGeometry::SDataViewBase& view)->void
@@ -832,13 +850,24 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->setNormalView(std::move(view));
 			}
+			if (uvView.format!=EF_UNKNOWN)
+			{
+				auto beginIx = ctx.vertAttrIts.size();
+				setFinalFormat(uvView);
+				auto view = createView(uvView.format,el.Count);
+				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
+					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
+				geometry->getAuxAttributeViews()->push_back(std::move(view));
+			}
 			//
-			for (auto& view : *geometry->getAuxAttributeViews())
+			for (auto& view : extraViews)
 				ctx.vertAttrIts.push_back({
 					.ptr = reinterpret_cast<uint8_t*>(view.src.buffer->getPointer())+view.src.offset,
 					.stride = getTexelOrBlockBytesize(view.composed.format),
 					.dstFmt = view.composed.format
 				});
+			for (auto& view : extraViews)
+				geometry->getAuxAttributeViews()->push_back(std::move(view));
 			// loop through vertex properties
 			ctx.readVertex(_params,el);
 			verticesProcessed = true;

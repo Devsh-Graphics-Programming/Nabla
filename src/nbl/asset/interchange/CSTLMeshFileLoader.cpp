@@ -13,113 +13,18 @@
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
+#include <cmath>
 
 using namespace nbl;
 using namespace nbl::asset;
 
-constexpr auto POSITION_ATTRIBUTE = 0;
-constexpr auto COLOR_ATTRIBUTE = 1;
-constexpr auto UV_ATTRIBUTE = 2;
-constexpr auto NORMAL_ATTRIBUTE = 3;
-
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr)
-	: IRenderpassIndependentPipelineLoader(_m_assetMgr), m_assetMgr(_m_assetMgr)
+	: m_assetMgr(_m_assetMgr)
 {
-	
 }
 
 void CSTLMeshFileLoader::initialize()
 {
-	IRenderpassIndependentPipelineLoader::initialize();
-
-	auto precomputeAndCachePipeline = [&](bool withColorAttribute)
-	{
-		auto getShaderDefaultPaths = [&]() -> std::pair<std::string_view, std::string_view>
-		{
-			if (withColorAttribute)
-				return std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag");
-			else
-				return std::make_pair("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert", "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
-		 };
-
-		auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
-		const std::string pipelineCacheHash = getPipelineCacheKey(withColorAttribute).data();
-		const uint32_t _hierarchyLevel = 0;
-		const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-
-		const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-		auto pipelineBundle = defaultOverride.findCachedAsset(pipelineCacheHash, types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-		if (pipelineBundle.getContents().empty())
-		{
-			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-			{
-				const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-				const auto shaderPaths = getShaderDefaultPaths();
-
-				auto vertexShaderBundle = m_assetMgr->findAssets(shaderPaths.first.data(), types);
-				auto fragmentShaderBundle = m_assetMgr->findAssets(shaderPaths.second.data(), types);
-
-				mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
-				mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
-			}
-
-			auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
-
-			const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-			auto mbBundlePipelineLayout = defaultOverride.findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/STL", fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
-			auto mbPipelineLayout = mbBundlePipelineLayout.first;
-
-			auto const positionFormatByteSize = getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT);
-			auto const colorFormatByteSize = withColorAttribute ? getTexelOrBlockBytesize(EF_B8G8R8A8_UNORM) : 0;
-			auto const normalFormatByteSize = getTexelOrBlockBytesize(EF_A2B10G10R10_SNORM_PACK32);
-
-			SVertexInputParams mbInputParams;
-			const auto stride = positionFormatByteSize + colorFormatByteSize + normalFormatByteSize;
-			mbInputParams.enabledBindingFlags |= core::createBitmask({ 0 });
-			mbInputParams.enabledAttribFlags |= core::createBitmask({ POSITION_ATTRIBUTE, NORMAL_ATTRIBUTE, withColorAttribute ? COLOR_ATTRIBUTE : 0 });
-			mbInputParams.bindings[0] = { stride, EVIR_PER_VERTEX };
-
-			mbInputParams.attributes[POSITION_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-			mbInputParams.attributes[POSITION_ATTRIBUTE].relativeOffset = 0;
-			mbInputParams.attributes[POSITION_ATTRIBUTE].binding = 0;
-
-			if (withColorAttribute)
-			{
-				mbInputParams.attributes[COLOR_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-				mbInputParams.attributes[COLOR_ATTRIBUTE].relativeOffset = positionFormatByteSize;
-				mbInputParams.attributes[COLOR_ATTRIBUTE].binding = 0;
-			}
-
-			mbInputParams.attributes[NORMAL_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-			mbInputParams.attributes[NORMAL_ATTRIBUTE].relativeOffset = positionFormatByteSize + colorFormatByteSize;
-			mbInputParams.attributes[NORMAL_ATTRIBUTE].binding = 0;
-
-			SBlendParams blendParams;
-			SPrimitiveAssemblyParams primitiveAssemblyParams;
-			primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
-
-			SRasterizationParams rastarizationParmas;
-
-			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-			{
-				mbPipeline->setShaderAtStage(asset::IShader::ESS_VERTEX, mbVertexShader.get());
-				mbPipeline->setShaderAtStage(asset::IShader::ESS_FRAGMENT, mbFragmentShader.get());
-			}
-
-			asset::SAssetBundle newPipelineBundle(nullptr, {core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline)});
-			defaultOverride.insertAssetIntoCache(newPipelineBundle, pipelineCacheHash, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-		}
-		else
-			return;
-	};
-
-	/*
-		Pipeline permutations are cached
-	*/
-
-	precomputeAndCachePipeline(true);
-	precomputeAndCachePipeline(false);
 }
 
 SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -141,20 +46,13 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (filesize < 6ull) // we need a header
 		return {};
 
-	bool hasColor = false;
-
-	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
-	auto meshbuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-	meshbuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-	meshbuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
-
 	bool binary = false;
 	std::string token;
 	if (getNextToken(&context, token) != "solid")
-		binary = hasColor = true;
+		binary = true;
+	const bool rightHanded = (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES) != 0;
 
 	core::vector<core::vectorSIMDf> positions, normals;
-	core::vector<uint32_t> colors;
 	if (binary)
 	{
 		if (_file->getSize() < 80)
@@ -173,7 +71,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		positions.reserve(3 * vertexCount);
 		normals.reserve(vertexCount);
-		colors.reserve(vertexCount);
 	}
 	else
 		goNextLine(&context); // skip header
@@ -199,9 +96,13 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			core::vectorSIMDf n;
 			getNextVector(&context, n, binary);
-			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
-			normals.push_back(core::normalize(n));
+			if (rightHanded)
+				n.x = -n.x;
+			const float len2 = core::dot(n, n).X;
+			if (len2 > 0.f && std::abs(len2 - 1.f) < 1e-4f)
+				normals.push_back(n);
+			else
+				normals.push_back(core::normalize(n));
 		}
 
 		if (!binary)
@@ -220,8 +121,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 						return {};
 				}
 				getNextVector(&context, p[i], binary);
-				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-					performActionBasedOnOrientationSystem<float>(p[i].x, [](float& varToFlip){varToFlip = -varToFlip; });
+				if (rightHanded)
+					p[i].x = -p[i].x;
 			}
 			for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
 				positions.push_back(p[2u - i]);
@@ -241,19 +142,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			context.fileOffset += sizeof(attrib);
 		}
 
-		if (hasColor && (attrib & 0x8000u)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
-		{
-			const void* srcColor[1]{ &attrib };
-			uint32_t color{};
-			convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(srcColor, &color, 0u, 0u);
-			colors.push_back(color);
-		}
-		else
-		{
-			hasColor = false;
-			colors.clear();
-		}
-
 		if ((normals.back() == core::vectorSIMDf()).all())
 		{
 			normals.back().set(
@@ -265,44 +153,36 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 	} // end while (_file->getPos() < filesize)
 
-	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
+	if (positions.empty())
+		return {};
 
-	quant_normal_t normal;
+	core::vector<float> posData(positions.size() * 3u);
+	core::vector<float> normalData(positions.size() * 3u);
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
-		if (i % 3 == 0)
-			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
-		uint8_t* ptr = (reinterpret_cast<uint8_t*>(vertexBuf->getPointer())) + i * vtxSize;
-		memcpy(ptr, positions[i].pointer, 3 * 4);
-
-		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;
-
-		if (hasColor)
-			memcpy(ptr + 16, colors.data() + i / 3, 4);
+		const auto& pos = positions[i];
+		const auto& nrm = normals[i / 3u];
+		const size_t base = i * 3u;
+		posData[base + 0u] = pos.pointer[0];
+		posData[base + 1u] = pos.pointer[1];
+		posData[base + 2u] = pos.pointer[2];
+		normalData[base + 0u] = nrm.pointer[0];
+		normalData[base + 1u] = nrm.pointer[1];
+		normalData[base + 2u] = nrm.pointer[2];
 	}
 
-	const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-	auto pipelineBundle = _override->findCachedAsset(getPipelineCacheKey(hasColor).data(), types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-	{
-		bool status = !pipelineBundle.getContents().empty();
-		assert(status);
-	}
+	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+	auto posView = createView(EF_R32G32B32_SFLOAT, positions.size(), posData.data());
+	auto normalView = createView(EF_R32G32B32_SFLOAT, positions.size(), normalData.data());
+	geometry->setPositionView(std::move(posView));
+	geometry->setNormalView(std::move(normalView));
+	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
+	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 
-	auto mbPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipelineBundle.getContents().begin()[0]);
-
-	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u, std::move(m_basicViewParamsSemantics));
-	meta->placeMeta(0u, mbPipeline.get());
-
-	meshbuffer->setPipeline(std::move(mbPipeline));
-	meshbuffer->setIndexCount(positions.size());
-	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
-
-	meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
-	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
-	
-	return SAssetBundle(std::move(meta), { std::move(mesh) });
+	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>();
+	return SAssetBundle(std::move(meta), { std::move(geometry) });
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
@@ -373,7 +253,6 @@ void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec
 		getNextToken(context, tmp);
 		sscanf(tmp.c_str(), "%f", &vec.Z);
 	}
-	vec.X = -vec.X;
 }
 
 //! Read next word

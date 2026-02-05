@@ -37,6 +37,7 @@
 #include "nbl/asset/interchange/CPLYMeshFileLoader.h"
 #include "nbl/asset/interchange/CSTLMeshFileLoader.h"
 // writers
+#include "nbl/asset/interchange/COBJMeshWriter.h"
 #include "nbl/asset/interchange/CPLYMeshWriter.h"
 #include "nbl/asset/interchange/CSTLMeshWriter.h"
 // manipulation

@@ -50,12 +50,12 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" OFF) #default off until Material Compiler 2
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off until Material Compiler 2
-#option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until reimplemented
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF) #default off until reimplemented
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
+option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
 option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF) #default off until reimplemented
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -165,6 +165,7 @@ set(NBL_ASSET_SOURCES
 	asset/ICPUImage.cpp
 	asset/ICPUPolygonGeometry.cpp
 	asset/interchange/IAssetWriter.cpp
+	asset/interchange/IGeometryWriter.cpp
 	asset/interchange/IAssetLoader.cpp
 	
 # Shaders
@@ -199,6 +200,7 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
+	asset/interchange/COBJMeshWriter.cpp
 	asset/interchange/CPLYMeshWriter.cpp
 	asset/interchange/CSTLMeshWriter.cpp
 	asset/interchange/CGLTFWriter.cpp

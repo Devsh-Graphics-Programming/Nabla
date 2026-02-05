@@ -55,6 +55,10 @@
 #include "nbl/asset/interchange/CSTLMeshWriter.h"
 #endif
 
+#ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
+#include "nbl/asset/interchange/COBJMeshWriter.h"
+#endif
+
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 #include "nbl/asset/interchange/CPLYMeshWriter.h"
 #endif
@@ -159,6 +163,9 @@ void IAssetManager::addLoadersAndWriters()
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
     addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
+#endif
+#ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
+	addAssetWriter(core::make_smart_refctd_ptr<asset::COBJMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());

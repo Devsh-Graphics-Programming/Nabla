@@ -44,8 +44,6 @@ class CSTLMeshFileLoader final : public IGeometryLoader
 
 		virtual void initialize() override;
 
-		const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
-
 		// skips to the first non-space character available
 		void goNextWord(SContext* context) const;
 		// returns the next word
