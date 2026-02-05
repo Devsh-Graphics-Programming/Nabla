@@ -50,8 +50,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	std::string token;
 	if (getNextToken(&context, token) != "solid")
 		binary = true;
-	const bool rightHanded = (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES) != 0;
-
 	core::vector<core::vectorSIMDf> positions, normals;
 	if (binary)
 	{
@@ -96,8 +94,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			core::vectorSIMDf n;
 			getNextVector(&context, n, binary);
-			if (rightHanded)
-				n.x = -n.x;
 			const float len2 = core::dot(n, n).X;
 			if (len2 > 0.f && std::abs(len2 - 1.f) < 1e-4f)
 				normals.push_back(n);
@@ -121,8 +117,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 						return {};
 				}
 				getNextVector(&context, p[i], binary);
-				if (rightHanded)
-					p[i].x = -p[i].x;
 			}
 			for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
 				positions.push_back(p[2u - i]);

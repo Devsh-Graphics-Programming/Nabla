@@ -85,8 +85,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     const char* const bufEnd = buf + filesize;
     const char* bufPtr = buf;
 
-    bool rightHanded = (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES) != 0;
-
     core::vector<Float3> positions;
     core::vector<Float3> normals;
     core::vector<Float2> uvs;
@@ -114,8 +112,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 {
                     Float3 vec{};
                     bufPtr = readVec3(bufPtr, &vec.x, bufEnd);
-                    if (rightHanded)
-                        vec.x = -vec.x;
                     positions.push_back(vec);
                 }
                 break;
@@ -123,8 +119,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 {
                     Float3 vec{};
                     bufPtr = readVec3(bufPtr, &vec.x, bufEnd);
-                    if (rightHanded)
-                        vec.x = -vec.x;
                     normals.push_back(vec);
                 }
                 break;
@@ -199,18 +193,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
                 for (uint32_t i = 1u; i + 1u < faceCorners.size(); ++i)
                 {
-                    if (rightHanded)
-                    {
-                        indices.push_back(faceCorners[0]);
-                        indices.push_back(faceCorners[i]);
-                        indices.push_back(faceCorners[i + 1]);
-                    }
-                    else
-                    {
-                        indices.push_back(faceCorners[i + 1]);
-                        indices.push_back(faceCorners[i]);
-                        indices.push_back(faceCorners[0]);
-                    }
+                    indices.push_back(faceCorners[i + 1]);
+                    indices.push_back(faceCorners[i]);
+                    indices.push_back(faceCorners[0]);
                 }
             }
             break;
