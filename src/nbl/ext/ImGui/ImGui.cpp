@@ -739,16 +739,22 @@ void UI::handleKeyEvents(const SUpdateParameters& params) const
 		const auto& bind = keyMap[e.keyCode];
 		const auto& iCharacter = useBigLetters ? bind.physicalBig : bind.physicalSmall;
 
-		if(bind.target == ImGuiKey_None)
-			m_cachedCreationParams.utilities->getLogger()->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), ILogger::ELL_ERROR);
-		else
-			if (e.action == SKeyboardEvent::ECA_PRESSED)
-			{
-				io.AddKeyEvent(bind.target, true);
+		if (bind.target == ImGuiKey_None)
+		{
+			if (e.action == SKeyboardEvent::ECA_PRESSED && iCharacter != 0)
 				io.AddInputCharacter(iCharacter);
-			}
-			else if (e.action == SKeyboardEvent::ECA_RELEASED)
-				io.AddKeyEvent(bind.target, false);
+
+			continue;
+		}
+
+		if (e.action == SKeyboardEvent::ECA_PRESSED)
+		{
+			io.AddKeyEvent(bind.target, true);
+			if (iCharacter != 0)
+				io.AddInputCharacter(iCharacter);
+		}
+		else if (e.action == SKeyboardEvent::ECA_RELEASED)
+			io.AddKeyEvent(bind.target, false);
 	}
 }
 
