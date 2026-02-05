@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/mpl.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/math/quaternions.hlsl>
 
 
 namespace nbl
@@ -75,6 +76,27 @@ vector<T,N> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,M>) lhs, const vector<T,P>
             retval[i] = tmp[i];
     }
     return retval;
+}
+
+template<typename T, uint32_t N>
+inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(math::quaternion<T>) quat)
+{
+	static_assert(N == 3 || N == 4);
+	matrix<T, 3, 3> mat = _static_cast<matrix<T, 3, 3> >(quat);
+
+	outMat[0] = mat[0];
+	outMat[1] = mat[1];
+	outMat[2] = mat[2];
+}
+
+template<typename T, uint32_t N>
+inline void setTranslation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(vector<T, 3>) translation)
+{
+	static_assert(N == 3 || N == 4);
+
+	outMat[0].w = translation.x;
+	outMat[1].w = translation.y;
+	outMat[2].w = translation.z;
 }
 
 // useful for fast computation of a Normal Matrix

@@ -6,6 +6,7 @@
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
+#include "nbl/builtin/hlsl/math/quaternions.hlsl"
 
 #include <cmath>
 #include <cstdint>
@@ -746,7 +747,8 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	geometries->push_back({
 		.geometry = cylinder
 	});
-	const auto coneTransform = hlsl::math::linalg::rotation_mat(hlsl::numbers::pi<hlsl::float32_t> * -0.5f, hlsl::float32_t3(1.f, 0.f, 0.f));
+	const auto coneRotation = hlsl::math::quaternion<hlsl::float32_t>::create(hlsl::float32_t3(1.f, 0.f, 0.f), hlsl::numbers::pi<hlsl::float32_t> * -0.5f);
+	const auto coneTransform = hlsl::math::linalg::promote_affine<3, 4>(hlsl::_static_cast<hlsl::float32_t3x3>(coneRotation));
 	geometries->push_back({
 		.transform = hlsl::math::linalg::promote_affine<3, 4>(coneTransform),
 		.geometry = cone
