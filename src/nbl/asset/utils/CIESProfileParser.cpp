@@ -17,7 +17,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
 {
     auto removeTrailingWhiteChars = [](std::string& str) -> void
     {
-        if (std::isspace(str.back()))
+        if (!str.empty() && std::isspace(static_cast<unsigned char>(str.back())))
         {
             auto it = str.rbegin();
             while (it != str.rend() && std::isspace(static_cast<unsigned char>(*it)))
