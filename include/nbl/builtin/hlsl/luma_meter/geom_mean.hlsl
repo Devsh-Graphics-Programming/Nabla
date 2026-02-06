@@ -29,7 +29,7 @@ struct data_proxy
     template<typename AccessType, typename IndexType>
     void get(const IndexType idx, NBL_REF_ARG(AccessType) value)
     {
-        value = data[idx];
+        value = data;
     }
 
     T data;
@@ -43,7 +43,7 @@ struct geom_meter
     using float_t2 = typename conditional<is_same_v<float_t, float32_t>, float32_t2, float16_t2>::type;
     using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
     
-    using proxy_data_t = vector<float_t, WorkgroupConfig::ItemsPerInvocation_0>;
+    using proxy_data_t = float_t;
     using proxy_t = impl::data_proxy<proxy_data_t>;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = WorkgroupConfig::WorkgroupSize;
@@ -64,10 +64,8 @@ struct geom_meter
 
     float_t __reduction(NBL_REF_ARG(proxy_t) data, NBL_REF_ARG(SharedAccessor) sdata)
     {
-        // return workgroup::reduction < plus < float_t >, WorkgroupSize >::
-        //     template __call <SharedAccessor>(value, sdata);
         return workgroup2::reduction< WorkgroupConfig, plus<float_t>, device_capabilities >::
-            template __call <proxy_t, SharedAccessor>(data, sdata);
+            template __call<proxy_t, SharedAccessor>(data, sdata);
     }
 
     float_t __computeLumaLog2(
@@ -130,7 +128,7 @@ struct geom_meter
         lumaLog2 = (lumaLog2 - log2(lumaMin)) / log2(lumaMax / lumaMin);
 
         proxy_t data;
-        data.data[0] = lumaLog2;
+        data.data = lumaLog2;
         float_t lumaLog2Sum = __reduction(data, sdata);
 
         if (tid == 0) {
