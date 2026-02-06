@@ -6,7 +6,6 @@
 
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
-//#include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/interchange/CIESProfileLoader.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
@@ -49,62 +48,12 @@ struct SContext final
 		core::unordered_map<const CElementShape::ShapeGroup*,group_ass_type> groupCache;
 		//
 		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryMetaPair> shapeCache;
-#if 0
+
+#if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
-		//image, scale
+		//image, scale 
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
-
-		//
-		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
-		{
-			std::string key = bitmap.filename.svalue;
-			switch (bitmap.channel)
-			{
-				case CElementTexture::Bitmap::CHANNEL::R:
-					key += "?rrrr";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::G:
-					key += "?gggg";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::B:
-					key += "?bbbb";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::A:
-					key += "?aaaa";
-					break;
-				default:
-					break;
-			}
-			switch (semantic)
-			{
-				case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
-					key += "?blend";
-					break;
-				case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
-					key += "?deriv?n";
-					break;
-				case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
-					key += "?deriv?h";
-					{
-						static const char* wrap[5]
-						{
-							"?repeat",
-							"?mirror",
-							"?clamp",
-							"?zero",
-							"?one"
-						};
-						key += wrap[bitmap.wrapModeU];
-						key += wrap[bitmap.wrapModeV];
-					}
-					break;
-				default:
-					break;
-			}
-			key += "?view";
-			return key;
-		}
 
 		static asset::ISampler::SParams emissionProfileSamplerParams(const CElementEmissionProfile* profile, const asset::CIESProfileMetadata& meta)
 		{
