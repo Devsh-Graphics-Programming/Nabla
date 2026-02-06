@@ -69,8 +69,6 @@ struct median_meter
 
     void __inclusive_scan(NBL_REF_ARG(proxy_t) data, NBL_REF_ARG(SharedAccessor) sdata)
     {
-        // return workgroup::inclusive_scan < plus < int_t >, WorkgroupSize >::
-        //     template __call <SharedAccessor>(value, sdata);
         workgroup2::inclusive_scan< WorkgroupConfig, plus<int_t>, device_capabilities >::
             template __call<proxy_t, SharedAccessor>(data, sdata);
     }
