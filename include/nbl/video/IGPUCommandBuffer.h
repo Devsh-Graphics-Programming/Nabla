@@ -539,12 +539,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
 
         bool setRayTracingPipelineStackSize(uint32_t pipelineStackSize);
-        bool traceRays(
-          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, 
-          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-          uint32_t width, uint32_t height, uint32_t depth);
+
+        bool traceRays(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const uint32_t width, const uint32_t height, const uint32_t depth);
         bool traceRaysIndirect(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding);
 
         //! Secondary CommandBuffer execute
@@ -719,14 +715,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
         virtual bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) = 0;
-        virtual bool traceRays_impl(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-            uint32_t width, uint32_t height, uint32_t depth) = 0;
-        virtual bool traceRaysIndirect_impl(
-          const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) = 0;
+        virtual bool traceRays_impl(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const uint32_t width, const uint32_t height, const uint32_t depth) = 0;
+        virtual bool traceRaysIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
@@ -881,14 +871,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
-
-        bool invalidShaderGroups(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
-            core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         
+        bool invalidShaderGroups(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>
         uint32_t buildAccelerationStructures_common(const std::span<const DeviceBuildInfo> infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);

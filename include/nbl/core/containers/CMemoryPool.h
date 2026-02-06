@@ -1,5 +1,6 @@
-#ifndef __NBL_C_MEMORY_POOL_H_INCLUDED__
-#define __NBL_C_MEMORY_POOL_H_INCLUDED__
+#ifndef _NBL_CORE_C_MEMORY_POOL_H_INCLUDED_
+#define _NBL_CORE_C_MEMORY_POOL_H_INCLUDED_
+
 
 #include "nbl/core/decl/compile_config.h"
 #include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
@@ -8,9 +9,11 @@
 #include <memory>
 #include <type_traits>
 
+
 namespace nbl::core
 {
 
+// TODO: change DataAllocator to PMR
 template <class AddressAllocator, template<class> class DataAllocator, bool isThreadSafe, typename... Args>
 class CMemoryPool : public Uncopyable
 {

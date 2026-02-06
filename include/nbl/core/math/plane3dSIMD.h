@@ -4,7 +4,6 @@
 // See the original file in irrlicht source for authors
 
 #include "vectorSIMD.h"
-#include <nbl/builtin/hlsl/math/linalg/matrix_utils/transformation_matrix_utils.hlsl>
 #include <nbl/builtin/hlsl/math/linalg/transform.hlsl>
 
 #ifndef __NBL_CORE_PLANE_3D_H_INCLUDED__

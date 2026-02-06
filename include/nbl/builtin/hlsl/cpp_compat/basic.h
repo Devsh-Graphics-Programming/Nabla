@@ -84,6 +84,8 @@ struct add_pointer
 
 #endif
 
+
+
 namespace nbl
 {
 namespace hlsl

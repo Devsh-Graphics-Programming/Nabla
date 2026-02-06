@@ -472,6 +472,47 @@ private:
         for (const auto& p : m_include_search_paths)
             includeFinder->addSearchPath(p, includeLoader);
 
+        // need this struct becuase fields of IShaderCompiler::SMacroDefinition are string views
+        struct SMacroDefinitionBuffer
+        {
+            std::string identifier;
+            std::string definition;
+        };
+
+        core::vector<SMacroDefinitionBuffer> macroDefinitionBuffers;
+        core::vector<IShaderCompiler::SMacroDefinition> macroDefinitions;
+        {
+            for (const auto& argument : m_arguments)
+            {
+                if (argument.rfind("-D", 0) != 0)
+                    continue;
+
+                std::string argumentTmp = argument.substr(2);
+
+                std::string identifier;
+                std::string definition;
+
+                const size_t equalPos = argumentTmp.find('=');
+                if (equalPos == std::string::npos)
+                {
+                    identifier = argumentTmp;
+                    definition = "1";
+                }
+                else
+                {
+                    identifier = argumentTmp.substr(0, equalPos);
+                    definition = argumentTmp.substr(equalPos + 1);
+                }
+
+                macroDefinitionBuffers.emplace_back(identifier, definition);
+            }
+
+            macroDefinitions.reserve(macroDefinitionBuffers.size());
+
+            for (const auto& macroDefinitionBuffer : macroDefinitionBuffers)
+                macroDefinitions.emplace_back(macroDefinitionBuffer.identifier, macroDefinitionBuffer.definition);
+        }
+
         if (preprocessOnly)
         {
             CHLSLCompiler::SPreprocessorOptions opt = {};
@@ -480,6 +521,7 @@ private:
             opt.includeFinder = includeFinder.get();
             opt.depfile = dep.enabled;
             opt.depfilePath = dep.path;
+            opt.extraDefines = macroDefinitions;
 
             const char* codePtr = (const char*)shader->getContent()->getPointer();
             std::string_view code(codePtr, std::strlen(codePtr));
@@ -497,6 +539,7 @@ private:
         opt.preprocessorOptions.includeFinder = includeFinder.get();
         opt.preprocessorOptions.depfile = dep.enabled;
         opt.preprocessorOptions.depfilePath = dep.path;
+        opt.preprocessorOptions.extraDefines = macroDefinitions;
         opt.debugInfoFlags = bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT);
         opt.dxcOptions = std::span<std::string>(m_arguments);
 

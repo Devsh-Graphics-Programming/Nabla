@@ -844,17 +844,12 @@ bool CVulkanCommandBuffer::setRayTracingPipelineStackSize_impl(uint32_t pipeline
     return true;
 }
 
-bool CVulkanCommandBuffer::traceRays_impl(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-    uint32_t width, uint32_t height, uint32_t depth)
+bool CVulkanCommandBuffer::traceRays_impl(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const uint32_t width, const uint32_t height, const uint32_t depth)
 {
-    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupRange.size);
-    const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(missGroupsRange, missGroupStride);
-    const auto vk_hitGroupsRegion = getVkStridedDeviceAddressRegion(hitGroupsRange, hitGroupStride);
-    const auto vk_callableGroupsRegion = getVkStridedDeviceAddressRegion(callableGroupsRange, callableGroupStride);
+    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion({.range=sbt.raygen,.stride=uint32_t(sbt.raygen.size)});
+    const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(sbt.miss);
+    const auto vk_hitGroupsRegion = getVkStridedDeviceAddressRegion(sbt.hit);
+    const auto vk_callableGroupsRegion = getVkStridedDeviceAddressRegion(sbt.callable);
 
     getFunctionTable().vkCmdTraceRaysKHR(m_cmdbuf, 
         &vk_raygenGroupRegion, 

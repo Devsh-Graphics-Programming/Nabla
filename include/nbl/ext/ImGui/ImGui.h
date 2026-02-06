@@ -99,6 +99,14 @@ class UI final : public core::IReferenceCounted
 
 			//! optional, no cache used if not provided
 			core::smart_refctd_ptr<video::IGPUPipelineCache> pipelineCache = nullptr;
+
+			struct PrecompiledShaders 
+			{
+				core::smart_refctd_ptr<asset::IShader> vertex = nullptr, fragment = nullptr;
+			};
+
+			//! optional, precompiled spirv shaders (experimental)
+			std::optional<PrecompiledShaders> spirv = std::nullopt;
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)

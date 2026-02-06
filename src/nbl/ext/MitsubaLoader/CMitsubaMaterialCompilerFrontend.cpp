@@ -119,24 +119,9 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                 profile.view = core::normalize(worldSpaceIESTransform[2]);
             }
 
-            float flatten = inProfile->flatten;
-
-            // negative means full domain
-            const bool fullDomain = flatten < 0.f;
-            if (fullDomain)
-                flatten = -flatten;
-
-            if (flatten > 1.f)
+            core::smart_refctd_ptr<asset::ICPUImageView> iesTexture = nullptr;
             {
-                flatten = 1.f;
-                os::Printer::log("ERROR: Flatten property = " + std::to_string(inProfile->flatten) + " is outside it's [0, 1] domain, clamping!", ELL_ERROR);
-            }
-            else if (inProfile->flatten < std::numeric_limits<float>::epsilon()-1)
-                os::Printer::log("WARNING: Full domain flatten mode detected with abs(flatten) = " + std::to_string(flatten), ELL_WARNING);
-
-            core::smart_refctd_ptr<asset::ICPUImageView> flattenIES = nullptr;
-            {
-                const auto cacheName = inProfile->filename + "?flatten=" + std::to_string(flatten);
+                const auto cacheName = inProfile->filename + "?ies";
 
                 // try cache
                 {
@@ -144,26 +129,26 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                     asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(cacheName,types,m_loaderContext->inner,0u);
                     auto contents = bundle.getContents();
                     if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
-                        flattenIES = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
+                        iesTexture = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
                 }
 
                 // failed to find, have to create
-                if (!flattenIES)
+                if (!iesTexture)
                 {
                     const auto optimalResolution = meta->profile.getOptimalIESResolution();
-                    flattenIES = meta->profile.createIESTexture(flatten, fullDomain, optimalResolution.x, optimalResolution.y);
+                    iesTexture = meta->profile.createIESTexture(optimalResolution);
                 }
                 
                 // now must be loaded to proceed
-                if (!flattenIES)
+                if (!iesTexture)
                     return false;
                 
                 // insert into cache
                 asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
-                asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(flattenIES) });
+                asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(iesTexture) });
                 m_loaderContext->override_->insertAssetIntoCache(bundle, cacheName, m_loaderContext->inner, 0u);
             }
-            profile.texture = { flattenIES, sampler, 1.f };
+            profile.texture = { iesTexture, sampler, 1.f };
     
             // success
             res->emissionProfile = profile;
@@ -174,14 +159,11 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
             {
                 case CElementEmissionProfile::EN_UNIT_MAX:
                 {
-                    // true Max value changes because of flatten
-                    // can be reverted back to do nothing if the TODO about adjusting max-value while flattening gets done
-                    res->intensity *= maxIntesity/(maxIntesity+(meta->profile.getAvgEmmision(fullDomain)-maxIntesity)*flatten);
+                    // already normalized to max
                 } break;
                 case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
                 {
-                    // because negative flatten (`!fullDomain`) expands the domain so implied==full
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(fullDomain);
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(false);
                 } break;
                 case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
                 {

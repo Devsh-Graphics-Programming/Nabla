@@ -28,10 +28,8 @@ using namespace nbl::system;
 
 auto ParserManager::parse(IFile* _file, const Params& _params) const -> Result
 {
-//	CMitsubaMetadata* obj = new CMitsubaMetadata();
-	Result result = {
-		.metadata = core::make_smart_refctd_ptr<CMitsubaMetadata>()
-	};
+	Result result = {};
+	result.metadata = core::make_smart_refctd_ptr<CMitsubaMetadata>();
 	SessionContext ctx = {
 		.result = &result,
 		.params = &_params,
@@ -325,11 +323,27 @@ void ParserManager::XMLContext::onEnd(const char* _el)
 		return;
 	}
 
-	if (element.element && element.element->getType()==IElement::Type::SHAPE)
+	// TODO: only allow this for top level elements so we don't load unused shapes
+	if (element.element)
+	switch (element.element->getType())
 	{
-		auto shape = static_cast<CElementShape*>(element.element);
-		if (shape)
+		case IElement::Type::EMITTER:
+		{
+			auto emitter = static_cast<CElementEmitter*>(element.element);
+			if (emitter->type!=CElementEmitter::Type::CONSTANT)
+				result.emitters.emplace_back(emitter,std::move(element.name));
+			else
+				result.ambient += emitter->constant.radiance;
+			break;
+		}
+		case IElement::Type::SHAPE:
+		{
+			auto shape = static_cast<CElementShape*>(element.element);
 			result.shapegroups.emplace_back(shape,std::move(element.name));
+			break;
+		}
+		default:
+			break;
 	}
 }
 
@@ -337,20 +351,20 @@ void ParserManager::XMLContext::onEnd(const char* _el)
 template<>
 struct ParserManager::CreateElement<CElementTransform>
 {
-	static inline SNamedElement __call(const char** _atts, SessionContext* ctx)
+	static inline SessionContext::named_element_t __call(const char** _atts, SessionContext* ctx)
 	{
 		if (IElement::invalidAttributeCount(_atts,2u))
 			return {};
 		if (core::strcmpi(_atts[0],"name"))
 			return {};
 	
-		return {ctx->objects.construct<CElementTransform>(),_atts[1]};
+		return {ctx->result->objects->construct<CElementTransform>(),_atts[1]};
 	};
 };
 template<>
 struct ParserManager::CreateElement<CElementEmissionProfile>
 {
-	static inline SNamedElement __call(const char** _atts, SessionContext* ctx)
+	static inline SessionContext::named_element_t __call(const char** _atts, SessionContext* ctx)
 	{
 		const char* type;
 		const char* id;
@@ -358,7 +372,7 @@ struct ParserManager::CreateElement<CElementEmissionProfile>
 		if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
 			return {};
 
-		CElementEmissionProfile* obj = ctx->objects.construct<CElementEmissionProfile>(id);
+		CElementEmissionProfile* obj = ctx->result->objects->construct<CElementEmissionProfile>(id);
 		if (!obj)
 			return {};
 
@@ -378,7 +392,7 @@ concept HasVisit = requires() {
 template<typename Element> requires HasTypeMap<Element>
 struct ParserManager::CreateElement<Element>
 {
-	static inline SNamedElement __call(const char** _atts, SessionContext* ctx)
+	static inline SessionContext::named_element_t __call(const char** _atts, SessionContext* ctx)
 	{
 		const char* type;
 		const char* id;
@@ -394,7 +408,7 @@ struct ParserManager::CreateElement<Element>
 			return {};
 		}
 
-		Element* obj = ctx->objects.construct<Element>(id);
+		Element* obj = ctx->result->objects->construct<Element>(id);
 		if (!obj)
 			return {};
 	
@@ -446,7 +460,7 @@ ParserManager::ParserManager() : propertyElements({
 	CElementEmissionProfile::compAddPropertyMap()
 }) { }
 
-auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SNamedElement
+auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SessionContext::named_element_t
 {
 	const char* id = nullptr;
 	const char* as = nullptr;
@@ -480,7 +494,7 @@ auto ParserManager::processAlias(const char** _atts, SessionContext* ctx) -> SNa
 	return {original,std::move(name)};
 }
 
-auto ParserManager::processRef(const char** _atts, SessionContext* ctx) -> SNamedElement
+auto ParserManager::processRef(const char** _atts, SessionContext* ctx) -> SessionContext::named_element_t
 {
 	const char* id;
 	std::string name;

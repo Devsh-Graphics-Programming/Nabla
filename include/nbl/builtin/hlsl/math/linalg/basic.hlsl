@@ -1,11 +1,11 @@
-#ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
-#include <nbl/builtin/hlsl/math/quaternions.hlsl>
+#ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_BASIC_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_LINALG_BASIC_INCLUDED_
 // TODO: remove this header when deleting vectorSIMDf.hlsl
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/glslFunctions.h>
 #include "vectorSIMD.h"
 #endif
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/macros.h>
 
@@ -53,10 +53,50 @@ inline matrix<T, NOut, MOut> truncate(const NBL_CONST_REF_ARG(matrix<T, NIn, MIn
 	return retval;
 }
 
-template<typename T, int N>
-inline matrix<T, 3, 3> getSub3x3(NBL_CONST_REF_ARG(matrix<T, N, 4>) mat)
+namespace impl
 {
-	return matrix<T, 3, 3>(mat);
+template<uint16_t MOut, uint16_t MIn, typename T>
+struct zero_expand_helper
+{
+	static vector<T, MOut> __call(const vector<T, MIn> inVec)
+	{
+		return vector<T, MOut>(inVec, vector<T, MOut - MIn>(0));
+	}
+};
+template<uint16_t M, typename T>
+struct zero_expand_helper<M,M,T>
+{
+	static vector<T, M> __call(const vector<T, M> inVec)
+	{
+		return inVec;
+	}
+};
+}
+
+template<uint16_t MOut, uint16_t MIn, typename T NBL_FUNC_REQUIRES(MOut >= MIn)
+vector<T, MOut> zero_expand(vector<T, MIn> inVec)
+{
+	return impl::zero_expand_helper<MOut, MIn, T>::__call(inVec);
+}
+
+template <uint16_t NOut, uint16_t MOut, uint16_t NIn, uint16_t MIn, typename T NBL_FUNC_REQUIRES(NOut >= NIn && MOut >= MIn)
+matrix<T, NOut, MOut> promote_affine(const matrix<T, NIn, MIn> inMatrix)
+{
+	matrix<T, NOut, MOut> retval;
+
+	using out_row_t = hlsl::vector<T, MOut>;
+
+	NBL_UNROLL for (uint32_t row_i = 0; row_i < NIn; row_i++)
+	{
+		retval[row_i] = zero_expand<MOut, MIn>(inMatrix[row_i]);
+	}
+	NBL_UNROLL for (uint32_t row_i = NIn; row_i < NOut; row_i++)
+	{
+		retval[row_i] = promote<out_row_t>(0.0);
+		if (row_i < MOut)
+			retval[row_i][row_i] = T(1.0);
+	}
+	return retval;
 }
 
 }
@@ -84,6 +124,25 @@ namespace impl
 				{
 					retval[i][j] = hlsl::_static_cast<ScalarTo>(mat[i][j]);
 				}
+			}
+
+			return retval;
+		}
+	};
+
+	template<typename ScalarTo, typename ScalarFrom, uint16_t N>
+	struct static_cast_helper<vector<ScalarTo, N>, vector<ScalarFrom, N>, void>
+	{
+		using To = vector<ScalarTo, N>;
+		using From = vector<ScalarFrom, N>;
+
+		static inline To cast(From vec)
+		{
+			To retval;
+
+			NBL_UNROLL for (int i = 0; i < N; ++i)
+			{
+				retval[i] = hlsl::_static_cast<ScalarTo>(vec[i]);
 			}
 
 			return retval;

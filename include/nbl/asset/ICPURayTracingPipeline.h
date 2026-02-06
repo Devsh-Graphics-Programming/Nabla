@@ -13,9 +13,9 @@ namespace nbl::asset
 {
 
 //! CPU Version of RayTracing Pipeline
-class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICPUPipelineLayout>>
+class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICPUPipelineLayout,ICPUBuffer>>
 {
-        using pipeline_base_t = IRayTracingPipeline<ICPUPipelineLayout>;
+        using pipeline_base_t = IRayTracingPipeline<ICPUPipelineLayout,ICPUBuffer>;
         using base_t = ICPUPipeline<pipeline_base_t>;
 
     public:

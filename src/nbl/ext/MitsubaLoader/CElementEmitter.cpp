@@ -197,8 +197,6 @@ bool CElementEmitter::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_
 		case Type::AREA:
 			break;
 		default:
-			// TODO: slap into the scene instead!
-//			globalMetadata->m_global.m_emitters.push_back(*this);
 			break;
 	}
 

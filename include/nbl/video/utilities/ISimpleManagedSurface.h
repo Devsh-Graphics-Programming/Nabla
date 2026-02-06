@@ -186,6 +186,13 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		//
 		inline bool irrecoverable() const {return !const_cast<ISimpleManagedSurface*>(this)->getSwapchainResources();}
 
+		// to trigger `becomeIrrecoverable` if window got closwd
+		inline bool isWindowOpen()
+		{
+			if (!m_cb) return true; // native hwnd has no callbacks set -> user's responsibility to not acquire on window close corresponding to the Surface HWND
+			return m_cb->isWindowOpen();
+		}
+
 		//
 		inline CThreadSafeQueueAdapter* getAssignedQueue() const {return m_queue;}
 
@@ -338,13 +345,6 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		//
 		virtual void deinit_impl() = 0;
-
-		// to trigger `becomeIrrecoverable` if window got closwd
-		inline bool isWindowOpen()
-		{
-			if (!m_cb) return true; // native hwnd has no callbacks set -> user's responsibility to not acquire on window close corresponding to the Surface HWND
-			return m_cb->isWindowOpen();
-		}
 
 		//
 		ICallback* const m_cb = nullptr;

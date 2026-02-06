@@ -10,6 +10,7 @@
 #include "nbl/asset/metadata/IImageMetadata.h"
 #include "nbl/asset/metadata/IImageViewMetadata.h"
 #include "nbl/asset/metadata/IPolygonGeometryMetadata.h"
+#include "nbl/asset/metadata/IGeometryCollectionMetadata.h"
 
 
 namespace nbl::asset
@@ -37,6 +38,11 @@ template<>
 struct IAssetMetadata_base::asset_metadata<ICPUPolygonGeometry>
 {
 	using type = IPolygonGeometryMetadata;
+};
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUGeometryCollection>
+{
+	using type = IGeometryCollectionMetadata;
 };
 }
 
@@ -79,7 +85,8 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
 			asset_metadata_map_t<ICPUImageView>,
-			asset_metadata_map_t<ICPUPolygonGeometry>
+			asset_metadata_map_t<ICPUPolygonGeometry>,
+			asset_metadata_map_t<ICPUGeometryCollection>
 		> m_metaMaps;
 
 
