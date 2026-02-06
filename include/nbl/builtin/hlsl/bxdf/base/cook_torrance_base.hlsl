@@ -50,7 +50,7 @@ struct quant_query_helper<N, F, true>
     using quant_query_type = typename N::quant_query_type;
 
     template<class I, class C>
-    static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
+    static quant_query_type __call(NBL_CONST_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
     {
         return ndf.template createQuantQuery<I,C>(interaction, cache, fresnel.getRefractionOrientedEta());
     }
@@ -62,7 +62,7 @@ struct quant_query_helper<N, F, false>
     using quant_query_type = typename N::quant_query_type;
 
     template<class I, class C>
-    static quant_query_type __call(NBL_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
+    static quant_query_type __call(NBL_CONST_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
     {
         typename N::scalar_type dummy;
         return ndf.template createQuantQuery<I,C>(interaction, cache, dummy);
@@ -146,7 +146,7 @@ struct SCookTorrance
         return hlsl::mix(reflectance, scalar_type(1.0)-reflectance, transmitted);
     }
 
-    bool __dotIsValue(const vector3_type a, const vector3_type b, const scalar_type value)
+    bool __dotIsValue(const vector3_type a, const vector3_type b, const scalar_type value) NBL_CONST_MEMBER_FUNC
     {
         const scalar_type ab = hlsl::dot(a, b);
         return hlsl::max(ab, value / ab) <= scalar_type(value + 1e-3);
@@ -156,7 +156,7 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
         if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
@@ -197,14 +197,14 @@ struct SCookTorrance
     sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
                                 const scalar_type NdotV, const scalar_type VdotH, const scalar_type LdotH, bool transmitted,
                                 NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, 
-                                NBL_REF_ARG(bool) valid)
+                                NBL_REF_ARG(bool) valid) NBL_CONST_MEMBER_FUNC
     {
         // fail if samples have invalid paths
         const scalar_type NdotL = hlsl::mix(scalar_type(2.0) * VdotH * localH.z - NdotV,
                                     localH.z * (VdotH * rcpEta.value[0] + LdotH) - NdotV * rcpEta.value[0], transmitted);
         // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
         // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
-        if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
+        if (hlsl::isnan(NdotL) || ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
         {
             valid = false;
             return sample_type::createInvalid();    // should check if sample direction is invalid
@@ -244,7 +244,7 @@ struct SCookTorrance
         return sample_type::create(L, T, B, NdotL);
     }
     template<typename C=bool_constant<!IsBSDF> NBL_FUNC_REQUIRES(C::value && !IsBSDF)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         const scalar_type NdotV = interaction.getNdotV();
         if (NdotV < numeric_limits<scalar_type>::min)
@@ -274,7 +274,7 @@ struct SCookTorrance
         return s;
     }
     template<typename C=bool_constant<IsBSDF> NBL_FUNC_REQUIRES(C::value && IsBSDF)
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const scalar_type NdotV = localV.z;
@@ -322,7 +322,7 @@ struct SCookTorrance
         return s;
     }
     template<typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(C::value && !IsAnisotropic)
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const conditional_t<IsBSDF, vector3_type, vector2_type> u, NBL_REF_ARG(isocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const conditional_t<IsBSDF, vector3_type, vector2_type> u, NBL_REF_ARG(isocache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         anisocache_type aniso_cache;
         sample_type s = generate(anisotropic_interaction_type::create(interaction), u, aniso_cache);
@@ -331,7 +331,7 @@ struct SCookTorrance
     }
 
     template<class Interaction, class MicrofacetCache>
-    scalar_type __pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
+    scalar_type __pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
     {
         using quant_query_type = typename ndf_type::quant_query_type;
         using dg1_query_type = typename ndf_type::dg1_query_type;
@@ -356,7 +356,7 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
         if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
@@ -370,7 +370,7 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         if (!_sample.isValid())
             return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));   // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
