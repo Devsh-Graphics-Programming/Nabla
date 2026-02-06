@@ -1206,13 +1206,14 @@ struct DeviceConfigCaps
 		-enable-16bit-types 
 		-Zpr 
 		-spirv 
+		-Wno-local-type-template-args
 		-fspv-target-env=vulkan1.3 
 		-Wshadow 
 		-Wconversion 
 		-Wno-local-type-template-args 
 		$<$<CONFIG:Debug>:-O0> 
 		$<$<CONFIG:Release>:-O3> 
-		$<$<CONFIG:RelWithDebInfo>:-O3> 
+		$<$<CONFIG:RelWithDebInfo>:-O3>
 	)
 
 	if(NSC_DEBUG_EDIF_FILE_BIT)
@@ -1599,7 +1600,6 @@ namespace @IMPL_NAMESPACE@ {
 					NBL_SPIRV_BINARY_DIR "${IMPL_BINARY_DIR}"
 					NBL_SPIRV_ACCESS_KEY "${FINAL_KEY_REL_PATH}"
 				)
-
 				set_property(TARGET ${IMPL_TARGET} APPEND PROPERTY NBL_SPIRV_OUTPUTS "${TARGET_OUTPUT}")
 				return()
 			endif()
