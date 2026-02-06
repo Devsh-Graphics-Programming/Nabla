@@ -82,6 +82,29 @@ inline matrix<FloatingPoint, 4, 4> lhProjectionOrthoMatrix(FloatingPoint widthOf
 
 }
 }
+
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
+inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovRH(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
+{
+	return math::thin_lens::rhPerspectiveFovMatrix(fieldOfViewRadians, aspectRatio, zNear, zFar);
+}
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
+inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixPerspectiveFovLH(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
+{
+	return math::thin_lens::lhPerspectiveFovMatrix(fieldOfViewRadians, aspectRatio, zNear, zFar);
+}
+
+template<typename FloatingPoint  NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
+inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoRH(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
+{
+	return math::thin_lens::rhProjectionOrthoMatrix(widthOfViewVolume, heightOfViewVolume, zNear, zFar);
+}
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
+inline matrix<FloatingPoint, 4, 4> buildProjectionMatrixOrthoLH(FloatingPoint widthOfViewVolume, FloatingPoint heightOfViewVolume, FloatingPoint zNear, FloatingPoint zFar)
+{
+	return math::thin_lens::lhProjectionOrthoMatrix(widthOfViewVolume, heightOfViewVolume, zNear, zFar);
+}
+
 }
 }
 
