@@ -8,8 +8,11 @@
 
 #include "nbl/system/IFile.h"
 
-#include <sstream>
-#include <iomanip>
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cstdio>
+#include <system_error>
 
 namespace nbl::asset
 {
@@ -21,11 +24,74 @@ COBJMeshWriter::COBJMeshWriter()
 	#endif
 }
 
+const char** COBJMeshWriter::getAssociatedFileExtensions() const
+{
+	static const char* ext[] = { "obj", nullptr };
+	return ext;
+}
+
+uint32_t COBJMeshWriter::getSupportedFlags()
+{
+	return 0u;
+}
+
+uint32_t COBJMeshWriter::getForcedFlags()
+{
+	return 0u;
+}
+
 static inline bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 {
 	out = hlsl::float64_t4(0.0, 0.0, 0.0, 0.0);
 	return view.decodeElement(ix, out);
 }
+
+static inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
+{
+	if (!view)
+		return nullptr;
+	if (view.composed.format != EF_R32G32B32_SFLOAT)
+		return nullptr;
+	if (view.composed.getStride() != sizeof(hlsl::float32_t3))
+		return nullptr;
+	return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
+}
+
+static inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
+{
+	if (!view)
+		return nullptr;
+	if (view.composed.format != EF_R32G32_SFLOAT)
+		return nullptr;
+	if (view.composed.getStride() != sizeof(hlsl::float32_t2))
+		return nullptr;
+	return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
+}
+
+static inline void appendUInt(std::string& out, const uint32_t value)
+{
+	std::array<char, 16> buf = {};
+	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+	if (res.ec == std::errc())
+		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
+}
+
+static inline void appendFloatFixed6(std::string& out, double value)
+{
+	std::array<char, 64> buf = {};
+	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::fixed, 6);
+	if (res.ec == std::errc())
+	{
+		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
+		return;
+	}
+
+	const int written = std::snprintf(buf.data(), buf.size(), "%.6f", value);
+	if (written > 0)
+		out.append(buf.data(), static_cast<size_t>(written));
+}
+
+static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
 
 bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
@@ -91,27 +157,34 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (indexCount % 3u != 0u)
 			return false;
 
-		indexData.resize(indexCount);
 		const void* src = indexView.getPointer();
 		if (!src)
 			return false;
 
-		if (indexView.composed.format == EF_R32_UINT)
+		if (indexView.composed.format == EF_R32_UINT && indexView.composed.getStride() == sizeof(uint32_t))
 		{
-			memcpy(indexData.data(), src, indexCount * sizeof(uint32_t));
+			indices = reinterpret_cast<const uint32_t*>(src);
 		}
-		else if (indexView.composed.format == EF_R16_UINT)
+		else if (indexView.composed.format == EF_R16_UINT && indexView.composed.getStride() == sizeof(uint16_t))
 		{
+			indexData.resize(indexCount);
 			const uint16_t* src16 = reinterpret_cast<const uint16_t*>(src);
 			for (size_t i = 0; i < indexCount; ++i)
 				indexData[i] = src16[i];
+			indices = indexData.data();
 		}
 		else
 		{
-			return false;
+			indexData.resize(indexCount);
+			hlsl::vector<uint32_t, 1> decoded = {};
+			for (size_t i = 0; i < indexCount; ++i)
+			{
+				if (!indexView.decodeElement(i, decoded))
+					return false;
+				indexData[i] = decoded.x;
+			}
+			indices = indexData.data();
 		}
-
-		indices = indexData.data();
 		faceCount = indexCount / 3u;
 	}
 	else
@@ -129,53 +202,70 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool flipHandedness = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
+	std::string output;
+	output.reserve(vertexCount * 96ull + faceCount * 48ull);
 
-	SAssetWriteContext writeCtx = { ctx.params, file };
-	size_t fileOffset = 0u;
-
-	auto writeString = [&](const std::string& str)
-	{
-		system::IFile::success_t success;
-		writeCtx.outputFile->write(success, str.c_str(), fileOffset, str.size());
-		fileOffset += success.getBytesProcessed();
-	};
-
-	{
-		std::string header = "# Nabla OBJ\n";
-		writeString(header);
-	}
+	output += "# Nabla OBJ\n";
 
 	hlsl::float64_t4 tmp = {};
+	const hlsl::float32_t3* const tightPositions = getTightFloat3View(positionView);
+	const hlsl::float32_t3* const tightNormals = hasNormals ? getTightFloat3View(normalView) : nullptr;
+	const hlsl::float32_t2* const tightUV = hasUVs ? getTightFloat2View(*uvView) : nullptr;
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
-		if (!decodeVec4(positionView, i, tmp))
-			return false;
-
-		double x = tmp.x;
-		double y = tmp.y;
-		double z = tmp.z;
+		double x = 0.0;
+		double y = 0.0;
+		double z = 0.0;
+		if (tightPositions)
+		{
+			x = tightPositions[i].x;
+			y = tightPositions[i].y;
+			z = tightPositions[i].z;
+		}
+		else
+		{
+			if (!decodeVec4(positionView, i, tmp))
+				return false;
+			x = tmp.x;
+			y = tmp.y;
+			z = tmp.z;
+		}
 		if (flipHandedness)
 			x = -x;
 
-		std::ostringstream ss;
-		ss << std::fixed << std::setprecision(6);
-		ss << "v " << x << " " << y << " " << z << "\n";
-		writeString(ss.str());
+		output += "v ";
+		appendFloatFixed6(output, x);
+		output += " ";
+		appendFloatFixed6(output, y);
+		output += " ";
+		appendFloatFixed6(output, z);
+		output += "\n";
 	}
 
 	if (hasUVs)
 	{
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
-			if (!decodeVec4(*uvView, i, tmp))
-				return false;
-			const double u = tmp.x;
-			const double v = 1.0 - tmp.y;
+			double u = 0.0;
+			double v = 0.0;
+			if (tightUV)
+			{
+				u = tightUV[i].x;
+				v = 1.0 - tightUV[i].y;
+			}
+			else
+			{
+				if (!decodeVec4(*uvView, i, tmp))
+					return false;
+				u = tmp.x;
+				v = 1.0 - tmp.y;
+			}
 
-			std::ostringstream ss;
-			ss << std::fixed << std::setprecision(6);
-			ss << "vt " << u << " " << v << "\n";
-			writeString(ss.str());
+			output += "vt ";
+			appendFloatFixed6(output, u);
+			output += " ";
+			appendFloatFixed6(output, v);
+			output += "\n";
 		}
 	}
 
@@ -183,21 +273,58 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	{
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
-			if (!decodeVec4(normalView, i, tmp))
-				return false;
-
-			double x = tmp.x;
-			double y = tmp.y;
-			double z = tmp.z;
+			double x = 0.0;
+			double y = 0.0;
+			double z = 0.0;
+			if (tightNormals)
+			{
+				x = tightNormals[i].x;
+				y = tightNormals[i].y;
+				z = tightNormals[i].z;
+			}
+			else
+			{
+				if (!decodeVec4(normalView, i, tmp))
+					return false;
+				x = tmp.x;
+				y = tmp.y;
+				z = tmp.z;
+			}
 			if (flipHandedness)
 				x = -x;
 
-			std::ostringstream ss;
-			ss << std::fixed << std::setprecision(6);
-			ss << "vn " << x << " " << y << " " << z << "\n";
-			writeString(ss.str());
+			output += "vn ";
+			appendFloatFixed6(output, x);
+			output += " ";
+			appendFloatFixed6(output, y);
+			output += " ";
+			appendFloatFixed6(output, z);
+			output += "\n";
 		}
 	}
+
+	auto appendFaceIndex = [&](const uint32_t idx)
+	{
+		const uint32_t objIx = idx + 1u;
+		appendUInt(output, objIx);
+		if (hasUVs && hasNormals)
+		{
+			output += "/";
+			appendUInt(output, objIx);
+			output += "/";
+			appendUInt(output, objIx);
+		}
+		else if (hasUVs)
+		{
+			output += "/";
+			appendUInt(output, objIx);
+		}
+		else if (hasNormals)
+		{
+			output += "//";
+			appendUInt(output, objIx);
+		}
+	};
 
 	for (size_t i = 0u; i < faceCount; ++i)
 	{
@@ -209,33 +336,60 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const uint32_t f1 = i1;
 		const uint32_t f2 = i0;
 
-		auto emitIndex = [&](std::ostringstream& ss, const uint32_t idx)
-		{
-			const uint32_t objIx = idx + 1u;
-			if (hasUVs && hasNormals)
-				ss << objIx << "/" << objIx << "/" << objIx;
-			else if (hasUVs)
-				ss << objIx << "/" << objIx;
-			else if (hasNormals)
-				ss << objIx << "//" << objIx;
-			else
-				ss << objIx;
-		};
-
-		std::ostringstream ss;
-		ss << "f ";
-		emitIndex(ss, f0);
-		ss << " ";
-		emitIndex(ss, f1);
-		ss << " ";
-		emitIndex(ss, f2);
-		ss << "\n";
-		writeString(ss.str());
+		output += "f ";
+		appendFaceIndex(f0);
+		output += " ";
+		appendFaceIndex(f1);
+		output += " ";
+		appendFaceIndex(f2);
+		output += "\n";
 	}
 
-	return true;
+	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
+	if (!ioPlan.valid)
+	{
+		_params.logger.log("OBJ writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
+		return false;
+	}
+
+	return writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size());
+}
+
+static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
+{
+	if (!file || (!data && byteCount != 0ull))
+		return false;
+
+	size_t fileOffset = 0ull;
+	switch (ioPlan.strategy)
+	{
+		case SResolvedFileIOPolicy::Strategy::WholeFile:
+		{
+			system::IFile::success_t success;
+			file->write(success, data, fileOffset, byteCount);
+			return success && success.getBytesProcessed() == byteCount;
+		}
+		case SResolvedFileIOPolicy::Strategy::Chunked:
+		default:
+		{
+			while (fileOffset < byteCount)
+			{
+				const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - fileOffset));
+				system::IFile::success_t success;
+				file->write(success, data + fileOffset, fileOffset, toWrite);
+				if (!success)
+					return false;
+				const size_t written = success.getBytesProcessed();
+				if (written == 0ull)
+					return false;
+				fileOffset += written;
+			}
+			return true;
+		}
+	}
 }
 
 } // namespace nbl::asset
 
 #endif // _NBL_COMPILE_WITH_OBJ_WRITER_
+

@@ -9,7 +9,6 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/interchange/IGeometryLoader.h"
-#include "nbl/asset/metadata/CSTLMetadata.h"
 
 
 namespace nbl::asset
@@ -19,42 +18,13 @@ namespace nbl::asset
 class CSTLMeshFileLoader final : public IGeometryLoader
 {
 	public:
-
-		CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr);
+		explicit CSTLMeshFileLoader(asset::IAssetManager* _assetManager);
 
 		asset::SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "stl", nullptr };
-			return ext;
-		}
-
-	private:
-		struct SContext
-		{
-			IAssetLoader::SAssetLoadContext inner;
-			uint32_t topHierarchyLevel;
-			IAssetLoader::IAssetLoaderOverride* loaderOverride;
-
-			size_t fileOffset = {};
-		};
-
-		virtual void initialize() override;
-
-		// skips to the first non-space character available
-		void goNextWord(SContext* context) const;
-		// returns the next word
-
-		const std::string& getNextToken(SContext* context, std::string& token) const;
-		// skip to next printable character after the first line break
-		void goNextLine(SContext* context) const;
-		//! Read 3d vector of floats
-		void getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const;
-
-		asset::IAssetManager* m_assetMgr;
+		const char** getAssociatedFileExtensions() const override;
 };
 
 }	// end namespace nbl::scene

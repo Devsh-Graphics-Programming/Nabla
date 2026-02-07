@@ -11,6 +11,7 @@
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
+#include "nbl/asset/interchange/SFileIOPolicy.h"
 
 
 namespace nbl::asset
@@ -97,10 +98,10 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		{
 			inline SAssetLoadParams(const size_t _decryptionKeyLen = 0u, const uint8_t* const _decryptionKey = nullptr,
 				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS _loaderFlags = ELPF_NONE, 
-				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
+				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
-					logger(std::move(_logger)), workingDirectory(cwd)
+					logger(std::move(_logger)), workingDirectory(cwd), ioPolicy(_ioPolicy)
 			{
 			}
 
@@ -110,7 +111,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				cacheFlags(rhs.cacheFlags),
 				loaderFlags(rhs.loaderFlags),
 				logger(rhs.logger),
-				workingDirectory(rhs.workingDirectory)
+				workingDirectory(rhs.workingDirectory),
+				ioPolicy(rhs.ioPolicy)
 			{
 			}
 
@@ -120,6 +122,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
+			SFileIOPolicy ioPolicy = {};
 		};
 
 		//! Struct for keeping the state of the current loadoperation for safe threading

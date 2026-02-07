@@ -5,7 +5,6 @@
 #define _NBL_ASSET_OBJ_MESH_WRITER_H_INCLUDED_
 
 
-#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/IGeometryWriter.h"
 
 
@@ -18,17 +17,13 @@ class COBJMeshWriter : public IGeometryWriter
 	public:
 		COBJMeshWriter();
 
-		virtual const char** getAssociatedFileExtensions() const
-		{
-			static const char* ext[]{ "obj", nullptr };
-			return ext;
-		}
+		const char** getAssociatedFileExtensions() const override;
 
-		virtual uint32_t getSupportedFlags() override { return 0u; }
+		uint32_t getSupportedFlags() override;
 
-		virtual uint32_t getForcedFlags() { return 0u; }
+		uint32_t getForcedFlags() override;
 
-		virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
 } // end namespace

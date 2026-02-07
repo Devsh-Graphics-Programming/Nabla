@@ -14,10 +14,96 @@
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
 #include "nbl/asset/utils/COverdrawPolygonGeometryOptimizer.h"
 #include "nbl/asset/utils/COBBGenerator.h"
+#include "nbl/asset/IPreHashed.h"
 
 
 namespace nbl::asset
 {
+
+core::blake3_hash_t CPolygonGeometryManipulator::computeDeterministicContentHash(const ICPUPolygonGeometry* geo)
+{
+	if (!geo)
+		return IPreHashed::INVALID_HASH;
+
+	const auto* indexing = geo->getIndexingCallback();
+	if (!indexing)
+		return IPreHashed::INVALID_HASH;
+
+	// Keep this as a standalone helper instead of an IPreHashed override on geometry.
+	// A polygon geometry is a composition of shared views over external buffers, not a single owned payload.
+	// Caching a hash inside the geometry object would need global invalidation across external buffer mutations.
+	core::blake3_hasher hasher;
+	hasher << indexing->degree();
+	hasher << indexing->rate();
+	hasher << indexing->knownTopology();
+
+	auto hashView = [&](const IGeometry<ICPUBuffer>::SDataView& view)->bool
+	{
+		if (!view)
+		{
+			hasher << false;
+			return true;
+		}
+
+		hasher << true;
+		hasher << view.composed.format;
+		hasher << view.composed.stride;
+		hasher << view.composed.getStride();
+		hasher << view.composed.rangeFormat;
+		hasher << view.src.offset;
+		hasher << view.src.actualSize();
+
+		const auto* const buffer = view.src.buffer.get();
+		if (!buffer || buffer->missingContent())
+			return false;
+
+		const auto* const data = reinterpret_cast<const uint8_t*>(buffer->getPointer());
+		if (!data)
+			return false;
+
+		hasher.update(data + view.src.offset, view.src.actualSize());
+		return true;
+	};
+
+	if (!hashView(geo->getPositionView()))
+		return IPreHashed::INVALID_HASH;
+	if (!hashView(geo->getIndexView()))
+		return IPreHashed::INVALID_HASH;
+	if (!hashView(geo->getNormalView()))
+		return IPreHashed::INVALID_HASH;
+
+	hasher << geo->getJointCount();
+	if (geo->isSkinned())
+	{
+		if (const auto* jointOBBView = geo->getJointOBBView(); jointOBBView)
+		{
+			if (!hashView(*jointOBBView))
+				return IPreHashed::INVALID_HASH;
+		}
+		else
+			hasher << false;
+
+		const auto& jointWeightViews = geo->getJointWeightViews();
+		hasher << jointWeightViews.size();
+		for (const auto& view : jointWeightViews)
+		{
+			if (!hashView(view.indices))
+				return IPreHashed::INVALID_HASH;
+			if (!hashView(view.weights))
+				return IPreHashed::INVALID_HASH;
+		}
+	}
+
+	const auto& auxAttributeViews = geo->getAuxAttributeViews();
+	hasher << auxAttributeViews.size();
+	for (const auto& view : auxAttributeViews)
+	{
+		if (!hashView(view))
+			return IPreHashed::INVALID_HASH;
+	}
+
+	return static_cast<core::blake3_hash_t>(hasher);
+}
 
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* inGeo)

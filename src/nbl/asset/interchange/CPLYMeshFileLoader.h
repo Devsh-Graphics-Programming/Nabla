@@ -10,9 +10,6 @@
 
 #include "nbl/asset/interchange/IGeometryLoader.h"
 
-#include "nbl/asset/ICPUPolygonGeometry.h"
-#include "nbl/asset/metadata/CPLYMetadata.h"
-
 namespace nbl::asset
 {
 
@@ -20,15 +17,11 @@ namespace nbl::asset
 class CPLYMeshFileLoader final : public IGeometryLoader
 {
 	public:
-		inline CPLYMeshFileLoader() = default;
+		CPLYMeshFileLoader();
 
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "ply", nullptr };
-			return ext;
-		}
+		const char** getAssociatedFileExtensions() const override;
 
 		//! creates/loads an animated mesh from the file.
 		SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;

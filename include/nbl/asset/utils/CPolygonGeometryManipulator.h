@@ -6,6 +6,7 @@
 
 
 #include "nbl/core/declarations.h"
+#include "nbl/core/hash/blake.h"
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
@@ -20,6 +21,7 @@ namespace nbl::asset
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
+		static core::blake3_hash_t computeDeterministicContentHash(const ICPUPolygonGeometry* geo);
 
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
 		{

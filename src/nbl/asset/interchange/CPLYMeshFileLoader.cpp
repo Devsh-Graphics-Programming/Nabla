@@ -6,9 +6,14 @@
 
 
 #include "CPLYMeshFileLoader.h"
+#include "nbl/asset/metadata/CPLYMetadata.h"
 
 #include <numeric>
 #include <cstdlib>
+#include <algorithm>
+#include <limits>
+#include <chrono>
+#include <cstring>
 
 #include "nbl/asset/IAssetManager.h"
 
@@ -20,6 +25,14 @@
 
 namespace nbl::asset
 {
+
+CPLYMeshFileLoader::CPLYMeshFileLoader() = default;
+
+const char** CPLYMeshFileLoader::getAssociatedFileExtensions() const
+{
+	static const char* ext[] = { "ply", nullptr };
+	return ext;
+}
 
 bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
@@ -93,7 +106,7 @@ struct SContext
 				int32_t count = _ctx.getInt(list.countType);
 
 				for (decltype(count) i=0; i<count; ++i)
-					_ctx.getInt(list.countType);
+					_ctx.getInt(list.itemType);
 			}
 			else if (_ctx.IsBinaryFile)
 				_ctx.moveForward(getTexelOrBlockBytesize(type));
@@ -136,8 +149,10 @@ struct SContext
 		uint32_t KnownSize;
 	};
 
-	inline void init()
+	inline void init(size_t _ioReadWindowSize = 50ull << 10)
 	{
+		ioReadWindowSize = std::max<size_t>(_ioReadWindowSize, 50ull << 10);
+		Buffer.resize(ioReadWindowSize + 1ull, '\0');
 		EndPointer = StartPointer = Buffer.data();
 		LineEndPointer = EndPointer-1;
 
@@ -165,7 +180,13 @@ struct SContext
 		EndPointer = newStart+length;
 
 		// read data from the file
-		const size_t requestSize = Buffer.size()-length;
+		const size_t usableBufferSize = Buffer.size() > 0ull ? Buffer.size() - 1ull : 0ull;
+		if (usableBufferSize <= length)
+		{
+			EndOfFile = true;
+			return;
+		}
+		const size_t requestSize = usableBufferSize - length;
 		system::IFile::success_t success;
 		inner.mainFile->read(success,EndPointer,fileOffset,requestSize);
 		const size_t bytesRead = success.getBytesProcessed();
@@ -422,7 +443,7 @@ struct SContext
 			it.ptr += it.stride;
 		}
 	}
-	bool readFace(const SElement& Element, core::vector<uint32_t>& _outIndices)
+	bool readFace(const SElement& Element, core::vector<uint32_t>& _outIndices, uint32_t& _maxIndex)
 	{
 		if (!IsBinaryFile)
 			getNextLine();
@@ -432,20 +453,82 @@ struct SContext
 			if (prop.isList() && (prop.Name=="vertex_indices" || prop.Name == "vertex_index"))
 			{
 				const uint32_t count = getInt(prop.list.countType);
-				//_NBL_DEBUG_BREAK_IF(count != 3)
 				const auto srcIndexFmt = prop.list.itemType;
-
-				_outIndices.push_back(getInt(srcIndexFmt));
-				_outIndices.push_back(getInt(srcIndexFmt));
-				_outIndices.push_back(getInt(srcIndexFmt));
-				// TODO: handle varying vertex count faces via variable vertex count geometry collections (PLY loader should be a Geometry Collection loader)
-				for (auto j=3u; j<count; ++j)
+				if (count < 3u)
 				{
-					// this seems to be a triangle fan ?
-					_outIndices.push_back(_outIndices.front());
-					_outIndices.push_back(_outIndices.back());
-					_outIndices.push_back(getInt(srcIndexFmt));
+					for (uint32_t j = 0u; j < count; ++j)
+						getInt(srcIndexFmt);
+					continue;
 				}
+				if (count > 3u)
+					_outIndices.reserve(_outIndices.size() + static_cast<size_t>(count - 2u) * 3ull);
+				auto emitFan = [&_outIndices, &_maxIndex](auto&& readIndex, const uint32_t faceVertexCount)->void
+				{
+					uint32_t i0 = readIndex();
+					uint32_t i1 = readIndex();
+					uint32_t i2 = readIndex();
+					_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
+					_outIndices.push_back(i0);
+					_outIndices.push_back(i1);
+					_outIndices.push_back(i2);
+					uint32_t prev = i2;
+					for (uint32_t j = 3u; j < faceVertexCount; ++j)
+					{
+						const uint32_t idx = readIndex();
+						_maxIndex = std::max(_maxIndex, idx);
+						_outIndices.push_back(i0);
+						_outIndices.push_back(prev);
+						_outIndices.push_back(idx);
+						prev = idx;
+					}
+				};
+
+				if (IsBinaryFile && !IsWrongEndian && srcIndexFmt == EF_R32_UINT)
+				{
+					const size_t bytesNeeded = static_cast<size_t>(count) * sizeof(uint32_t);
+					if (StartPointer + bytesNeeded > EndPointer)
+						fillBuffer();
+					if (StartPointer + bytesNeeded <= EndPointer)
+					{
+						const uint8_t* ptr = reinterpret_cast<const uint8_t*>(StartPointer);
+						auto readIndex = [&ptr]() -> uint32_t
+						{
+							uint32_t v = 0u;
+							std::memcpy(&v, ptr, sizeof(v));
+							ptr += sizeof(v);
+							return v;
+						};
+						emitFan(readIndex, count);
+						StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
+						continue;
+					}
+				}
+				else if (IsBinaryFile && !IsWrongEndian && srcIndexFmt == EF_R16_UINT)
+				{
+					const size_t bytesNeeded = static_cast<size_t>(count) * sizeof(uint16_t);
+					if (StartPointer + bytesNeeded > EndPointer)
+						fillBuffer();
+					if (StartPointer + bytesNeeded <= EndPointer)
+					{
+						const uint8_t* ptr = reinterpret_cast<const uint8_t*>(StartPointer);
+						auto readIndex = [&ptr]() -> uint32_t
+						{
+							uint16_t v = 0u;
+							std::memcpy(&v, ptr, sizeof(v));
+							ptr += sizeof(v);
+							return static_cast<uint32_t>(v);
+						};
+						emitFan(readIndex, count);
+						StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
+						continue;
+					}
+				}
+
+				auto readIndex = [&]() -> uint32_t
+				{
+					return static_cast<uint32_t>(getInt(srcIndexFmt));
+				};
+				emitFan(readIndex, count);
 			}
 			else if (prop.Name == "intensity")
 			{
@@ -458,11 +541,190 @@ struct SContext
 		return true;
 	}
 
+	bool readFaceElementFast(const SElement& element, core::vector<uint32_t>& _outIndices, uint32_t& _maxIndex, uint64_t& _faceCount)
+	{
+		if (!IsBinaryFile || IsWrongEndian)
+			return false;
+		if (element.Properties.size() != 1u)
+			return false;
+
+		const auto& prop = element.Properties[0];
+		if (!prop.isList() || (prop.Name != "vertex_indices" && prop.Name != "vertex_index"))
+			return false;
+		if (prop.list.countType != EF_R8_UINT)
+			return false;
+
+		const E_FORMAT srcIndexFmt = prop.list.itemType;
+		if (srcIndexFmt != EF_R32_UINT && srcIndexFmt != EF_R16_UINT)
+			return false;
+
+		const size_t indexSize = srcIndexFmt == EF_R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
+		const size_t minTriangleRecordSize = sizeof(uint8_t) + indexSize * 3u;
+		const size_t minBytesNeeded = element.Count * minTriangleRecordSize;
+		if (StartPointer + minBytesNeeded <= EndPointer)
+		{
+			char* scan = StartPointer;
+			bool allTriangles = true;
+			for (size_t j = 0u; j < element.Count; ++j)
+			{
+				const uint8_t c = static_cast<uint8_t>(*scan++);
+				if (c != 3u)
+				{
+					allTriangles = false;
+					break;
+				}
+				scan += indexSize * 3u;
+			}
+
+			if (allTriangles)
+			{
+				const size_t oldSize = _outIndices.size();
+				_outIndices.resize(oldSize + element.Count * 3u);
+				uint32_t* out = _outIndices.data() + oldSize;
+				const uint8_t* ptr = reinterpret_cast<const uint8_t*>(StartPointer);
+
+				if (srcIndexFmt == EF_R32_UINT)
+				{
+					for (size_t j = 0u; j < element.Count; ++j)
+					{
+						++ptr; // list count
+						uint32_t i0 = 0u;
+						uint32_t i1 = 0u;
+						uint32_t i2 = 0u;
+						std::memcpy(&i0, ptr, sizeof(i0));
+						ptr += sizeof(i0);
+						std::memcpy(&i1, ptr, sizeof(i1));
+						ptr += sizeof(i1);
+						std::memcpy(&i2, ptr, sizeof(i2));
+						ptr += sizeof(i2);
+						_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
+						out[0] = i0;
+						out[1] = i1;
+						out[2] = i2;
+						out += 3;
+					}
+				}
+				else
+				{
+					for (size_t j = 0u; j < element.Count; ++j)
+					{
+						++ptr; // list count
+						uint16_t t0 = 0u;
+						uint16_t t1 = 0u;
+						uint16_t t2 = 0u;
+						std::memcpy(&t0, ptr, sizeof(t0));
+						ptr += sizeof(t0);
+						std::memcpy(&t1, ptr, sizeof(t1));
+						ptr += sizeof(t1);
+						std::memcpy(&t2, ptr, sizeof(t2));
+						ptr += sizeof(t2);
+						const uint32_t i0 = t0;
+						const uint32_t i1 = t1;
+						const uint32_t i2 = t2;
+						_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
+						out[0] = i0;
+						out[1] = i1;
+						out[2] = i2;
+						out += 3;
+					}
+				}
+
+				StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
+				_faceCount += element.Count;
+				return true;
+			}
+		}
+
+		_outIndices.reserve(_outIndices.size() + element.Count * 3u);
+		auto ensureBytes = [this](const size_t bytes)->bool
+		{
+			if (StartPointer + bytes > EndPointer)
+				fillBuffer();
+			return StartPointer + bytes <= EndPointer;
+		};
+		auto readCount = [&ensureBytes, this](int32_t& outCount)->bool
+		{
+			if (!ensureBytes(sizeof(uint8_t)))
+				return false;
+			outCount = static_cast<uint8_t>(*StartPointer++);
+			return true;
+		};
+		auto readIndex = [&ensureBytes, this, srcIndexFmt](uint32_t& out)->bool
+		{
+			if (srcIndexFmt == EF_R32_UINT)
+			{
+				if (!ensureBytes(sizeof(uint32_t)))
+					return false;
+				std::memcpy(&out, StartPointer, sizeof(uint32_t));
+				StartPointer += sizeof(uint32_t);
+				return true;
+			}
+
+			if (!ensureBytes(sizeof(uint16_t)))
+				return false;
+			uint16_t v = 0u;
+			std::memcpy(&v, StartPointer, sizeof(uint16_t));
+			StartPointer += sizeof(uint16_t);
+			out = v;
+			return true;
+		};
+
+		for (size_t j = 0u; j < element.Count; ++j)
+		{
+			int32_t countSigned = 0;
+			if (!readCount(countSigned))
+				return false;
+			if (countSigned < 0)
+				return false;
+			const uint32_t count = static_cast<uint32_t>(countSigned);
+			if (count < 3u)
+			{
+				uint32_t dummy = 0u;
+				for (uint32_t k = 0u; k < count; ++k)
+				{
+					if (!readIndex(dummy))
+						return false;
+				}
+				++_faceCount;
+				continue;
+			}
+
+			uint32_t i0 = 0u;
+			uint32_t i1 = 0u;
+			uint32_t i2 = 0u;
+			if (!readIndex(i0) || !readIndex(i1) || !readIndex(i2))
+				return false;
+
+			_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
+			_outIndices.push_back(i0);
+			_outIndices.push_back(i1);
+			_outIndices.push_back(i2);
+
+			uint32_t prev = i2;
+			for (uint32_t k = 3u; k < count; ++k)
+			{
+				uint32_t idx = 0u;
+				if (!readIndex(idx))
+					return false;
+				_maxIndex = std::max(_maxIndex, idx);
+				_outIndices.push_back(i0);
+				_outIndices.push_back(prev);
+				_outIndices.push_back(idx);
+				prev = idx;
+			}
+
+			++_faceCount;
+		}
+
+		return true;
+	}
+
 	IAssetLoader::SAssetLoadContext inner;
 	uint32_t topHierarchyLevel;
 	IAssetLoader::IAssetLoaderOverride* loaderOverride;
 	// input buffer must be at least twice as long as the longest line in the file
-	std::array<char,50<<10> Buffer; // 50kb seems sane to store a line
+	core::vector<char> Buffer;
+	size_t ioReadWindowSize = 50ull << 10;
 	core::vector<SElement> ElementList = {};
 	char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
 	int32_t LineLength = 0;
@@ -480,6 +742,25 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (!_file)
 		return {};
 
+	using clock_t = std::chrono::high_resolution_clock;
+	const auto totalStart = clock_t::now();
+	double headerMs = 0.0;
+	double vertexMs = 0.0;
+	double faceMs = 0.0;
+	double skipMs = 0.0;
+	double hashRangeMs = 0.0;
+	double indexBuildMs = 0.0;
+	double aabbMs = 0.0;
+	uint64_t faceCount = 0u;
+	uint32_t maxIndexRead = 0u;
+	const uint64_t fileSize = _file->getSize();
+	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true);
+	if (!ioPlan.valid)
+	{
+		_params.logger.log("PLY loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);
+		return {};
+	}
+
 	SContext ctx = {
 		asset::IAssetLoader::SAssetLoadContext{
 			_params,
@@ -488,7 +769,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		_hierarchyLevel,
 		_override
 	};
-	ctx.init();
+	const uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + 1ull) : ioPlan.chunkSizeBytes;
+	const uint64_t safeReadWindow = std::min<uint64_t>(desiredReadWindow, static_cast<uint64_t>(std::numeric_limits<size_t>::max() - 1ull));
+	ctx.init(static_cast<size_t>(safeReadWindow));
 
 	// start with empty mesh
     auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
@@ -513,6 +796,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	bool continueReading = true;
 	ctx.IsBinaryFile = false;
 	ctx.IsWrongEndian= false;
+	const auto headerStart = clock_t::now();
 
 	do
 	{
@@ -630,6 +914,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 	}
 	while (readingHeader && continueReading);
+	headerMs = std::chrono::duration<double, std::milli>(clock_t::now() - headerStart).count();
 
 	//
 	if (!continueReading)
@@ -869,26 +1154,40 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			for (auto& view : extraViews)
 				geometry->getAuxAttributeViews()->push_back(std::move(view));
 			// loop through vertex properties
+			const auto vertexStart = clock_t::now();
 			ctx.readVertex(_params,el);
+			vertexMs += std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
 			verticesProcessed = true;
 		}
 		else if (el.Name=="face")
 		{
+			const auto faceStart = clock_t::now();
+			indices.reserve(indices.size() + el.Count * 3u);
 			for (size_t j=0; j<el.Count; ++j)
-				ctx.readFace(el,indices);
+			{
+				if (!ctx.readFace(el,indices,maxIndexRead))
+					return {};
+				++faceCount;
+			}
+			faceMs += std::chrono::duration<double, std::milli>(clock_t::now() - faceStart).count();
 		}
 		else
 		{
 			// skip these elements
+			const auto skipStart = clock_t::now();
 			for (size_t j=0; j<el.Count; ++j)
 				el.skipElement(ctx);
+			skipMs += std::chrono::duration<double, std::milli>(clock_t::now() - skipStart).count();
 		}
 	}
 
-	// do before indices so we don't compute their stuff again
-	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
-	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
+	hashRangeMs = 0.0;
 
+	const auto aabbStart = clock_t::now();
+	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
+	aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
+
+	const auto indexStart = clock_t::now();
 	if (indices.empty())
 	{
 		// no index buffer means point cloud
@@ -896,12 +1195,55 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 	else
 	{
-		geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-		auto view = IGeometryLoader::createView(EF_R32_UINT,indices.size(),indices.data());
-		geometry->setIndexView(std::move(view));
-	}
+		if (vertCount != 0u && maxIndexRead >= vertCount)
+		{
+			_params.logger.log("PLY indices out of range for %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
+			return {};
+		}
 
-	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
+		geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+		if (maxIndexRead <= std::numeric_limits<uint16_t>::max())
+		{
+			auto view = IGeometryLoader::createView(EF_R16_UINT, indices.size());
+			if (!view)
+				return {};
+			auto* dst = reinterpret_cast<uint16_t*>(view.getPointer());
+			for (size_t i = 0u; i < indices.size(); ++i)
+				dst[i] = static_cast<uint16_t>(indices[i]);
+			geometry->setIndexView(std::move(view));
+		}
+		else
+		{
+			auto view = IGeometryLoader::createView(EF_R32_UINT, indices.size());
+			if (!view)
+				return {};
+			std::memcpy(view.getPointer(), indices.data(), indices.size() * sizeof(uint32_t));
+			geometry->setIndexView(std::move(view));
+		}
+	}
+	indexBuildMs = std::chrono::duration<double, std::milli>(clock_t::now() - indexStart).count();
+
+	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+	_params.logger.log(
+		"PLY loader perf: file=%s total=%.3f ms header=%.3f vertex=%.3f face=%.3f skip=%.3f hash_range=%.3f index=%.3f aabb=%.3f binary=%d verts=%llu faces=%llu idx=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		system::ILogger::ELL_PERFORMANCE,
+		_file->getFileName().string().c_str(),
+		totalMs,
+		headerMs,
+		vertexMs,
+		faceMs,
+		skipMs,
+		hashRangeMs,
+		indexBuildMs,
+		aabbMs,
+		ctx.IsBinaryFile ? 1 : 0,
+		static_cast<unsigned long long>(vertCount),
+		static_cast<unsigned long long>(faceCount),
+		static_cast<unsigned long long>(indices.size()),
+		toString(_params.ioPolicy.strategy),
+		toString(ioPlan.strategy),
+		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+		ioPlan.reason);
 
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});
