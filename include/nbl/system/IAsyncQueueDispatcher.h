@@ -490,6 +490,26 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
     protected:
         inline ~IAsyncQueueDispatcher() {}
         inline void background_work() {}
+        inline void exit(internal_state_t* optional_internal_state=nullptr)
+        {
+            while (cb_begin!=cb_end)
+            {
+                uint64_t r_id = cb_begin;
+                r_id = wrapAround(r_id);
+
+                request_t& req = request_pool[r_id];
+                if (future_base_t* future=req.wait())
+                {
+                    if constexpr (base_t::has_internal_state)
+                        static_cast<CRTP*>(this)->process_request(future,req.m_metadata,*optional_internal_state);
+                    else
+                        static_cast<CRTP*>(this)->process_request(future,req.m_metadata);
+                    req.notify();
+                }
+                cb_begin++;
+                cb_begin.notify_one();
+            }
+        }
 
     private:
         template<typename... Args>
