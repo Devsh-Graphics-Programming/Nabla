@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_RUNTIME_TRAITS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATH_LINALG_MATRIX_RUNTIME_TRAITS_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATRIX_UTILS_MATRIX_RUNTIME_TRAITS_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATRIX_UTILS_MATRIX_RUNTIME_TRAITS_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
@@ -38,25 +38,25 @@ struct RuntimeTraits
         }
         {
             const matrix_t m_T = hlsl::transpose(m);
-            scalar_t uniformScaleSq = hlsl::dot(m_T[0], m_T[0]);
+            scalar_t uniformColumnSqNorm = hlsl::dot(m_T[0], m_T[0]);
             NBL_UNROLL for (uint16_t i = 1; i < N; i++)
             {
-                if (!testing::relativeApproxCompare(hlsl::dot(m_T[i], m_T[i]), uniformScaleSq, 1e-4))
+                if (!testing::relativeApproxCompare(hlsl::dot(m_T[i], m_T[i]), uniformColumnSqNorm, 1e-4))
                 {
-                    uniformScaleSq = bit_cast<scalar_t>(numeric_limits<scalar_t>::quiet_NaN);
+                    uniformColumnSqNorm = bit_cast<scalar_t>(numeric_limits<scalar_t>::quiet_NaN);
                     break;
                 }
             }
 
-            retval.uniformScaleSq = uniformScaleSq;
-            retval.orthonormal = retval.orthogonal && testing::relativeApproxCompare(uniformScaleSq, scalar_t(1.0), 1e-5);
+            retval.uniformColumnSqNorm = uniformColumnSqNorm;
+            retval.orthonormal = retval.orthogonal && testing::relativeApproxCompare(uniformColumnSqNorm, scalar_t(1.0), 1e-5);
         }
         return retval;
     }
     
     bool invertible;
     bool orthogonal;
-    scalar_t uniformScaleSq; // TODO: rename to `uniformColumnSqNorm` and move this whole header to `nbl/builtin/hlsl/matrix_utils/` and associated namespace
+    scalar_t uniformColumnSqNorm;
     bool orthonormal;
 };
 

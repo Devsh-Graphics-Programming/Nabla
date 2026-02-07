@@ -7,6 +7,7 @@
 
 
 #include "nbl/asset/utils/CDirQuantCacheBase.h"
+#include "nbl/builtin/hlsl/math/quaternions.hlsl"
 
 
 namespace nbl

@@ -181,7 +181,7 @@ class ICPUScene final : public IAsset, public IScene
             Count
         };
         //
-        inline bool addEnvLight(const EEnvLightType type, core::smart_refctd_ptr<ICPUImageView>&& tex)
+        inline bool addEnvLight(const EEnvLightType type, core::smart_refctd_ptr<const ICPUImageView>&& tex)
         {
             if (!tex)
                 return false;
@@ -232,7 +232,7 @@ class ICPUScene final : public IAsset, public IScene
         //
         SInstanceStorage m_instances;
         //
-        core::vector<core::smart_refctd_ptr<ICPUImageView>> m_envLightTexs;
+        core::vector<core::smart_refctd_ptr<const ICPUImageView>> m_envLightTexs;
         core::vector<EEnvLightType> m_envLightTypes;
         //
         const uint8_t m_maxMorphTargetGeometryCountLog2;

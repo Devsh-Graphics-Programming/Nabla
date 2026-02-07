@@ -100,13 +100,12 @@ class UI final : public core::IReferenceCounted
 			//! optional, no cache used if not provided
 			core::smart_refctd_ptr<video::IGPUPipelineCache> pipelineCache = nullptr;
 
-			struct PrecompiledShaders
+			struct PrecompiledShaders 
 			{
-				core::smart_refctd_ptr<asset::IShader> vertex = nullptr;
-				core::smart_refctd_ptr<asset::IShader> fragment = nullptr;
+				core::smart_refctd_ptr<asset::IShader> vertex = nullptr, fragment = nullptr;
 			};
 
-			//! optional, precompiled spirv shaders
+			//! optional, precompiled spirv shaders (experimental)
 			std::optional<PrecompiledShaders> spirv = std::nullopt;
 		};
 

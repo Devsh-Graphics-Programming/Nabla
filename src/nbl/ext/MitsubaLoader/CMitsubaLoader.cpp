@@ -12,7 +12,6 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
-#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
 #endif
 
 
@@ -30,33 +29,26 @@ namespace ext::MitsubaLoader
 #if 0 // old material compiler
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
 R"(
-#include <nbl/builtin/glsl/utils/common.glsl>
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    nbl_glsl_SBasicViewParameters params;
-} CamData;
-
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
-	vec3 campos = nbl_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	vec3 campos = ....;
 	return normalize(campos - WorldPos);
 }
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-#ifdef TEX_PREFETCH_STREAM
-mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(WorldPos),dFdy(WorldPos));}
+
+mat2x3 nbl_glsl_perturbNormal_dPdSomething()
+{
+	return mat2x3(dFdx(WorldPos),dFdy(WorldPos));
+}
 mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
     return mat2(dFdx(UV),dFdy(UV));
 }
-#endif
-#define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
-#include <nbl/builtin/glsl/format/decode.glsl>
-
 #ifndef _NBL_BSDF_COS_EVAL_DEFINED_
 #define _NBL_BSDF_COS_EVAL_DEFINED_
 // Spectrum can be exchanged to a float for monochrome
@@ -123,9 +115,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader
 
 	return createSpecShader(source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
 }
-#endif
-
-#if 0
+// TODO: move to IAssetLoader
 static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, const ICPUSampler::SParams& _samplerParams, bool fromNormalMap)
 {
 	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
@@ -152,73 +142,10 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const asset::ICPUImage* _img, const asset::ICPUImageView::SComponentMapping::E_SWIZZLE srcChannel)
 {
-	auto outParams = _img->getCreationParameters();
-	const auto inFormat = outParams.format;
-
-	asset::ICPUImage::SBufferCopy region;
-	// pick format
-	{
-		// TODO: redo the format selection when @Erfan's format promotor is operational
-		if (isSRGBFormat(inFormat))
-			outParams.format = asset::EF_B8G8R8A8_SRGB;
-		else
-		{
-			const double prec = asset::getFormatPrecision(inFormat,srcChannel,0.0);
-			if (prec<=FLT_MIN)
-				outParams.format = asset::EF_R32G32B32A32_SFLOAT;
-			else if (prec<=1.0/65535.0)
-				outParams.format = asset::EF_R16G16B16A16_UNORM;
-			else if (prec<=exp2f(-14.f))
-				outParams.format = asset::EF_R16G16B16A16_SFLOAT;
-			else if (prec<=1.0/1023.0)
-				outParams.format = asset::EF_A2B10G10R10_UNORM_PACK32;
-			else
-				outParams.format = asset::EF_R8G8B8A8_UNORM;
-		}
-	}
-	const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
-	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
-	region.imageOffset = { 0,0,0 };
-	region.imageExtent = outParams.extent;
-	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
-	region.imageSubresource.mipLevel = 0u;
-	region.bufferImageHeight = 0u;
-	region.bufferOffset = 0u;
-	auto outImg = asset::ICPUImage::create(std::move(outParams));
-	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-
-	using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN,asset::EF_UNKNOWN>;
-	convert_filter_t::state_type conv;
-	conv.extent = outParams.extent;
-	conv.layerCount = 1u;
-	conv.inMipLevel = 0u;
-	conv.outMipLevel = 0u;
-	conv.inBaseLayer = 0u;
-	conv.outBaseLayer = 0u;
-	conv.inOffset = { 0u,0u,0u };
-	conv.outOffset = { 0u,0u,0u };
-	conv.inImage = _img;
-	conv.outImage = outImg.get();
-	if (srcChannel!=asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_IDENTITY)
-		conv.swizzle = {srcChannel,srcChannel,srcChannel,srcChannel};
-	else
-	{
-		conv.swizzle = {};
-		for (auto i=asset::getFormatChannelCount(inFormat); i<4; i++)
-			conv.swizzle[i] = asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_R;
-	}
-
-	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
-	{
-		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
-		_NBL_DEBUG_BREAK_IF(true);
-	}
-
-	return outImg;
+	// deprecated will be expressed in Material Compiler Frontend AST as a swizzle
 }
 #endif
+constexpr auto LoggerError = system::ILogger::ELL_ERROR;
 
 bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
@@ -295,6 +222,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		//
 		ctx.scene->m_ambientLight = result.ambient;
 
+
 		// TODO: abstract/move away since many loaders will need to do this
 		core::unordered_map<const ICPUGeometryCollection*,core::smart_refctd_ptr<ICPUMorphTargets>> morphTargetCache;
 		auto createMorphTargets = [&_params,&morphTargetCache](core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->core::smart_refctd_ptr<ICPUMorphTargets>
@@ -320,7 +248,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			auto targets = createMorphTargets(std::move(collection));
 			if (!targets)
 			{
-				_params.logger.log("Failed to create ICPUMorphTargets for Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+				_params.logger.log("Failed to create ICPUMorphTargets for Shape with id %s",LoggerError,shape->id.c_str());
 				return;
 			}
 			const auto index = instances.size();
@@ -360,7 +288,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 				auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
 				if (!collection)
 				{
-					_params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shapedef->id.c_str());
+					_params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",LoggerError,shapedef->id.c_str());
 					continue;
 				}
 				// we don't put a transform on the geometry, because we want the transform on the instance
@@ -406,31 +334,14 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			if(emitter.element->type == ext::MitsubaLoader::CElementEmitter::Type::ENVMAP)
 			{
 				const auto& envmap = emitter.element->envmap;
-#if 0
-				SAssetBundle envmapImageBundle = interm_getAssetInHierarchy(m_assetMgr,envmap.filename,ctx.inner.params,_hierarchyLevel,ctx.override_);
-				auto contentRange = envmapImageBundle.getContents();
+				SAssetBundle envmapBundle = interm_getImageViewInHierarchy<std::string>(envmap.filename,ctx.inner.params,_hierarchyLevel,ctx.override_);
+				auto contentRange = envmapBundle.getContents();
 				if (contentRange.empty())
 				{
-					os::Printer::log(std::string("[ERROR] Could Not Find Envmap Image: ") + envfilename, ELL_ERROR);
+					_params.logger.log("Could not load Envnmap image from path: %s",LoggerError,envmap.filename);
 					continue;
 				}
-				core::smart_refctd_ptr<asset::ICPUImageView> view = {};
-				switch(envmapImageBundle.getAssetType())
-				{
-					case asset::IAsset::ET_IMAGE:
-					{
-						// TODO: create image view
-					}
-					[[fallthrough]];
-					case asset::IAsset::ET_IMAGE_VIEW:
-						view = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*contentRange.begin());
-						break;
-					default:
-						os::Printer::log("[ERROR] Loaded an Asset for the Envmap but it wasn't an image, was E_ASSET_TYPE " + std::to_string(envmapImageBundle.getAssetType()), ELL_ERROR);
-						break;
-				}
-				ctx.scene->addEnvLight(ICPUScene::EEnvLightType::SphereMap,std::move(view));
-#endif
+				ctx.scene->addEnvLight(ICPUScene::EEnvLightType::SphereMap,core::smart_refctd_ptr_static_cast<const asset::ICPUImageView>(contentRange[0]));
 			}
 		}
 
@@ -448,7 +359,7 @@ void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionP
 	auto params = ctx.inner.params;
 	params.loaderFlags = asset::IAssetLoader::ELPF_LOAD_METADATA_ONLY;
 
-	auto assetLoaded = interm_getAssetInHierarchy(m_assetMgr, profile->filename, params, 0u, ctx.override_);
+	auto assetLoaded = interm_getAssetInHierarchy( profile->filename, params, 0u, ctx.override_);
 
 	if (!assetLoaded.getMetadata())
 	{
@@ -468,109 +379,25 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 			{
 				// get sampler parameters
 				const auto samplerParams = ctx.computeSamplerParameters(tex->bitmap);
-
-				// search the cache for the imageview
-				const auto cacheKey = ctx.imageViewCacheKey(tex->bitmap,semantic);
-				const asset::IAsset::E_TYPE types[]{asset::IAsset::ET_IMAGE_VIEW,asset::IAsset::ET_TERMINATING_ZERO};
-				// could not find view in the cache
-				if (ctx.override_->findCachedAsset(cacheKey,types,ctx.inner,hierarchyLevel).getContents().empty())
+				
+				asset::SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename.svalue,ctx.inner,hierarchyLevel,ctx.override_);
+				// TODO: embed the gamma in the material compiler Frontend
+				// adjust gamma on pixels (painful and long process)
+				if (!std::isnan(tex->bitmap.gamma))
 				{
-					ICPUImageView::SCreationParams viewParams = {};
-					// find or restore image from cache
-					{
-						auto loadParams = ctx.inner.params;
-						// always restore, the only reason we haven't found a view is because either the image wasnt loaded yet, or its going to be processed with channel extraction or derivative mapping
-						const uint32_t restoreLevels = semantic==CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY&&tex->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID ? 0u:2u; // all the way to the buffer providing the pixels
-						loadParams.restoreLevels = std::max(loadParams.restoreLevels,hierarchyLevel+restoreLevels);
-						// load using the actual filename, not the cache key
-						asset::SAssetBundle bundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
-
-						// check if found
-						auto contentRange = bundle.getContents();
-						if (contentRange.empty())
-						{
-						    os::Printer::log("[ERROR] Could Not Find Texture: "+cacheKey,ELL_ERROR);
-							return;
-						}
-						auto asset = contentRange.begin()[0];
-						if (asset->getAssetType()!=asset::IAsset::ET_IMAGE)
-						{
-						    os::Printer::log("[ERROR] Loaded an Asset but it wasn't a texture, was E_ASSET_TYPE "+std::to_string(asset->getAssetType()),ELL_ERROR);
-							return;
-						}
-
-						viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
-					}
-					// adjust gamma on pixels (painful and long process)
-					if (!std::isnan(tex->bitmap.gamma))
-					{
-						_NBL_DEBUG_BREAK_IF(true); // TODO : use an image filter (unify with the below maybe?)!
-					}
-					switch (semantic)
-					{
-						case CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY:
-						case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
-							{
-								switch (tex->bitmap.channel)
-								{
-									// no GL_R8_SRGB support yet
-									case CElementTexture::Bitmap::CHANNEL::R:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_R);
-										break;
-									case CElementTexture::Bitmap::CHANNEL::G:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_G);
-										break;
-									case CElementTexture::Bitmap::CHANNEL::B:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_B);
-										break;
-									case CElementTexture::Bitmap::CHANNEL::A:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_A);
-										break;
-									/* special conversions needed to CIE space
-									case CElementTexture::Bitmap::CHANNEL::X:
-									case CElementTexture::Bitmap::CHANNEL::Y:
-									case CElementTexture::Bitmap::CHANNEL::Z:*/
-									case CElementTexture::Bitmap::CHANNEL::INVALID:
-										[[fallthrough]];
-									default:
-										if (semantic==CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT && asset::getFormatChannelCount(viewParams.image->getCreationParameters().format)<3u)
-											viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_IDENTITY);
-										break;
-								}
-							}
-							break;
-						case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
-							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,true);
-							break;
-						case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
-							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,false);
-							break;
-						default:
-							_NBL_DEBUG_BREAK_IF(true);
-							assert(false);
-							break;
-					}
-					// get rest of view params and insert into cache
-					{
-						viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
-						viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-						viewParams.format = viewParams.image->getCreationParameters().format;
-						viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-						viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
-						viewParams.subresourceRange.layerCount = 1u;
-						//! TODO: this stuff (custom shader sampling code?)
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
-
-						asset::SAssetBundle viewBundle(nullptr,{ICPUImageView::create(std::move(viewParams))});
-						ctx.override_->insertAssetIntoCache(std::move(viewBundle),cacheKey,ctx.inner,hierarchyLevel);
-					}
+					_NBL_DEBUG_BREAK_IF(true);
+				}
+				{
+					//! TODO: this stuff (custom shader sampling code?)
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
 				}
 			}
 			break;
 		case CElementTexture::Type::SCALE:
+			// get to to the linked list end
 			cacheTexture(ctx,hierarchyLevel,tex->scale.texture,semantic);
 			break;
 		default:
@@ -910,7 +737,7 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
 		auto loadParams = ctx.inner.params;
 		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
-		auto retval = interm_getAssetInHierarchy(m_assetMgr, filename.svalue, loadParams, hierarchyLevel/*+ICPUScene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
+		auto retval = interm_getAssetInHierarchy( filename.svalue, loadParams, hierarchyLevel/*+ICPUScene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
 		if (retval.getContents().empty())
 		{
 			os::Printer::log(std::string("[ERROR] Could Not Find Mesh: ") + filename.svalue, ELL_ERROR);
