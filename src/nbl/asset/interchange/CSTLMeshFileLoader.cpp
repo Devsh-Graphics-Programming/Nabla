@@ -28,7 +28,20 @@ struct SSTLContext
 	size_t fileOffset = 0ull;
 };
 
-static bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes)
+constexpr size_t StlTextProbeBytes = 6ull;
+constexpr size_t StlBinaryHeaderBytes = 80ull;
+constexpr size_t StlTriangleCountBytes = sizeof(uint32_t);
+constexpr size_t StlBinaryPrefixBytes = StlBinaryHeaderBytes + StlTriangleCountBytes;
+constexpr size_t StlTriangleFloatCount = 12ull;
+constexpr size_t StlTriangleFloatBytes = sizeof(float) * StlTriangleFloatCount;
+constexpr size_t StlTriangleAttributeBytes = sizeof(uint16_t);
+constexpr size_t StlTriangleRecordBytes = StlTriangleFloatBytes + StlTriangleAttributeBytes;
+constexpr size_t StlVerticesPerTriangle = 3ull;
+constexpr size_t StlFloatChannelsPerVertex = 3ull;
+constexpr size_t StlFloatsPerTriangleVertices = StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+constexpr size_t StlFloatsPerTriangleOutput = StlFloatsPerTriangleVertices;
+
+bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes)
 {
 	if (!file || (!dst && bytes != 0ull))
 		return false;
@@ -40,7 +53,7 @@ static bool stlReadExact(system::IFile* file, void* dst, const size_t offset, co
 	return success && success.getBytesProcessed() == bytes;
 }
 
-static bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan)
+bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan)
 {
 	if (!file || (!dst && bytes != 0ull))
 		return false;
@@ -70,7 +83,7 @@ static bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t of
 	}
 }
 
-static bool stlReadU8(SSTLContext* context, uint8_t& out)
+bool stlReadU8(SSTLContext* context, uint8_t& out)
 {
 	if (!context)
 		return false;
@@ -83,7 +96,7 @@ static bool stlReadU8(SSTLContext* context, uint8_t& out)
 	return true;
 }
 
-static bool stlReadF32(SSTLContext* context, float& out)
+bool stlReadF32(SSTLContext* context, float& out)
 {
 	if (!context)
 		return false;
@@ -96,7 +109,7 @@ static bool stlReadF32(SSTLContext* context, float& out)
 	return true;
 }
 
-static void stlGoNextWord(SSTLContext* context)
+void stlGoNextWord(SSTLContext* context)
 {
 	if (!context)
 		return;
@@ -115,7 +128,7 @@ static void stlGoNextWord(SSTLContext* context)
 	}
 }
 
-static const std::string& stlGetNextToken(SSTLContext* context, std::string& token)
+const std::string& stlGetNextToken(SSTLContext* context, std::string& token)
 {
 	stlGoNextWord(context);
 	token.clear();
@@ -136,7 +149,7 @@ static const std::string& stlGetNextToken(SSTLContext* context, std::string& tok
 	return token;
 }
 
-static void stlGoNextLine(SSTLContext* context)
+void stlGoNextLine(SSTLContext* context)
 {
 	if (!context)
 		return;
@@ -151,19 +164,15 @@ static void stlGoNextLine(SSTLContext* context)
 	}
 }
 
-static bool stlGetNextVector(SSTLContext* context, core::vectorSIMDf& vec, const bool binary)
+bool stlGetNextVector(SSTLContext* context, hlsl::float32_t3& vec, const bool binary)
 {
 	if (!context)
 		return false;
 
 	if (binary)
 	{
-		float x = 0.f;
-		float y = 0.f;
-		float z = 0.f;
-		if (!stlReadF32(context, x) || !stlReadF32(context, y) || !stlReadF32(context, z))
+		if (!stlReadF32(context, vec.x) || !stlReadF32(context, vec.y) || !stlReadF32(context, vec.z))
 			return false;
-		vec.set(x, y, z, 0.f);
 		return true;
 	}
 
@@ -171,24 +180,72 @@ static bool stlGetNextVector(SSTLContext* context, core::vectorSIMDf& vec, const
 	std::string tmp;
 	if (stlGetNextToken(context, tmp).empty())
 		return false;
-	std::sscanf(tmp.c_str(), "%f", &vec.X);
+	std::sscanf(tmp.c_str(), "%f", &vec.x);
 	if (stlGetNextToken(context, tmp).empty())
 		return false;
-	std::sscanf(tmp.c_str(), "%f", &vec.Y);
+	std::sscanf(tmp.c_str(), "%f", &vec.y);
 	if (stlGetNextToken(context, tmp).empty())
 		return false;
-	std::sscanf(tmp.c_str(), "%f", &vec.Z);
-	vec.W = 0.f;
+	std::sscanf(tmp.c_str(), "%f", &vec.z);
 	return true;
 }
 
-static bool stlReadFloatFromPayload(const uint8_t*& cursor, const uint8_t* const end, float& out)
+hlsl::float32_t3 stlNormalizeOrZero(const hlsl::float32_t3& v)
 {
-	if (cursor + sizeof(float) > end)
-		return false;
-	std::memcpy(&out, cursor, sizeof(float));
-	cursor += sizeof(float);
-	return true;
+	const float len2 = hlsl::dot(v, v);
+	if (len2 <= 0.f)
+		return hlsl::float32_t3(0.f, 0.f, 0.f);
+	return hlsl::normalize(v);
+}
+
+hlsl::float32_t3 stlComputeFaceNormal(const hlsl::float32_t3& a, const hlsl::float32_t3& b, const hlsl::float32_t3& c)
+{
+	return stlNormalizeOrZero(hlsl::cross(b - a, c - a));
+}
+
+hlsl::float32_t3 stlResolveStoredNormal(const hlsl::float32_t3& fileNormal)
+{
+	const float fileLen2 = hlsl::dot(fileNormal, fileNormal);
+	if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
+		return fileNormal;
+	return stlNormalizeOrZero(fileNormal);
+}
+
+void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::float32_t3>& positions)
+{
+	positions.push_back(p[2u]);
+	positions.push_back(p[1u]);
+	positions.push_back(p[0u]);
+}
+
+void stlFixLastFaceNormal(core::vector<hlsl::float32_t3>& normals, const core::vector<hlsl::float32_t3>& positions)
+{
+	if (normals.empty() || positions.size() < 3ull)
+		return;
+
+	const auto& lastNormal = normals.back();
+	if (hlsl::dot(lastNormal, lastNormal) > 0.f)
+		return;
+
+	normals.back() = stlComputeFaceNormal(*(positions.rbegin() + 2), *(positions.rbegin() + 1), *(positions.rbegin() + 0));
+}
+
+void stlExtendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const hlsl::float32_t3& p)
+{
+	if (!hasAABB)
+	{
+		aabb.minVx = p;
+		aabb.maxVx = p;
+		hasAABB = true;
+		return;
+	}
+
+	if (p.x < aabb.minVx.x) aabb.minVx.x = p.x;
+	if (p.y < aabb.minVx.y) aabb.minVx.y = p.y;
+	if (p.z < aabb.minVx.z) aabb.minVx.z = p.z;
+	if (p.x > aabb.maxVx.x) aabb.maxVx.x = p.x;
+	if (p.y > aabb.maxVx.y) aabb.maxVx.y = p.y;
+	if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
 }
 
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
@@ -229,7 +286,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	};
 
 	const size_t filesize = context.inner.mainFile->getSize();
-	if (filesize < 6ull)
+	if (filesize < StlTextProbeBytes)
 		return {};
 
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true);
@@ -243,18 +300,18 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	std::string token;
 	{
 		const auto detectStart = clock_t::now();
-		char header[6] = {};
+		char header[StlTextProbeBytes] = {};
 		if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header)))
 			return {};
 
-		const bool startsWithSolid = (std::strncmp(header, "solid ", 6u) == 0);
+		const bool startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
 		bool binaryBySize = false;
-		if (filesize >= 84ull)
+		if (filesize >= StlBinaryPrefixBytes)
 		{
 			uint32_t triCount = 0u;
-			if (stlReadExact(context.inner.mainFile, &triCount, 80ull, sizeof(triCount)))
+			if (stlReadExact(context.inner.mainFile, &triCount, StlBinaryHeaderBytes, sizeof(triCount)))
 			{
-				const uint64_t expectedSize = 84ull + static_cast<uint64_t>(triCount) * 50ull;
+				const uint64_t expectedSize = StlBinaryPrefixBytes + static_cast<uint64_t>(triCount) * StlTriangleRecordBytes;
 				binaryBySize = (expectedSize == filesize);
 			}
 		}
@@ -271,21 +328,24 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		detectMs = std::chrono::duration<double, std::milli>(clock_t::now() - detectStart).count();
 	}
 
-	core::vector<core::vectorSIMDf> positions;
-	core::vector<core::vectorSIMDf> normals;
+	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+	hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
+	bool hasParsedAABB = false;
+	uint64_t vertexCount = 0ull;
 
 	if (binary)
 	{
-		if (filesize < 84ull)
+		if (filesize < StlBinaryPrefixBytes)
 			return {};
 
 		uint32_t triangleCount32 = 0u;
-		if (!stlReadExact(context.inner.mainFile, &triangleCount32, 80ull, sizeof(triangleCount32)))
+		if (!stlReadExact(context.inner.mainFile, &triangleCount32, StlBinaryHeaderBytes, sizeof(triangleCount32)))
 			return {};
 
 		triangleCount = triangleCount32;
-		const size_t dataSize = static_cast<size_t>(triangleCount) * 50ull;
-		const size_t expectedSize = 84ull + dataSize;
+		const size_t dataSize = static_cast<size_t>(triangleCount) * StlTriangleRecordBytes;
+		const size_t expectedSize = StlBinaryPrefixBytes + dataSize;
 		if (filesize < expectedSize)
 			return {};
 
@@ -293,63 +353,150 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		payload.resize(dataSize);
 
 		const auto ioStart = clock_t::now();
-		if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), 84ull, dataSize, ioPlan))
+		if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan))
 			return {};
 		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 
-		positions.reserve(static_cast<size_t>(triangleCount) * 3ull);
-		normals.reserve(static_cast<size_t>(triangleCount));
+		vertexCount = triangleCount * StlVerticesPerTriangle;
+		const auto buildPrepStart = clock_t::now();
+		auto posView = createView(EF_R32G32B32_SFLOAT, static_cast<size_t>(vertexCount));
+		auto normalView = createView(EF_R32G32B32_SFLOAT, static_cast<size_t>(vertexCount));
+		if (!posView || !normalView)
+			return {};
+
+		auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
+		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
+		if (!posOut || !normalOut)
+			return {};
+		buildMs += std::chrono::duration<double, std::milli>(clock_t::now() - buildPrepStart).count();
 
 		const auto parseStart = clock_t::now();
 		const uint8_t* cursor = payload.data();
 		const uint8_t* const end = cursor + payload.size();
+		auto* posOutFloat = reinterpret_cast<float*>(posOut);
+		auto* normalOutFloat = reinterpret_cast<float*>(normalOut);
 		for (uint64_t tri = 0ull; tri < triangleCount; ++tri)
 		{
-			float nx = 0.f;
-			float ny = 0.f;
-			float nz = 0.f;
-			if (!stlReadFloatFromPayload(cursor, end, nx) || !stlReadFloatFromPayload(cursor, end, ny) || !stlReadFloatFromPayload(cursor, end, nz))
+			if (cursor + StlTriangleRecordBytes > end)
 				return {};
 
-			core::vectorSIMDf fileNormal;
-			fileNormal.set(nx, ny, nz, 0.f);
-			const float fileLen2 = core::dot(fileNormal, fileNormal).X;
-			if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
-				normals.push_back(fileNormal);
-			else
-				normals.push_back(core::normalize(fileNormal));
+			float triData[StlTriangleFloatCount] = {};
+			std::memcpy(triData, cursor, StlTriangleFloatBytes);
+			cursor += StlTriangleFloatBytes;
+			cursor += StlTriangleAttributeBytes;
 
-			core::vectorSIMDf p[3] = {};
-			for (uint32_t i = 0u; i < 3u; ++i)
+			const float vertex0x = triData[9];
+			const float vertex0y = triData[10];
+			const float vertex0z = triData[11];
+			const float vertex1x = triData[6];
+			const float vertex1y = triData[7];
+			const float vertex1z = triData[8];
+			const float vertex2x = triData[3];
+			const float vertex2y = triData[4];
+			const float vertex2z = triData[5];
+
+			float normalX = triData[0];
+			float normalY = triData[1];
+			float normalZ = triData[2];
+			const float normalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+			if (normalLen2 <= 0.f)
 			{
-				float x = 0.f;
-				float y = 0.f;
-				float z = 0.f;
-				if (!stlReadFloatFromPayload(cursor, end, x) || !stlReadFloatFromPayload(cursor, end, y) || !stlReadFloatFromPayload(cursor, end, z))
-					return {};
-				p[i].set(x, y, z, 0.f);
+				const float edge10x = vertex1x - vertex0x;
+				const float edge10y = vertex1y - vertex0y;
+				const float edge10z = vertex1z - vertex0z;
+				const float edge20x = vertex2x - vertex0x;
+				const float edge20y = vertex2y - vertex0y;
+				const float edge20z = vertex2z - vertex0z;
+
+				normalX = edge10y * edge20z - edge10z * edge20y;
+				normalY = edge10z * edge20x - edge10x * edge20z;
+				normalZ = edge10x * edge20y - edge10y * edge20x;
+				const float planeLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+				if (planeLen2 > 0.f)
+				{
+					const float invLen = 1.f / std::sqrt(planeLen2);
+					normalX *= invLen;
+					normalY *= invLen;
+					normalZ *= invLen;
+				}
+				else
+				{
+					normalX = 0.f;
+					normalY = 0.f;
+					normalZ = 0.f;
+				}
+			}
+			else if (std::abs(normalLen2 - 1.f) >= 1e-4f)
+			{
+				const float invLen = 1.f / std::sqrt(normalLen2);
+				normalX *= invLen;
+				normalY *= invLen;
+				normalZ *= invLen;
 			}
 
-			positions.push_back(p[2u]);
-			positions.push_back(p[1u]);
-			positions.push_back(p[0u]);
+			const size_t base = static_cast<size_t>(tri) * StlFloatsPerTriangleOutput;
+			posOutFloat[base + 0ull] = vertex0x;
+			posOutFloat[base + 1ull] = vertex0y;
+			posOutFloat[base + 2ull] = vertex0z;
+			posOutFloat[base + 3ull] = vertex1x;
+			posOutFloat[base + 4ull] = vertex1y;
+			posOutFloat[base + 5ull] = vertex1z;
+			posOutFloat[base + 6ull] = vertex2x;
+			posOutFloat[base + 7ull] = vertex2y;
+			posOutFloat[base + 8ull] = vertex2z;
 
-			if ((normals.back() == core::vectorSIMDf()).all())
+			normalOutFloat[base + 0ull] = normalX;
+			normalOutFloat[base + 1ull] = normalY;
+			normalOutFloat[base + 2ull] = normalZ;
+			normalOutFloat[base + 3ull] = normalX;
+			normalOutFloat[base + 4ull] = normalY;
+			normalOutFloat[base + 5ull] = normalZ;
+			normalOutFloat[base + 6ull] = normalX;
+			normalOutFloat[base + 7ull] = normalY;
+			normalOutFloat[base + 8ull] = normalZ;
+
+			if (!hasParsedAABB)
 			{
-				normals.back().set(core::plane3dSIMDf(
-					*(positions.rbegin() + 2),
-					*(positions.rbegin() + 1),
-					*(positions.rbegin() + 0)).getNormal());
+				hasParsedAABB = true;
+				parsedAABB.minVx.x = vertex0x;
+				parsedAABB.minVx.y = vertex0y;
+				parsedAABB.minVx.z = vertex0z;
+				parsedAABB.maxVx.x = vertex0x;
+				parsedAABB.maxVx.y = vertex0y;
+				parsedAABB.maxVx.z = vertex0z;
 			}
 
-			if (cursor + sizeof(uint16_t) > end)
-				return {};
-			cursor += sizeof(uint16_t);
+			if (vertex0x < parsedAABB.minVx.x) parsedAABB.minVx.x = vertex0x;
+			if (vertex0y < parsedAABB.minVx.y) parsedAABB.minVx.y = vertex0y;
+			if (vertex0z < parsedAABB.minVx.z) parsedAABB.minVx.z = vertex0z;
+			if (vertex1x < parsedAABB.minVx.x) parsedAABB.minVx.x = vertex1x;
+			if (vertex1y < parsedAABB.minVx.y) parsedAABB.minVx.y = vertex1y;
+			if (vertex1z < parsedAABB.minVx.z) parsedAABB.minVx.z = vertex1z;
+			if (vertex2x < parsedAABB.minVx.x) parsedAABB.minVx.x = vertex2x;
+			if (vertex2y < parsedAABB.minVx.y) parsedAABB.minVx.y = vertex2y;
+			if (vertex2z < parsedAABB.minVx.z) parsedAABB.minVx.z = vertex2z;
+
+			if (vertex0x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = vertex0x;
+			if (vertex0y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = vertex0y;
+			if (vertex0z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = vertex0z;
+			if (vertex1x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = vertex1x;
+			if (vertex1y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = vertex1y;
+			if (vertex1z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = vertex1z;
+			if (vertex2x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = vertex2x;
+			if (vertex2y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = vertex2y;
+			if (vertex2z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = vertex2z;
 		}
 		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
+
+		const auto buildFinalizeStart = clock_t::now();
+		geometry->setPositionView(std::move(posView));
+		geometry->setNormalView(std::move(normalView));
+		buildMs += std::chrono::duration<double, std::milli>(clock_t::now() - buildFinalizeStart).count();
 	}
 	else
 	{
+		core::vector<hlsl::float32_t3> positions;
+		core::vector<hlsl::float32_t3> normals;
 		stlGoNextLine(&context);
 		token.reserve(32);
 
@@ -365,20 +512,16 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (stlGetNextToken(&context, token) != "normal")
 				return {};
 
-			core::vectorSIMDf fileNormal;
+			hlsl::float32_t3 fileNormal = {};
 			if (!stlGetNextVector(&context, fileNormal, false))
 				return {};
 
-			const float fileLen2 = core::dot(fileNormal, fileNormal).X;
-			if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
-				normals.push_back(fileNormal);
-			else
-				normals.push_back(core::normalize(fileNormal));
+			normals.push_back(stlResolveStoredNormal(fileNormal));
 
 			if (stlGetNextToken(&context, token) != "outer" || stlGetNextToken(&context, token) != "loop")
 				return {};
 
-			core::vectorSIMDf p[3] = {};
+			hlsl::float32_t3 p[3] = {};
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
 				if (stlGetNextToken(&context, token) != "vertex")
@@ -387,75 +530,47 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					return {};
 			}
 
-			positions.push_back(p[2u]);
-			positions.push_back(p[1u]);
-			positions.push_back(p[0u]);
+			stlPushTriangleReversed(p, positions);
 
 			if (stlGetNextToken(&context, token) != "endloop" || stlGetNextToken(&context, token) != "endfacet")
 				return {};
 
-			if ((normals.back() == core::vectorSIMDf()).all())
-			{
-				normals.back().set(core::plane3dSIMDf(
-					*(positions.rbegin() + 2),
-					*(positions.rbegin() + 1),
-					*(positions.rbegin() + 0)).getNormal());
-			}
+			stlFixLastFaceNormal(normals, positions);
 		}
 		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
-	}
+		if (positions.empty())
+			return {};
 
-	if (positions.empty())
-		return {};
+		triangleCount = positions.size() / StlVerticesPerTriangle;
+		vertexCount = positions.size();
 
-	triangleCount = positions.size() / 3ull;
-	const uint64_t vertexCount = positions.size();
+		const auto buildStart = clock_t::now();
+		auto posView = createView(EF_R32G32B32_SFLOAT, positions.size());
+		auto normalView = createView(EF_R32G32B32_SFLOAT, positions.size());
+		if (!posView || !normalView)
+			return {};
 
-	const auto buildStart = clock_t::now();
-	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
-	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+		auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
+		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
+		if (!posOut || !normalOut)
+			return {};
 
-	auto posView = createView(EF_R32G32B32_SFLOAT, positions.size());
-	auto normalView = createView(EF_R32G32B32_SFLOAT, positions.size());
-	if (!posView || !normalView)
-		return {};
-
-	auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
-	auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
-	if (!posOut || !normalOut)
-		return {};
-
-	hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
-	bool hasParsedAABB = false;
-	auto addAABBPoint = [&parsedAABB, &hasParsedAABB](const hlsl::float32_t3& p)->void
-	{
-		if (!hasParsedAABB)
+		for (size_t i = 0u; i < positions.size(); ++i)
 		{
-			parsedAABB.minVx = p;
-			parsedAABB.maxVx = p;
-			hasParsedAABB = true;
-			return;
+			const auto& pos = positions[i];
+			const auto& nrm = normals[i / 3u];
+			posOut[i] = { pos.x, pos.y, pos.z };
+			normalOut[i] = { nrm.x, nrm.y, nrm.z };
+			stlExtendAABB(parsedAABB, hasParsedAABB, posOut[i]);
 		}
-		if (p.x < parsedAABB.minVx.x) parsedAABB.minVx.x = p.x;
-		if (p.y < parsedAABB.minVx.y) parsedAABB.minVx.y = p.y;
-		if (p.z < parsedAABB.minVx.z) parsedAABB.minVx.z = p.z;
-		if (p.x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = p.x;
-		if (p.y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = p.y;
-		if (p.z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = p.z;
-	};
 
-	for (size_t i = 0u; i < positions.size(); ++i)
-	{
-		const auto& pos = positions[i];
-		const auto& nrm = normals[i / 3u];
-		posOut[i] = { pos.X, pos.Y, pos.Z };
-		normalOut[i] = { nrm.X, nrm.Y, nrm.Z };
-		addAABBPoint(posOut[i]);
+		geometry->setPositionView(std::move(posView));
+		geometry->setNormalView(std::move(normalView));
+		buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
 	}
 
-	geometry->setPositionView(std::move(posView));
-	geometry->setNormalView(std::move(normalView));
-	buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
+	if (vertexCount == 0ull)
+		return {};
 
 	const auto hashStart = clock_t::now();
 	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
@@ -510,25 +625,24 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
 	(void)logger;
-	if (!_file || _file->getSize() <= 6u)
+	if (!_file || _file->getSize() <= StlTextProbeBytes)
 		return false;
 
-	char header[6] = {};
+	char header[StlTextProbeBytes] = {};
 	if (!stlReadExact(_file, header, 0ull, sizeof(header)))
 		return false;
 
-	if (std::strncmp(header, "solid ", 6u) == 0)
+	if (std::strncmp(header, "solid ", StlTextProbeBytes) == 0)
 		return true;
 
-	if (_file->getSize() < 84u)
+	if (_file->getSize() < StlBinaryPrefixBytes)
 		return false;
 
 	uint32_t triangleCount = 0u;
-	if (!stlReadExact(_file, &triangleCount, 80ull, sizeof(triangleCount)))
+	if (!stlReadExact(_file, &triangleCount, StlBinaryHeaderBytes, sizeof(triangleCount)))
 		return false;
 
-	constexpr size_t STL_TRI_SZ = sizeof(float) * 12ull + sizeof(uint16_t);
-	return _file->getSize() == (STL_TRI_SZ * triangleCount + 84u);
+	return _file->getSize() == (StlTriangleRecordBytes * triangleCount + StlBinaryPrefixBytes);
 }
 
 }

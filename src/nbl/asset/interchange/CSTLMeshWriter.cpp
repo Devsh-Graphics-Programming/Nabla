@@ -10,13 +10,16 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
+#include <new>
+#include <string_view>
 
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
 
 namespace nbl::asset
 {
 
-namespace
+namespace stl_writer_detail
 {
 
 struct SContext
@@ -27,16 +30,33 @@ struct SContext
 	size_t fileOffset = 0ull;
 };
 
+constexpr size_t BinaryHeaderBytes = 80ull;
+constexpr size_t BinaryTriangleCountBytes = sizeof(uint32_t);
+constexpr size_t BinaryTriangleFloatCount = 12ull;
+constexpr size_t BinaryTriangleFloatBytes = sizeof(float) * BinaryTriangleFloatCount;
+constexpr size_t BinaryTriangleAttributeBytes = sizeof(uint16_t);
+constexpr size_t BinaryTriangleRecordBytes = BinaryTriangleFloatBytes + BinaryTriangleAttributeBytes;
+constexpr size_t BinaryPrefixBytes = BinaryHeaderBytes + BinaryTriangleCountBytes;
+constexpr size_t IoFallbackReserveBytes = 1ull << 20;
+constexpr char AsciiSolidPrefix[] = "solid ";
+constexpr char AsciiEndSolidPrefix[] = "endsolid ";
+constexpr char AsciiDefaultName[] = "nabla_mesh";
+
 }
 
-static bool flushBytes(SContext* context);
-static bool writeBytes(SContext* context, const void* data, size_t size);
-static bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx);
-static bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal);
-static bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context);
-static bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context);
-static void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s);
-static bool writeFaceText(
+using SContext = stl_writer_detail::SContext;
+
+bool flushBytes(SContext* context);
+bool writeBytes(SContext* context, const void* data, size_t size);
+bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
+const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view);
+bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView& posView, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, uint32_t& outFaceCount);
+bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx);
+bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal);
+bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context);
+bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context);
+void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s);
+bool writeFaceText(
 	const core::vectorSIMDf& v1,
 	const core::vectorSIMDf& v2,
 	const core::vectorSIMDf& v3,
@@ -103,7 +123,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	bool sizeKnown = false;
 	if (binary)
 	{
-		expectedSize = 84ull + static_cast<uint64_t>(geom->getPrimitiveCount()) * 50ull;
+		expectedSize = stl_writer_detail::BinaryPrefixBytes + static_cast<uint64_t>(geom->getPrimitiveCount()) * stl_writer_detail::BinaryTriangleRecordBytes;
 		sizeKnown = true;
 	}
 
@@ -117,7 +137,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (context.ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile && sizeKnown)
 		context.ioBuffer.reserve(static_cast<size_t>(expectedSize));
 	else
-		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes, 1ull << 20)));
+		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes, stl_writer_detail::IoFallbackReserveBytes)));
 
 	const bool written = binary ? writeMeshBinary(geom, &context) : writeMeshASCII(geom, &context);
 	if (!written)
@@ -126,7 +146,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	return flushBytes(&context);
 }
 
-static bool flushBytes(SContext* context)
+bool flushBytes(SContext* context)
 {
 	if (!context)
 		return false;
@@ -155,7 +175,7 @@ static bool flushBytes(SContext* context)
 	return true;
 }
 
-static bool writeBytes(SContext* context, const void* data, size_t size)
+bool writeBytes(SContext* context, const void* data, size_t size)
 {
 	if (!context || (!data && size != 0ull))
 		return false;
@@ -198,7 +218,102 @@ static bool writeBytes(SContext* context, const void* data, size_t size)
 	}
 }
 
-static bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx)
+bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
+{
+	if (!file || (!data && byteCount != 0ull))
+		return false;
+
+	size_t fileOffset = 0ull;
+	switch (ioPlan.strategy)
+	{
+		case SResolvedFileIOPolicy::Strategy::WholeFile:
+		{
+			system::IFile::success_t success;
+			file->write(success, data, fileOffset, byteCount);
+			return success && success.getBytesProcessed() == byteCount;
+		}
+		case SResolvedFileIOPolicy::Strategy::Chunked:
+		default:
+		{
+			while (fileOffset < byteCount)
+			{
+				const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - fileOffset));
+				system::IFile::success_t success;
+				file->write(success, data + fileOffset, fileOffset, toWrite);
+				if (!success)
+					return false;
+				const size_t written = success.getBytesProcessed();
+				if (written == 0ull)
+					return false;
+				fileOffset += written;
+			}
+			return true;
+		}
+	}
+}
+
+const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
+{
+	if (!view)
+		return nullptr;
+	if (view.composed.format != EF_R32G32B32_SFLOAT)
+		return nullptr;
+	if (view.composed.getStride() != sizeof(hlsl::float32_t3))
+		return nullptr;
+	return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
+}
+
+bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView& posView, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, uint32_t& outFaceCount)
+{
+	const auto& indexView = geom->getIndexView();
+	if (indexView)
+	{
+		const size_t indexCount = indexView.getElementCount();
+		if ((indexCount % 3ull) != 0ull)
+			return false;
+
+		const void* src = indexView.getPointer();
+		if (!src)
+			return false;
+
+		if (indexView.composed.format == EF_R32_UINT && indexView.composed.getStride() == sizeof(uint32_t))
+		{
+			outIndices = reinterpret_cast<const uint32_t*>(src);
+		}
+		else if (indexView.composed.format == EF_R16_UINT && indexView.composed.getStride() == sizeof(uint16_t))
+		{
+			indexData.resize(indexCount);
+			const auto* src16 = reinterpret_cast<const uint16_t*>(src);
+			for (size_t i = 0ull; i < indexCount; ++i)
+				indexData[i] = src16[i];
+			outIndices = indexData.data();
+		}
+		else
+		{
+			indexData.resize(indexCount);
+			hlsl::vector<uint32_t, 1> decoded = {};
+			for (size_t i = 0ull; i < indexCount; ++i)
+			{
+				if (!indexView.decodeElement(i, decoded))
+					return false;
+				indexData[i] = decoded.x;
+			}
+			outIndices = indexData.data();
+		}
+		outFaceCount = static_cast<uint32_t>(indexCount / 3ull);
+		return true;
+	}
+
+	const size_t vertexCount = posView.getElementCount();
+	if ((vertexCount % 3ull) != 0ull)
+		return false;
+
+	outIndices = nullptr;
+	outFaceCount = static_cast<uint32_t>(vertexCount / 3ull);
+	return true;
+}
+
+bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx)
 {
 	uint32_t idx[3] = {};
 	const auto& indexView = geom->getIndexView();
@@ -235,7 +350,7 @@ static bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeomet
 	return true;
 }
 
-static bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal)
+bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal)
 {
 	if (!normalView || !idx)
 		return false;
@@ -262,96 +377,231 @@ static bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalVie
 	return true;
 }
 
-static bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
+bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
-	if (!geom)
-		return false;
-
-	const auto* indexing = geom->getIndexingCallback();
-	if (!indexing || indexing->degree() != 3u)
+	if (!geom || !context || !context->writeContext.outputFile)
 		return false;
 
 	const auto& posView = geom->getPositionView();
 	if (!posView)
 		return false;
-	const auto& normalView = geom->getNormalView();
+
 	const bool flipHandedness = !(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
-	const uint32_t facenum = static_cast<uint32_t>(geom->getPrimitiveCount());
-
-	// write STL MESH header
-	const char headerTxt[] = "Irrlicht-baw Engine";
-	constexpr size_t HEADER_SIZE = 80u;
-	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
-	const int32_t sizeleft = HEADER_SIZE - sizeof(headerTxt) - static_cast<int32_t>(name.size());
-
-	if (!writeBytes(context, headerTxt, sizeof(headerTxt)))
+	const size_t vertexCount = posView.getElementCount();
+	if (vertexCount == 0ull)
 		return false;
 
-	if (sizeleft < 0)
+	core::vector<uint32_t> indexData;
+	const uint32_t* indices = nullptr;
+	uint32_t facenum = 0u;
+	if (!decodeTriangleIndices(geom, posView, indexData, indices, facenum))
+		return false;
+
+	const size_t outputSize = stl_writer_detail::BinaryPrefixBytes + static_cast<size_t>(facenum) * stl_writer_detail::BinaryTriangleRecordBytes;
+	std::unique_ptr<uint8_t[]> output(new (std::nothrow) uint8_t[outputSize]);
+	if (!output)
+		return false;
+	uint8_t* dst = output.get();
+
+	std::memset(dst, 0, stl_writer_detail::BinaryHeaderBytes);
+	dst += stl_writer_detail::BinaryHeaderBytes;
+
+	std::memcpy(dst, &facenum, sizeof(facenum));
+	dst += sizeof(facenum);
+
+	const auto& normalView = geom->getNormalView();
+	const bool hasNormals = static_cast<bool>(normalView);
+	const hlsl::float32_t3* const tightPositions = getTightFloat3View(posView);
+	const hlsl::float32_t3* const tightNormals = hasNormals ? getTightFloat3View(normalView) : nullptr;
+	const float handednessSign = flipHandedness ? -1.f : 1.f;
+
+	auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out)->bool
 	{
-		if (!writeBytes(context, name.c_str(), HEADER_SIZE - sizeof(headerTxt)))
+		if (tightPositions)
+		{
+			out = tightPositions[ix];
+			return true;
+		}
+		return posView.decodeElement(ix, out);
+	};
+
+	auto decodeNormal = [&](const uint32_t ix, hlsl::float32_t3& out)->bool
+	{
+		if (!hasNormals)
 			return false;
+		if (tightNormals)
+		{
+			out = tightNormals[ix];
+			return true;
+		}
+		return normalView.decodeElement(ix, out);
+	};
+
+	const bool hasFastTightPath = (indices == nullptr) && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));
+	if (hasFastTightPath)
+	{
+		for (uint32_t primIx = 0u; primIx < facenum; ++primIx)
+		{
+			const uint32_t i0 = primIx * 3u + 0u;
+			const uint32_t i1 = primIx * 3u + 1u;
+			const uint32_t i2 = primIx * 3u + 2u;
+			if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+				return false;
+
+			const hlsl::float32_t3 vertex1 = tightPositions[i2];
+			const hlsl::float32_t3 vertex2 = tightPositions[i1];
+			const hlsl::float32_t3 vertex3 = tightPositions[i0];
+			const float vertex1x = vertex1.x * handednessSign;
+			const float vertex2x = vertex2.x * handednessSign;
+			const float vertex3x = vertex3.x * handednessSign;
+
+			float normalX = 0.f;
+			float normalY = 0.f;
+			float normalZ = 0.f;
+			if (hasNormals)
+			{
+				hlsl::float32_t3 attrNormal = tightNormals[i0];
+				if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
+					attrNormal = tightNormals[i1];
+				if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
+					attrNormal = tightNormals[i2];
+				if (!(attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f))
+				{
+					if (flipHandedness)
+						attrNormal.x = -attrNormal.x;
+					normalX = attrNormal.x;
+					normalY = attrNormal.y;
+					normalZ = attrNormal.z;
+				}
+			}
+
+			if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
+			{
+				const float edge21x = vertex2x - vertex1x;
+				const float edge21y = vertex2.y - vertex1.y;
+				const float edge21z = vertex2.z - vertex1.z;
+				const float edge31x = vertex3x - vertex1x;
+				const float edge31y = vertex3.y - vertex1.y;
+				const float edge31z = vertex3.z - vertex1.z;
+
+				normalX = edge21y * edge31z - edge21z * edge31y;
+				normalY = edge21z * edge31x - edge21x * edge31z;
+				normalZ = edge21x * edge31y - edge21y * edge31x;
+				const float planeNormalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+				if (planeNormalLen2 > 0.f)
+				{
+					const float invLen = 1.f / std::sqrt(planeNormalLen2);
+					normalX *= invLen;
+					normalY *= invLen;
+					normalZ *= invLen;
+				}
+			}
+
+			const float packedData[12] = {
+				normalX, normalY, normalZ,
+				vertex1x, vertex1.y, vertex1.z,
+				vertex2x, vertex2.y, vertex2.z,
+				vertex3x, vertex3.y, vertex3.z
+			};
+			std::memcpy(dst, packedData, sizeof(packedData));
+			dst += sizeof(packedData);
+
+			const uint16_t color = 0u;
+			std::memcpy(dst, &color, sizeof(color));
+			dst += sizeof(color);
+		}
 	}
 	else
 	{
-		const char buf[80] = {0};
-		if (!writeBytes(context, name.c_str(), name.size()))
-			return false;
-		if (!writeBytes(context, buf, sizeleft))
-			return false;
-	}
-
-	if (!writeBytes(context, &facenum, sizeof(facenum)))
-		return false;
-
-	for (uint32_t primIx = 0u; primIx < facenum; ++primIx)
-	{
-		core::vectorSIMDf v0;
-		core::vectorSIMDf v1;
-		core::vectorSIMDf v2;
-		uint32_t idx[3] = {};
-		if (!decodeTriangle(geom, indexing, posView, primIx, v0, v1, v2, idx))
-			return false;
-
-		core::vectorSIMDf vertex1 = v2;
-		core::vectorSIMDf vertex2 = v1;
-		core::vectorSIMDf vertex3 = v0;
-
-		if (flipHandedness)
+		for (uint32_t primIx = 0u; primIx < facenum; ++primIx)
 		{
-			vertex1.X = -vertex1.X;
-			vertex2.X = -vertex2.X;
-			vertex3.X = -vertex3.X;
-		}
+			const uint32_t i0 = indices ? indices[primIx * 3u + 0u] : (primIx * 3u + 0u);
+			const uint32_t i1 = indices ? indices[primIx * 3u + 1u] : (primIx * 3u + 1u);
+			const uint32_t i2 = indices ? indices[primIx * 3u + 2u] : (primIx * 3u + 2u);
+			if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+				return false;
 
-		core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
-		core::vectorSIMDf attrNormal;
-		if (decodeTriangleNormal(normalView, idx, attrNormal))
-		{
+			hlsl::float32_t3 p0 = {};
+			hlsl::float32_t3 p1 = {};
+			hlsl::float32_t3 p2 = {};
+			if (!decodePosition(i0, p0) || !decodePosition(i1, p1) || !decodePosition(i2, p2))
+				return false;
+
+			hlsl::float32_t3 vertex1 = p2;
+			hlsl::float32_t3 vertex2 = p1;
+			hlsl::float32_t3 vertex3 = p0;
+
 			if (flipHandedness)
-				attrNormal.X = -attrNormal.X;
-			if (core::dot(attrNormal, normal).X < 0.f)
-				attrNormal = -attrNormal;
-			normal = attrNormal;
-		}
+			{
+				vertex1.x = -vertex1.x;
+				vertex2.x = -vertex2.x;
+				vertex3.x = -vertex3.x;
+			}
 
-		if (!writeBytes(context, &normal, 12))
-			return false;
-		if (!writeBytes(context, &vertex1, 12))
-			return false;
-		if (!writeBytes(context, &vertex2, 12))
-			return false;
-		if (!writeBytes(context, &vertex3, 12))
-			return false;
-		const uint16_t color = 0u;
-		if (!writeBytes(context, &color, sizeof(color)))
-			return false;
+			const hlsl::float32_t3 planeNormal = hlsl::cross(vertex2 - vertex1, vertex3 - vertex1);
+			const float planeNormalLen2 = hlsl::dot(planeNormal, planeNormal);
+			hlsl::float32_t3 normal = hlsl::float32_t3(0.f, 0.f, 0.f);
+			if (!hasNormals)
+			{
+				if (planeNormalLen2 > 0.f)
+					normal = hlsl::normalize(planeNormal);
+			}
+
+			if (hasNormals)
+			{
+				hlsl::float32_t3 n0 = {};
+				if (!decodeNormal(i0, n0))
+					return false;
+
+				hlsl::float32_t3 attrNormal = n0;
+				if (hlsl::dot(attrNormal, attrNormal) <= 0.f)
+				{
+					hlsl::float32_t3 n1 = {};
+					if (!decodeNormal(i1, n1))
+						return false;
+					attrNormal = n1;
+				}
+				if (hlsl::dot(attrNormal, attrNormal) <= 0.f)
+				{
+					hlsl::float32_t3 n2 = {};
+					if (!decodeNormal(i2, n2))
+						return false;
+					attrNormal = n2;
+				}
+
+				if (hlsl::dot(attrNormal, attrNormal) > 0.f)
+				{
+					if (flipHandedness)
+						attrNormal.x = -attrNormal.x;
+					if (planeNormalLen2 > 0.f && hlsl::dot(attrNormal, planeNormal) < 0.f)
+						attrNormal = -attrNormal;
+					normal = attrNormal;
+				}
+				else if (planeNormalLen2 > 0.f)
+				{
+					normal = hlsl::normalize(planeNormal);
+				}
+			}
+
+			const float packedData[12] = {
+				normal.x, normal.y, normal.z,
+				vertex1.x, vertex1.y, vertex1.z,
+				vertex2.x, vertex2.y, vertex2.z,
+				vertex3.x, vertex3.y, vertex3.z
+			};
+			std::memcpy(dst, packedData, sizeof(packedData));
+			dst += sizeof(packedData);
+
+			const uint16_t color = 0u;
+			std::memcpy(dst, &color, sizeof(color));
+			dst += sizeof(color);
+		}
 	}
 
-	return true;
+	return writeBufferWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize);
 }
 
-static bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
+bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	if (!geom)
 		return false;
@@ -366,20 +616,16 @@ static bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* con
 	const auto& normalView = geom->getNormalView();
 	const bool flipHandedness = !(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 
-	const char headerTxt[] = "Irrlicht-baw Engine ";
-
-	if (!writeBytes(context, "solid ", 6))
-		return false;
-
-	if (!writeBytes(context, headerTxt, sizeof(headerTxt) - 1))
-		return false;
-
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
+	const std::string_view solidName = name.empty() ? std::string_view(stl_writer_detail::AsciiDefaultName) : std::string_view(name);
 
-	if (!writeBytes(context, name.c_str(), name.size()))
+	if (!writeBytes(context, stl_writer_detail::AsciiSolidPrefix, sizeof(stl_writer_detail::AsciiSolidPrefix) - 1ull))
 		return false;
 
-	if (!writeBytes(context, "\n", 1))
+	if (!writeBytes(context, solidName.data(), solidName.size()))
+		return false;
+
+	if (!writeBytes(context, "\n", sizeof("\n") - 1ull))
 		return false;
 
 	const uint32_t faceCount = static_cast<uint32_t>(geom->getPrimitiveCount());
@@ -393,30 +639,27 @@ static bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* con
 			return false;
 		if (!writeFaceText(v0, v1, v2, idx, normalView, flipHandedness, context))
 			return false;
-		if (!writeBytes(context, "\n", 1))
+		if (!writeBytes(context, "\n", sizeof("\n") - 1ull))
 			return false;
 	}
 
-	if (!writeBytes(context, "endsolid ", 9))
+	if (!writeBytes(context, stl_writer_detail::AsciiEndSolidPrefix, sizeof(stl_writer_detail::AsciiEndSolidPrefix) - 1ull))
 		return false;
 
-	if (!writeBytes(context, headerTxt, sizeof(headerTxt) - 1))
-		return false;
-
-	if (!writeBytes(context, name.c_str(), name.size()))
+	if (!writeBytes(context, solidName.data(), solidName.size()))
 		return false;
 
 	return true;
 }
 
-static void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s)
+void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s)
 {
 	std::ostringstream tmp;
 	tmp << v.X << " " << v.Y << " " << v.Z << "\n";
 	s = std::string(tmp.str().c_str());
 }
 
-static bool writeFaceText(
+bool writeFaceText(
 		const core::vectorSIMDf& v1,
 		const core::vectorSIMDf& v2,
 		const core::vectorSIMDf& v3,
@@ -448,41 +691,41 @@ static bool writeFaceText(
 		normal = attrNormal;
 	}
 
-	if (!writeBytes(context, "facet normal ", 13))
+	if (!writeBytes(context, "facet normal ", sizeof("facet normal ") - 1ull))
 		return false;
 
 	getVectorAsStringLine(normal, tmp);
 	if (!writeBytes(context, tmp.c_str(), tmp.size()))
 		return false;
 
-	if (!writeBytes(context, "  outer loop\n", 13))
+	if (!writeBytes(context, "  outer loop\n", sizeof("  outer loop\n") - 1ull))
 		return false;
 
-	if (!writeBytes(context, "    vertex ", 11))
+	if (!writeBytes(context, "    vertex ", sizeof("    vertex ") - 1ull))
 		return false;
 
 	getVectorAsStringLine(vertex1, tmp);
 	if (!writeBytes(context, tmp.c_str(), tmp.size()))
 		return false;
 
-	if (!writeBytes(context, "    vertex ", 11))
+	if (!writeBytes(context, "    vertex ", sizeof("    vertex ") - 1ull))
 		return false;
 
 	getVectorAsStringLine(vertex2, tmp);
 	if (!writeBytes(context, tmp.c_str(), tmp.size()))
 		return false;
 
-	if (!writeBytes(context, "    vertex ", 11))
+	if (!writeBytes(context, "    vertex ", sizeof("    vertex ") - 1ull))
 		return false;
 
 	getVectorAsStringLine(vertex3, tmp);
 	if (!writeBytes(context, tmp.c_str(), tmp.size()))
 		return false;
 
-	if (!writeBytes(context, "  endloop\n", 10))
+	if (!writeBytes(context, "  endloop\n", sizeof("  endloop\n") - 1ull))
 		return false;
 
-	if (!writeBytes(context, "endfacet\n", 9))
+	if (!writeBytes(context, "endfacet\n", sizeof("endfacet\n") - 1ull))
 		return false;
 
 	return true;

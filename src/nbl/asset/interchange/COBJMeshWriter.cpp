@@ -40,13 +40,19 @@ uint32_t COBJMeshWriter::getForcedFlags()
 	return 0u;
 }
 
-static inline bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
+namespace obj_writer_detail
+{
+
+constexpr size_t ApproxObjBytesPerVertex = 96ull;
+constexpr size_t ApproxObjBytesPerFace = 48ull;
+
+bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 {
 	out = hlsl::float64_t4(0.0, 0.0, 0.0, 0.0);
 	return view.decodeElement(ix, out);
 }
 
-static inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
+const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
 {
 	if (!view)
 		return nullptr;
@@ -57,7 +63,7 @@ static inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeomet
 	return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
 }
 
-static inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
+const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
 {
 	if (!view)
 		return nullptr;
@@ -68,7 +74,7 @@ static inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeomet
 	return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
 }
 
-static inline void appendUInt(std::string& out, const uint32_t value)
+void appendUInt(std::string& out, const uint32_t value)
 {
 	std::array<char, 16> buf = {};
 	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
@@ -76,7 +82,7 @@ static inline void appendUInt(std::string& out, const uint32_t value)
 		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
 }
 
-static inline void appendFloatFixed6(std::string& out, double value)
+void appendFloatFixed6(std::string& out, double value)
 {
 	std::array<char, 64> buf = {};
 	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::fixed, 6);
@@ -91,10 +97,14 @@ static inline void appendFloatFixed6(std::string& out, double value)
 		out.append(buf.data(), static_cast<size_t>(written));
 }
 
-static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
+bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
+
+} // namespace obj_writer_detail
 
 bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+	using namespace obj_writer_detail;
+
 	if (!_override)
 		getDefaultOverride(_override);
 
@@ -203,7 +213,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool flipHandedness = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 	std::string output;
-	output.reserve(vertexCount * 96ull + faceCount * 48ull);
+	output.reserve(vertexCount * ApproxObjBytesPerVertex + faceCount * ApproxObjBytesPerFace);
 
 	output += "# Nabla OBJ\n";
 
@@ -355,7 +365,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	return writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size());
 }
 
-static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
+bool obj_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
 {
 	if (!file || (!data && byteCount != 0ull))
 		return false;

@@ -34,7 +34,7 @@ struct ObjVertexKey
     int32_t uv;
     int32_t normal;
 
-    inline bool operator==(const ObjVertexKey& other) const
+    bool operator==(const ObjVertexKey& other) const
     {
         return pos == other.pos && uv == other.uv && normal == other.normal;
     }
@@ -42,7 +42,7 @@ struct ObjVertexKey
 
 struct ObjVertexKeyHash
 {
-    inline size_t operator()(const ObjVertexKey& key) const noexcept
+    size_t operator()(const ObjVertexKey& key) const noexcept
     {
         size_t h = static_cast<size_t>(static_cast<uint32_t>(key.pos));
         h ^= static_cast<size_t>(static_cast<uint32_t>(key.uv)) + 0x9e3779b9 + (h << 6) + (h >> 2);
@@ -51,21 +51,29 @@ struct ObjVertexKeyHash
     }
 };
 
-struct Float3
-{
-    float x;
-    float y;
-    float z;
-};
-
-struct Float2
-{
-    float x;
-    float y;
-};
+using Float3 = hlsl::float32_t3;
+using Float2 = hlsl::float32_t2;
 
 static_assert(sizeof(Float3) == sizeof(float) * 3ull);
 static_assert(sizeof(Float2) == sizeof(float) * 2ull);
+
+void extendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const Float3& p)
+{
+    if (!hasAABB)
+    {
+        aabb.minVx = p;
+        aabb.maxVx = p;
+        hasAABB = true;
+        return;
+    }
+
+    if (p.x < aabb.minVx.x) aabb.minVx.x = p.x;
+    if (p.y < aabb.minVx.y) aabb.minVx.y = p.y;
+    if (p.z < aabb.minVx.z) aabb.minVx.z = p.z;
+    if (p.x > aabb.maxVx.x) aabb.maxVx.x = p.x;
+    if (p.y > aabb.maxVx.y) aabb.maxVx.y = p.y;
+    if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
+}
 
 bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, double& ioMs)
 {
@@ -393,24 +401,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
                         const auto& srcPos = positions[idx[0]];
                         outPositions.push_back(srcPos);
-                        const hlsl::float32_t3 p = { srcPos.x, srcPos.y, srcPos.z };
-                        if (!hasParsedAABB)
-                        {
-                            parsedAABB.minVx = p;
-                            parsedAABB.maxVx = p;
-                            hasParsedAABB = true;
-                        }
-                        else
-                        {
-                            if (p.x < parsedAABB.minVx.x) parsedAABB.minVx.x = p.x;
-                            if (p.y < parsedAABB.minVx.y) parsedAABB.minVx.y = p.y;
-                            if (p.z < parsedAABB.minVx.z) parsedAABB.minVx.z = p.z;
-                            if (p.x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = p.x;
-                            if (p.y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = p.y;
-                            if (p.z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = p.z;
-                        }
+                        extendAABB(parsedAABB, hasParsedAABB, srcPos);
 
-                        Float2 uv = { 0.f, 0.f };
+                        Float2 uv(0.f, 0.f);
                         if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
                         {
                             uv = uvs[idx[1]];
@@ -418,7 +411,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                         }
                         outUVs.push_back(uv);
 
-                        Float3 normal = { 0.f, 0.f, 1.f };
+                        Float3 normal(0.f, 0.f, 1.f);
                         if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
                         {
                             normal = normals[idx[2]];

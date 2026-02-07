@@ -42,13 +42,19 @@ uint32_t CPLYMeshWriter::getForcedFlags()
     return 0u;
 }
 
-static inline bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
+namespace ply_writer_detail
+{
+
+constexpr size_t ApproxPlyTextBytesPerVertex = 96ull;
+constexpr size_t ApproxPlyTextBytesPerFace = 32ull;
+
+bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 {
     out = hlsl::float64_t4(0.0, 0.0, 0.0, 0.0);
     return view.decodeElement(ix, out);
 }
 
-static inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
+const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
 {
     if (!view)
         return nullptr;
@@ -59,7 +65,7 @@ static inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeomet
     return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
 }
 
-static inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
+const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
 {
     if (!view)
         return nullptr;
@@ -70,7 +76,7 @@ static inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeomet
     return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
 }
 
-static inline void appendUInt(std::string& out, const uint32_t value)
+void appendUInt(std::string& out, const uint32_t value)
 {
     std::array<char, 16> buf = {};
     const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
@@ -78,7 +84,7 @@ static inline void appendUInt(std::string& out, const uint32_t value)
         out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
 }
 
-static inline void appendFloatFixed6(std::string& out, double value)
+void appendFloatFixed6(std::string& out, double value)
 {
     std::array<char, 64> buf = {};
     const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::fixed, 6);
@@ -93,7 +99,7 @@ static inline void appendFloatFixed6(std::string& out, double value)
         out.append(buf.data(), static_cast<size_t>(written));
 }
 
-static inline void appendVec(std::string& out, const double* values, size_t count, bool flipVectors = false)
+void appendVec(std::string& out, const double* values, size_t count, bool flipVectors = false)
 {
     constexpr size_t xID = 0u;
     for (size_t i = 0u; i < count; ++i)
@@ -104,12 +110,16 @@ static inline void appendVec(std::string& out, const double* values, size_t coun
     }
 }
 
-static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
-static bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
-static bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
+bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
+bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
+bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
+
+} // namespace ply_writer_detail
 
 bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    using namespace ply_writer_detail;
+
     if (!_override)
         getDefaultOverride(_override);
 
@@ -269,7 +279,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     }
 
     std::string body;
-    body.reserve(vertexCount * 96ull + faceCount * 32ull);
+    body.reserve(vertexCount * ApproxPlyTextBytesPerVertex + faceCount * ApproxPlyTextBytesPerFace);
     if (!writeText(geom, uvView, writeNormals, vertexCount, indices, faceCount, body, flipVectors))
         return false;
 
@@ -284,7 +294,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     return writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size());
 }
 
-static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
+bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
 {
     if (!file || (!data && byteCount != 0ull))
         return false;
@@ -318,7 +328,7 @@ static bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPoli
     }
 }
 
-static bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors)
+bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors)
 {
     if (!dst)
         return false;
@@ -411,7 +421,7 @@ static bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeomet
     return true;
 }
 
-static bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors)
+bool ply_writer_detail::writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors)
 {
     const auto& positionView = geom->getPositionView();
     const auto& normalView = geom->getNormalView();

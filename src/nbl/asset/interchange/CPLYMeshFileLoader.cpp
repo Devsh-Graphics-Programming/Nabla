@@ -61,7 +61,7 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 }
 
 template<typename T>
-inline T byteswap(const T& v)
+T byteswap(const T& v)
 {
 	T retval;
 	auto it = reinterpret_cast<const char*>(&v);
@@ -71,6 +71,7 @@ inline T byteswap(const T& v)
 
 struct SContext
 {
+	static constexpr uint64_t ReadWindowPaddingBytes = 1ull;
 	
 	//
 	struct SProperty
@@ -97,7 +98,7 @@ struct SContext
 				return EF_UNKNOWN;
 		}
 
-		inline bool isList() const {return type==EF_UNKNOWN && asset::isIntegerFormat(list.countType) && asset::isIntegerFormat(list.itemType);}
+		bool isList() const {return type==EF_UNKNOWN && asset::isIntegerFormat(list.countType) && asset::isIntegerFormat(list.itemType);}
 
 		void skip(SContext& _ctx) const
 		{
@@ -149,10 +150,12 @@ struct SContext
 		uint32_t KnownSize;
 	};
 
-	inline void init(size_t _ioReadWindowSize = 50ull << 10)
+	static constexpr size_t DefaultIoReadWindowBytes = 50ull << 10;
+
+	void init(size_t _ioReadWindowSize = DefaultIoReadWindowBytes)
 	{
-		ioReadWindowSize = std::max<size_t>(_ioReadWindowSize, 50ull << 10);
-		Buffer.resize(ioReadWindowSize + 1ull, '\0');
+		ioReadWindowSize = std::max<size_t>(_ioReadWindowSize, DefaultIoReadWindowBytes);
+		Buffer.resize(ioReadWindowSize + ReadWindowPaddingBytes, '\0');
 		EndPointer = StartPointer = Buffer.data();
 		LineEndPointer = EndPointer-1;
 
@@ -180,7 +183,7 @@ struct SContext
 		EndPointer = newStart+length;
 
 		// read data from the file
-		const size_t usableBufferSize = Buffer.size() > 0ull ? Buffer.size() - 1ull : 0ull;
+		const size_t usableBufferSize = Buffer.size() > 0ull ? Buffer.size() - ReadWindowPaddingBytes : 0ull;
 		if (usableBufferSize <= length)
 		{
 			EndOfFile = true;
@@ -393,7 +396,7 @@ struct SContext
 		uint32_t stride;
 		E_FORMAT dstFmt;
 	};
-	inline void readVertex(const IAssetLoader::SAssetLoadParams& _params, const SElement& el)
+	void readVertex(const IAssetLoader::SAssetLoadParams& _params, const SElement& el)
 	{
 		assert(el.Name=="vertex");
 		assert(el.Properties.size()==vertAttrIts.size());
@@ -555,10 +558,15 @@ struct SContext
 			return false;
 
 		const E_FORMAT srcIndexFmt = prop.list.itemType;
-		if (srcIndexFmt != EF_R32_UINT && srcIndexFmt != EF_R16_UINT)
+		const bool isSrcU32 = srcIndexFmt == EF_R32_UINT;
+		const bool isSrcS32 = srcIndexFmt == EF_R32_SINT;
+		const bool isSrcU16 = srcIndexFmt == EF_R16_UINT;
+		const bool isSrcS16 = srcIndexFmt == EF_R16_SINT;
+		if (!isSrcU32 && !isSrcS32 && !isSrcU16 && !isSrcS16)
 			return false;
 
-		const size_t indexSize = srcIndexFmt == EF_R32_UINT ? sizeof(uint32_t) : sizeof(uint16_t);
+		const bool is32Bit = isSrcU32 || isSrcS32;
+		const size_t indexSize = is32Bit ? sizeof(uint32_t) : sizeof(uint16_t);
 		const size_t minTriangleRecordSize = sizeof(uint8_t) + indexSize * 3u;
 		const size_t minBytesNeeded = element.Count * minTriangleRecordSize;
 		if (StartPointer + minBytesNeeded <= EndPointer)
@@ -583,20 +591,36 @@ struct SContext
 				uint32_t* out = _outIndices.data() + oldSize;
 				const uint8_t* ptr = reinterpret_cast<const uint8_t*>(StartPointer);
 
-				if (srcIndexFmt == EF_R32_UINT)
+				if (is32Bit)
 				{
 					for (size_t j = 0u; j < element.Count; ++j)
 					{
 						++ptr; // list count
-						uint32_t i0 = 0u;
-						uint32_t i1 = 0u;
-						uint32_t i2 = 0u;
-						std::memcpy(&i0, ptr, sizeof(i0));
-						ptr += sizeof(i0);
-						std::memcpy(&i1, ptr, sizeof(i1));
-						ptr += sizeof(i1);
-						std::memcpy(&i2, ptr, sizeof(i2));
-						ptr += sizeof(i2);
+						uint32_t i0 = 0u, i1 = 0u, i2 = 0u;
+						if (isSrcU32)
+						{
+							std::memcpy(&i0, ptr, sizeof(i0));
+							ptr += sizeof(i0);
+							std::memcpy(&i1, ptr, sizeof(i1));
+							ptr += sizeof(i1);
+							std::memcpy(&i2, ptr, sizeof(i2));
+							ptr += sizeof(i2);
+						}
+						else
+						{
+							int32_t s0 = 0, s1 = 0, s2 = 0;
+							std::memcpy(&s0, ptr, sizeof(s0));
+							ptr += sizeof(s0);
+							std::memcpy(&s1, ptr, sizeof(s1));
+							ptr += sizeof(s1);
+							std::memcpy(&s2, ptr, sizeof(s2));
+							ptr += sizeof(s2);
+							if (s0 < 0 || s1 < 0 || s2 < 0)
+								return false;
+							i0 = static_cast<uint32_t>(s0);
+							i1 = static_cast<uint32_t>(s1);
+							i2 = static_cast<uint32_t>(s2);
+						}
 						_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
 						out[0] = i0;
 						out[1] = i1;
@@ -609,18 +633,35 @@ struct SContext
 					for (size_t j = 0u; j < element.Count; ++j)
 					{
 						++ptr; // list count
-						uint16_t t0 = 0u;
-						uint16_t t1 = 0u;
-						uint16_t t2 = 0u;
-						std::memcpy(&t0, ptr, sizeof(t0));
-						ptr += sizeof(t0);
-						std::memcpy(&t1, ptr, sizeof(t1));
-						ptr += sizeof(t1);
-						std::memcpy(&t2, ptr, sizeof(t2));
-						ptr += sizeof(t2);
-						const uint32_t i0 = t0;
-						const uint32_t i1 = t1;
-						const uint32_t i2 = t2;
+						uint32_t i0 = 0u, i1 = 0u, i2 = 0u;
+						if (isSrcU16)
+						{
+							uint16_t t0 = 0u, t1 = 0u, t2 = 0u;
+							std::memcpy(&t0, ptr, sizeof(t0));
+							ptr += sizeof(t0);
+							std::memcpy(&t1, ptr, sizeof(t1));
+							ptr += sizeof(t1);
+							std::memcpy(&t2, ptr, sizeof(t2));
+							ptr += sizeof(t2);
+							i0 = t0;
+							i1 = t1;
+							i2 = t2;
+						}
+						else
+						{
+							int16_t s0 = 0, s1 = 0, s2 = 0;
+							std::memcpy(&s0, ptr, sizeof(s0));
+							ptr += sizeof(s0);
+							std::memcpy(&s1, ptr, sizeof(s1));
+							ptr += sizeof(s1);
+							std::memcpy(&s2, ptr, sizeof(s2));
+							ptr += sizeof(s2);
+							if (s0 < 0 || s1 < 0 || s2 < 0)
+								return false;
+							i0 = static_cast<uint32_t>(s0);
+							i1 = static_cast<uint32_t>(s1);
+							i2 = static_cast<uint32_t>(s2);
+						}
 						_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
 						out[0] = i0;
 						out[1] = i1;
@@ -649,23 +690,45 @@ struct SContext
 			outCount = static_cast<uint8_t>(*StartPointer++);
 			return true;
 		};
-		auto readIndex = [&ensureBytes, this, srcIndexFmt](uint32_t& out)->bool
+		auto readIndex = [&ensureBytes, this, srcIndexFmt, is32Bit, isSrcU32, isSrcU16](uint32_t& out)->bool
 		{
-			if (srcIndexFmt == EF_R32_UINT)
+			if (is32Bit)
 			{
 				if (!ensureBytes(sizeof(uint32_t)))
 					return false;
-				std::memcpy(&out, StartPointer, sizeof(uint32_t));
+				if (isSrcU32)
+				{
+					std::memcpy(&out, StartPointer, sizeof(uint32_t));
+				}
+				else
+				{
+					int32_t v = 0;
+					std::memcpy(&v, StartPointer, sizeof(v));
+					if (v < 0)
+						return false;
+					out = static_cast<uint32_t>(v);
+				}
 				StartPointer += sizeof(uint32_t);
 				return true;
 			}
 
 			if (!ensureBytes(sizeof(uint16_t)))
 				return false;
-			uint16_t v = 0u;
-			std::memcpy(&v, StartPointer, sizeof(uint16_t));
+			if (isSrcU16)
+			{
+				uint16_t v = 0u;
+				std::memcpy(&v, StartPointer, sizeof(uint16_t));
+				out = v;
+			}
+			else
+			{
+				int16_t v = 0;
+				std::memcpy(&v, StartPointer, sizeof(int16_t));
+				if (v < 0)
+					return false;
+				out = static_cast<uint32_t>(v);
+			}
 			StartPointer += sizeof(uint16_t);
-			out = v;
 			return true;
 		};
 
@@ -724,7 +787,7 @@ struct SContext
 	IAssetLoader::IAssetLoaderOverride* loaderOverride;
 	// input buffer must be at least twice as long as the longest line in the file
 	core::vector<char> Buffer;
-	size_t ioReadWindowSize = 50ull << 10;
+	size_t ioReadWindowSize = DefaultIoReadWindowBytes;
 	core::vector<SElement> ElementList = {};
 	char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
 	int32_t LineLength = 0;
@@ -752,6 +815,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	double indexBuildMs = 0.0;
 	double aabbMs = 0.0;
 	uint64_t faceCount = 0u;
+	uint64_t fastFaceElementCount = 0u;
 	uint32_t maxIndexRead = 0u;
 	const uint64_t fileSize = _file->getSize();
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true);
@@ -769,8 +833,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		_hierarchyLevel,
 		_override
 	};
-	const uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + 1ull) : ioPlan.chunkSizeBytes;
-	const uint64_t safeReadWindow = std::min<uint64_t>(desiredReadWindow, static_cast<uint64_t>(std::numeric_limits<size_t>::max() - 1ull));
+	const uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + SContext::ReadWindowPaddingBytes) : ioPlan.chunkSizeBytes;
+	const uint64_t safeReadWindow = std::min<uint64_t>(desiredReadWindow, static_cast<uint64_t>(std::numeric_limits<size_t>::max() - SContext::ReadWindowPaddingBytes));
 	ctx.init(static_cast<size_t>(safeReadWindow));
 
 	// start with empty mesh
@@ -1162,12 +1226,19 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		else if (el.Name=="face")
 		{
 			const auto faceStart = clock_t::now();
-			indices.reserve(indices.size() + el.Count * 3u);
-			for (size_t j=0; j<el.Count; ++j)
+			if (ctx.readFaceElementFast(el,indices,maxIndexRead,faceCount))
 			{
-				if (!ctx.readFace(el,indices,maxIndexRead))
-					return {};
-				++faceCount;
+				++fastFaceElementCount;
+			}
+			else
+			{
+				indices.reserve(indices.size() + el.Count * 3u);
+				for (size_t j=0; j<el.Count; ++j)
+				{
+					if (!ctx.readFace(el,indices,maxIndexRead))
+						return {};
+					++faceCount;
+				}
 			}
 			faceMs += std::chrono::duration<double, std::milli>(clock_t::now() - faceStart).count();
 		}
@@ -1225,7 +1296,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	_params.logger.log(
-		"PLY loader perf: file=%s total=%.3f ms header=%.3f vertex=%.3f face=%.3f skip=%.3f hash_range=%.3f index=%.3f aabb=%.3f binary=%d verts=%llu faces=%llu idx=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"PLY loader perf: file=%s total=%.3f ms header=%.3f vertex=%.3f face=%.3f skip=%.3f hash_range=%.3f index=%.3f aabb=%.3f binary=%d verts=%llu faces=%llu idx=%llu face_fast=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
 		totalMs,
@@ -1240,6 +1311,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		static_cast<unsigned long long>(vertCount),
 		static_cast<unsigned long long>(faceCount),
 		static_cast<unsigned long long>(indices.size()),
+		static_cast<unsigned long long>(fastFaceElementCount),
 		toString(_params.ioPolicy.strategy),
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
