@@ -296,13 +296,35 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		return {};
 	}
 
+	core::vector<uint8_t> wholeFilePayload;
+	const uint8_t* wholeFileData = nullptr;
+	if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+	{
+		const auto ioStart = clock_t::now();
+		wholeFilePayload.resize(filesize + 1ull);
+		if (!stlReadExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
+			return {};
+		wholeFilePayload[filesize] = 0u;
+		wholeFileData = wholeFilePayload.data();
+		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+	}
+
 	bool binary = false;
 	bool hasBinaryTriCountFromDetect = false;
 	uint32_t binaryTriCountFromDetect = 0u;
 	{
 		const auto detectStart = clock_t::now();
 		std::array<uint8_t, StlBinaryPrefixBytes> prefix = {};
-		const bool hasPrefix = filesize >= StlBinaryPrefixBytes && stlReadExact(context.inner.mainFile, prefix.data(), 0ull, StlBinaryPrefixBytes, &context.ioTelemetry);
+		bool hasPrefix = false;
+		if (wholeFileData && filesize >= StlBinaryPrefixBytes)
+		{
+			std::memcpy(prefix.data(), wholeFileData, StlBinaryPrefixBytes);
+			hasPrefix = true;
+		}
+		else
+		{
+			hasPrefix = filesize >= StlBinaryPrefixBytes && stlReadExact(context.inner.mainFile, prefix.data(), 0ull, StlBinaryPrefixBytes, &context.ioTelemetry);
+		}
 		bool startsWithSolid = false;
 		if (hasPrefix)
 		{
@@ -311,7 +333,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		else
 		{
 			char header[StlTextProbeBytes] = {};
-			if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
+			if (wholeFileData)
+				std::memcpy(header, wholeFileData, sizeof(header));
+			else if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
 				return {};
 			startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
 		}
@@ -362,12 +386,22 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (filesize < expectedSize)
 			return {};
 
-		core::vector<uint8_t> payload;
-		payload.resize(dataSize);
-		const auto ioStart = clock_t::now();
-		if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
-			return {};
-		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+		const uint8_t* payloadData = nullptr;
+		if (wholeFileData)
+		{
+			payloadData = wholeFileData + StlBinaryPrefixBytes;
+		}
+		else
+		{
+			core::vector<uint8_t> payload;
+			payload.resize(dataSize);
+			const auto ioStart = clock_t::now();
+			if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
+				return {};
+			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+			wholeFilePayload = std::move(payload);
+			payloadData = wholeFilePayload.data();
+		}
 
 		vertexCount = triangleCount * StlVerticesPerTriangle;
 		const auto buildPrepStart = clock_t::now();
@@ -386,8 +420,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		buildMs += buildPrepMs;
 
 		const auto parseStart = clock_t::now();
-		const uint8_t* cursor = payload.data();
-		const uint8_t* const end = cursor + payload.size();
+		const uint8_t* cursor = payloadData;
+		const uint8_t* const end = cursor + dataSize;
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
 			return {};
 		for (uint64_t tri = 0ull; tri < triangleCount; ++tri)
@@ -443,7 +477,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					normalZ = 0.f;
 				}
 			}
-			else if (std::abs(normalLen2 - 1.f) >= 1e-4f)
+			else if (normalLen2 < 0.9999f || normalLen2 > 1.0001f)
 			{
 				const float invLen = 1.f / std::sqrt(normalLen2);
 				normalX *= invLen;
@@ -504,15 +538,18 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	else
 	{
 		parsePath = "ascii_fallback";
-		core::vector<uint8_t> asciiPayload;
-		asciiPayload.resize(filesize + 1ull);
-		const auto ioStart = clock_t::now();
-		if (!stlReadWithPolicy(context.inner.mainFile, asciiPayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
-			return {};
-		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
-		asciiPayload[filesize] = 0u;
+		if (!wholeFileData)
+		{
+			const auto ioStart = clock_t::now();
+			wholeFilePayload.resize(filesize + 1ull);
+			if (!stlReadWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
+				return {};
+			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+			wholeFilePayload[filesize] = 0u;
+			wholeFileData = wholeFilePayload.data();
+		}
 
-		const char* cursor = reinterpret_cast<const char*>(asciiPayload.data());
+		const char* cursor = reinterpret_cast<const char*>(wholeFileData);
 		const char* const end = cursor + filesize;
 		core::vector<hlsl::float32_t3> positions;
 		core::vector<hlsl::float32_t3> normals;

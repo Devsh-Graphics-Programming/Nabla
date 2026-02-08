@@ -12,8 +12,10 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <cstring>
 #include <cstdio>
 #include <limits>
+#include <string_view>
 #include <system_error>
 
 namespace nbl::asset
@@ -107,61 +109,147 @@ const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView&
 	return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
 }
 
-void appendUInt(std::string& out, const uint32_t value)
+char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
 {
-	std::array<char, 16> buf = {};
-	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
-	if (res.ec == std::errc())
-		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
+	if (!dst || dst >= end)
+		return end;
+
+	const auto result = std::to_chars(dst, end, value);
+	if (result.ec == std::errc())
+		return result.ptr;
+
+	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%u", value);
+	if (written <= 0)
+		return dst;
+	const size_t writeLen = static_cast<size_t>(written);
+	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
 }
 
-void appendIndexRef(std::string& out, const std::string& storage, const core::vector<SIndexStringRef>& refs, const uint32_t index)
+char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
 {
-	if (index >= refs.size())
-		return;
-	const auto& ref = refs[index];
-	out.append(storage.data() + ref.offset, ref.length);
+	if (!dst || dst >= end)
+		return end;
+
+	const auto result = std::to_chars(dst, end, value, std::chars_format::fixed, 6);
+	if (result.ec == std::errc())
+		return result.ptr;
+
+	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%.6f", static_cast<double>(value));
+	if (written <= 0)
+		return dst;
+	const size_t writeLen = static_cast<size_t>(written);
+	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
+}
+
+void appendVec3Line(std::string& out, const std::string_view prefix, const float x, const float y, const float z)
+{
+	std::array<char, 192> line = {};
+	char* cursor = line.data();
+	char* const lineEnd = line.data() + line.size();
+
+	const size_t prefixSize = std::min(prefix.size(), static_cast<size_t>(lineEnd - cursor));
+	std::memcpy(cursor, prefix.data(), prefixSize);
+	cursor += prefixSize;
+
+	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, x);
+	if (cursor < lineEnd)
+		*(cursor++) = ' ';
+	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, y);
+	if (cursor < lineEnd)
+		*(cursor++) = ' ';
+	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, z);
+	if (cursor < lineEnd)
+		*(cursor++) = '\n';
+
+	out.append(line.data(), static_cast<size_t>(cursor - line.data()));
+}
+
+void appendVec2Line(std::string& out, const std::string_view prefix, const float x, const float y)
+{
+	std::array<char, 160> line = {};
+	char* cursor = line.data();
+	char* const lineEnd = line.data() + line.size();
+
+	const size_t prefixSize = std::min(prefix.size(), static_cast<size_t>(lineEnd - cursor));
+	std::memcpy(cursor, prefix.data(), prefixSize);
+	cursor += prefixSize;
+
+	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, x);
+	if (cursor < lineEnd)
+		*(cursor++) = ' ';
+	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, y);
+	if (cursor < lineEnd)
+		*(cursor++) = '\n';
+
+	out.append(line.data(), static_cast<size_t>(cursor - line.data()));
+}
+
+void appendFaceLine(std::string& out, const std::string& storage, const core::vector<SIndexStringRef>& refs, const uint32_t i0, const uint32_t i1, const uint32_t i2)
+{
+	const auto& ref0 = refs[i0];
+	const auto& ref1 = refs[i1];
+	const auto& ref2 = refs[i2];
+	std::array<char, 256> line = {};
+	char* cursor = line.data();
+	char* const lineEnd = line.data() + line.size();
+	if (cursor < lineEnd)
+		*(cursor++) = 'f';
+	if (cursor < lineEnd)
+		*(cursor++) = ' ';
+	const size_t len0 = std::min<size_t>(ref0.length, static_cast<size_t>(lineEnd - cursor));
+	std::memcpy(cursor, storage.data() + ref0.offset, len0);
+	cursor += len0;
+	if (cursor < lineEnd)
+		*(cursor++) = ' ';
+	const size_t len1 = std::min<size_t>(ref1.length, static_cast<size_t>(lineEnd - cursor));
+	std::memcpy(cursor, storage.data() + ref1.offset, len1);
+	cursor += len1;
+	if (cursor < lineEnd)
+		*(cursor++) = ' ';
+	const size_t len2 = std::min<size_t>(ref2.length, static_cast<size_t>(lineEnd - cursor));
+	std::memcpy(cursor, storage.data() + ref2.offset, len2);
+	cursor += len2;
+	if (cursor < lineEnd)
+		*(cursor++) = '\n';
+	out.append(line.data(), static_cast<size_t>(cursor - line.data()));
 }
 
 void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRef>& refs, const uint32_t objIx, const bool hasUVs, const bool hasNormals)
 {
 	SIndexStringRef ref = {};
 	ref.offset = static_cast<uint32_t>(storage.size());
-	appendUInt(storage, objIx);
-	if (hasUVs && hasNormals)
 	{
-		storage.push_back('/');
-		appendUInt(storage, objIx);
-		storage.push_back('/');
-		appendUInt(storage, objIx);
-	}
-	else if (hasUVs)
-	{
-		storage.push_back('/');
-		appendUInt(storage, objIx);
-	}
-	else if (hasNormals)
-	{
-		storage.append("//");
-		appendUInt(storage, objIx);
+		std::array<char, 48> token = {};
+		char* const tokenEnd = token.data() + token.size();
+		char* cursor = token.data();
+		cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+		if (hasUVs && hasNormals)
+		{
+			if (cursor < tokenEnd)
+				*(cursor++) = '/';
+			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+			if (cursor < tokenEnd)
+				*(cursor++) = '/';
+			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+		}
+		else if (hasUVs)
+		{
+			if (cursor < tokenEnd)
+				*(cursor++) = '/';
+			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+		}
+		else if (hasNormals)
+		{
+			if (cursor < tokenEnd)
+				*(cursor++) = '/';
+			if (cursor < tokenEnd)
+				*(cursor++) = '/';
+			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+		}
+		storage.append(token.data(), static_cast<size_t>(cursor - token.data()));
 	}
 	ref.length = static_cast<uint16_t>(storage.size() - ref.offset);
 	refs.push_back(ref);
-}
-
-void appendFloatFixed6(std::string& out, float value)
-{
-	std::array<char, 48> buf = {};
-	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::fixed, 6);
-	if (res.ec == std::errc())
-	{
-		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
-		return;
-	}
-
-	const int written = std::snprintf(buf.data(), buf.size(), "%.6f", static_cast<double>(value));
-	if (written > 0)
-		out.append(buf.data(), static_cast<size_t>(written));
 }
 
 bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry = nullptr);
@@ -320,13 +408,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (flipHandedness)
 			x = -x;
 
-		output.append("v ");
-		appendFloatFixed6(output, x);
-		output.push_back(' ');
-		appendFloatFixed6(output, y);
-		output.push_back(' ');
-		appendFloatFixed6(output, z);
-		output.push_back('\n');
+		appendVec3Line(output, "v ", x, y, z);
 	}
 
 	if (hasUVs)
@@ -348,11 +430,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				v = 1.f - static_cast<float>(tmp.y);
 			}
 
-			output.append("vt ");
-			appendFloatFixed6(output, u);
-			output.push_back(' ');
-			appendFloatFixed6(output, v);
-			output.push_back('\n');
+			appendVec2Line(output, "vt ", u, v);
 		}
 	}
 
@@ -380,13 +458,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			if (flipHandedness)
 				x = -x;
 
-			output.append("vn ");
-			appendFloatFixed6(output, x);
-			output.push_back(' ');
-			appendFloatFixed6(output, y);
-			output.push_back(' ');
-			appendFloatFixed6(output, z);
-			output.push_back('\n');
+			appendVec3Line(output, "vn ", x, y, z);
 		}
 	}
 
@@ -412,13 +484,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (f0 >= faceIndexRefs.size() || f1 >= faceIndexRefs.size() || f2 >= faceIndexRefs.size())
 			return false;
 
-		output.append("f ");
-		appendIndexRef(output, faceIndexStorage, faceIndexRefs, f0);
-		output.push_back(' ');
-		appendIndexRef(output, faceIndexStorage, faceIndexRefs, f1);
-		output.push_back(' ');
-		appendIndexRef(output, faceIndexStorage, faceIndexRefs, f2);
-		output.push_back('\n');
+		appendFaceLine(output, faceIndexStorage, faceIndexRefs, f0, f1, f2);
 	}
 	formatMs = std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
 
