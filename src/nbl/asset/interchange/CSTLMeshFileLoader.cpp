@@ -13,19 +13,46 @@
 #include "nbl/system/IFile.h"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
-#include <cstdio>
 #include <cstring>
+#include <string_view>
 #include <type_traits>
 
 namespace nbl::asset
 {
 
+struct SFileReadTelemetry
+{
+	uint64_t callCount = 0ull;
+	uint64_t totalBytes = 0ull;
+	uint64_t minBytes = std::numeric_limits<uint64_t>::max();
+
+	void account(const uint64_t bytes)
+	{
+		++callCount;
+		totalBytes += bytes;
+		if (bytes < minBytes)
+			minBytes = bytes;
+	}
+
+	uint64_t getMinOrZero() const
+	{
+		return callCount ? minBytes : 0ull;
+	}
+
+	uint64_t getAvgOrZero() const
+	{
+		return callCount ? (totalBytes / callCount) : 0ull;
+	}
+};
+
 struct SSTLContext
 {
 	IAssetLoader::SAssetLoadContext inner;
 	size_t fileOffset = 0ull;
+	SFileReadTelemetry ioTelemetry = {};
 };
 
 constexpr size_t StlTextProbeBytes = 6ull;
@@ -38,10 +65,8 @@ constexpr size_t StlTriangleAttributeBytes = sizeof(uint16_t);
 constexpr size_t StlTriangleRecordBytes = StlTriangleFloatBytes + StlTriangleAttributeBytes;
 constexpr size_t StlVerticesPerTriangle = 3ull;
 constexpr size_t StlFloatChannelsPerVertex = 3ull;
-constexpr size_t StlFloatsPerTriangleVertices = StlVerticesPerTriangle * StlFloatChannelsPerVertex;
-constexpr size_t StlFloatsPerTriangleOutput = StlFloatsPerTriangleVertices;
 
-bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes)
+bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SFileReadTelemetry* ioTelemetry = nullptr)
 {
 	if (!file || (!dst && bytes != 0ull))
 		return false;
@@ -50,10 +75,12 @@ bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const siz
 
 	system::IFile::success_t success;
 	file->read(success, dst, offset, bytes);
+	if (success && ioTelemetry)
+		ioTelemetry->account(success.getBytesProcessed());
 	return success && success.getBytesProcessed() == bytes;
 }
 
-bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan)
+bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry* ioTelemetry = nullptr)
 {
 	if (!file || (!dst && bytes != 0ull))
 		return false;
@@ -64,7 +91,7 @@ bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, c
 	switch (ioPlan.strategy)
 	{
 		case SResolvedFileIOPolicy::Strategy::WholeFile:
-			return stlReadExact(file, dst, offset, bytes);
+			return stlReadExact(file, dst, offset, bytes, ioTelemetry);
 		case SResolvedFileIOPolicy::Strategy::Chunked:
 		default:
 			while (bytesRead < bytes)
@@ -77,6 +104,8 @@ bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, c
 				const size_t processed = success.getBytesProcessed();
 				if (processed == 0ull)
 					return false;
+				if (ioTelemetry)
+					ioTelemetry->account(processed);
 				bytesRead += processed;
 			}
 			return true;
@@ -92,19 +121,7 @@ bool stlReadU8(SSTLContext* context, uint8_t& out)
 	context->inner.mainFile->read(success, &out, context->fileOffset, sizeof(out));
 	if (!success || success.getBytesProcessed() != sizeof(out))
 		return false;
-	context->fileOffset += sizeof(out);
-	return true;
-}
-
-bool stlReadF32(SSTLContext* context, float& out)
-{
-	if (!context)
-		return false;
-
-	system::IFile::success_t success;
-	context->inner.mainFile->read(success, &out, context->fileOffset, sizeof(out));
-	if (!success || success.getBytesProcessed() != sizeof(out))
-		return false;
+	context->ioTelemetry.account(success.getBytesProcessed());
 	context->fileOffset += sizeof(out);
 	return true;
 }
@@ -149,45 +166,51 @@ const std::string& stlGetNextToken(SSTLContext* context, std::string& token)
 	return token;
 }
 
-void stlGoNextLine(SSTLContext* context)
+const char* stlSkipWhitespace(const char* ptr, const char* const end)
 {
-	if (!context)
-		return;
-
-	uint8_t c = 0u;
-	while (context->fileOffset < context->inner.mainFile->getSize())
-	{
-		if (!stlReadU8(context, c))
-			break;
-		if (c == '\n' || c == '\r')
-			break;
-	}
+	while (ptr < end && core::isspace(*ptr))
+		++ptr;
+	return ptr;
 }
 
-bool stlGetNextVector(SSTLContext* context, hlsl::float32_t3& vec, const bool binary)
+bool stlReadTextToken(const char*& ptr, const char* const end, std::string_view& outToken)
 {
-	if (!context)
-		return false;
-
-	if (binary)
+	ptr = stlSkipWhitespace(ptr, end);
+	if (ptr >= end)
 	{
-		if (!stlReadF32(context, vec.x) || !stlReadF32(context, vec.y) || !stlReadF32(context, vec.z))
-			return false;
-		return true;
+		outToken = {};
+		return false;
 	}
 
-	stlGoNextWord(context);
-	std::string tmp;
-	if (stlGetNextToken(context, tmp).empty())
-		return false;
-	std::sscanf(tmp.c_str(), "%f", &vec.x);
-	if (stlGetNextToken(context, tmp).empty())
-		return false;
-	std::sscanf(tmp.c_str(), "%f", &vec.y);
-	if (stlGetNextToken(context, tmp).empty())
-		return false;
-	std::sscanf(tmp.c_str(), "%f", &vec.z);
+	const char* tokenEnd = ptr;
+	while (tokenEnd < end && !core::isspace(*tokenEnd))
+		++tokenEnd;
+
+	outToken = std::string_view(ptr, static_cast<size_t>(tokenEnd - ptr));
+	ptr = tokenEnd;
 	return true;
+}
+
+bool stlReadTextFloat(const char*& ptr, const char* const end, float& outValue)
+{
+	ptr = stlSkipWhitespace(ptr, end);
+	if (ptr >= end)
+		return false;
+
+	const auto parseResult = std::from_chars(ptr, end, outValue, std::chars_format::general);
+	if (parseResult.ec != std::errc() || parseResult.ptr == ptr)
+		return false;
+
+	ptr = parseResult.ptr;
+	return true;
+}
+
+bool stlReadTextVec3(const char*& ptr, const char* const end, hlsl::float32_t3& outVec)
+{
+	return
+		stlReadTextFloat(ptr, end, outVec.x) &&
+		stlReadTextFloat(ptr, end, outVec.y) &&
+		stlReadTextFloat(ptr, end, outVec.z);
 }
 
 hlsl::float32_t3 stlNormalizeOrZero(const hlsl::float32_t3& v)
@@ -276,6 +299,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	double hashMs = 0.0;
 	double aabbMs = 0.0;
 	uint64_t triangleCount = 0u;
+	const char* parsePath = "unknown";
 
 	SSTLContext context = {
 		asset::IAssetLoader::SAssetLoadContext{
@@ -297,11 +321,13 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 
 	bool binary = false;
+	bool hasBinaryTriCountFromDetect = false;
+	uint32_t binaryTriCountFromDetect = 0u;
 	std::string token;
 	{
 		const auto detectStart = clock_t::now();
 		char header[StlTextProbeBytes] = {};
-		if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header)))
+		if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
 			return {};
 
 		const bool startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
@@ -309,8 +335,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (filesize >= StlBinaryPrefixBytes)
 		{
 			uint32_t triCount = 0u;
-			if (stlReadExact(context.inner.mainFile, &triCount, StlBinaryHeaderBytes, sizeof(triCount)))
+			if (stlReadExact(context.inner.mainFile, &triCount, StlBinaryHeaderBytes, sizeof(triCount), &context.ioTelemetry))
 			{
+				binaryTriCountFromDetect = triCount;
+				hasBinaryTriCountFromDetect = true;
 				const uint64_t expectedSize = StlBinaryPrefixBytes + static_cast<uint64_t>(triCount) * StlTriangleRecordBytes;
 				binaryBySize = (expectedSize == filesize);
 			}
@@ -336,12 +364,16 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	if (binary)
 	{
+		parsePath = "binary_fast";
 		if (filesize < StlBinaryPrefixBytes)
 			return {};
 
-		uint32_t triangleCount32 = 0u;
-		if (!stlReadExact(context.inner.mainFile, &triangleCount32, StlBinaryHeaderBytes, sizeof(triangleCount32)))
-			return {};
+		uint32_t triangleCount32 = binaryTriCountFromDetect;
+		if (!hasBinaryTriCountFromDetect)
+		{
+			if (!stlReadExact(context.inner.mainFile, &triangleCount32, StlBinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+				return {};
+		}
 
 		triangleCount = triangleCount32;
 		const size_t dataSize = static_cast<size_t>(triangleCount) * StlTriangleRecordBytes;
@@ -351,9 +383,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		core::vector<uint8_t> payload;
 		payload.resize(dataSize);
-
 		const auto ioStart = clock_t::now();
-		if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan))
+		if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
 			return {};
 		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 
@@ -375,29 +406,33 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const uint8_t* const end = cursor + payload.size();
 		auto* posOutFloat = reinterpret_cast<float*>(posOut);
 		auto* normalOutFloat = reinterpret_cast<float*>(normalOut);
+		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
+			return {};
 		for (uint64_t tri = 0ull; tri < triangleCount; ++tri)
 		{
-			if (cursor + StlTriangleRecordBytes > end)
-				return {};
+			const uint8_t* const triRecord = cursor;
+			cursor += StlTriangleRecordBytes;
 
-			float triData[StlTriangleFloatCount] = {};
-			std::memcpy(triData, cursor, StlTriangleFloatBytes);
-			cursor += StlTriangleFloatBytes;
-			cursor += StlTriangleAttributeBytes;
+			float normalData[StlFloatChannelsPerVertex] = {};
+			std::memcpy(normalData, triRecord, sizeof(normalData));
+			float normalX = normalData[0];
+			float normalY = normalData[1];
+			float normalZ = normalData[2];
 
-			const float vertex0x = triData[9];
-			const float vertex0y = triData[10];
-			const float vertex0z = triData[11];
-			const float vertex1x = triData[6];
-			const float vertex1y = triData[7];
-			const float vertex1z = triData[8];
-			const float vertex2x = triData[3];
-			const float vertex2y = triData[4];
-			const float vertex2z = triData[5];
+			const size_t base = static_cast<size_t>(tri) * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+			std::memcpy(posOutFloat + base + 0ull, triRecord + 9ull * sizeof(float), sizeof(normalData));
+			std::memcpy(posOutFloat + base + 3ull, triRecord + 6ull * sizeof(float), sizeof(normalData));
+			std::memcpy(posOutFloat + base + 6ull, triRecord + 3ull * sizeof(float), sizeof(normalData));
 
-			float normalX = triData[0];
-			float normalY = triData[1];
-			float normalZ = triData[2];
+			const float vertex0x = posOutFloat[base + 0ull];
+			const float vertex0y = posOutFloat[base + 1ull];
+			const float vertex0z = posOutFloat[base + 2ull];
+			const float vertex1x = posOutFloat[base + 3ull];
+			const float vertex1y = posOutFloat[base + 4ull];
+			const float vertex1z = posOutFloat[base + 5ull];
+			const float vertex2x = posOutFloat[base + 6ull];
+			const float vertex2y = posOutFloat[base + 7ull];
+			const float vertex2z = posOutFloat[base + 8ull];
 			const float normalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
 			if (normalLen2 <= 0.f)
 			{
@@ -433,17 +468,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				normalY *= invLen;
 				normalZ *= invLen;
 			}
-
-			const size_t base = static_cast<size_t>(tri) * StlFloatsPerTriangleOutput;
-			posOutFloat[base + 0ull] = vertex0x;
-			posOutFloat[base + 1ull] = vertex0y;
-			posOutFloat[base + 2ull] = vertex0z;
-			posOutFloat[base + 3ull] = vertex1x;
-			posOutFloat[base + 4ull] = vertex1y;
-			posOutFloat[base + 5ull] = vertex1z;
-			posOutFloat[base + 6ull] = vertex2x;
-			posOutFloat[base + 7ull] = vertex2y;
-			posOutFloat[base + 8ull] = vertex2z;
 
 			normalOutFloat[base + 0ull] = normalX;
 			normalOutFloat[base + 1ull] = normalY;
@@ -495,44 +519,60 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 	else
 	{
+		parsePath = "ascii_fallback";
+		core::vector<uint8_t> asciiPayload;
+		asciiPayload.resize(filesize + 1ull);
+		const auto ioStart = clock_t::now();
+		if (!stlReadWithPolicy(context.inner.mainFile, asciiPayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
+			return {};
+		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+		asciiPayload[filesize] = 0u;
+
+		const char* cursor = reinterpret_cast<const char*>(asciiPayload.data());
+		const char* const end = cursor + filesize;
 		core::vector<hlsl::float32_t3> positions;
 		core::vector<hlsl::float32_t3> normals;
-		stlGoNextLine(&context);
-		token.reserve(32);
+		std::string_view textToken = {};
+		if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("solid"))
+			return {};
 
 		const auto parseStart = clock_t::now();
-		while (context.fileOffset < filesize)
+		while (stlReadTextToken(cursor, end, textToken))
 		{
-			if (stlGetNextToken(&context, token) != "facet")
+			if (textToken == std::string_view("endsolid"))
+				break;
+			if (textToken != std::string_view("facet"))
 			{
-				if (token == "endsolid")
-					break;
-				return {};
+				continue;
 			}
-			if (stlGetNextToken(&context, token) != "normal")
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("normal"))
 				return {};
 
 			hlsl::float32_t3 fileNormal = {};
-			if (!stlGetNextVector(&context, fileNormal, false))
+			if (!stlReadTextVec3(cursor, end, fileNormal))
 				return {};
 
 			normals.push_back(stlResolveStoredNormal(fileNormal));
 
-			if (stlGetNextToken(&context, token) != "outer" || stlGetNextToken(&context, token) != "loop")
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("outer"))
+				return {};
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("loop"))
 				return {};
 
 			hlsl::float32_t3 p[3] = {};
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
-				if (stlGetNextToken(&context, token) != "vertex")
+				if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("vertex"))
 					return {};
-				if (!stlGetNextVector(&context, p[i], false))
+				if (!stlReadTextVec3(cursor, end, p[i]))
 					return {};
 			}
 
 			stlPushTriangleReversed(p, positions);
 
-			if (stlGetNextToken(&context, token) != "endloop" || stlGetNextToken(&context, token) != "endfacet")
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endloop"))
+				return {};
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endfacet"))
 				return {};
 
 			stlFixLastFaceNormal(normals, positions);
@@ -599,8 +639,26 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
+	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
+	if (
+		static_cast<uint64_t>(filesize) > (1ull << 20) &&
+		(
+			ioAvgRead < 1024ull ||
+			(ioMinRead < 64ull && context.ioTelemetry.callCount > 1024ull)
+		)
+	)
+	{
+		_params.logger.log(
+			"STL loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
+			system::ILogger::ELL_WARNING,
+			_file->getFileName().string().c_str(),
+			static_cast<unsigned long long>(context.ioTelemetry.callCount),
+			static_cast<unsigned long long>(ioMinRead),
+			static_cast<unsigned long long>(ioAvgRead));
+	}
 	_params.logger.log(
-		"STL loader perf: file=%s total=%.3f ms detect=%.3f io=%.3f parse=%.3f build=%.3f hash=%.3f aabb=%.3f binary=%d triangles=%llu vertices=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"STL loader perf: file=%s total=%.3f ms detect=%.3f io=%.3f parse=%.3f build=%.3f hash=%.3f aabb=%.3f binary=%d parse_path=%s triangles=%llu vertices=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
 		totalMs,
@@ -611,8 +669,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		hashMs,
 		aabbMs,
 		binary ? 1 : 0,
+		parsePath,
 		static_cast<unsigned long long>(triangleCount),
 		static_cast<unsigned long long>(vertexCount),
+		static_cast<unsigned long long>(context.ioTelemetry.callCount),
+		static_cast<unsigned long long>(ioMinRead),
+		static_cast<unsigned long long>(ioAvgRead),
 		toString(_params.ioPolicy.strategy),
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),

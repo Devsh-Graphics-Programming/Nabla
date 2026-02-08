@@ -15,12 +15,12 @@
 #include "COBJMeshFileLoader.h"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <type_traits>
-#include <unordered_map>
 
 namespace nbl::asset
 {
@@ -51,6 +51,31 @@ struct ObjVertexKeyHash
     }
 };
 
+struct SFileReadTelemetry
+{
+    uint64_t callCount = 0ull;
+    uint64_t totalBytes = 0ull;
+    uint64_t minBytes = std::numeric_limits<uint64_t>::max();
+
+    void account(const uint64_t bytes)
+    {
+        ++callCount;
+        totalBytes += bytes;
+        if (bytes < minBytes)
+            minBytes = bytes;
+    }
+
+    uint64_t getMinOrZero() const
+    {
+        return callCount ? minBytes : 0ull;
+    }
+
+    uint64_t getAvgOrZero() const
+    {
+        return callCount ? (totalBytes / callCount) : 0ull;
+    }
+};
+
 using Float3 = hlsl::float32_t3;
 using Float2 = hlsl::float32_t2;
 
@@ -75,7 +100,36 @@ void extendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, con
     if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
 }
 
-bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, double& ioMs)
+template<typename T>
+IGeometry<ICPUBuffer>::SDataView createAdoptedView(core::vector<T>&& data, const E_FORMAT format)
+{
+    if (data.empty())
+        return {};
+
+    auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<T>>>(std::move(data));
+    auto& storage = backer->getBacker();
+    auto* const ptr = storage.data();
+    const size_t byteCount = storage.size() * sizeof(T);
+    auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(T) }, core::adopt_memory);
+    if (!buffer)
+        return {};
+
+    IGeometry<ICPUBuffer>::SDataView view = {
+        .composed = {
+            .stride = sizeof(T),
+            .format = format,
+            .rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
+        },
+        .src = {
+            .offset = 0u,
+            .size = byteCount,
+            .buffer = std::move(buffer)
+        }
+    };
+    return view;
+}
+
+bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, double& ioMs, SFileReadTelemetry& ioTelemetry)
 {
     if (!file || !dst)
         return false;
@@ -92,6 +146,7 @@ bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, co
             if (!success || success.getBytesProcessed() != byteCount)
                 return false;
             bytesRead = byteCount;
+            ioTelemetry.account(success.getBytesProcessed());
             break;
         }
         case SResolvedFileIOPolicy::Strategy::Chunked:
@@ -107,6 +162,7 @@ bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, co
                 const size_t processed = success.getBytesProcessed();
                 if (processed == 0ull)
                     return false;
+                ioTelemetry.account(processed);
                 bytesRead += processed;
             }
             break;
@@ -147,6 +203,23 @@ const char* goNextLine(const char* buf, const char* const bufEnd)
     return goFirstWord(buf, bufEnd);
 }
 
+bool parseFloatToken(const char*& ptr, const char* const end, float& out)
+{
+    const auto parseResult = std::from_chars(ptr, end, out, std::chars_format::general);
+    if (parseResult.ec == std::errc() && parseResult.ptr != ptr)
+    {
+        ptr = parseResult.ptr;
+        return true;
+    }
+
+    char* fallbackEnd = nullptr;
+    out = std::strtof(ptr, &fallbackEnd);
+    if (!fallbackEnd || fallbackEnd == ptr)
+        return false;
+    ptr = fallbackEnd;
+    return true;
+}
+
 const char* readVec3(const char* bufPtr, float vec[3], const char* const bufEnd)
 {
     bufPtr = goNextWord(bufPtr, bufEnd, false);
@@ -155,11 +228,8 @@ const char* readVec3(const char* bufPtr, float vec[3], const char* const bufEnd)
         if (bufPtr >= bufEnd)
             return bufPtr;
 
-        char* endPtr = nullptr;
-        vec[i] = std::strtof(bufPtr, &endPtr);
-        if (endPtr == bufPtr)
+        if (!parseFloatToken(bufPtr, bufEnd, vec[i]))
             return bufPtr;
-        bufPtr = endPtr;
 
         while (bufPtr < bufEnd && core::isspace(*bufPtr) && *bufPtr != '\n' && *bufPtr != '\r')
             ++bufPtr;
@@ -176,11 +246,8 @@ const char* readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
         if (bufPtr >= bufEnd)
             return bufPtr;
 
-        char* endPtr = nullptr;
-        vec[i] = std::strtof(bufPtr, &endPtr);
-        if (endPtr == bufPtr)
+        if (!parseFloatToken(bufPtr, bufEnd, vec[i]))
             return bufPtr;
-        bufPtr = endPtr;
 
         while (bufPtr < bufEnd && core::isspace(*bufPtr) && *bufPtr != '\n' && *bufPtr != '\r')
             ++bufPtr;
@@ -249,6 +316,83 @@ bool retrieveVertexIndices(const char* tokenBegin, const char* tokenEnd, int32_t
     return true;
 }
 
+enum class EFastFaceTokenParseResult : uint8_t
+{
+    NotApplicable,
+    Success,
+    Error
+};
+
+bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
+{
+    if (ptr >= end || !core::isdigit(*ptr))
+        return false;
+
+    uint64_t value = 0ull;
+    while (ptr < end && core::isdigit(*ptr))
+    {
+        value = value * 10ull + static_cast<uint64_t>(*ptr - '0');
+        if (value > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+            return false;
+        ++ptr;
+    }
+
+    out = static_cast<uint32_t>(value);
+    return true;
+}
+
+EFastFaceTokenParseResult retrieveVertexIndicesFast(const char* tokenBegin, const char* tokenEnd, int32_t* idx)
+{
+    if (!tokenBegin || !idx || tokenBegin >= tokenEnd)
+        return EFastFaceTokenParseResult::NotApplicable;
+
+    for (const char* c = tokenBegin; c < tokenEnd; ++c)
+    {
+        const char ch = *c;
+        if (ch == '-' || ch == '+')
+            return EFastFaceTokenParseResult::NotApplicable;
+        if (!core::isdigit(ch) && ch != '/')
+            return EFastFaceTokenParseResult::NotApplicable;
+    }
+
+    idx[0] = -1;
+    idx[1] = -1;
+    idx[2] = -1;
+
+    const char* ptr = tokenBegin;
+    uint32_t parsed = 0u;
+    if (!parseUnsignedObjIndex(ptr, tokenEnd, parsed) || parsed == 0u)
+        return EFastFaceTokenParseResult::Error;
+    idx[0] = static_cast<int32_t>(parsed - 1u);
+
+    if (ptr >= tokenEnd)
+        return EFastFaceTokenParseResult::Success;
+    if (*ptr != '/')
+        return EFastFaceTokenParseResult::NotApplicable;
+    ++ptr;
+
+    if (ptr < tokenEnd && *ptr != '/')
+    {
+        if (!parseUnsignedObjIndex(ptr, tokenEnd, parsed) || parsed == 0u)
+            return EFastFaceTokenParseResult::Error;
+        idx[1] = static_cast<int32_t>(parsed - 1u);
+    }
+
+    if (ptr >= tokenEnd)
+        return EFastFaceTokenParseResult::Success;
+    if (*ptr != '/')
+        return EFastFaceTokenParseResult::Error;
+    ++ptr;
+
+    if (ptr >= tokenEnd)
+        return EFastFaceTokenParseResult::Success;
+    if (!parseUnsignedObjIndex(ptr, tokenEnd, parsed) || parsed == 0u)
+        return EFastFaceTokenParseResult::Error;
+    idx[2] = static_cast<int32_t>(parsed - 1u);
+
+    return ptr == tokenEnd ? EFastFaceTokenParseResult::Success : EFastFaceTokenParseResult::Error;
+}
+
 }
 
 COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager)
@@ -288,8 +432,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     double ioMs = 0.0;
     double parseMs = 0.0;
     double buildMs = 0.0;
+    double hashMs = 0.0;
     double aabbMs = 0.0;
     uint64_t faceCount = 0u;
+    uint64_t faceFastTokenCount = 0u;
+    uint64_t faceFallbackTokenCount = 0u;
+    SFileReadTelemetry ioTelemetry = {};
 
     const long filesize = _file->getSize();
     if (filesize <= 0)
@@ -303,7 +451,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
     std::string fileContents;
     fileContents.resize(static_cast<size_t>(filesize));
-    if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioMs))
+    if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioMs, ioTelemetry))
         return {};
 
     const char* const buf = fileContents.data();
@@ -318,13 +466,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     core::vector<Float3> outNormals;
     core::vector<Float2> outUVs;
     core::vector<uint32_t> indices;
-
-    std::unordered_map<ObjVertexKey, uint32_t, ObjVertexKeyHash> vtxMap;
+    core::unordered_map<ObjVertexKey, uint32_t, ObjVertexKeyHash> vtxMap;
 
     bool hasNormals = false;
     bool hasUVs = false;
     hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
     bool hasParsedAABB = false;
+    core::vector<uint32_t> faceCorners;
+    faceCorners.reserve(16ull);
 
     const auto parseStart = clock_t::now();
     while (bufPtr != bufEnd)
@@ -364,41 +513,57 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 if (positions.empty())
                     return {};
                 ++faceCount;
+                if (faceCount == 1u)
+                {
+                    vtxMap.reserve(positions.size() * 4ull);
+                    indices.reserve(positions.size() * 6ull);
+                }
 
                 const char* endPtr = bufPtr;
                 while (endPtr != bufEnd && *endPtr != '\n' && *endPtr != '\r')
                     ++endPtr;
 
-                core::vector<uint32_t> faceCorners;
-                faceCorners.reserve(16ull);
+                faceCorners.clear();
 
                 const char* linePtr = goNextWord(bufPtr, endPtr);
-                while (linePtr < endPtr && 0 != linePtr[0])
+                while (linePtr < endPtr)
                 {
                     int32_t idx[3] = { -1, -1, -1 };
                     const char* tokenEnd = linePtr;
                     while (tokenEnd < endPtr && !core::isspace(*tokenEnd))
                         ++tokenEnd;
-                    if (!retrieveVertexIndices(linePtr, tokenEnd, idx, positions.size(), uvs.size(), normals.size()))
+                    const auto fastResult = retrieveVertexIndicesFast(linePtr, tokenEnd, idx);
+                    if (fastResult == EFastFaceTokenParseResult::Success)
+                    {
+                        ++faceFastTokenCount;
+                    }
+                    else if (fastResult == EFastFaceTokenParseResult::NotApplicable)
+                    {
+                        if (!retrieveVertexIndices(linePtr, tokenEnd, idx, positions.size(), uvs.size(), normals.size()))
+                            return {};
+                        ++faceFallbackTokenCount;
+                    }
+                    else
+                    {
                         return {};
+                    }
 
                     if (idx[0] < 0 || static_cast<size_t>(idx[0]) >= positions.size())
                         return {};
 
                     ObjVertexKey key = { idx[0], idx[1], idx[2] };
-                    auto it = vtxMap.find(key);
-                    uint32_t outIx = 0u;
-                    if (it == vtxMap.end())
+                    const uint32_t candidateIndex = static_cast<uint32_t>(outPositions.size());
+                    auto [it, inserted] = vtxMap.try_emplace(key, candidateIndex);
+                    uint32_t outIx = it->second;
+                    if (inserted)
                     {
                         if (outPositions.empty())
                         {
-                            outPositions.reserve(positions.size());
-                            outNormals.reserve(positions.size());
-                            outUVs.reserve(positions.size());
+                            const size_t estimatedVertexCount = positions.size() <= (std::numeric_limits<size_t>::max() / 4ull) ? positions.size() * 4ull : positions.size();
+                            outPositions.reserve(estimatedVertexCount);
+                            outNormals.reserve(estimatedVertexCount);
+                            outUVs.reserve(estimatedVertexCount);
                         }
-                        outIx = static_cast<uint32_t>(outPositions.size());
-                        vtxMap.emplace(key, outIx);
-
                         const auto& srcPos = positions[idx[0]];
                         outPositions.push_back(srcPos);
                         extendAABB(parsedAABB, hasParsedAABB, srcPos);
@@ -419,16 +584,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                         }
                         outNormals.push_back(normal);
                     }
-                    else
-                    {
-                        outIx = it->second;
-                    }
 
                     faceCorners.push_back(outIx);
 
-                    while (tokenEnd < endPtr && core::isspace(*tokenEnd))
-                        ++tokenEnd;
-                    linePtr = tokenEnd;
+                    linePtr = goFirstWord(tokenEnd, endPtr, false);
                 }
 
                 for (uint32_t i = 1u; i + 1u < faceCorners.size(); ++i)
@@ -450,30 +609,52 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     if (outPositions.empty())
         return {};
 
+    const size_t outVertexCount = outPositions.size();
+    const size_t outIndexCount = indices.size();
     const auto buildStart = clock_t::now();
     auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
-    geometry->setPositionView(IGeometryLoader::createView(EF_R32G32B32_SFLOAT, outPositions.size(), outPositions.data()));
+    {
+        auto view = createAdoptedView(std::move(outPositions), EF_R32G32B32_SFLOAT);
+        if (!view)
+            return {};
+        geometry->setPositionView(std::move(view));
+    }
 
     if (hasNormals)
-        geometry->setNormalView(IGeometryLoader::createView(EF_R32G32B32_SFLOAT, outNormals.size(), outNormals.data()));
+    {
+        auto view = createAdoptedView(std::move(outNormals), EF_R32G32B32_SFLOAT);
+        if (!view)
+            return {};
+        geometry->setNormalView(std::move(view));
+    }
 
     if (hasUVs)
-        geometry->getAuxAttributeViews()->push_back(IGeometryLoader::createView(EF_R32G32_SFLOAT, outUVs.size(), outUVs.data()));
+    {
+        auto view = createAdoptedView(std::move(outUVs), EF_R32G32_SFLOAT);
+        if (!view)
+            return {};
+        geometry->getAuxAttributeViews()->push_back(std::move(view));
+    }
 
     if (!indices.empty())
     {
         geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-        const auto maxIndex = *std::max_element(indices.begin(), indices.end());
-        if (maxIndex <= std::numeric_limits<uint16_t>::max())
+        if (outVertexCount <= static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1ull)
         {
             core::vector<uint16_t> indices16(indices.size());
             for (size_t i = 0u; i < indices.size(); ++i)
                 indices16[i] = static_cast<uint16_t>(indices[i]);
-            geometry->setIndexView(IGeometryLoader::createView(EF_R16_UINT, indices16.size(), indices16.data()));
+            auto view = createAdoptedView(std::move(indices16), EF_R16_UINT);
+            if (!view)
+                return {};
+            geometry->setIndexView(std::move(view));
         }
         else
         {
-            geometry->setIndexView(IGeometryLoader::createView(EF_R32_UINT, indices.size(), indices.data()));
+            auto view = createAdoptedView(std::move(indices), EF_R32_UINT);
+            if (!view)
+                return {};
+            geometry->setIndexView(std::move(view));
         }
     }
     else
@@ -481,6 +662,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         geometry->setIndexing(IPolygonGeometryBase::PointList());
     }
     buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
+
+    const auto hashStart = clock_t::now();
+    CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+    hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 
     const auto aabbStart = clock_t::now();
     if (hasParsedAABB)
@@ -505,21 +690,43 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
 
     const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+    if (
+        static_cast<uint64_t>(filesize) > (1ull << 20) &&
+        (
+            ioTelemetry.getAvgOrZero() < 1024ull ||
+            (ioTelemetry.getMinOrZero() < 64ull && ioTelemetry.callCount > 1024ull)
+        )
+    )
+    {
+        _params.logger.log(
+            "OBJ loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
+            system::ILogger::ELL_WARNING,
+            _file->getFileName().string().c_str(),
+            static_cast<unsigned long long>(ioTelemetry.callCount),
+            static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
+            static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()));
+    }
     _params.logger.log(
-        "OBJ loader perf: file=%s total=%.3f ms io=%.3f parse=%.3f build=%.3f aabb=%.3f in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu) io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+        "OBJ loader perf: file=%s total=%.3f ms io=%.3f parse=%.3f build=%.3f hash=%.3f aabb=%.3f in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu) io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
         system::ILogger::ELL_PERFORMANCE,
         _file->getFileName().string().c_str(),
         totalMs,
         ioMs,
         parseMs,
         buildMs,
+        hashMs,
         aabbMs,
         static_cast<unsigned long long>(positions.size()),
         static_cast<unsigned long long>(normals.size()),
         static_cast<unsigned long long>(uvs.size()),
-        static_cast<unsigned long long>(outPositions.size()),
-        static_cast<unsigned long long>(indices.size()),
+        static_cast<unsigned long long>(outVertexCount),
+        static_cast<unsigned long long>(outIndexCount),
         static_cast<unsigned long long>(faceCount),
+        static_cast<unsigned long long>(faceFastTokenCount),
+        static_cast<unsigned long long>(faceFallbackTokenCount),
+        static_cast<unsigned long long>(ioTelemetry.callCount),
+        static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
+        static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()),
         toString(_params.ioPolicy.strategy),
         toString(ioPlan.strategy),
         static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
