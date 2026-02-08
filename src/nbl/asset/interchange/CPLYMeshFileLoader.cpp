@@ -673,25 +673,47 @@ struct SContext
 
 			const size_t batchVertices = std::min(remainingVertices, available / srcBytesPerVertex);
 			const uint8_t* src = reinterpret_cast<const uint8_t*>(StartPointer);
-			for (size_t v = 0ull; v < batchVertices; ++v)
+			switch (layout)
 			{
-				std::memcpy(posBase, src, 3ull * floatBytes);
-				src += 3ull * floatBytes;
-				posBase += posStride;
-
-				if (layout == ELayoutKind::XYZ_N || layout == ELayoutKind::XYZ_N_UV)
+				case ELayoutKind::XYZ:
 				{
-					std::memcpy(normalBase, src, 3ull * floatBytes);
-					src += 3ull * floatBytes;
-					normalBase += normalStride;
+					for (size_t v = 0ull; v < batchVertices; ++v)
+					{
+						std::memcpy(posBase, src, 3ull * floatBytes);
+						src += 3ull * floatBytes;
+						posBase += posStride;
+					}
 				}
-
-				if (layout == ELayoutKind::XYZ_N_UV)
+				break;
+				case ELayoutKind::XYZ_N:
 				{
-					std::memcpy(uvBase, src, 2ull * floatBytes);
-					src += 2ull * floatBytes;
-					uvBase += uvStride;
+					for (size_t v = 0ull; v < batchVertices; ++v)
+					{
+						std::memcpy(posBase, src, 3ull * floatBytes);
+						src += 3ull * floatBytes;
+						posBase += posStride;
+						std::memcpy(normalBase, src, 3ull * floatBytes);
+						src += 3ull * floatBytes;
+						normalBase += normalStride;
+					}
 				}
+				break;
+				case ELayoutKind::XYZ_N_UV:
+				{
+					for (size_t v = 0ull; v < batchVertices; ++v)
+					{
+						std::memcpy(posBase, src, 3ull * floatBytes);
+						src += 3ull * floatBytes;
+						posBase += posStride;
+						std::memcpy(normalBase, src, 3ull * floatBytes);
+						src += 3ull * floatBytes;
+						normalBase += normalStride;
+						std::memcpy(uvBase, src, 2ull * floatBytes);
+						src += 2ull * floatBytes;
+						uvBase += uvStride;
+					}
+				}
+				break;
 			}
 
 			const size_t consumed = batchVertices * srcBytesPerVertex;
@@ -920,6 +942,44 @@ struct SContext
 			{
 				if (isSrcU32)
 				{
+					if (trackMaxIndex)
+					{
+						for (size_t j = 0u; j < element.Count; ++j)
+						{
+							const uint8_t c = *ptr++;
+							if (c != 3u)
+							{
+								fallbackToGeneric = true;
+								break;
+							}
+							std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
+							ptr += 3ull * sizeof(uint32_t);
+							if (out[0] > _maxIndex) _maxIndex = out[0];
+							if (out[1] > _maxIndex) _maxIndex = out[1];
+							if (out[2] > _maxIndex) _maxIndex = out[2];
+							out += 3;
+						}
+					}
+					else
+					{
+						for (size_t j = 0u; j < element.Count; ++j)
+						{
+							const uint8_t c = *ptr++;
+							if (c != 3u)
+							{
+								fallbackToGeneric = true;
+								break;
+							}
+							std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
+							ptr += 3ull * sizeof(uint32_t);
+							if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+								return EFastFaceReadResult::Error;
+							out += 3;
+						}
+					}
+				}
+				else if (trackMaxIndex)
+				{
 					for (size_t j = 0u; j < element.Count; ++j)
 					{
 						const uint8_t c = *ptr++;
@@ -930,16 +990,11 @@ struct SContext
 						}
 						std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
 						ptr += 3ull * sizeof(uint32_t);
-						if (trackMaxIndex)
-						{
-							if (out[0] > _maxIndex) _maxIndex = out[0];
-							if (out[1] > _maxIndex) _maxIndex = out[1];
-							if (out[2] > _maxIndex) _maxIndex = out[2];
-						}
-						else if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
-						{
+						if ((out[0] | out[1] | out[2]) & 0x80000000u)
 							return EFastFaceReadResult::Error;
-						}
+						if (out[0] > _maxIndex) _maxIndex = out[0];
+						if (out[1] > _maxIndex) _maxIndex = out[1];
+						if (out[2] > _maxIndex) _maxIndex = out[2];
 						out += 3;
 					}
 				}
@@ -957,16 +1012,8 @@ struct SContext
 						ptr += 3ull * sizeof(uint32_t);
 						if ((out[0] | out[1] | out[2]) & 0x80000000u)
 							return EFastFaceReadResult::Error;
-						if (trackMaxIndex)
-						{
-							if (out[0] > _maxIndex) _maxIndex = out[0];
-							if (out[1] > _maxIndex) _maxIndex = out[1];
-							if (out[2] > _maxIndex) _maxIndex = out[2];
-						}
-						else if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
-						{
+						if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
 							return EFastFaceReadResult::Error;
-						}
 						out += 3;
 					}
 				}
@@ -974,6 +1021,52 @@ struct SContext
 			else
 			{
 				if (isSrcU16)
+				{
+					if (trackMaxIndex)
+					{
+						for (size_t j = 0u; j < element.Count; ++j)
+						{
+							const uint8_t c = *ptr++;
+							if (c != 3u)
+							{
+								fallbackToGeneric = true;
+								break;
+							}
+							uint16_t tri[3] = {};
+							std::memcpy(tri, ptr, sizeof(tri));
+							ptr += sizeof(tri);
+							out[0] = tri[0];
+							out[1] = tri[1];
+							out[2] = tri[2];
+							if (out[0] > _maxIndex) _maxIndex = out[0];
+							if (out[1] > _maxIndex) _maxIndex = out[1];
+							if (out[2] > _maxIndex) _maxIndex = out[2];
+							out += 3;
+						}
+					}
+					else
+					{
+						for (size_t j = 0u; j < element.Count; ++j)
+						{
+							const uint8_t c = *ptr++;
+							if (c != 3u)
+							{
+								fallbackToGeneric = true;
+								break;
+							}
+							uint16_t tri[3] = {};
+							std::memcpy(tri, ptr, sizeof(tri));
+							ptr += sizeof(tri);
+							out[0] = tri[0];
+							out[1] = tri[1];
+							out[2] = tri[2];
+							if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+								return EFastFaceReadResult::Error;
+							out += 3;
+						}
+					}
+				}
+				else if (trackMaxIndex)
 				{
 					for (size_t j = 0u; j < element.Count; ++j)
 					{
@@ -983,22 +1076,17 @@ struct SContext
 							fallbackToGeneric = true;
 							break;
 						}
-						uint16_t tri[3] = {};
+						int16_t tri[3] = {};
 						std::memcpy(tri, ptr, sizeof(tri));
 						ptr += sizeof(tri);
-						out[0] = tri[0];
-						out[1] = tri[1];
-						out[2] = tri[2];
-						if (trackMaxIndex)
-						{
-							if (out[0] > _maxIndex) _maxIndex = out[0];
-							if (out[1] > _maxIndex) _maxIndex = out[1];
-							if (out[2] > _maxIndex) _maxIndex = out[2];
-						}
-						else if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
-						{
+						if ((static_cast<uint16_t>(tri[0]) | static_cast<uint16_t>(tri[1]) | static_cast<uint16_t>(tri[2])) & 0x8000u)
 							return EFastFaceReadResult::Error;
-						}
+						out[0] = static_cast<uint32_t>(tri[0]);
+						out[1] = static_cast<uint32_t>(tri[1]);
+						out[2] = static_cast<uint32_t>(tri[2]);
+						if (out[0] > _maxIndex) _maxIndex = out[0];
+						if (out[1] > _maxIndex) _maxIndex = out[1];
+						if (out[2] > _maxIndex) _maxIndex = out[2];
 						out += 3;
 					}
 				}
@@ -1020,16 +1108,8 @@ struct SContext
 						out[0] = static_cast<uint32_t>(tri[0]);
 						out[1] = static_cast<uint32_t>(tri[1]);
 						out[2] = static_cast<uint32_t>(tri[2]);
-						if (trackMaxIndex)
-						{
-							if (out[0] > _maxIndex) _maxIndex = out[0];
-							if (out[1] > _maxIndex) _maxIndex = out[1];
-							if (out[2] > _maxIndex) _maxIndex = out[2];
-						}
-						else if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
-						{
+						if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
 							return EFastFaceReadResult::Error;
-						}
 						out += 3;
 					}
 				}

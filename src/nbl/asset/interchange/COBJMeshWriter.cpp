@@ -9,13 +9,11 @@
 #include "nbl/system/IFile.h"
 
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <chrono>
 #include <cstring>
 #include <cstdio>
 #include <limits>
-#include <string_view>
 #include <system_error>
 
 namespace nbl::asset
@@ -49,6 +47,9 @@ namespace obj_writer_detail
 
 constexpr size_t ApproxObjBytesPerVertex = 96ull;
 constexpr size_t ApproxObjBytesPerFace = 48ull;
+constexpr size_t MaxUInt32Chars = 10ull;
+constexpr size_t MaxFloatFixed6Chars = 48ull;
+constexpr size_t MaxIndexTokenBytes = MaxUInt32Chars * 3ull + 2ull;
 
 struct SIndexStringRef
 {
@@ -141,14 +142,15 @@ char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
 	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
 }
 
-void appendVec3Line(std::string& out, const std::string_view prefix, const float x, const float y, const float z)
+void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSize, const float x, const float y, const float z)
 {
-	std::array<char, 192> line = {};
-	char* cursor = line.data();
-	char* const lineEnd = line.data() + line.size();
+	const size_t oldSize = out.size();
+	out.resize(oldSize + prefixSize + (3ull * MaxFloatFixed6Chars) + 3ull);
+	char* const lineBegin = out.data() + oldSize;
+	char* cursor = lineBegin;
+	char* const lineEnd = out.data() + out.size();
 
-	const size_t prefixSize = std::min(prefix.size(), static_cast<size_t>(lineEnd - cursor));
-	std::memcpy(cursor, prefix.data(), prefixSize);
+	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
 	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, x);
@@ -161,17 +163,18 @@ void appendVec3Line(std::string& out, const std::string_view prefix, const float
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
-	out.append(line.data(), static_cast<size_t>(cursor - line.data()));
+	out.resize(oldSize + static_cast<size_t>(cursor - lineBegin));
 }
 
-void appendVec2Line(std::string& out, const std::string_view prefix, const float x, const float y)
+void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSize, const float x, const float y)
 {
-	std::array<char, 160> line = {};
-	char* cursor = line.data();
-	char* const lineEnd = line.data() + line.size();
+	const size_t oldSize = out.size();
+	out.resize(oldSize + prefixSize + (2ull * MaxFloatFixed6Chars) + 2ull);
+	char* const lineBegin = out.data() + oldSize;
+	char* cursor = lineBegin;
+	char* const lineEnd = out.data() + out.size();
 
-	const size_t prefixSize = std::min(prefix.size(), static_cast<size_t>(lineEnd - cursor));
-	std::memcpy(cursor, prefix.data(), prefixSize);
+	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
 	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, x);
@@ -181,7 +184,7 @@ void appendVec2Line(std::string& out, const std::string_view prefix, const float
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
-	out.append(line.data(), static_cast<size_t>(cursor - line.data()));
+	out.resize(oldSize + static_cast<size_t>(cursor - lineBegin));
 }
 
 void appendFaceLine(std::string& out, const std::string& storage, const core::vector<SIndexStringRef>& refs, const uint32_t i0, const uint32_t i1, const uint32_t i2)
@@ -189,29 +192,21 @@ void appendFaceLine(std::string& out, const std::string& storage, const core::ve
 	const auto& ref0 = refs[i0];
 	const auto& ref1 = refs[i1];
 	const auto& ref2 = refs[i2];
-	std::array<char, 256> line = {};
-	char* cursor = line.data();
-	char* const lineEnd = line.data() + line.size();
-	if (cursor < lineEnd)
-		*(cursor++) = 'f';
-	if (cursor < lineEnd)
-		*(cursor++) = ' ';
-	const size_t len0 = std::min<size_t>(ref0.length, static_cast<size_t>(lineEnd - cursor));
-	std::memcpy(cursor, storage.data() + ref0.offset, len0);
-	cursor += len0;
-	if (cursor < lineEnd)
-		*(cursor++) = ' ';
-	const size_t len1 = std::min<size_t>(ref1.length, static_cast<size_t>(lineEnd - cursor));
-	std::memcpy(cursor, storage.data() + ref1.offset, len1);
-	cursor += len1;
-	if (cursor < lineEnd)
-		*(cursor++) = ' ';
-	const size_t len2 = std::min<size_t>(ref2.length, static_cast<size_t>(lineEnd - cursor));
-	std::memcpy(cursor, storage.data() + ref2.offset, len2);
-	cursor += len2;
-	if (cursor < lineEnd)
-		*(cursor++) = '\n';
-	out.append(line.data(), static_cast<size_t>(cursor - line.data()));
+	const size_t oldSize = out.size();
+	const size_t lineSize = 2ull + static_cast<size_t>(ref0.length) + 1ull + static_cast<size_t>(ref1.length) + 1ull + static_cast<size_t>(ref2.length) + 1ull;
+	out.resize(oldSize + lineSize);
+	char* cursor = out.data() + oldSize;
+	*(cursor++) = 'f';
+	*(cursor++) = ' ';
+	std::memcpy(cursor, storage.data() + ref0.offset, ref0.length);
+	cursor += ref0.length;
+	*(cursor++) = ' ';
+	std::memcpy(cursor, storage.data() + ref1.offset, ref1.length);
+	cursor += ref1.length;
+	*(cursor++) = ' ';
+	std::memcpy(cursor, storage.data() + ref2.offset, ref2.length);
+	cursor += ref2.length;
+	*(cursor++) = '\n';
 }
 
 void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRef>& refs, const uint32_t objIx, const bool hasUVs, const bool hasNormals)
@@ -219,9 +214,11 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 	SIndexStringRef ref = {};
 	ref.offset = static_cast<uint32_t>(storage.size());
 	{
-		std::array<char, 48> token = {};
-		char* const tokenEnd = token.data() + token.size();
-		char* cursor = token.data();
+		const size_t oldSize = storage.size();
+		storage.resize(oldSize + MaxIndexTokenBytes);
+		char* const token = storage.data() + oldSize;
+		char* const tokenEnd = token + MaxIndexTokenBytes;
+		char* cursor = token;
 		cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
 		if (hasUVs && hasNormals)
 		{
@@ -246,7 +243,7 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 				*(cursor++) = '/';
 			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
 		}
-		storage.append(token.data(), static_cast<size_t>(cursor - token.data()));
+		storage.resize(oldSize + static_cast<size_t>(cursor - token));
 	}
 	ref.length = static_cast<uint16_t>(storage.size() - ref.offset);
 	refs.push_back(ref);
@@ -408,7 +405,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (flipHandedness)
 			x = -x;
 
-		appendVec3Line(output, "v ", x, y, z);
+		appendVec3Line(output, "v ", sizeof("v ") - 1ull, x, y, z);
 	}
 
 	if (hasUVs)
@@ -430,7 +427,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				v = 1.f - static_cast<float>(tmp.y);
 			}
 
-			appendVec2Line(output, "vt ", u, v);
+			appendVec2Line(output, "vt ", sizeof("vt ") - 1ull, u, v);
 		}
 	}
 
@@ -458,7 +455,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			if (flipHandedness)
 				x = -x;
 
-			appendVec3Line(output, "vn ", x, y, z);
+			appendVec3Line(output, "vn ", sizeof("vn ") - 1ull, x, y, z);
 		}
 	}
 

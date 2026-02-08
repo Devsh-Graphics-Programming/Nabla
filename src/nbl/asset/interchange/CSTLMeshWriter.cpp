@@ -6,11 +6,13 @@
 
 #include "CSTLMeshWriter.h"
 
-#include <sstream>
 #include <algorithm>
+#include <array>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <new>
@@ -69,6 +71,7 @@ constexpr size_t BinaryTriangleAttributeBytes = sizeof(uint16_t);
 constexpr size_t BinaryTriangleRecordBytes = BinaryTriangleFloatBytes + BinaryTriangleAttributeBytes;
 constexpr size_t BinaryPrefixBytes = BinaryHeaderBytes + BinaryTriangleCountBytes;
 constexpr size_t IoFallbackReserveBytes = 1ull << 20;
+constexpr size_t AsciiFaceTextMaxBytes = 1024ull;
 constexpr char AsciiSolidPrefix[] = "solid ";
 constexpr char AsciiEndSolidPrefix[] = "endsolid ";
 constexpr char AsciiDefaultName[] = "nabla_mesh";
@@ -86,7 +89,6 @@ bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase:
 bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal);
 bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context);
 bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context);
-void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s);
 bool writeFaceText(
 	const core::vectorSIMDf& v1,
 	const core::vectorSIMDf& v2,
@@ -95,6 +97,10 @@ bool writeFaceText(
 	const asset::ICPUPolygonGeometry::SDataView& normalView,
 	const bool flipHandedness,
 	SContext* context);
+
+char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value);
+bool appendLiteral(char*& cursor, char* const end, const char* text, const size_t textSize);
+bool appendVectorAsAsciiLine(char*& cursor, char* const end, const core::vectorSIMDf& v);
 
 CSTLMeshWriter::CSTLMeshWriter()
 {
@@ -339,6 +345,48 @@ bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioP
 	}
 }
 
+char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
+{
+	if (!dst || dst >= end)
+		return end;
+
+	const auto result = std::to_chars(dst, end, value, std::chars_format::fixed, 6);
+	if (result.ec == std::errc())
+		return result.ptr;
+
+	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%.6f", static_cast<double>(value));
+	if (written <= 0)
+		return dst;
+	const size_t writeLen = static_cast<size_t>(written);
+	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
+}
+
+bool appendLiteral(char*& cursor, char* const end, const char* text, const size_t textSize)
+{
+	if (!cursor || cursor + textSize > end)
+		return false;
+	std::memcpy(cursor, text, textSize);
+	cursor += textSize;
+	return true;
+}
+
+bool appendVectorAsAsciiLine(char*& cursor, char* const end, const core::vectorSIMDf& v)
+{
+	cursor = appendFloatFixed6ToBuffer(cursor, end, v.X);
+	if (cursor >= end)
+		return false;
+	*(cursor++) = ' ';
+	cursor = appendFloatFixed6ToBuffer(cursor, end, v.Y);
+	if (cursor >= end)
+		return false;
+	*(cursor++) = ' ';
+	cursor = appendFloatFixed6ToBuffer(cursor, end, v.Z);
+	if (cursor >= end)
+		return false;
+	*(cursor++) = '\n';
+	return true;
+}
+
 const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
 {
 	if (!view)
@@ -529,68 +577,112 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	const bool hasFastTightPath = (indices == nullptr) && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));
 	if (hasFastTightPath && hasNormals)
 	{
+		bool allFastNormalsNonZero = true;
+		const size_t normalCount = static_cast<size_t>(facenum) * 3ull;
+		for (size_t i = 0ull; i < normalCount; ++i)
+		{
+			const auto& n = tightNormals[i];
+			if (n.x == 0.f && n.y == 0.f && n.z == 0.f)
+			{
+				allFastNormalsNonZero = false;
+				break;
+			}
+		}
+
 		const hlsl::float32_t3* posTri = tightPositions;
 		const hlsl::float32_t3* nrmTri = tightNormals;
-		for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
+		if (allFastNormalsNonZero)
 		{
-			const hlsl::float32_t3 vertex1 = posTri[2u];
-			const hlsl::float32_t3 vertex2 = posTri[1u];
-			const hlsl::float32_t3 vertex3 = posTri[0u];
-			const float vertex1x = vertex1.x * handednessSign;
-			const float vertex2x = vertex2.x * handednessSign;
-			const float vertex3x = vertex3.x * handednessSign;
-
-			float normalX = 0.f;
-			float normalY = 0.f;
-			float normalZ = 0.f;
-			hlsl::float32_t3 attrNormal = nrmTri[0u];
-			if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
-				attrNormal = nrmTri[1u];
-			if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
-				attrNormal = nrmTri[2u];
-			if (!(attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f))
+			for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
 			{
+				const hlsl::float32_t3 vertex1 = posTri[2u];
+				const hlsl::float32_t3 vertex2 = posTri[1u];
+				const hlsl::float32_t3 vertex3 = posTri[0u];
+				const float vertex1x = vertex1.x * handednessSign;
+				const float vertex2x = vertex2.x * handednessSign;
+				const float vertex3x = vertex3.x * handednessSign;
+
+				hlsl::float32_t3 attrNormal = nrmTri[0u];
 				if (flipHandedness)
 					attrNormal.x = -attrNormal.x;
-				normalX = attrNormal.x;
-				normalY = attrNormal.y;
-				normalZ = attrNormal.z;
-			}
 
-			if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
+				const float packedData[12] = {
+					attrNormal.x, attrNormal.y, attrNormal.z,
+					vertex1x, vertex1.y, vertex1.z,
+					vertex2x, vertex2.y, vertex2.z,
+					vertex3x, vertex3.y, vertex3.z
+				};
+				std::memcpy(dst, packedData, sizeof(packedData));
+				dst += sizeof(packedData);
+
+				const uint16_t color = 0u;
+				std::memcpy(dst, &color, sizeof(color));
+				dst += sizeof(color);
+			}
+		}
+		else
+		{
+			for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
 			{
-				const float edge21x = vertex2x - vertex1x;
-				const float edge21y = vertex2.y - vertex1.y;
-				const float edge21z = vertex2.z - vertex1.z;
-				const float edge31x = vertex3x - vertex1x;
-				const float edge31y = vertex3.y - vertex1.y;
-				const float edge31z = vertex3.z - vertex1.z;
+				const hlsl::float32_t3 vertex1 = posTri[2u];
+				const hlsl::float32_t3 vertex2 = posTri[1u];
+				const hlsl::float32_t3 vertex3 = posTri[0u];
+				const float vertex1x = vertex1.x * handednessSign;
+				const float vertex2x = vertex2.x * handednessSign;
+				const float vertex3x = vertex3.x * handednessSign;
 
-				normalX = edge21y * edge31z - edge21z * edge31y;
-				normalY = edge21z * edge31x - edge21x * edge31z;
-				normalZ = edge21x * edge31y - edge21y * edge31x;
-				const float planeNormalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
-				if (planeNormalLen2 > 0.f)
+				float normalX = 0.f;
+				float normalY = 0.f;
+				float normalZ = 0.f;
+				hlsl::float32_t3 attrNormal = nrmTri[0u];
+				if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
+					attrNormal = nrmTri[1u];
+				if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
+					attrNormal = nrmTri[2u];
+				if (!(attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f))
 				{
-					const float invLen = 1.f / std::sqrt(planeNormalLen2);
-					normalX *= invLen;
-					normalY *= invLen;
-					normalZ *= invLen;
+					if (flipHandedness)
+						attrNormal.x = -attrNormal.x;
+					normalX = attrNormal.x;
+					normalY = attrNormal.y;
+					normalZ = attrNormal.z;
 				}
+
+				if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
+				{
+					const float edge21x = vertex2x - vertex1x;
+					const float edge21y = vertex2.y - vertex1.y;
+					const float edge21z = vertex2.z - vertex1.z;
+					const float edge31x = vertex3x - vertex1x;
+					const float edge31y = vertex3.y - vertex1.y;
+					const float edge31z = vertex3.z - vertex1.z;
+
+					normalX = edge21y * edge31z - edge21z * edge31y;
+					normalY = edge21z * edge31x - edge21x * edge31z;
+					normalZ = edge21x * edge31y - edge21y * edge31x;
+					const float planeNormalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+					if (planeNormalLen2 > 0.f)
+					{
+						const float invLen = 1.f / std::sqrt(planeNormalLen2);
+						normalX *= invLen;
+						normalY *= invLen;
+						normalZ *= invLen;
+					}
+				}
+
+				const float packedData[12] = {
+					normalX, normalY, normalZ,
+					vertex1x, vertex1.y, vertex1.z,
+					vertex2x, vertex2.y, vertex2.z,
+					vertex3x, vertex3.y, vertex3.z
+				};
+				std::memcpy(dst, packedData, sizeof(packedData));
+				dst += sizeof(packedData);
+
+				const uint16_t color = 0u;
+				std::memcpy(dst, &color, sizeof(color));
+				dst += sizeof(color);
 			}
-
-			const float packedData[12] = {
-				normalX, normalY, normalZ,
-				vertex1x, vertex1.y, vertex1.z,
-				vertex2x, vertex2.y, vertex2.z,
-				vertex3x, vertex3.y, vertex3.z
-			};
-			std::memcpy(dst, packedData, sizeof(packedData));
-			dst += sizeof(packedData);
-
-			const uint16_t color = 0u;
-			std::memcpy(dst, &color, sizeof(color));
-			dst += sizeof(color);
 		}
 	}
 	else if (hasFastTightPath)
@@ -788,13 +880,6 @@ bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	return true;
 }
 
-void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s)
-{
-	std::ostringstream tmp;
-	tmp << v.X << " " << v.Y << " " << v.Z << "\n";
-	s = std::string(tmp.str().c_str());
-}
-
 bool writeFaceText(
 		const core::vectorSIMDf& v1,
 		const core::vectorSIMDf& v2,
@@ -807,7 +892,6 @@ bool writeFaceText(
 	core::vectorSIMDf vertex1 = v3;
 	core::vectorSIMDf vertex2 = v2;
 	core::vectorSIMDf vertex3 = v1;
-	std::string tmp;
 
 	if (flipHandedness)
 	{
@@ -827,44 +911,33 @@ bool writeFaceText(
 		normal = attrNormal;
 	}
 
-	if (!writeBytes(context, "facet normal ", sizeof("facet normal ") - 1ull))
+	std::array<char, stl_writer_detail::AsciiFaceTextMaxBytes> faceText = {};
+	char* cursor = faceText.data();
+	char* const end = faceText.data() + faceText.size();
+	if (!appendLiteral(cursor, end, "facet normal ", sizeof("facet normal ") - 1ull))
+		return false;
+	if (!appendVectorAsAsciiLine(cursor, end, normal))
+		return false;
+	if (!appendLiteral(cursor, end, "  outer loop\n", sizeof("  outer loop\n") - 1ull))
+		return false;
+	if (!appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull))
+		return false;
+	if (!appendVectorAsAsciiLine(cursor, end, vertex1))
+		return false;
+	if (!appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull))
+		return false;
+	if (!appendVectorAsAsciiLine(cursor, end, vertex2))
+		return false;
+	if (!appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull))
+		return false;
+	if (!appendVectorAsAsciiLine(cursor, end, vertex3))
+		return false;
+	if (!appendLiteral(cursor, end, "  endloop\n", sizeof("  endloop\n") - 1ull))
+		return false;
+	if (!appendLiteral(cursor, end, "endfacet\n", sizeof("endfacet\n") - 1ull))
 		return false;
 
-	getVectorAsStringLine(normal, tmp);
-	if (!writeBytes(context, tmp.c_str(), tmp.size()))
-		return false;
-
-	if (!writeBytes(context, "  outer loop\n", sizeof("  outer loop\n") - 1ull))
-		return false;
-
-	if (!writeBytes(context, "    vertex ", sizeof("    vertex ") - 1ull))
-		return false;
-
-	getVectorAsStringLine(vertex1, tmp);
-	if (!writeBytes(context, tmp.c_str(), tmp.size()))
-		return false;
-
-	if (!writeBytes(context, "    vertex ", sizeof("    vertex ") - 1ull))
-		return false;
-
-	getVectorAsStringLine(vertex2, tmp);
-	if (!writeBytes(context, tmp.c_str(), tmp.size()))
-		return false;
-
-	if (!writeBytes(context, "    vertex ", sizeof("    vertex ") - 1ull))
-		return false;
-
-	getVectorAsStringLine(vertex3, tmp);
-	if (!writeBytes(context, tmp.c_str(), tmp.size()))
-		return false;
-
-	if (!writeBytes(context, "  endloop\n", sizeof("  endloop\n") - 1ull))
-		return false;
-
-	if (!writeBytes(context, "endfacet\n", sizeof("endfacet\n") - 1ull))
-		return false;
-
-	return true;
+	return writeBytes(context, faceText.data(), static_cast<size_t>(cursor - faceText.data()));
 }
 
 }
