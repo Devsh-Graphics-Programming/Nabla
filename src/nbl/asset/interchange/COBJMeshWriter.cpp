@@ -48,6 +48,12 @@ namespace obj_writer_detail
 constexpr size_t ApproxObjBytesPerVertex = 96ull;
 constexpr size_t ApproxObjBytesPerFace = 48ull;
 
+struct SIndexStringRef
+{
+	uint32_t offset = 0u;
+	uint16_t length = 0u;
+};
+
 struct SFileWriteTelemetry
 {
 	uint64_t callCount = 0ull;
@@ -107,6 +113,32 @@ void appendUInt(std::string& out, const uint32_t value)
 	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
 	if (res.ec == std::errc())
 		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
+}
+
+void appendUIntToStorage(std::string& storage, core::vector<SIndexStringRef>& refs, const uint32_t value)
+{
+	std::array<char, 16> buf = {};
+	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+	if (res.ec != std::errc())
+	{
+		refs.push_back({});
+		return;
+	}
+
+	const auto len = static_cast<uint16_t>(res.ptr - buf.data());
+	SIndexStringRef ref = {};
+	ref.offset = static_cast<uint32_t>(storage.size());
+	ref.length = len;
+	storage.append(buf.data(), len);
+	refs.push_back(ref);
+}
+
+void appendIndexRef(std::string& out, const std::string& storage, const core::vector<SIndexStringRef>& refs, const uint32_t index)
+{
+	if (index >= refs.size())
+		return;
+	const auto& ref = refs[index];
+	out.append(storage.data() + ref.offset, ref.length);
 }
 
 void appendFloatFixed6(std::string& out, float value)
@@ -252,7 +284,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const auto formatStart = clock_t::now();
 	output.reserve(vertexCount * ApproxObjBytesPerVertex + faceCount * ApproxObjBytesPerFace);
 
-	output += "# Nabla OBJ\n";
+	output.append("# Nabla OBJ\n");
 
 	hlsl::float64_t4 tmp = {};
 	const hlsl::float32_t3* const tightPositions = getTightFloat3View(positionView);
@@ -280,13 +312,13 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (flipHandedness)
 			x = -x;
 
-		output += "v ";
+		output.append("v ");
 		appendFloatFixed6(output, x);
-		output += " ";
+		output.push_back(' ');
 		appendFloatFixed6(output, y);
-		output += " ";
+		output.push_back(' ');
 		appendFloatFixed6(output, z);
-		output += "\n";
+		output.push_back('\n');
 	}
 
 	if (hasUVs)
@@ -308,11 +340,11 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				v = 1.f - static_cast<float>(tmp.y);
 			}
 
-			output += "vt ";
+			output.append("vt ");
 			appendFloatFixed6(output, u);
-			output += " ";
+			output.push_back(' ');
 			appendFloatFixed6(output, v);
-			output += "\n";
+			output.push_back('\n');
 		}
 	}
 
@@ -340,42 +372,47 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			if (flipHandedness)
 				x = -x;
 
-			output += "vn ";
+			output.append("vn ");
 			appendFloatFixed6(output, x);
-			output += " ";
+			output.push_back(' ');
 			appendFloatFixed6(output, y);
-			output += " ";
+			output.push_back(' ');
 			appendFloatFixed6(output, z);
-			output += "\n";
+			output.push_back('\n');
 		}
 	}
 
-	core::vector<std::string> faceIndexTokens;
-	faceIndexTokens.resize(vertexCount);
+	core::vector<SIndexStringRef> faceIndexRefs;
+	faceIndexRefs.reserve(vertexCount);
+	std::string faceIndexStorage;
+	faceIndexStorage.reserve(vertexCount * 12ull);
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
-		auto& token = faceIndexTokens[i];
-		token.reserve(24ull);
 		const uint32_t objIx = static_cast<uint32_t>(i + 1u);
-		appendUInt(token, objIx);
+		appendUIntToStorage(faceIndexStorage, faceIndexRefs, objIx);
+	}
+
+	auto appendFaceCorner = [&](const uint32_t ix)->void
+	{
+		appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
 		if (hasUVs && hasNormals)
 		{
-			token += "/";
-			appendUInt(token, objIx);
-			token += "/";
-			appendUInt(token, objIx);
+			output.push_back('/');
+			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
+			output.push_back('/');
+			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
 		}
 		else if (hasUVs)
 		{
-			token += "/";
-			appendUInt(token, objIx);
+			output.push_back('/');
+			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
 		}
 		else if (hasNormals)
 		{
-			token += "//";
-			appendUInt(token, objIx);
+			output.append("//");
+			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
 		}
-	}
+	};
 
 	for (size_t i = 0u; i < faceCount; ++i)
 	{
@@ -386,16 +423,16 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const uint32_t f0 = i2;
 		const uint32_t f1 = i1;
 		const uint32_t f2 = i0;
-		if (f0 >= faceIndexTokens.size() || f1 >= faceIndexTokens.size() || f2 >= faceIndexTokens.size())
+		if (f0 >= faceIndexRefs.size() || f1 >= faceIndexRefs.size() || f2 >= faceIndexRefs.size())
 			return false;
 
-		output += "f ";
-		output += faceIndexTokens[f0];
-		output += " ";
-		output += faceIndexTokens[f1];
-		output += " ";
-		output += faceIndexTokens[f2];
-		output += "\n";
+		output.append("f ");
+		appendFaceCorner(f0);
+		output.push_back(' ');
+		appendFaceCorner(f1);
+		output.push_back(' ');
+		appendFaceCorner(f2);
+		output.push_back('\n');
 	}
 	formatMs = std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
 

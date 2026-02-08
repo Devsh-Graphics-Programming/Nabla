@@ -349,6 +349,24 @@ struct SContext
 	{
 		assert(IsBinaryFile);
 		size_t remaining = bytes;
+		if (remaining == 0ull)
+			return;
+
+		const size_t availableInitially = EndPointer > StartPointer ? static_cast<size_t>(EndPointer - StartPointer) : 0ull;
+		if (remaining > availableInitially)
+		{
+			remaining -= availableInitially;
+			StartPointer = EndPointer;
+			if (remaining > ioReadWindowSize)
+			{
+				const size_t fileSize = inner.mainFile->getSize();
+				const size_t fileRemaining = fileSize > fileOffset ? (fileSize - fileOffset) : 0ull;
+				const size_t directSkip = std::min(remaining, fileRemaining);
+				fileOffset += directSkip;
+				remaining -= directSkip;
+			}
+		}
+
 		while (remaining)
 		{
 			if (StartPointer >= EndPointer)
@@ -526,57 +544,178 @@ struct SContext
 	{
 		if (!IsBinaryFile || IsWrongEndian || el.Name != "vertex")
 			return EFastVertexReadResult::NotApplicable;
-		if (el.Properties.size() != 3u || vertAttrIts.size() != 3u)
-			return EFastVertexReadResult::NotApplicable;
 
-		const auto& xProp = el.Properties[0];
-		const auto& yProp = el.Properties[1];
-		const auto& zProp = el.Properties[2];
-		if (xProp.Name != "x" || yProp.Name != "y" || zProp.Name != "z")
-			return EFastVertexReadResult::NotApplicable;
-		if (xProp.type != EF_R32_SFLOAT || yProp.type != EF_R32_SFLOAT || zProp.type != EF_R32_SFLOAT)
-			return EFastVertexReadResult::NotApplicable;
-
-		auto& xIt = vertAttrIts[0];
-		auto& yIt = vertAttrIts[1];
-		auto& zIt = vertAttrIts[2];
-		if (!xIt.ptr || !yIt.ptr || !zIt.ptr)
-			return EFastVertexReadResult::NotApplicable;
-		if (xIt.dstFmt != EF_R32_SFLOAT || yIt.dstFmt != EF_R32_SFLOAT || zIt.dstFmt != EF_R32_SFLOAT)
-			return EFastVertexReadResult::NotApplicable;
-		if (xIt.stride != yIt.stride || xIt.stride != zIt.stride)
-			return EFastVertexReadResult::NotApplicable;
-
-		const size_t floatBytes = sizeof(hlsl::float32_t);
-		if (yIt.ptr != xIt.ptr + floatBytes || zIt.ptr != xIt.ptr + 2ull * floatBytes)
-			return EFastVertexReadResult::NotApplicable;
-
-		if (el.Count > (std::numeric_limits<size_t>::max() / xIt.stride))
-			return EFastVertexReadResult::Error;
-		const size_t dstAdvance = el.Count * xIt.stride;
-		const size_t srcBytesPerVertex = 3ull * floatBytes;
-		if (el.Count > (std::numeric_limits<size_t>::max() / srcBytesPerVertex))
-			return EFastVertexReadResult::Error;
-		const size_t copyBytes = el.Count * srcBytesPerVertex;
-
-		uint8_t* dst = xIt.ptr;
-		size_t copied = 0ull;
-		while (copied < copyBytes)
+		enum class ELayoutKind : uint8_t
 		{
-			if (StartPointer >= EndPointer)
-				fillBuffer();
-			const size_t available = EndPointer > StartPointer ? static_cast<size_t>(EndPointer - StartPointer) : 0ull;
-			if (available == 0ull)
-				return EFastVertexReadResult::Error;
-			const size_t toCopy = std::min(available, copyBytes - copied);
-			std::memcpy(dst + copied, StartPointer, toCopy);
-			StartPointer += toCopy;
-			copied += toCopy;
+			XYZ,
+			XYZ_N,
+			XYZ_N_UV
+		};
+
+		auto allF32 = [&el]()->bool
+		{
+			for (const auto& prop : el.Properties)
+			{
+				if (prop.type != EF_R32_SFLOAT)
+					return false;
+			}
+			return true;
+		};
+		if (!allF32())
+			return EFastVertexReadResult::NotApplicable;
+
+		auto matchNames = [&el](std::initializer_list<const char*> names)->bool
+		{
+			if (el.Properties.size() != names.size())
+				return false;
+			size_t i = 0ull;
+			for (const auto* name : names)
+			{
+				if (el.Properties[i].Name != name)
+					return false;
+				++i;
+			}
+			return true;
+		};
+
+		ELayoutKind layout = ELayoutKind::XYZ;
+		if (matchNames({ "x", "y", "z" }))
+		{
+			layout = ELayoutKind::XYZ;
+		}
+		else if (matchNames({ "x", "y", "z", "nx", "ny", "nz" }))
+		{
+			layout = ELayoutKind::XYZ_N;
+		}
+		else if (matchNames({ "x", "y", "z", "nx", "ny", "nz", "u", "v" }) || matchNames({ "x", "y", "z", "nx", "ny", "nz", "s", "t" }))
+		{
+			layout = ELayoutKind::XYZ_N_UV;
+		}
+		else
+		{
+			return EFastVertexReadResult::NotApplicable;
 		}
 
-		xIt.ptr += dstAdvance;
-		yIt.ptr += dstAdvance;
-		zIt.ptr += dstAdvance;
+		const size_t floatBytes = sizeof(hlsl::float32_t);
+		auto validateTuple = [&](const size_t beginIx, const size_t componentCount, uint32_t& outStride, uint8_t*& outBase)->bool
+		{
+			if (beginIx + componentCount > vertAttrIts.size())
+				return false;
+			auto& first = vertAttrIts[beginIx];
+			if (!first.ptr || first.dstFmt != EF_R32_SFLOAT)
+				return false;
+			outStride = first.stride;
+			outBase = first.ptr;
+			for (size_t c = 1ull; c < componentCount; ++c)
+			{
+				auto& it = vertAttrIts[beginIx + c];
+				if (!it.ptr || it.dstFmt != EF_R32_SFLOAT)
+					return false;
+				if (it.stride != outStride)
+					return false;
+				if (it.ptr != outBase + c * floatBytes)
+					return false;
+			}
+			return true;
+		};
+
+		uint32_t posStride = 0u;
+		uint32_t normalStride = 0u;
+		uint32_t uvStride = 0u;
+		uint8_t* posBase = nullptr;
+		uint8_t* normalBase = nullptr;
+		uint8_t* uvBase = nullptr;
+		switch (layout)
+		{
+			case ELayoutKind::XYZ:
+				if (vertAttrIts.size() != 3u || !validateTuple(0u, 3u, posStride, posBase))
+					return EFastVertexReadResult::NotApplicable;
+				break;
+			case ELayoutKind::XYZ_N:
+				if (vertAttrIts.size() != 6u)
+					return EFastVertexReadResult::NotApplicable;
+				if (!validateTuple(0u, 3u, posStride, posBase) || !validateTuple(3u, 3u, normalStride, normalBase))
+					return EFastVertexReadResult::NotApplicable;
+				break;
+			case ELayoutKind::XYZ_N_UV:
+				if (vertAttrIts.size() != 8u)
+					return EFastVertexReadResult::NotApplicable;
+				if (!validateTuple(0u, 3u, posStride, posBase) || !validateTuple(3u, 3u, normalStride, normalBase) || !validateTuple(6u, 2u, uvStride, uvBase))
+					return EFastVertexReadResult::NotApplicable;
+				break;
+		}
+
+		const size_t srcBytesPerVertex = [layout]()->size_t
+		{
+			switch (layout)
+			{
+				case ELayoutKind::XYZ:
+					return sizeof(hlsl::float32_t) * 3ull;
+				case ELayoutKind::XYZ_N:
+					return sizeof(hlsl::float32_t) * 6ull;
+				case ELayoutKind::XYZ_N_UV:
+					return sizeof(hlsl::float32_t) * 8ull;
+				default:
+					return 0ull;
+			}
+		}();
+		if (srcBytesPerVertex == 0ull || el.Count > (std::numeric_limits<size_t>::max() / srcBytesPerVertex))
+			return EFastVertexReadResult::Error;
+
+		size_t remainingVertices = el.Count;
+		while (remainingVertices > 0ull)
+		{
+			if (StartPointer + srcBytesPerVertex > EndPointer)
+				fillBuffer();
+			const size_t available = EndPointer > StartPointer ? static_cast<size_t>(EndPointer - StartPointer) : 0ull;
+			if (available < srcBytesPerVertex)
+				return EFastVertexReadResult::Error;
+
+			const size_t batchVertices = std::min(remainingVertices, available / srcBytesPerVertex);
+			const uint8_t* src = reinterpret_cast<const uint8_t*>(StartPointer);
+			for (size_t v = 0ull; v < batchVertices; ++v)
+			{
+				std::memcpy(posBase, src, 3ull * floatBytes);
+				src += 3ull * floatBytes;
+				posBase += posStride;
+
+				if (layout == ELayoutKind::XYZ_N || layout == ELayoutKind::XYZ_N_UV)
+				{
+					std::memcpy(normalBase, src, 3ull * floatBytes);
+					src += 3ull * floatBytes;
+					normalBase += normalStride;
+				}
+
+				if (layout == ELayoutKind::XYZ_N_UV)
+				{
+					std::memcpy(uvBase, src, 2ull * floatBytes);
+					src += 2ull * floatBytes;
+					uvBase += uvStride;
+				}
+			}
+
+			const size_t consumed = batchVertices * srcBytesPerVertex;
+			StartPointer += consumed;
+			remainingVertices -= batchVertices;
+		}
+
+		const size_t posAdvance = el.Count * posStride;
+		vertAttrIts[0].ptr += posAdvance;
+		vertAttrIts[1].ptr += posAdvance;
+		vertAttrIts[2].ptr += posAdvance;
+		if (layout == ELayoutKind::XYZ_N || layout == ELayoutKind::XYZ_N_UV)
+		{
+			const size_t normalAdvance = el.Count * normalStride;
+			vertAttrIts[3].ptr += normalAdvance;
+			vertAttrIts[4].ptr += normalAdvance;
+			vertAttrIts[5].ptr += normalAdvance;
+		}
+		if (layout == ELayoutKind::XYZ_N_UV)
+		{
+			const size_t uvAdvance = el.Count * uvStride;
+			vertAttrIts[6].ptr += uvAdvance;
+			vertAttrIts[7].ptr += uvAdvance;
+		}
 		return EFastVertexReadResult::Success;
 	}
 	void readVertex(const IAssetLoader::SAssetLoadParams& _params, const SElement& el)

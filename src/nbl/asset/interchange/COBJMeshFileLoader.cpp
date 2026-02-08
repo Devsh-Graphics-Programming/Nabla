@@ -261,24 +261,32 @@ const char* readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
 
 bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
 {
-    const char* parseStart = ptr;
     if (ptr >= end)
         return false;
 
+    bool negative = false;
+    if (*ptr == '-')
+    {
+        negative = true;
+        ++ptr;
+    }
+    else if (*ptr == '+')
+    {
+        ++ptr;
+    }
+
+    if (ptr >= end || !core::isdigit(*ptr))
+        return false;
+
     int64_t value = 0;
-    const auto parseResult = std::from_chars(ptr, end, value, 10);
-    if (!(parseResult.ec == std::errc() && parseResult.ptr != ptr))
+    while (ptr < end && core::isdigit(*ptr))
     {
-        char* fallbackEnd = nullptr;
-        value = std::strtoll(parseStart, &fallbackEnd, 10);
-        if (!fallbackEnd || fallbackEnd == parseStart || fallbackEnd > end)
-            return false;
-        ptr = fallbackEnd;
+        value = value * 10ll + static_cast<int64_t>(*ptr - '0');
+        ++ptr;
     }
-    else
-    {
-        ptr = parseResult.ptr;
-    }
+    if (negative)
+        value = -value;
+
     if (value == 0)
         return false;
     if (value < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) || value > static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
@@ -309,50 +317,67 @@ bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t&
     return true;
 }
 
-bool parseObjFaceVertexToken(const char* tokenBegin, const char* tokenEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
+bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
-    if (!tokenBegin || !idx || tokenBegin >= tokenEnd)
+    if (!idx)
+        return false;
+
+    while (linePtr < lineEnd && core::isspace(*linePtr) && *linePtr != '\n' && *linePtr != '\r')
+        ++linePtr;
+    if (linePtr >= lineEnd)
         return false;
 
     idx[0] = -1;
     idx[1] = -1;
     idx[2] = -1;
 
-    const char* ptr = tokenBegin;
+    const char* ptr = linePtr;
     int32_t raw = 0;
-    if (!parseSignedObjIndex(ptr, tokenEnd, raw))
+    if (!parseSignedObjIndex(ptr, lineEnd, raw))
         return false;
     if (!resolveObjIndex(raw, posCount, idx[0]))
         return false;
 
-    if (ptr >= tokenEnd)
-        return true;
-    if (*ptr != '/')
-        return false;
-    ++ptr;
-
-    if (ptr < tokenEnd && *ptr != '/')
+    if (ptr < lineEnd && *ptr == '/')
     {
-        if (!parseSignedObjIndex(ptr, tokenEnd, raw))
+        ++ptr;
+
+        if (ptr < lineEnd && *ptr != '/')
+        {
+            if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                return false;
+            if (!resolveObjIndex(raw, uvCount, idx[1]))
+                return false;
+        }
+
+        if (ptr < lineEnd && *ptr == '/')
+        {
+            ++ptr;
+            if (ptr < lineEnd && !core::isspace(*ptr))
+            {
+                if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                    return false;
+                if (!resolveObjIndex(raw, normalCount, idx[2]))
+                    return false;
+            }
+        }
+        else if (ptr < lineEnd && !core::isspace(*ptr))
+        {
             return false;
-        if (!resolveObjIndex(raw, uvCount, idx[1]))
-            return false;
+        }
+    }
+    else if (ptr < lineEnd && !core::isspace(*ptr))
+    {
+        return false;
     }
 
-    if (ptr >= tokenEnd)
-        return true;
-    if (*ptr != '/')
+    if (ptr < lineEnd && !core::isspace(*ptr))
         return false;
-    ++ptr;
+    while (ptr < lineEnd && core::isspace(*ptr) && *ptr != '\n' && *ptr != '\r')
+        ++ptr;
 
-    if (ptr >= tokenEnd)
-        return true;
-    if (!parseSignedObjIndex(ptr, tokenEnd, raw))
-        return false;
-    if (!resolveObjIndex(raw, normalCount, idx[2]))
-        return false;
-
-    return ptr == tokenEnd;
+    linePtr = ptr;
+    return true;
 }
 
 }
@@ -489,8 +514,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 ++faceCount;
                 if (faceCount == 1u)
                 {
-                    vtxMap.reserve(positions.size() * 4ull);
-                    indices.reserve(positions.size() * 6ull);
+                    const size_t estimatedVertexCount = positions.size() <= (std::numeric_limits<size_t>::max() / 4ull) ? positions.size() * 4ull : positions.size();
+                    vtxMap.reserve(estimatedVertexCount);
+                    outPositions.reserve(estimatedVertexCount);
+                    outNormals.reserve(estimatedVertexCount);
+                    outUVs.reserve(estimatedVertexCount);
+                    const size_t estimatedIndexCount = estimatedVertexCount <= (std::numeric_limits<size_t>::max() / 2ull) ? estimatedVertexCount * 2ull : estimatedVertexCount;
+                    indices.reserve(estimatedIndexCount);
                 }
 
                 const char* endPtr = bufPtr;
@@ -499,15 +529,17 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
                 faceCorners.clear();
 
-                const char* linePtr = goNextWord(bufPtr, endPtr);
+                const char* linePtr = bufPtr + 1;
                 while (linePtr < endPtr)
                 {
+                    while (linePtr < endPtr && core::isspace(*linePtr) && *linePtr != '\n' && *linePtr != '\r')
+                        ++linePtr;
+                    if (linePtr >= endPtr)
+                        break;
+
                     const auto tokenParseStart = clock_t::now();
                     int32_t idx[3] = { -1, -1, -1 };
-                    const char* tokenEnd = linePtr;
-                    while (tokenEnd < endPtr && !core::isspace(*tokenEnd))
-                        ++tokenEnd;
-                    if (!parseObjFaceVertexToken(linePtr, tokenEnd, idx, positions.size(), uvs.size(), normals.size()))
+                    if (!parseObjFaceVertexTokenFast(linePtr, endPtr, idx, positions.size(), uvs.size(), normals.size()))
                         return {};
                     ++faceFastTokenCount;
 
@@ -522,13 +554,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                     uint32_t outIx = it->second;
                     if (inserted)
                     {
-                        if (outPositions.empty())
-                        {
-                            const size_t estimatedVertexCount = positions.size() <= (std::numeric_limits<size_t>::max() / 4ull) ? positions.size() * 4ull : positions.size();
-                            outPositions.reserve(estimatedVertexCount);
-                            outNormals.reserve(estimatedVertexCount);
-                            outUVs.reserve(estimatedVertexCount);
-                        }
                         const auto& srcPos = positions[idx[0]];
                         outPositions.push_back(srcPos);
                         extendAABB(parsedAABB, hasParsedAABB, srcPos);
@@ -552,8 +577,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                     dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
 
                     faceCorners.push_back(outIx);
-
-                    linePtr = goFirstWord(tokenEnd, endPtr, false);
                 }
 
                 const auto emitStart = clock_t::now();
