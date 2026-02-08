@@ -15,6 +15,7 @@
 #include <limits>
 #include <chrono>
 #include <cstring>
+#include <fast_float/fast_float.h>
 
 #include "nbl/asset/IAssetManager.h"
 
@@ -88,6 +89,34 @@ IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU32IndexView(core::vector<uint3
 			.stride = sizeof(uint32_t),
 			.format = EF_R32_UINT,
 			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32_UINT)
+		},
+		.src = {
+			.offset = 0u,
+			.size = byteCount,
+			.buffer = std::move(buffer)
+		}
+	};
+	return view;
+}
+
+IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU16IndexView(core::vector<uint16_t>&& indices)
+{
+	if (indices.empty())
+		return {};
+
+	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<uint16_t>>>(std::move(indices));
+	auto& storage = backer->getBacker();
+	auto* const ptr = storage.data();
+	const size_t byteCount = storage.size() * sizeof(uint16_t);
+	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(uint16_t) }, core::adopt_memory);
+	if (!buffer)
+		return {};
+
+	IGeometry<ICPUBuffer>::SDataView view = {
+		.composed = {
+			.stride = sizeof(uint16_t),
+			.format = EF_R16_UINT,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R16_UINT)
 		},
 		.src = {
 			.offset = 0u,
@@ -319,13 +348,21 @@ struct SContext
 	void moveForward(const size_t bytes)
 	{
 		assert(IsBinaryFile);
-		if (StartPointer+bytes>=EndPointer)
-			fillBuffer();
+		size_t remaining = bytes;
+		while (remaining)
+		{
+			if (StartPointer >= EndPointer)
+			{
+				fillBuffer();
+				if (StartPointer >= EndPointer)
+					return;
+			}
 
-		if (StartPointer+bytes<EndPointer)
-			StartPointer += bytes;
-		else
-			StartPointer = EndPointer;
+			const size_t available = static_cast<size_t>(EndPointer - StartPointer);
+			const size_t step = std::min(available, remaining);
+			StartPointer += step;
+			remaining -= step;
+		}
 	}
 
 	// read the next int from the file and move the start pointer along
@@ -371,7 +408,8 @@ struct SContext
 		const char* word = getNextWord();
 		if (!word)
 			return 0u;
-		const char* const wordEnd = word + std::strlen(word);
+		const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::strlen(word);
+		const char* const wordEnd = word + tokenLen;
 		if (word == wordEnd)
 			return 0u;
 
@@ -440,12 +478,13 @@ struct SContext
 		const char* word = getNextWord();
 		if (!word)
 			return 0.0;
-		const char* const wordEnd = word + std::strlen(word);
+		const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::strlen(word);
+		const char* const wordEnd = word + tokenLen;
 		if (word == wordEnd)
 			return 0.0;
 
 		hlsl::float64_t value = 0.0;
-		const auto parseResult = std::from_chars(word, wordEnd, value, std::chars_format::general);
+		const auto parseResult = fast_float::from_chars(word, wordEnd, value);
 		if (parseResult.ec == std::errc() && parseResult.ptr == wordEnd)
 			return value;
 
@@ -1021,8 +1060,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	const auto totalStart = clock_t::now();
 	double headerMs = 0.0;
 	double vertexMs = 0.0;
+	double vertexFastMs = 0.0;
+	double vertexGenericMs = 0.0;
 	double faceMs = 0.0;
 	double skipMs = 0.0;
+	double layoutNegotiateMs = 0.0;
+	double viewCreateMs = 0.0;
 	double hashRangeMs = 0.0;
 	double indexBuildMs = 0.0;
 	double aabbMs = 0.0;
@@ -1227,6 +1270,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			}
 			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {}, uvView = {};
 			core::vector<ICPUPolygonGeometry::SDataView> extraViews;
+			const auto layoutStart = clock_t::now();
 			for (auto& vertexProperty : el.Properties)
 			{
 				const auto& propertyName = vertexProperty.Name;
@@ -1257,9 +1301,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				else
 				{
 // TODO: record the `propertyName`
+					const auto extraViewStart = clock_t::now();
 					extraViews.push_back(createView(vertexProperty.type,el.Count));
+					viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - extraViewStart).count();
 				}
 			}
+			layoutNegotiateMs += std::chrono::duration<double, std::milli>(clock_t::now() - layoutStart).count();
 			auto setFinalFormat = [&ctx](ICPUPolygonGeometry::SDataViewBase& view)->void
 			{
 				const auto componentFormat = view.format;
@@ -1408,30 +1455,36 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			};
 			if (posView.format!=EF_UNKNOWN)
 			{
+				const auto viewCreateStart = clock_t::now();
 				auto beginIx = ctx.vertAttrIts.size();
 				setFinalFormat(posView);
 				auto view = createView(posView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->setPositionView(std::move(view));
+				viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - viewCreateStart).count();
 			}
 			if (normalView.format!=EF_UNKNOWN)
 			{
+				const auto viewCreateStart = clock_t::now();
 				auto beginIx = ctx.vertAttrIts.size();
 				setFinalFormat(normalView);
 				auto view = createView(normalView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->setNormalView(std::move(view));
+				viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - viewCreateStart).count();
 			}
 			if (uvView.format!=EF_UNKNOWN)
 			{
+				const auto viewCreateStart = clock_t::now();
 				auto beginIx = ctx.vertAttrIts.size();
 				setFinalFormat(uvView);
 				auto view = createView(uvView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->getAuxAttributeViews()->push_back(std::move(view));
+				viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - viewCreateStart).count();
 			}
 			//
 			for (auto& view : extraViews)
@@ -1448,17 +1501,22 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (fastVertexResult == SContext::EFastVertexReadResult::Success)
 			{
 				++fastVertexElementCount;
+				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
+				vertexFastMs += elapsedMs;
+				vertexMs += elapsedMs;
 			}
 			else if (fastVertexResult == SContext::EFastVertexReadResult::NotApplicable)
 			{
 				ctx.readVertex(_params,el);
+				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
+				vertexGenericMs += elapsedMs;
+				vertexMs += elapsedMs;
 			}
 			else
 			{
 				_params.logger.log("PLY vertex fast path failed on malformed data for %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 				return {};
 			}
-			vertexMs += std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
 			verticesProcessed = true;
 		}
 		else if (el.Name=="face")
@@ -1491,8 +1549,18 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			// skip these elements
 			const auto skipStart = clock_t::now();
-			for (size_t j=0; j<el.Count; ++j)
-				el.skipElement(ctx);
+			if (ctx.IsBinaryFile && el.KnownSize)
+			{
+				const uint64_t bytesToSkip64 = static_cast<uint64_t>(el.KnownSize) * static_cast<uint64_t>(el.Count);
+				if (bytesToSkip64 > static_cast<uint64_t>(std::numeric_limits<size_t>::max()))
+					return {};
+				ctx.moveForward(static_cast<size_t>(bytesToSkip64));
+			}
+			else
+			{
+				for (size_t j=0; j<el.Count; ++j)
+					el.skipElement(ctx);
+			}
 			skipMs += std::chrono::duration<double, std::milli>(clock_t::now() - skipStart).count();
 		}
 	}
@@ -1519,12 +1587,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		geometry->setIndexing(IPolygonGeometryBase::TriangleList());
 		if (vertCount <= std::numeric_limits<uint16_t>::max() && maxIndexRead <= std::numeric_limits<uint16_t>::max())
 		{
-			auto view = IGeometryLoader::createView(EF_R16_UINT, indices.size());
+			core::vector<uint16_t> indices16(indices.size());
+			for (size_t i = 0u; i < indices.size(); ++i)
+				indices16[i] = static_cast<uint16_t>(indices[i]);
+			auto view = plyCreateAdoptedU16IndexView(std::move(indices16));
 			if (!view)
 				return {};
-			auto* dst = reinterpret_cast<uint16_t*>(view.getPointer());
-			for (size_t i = 0u; i < indices.size(); ++i)
-				dst[i] = static_cast<uint16_t>(indices[i]);
 			geometry->setIndexView(std::move(view));
 		}
 		else
@@ -1542,6 +1610,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	hashRangeMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+	const double stageRemainderMs = std::max(0.0, totalMs - (headerMs + vertexMs + faceMs + skipMs + layoutNegotiateMs + viewCreateMs + hashRangeMs + indexBuildMs + aabbMs));
 	const uint64_t ioMinRead = ctx.readCallCount ? ctx.readMinBytes : 0ull;
 	const uint64_t ioAvgRead = ctx.readCallCount ? (ctx.readBytesTotal / ctx.readCallCount) : 0ull;
 	if (
@@ -1561,17 +1630,22 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			static_cast<unsigned long long>(ioAvgRead));
 	}
 	_params.logger.log(
-		"PLY loader perf: file=%s total=%.3f ms header=%.3f vertex=%.3f face=%.3f skip=%.3f hash_range=%.3f index=%.3f aabb=%.3f binary=%d verts=%llu faces=%llu idx=%llu vertex_fast=%llu face_fast=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"PLY loader perf: file=%s total=%.3f ms header=%.3f vertex=%.3f vertex_fast_ms=%.3f vertex_generic_ms=%.3f face=%.3f skip=%.3f layout_negotiate=%.3f view_create=%.3f hash_range=%.3f index=%.3f aabb=%.3f remainder=%.3f binary=%d verts=%llu faces=%llu idx=%llu vertex_fast=%llu face_fast=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
 		totalMs,
 		headerMs,
 		vertexMs,
+		vertexFastMs,
+		vertexGenericMs,
 		faceMs,
 		skipMs,
+		layoutNegotiateMs,
+		viewCreateMs,
 		hashRangeMs,
 		indexBuildMs,
 		aabbMs,
+		stageRemainderMs,
 		ctx.IsBinaryFile ? 1 : 0,
 		static_cast<unsigned long long>(vertCount),
 		static_cast<unsigned long long>(faceCount),

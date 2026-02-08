@@ -13,7 +13,9 @@
 #include <cstring>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <cstdio>
+#include <limits>
 #include <system_error>
 
 namespace nbl::asset
@@ -47,6 +49,31 @@ namespace ply_writer_detail
 
 constexpr size_t ApproxPlyTextBytesPerVertex = 96ull;
 constexpr size_t ApproxPlyTextBytesPerFace = 32ull;
+
+struct SFileWriteTelemetry
+{
+    uint64_t callCount = 0ull;
+    uint64_t totalBytes = 0ull;
+    uint64_t minBytes = std::numeric_limits<uint64_t>::max();
+
+    void account(const uint64_t bytes)
+    {
+        ++callCount;
+        totalBytes += bytes;
+        if (bytes < minBytes)
+            minBytes = bytes;
+    }
+
+    uint64_t getMinOrZero() const
+    {
+        return callCount ? minBytes : 0ull;
+    }
+
+    uint64_t getAvgOrZero() const
+    {
+        return callCount ? (totalBytes / callCount) : 0ull;
+    }
+};
 
 bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 {
@@ -110,7 +137,7 @@ void appendVec(std::string& out, const double* values, size_t count, bool flipVe
     }
 }
 
-bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
+bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry = nullptr);
 bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
 bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
 
@@ -119,6 +146,13 @@ bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SData
 bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     using namespace ply_writer_detail;
+    using clock_t = std::chrono::high_resolution_clock;
+
+    const auto totalStart = clock_t::now();
+    double encodeMs = 0.0;
+    double formatMs = 0.0;
+    double writeMs = 0.0;
+    SFileWriteTelemetry ioTelemetry = {};
 
     if (!_override)
         getDefaultOverride(_override);
@@ -170,6 +204,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     core::vector<uint32_t> indexData;
     const uint32_t* indices = nullptr;
     size_t faceCount = 0;
+    const auto encodeStart = clock_t::now();
 
     if (indexView)
     {
@@ -219,10 +254,12 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         indices = indexData.data();
         faceCount = vertexCount / 3u;
     }
+    encodeMs = std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
 
     const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
     const bool binary = (flags & E_WRITER_FLAGS::EWF_BINARY) != 0u;
 
+    const auto formatStart = clock_t::now();
     std::string header = "ply\n";
     header += binary ? "format binary_little_endian 1.0" : "format ascii 1.0";
     header += "\ncomment Nabla ";
@@ -253,21 +290,26 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     header += std::to_string(faceCount);
     header += "\nproperty list uchar uint vertex_indices\n";
     header += "end_header\n";
+    formatMs += std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
 
     const bool flipVectors = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 
+    bool writeOk = false;
+    size_t outputBytes = 0ull;
     if (binary)
     {
         const size_t vertexStride = sizeof(float) * (3u + (writeNormals ? 3u : 0u) + (uvView ? 2u : 0u));
         const size_t faceStride = sizeof(uint8_t) + sizeof(uint32_t) * 3u;
         const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
 
+        const auto binaryEncodeStart = clock_t::now();
         core::vector<uint8_t> output;
         output.resize(header.size() + bodySize);
         if (!header.empty())
             std::memcpy(output.data(), header.data(), header.size());
         if (!writeBinary(geom, uvView, writeNormals, vertexCount, indices, faceCount, output.data() + header.size(), flipVectors))
             return false;
+        encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - binaryEncodeStart).count();
 
         const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
         if (!ioPlan.valid)
@@ -275,26 +317,122 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
             return false;
         }
-        return writeBufferWithPolicy(file, ioPlan, output.data(), output.size());
+
+        outputBytes = output.size();
+        const auto writeStart = clock_t::now();
+        writeOk = writeBufferWithPolicy(file, ioPlan, output.data(), output.size(), &ioTelemetry);
+        writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
+
+        const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+        const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
+        const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
+        const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
+        if (
+            static_cast<uint64_t>(outputBytes) > (1ull << 20) &&
+            (
+                ioAvgWrite < 1024ull ||
+                (ioMinWrite < 64ull && ioTelemetry.callCount > 1024ull)
+            )
+        )
+        {
+            _params.logger.log(
+                "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
+                system::ILogger::ELL_WARNING,
+                file->getFileName().string().c_str(),
+                static_cast<unsigned long long>(ioTelemetry.callCount),
+                static_cast<unsigned long long>(ioMinWrite),
+                static_cast<unsigned long long>(ioAvgWrite));
+        }
+        _params.logger.log(
+            "PLY writer perf: file=%s total=%.3f ms encode=%.3f format=%.3f write=%.3f misc=%.3f bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+            system::ILogger::ELL_PERFORMANCE,
+            file->getFileName().string().c_str(),
+            totalMs,
+            encodeMs,
+            formatMs,
+            writeMs,
+            miscMs,
+            static_cast<unsigned long long>(outputBytes),
+            static_cast<unsigned long long>(vertexCount),
+            static_cast<unsigned long long>(faceCount),
+            binary ? 1 : 0,
+            static_cast<unsigned long long>(ioTelemetry.callCount),
+            static_cast<unsigned long long>(ioMinWrite),
+            static_cast<unsigned long long>(ioAvgWrite),
+            toString(_params.ioPolicy.strategy),
+            toString(ioPlan.strategy),
+            static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+            ioPlan.reason);
+        return writeOk;
     }
 
+    const auto textEncodeStart = clock_t::now();
     std::string body;
     body.reserve(vertexCount * ApproxPlyTextBytesPerVertex + faceCount * ApproxPlyTextBytesPerFace);
     if (!writeText(geom, uvView, writeNormals, vertexCount, indices, faceCount, body, flipVectors))
         return false;
+    encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - textEncodeStart).count();
 
+    const auto textFormatStart = clock_t::now();
     std::string output = header;
     output += body;
+    formatMs += std::chrono::duration<double, std::milli>(clock_t::now() - textFormatStart).count();
     const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
     if (!ioPlan.valid)
     {
         _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
         return false;
     }
-    return writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size());
+
+    outputBytes = output.size();
+    const auto writeStart = clock_t::now();
+    writeOk = writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
+    writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
+
+    const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+    const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
+    const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
+    const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
+    if (
+        static_cast<uint64_t>(outputBytes) > (1ull << 20) &&
+        (
+            ioAvgWrite < 1024ull ||
+            (ioMinWrite < 64ull && ioTelemetry.callCount > 1024ull)
+        )
+    )
+    {
+        _params.logger.log(
+            "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
+            system::ILogger::ELL_WARNING,
+            file->getFileName().string().c_str(),
+            static_cast<unsigned long long>(ioTelemetry.callCount),
+            static_cast<unsigned long long>(ioMinWrite),
+            static_cast<unsigned long long>(ioAvgWrite));
+    }
+    _params.logger.log(
+        "PLY writer perf: file=%s total=%.3f ms encode=%.3f format=%.3f write=%.3f misc=%.3f bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+        system::ILogger::ELL_PERFORMANCE,
+        file->getFileName().string().c_str(),
+        totalMs,
+        encodeMs,
+        formatMs,
+        writeMs,
+        miscMs,
+        static_cast<unsigned long long>(outputBytes),
+        static_cast<unsigned long long>(vertexCount),
+        static_cast<unsigned long long>(faceCount),
+        binary ? 1 : 0,
+        static_cast<unsigned long long>(ioTelemetry.callCount),
+        static_cast<unsigned long long>(ioMinWrite),
+        static_cast<unsigned long long>(ioAvgWrite),
+        toString(_params.ioPolicy.strategy),
+        toString(ioPlan.strategy),
+        static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+        ioPlan.reason);
+    return writeOk;
 }
 
-bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
+bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry)
 {
     if (!file || (!data && byteCount != 0ull))
         return false;
@@ -306,6 +444,8 @@ bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolv
         {
             system::IFile::success_t success;
             file->write(success, data, fileOffset, byteCount);
+            if (success && ioTelemetry)
+                ioTelemetry->account(success.getBytesProcessed());
             return success && success.getBytesProcessed() == byteCount;
         }
         case SResolvedFileIOPolicy::Strategy::Chunked:
@@ -321,6 +461,8 @@ bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolv
                 const size_t written = success.getBytesProcessed();
                 if (written == 0ull)
                     return false;
+                if (ioTelemetry)
+                    ioTelemetry->account(written);
                 fileOffset += written;
             }
             return true;
@@ -333,6 +475,8 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
     if (!dst)
         return false;
 
+    constexpr size_t Float3Bytes = sizeof(float) * 3ull;
+    constexpr size_t Float2Bytes = sizeof(float) * 2ull;
     const auto& positionView = geom->getPositionView();
     const auto& normalView = geom->getNormalView();
     const hlsl::float32_t3* const tightPos = getTightFloat3View(positionView);
@@ -342,69 +486,80 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
     hlsl::float64_t4 tmp = {};
     for (size_t i = 0; i < vertexCount; ++i)
     {
-        float pos[3] = {};
-        if (tightPos)
+        if (tightPos && !flipVectors)
         {
-            pos[0] = tightPos[i].x;
-            pos[1] = tightPos[i].y;
-            pos[2] = tightPos[i].z;
+            std::memcpy(dst, tightPos + i, Float3Bytes);
         }
         else
         {
-            if (!decodeVec4(positionView, i, tmp))
-                return false;
-            pos[0] = static_cast<float>(tmp.x);
-            pos[1] = static_cast<float>(tmp.y);
-            pos[2] = static_cast<float>(tmp.z);
-        }
-        if (flipVectors)
-            pos[0] = -pos[0];
-
-        std::memcpy(dst, pos, sizeof(pos));
-        dst += sizeof(pos);
-
-        if (writeNormals)
-        {
-            float normal[3] = {};
-            if (tightNormal)
+            float pos[3] = {};
+            if (tightPos)
             {
-                normal[0] = tightNormal[i].x;
-                normal[1] = tightNormal[i].y;
-                normal[2] = tightNormal[i].z;
+                pos[0] = tightPos[i].x;
+                pos[1] = tightPos[i].y;
+                pos[2] = tightPos[i].z;
             }
             else
             {
-                if (!decodeVec4(normalView, i, tmp))
+                if (!decodeVec4(positionView, i, tmp))
                     return false;
-                normal[0] = static_cast<float>(tmp.x);
-                normal[1] = static_cast<float>(tmp.y);
-                normal[2] = static_cast<float>(tmp.z);
+                pos[0] = static_cast<float>(tmp.x);
+                pos[1] = static_cast<float>(tmp.y);
+                pos[2] = static_cast<float>(tmp.z);
             }
             if (flipVectors)
-                normal[0] = -normal[0];
+                pos[0] = -pos[0];
+            std::memcpy(dst, pos, Float3Bytes);
+        }
+        dst += Float3Bytes;
 
-            std::memcpy(dst, normal, sizeof(normal));
-            dst += sizeof(normal);
+        if (writeNormals)
+        {
+            if (tightNormal && !flipVectors)
+            {
+                std::memcpy(dst, tightNormal + i, Float3Bytes);
+            }
+            else
+            {
+                float normal[3] = {};
+                if (tightNormal)
+                {
+                    normal[0] = tightNormal[i].x;
+                    normal[1] = tightNormal[i].y;
+                    normal[2] = tightNormal[i].z;
+                }
+                else
+                {
+                    if (!decodeVec4(normalView, i, tmp))
+                        return false;
+                    normal[0] = static_cast<float>(tmp.x);
+                    normal[1] = static_cast<float>(tmp.y);
+                    normal[2] = static_cast<float>(tmp.z);
+                }
+                if (flipVectors)
+                    normal[0] = -normal[0];
+
+                std::memcpy(dst, normal, Float3Bytes);
+            }
+            dst += Float3Bytes;
         }
 
         if (uvView)
         {
-            float uv[2] = {};
             if (tightUV)
             {
-                uv[0] = tightUV[i].x;
-                uv[1] = tightUV[i].y;
+                std::memcpy(dst, tightUV + i, Float2Bytes);
             }
             else
             {
+                float uv[2] = {};
                 if (!decodeVec4(*uvView, i, tmp))
                     return false;
                 uv[0] = static_cast<float>(tmp.x);
                 uv[1] = static_cast<float>(tmp.y);
+                std::memcpy(dst, uv, Float2Bytes);
             }
-
-            std::memcpy(dst, uv, sizeof(uv));
-            dst += sizeof(uv);
+            dst += Float2Bytes;
         }
     }
 

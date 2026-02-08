@@ -15,10 +15,12 @@
 #include "COBJMeshFileLoader.h"
 
 #include <algorithm>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <charconv>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <fast_float/fast_float.h>
 #include <limits>
 #include <type_traits>
 
@@ -44,10 +46,10 @@ struct ObjVertexKeyHash
 {
     size_t operator()(const ObjVertexKey& key) const noexcept
     {
-        size_t h = static_cast<size_t>(static_cast<uint32_t>(key.pos));
-        h ^= static_cast<size_t>(static_cast<uint32_t>(key.uv)) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        h ^= static_cast<size_t>(static_cast<uint32_t>(key.normal)) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        return h;
+        const uint32_t p = static_cast<uint32_t>(key.pos);
+        const uint32_t t = static_cast<uint32_t>(key.uv);
+        const uint32_t n = static_cast<uint32_t>(key.normal);
+        return static_cast<size_t>((p * 73856093u) ^ (t * 19349663u) ^ (n * 83492791u));
     }
 };
 
@@ -205,7 +207,7 @@ const char* goNextLine(const char* buf, const char* const bufEnd)
 
 bool parseFloatToken(const char*& ptr, const char* const end, float& out)
 {
-    const auto parseResult = std::from_chars(ptr, end, out, std::chars_format::general);
+    const auto parseResult = fast_float::from_chars(ptr, end, out);
     if (parseResult.ec == std::errc() && parseResult.ptr != ptr)
     {
         ptr = parseResult.ptr;
@@ -257,140 +259,100 @@ const char* readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
     return bufPtr;
 }
 
-bool retrieveVertexIndices(const char* tokenBegin, const char* tokenEnd, int32_t* idx, uint32_t vbsize, uint32_t vtsize, uint32_t vnsize)
+bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
 {
-    if (!tokenBegin || !idx)
+    const char* parseStart = ptr;
+    if (ptr >= end)
         return false;
 
-    idx[0] = -1;
-    idx[1] = -1;
-    idx[2] = -1;
-
-    const char* p = tokenBegin;
-    for (uint32_t idxType = 0u; idxType < 3u && p < tokenEnd; ++idxType)
+    int64_t value = 0;
+    const auto parseResult = std::from_chars(ptr, end, value, 10);
+    if (!(parseResult.ec == std::errc() && parseResult.ptr != ptr))
     {
-        if (*p == '/')
-        {
-            ++p;
-            continue;
-        }
-
-        char* endNum = nullptr;
-        const long parsed = std::strtol(p, &endNum, 10);
-        if (endNum == p)
+        char* fallbackEnd = nullptr;
+        value = std::strtoll(parseStart, &fallbackEnd, 10);
+        if (!fallbackEnd || fallbackEnd == parseStart || fallbackEnd > end)
             return false;
-
-        int32_t value = static_cast<int32_t>(parsed);
-        if (value < 0)
-        {
-            switch (idxType)
-            {
-                case 0:
-                    value += static_cast<int32_t>(vbsize);
-                    break;
-                case 1:
-                    value += static_cast<int32_t>(vtsize);
-                    break;
-                case 2:
-                    value += static_cast<int32_t>(vnsize);
-                    break;
-                default:
-                    break;
-            }
-        }
-        else
-        {
-            value -= 1;
-        }
-        idx[idxType] = value;
-
-        p = endNum;
-        if (p >= tokenEnd)
-            break;
-
-        if (*p != '/')
-            break;
-        ++p;
+        ptr = fallbackEnd;
     }
+    else
+    {
+        ptr = parseResult.ptr;
+    }
+    if (value == 0)
+        return false;
+    if (value < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) || value > static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
+        return false;
 
+    out = static_cast<int32_t>(value);
     return true;
 }
 
-enum class EFastFaceTokenParseResult : uint8_t
+bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
 {
-    NotApplicable,
-    Success,
-    Error
-};
-
-bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
-{
-    if (ptr >= end || !core::isdigit(*ptr))
-        return false;
-
-    uint64_t value = 0ull;
-    while (ptr < end && core::isdigit(*ptr))
+    if (rawIndex > 0)
     {
-        value = value * 10ull + static_cast<uint64_t>(*ptr - '0');
-        if (value > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+        const uint64_t oneBased = static_cast<uint64_t>(rawIndex);
+        if (oneBased == 0ull)
             return false;
-        ++ptr;
+        const uint64_t zeroBased = oneBased - 1ull;
+        if (zeroBased >= elementCount)
+            return false;
+        resolved = static_cast<int32_t>(zeroBased);
+        return true;
     }
 
-    out = static_cast<uint32_t>(value);
+    const int64_t zeroBased = static_cast<int64_t>(elementCount) + static_cast<int64_t>(rawIndex);
+    if (zeroBased < 0 || zeroBased >= static_cast<int64_t>(elementCount))
+        return false;
+    resolved = static_cast<int32_t>(zeroBased);
     return true;
 }
 
-EFastFaceTokenParseResult retrieveVertexIndicesFast(const char* tokenBegin, const char* tokenEnd, int32_t* idx)
+bool parseObjFaceVertexToken(const char* tokenBegin, const char* tokenEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     if (!tokenBegin || !idx || tokenBegin >= tokenEnd)
-        return EFastFaceTokenParseResult::NotApplicable;
-
-    for (const char* c = tokenBegin; c < tokenEnd; ++c)
-    {
-        const char ch = *c;
-        if (ch == '-' || ch == '+')
-            return EFastFaceTokenParseResult::NotApplicable;
-        if (!core::isdigit(ch) && ch != '/')
-            return EFastFaceTokenParseResult::NotApplicable;
-    }
+        return false;
 
     idx[0] = -1;
     idx[1] = -1;
     idx[2] = -1;
 
     const char* ptr = tokenBegin;
-    uint32_t parsed = 0u;
-    if (!parseUnsignedObjIndex(ptr, tokenEnd, parsed) || parsed == 0u)
-        return EFastFaceTokenParseResult::Error;
-    idx[0] = static_cast<int32_t>(parsed - 1u);
+    int32_t raw = 0;
+    if (!parseSignedObjIndex(ptr, tokenEnd, raw))
+        return false;
+    if (!resolveObjIndex(raw, posCount, idx[0]))
+        return false;
 
     if (ptr >= tokenEnd)
-        return EFastFaceTokenParseResult::Success;
+        return true;
     if (*ptr != '/')
-        return EFastFaceTokenParseResult::NotApplicable;
+        return false;
     ++ptr;
 
     if (ptr < tokenEnd && *ptr != '/')
     {
-        if (!parseUnsignedObjIndex(ptr, tokenEnd, parsed) || parsed == 0u)
-            return EFastFaceTokenParseResult::Error;
-        idx[1] = static_cast<int32_t>(parsed - 1u);
+        if (!parseSignedObjIndex(ptr, tokenEnd, raw))
+            return false;
+        if (!resolveObjIndex(raw, uvCount, idx[1]))
+            return false;
     }
 
     if (ptr >= tokenEnd)
-        return EFastFaceTokenParseResult::Success;
+        return true;
     if (*ptr != '/')
-        return EFastFaceTokenParseResult::Error;
+        return false;
     ++ptr;
 
     if (ptr >= tokenEnd)
-        return EFastFaceTokenParseResult::Success;
-    if (!parseUnsignedObjIndex(ptr, tokenEnd, parsed) || parsed == 0u)
-        return EFastFaceTokenParseResult::Error;
-    idx[2] = static_cast<int32_t>(parsed - 1u);
+        return true;
+    if (!parseSignedObjIndex(ptr, tokenEnd, raw))
+        return false;
+    if (!resolveObjIndex(raw, normalCount, idx[2]))
+        return false;
 
-    return ptr == tokenEnd ? EFastFaceTokenParseResult::Success : EFastFaceTokenParseResult::Error;
+    return ptr == tokenEnd;
 }
 
 }
@@ -434,6 +396,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     double buildMs = 0.0;
     double hashMs = 0.0;
     double aabbMs = 0.0;
+    double parseVms = 0.0;
+    double parseVNms = 0.0;
+    double parseVTms = 0.0;
+    double parseFaceMs = 0.0;
+    double dedupMs = 0.0;
+    double emitMs = 0.0;
     uint64_t faceCount = 0u;
     uint64_t faceFastTokenCount = 0u;
     uint64_t faceFallbackTokenCount = 0u;
@@ -466,7 +434,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     core::vector<Float3> outNormals;
     core::vector<Float2> outUVs;
     core::vector<uint32_t> indices;
-    core::unordered_map<ObjVertexKey, uint32_t, ObjVertexKeyHash> vtxMap;
+    boost::unordered_flat_map<ObjVertexKey, uint32_t, ObjVertexKeyHash> vtxMap;
 
     bool hasNormals = false;
     bool hasUVs = false;
@@ -485,23 +453,29 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 {
                     case ' ':
                     {
+                        const auto t = clock_t::now();
                         Float3 vec{};
                         bufPtr = readVec3(bufPtr, &vec.x, bufEnd);
                         positions.push_back(vec);
+                        parseVms += std::chrono::duration<double, std::milli>(clock_t::now() - t).count();
                     }
                     break;
                     case 'n':
                     {
+                        const auto t = clock_t::now();
                         Float3 vec{};
                         bufPtr = readVec3(bufPtr, &vec.x, bufEnd);
                         normals.push_back(vec);
+                        parseVNms += std::chrono::duration<double, std::milli>(clock_t::now() - t).count();
                     }
                     break;
                     case 't':
                     {
+                        const auto t = clock_t::now();
                         Float2 vec{};
                         bufPtr = readUV(bufPtr, &vec.x, bufEnd);
                         uvs.push_back(vec);
+                        parseVTms += std::chrono::duration<double, std::milli>(clock_t::now() - t).count();
                     }
                     break;
                     default:
@@ -528,29 +502,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 const char* linePtr = goNextWord(bufPtr, endPtr);
                 while (linePtr < endPtr)
                 {
+                    const auto tokenParseStart = clock_t::now();
                     int32_t idx[3] = { -1, -1, -1 };
                     const char* tokenEnd = linePtr;
                     while (tokenEnd < endPtr && !core::isspace(*tokenEnd))
                         ++tokenEnd;
-                    const auto fastResult = retrieveVertexIndicesFast(linePtr, tokenEnd, idx);
-                    if (fastResult == EFastFaceTokenParseResult::Success)
-                    {
-                        ++faceFastTokenCount;
-                    }
-                    else if (fastResult == EFastFaceTokenParseResult::NotApplicable)
-                    {
-                        if (!retrieveVertexIndices(linePtr, tokenEnd, idx, positions.size(), uvs.size(), normals.size()))
-                            return {};
-                        ++faceFallbackTokenCount;
-                    }
-                    else
-                    {
+                    if (!parseObjFaceVertexToken(linePtr, tokenEnd, idx, positions.size(), uvs.size(), normals.size()))
                         return {};
-                    }
+                    ++faceFastTokenCount;
 
                     if (idx[0] < 0 || static_cast<size_t>(idx[0]) >= positions.size())
                         return {};
+                    parseFaceMs += std::chrono::duration<double, std::milli>(clock_t::now() - tokenParseStart).count();
 
+                    const auto dedupStart = clock_t::now();
                     ObjVertexKey key = { idx[0], idx[1], idx[2] };
                     const uint32_t candidateIndex = static_cast<uint32_t>(outPositions.size());
                     auto [it, inserted] = vtxMap.try_emplace(key, candidateIndex);
@@ -584,18 +549,21 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                         }
                         outNormals.push_back(normal);
                     }
+                    dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
 
                     faceCorners.push_back(outIx);
 
                     linePtr = goFirstWord(tokenEnd, endPtr, false);
                 }
 
+                const auto emitStart = clock_t::now();
                 for (uint32_t i = 1u; i + 1u < faceCorners.size(); ++i)
                 {
                     indices.push_back(faceCorners[i + 1]);
                     indices.push_back(faceCorners[i]);
                     indices.push_back(faceCorners[0]);
                 }
+                emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
             }
             break;
             default:
@@ -605,6 +573,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         bufPtr = goNextLine(bufPtr, bufEnd);
     }
     parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
+    const double parseScanMs = std::max(0.0, parseMs - (parseVms + parseVNms + parseVTms + parseFaceMs + dedupMs + emitMs));
 
     if (outPositions.empty())
         return {};
@@ -707,12 +676,19 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()));
     }
     _params.logger.log(
-        "OBJ loader perf: file=%s total=%.3f ms io=%.3f parse=%.3f build=%.3f hash=%.3f aabb=%.3f in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu) io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+        "OBJ loader perf: file=%s total=%.3f ms io=%.3f parse=%.3f parse_scan=%.3f parse_v=%.3f parse_vn=%.3f parse_vt=%.3f parse_f=%.3f dedup=%.3f emit=%.3f build=%.3f hash=%.3f aabb=%.3f in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu) io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
         system::ILogger::ELL_PERFORMANCE,
         _file->getFileName().string().c_str(),
         totalMs,
         ioMs,
         parseMs,
+        parseScanMs,
+        parseVms,
+        parseVNms,
+        parseVTms,
+        parseFaceMs,
+        dedupMs,
+        emitMs,
         buildMs,
         hashMs,
         aabbMs,

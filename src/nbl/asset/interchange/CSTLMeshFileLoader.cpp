@@ -12,11 +12,15 @@
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/system/IFile.h"
 
+#include <array>
 #include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <fast_float/fast_float.h>
+#include <limits>
 #include <string_view>
 #include <type_traits>
 
@@ -51,7 +55,6 @@ struct SFileReadTelemetry
 struct SSTLContext
 {
 	IAssetLoader::SAssetLoadContext inner;
-	size_t fileOffset = 0ull;
 	SFileReadTelemetry ioTelemetry = {};
 };
 
@@ -112,60 +115,6 @@ bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, c
 	}
 }
 
-bool stlReadU8(SSTLContext* context, uint8_t& out)
-{
-	if (!context)
-		return false;
-
-	system::IFile::success_t success;
-	context->inner.mainFile->read(success, &out, context->fileOffset, sizeof(out));
-	if (!success || success.getBytesProcessed() != sizeof(out))
-		return false;
-	context->ioTelemetry.account(success.getBytesProcessed());
-	context->fileOffset += sizeof(out);
-	return true;
-}
-
-void stlGoNextWord(SSTLContext* context)
-{
-	if (!context)
-		return;
-
-	uint8_t c = 0u;
-	while (context->fileOffset < context->inner.mainFile->getSize())
-	{
-		const size_t before = context->fileOffset;
-		if (!stlReadU8(context, c))
-			break;
-		if (!core::isspace(c))
-		{
-			context->fileOffset = before;
-			break;
-		}
-	}
-}
-
-const std::string& stlGetNextToken(SSTLContext* context, std::string& token)
-{
-	stlGoNextWord(context);
-	token.clear();
-
-	char c = 0;
-	while (context->fileOffset < context->inner.mainFile->getSize())
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		if (!success || success.getBytesProcessed() != sizeof(c))
-			break;
-		context->fileOffset += sizeof(c);
-		if (core::isspace(c))
-			break;
-		token += c;
-	}
-
-	return token;
-}
-
 const char* stlSkipWhitespace(const char* ptr, const char* const end)
 {
 	while (ptr < end && core::isspace(*ptr))
@@ -197,11 +146,18 @@ bool stlReadTextFloat(const char*& ptr, const char* const end, float& outValue)
 	if (ptr >= end)
 		return false;
 
-	const auto parseResult = std::from_chars(ptr, end, outValue, std::chars_format::general);
-	if (parseResult.ec != std::errc() || parseResult.ptr == ptr)
-		return false;
+	const auto parseResult = fast_float::from_chars(ptr, end, outValue);
+	if (parseResult.ec == std::errc() && parseResult.ptr != ptr)
+	{
+		ptr = parseResult.ptr;
+		return true;
+	}
 
-	ptr = parseResult.ptr;
+	char* fallbackEnd = nullptr;
+	outValue = std::strtof(ptr, &fallbackEnd);
+	if (!fallbackEnd || fallbackEnd == ptr)
+		return false;
+	ptr = fallbackEnd <= end ? fallbackEnd : end;
 	return true;
 }
 
@@ -296,6 +252,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	double ioMs = 0.0;
 	double parseMs = 0.0;
 	double buildMs = 0.0;
+	double buildAllocViewsMs = 0.0;
+	double buildSetViewsMs = 0.0;
+	double buildMiscMs = 0.0;
 	double hashMs = 0.0;
 	double aabbMs = 0.0;
 	uint64_t triangleCount = 0u;
@@ -323,25 +282,32 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	bool binary = false;
 	bool hasBinaryTriCountFromDetect = false;
 	uint32_t binaryTriCountFromDetect = 0u;
-	std::string token;
 	{
 		const auto detectStart = clock_t::now();
-		char header[StlTextProbeBytes] = {};
-		if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
-			return {};
+		std::array<uint8_t, StlBinaryPrefixBytes> prefix = {};
+		const bool hasPrefix = filesize >= StlBinaryPrefixBytes && stlReadExact(context.inner.mainFile, prefix.data(), 0ull, StlBinaryPrefixBytes, &context.ioTelemetry);
+		bool startsWithSolid = false;
+		if (hasPrefix)
+		{
+			startsWithSolid = (std::memcmp(prefix.data(), "solid ", StlTextProbeBytes) == 0);
+		}
+		else
+		{
+			char header[StlTextProbeBytes] = {};
+			if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
+				return {};
+			startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
+		}
 
-		const bool startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
 		bool binaryBySize = false;
-		if (filesize >= StlBinaryPrefixBytes)
+		if (hasPrefix)
 		{
 			uint32_t triCount = 0u;
-			if (stlReadExact(context.inner.mainFile, &triCount, StlBinaryHeaderBytes, sizeof(triCount), &context.ioTelemetry))
-			{
-				binaryTriCountFromDetect = triCount;
-				hasBinaryTriCountFromDetect = true;
-				const uint64_t expectedSize = StlBinaryPrefixBytes + static_cast<uint64_t>(triCount) * StlTriangleRecordBytes;
-				binaryBySize = (expectedSize == filesize);
-			}
+			std::memcpy(&triCount, prefix.data() + StlBinaryHeaderBytes, sizeof(triCount));
+			binaryTriCountFromDetect = triCount;
+			hasBinaryTriCountFromDetect = true;
+			const uint64_t expectedSize = StlBinaryPrefixBytes + static_cast<uint64_t>(triCount) * StlTriangleRecordBytes;
+			binaryBySize = (expectedSize == filesize);
 		}
 
 		if (binaryBySize)
@@ -349,10 +315,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		else if (!startsWithSolid)
 			binary = true;
 		else
-			binary = (stlGetNextToken(&context, token) != "solid");
+			binary = false;
 
-		if (binary)
-			context.fileOffset = 0ull;
 		detectMs = std::chrono::duration<double, std::milli>(clock_t::now() - detectStart).count();
 	}
 
@@ -399,7 +363,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
 		if (!posOut || !normalOut)
 			return {};
-		buildMs += std::chrono::duration<double, std::milli>(clock_t::now() - buildPrepStart).count();
+		const double buildPrepMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildPrepStart).count();
+		buildAllocViewsMs += buildPrepMs;
+		buildMs += buildPrepMs;
 
 		const auto parseStart = clock_t::now();
 		const uint8_t* cursor = payload.data();
@@ -515,7 +481,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const auto buildFinalizeStart = clock_t::now();
 		geometry->setPositionView(std::move(posView));
 		geometry->setNormalView(std::move(normalView));
-		buildMs += std::chrono::duration<double, std::milli>(clock_t::now() - buildFinalizeStart).count();
+		const double buildFinalizeMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildFinalizeStart).count();
+		buildSetViewsMs += buildFinalizeMs;
+		buildMs += buildFinalizeMs;
 	}
 	else
 	{
@@ -585,10 +553,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		vertexCount = positions.size();
 
 		const auto buildStart = clock_t::now();
+		const auto allocStart = clock_t::now();
 		auto posView = createView(EF_R32G32B32_SFLOAT, positions.size());
 		auto normalView = createView(EF_R32G32B32_SFLOAT, positions.size());
 		if (!posView || !normalView)
 			return {};
+		buildAllocViewsMs += std::chrono::duration<double, std::milli>(clock_t::now() - allocStart).count();
 
 		auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
 		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
@@ -604,8 +574,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			stlExtendAABB(parsedAABB, hasParsedAABB, posOut[i]);
 		}
 
+		const auto setStart = clock_t::now();
 		geometry->setPositionView(std::move(posView));
 		geometry->setNormalView(std::move(normalView));
+		buildSetViewsMs += std::chrono::duration<double, std::milli>(clock_t::now() - setStart).count();
 		buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
 	}
 
@@ -638,6 +610,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 	aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
 
+	buildMiscMs = std::max(0.0, buildMs - (buildAllocViewsMs + buildSetViewsMs));
+
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
@@ -658,7 +632,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			static_cast<unsigned long long>(ioAvgRead));
 	}
 	_params.logger.log(
-		"STL loader perf: file=%s total=%.3f ms detect=%.3f io=%.3f parse=%.3f build=%.3f hash=%.3f aabb=%.3f binary=%d parse_path=%s triangles=%llu vertices=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"STL loader perf: file=%s total=%.3f ms detect=%.3f io=%.3f parse=%.3f build=%.3f build_alloc_views=%.3f build_set_views=%.3f build_misc=%.3f hash=%.3f aabb=%.3f binary=%d parse_path=%s triangles=%llu vertices=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
 		totalMs,
@@ -666,6 +640,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		ioMs,
 		parseMs,
 		buildMs,
+		buildAllocViewsMs,
+		buildSetViewsMs,
+		buildMiscMs,
 		hashMs,
 		aabbMs,
 		binary ? 1 : 0,

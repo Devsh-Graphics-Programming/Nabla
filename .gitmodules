@@ -129,3 +129,6 @@
 [submodule "3rdparty/Vulkan-Tools"]
 	path = 3rdparty/Vulkan-Tools
 	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Tools.git
+[submodule "3rdparty/fast_float"]
+	path = 3rdparty/fast_float
+	url = https://github.com/fastfloat/fast_float.git

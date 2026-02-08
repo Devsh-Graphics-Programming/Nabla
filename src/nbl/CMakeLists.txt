@@ -556,6 +556,8 @@ else()
 endif()
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/simdjson)
 
+list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/fast_float/include)
+
 # libjpeg
 add_dependencies(Nabla jpeg-static)
 if(NBL_STATIC_BUILD)

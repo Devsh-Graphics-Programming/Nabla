@@ -11,7 +11,9 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <cstdio>
+#include <limits>
 #include <system_error>
 
 namespace nbl::asset
@@ -45,6 +47,31 @@ namespace obj_writer_detail
 
 constexpr size_t ApproxObjBytesPerVertex = 96ull;
 constexpr size_t ApproxObjBytesPerFace = 48ull;
+
+struct SFileWriteTelemetry
+{
+	uint64_t callCount = 0ull;
+	uint64_t totalBytes = 0ull;
+	uint64_t minBytes = std::numeric_limits<uint64_t>::max();
+
+	void account(const uint64_t bytes)
+	{
+		++callCount;
+		totalBytes += bytes;
+		if (bytes < minBytes)
+			minBytes = bytes;
+	}
+
+	uint64_t getMinOrZero() const
+	{
+		return callCount ? minBytes : 0ull;
+	}
+
+	uint64_t getAvgOrZero() const
+	{
+		return callCount ? (totalBytes / callCount) : 0ull;
+	}
+};
 
 bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 {
@@ -82,9 +109,9 @@ void appendUInt(std::string& out, const uint32_t value)
 		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
 }
 
-void appendFloatFixed6(std::string& out, double value)
+void appendFloatFixed6(std::string& out, float value)
 {
-	std::array<char, 64> buf = {};
+	std::array<char, 48> buf = {};
 	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::fixed, 6);
 	if (res.ec == std::errc())
 	{
@@ -92,18 +119,25 @@ void appendFloatFixed6(std::string& out, double value)
 		return;
 	}
 
-	const int written = std::snprintf(buf.data(), buf.size(), "%.6f", value);
+	const int written = std::snprintf(buf.data(), buf.size(), "%.6f", static_cast<double>(value));
 	if (written > 0)
 		out.append(buf.data(), static_cast<size_t>(written));
 }
 
-bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount);
+bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry = nullptr);
 
 } // namespace obj_writer_detail
 
 bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	using namespace obj_writer_detail;
+	using clock_t = std::chrono::high_resolution_clock;
+
+	const auto totalStart = clock_t::now();
+	double encodeMs = 0.0;
+	double formatMs = 0.0;
+	double writeMs = 0.0;
+	SFileWriteTelemetry ioTelemetry = {};
 
 	if (!_override)
 		getDefaultOverride(_override);
@@ -160,6 +194,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	core::vector<uint32_t> indexData;
 	const uint32_t* indices = nullptr;
 	size_t faceCount = 0;
+	const auto encodeStart = clock_t::now();
 
 	if (indexView)
 	{
@@ -209,10 +244,12 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		indices = indexData.data();
 		faceCount = vertexCount / 3u;
 	}
+	encodeMs = std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
 
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool flipHandedness = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 	std::string output;
+	const auto formatStart = clock_t::now();
 	output.reserve(vertexCount * ApproxObjBytesPerVertex + faceCount * ApproxObjBytesPerFace);
 
 	output += "# Nabla OBJ\n";
@@ -223,9 +260,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const hlsl::float32_t2* const tightUV = hasUVs ? getTightFloat2View(*uvView) : nullptr;
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
-		double x = 0.0;
-		double y = 0.0;
-		double z = 0.0;
+		float x = 0.f;
+		float y = 0.f;
+		float z = 0.f;
 		if (tightPositions)
 		{
 			x = tightPositions[i].x;
@@ -236,9 +273,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		{
 			if (!decodeVec4(positionView, i, tmp))
 				return false;
-			x = tmp.x;
-			y = tmp.y;
-			z = tmp.z;
+			x = static_cast<float>(tmp.x);
+			y = static_cast<float>(tmp.y);
+			z = static_cast<float>(tmp.z);
 		}
 		if (flipHandedness)
 			x = -x;
@@ -256,19 +293,19 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	{
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
-			double u = 0.0;
-			double v = 0.0;
+			float u = 0.f;
+			float v = 0.f;
 			if (tightUV)
 			{
 				u = tightUV[i].x;
-				v = 1.0 - tightUV[i].y;
+				v = 1.f - tightUV[i].y;
 			}
 			else
 			{
 				if (!decodeVec4(*uvView, i, tmp))
 					return false;
-				u = tmp.x;
-				v = 1.0 - tmp.y;
+				u = static_cast<float>(tmp.x);
+				v = 1.f - static_cast<float>(tmp.y);
 			}
 
 			output += "vt ";
@@ -283,9 +320,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	{
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
-			double x = 0.0;
-			double y = 0.0;
-			double z = 0.0;
+			float x = 0.f;
+			float y = 0.f;
+			float z = 0.f;
 			if (tightNormals)
 			{
 				x = tightNormals[i].x;
@@ -296,9 +333,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			{
 				if (!decodeVec4(normalView, i, tmp))
 					return false;
-				x = tmp.x;
-				y = tmp.y;
-				z = tmp.z;
+				x = static_cast<float>(tmp.x);
+				y = static_cast<float>(tmp.y);
+				z = static_cast<float>(tmp.z);
 			}
 			if (flipHandedness)
 				x = -x;
@@ -313,28 +350,32 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		}
 	}
 
-	auto appendFaceIndex = [&](const uint32_t idx)
+	core::vector<std::string> faceIndexTokens;
+	faceIndexTokens.resize(vertexCount);
+	for (size_t i = 0u; i < vertexCount; ++i)
 	{
-		const uint32_t objIx = idx + 1u;
-		appendUInt(output, objIx);
+		auto& token = faceIndexTokens[i];
+		token.reserve(24ull);
+		const uint32_t objIx = static_cast<uint32_t>(i + 1u);
+		appendUInt(token, objIx);
 		if (hasUVs && hasNormals)
 		{
-			output += "/";
-			appendUInt(output, objIx);
-			output += "/";
-			appendUInt(output, objIx);
+			token += "/";
+			appendUInt(token, objIx);
+			token += "/";
+			appendUInt(token, objIx);
 		}
 		else if (hasUVs)
 		{
-			output += "/";
-			appendUInt(output, objIx);
+			token += "/";
+			appendUInt(token, objIx);
 		}
 		else if (hasNormals)
 		{
-			output += "//";
-			appendUInt(output, objIx);
+			token += "//";
+			appendUInt(token, objIx);
 		}
-	};
+	}
 
 	for (size_t i = 0u; i < faceCount; ++i)
 	{
@@ -345,15 +386,18 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const uint32_t f0 = i2;
 		const uint32_t f1 = i1;
 		const uint32_t f2 = i0;
+		if (f0 >= faceIndexTokens.size() || f1 >= faceIndexTokens.size() || f2 >= faceIndexTokens.size())
+			return false;
 
 		output += "f ";
-		appendFaceIndex(f0);
+		output += faceIndexTokens[f0];
 		output += " ";
-		appendFaceIndex(f1);
+		output += faceIndexTokens[f1];
 		output += " ";
-		appendFaceIndex(f2);
+		output += faceIndexTokens[f2];
 		output += "\n";
 	}
+	formatMs = std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
 
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
 	if (!ioPlan.valid)
@@ -362,10 +406,54 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		return false;
 	}
 
-	return writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size());
+	const auto writeStart = clock_t::now();
+	const bool writeOk = writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
+	writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
+
+	const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
+	const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
+	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
+	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
+	if (
+		static_cast<uint64_t>(output.size()) > (1ull << 20) &&
+		(
+			ioAvgWrite < 1024ull ||
+			(ioMinWrite < 64ull && ioTelemetry.callCount > 1024ull)
+		)
+	)
+	{
+		_params.logger.log(
+			"OBJ writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
+			system::ILogger::ELL_WARNING,
+			file->getFileName().string().c_str(),
+			static_cast<unsigned long long>(ioTelemetry.callCount),
+			static_cast<unsigned long long>(ioMinWrite),
+			static_cast<unsigned long long>(ioAvgWrite));
+	}
+	_params.logger.log(
+		"OBJ writer perf: file=%s total=%.3f ms encode=%.3f format=%.3f write=%.3f misc=%.3f bytes=%llu vertices=%llu faces=%llu io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		system::ILogger::ELL_PERFORMANCE,
+		file->getFileName().string().c_str(),
+		totalMs,
+		encodeMs,
+		formatMs,
+		writeMs,
+		miscMs,
+		static_cast<unsigned long long>(output.size()),
+		static_cast<unsigned long long>(vertexCount),
+		static_cast<unsigned long long>(faceCount),
+		static_cast<unsigned long long>(ioTelemetry.callCount),
+		static_cast<unsigned long long>(ioMinWrite),
+		static_cast<unsigned long long>(ioAvgWrite),
+		toString(_params.ioPolicy.strategy),
+		toString(ioPlan.strategy),
+		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+		ioPlan.reason);
+
+	return writeOk;
 }
 
-bool obj_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount)
+bool obj_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry)
 {
 	if (!file || (!data && byteCount != 0ull))
 		return false;
@@ -377,6 +465,8 @@ bool obj_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolv
 		{
 			system::IFile::success_t success;
 			file->write(success, data, fileOffset, byteCount);
+			if (success && ioTelemetry)
+				ioTelemetry->account(success.getBytesProcessed());
 			return success && success.getBytesProcessed() == byteCount;
 		}
 		case SResolvedFileIOPolicy::Strategy::Chunked:
@@ -392,6 +482,8 @@ bool obj_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolv
 				const size_t written = success.getBytesProcessed();
 				if (written == 0ull)
 					return false;
+				if (ioTelemetry)
+					ioTelemetry->account(written);
 				fileOffset += written;
 			}
 			return true;
