@@ -197,18 +197,6 @@ void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::
 	positions.push_back(p[0u]);
 }
 
-void stlFixLastFaceNormal(core::vector<hlsl::float32_t3>& normals, const core::vector<hlsl::float32_t3>& positions)
-{
-	if (normals.empty() || positions.size() < 3ull)
-		return;
-
-	const auto& lastNormal = normals.back();
-	if (hlsl::dot(lastNormal, lastNormal) > 0.f)
-		return;
-
-	normals.back() = stlComputeFaceNormal(*(positions.rbegin() + 2), *(positions.rbegin() + 1), *(positions.rbegin() + 0));
-}
-
 void stlExtendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const hlsl::float32_t3& p)
 {
 	if (!hasAABB)
@@ -225,6 +213,35 @@ void stlExtendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, 
 	if (p.x > aabb.maxVx.x) aabb.maxVx.x = p.x;
 	if (p.y > aabb.maxVx.y) aabb.maxVx.y = p.y;
 	if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
+}
+
+ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::float32_t3>&& values)
+{
+	if (values.empty())
+		return {};
+
+	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<hlsl::float32_t3>>>(std::move(values));
+	auto& payload = backer->getBacker();
+	auto* const payloadPtr = payload.data();
+	const size_t byteCount = payload.size() * sizeof(hlsl::float32_t3);
+	auto buffer = ICPUBuffer::create(
+		{ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(hlsl::float32_t3) },
+		core::adopt_memory);
+	if (!buffer)
+		return {};
+
+	ICPUPolygonGeometry::SDataView view = {};
+	view.composed = {
+		.stride = sizeof(hlsl::float32_t3),
+		.format = EF_R32G32B32_SFLOAT,
+		.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+	};
+	view.src = {
+		.offset = 0u,
+		.size = byteCount,
+		.buffer = std::move(buffer)
+	};
+	return view;
 }
 
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
@@ -358,11 +375,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		auto normalView = createView(EF_R32G32B32_SFLOAT, static_cast<size_t>(vertexCount));
 		if (!posView || !normalView)
 			return {};
-
 		auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
 		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
 		if (!posOut || !normalOut)
 			return {};
+		auto* posOutFloat = reinterpret_cast<float*>(posOut);
+		auto* normalOutFloat = reinterpret_cast<float*>(normalOut);
 		const double buildPrepMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildPrepStart).count();
 		buildAllocViewsMs += buildPrepMs;
 		buildMs += buildPrepMs;
@@ -370,8 +388,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const auto parseStart = clock_t::now();
 		const uint8_t* cursor = payload.data();
 		const uint8_t* const end = cursor + payload.size();
-		auto* posOutFloat = reinterpret_cast<float*>(posOut);
-		auto* normalOutFloat = reinterpret_cast<float*>(normalOut);
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
 			return {};
 		for (uint64_t tri = 0ull; tri < triangleCount; ++tri)
@@ -537,13 +553,20 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			}
 
 			stlPushTriangleReversed(p, positions);
+			hlsl::float32_t3 faceNormal = stlResolveStoredNormal(fileNormal);
+			if (hlsl::dot(faceNormal, faceNormal) <= 0.f)
+				faceNormal = stlComputeFaceNormal(p[2u], p[1u], p[0u]);
+			normals.push_back(faceNormal);
+			normals.push_back(faceNormal);
+			normals.push_back(faceNormal);
+			stlExtendAABB(parsedAABB, hasParsedAABB, p[2u]);
+			stlExtendAABB(parsedAABB, hasParsedAABB, p[1u]);
+			stlExtendAABB(parsedAABB, hasParsedAABB, p[0u]);
 
 			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endloop"))
 				return {};
 			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endfacet"))
 				return {};
-
-			stlFixLastFaceNormal(normals, positions);
 		}
 		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
 		if (positions.empty())
@@ -554,25 +577,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		const auto buildStart = clock_t::now();
 		const auto allocStart = clock_t::now();
-		auto posView = createView(EF_R32G32B32_SFLOAT, positions.size());
-		auto normalView = createView(EF_R32G32B32_SFLOAT, positions.size());
+		auto posView = stlCreateAdoptedFloat3View(std::move(positions));
+		auto normalView = stlCreateAdoptedFloat3View(std::move(normals));
 		if (!posView || !normalView)
 			return {};
 		buildAllocViewsMs += std::chrono::duration<double, std::milli>(clock_t::now() - allocStart).count();
-
-		auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
-		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
-		if (!posOut || !normalOut)
-			return {};
-
-		for (size_t i = 0u; i < positions.size(); ++i)
-		{
-			const auto& pos = positions[i];
-			const auto& nrm = normals[i / 3u];
-			posOut[i] = { pos.x, pos.y, pos.z };
-			normalOut[i] = { nrm.x, nrm.y, nrm.z };
-			stlExtendAABB(parsedAABB, hasParsedAABB, posOut[i]);
-		}
 
 		const auto setStart = clock_t::now();
 		geometry->setPositionView(std::move(posView));

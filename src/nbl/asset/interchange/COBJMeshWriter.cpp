@@ -115,30 +115,38 @@ void appendUInt(std::string& out, const uint32_t value)
 		out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
 }
 
-void appendUIntToStorage(std::string& storage, core::vector<SIndexStringRef>& refs, const uint32_t value)
-{
-	std::array<char, 16> buf = {};
-	const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
-	if (res.ec != std::errc())
-	{
-		refs.push_back({});
-		return;
-	}
-
-	const auto len = static_cast<uint16_t>(res.ptr - buf.data());
-	SIndexStringRef ref = {};
-	ref.offset = static_cast<uint32_t>(storage.size());
-	ref.length = len;
-	storage.append(buf.data(), len);
-	refs.push_back(ref);
-}
-
 void appendIndexRef(std::string& out, const std::string& storage, const core::vector<SIndexStringRef>& refs, const uint32_t index)
 {
 	if (index >= refs.size())
 		return;
 	const auto& ref = refs[index];
 	out.append(storage.data() + ref.offset, ref.length);
+}
+
+void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRef>& refs, const uint32_t objIx, const bool hasUVs, const bool hasNormals)
+{
+	SIndexStringRef ref = {};
+	ref.offset = static_cast<uint32_t>(storage.size());
+	appendUInt(storage, objIx);
+	if (hasUVs && hasNormals)
+	{
+		storage.push_back('/');
+		appendUInt(storage, objIx);
+		storage.push_back('/');
+		appendUInt(storage, objIx);
+	}
+	else if (hasUVs)
+	{
+		storage.push_back('/');
+		appendUInt(storage, objIx);
+	}
+	else if (hasNormals)
+	{
+		storage.append("//");
+		appendUInt(storage, objIx);
+	}
+	ref.length = static_cast<uint16_t>(storage.size() - ref.offset);
+	refs.push_back(ref);
 }
 
 void appendFloatFixed6(std::string& out, float value)
@@ -385,34 +393,12 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	core::vector<SIndexStringRef> faceIndexRefs;
 	faceIndexRefs.reserve(vertexCount);
 	std::string faceIndexStorage;
-	faceIndexStorage.reserve(vertexCount * 12ull);
+	faceIndexStorage.reserve(vertexCount * 24ull);
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
 		const uint32_t objIx = static_cast<uint32_t>(i + 1u);
-		appendUIntToStorage(faceIndexStorage, faceIndexRefs, objIx);
+		appendIndexTokenToStorage(faceIndexStorage, faceIndexRefs, objIx, hasUVs, hasNormals);
 	}
-
-	auto appendFaceCorner = [&](const uint32_t ix)->void
-	{
-		appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
-		if (hasUVs && hasNormals)
-		{
-			output.push_back('/');
-			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
-			output.push_back('/');
-			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
-		}
-		else if (hasUVs)
-		{
-			output.push_back('/');
-			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
-		}
-		else if (hasNormals)
-		{
-			output.append("//");
-			appendIndexRef(output, faceIndexStorage, faceIndexRefs, ix);
-		}
-	};
 
 	for (size_t i = 0u; i < faceCount; ++i)
 	{
@@ -427,11 +413,11 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			return false;
 
 		output.append("f ");
-		appendFaceCorner(f0);
+		appendIndexRef(output, faceIndexStorage, faceIndexRefs, f0);
 		output.push_back(' ');
-		appendFaceCorner(f1);
+		appendIndexRef(output, faceIndexStorage, faceIndexRefs, f1);
 		output.push_back(' ');
-		appendFaceCorner(f2);
+		appendIndexRef(output, faceIndexStorage, faceIndexRefs, f2);
 		output.push_back('\n');
 	}
 	formatMs = std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();

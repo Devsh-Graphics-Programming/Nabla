@@ -133,11 +133,13 @@ void appendVec(std::string& out, const double* values, size_t count, bool flipVe
     {
         const bool flip = flipVectors && i == xID;
         appendFloatFixed6(out, flip ? -values[i] : values[i]);
-        out += " ";
+        out.push_back(' ');
     }
 }
 
+bool writeBufferWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, size_t& fileOffset, SFileWriteTelemetry* ioTelemetry = nullptr);
 bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry = nullptr);
+bool writeTwoBuffersWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* dataA, size_t byteCountA, const uint8_t* dataB, size_t byteCountB, SFileWriteTelemetry* ioTelemetry = nullptr);
 bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
 bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
 
@@ -303,24 +305,30 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
 
         const auto binaryEncodeStart = clock_t::now();
-        core::vector<uint8_t> output;
-        output.resize(header.size() + bodySize);
-        if (!header.empty())
-            std::memcpy(output.data(), header.data(), header.size());
-        if (!writeBinary(geom, uvView, writeNormals, vertexCount, indices, faceCount, output.data() + header.size(), flipVectors))
+        core::vector<uint8_t> body;
+        body.resize(bodySize);
+        if (!writeBinary(geom, uvView, writeNormals, vertexCount, indices, faceCount, body.data(), flipVectors))
             return false;
         encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - binaryEncodeStart).count();
 
-        const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
+        const size_t outputSize = header.size() + body.size();
+        const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true);
         if (!ioPlan.valid)
         {
             _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
             return false;
         }
 
-        outputBytes = output.size();
+        outputBytes = outputSize;
         const auto writeStart = clock_t::now();
-        writeOk = writeBufferWithPolicy(file, ioPlan, output.data(), output.size(), &ioTelemetry);
+        writeOk = writeTwoBuffersWithPolicy(
+            file,
+            ioPlan,
+            reinterpret_cast<const uint8_t*>(header.data()),
+            header.size(),
+            body.data(),
+            body.size(),
+            &ioTelemetry);
         writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
 
         const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
@@ -373,20 +381,24 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         return false;
     encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - textEncodeStart).count();
 
-    const auto textFormatStart = clock_t::now();
-    std::string output = header;
-    output += body;
-    formatMs += std::chrono::duration<double, std::milli>(clock_t::now() - textFormatStart).count();
-    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
+    const size_t outputSize = header.size() + body.size();
+    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true);
     if (!ioPlan.valid)
     {
         _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
         return false;
     }
 
-    outputBytes = output.size();
+    outputBytes = outputSize;
     const auto writeStart = clock_t::now();
-    writeOk = writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
+    writeOk = writeTwoBuffersWithPolicy(
+        file,
+        ioPlan,
+        reinterpret_cast<const uint8_t*>(header.data()),
+        header.size(),
+        reinterpret_cast<const uint8_t*>(body.data()),
+        body.size(),
+        &ioTelemetry);
     writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
 
     const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
@@ -432,30 +444,19 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     return writeOk;
 }
 
-bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry)
+bool ply_writer_detail::writeBufferWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, size_t& fileOffset, SFileWriteTelemetry* ioTelemetry)
 {
     if (!file || (!data && byteCount != 0ull))
         return false;
-
-    size_t fileOffset = 0ull;
     switch (ioPlan.strategy)
     {
         case SResolvedFileIOPolicy::Strategy::WholeFile:
         {
-            system::IFile::success_t success;
-            file->write(success, data, fileOffset, byteCount);
-            if (success && ioTelemetry)
-                ioTelemetry->account(success.getBytesProcessed());
-            return success && success.getBytesProcessed() == byteCount;
-        }
-        case SResolvedFileIOPolicy::Strategy::Chunked:
-        default:
-        {
-            while (fileOffset < byteCount)
+            size_t writtenTotal = 0ull;
+            while (writtenTotal < byteCount)
             {
-                const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - fileOffset));
                 system::IFile::success_t success;
-                file->write(success, data + fileOffset, fileOffset, toWrite);
+                file->write(success, data + writtenTotal, fileOffset + writtenTotal, byteCount - writtenTotal);
                 if (!success)
                     return false;
                 const size_t written = success.getBytesProcessed();
@@ -463,11 +464,47 @@ bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolv
                     return false;
                 if (ioTelemetry)
                     ioTelemetry->account(written);
-                fileOffset += written;
+                writtenTotal += written;
             }
+            fileOffset += writtenTotal;
+            return true;
+        }
+        case SResolvedFileIOPolicy::Strategy::Chunked:
+        default:
+        {
+            size_t writtenTotal = 0ull;
+            while (writtenTotal < byteCount)
+            {
+                const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - writtenTotal));
+                system::IFile::success_t success;
+                file->write(success, data + writtenTotal, fileOffset + writtenTotal, toWrite);
+                if (!success)
+                    return false;
+                const size_t written = success.getBytesProcessed();
+                if (written == 0ull)
+                    return false;
+                if (ioTelemetry)
+                    ioTelemetry->account(written);
+                writtenTotal += written;
+            }
+            fileOffset += writtenTotal;
             return true;
         }
     }
+}
+
+bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry)
+{
+    size_t fileOffset = 0ull;
+    return writeBufferWithPolicyAtOffset(file, ioPlan, data, byteCount, fileOffset, ioTelemetry);
+}
+
+bool ply_writer_detail::writeTwoBuffersWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* dataA, size_t byteCountA, const uint8_t* dataB, size_t byteCountB, SFileWriteTelemetry* ioTelemetry)
+{
+    size_t fileOffset = 0ull;
+    if (!writeBufferWithPolicyAtOffset(file, ioPlan, dataA, byteCountA, fileOffset, ioTelemetry))
+        return false;
+    return writeBufferWithPolicyAtOffset(file, ioPlan, dataB, byteCountB, fileOffset, ioTelemetry);
 }
 
 bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors)
@@ -481,16 +518,31 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
     const auto& normalView = geom->getNormalView();
     const hlsl::float32_t3* const tightPos = getTightFloat3View(positionView);
     const hlsl::float32_t3* const tightNormal = writeNormals ? getTightFloat3View(normalView) : nullptr;
-    const hlsl::float32_t2* const tightUV = uvView ? getTightFloat2View(*uvView) : nullptr;
+    const bool hasUV = uvView != nullptr;
+    const hlsl::float32_t2* const tightUV = hasUV ? getTightFloat2View(*uvView) : nullptr;
 
-    hlsl::float64_t4 tmp = {};
-    for (size_t i = 0; i < vertexCount; ++i)
+    if (tightPos && (!writeNormals || tightNormal) && (!hasUV || tightUV) && !flipVectors)
     {
-        if (tightPos && !flipVectors)
+        for (size_t i = 0; i < vertexCount; ++i)
         {
             std::memcpy(dst, tightPos + i, Float3Bytes);
+            dst += Float3Bytes;
+            if (writeNormals)
+            {
+                std::memcpy(dst, tightNormal + i, Float3Bytes);
+                dst += Float3Bytes;
+            }
+            if (hasUV)
+            {
+                std::memcpy(dst, tightUV + i, Float2Bytes);
+                dst += Float2Bytes;
+            }
         }
-        else
+    }
+    else
+    {
+        hlsl::float64_t4 tmp = {};
+        for (size_t i = 0; i < vertexCount; ++i)
         {
             float pos[3] = {};
             if (tightPos)
@@ -510,16 +562,9 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
             if (flipVectors)
                 pos[0] = -pos[0];
             std::memcpy(dst, pos, Float3Bytes);
-        }
-        dst += Float3Bytes;
+            dst += Float3Bytes;
 
-        if (writeNormals)
-        {
-            if (tightNormal && !flipVectors)
-            {
-                std::memcpy(dst, tightNormal + i, Float3Bytes);
-            }
-            else
+            if (writeNormals)
             {
                 float normal[3] = {};
                 if (tightNormal)
@@ -538,28 +583,27 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
                 }
                 if (flipVectors)
                     normal[0] = -normal[0];
-
                 std::memcpy(dst, normal, Float3Bytes);
+                dst += Float3Bytes;
             }
-            dst += Float3Bytes;
-        }
 
-        if (uvView)
-        {
-            if (tightUV)
+            if (hasUV)
             {
-                std::memcpy(dst, tightUV + i, Float2Bytes);
+                if (tightUV)
+                {
+                    std::memcpy(dst, tightUV + i, Float2Bytes);
+                }
+                else
+                {
+                    float uv[2] = {};
+                    if (!decodeVec4(*uvView, i, tmp))
+                        return false;
+                    uv[0] = static_cast<float>(tmp.x);
+                    uv[1] = static_cast<float>(tmp.y);
+                    std::memcpy(dst, uv, Float2Bytes);
+                }
+                dst += Float2Bytes;
             }
-            else
-            {
-                float uv[2] = {};
-                if (!decodeVec4(*uvView, i, tmp))
-                    return false;
-                uv[0] = static_cast<float>(tmp.x);
-                uv[1] = static_cast<float>(tmp.y);
-                std::memcpy(dst, uv, Float2Bytes);
-            }
-            dst += Float2Bytes;
         }
     }
 
@@ -648,13 +692,13 @@ bool ply_writer_detail::writeText(const ICPUPolygonGeometry* geom, const ICPUPol
     for (size_t i = 0; i < faceCount; ++i)
     {
         const uint32_t* tri = indices + (i * 3u);
-        output += "3 ";
+        output.append("3 ");
         appendUInt(output, tri[0]);
-        output += " ";
+        output.push_back(' ');
         appendUInt(output, tri[1]);
-        output += " ";
+        output.push_back(' ');
         appendUInt(output, tri[2]);
-        output += "\n";
+        output.push_back('\n');
     }
     return true;
 }

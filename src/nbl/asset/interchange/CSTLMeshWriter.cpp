@@ -527,19 +527,15 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	};
 
 	const bool hasFastTightPath = (indices == nullptr) && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));
-	if (hasFastTightPath)
+	if (hasFastTightPath && hasNormals)
 	{
-		for (uint32_t primIx = 0u; primIx < facenum; ++primIx)
+		const hlsl::float32_t3* posTri = tightPositions;
+		const hlsl::float32_t3* nrmTri = tightNormals;
+		for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
 		{
-			const uint32_t i0 = primIx * 3u + 0u;
-			const uint32_t i1 = primIx * 3u + 1u;
-			const uint32_t i2 = primIx * 3u + 2u;
-			if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
-				return false;
-
-			const hlsl::float32_t3 vertex1 = tightPositions[i2];
-			const hlsl::float32_t3 vertex2 = tightPositions[i1];
-			const hlsl::float32_t3 vertex3 = tightPositions[i0];
+			const hlsl::float32_t3 vertex1 = posTri[2u];
+			const hlsl::float32_t3 vertex2 = posTri[1u];
+			const hlsl::float32_t3 vertex3 = posTri[0u];
 			const float vertex1x = vertex1.x * handednessSign;
 			const float vertex2x = vertex2.x * handednessSign;
 			const float vertex3x = vertex3.x * handednessSign;
@@ -547,21 +543,18 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 			float normalX = 0.f;
 			float normalY = 0.f;
 			float normalZ = 0.f;
-			if (hasNormals)
+			hlsl::float32_t3 attrNormal = nrmTri[0u];
+			if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
+				attrNormal = nrmTri[1u];
+			if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
+				attrNormal = nrmTri[2u];
+			if (!(attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f))
 			{
-				hlsl::float32_t3 attrNormal = tightNormals[i0];
-				if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
-					attrNormal = tightNormals[i1];
-				if (attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f)
-					attrNormal = tightNormals[i2];
-				if (!(attrNormal.x == 0.f && attrNormal.y == 0.f && attrNormal.z == 0.f))
-				{
-					if (flipHandedness)
-						attrNormal.x = -attrNormal.x;
-					normalX = attrNormal.x;
-					normalY = attrNormal.y;
-					normalZ = attrNormal.z;
-				}
+				if (flipHandedness)
+					attrNormal.x = -attrNormal.x;
+				normalX = attrNormal.x;
+				normalY = attrNormal.y;
+				normalZ = attrNormal.z;
 			}
 
 			if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
@@ -584,6 +577,51 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 					normalY *= invLen;
 					normalZ *= invLen;
 				}
+			}
+
+			const float packedData[12] = {
+				normalX, normalY, normalZ,
+				vertex1x, vertex1.y, vertex1.z,
+				vertex2x, vertex2.y, vertex2.z,
+				vertex3x, vertex3.y, vertex3.z
+			};
+			std::memcpy(dst, packedData, sizeof(packedData));
+			dst += sizeof(packedData);
+
+			const uint16_t color = 0u;
+			std::memcpy(dst, &color, sizeof(color));
+			dst += sizeof(color);
+		}
+	}
+	else if (hasFastTightPath)
+	{
+		const hlsl::float32_t3* posTri = tightPositions;
+		for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u)
+		{
+			const hlsl::float32_t3 vertex1 = posTri[2u];
+			const hlsl::float32_t3 vertex2 = posTri[1u];
+			const hlsl::float32_t3 vertex3 = posTri[0u];
+			const float vertex1x = vertex1.x * handednessSign;
+			const float vertex2x = vertex2.x * handednessSign;
+			const float vertex3x = vertex3.x * handednessSign;
+
+			const float edge21x = vertex2x - vertex1x;
+			const float edge21y = vertex2.y - vertex1.y;
+			const float edge21z = vertex2.z - vertex1.z;
+			const float edge31x = vertex3x - vertex1x;
+			const float edge31y = vertex3.y - vertex1.y;
+			const float edge31z = vertex3.z - vertex1.z;
+
+			float normalX = edge21y * edge31z - edge21z * edge31y;
+			float normalY = edge21z * edge31x - edge21x * edge31z;
+			float normalZ = edge21x * edge31y - edge21y * edge31x;
+			const float planeNormalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+			if (planeNormalLen2 > 0.f)
+			{
+				const float invLen = 1.f / std::sqrt(planeNormalLen2);
+				normalX *= invLen;
+				normalY *= invLen;
+				normalZ *= invLen;
 			}
 
 			const float packedData[12] = {
