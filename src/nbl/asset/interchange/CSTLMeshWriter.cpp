@@ -69,6 +69,14 @@ constexpr size_t BinaryTriangleFloatCount = 12ull;
 constexpr size_t BinaryTriangleFloatBytes = sizeof(float) * BinaryTriangleFloatCount;
 constexpr size_t BinaryTriangleAttributeBytes = sizeof(uint16_t);
 constexpr size_t BinaryTriangleRecordBytes = BinaryTriangleFloatBytes + BinaryTriangleAttributeBytes;
+#pragma pack(push, 1)
+struct SBinaryTriangleRecord
+{
+	float payload[BinaryTriangleFloatCount];
+	uint16_t attribute = 0u;
+};
+#pragma pack(pop)
+static_assert(sizeof(SBinaryTriangleRecord) == BinaryTriangleRecordBytes);
 constexpr size_t BinaryPrefixBytes = BinaryHeaderBytes + BinaryTriangleCountBytes;
 constexpr size_t IoFallbackReserveBytes = 1ull << 20;
 constexpr size_t AsciiFaceTextMaxBytes = 1024ull;
@@ -573,6 +581,20 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		}
 		return normalView.decodeElement(ix, out);
 	};
+	auto writeRecord = [&dst](const float nx, const float ny, const float nz, const float v1x, const float v1y, const float v1z, const float v2x, const float v2y, const float v2z, const float v3x, const float v3y, const float v3z)->void
+	{
+		const stl_writer_detail::SBinaryTriangleRecord record = {
+			{
+				nx, ny, nz,
+				v1x, v1y, v1z,
+				v2x, v2y, v2z,
+				v3x, v3y, v3z
+			},
+			0u
+		};
+		std::memcpy(dst, &record, sizeof(record));
+		dst += sizeof(record);
+	};
 
 	const bool hasFastTightPath = (indices == nullptr) && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));
 	if (hasFastTightPath && hasNormals)
@@ -606,18 +628,11 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 				if (flipHandedness)
 					attrNormal.x = -attrNormal.x;
 
-				const float packedData[12] = {
+				writeRecord(
 					attrNormal.x, attrNormal.y, attrNormal.z,
 					vertex1x, vertex1.y, vertex1.z,
 					vertex2x, vertex2.y, vertex2.z,
-					vertex3x, vertex3.y, vertex3.z
-				};
-				std::memcpy(dst, packedData, sizeof(packedData));
-				dst += sizeof(packedData);
-
-				const uint16_t color = 0u;
-				std::memcpy(dst, &color, sizeof(color));
-				dst += sizeof(color);
+					vertex3x, vertex3.y, vertex3.z);
 			}
 		}
 		else
@@ -670,18 +685,11 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 					}
 				}
 
-				const float packedData[12] = {
+				writeRecord(
 					normalX, normalY, normalZ,
 					vertex1x, vertex1.y, vertex1.z,
 					vertex2x, vertex2.y, vertex2.z,
-					vertex3x, vertex3.y, vertex3.z
-				};
-				std::memcpy(dst, packedData, sizeof(packedData));
-				dst += sizeof(packedData);
-
-				const uint16_t color = 0u;
-				std::memcpy(dst, &color, sizeof(color));
-				dst += sizeof(color);
+					vertex3x, vertex3.y, vertex3.z);
 			}
 		}
 	}
@@ -716,18 +724,11 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 				normalZ *= invLen;
 			}
 
-			const float packedData[12] = {
+			writeRecord(
 				normalX, normalY, normalZ,
 				vertex1x, vertex1.y, vertex1.z,
 				vertex2x, vertex2.y, vertex2.z,
-				vertex3x, vertex3.y, vertex3.z
-			};
-			std::memcpy(dst, packedData, sizeof(packedData));
-			dst += sizeof(packedData);
-
-			const uint16_t color = 0u;
-			std::memcpy(dst, &color, sizeof(color));
-			dst += sizeof(color);
+				vertex3x, vertex3.y, vertex3.z);
 		}
 	}
 	else
@@ -802,18 +803,11 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 				}
 			}
 
-			const float packedData[12] = {
+			writeRecord(
 				normal.x, normal.y, normal.z,
 				vertex1.x, vertex1.y, vertex1.z,
 				vertex2.x, vertex2.y, vertex2.z,
-				vertex3.x, vertex3.y, vertex3.z
-			};
-			std::memcpy(dst, packedData, sizeof(packedData));
-			dst += sizeof(packedData);
-
-			const uint16_t color = 0u;
-			std::memcpy(dst, &color, sizeof(color));
-			dst += sizeof(color);
+				vertex3.x, vertex3.y, vertex3.z);
 		}
 	}
 

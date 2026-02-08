@@ -8,6 +8,7 @@
 #include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
 
+#include <algorithm>
 #include <array>
 #include <nbl/core/string/StringLiteral.h>	
 
@@ -227,15 +228,20 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
 
     auto ext = system::extension_wo_dot(filename);
     auto capableLoadersRng = m_loaders.perFileExt.findRange(ext);
-    // loaders associated with the file's extension tryout
+    core::vector<IAssetLoader*> extensionLoaders;
+    extensionLoaders.reserve(8u);
     for (auto& loader : capableLoadersRng)
     {
-        if (loader.second->isALoadableFileFormat(file.get()) && !(bundle = loader.second->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+        extensionLoaders.push_back(loader.second);
+        if (!(bundle = loader.second->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
             break;
     }
-    for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+    for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr)
     {
-        if ((*loaderItr)->isALoadableFileFormat(file.get()) && !(bundle = (*loaderItr)->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+        auto* loader = loaderItr->get();
+        if (std::find(extensionLoaders.begin(), extensionLoaders.end(), loader) != extensionLoaders.end())
+            continue;
+        if (loader->isALoadableFileFormat(file.get()) && !(bundle = loader->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
             break;
     }
 

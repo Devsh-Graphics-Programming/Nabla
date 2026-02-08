@@ -790,10 +790,11 @@ struct SContext
 			it.ptr += it.stride;
 		}
 	}
-	bool readFace(const SElement& Element, core::vector<uint32_t>& _outIndices, uint32_t& _maxIndex)
+	bool readFace(const SElement& Element, core::vector<uint32_t>& _outIndices, uint32_t& _maxIndex, const uint32_t vertexCount)
 	{
 		if (!IsBinaryFile)
 			getNextLine();
+		const bool hasVertexCount = vertexCount != 0u;
 
 		for (const auto& prop : Element.Properties)
 		{
@@ -809,12 +810,20 @@ struct SContext
 				}
 				if (count > 3u)
 					_outIndices.reserve(_outIndices.size() + static_cast<size_t>(count - 2u) * 3ull);
-				auto emitFan = [&_outIndices, &_maxIndex](auto&& readIndex, const uint32_t faceVertexCount)->void
+				auto emitFan = [&_outIndices, &_maxIndex, hasVertexCount, vertexCount](auto&& readIndex, const uint32_t faceVertexCount)->bool
 				{
 					uint32_t i0 = readIndex();
 					uint32_t i1 = readIndex();
 					uint32_t i2 = readIndex();
-					_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
+					if (hasVertexCount)
+					{
+						if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+							return false;
+					}
+					else
+					{
+						_maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
+					}
 					_outIndices.push_back(i0);
 					_outIndices.push_back(i1);
 					_outIndices.push_back(i2);
@@ -822,12 +831,21 @@ struct SContext
 					for (uint32_t j = 3u; j < faceVertexCount; ++j)
 					{
 						const uint32_t idx = readIndex();
-						_maxIndex = std::max(_maxIndex, idx);
+						if (hasVertexCount)
+						{
+							if (idx >= vertexCount)
+								return false;
+						}
+						else
+						{
+							_maxIndex = std::max(_maxIndex, idx);
+						}
 						_outIndices.push_back(i0);
 						_outIndices.push_back(prev);
 						_outIndices.push_back(idx);
 						prev = idx;
 					}
+					return true;
 				};
 
 				if (IsBinaryFile && !IsWrongEndian && srcIndexFmt == EF_R32_UINT)
@@ -845,7 +863,8 @@ struct SContext
 							ptr += sizeof(v);
 							return v;
 						};
-						emitFan(readIndex, count);
+						if (!emitFan(readIndex, count))
+							return false;
 						StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
 						continue;
 					}
@@ -865,7 +884,8 @@ struct SContext
 							ptr += sizeof(v);
 							return static_cast<uint32_t>(v);
 						};
-						emitFan(readIndex, count);
+						if (!emitFan(readIndex, count))
+							return false;
 						StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
 						continue;
 					}
@@ -875,7 +895,8 @@ struct SContext
 				{
 					return static_cast<uint32_t>(getInt(srcIndexFmt));
 				};
-				emitFan(readIndex, count);
+				if (!emitFan(readIndex, count))
+					return false;
 			}
 			else if (prop.Name == "intensity")
 			{
@@ -919,7 +940,7 @@ struct SContext
 		const bool is32Bit = isSrcU32 || isSrcS32;
 		const size_t indexSize = is32Bit ? sizeof(uint32_t) : sizeof(uint16_t);
 		const bool hasVertexCount = vertexCount != 0u;
-		const bool trackMaxIndex = !hasVertexCount || vertexCount <= std::numeric_limits<uint16_t>::max();
+		const bool trackMaxIndex = !hasVertexCount;
 		const size_t minTriangleRecordSize = sizeof(uint8_t) + indexSize * 3u;
 		if (element.Count > (std::numeric_limits<size_t>::max() / minTriangleRecordSize))
 			return EFastFaceReadResult::Error;
@@ -1752,7 +1773,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				indices.reserve(indices.size() + el.Count * 3u);
 				for (size_t j=0; j<el.Count; ++j)
 				{
-					if (!ctx.readFace(el,indices,maxIndexRead))
+					if (!ctx.readFace(el, indices, maxIndexRead, vertexCount32))
 						return {};
 					++faceCount;
 				}
@@ -1804,7 +1825,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 
 		geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-		if (vertCount <= std::numeric_limits<uint16_t>::max() && maxIndexRead <= std::numeric_limits<uint16_t>::max())
+		const bool canUseU16 = (vertCount != 0u) ? (vertCount <= std::numeric_limits<uint16_t>::max()) : (maxIndexRead <= std::numeric_limits<uint16_t>::max());
+		if (canUseU16)
 		{
 			core::vector<uint16_t> indices16(indices.size());
 			for (size_t i = 0u; i < indices.size(); ++i)
