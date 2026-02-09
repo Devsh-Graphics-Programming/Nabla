@@ -236,14 +236,14 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
         ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
         ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
     {
-        _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+        _override->insertAssetIntoCache(bundle, filename.string(), ctx.params, _hierarchyLevel);
     }
     else if (bundle.getContents().empty())
     {
         bool addToCache;
         bundle = _override->handleLoadFail(addToCache, file.get(), filename.string(), filename.string(), ctx, _hierarchyLevel);
         if (!bundle.getContents().empty() && addToCache)
-            _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+            _override->insertAssetIntoCache(bundle, filename.string(), ctx.params, _hierarchyLevel);
     }            
     return bundle;
 }
