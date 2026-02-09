@@ -190,6 +190,9 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
             }
             
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            m_system->createFile(future, filePath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+            if (auto file=future.acquire())
+                return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
             m_system->createFile(future, filePath, system::IFile::ECF_READ);
             if (auto file=future.acquire())
                 return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);

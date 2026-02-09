@@ -64,7 +64,7 @@ class IGeometryLoader : public IAssetLoader
 				inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override
 				{
 					assert(m_file);
-					auto* const basePtr = reinterpret_cast<const uint8_t*>(m_file->getMappedPointer());
+					auto* const basePtr = reinterpret_cast<const uint8_t*>(static_cast<const system::IFile*>(m_file.get())->getMappedPointer());
 					assert(basePtr && basePtr<=p && p<=basePtr+m_file->getSize());
 				}
 
@@ -73,7 +73,7 @@ class IGeometryLoader : public IAssetLoader
 		};
 		static inline IGeometry<ICPUBuffer>::SDataView createView(const E_FORMAT format, const size_t elementCount, core::smart_refctd_ptr<system::IFile>&& file, const size_t offsetInFile)
 		{
-			if (auto* const basePtr=reinterpret_cast<const uint8_t*>(file->getMappedPointer()); basePtr)
+			if (auto* const basePtr=reinterpret_cast<const uint8_t*>(static_cast<const system::IFile*>(file.get())->getMappedPointer()); basePtr)
 			{
 				auto resource = core::make_smart_refctd_ptr<CFileMemoryResource>(std::move(file));
 				auto* const data = basePtr+offsetInFile;

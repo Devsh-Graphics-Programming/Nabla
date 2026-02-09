@@ -22,7 +22,9 @@
 #include <fast_float/fast_float.h>
 #include <limits>
 #include <string_view>
+#include <thread>
 #include <type_traits>
+#include <vector>
 
 namespace nbl::asset
 {
@@ -244,6 +246,70 @@ ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::flo
 	return view;
 }
 
+void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
+{
+	if (!geometry)
+		return;
+
+	core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+	auto appendViewBuffer = [&buffers](const IGeometry<ICPUBuffer>::SDataView& view) -> void
+	{
+		if (!view || !view.src.buffer)
+			return;
+		for (const auto& existing : buffers)
+		{
+			if (existing.get() == view.src.buffer.get())
+				return;
+		}
+		buffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer));
+	};
+
+	appendViewBuffer(geometry->getPositionView());
+	appendViewBuffer(geometry->getIndexView());
+	appendViewBuffer(geometry->getNormalView());
+	for (const auto& view : *geometry->getAuxAttributeViews())
+		appendViewBuffer(view);
+	for (const auto& view : *geometry->getJointWeightViews())
+	{
+		appendViewBuffer(view.indices);
+		appendViewBuffer(view.weights);
+	}
+	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
+		appendViewBuffer(*jointOBB);
+
+	if (buffers.empty())
+		return;
+
+	const size_t hw = std::thread::hardware_concurrency();
+	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
+	if (workerCount <= 1ull)
+	{
+		for (auto& buffer : buffers)
+			buffer->setContentHash(buffer->computeContentHash());
+		return;
+	}
+
+	std::vector<std::thread> workers;
+	workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
+	auto hashRange = [&buffers](const size_t beginIx, const size_t endIx) -> void
+	{
+		for (size_t i = beginIx; i < endIx; ++i)
+		{
+			auto& buffer = buffers[i];
+			buffer->setContentHash(buffer->computeContentHash());
+		}
+	};
+	for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+	{
+		const size_t begin = (buffers.size() * workerIx) / workerCount;
+		const size_t end = (buffers.size() * (workerIx + 1ull)) / workerCount;
+		workers.emplace_back(hashRange, begin, end);
+	}
+	hashRange(0ull, buffers.size() / workerCount);
+	for (auto& worker : workers)
+		worker.join();
+}
+
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
 {
 	(void)_assetManager;
@@ -298,15 +364,27 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	core::vector<uint8_t> wholeFilePayload;
 	const uint8_t* wholeFileData = nullptr;
+	bool wholeFileDataIsMapped = false;
 	if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
 	{
-		const auto ioStart = clock_t::now();
-		wholeFilePayload.resize(filesize + 1ull);
-		if (!stlReadExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
-			return {};
-		wholeFilePayload[filesize] = 0u;
-		wholeFileData = wholeFilePayload.data();
-		ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+		const auto* constFile = static_cast<const system::IFile*>(context.inner.mainFile);
+		const auto* mapped = reinterpret_cast<const uint8_t*>(constFile->getMappedPointer());
+		if (mapped)
+		{
+			wholeFileData = mapped;
+			wholeFileDataIsMapped = true;
+			context.ioTelemetry.account(filesize);
+		}
+		else
+		{
+			const auto ioStart = clock_t::now();
+			wholeFilePayload.resize(filesize + 1ull);
+			if (!stlReadExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
+				return {};
+			wholeFilePayload[filesize] = 0u;
+			wholeFileData = wholeFilePayload.data();
+			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
+		}
 	}
 
 	bool binary = false;
@@ -367,6 +445,15 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	bool hasParsedAABB = false;
 	uint64_t vertexCount = 0ull;
 
+	if (!binary && wholeFileDataIsMapped)
+	{
+		wholeFilePayload.resize(filesize + 1ull);
+		std::memcpy(wholeFilePayload.data(), wholeFileData, filesize);
+		wholeFilePayload[filesize] = 0u;
+		wholeFileData = wholeFilePayload.data();
+		wholeFileDataIsMapped = false;
+	}
+
 	if (binary)
 	{
 		parsePath = "binary_fast";
@@ -424,107 +511,168 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const uint8_t* const end = cursor + dataSize;
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
 			return {};
-		for (uint64_t tri = 0ull; tri < triangleCount; ++tri)
+		struct SThreadAABB
 		{
-			const uint8_t* const triRecord = cursor;
-			cursor += StlTriangleRecordBytes;
+			bool has = false;
+			float minX = 0.f;
+			float minY = 0.f;
+			float minZ = 0.f;
+			float maxX = 0.f;
+			float maxY = 0.f;
+			float maxZ = 0.f;
+		};
 
-			float normalData[StlFloatChannelsPerVertex] = {};
-			std::memcpy(normalData, triRecord, sizeof(normalData));
-			float normalX = normalData[0];
-			float normalY = normalData[1];
-			float normalZ = normalData[2];
-
-			const size_t base = static_cast<size_t>(tri) * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
-			std::memcpy(posOutFloat + base + 0ull, triRecord + 9ull * sizeof(float), sizeof(normalData));
-			std::memcpy(posOutFloat + base + 3ull, triRecord + 6ull * sizeof(float), sizeof(normalData));
-			std::memcpy(posOutFloat + base + 6ull, triRecord + 3ull * sizeof(float), sizeof(normalData));
-
-			const float vertex0x = posOutFloat[base + 0ull];
-			const float vertex0y = posOutFloat[base + 1ull];
-			const float vertex0z = posOutFloat[base + 2ull];
-			const float vertex1x = posOutFloat[base + 3ull];
-			const float vertex1y = posOutFloat[base + 4ull];
-			const float vertex1z = posOutFloat[base + 5ull];
-			const float vertex2x = posOutFloat[base + 6ull];
-			const float vertex2y = posOutFloat[base + 7ull];
-			const float vertex2z = posOutFloat[base + 8ull];
-			const float normalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
-			if (normalLen2 <= 0.f)
+		const size_t hw = std::thread::hardware_concurrency();
+		const size_t maxWorkersByWork = std::max<size_t>(1ull, static_cast<size_t>(triangleCount / 16384ull));
+		const size_t workerCount = hw ? std::max<size_t>(1ull, std::min(hw, maxWorkersByWork)) : 1ull;
+		std::vector<SThreadAABB> threadAABBs(workerCount);
+		auto parseRange = [&](const size_t workerIx, const uint64_t beginTri, const uint64_t endTri) -> void
+		{
+			const uint8_t* localCursor = payloadData + beginTri * StlTriangleRecordBytes;
+			float* posCursor = posOutFloat + beginTri * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+			float* normalCursor = normalOutFloat + beginTri * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+			auto& localAABB = threadAABBs[workerIx];
+			for (uint64_t tri = beginTri; tri < endTri; ++tri)
 			{
-				const float edge10x = vertex1x - vertex0x;
-				const float edge10y = vertex1y - vertex0y;
-				const float edge10z = vertex1z - vertex0z;
-				const float edge20x = vertex2x - vertex0x;
-				const float edge20y = vertex2y - vertex0y;
-				const float edge20z = vertex2z - vertex0z;
+				const uint8_t* const triRecord = localCursor;
+				localCursor += StlTriangleRecordBytes;
 
-				normalX = edge10y * edge20z - edge10z * edge20y;
-				normalY = edge10z * edge20x - edge10x * edge20z;
-				normalZ = edge10x * edge20y - edge10y * edge20x;
-				const float planeLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
-				if (planeLen2 > 0.f)
+				float normalX = 0.f;
+				float normalY = 0.f;
+				float normalZ = 0.f;
+				std::memcpy(&normalX, triRecord + 0u * sizeof(float), sizeof(float));
+				std::memcpy(&normalY, triRecord + 1u * sizeof(float), sizeof(float));
+				std::memcpy(&normalZ, triRecord + 2u * sizeof(float), sizeof(float));
+
+				std::memcpy(posCursor + 0ull, triRecord + 9ull * sizeof(float), 3ull * sizeof(float));
+				std::memcpy(posCursor + 3ull, triRecord + 6ull * sizeof(float), 3ull * sizeof(float));
+				std::memcpy(posCursor + 6ull, triRecord + 3ull * sizeof(float), 3ull * sizeof(float));
+
+				const float vertex0x = posCursor[0ull];
+				const float vertex0y = posCursor[1ull];
+				const float vertex0z = posCursor[2ull];
+				const float vertex1x = posCursor[3ull];
+				const float vertex1y = posCursor[4ull];
+				const float vertex1z = posCursor[5ull];
+				const float vertex2x = posCursor[6ull];
+				const float vertex2y = posCursor[7ull];
+				const float vertex2z = posCursor[8ull];
+				if (!localAABB.has)
 				{
-					const float invLen = 1.f / std::sqrt(planeLen2);
+					localAABB.minX = vertex0x; localAABB.maxX = vertex0x;
+					localAABB.minY = vertex0y; localAABB.maxY = vertex0y;
+					localAABB.minZ = vertex0z; localAABB.maxZ = vertex0z;
+					localAABB.has = true;
+				}
+				if (vertex0x < localAABB.minX) localAABB.minX = vertex0x;
+				if (vertex0y < localAABB.minY) localAABB.minY = vertex0y;
+				if (vertex0z < localAABB.minZ) localAABB.minZ = vertex0z;
+				if (vertex0x > localAABB.maxX) localAABB.maxX = vertex0x;
+				if (vertex0y > localAABB.maxY) localAABB.maxY = vertex0y;
+				if (vertex0z > localAABB.maxZ) localAABB.maxZ = vertex0z;
+				if (vertex1x < localAABB.minX) localAABB.minX = vertex1x;
+				if (vertex1y < localAABB.minY) localAABB.minY = vertex1y;
+				if (vertex1z < localAABB.minZ) localAABB.minZ = vertex1z;
+				if (vertex1x > localAABB.maxX) localAABB.maxX = vertex1x;
+				if (vertex1y > localAABB.maxY) localAABB.maxY = vertex1y;
+				if (vertex1z > localAABB.maxZ) localAABB.maxZ = vertex1z;
+				if (vertex2x < localAABB.minX) localAABB.minX = vertex2x;
+				if (vertex2y < localAABB.minY) localAABB.minY = vertex2y;
+				if (vertex2z < localAABB.minZ) localAABB.minZ = vertex2z;
+				if (vertex2x > localAABB.maxX) localAABB.maxX = vertex2x;
+				if (vertex2y > localAABB.maxY) localAABB.maxY = vertex2y;
+				if (vertex2z > localAABB.maxZ) localAABB.maxZ = vertex2z;
+				posCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+				const float normalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+				if (normalLen2 <= 0.f)
+				{
+					const float edge10x = vertex1x - vertex0x;
+					const float edge10y = vertex1y - vertex0y;
+					const float edge10z = vertex1z - vertex0z;
+					const float edge20x = vertex2x - vertex0x;
+					const float edge20y = vertex2y - vertex0y;
+					const float edge20z = vertex2z - vertex0z;
+
+					normalX = edge10y * edge20z - edge10z * edge20y;
+					normalY = edge10z * edge20x - edge10x * edge20z;
+					normalZ = edge10x * edge20y - edge10y * edge20x;
+					const float planeLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+					if (planeLen2 > 0.f)
+					{
+						const float invLen = 1.f / std::sqrt(planeLen2);
+						normalX *= invLen;
+						normalY *= invLen;
+						normalZ *= invLen;
+					}
+					else
+					{
+						normalX = 0.f;
+						normalY = 0.f;
+						normalZ = 0.f;
+					}
+				}
+				else if (normalLen2 < 0.9999f || normalLen2 > 1.0001f)
+				{
+					const float invLen = 1.f / std::sqrt(normalLen2);
 					normalX *= invLen;
 					normalY *= invLen;
 					normalZ *= invLen;
 				}
-				else
-				{
-					normalX = 0.f;
-					normalY = 0.f;
-					normalZ = 0.f;
-				}
+
+				normalCursor[0ull] = normalX;
+				normalCursor[1ull] = normalY;
+				normalCursor[2ull] = normalZ;
+				normalCursor[3ull] = normalX;
+				normalCursor[4ull] = normalY;
+				normalCursor[5ull] = normalZ;
+				normalCursor[6ull] = normalX;
+				normalCursor[7ull] = normalY;
+				normalCursor[8ull] = normalZ;
+				normalCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
 			}
-			else if (normalLen2 < 0.9999f || normalLen2 > 1.0001f)
+		};
+
+		if (workerCount > 1ull)
+		{
+			std::vector<std::thread> workers;
+			workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
+			for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
 			{
-				const float invLen = 1.f / std::sqrt(normalLen2);
-				normalX *= invLen;
-				normalY *= invLen;
-				normalZ *= invLen;
+				const uint64_t begin = (triangleCount * workerIx) / workerCount;
+				const uint64_t endTri = (triangleCount * (workerIx + 1ull)) / workerCount;
+				workers.emplace_back(parseRange, workerIx, begin, endTri);
 			}
+			parseRange(0ull, 0ull, triangleCount / workerCount);
+			for (auto& worker : workers)
+				worker.join();
+		}
+		else
+		{
+			parseRange(0ull, 0ull, triangleCount);
+		}
 
-			normalOutFloat[base + 0ull] = normalX;
-			normalOutFloat[base + 1ull] = normalY;
-			normalOutFloat[base + 2ull] = normalZ;
-			normalOutFloat[base + 3ull] = normalX;
-			normalOutFloat[base + 4ull] = normalY;
-			normalOutFloat[base + 5ull] = normalZ;
-			normalOutFloat[base + 6ull] = normalX;
-			normalOutFloat[base + 7ull] = normalY;
-			normalOutFloat[base + 8ull] = normalZ;
-
+		for (const auto& localAABB : threadAABBs)
+		{
+			if (!localAABB.has)
+				continue;
 			if (!hasParsedAABB)
 			{
 				hasParsedAABB = true;
-				parsedAABB.minVx.x = vertex0x;
-				parsedAABB.minVx.y = vertex0y;
-				parsedAABB.minVx.z = vertex0z;
-				parsedAABB.maxVx.x = vertex0x;
-				parsedAABB.maxVx.y = vertex0y;
-				parsedAABB.maxVx.z = vertex0z;
+				parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
+				parsedAABB.minVx.x = localAABB.minX;
+				parsedAABB.minVx.y = localAABB.minY;
+				parsedAABB.minVx.z = localAABB.minZ;
+				parsedAABB.maxVx.x = localAABB.maxX;
+				parsedAABB.maxVx.y = localAABB.maxY;
+				parsedAABB.maxVx.z = localAABB.maxZ;
+				continue;
 			}
-
-			if (vertex0x < parsedAABB.minVx.x) parsedAABB.minVx.x = vertex0x;
-			if (vertex0y < parsedAABB.minVx.y) parsedAABB.minVx.y = vertex0y;
-			if (vertex0z < parsedAABB.minVx.z) parsedAABB.minVx.z = vertex0z;
-			if (vertex1x < parsedAABB.minVx.x) parsedAABB.minVx.x = vertex1x;
-			if (vertex1y < parsedAABB.minVx.y) parsedAABB.minVx.y = vertex1y;
-			if (vertex1z < parsedAABB.minVx.z) parsedAABB.minVx.z = vertex1z;
-			if (vertex2x < parsedAABB.minVx.x) parsedAABB.minVx.x = vertex2x;
-			if (vertex2y < parsedAABB.minVx.y) parsedAABB.minVx.y = vertex2y;
-			if (vertex2z < parsedAABB.minVx.z) parsedAABB.minVx.z = vertex2z;
-
-			if (vertex0x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = vertex0x;
-			if (vertex0y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = vertex0y;
-			if (vertex0z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = vertex0z;
-			if (vertex1x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = vertex1x;
-			if (vertex1y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = vertex1y;
-			if (vertex1z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = vertex1z;
-			if (vertex2x > parsedAABB.maxVx.x) parsedAABB.maxVx.x = vertex2x;
-			if (vertex2y > parsedAABB.maxVx.y) parsedAABB.maxVx.y = vertex2y;
-			if (vertex2z > parsedAABB.maxVx.z) parsedAABB.maxVx.z = vertex2z;
+			if (localAABB.minX < parsedAABB.minVx.x) parsedAABB.minVx.x = localAABB.minX;
+			if (localAABB.minY < parsedAABB.minVx.y) parsedAABB.minVx.y = localAABB.minY;
+			if (localAABB.minZ < parsedAABB.minVx.z) parsedAABB.minVx.z = localAABB.minZ;
+			if (localAABB.maxX > parsedAABB.maxVx.x) parsedAABB.maxVx.x = localAABB.maxX;
+			if (localAABB.maxY > parsedAABB.maxVx.y) parsedAABB.maxVx.y = localAABB.maxY;
+			if (localAABB.maxZ > parsedAABB.maxVx.z) parsedAABB.maxVx.z = localAABB.maxZ;
 		}
 		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
 
@@ -631,7 +779,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		return {};
 
 	const auto hashStart = clock_t::now();
-	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+	stlRecomputeContentHashesParallel(geometry.get());
 	hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 
 	const auto aabbStart = clock_t::now();
@@ -713,21 +861,25 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	if (!_file || _file->getSize() <= StlTextProbeBytes)
 		return false;
 
-	char header[StlTextProbeBytes] = {};
-	if (!stlReadExact(_file, header, 0ull, sizeof(header)))
-		return false;
+	const size_t fileSize = _file->getSize();
+	if (fileSize < StlBinaryPrefixBytes)
+	{
+		char header[StlTextProbeBytes] = {};
+		if (!stlReadExact(_file, header, 0ull, sizeof(header)))
+			return false;
+		return std::strncmp(header, "solid ", StlTextProbeBytes) == 0;
+	}
 
-	if (std::strncmp(header, "solid ", StlTextProbeBytes) == 0)
-		return true;
-
-	if (_file->getSize() < StlBinaryPrefixBytes)
+	std::array<uint8_t, StlBinaryPrefixBytes> prefix = {};
+	if (!stlReadExact(_file, prefix.data(), 0ull, prefix.size()))
 		return false;
 
 	uint32_t triangleCount = 0u;
-	if (!stlReadExact(_file, &triangleCount, StlBinaryHeaderBytes, sizeof(triangleCount)))
-		return false;
+	std::memcpy(&triangleCount, prefix.data() + StlBinaryHeaderBytes, sizeof(triangleCount));
+	if (std::memcmp(prefix.data(), "solid ", StlTextProbeBytes) == 0)
+		return true;
 
-	return _file->getSize() == (StlTriangleRecordBytes * triangleCount + StlBinaryPrefixBytes);
+	return fileSize == (StlTriangleRecordBytes * triangleCount + StlBinaryPrefixBytes);
 }
 
 }

@@ -15,7 +15,6 @@
 #include "COBJMeshFileLoader.h"
 
 #include <algorithm>
-#include <boost/unordered/unordered_flat_map.hpp>
 #include <charconv>
 #include <chrono>
 #include <cstdlib>
@@ -30,27 +29,12 @@ namespace nbl::asset
 namespace
 {
 
-struct ObjVertexKey
+struct ObjVertexDedupNode
 {
-    int32_t pos;
-    int32_t uv;
-    int32_t normal;
-
-    bool operator==(const ObjVertexKey& other) const
-    {
-        return pos == other.pos && uv == other.uv && normal == other.normal;
-    }
-};
-
-struct ObjVertexKeyHash
-{
-    size_t operator()(const ObjVertexKey& key) const noexcept
-    {
-        const uint32_t p = static_cast<uint32_t>(key.pos);
-        const uint32_t t = static_cast<uint32_t>(key.uv);
-        const uint32_t n = static_cast<uint32_t>(key.normal);
-        return static_cast<size_t>((p * 73856093u) ^ (t * 19349663u) ^ (n * 83492791u));
-    }
+    int32_t uv = -1;
+    int32_t normal = -1;
+    uint32_t outIndex = 0u;
+    int32_t next = -1;
 };
 
 struct SFileReadTelemetry
@@ -83,6 +67,76 @@ using Float2 = hlsl::float32_t2;
 
 static_assert(sizeof(Float3) == sizeof(float) * 3ull);
 static_assert(sizeof(Float2) == sizeof(float) * 2ull);
+
+NBL_FORCE_INLINE bool isObjInlineWhitespace(const char c)
+{
+    return c == ' ' || c == '\t' || c == '\v' || c == '\f';
+}
+
+NBL_FORCE_INLINE bool isObjDigit(const char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+NBL_FORCE_INLINE bool parseObjFloat(const char*& ptr, const char* const end, float& out)
+{
+    const char* const start = ptr;
+    if (start >= end)
+        return false;
+
+    auto parseWithFallback = [&]() -> bool
+    {
+        const auto parseResult = fast_float::from_chars(start, end, out);
+        if (parseResult.ec == std::errc() && parseResult.ptr != start)
+        {
+            ptr = parseResult.ptr;
+            return true;
+        }
+        return false;
+    };
+
+    const char* p = start;
+    bool negative = false;
+    if (*p == '-' || *p == '+')
+    {
+        negative = (*p == '-');
+        ++p;
+        if (p >= end)
+            return false;
+    }
+
+    if (*p == '.')
+        return parseWithFallback();
+    if (!isObjDigit(*p))
+        return parseWithFallback();
+
+    uint64_t integerPart = 0ull;
+    while (p < end && isObjDigit(*p))
+    {
+        integerPart = integerPart * 10ull + static_cast<uint64_t>(*p - '0');
+        ++p;
+    }
+
+    double value = static_cast<double>(integerPart);
+    if (p < end && *p == '.')
+    {
+        ++p;
+        double scale = 0.1;
+        while (p < end && isObjDigit(*p))
+        {
+            value += static_cast<double>(*p - '0') * scale;
+            scale *= 0.1;
+            ++p;
+        }
+    }
+
+    if (p < end && (*p == 'e' || *p == 'E'))
+        return parseWithFallback();
+
+    out = static_cast<float>(negative ? -value : value);
+    ptr = p;
+    return true;
+}
 
 void extendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const Float3& p)
 {
@@ -259,7 +313,79 @@ const char* readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
     return bufPtr;
 }
 
-bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
+NBL_FORCE_INLINE bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
+{
+    if (ptr >= end || !isObjDigit(*ptr))
+        return false;
+
+    uint64_t value = 0ull;
+    while (ptr < end && isObjDigit(*ptr))
+    {
+        value = value * 10ull + static_cast<uint64_t>(*ptr - '0');
+        ++ptr;
+    }
+    if (value == 0ull || value > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))
+        return false;
+
+    out = static_cast<uint32_t>(value);
+    return true;
+}
+
+NBL_FORCE_INLINE bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const char* const end, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
+{
+    while (ptr < end && isObjInlineWhitespace(*ptr))
+        ++ptr;
+    if (ptr >= end || !isObjDigit(*ptr))
+        return false;
+
+    uint32_t posRaw = 0u;
+    if (!parseUnsignedObjIndex(ptr, end, posRaw))
+        return false;
+    if (posRaw > posCount)
+        return false;
+
+    if (ptr >= end || *ptr != '/')
+        return false;
+    ++ptr;
+
+    uint32_t uvRaw = 0u;
+    if (!parseUnsignedObjIndex(ptr, end, uvRaw))
+        return false;
+    if (uvRaw > uvCount)
+        return false;
+
+    if (ptr >= end || *ptr != '/')
+        return false;
+    ++ptr;
+
+    uint32_t normalRaw = 0u;
+    if (!parseUnsignedObjIndex(ptr, end, normalRaw))
+        return false;
+    if (normalRaw > normalCount)
+        return false;
+
+    idx[0] = static_cast<int32_t>(posRaw - 1u);
+    idx[1] = static_cast<int32_t>(uvRaw - 1u);
+    idx[2] = static_cast<int32_t>(normalRaw - 1u);
+    return true;
+}
+
+NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
+{
+    const char* ptr = lineStart;
+    if (!parseObjFaceTokenPositiveTriplet(ptr, lineEnd, idx0, posCount, uvCount, normalCount))
+        return false;
+    if (!parseObjFaceTokenPositiveTriplet(ptr, lineEnd, idx1, posCount, uvCount, normalCount))
+        return false;
+    if (!parseObjFaceTokenPositiveTriplet(ptr, lineEnd, idx2, posCount, uvCount, normalCount))
+        return false;
+
+    while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+        ++ptr;
+    return ptr == lineEnd;
+}
+
+NBL_FORCE_INLINE bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
 {
     if (ptr >= end)
         return false;
@@ -275,11 +401,11 @@ bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
         ++ptr;
     }
 
-    if (ptr >= end || !core::isdigit(*ptr))
+    if (ptr >= end || !isObjDigit(*ptr))
         return false;
 
     int64_t value = 0;
-    while (ptr < end && core::isdigit(*ptr))
+    while (ptr < end && isObjDigit(*ptr))
     {
         value = value * 10ll + static_cast<int64_t>(*ptr - '0');
         ++ptr;
@@ -296,7 +422,7 @@ bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
     return true;
 }
 
-bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
+NBL_FORCE_INLINE bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
 {
     if (rawIndex > 0)
     {
@@ -317,12 +443,12 @@ bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t&
     return true;
 }
 
-bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
+NBL_FORCE_INLINE bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     if (!idx)
         return false;
 
-    while (linePtr < lineEnd && core::isspace(*linePtr) && *linePtr != '\n' && *linePtr != '\r')
+    while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
         ++linePtr;
     if (linePtr >= lineEnd)
         return false;
@@ -332,50 +458,95 @@ bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd
     idx[2] = -1;
 
     const char* ptr = linePtr;
-    int32_t raw = 0;
-    if (!parseSignedObjIndex(ptr, lineEnd, raw))
-        return false;
-    if (!resolveObjIndex(raw, posCount, idx[0]))
-        return false;
-
-    if (ptr < lineEnd && *ptr == '/')
+    if (*ptr != '-' && *ptr != '+')
     {
-        ++ptr;
-
-        if (ptr < lineEnd && *ptr != '/')
-        {
-            if (!parseSignedObjIndex(ptr, lineEnd, raw))
-                return false;
-            if (!resolveObjIndex(raw, uvCount, idx[1]))
-                return false;
-        }
+        uint32_t posRaw = 0u;
+        if (!parseUnsignedObjIndex(ptr, lineEnd, posRaw))
+            return false;
+        if (posRaw > posCount)
+            return false;
+        idx[0] = static_cast<int32_t>(posRaw - 1u);
 
         if (ptr < lineEnd && *ptr == '/')
         {
             ++ptr;
-            if (ptr < lineEnd && !core::isspace(*ptr))
+            if (ptr < lineEnd && *ptr != '/')
             {
-                if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                uint32_t uvRaw = 0u;
+                if (!parseUnsignedObjIndex(ptr, lineEnd, uvRaw))
                     return false;
-                if (!resolveObjIndex(raw, normalCount, idx[2]))
+                if (uvRaw > uvCount)
                     return false;
+                idx[1] = static_cast<int32_t>(uvRaw - 1u);
+            }
+
+            if (ptr < lineEnd && *ptr == '/')
+            {
+                ++ptr;
+                if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+                {
+                    uint32_t normalRaw = 0u;
+                    if (!parseUnsignedObjIndex(ptr, lineEnd, normalRaw))
+                        return false;
+                    if (normalRaw > normalCount)
+                        return false;
+                    idx[2] = static_cast<int32_t>(normalRaw - 1u);
+                }
+            }
+            else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+            {
+                return false;
             }
         }
-        else if (ptr < lineEnd && !core::isspace(*ptr))
+        else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
         {
             return false;
         }
     }
-    else if (ptr < lineEnd && !core::isspace(*ptr))
+    else
     {
-        return false;
+        int32_t raw = 0;
+        if (!parseSignedObjIndex(ptr, lineEnd, raw))
+            return false;
+        if (!resolveObjIndex(raw, posCount, idx[0]))
+            return false;
+
+        if (ptr < lineEnd && *ptr == '/')
+        {
+            ++ptr;
+
+            if (ptr < lineEnd && *ptr != '/')
+            {
+                if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                    return false;
+                if (!resolveObjIndex(raw, uvCount, idx[1]))
+                    return false;
+            }
+
+            if (ptr < lineEnd && *ptr == '/')
+            {
+                ++ptr;
+                if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+                {
+                    if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                        return false;
+                    if (!resolveObjIndex(raw, normalCount, idx[2]))
+                        return false;
+                }
+            }
+            else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+            {
+                return false;
+            }
+        }
+        else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+        {
+            return false;
+        }
     }
 
-    if (ptr < lineEnd && !core::isspace(*ptr))
+    if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
         return false;
-    while (ptr < lineEnd && core::isspace(*ptr) && *ptr != '\n' && *ptr != '\r')
-        ++ptr;
-
     linePtr = ptr;
     return true;
 }
@@ -442,12 +613,28 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         return {};
     }
 
-    std::string fileContents;
-    fileContents.resize(static_cast<size_t>(filesize));
-    if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioMs, ioTelemetry))
-        return {};
+    const auto ioStart = clock_t::now();
+    std::string fileContents = {};
+    const char* buf = nullptr;
+    if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+    {
+        const auto* constFile = static_cast<const system::IFile*>(_file);
+        const auto* mapped = reinterpret_cast<const char*>(constFile->getMappedPointer());
+        if (mapped)
+        {
+            buf = mapped;
+            ioTelemetry.account(static_cast<uint64_t>(filesize));
+        }
+    }
+    if (!buf)
+    {
+        fileContents.resize(static_cast<size_t>(filesize));
+        if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioMs, ioTelemetry))
+            return {};
+        buf = fileContents.data();
+    }
+    ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 
-    const char* const buf = fileContents.data();
     const char* const bufEnd = buf + static_cast<size_t>(filesize);
     const char* bufPtr = buf;
 
@@ -459,141 +646,292 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     core::vector<Float3> outNormals;
     core::vector<Float2> outUVs;
     core::vector<uint32_t> indices;
-    boost::unordered_flat_map<ObjVertexKey, uint32_t, ObjVertexKeyHash> vtxMap;
+    core::vector<int32_t> dedupHeadByPos;
+    core::vector<ObjVertexDedupNode> dedupNodes;
+    const size_t estimatedAttributeCount = std::max<size_t>(16ull, static_cast<size_t>(filesize) / 32ull);
+    const size_t estimatedOutVertexCount = std::max<size_t>(estimatedAttributeCount, static_cast<size_t>(filesize) / 20ull);
+    const size_t estimatedOutIndexCount = (estimatedOutVertexCount <= (std::numeric_limits<size_t>::max() / 3ull)) ? (estimatedOutVertexCount * 3ull) : std::numeric_limits<size_t>::max();
+    positions.reserve(estimatedAttributeCount);
+    normals.reserve(estimatedAttributeCount);
+    uvs.reserve(estimatedAttributeCount);
+    outPositions.reserve(estimatedOutVertexCount);
+    outNormals.reserve(estimatedOutVertexCount);
+    outUVs.reserve(estimatedOutVertexCount);
+    if (estimatedOutIndexCount != std::numeric_limits<size_t>::max())
+        indices.reserve(estimatedOutIndexCount);
+    dedupHeadByPos.reserve(estimatedAttributeCount);
+    dedupNodes.reserve(estimatedOutVertexCount);
 
     bool hasNormals = false;
     bool hasUVs = false;
     hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
     bool hasParsedAABB = false;
-    core::vector<uint32_t> faceCorners;
-    faceCorners.reserve(16ull);
-
-    const auto parseStart = clock_t::now();
-    while (bufPtr != bufEnd)
+    auto acquireCornerIndex = [&](const int32_t* idx, uint32_t& outIx)->bool
     {
-        switch (bufPtr[0])
+        if (!idx)
+            return false;
+
+        const int32_t posIx = idx[0];
+        if (posIx < 0 || static_cast<size_t>(posIx) >= positions.size())
+            return false;
+        if (static_cast<size_t>(posIx) >= dedupHeadByPos.size())
+            dedupHeadByPos.resize(positions.size(), -1);
+
+        int32_t nodeIx = dedupHeadByPos[posIx];
+        while (nodeIx >= 0)
         {
-            case 'v':
-                switch (bufPtr[1])
+            const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
+            if (node.uv == idx[1] && node.normal == idx[2])
+            {
+                outIx = node.outIndex;
+                return true;
+            }
+            nodeIx = node.next;
+        }
+
+        outIx = static_cast<uint32_t>(outPositions.size());
+        ObjVertexDedupNode node = {};
+        node.uv = idx[1];
+        node.normal = idx[2];
+        node.outIndex = outIx;
+        node.next = dedupHeadByPos[posIx];
+        dedupNodes.push_back(node);
+        dedupHeadByPos[posIx] = static_cast<int32_t>(dedupNodes.size() - 1ull);
+
+        const auto& srcPos = positions[idx[0]];
+        outPositions.push_back(srcPos);
+        extendAABB(parsedAABB, hasParsedAABB, srcPos);
+
+        Float2 uv(0.f, 0.f);
+        if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
+        {
+            uv = uvs[idx[1]];
+            hasUVs = true;
+        }
+        outUVs.push_back(uv);
+
+        Float3 normal(0.f, 0.f, 1.f);
+        if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
+        {
+            normal = normals[idx[2]];
+            hasNormals = true;
+        }
+        outNormals.push_back(normal);
+        return true;
+    };
+    auto acquireCornerIndexPositiveTriplet = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, uint32_t& outIx)->bool
+    {
+        int32_t nodeIx = dedupHeadByPos[static_cast<size_t>(posIx)];
+        while (nodeIx >= 0)
+        {
+            const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
+            if (node.uv == uvIx && node.normal == normalIx)
+            {
+                outIx = node.outIndex;
+                return true;
+            }
+            nodeIx = node.next;
+        }
+
+        outIx = static_cast<uint32_t>(outPositions.size());
+        ObjVertexDedupNode node = {};
+        node.uv = uvIx;
+        node.normal = normalIx;
+        node.outIndex = outIx;
+        node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
+        dedupNodes.push_back(node);
+        dedupHeadByPos[static_cast<size_t>(posIx)] = static_cast<int32_t>(dedupNodes.size() - 1ull);
+
+        const auto& srcPos = positions[static_cast<size_t>(posIx)];
+        outPositions.push_back(srcPos);
+        extendAABB(parsedAABB, hasParsedAABB, srcPos);
+        outUVs.push_back(uvs[static_cast<size_t>(uvIx)]);
+        outNormals.push_back(normals[static_cast<size_t>(normalIx)]);
+        hasUVs = true;
+        hasNormals = true;
+        return true;
+    };
+    const auto parseStart = clock_t::now();
+    while (bufPtr < bufEnd)
+    {
+        const char* const lineStart = bufPtr;
+        const char* lineTerminator = lineStart;
+        while (lineTerminator < bufEnd && *lineTerminator != '\n' && *lineTerminator != '\r')
+            ++lineTerminator;
+
+        const char* lineEnd = lineTerminator;
+
+        if (lineStart < lineEnd)
+        {
+            if (*lineStart == 'v')
+            {
+                if ((lineStart + 1) < lineEnd && lineStart[1] == ' ')
                 {
-                    case ' ':
+                    Float3 vec{};
+                    const char* ptr = lineStart + 2;
+                    for (uint32_t i = 0u; i < 3u; ++i)
                     {
-                        const auto t = clock_t::now();
-                        Float3 vec{};
-                        bufPtr = readVec3(bufPtr, &vec.x, bufEnd);
-                        positions.push_back(vec);
-                        parseVms += std::chrono::duration<double, std::milli>(clock_t::now() - t).count();
+                        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                            ++ptr;
+                        if (ptr >= lineEnd)
+                            return {};
+                        if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                            return {};
                     }
-                    break;
-                    case 'n':
-                    {
-                        const auto t = clock_t::now();
-                        Float3 vec{};
-                        bufPtr = readVec3(bufPtr, &vec.x, bufEnd);
-                        normals.push_back(vec);
-                        parseVNms += std::chrono::duration<double, std::milli>(clock_t::now() - t).count();
-                    }
-                    break;
-                    case 't':
-                    {
-                        const auto t = clock_t::now();
-                        Float2 vec{};
-                        bufPtr = readUV(bufPtr, &vec.x, bufEnd);
-                        uvs.push_back(vec);
-                        parseVTms += std::chrono::duration<double, std::milli>(clock_t::now() - t).count();
-                    }
-                    break;
-                    default:
-                        break;
+                    positions.push_back(vec);
+                    dedupHeadByPos.push_back(-1);
                 }
-                break;
-            case 'f':
+                else if ((lineStart + 2) < lineEnd && lineStart[1] == 'n' && isObjInlineWhitespace(lineStart[2]))
+                {
+                    Float3 vec{};
+                    const char* ptr = lineStart + 3;
+                    for (uint32_t i = 0u; i < 3u; ++i)
+                    {
+                        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                            ++ptr;
+                        if (ptr >= lineEnd)
+                            return {};
+                        if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                            return {};
+                    }
+                    normals.push_back(vec);
+                }
+                else if ((lineStart + 2) < lineEnd && lineStart[1] == 't' && isObjInlineWhitespace(lineStart[2]))
+                {
+                    Float2 vec{};
+                    const char* ptr = lineStart + 3;
+                    for (uint32_t i = 0u; i < 2u; ++i)
+                    {
+                        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                            ++ptr;
+                        if (ptr >= lineEnd)
+                            return {};
+                        if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                            return {};
+                    }
+                    vec.y = 1.f - vec.y;
+                    uvs.push_back(vec);
+                }
+            }
+            else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
             {
                 if (positions.empty())
                     return {};
                 ++faceCount;
-                if (faceCount == 1u)
+                const size_t posCount = positions.size();
+                const size_t uvCount = uvs.size();
+                const size_t normalCount = normals.size();
+                const char* triLinePtr = lineStart + 1;
+                int32_t triIdx0[3] = { -1, -1, -1 };
+                int32_t triIdx1[3] = { -1, -1, -1 };
+                int32_t triIdx2[3] = { -1, -1, -1 };
+                bool triangleFastPath = parseObjTrianglePositiveTripletLine(lineStart + 1, lineEnd, triIdx0, triIdx1, triIdx2, posCount, uvCount, normalCount);
+                bool parsedFirstThree = triangleFastPath;
+                if (!triangleFastPath)
                 {
-                    const size_t estimatedVertexCount = positions.size() <= (std::numeric_limits<size_t>::max() / 4ull) ? positions.size() * 4ull : positions.size();
-                    vtxMap.reserve(estimatedVertexCount);
-                    outPositions.reserve(estimatedVertexCount);
-                    outNormals.reserve(estimatedVertexCount);
-                    outUVs.reserve(estimatedVertexCount);
-                    const size_t estimatedIndexCount = estimatedVertexCount <= (std::numeric_limits<size_t>::max() / 2ull) ? estimatedVertexCount * 2ull : estimatedVertexCount;
-                    indices.reserve(estimatedIndexCount);
-                }
-
-                const char* endPtr = bufPtr;
-                while (endPtr != bufEnd && *endPtr != '\n' && *endPtr != '\r')
-                    ++endPtr;
-
-                faceCorners.clear();
-
-                const char* linePtr = bufPtr + 1;
-                while (linePtr < endPtr)
-                {
-                    while (linePtr < endPtr && core::isspace(*linePtr) && *linePtr != '\n' && *linePtr != '\r')
-                        ++linePtr;
-                    if (linePtr >= endPtr)
-                        break;
-
-                    const auto tokenParseStart = clock_t::now();
-                    int32_t idx[3] = { -1, -1, -1 };
-                    if (!parseObjFaceVertexTokenFast(linePtr, endPtr, idx, positions.size(), uvs.size(), normals.size()))
-                        return {};
-                    ++faceFastTokenCount;
-
-                    if (idx[0] < 0 || static_cast<size_t>(idx[0]) >= positions.size())
-                        return {};
-                    parseFaceMs += std::chrono::duration<double, std::milli>(clock_t::now() - tokenParseStart).count();
-
-                    const auto dedupStart = clock_t::now();
-                    ObjVertexKey key = { idx[0], idx[1], idx[2] };
-                    const uint32_t candidateIndex = static_cast<uint32_t>(outPositions.size());
-                    auto [it, inserted] = vtxMap.try_emplace(key, candidateIndex);
-                    uint32_t outIx = it->second;
-                    if (inserted)
+                    triLinePtr = lineStart + 1;
+                    parsedFirstThree =
+                        parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx0, posCount, uvCount, normalCount) &&
+                        parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx1, posCount, uvCount, normalCount) &&
+                        parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx2, posCount, uvCount, normalCount);
+                    triangleFastPath = parsedFirstThree;
+                    if (parsedFirstThree)
                     {
-                        const auto& srcPos = positions[idx[0]];
-                        outPositions.push_back(srcPos);
-                        extendAABB(parsedAABB, hasParsedAABB, srcPos);
-
-                        Float2 uv(0.f, 0.f);
-                        if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
-                        {
-                            uv = uvs[idx[1]];
-                            hasUVs = true;
-                        }
-                        outUVs.push_back(uv);
-
-                        Float3 normal(0.f, 0.f, 1.f);
-                        if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
-                        {
-                            normal = normals[idx[2]];
-                            hasNormals = true;
-                        }
-                        outNormals.push_back(normal);
+                        while (triLinePtr < lineEnd && isObjInlineWhitespace(*triLinePtr))
+                            ++triLinePtr;
+                        triangleFastPath = (triLinePtr == lineEnd);
                     }
-                    dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
-
-                    faceCorners.push_back(outIx);
                 }
-
-                const auto emitStart = clock_t::now();
-                for (uint32_t i = 1u; i + 1u < faceCorners.size(); ++i)
+                if (triangleFastPath)
                 {
-                    indices.push_back(faceCorners[i + 1]);
-                    indices.push_back(faceCorners[i]);
-                    indices.push_back(faceCorners[0]);
+                    uint32_t c0 = 0u;
+                    uint32_t c1 = 0u;
+                    uint32_t c2 = 0u;
+                    if (!acquireCornerIndexPositiveTriplet(triIdx0[0], triIdx0[1], triIdx0[2], c0))
+                        return {};
+                    if (!acquireCornerIndexPositiveTriplet(triIdx1[0], triIdx1[1], triIdx1[2], c1))
+                        return {};
+                    if (!acquireCornerIndexPositiveTriplet(triIdx2[0], triIdx2[1], triIdx2[2], c2))
+                        return {};
+                    faceFastTokenCount += 3u;
+                    indices.push_back(c2);
+                    indices.push_back(c1);
+                    indices.push_back(c0);
                 }
-                emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
+                else
+                {
+                    const char* linePtr = lineStart + 1;
+                    uint32_t firstCorner = 0u;
+                    uint32_t previousCorner = 0u;
+                    uint32_t cornerCount = 0u;
+
+                    if (parsedFirstThree)
+                    {
+                        uint32_t c0 = 0u;
+                        uint32_t c1 = 0u;
+                        uint32_t c2 = 0u;
+                        if (!acquireCornerIndex(triIdx0, c0))
+                            return {};
+                        if (!acquireCornerIndex(triIdx1, c1))
+                            return {};
+                        if (!acquireCornerIndex(triIdx2, c2))
+                            return {};
+                        faceFastTokenCount += 3u;
+                        indices.push_back(c2);
+                        indices.push_back(c1);
+                        indices.push_back(c0);
+                        firstCorner = c0;
+                        previousCorner = c2;
+                        cornerCount = 3u;
+                        linePtr = triLinePtr;
+                    }
+
+                    while (linePtr < lineEnd)
+                    {
+                        while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
+                            ++linePtr;
+                        if (linePtr >= lineEnd)
+                            break;
+
+                        int32_t idx[3] = { -1, -1, -1 };
+                        if (!parseObjFaceVertexTokenFast(linePtr, lineEnd, idx, posCount, uvCount, normalCount))
+                            return {};
+                        ++faceFastTokenCount;
+
+                        uint32_t cornerIx = 0u;
+                        if (!acquireCornerIndex(idx, cornerIx))
+                            return {};
+
+                        if (cornerCount == 0u)
+                        {
+                            firstCorner = cornerIx;
+                            ++cornerCount;
+                            continue;
+                        }
+
+                        if (cornerCount == 1u)
+                        {
+                            previousCorner = cornerIx;
+                            ++cornerCount;
+                            continue;
+                        }
+
+                        indices.push_back(cornerIx);
+                        indices.push_back(previousCorner);
+                        indices.push_back(firstCorner);
+                        previousCorner = cornerIx;
+                        ++cornerCount;
+                    }
+                }
             }
-            break;
-            default:
-                break;
         }
 
-        bufPtr = goNextLine(bufPtr, bufEnd);
+        if (lineTerminator >= bufEnd)
+            bufPtr = bufEnd;
+        else if (*lineTerminator == '\r' && (lineTerminator + 1) < bufEnd && lineTerminator[1] == '\n')
+            bufPtr = lineTerminator + 2;
+        else
+            bufPtr = lineTerminator + 1;
     }
     parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
     const double parseScanMs = std::max(0.0, parseMs - (parseVms + parseVNms + parseVTms + parseFaceMs + dedupMs + emitMs));

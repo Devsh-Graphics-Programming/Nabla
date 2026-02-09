@@ -41,6 +41,7 @@ ISystem::SystemInfo CSystemWin32::getSystemInfo() const
 
 core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags)
 {
+	core::bitflag<IFile::E_CREATE_FLAGS> effectiveFlags = flags;
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
 	const DWORD fileAccess = ((flags.value&IFile::ECF_READ) ? FILE_GENERIC_READ:0)|(writeAccess ? FILE_GENERIC_WRITE:0);
 	DWORD shareMode = FILE_SHARE_READ;
@@ -73,38 +74,37 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
         For now it equals the size of a file so it'll work fine for archive reading, but if we try to
         write outside those boungs, things will go bad.
         */
-        _fileMappingObj = CreateFileMappingA(_native,nullptr,writeAccess ? PAGE_READWRITE:PAGE_READONLY, 0, 0, filename.string().c_str());
+        _fileMappingObj = CreateFileMappingA(_native,nullptr,writeAccess ? PAGE_READWRITE:PAGE_READONLY, 0, 0, nullptr);
         if (!_fileMappingObj)
         {
-            CloseHandle(_native);
-            return nullptr;
+            effectiveFlags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
         }
-        DWORD hi = 0;
-        size_t size = GetFileSize(_native,&hi);
-        size |= size_t(hi) << 32ull;
-        switch (flags.value&IFile::ECF_READ_WRITE)
+		else
         {
-            case IFile::ECF_READ:
-                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_READ,0,0,size);
-                break;
-            case IFile::ECF_WRITE:
-                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_WRITE,0,0,size);
-                break;
-            case IFile::ECF_READ_WRITE:
-                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_ALL_ACCESS,0,0,size);
-                break;
-            default:
-                assert(false); // should never happen
-                break;
-        }
-        if (!_mappedPtr)
-        {
-            CloseHandle(_native);
-            CloseHandle(_fileMappingObj);
-            return nullptr;
-        }
+            switch (flags.value&IFile::ECF_READ_WRITE)
+            {
+                case IFile::ECF_READ:
+                    _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_READ,0,0,0);
+                    break;
+                case IFile::ECF_WRITE:
+                    _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_WRITE,0,0,0);
+                    break;
+                case IFile::ECF_READ_WRITE:
+                    _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_ALL_ACCESS,0,0,0);
+                    break;
+                default:
+                    assert(false); // should never happen
+                    break;
+            }
+            if (!_mappedPtr)
+            {
+                CloseHandle(_fileMappingObj);
+                _fileMappingObj = nullptr;
+                effectiveFlags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
+            }
+		}
     }
-    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_native,_fileMappingObj);
+    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),effectiveFlags,_mappedPtr,_native,_fileMappingObj);
 }
 
 bool isDebuggerAttached()

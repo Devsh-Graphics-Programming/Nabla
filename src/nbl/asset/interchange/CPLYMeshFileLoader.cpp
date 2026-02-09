@@ -15,6 +15,8 @@
 #include <limits>
 #include <chrono>
 #include <cstring>
+#include <thread>
+#include <vector>
 #include <fast_float/fast_float.h>
 
 #include "nbl/asset/IAssetManager.h"
@@ -125,6 +127,70 @@ IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU16IndexView(core::vector<uint1
 		}
 	};
 	return view;
+}
+
+void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
+{
+	if (!geometry)
+		return;
+
+	core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+	auto appendViewBuffer = [&buffers](const IGeometry<ICPUBuffer>::SDataView& view) -> void
+	{
+		if (!view || !view.src.buffer)
+			return;
+		for (const auto& existing : buffers)
+		{
+			if (existing.get() == view.src.buffer.get())
+				return;
+		}
+		buffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer));
+	};
+
+	appendViewBuffer(geometry->getPositionView());
+	appendViewBuffer(geometry->getIndexView());
+	appendViewBuffer(geometry->getNormalView());
+	for (const auto& view : *geometry->getAuxAttributeViews())
+		appendViewBuffer(view);
+	for (const auto& view : *geometry->getJointWeightViews())
+	{
+		appendViewBuffer(view.indices);
+		appendViewBuffer(view.weights);
+	}
+	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
+		appendViewBuffer(*jointOBB);
+
+	if (buffers.empty())
+		return;
+
+	const size_t hw = std::thread::hardware_concurrency();
+	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
+	if (workerCount <= 1ull)
+	{
+		for (auto& buffer : buffers)
+			buffer->setContentHash(buffer->computeContentHash());
+		return;
+	}
+
+	std::vector<std::thread> workers;
+	workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
+	auto hashRange = [&buffers](const size_t beginIx, const size_t endIx) -> void
+	{
+		for (size_t i = beginIx; i < endIx; ++i)
+		{
+			auto& buffer = buffers[i];
+			buffer->setContentHash(buffer->computeContentHash());
+		}
+	};
+	for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+	{
+		const size_t begin = (buffers.size() * workerIx) / workerCount;
+		const size_t end = (buffers.size() * (workerIx + 1ull)) / workerCount;
+		workers.emplace_back(hashRange, begin, end);
+	}
+	hashRange(0ull, buffers.size() / workerCount);
+	for (auto& worker : workers)
+		worker.join();
 }
 
 struct SContext
@@ -343,6 +409,24 @@ struct SContext
 		}
 		// return pointer to the start of current word
 		return StartPointer;
+	}
+	size_t getAbsoluteOffset(const char* ptr) const
+	{
+		if (!ptr || ptr > EndPointer)
+			return fileOffset;
+		const size_t trailingBytes = static_cast<size_t>(EndPointer - ptr);
+		return fileOffset >= trailingBytes ? (fileOffset - trailingBytes) : 0ull;
+	}
+	void useMappedBinaryWindow(const char* data, const size_t sizeBytes)
+	{
+		if (!data)
+			return;
+		StartPointer = const_cast<char*>(data);
+		EndPointer = StartPointer + sizeBytes;
+		LineEndPointer = StartPointer - 1;
+		WordLength = -1;
+		EndOfFile = true;
+		fileOffset = inner.mainFile ? inner.mainFile->getSize() : fileOffset;
 	}
 	// skips x bytes in the file, getting more data if required
 	void moveForward(const size_t bytes)
@@ -677,11 +761,21 @@ struct SContext
 			{
 				case ELayoutKind::XYZ:
 				{
-					for (size_t v = 0ull; v < batchVertices; ++v)
+					if (posStride == 3ull * floatBytes)
 					{
-						std::memcpy(posBase, src, 3ull * floatBytes);
-						src += 3ull * floatBytes;
-						posBase += posStride;
+						const size_t batchBytes = batchVertices * 3ull * floatBytes;
+						std::memcpy(posBase, src, batchBytes);
+						src += batchBytes;
+						posBase += batchBytes;
+					}
+					else
+					{
+						for (size_t v = 0ull; v < batchVertices; ++v)
+						{
+							std::memcpy(posBase, src, 3ull * floatBytes);
+							src += 3ull * floatBytes;
+							posBase += posStride;
+						}
 					}
 				}
 				break;
@@ -958,6 +1052,92 @@ struct SContext
 			uint32_t* out = _outIndices.data() + oldSize;
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(StartPointer);
 			bool fallbackToGeneric = false;
+			if (is32Bit)
+			{
+				const size_t hw = std::thread::hardware_concurrency();
+				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (1ull << 20));
+				size_t workerCount = hw ? std::min(hw, maxWorkersByWork) : 1ull;
+				if (workerCount > 1ull)
+				{
+					const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
+					const bool needMax = hasVertexCount || trackMaxIndex;
+					std::vector<uint8_t> workerNonTriangle(workerCount, 0u);
+					std::vector<uint8_t> workerInvalid(workerCount, 0u);
+					std::vector<uint32_t> workerMax(needMax ? workerCount : 0ull, 0u);
+					std::vector<std::thread> workers;
+					workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
+					auto parseChunk = [&](const size_t workerIx, const size_t beginFace, const size_t endFace) -> void
+					{
+						const uint8_t* in = ptr + beginFace * recordBytes;
+						uint32_t* outLocal = out + beginFace * 3ull;
+						uint32_t localMax = 0u;
+						uint32_t localSignBits = 0u;
+						for (size_t faceIx = beginFace; faceIx < endFace; ++faceIx)
+						{
+							if (*in != 3u)
+							{
+								workerNonTriangle[workerIx] = 1u;
+								break;
+							}
+							++in;
+							std::memcpy(outLocal, in, 3ull * sizeof(uint32_t));
+							const uint32_t i0 = outLocal[0];
+							const uint32_t i1 = outLocal[1];
+							const uint32_t i2 = outLocal[2];
+							if (isSrcS32)
+								localSignBits |= (i0 | i1 | i2);
+							if (needMax)
+							{
+								if (i0 > localMax) localMax = i0;
+								if (i1 > localMax) localMax = i1;
+								if (i2 > localMax) localMax = i2;
+							}
+							in += 3ull * sizeof(uint32_t);
+							outLocal += 3ull;
+						}
+						if (isSrcS32 && (localSignBits & 0x80000000u))
+							workerInvalid[workerIx] = 1u;
+						if (hasVertexCount && needMax && localMax >= vertexCount)
+							workerInvalid[workerIx] = 1u;
+						if (needMax)
+							workerMax[workerIx] = localMax;
+					};
+					for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+					{
+						const size_t begin = (element.Count * workerIx) / workerCount;
+						const size_t end = (element.Count * (workerIx + 1ull)) / workerCount;
+						workers.emplace_back(parseChunk, workerIx, begin, end);
+					}
+					parseChunk(0ull, 0ull, element.Count / workerCount);
+					for (auto& worker : workers)
+						worker.join();
+
+					const bool anyNonTriangle = std::any_of(workerNonTriangle.begin(), workerNonTriangle.end(), [](const uint8_t v) { return v != 0u; });
+					if (anyNonTriangle)
+					{
+						_outIndices.resize(oldSize);
+						_maxIndex = oldMaxIndex;
+						return EFastFaceReadResult::NotApplicable;
+					}
+					const bool anyInvalid = std::any_of(workerInvalid.begin(), workerInvalid.end(), [](const uint8_t v) { return v != 0u; });
+					if (anyInvalid)
+					{
+						_outIndices.resize(oldSize);
+						_maxIndex = oldMaxIndex;
+						return EFastFaceReadResult::Error;
+					}
+					if (trackMaxIndex)
+					{
+						for (const uint32_t local : workerMax)
+							if (local > _maxIndex)
+								_maxIndex = local;
+					}
+
+					StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr + element.Count * recordBytes));
+					_faceCount += element.Count;
+					return EFastFaceReadResult::Success;
+				}
+			}
 
 			if (is32Bit)
 			{
@@ -1329,7 +1509,13 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		_hierarchyLevel,
 		_override
 	};
-	const uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + SContext::ReadWindowPaddingBytes) : ioPlan.chunkSizeBytes;
+	uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + SContext::ReadWindowPaddingBytes) : ioPlan.chunkSizeBytes;
+	if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+	{
+		const bool mappedInput = static_cast<const system::IFile*>(_file)->getMappedPointer() != nullptr;
+		if (mappedInput && fileSize > (SContext::DefaultIoReadWindowBytes * 2ull))
+			desiredReadWindow = SContext::DefaultIoReadWindowBytes;
+	}
 	const uint64_t safeReadWindow = std::min<uint64_t>(desiredReadWindow, static_cast<uint64_t>(std::numeric_limits<size_t>::max() - SContext::ReadWindowPaddingBytes));
 	ctx.init(static_cast<size_t>(safeReadWindow));
 
@@ -1472,7 +1658,20 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			readingHeader = false;
 			if (ctx.IsBinaryFile)
-				ctx.StartPointer = ctx.LineEndPointer+1;
+			{
+				char* const binaryStartInBuffer = ctx.LineEndPointer + 1;
+				const auto* const mappedBase = reinterpret_cast<const char*>(static_cast<const system::IFile*>(_file)->getMappedPointer());
+				if (mappedBase)
+				{
+					const size_t binaryOffset = ctx.getAbsoluteOffset(binaryStartInBuffer);
+					const size_t remainingBytes = static_cast<size_t>(binaryOffset < fileSize ? (fileSize - binaryOffset) : 0ull);
+					ctx.useMappedBinaryWindow(mappedBase + binaryOffset, remainingBytes);
+				}
+				else
+				{
+					ctx.StartPointer = binaryStartInBuffer;
+				}
+			}
 		}
 		else
 		{
@@ -1498,6 +1697,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	// loop through each of the elements
 	bool verticesProcessed = false;
+
 	for (uint32_t i=0; i<ctx.ElementList.size(); ++i)
 	{
 		auto& el = ctx.ElementList[i];
@@ -1847,7 +2047,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	indexBuildMs = std::chrono::duration<double, std::milli>(clock_t::now() - indexStart).count();
 
 	const auto hashStart = clock_t::now();
-	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+	plyRecomputeContentHashesParallel(geometry.get());
 	hashRangeMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
