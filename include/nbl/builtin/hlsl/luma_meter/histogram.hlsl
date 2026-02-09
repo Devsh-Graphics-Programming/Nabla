@@ -139,7 +139,6 @@ struct median_meter
         int_t lower, upper;
         if (tid == 0)
         {
-            const uint32_t lowerPercentile = uint32_t(BinCount * lowerBoundPercentile);
             uint32_t lo = 0u;
             uint32_t hi = BinCount;
             int_t v;
@@ -147,7 +146,7 @@ struct median_meter
             {
                 uint32_t mid = lo + (hi - lo) / 2;
                 sdata.template get<uint32_t,uint32_t>(mid, v);
-                if (lowerPercentile <= v)
+                if (lowerBoundPercentile <= v)
                     hi = mid;
                 else
                     lo = mid + 1;
@@ -157,7 +156,6 @@ struct median_meter
         }
         if (tid == 1)
         {
-            const uint32_t upperPercentile = uint32_t(BinCount * upperBoundPercentile);
             uint32_t lo = 0u;
             uint32_t hi = BinCount;
             int_t v;
@@ -165,7 +163,7 @@ struct median_meter
             {
                 uint32_t mid = lo + (hi - lo) / 2;
                 sdata.template get<uint32_t,uint32_t>(mid, v);
-                if (upperPercentile >= v)
+                if (upperBoundPercentile >= v)
                     lo = mid + 1;
                 else
                     hi = mid;
@@ -183,8 +181,8 @@ struct median_meter
 
     float_t lumaMin;
     float_t lumaMax;
-    float_t lowerBoundPercentile;
-    float_t upperBoundPercentile;
+    int_t lowerBoundPercentile;
+    int_t upperBoundPercentile;
 };
 
 }
