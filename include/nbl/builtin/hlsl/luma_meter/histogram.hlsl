@@ -91,8 +91,7 @@ struct median_meter
         NBL_REF_ARG(HistogramAccessor) histo,
         NBL_REF_ARG(TexAccessor) tex,
         NBL_REF_ARG(SharedAccessor) sdata,
-        float_t2 tileOffset,
-        float_t2 viewportSize
+        float_t2 tileOffset
     )
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -106,7 +105,7 @@ struct median_meter
         mc.value = tid;
         uint32_t2 coord = _static_cast<uint32_t2>(mc);
 
-        float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
+        float_t2 shiftedCoord = tileOffset + float32_t2(coord);
         float_t luma = __computeLuma(window, tex, shiftedCoord);
 
         float_t scaledLogLuma = log2(luma / lumaMin) / log2(lumaMax / lumaMin);
