@@ -52,12 +52,11 @@ struct geom_meter
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxWorkgroupIncrement = 0x1000u;
 
-    static this_t create(float_t lumaMin, float_t lumaMax, float_t sampleCount, float_t rcpFirstPassWGCount)
+    static this_t create(float_t lumaMin, float_t lumaMax, float_t rcpFirstPassWGCount)
     {
         this_t retval;
         retval.lumaMin = lumaMin;
         retval.lumaMax = lumaMax;
-        retval.sampleCount = sampleCount;
         retval.rcpFirstPassWGCount = rcpFirstPassWGCount;
         return retval;
     }
@@ -157,7 +156,6 @@ struct geom_meter
 
     float_t lumaMin;
     float_t lumaMax;
-    float_t sampleCount;
     float_t rcpFirstPassWGCount;
 };
 
