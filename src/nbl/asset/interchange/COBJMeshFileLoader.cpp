@@ -464,12 +464,56 @@ NBL_FORCE_INLINE bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const c
 NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     const char* ptr = lineStart;
-    if (!parseObjFaceTokenPositiveTriplet(ptr, lineEnd, idx0, posCount, uvCount, normalCount))
-        return false;
-    if (!parseObjFaceTokenPositiveTriplet(ptr, lineEnd, idx1, posCount, uvCount, normalCount))
-        return false;
-    if (!parseObjFaceTokenPositiveTriplet(ptr, lineEnd, idx2, posCount, uvCount, normalCount))
-        return false;
+    int32_t* const out[3] = { idx0, idx1, idx2 };
+    for (uint32_t corner = 0u; corner < 3u; ++corner)
+    {
+        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+            ++ptr;
+        if (ptr >= lineEnd || !isObjDigit(*ptr))
+            return false;
+
+        uint64_t posRaw = 0ull;
+        while (ptr < lineEnd && isObjDigit(*ptr))
+        {
+            posRaw = posRaw * 10ull + static_cast<uint64_t>(*ptr - '0');
+            ++ptr;
+        }
+        if (posRaw == 0ull || posRaw > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || posRaw > posCount)
+            return false;
+        if (ptr >= lineEnd || *ptr != '/')
+            return false;
+        ++ptr;
+
+        uint64_t uvRaw = 0ull;
+        if (ptr >= lineEnd || !isObjDigit(*ptr))
+            return false;
+        while (ptr < lineEnd && isObjDigit(*ptr))
+        {
+            uvRaw = uvRaw * 10ull + static_cast<uint64_t>(*ptr - '0');
+            ++ptr;
+        }
+        if (uvRaw == 0ull || uvRaw > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || uvRaw > uvCount)
+            return false;
+        if (ptr >= lineEnd || *ptr != '/')
+            return false;
+        ++ptr;
+
+        uint64_t normalRaw = 0ull;
+        if (ptr >= lineEnd || !isObjDigit(*ptr))
+            return false;
+        while (ptr < lineEnd && isObjDigit(*ptr))
+        {
+            normalRaw = normalRaw * 10ull + static_cast<uint64_t>(*ptr - '0');
+            ++ptr;
+        }
+        if (normalRaw == 0ull || normalRaw > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || normalRaw > normalCount)
+            return false;
+
+        int32_t* const dst = out[corner];
+        dst[0] = static_cast<int32_t>(posRaw - 1ull);
+        dst[1] = static_cast<int32_t>(uvRaw - 1ull);
+        dst[2] = static_cast<int32_t>(normalRaw - 1ull);
+    }
 
     while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
         ++ptr;

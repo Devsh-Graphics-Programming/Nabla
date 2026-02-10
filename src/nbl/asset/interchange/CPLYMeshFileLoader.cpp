@@ -15,6 +15,7 @@
 #include <limits>
 #include <chrono>
 #include <cstring>
+#include <execution>
 #include <thread>
 #include <vector>
 #include <fast_float/fast_float.h>
@@ -81,18 +82,12 @@ void plyRunParallelWorkers(const size_t workerCount, Fn&& fn)
 		fn(0ull);
 		return;
 	}
-	std::vector<std::thread> workers;
-	workers.reserve(workerCount - 1ull);
-	for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+	core::vector<size_t> workerIds(workerCount);
+	std::iota(workerIds.begin(), workerIds.end(), 0ull);
+	std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
 	{
-		workers.emplace_back([&fn, workerIx]()
-		{
-			fn(workerIx);
-		});
-	}
-	fn(0ull);
-	for (auto& worker : workers)
-		worker.join();
+		fn(workerIx);
+	});
 }
 
 class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
@@ -237,6 +232,30 @@ void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	}
 	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
 		appendViewBuffer(*jointOBB);
+
+	if (buffers.empty())
+		return;
+
+	uint64_t totalBytes = 0ull;
+	for (const auto& buffer : buffers)
+		totalBytes += static_cast<uint64_t>(buffer->getSize());
+
+	const size_t hw = std::thread::hardware_concurrency();
+	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
+	if (workerCount > 1ull && totalBytes >= (2ull << 20))
+	{
+		plyRunParallelWorkers(workerCount, [&buffers, workerCount](const size_t workerIx)
+		{
+			const size_t beginIx = (buffers.size() * workerIx) / workerCount;
+			const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
+			for (size_t i = beginIx; i < endIx; ++i)
+			{
+				auto& buffer = buffers[i];
+				buffer->setContentHash(buffer->computeContentHash());
+			}
+		});
+		return;
+	}
 
 	for (auto& buffer : buffers)
 		buffer->setContentHash(buffer->computeContentHash());

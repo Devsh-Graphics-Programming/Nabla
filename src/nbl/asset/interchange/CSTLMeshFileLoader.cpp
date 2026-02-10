@@ -337,6 +337,30 @@ void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
 		appendViewBuffer(*jointOBB);
 
+	if (buffers.empty())
+		return;
+
+	uint64_t totalBytes = 0ull;
+	for (const auto& buffer : buffers)
+		totalBytes += static_cast<uint64_t>(buffer->getSize());
+
+	const size_t hw = std::thread::hardware_concurrency();
+	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
+	if (workerCount > 1ull && totalBytes >= (2ull << 20))
+	{
+		stlRunParallelWorkers(workerCount, [&buffers, workerCount](const size_t workerIx)
+		{
+			const size_t beginIx = (buffers.size() * workerIx) / workerCount;
+			const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
+			for (size_t i = beginIx; i < endIx; ++i)
+			{
+				auto& buffer = buffers[i];
+				buffer->setContentHash(buffer->computeContentHash());
+			}
+		});
+		return;
+	}
+
 	for (auto& buffer : buffers)
 		buffer->setContentHash(buffer->computeContentHash());
 }
@@ -642,34 +666,30 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				posCursor[6ull] = vertex2x;
 				posCursor[7ull] = vertex2y;
 				posCursor[8ull] = vertex2z;
+				const float triMinX = std::min(vertex0x, std::min(vertex1x, vertex2x));
+				const float triMinY = std::min(vertex0y, std::min(vertex1y, vertex2y));
+				const float triMinZ = std::min(vertex0z, std::min(vertex1z, vertex2z));
+				const float triMaxX = std::max(vertex0x, std::max(vertex1x, vertex2x));
+				const float triMaxY = std::max(vertex0y, std::max(vertex1y, vertex2y));
+				const float triMaxZ = std::max(vertex0z, std::max(vertex1z, vertex2z));
 				if (!localAABB.has)
 				{
-					localAABB.minX = vertex0x; localAABB.maxX = vertex0x;
-					localAABB.minY = vertex0y; localAABB.maxY = vertex0y;
-					localAABB.minZ = vertex0z; localAABB.maxZ = vertex0z;
+					localAABB.minX = triMinX; localAABB.maxX = triMaxX;
+					localAABB.minY = triMinY; localAABB.maxY = triMaxY;
+					localAABB.minZ = triMinZ; localAABB.maxZ = triMaxZ;
 					localAABB.has = true;
 				}
-				if (vertex0x < localAABB.minX) localAABB.minX = vertex0x;
-				if (vertex0y < localAABB.minY) localAABB.minY = vertex0y;
-				if (vertex0z < localAABB.minZ) localAABB.minZ = vertex0z;
-				if (vertex0x > localAABB.maxX) localAABB.maxX = vertex0x;
-				if (vertex0y > localAABB.maxY) localAABB.maxY = vertex0y;
-				if (vertex0z > localAABB.maxZ) localAABB.maxZ = vertex0z;
-				if (vertex1x < localAABB.minX) localAABB.minX = vertex1x;
-				if (vertex1y < localAABB.minY) localAABB.minY = vertex1y;
-				if (vertex1z < localAABB.minZ) localAABB.minZ = vertex1z;
-				if (vertex1x > localAABB.maxX) localAABB.maxX = vertex1x;
-				if (vertex1y > localAABB.maxY) localAABB.maxY = vertex1y;
-				if (vertex1z > localAABB.maxZ) localAABB.maxZ = vertex1z;
-				if (vertex2x < localAABB.minX) localAABB.minX = vertex2x;
-				if (vertex2y < localAABB.minY) localAABB.minY = vertex2y;
-				if (vertex2z < localAABB.minZ) localAABB.minZ = vertex2z;
-				if (vertex2x > localAABB.maxX) localAABB.maxX = vertex2x;
-				if (vertex2y > localAABB.maxY) localAABB.maxY = vertex2y;
-				if (vertex2z > localAABB.maxZ) localAABB.maxZ = vertex2z;
+				else
+				{
+					if (triMinX < localAABB.minX) localAABB.minX = triMinX;
+					if (triMinY < localAABB.minY) localAABB.minY = triMinY;
+					if (triMinZ < localAABB.minZ) localAABB.minZ = triMinZ;
+					if (triMaxX > localAABB.maxX) localAABB.maxX = triMaxX;
+					if (triMaxY > localAABB.maxY) localAABB.maxY = triMaxY;
+					if (triMaxZ > localAABB.maxZ) localAABB.maxZ = triMaxZ;
+				}
 				posCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
-				const float normalLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
-				if (normalLen2 <= 0.f)
+				if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
 				{
 					const float edge10x = vertex1x - vertex0x;
 					const float edge10y = vertex1y - vertex0y;
@@ -695,13 +715,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 						normalY = 0.f;
 						normalZ = 0.f;
 					}
-				}
-				else if (normalLen2 < 0.9999f || normalLen2 > 1.0001f)
-				{
-					const float invLen = 1.f / std::sqrt(normalLen2);
-					normalX *= invLen;
-					normalY *= invLen;
-					normalZ *= invLen;
 				}
 
 				normalCursor[0ull] = normalX;
