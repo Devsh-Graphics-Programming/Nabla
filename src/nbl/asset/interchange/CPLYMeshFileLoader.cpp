@@ -15,10 +15,12 @@
 #include <limits>
 #include <chrono>
 #include <cstring>
+#include <atomic>
 #include <execution>
 #include <thread>
 #include <vector>
 #include <fast_float/fast_float.h>
+#include "nbl/core/hash/blake.h"
 
 #include "nbl/asset/IAssetManager.h"
 
@@ -1095,7 +1097,15 @@ struct SContext
 		Error
 	};
 
-	EFastFaceReadResult readFaceElementFast(const SElement& element, core::vector<uint32_t>& _outIndices, uint32_t& _maxIndex, uint64_t& _faceCount, const uint32_t vertexCount)
+	EFastFaceReadResult readFaceElementFast(
+		const SElement& element,
+		core::vector<uint32_t>& _outIndices,
+		uint32_t& _maxIndex,
+		uint64_t& _faceCount,
+		const uint32_t vertexCount,
+		const bool computeIndexHash,
+		core::blake3_hash_t& outIndexHash,
+		double& outIndexHashMs)
 	{
 		if (!IsBinaryFile || IsWrongEndian)
 			return EFastFaceReadResult::NotApplicable;
@@ -1120,6 +1130,7 @@ struct SContext
 		const size_t indexSize = is32Bit ? sizeof(uint32_t) : sizeof(uint16_t);
 		const bool hasVertexCount = vertexCount != 0u;
 		const bool trackMaxIndex = !hasVertexCount;
+		outIndexHash = IPreHashed::INVALID_HASH;
 		const size_t minTriangleRecordSize = sizeof(uint8_t) + indexSize * 3u;
 		if (element.Count > (std::numeric_limits<size_t>::max() / minTriangleRecordSize))
 			return EFastFaceReadResult::Error;
@@ -1154,6 +1165,45 @@ struct SContext
 					std::vector<uint8_t> workerNonTriangle(workerCount, 0u);
 					std::vector<uint8_t> workerInvalid(workerCount, 0u);
 					std::vector<uint32_t> workerMax(needMax ? workerCount : 0ull, 0u);
+					const bool hashInParsePipeline = computeIndexHash;
+					std::vector<uint8_t> workerReady(hashInParsePipeline ? workerCount : 0ull, 0u);
+					std::vector<uint8_t> workerHashable(hashInParsePipeline ? workerCount : 0ull, 1u);
+					std::atomic_bool hashPipelineOk = true;
+					core::blake3_hash_t parsedIndexHash = IPreHashed::INVALID_HASH;
+					std::jthread hashThread;
+					if (hashInParsePipeline)
+					{
+						hashThread = std::jthread([&]()
+						{
+							try
+							{
+								core::blake3_hasher hasher;
+								const auto hashStart = std::chrono::high_resolution_clock::now();
+								for (size_t workerIx = 0ull; workerIx < workerCount; ++workerIx)
+								{
+									auto ready = std::atomic_ref<uint8_t>(workerReady[workerIx]);
+									while (ready.load(std::memory_order_acquire) == 0u)
+										std::this_thread::yield();
+									if (workerHashable[workerIx] == 0u)
+									{
+										hashPipelineOk.store(false, std::memory_order_relaxed);
+										return;
+									}
+
+									const size_t begin = (element.Count * workerIx) / workerCount;
+									const size_t end = (element.Count * (workerIx + 1ull)) / workerCount;
+									const size_t faceCount = end - begin;
+									hasher.update(out + begin * 3ull, faceCount * 3ull * sizeof(uint32_t));
+								}
+								outIndexHashMs += std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - hashStart).count();
+								parsedIndexHash = static_cast<core::blake3_hash_t>(hasher);
+							}
+							catch (...)
+							{
+								hashPipelineOk.store(false, std::memory_order_relaxed);
+							}
+						});
+					}
 					auto parseChunk = [&](const size_t workerIx, const size_t beginFace, const size_t endFace) -> void
 					{
 						const uint8_t* in = ptr + beginFace * recordBytes;
@@ -1164,6 +1214,8 @@ struct SContext
 							if (*in != 3u)
 							{
 								workerNonTriangle[workerIx] = 1u;
+								if (hashInParsePipeline)
+									workerHashable[workerIx] = 0u;
 								break;
 							}
 							++in;
@@ -1175,6 +1227,8 @@ struct SContext
 							if (isSrcS32 && (triOr & 0x80000000u))
 							{
 								workerInvalid[workerIx] = 1u;
+								if (hashInParsePipeline)
+									workerHashable[workerIx] = 0u;
 								break;
 							}
 							if (validateAgainstVertexCount)
@@ -1182,6 +1236,8 @@ struct SContext
 								if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
 								{
 									workerInvalid[workerIx] = 1u;
+									if (hashInParsePipeline)
+										workerHashable[workerIx] = 0u;
 									break;
 								}
 							}
@@ -1196,6 +1252,8 @@ struct SContext
 						}
 						if (needMax)
 							workerMax[workerIx] = localMax;
+						if (hashInParsePipeline)
+							std::atomic_ref<uint8_t>(workerReady[workerIx]).store(1u, std::memory_order_release);
 					};
 					plyRunParallelWorkers(workerCount, [&](const size_t workerIx)
 					{
@@ -1203,6 +1261,8 @@ struct SContext
 						const size_t end = (element.Count * (workerIx + 1ull)) / workerCount;
 						parseChunk(workerIx, begin, end);
 					});
+					if (hashThread.joinable())
+						hashThread.join();
 
 					const bool anyNonTriangle = std::any_of(workerNonTriangle.begin(), workerNonTriangle.end(), [](const uint8_t v) { return v != 0u; });
 					if (anyNonTriangle)
@@ -1224,6 +1284,8 @@ struct SContext
 							if (local > _maxIndex)
 								_maxIndex = local;
 					}
+					if (hashInParsePipeline && hashPipelineOk.load(std::memory_order_relaxed))
+						outIndexHash = parsedIndexHash;
 
 					StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr + element.Count * recordBytes));
 					_faceCount += element.Count;
@@ -1588,6 +1650,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	uint64_t fastFaceElementCount = 0u;
 	uint64_t fastVertexElementCount = 0u;
 	uint32_t maxIndexRead = 0u;
+	core::blake3_hash_t precomputedIndexHash = IPreHashed::INVALID_HASH;
 	const uint64_t fileSize = _file->getSize();
 	const bool hashInBuild = computeContentHashes && (fileSize <= (1ull << 20));
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true);
@@ -2150,7 +2213,15 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			const auto faceStart = clock_t::now();
 			const uint32_t vertexCount32 = vertCount <= static_cast<size_t>(std::numeric_limits<uint32_t>::max()) ? static_cast<uint32_t>(vertCount) : 0u;
-			const auto fastFaceResult = ctx.readFaceElementFast(el,indices,maxIndexRead,faceCount,vertexCount32);
+			const auto fastFaceResult = ctx.readFaceElementFast(
+				el,
+				indices,
+				maxIndexRead,
+				faceCount,
+				vertexCount32,
+				computeContentHashes && !hashInBuild,
+				precomputedIndexHash,
+				hashRangeMs);
 			if (fastFaceResult == SContext::EFastFaceReadResult::Success)
 			{
 				++fastFaceElementCount;
@@ -2229,6 +2300,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			auto view = plyCreateAdoptedU32IndexView(std::move(indices));
 			if (!view)
 				return {};
+			if (precomputedIndexHash != IPreHashed::INVALID_HASH)
+				view.src.buffer->setContentHash(precomputedIndexHash);
 			geometry->setIndexView(std::move(view));
 			hashViewBufferIfNeeded(geometry->getIndexView());
 		}

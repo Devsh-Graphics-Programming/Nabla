@@ -646,7 +646,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount : 0ull);
 		const uint64_t targetChunkCount = std::max<uint64_t>(1ull, static_cast<uint64_t>(workerCount) * 4ull);
 		const uint64_t dynamicChunkTriangles = (triangleCount + targetChunkCount - 1ull) / targetChunkCount;
-		const uint64_t parseChunkTriangles = std::clamp<uint64_t>(dynamicChunkTriangles, 1024ull, 8192ull);
+		const uint64_t parseChunkTriangles = std::clamp<uint64_t>(dynamicChunkTriangles, 4096ull, 16384ull);
 		const size_t parseChunkCount = static_cast<size_t>((triangleCount + parseChunkTriangles - 1ull) / parseChunkTriangles);
 		const bool hashInParsePipeline = computeContentHashes;
 		std::vector<uint8_t> hashChunkReady(hashInParsePipeline ? parseChunkCount : 0ull, 0u);
