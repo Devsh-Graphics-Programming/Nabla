@@ -84,17 +84,6 @@ NBL_FORCE_INLINE bool parseObjFloat(const char*& ptr, const char* const end, flo
     if (start >= end)
         return false;
 
-    auto parseWithFallback = [&]() -> bool
-    {
-        const auto parseResult = fast_float::from_chars(start, end, out);
-        if (parseResult.ec == std::errc() && parseResult.ptr != start)
-        {
-            ptr = parseResult.ptr;
-            return true;
-        }
-        return false;
-    };
-
     const char* p = start;
     bool negative = false;
     if (*p == '-' || *p == '+')
@@ -105,10 +94,16 @@ NBL_FORCE_INLINE bool parseObjFloat(const char*& ptr, const char* const end, flo
             return false;
     }
 
-    if (*p == '.')
-        return parseWithFallback();
-    if (!isObjDigit(*p))
-        return parseWithFallback();
+    if (*p == '.' || !isObjDigit(*p))
+    {
+        const auto parseResult = fast_float::from_chars(start, end, out);
+        if (parseResult.ec == std::errc() && parseResult.ptr != start)
+        {
+            ptr = parseResult.ptr;
+            return true;
+        }
+        return false;
+    }
 
     uint64_t integerPart = 0ull;
     while (p < end && isObjDigit(*p))
@@ -120,18 +115,79 @@ NBL_FORCE_INLINE bool parseObjFloat(const char*& ptr, const char* const end, flo
     double value = static_cast<double>(integerPart);
     if (p < end && *p == '.')
     {
+        const char* const dot = p;
+        if ((dot + 7) <= end)
+        {
+            const char d0 = dot[1];
+            const char d1 = dot[2];
+            const char d2 = dot[3];
+            const char d3 = dot[4];
+            const char d4 = dot[5];
+            const char d5 = dot[6];
+            if (
+                isObjDigit(d0) && isObjDigit(d1) && isObjDigit(d2) &&
+                isObjDigit(d3) && isObjDigit(d4) && isObjDigit(d5)
+            )
+            {
+                const bool hasNext = (dot + 7) < end;
+                const char next = hasNext ? dot[7] : '\0';
+                if ((!hasNext || !isObjDigit(next)) && (!hasNext || (next != 'e' && next != 'E')))
+                {
+                    const uint32_t frac =
+                        static_cast<uint32_t>(d0 - '0') * 100000u +
+                        static_cast<uint32_t>(d1 - '0') * 10000u +
+                        static_cast<uint32_t>(d2 - '0') * 1000u +
+                        static_cast<uint32_t>(d3 - '0') * 100u +
+                        static_cast<uint32_t>(d4 - '0') * 10u +
+                        static_cast<uint32_t>(d5 - '0');
+                    value += static_cast<double>(frac) * 1e-6;
+                    p = dot + 7;
+                    out = static_cast<float>(negative ? -value : value);
+                    ptr = p;
+                    return true;
+                }
+            }
+        }
+
+        static constexpr double InvPow10[] = {
+            1.0,
+            1e-1, 1e-2, 1e-3, 1e-4, 1e-5,
+            1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
+            1e-11, 1e-12, 1e-13, 1e-14, 1e-15,
+            1e-16, 1e-17, 1e-18
+        };
         ++p;
-        double scale = 0.1;
+        uint64_t fractionPart = 0ull;
+        uint32_t fractionDigits = 0u;
         while (p < end && isObjDigit(*p))
         {
-            value += static_cast<double>(*p - '0') * scale;
-            scale *= 0.1;
+            if (fractionDigits >= (std::size(InvPow10) - 1u))
+            {
+                const auto parseResult = fast_float::from_chars(start, end, out);
+                if (parseResult.ec == std::errc() && parseResult.ptr != start)
+                {
+                    ptr = parseResult.ptr;
+                    return true;
+                }
+                return false;
+            }
+            fractionPart = fractionPart * 10ull + static_cast<uint64_t>(*p - '0');
+            ++fractionDigits;
             ++p;
         }
+        value += static_cast<double>(fractionPart) * InvPow10[fractionDigits];
     }
 
     if (p < end && (*p == 'e' || *p == 'E'))
-        return parseWithFallback();
+    {
+        const auto parseResult = fast_float::from_chars(start, end, out);
+        if (parseResult.ec == std::errc() && parseResult.ptr != start)
+        {
+            ptr = parseResult.ptr;
+            return true;
+        }
+        return false;
+    }
 
     out = static_cast<float>(negative ? -value : value);
     ptr = p;
@@ -654,13 +710,56 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     positions.reserve(estimatedAttributeCount);
     normals.reserve(estimatedAttributeCount);
     uvs.reserve(estimatedAttributeCount);
-    outPositions.reserve(estimatedOutVertexCount);
-    outNormals.reserve(estimatedOutVertexCount);
-    outUVs.reserve(estimatedOutVertexCount);
-    if (estimatedOutIndexCount != std::numeric_limits<size_t>::max())
-        indices.reserve(estimatedOutIndexCount);
+    const size_t initialOutVertexCapacity = std::max<size_t>(1ull, estimatedOutVertexCount);
+    const size_t initialOutIndexCapacity = (estimatedOutIndexCount == std::numeric_limits<size_t>::max()) ? 3ull : std::max<size_t>(3ull, estimatedOutIndexCount);
+    outPositions.resize(initialOutVertexCapacity);
+    outNormals.resize(initialOutVertexCapacity);
+    outUVs.resize(initialOutVertexCapacity);
+    indices.resize(initialOutIndexCapacity);
     dedupHeadByPos.reserve(estimatedAttributeCount);
-    dedupNodes.reserve(estimatedOutVertexCount);
+    dedupNodes.resize(initialOutVertexCapacity);
+    size_t outVertexWriteCount = 0ull;
+    size_t outIndexWriteCount = 0ull;
+    size_t dedupNodeCount = 0ull;
+
+    auto allocateOutVertex = [&](uint32_t& outIx) -> bool
+    {
+        if (outVertexWriteCount >= outPositions.size())
+        {
+            const size_t newCapacity = std::max<size_t>(outVertexWriteCount + 1ull, outPositions.size() * 2ull);
+            outPositions.resize(newCapacity);
+            outNormals.resize(newCapacity);
+            outUVs.resize(newCapacity);
+        }
+        if (outVertexWriteCount > static_cast<size_t>(std::numeric_limits<uint32_t>::max()))
+            return false;
+        outIx = static_cast<uint32_t>(outVertexWriteCount++);
+        return true;
+    };
+
+    auto appendIndex = [&](const uint32_t value) -> bool
+    {
+        if (outIndexWriteCount >= indices.size())
+        {
+            const size_t newCapacity = std::max<size_t>(outIndexWriteCount + 1ull, indices.size() * 2ull);
+            indices.resize(newCapacity);
+        }
+        indices[outIndexWriteCount++] = value;
+        return true;
+    };
+
+    auto allocateDedupNode = [&]() -> int32_t
+    {
+        if (dedupNodeCount >= dedupNodes.size())
+        {
+            const size_t newCapacity = std::max<size_t>(dedupNodeCount + 1ull, dedupNodes.size() * 2ull);
+            dedupNodes.resize(newCapacity);
+        }
+        if (dedupNodeCount > static_cast<size_t>(std::numeric_limits<int32_t>::max()))
+            return -1;
+        const int32_t ix = static_cast<int32_t>(dedupNodeCount++);
+        return ix;
+    };
 
     bool hasNormals = false;
     bool hasUVs = false;
@@ -689,17 +788,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             nodeIx = node.next;
         }
 
-        outIx = static_cast<uint32_t>(outPositions.size());
-        ObjVertexDedupNode node = {};
+        if (!allocateOutVertex(outIx))
+            return false;
+        const int32_t newNodeIx = allocateDedupNode();
+        if (newNodeIx < 0)
+            return false;
+        auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
         node.uv = idx[1];
         node.normal = idx[2];
         node.outIndex = outIx;
         node.next = dedupHeadByPos[posIx];
-        dedupNodes.push_back(node);
-        dedupHeadByPos[posIx] = static_cast<int32_t>(dedupNodes.size() - 1ull);
+        dedupHeadByPos[posIx] = newNodeIx;
 
         const auto& srcPos = positions[idx[0]];
-        outPositions.push_back(srcPos);
+        outPositions[static_cast<size_t>(outIx)] = srcPos;
         extendAABB(parsedAABB, hasParsedAABB, srcPos);
 
         Float2 uv(0.f, 0.f);
@@ -708,7 +810,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             uv = uvs[idx[1]];
             hasUVs = true;
         }
-        outUVs.push_back(uv);
+        outUVs[static_cast<size_t>(outIx)] = uv;
 
         Float3 normal(0.f, 0.f, 1.f);
         if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
@@ -716,7 +818,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             normal = normals[idx[2]];
             hasNormals = true;
         }
-        outNormals.push_back(normal);
+        outNormals[static_cast<size_t>(outIx)] = normal;
         return true;
     };
     auto acquireCornerIndexPositiveTriplet = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, uint32_t& outIx)->bool
@@ -733,211 +835,250 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             nodeIx = node.next;
         }
 
-        outIx = static_cast<uint32_t>(outPositions.size());
-        ObjVertexDedupNode node = {};
+        if (!allocateOutVertex(outIx))
+            return false;
+        const int32_t newNodeIx = allocateDedupNode();
+        if (newNodeIx < 0)
+            return false;
+        auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
         node.uv = uvIx;
         node.normal = normalIx;
         node.outIndex = outIx;
         node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
-        dedupNodes.push_back(node);
-        dedupHeadByPos[static_cast<size_t>(posIx)] = static_cast<int32_t>(dedupNodes.size() - 1ull);
+        dedupHeadByPos[static_cast<size_t>(posIx)] = newNodeIx;
 
         const auto& srcPos = positions[static_cast<size_t>(posIx)];
-        outPositions.push_back(srcPos);
+        outPositions[static_cast<size_t>(outIx)] = srcPos;
         extendAABB(parsedAABB, hasParsedAABB, srcPos);
-        outUVs.push_back(uvs[static_cast<size_t>(uvIx)]);
-        outNormals.push_back(normals[static_cast<size_t>(normalIx)]);
+        outUVs[static_cast<size_t>(outIx)] = uvs[static_cast<size_t>(uvIx)];
+        outNormals[static_cast<size_t>(outIx)] = normals[static_cast<size_t>(normalIx)];
         hasUVs = true;
         hasNormals = true;
         return true;
     };
+
+    const bool trackStages =
+        _params.logger.get() != nullptr &&
+        ((_params.logger.get()->getLogLevelMask() & system::ILogger::ELL_PERFORMANCE).value != 0u);
     const auto parseStart = clock_t::now();
     while (bufPtr < bufEnd)
     {
-        const char* const lineStart = bufPtr;
-        const char* lineTerminator = lineStart;
-        while (lineTerminator < bufEnd && *lineTerminator != '\n' && *lineTerminator != '\r')
-            ++lineTerminator;
+            const char* const lineStart = bufPtr;
+            const char* lineTerminator = lineStart;
+            while (lineTerminator < bufEnd && *lineTerminator != '\n' && *lineTerminator != '\r')
+                ++lineTerminator;
 
-        const char* lineEnd = lineTerminator;
+            const char* lineEnd = lineTerminator;
 
-        if (lineStart < lineEnd)
-        {
-            if (*lineStart == 'v')
+            if (lineStart < lineEnd)
             {
-                if ((lineStart + 1) < lineEnd && lineStart[1] == ' ')
+                if (*lineStart == 'v')
                 {
-                    Float3 vec{};
-                    const char* ptr = lineStart + 2;
-                    for (uint32_t i = 0u; i < 3u; ++i)
+                    if ((lineStart + 1) < lineEnd && lineStart[1] == ' ')
                     {
-                        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
-                            ++ptr;
-                        if (ptr >= lineEnd)
-                            return {};
-                        if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
-                            return {};
+                        const auto stageStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                        Float3 vec{};
+                        const char* ptr = lineStart + 2;
+                        for (uint32_t i = 0u; i < 3u; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd)
+                                return {};
+                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                                return {};
+                        }
+                        positions.push_back(vec);
+                        dedupHeadByPos.push_back(-1);
+                        if (trackStages)
+                            parseVms += std::chrono::duration<double, std::milli>(clock_t::now() - stageStart).count();
                     }
-                    positions.push_back(vec);
-                    dedupHeadByPos.push_back(-1);
-                }
-                else if ((lineStart + 2) < lineEnd && lineStart[1] == 'n' && isObjInlineWhitespace(lineStart[2]))
-                {
-                    Float3 vec{};
-                    const char* ptr = lineStart + 3;
-                    for (uint32_t i = 0u; i < 3u; ++i)
+                    else if ((lineStart + 2) < lineEnd && lineStart[1] == 'n' && isObjInlineWhitespace(lineStart[2]))
                     {
-                        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
-                            ++ptr;
-                        if (ptr >= lineEnd)
-                            return {};
-                        if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
-                            return {};
+                        const auto stageStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                        Float3 vec{};
+                        const char* ptr = lineStart + 3;
+                        for (uint32_t i = 0u; i < 3u; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd)
+                                return {};
+                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                                return {};
+                        }
+                        normals.push_back(vec);
+                        if (trackStages)
+                            parseVNms += std::chrono::duration<double, std::milli>(clock_t::now() - stageStart).count();
                     }
-                    normals.push_back(vec);
-                }
-                else if ((lineStart + 2) < lineEnd && lineStart[1] == 't' && isObjInlineWhitespace(lineStart[2]))
-                {
-                    Float2 vec{};
-                    const char* ptr = lineStart + 3;
-                    for (uint32_t i = 0u; i < 2u; ++i)
+                    else if ((lineStart + 2) < lineEnd && lineStart[1] == 't' && isObjInlineWhitespace(lineStart[2]))
                     {
-                        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
-                            ++ptr;
-                        if (ptr >= lineEnd)
-                            return {};
-                        if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
-                            return {};
-                    }
-                    vec.y = 1.f - vec.y;
-                    uvs.push_back(vec);
-                }
-            }
-            else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
-            {
-                if (positions.empty())
-                    return {};
-                ++faceCount;
-                const size_t posCount = positions.size();
-                const size_t uvCount = uvs.size();
-                const size_t normalCount = normals.size();
-                const char* triLinePtr = lineStart + 1;
-                int32_t triIdx0[3] = { -1, -1, -1 };
-                int32_t triIdx1[3] = { -1, -1, -1 };
-                int32_t triIdx2[3] = { -1, -1, -1 };
-                bool triangleFastPath = parseObjTrianglePositiveTripletLine(lineStart + 1, lineEnd, triIdx0, triIdx1, triIdx2, posCount, uvCount, normalCount);
-                bool parsedFirstThree = triangleFastPath;
-                if (!triangleFastPath)
-                {
-                    triLinePtr = lineStart + 1;
-                    parsedFirstThree =
-                        parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx0, posCount, uvCount, normalCount) &&
-                        parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx1, posCount, uvCount, normalCount) &&
-                        parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx2, posCount, uvCount, normalCount);
-                    triangleFastPath = parsedFirstThree;
-                    if (parsedFirstThree)
-                    {
-                        while (triLinePtr < lineEnd && isObjInlineWhitespace(*triLinePtr))
-                            ++triLinePtr;
-                        triangleFastPath = (triLinePtr == lineEnd);
+                        const auto stageStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                        Float2 vec{};
+                        const char* ptr = lineStart + 3;
+                        for (uint32_t i = 0u; i < 2u; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd)
+                                return {};
+                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                                return {};
+                        }
+                        vec.y = 1.f - vec.y;
+                        uvs.push_back(vec);
+                        if (trackStages)
+                            parseVTms += std::chrono::duration<double, std::milli>(clock_t::now() - stageStart).count();
                     }
                 }
-                if (triangleFastPath)
+                else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
                 {
-                    uint32_t c0 = 0u;
-                    uint32_t c1 = 0u;
-                    uint32_t c2 = 0u;
-                    if (!acquireCornerIndexPositiveTriplet(triIdx0[0], triIdx0[1], triIdx0[2], c0))
+                    const auto faceStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                    if (positions.empty())
                         return {};
-                    if (!acquireCornerIndexPositiveTriplet(triIdx1[0], triIdx1[1], triIdx1[2], c1))
-                        return {};
-                    if (!acquireCornerIndexPositiveTriplet(triIdx2[0], triIdx2[1], triIdx2[2], c2))
-                        return {};
-                    faceFastTokenCount += 3u;
-                    indices.push_back(c2);
-                    indices.push_back(c1);
-                    indices.push_back(c0);
-                }
-                else
-                {
-                    const char* linePtr = lineStart + 1;
-                    uint32_t firstCorner = 0u;
-                    uint32_t previousCorner = 0u;
-                    uint32_t cornerCount = 0u;
-
-                    if (parsedFirstThree)
+                    ++faceCount;
+                    const size_t posCount = positions.size();
+                    const size_t uvCount = uvs.size();
+                    const size_t normalCount = normals.size();
+                    const char* triLinePtr = lineStart + 1;
+                    int32_t triIdx0[3] = { -1, -1, -1 };
+                    int32_t triIdx1[3] = { -1, -1, -1 };
+                    int32_t triIdx2[3] = { -1, -1, -1 };
+                    bool triangleFastPath = parseObjTrianglePositiveTripletLine(lineStart + 1, lineEnd, triIdx0, triIdx1, triIdx2, posCount, uvCount, normalCount);
+                    bool parsedFirstThree = triangleFastPath;
+                    if (!triangleFastPath)
                     {
+                        triLinePtr = lineStart + 1;
+                        parsedFirstThree =
+                            parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx0, posCount, uvCount, normalCount) &&
+                            parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx1, posCount, uvCount, normalCount) &&
+                            parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx2, posCount, uvCount, normalCount);
+                        triangleFastPath = parsedFirstThree;
+                        if (parsedFirstThree)
+                        {
+                            while (triLinePtr < lineEnd && isObjInlineWhitespace(*triLinePtr))
+                                ++triLinePtr;
+                            triangleFastPath = (triLinePtr == lineEnd);
+                        }
+                    }
+                    if (triangleFastPath)
+                    {
+                        const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};
                         uint32_t c0 = 0u;
                         uint32_t c1 = 0u;
                         uint32_t c2 = 0u;
-                        if (!acquireCornerIndex(triIdx0, c0))
+                        if (!acquireCornerIndexPositiveTriplet(triIdx0[0], triIdx0[1], triIdx0[2], c0))
                             return {};
-                        if (!acquireCornerIndex(triIdx1, c1))
+                        if (!acquireCornerIndexPositiveTriplet(triIdx1[0], triIdx1[1], triIdx1[2], c1))
                             return {};
-                        if (!acquireCornerIndex(triIdx2, c2))
+                        if (!acquireCornerIndexPositiveTriplet(triIdx2[0], triIdx2[1], triIdx2[2], c2))
                             return {};
+                        if (trackStages)
+                            dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
                         faceFastTokenCount += 3u;
-                        indices.push_back(c2);
-                        indices.push_back(c1);
-                        indices.push_back(c0);
-                        firstCorner = c0;
-                        previousCorner = c2;
-                        cornerCount = 3u;
-                        linePtr = triLinePtr;
+                        const auto emitStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                        if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
+                            return {};
+                        if (trackStages)
+                            emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
                     }
-
-                    while (linePtr < lineEnd)
+                    else
                     {
-                        while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
-                            ++linePtr;
-                        if (linePtr >= lineEnd)
-                            break;
+                        const char* linePtr = lineStart + 1;
+                        uint32_t firstCorner = 0u;
+                        uint32_t previousCorner = 0u;
+                        uint32_t cornerCount = 0u;
 
-                        int32_t idx[3] = { -1, -1, -1 };
-                        if (!parseObjFaceVertexTokenFast(linePtr, lineEnd, idx, posCount, uvCount, normalCount))
-                            return {};
-                        ++faceFastTokenCount;
-
-                        uint32_t cornerIx = 0u;
-                        if (!acquireCornerIndex(idx, cornerIx))
-                            return {};
-
-                        if (cornerCount == 0u)
+                        if (parsedFirstThree)
                         {
-                            firstCorner = cornerIx;
-                            ++cornerCount;
-                            continue;
+                            const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                            uint32_t c0 = 0u;
+                            uint32_t c1 = 0u;
+                            uint32_t c2 = 0u;
+                            if (!acquireCornerIndex(triIdx0, c0))
+                                return {};
+                            if (!acquireCornerIndex(triIdx1, c1))
+                                return {};
+                            if (!acquireCornerIndex(triIdx2, c2))
+                                return {};
+                            if (trackStages)
+                                dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
+                            faceFastTokenCount += 3u;
+                            const auto emitStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                            if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
+                                return {};
+                            if (trackStages)
+                                emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
+                            firstCorner = c0;
+                            previousCorner = c2;
+                            cornerCount = 3u;
+                            linePtr = triLinePtr;
                         }
 
-                        if (cornerCount == 1u)
+                        while (linePtr < lineEnd)
                         {
+                            while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
+                                ++linePtr;
+                            if (linePtr >= lineEnd)
+                                break;
+
+                            int32_t idx[3] = { -1, -1, -1 };
+                            if (!parseObjFaceVertexTokenFast(linePtr, lineEnd, idx, posCount, uvCount, normalCount))
+                                return {};
+                            ++faceFastTokenCount;
+
+                            const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                            uint32_t cornerIx = 0u;
+                            if (!acquireCornerIndex(idx, cornerIx))
+                                return {};
+                            if (trackStages)
+                                dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
+
+                            if (cornerCount == 0u)
+                            {
+                                firstCorner = cornerIx;
+                                ++cornerCount;
+                                continue;
+                            }
+
+                            if (cornerCount == 1u)
+                            {
+                                previousCorner = cornerIx;
+                                ++cornerCount;
+                                continue;
+                            }
+
+                            const auto emitStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                            if (!appendIndex(cornerIx) || !appendIndex(previousCorner) || !appendIndex(firstCorner))
+                                return {};
+                            if (trackStages)
+                                emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
                             previousCorner = cornerIx;
                             ++cornerCount;
-                            continue;
                         }
-
-                        indices.push_back(cornerIx);
-                        indices.push_back(previousCorner);
-                        indices.push_back(firstCorner);
-                        previousCorner = cornerIx;
-                        ++cornerCount;
                     }
+                    if (trackStages)
+                        parseFaceMs += std::chrono::duration<double, std::milli>(clock_t::now() - faceStart).count();
                 }
             }
-        }
 
-        if (lineTerminator >= bufEnd)
-            bufPtr = bufEnd;
-        else if (*lineTerminator == '\r' && (lineTerminator + 1) < bufEnd && lineTerminator[1] == '\n')
-            bufPtr = lineTerminator + 2;
-        else
-            bufPtr = lineTerminator + 1;
+            if (lineTerminator >= bufEnd)
+                bufPtr = bufEnd;
+            else if (*lineTerminator == '\r' && (lineTerminator + 1) < bufEnd && lineTerminator[1] == '\n')
+                bufPtr = lineTerminator + 2;
+            else
+                bufPtr = lineTerminator + 1;
     }
     parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
     const double parseScanMs = std::max(0.0, parseMs - (parseVms + parseVNms + parseVTms + parseFaceMs + dedupMs + emitMs));
 
-    if (outPositions.empty())
+    if (outVertexWriteCount == 0ull)
         return {};
+
+    outPositions.resize(outVertexWriteCount);
+    outNormals.resize(outVertexWriteCount);
+    outUVs.resize(outVertexWriteCount);
+    indices.resize(outIndexWriteCount);
 
     const size_t outVertexCount = outPositions.size();
     const size_t outIndexCount = indices.size();
@@ -993,9 +1134,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     }
     buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
 
-    const auto hashStart = clock_t::now();
-    CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
-    hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+    hashMs = 0.0;
 
     const auto aabbStart = clock_t::now();
     if (hasParsedAABB)

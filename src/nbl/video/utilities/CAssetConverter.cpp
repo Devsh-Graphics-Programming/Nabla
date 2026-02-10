@@ -1183,7 +1183,14 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	auto patchedParams = lookup.asset->getCreationParams();
 	assert(lookup.patch->usage.hasFlags(patchedParams.usage));
 	patchedParams.usage = lookup.patch->usage;
-	hasher.update(&patchedParams,sizeof(patchedParams)) << lookup.asset->getContentHash();
+	auto contentHash = lookup.asset->getContentHash();
+	if (contentHash==NoContentHash)
+	{
+		contentHash = lookup.asset->computeContentHash();
+		if (auto* mutableAsset = const_cast<ICPUBuffer*>(lookup.asset); mutableAsset && mutableAsset->isMutable())
+			mutableAsset->setContentHash(contentHash);
+	}
+	hasher.update(&patchedParams,sizeof(patchedParams)) << contentHash;
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)

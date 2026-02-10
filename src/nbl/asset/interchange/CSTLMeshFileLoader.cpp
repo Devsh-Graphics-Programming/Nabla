@@ -19,8 +19,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <execution>
 #include <fast_float/fast_float.h>
 #include <limits>
+#include <numeric>
 #include <string_view>
 #include <thread>
 #include <type_traits>
@@ -70,6 +72,22 @@ constexpr size_t StlTriangleAttributeBytes = sizeof(uint16_t);
 constexpr size_t StlTriangleRecordBytes = StlTriangleFloatBytes + StlTriangleAttributeBytes;
 constexpr size_t StlVerticesPerTriangle = 3ull;
 constexpr size_t StlFloatChannelsPerVertex = 3ull;
+
+template<typename Fn>
+void stlRunParallelWorkers(const size_t workerCount, Fn&& fn)
+{
+	if (workerCount <= 1ull)
+	{
+		fn(0ull);
+		return;
+	}
+	core::vector<size_t> workerIds(workerCount);
+	std::iota(workerIds.begin(), workerIds.end(), 0ull);
+	std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
+	{
+		fn(workerIx);
+	});
+}
 
 bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SFileReadTelemetry* ioTelemetry = nullptr)
 {
@@ -199,6 +217,48 @@ void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::
 	positions.push_back(p[0u]);
 }
 
+class CStlSplitBlockMemoryResource final : public core::refctd_memory_resource
+{
+	public:
+		inline CStlSplitBlockMemoryResource(
+			core::smart_refctd_ptr<core::refctd_memory_resource>&& upstream,
+			void* block,
+			const size_t blockBytes,
+			const size_t alignment
+		) : m_upstream(std::move(upstream)), m_block(block), m_blockBytes(blockBytes), m_alignment(alignment)
+		{
+		}
+
+		inline void* allocate(std::size_t bytes, std::size_t alignment) override
+		{
+			assert(false);
+			return nullptr;
+		}
+
+		inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override
+		{
+			(void)alignment;
+			const auto* const begin = reinterpret_cast<const uint8_t*>(m_block);
+			const auto* const end = begin + m_blockBytes;
+			const auto* const ptr = reinterpret_cast<const uint8_t*>(p);
+			assert(ptr >= begin && ptr <= end);
+			assert(ptr + bytes <= end);
+		}
+
+	protected:
+		inline ~CStlSplitBlockMemoryResource() override
+		{
+			if (m_upstream && m_block)
+				m_upstream->deallocate(m_block, m_blockBytes, m_alignment);
+		}
+
+	private:
+		core::smart_refctd_ptr<core::refctd_memory_resource> m_upstream;
+		void* m_block = nullptr;
+		size_t m_blockBytes = 0ull;
+		size_t m_alignment = 1ull;
+};
+
 void stlExtendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const hlsl::float32_t3& p)
 {
 	if (!hasAABB)
@@ -289,25 +349,17 @@ void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 		return;
 	}
 
-	std::vector<std::thread> workers;
-	workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
-	auto hashRange = [&buffers](const size_t beginIx, const size_t endIx) -> void
+	auto hashWorker = [&buffers, workerCount](const size_t workerIx) -> void
 	{
+		const size_t beginIx = (buffers.size() * workerIx) / workerCount;
+		const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
 		for (size_t i = beginIx; i < endIx; ++i)
 		{
 			auto& buffer = buffers[i];
 			buffer->setContentHash(buffer->computeContentHash());
 		}
 	};
-	for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
-	{
-		const size_t begin = (buffers.size() * workerIx) / workerCount;
-		const size_t end = (buffers.size() * (workerIx + 1ull)) / workerCount;
-		workers.emplace_back(hashRange, begin, end);
-	}
-	hashRange(0ull, buffers.size() / workerCount);
-	for (auto& worker : workers)
-		worker.join();
+	stlRunParallelWorkers(workerCount, hashWorker);
 }
 
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
@@ -492,16 +544,64 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		vertexCount = triangleCount * StlVerticesPerTriangle;
 		const auto buildPrepStart = clock_t::now();
-		auto posView = createView(EF_R32G32B32_SFLOAT, static_cast<size_t>(vertexCount));
-		auto normalView = createView(EF_R32G32B32_SFLOAT, static_cast<size_t>(vertexCount));
-		if (!posView || !normalView)
+		const size_t vertexCountSizeT = static_cast<size_t>(vertexCount);
+		if (vertexCountSizeT > (std::numeric_limits<size_t>::max() / sizeof(hlsl::float32_t3)))
 			return {};
-		auto* posOut = reinterpret_cast<hlsl::float32_t3*>(posView.getPointer());
-		auto* normalOut = reinterpret_cast<hlsl::float32_t3*>(normalView.getPointer());
-		if (!posOut || !normalOut)
+		const size_t viewByteSize = vertexCountSizeT * sizeof(hlsl::float32_t3);
+		if (viewByteSize > (std::numeric_limits<size_t>::max() - viewByteSize))
 			return {};
-		auto* posOutFloat = reinterpret_cast<float*>(posOut);
-		auto* normalOutFloat = reinterpret_cast<float*>(normalOut);
+		const size_t blockBytes = viewByteSize * 2ull;
+		auto upstream = core::getDefaultMemoryResource();
+		if (!upstream)
+			return {};
+		void* block = upstream->allocate(blockBytes, alignof(float));
+		if (!block)
+			return {};
+		auto blockResource = core::make_smart_refctd_ptr<CStlSplitBlockMemoryResource>(
+			core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(upstream)),
+			block,
+			blockBytes,
+			alignof(float));
+		auto posBuffer = ICPUBuffer::create({
+			{ viewByteSize },
+			block,
+			core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),
+			alignof(float)
+		}, core::adopt_memory);
+		auto normalBuffer = ICPUBuffer::create({
+			{ viewByteSize },
+			reinterpret_cast<uint8_t*>(block) + viewByteSize,
+			core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),
+			alignof(float)
+		}, core::adopt_memory);
+		if (!posBuffer || !normalBuffer)
+			return {};
+		ICPUPolygonGeometry::SDataView posView = {};
+		posView.composed = {
+			.stride = sizeof(hlsl::float32_t3),
+			.format = EF_R32G32B32_SFLOAT,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+		};
+		posView.src = {
+			.offset = 0ull,
+			.size = viewByteSize,
+			.buffer = std::move(posBuffer)
+		};
+		ICPUPolygonGeometry::SDataView normalView = {};
+		normalView.composed = {
+			.stride = sizeof(hlsl::float32_t3),
+			.format = EF_R32G32B32_SFLOAT,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+		};
+		normalView.src = {
+			.offset = 0ull,
+			.size = viewByteSize,
+			.buffer = std::move(normalBuffer)
+		};
+		auto* posOutFloat = reinterpret_cast<float*>(posView.getPointer());
+		auto* normalOutFloat = reinterpret_cast<float*>(normalView.getPointer());
+		if (!posOutFloat || !normalOutFloat)
+			return {};
 		const double buildPrepMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildPrepStart).count();
 		buildAllocViewsMs += buildPrepMs;
 		buildMs += buildPrepMs;
@@ -523,7 +623,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		};
 
 		const size_t hw = std::thread::hardware_concurrency();
-		const size_t maxWorkersByWork = std::max<size_t>(1ull, static_cast<size_t>(triangleCount / 16384ull));
+		const size_t maxWorkersByWork = std::max<size_t>(1ull, static_cast<size_t>(triangleCount / 6144ull));
 		const size_t workerCount = hw ? std::max<size_t>(1ull, std::min(hw, maxWorkersByWork)) : 1ull;
 		std::vector<SThreadAABB> threadAABBs(workerCount);
 		auto parseRange = [&](const size_t workerIx, const uint64_t beginTri, const uint64_t endTri) -> void
@@ -537,26 +637,32 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				const uint8_t* const triRecord = localCursor;
 				localCursor += StlTriangleRecordBytes;
 
-				float normalX = 0.f;
-				float normalY = 0.f;
-				float normalZ = 0.f;
-				std::memcpy(&normalX, triRecord + 0u * sizeof(float), sizeof(float));
-				std::memcpy(&normalY, triRecord + 1u * sizeof(float), sizeof(float));
-				std::memcpy(&normalZ, triRecord + 2u * sizeof(float), sizeof(float));
+				float triValues[StlTriangleFloatCount];
+				std::memcpy(triValues, triRecord, sizeof(triValues));
 
-				std::memcpy(posCursor + 0ull, triRecord + 9ull * sizeof(float), 3ull * sizeof(float));
-				std::memcpy(posCursor + 3ull, triRecord + 6ull * sizeof(float), 3ull * sizeof(float));
-				std::memcpy(posCursor + 6ull, triRecord + 3ull * sizeof(float), 3ull * sizeof(float));
+				float normalX = triValues[0ull];
+				float normalY = triValues[1ull];
+				float normalZ = triValues[2ull];
 
-				const float vertex0x = posCursor[0ull];
-				const float vertex0y = posCursor[1ull];
-				const float vertex0z = posCursor[2ull];
-				const float vertex1x = posCursor[3ull];
-				const float vertex1y = posCursor[4ull];
-				const float vertex1z = posCursor[5ull];
-				const float vertex2x = posCursor[6ull];
-				const float vertex2y = posCursor[7ull];
-				const float vertex2z = posCursor[8ull];
+				const float vertex0x = triValues[9ull];
+				const float vertex0y = triValues[10ull];
+				const float vertex0z = triValues[11ull];
+				const float vertex1x = triValues[6ull];
+				const float vertex1y = triValues[7ull];
+				const float vertex1z = triValues[8ull];
+				const float vertex2x = triValues[3ull];
+				const float vertex2y = triValues[4ull];
+				const float vertex2z = triValues[5ull];
+
+				posCursor[0ull] = vertex0x;
+				posCursor[1ull] = vertex0y;
+				posCursor[2ull] = vertex0z;
+				posCursor[3ull] = vertex1x;
+				posCursor[4ull] = vertex1y;
+				posCursor[5ull] = vertex1z;
+				posCursor[6ull] = vertex2x;
+				posCursor[7ull] = vertex2y;
+				posCursor[8ull] = vertex2z;
 				if (!localAABB.has)
 				{
 					localAABB.minX = vertex0x; localAABB.maxX = vertex0x;
@@ -634,17 +740,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		if (workerCount > 1ull)
 		{
-			std::vector<std::thread> workers;
-			workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
-			for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+			stlRunParallelWorkers(workerCount, [&](const size_t workerIx)
 			{
 				const uint64_t begin = (triangleCount * workerIx) / workerCount;
 				const uint64_t endTri = (triangleCount * (workerIx + 1ull)) / workerCount;
-				workers.emplace_back(parseRange, workerIx, begin, endTri);
-			}
-			parseRange(0ull, 0ull, triangleCount / workerCount);
-			for (auto& worker : workers)
-				worker.join();
+				parseRange(workerIx, begin, endTri);
+			});
 		}
 		else
 		{
@@ -778,9 +879,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (vertexCount == 0ull)
 		return {};
 
-	const auto hashStart = clock_t::now();
-	stlRecomputeContentHashesParallel(geometry.get());
-	hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+	hashMs = 0.0;
 
 	const auto aabbStart = clock_t::now();
 	if (hasParsedAABB)

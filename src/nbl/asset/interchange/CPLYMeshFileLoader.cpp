@@ -73,6 +73,84 @@ T byteswap(const T& v)
 	return retval;
 }
 
+template<typename Fn>
+void plyRunParallelWorkers(const size_t workerCount, Fn&& fn)
+{
+	if (workerCount <= 1ull)
+	{
+		fn(0ull);
+		return;
+	}
+	std::vector<std::thread> workers;
+	workers.reserve(workerCount - 1ull);
+	for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+	{
+		workers.emplace_back([&fn, workerIx]()
+		{
+			fn(workerIx);
+		});
+	}
+	fn(0ull);
+	for (auto& worker : workers)
+		worker.join();
+}
+
+class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
+{
+	public:
+		explicit CPLYMappedFileMemoryResource(core::smart_refctd_ptr<system::IFile>&& file) : m_file(std::move(file))
+		{
+		}
+
+		inline void* allocate(std::size_t bytes, std::size_t alignment) override
+		{
+			(void)bytes;
+			(void)alignment;
+			assert(false);
+			return nullptr;
+		}
+
+		inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override
+		{
+			(void)p;
+			(void)bytes;
+			(void)alignment;
+		}
+
+	private:
+		core::smart_refctd_ptr<system::IFile> m_file;
+};
+
+IGeometry<ICPUBuffer>::SDataView plyCreateMappedF32x3View(system::IFile* file, void* ptr, const size_t byteCount)
+{
+	if (!file || !ptr || byteCount == 0ull)
+		return {};
+
+	auto keepAliveResource = core::make_smart_refctd_ptr<CPLYMappedFileMemoryResource>(core::smart_refctd_ptr<system::IFile>(file));
+	auto buffer = ICPUBuffer::create({
+		{ byteCount },
+		ptr,
+		core::smart_refctd_ptr<core::refctd_memory_resource>(keepAliveResource),
+		alignof(float)
+	}, core::adopt_memory);
+	if (!buffer)
+		return {};
+
+	IGeometry<ICPUBuffer>::SDataView view = {
+		.composed = {
+			.stride = sizeof(float) * 3ull,
+			.format = EF_R32G32B32_SFLOAT,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+		},
+		.src = {
+			.offset = 0ull,
+			.size = byteCount,
+			.buffer = std::move(buffer)
+		}
+	};
+	return view;
+}
+
 IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU32IndexView(core::vector<uint32_t>&& indices)
 {
 	if (indices.empty())
@@ -172,25 +250,17 @@ void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 		return;
 	}
 
-	std::vector<std::thread> workers;
-	workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
-	auto hashRange = [&buffers](const size_t beginIx, const size_t endIx) -> void
+	auto hashWorker = [&buffers, workerCount](const size_t workerIx) -> void
 	{
+		const size_t beginIx = (buffers.size() * workerIx) / workerCount;
+		const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
 		for (size_t i = beginIx; i < endIx; ++i)
 		{
 			auto& buffer = buffers[i];
 			buffer->setContentHash(buffer->computeContentHash());
 		}
 	};
-	for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
-	{
-		const size_t begin = (buffers.size() * workerIx) / workerCount;
-		const size_t end = (buffers.size() * (workerIx + 1ull)) / workerCount;
-		workers.emplace_back(hashRange, begin, end);
-	}
-	hashRange(0ull, buffers.size() / workerCount);
-	for (auto& worker : workers)
-		worker.join();
+	plyRunParallelWorkers(workerCount, hashWorker);
 }
 
 struct SContext
@@ -282,6 +352,7 @@ struct SContext
 		Buffer.resize(ioReadWindowSize + ReadWindowPaddingBytes, '\0');
 		EndPointer = StartPointer = Buffer.data();
 		LineEndPointer = EndPointer-1;
+		UsingMappedBinaryWindow = false;
 
 		fillBuffer();
 	}
@@ -426,6 +497,7 @@ struct SContext
 		LineEndPointer = StartPointer - 1;
 		WordLength = -1;
 		EndOfFile = true;
+		UsingMappedBinaryWindow = true;
 		fileOffset = inner.mainFile ? inner.mainFile->getSize() : fileOffset;
 	}
 	// skips x bytes in the file, getting more data if required
@@ -1055,17 +1127,16 @@ struct SContext
 			if (is32Bit)
 			{
 				const size_t hw = std::thread::hardware_concurrency();
-				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (1ull << 20));
+				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (512ull << 10));
 				size_t workerCount = hw ? std::min(hw, maxWorkersByWork) : 1ull;
 				if (workerCount > 1ull)
 				{
 					const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
-					const bool needMax = hasVertexCount || trackMaxIndex;
+					const bool needMax = true;
+					const bool validateAgainstVertexCount = hasVertexCount;
 					std::vector<uint8_t> workerNonTriangle(workerCount, 0u);
 					std::vector<uint8_t> workerInvalid(workerCount, 0u);
 					std::vector<uint32_t> workerMax(needMax ? workerCount : 0ull, 0u);
-					std::vector<std::thread> workers;
-					workers.reserve(workerCount > 0ull ? (workerCount - 1ull) : 0ull);
 					auto parseChunk = [&](const size_t workerIx, const size_t beginFace, const size_t endFace) -> void
 					{
 						const uint8_t* in = ptr + beginFace * recordBytes;
@@ -1086,31 +1157,25 @@ struct SContext
 							const uint32_t i2 = outLocal[2];
 							if (isSrcS32)
 								localSignBits |= (i0 | i1 | i2);
-							if (needMax)
-							{
-								if (i0 > localMax) localMax = i0;
-								if (i1 > localMax) localMax = i1;
-								if (i2 > localMax) localMax = i2;
-							}
+							if (i0 > localMax) localMax = i0;
+							if (i1 > localMax) localMax = i1;
+							if (i2 > localMax) localMax = i2;
 							in += 3ull * sizeof(uint32_t);
 							outLocal += 3ull;
 						}
 						if (isSrcS32 && (localSignBits & 0x80000000u))
 							workerInvalid[workerIx] = 1u;
-						if (hasVertexCount && needMax && localMax >= vertexCount)
+						if (validateAgainstVertexCount && localMax >= vertexCount)
 							workerInvalid[workerIx] = 1u;
 						if (needMax)
 							workerMax[workerIx] = localMax;
 					};
-					for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+					plyRunParallelWorkers(workerCount, [&](const size_t workerIx)
 					{
 						const size_t begin = (element.Count * workerIx) / workerCount;
 						const size_t end = (element.Count * (workerIx + 1ull)) / workerCount;
-						workers.emplace_back(parseChunk, workerIx, begin, end);
-					}
-					parseChunk(0ull, 0ull, element.Count / workerCount);
-					for (auto& worker : workers)
-						worker.join();
+						parseChunk(workerIx, begin, end);
+					});
 
 					const bool anyNonTriangle = std::any_of(workerNonTriangle.begin(), workerNonTriangle.end(), [](const uint8_t v) { return v != 0u; });
 					if (anyNonTriangle)
@@ -1163,6 +1228,7 @@ struct SContext
 					}
 					else
 					{
+						uint32_t localMax = 0u;
 						for (size_t j = 0u; j < element.Count; ++j)
 						{
 							const uint8_t c = *ptr++;
@@ -1173,10 +1239,13 @@ struct SContext
 							}
 							std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
 							ptr += 3ull * sizeof(uint32_t);
-							if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
-								return EFastFaceReadResult::Error;
+							if (out[0] > localMax) localMax = out[0];
+							if (out[1] > localMax) localMax = out[1];
+							if (out[2] > localMax) localMax = out[2];
 							out += 3;
 						}
+						if (!fallbackToGeneric && localMax >= vertexCount)
+							return EFastFaceReadResult::Error;
 					}
 				}
 				else if (trackMaxIndex)
@@ -1201,6 +1270,8 @@ struct SContext
 				}
 				else
 				{
+					uint32_t localMax = 0u;
+					uint32_t localSignBits = 0u;
 					for (size_t j = 0u; j < element.Count; ++j)
 					{
 						const uint8_t c = *ptr++;
@@ -1211,11 +1282,18 @@ struct SContext
 						}
 						std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
 						ptr += 3ull * sizeof(uint32_t);
-						if ((out[0] | out[1] | out[2]) & 0x80000000u)
-							return EFastFaceReadResult::Error;
-						if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
-							return EFastFaceReadResult::Error;
+						localSignBits |= (out[0] | out[1] | out[2]);
+						if (out[0] > localMax) localMax = out[0];
+						if (out[1] > localMax) localMax = out[1];
+						if (out[2] > localMax) localMax = out[2];
 						out += 3;
+					}
+					if (!fallbackToGeneric)
+					{
+						if (localSignBits & 0x80000000u)
+							return EFastFaceReadResult::Error;
+						if (localMax >= vertexCount)
+							return EFastFaceReadResult::Error;
 					}
 				}
 			}
@@ -1461,6 +1539,7 @@ struct SContext
 	int32_t LineLength = 0;
 	int32_t WordLength = -1; // this variable is a misnomer, its really the offset to next word minus one
 	bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
+	bool UsingMappedBinaryWindow = false;
 	size_t fileOffset = {};
 	uint64_t readCallCount = 0ull;
 	uint64_t readBytesTotal = 0ull;
@@ -1707,6 +1786,37 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			{
 				_params.logger.log("Multiple `vertex` elements not supported!", system::ILogger::ELL_ERROR);
 				return {};
+			}
+			const bool mappedXYZAliasCandidate =
+				ctx.IsBinaryFile &&
+				(!ctx.IsWrongEndian) &&
+				ctx.UsingMappedBinaryWindow &&
+				el.Properties.size() == 3u &&
+				el.Properties[0].type == EF_R32_SFLOAT &&
+				el.Properties[1].type == EF_R32_SFLOAT &&
+				el.Properties[2].type == EF_R32_SFLOAT &&
+				el.Properties[0].Name == "x" &&
+				el.Properties[1].Name == "y" &&
+				el.Properties[2].Name == "z";
+			if (mappedXYZAliasCandidate)
+			{
+				if (el.Count > (std::numeric_limits<size_t>::max() / (sizeof(float) * 3ull)))
+					return {};
+				const size_t mappedBytes = el.Count * sizeof(float) * 3ull;
+				if (ctx.StartPointer + mappedBytes > ctx.EndPointer)
+					return {};
+				const auto vertexStart = clock_t::now();
+				auto mappedPosView = plyCreateMappedF32x3View(_file, ctx.StartPointer, mappedBytes);
+				if (!mappedPosView)
+					return {};
+				geometry->setPositionView(std::move(mappedPosView));
+				ctx.StartPointer += mappedBytes;
+				++fastVertexElementCount;
+				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
+				vertexFastMs += elapsedMs;
+				vertexMs += elapsedMs;
+				verticesProcessed = true;
+				continue;
 			}
 			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {}, uvView = {};
 			core::vector<ICPUPolygonGeometry::SDataView> extraViews;
@@ -2046,9 +2156,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 	indexBuildMs = std::chrono::duration<double, std::milli>(clock_t::now() - indexStart).count();
 
-	const auto hashStart = clock_t::now();
-	plyRecomputeContentHashesParallel(geometry.get());
-	hashRangeMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+	hashRangeMs = 0.0;
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	const double stageRemainderMs = std::max(0.0, totalMs - (headerMs + vertexMs + faceMs + skipMs + layoutNegotiateMs + viewCreateMs + hashRangeMs + indexBuildMs + aabbMs));
