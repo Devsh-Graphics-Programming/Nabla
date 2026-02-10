@@ -1159,7 +1159,6 @@ struct SContext
 						const uint8_t* in = ptr + beginFace * recordBytes;
 						uint32_t* outLocal = out + beginFace * 3ull;
 						uint32_t localMax = 0u;
-						uint32_t localSignBits = 0u;
 						for (size_t faceIx = beginFace; faceIx < endFace; ++faceIx)
 						{
 							if (*in != 3u)
@@ -1172,18 +1171,29 @@ struct SContext
 							const uint32_t i0 = outLocal[0];
 							const uint32_t i1 = outLocal[1];
 							const uint32_t i2 = outLocal[2];
-							if (isSrcS32)
-								localSignBits |= (i0 | i1 | i2);
-							if (i0 > localMax) localMax = i0;
-							if (i1 > localMax) localMax = i1;
-							if (i2 > localMax) localMax = i2;
+							const uint32_t triOr = (i0 | i1 | i2);
+							if (isSrcS32 && (triOr & 0x80000000u))
+							{
+								workerInvalid[workerIx] = 1u;
+								break;
+							}
+							if (validateAgainstVertexCount)
+							{
+								if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+								{
+									workerInvalid[workerIx] = 1u;
+									break;
+								}
+							}
+							else if (needMax)
+							{
+								if (i0 > localMax) localMax = i0;
+								if (i1 > localMax) localMax = i1;
+								if (i2 > localMax) localMax = i2;
+							}
 							in += 3ull * sizeof(uint32_t);
 							outLocal += 3ull;
 						}
-						if (isSrcS32 && (localSignBits & 0x80000000u))
-							workerInvalid[workerIx] = 1u;
-						if (validateAgainstVertexCount && localMax >= vertexCount)
-							workerInvalid[workerIx] = 1u;
 						if (needMax)
 							workerMax[workerIx] = localMax;
 					};
@@ -1245,7 +1255,6 @@ struct SContext
 					}
 					else
 					{
-						uint32_t localMax = 0u;
 						for (size_t j = 0u; j < element.Count; ++j)
 						{
 							const uint8_t c = *ptr++;
@@ -1256,13 +1265,10 @@ struct SContext
 							}
 							std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
 							ptr += 3ull * sizeof(uint32_t);
-							if (out[0] > localMax) localMax = out[0];
-							if (out[1] > localMax) localMax = out[1];
-							if (out[2] > localMax) localMax = out[2];
+							if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+								return EFastFaceReadResult::Error;
 							out += 3;
 						}
-						if (!fallbackToGeneric && localMax >= vertexCount)
-							return EFastFaceReadResult::Error;
 					}
 				}
 				else if (trackMaxIndex)
@@ -1287,8 +1293,6 @@ struct SContext
 				}
 				else
 				{
-					uint32_t localMax = 0u;
-					uint32_t localSignBits = 0u;
 					for (size_t j = 0u; j < element.Count; ++j)
 					{
 						const uint8_t c = *ptr++;
@@ -1299,18 +1303,12 @@ struct SContext
 						}
 						std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
 						ptr += 3ull * sizeof(uint32_t);
-						localSignBits |= (out[0] | out[1] | out[2]);
-						if (out[0] > localMax) localMax = out[0];
-						if (out[1] > localMax) localMax = out[1];
-						if (out[2] > localMax) localMax = out[2];
+						const uint32_t triOr = (out[0] | out[1] | out[2]);
+						if (triOr & 0x80000000u)
+							return EFastFaceReadResult::Error;
+						if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+							return EFastFaceReadResult::Error;
 						out += 3;
-					}
-					if (!fallbackToGeneric)
-					{
-						if (localSignBits & 0x80000000u)
-							return EFastFaceReadResult::Error;
-						if (localMax >= vertexCount)
-							return EFastFaceReadResult::Error;
 					}
 				}
 			}
@@ -2308,5 +2306,4 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 } // end namespace nbl::asset
 #endif // _NBL_COMPILE_WITH_PLY_LOADER_
-
 
