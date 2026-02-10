@@ -55,6 +55,9 @@ class NBL_API2 blake3_hasher final
 		explicit operator blake3_hash_t() const;
 };
 
+NBL_API2 blake3_hash_t blake3_hash_buffer(const void* data, size_t bytes);
+NBL_API2 blake3_hash_t blake3_hash_buffer_sequential(const void* data, size_t bytes);
+
 // Useful specializations
 template<typename Dummy>
 struct blake3_hasher::update_impl<blake3_hash_t,Dummy>

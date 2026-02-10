@@ -14,6 +14,7 @@
 
 #include "COBJMeshFileLoader.h"
 
+#include <array>
 #include <algorithm>
 #include <charconv>
 #include <chrono>
@@ -36,6 +37,7 @@ struct ObjVertexDedupNode
     uint32_t outIndex = 0u;
     int32_t next = -1;
 };
+
 
 struct SFileReadTelemetry
 {
@@ -461,6 +463,27 @@ NBL_FORCE_INLINE bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const c
     return true;
 }
 
+NBL_FORCE_INLINE bool parseObjPositiveIndexBounded(const char*& ptr, const char* const end, const size_t maxCount, int32_t& out)
+{
+    if (ptr >= end || !isObjDigit(*ptr))
+        return false;
+
+    uint32_t value = 0u;
+    while (ptr < end && isObjDigit(*ptr))
+    {
+        const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+        if (value > 429496729u)
+            return false;
+        value = value * 10u + digit;
+        ++ptr;
+    }
+    if (value == 0u || value > maxCount)
+        return false;
+
+    out = static_cast<int32_t>(value - 1u);
+    return true;
+}
+
 NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     const char* ptr = lineStart;
@@ -472,47 +495,28 @@ NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const line
         if (ptr >= lineEnd || !isObjDigit(*ptr))
             return false;
 
-        uint64_t posRaw = 0ull;
-        while (ptr < lineEnd && isObjDigit(*ptr))
-        {
-            posRaw = posRaw * 10ull + static_cast<uint64_t>(*ptr - '0');
-            ++ptr;
-        }
-        if (posRaw == 0ull || posRaw > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || posRaw > posCount)
+        int32_t posIx = -1;
+        if (!parseObjPositiveIndexBounded(ptr, lineEnd, posCount, posIx))
             return false;
         if (ptr >= lineEnd || *ptr != '/')
             return false;
         ++ptr;
 
-        uint64_t uvRaw = 0ull;
-        if (ptr >= lineEnd || !isObjDigit(*ptr))
-            return false;
-        while (ptr < lineEnd && isObjDigit(*ptr))
-        {
-            uvRaw = uvRaw * 10ull + static_cast<uint64_t>(*ptr - '0');
-            ++ptr;
-        }
-        if (uvRaw == 0ull || uvRaw > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || uvRaw > uvCount)
+        int32_t uvIx = -1;
+        if (!parseObjPositiveIndexBounded(ptr, lineEnd, uvCount, uvIx))
             return false;
         if (ptr >= lineEnd || *ptr != '/')
             return false;
         ++ptr;
 
-        uint64_t normalRaw = 0ull;
-        if (ptr >= lineEnd || !isObjDigit(*ptr))
-            return false;
-        while (ptr < lineEnd && isObjDigit(*ptr))
-        {
-            normalRaw = normalRaw * 10ull + static_cast<uint64_t>(*ptr - '0');
-            ++ptr;
-        }
-        if (normalRaw == 0ull || normalRaw > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || normalRaw > normalCount)
+        int32_t normalIx = -1;
+        if (!parseObjPositiveIndexBounded(ptr, lineEnd, normalCount, normalIx))
             return false;
 
         int32_t* const dst = out[corner];
-        dst[0] = static_cast<int32_t>(posRaw - 1ull);
-        dst[1] = static_cast<int32_t>(uvRaw - 1ull);
-        dst[2] = static_cast<int32_t>(normalRaw - 1ull);
+        dst[0] = posIx;
+        dst[1] = uvIx;
+        dst[2] = normalIx;
     }
 
     while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
@@ -800,7 +804,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     size_t outVertexWriteCount = 0ull;
     size_t outIndexWriteCount = 0ull;
     size_t dedupNodeCount = 0ull;
+    struct SDedupHotEntry
+    {
+        int32_t pos = -1;
+        int32_t uv = -1;
+        int32_t normal = -1;
+        uint32_t outIndex = 0u;
+    };
+    static constexpr size_t DedupHotEntryCount = 2048ull;
+    std::array<SDedupHotEntry, DedupHotEntryCount> dedupHotCache = {};
 
+    bool hasNormals = false;
+    bool hasUVs = false;
+    hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
+    bool hasParsedAABB = false;
     auto allocateOutVertex = [&](uint32_t& outIx) -> bool
     {
         if (outVertexWriteCount >= outPositions.size())
@@ -840,10 +857,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         return ix;
     };
 
-    bool hasNormals = false;
-    bool hasUVs = false;
-    hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
-    bool hasParsedAABB = false;
     auto acquireCornerIndex = [&](const int32_t* idx, uint32_t& outIx)->bool
     {
         if (!idx)
@@ -900,8 +913,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         outNormals[static_cast<size_t>(outIx)] = normal;
         return true;
     };
+
     auto acquireCornerIndexPositiveTriplet = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, uint32_t& outIx)->bool
     {
+        const uint32_t hotHash =
+            static_cast<uint32_t>(posIx) * 73856093u ^
+            static_cast<uint32_t>(uvIx) * 19349663u ^
+            static_cast<uint32_t>(normalIx) * 83492791u;
+        auto& hotEntry = dedupHotCache[hotHash & static_cast<uint32_t>(DedupHotEntryCount - 1ull)];
+        if (hotEntry.pos == posIx && hotEntry.uv == uvIx && hotEntry.normal == normalIx)
+        {
+            outIx = hotEntry.outIndex;
+            return true;
+        }
+
         int32_t nodeIx = dedupHeadByPos[static_cast<size_t>(posIx)];
         while (nodeIx >= 0)
         {
@@ -909,6 +934,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             if (node.uv == uvIx && node.normal == normalIx)
             {
                 outIx = node.outIndex;
+                hotEntry.pos = posIx;
+                hotEntry.uv = uvIx;
+                hotEntry.normal = normalIx;
+                hotEntry.outIndex = outIx;
                 return true;
             }
             nodeIx = node.next;
@@ -931,6 +960,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         extendAABB(parsedAABB, hasParsedAABB, srcPos);
         outUVs[static_cast<size_t>(outIx)] = uvs[static_cast<size_t>(uvIx)];
         outNormals[static_cast<size_t>(outIx)] = normals[static_cast<size_t>(normalIx)];
+        hotEntry.pos = posIx;
+        hotEntry.uv = uvIx;
+        hotEntry.normal = normalIx;
+        hotEntry.outIndex = outIx;
         hasUVs = true;
         hasNormals = true;
         return true;
@@ -943,11 +976,16 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     while (bufPtr < bufEnd)
     {
             const char* const lineStart = bufPtr;
-            const char* lineTerminator = lineStart;
-            while (lineTerminator < bufEnd && *lineTerminator != '\n' && *lineTerminator != '\r')
-                ++lineTerminator;
+            const size_t remaining = static_cast<size_t>(bufEnd - lineStart);
+            const char* lineTerminator = static_cast<const char*>(std::memchr(lineStart, '\n', remaining));
+            if (!lineTerminator)
+                lineTerminator = static_cast<const char*>(std::memchr(lineStart, '\r', remaining));
+            if (!lineTerminator)
+                lineTerminator = bufEnd;
 
             const char* lineEnd = lineTerminator;
+            if (lineEnd > lineStart && lineEnd[-1] == '\r')
+                --lineEnd;
 
             if (lineStart < lineEnd)
             {
@@ -1012,7 +1050,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 }
                 else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
                 {
-                    const auto faceStart = trackStages ? clock_t::now() : clock_t::time_point{};
                     if (positions.empty())
                         return {};
                     ++faceCount;
@@ -1040,6 +1077,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                             triangleFastPath = (triLinePtr == lineEnd);
                         }
                     }
+                    const auto faceStart = trackStages ? clock_t::now() : clock_t::time_point{};
                     if (triangleFastPath)
                     {
                         const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};

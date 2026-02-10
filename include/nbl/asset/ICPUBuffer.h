@@ -78,10 +78,9 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 
         inline core::blake3_hash_t computeContentHash() const override
         {
-            core::blake3_hasher hasher;
-            if (m_data)
-                hasher.update(m_data, m_creationParams.size);
-            return static_cast<core::blake3_hash_t>(hasher);
+            if (!m_data)
+                return static_cast<core::blake3_hash_t>(core::blake3_hasher{});
+            return core::blake3_hash_buffer(m_data, m_creationParams.size);
         }
 
         inline bool missingContent() const override { return !m_data; }

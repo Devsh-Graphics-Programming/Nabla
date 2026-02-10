@@ -236,29 +236,44 @@ void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	if (buffers.empty())
 		return;
 
+	core::vector<size_t> pending;
+	pending.reserve(buffers.size());
 	uint64_t totalBytes = 0ull;
-	for (const auto& buffer : buffers)
+	for (size_t i = 0ull; i < buffers.size(); ++i)
+	{
+		auto& buffer = buffers[i];
+		if (buffer->getContentHash() != IPreHashed::INVALID_HASH)
+			continue;
 		totalBytes += static_cast<uint64_t>(buffer->getSize());
+		pending.push_back(i);
+	}
+
+	if (pending.empty())
+		return;
 
 	const size_t hw = std::thread::hardware_concurrency();
-	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
-	if (workerCount > 1ull && totalBytes >= (2ull << 20))
+	const size_t maxWorkersByBytes = std::max<size_t>(1ull, static_cast<size_t>(totalBytes / (2ull << 20)));
+	const size_t workerCount = hw ? std::min({ hw, pending.size(), maxWorkersByBytes }) : 1ull;
+	if (workerCount > 1ull)
 	{
-		plyRunParallelWorkers(workerCount, [&buffers, workerCount](const size_t workerIx)
+		plyRunParallelWorkers(workerCount, [&](const size_t workerIx)
 		{
-			const size_t beginIx = (buffers.size() * workerIx) / workerCount;
-			const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
+			const size_t beginIx = (pending.size() * workerIx) / workerCount;
+			const size_t endIx = (pending.size() * (workerIx + 1ull)) / workerCount;
 			for (size_t i = beginIx; i < endIx; ++i)
 			{
-				auto& buffer = buffers[i];
+				auto& buffer = buffers[pending[i]];
 				buffer->setContentHash(buffer->computeContentHash());
 			}
 		});
 		return;
 	}
 
-	for (auto& buffer : buffers)
+	for (const auto pendingIx : pending)
+	{
+		auto& buffer = buffers[pendingIx];
 		buffer->setContentHash(buffer->computeContentHash());
+	}
 }
 
 struct SContext
@@ -1125,7 +1140,11 @@ struct SContext
 			if (is32Bit)
 			{
 				const size_t hw = std::thread::hardware_concurrency();
-				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (256ull << 10));
+				constexpr size_t FaceParseBytesPerWorkerTarget = 512ull << 10;
+				constexpr size_t FaceParseFacesPerWorkerTarget = 32768ull;
+				const size_t maxWorkersByBytes = std::max<size_t>(1ull, (minBytesNeeded + FaceParseBytesPerWorkerTarget - 1ull) / FaceParseBytesPerWorkerTarget);
+				const size_t maxWorkersByFaces = std::max<size_t>(1ull, (element.Count + FaceParseFacesPerWorkerTarget - 1ull) / FaceParseFacesPerWorkerTarget);
+				const size_t maxWorkersByWork = std::min(maxWorkersByBytes, maxWorkersByFaces);
 				size_t workerCount = hw ? std::min(hw, maxWorkersByWork) : 1ull;
 				if (workerCount > 1ull)
 				{
@@ -1566,11 +1585,13 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	double hashRangeMs = 0.0;
 	double indexBuildMs = 0.0;
 	double aabbMs = 0.0;
+	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES) != 0;
 	uint64_t faceCount = 0u;
 	uint64_t fastFaceElementCount = 0u;
 	uint64_t fastVertexElementCount = 0u;
 	uint32_t maxIndexRead = 0u;
 	const uint64_t fileSize = _file->getSize();
+	const bool hashInBuild = computeContentHashes && (fileSize <= (1ull << 20));
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true);
 	if (!ioPlan.valid)
 	{
@@ -1597,8 +1618,61 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	ctx.init(static_cast<size_t>(safeReadWindow));
 
 	// start with empty mesh
-    auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	uint32_t vertCount=0;
+	core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers;
+	std::jthread deferredPositionHashThread;
+	auto hashBufferIfNeeded = [&](ICPUBuffer* buffer)->void
+	{
+		if (!hashInBuild || !buffer)
+			return;
+		for (const auto& hashed : hashedBuffers)
+		{
+			if (hashed.get() == buffer)
+				return;
+		}
+		const auto hashStart = clock_t::now();
+		buffer->setContentHash(buffer->computeContentHash());
+		hashRangeMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+		hashedBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(buffer));
+	};
+	auto tryLaunchDeferredHash = [&](const IGeometry<ICPUBuffer>::SDataView& view, std::jthread& deferredThread)->void
+	{
+		if (!computeContentHashes || hashInBuild || !view || !view.src.buffer)
+			return;
+		if (deferredThread.joinable())
+			return;
+		if (view.src.buffer->getContentHash() != IPreHashed::INVALID_HASH)
+			return;
+		auto keepAlive = core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer);
+		deferredThread = std::jthread([buffer = std::move(keepAlive)]() mutable
+		{
+			buffer->setContentHash(buffer->computeContentHash());
+		});
+	};
+	auto hashViewBufferIfNeeded = [&](const IGeometry<ICPUBuffer>::SDataView& view)->void
+	{
+		if (!view || !view.src.buffer)
+			return;
+		hashBufferIfNeeded(view.src.buffer.get());
+	};
+	auto hashRemainingGeometryBuffers = [&]()->void
+	{
+		if (!hashInBuild)
+			return;
+		hashViewBufferIfNeeded(geometry->getPositionView());
+		hashViewBufferIfNeeded(geometry->getIndexView());
+		hashViewBufferIfNeeded(geometry->getNormalView());
+		for (const auto& view : *geometry->getAuxAttributeViews())
+			hashViewBufferIfNeeded(view);
+		for (const auto& view : *geometry->getJointWeightViews())
+		{
+			hashViewBufferIfNeeded(view.indices);
+			hashViewBufferIfNeeded(view.weights);
+		}
+		if (const auto jointObb = geometry->getJointOBBView(); jointObb)
+			hashViewBufferIfNeeded(*jointObb);
+	};
 
 	// Currently only supports ASCII or binary meshes
 	if (strcmp(ctx.getNextLine(),"ply"))
@@ -1808,6 +1882,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				if (!mappedPosView)
 					return {};
 				geometry->setPositionView(std::move(mappedPosView));
+				hashViewBufferIfNeeded(geometry->getPositionView());
+				tryLaunchDeferredHash(geometry->getPositionView(), deferredPositionHashThread);
 				ctx.StartPointer += mappedBytes;
 				++fastVertexElementCount;
 				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
@@ -2065,6 +2141,11 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				_params.logger.log("PLY vertex fast path failed on malformed data for %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 				return {};
 			}
+			hashViewBufferIfNeeded(geometry->getPositionView());
+			hashViewBufferIfNeeded(geometry->getNormalView());
+			for (const auto& view : *geometry->getAuxAttributeViews())
+				hashViewBufferIfNeeded(view);
+			tryLaunchDeferredHash(geometry->getPositionView(), deferredPositionHashThread);
 			verticesProcessed = true;
 		}
 		else if (el.Name=="face")
@@ -2143,6 +2224,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (!view)
 				return {};
 			geometry->setIndexView(std::move(view));
+			hashViewBufferIfNeeded(geometry->getIndexView());
 		}
 		else
 		{
@@ -2150,15 +2232,22 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (!view)
 				return {};
 			geometry->setIndexView(std::move(view));
+			hashViewBufferIfNeeded(geometry->getIndexView());
 		}
 	}
 	indexBuildMs = std::chrono::duration<double, std::milli>(clock_t::now() - indexStart).count();
 
-	if (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES)
+	if (computeContentHashes && !hashInBuild)
 	{
+		if (deferredPositionHashThread.joinable())
+			deferredPositionHashThread.join();
 		const auto hashStart = clock_t::now();
 		plyRecomputeContentHashesParallel(geometry.get());
-		hashRangeMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+		hashRangeMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+	}
+	else
+	{
+		hashRemainingGeometryBuffers();
 	}
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
@@ -2219,3 +2308,5 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 } // end namespace nbl::asset
 #endif // _NBL_COMPILE_WITH_PLY_LOADER_
+
+
