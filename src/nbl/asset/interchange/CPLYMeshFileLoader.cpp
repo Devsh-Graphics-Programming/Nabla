@@ -19,6 +19,7 @@
 #include <execution>
 #include <thread>
 #include <vector>
+#include <ranges>
 #include <fast_float/fast_float.h>
 #include "nbl/core/hash/blake.h"
 
@@ -84,8 +85,7 @@ void plyRunParallelWorkers(const size_t workerCount, Fn&& fn)
 		fn(0ull);
 		return;
 	}
-	core::vector<size_t> workerIds(workerCount);
-	std::iota(workerIds.begin(), workerIds.end(), 0ull);
+	auto workerIds = std::views::iota(size_t{0ull}, workerCount);
 	std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
 	{
 		fn(workerIx);
@@ -1183,7 +1183,7 @@ struct SContext
 								{
 									auto ready = std::atomic_ref<uint8_t>(workerReady[workerIx]);
 									while (ready.load(std::memory_order_acquire) == 0u)
-										std::this_thread::yield();
+										ready.wait(0u, std::memory_order_acquire);
 									if (workerHashable[workerIx] == 0u)
 									{
 										hashPipelineOk.store(false, std::memory_order_relaxed);
@@ -1253,7 +1253,11 @@ struct SContext
 						if (needMax)
 							workerMax[workerIx] = localMax;
 						if (hashInParsePipeline)
-							std::atomic_ref<uint8_t>(workerReady[workerIx]).store(1u, std::memory_order_release);
+						{
+							auto ready = std::atomic_ref<uint8_t>(workerReady[workerIx]);
+							ready.store(1u, std::memory_order_release);
+							ready.notify_one();
+						}
 					};
 					plyRunParallelWorkers(workerCount, [&](const size_t workerIx)
 					{

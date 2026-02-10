@@ -29,6 +29,7 @@
 #include <thread>
 #include <type_traits>
 #include <vector>
+#include <ranges>
 
 namespace nbl::asset
 {
@@ -83,8 +84,7 @@ void stlRunParallelWorkers(const size_t workerCount, Fn&& fn)
 		fn(0ull);
 		return;
 	}
-	core::vector<size_t> workerIds(workerCount);
-	std::iota(workerIds.begin(), workerIds.end(), 0ull);
+	auto workerIds = std::views::iota(size_t{0ull}, workerCount);
 	std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
 	{
 		fn(workerIx);
@@ -775,7 +775,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					{
 						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
 						while (ready.load(std::memory_order_acquire) == 0u)
-							std::this_thread::yield();
+							ready.wait(0u, std::memory_order_acquire);
 						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
 						const uint64_t endTri = std::min<uint64_t>(begin + parseChunkTriangles, triangleCount);
 						const size_t chunkTriangles = static_cast<size_t>(endTri - begin);
@@ -800,7 +800,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					{
 						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
 						while (ready.load(std::memory_order_acquire) == 0u)
-							std::this_thread::yield();
+							ready.wait(0u, std::memory_order_acquire);
 						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
 						const uint64_t endTri = std::min<uint64_t>(begin + parseChunkTriangles, triangleCount);
 						const size_t chunkTriangles = static_cast<size_t>(endTri - begin);
@@ -829,7 +829,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				const uint64_t endTri = std::min<uint64_t>(begin + parseChunkTriangles, triangleCount);
 				parseRange(begin, endTri, localAABB);
 				if (hashInParsePipeline)
-					std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]).store(1u, std::memory_order_release);
+				{
+					auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
+					ready.store(1u, std::memory_order_release);
+					ready.notify_all();
+				}
 			}
 			if constexpr (ComputeAABBInParse)
 				threadAABBs[workerIx] = localAABB;
