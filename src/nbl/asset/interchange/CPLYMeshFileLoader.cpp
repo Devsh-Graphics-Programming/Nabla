@@ -1125,7 +1125,7 @@ struct SContext
 			if (is32Bit)
 			{
 				const size_t hw = std::thread::hardware_concurrency();
-				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (640ull << 10));
+				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (256ull << 10));
 				size_t workerCount = hw ? std::min(hw, maxWorkersByWork) : 1ull;
 				if (workerCount > 1ull)
 				{

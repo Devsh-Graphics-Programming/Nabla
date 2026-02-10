@@ -614,6 +614,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const uint8_t* const end = cursor + dataSize;
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
 			return {};
+		const size_t hw = std::thread::hardware_concurrency();
+		const size_t maxWorkersByWork = std::max<size_t>(1ull, dataSize / (768ull << 10));
+		const size_t workerCount = hw ? std::max<size_t>(1ull, std::min(hw, maxWorkersByWork)) : 1ull;
+		static constexpr bool ComputeAABBInParse = true;
 		struct SThreadAABB
 		{
 			bool has = false;
@@ -624,17 +628,13 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			float maxY = 0.f;
 			float maxZ = 0.f;
 		};
-
-		const size_t hw = std::thread::hardware_concurrency();
-		const size_t maxWorkersByWork = std::max<size_t>(1ull, static_cast<size_t>(triangleCount / 8192ull));
-		const size_t workerCount = hw ? std::max<size_t>(1ull, std::min(hw, maxWorkersByWork)) : 1ull;
-		std::vector<SThreadAABB> threadAABBs(workerCount);
+		std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount : 0ull);
 		auto parseRange = [&](const size_t workerIx, const uint64_t beginTri, const uint64_t endTri) -> void
 		{
 			const uint8_t* localCursor = payloadData + beginTri * StlTriangleRecordBytes;
 			float* posCursor = posOutFloat + beginTri * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
 			float* normalCursor = normalOutFloat + beginTri * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
-			auto& localAABB = threadAABBs[workerIx];
+			SThreadAABB localAABB = {};
 			for (uint64_t tri = beginTri; tri < endTri; ++tri)
 			{
 				const uint8_t* const triRecord = localCursor;
@@ -666,29 +666,38 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				posCursor[6ull] = vertex2x;
 				posCursor[7ull] = vertex2y;
 				posCursor[8ull] = vertex2z;
-				const float triMinX = std::min(vertex0x, std::min(vertex1x, vertex2x));
-				const float triMinY = std::min(vertex0y, std::min(vertex1y, vertex2y));
-				const float triMinZ = std::min(vertex0z, std::min(vertex1z, vertex2z));
-				const float triMaxX = std::max(vertex0x, std::max(vertex1x, vertex2x));
-				const float triMaxY = std::max(vertex0y, std::max(vertex1y, vertex2y));
-				const float triMaxZ = std::max(vertex0z, std::max(vertex1z, vertex2z));
-				if (!localAABB.has)
-				{
-					localAABB.minX = triMinX; localAABB.maxX = triMaxX;
-					localAABB.minY = triMinY; localAABB.maxY = triMaxY;
-					localAABB.minZ = triMinZ; localAABB.maxZ = triMaxZ;
-					localAABB.has = true;
-				}
-				else
-				{
-					if (triMinX < localAABB.minX) localAABB.minX = triMinX;
-					if (triMinY < localAABB.minY) localAABB.minY = triMinY;
-					if (triMinZ < localAABB.minZ) localAABB.minZ = triMinZ;
-					if (triMaxX > localAABB.maxX) localAABB.maxX = triMaxX;
-					if (triMaxY > localAABB.maxY) localAABB.maxY = triMaxY;
-					if (triMaxZ > localAABB.maxZ) localAABB.maxZ = triMaxZ;
-				}
 				posCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+				if constexpr (ComputeAABBInParse)
+				{
+					if (!localAABB.has)
+					{
+						localAABB.has = true;
+						localAABB.minX = vertex0x;
+						localAABB.minY = vertex0y;
+						localAABB.minZ = vertex0z;
+						localAABB.maxX = vertex0x;
+						localAABB.maxY = vertex0y;
+						localAABB.maxZ = vertex0z;
+					}
+					if (vertex0x < localAABB.minX) localAABB.minX = vertex0x;
+					if (vertex0y < localAABB.minY) localAABB.minY = vertex0y;
+					if (vertex0z < localAABB.minZ) localAABB.minZ = vertex0z;
+					if (vertex0x > localAABB.maxX) localAABB.maxX = vertex0x;
+					if (vertex0y > localAABB.maxY) localAABB.maxY = vertex0y;
+					if (vertex0z > localAABB.maxZ) localAABB.maxZ = vertex0z;
+					if (vertex1x < localAABB.minX) localAABB.minX = vertex1x;
+					if (vertex1y < localAABB.minY) localAABB.minY = vertex1y;
+					if (vertex1z < localAABB.minZ) localAABB.minZ = vertex1z;
+					if (vertex1x > localAABB.maxX) localAABB.maxX = vertex1x;
+					if (vertex1y > localAABB.maxY) localAABB.maxY = vertex1y;
+					if (vertex1z > localAABB.maxZ) localAABB.maxZ = vertex1z;
+					if (vertex2x < localAABB.minX) localAABB.minX = vertex2x;
+					if (vertex2y < localAABB.minY) localAABB.minY = vertex2y;
+					if (vertex2z < localAABB.minZ) localAABB.minZ = vertex2z;
+					if (vertex2x > localAABB.maxX) localAABB.maxX = vertex2x;
+					if (vertex2y > localAABB.maxY) localAABB.maxY = vertex2y;
+					if (vertex2z > localAABB.maxZ) localAABB.maxZ = vertex2z;
+				}
 				if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
 				{
 					const float edge10x = vertex1x - vertex0x;
@@ -728,6 +737,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				normalCursor[8ull] = normalZ;
 				normalCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
 			}
+			if constexpr (ComputeAABBInParse)
+				threadAABBs[workerIx] = localAABB;
 		};
 
 		if (workerCount > 1ull)
@@ -743,29 +754,31 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			parseRange(0ull, 0ull, triangleCount);
 		}
-
-		for (const auto& localAABB : threadAABBs)
+		if constexpr (ComputeAABBInParse)
 		{
-			if (!localAABB.has)
-				continue;
-			if (!hasParsedAABB)
+			for (const auto& localAABB : threadAABBs)
 			{
-				hasParsedAABB = true;
-				parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
-				parsedAABB.minVx.x = localAABB.minX;
-				parsedAABB.minVx.y = localAABB.minY;
-				parsedAABB.minVx.z = localAABB.minZ;
-				parsedAABB.maxVx.x = localAABB.maxX;
-				parsedAABB.maxVx.y = localAABB.maxY;
-				parsedAABB.maxVx.z = localAABB.maxZ;
-				continue;
+				if (!localAABB.has)
+					continue;
+				if (!hasParsedAABB)
+				{
+					hasParsedAABB = true;
+					parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
+					parsedAABB.minVx.x = localAABB.minX;
+					parsedAABB.minVx.y = localAABB.minY;
+					parsedAABB.minVx.z = localAABB.minZ;
+					parsedAABB.maxVx.x = localAABB.maxX;
+					parsedAABB.maxVx.y = localAABB.maxY;
+					parsedAABB.maxVx.z = localAABB.maxZ;
+					continue;
+				}
+				if (localAABB.minX < parsedAABB.minVx.x) parsedAABB.minVx.x = localAABB.minX;
+				if (localAABB.minY < parsedAABB.minVx.y) parsedAABB.minVx.y = localAABB.minY;
+				if (localAABB.minZ < parsedAABB.minVx.z) parsedAABB.minVx.z = localAABB.minZ;
+				if (localAABB.maxX > parsedAABB.maxVx.x) parsedAABB.maxVx.x = localAABB.maxX;
+				if (localAABB.maxY > parsedAABB.maxVx.y) parsedAABB.maxVx.y = localAABB.maxY;
+				if (localAABB.maxZ > parsedAABB.maxVx.z) parsedAABB.maxVx.z = localAABB.maxZ;
 			}
-			if (localAABB.minX < parsedAABB.minVx.x) parsedAABB.minVx.x = localAABB.minX;
-			if (localAABB.minY < parsedAABB.minVx.y) parsedAABB.minVx.y = localAABB.minY;
-			if (localAABB.minZ < parsedAABB.minVx.z) parsedAABB.minVx.z = localAABB.minZ;
-			if (localAABB.maxX > parsedAABB.maxVx.x) parsedAABB.maxVx.x = localAABB.maxX;
-			if (localAABB.maxY > parsedAABB.maxVx.y) parsedAABB.maxVx.y = localAABB.maxY;
-			if (localAABB.maxZ > parsedAABB.maxVx.z) parsedAABB.maxVx.z = localAABB.maxZ;
 		}
 		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
 
