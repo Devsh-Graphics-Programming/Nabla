@@ -241,6 +241,41 @@ IGeometry<ICPUBuffer>::SDataView createAdoptedView(core::vector<T>&& data, const
     return view;
 }
 
+void objRecomputeContentHashes(ICPUPolygonGeometry* geometry)
+{
+    if (!geometry)
+        return;
+
+    core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+    auto appendViewBuffer = [&buffers](const IGeometry<ICPUBuffer>::SDataView& view) -> void
+    {
+        if (!view || !view.src.buffer)
+            return;
+        for (const auto& existing : buffers)
+        {
+            if (existing.get() == view.src.buffer.get())
+                return;
+        }
+        buffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer));
+    };
+
+    appendViewBuffer(geometry->getPositionView());
+    appendViewBuffer(geometry->getIndexView());
+    appendViewBuffer(geometry->getNormalView());
+    for (const auto& view : *geometry->getAuxAttributeViews())
+        appendViewBuffer(view);
+    for (const auto& view : *geometry->getJointWeightViews())
+    {
+        appendViewBuffer(view.indices);
+        appendViewBuffer(view.weights);
+    }
+    if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
+        appendViewBuffer(*jointOBB);
+
+    for (auto& buffer : buffers)
+        buffer->setContentHash(buffer->computeContentHash());
+}
+
 bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, double& ioMs, SFileReadTelemetry& ioTelemetry)
 {
     if (!file || !dst)
@@ -1134,7 +1169,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     }
     buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
 
-    hashMs = 0.0;
+    if (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES)
+    {
+        const auto hashStart = clock_t::now();
+        objRecomputeContentHashes(geometry.get());
+        hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+    }
 
     const auto aabbStart = clock_t::now();
     if (hasParsedAABB)

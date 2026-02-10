@@ -337,29 +337,8 @@ void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
 		appendViewBuffer(*jointOBB);
 
-	if (buffers.empty())
-		return;
-
-	const size_t hw = std::thread::hardware_concurrency();
-	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
-	if (workerCount <= 1ull)
-	{
-		for (auto& buffer : buffers)
-			buffer->setContentHash(buffer->computeContentHash());
-		return;
-	}
-
-	auto hashWorker = [&buffers, workerCount](const size_t workerIx) -> void
-	{
-		const size_t beginIx = (buffers.size() * workerIx) / workerCount;
-		const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
-		for (size_t i = beginIx; i < endIx; ++i)
-		{
-			auto& buffer = buffers[i];
-			buffer->setContentHash(buffer->computeContentHash());
-		}
-	};
-	stlRunParallelWorkers(workerCount, hashWorker);
+	for (auto& buffer : buffers)
+		buffer->setContentHash(buffer->computeContentHash());
 }
 
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
@@ -623,7 +602,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		};
 
 		const size_t hw = std::thread::hardware_concurrency();
-		const size_t maxWorkersByWork = std::max<size_t>(1ull, static_cast<size_t>(triangleCount / 6144ull));
+		const size_t maxWorkersByWork = std::max<size_t>(1ull, static_cast<size_t>(triangleCount / 8192ull));
 		const size_t workerCount = hw ? std::max<size_t>(1ull, std::min(hw, maxWorkersByWork)) : 1ull;
 		std::vector<SThreadAABB> threadAABBs(workerCount);
 		auto parseRange = [&](const size_t workerIx, const uint64_t beginTri, const uint64_t endTri) -> void
@@ -879,7 +858,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (vertexCount == 0ull)
 		return {};
 
-	hashMs = 0.0;
+	if (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES)
+	{
+		const auto hashStart = clock_t::now();
+		stlRecomputeContentHashesParallel(geometry.get());
+		hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+	}
 
 	const auto aabbStart = clock_t::now();
 	if (hasParsedAABB)

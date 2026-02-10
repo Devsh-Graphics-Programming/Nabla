@@ -238,29 +238,8 @@ void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
 		appendViewBuffer(*jointOBB);
 
-	if (buffers.empty())
-		return;
-
-	const size_t hw = std::thread::hardware_concurrency();
-	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
-	if (workerCount <= 1ull)
-	{
-		for (auto& buffer : buffers)
-			buffer->setContentHash(buffer->computeContentHash());
-		return;
-	}
-
-	auto hashWorker = [&buffers, workerCount](const size_t workerIx) -> void
-	{
-		const size_t beginIx = (buffers.size() * workerIx) / workerCount;
-		const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
-		for (size_t i = beginIx; i < endIx; ++i)
-		{
-			auto& buffer = buffers[i];
-			buffer->setContentHash(buffer->computeContentHash());
-		}
-	};
-	plyRunParallelWorkers(workerCount, hashWorker);
+	for (auto& buffer : buffers)
+		buffer->setContentHash(buffer->computeContentHash());
 }
 
 struct SContext
@@ -1127,12 +1106,12 @@ struct SContext
 			if (is32Bit)
 			{
 				const size_t hw = std::thread::hardware_concurrency();
-				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (512ull << 10));
+				const size_t maxWorkersByWork = std::max<size_t>(1ull, minBytesNeeded / (640ull << 10));
 				size_t workerCount = hw ? std::min(hw, maxWorkersByWork) : 1ull;
 				if (workerCount > 1ull)
 				{
 					const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
-					const bool needMax = true;
+					const bool needMax = trackMaxIndex;
 					const bool validateAgainstVertexCount = hasVertexCount;
 					std::vector<uint8_t> workerNonTriangle(workerCount, 0u);
 					std::vector<uint8_t> workerInvalid(workerCount, 0u);
@@ -2156,7 +2135,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 	indexBuildMs = std::chrono::duration<double, std::milli>(clock_t::now() - indexStart).count();
 
-	hashRangeMs = 0.0;
+	if (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES)
+	{
+		const auto hashStart = clock_t::now();
+		plyRecomputeContentHashesParallel(geometry.get());
+		hashRangeMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
+	}
 
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	const double stageRemainderMs = std::max(0.0, totalMs - (headerMs + vertexMs + faceMs + skipMs + layoutNegotiateMs + viewCreateMs + hashRangeMs + indexBuildMs + aabbMs));
