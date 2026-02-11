@@ -203,9 +203,11 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     IAssetLoader::SAssetLoadContext ctx{params,_file};
 
     std::filesystem::path filename = _file ? _file->getFileName() : std::filesystem::path(_supposedFilename);
-    auto file = _override->getLoadFile(_file, filename.string(), ctx, _hierarchyLevel);
+    auto filenameString = filename.string();
+    auto file = _override->getLoadFile(_file, filenameString, ctx, _hierarchyLevel);
 
     filename = file.get() ? file->getFileName() : std::filesystem::path(_supposedFilename);
+    filenameString = filename.string();
     // TODO: should we remove? (is a root absolute path working dir ever needed)
     if (params.workingDirectory.empty())
         params.workingDirectory = filename.parent_path();
@@ -215,10 +217,10 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     SAssetBundle bundle;
     if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
     {
-        auto found = findAssets(filename.string());
+        auto found = findAssets(filenameString);
         if (found->size())
             return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
-        else if (!(bundle = _override->handleSearchFail(filename.string(), ctx, _hierarchyLevel)).getContents().empty())
+        else if (!(bundle = _override->handleSearchFail(filenameString, ctx, _hierarchyLevel)).getContents().empty())
             return bundle;
     }
 
@@ -249,14 +251,14 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
         ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
         ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
     {
-        _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+        _override->insertAssetIntoCache(bundle, filenameString, ctx, _hierarchyLevel);
     }
     else if (bundle.getContents().empty())
     {
         bool addToCache;
-        bundle = _override->handleLoadFail(addToCache, file.get(), filename.string(), filename.string(), ctx, _hierarchyLevel);
+        bundle = _override->handleLoadFail(addToCache, file.get(), filenameString, filenameString, ctx, _hierarchyLevel);
         if (!bundle.getContents().empty() && addToCache)
-            _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+            _override->insertAssetIntoCache(bundle, filenameString, ctx, _hierarchyLevel);
     }            
     return bundle;
 }

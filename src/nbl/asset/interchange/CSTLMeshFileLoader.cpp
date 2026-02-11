@@ -935,19 +935,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			static_cast<unsigned long long>(ioAvgRead));
 	}
 	_params.logger.log(
-		"STL loader perf: file=%s total=%.3f ms detect=%.3f io=%.3f parse=%.3f build=%.3f build_alloc_views=%.3f build_set_views=%.3f build_misc=%.3f hash=%.3f aabb=%.3f binary=%d parse_path=%s triangles=%llu vertices=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"STL loader stats: file=%s binary=%d parse_path=%s triangles=%llu vertices=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
-		totalMs,
-		detectMs,
-		ioMs,
-		parseMs,
-		buildMs,
-		buildAllocViewsMs,
-		buildSetViewsMs,
-		buildMiscMs,
-		hashMs,
-		aabbMs,
 		binary ? 1 : 0,
 		parsePath,
 		static_cast<unsigned long long>(triangleCount),
@@ -959,6 +949,16 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
 		ioPlan.reason);
+	(void)totalMs;
+	(void)detectMs;
+	(void)ioMs;
+	(void)parseMs;
+	(void)buildMs;
+	(void)buildAllocViewsMs;
+	(void)buildSetViewsMs;
+	(void)buildMiscMs;
+	(void)hashMs;
+	(void)aabbMs;
 
 	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>();
 	return SAssetBundle(std::move(meta), { std::move(geometry) });

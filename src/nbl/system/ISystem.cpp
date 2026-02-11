@@ -41,11 +41,12 @@ bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_
     // filename too long
     if (filename.string().size() >= sizeof(SRequestParams_CREATE_FILE::filename))
         return false;
-    // archive file
-    if (!writeUsage && findFileInArchive(filename).archive)
-        return true;
     // regular file
-    return std::filesystem::exists(filename);
+    std::error_code fsEc;
+    if (std::filesystem::exists(filename, fsEc) && !fsEc)
+        return true;
+    // archive file
+    return !writeUsage && findFileInArchive(filename).archive;
 }
 
 bool ISystem::isPathReadOnly(const system::path& p) const
@@ -193,12 +194,25 @@ bool ISystem::copy(const system::path& from, const system::path& to)
 
 void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::filesystem::path filename, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, const std::string_view& accessToken)
 {
-    // canonicalize
-    if (std::filesystem::exists(filename))
-        filename = std::filesystem::canonical(filename);
+    std::error_code fsEc;
+    const bool writeUsage = flags.value&IFile::ECF_WRITE;
+    const bool absoluteInput = filename.is_absolute();
+    bool pathExists = false;
+    if (!writeUsage)
+    {
+        fsEc.clear();
+        pathExists = std::filesystem::exists(filename, fsEc) && !fsEc;
+        if (pathExists && !absoluteInput)
+        {
+            fsEc.clear();
+            const auto absolute = std::filesystem::absolute(filename, fsEc);
+            if (!fsEc)
+                filename = absolute;
+        }
+    }
 
     // try archives (readonly, for now)
-    if (!(flags.value&IFile::ECF_WRITE))
+    if (!writeUsage && !pathExists)
     {
         const auto found = findFileInArchive(filename);
         if (found.archive)
@@ -213,8 +227,6 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
     }
 
     //
-    if (std::filesystem::exists(filename))
-        filename = std::filesystem::absolute(filename).generic_string();
     if (filename.string().size()>=MAX_FILENAME_LENGTH)
     {
         future.set_result(nullptr);
@@ -255,16 +267,21 @@ core::smart_refctd_ptr<IFileArchive> ISystem::openFileArchive(core::smart_refctd
 
 ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolutePath) const
 {
-    system::path path = std::filesystem::exists(absolutePath) ? std::filesystem::canonical(absolutePath.parent_path()):absolutePath.parent_path();
+    const auto normalizedAbsolutePath = absolutePath.lexically_normal();
+    system::path path = normalizedAbsolutePath.parent_path().lexically_normal();
     // going up the directory tree
     while (!path.empty() && path.parent_path()!=path)
     {
-        path = std::filesystem::exists(path) ? std::filesystem::canonical(path):path;
-
+        std::error_code fsEc;
+        const auto relative = std::filesystem::relative(normalizedAbsolutePath, path, fsEc);
+        if (fsEc)
+        {
+            path = path.parent_path();
+            continue;
+        }
         const auto archives = m_cachedArchiveFiles.findRange(path);
         for (auto& archive : archives)
         {
-            const auto relative = std::filesystem::relative(absolutePath,path);
             const auto items = static_cast<IFileArchive::SFileList::range_t>(archive.second->listAssets());
 
             const IFileArchive::SFileList::SEntry itemToFind = { relative };

@@ -1291,23 +1291,23 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
             static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()));
     }
+    (void)totalMs;
+    (void)ioMs;
+    (void)parseMs;
+    (void)parseScanMs;
+    (void)parseVms;
+    (void)parseVNms;
+    (void)parseVTms;
+    (void)parseFaceMs;
+    (void)dedupMs;
+    (void)emitMs;
+    (void)buildMs;
+    (void)hashMs;
+    (void)aabbMs;
     _params.logger.log(
-        "OBJ loader perf: file=%s total=%.3f ms io=%.3f parse=%.3f parse_scan=%.3f parse_v=%.3f parse_vn=%.3f parse_vt=%.3f parse_f=%.3f dedup=%.3f emit=%.3f build=%.3f hash=%.3f aabb=%.3f in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu) io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+        "OBJ loader stats: file=%s in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
         system::ILogger::ELL_PERFORMANCE,
         _file->getFileName().string().c_str(),
-        totalMs,
-        ioMs,
-        parseMs,
-        parseScanMs,
-        parseVms,
-        parseVNms,
-        parseVTms,
-        parseFaceMs,
-        dedupMs,
-        emitMs,
-        buildMs,
-        hashMs,
-        aabbMs,
         static_cast<unsigned long long>(positions.size()),
         static_cast<unsigned long long>(normals.size()),
         static_cast<unsigned long long>(uvs.size()),

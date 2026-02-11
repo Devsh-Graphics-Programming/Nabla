@@ -2284,22 +2284,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			static_cast<unsigned long long>(ioAvgRead));
 	}
 	_params.logger.log(
-		"PLY loader perf: file=%s total=%.3f ms header=%.3f vertex=%.3f vertex_fast_ms=%.3f vertex_generic_ms=%.3f face=%.3f skip=%.3f layout_negotiate=%.3f view_create=%.3f hash_range=%.3f index=%.3f aabb=%.3f remainder=%.3f binary=%d verts=%llu faces=%llu idx=%llu vertex_fast=%llu face_fast=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"PLY loader stats: file=%s binary=%d verts=%llu faces=%llu idx=%llu vertex_fast=%llu face_fast=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
-		totalMs,
-		headerMs,
-		vertexMs,
-		vertexFastMs,
-		vertexGenericMs,
-		faceMs,
-		skipMs,
-		layoutNegotiateMs,
-		viewCreateMs,
-		hashRangeMs,
-		indexBuildMs,
-		aabbMs,
-		stageRemainderMs,
 		ctx.IsBinaryFile ? 1 : 0,
 		static_cast<unsigned long long>(vertCount),
 		static_cast<unsigned long long>(faceCount),
@@ -2313,6 +2300,19 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
 		ioPlan.reason);
+	(void)totalMs;
+	(void)stageRemainderMs;
+	(void)headerMs;
+	(void)vertexMs;
+	(void)vertexFastMs;
+	(void)vertexGenericMs;
+	(void)faceMs;
+	(void)skipMs;
+	(void)layoutNegotiateMs;
+	(void)viewCreateMs;
+	(void)hashRangeMs;
+	(void)indexBuildMs;
+	(void)aabbMs;
 
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});

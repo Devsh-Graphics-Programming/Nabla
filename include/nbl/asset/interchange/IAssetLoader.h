@@ -235,6 +235,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				//! Called before loading a file to determine the correct path (could be relative or absolute)
 				inline virtual void getLoadFilename(system::path& inOutFilename, const system::ISystem* sys,  const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
+					if (inOutFilename.is_absolute() || inOutFilename.has_root_path())
+						return;
 					// try compute absolute path
 					auto absolute = ctx.params.workingDirectory/inOutFilename;
 					if (sys->exists(absolute,system::IFile::ECF_READ))

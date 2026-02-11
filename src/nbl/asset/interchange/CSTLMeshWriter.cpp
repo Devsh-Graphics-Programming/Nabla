@@ -187,14 +187,9 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			static_cast<unsigned long long>(ioAvgWrite));
 	}
 	_params.logger.log(
-		"STL writer perf: file=%s total=%.3f ms format=%.3f encode=%.3f write=%.3f misc=%.3f bytes=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"STL writer stats: file=%s bytes=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		file->getFileName().string().c_str(),
-		totalMs,
-		context.formatMs,
-		context.encodeMs,
-		context.writeMs,
-		miscMs,
 		static_cast<unsigned long long>(context.fileOffset),
 		binary ? 1 : 0,
 		static_cast<unsigned long long>(context.writeTelemetry.callCount),
@@ -204,6 +199,11 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		toString(context.ioPlan.strategy),
 		static_cast<unsigned long long>(context.ioPlan.chunkSizeBytes),
 		context.ioPlan.reason);
+	(void)totalMs;
+	(void)miscMs;
+	(void)context.formatMs;
+	(void)context.encodeMs;
+	(void)context.writeMs;
 
 	return true;
 }

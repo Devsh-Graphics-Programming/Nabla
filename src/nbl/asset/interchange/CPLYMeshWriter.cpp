@@ -319,14 +319,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
                 static_cast<unsigned long long>(ioAvgWrite));
         }
         _params.logger.log(
-            "PLY writer perf: file=%s total=%.3f ms encode=%.3f format=%.3f write=%.3f misc=%.3f bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+            "PLY writer stats: file=%s bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
             system::ILogger::ELL_PERFORMANCE,
             file->getFileName().string().c_str(),
-            totalMs,
-            encodeMs,
-            formatMs,
-            writeMs,
-            miscMs,
             static_cast<unsigned long long>(outputBytes),
             static_cast<unsigned long long>(vertexCount),
             static_cast<unsigned long long>(faceCount),
@@ -338,6 +333,11 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             toString(ioPlan.strategy),
             static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
             ioPlan.reason);
+        (void)totalMs;
+        (void)encodeMs;
+        (void)formatMs;
+        (void)writeMs;
+        (void)miscMs;
         return writeOk;
     }
 
@@ -383,14 +383,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             static_cast<unsigned long long>(ioAvgWrite));
     }
     _params.logger.log(
-        "PLY writer perf: file=%s total=%.3f ms encode=%.3f format=%.3f write=%.3f misc=%.3f bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+        "PLY writer stats: file=%s bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
         system::ILogger::ELL_PERFORMANCE,
         file->getFileName().string().c_str(),
-        totalMs,
-        encodeMs,
-        formatMs,
-        writeMs,
-        miscMs,
         static_cast<unsigned long long>(outputBytes),
         static_cast<unsigned long long>(vertexCount),
         static_cast<unsigned long long>(faceCount),
@@ -402,6 +397,11 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         toString(ioPlan.strategy),
         static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
         ioPlan.reason);
+    (void)totalMs;
+    (void)encodeMs;
+    (void)formatMs;
+    (void)writeMs;
+    (void)miscMs;
     return writeOk;
 }
 
