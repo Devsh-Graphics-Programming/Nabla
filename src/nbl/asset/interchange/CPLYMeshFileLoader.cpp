@@ -7,6 +7,7 @@
 
 #include "CPLYMeshFileLoader.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 
 #include <numeric>
 #include <charconv>
@@ -204,7 +205,7 @@ IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU16IndexView(core::vector<uint1
 	return view;
 }
 
-void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
+void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
 {
 	if (!geometry)
 		return;
@@ -253,9 +254,31 @@ void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	if (pending.empty())
 		return;
 
-	const size_t hw = std::thread::hardware_concurrency();
-	const size_t maxWorkersByBytes = std::max<size_t>(1ull, static_cast<size_t>(totalBytes / (2ull << 20)));
-	const size_t workerCount = hw ? std::min({ hw, pending.size(), maxWorkersByBytes }) : 1ull;
+	const size_t hw = resolveLoaderHardwareThreads();
+	const uint8_t* hashSampleData = nullptr;
+	uint64_t hashSampleBytes = 0ull;
+	for (const auto pendingIx : pending)
+	{
+		auto& buffer = buffers[pendingIx];
+		const auto* ptr = reinterpret_cast<const uint8_t*>(buffer->getPointer());
+		if (!ptr)
+			continue;
+		hashSampleData = ptr;
+		hashSampleBytes = std::min<uint64_t>(static_cast<uint64_t>(buffer->getSize()), 128ull << 10);
+		if (hashSampleBytes > 0ull)
+			break;
+	}
+	SLoaderRuntimeTuningRequest tuningRequest = {};
+	tuningRequest.inputBytes = totalBytes;
+	tuningRequest.totalWorkUnits = pending.size();
+	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, pending.empty() ? 1ull : loaderRuntimeCeilDiv(totalBytes, static_cast<uint64_t>(pending.size())));
+	tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+	tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(pending.size(), hw));
+	tuningRequest.targetChunksPerWorker = 1u;
+	tuningRequest.sampleData = hashSampleData;
+	tuningRequest.sampleBytes = hashSampleBytes;
+	const auto tuning = tuneLoaderRuntime(ioPolicy, tuningRequest);
+	const size_t workerCount = std::min(tuning.workerCount, pending.size());
 	if (workerCount > 1ull)
 	{
 		plyRunParallelWorkers(workerCount, [&](const size_t workerIx)
@@ -1150,16 +1173,21 @@ struct SContext
 			bool fallbackToGeneric = false;
 			if (is32Bit)
 			{
-				const size_t hw = std::thread::hardware_concurrency();
-				constexpr size_t FaceParseBytesPerWorkerTarget = 512ull << 10;
-				constexpr size_t FaceParseFacesPerWorkerTarget = 32768ull;
-				const size_t maxWorkersByBytes = std::max<size_t>(1ull, (minBytesNeeded + FaceParseBytesPerWorkerTarget - 1ull) / FaceParseBytesPerWorkerTarget);
-				const size_t maxWorkersByFaces = std::max<size_t>(1ull, (element.Count + FaceParseFacesPerWorkerTarget - 1ull) / FaceParseFacesPerWorkerTarget);
-				const size_t maxWorkersByWork = std::min(maxWorkersByBytes, maxWorkersByFaces);
-				size_t workerCount = hw ? std::min(hw, maxWorkersByWork) : 1ull;
+				const size_t hw = resolveLoaderHardwareThreads();
+				const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
+				SLoaderRuntimeTuningRequest faceTuningRequest = {};
+				faceTuningRequest.inputBytes = minBytesNeeded;
+				faceTuningRequest.totalWorkUnits = element.Count;
+				faceTuningRequest.minBytesPerWorker = recordBytes;
+				faceTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+				faceTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hw);
+				faceTuningRequest.targetChunksPerWorker = 4u;
+				faceTuningRequest.sampleData = ptr;
+				faceTuningRequest.sampleBytes = std::min<uint64_t>(minBytesNeeded, 128ull << 10);
+				const auto faceTuning = tuneLoaderRuntime(inner.params.ioPolicy, faceTuningRequest);
+				size_t workerCount = std::min(faceTuning.workerCount, element.Count);
 				if (workerCount > 1ull)
 				{
-					const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
 					const bool needMax = trackMaxIndex;
 					const bool validateAgainstVertexCount = hasVertexCount;
 					std::vector<uint8_t> workerNonTriangle(workerCount, 0u);
@@ -2317,7 +2345,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (deferredPositionHashThread.joinable())
 			deferredPositionHashThread.join();
 		const auto hashStart = clock_t::now();
-		plyRecomputeContentHashesParallel(geometry.get());
+		plyRecomputeContentHashesParallel(geometry.get(), _params.ioPolicy);
 		hashRangeMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 	}
 	else

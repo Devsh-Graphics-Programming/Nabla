@@ -7,6 +7,7 @@
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
@@ -308,7 +309,7 @@ ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::flo
 	return view;
 }
 
-void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
+void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
 {
 	if (!geometry)
 		return;
@@ -346,9 +347,31 @@ void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry)
 	for (const auto& buffer : buffers)
 		totalBytes += static_cast<uint64_t>(buffer->getSize());
 
-	const size_t hw = std::thread::hardware_concurrency();
-	const size_t workerCount = hw ? std::min<size_t>(hw, buffers.size()) : 1ull;
-	if (workerCount > 1ull && totalBytes >= (2ull << 20))
+	const size_t hw = resolveLoaderHardwareThreads();
+	const uint8_t* hashSampleData = nullptr;
+	uint64_t hashSampleBytes = 0ull;
+	for (const auto& buffer : buffers)
+	{
+		const auto* ptr = reinterpret_cast<const uint8_t*>(buffer->getPointer());
+		if (!ptr)
+			continue;
+		hashSampleData = ptr;
+		hashSampleBytes = std::min<uint64_t>(static_cast<uint64_t>(buffer->getSize()), 128ull << 10);
+		if (hashSampleBytes > 0ull)
+			break;
+	}
+	SLoaderRuntimeTuningRequest tuningRequest = {};
+	tuningRequest.inputBytes = totalBytes;
+	tuningRequest.totalWorkUnits = buffers.size();
+	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, buffers.empty() ? 1ull : loaderRuntimeCeilDiv(totalBytes, static_cast<uint64_t>(buffers.size())));
+	tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+	tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(hw, buffers.size()));
+	tuningRequest.targetChunksPerWorker = 1u;
+	tuningRequest.sampleData = hashSampleData;
+	tuningRequest.sampleBytes = hashSampleBytes;
+	const auto tuning = tuneLoaderRuntime(ioPolicy, tuningRequest);
+	const size_t workerCount = std::min(tuning.workerCount, buffers.size());
+	if (workerCount > 1ull)
 	{
 		stlRunParallelWorkers(workerCount, [&buffers, workerCount](const size_t workerIx)
 		{
@@ -624,14 +647,20 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const uint8_t* const end = cursor + dataSize;
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
 			return {};
-		const size_t hw = std::thread::hardware_concurrency();
-		constexpr size_t StlParseBytesPerWorkerTarget = 384ull << 10;
-		constexpr uint64_t StlParseTrianglesPerWorkerTarget = 8192ull;
-		const size_t maxWorkersByBytes = std::max<size_t>(1ull, (dataSize + StlParseBytesPerWorkerTarget - 1ull) / StlParseBytesPerWorkerTarget);
-		const size_t maxWorkersByTriangles = std::max<size_t>(1ull, static_cast<size_t>((triangleCount + StlParseTrianglesPerWorkerTarget - 1ull) / StlParseTrianglesPerWorkerTarget));
-		const size_t maxWorkersByWork = std::min(maxWorkersByBytes, maxWorkersByTriangles);
-		const size_t parseHwBudget = hw;
-		const size_t workerCount = parseHwBudget ? std::max<size_t>(1ull, std::min(parseHwBudget, maxWorkersByWork)) : 1ull;
+		const size_t hw = resolveLoaderHardwareThreads();
+		SLoaderRuntimeTuningRequest parseTuningRequest = {};
+		parseTuningRequest.inputBytes = dataSize;
+		parseTuningRequest.totalWorkUnits = triangleCount;
+		parseTuningRequest.minBytesPerWorker = StlTriangleRecordBytes;
+		parseTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hw);
+		parseTuningRequest.targetChunksPerWorker = 4u;
+		parseTuningRequest.minChunkWorkUnits = 1ull;
+		parseTuningRequest.maxChunkWorkUnits = std::max<uint64_t>(1ull, triangleCount);
+		parseTuningRequest.sampleData = payloadData;
+		parseTuningRequest.sampleBytes = std::min<uint64_t>(dataSize, 128ull << 10);
+		const auto parseTuning = tuneLoaderRuntime(_params.ioPolicy, parseTuningRequest);
+		const size_t workerCount = std::max<size_t>(1ull, std::min(parseTuning.workerCount, static_cast<size_t>(std::max<uint64_t>(1ull, triangleCount))));
 		static constexpr bool ComputeAABBInParse = true;
 		struct SThreadAABB
 		{
@@ -644,10 +673,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			float maxZ = 0.f;
 		};
 		std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount : 0ull);
-		const uint64_t targetChunkCount = std::max<uint64_t>(1ull, static_cast<uint64_t>(workerCount) * 4ull);
-		const uint64_t dynamicChunkTriangles = (triangleCount + targetChunkCount - 1ull) / targetChunkCount;
-		const uint64_t parseChunkTriangles = std::clamp<uint64_t>(dynamicChunkTriangles, 4096ull, 16384ull);
-		const size_t parseChunkCount = static_cast<size_t>((triangleCount + parseChunkTriangles - 1ull) / parseChunkTriangles);
+		const uint64_t parseChunkTriangles = std::max<uint64_t>(1ull, parseTuning.chunkWorkUnits);
+		const size_t parseChunkCount = static_cast<size_t>(loaderRuntimeCeilDiv(triangleCount, parseChunkTriangles));
 		const bool hashInParsePipeline = computeContentHashes;
 		std::vector<uint8_t> hashChunkReady(hashInParsePipeline ? parseChunkCount : 0ull, 0u);
 		double positionHashPipelineMs = 0.0;
@@ -771,16 +798,28 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				{
 					core::blake3_hasher positionHasher;
 					const auto hashThreadStart = clock_t::now();
-					for (size_t chunkIx = 0ull; chunkIx < parseChunkCount; ++chunkIx)
+					size_t chunkIx = 0ull;
+					while (chunkIx < parseChunkCount)
 					{
 						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
 						while (ready.load(std::memory_order_acquire) == 0u)
 							ready.wait(0u, std::memory_order_acquire);
+
+						size_t runEnd = chunkIx + 1ull;
+						while (runEnd < parseChunkCount)
+						{
+							const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
+							if (runReady == 0u)
+								break;
+							++runEnd;
+						}
+
 						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
-						const uint64_t endTri = std::min<uint64_t>(begin + parseChunkTriangles, triangleCount);
-						const size_t chunkTriangles = static_cast<size_t>(endTri - begin);
-						const size_t chunkBytes = chunkTriangles * StlVerticesPerTriangle * StlFloatChannelsPerVertex * sizeof(float);
-						positionHasher.update(posOutFloat + begin * StlVerticesPerTriangle * StlFloatChannelsPerVertex, chunkBytes);
+						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
+						const size_t runTriangles = static_cast<size_t>(endTri - begin);
+						const size_t runBytes = runTriangles * StlVerticesPerTriangle * StlFloatChannelsPerVertex * sizeof(float);
+						positionHasher.update(posOutFloat + begin * StlVerticesPerTriangle * StlFloatChannelsPerVertex, runBytes);
+						chunkIx = runEnd;
 					}
 					positionHashPipelineMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashThreadStart).count();
 					parsedPositionHash = static_cast<core::blake3_hash_t>(positionHasher);
@@ -796,16 +835,28 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				{
 					core::blake3_hasher normalHasher;
 					const auto hashThreadStart = clock_t::now();
-					for (size_t chunkIx = 0ull; chunkIx < parseChunkCount; ++chunkIx)
+					size_t chunkIx = 0ull;
+					while (chunkIx < parseChunkCount)
 					{
 						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
 						while (ready.load(std::memory_order_acquire) == 0u)
 							ready.wait(0u, std::memory_order_acquire);
+
+						size_t runEnd = chunkIx + 1ull;
+						while (runEnd < parseChunkCount)
+						{
+							const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
+							if (runReady == 0u)
+								break;
+							++runEnd;
+						}
+
 						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
-						const uint64_t endTri = std::min<uint64_t>(begin + parseChunkTriangles, triangleCount);
-						const size_t chunkTriangles = static_cast<size_t>(endTri - begin);
-						const size_t chunkBytes = chunkTriangles * StlVerticesPerTriangle * StlFloatChannelsPerVertex * sizeof(float);
-						normalHasher.update(normalOutFloat + begin * StlVerticesPerTriangle * StlFloatChannelsPerVertex, chunkBytes);
+						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
+						const size_t runTriangles = static_cast<size_t>(endTri - begin);
+						const size_t runBytes = runTriangles * StlVerticesPerTriangle * StlFloatChannelsPerVertex * sizeof(float);
+						normalHasher.update(normalOutFloat + begin * StlVerticesPerTriangle * StlFloatChannelsPerVertex, runBytes);
+						chunkIx = runEnd;
 					}
 					normalHashPipelineMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashThreadStart).count();
 					parsedNormalHash = static_cast<core::blake3_hash_t>(normalHasher);
@@ -993,7 +1044,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (computeContentHashes && !contentHashesAssigned)
 	{
 		const auto hashStart = clock_t::now();
-		stlRecomputeContentHashesParallel(geometry.get());
+		stlRecomputeContentHashesParallel(geometry.get(), _params.ioPolicy);
 		hashMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 	}
 

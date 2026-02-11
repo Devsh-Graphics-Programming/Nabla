@@ -6,6 +6,7 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
@@ -16,6 +17,7 @@
 
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <charconv>
 #include <chrono>
 #include <cstdlib>
@@ -496,22 +498,62 @@ NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const line
             return false;
 
         int32_t posIx = -1;
-        if (!parseObjPositiveIndexBounded(ptr, lineEnd, posCount, posIx))
-            return false;
+        {
+            uint32_t value = 0u;
+            while (ptr < lineEnd && isObjDigit(*ptr))
+            {
+                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+                if (value > 429496729u)
+                    return false;
+                value = value * 10u + digit;
+                ++ptr;
+            }
+            if (value == 0u || value > posCount)
+                return false;
+            posIx = static_cast<int32_t>(value - 1u);
+        }
         if (ptr >= lineEnd || *ptr != '/')
             return false;
         ++ptr;
 
         int32_t uvIx = -1;
-        if (!parseObjPositiveIndexBounded(ptr, lineEnd, uvCount, uvIx))
-            return false;
+        {
+            uint32_t value = 0u;
+            if (ptr >= lineEnd || !isObjDigit(*ptr))
+                return false;
+            while (ptr < lineEnd && isObjDigit(*ptr))
+            {
+                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+                if (value > 429496729u)
+                    return false;
+                value = value * 10u + digit;
+                ++ptr;
+            }
+            if (value == 0u || value > uvCount)
+                return false;
+            uvIx = static_cast<int32_t>(value - 1u);
+        }
         if (ptr >= lineEnd || *ptr != '/')
             return false;
         ++ptr;
 
         int32_t normalIx = -1;
-        if (!parseObjPositiveIndexBounded(ptr, lineEnd, normalCount, normalIx))
-            return false;
+        {
+            uint32_t value = 0u;
+            if (ptr >= lineEnd || !isObjDigit(*ptr))
+                return false;
+            while (ptr < lineEnd && isObjDigit(*ptr))
+            {
+                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+                if (value > 429496729u)
+                    return false;
+                value = value * 10u + digit;
+                ++ptr;
+            }
+            if (value == 0u || value > normalCount)
+                return false;
+            normalIx = static_cast<int32_t>(value - 1u);
+        }
 
         int32_t* const dst = out[corner];
         dst[0] = posIx;
@@ -811,8 +853,22 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         int32_t normal = -1;
         uint32_t outIndex = 0u;
     };
-    static constexpr size_t DedupHotEntryCount = 2048ull;
-    std::array<SDedupHotEntry, DedupHotEntryCount> dedupHotCache = {};
+    const size_t hw = resolveLoaderHardwareThreads();
+    SLoaderRuntimeTuningRequest dedupTuningRequest = {};
+    dedupTuningRequest.inputBytes = static_cast<uint64_t>(filesize);
+    dedupTuningRequest.totalWorkUnits = estimatedOutVertexCount;
+    dedupTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+    dedupTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hw);
+    dedupTuningRequest.targetChunksPerWorker = 1u;
+    dedupTuningRequest.sampleData = reinterpret_cast<const uint8_t*>(buf);
+    dedupTuningRequest.sampleBytes = std::min<uint64_t>(static_cast<uint64_t>(filesize), 128ull << 10);
+    const auto dedupTuning = tuneLoaderRuntime(_params.ioPolicy, dedupTuningRequest);
+    const size_t dedupHotSeed = std::max<size_t>(
+        16ull,
+        estimatedOutVertexCount / std::max<size_t>(1ull, dedupTuning.workerCount * 8ull));
+    const size_t dedupHotEntryCount = std::bit_ceil(dedupHotSeed);
+    core::vector<SDedupHotEntry> dedupHotCache(dedupHotEntryCount);
+    const size_t dedupHotMask = dedupHotEntryCount - 1ull;
 
     bool hasNormals = false;
     bool hasUVs = false;
@@ -920,7 +976,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             static_cast<uint32_t>(posIx) * 73856093u ^
             static_cast<uint32_t>(uvIx) * 19349663u ^
             static_cast<uint32_t>(normalIx) * 83492791u;
-        auto& hotEntry = dedupHotCache[hotHash & static_cast<uint32_t>(DedupHotEntryCount - 1ull)];
+        auto& hotEntry = dedupHotCache[static_cast<size_t>(hotHash) & dedupHotMask];
         if (hotEntry.pos == posIx && hotEntry.uv == uvIx && hotEntry.normal == normalIx)
         {
             outIx = hotEntry.outIndex;

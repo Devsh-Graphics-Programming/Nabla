@@ -14,6 +14,26 @@ namespace nbl::asset
 
 struct SFileIOPolicy
 {
+    struct SRuntimeTuning
+    {
+        enum class Mode : uint8_t
+        {
+            None,
+            Heuristic,
+            Hybrid
+        };
+
+        Mode mode = Mode::Heuristic;
+        float maxOverheadRatio = 0.05f;
+        float samplingBudgetRatio = 0.05f;
+        float minExpectedGainRatio = 0.03f;
+        uint32_t maxWorkers = 0u;
+        uint32_t samplingMaxCandidates = 4u;
+        uint32_t samplingPasses = 1u;
+        uint64_t samplingMinWorkUnits = 0ull;
+        uint32_t targetChunksPerWorker = 4u;
+    };
+
     enum class Strategy : uint8_t
     {
         Auto,
@@ -26,6 +46,7 @@ struct SFileIOPolicy
     uint64_t wholeFileThresholdBytes = 64ull * 1024ull * 1024ull;
     uint64_t chunkSizeBytes = 4ull * 1024ull * 1024ull;
     uint64_t maxStagingBytes = 256ull * 1024ull * 1024ull;
+    SRuntimeTuning runtimeTuning = {};
 };
 
 struct SResolvedFileIOPolicy
