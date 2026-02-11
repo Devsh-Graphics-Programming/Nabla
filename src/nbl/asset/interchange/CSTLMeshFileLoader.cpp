@@ -653,8 +653,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		parseTuningRequest.totalWorkUnits = triangleCount;
 		parseTuningRequest.minBytesPerWorker = StlTriangleRecordBytes;
 		parseTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hw);
-		parseTuningRequest.targetChunksPerWorker = 4u;
+		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::max<size_t>(1ull, hw > 2ull ? (hw - 2ull) : hw));
+		parseTuningRequest.targetChunksPerWorker = 2u;
 		parseTuningRequest.minChunkWorkUnits = 1ull;
 		parseTuningRequest.maxChunkWorkUnits = std::max<uint64_t>(1ull, triangleCount);
 		parseTuningRequest.sampleData = payloadData;
