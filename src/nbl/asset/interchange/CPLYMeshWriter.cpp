@@ -4,6 +4,7 @@
 // See the original file in irrlicht source for authors
 
 #include "CPLYMeshWriter.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 
@@ -49,31 +50,6 @@ namespace ply_writer_detail
 
 constexpr size_t ApproxPlyTextBytesPerVertex = 96ull;
 constexpr size_t ApproxPlyTextBytesPerFace = 32ull;
-
-struct SFileWriteTelemetry
-{
-    uint64_t callCount = 0ull;
-    uint64_t totalBytes = 0ull;
-    uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-
-    void account(const uint64_t bytes)
-    {
-        ++callCount;
-        totalBytes += bytes;
-        if (bytes < minBytes)
-            minBytes = bytes;
-    }
-
-    uint64_t getMinOrZero() const
-    {
-        return callCount ? minBytes : 0ull;
-    }
-
-    uint64_t getAvgOrZero() const
-    {
-        return callCount ? (totalBytes / callCount) : 0ull;
-    }
-};
 
 bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 {
@@ -137,9 +113,6 @@ void appendVec(std::string& out, const double* values, size_t count, bool flipVe
     }
 }
 
-bool writeBufferWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, size_t& fileOffset, SFileWriteTelemetry* ioTelemetry = nullptr);
-bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry = nullptr);
-bool writeTwoBuffersWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* dataA, size_t byteCountA, const uint8_t* dataB, size_t byteCountB, SFileWriteTelemetry* ioTelemetry = nullptr);
 bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
 bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
 
@@ -335,13 +308,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
         const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
         const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-        if (
-            static_cast<uint64_t>(outputBytes) > (1ull << 20) &&
-            (
-                ioAvgWrite < 1024ull ||
-                (ioMinWrite < 64ull && ioTelemetry.callCount > 1024ull)
-            )
-        )
+        if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes)))
         {
             _params.logger.log(
                 "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -405,13 +372,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
     const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
     const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-    if (
-        static_cast<uint64_t>(outputBytes) > (1ull << 20) &&
-        (
-            ioAvgWrite < 1024ull ||
-            (ioMinWrite < 64ull && ioTelemetry.callCount > 1024ull)
-        )
-    )
+    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes)))
     {
         _params.logger.log(
             "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -442,69 +403,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
         ioPlan.reason);
     return writeOk;
-}
-
-bool ply_writer_detail::writeBufferWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, size_t& fileOffset, SFileWriteTelemetry* ioTelemetry)
-{
-    if (!file || (!data && byteCount != 0ull))
-        return false;
-    switch (ioPlan.strategy)
-    {
-        case SResolvedFileIOPolicy::Strategy::WholeFile:
-        {
-            size_t writtenTotal = 0ull;
-            while (writtenTotal < byteCount)
-            {
-                system::IFile::success_t success;
-                file->write(success, data + writtenTotal, fileOffset + writtenTotal, byteCount - writtenTotal);
-                if (!success)
-                    return false;
-                const size_t written = success.getBytesProcessed();
-                if (written == 0ull)
-                    return false;
-                if (ioTelemetry)
-                    ioTelemetry->account(written);
-                writtenTotal += written;
-            }
-            fileOffset += writtenTotal;
-            return true;
-        }
-        case SResolvedFileIOPolicy::Strategy::Chunked:
-        default:
-        {
-            size_t writtenTotal = 0ull;
-            while (writtenTotal < byteCount)
-            {
-                const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - writtenTotal));
-                system::IFile::success_t success;
-                file->write(success, data + writtenTotal, fileOffset + writtenTotal, toWrite);
-                if (!success)
-                    return false;
-                const size_t written = success.getBytesProcessed();
-                if (written == 0ull)
-                    return false;
-                if (ioTelemetry)
-                    ioTelemetry->account(written);
-                writtenTotal += written;
-            }
-            fileOffset += writtenTotal;
-            return true;
-        }
-    }
-}
-
-bool ply_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry)
-{
-    size_t fileOffset = 0ull;
-    return writeBufferWithPolicyAtOffset(file, ioPlan, data, byteCount, fileOffset, ioTelemetry);
-}
-
-bool ply_writer_detail::writeTwoBuffersWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* dataA, size_t byteCountA, const uint8_t* dataB, size_t byteCountB, SFileWriteTelemetry* ioTelemetry)
-{
-    size_t fileOffset = 0ull;
-    if (!writeBufferWithPolicyAtOffset(file, ioPlan, dataA, byteCountA, fileOffset, ioTelemetry))
-        return false;
-    return writeBufferWithPolicyAtOffset(file, ioPlan, dataB, byteCountB, fileOffset, ioTelemetry);
 }
 
 bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors)

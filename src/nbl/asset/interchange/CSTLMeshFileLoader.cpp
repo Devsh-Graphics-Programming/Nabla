@@ -7,6 +7,8 @@
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
+#include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
@@ -34,31 +36,6 @@
 
 namespace nbl::asset
 {
-
-struct SFileReadTelemetry
-{
-	uint64_t callCount = 0ull;
-	uint64_t totalBytes = 0ull;
-	uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-
-	void account(const uint64_t bytes)
-	{
-		++callCount;
-		totalBytes += bytes;
-		if (bytes < minBytes)
-			minBytes = bytes;
-	}
-
-	uint64_t getMinOrZero() const
-	{
-		return callCount ? minBytes : 0ull;
-	}
-
-	uint64_t getAvgOrZero() const
-	{
-		return callCount ? (totalBytes / callCount) : 0ull;
-	}
-};
 
 struct SSTLContext
 {
@@ -90,52 +67,6 @@ void stlRunParallelWorkers(const size_t workerCount, Fn&& fn)
 	{
 		fn(workerIx);
 	});
-}
-
-bool stlReadExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SFileReadTelemetry* ioTelemetry = nullptr)
-{
-	if (!file || (!dst && bytes != 0ull))
-		return false;
-	if (bytes == 0ull)
-		return true;
-
-	system::IFile::success_t success;
-	file->read(success, dst, offset, bytes);
-	if (success && ioTelemetry)
-		ioTelemetry->account(success.getBytesProcessed());
-	return success && success.getBytesProcessed() == bytes;
-}
-
-bool stlReadWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry* ioTelemetry = nullptr)
-{
-	if (!file || (!dst && bytes != 0ull))
-		return false;
-	if (bytes == 0ull)
-		return true;
-
-	size_t bytesRead = 0ull;
-	switch (ioPlan.strategy)
-	{
-		case SResolvedFileIOPolicy::Strategy::WholeFile:
-			return stlReadExact(file, dst, offset, bytes, ioTelemetry);
-		case SResolvedFileIOPolicy::Strategy::Chunked:
-		default:
-			while (bytesRead < bytes)
-			{
-				const size_t chunk = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, bytes - bytesRead));
-				system::IFile::success_t success;
-				file->read(success, dst + bytesRead, offset + bytesRead, chunk);
-				if (!success)
-					return false;
-				const size_t processed = success.getBytesProcessed();
-				if (processed == 0ull)
-					return false;
-				if (ioTelemetry)
-					ioTelemetry->account(processed);
-				bytesRead += processed;
-			}
-			return true;
-	}
 }
 
 const char* stlSkipWhitespace(const char* ptr, const char* const end)
@@ -311,89 +242,7 @@ ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::flo
 
 void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
 {
-	if (!geometry)
-		return;
-
-	core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
-	auto appendViewBuffer = [&buffers](const IGeometry<ICPUBuffer>::SDataView& view) -> void
-	{
-		if (!view || !view.src.buffer)
-			return;
-		for (const auto& existing : buffers)
-		{
-			if (existing.get() == view.src.buffer.get())
-				return;
-		}
-		buffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer));
-	};
-
-	appendViewBuffer(geometry->getPositionView());
-	appendViewBuffer(geometry->getIndexView());
-	appendViewBuffer(geometry->getNormalView());
-	for (const auto& view : *geometry->getAuxAttributeViews())
-		appendViewBuffer(view);
-	for (const auto& view : *geometry->getJointWeightViews())
-	{
-		appendViewBuffer(view.indices);
-		appendViewBuffer(view.weights);
-	}
-	if (auto jointOBB = geometry->getJointOBBView(); jointOBB)
-		appendViewBuffer(*jointOBB);
-
-	if (buffers.empty())
-		return;
-
-	uint64_t totalBytes = 0ull;
-	for (const auto& buffer : buffers)
-		totalBytes += static_cast<uint64_t>(buffer->getSize());
-
-	const size_t hw = resolveLoaderHardwareThreads();
-	const uint8_t* hashSampleData = nullptr;
-	uint64_t hashSampleBytes = 0ull;
-	for (const auto& buffer : buffers)
-	{
-		const auto* ptr = reinterpret_cast<const uint8_t*>(buffer->getPointer());
-		if (!ptr)
-			continue;
-		hashSampleData = ptr;
-		hashSampleBytes = std::min<uint64_t>(static_cast<uint64_t>(buffer->getSize()), 128ull << 10);
-		if (hashSampleBytes > 0ull)
-			break;
-	}
-	SLoaderRuntimeTuningRequest tuningRequest = {};
-	tuningRequest.inputBytes = totalBytes;
-	tuningRequest.totalWorkUnits = buffers.size();
-	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, buffers.empty() ? 1ull : loaderRuntimeCeilDiv(totalBytes, static_cast<uint64_t>(buffers.size())));
-	tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-	tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(hw, buffers.size()));
-	tuningRequest.targetChunksPerWorker = 1u;
-	tuningRequest.sampleData = hashSampleData;
-	tuningRequest.sampleBytes = hashSampleBytes;
-	const auto tuning = tuneLoaderRuntime(ioPolicy, tuningRequest);
-	const size_t workerCount = std::min(tuning.workerCount, buffers.size());
-	if (workerCount > 1ull)
-	{
-		stlRunParallelWorkers(workerCount, [&buffers, workerCount](const size_t workerIx)
-		{
-			const size_t beginIx = (buffers.size() * workerIx) / workerCount;
-			const size_t endIx = (buffers.size() * (workerIx + 1ull)) / workerCount;
-			for (size_t i = beginIx; i < endIx; ++i)
-			{
-				auto& buffer = buffers[i];
-				if (buffer->getContentHash() != IPreHashed::INVALID_HASH)
-					continue;
-				buffer->setContentHash(buffer->computeContentHash());
-			}
-		});
-		return;
-	}
-
-	for (auto& buffer : buffers)
-	{
-		if (buffer->getContentHash() != IPreHashed::INVALID_HASH)
-			continue;
-		buffer->setContentHash(buffer->computeContentHash());
-	}
+	recomputeGeometryContentHashesParallel(geometry, ioPolicy);
 }
 
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
@@ -467,7 +316,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			const auto ioStart = clock_t::now();
 			wholeFilePayload.resize(filesize + 1ull);
-			if (!stlReadExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
+			if (!readFileExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
 				return {};
 			wholeFilePayload[filesize] = 0u;
 			wholeFileData = wholeFilePayload.data();
@@ -489,7 +338,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			hasPrefix = filesize >= StlBinaryPrefixBytes && stlReadExact(context.inner.mainFile, prefix.data(), 0ull, StlBinaryPrefixBytes, &context.ioTelemetry);
+			hasPrefix = filesize >= StlBinaryPrefixBytes && readFileExact(context.inner.mainFile, prefix.data(), 0ull, StlBinaryPrefixBytes, &context.ioTelemetry);
 		}
 		bool startsWithSolid = false;
 		if (hasPrefix)
@@ -501,7 +350,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			char header[StlTextProbeBytes] = {};
 			if (wholeFileData)
 				std::memcpy(header, wholeFileData, sizeof(header));
-			else if (!stlReadExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
+			else if (!readFileExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
 				return {};
 			startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
 		}
@@ -551,7 +400,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		uint32_t triangleCount32 = binaryTriCountFromDetect;
 		if (!hasBinaryTriCountFromDetect)
 		{
-			if (!stlReadExact(context.inner.mainFile, &triangleCount32, StlBinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+			if (!readFileExact(context.inner.mainFile, &triangleCount32, StlBinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
 				return {};
 		}
 
@@ -571,7 +420,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			core::vector<uint8_t> payload;
 			payload.resize(dataSize);
 			const auto ioStart = clock_t::now();
-			if (!stlReadWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
+			if (!readFileWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
 				return {};
 			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 			wholeFilePayload = std::move(payload);
@@ -953,7 +802,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			const auto ioStart = clock_t::now();
 			wholeFilePayload.resize(filesize + 1ull);
-			if (!stlReadWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
+			if (!readFileWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
 				return {};
 			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 			wholeFilePayload[filesize] = 0u;
@@ -1075,13 +924,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
-	if (
-		static_cast<uint64_t>(filesize) > (1ull << 20) &&
-		(
-			ioAvgRead < 1024ull ||
-			(ioMinRead < 64ull && context.ioTelemetry.callCount > 1024ull)
-		)
-	)
+	if (isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize)))
 	{
 		_params.logger.log(
 			"STL loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
@@ -1131,13 +974,13 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	if (fileSize < StlBinaryPrefixBytes)
 	{
 		char header[StlTextProbeBytes] = {};
-		if (!stlReadExact(_file, header, 0ull, sizeof(header)))
+		if (!readFileExact(_file, header, 0ull, sizeof(header)))
 			return false;
 		return std::strncmp(header, "solid ", StlTextProbeBytes) == 0;
 	}
 
 	std::array<uint8_t, StlBinaryPrefixBytes> prefix = {};
-	if (!stlReadExact(_file, prefix.data(), 0ull, prefix.size()))
+	if (!readFileExact(_file, prefix.data(), 0ull, prefix.size()))
 		return false;
 
 	uint32_t triangleCount = 0u;

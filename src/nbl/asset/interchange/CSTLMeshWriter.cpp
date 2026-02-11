@@ -5,6 +5,7 @@
 #include "nbl/system/IFile.h"
 
 #include "CSTLMeshWriter.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
 #include <algorithm>
 #include <array>
@@ -25,31 +26,6 @@ namespace nbl::asset
 
 namespace stl_writer_detail
 {
-
-struct SFileWriteTelemetry
-{
-	uint64_t callCount = 0ull;
-	uint64_t totalBytes = 0ull;
-	uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-
-	void account(const uint64_t bytes)
-	{
-		++callCount;
-		totalBytes += bytes;
-		if (bytes < minBytes)
-			minBytes = bytes;
-	}
-
-	uint64_t getMinOrZero() const
-	{
-		return callCount ? minBytes : 0ull;
-	}
-
-	uint64_t getAvgOrZero() const
-	{
-		return callCount ? (totalBytes / callCount) : 0ull;
-	}
-};
 
 struct SContext
 {
@@ -90,7 +66,6 @@ using SContext = stl_writer_detail::SContext;
 
 bool flushBytes(SContext* context);
 bool writeBytes(SContext* context, const void* data, size_t size);
-bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, stl_writer_detail::SFileWriteTelemetry* ioTelemetry = nullptr);
 const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view);
 bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView& posView, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, uint32_t& outFaceCount);
 bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx);
@@ -201,13 +176,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const double miscMs = std::max(0.0, totalMs - (context.formatMs + context.encodeMs + context.writeMs));
 	const uint64_t ioMinWrite = context.writeTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = context.writeTelemetry.getAvgOrZero();
-	if (
-		(context.fileOffset > (1ull << 20)) &&
-		(
-			ioAvgWrite < 1024ull ||
-			(ioMinWrite < 64ull && context.writeTelemetry.callCount > 1024ull)
-		)
-	)
+	if (isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset))
 	{
 		_params.logger.log(
 			"STL writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -309,44 +278,6 @@ bool writeBytes(SContext* context, const void* data, size_t size)
 					if (!flushBytes(context))
 						return false;
 				}
-			}
-			return true;
-		}
-	}
-}
-
-bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, stl_writer_detail::SFileWriteTelemetry* ioTelemetry)
-{
-	if (!file || (!data && byteCount != 0ull))
-		return false;
-
-	size_t fileOffset = 0ull;
-	switch (ioPlan.strategy)
-	{
-		case SResolvedFileIOPolicy::Strategy::WholeFile:
-		{
-			system::IFile::success_t success;
-			file->write(success, data, fileOffset, byteCount);
-			if (success && ioTelemetry)
-				ioTelemetry->account(success.getBytesProcessed());
-			return success && success.getBytesProcessed() == byteCount;
-		}
-		case SResolvedFileIOPolicy::Strategy::Chunked:
-		default:
-		{
-			while (fileOffset < byteCount)
-			{
-				const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - fileOffset));
-				system::IFile::success_t success;
-				file->write(success, data + fileOffset, fileOffset, toWrite);
-				if (!success)
-					return false;
-				const size_t written = success.getBytesProcessed();
-				if (written == 0ull)
-					return false;
-				if (ioTelemetry)
-					ioTelemetry->account(written);
-				fileOffset += written;
 			}
 			return true;
 		}
@@ -813,7 +744,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 
 	context->encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
 	const auto writeStart = clock_t::now();
-	const bool writeOk = writeBufferWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
+	const bool writeOk = writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
 	context->writeMs += std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
 	if (writeOk)
 		context->fileOffset += outputSize;

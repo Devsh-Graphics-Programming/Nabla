@@ -6,6 +6,7 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 
@@ -38,32 +39,6 @@ struct ObjVertexDedupNode
     int32_t normal = -1;
     uint32_t outIndex = 0u;
     int32_t next = -1;
-};
-
-
-struct SFileReadTelemetry
-{
-    uint64_t callCount = 0ull;
-    uint64_t totalBytes = 0ull;
-    uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-
-    void account(const uint64_t bytes)
-    {
-        ++callCount;
-        totalBytes += bytes;
-        if (bytes < minBytes)
-            minBytes = bytes;
-    }
-
-    uint64_t getMinOrZero() const
-    {
-        return callCount ? minBytes : 0ull;
-    }
-
-    uint64_t getAvgOrZero() const
-    {
-        return callCount ? (totalBytes / callCount) : 0ull;
-    }
 };
 
 using Float3 = hlsl::float32_t3;
@@ -282,45 +257,14 @@ void objRecomputeContentHashes(ICPUPolygonGeometry* geometry)
 
 bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, double& ioMs, SFileReadTelemetry& ioTelemetry)
 {
-    if (!file || !dst)
-        return false;
-
-    using clock_t = std::chrono::high_resolution_clock;
-    const auto ioStart = clock_t::now();
-    size_t bytesRead = 0ull;
-    switch (ioPlan.strategy)
-    {
-        case SResolvedFileIOPolicy::Strategy::WholeFile:
-        {
-            system::IFile::success_t success;
-            file->read(success, dst, 0ull, byteCount);
-            if (!success || success.getBytesProcessed() != byteCount)
-                return false;
-            bytesRead = byteCount;
-            ioTelemetry.account(success.getBytesProcessed());
-            break;
-        }
-        case SResolvedFileIOPolicy::Strategy::Chunked:
-        default:
-        {
-            while (bytesRead < byteCount)
-            {
-                const size_t toRead = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - bytesRead));
-                system::IFile::success_t success;
-                file->read(success, dst + bytesRead, bytesRead, toRead);
-                if (!success)
-                    return false;
-                const size_t processed = success.getBytesProcessed();
-                if (processed == 0ull)
-                    return false;
-                ioTelemetry.account(processed);
-                bytesRead += processed;
-            }
-            break;
-        }
-    }
-    ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
-    return bytesRead == byteCount;
+    return readFileWithPolicyTimed(
+        file,
+        reinterpret_cast<uint8_t*>(dst),
+        0ull,
+        byteCount,
+        ioPlan,
+        &ioMs,
+        &ioTelemetry);
 }
 
 const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines = true)
@@ -1337,13 +1281,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
 
     const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
-    if (
-        static_cast<uint64_t>(filesize) > (1ull << 20) &&
-        (
-            ioTelemetry.getAvgOrZero() < 1024ull ||
-            (ioTelemetry.getMinOrZero() < 64ull && ioTelemetry.callCount > 1024ull)
-        )
-    )
+    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize)))
     {
         _params.logger.log(
             "OBJ loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",

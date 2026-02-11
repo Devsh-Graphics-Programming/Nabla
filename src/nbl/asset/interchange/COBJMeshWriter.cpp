@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/interchange/COBJMeshWriter.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
 
@@ -55,31 +56,6 @@ struct SIndexStringRef
 {
 	uint32_t offset = 0u;
 	uint16_t length = 0u;
-};
-
-struct SFileWriteTelemetry
-{
-	uint64_t callCount = 0ull;
-	uint64_t totalBytes = 0ull;
-	uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-
-	void account(const uint64_t bytes)
-	{
-		++callCount;
-		totalBytes += bytes;
-		if (bytes < minBytes)
-			minBytes = bytes;
-	}
-
-	uint64_t getMinOrZero() const
-	{
-		return callCount ? minBytes : 0ull;
-	}
-
-	uint64_t getAvgOrZero() const
-	{
-		return callCount ? (totalBytes / callCount) : 0ull;
-	}
 };
 
 bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
@@ -248,8 +224,6 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 	ref.length = static_cast<uint16_t>(storage.size() - ref.offset);
 	refs.push_back(ref);
 }
-
-bool writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry = nullptr);
 
 } // namespace obj_writer_detail
 
@@ -493,20 +467,14 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 
 	const auto writeStart = clock_t::now();
-	const bool writeOk = writeBufferWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
+	const bool writeOk = writeFileWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
 	writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
 
 	const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
 	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-	if (
-		static_cast<uint64_t>(output.size()) > (1ull << 20) &&
-		(
-			ioAvgWrite < 1024ull ||
-			(ioMinWrite < 64ull && ioTelemetry.callCount > 1024ull)
-		)
-	)
+	if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size())))
 	{
 		_params.logger.log(
 			"OBJ writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -537,44 +505,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		ioPlan.reason);
 
 	return writeOk;
-}
-
-bool obj_writer_detail::writeBufferWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SFileWriteTelemetry* ioTelemetry)
-{
-	if (!file || (!data && byteCount != 0ull))
-		return false;
-
-	size_t fileOffset = 0ull;
-	switch (ioPlan.strategy)
-	{
-		case SResolvedFileIOPolicy::Strategy::WholeFile:
-		{
-			system::IFile::success_t success;
-			file->write(success, data, fileOffset, byteCount);
-			if (success && ioTelemetry)
-				ioTelemetry->account(success.getBytesProcessed());
-			return success && success.getBytesProcessed() == byteCount;
-		}
-		case SResolvedFileIOPolicy::Strategy::Chunked:
-		default:
-		{
-			while (fileOffset < byteCount)
-			{
-				const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(ioPlan.chunkSizeBytes, byteCount - fileOffset));
-				system::IFile::success_t success;
-				file->write(success, data + fileOffset, fileOffset, toWrite);
-				if (!success)
-					return false;
-				const size_t written = success.getBytesProcessed();
-				if (written == 0ull)
-					return false;
-				if (ioTelemetry)
-					ioTelemetry->account(written);
-				fileOffset += written;
-			}
-			return true;
-		}
-	}
 }
 
 } // namespace nbl::asset
