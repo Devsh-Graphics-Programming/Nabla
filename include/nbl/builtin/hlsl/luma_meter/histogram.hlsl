@@ -51,6 +51,7 @@ struct median_meter
     using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = WorkgroupConfig::WorkgroupSize;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = WorkgroupConfig::SubgroupSize;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ScanItemsPerInvoc = WorkgroupConfig::ItemsPerInvocation_0;
     using proxy_data_t = vector<int_t, ScanItemsPerInvoc>;
     using proxy_t = impl::data_proxy<proxy_data_t>;
@@ -62,6 +63,8 @@ struct median_meter
         this_t retval;
         retval.lumaMin = lumaMin;
         retval.lumaMax = lumaMax;
+        retval.log2LumaMin = log2(lumaMin);
+        retval.log2LumaRange = log2(lumaMax) - retval.log2LumaMin;
         retval.lowerBoundPercentile = lowerBoundPercentile;
         retval.upperBoundPercentile = upperBoundPercentile;
         return retval;
@@ -76,12 +79,12 @@ struct median_meter
     float_t __computeLuma(
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(TexAccessor) tex,
-        float_t2 shiftedCoord
+        const float_t2 shiftedCoord
     )
     {
-        float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
-        float_t3 color = tex.get(uvPos);
-        float_t luma = (float_t)TexAccessor::toXYZ(color);
+        const float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
+        const float_t3 color = tex.get(uvPos);
+        const float_t luma = TexAccessor::toXYZ(color);
 
         return clamp(luma, lumaMin, lumaMax);
     }
@@ -90,8 +93,7 @@ struct median_meter
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(HistogramAccessor) histo,
         NBL_REF_ARG(TexAccessor) tex,
-        NBL_REF_ARG(SharedAccessor) sdata,
-        float_t2 tileOffset
+        NBL_REF_ARG(SharedAccessor) sdata
     )
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -105,11 +107,12 @@ struct median_meter
         mc.value = tid;
         uint32_t2 coord = _static_cast<uint32_t2>(mc);
 
-        float_t2 shiftedCoord = tileOffset + float32_t2(coord);
-        float_t luma = __computeLuma(window, tex, shiftedCoord);
+        const float_t2 tileOffset = float32_t2((glsl::gl_WorkGroupID() * SubgroupSize).xy);
+        const float_t2 shiftedCoord = tileOffset + float32_t2(coord);
+        const float_t luma = __computeLuma(window, tex, shiftedCoord);
 
-        float_t scaledLogLuma = log2(luma / lumaMin) / log2(lumaMax / lumaMin);
-        uint32_t binIndex = int_t(scaledLogLuma * float_t(BinCount-1u) + 0.5);
+        const float_t scaledLogLuma = (log2(luma) - log2LumaMin) / log2LumaRange;
+        const uint32_t binIndex = int_t(scaledLogLuma * float_t(BinCount-1u) + 0.5);
         sdata.atomicAdd(binIndex, 1u);
 
         sdata.workgroupExecutionAndMemoryBarrier();
@@ -176,11 +179,13 @@ struct median_meter
         lower = workgroup::Broadcast(lower, sdata, 0);
         upper = workgroup::Broadcast(upper, sdata, 1);
 
-        return ((float_t(lower) + float_t(upper)) * 0.5 / float_t(BinCount-1u)) * log2(lumaMax/lumaMin) + log2(lumaMin);
+        return ((float_t(lower) + float_t(upper)) * 0.5 / float_t(BinCount-1u)) * log2LumaRange + log2LumaMin;
     }
 
     float_t lumaMin;
     float_t lumaMax;
+    float_t log2LumaMin;
+    float_t log2LumaRange;
     int_t lowerBoundPercentile;
     int_t upperBoundPercentile;
 };

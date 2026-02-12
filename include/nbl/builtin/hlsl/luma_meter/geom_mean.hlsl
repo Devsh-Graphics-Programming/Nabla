@@ -57,6 +57,8 @@ struct geom_meter
         this_t retval;
         retval.lumaMin = lumaMin;
         retval.lumaMax = lumaMax;
+        retval.log2LumaMin = log2(lumaMin);
+        retval.log2LumaRange = log2(lumaMax) - retval.log2LumaMin;
         retval.rcpFirstPassWGCount = rcpFirstPassWGCount;
         return retval;
     }
@@ -70,12 +72,12 @@ struct geom_meter
     float_t __computeLumaLog2(
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(TexAccessor) tex,
-        float_t2 shiftedCoord
+        const float_t2 shiftedCoord
     )
     {
-        float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
-        float_t3 color = tex.get(uvPos);
-        float_t luma = (float_t)TexAccessor::toXYZ(color);
+        const float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
+        const float_t3 color = tex.get(uvPos);
+        float_t luma = TexAccessor::toXYZ(color);
 
         luma = clamp(luma, lumaMin, lumaMax);
 
@@ -84,36 +86,31 @@ struct geom_meter
 
     void __uploadFloat(
         NBL_REF_ARG(ValueAccessor) val_accessor,
-        float_t val,
-        float_t minLog2,
-        float_t rangeLog2
+        float_t val
     )
     {
         const uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
         const uint32_t3 workgroupID = glsl::gl_WorkGroupID();
         const uint32_t index = (workgroupID.y * workGroupCount.x + workgroupID.x) & (SubgroupSize - 1u);
-        uint32_t lumaVal = uint32_t(val / float_t(WorkgroupSize) * float_t(MaxWorkgroupIncrement) + 0.5);
+        const uint32_t lumaVal = uint32_t(val / float_t(WorkgroupSize) * float_t(MaxWorkgroupIncrement) + 0.5);
         val_accessor.atomicAdd(index, lumaVal);
     }
 
     float_t __downloadFloat(
         NBL_REF_ARG(ValueAccessor) val_accessor,
-        uint32_t index,
-        float_t minLog2,
-        float_t rangeLog2
+        uint32_t index
     )
     {
         uint32_t lumaVal = val_accessor.get(index);
         lumaVal = glsl::subgroupAdd(lumaVal);
-        return float_t(lumaVal) / float_t(MaxWorkgroupIncrement) * rcpFirstPassWGCount * rangeLog2 + minLog2;
+        return float_t(lumaVal) / float_t(MaxWorkgroupIncrement) * rcpFirstPassWGCount * log2LumaRange + log2LumaMin;
     }
 
     void sampleLuma(
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(ValueAccessor) val,
         NBL_REF_ARG(TexAccessor) tex,
-        NBL_REF_ARG(SharedAccessor) sdata,
-        float_t2 tileOffset
+        NBL_REF_ARG(SharedAccessor) sdata
     )
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -121,9 +118,10 @@ struct geom_meter
         mc.value = tid;
         uint32_t2 coord = _static_cast<uint32_t2>(mc);
 
-        float_t2 shiftedCoord = tileOffset + float32_t2(coord);
+        const float_t2 tileOffset = float32_t2((glsl::gl_WorkGroupID() * SubgroupSize).xy);
+        const float_t2 shiftedCoord = tileOffset + float32_t2(coord);
         float_t lumaLog2 = __computeLumaLog2(window, tex, shiftedCoord);
-        lumaLog2 = (lumaLog2 - log2(lumaMin)) / log2(lumaMax / lumaMin);
+        lumaLog2 = (lumaLog2 - log2LumaMin) / log2LumaRange;
 
         proxy_t data;
         data.data = lumaLog2;
@@ -132,9 +130,7 @@ struct geom_meter
         if (tid == 0) {
             __uploadFloat(
                 val,
-                lumaLog2Sum,
-                log2(lumaMin),
-                log2(lumaMax / lumaMin)
+                lumaLog2Sum
             );
         }
     }
@@ -143,12 +139,10 @@ struct geom_meter
         NBL_REF_ARG(ValueAccessor) val
     )
     {
-        uint32_t tid = glsl::gl_SubgroupInvocationID();
-        float_t luma = __downloadFloat(
+        const uint32_t tid = glsl::gl_SubgroupInvocationID();
+        const float_t luma = __downloadFloat(
                 val,
-                tid,
-                log2(lumaMin),
-                log2(lumaMax / lumaMin)
+                tid
             );
 
         return luma;
@@ -156,6 +150,8 @@ struct geom_meter
 
     float_t lumaMin;
     float_t lumaMax;
+    float_t log2LumaMin;
+    float_t log2LumaRange;
     float_t rcpFirstPassWGCount;
 };
 
