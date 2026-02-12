@@ -249,6 +249,12 @@ inline T beta(NBL_CONST_REF_ARG(T) v1, NBL_CONST_REF_ARG(T) v2)
     return tgmath_impl::beta_helper<T>::__call(v1, v2)/tgmath_impl::beta_helper<T>::__call(T(1.0), T(1.0)); // ensure beta(1,1)==1
 }
 
+template<typename T>
+inline T gamma(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) x)
+{
+    return tgmath_impl::gamma_helper<T>::__call(a, x);
+}
+
 }
 }
 
