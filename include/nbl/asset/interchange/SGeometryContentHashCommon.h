@@ -1,4 +1,4 @@
-// Copyright (C) 2025-2025 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_S_GEOMETRY_CONTENT_HASH_COMMON_H_INCLUDED_

@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
@@ -92,7 +92,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 //[[deprecated]] ELPF_RIGHT_HANDED_MESHES = 0x1,	//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
 //[[deprecated]] ELPF_DONT_COMPILE_GLSL = 0x2,		//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
 			ELPF_LOAD_METADATA_ONLY = 0x4,					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
-			ELPF_COMPUTE_CONTENT_HASHES = 0x8				//!< forces loaders to compute content hashes of produced buffers before returning.
+			ELPF_DONT_COMPUTE_CONTENT_HASHES = 0x8			//!< opt-out from computing content hashes of produced buffers before returning.
 		};
 
 		struct SAssetLoadParams

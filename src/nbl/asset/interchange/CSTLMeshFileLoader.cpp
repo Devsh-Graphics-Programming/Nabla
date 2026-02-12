@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
@@ -16,23 +16,7 @@
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
 
-#include <array>
-#include <algorithm>
-#include <atomic>
-#include <charconv>
-#include <chrono>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include <execution>
 #include <fast_float/fast_float.h>
-#include <limits>
-#include <numeric>
-#include <string_view>
-#include <thread>
-#include <type_traits>
-#include <vector>
-#include <ranges>
 
 namespace nbl::asset
 {
@@ -41,33 +25,17 @@ struct SSTLContext
 {
 	IAssetLoader::SAssetLoadContext inner;
 	SFileReadTelemetry ioTelemetry = {};
+	static constexpr size_t TextProbeBytes = 6ull;
+	static constexpr size_t BinaryHeaderBytes = 80ull;
+	static constexpr size_t TriangleCountBytes = sizeof(uint32_t);
+	static constexpr size_t BinaryPrefixBytes = BinaryHeaderBytes + TriangleCountBytes;
+	static constexpr size_t TriangleFloatCount = 12ull;
+	static constexpr size_t TriangleFloatBytes = sizeof(float) * TriangleFloatCount;
+	static constexpr size_t TriangleAttributeBytes = sizeof(uint16_t);
+	static constexpr size_t TriangleRecordBytes = TriangleFloatBytes + TriangleAttributeBytes;
+	static constexpr size_t VerticesPerTriangle = 3ull;
+	static constexpr size_t FloatChannelsPerVertex = 3ull;
 };
-
-constexpr size_t StlTextProbeBytes = 6ull;
-constexpr size_t StlBinaryHeaderBytes = 80ull;
-constexpr size_t StlTriangleCountBytes = sizeof(uint32_t);
-constexpr size_t StlBinaryPrefixBytes = StlBinaryHeaderBytes + StlTriangleCountBytes;
-constexpr size_t StlTriangleFloatCount = 12ull;
-constexpr size_t StlTriangleFloatBytes = sizeof(float) * StlTriangleFloatCount;
-constexpr size_t StlTriangleAttributeBytes = sizeof(uint16_t);
-constexpr size_t StlTriangleRecordBytes = StlTriangleFloatBytes + StlTriangleAttributeBytes;
-constexpr size_t StlVerticesPerTriangle = 3ull;
-constexpr size_t StlFloatChannelsPerVertex = 3ull;
-
-template<typename Fn>
-void stlRunParallelWorkers(const size_t workerCount, Fn&& fn)
-{
-	if (workerCount <= 1ull)
-	{
-		fn(0ull);
-		return;
-	}
-	auto workerIds = std::views::iota(size_t{0ull}, workerCount);
-	std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
-	{
-		fn(workerIx);
-	});
-}
 
 const char* stlSkipWhitespace(const char* ptr, const char* const end)
 {
@@ -117,10 +85,7 @@ bool stlReadTextFloat(const char*& ptr, const char* const end, float& outValue)
 
 bool stlReadTextVec3(const char*& ptr, const char* const end, hlsl::float32_t3& outVec)
 {
-	return
-		stlReadTextFloat(ptr, end, outVec.x) &&
-		stlReadTextFloat(ptr, end, outVec.y) &&
-		stlReadTextFloat(ptr, end, outVec.z);
+	return stlReadTextFloat(ptr, end, outVec.x) && stlReadTextFloat(ptr, end, outVec.y) && stlReadTextFloat(ptr, end, outVec.z);
 }
 
 hlsl::float32_t3 stlNormalizeOrZero(const hlsl::float32_t3& v)
@@ -163,15 +128,14 @@ class CStlSplitBlockMemoryResource final : public core::refctd_memory_resource
 		{
 		}
 
-		inline void* allocate(std::size_t bytes, std::size_t alignment) override
+		inline void* allocate(std::size_t, std::size_t) override
 		{
 			assert(false);
 			return nullptr;
 		}
 
-		inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override
+		inline void deallocate(void* p, std::size_t bytes, std::size_t) override
 		{
-			(void)alignment;
 			const auto* const begin = reinterpret_cast<const uint8_t*>(m_block);
 			const auto* const end = begin + m_blockBytes;
 			const auto* const ptr = reinterpret_cast<const uint8_t*>(p);
@@ -220,9 +184,7 @@ ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::flo
 	auto& payload = backer->getBacker();
 	auto* const payloadPtr = payload.data();
 	const size_t byteCount = payload.size() * sizeof(hlsl::float32_t3);
-	auto buffer = ICPUBuffer::create(
-		{ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(hlsl::float32_t3) },
-		core::adopt_memory);
+	auto buffer = ICPUBuffer::create({ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(hlsl::float32_t3) }, core::adopt_memory);
 	if (!buffer)
 		return {};
 
@@ -245,9 +207,8 @@ void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry, const SFil
 	recomputeGeometryContentHashesParallel(geometry, ioPolicy);
 }
 
-CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _assetManager)
+CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager*)
 {
-	(void)_assetManager;
 }
 
 const char** CSTLMeshFileLoader::getAssociatedFileExtensions() const
@@ -256,40 +217,20 @@ const char** CSTLMeshFileLoader::getAssociatedFileExtensions() const
 	return ext;
 }
 
-SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride*, uint32_t)
 {
-	(void)_override;
-	(void)_hierarchyLevel;
-
 	if (!_file)
 		return {};
 
-	using clock_t = std::chrono::high_resolution_clock;
-	const auto totalStart = clock_t::now();
-	double detectMs = 0.0;
-	double ioMs = 0.0;
-	double parseMs = 0.0;
-	double buildMs = 0.0;
-	double buildAllocViewsMs = 0.0;
-	double buildSetViewsMs = 0.0;
-	double buildMiscMs = 0.0;
-	double hashMs = 0.0;
-	double aabbMs = 0.0;
 	uint64_t triangleCount = 0u;
 	const char* parsePath = "unknown";
-	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES) != 0;
+	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
 	bool contentHashesAssigned = false;
 
-	SSTLContext context = {
-		asset::IAssetLoader::SAssetLoadContext{
-			_params,
-			_file
-		},
-		0ull
-	};
+	SSTLContext context = { asset::IAssetLoader::SAssetLoadContext{ _params,_file },0ull };
 
 	const size_t filesize = context.inner.mainFile->getSize();
-	if (filesize < StlTextProbeBytes)
+	if (filesize < SSTLContext::TextProbeBytes)
 		return {};
 
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true);
@@ -314,13 +255,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			const auto ioStart = clock_t::now();
 			wholeFilePayload.resize(filesize + 1ull);
 			if (!readFileExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
 				return {};
 			wholeFilePayload[filesize] = 0u;
 			wholeFileData = wholeFilePayload.data();
-			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 		}
 	}
 
@@ -328,41 +267,40 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	bool hasBinaryTriCountFromDetect = false;
 	uint32_t binaryTriCountFromDetect = 0u;
 	{
-		const auto detectStart = clock_t::now();
-		std::array<uint8_t, StlBinaryPrefixBytes> prefix = {};
+		std::array<uint8_t, SSTLContext::BinaryPrefixBytes> prefix = {};
 		bool hasPrefix = false;
-		if (wholeFileData && filesize >= StlBinaryPrefixBytes)
+		if (wholeFileData && filesize >= SSTLContext::BinaryPrefixBytes)
 		{
-			std::memcpy(prefix.data(), wholeFileData, StlBinaryPrefixBytes);
+			std::memcpy(prefix.data(), wholeFileData, SSTLContext::BinaryPrefixBytes);
 			hasPrefix = true;
 		}
 		else
 		{
-			hasPrefix = filesize >= StlBinaryPrefixBytes && readFileExact(context.inner.mainFile, prefix.data(), 0ull, StlBinaryPrefixBytes, &context.ioTelemetry);
+			hasPrefix = filesize >= SSTLContext::BinaryPrefixBytes && readFileExact(context.inner.mainFile, prefix.data(), 0ull, SSTLContext::BinaryPrefixBytes, &context.ioTelemetry);
 		}
 		bool startsWithSolid = false;
 		if (hasPrefix)
 		{
-			startsWithSolid = (std::memcmp(prefix.data(), "solid ", StlTextProbeBytes) == 0);
+			startsWithSolid = (std::memcmp(prefix.data(), "solid ", SSTLContext::TextProbeBytes) == 0);
 		}
 		else
 		{
-			char header[StlTextProbeBytes] = {};
+			char header[SSTLContext::TextProbeBytes] = {};
 			if (wholeFileData)
 				std::memcpy(header, wholeFileData, sizeof(header));
 			else if (!readFileExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
 				return {};
-			startsWithSolid = (std::strncmp(header, "solid ", StlTextProbeBytes) == 0);
+			startsWithSolid = (std::strncmp(header, "solid ", SSTLContext::TextProbeBytes) == 0);
 		}
 
 		bool binaryBySize = false;
 		if (hasPrefix)
 		{
 			uint32_t triCount = 0u;
-			std::memcpy(&triCount, prefix.data() + StlBinaryHeaderBytes, sizeof(triCount));
+			std::memcpy(&triCount, prefix.data() + SSTLContext::BinaryHeaderBytes, sizeof(triCount));
 			binaryTriCountFromDetect = triCount;
 			hasBinaryTriCountFromDetect = true;
-			const uint64_t expectedSize = StlBinaryPrefixBytes + static_cast<uint64_t>(triCount) * StlTriangleRecordBytes;
+			const uint64_t expectedSize = SSTLContext::BinaryPrefixBytes + static_cast<uint64_t>(triCount) * SSTLContext::TriangleRecordBytes;
 			binaryBySize = (expectedSize == filesize);
 		}
 
@@ -373,7 +311,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		else
 			binary = false;
 
-		detectMs = std::chrono::duration<double, std::milli>(clock_t::now() - detectStart).count();
 	}
 
 	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
@@ -394,41 +331,38 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (binary)
 	{
 		parsePath = "binary_fast";
-		if (filesize < StlBinaryPrefixBytes)
+		if (filesize < SSTLContext::BinaryPrefixBytes)
 			return {};
 
 		uint32_t triangleCount32 = binaryTriCountFromDetect;
 		if (!hasBinaryTriCountFromDetect)
 		{
-			if (!readFileExact(context.inner.mainFile, &triangleCount32, StlBinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+			if (!readFileExact(context.inner.mainFile, &triangleCount32, SSTLContext::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
 				return {};
 		}
 
 		triangleCount = triangleCount32;
-		const size_t dataSize = static_cast<size_t>(triangleCount) * StlTriangleRecordBytes;
-		const size_t expectedSize = StlBinaryPrefixBytes + dataSize;
+		const size_t dataSize = static_cast<size_t>(triangleCount) * SSTLContext::TriangleRecordBytes;
+		const size_t expectedSize = SSTLContext::BinaryPrefixBytes + dataSize;
 		if (filesize < expectedSize)
 			return {};
 
 		const uint8_t* payloadData = nullptr;
 		if (wholeFileData)
 		{
-			payloadData = wholeFileData + StlBinaryPrefixBytes;
+			payloadData = wholeFileData + SSTLContext::BinaryPrefixBytes;
 		}
 		else
 		{
 			core::vector<uint8_t> payload;
 			payload.resize(dataSize);
-			const auto ioStart = clock_t::now();
-			if (!readFileWithPolicy(context.inner.mainFile, payload.data(), StlBinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
+			if (!readFileWithPolicy(context.inner.mainFile, payload.data(), SSTLContext::BinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
 				return {};
-			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 			wholeFilePayload = std::move(payload);
 			payloadData = wholeFilePayload.data();
 		}
 
-		vertexCount = triangleCount * StlVerticesPerTriangle;
-		const auto buildPrepStart = clock_t::now();
+		vertexCount = triangleCount * SSTLContext::VerticesPerTriangle;
 		const size_t vertexCountSizeT = static_cast<size_t>(vertexCount);
 		if (vertexCountSizeT > (std::numeric_limits<size_t>::max() / sizeof(hlsl::float32_t3)))
 			return {};
@@ -447,18 +381,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			block,
 			blockBytes,
 			alignof(float));
-		auto posBuffer = ICPUBuffer::create({
-			{ viewByteSize },
-			block,
-			core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),
-			alignof(float)
-		}, core::adopt_memory);
-		auto normalBuffer = ICPUBuffer::create({
-			{ viewByteSize },
-			reinterpret_cast<uint8_t*>(block) + viewByteSize,
-			core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),
-			alignof(float)
-		}, core::adopt_memory);
+		auto posBuffer = ICPUBuffer::create({ { viewByteSize },block,core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),alignof(float) }, core::adopt_memory);
+		auto normalBuffer = ICPUBuffer::create({ { viewByteSize },reinterpret_cast<uint8_t*>(block) + viewByteSize,core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),alignof(float) }, core::adopt_memory);
 		if (!posBuffer || !normalBuffer)
 			return {};
 		ICPUPolygonGeometry::SDataView posView = {};
@@ -487,20 +411,16 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		auto* normalOutFloat = reinterpret_cast<float*>(normalView.getPointer());
 		if (!posOutFloat || !normalOutFloat)
 			return {};
-		const double buildPrepMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildPrepStart).count();
-		buildAllocViewsMs += buildPrepMs;
-		buildMs += buildPrepMs;
 
-		const auto parseStart = clock_t::now();
 		const uint8_t* cursor = payloadData;
 		const uint8_t* const end = cursor + dataSize;
-		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * StlTriangleRecordBytes)
+		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * SSTLContext::TriangleRecordBytes)
 			return {};
 		const size_t hw = resolveLoaderHardwareThreads();
 		SLoaderRuntimeTuningRequest parseTuningRequest = {};
 		parseTuningRequest.inputBytes = dataSize;
 		parseTuningRequest.totalWorkUnits = triangleCount;
-		parseTuningRequest.minBytesPerWorker = StlTriangleRecordBytes;
+		parseTuningRequest.minBytesPerWorker = SSTLContext::TriangleRecordBytes;
 		parseTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
 		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::max<size_t>(1ull, hw > 2ull ? (hw - 2ull) : hw));
 		parseTuningRequest.targetChunksPerWorker = 2u;
@@ -526,21 +446,19 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const size_t parseChunkCount = static_cast<size_t>(loaderRuntimeCeilDiv(triangleCount, parseChunkTriangles));
 		const bool hashInParsePipeline = computeContentHashes;
 		std::vector<uint8_t> hashChunkReady(hashInParsePipeline ? parseChunkCount : 0ull, 0u);
-		double positionHashPipelineMs = 0.0;
-		double normalHashPipelineMs = 0.0;
 		std::atomic_bool hashPipelineOk = true;
 		core::blake3_hash_t parsedPositionHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
 		core::blake3_hash_t parsedNormalHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
 		auto parseRange = [&](const uint64_t beginTri, const uint64_t endTri, SThreadAABB& localAABB) -> void
 		{
-			const uint8_t* localCursor = payloadData + beginTri * StlTriangleRecordBytes;
-			float* posCursor = posOutFloat + beginTri * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
-			float* normalCursor = normalOutFloat + beginTri * StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+			const uint8_t* localCursor = payloadData + beginTri * SSTLContext::TriangleRecordBytes;
+			float* posCursor = posOutFloat + beginTri * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
+			float* normalCursor = normalOutFloat + beginTri * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
 			for (uint64_t tri = beginTri; tri < endTri; ++tri)
 			{
 				const uint8_t* const triRecord = localCursor;
-				localCursor += StlTriangleRecordBytes;
-				float triValues[StlTriangleFloatCount];
+				localCursor += SSTLContext::TriangleRecordBytes;
+				float triValues[SSTLContext::TriangleFloatCount];
 				std::memcpy(triValues, triRecord, sizeof(triValues));
 
 				float normalX = triValues[0ull];
@@ -633,8 +551,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				normalCursor[6ull] = normalX;
 				normalCursor[7ull] = normalY;
 				normalCursor[8ull] = normalZ;
-				posCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
-				normalCursor += StlVerticesPerTriangle * StlFloatChannelsPerVertex;
+				posCursor += SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
+				normalCursor += SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
 			}
 		};
 		std::jthread positionHashThread;
@@ -646,7 +564,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				try
 				{
 					core::blake3_hasher positionHasher;
-					const auto hashThreadStart = clock_t::now();
 					size_t chunkIx = 0ull;
 					while (chunkIx < parseChunkCount)
 					{
@@ -666,11 +583,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
 						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
 						const size_t runTriangles = static_cast<size_t>(endTri - begin);
-						const size_t runBytes = runTriangles * StlVerticesPerTriangle * StlFloatChannelsPerVertex * sizeof(float);
-						positionHasher.update(posOutFloat + begin * StlVerticesPerTriangle * StlFloatChannelsPerVertex, runBytes);
+						const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
+						positionHasher.update(posOutFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
 						chunkIx = runEnd;
 					}
-					positionHashPipelineMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashThreadStart).count();
 					parsedPositionHash = static_cast<core::blake3_hash_t>(positionHasher);
 				}
 				catch (...)
@@ -683,7 +599,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				try
 				{
 					core::blake3_hasher normalHasher;
-					const auto hashThreadStart = clock_t::now();
 					size_t chunkIx = 0ull;
 					while (chunkIx < parseChunkCount)
 					{
@@ -703,11 +618,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
 						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
 						const size_t runTriangles = static_cast<size_t>(endTri - begin);
-						const size_t runBytes = runTriangles * StlVerticesPerTriangle * StlFloatChannelsPerVertex * sizeof(float);
-						normalHasher.update(normalOutFloat + begin * StlVerticesPerTriangle * StlFloatChannelsPerVertex, runBytes);
+						const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
+						normalHasher.update(normalOutFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
 						chunkIx = runEnd;
 					}
-					normalHashPipelineMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashThreadStart).count();
 					parsedNormalHash = static_cast<core::blake3_hash_t>(normalHasher);
 				}
 				catch (...)
@@ -738,15 +652,16 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if constexpr (ComputeAABBInParse)
 				threadAABBs[workerIx] = localAABB;
 		};
-
-		if (workerCount > 1ull)
+		const auto runParallelWorkers = [](const size_t localWorkerCount, const auto& fn) -> void
 		{
-			stlRunParallelWorkers(workerCount, parseWorker);
-		}
-		else
-		{
-			parseWorker(0ull);
-		}
+			if (localWorkerCount <= 1ull) { fn(0ull); return; }
+			core::vector<std::jthread> workers;
+			workers.reserve(localWorkerCount - 1ull);
+			for (size_t workerIx = 1ull; workerIx < localWorkerCount; ++workerIx)
+				workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
+			fn(0ull);
+		};
+		runParallelWorkers(workerCount, parseWorker);
 		if (positionHashThread.joinable())
 			positionHashThread.join();
 		if (normalHashThread.joinable())
@@ -755,7 +670,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			if (!hashPipelineOk.load(std::memory_order_relaxed))
 				return {};
-			hashMs += positionHashPipelineMs + normalHashPipelineMs;
 			posView.src.buffer->setContentHash(parsedPositionHash);
 			normalView.src.buffer->setContentHash(parsedNormalHash);
 			contentHashesAssigned = true;
@@ -786,25 +700,17 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				if (localAABB.maxZ > parsedAABB.maxVx.z) parsedAABB.maxVx.z = localAABB.maxZ;
 			}
 		}
-		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
-
-		const auto buildFinalizeStart = clock_t::now();
 		geometry->setPositionView(std::move(posView));
 		geometry->setNormalView(std::move(normalView));
-		const double buildFinalizeMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildFinalizeStart).count();
-		buildSetViewsMs += buildFinalizeMs;
-		buildMs += buildFinalizeMs;
 	}
 	else
 	{
 		parsePath = "ascii_fallback";
 		if (!wholeFileData)
 		{
-			const auto ioStart = clock_t::now();
 			wholeFilePayload.resize(filesize + 1ull);
 			if (!readFileWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
 				return {};
-			ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 			wholeFilePayload[filesize] = 0u;
 			wholeFileData = wholeFilePayload.data();
 		}
@@ -817,7 +723,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("solid"))
 			return {};
 
-		const auto parseStart = clock_t::now();
 		while (stlReadTextToken(cursor, end, textToken))
 		{
 			if (textToken == std::string_view("endsolid"))
@@ -832,8 +737,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			hlsl::float32_t3 fileNormal = {};
 			if (!stlReadTextVec3(cursor, end, fileNormal))
 				return {};
-
-			normals.push_back(stlResolveStoredNormal(fileNormal));
 
 			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("outer"))
 				return {};
@@ -865,26 +768,18 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endfacet"))
 				return {};
 		}
-		parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
 		if (positions.empty())
 			return {};
 
-		triangleCount = positions.size() / StlVerticesPerTriangle;
+		triangleCount = positions.size() / SSTLContext::VerticesPerTriangle;
 		vertexCount = positions.size();
 
-		const auto buildStart = clock_t::now();
-		const auto allocStart = clock_t::now();
 		auto posView = stlCreateAdoptedFloat3View(std::move(positions));
 		auto normalView = stlCreateAdoptedFloat3View(std::move(normals));
 		if (!posView || !normalView)
 			return {};
-		buildAllocViewsMs += std::chrono::duration<double, std::milli>(clock_t::now() - allocStart).count();
-
-		const auto setStart = clock_t::now();
 		geometry->setPositionView(std::move(posView));
 		geometry->setNormalView(std::move(normalView));
-		buildSetViewsMs += std::chrono::duration<double, std::milli>(clock_t::now() - setStart).count();
-		buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
 	}
 
 	if (vertexCount == 0ull)
@@ -892,12 +787,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	if (computeContentHashes && !contentHashesAssigned)
 	{
-		const auto hashStart = clock_t::now();
 		stlRecomputeContentHashesParallel(geometry.get(), _params.ioPolicy);
-		hashMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 	}
 
-	const auto aabbStart = clock_t::now();
 	if (hasParsedAABB)
 	{
 		geometry->visitAABB([&parsedAABB](auto& ref)->void
@@ -917,11 +809,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 	}
-	aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
-
-	buildMiscMs = std::max(0.0, buildMs - (buildAllocViewsMs + buildSetViewsMs));
-
-	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
 	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
 	if (isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize)))
@@ -949,50 +836,37 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
 		ioPlan.reason);
-	(void)totalMs;
-	(void)detectMs;
-	(void)ioMs;
-	(void)parseMs;
-	(void)buildMs;
-	(void)buildAllocViewsMs;
-	(void)buildSetViewsMs;
-	(void)buildMiscMs;
-	(void)hashMs;
-	(void)aabbMs;
-
 	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>();
 	return SAssetBundle(std::move(meta), { std::move(geometry) });
 }
 
-bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
+bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
-	(void)logger;
-	if (!_file || _file->getSize() <= StlTextProbeBytes)
+	if (!_file || _file->getSize() <= SSTLContext::TextProbeBytes)
 		return false;
 
 	const size_t fileSize = _file->getSize();
-	if (fileSize < StlBinaryPrefixBytes)
+	if (fileSize < SSTLContext::BinaryPrefixBytes)
 	{
-		char header[StlTextProbeBytes] = {};
+		char header[SSTLContext::TextProbeBytes] = {};
 		if (!readFileExact(_file, header, 0ull, sizeof(header)))
 			return false;
-		return std::strncmp(header, "solid ", StlTextProbeBytes) == 0;
+		return std::strncmp(header, "solid ", SSTLContext::TextProbeBytes) == 0;
 	}
 
-	std::array<uint8_t, StlBinaryPrefixBytes> prefix = {};
+	std::array<uint8_t, SSTLContext::BinaryPrefixBytes> prefix = {};
 	if (!readFileExact(_file, prefix.data(), 0ull, prefix.size()))
 		return false;
 
 	uint32_t triangleCount = 0u;
-	std::memcpy(&triangleCount, prefix.data() + StlBinaryHeaderBytes, sizeof(triangleCount));
-	if (std::memcmp(prefix.data(), "solid ", StlTextProbeBytes) == 0)
+	std::memcpy(&triangleCount, prefix.data() + SSTLContext::BinaryHeaderBytes, sizeof(triangleCount));
+	if (std::memcmp(prefix.data(), "solid ", SSTLContext::TextProbeBytes) == 0)
 		return true;
 
-	return fileSize == (StlTriangleRecordBytes * triangleCount + StlBinaryPrefixBytes);
+	return fileSize == (SSTLContext::TriangleRecordBytes * triangleCount + SSTLContext::BinaryPrefixBytes);
 }
 
 }
 
 #endif // _NBL_COMPILE_WITH_STL_LOADER_
-
 

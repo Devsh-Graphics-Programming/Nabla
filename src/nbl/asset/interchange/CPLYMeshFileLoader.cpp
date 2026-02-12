@@ -1,37 +1,19 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
-
 #include "CPLYMeshFileLoader.h"
-#include "nbl/asset/metadata/CPLYMetadata.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
-
-#include <numeric>
-#include <charconv>
-#include <cstdlib>
-#include <algorithm>
-#include <limits>
-#include <chrono>
-#include <cstring>
-#include <atomic>
-#include <execution>
-#include <thread>
-#include <vector>
-#include <ranges>
-#include <fast_float/fast_float.h>
-#include "nbl/core/hash/blake.h"
-
 #include "nbl/asset/IAssetManager.h"
-
+#include "nbl/asset/metadata/CPLYMetadata.h"
+#include "nbl/core/hash/blake.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 
-//#include "nbl/asset/utils/IMeshManipulator.h"
-
+#include <fast_float/fast_float.h>
 
 namespace nbl::asset
 {
@@ -44,55 +26,35 @@ const char** CPLYMeshFileLoader::getAssociatedFileExtensions() const
 	return ext;
 }
 
-bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
+bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
-    char buf[40];
+	char buf[40];
 
 	system::IFile::success_t success;
-	_file->read(success,buf,0,sizeof(buf));
+	_file->read(success, buf, 0, sizeof(buf));
 	if (!success)
 		return false;
 
-    char* header = buf;
-    if (strncmp(header,"ply",3u)!=0)
-        return false;
-    
-    header += 4;
-    char* lf = strstr(header,"\n");
-    if (!lf)
-        return false;
-	
-    constexpr std::array<std::string_view,3> headers = {
-        "format ascii 1.0",
-        "format binary_little_endian 1.0",
-        "format binary_big_endian 1.0"
-    };
-	return std::find(headers.begin(),headers.end(),std::string_view(header,lf))!=headers.end();
+	char* header = buf;
+	if (strncmp(header, "ply", 3u) != 0)
+		return false;
+
+	header += 4;
+	char* lf = strstr(header, "\n");
+	if (!lf)
+		return false;
+
+	constexpr std::array<std::string_view, 3> headers = { "format ascii 1.0", "format binary_little_endian 1.0", "format binary_big_endian 1.0" };
+	return std::find(headers.begin(), headers.end(), std::string_view(header, lf)) != headers.end();
 }
 
-template<typename T>
-T byteswap(const T& v)
+const auto plyByteswap = [](const auto value)
 {
-	T retval;
-	auto it = reinterpret_cast<const char*>(&v);
-	std::reverse_copy(it,it+sizeof(T),reinterpret_cast<char*>(&retval));
+	auto retval = value;
+	const auto* it = reinterpret_cast<const char*>(&value);
+	std::reverse_copy(it, it + sizeof(retval), reinterpret_cast<char*>(&retval));
 	return retval;
-}
-
-template<typename Fn>
-void plyRunParallelWorkers(const size_t workerCount, Fn&& fn)
-{
-	if (workerCount <= 1ull)
-	{
-		fn(0ull);
-		return;
-	}
-	auto workerIds = std::views::iota(size_t{0ull}, workerCount);
-	std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
-	{
-		fn(workerIx);
-	});
-}
+};
 
 class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
 {
@@ -101,19 +63,14 @@ class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
 		{
 		}
 
-		inline void* allocate(std::size_t bytes, std::size_t alignment) override
+		inline void* allocate(std::size_t, std::size_t) override
 		{
-			(void)bytes;
-			(void)alignment;
 			assert(false);
 			return nullptr;
 		}
 
-		inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override
+		inline void deallocate(void*, std::size_t, std::size_t) override
 		{
-			(void)p;
-			(void)bytes;
-			(void)alignment;
 		}
 
 	private:
@@ -126,12 +83,7 @@ IGeometry<ICPUBuffer>::SDataView plyCreateMappedF32x3View(system::IFile* file, v
 		return {};
 
 	auto keepAliveResource = core::make_smart_refctd_ptr<CPLYMappedFileMemoryResource>(core::smart_refctd_ptr<system::IFile>(file));
-	auto buffer = ICPUBuffer::create({
-		{ byteCount },
-		ptr,
-		core::smart_refctd_ptr<core::refctd_memory_resource>(keepAliveResource),
-		alignof(float)
-	}, core::adopt_memory);
+	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(keepAliveResource), alignof(float) }, core::adopt_memory);
 	if (!buffer)
 		return {};
 
@@ -402,13 +354,23 @@ struct SContext
 	{
 		// move the start pointer along
 		StartPointer += WordLength + 1;
-		if (!*StartPointer)
+		if (StartPointer >= EndPointer)
+		{
+			if (EndOfFile)
+			{
+				WordLength = -1;
+				return EndPointer;
+			}
+			getNextLine();
+		}
+
+		if (StartPointer < EndPointer && !*StartPointer)
 			getNextLine();
 
-		if (StartPointer==LineEndPointer)
+		if (StartPointer >= LineEndPointer)
 		{
 			WordLength = -1; //
-			return LineEndPointer;
+			return StartPointer;
 		}
 		// process the next word
 		{
@@ -509,7 +471,7 @@ struct SContext
 						break;
 					auto retval = *(reinterpret_cast<int16_t*&>(StartPointer)++);
 					if (IsWrongEndian)
-						retval = byteswap(retval);
+						retval = plyByteswap(retval);
 					return retval;
 				}
 				case 4:
@@ -518,7 +480,7 @@ struct SContext
 						break;
 					auto retval = *(reinterpret_cast<int32_t*&>(StartPointer)++);
 					if (IsWrongEndian)
-						retval = byteswap(retval);
+						retval = plyByteswap(retval);
 					return retval;
 				}
 				default:
@@ -579,7 +541,7 @@ struct SContext
 						break;
 					auto retval = *(reinterpret_cast<hlsl::float32_t*&>(StartPointer)++);
 					if (IsWrongEndian)
-						retval = byteswap(retval);
+						retval = plyByteswap(retval);
 					return retval;
 				}
 				case 8:
@@ -588,7 +550,7 @@ struct SContext
 						break;
 					auto retval = *(reinterpret_cast<hlsl::float64_t*&>(StartPointer)++);
 					if (IsWrongEndian)
-						retval = byteswap(retval);
+						retval = plyByteswap(retval);
 					return retval;
 				}
 				default:
@@ -1197,12 +1159,16 @@ struct SContext
 							ready.notify_one();
 						}
 					};
-					plyRunParallelWorkers(workerCount, [&](const size_t workerIx)
+					const auto runParallelWorkers = [](const size_t localWorkerCount, const auto& fn) -> void
 					{
-						const size_t begin = (element.Count * workerIx) / workerCount;
-						const size_t end = (element.Count * (workerIx + 1ull)) / workerCount;
-						parseChunk(workerIx, begin, end);
-					});
+						if (localWorkerCount <= 1ull) { fn(0ull); return; }
+						core::vector<std::jthread> workers;
+						workers.reserve(localWorkerCount - 1ull);
+						for (size_t workerIx = 1ull; workerIx < localWorkerCount; ++workerIx)
+							workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
+						fn(0ull);
+					};
+					runParallelWorkers(workerCount, [&](const size_t workerIx) { const size_t begin = (element.Count * workerIx) / workerCount; const size_t end = (element.Count * (workerIx + 1ull)) / workerCount; parseChunk(workerIx, begin, end); });
 					if (hashThread.joinable())
 						hashThread.join();
 
@@ -1575,7 +1541,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		return {};
 
 	using clock_t = std::chrono::high_resolution_clock;
-	const auto totalStart = clock_t::now();
 	double headerMs = 0.0;
 	double vertexMs = 0.0;
 	double vertexFastMs = 0.0;
@@ -1587,7 +1552,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	double hashRangeMs = 0.0;
 	double indexBuildMs = 0.0;
 	double aabbMs = 0.0;
-	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES) != 0;
+	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
 	uint64_t faceCount = 0u;
 	uint64_t fastFaceElementCount = 0u;
 	uint64_t fastVertexElementCount = 0u;
@@ -2263,8 +2228,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		hashRemainingGeometryBuffers();
 	}
 
-	const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
-	const double stageRemainderMs = std::max(0.0, totalMs - (headerMs + vertexMs + faceMs + skipMs + layoutNegotiateMs + viewCreateMs + hashRangeMs + indexBuildMs + aabbMs));
 	const uint64_t ioMinRead = ctx.readCallCount ? ctx.readMinBytes : 0ull;
 	const uint64_t ioAvgRead = ctx.readCallCount ? (ctx.readBytesTotal / ctx.readCallCount) : 0ull;
 	if (
@@ -2300,20 +2263,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
 		ioPlan.reason);
-	(void)totalMs;
-	(void)stageRemainderMs;
-	(void)headerMs;
-	(void)vertexMs;
-	(void)vertexFastMs;
-	(void)vertexGenericMs;
-	(void)faceMs;
-	(void)skipMs;
-	(void)layoutNegotiateMs;
-	(void)viewCreateMs;
-	(void)hashRangeMs;
-	(void)indexBuildMs;
-	(void)aabbMs;
-
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});
 }

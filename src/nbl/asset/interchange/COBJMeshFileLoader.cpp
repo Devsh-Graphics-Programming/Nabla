@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
@@ -16,15 +16,8 @@
 
 #include "COBJMeshFileLoader.h"
 
-#include <array>
-#include <algorithm>
 #include <bit>
-#include <charconv>
-#include <chrono>
-#include <cstdlib>
-#include <cstring>
 #include <fast_float/fast_float.h>
-#include <limits>
 #include <type_traits>
 
 namespace nbl::asset
@@ -47,17 +40,17 @@ using Float2 = hlsl::float32_t2;
 static_assert(sizeof(Float3) == sizeof(float) * 3ull);
 static_assert(sizeof(Float2) == sizeof(float) * 2ull);
 
-NBL_FORCE_INLINE bool isObjInlineWhitespace(const char c)
+inline bool isObjInlineWhitespace(const char c)
 {
     return c == ' ' || c == '\t' || c == '\v' || c == '\f';
 }
 
-NBL_FORCE_INLINE bool isObjDigit(const char c)
+inline bool isObjDigit(const char c)
 {
     return c >= '0' && c <= '9';
 }
 
-NBL_FORCE_INLINE bool parseObjFloat(const char*& ptr, const char* const end, float& out)
+inline bool parseObjFloat(const char*& ptr, const char* const end, float& out)
 {
     const char* const start = ptr;
     if (start >= end)
@@ -191,9 +184,9 @@ void extendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, con
     if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
 }
 
-template<typename T>
-IGeometry<ICPUBuffer>::SDataView createAdoptedView(core::vector<T>&& data, const E_FORMAT format)
+const auto createAdoptedView = [](auto&& data, const E_FORMAT format) -> IGeometry<ICPUBuffer>::SDataView
 {
+    using T = typename std::decay_t<decltype(data)>::value_type;
     if (data.empty())
         return {};
 
@@ -218,7 +211,7 @@ IGeometry<ICPUBuffer>::SDataView createAdoptedView(core::vector<T>&& data, const
         }
     };
     return view;
-}
+};
 
 void objRecomputeContentHashes(ICPUPolygonGeometry* geometry)
 {
@@ -255,16 +248,9 @@ void objRecomputeContentHashes(ICPUPolygonGeometry* geometry)
         buffer->setContentHash(buffer->computeContentHash());
 }
 
-bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, double& ioMs, SFileReadTelemetry& ioTelemetry)
+bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry& ioTelemetry)
 {
-    return readFileWithPolicyTimed(
-        file,
-        reinterpret_cast<uint8_t*>(dst),
-        0ull,
-        byteCount,
-        ioPlan,
-        &ioMs,
-        &ioTelemetry);
+    return readFileWithPolicyTimed(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, nullptr, &ioTelemetry);
 }
 
 const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines = true)
@@ -352,7 +338,7 @@ const char* readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
     return bufPtr;
 }
 
-NBL_FORCE_INLINE bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
+inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
 {
     if (ptr >= end || !isObjDigit(*ptr))
         return false;
@@ -370,7 +356,7 @@ NBL_FORCE_INLINE bool parseUnsignedObjIndex(const char*& ptr, const char* const 
     return true;
 }
 
-NBL_FORCE_INLINE bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const char* const end, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
+inline bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const char* const end, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     while (ptr < end && isObjInlineWhitespace(*ptr))
         ++ptr;
@@ -409,7 +395,7 @@ NBL_FORCE_INLINE bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const c
     return true;
 }
 
-NBL_FORCE_INLINE bool parseObjPositiveIndexBounded(const char*& ptr, const char* const end, const size_t maxCount, int32_t& out)
+inline bool parseObjPositiveIndexBounded(const char*& ptr, const char* const end, const size_t maxCount, int32_t& out)
 {
     if (ptr >= end || !isObjDigit(*ptr))
         return false;
@@ -430,7 +416,7 @@ NBL_FORCE_INLINE bool parseObjPositiveIndexBounded(const char*& ptr, const char*
     return true;
 }
 
-NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
+inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     const char* ptr = lineStart;
     int32_t* const out[3] = { idx0, idx1, idx2 };
@@ -510,7 +496,7 @@ NBL_FORCE_INLINE bool parseObjTrianglePositiveTripletLine(const char* const line
     return ptr == lineEnd;
 }
 
-NBL_FORCE_INLINE bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
+inline bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
 {
     if (ptr >= end)
         return false;
@@ -547,7 +533,7 @@ NBL_FORCE_INLINE bool parseSignedObjIndex(const char*& ptr, const char* const en
     return true;
 }
 
-NBL_FORCE_INLINE bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
+inline bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
 {
     if (rawIndex > 0)
     {
@@ -568,7 +554,7 @@ NBL_FORCE_INLINE bool resolveObjIndex(const int32_t rawIndex, const size_t eleme
     return true;
 }
 
-NBL_FORCE_INLINE bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
+inline bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
 {
     if (!idx)
         return false;
@@ -678,16 +664,14 @@ NBL_FORCE_INLINE bool parseObjFaceVertexTokenFast(const char*& linePtr, const ch
 
 }
 
-COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager)
+COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager*)
 {
-    (void)_manager;
 }
 
 COBJMeshFileLoader::~COBJMeshFileLoader() = default;
 
-bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
+bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
-    (void)logger;
     if (!_file)
         return false;
     system::IFile::success_t succ;
@@ -702,27 +686,11 @@ const char** COBJMeshFileLoader::getAssociatedFileExtensions() const
     return ext;
 }
 
-asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride*, uint32_t)
 {
-    (void)_override;
-    (void)_hierarchyLevel;
-
     if (!_file)
         return {};
 
-    using clock_t = std::chrono::high_resolution_clock;
-    const auto totalStart = clock_t::now();
-    double ioMs = 0.0;
-    double parseMs = 0.0;
-    double buildMs = 0.0;
-    double hashMs = 0.0;
-    double aabbMs = 0.0;
-    double parseVms = 0.0;
-    double parseVNms = 0.0;
-    double parseVTms = 0.0;
-    double parseFaceMs = 0.0;
-    double dedupMs = 0.0;
-    double emitMs = 0.0;
     uint64_t faceCount = 0u;
     uint64_t faceFastTokenCount = 0u;
     uint64_t faceFallbackTokenCount = 0u;
@@ -738,7 +706,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         return {};
     }
 
-    const auto ioStart = clock_t::now();
     std::string fileContents = {};
     const char* buf = nullptr;
     if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
@@ -754,11 +721,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     if (!buf)
     {
         fileContents.resize(static_cast<size_t>(filesize));
-        if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioMs, ioTelemetry))
+        if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioTelemetry))
             return {};
         buf = fileContents.data();
     }
-    ioMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 
     const char* const bufEnd = buf + static_cast<size_t>(filesize);
     const char* bufPtr = buf;
@@ -969,10 +935,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         return true;
     };
 
-    const bool trackStages =
-        _params.logger.get() != nullptr &&
-        ((_params.logger.get()->getLogLevelMask() & system::ILogger::ELL_PERFORMANCE).value != 0u);
-    const auto parseStart = clock_t::now();
     while (bufPtr < bufEnd)
     {
             const char* const lineStart = bufPtr;
@@ -993,7 +955,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 {
                     if ((lineStart + 1) < lineEnd && lineStart[1] == ' ')
                     {
-                        const auto stageStart = trackStages ? clock_t::now() : clock_t::time_point{};
                         Float3 vec{};
                         const char* ptr = lineStart + 2;
                         for (uint32_t i = 0u; i < 3u; ++i)
@@ -1007,12 +968,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                         }
                         positions.push_back(vec);
                         dedupHeadByPos.push_back(-1);
-                        if (trackStages)
-                            parseVms += std::chrono::duration<double, std::milli>(clock_t::now() - stageStart).count();
                     }
                     else if ((lineStart + 2) < lineEnd && lineStart[1] == 'n' && isObjInlineWhitespace(lineStart[2]))
                     {
-                        const auto stageStart = trackStages ? clock_t::now() : clock_t::time_point{};
                         Float3 vec{};
                         const char* ptr = lineStart + 3;
                         for (uint32_t i = 0u; i < 3u; ++i)
@@ -1025,12 +983,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                                 return {};
                         }
                         normals.push_back(vec);
-                        if (trackStages)
-                            parseVNms += std::chrono::duration<double, std::milli>(clock_t::now() - stageStart).count();
                     }
                     else if ((lineStart + 2) < lineEnd && lineStart[1] == 't' && isObjInlineWhitespace(lineStart[2]))
                     {
-                        const auto stageStart = trackStages ? clock_t::now() : clock_t::time_point{};
                         Float2 vec{};
                         const char* ptr = lineStart + 3;
                         for (uint32_t i = 0u; i < 2u; ++i)
@@ -1044,8 +999,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                         }
                         vec.y = 1.f - vec.y;
                         uvs.push_back(vec);
-                        if (trackStages)
-                            parseVTms += std::chrono::duration<double, std::milli>(clock_t::now() - stageStart).count();
                     }
                 }
                 else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
@@ -1077,10 +1030,17 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                             triangleFastPath = (triLinePtr == lineEnd);
                         }
                     }
-                    const auto faceStart = trackStages ? clock_t::now() : clock_t::time_point{};
                     if (triangleFastPath)
                     {
-                        const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};
+                        const bool fullTriplet =
+                            triIdx0[0] >= 0 && triIdx0[1] >= 0 && triIdx0[2] >= 0 &&
+                            triIdx1[0] >= 0 && triIdx1[1] >= 0 && triIdx1[2] >= 0 &&
+                            triIdx2[0] >= 0 && triIdx2[1] >= 0 && triIdx2[2] >= 0;
+                        if (!fullTriplet)
+                            triangleFastPath = false;
+                    }
+                    if (triangleFastPath)
+                    {
                         uint32_t c0 = 0u;
                         uint32_t c1 = 0u;
                         uint32_t c2 = 0u;
@@ -1090,14 +1050,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                             return {};
                         if (!acquireCornerIndexPositiveTriplet(triIdx2[0], triIdx2[1], triIdx2[2], c2))
                             return {};
-                        if (trackStages)
-                            dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
                         faceFastTokenCount += 3u;
-                        const auto emitStart = trackStages ? clock_t::now() : clock_t::time_point{};
                         if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
                             return {};
-                        if (trackStages)
-                            emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
                     }
                     else
                     {
@@ -1108,7 +1063,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
                         if (parsedFirstThree)
                         {
-                            const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};
                             uint32_t c0 = 0u;
                             uint32_t c1 = 0u;
                             uint32_t c2 = 0u;
@@ -1118,14 +1072,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                                 return {};
                             if (!acquireCornerIndex(triIdx2, c2))
                                 return {};
-                            if (trackStages)
-                                dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
                             faceFastTokenCount += 3u;
-                            const auto emitStart = trackStages ? clock_t::now() : clock_t::time_point{};
                             if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
                                 return {};
-                            if (trackStages)
-                                emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
                             firstCorner = c0;
                             previousCorner = c2;
                             cornerCount = 3u;
@@ -1144,12 +1093,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                                 return {};
                             ++faceFastTokenCount;
 
-                            const auto dedupStart = trackStages ? clock_t::now() : clock_t::time_point{};
                             uint32_t cornerIx = 0u;
                             if (!acquireCornerIndex(idx, cornerIx))
                                 return {};
-                            if (trackStages)
-                                dedupMs += std::chrono::duration<double, std::milli>(clock_t::now() - dedupStart).count();
 
                             if (cornerCount == 0u)
                             {
@@ -1165,17 +1111,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                                 continue;
                             }
 
-                            const auto emitStart = trackStages ? clock_t::now() : clock_t::time_point{};
                             if (!appendIndex(cornerIx) || !appendIndex(previousCorner) || !appendIndex(firstCorner))
                                 return {};
-                            if (trackStages)
-                                emitMs += std::chrono::duration<double, std::milli>(clock_t::now() - emitStart).count();
                             previousCorner = cornerIx;
                             ++cornerCount;
                         }
                     }
-                    if (trackStages)
-                        parseFaceMs += std::chrono::duration<double, std::milli>(clock_t::now() - faceStart).count();
                 }
             }
 
@@ -1186,9 +1127,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             else
                 bufPtr = lineTerminator + 1;
     }
-    parseMs = std::chrono::duration<double, std::milli>(clock_t::now() - parseStart).count();
-    const double parseScanMs = std::max(0.0, parseMs - (parseVms + parseVNms + parseVTms + parseFaceMs + dedupMs + emitMs));
-
     if (outVertexWriteCount == 0ull)
         return {};
 
@@ -1199,7 +1137,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
     const size_t outVertexCount = outPositions.size();
     const size_t outIndexCount = indices.size();
-    const auto buildStart = clock_t::now();
     auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
     {
         auto view = createAdoptedView(std::move(outPositions), EF_R32G32B32_SFLOAT);
@@ -1249,16 +1186,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     {
         geometry->setIndexing(IPolygonGeometryBase::PointList());
     }
-    buildMs = std::chrono::duration<double, std::milli>(clock_t::now() - buildStart).count();
 
-    if (_params.loaderFlags & IAssetLoader::ELPF_COMPUTE_CONTENT_HASHES)
+    if ((_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0)
     {
-        const auto hashStart = clock_t::now();
         objRecomputeContentHashes(geometry.get());
-        hashMs = std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
     }
 
-    const auto aabbStart = clock_t::now();
     if (hasParsedAABB)
     {
         geometry->visitAABB([&parsedAABB](auto& ref)->void
@@ -1278,9 +1211,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     {
         CPolygonGeometryManipulator::recomputeAABB(geometry.get());
     }
-    aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
-
-    const auto totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
     if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize)))
     {
         _params.logger.log(
@@ -1291,19 +1221,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
             static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()));
     }
-    (void)totalMs;
-    (void)ioMs;
-    (void)parseMs;
-    (void)parseScanMs;
-    (void)parseVms;
-    (void)parseVNms;
-    (void)parseVTms;
-    (void)parseFaceMs;
-    (void)dedupMs;
-    (void)emitMs;
-    (void)buildMs;
-    (void)hashMs;
-    (void)aabbMs;
     _params.logger.log(
         "OBJ loader stats: file=%s in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
         system::ILogger::ELL_PERFORMANCE,
