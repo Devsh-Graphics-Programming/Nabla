@@ -28,6 +28,32 @@ struct MeteringWindow
 	}
 };
 
+struct GeomMeanParameters
+{
+	float32_t rcpFirstPassWGCount;
+};
+
+struct HistogramParameters
+{
+	uint32_t lowerBoundPercentile;
+    uint32_t upperBoundPercentile;
+};
+
+struct PushConstants
+{
+    MeteringWindow window;
+    float32_t lumaMin;
+    float32_t lumaMax;
+    uint32_t2 viewportSize;
+    float32_t2 exposureAdaptationFactors;
+    uint64_t pLumaMeterBuf;
+    uint64_t pLastFrameEVBuf;
+    uint64_t pCurrFrameEVBuf;    
+
+    GeomMeanParameters meanParams;
+	HistogramParameters histoParams;    
+};
+
 }
 }
 }
