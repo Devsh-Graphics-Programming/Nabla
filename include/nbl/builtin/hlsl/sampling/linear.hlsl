@@ -24,25 +24,23 @@ struct Linear
     static Linear<T> create(const vector2_type linearCoeffs)   // start and end importance values (start, end), assumed to be at x=0 and x=1
     {
         Linear<T> retval;
-        scalar_type rcpDiff = 1.0 / (linearCoeffs[0] - linearCoeffs[1]);
-        retval.linearCoeffStartOverDiff = linearCoeffs[0] * rcpDiff;
+        retval.linearCoeffStart = linearCoeffs[0];
+        retval.rcpDiff = 1.0 / (linearCoeffs[0] - linearCoeffs[1]);
         vector2_type squaredCoeffs = linearCoeffs * linearCoeffs;
-        scalar_type squaredRcpDiff = rcpDiff * rcpDiff;
-        retval.squaredCoeffStartOverDiff = squaredCoeffs[0] * squaredRcpDiff;
-        retval.squaredCoeffDiffOverDiff = (squaredCoeffs[1] - squaredCoeffs[0]) * squaredRcpDiff;
+        retval.squaredCoeffStart = squaredCoeffs[0];
+        retval.squaredCoeffDiff = squaredCoeffs[1] - squaredCoeffs[0];
         return retval;
     }
 
     scalar_type generate(const scalar_type u)
     {
-        return hlsl::mix(u, (linearCoeffStartOverDiff - hlsl::sqrt(squaredCoeffStartOverDiff + u * squaredCoeffDiffOverDiff)), hlsl::abs(linearCoeffStartOverDiff) < numeric_limits<scalar_type>::max);
+        return hlsl::mix(u, (linearCoeffStart - hlsl::sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max);
     }
 
-    // TODO: add forwardPdf and backwardPdf methods, forward computes from u and backwards from the result of generate
-
-    scalar_type linearCoeffStartOverDiff;  
-    scalar_type squaredCoeffStartOverDiff;
-    scalar_type squaredCoeffDiffOverDiff;
+    scalar_type linearCoeffStart;
+    scalar_type rcpDiff;
+    scalar_type squaredCoeffStart;
+    scalar_type squaredCoeffDiff;
 };
 
 }

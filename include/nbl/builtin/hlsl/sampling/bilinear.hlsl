@@ -30,7 +30,7 @@ struct Bilinear
         retval.bilinearCoeffs = bilinearCoeffs;
         retval.bilinearCoeffDiffs = vector2_type(bilinearCoeffs[2]-bilinearCoeffs[0], bilinearCoeffs[3]-bilinearCoeffs[1]);
         vector2_type twiceAreasUnderXCurve = vector2_type(bilinearCoeffs[0] + bilinearCoeffs[1], bilinearCoeffs[2] + bilinearCoeffs[3]);
-        retval.twiceAreasUnderXCurveSumOverFour = scalar_type(4.0) / (twiceAreasUnderXCurve[0] + twiceAreasUnderXCurve[1]);
+        retval.fourOverTwiceAreasUnderXCurveSum = scalar_type(4.0) / (twiceAreasUnderXCurve[0] + twiceAreasUnderXCurve[1]);
         retval.lineary = Linear<scalar_type>::create(twiceAreasUnderXCurve);
         return retval;
     }
@@ -57,7 +57,7 @@ struct Bilinear
     //              x0y1    x1y1
     vector4_type bilinearCoeffs;    // (x0y0, x0y1, x1y0, x1y1)
     vector2_type bilinearCoeffDiffs;
-    vector2_type fourOverTwiceAreasUnderXCurveSum;
+    scalar_type fourOverTwiceAreasUnderXCurveSum;
     Linear<scalar_type> lineary;
 };
 
