@@ -1185,11 +1185,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	patchedParams.usage = lookup.patch->usage;
 	auto contentHash = lookup.asset->getContentHash();
 	if (contentHash==NoContentHash)
-	{
 		contentHash = lookup.asset->computeContentHash();
-		if (auto* mutableAsset = const_cast<ICPUBuffer*>(lookup.asset); mutableAsset && mutableAsset->isMutable())
-			mutableAsset->setContentHash(contentHash);
-	}
 	hasher.update(&patchedParams,sizeof(patchedParams)) << contentHash;
 	return true;
 }
