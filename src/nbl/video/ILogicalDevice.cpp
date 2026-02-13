@@ -9,53 +9,53 @@ using namespace nbl::video;
 
 class SpirvTrimTask
 {
-    public:
-        using EntryPoints = core::set<asset::ISPIRVEntryPointTrimmer::EntryPoint>;
-        struct ShaderInfo
-        {
-            EntryPoints entryPoints;
-            const asset::IShader* trimmedShader;
-        };
+public:
+    using EntryPoints = core::set<asset::ISPIRVEntryPointTrimmer::EntryPoint>;
+    struct ShaderInfo
+    {
+        EntryPoints entryPoints;
+        const asset::IShader* trimmedShader;
+    };
 
-        SpirvTrimTask(asset::ISPIRVEntryPointTrimmer* trimer, system::logger_opt_ptr logger) : m_trimmer(trimer), m_logger(logger)
-        {
-          
-        }
+    SpirvTrimTask(asset::ISPIRVEntryPointTrimmer* trimer, system::logger_opt_ptr logger) : m_trimmer(trimer), m_logger(logger)
+    {
 
-        void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, const hlsl::ShaderStage stage)
-        {
-            const auto* shader = shaderSpec.shader;
-            auto it = m_shaderInfoMap.find(shader);
-            if (it == m_shaderInfoMap.end() || it->first != shader)
-              it = m_shaderInfoMap.emplace_hint(it, shader, ShaderInfo{ EntryPoints(), nullptr } );
-            it->second.entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = stage });
-        }
+    }
 
-        IGPUPipelineBase::SShaderSpecInfo trim(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
-        {
-            const auto* shader = shaderSpec.shader;
-            auto findResult = m_shaderInfoMap.find(shader);
-            assert(findResult != m_shaderInfoMap.end());
-            const auto& entryPoints = findResult->second.entryPoints;
-            auto& trimmedShader = findResult->second.trimmedShader;
+    void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, const hlsl::ShaderStage stage)
+    {
+        const auto* shader = shaderSpec.shader;
+        auto it = m_shaderInfoMap.find(shader);
+        if (it == m_shaderInfoMap.end() || it->first != shader)
+            it = m_shaderInfoMap.emplace_hint(it, shader, ShaderInfo{ EntryPoints(), nullptr } );
+        it->second.entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = stage });
+    }
 
-            auto trimmedShaderSpec = shaderSpec;
-            if (shader != nullptr)
+    IGPUPipelineBase::SShaderSpecInfo trim(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
+    {
+        const auto* shader = shaderSpec.shader;
+        auto findResult = m_shaderInfoMap.find(shader);
+        assert(findResult != m_shaderInfoMap.end());
+        const auto& entryPoints = findResult->second.entryPoints;
+        auto& trimmedShader = findResult->second.trimmedShader;
+
+        auto trimmedShaderSpec = shaderSpec;
+        if (shader != nullptr)
+        {
+            if (trimmedShader == nullptr)
             {
-                if (trimmedShader == nullptr)
-                {
-                    outShaders.push_back(m_trimmer->trim(shader, entryPoints, m_logger));
-                    trimmedShader = outShaders.back().get();
-                }
-                trimmedShaderSpec.shader = trimmedShader;
+                outShaders.push_back(m_trimmer->trim(shader, entryPoints, m_logger));
+                trimmedShader = outShaders.back().get();
             }
-            return trimmedShaderSpec;
+            trimmedShaderSpec.shader = trimmedShader;
         }
-  
-    private:
-        core::map<const asset::IShader*, ShaderInfo> m_shaderInfoMap;
-        asset::ISPIRVEntryPointTrimmer* m_trimmer;
-        const system::logger_opt_ptr m_logger;
+        return trimmedShaderSpec;
+    }
+
+private:
+    core::map<const asset::IShader*, ShaderInfo> m_shaderInfoMap;
+    asset::ISPIRVEntryPointTrimmer* m_trimmer;
+    const system::logger_opt_ptr m_logger;
 };
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
@@ -511,23 +511,23 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         writeValidationResults[i] = ds->validateWrite(write);
         switch (asset::IDescriptor::GetTypeCategory(*outCategory = writeValidationResults[i].type))
         {
-        case asset::IDescriptor::EC_BUFFER:
-            params.bufferCount += writeCount;
-            break;
-        case asset::IDescriptor::EC_SAMPLER:
-        case asset::IDescriptor::EC_IMAGE:
-            params.imageCount += writeCount;
-            break;
-        case asset::IDescriptor::EC_BUFFER_VIEW:
-            params.bufferViewCount += writeCount;
-            break;
-        case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-            params.accelerationStructureCount += writeCount;
-            params.accelerationStructureWriteCount++;
-            break;
-        default: // validation failed
-            NBL_LOG_ERROR("Invalid descriptor type (descriptorWrites[%u])", i);
-            return false;
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_SAMPLER:
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
+                break;
+            default: // validation failed
+                NBL_LOG_ERROR("Invalid descriptor type (descriptorWrites[%u])", i);
+                return false;
         }
         outCategory++;
     }
@@ -591,23 +591,23 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         auto writeCount = drop.count;
         switch (asset::IDescriptor::GetTypeCategory(bindingType))
         {
-        case asset::IDescriptor::EC_BUFFER:
-            params.bufferCount += writeCount;
-            break;
-        case asset::IDescriptor::EC_SAMPLER:
-        case asset::IDescriptor::EC_IMAGE:
-            params.imageCount += writeCount;
-            break;
-        case asset::IDescriptor::EC_BUFFER_VIEW:
-            params.bufferViewCount += writeCount;
-            break;
-        case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-            params.accelerationStructureCount += writeCount;
-            params.accelerationStructureWriteCount++;
-            break;
-        default: // validation failed
-            NBL_LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
-            return false;
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_SAMPLER:
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
+                break;
+            default: // validation failed
+                NBL_LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
+                return false;
         }
 
         // (no binding)
@@ -802,7 +802,7 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
 
     core::vector<IGPUComputePipeline::SCreationParams> newParams(params.begin(), params.end());
     const auto shaderCount = params.size();
-    
+
     core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
     trimmedShaders.reserve(shaderCount);
 
@@ -818,7 +818,7 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     }
 
     createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
-    
+
     bool retval = true;
     for (auto i=0u; i<params.size(); i++)
     {
@@ -831,6 +831,172 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
             output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
     }
     return retval;
+}
+
+bool MeshGraphicsCommonValidation(
+    const IGPURenderpass* renderpass, uint8_t subpassIndex,
+    SPhysicalDeviceLimits const& limits, SPhysicalDeviceFeatures const& features,
+    nbl::asset::SRasterizationParams const& rasterParams, nbl::asset::SBlendParams const& blendParams,
+    const system::logger_opt_ptr m_logger,
+    const IPhysicalDevice::SFormatImageUsages& formatUsages
+) {
+    if (rasterParams.alphaToOneEnable && !features.alphaToOne)
+    {
+        NBL_LOG_ERROR("Feature `alpha to one` is not enabled");
+        return false;
+    }
+    if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
+    {
+        NBL_LOG_ERROR("Feature `depth bounds` is not enabled");
+        return false;
+    }
+    const auto samples = 0x1u << rasterParams.samplesLog2;
+
+    const auto& passParams = renderpass->getCreationParameters();
+    const auto& subpass = passParams.subpasses[subpassIndex];
+    if (subpass.viewMask)
+    {
+        /*
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
+        if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
+            return false;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
+        if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
+            return false;
+        */
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
+        //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
+        if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
+        {
+            NBL_LOG_ERROR("Invalid viewMask (params[%u])", subpassIndex);
+            return false;
+        }
+    }
+    if (subpass.depthStencilAttachment.render.used())
+    {
+        const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+        bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
+        if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
+            sampleCountNeedsToMatch = true;
+        if (sampleCountNeedsToMatch && attachment.samples != samples)
+        {
+            NBL_LOG_ERROR("Depth stencil and rasterization samples need to match (params[%u])", subpassIndex);
+            return false;
+        }
+    }
+    for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+    {
+        const auto& render = subpass.colorAttachments[i].render;
+        if (render.used())
+        {
+            const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
+            if (blendParams.blendParams[i].blendEnabled() && !formatUsages[attachment.format].attachmentBlend)
+            {
+                NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", subpassIndex, i);
+                return false;
+            }
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+            if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
+            {
+                NBL_LOG_ERROR("Color attachment and rasterization samples need to match (params[%u].colorAttachments[%u])", subpassIndex, i);
+                return false;
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
+            if (/*detect NV version && */(attachment.samples > samples))
+            {
+                NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", subpassIndex, i);
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+//this is a COPY of graphics pipeline, with MINOR adjustments. 
+//no changes should be made DIRECTLY here
+//UNLESS it's DIRECTLY for mesh/task
+//there SHOULD be a function that duplicates functionality between graphics and mesh pipeline that can be adjusted first
+bool ILogicalDevice::createMeshPipelines(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPUMeshPipeline::SCreationParams> params,
+    core::smart_refctd_ptr<IGPUMeshPipeline>* const output
+) {
+    std::fill_n(output, params.size(), nullptr);
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache, params);
+    if (!specConstantValidation) {
+        NBL_LOG_ERROR("Invalid parameters were given");
+        return false;
+    }
+
+    const auto& features = getEnabledFeatures();
+    const auto& limits = getPhysicalDeviceLimits();
+
+    core::vector<IGPUMeshPipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+                                             {return sum + param.getShaderCount(); }
+    );
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
+
+    for (auto ix = 0u; ix < params.size(); ix++)
+    {
+        const auto& ci = params[ix];
+
+        if (params[ix].taskShader.shader != nullptr) {
+            if (!features.taskShader) {
+                NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
+                return false;
+            }
+        }
+
+        //check extensions here
+        //it SEEMS like createGraphicsPipeline does, but it does it in a weird way I don't understand? 
+        //geo and tess are just flat disabled??
+        if (!features.meshShader) {
+            NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
+            return false;
+        }
+
+        auto renderpass = ci.renderpass;
+        if (!renderpass->wasCreatedBy(this)) {
+            NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
+            return false;
+        }
+
+
+        MeshGraphicsCommonValidation(renderpass, ci.cached.subpassIx, limits, features, ci.cached.rasterization, ci.cached.blend, m_logger, getPhysicalDevice()->getImageFormatUsagesOptimalTiling());
+
+        SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
+        trimTask.insertEntryPoint(ci.taskShader, hlsl::ShaderStage::ESS_TASK);
+        trimTask.insertEntryPoint(ci.meshShader, hlsl::ShaderStage::ESS_MESH);
+        trimTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+
+        newParams[ix].taskShader = trimTask.trim(ci.taskShader, trimmedShaders);
+        newParams[ix].meshShader = trimTask.trim(ci.meshShader, trimmedShaders);
+        newParams[ix].fragmentShader = trimTask.trim(ci.fragmentShader, trimmedShaders);
+    }
+    createMeshPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
+
+    for (auto i = 0u; i < params.size(); i++)
+    {
+        if (!output[i])
+        {
+            NBL_LOG_ERROR("MeshPipeline was not created (params[%u])", i);
+            return false;
+        }
+        else
+        {
+            m_logger.log("shader[%d] mesh debug name - %s\n", nbl::system::ILogger::ELL_DEBUG, i, params[i].meshShader.shader->getDebugName());
+           // TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+        }
+    }
+    return true;
 }
 
 bool ILogicalDevice::createGraphicsPipelines(
@@ -851,9 +1017,9 @@ bool ILogicalDevice::createGraphicsPipelines(
     const auto& limits = getPhysicalDeviceLimits();
     core::vector<IGPUGraphicsPipeline::SCreationParams> newParams(params.begin(), params.end());
     const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + param.getShaderCount();
-    });
+                                             {
+                                                 return sum + param.getShaderCount();
+                                             });
     core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
     trimmedShaders.reserve(shaderCount);
 
@@ -880,7 +1046,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", ci.geometryShader.shader);
             return false;
         }
-        
+
         auto renderpass = ci.renderpass;
         if (!renderpass->wasCreatedBy(this))
         {
@@ -888,88 +1054,13 @@ bool ILogicalDevice::createGraphicsPipelines(
             return false;
         }
 
-        const auto& rasterParams = ci.cached.rasterization;
-        if (rasterParams.alphaToOneEnable && !features.alphaToOne)
-        {
-            NBL_LOG_ERROR("Feature `alpha to one` is not enabled");
-            return false;
-        }
-        if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
-        {
-            NBL_LOG_ERROR("Feature `depth bounds` is not enabled");
-            return false;
-        }
-
-        const auto samples = 0x1u << rasterParams.samplesLog2;
-
         // TODO: loads more validation on extra parameters here!
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-lineRasterizationMode-02766
 
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01505
         // baiscally the AMD version must have the rasterization samples equal to the maximum of all attachment samples counts
 
-        const auto& passParams = renderpass->getCreationParameters();
-        const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
-        if (subpass.viewMask)
-        {
-            /*
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
-            if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
-                return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
-            if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
-                return false;
-            */
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
-            //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
-            if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
-            {
-                NBL_LOG_ERROR("Invalid viewMask (params[%u])", ix);
-                return false;
-            }
-        }
-        if (subpass.depthStencilAttachment.render.used())
-        {
-            const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-            bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
-            if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
-                sampleCountNeedsToMatch = true;
-            if (sampleCountNeedsToMatch && attachment.samples != samples)
-            {
-                NBL_LOG_ERROR("Invalid depth stencil attachment (params[%u])", ix);
-                return false;
-            }
-        }
-        for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
-        {
-            const auto& render = subpass.colorAttachments[i].render;
-            if (render.used())
-            {
-                const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-                if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
-                if (/*detect NV version && */(attachment.samples > samples))
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-            }
-        }
+        MeshGraphicsCommonValidation(renderpass, ci.cached.subpassIx, limits, features, ci.cached.rasterization, ci.cached.blend, m_logger, getPhysicalDevice()->getImageFormatUsagesOptimalTiling());
 
         SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
         trimTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
@@ -977,7 +1068,7 @@ bool ILogicalDevice::createGraphicsPipelines(
         trimTask.insertEntryPoint(ci.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
         trimTask.insertEntryPoint(ci.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
         trimTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
-        
+
         newParams[ix].vertexShader = trimTask.trim(ci.vertexShader, trimmedShaders);
         newParams[ix].tesselationControlShader = trimTask.trim(ci.tesselationControlShader, trimmedShaders);
         newParams[ix].tesselationEvaluationShader = trimTask.trim(ci.tesselationEvaluationShader, trimmedShaders);
@@ -1002,9 +1093,9 @@ bool ILogicalDevice::createGraphicsPipelines(
     return true;
 }
 
-bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipelineCache, 
-  const std::span<const IGPURayTracingPipeline::SCreationParams> params,
-  core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
+bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipelineCache,
+                                               const std::span<const IGPURayTracingPipeline::SCreationParams> params,
+                                               core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
     SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params);
@@ -1044,15 +1135,15 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03596
         if (skipAABBs && !features.rayTraversalPrimitiveCulling)
         {
-          NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_AABBS");
-          return false;
+            NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_AABBS");
+            return false;
         }
 
         // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
         if (skipBuiltin && !features.rayTraversalPrimitiveCulling)
         {
-          NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_BUILT_IN_PRIMITIVES");
-          return false;
+            NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_BUILT_IN_PRIMITIVES");
+            return false;
         }
 
     }
@@ -1061,17 +1152,17 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
 
     const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + static_cast<uint32_t>(param.shaderGroups.misses.size());
-    });
+                                                {
+                                                    return sum + static_cast<uint32_t>(param.shaderGroups.misses.size());
+                                                });
     const auto hitGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + static_cast<uint32_t>(param.shaderGroups.hits.size());
-    });
+                                               {
+                                                   return sum + static_cast<uint32_t>(param.shaderGroups.hits.size());
+                                               });
     const auto callableGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + static_cast<uint32_t>(param.shaderGroups.callables.size());
-    });
+                                                    {
+                                                        return sum + static_cast<uint32_t>(param.shaderGroups.callables.size());
+                                                    });
 
 
     core::vector<IGPUPipelineBase::SShaderSpecInfo> trimmedMissSpecs(missGroupCount);
@@ -1084,7 +1175,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     const auto& limits = getPhysicalDeviceLimits();
     for (auto ix = 0u; ix < params.size(); ix++)
     {
-        
+
         const auto& param = params[ix];
 
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-maxPipelineRayRecursionDepth-03589
@@ -1137,7 +1228,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     }
 
     createRayTracingPipelines_impl(pipelineCache, newParams,output,specConstantValidation);
-    
+
     bool retval = true;
     for (auto i=0u; i<params.size(); i++)
     {
