@@ -38,14 +38,7 @@ protected:
 
     explicit CConstantRuntimeSizedCircularBufferBase(size_t cap) : m_mem(nullptr), m_capacity(cap)
     {
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
-        assert(core::isPoT(cap));
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
+        assert(hlsl::isPoT(cap));
 
         const size_t s = sizeof(T) * m_capacity;
         m_mem = _NBL_ALIGNED_MALLOC(s, Alignment);
@@ -112,14 +105,7 @@ private:
 template <typename T, size_t S>
 class CCompileTimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
-    static_assert(core::isPoT(S), "Circular buffer capacity must be PoT!");
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
+    static_assert(hlsl::isPoT(S), "Circular buffer capacity must be PoT!");
 
     static constexpr inline auto StorageSize = sizeof(T) * S;
 
