@@ -40,14 +40,7 @@ constexpr size_t BinaryTriangleFloatCount = 12ull;
 constexpr size_t BinaryTriangleFloatBytes = sizeof(float) * BinaryTriangleFloatCount;
 constexpr size_t BinaryTriangleAttributeBytes = sizeof(uint16_t);
 constexpr size_t BinaryTriangleRecordBytes = BinaryTriangleFloatBytes + BinaryTriangleAttributeBytes;
-#pragma pack(push, 1)
-struct SBinaryTriangleRecord
-{
-	float payload[BinaryTriangleFloatCount];
-	uint16_t attribute = 0u;
-};
-#pragma pack(pop)
-static_assert(sizeof(SBinaryTriangleRecord) == BinaryTriangleRecordBytes);
+static_assert(BinaryTriangleRecordBytes == 50ull);
 constexpr size_t BinaryPrefixBytes = BinaryHeaderBytes + BinaryTriangleCountBytes;
 constexpr size_t IoFallbackReserveBytes = 1ull << 20;
 constexpr size_t AsciiFaceTextMaxBytes = 1024ull;
@@ -463,17 +456,17 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	};
 	auto writeRecord = [&dst](const float nx, const float ny, const float nz, const float v1x, const float v1y, const float v1z, const float v2x, const float v2y, const float v2z, const float v3x, const float v3y, const float v3z)->void
 	{
-		const stl_writer_detail::SBinaryTriangleRecord record = {
-			{
-				nx, ny, nz,
-				v1x, v1y, v1z,
-				v2x, v2y, v2z,
-				v3x, v3y, v3z
-			},
-			0u
+		const float payload[stl_writer_detail::BinaryTriangleFloatCount] = {
+			nx, ny, nz,
+			v1x, v1y, v1z,
+			v2x, v2y, v2z,
+			v3x, v3y, v3z
 		};
-		std::memcpy(dst, &record, sizeof(record));
-		dst += sizeof(record);
+		std::memcpy(dst, payload, stl_writer_detail::BinaryTriangleFloatBytes);
+		dst += stl_writer_detail::BinaryTriangleFloatBytes;
+		const uint16_t attribute = 0u;
+		std::memcpy(dst, &attribute, stl_writer_detail::BinaryTriangleAttributeBytes);
+		dst += stl_writer_detail::BinaryTriangleAttributeBytes;
 	};
 
 	const bool hasFastTightPath = (indices == nullptr) && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));

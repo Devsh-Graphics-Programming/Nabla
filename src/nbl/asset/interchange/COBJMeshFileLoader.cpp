@@ -6,10 +6,10 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
-#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
+#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_

@@ -9,10 +9,10 @@
 #include "nbl/core/hash/blake.h"
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
-#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/COBBGenerator.h"
+#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/builtin/hlsl/shapes/obb.hlsl"
 
 namespace nbl::asset

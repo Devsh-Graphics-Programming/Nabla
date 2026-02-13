@@ -5,12 +5,12 @@
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include "CPLYMeshFileLoader.h"
-#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
+#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
