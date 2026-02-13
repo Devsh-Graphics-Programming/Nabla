@@ -75,15 +75,15 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 		return {};
 
 	const uint32_t geometryCount = inputCount();
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-    if (geometryCount>limits.maxAccelerationStructureGeometryCount)
-        return {};
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
+   if (geometryCount>limits.maxAccelerationStructureGeometryCount)
+      return {};
 
 	const bool isAABB = buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
 
 	#ifdef _NBL_DEBUG
 	size_t totalPrims = 0ull;
-	const auto& bufferUsages = physDev->getBufferFormatUsages();
+	// const auto& bufferUsages = physDev->getBufferFormatUsages();
 	for (auto i=0u; i<geometryCount; i++)
 	{
 		if (!triangles) // its a union so checks aabbs as well

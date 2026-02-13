@@ -15,12 +15,12 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	if (!_file)
         return {};
 	
-	auto buffer = ICPUBuffer::create({ _file->getSize() });
+	auto buffer = ICPUBuffer::create({{ _file->getSize() }});
 	
 	system::IFile::success_t success;
 	_file->read(success, buffer->getPointer(), 0, _file->getSize());
-    if (!success)
-        return {};
+	if (!success)
+		return {};
 
 	if (reinterpret_cast<uint32_t*>(buffer->getPointer())[0]!=SPV_MAGIC_NUMBER)
 		return {};

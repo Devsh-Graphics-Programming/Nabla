@@ -4,6 +4,10 @@
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/concepts/core.hlsl"
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wunknown-attributes"
+#endif
+
 namespace nbl
 {
 namespace hlsl

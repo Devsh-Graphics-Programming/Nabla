@@ -1775,7 +1775,7 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
             case 1u: return SCHAR_MAX;
             case 2u: return SHRT_MAX;
             case 4u: return INT_MAX;
-            case 8u: return LLONG_MAX;
+            case 8u: return static_cast<value_type>(LLONG_MAX);
             default: break;
             }
         }
@@ -1786,7 +1786,7 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
             case 1u: return UCHAR_MAX;
             case 2u: return USHRT_MAX;
             case 4u: return UINT_MAX;
-            case 8u: return ULLONG_MAX;
+            case 8u: return static_cast<value_type>(ULLONG_MAX);
             default: break;
             }
         }
@@ -1818,8 +1818,8 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
         switch (bytesPerChannel)
         {
             case 2u: return 65504;
-            case 4u: return FLT_MAX;
-            case 8u: return DBL_MAX;
+            case 4u: return static_cast<value_type>(FLT_MAX);
+            case 8u: return static_cast<value_type>(DBL_MAX);
             default: break;
         }
     }

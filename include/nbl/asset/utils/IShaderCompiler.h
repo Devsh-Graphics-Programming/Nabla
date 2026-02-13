@@ -153,7 +153,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		};
 
 		// Forward declaration for SCompilerOptions use
-		struct CCache;
+		class CCache;
 		/*
 			@stage shaderStage, can be ESS_ALL_OR_LIBRARY to make multi-entrypoint shaders
 			@targetSpirvVersion spirv version
@@ -206,7 +206,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						public:
 							// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
 							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash) :
-								requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
+								requestingSourceDir(_requestingSourceDir), identifier(_identifier), hash(_hash), standardInclude(_standardInclude)
 							{}
 
 							inline SPreprocessingDependency(SPreprocessingDependency&) = default;
@@ -255,8 +255,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							}
 
 						private:
-							friend class SCompilerArgs;
-							friend class SEntry;
+							friend struct SCompilerArgs;
+							friend struct SEntry;
 							friend class CCache;
 							friend void to_json(nlohmann::json&, const SPreprocessorArgs&);
 							friend void from_json(const nlohmann::json&, SPreprocessorArgs&);
@@ -299,7 +299,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							}
 
 						private:
-							friend class SEntry;
+							friend struct SEntry;
 							friend class CCache;
 							friend void to_json(nlohmann::json&, const SCompilerArgs&);
 							friend void from_json(const nlohmann::json&, SCompilerArgs&);
@@ -336,7 +336,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Lookup Hash is precompued at entry creation time. Even though in a preprocessing pass the compiler options' stage might change from a #pragma, 
 					// we can't update the info that the Cache uses to find entries post preprocessing: this would make it so that we need to preprocess entries
 					// to get the "real" stage before lookup in the cache, defeating its purpose
-					inline SEntry(const std::string_view _mainFileContents, const SCompilerOptions& compilerOptions) : mainFileContents(std::move(std::string(_mainFileContents))), compilerArgs(compilerOptions)
+					inline SEntry(const std::string_view _mainFileContents, const SCompilerOptions& compilerOptions) : mainFileContents(std::string(_mainFileContents)), compilerArgs(compilerOptions)
 					{
 						// Form the hashable for the compiler data
 						size_t preprocessorArgsHashableSize = compilerArgs.preprocessorArgs.sourceIdentifier.size() + compilerArgs.preprocessorArgs.extraDefines.size() * sizeof(SMacroDefinition);
@@ -379,7 +379,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						uncompressedContentHash(other.uncompressedContentHash), uncompressedSize(other.uncompressedSize) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdefaulted-function-deleted"
+#endif
 					inline SEntry(SEntry&& other) = default;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 					// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
 					inline SEntry& operator=(SEntry&& other) = default;
 
@@ -551,7 +558,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			constexpr size_t nullTerminatorSize = 1u;
 			size_t outSize = origLen + formatArgsCharSize + formatSize + nullTerminatorSize - 2 * templateArgsCount;
 
-			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = ICPUBuffer::create({ outSize });
+			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = ICPUBuffer::create({ {outSize, {}} });
 
 			auto origCode = std::string_view(reinterpret_cast<const char*>(original->getContent()->getPointer()), origLen);
 			auto outCode = reinterpret_cast<char*>(outBuffer->getPointer());

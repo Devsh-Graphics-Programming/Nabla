@@ -110,7 +110,7 @@ class IFramebuffer
                         const auto& subresourceRange = viewParams.subresourceRange;
                         const int32_t layerCount = static_cast<int32_t>(subresourceRange.layerCount!=ImageViewType::remaining_array_layers ? subresourceRange.layerCount:imgParams.arrayLayers);
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-flags-04535
-                        if (layerCount<base_t::layers)
+                        if (static_cast<uint32_t>(layerCount)<base_t::layers)
                             return true;
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-renderPass-04536
                         if (layerCount<=viewMaskMSB)
@@ -204,9 +204,9 @@ class IFramebuffer
             m_attachments = core::make_refctd_dynamic_array<attachments_array_t>(depthStencilCount+colorCount);
             m_params.depthStencilAttachments = m_attachments->data();
             m_params.colorAttachments = m_params.depthStencilAttachments+depthStencilCount;
-            for (auto i=0; i<depthStencilCount; i++)
+            for (uint32_t i=0; i<depthStencilCount; i++)
                 m_params.depthStencilAttachments[i] = core::smart_refctd_ptr<ImageViewType>(params.depthStencilAttachments[i]);
-            for (auto i=0; i<colorCount; i++)
+            for (uint32_t i=0; i<colorCount; i++)
                 m_params.colorAttachments[i] = core::smart_refctd_ptr<ImageViewType>(params.colorAttachments[i]);
         }
         virtual ~IFramebuffer() = default;

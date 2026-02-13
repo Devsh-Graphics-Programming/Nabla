@@ -134,7 +134,7 @@ class IPipelineLayout
             for (; i <=_setNum; i++)
             {
                 const DescLayoutType* lhs = m_descSetLayouts[i].get();
-                const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
+                const DescLayoutType* rhs = _other->getDescriptorSetLayouts()[i];
 
                 const bool compatible = (lhs == rhs) || (lhs && lhs->isIdenticallyDefined(rhs));
 			    if (!compatible)

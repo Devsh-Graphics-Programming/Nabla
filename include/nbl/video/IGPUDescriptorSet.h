@@ -118,7 +118,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const redirect_t::binding_number_t binding) const
         {
             const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(binding).data;
-            if (localOffset == ~0)
+            if (localOffset == ~0u)
                 return nullptr;
 
             auto* descriptors = getAllDescriptors(type);
@@ -132,7 +132,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const redirect_t::storage_range_index_t bindingStorageIndex) const
         {
             const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(bindingStorageIndex).data;
-            if (localOffset == ~0)
+            if (localOffset == ~0u)
                 return nullptr;
 
             auto* descriptors = getAllDescriptors(type);

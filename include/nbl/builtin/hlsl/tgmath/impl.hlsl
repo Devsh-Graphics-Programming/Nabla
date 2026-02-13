@@ -17,6 +17,10 @@
 #include <tgmath.h>
 #endif
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#endif
+
 namespace nbl
 {
 namespace hlsl

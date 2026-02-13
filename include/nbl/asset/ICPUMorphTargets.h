@@ -31,7 +31,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
             return true;
         }
 
-        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
         {
             const auto nextDepth = _depth ? (_depth-1):0;
             auto retval = core::smart_refctd_ptr<ICPUMorphTargets>();

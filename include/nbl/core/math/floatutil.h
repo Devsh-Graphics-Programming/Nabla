@@ -1,6 +1,11 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnan-infinity-disabled"
+#endif
+
 #ifndef _NBL_CORE_FLOAT_UTIL_H_INCLUDED_
 #define _NBL_CORE_FLOAT_UTIL_H_INCLUDED_
 
@@ -360,4 +365,8 @@ uint32_t floatBitsToUint(float&& _f);
 
 }
 
+#endif
+
+#ifdef __clang__
+#pragma clang diagnostic pop
 #endif

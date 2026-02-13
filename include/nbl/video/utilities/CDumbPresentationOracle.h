@@ -25,7 +25,7 @@ class CDumbPresentationOracle : public IPresentationOracle
 			lastTime = std::chrono::steady_clock::now();
 		}
 
-		inline void reportEndFrameRecord()
+		inline void reportEndFrameRecord() override
 		{
 			auto renderStart = std::chrono::steady_clock::now();
 			dt = std::chrono::duration_cast<std::chrono::microseconds>(renderStart-lastTime).count();

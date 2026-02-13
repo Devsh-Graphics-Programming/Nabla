@@ -5,6 +5,12 @@
 #include "nbl/ui/IWindowWin32.h"
 #include "nbl/ui/ICursorControl.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 #ifdef _NBL_PLATFORM_WINDOWS_
 namespace nbl::ui
 {
@@ -34,7 +40,7 @@ class NBL_API2 CWindowManagerWin32 final : public IWindowManagerWin32, public IC
 
 		inline bool isVisible() const override
 		{
-			CURSORINFO ci = { sizeof(CURSORINFO) };
+			CURSORINFO ci = { sizeof(CURSORINFO), 0 };
 			GetCursorInfo(&ci);
 			return ci.flags; // returning flags cause they're equal to 0 when the cursor is hidden
 		}
@@ -216,4 +222,9 @@ class NBL_API2 CWindowManagerWin32 final : public IWindowManagerWin32, public IC
 
 }
 #endif
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
 #endif

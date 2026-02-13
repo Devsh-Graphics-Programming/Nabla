@@ -257,12 +257,12 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
 
 static void add_required_arguments_if_not_present(std::vector<std::wstring>& arguments, system::logger_opt_ptr &logger) {
     auto set = std::unordered_set<std::wstring>();
-    for (int i = 0; i < arguments.size(); i++)
+    for (size_t i = 0; i < arguments.size(); i++)
         set.insert(arguments[i]);
 
     const auto required = CHLSLCompiler::getRequiredArguments();
 
-    for (int j = 0; j < required.size(); j++)
+    for (size_t j = 0; j < required.size(); j++)
     {
         bool missing = set.find(required[j]) == set.end();
         if (missing) {
@@ -296,12 +296,19 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
         std::ostringstream insertion;
         insertion << "#pragma wave dxc_compile_flags( ";
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
         {
             auto str = conv.to_bytes(args[arg]);
             insertion << str.c_str() << " ";
         }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
         insertion << ")\n";
         compiler->insertIntoStart(source, std::move(insertion));
@@ -511,7 +518,7 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
         }
         //
         auto set = std::unordered_set<std::wstring>();
-        for (int i = 0; i < arguments.size(); i++)
+        for (size_t i = 0; i < arguments.size(); i++)
             set.insert(arguments[i]);
         auto add_if_missing = [&arguments, &set, logger](std::wstring flag) {
             if (set.find(flag) == set.end()) {
@@ -560,7 +567,7 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
         return nullptr;
     }
 
-    auto outSpirv = ICPUBuffer::create({ compileResult.objectBlob->GetBufferSize() });
+    auto outSpirv = ICPUBuffer::create({{ compileResult.objectBlob->GetBufferSize() }});
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
     
     // Optimizer step (TODO: improve by working on `compileResult.objectBlob->GetBufferPointer()` directly)

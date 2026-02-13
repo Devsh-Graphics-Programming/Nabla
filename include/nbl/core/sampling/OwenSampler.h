@@ -75,9 +75,9 @@ namespace core
 				#ifdef _NBL_DEBUG
 				for (uint32_t j=0u; j<currentLevelSize; j+=2)
 				{
-					const uint32_t highBitMask = 0xffffffffu<<(OUT_BITS-i);
-					uint32_t left = cachedFlip[currentLevelStart+j];
-					uint32_t right = cachedFlip[currentLevelStart+j+1];
+					[[maybe_unused]] const uint32_t highBitMask = 0xffffffffu<<(OUT_BITS-i);
+					[[maybe_unused]] uint32_t left = cachedFlip[currentLevelStart+j];
+					[[maybe_unused]] uint32_t right = cachedFlip[currentLevelStart+j+1];
 					assert(((left^right)&highBitMask)==0u);
 					assert((left&right&highBitMask)==cachedFlip[previousLevelStart+(j>>1u)]);
 				}

@@ -22,7 +22,7 @@ class CVulkanDeviceMemoryBacked : public Interface
 		using VkResource_t = const std::conditional_t<IsImage,VkImage,VkBuffer>;
 
 	public:
-		inline IDeviceMemoryBacked::SMemoryBinding getBoundMemory() const {return {m_memory.get(),m_offset};}
+		inline IDeviceMemoryBacked::SMemoryBinding getBoundMemory() const override {return {m_memory.get(),m_offset};}
 		inline void setMemoryBinding(const IDeviceMemoryBacked::SMemoryBinding& binding)
 		{
 			m_memory = core::smart_refctd_ptr<IDeviceMemoryAllocation>(binding.memory);

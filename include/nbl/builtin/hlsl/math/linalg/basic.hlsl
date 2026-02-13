@@ -42,7 +42,7 @@ MatT identity()
 }
 
 template <uint16_t NOut, uint16_t MOut, uint16_t NIn, uint16_t MIn, typename T NBL_FUNC_REQUIRES(NOut <= NIn && MOut <= MIn && NOut != 0 && MOut != 0)
-inline matrix<T, NOut, MOut> truncate(const NBL_CONST_REF_ARG(matrix<T, NIn, MIn>) inMatrix)
+inline matrix<T, NOut, MOut> truncate(NBL_CONST_REF_ARG(matrix<T, NIn, MIn>) inMatrix)
 {
 	matrix<T, NOut, MOut> retval;
 

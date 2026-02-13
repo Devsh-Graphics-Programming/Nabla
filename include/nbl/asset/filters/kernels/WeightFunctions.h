@@ -4,6 +4,11 @@
 #include <limits>
 #include <cstdint>
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnan-infinity-disabled"
+#endif
+
 // move later if its useful for anything else
 namespace nbl::core::impl
 {
@@ -388,4 +393,8 @@ concept SimpleWeightFunction1D = requires(T t)
 };
 
 } // end namespace nbl::asset
+#endif
+
+#ifdef __clang__
+#pragma clang diagnostic pop
 #endif

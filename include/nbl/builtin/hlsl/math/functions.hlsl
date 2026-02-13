@@ -148,7 +148,14 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
         using UintOfTSize = unsigned_integer_of_size_t<sizeof(typename vector_traits<T>::scalar_type)>;
         const int dimensionOfT = vector_traits<T>::Dimension;
         using Uint32VectorWithDimensionOfT = vector<uint32_t, dimensionOfT>;
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif
         using scalar_type = typename vector_traits<T>::scalar_type;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
         Uint32VectorWithDimensionOfT xAsUintVec = bit_cast<Uint32VectorWithDimensionOfT, T>(x);
 

@@ -85,6 +85,10 @@ inline smart_refctd_ptr<I_REFERENCE_COUNTED>& smart_refctd_ptr<I_REFERENCE_COUNT
 
 
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 template< class T, class... Args >
 inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
 {
@@ -92,6 +96,9 @@ inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
     smart_refctd_ptr<T> smart(obj, dont_grab);
     return smart;
 }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 
 template< class U, class T >

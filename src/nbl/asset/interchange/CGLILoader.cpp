@@ -51,7 +51,6 @@ namespace nbl
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
-			const auto target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion, _params.logger);
 			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;
@@ -105,6 +104,7 @@ namespace nbl
 				}
 				default:
 				{
+					imageType = IImage::ET_1D; // suppress -Wsometimes-uninitialized by setting whatever value
 					imageViewType = ICPUImageView::ET_COUNT;
 					assert(0);
 					break;
@@ -115,8 +115,7 @@ namespace nbl
 			const bool layersFlag = doesItHaveLayers(imageViewType);
 
 			const auto texelBlockDimension = asset::getBlockDimensions(format.first);
-			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(format.first);
-			auto texelBuffer = ICPUBuffer::create({ texture.size() });
+			auto texelBuffer = ICPUBuffer::create({ {texture.size()} });
 			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
 			ICPUImage::SCreationParams imageInfo = {};

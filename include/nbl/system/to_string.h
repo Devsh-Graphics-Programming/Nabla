@@ -83,7 +83,7 @@ struct to_string_helper<hlsl::morton::code<Signed, Bits, D, _uint64_t>>
     using value_t = hlsl::morton::code<Signed, Bits, D, _uint64_t>;
     static std::string __call(value_t value)
     {
-        return to_string_helper<value_t::storage_t>::__call(value.value);
+        return to_string_helper<typename value_t::storage_t>::__call(value.value);
     }
 };
 

@@ -4,6 +4,12 @@
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 namespace nbl::video
 {
 
@@ -117,3 +123,7 @@ bool CVulkanQueue::endDebugMarker()
 
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

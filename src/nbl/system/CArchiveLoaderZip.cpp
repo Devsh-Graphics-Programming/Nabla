@@ -97,7 +97,7 @@ struct SZipFileExtraHeader
 constexpr int16_t ZIP_FILE_ENCRYPTED = 0x0001;
 // the fields crc-32, compressed size and uncompressed size are set to
 // zero in the local header
-constexpr int16_t ZIP_INFO_IN_DATA_DESCRIPTOR = 0x0008;
+[[maybe_unused]] constexpr int16_t ZIP_INFO_IN_DATA_DESCRIPTOR = 0x0008;
 
 
 using namespace nbl;
@@ -577,8 +577,8 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 			stream.avail_in = (uInt)decryptedSize;
 			stream.next_out = (Bytef*)decompressed;
 			stream.avail_out = item->size;
-			stream.zalloc = (alloc_func)0;
-			stream.zfree = (free_func)0;
+			stream.zalloc = nullptr;
+			stream.zfree = nullptr;
 
 			// Perform inflation. wbits < 0 indicates no zlib header inside the data.
 			int32_t err = inflateInit2(&stream, -MAX_WBITS);
@@ -602,7 +602,12 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 		case 12:
 		{
 		#ifdef _NBL_COMPILE_WITH_BZIP2_
-			bz_stream bz_ctx = { 0 };
+			bz_stream bz_ctx = { 
+				nullptr, 0, 0, 0,
+				nullptr, 0, 0, 0,
+				nullptr,
+				nullptr, nullptr, nullptr
+			};
 			// use BZIP2's default memory allocation
 			//bz_ctx->bzalloc = NULL;
 			//bz_ctx->bzfree  = NULL;

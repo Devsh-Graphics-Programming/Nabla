@@ -15,6 +15,12 @@
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanComputePipeline.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 namespace nbl::video
 {
 
@@ -177,9 +183,9 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             return true;
         }
 
-        bool copyAccelerationStructure_impl(const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact);
-        bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst);
-        bool copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst);
+        bool copyAccelerationStructure_impl(const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) override;
+        bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst) override;
+        bool copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst) override;
 
         bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) override;
         bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) override;
@@ -283,5 +289,9 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 };  
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 #endif

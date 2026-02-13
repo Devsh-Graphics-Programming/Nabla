@@ -57,7 +57,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
     }
 
     if (line == "TILT=INCLUDE") {
-        double lampToLuminaire = getDouble("lampToLuminaire truncated");
+        [[maybe_unused]] double lampToLuminaire = getDouble("lampToLuminaire truncated");
         int numTilt = getDouble("numTilt truncated");
         for (int i = 0; i < numTilt; i++)
             getDouble("tilt angle truncated");
@@ -69,8 +69,8 @@ bool CIESProfileParser::parse(CIESProfile& result)
         return false;
     }
 
-    int numLamps = getInt("numLamps truncated");
-    double lumensPerLamp = getDouble("lumensPerLamp truncated");
+    [[maybe_unused]] int numLamps = getInt("numLamps truncated");
+    [[maybe_unused]] double lumensPerLamp = getDouble("lumensPerLamp truncated");
     double candelaMultiplier = getDouble("candelaMultiplier truncated");
     int vSize = getInt("vSize truncated");
     int hSize = getInt("hSize truncated");
@@ -88,8 +88,8 @@ bool CIESProfileParser::parse(CIESProfile& result)
         return false;
     }
 
-    int unitsType = getInt("unitsType truncated");
-    double width = getDouble("width truncated"),
+    [[maybe_unused]] int unitsType = getInt("unitsType truncated");
+    [[maybe_unused]] double width = getDouble("width truncated"),
     length = getDouble("length truncated"),
     height = getDouble("height truncated"),
     ballastFactor = getDouble("ballastFactor truncated"),

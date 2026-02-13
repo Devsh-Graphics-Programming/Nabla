@@ -1,3 +1,4 @@
+#define _NBL_VIDEO_I_LOGICAL_DEVICE_CPP_
 #include "nbl/video/IPhysicalDevice.h"
 
 #include "git_info.h"
@@ -59,8 +60,9 @@ class SpirvTrimTask
 };
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
-    : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
+    : m_compilerSet(params.compilerSet), m_api(api), m_physicalDevice(physicalDevice),
     m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
+    m_enabledFeatures(params.featuresToEnable),
     m_spirvTrimmer(core::make_smart_refctd_ptr<asset::ISPIRVEntryPointTrimmer>())
 {
     {
@@ -222,78 +224,78 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
         return false;
     }
 
-    using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
-    const core::bitflag<stage_flags_t> supportedStageMask = getSupportedStageMask(queueFamilyIndex);
-    using access_flags_t = asset::ACCESS_FLAGS;
-    const core::bitflag<access_flags_t> supportedAccessMask = getSupportedAccessMask(queueFamilyIndex);
-    auto validAccess = [supportedStageMask, supportedAccessMask](core::bitflag<stage_flags_t>& stageMask, core::bitflag<access_flags_t>& accessMask) -> bool
-        {
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03916
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03917
-            if (bool(accessMask & (access_flags_t::HOST_READ_BIT | access_flags_t::HOST_WRITE_BIT)) && !stageMask.hasFlags(stage_flags_t::HOST_BIT))
-                return false;
-            // this takes care of all stuff below
-            if (stageMask.hasFlags(stage_flags_t::ALL_COMMANDS_BITS))
-                return true;
-            // first strip unsupported bits
-            stageMask &= supportedStageMask;
-            accessMask &= supportedAccessMask;
-            // TODO: finish this stuff
-            if (stageMask.hasFlags(stage_flags_t::ALL_GRAPHICS_BITS))
-            {
-                if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
-                {
-                }
-                else
-                {
-                }
-            }
-            else
-            {
-                if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
-                {
-                }
-                else
-                {
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03914
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03915
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03927
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03928
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-06256
-                }
-                // this is basic valid usage stuff
-#ifdef _NBL_DEBUG
-// TODO:
-// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03900
-                if (accessMask.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT) && !bool(stageMask & (stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT | stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)))
-                    return false;
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03901
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03902
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03903
-                //constexpr core::bitflag<stage_flags_t> ShaderStages = stage_flags_t::PRE_RASTERIZATION_SHADERS;
-                //const bool noShaderStages = stageMask&ShaderStages;
-                // TODO:
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03904
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03905
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03906
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03907
-                // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07454
-                // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03909
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07272
-                // TODO:
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03910
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03911
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03912
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03913
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03918
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03919
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03924
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03925
-#endif
-            }
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07457
-            return true;
-        };
+    // using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+    // const core::bitflag<stage_flags_t> supportedStageMask = getSupportedStageMask(queueFamilyIndex);
+    // using access_flags_t = asset::ACCESS_FLAGS;
+    // const core::bitflag<access_flags_t> supportedAccessMask = getSupportedAccessMask(queueFamilyIndex);
+//    auto validAccess = [supportedStageMask, supportedAccessMask](core::bitflag<stage_flags_t>& stageMask, core::bitflag<access_flags_t>& accessMask) -> bool
+//        {
+//            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03916
+//            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03917
+//            if (bool(accessMask & (access_flags_t::HOST_READ_BIT | access_flags_t::HOST_WRITE_BIT)) && !stageMask.hasFlags(stage_flags_t::HOST_BIT))
+//                return false;
+//            // this takes care of all stuff below
+//            if (stageMask.hasFlags(stage_flags_t::ALL_COMMANDS_BITS))
+//                return true;
+//            // first strip unsupported bits
+//            stageMask &= supportedStageMask;
+//            accessMask &= supportedAccessMask;
+//            // TODO: finish this stuff
+//            if (stageMask.hasFlags(stage_flags_t::ALL_GRAPHICS_BITS))
+//            {
+//                if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
+//                {
+//                }
+//                else
+//                {
+//                }
+//            }
+//            else
+//            {
+//                if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
+//                {
+//                }
+//                else
+//                {
+//                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03914
+//                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03915
+//                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03927
+//                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03928
+//                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-06256
+//                }
+//                // this is basic valid usage stuff
+//#ifdef _NBL_DEBUG
+//// TODO:
+//// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03900
+//                if (accessMask.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT) && !bool(stageMask & (stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT | stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)))
+//                    return false;
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03901
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03902
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03903
+//                //constexpr core::bitflag<stage_flags_t> ShaderStages = stage_flags_t::PRE_RASTERIZATION_SHADERS;
+//                //const bool noShaderStages = stageMask&ShaderStages;
+//                // TODO:
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03904
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03905
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03906
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03907
+//                // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07454
+//                // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03909
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07272
+//                // TODO:
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03910
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03911
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03912
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03913
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03918
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03919
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03924
+//                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03925
+//#endif
+//            }
+//            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07457
+//            return true;
+//        };
 
     return true;
 }
@@ -341,7 +343,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         if (creationParams.optimizer)
         {
             spirvShader = core::make_smart_refctd_ptr<asset::IShader>(
-                std::move(creationParams.optimizer->optimize(source->getContent(), m_logger)),
+                creationParams.optimizer->optimize(source->getContent(), m_logger),
                 asset::IShader::E_CONTENT_TYPE::ECT_SPIRV,
                 std::string(source->getFilepathHint()));
         }
@@ -491,8 +493,8 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
-    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
-    SUpdateDescriptorSetsParams params = { .writes = descriptorWrites,.copies = descriptorCopies };
+    // using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
+    SUpdateDescriptorSetsParams params = { .writes = descriptorWrites,.copies = descriptorCopies, .pWriteTypes = nullptr };
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
@@ -557,12 +559,12 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         }
     }
 
-    for (auto i = 0; i < descriptorWrites.size(); i++)
+    for (size_t i = 0; i < descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
         write.dstSet->processWrite(write, writeValidationResults[i]);
     }
-    for (auto i = 0; i < descriptorCopies.size(); i++)
+    for (size_t i = 0; i < descriptorCopies.size(); i++)
     {
         const auto& copy = descriptorCopies[i];
         copy.dstSet->processCopy(copy, copyValidationResults[i]);
@@ -638,7 +640,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     }
 
     const auto& optimalTilingUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
-    auto invalidAttachment = [this, &optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout, op_t>&desc) -> bool
+    auto invalidAttachment = [&optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout, op_t>&desc) -> bool
     {
         // We won't support linear attachments, so implicitly satisfy:
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06499
@@ -943,7 +945,7 @@ bool ILogicalDevice::createGraphicsPipelines(
                 return false;
             }
         }
-        for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+        for (uint32_t i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
         {
             const auto& render = subpass.colorAttachments[i].render;
             if (render.used())
@@ -1149,4 +1151,117 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     }
     return retval;
 }
+
+template<class Geometry> requires nbl::is_any_of_v<Geometry,
+   asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>,
+   asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>,
+   asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>,
+   asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>
+>
+inline ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const Geometry> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const
+{
+   if (invalidFeaturesForASBuild(hostBuild, motionBlur))
+   {
+      NBL_LOG_ERROR("Required features are not enabled");
+      return {};
+   }
+
+   const auto& limits = getPhysicalDeviceLimits();
+   if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags, limits, m_enabledFeatures))
+   {
+      NBL_LOG_ERROR("Invalid build flags");
+      return {};
+   }
+
+   // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
+   if (geometries.empty() && !pMaxPrimitiveCounts)
+   {
+      NBL_LOG_ERROR("Invalid parameters, no geometry or primitives were specified");
+      return {};
+   }
+
+   // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
+   if (geometries.size() > limits.maxAccelerationStructureGeometryCount)
+   {
+      NBL_LOG_ERROR("Geometry count exceeds device limit");
+      return {};
+   }
+
+   // not sure of VUID
+   uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
+   for (auto i = 0u; i < geometries.size(); i++)
+   {
+      const auto& geom = geometries[i];
+      if constexpr (Geometry::Type == asset::IBottomLevelAccelerationStructure::GeometryType::Triangles)
+      {
+         if (flags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+         {
+            NBL_LOG_ERROR("Primitive type is Triangles but build flag says BLAS build is AABBs");
+            return {};
+         }
+         if (!getPhysicalDevice()->getBufferFormatUsages()[geom.vertexFormat].accelerationStructureVertex)
+         {
+            NBL_LOG_ERROR("Vertex Format %d not supported as Acceleration Structure Vertex Position Input on this Device", geom.vertexFormat);
+            return {};
+         }
+         // TODO: do we check `maxVertex`, `vertexStride` and `indexType` for validity
+      }
+      if constexpr (Geometry::Type == asset::IBottomLevelAccelerationStructure::GeometryType::AABBs)
+      {
+         if (!flags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+         {
+            NBL_LOG_ERROR("Primitive type is AABB but build flag says BLAS build is not AABBs");
+            return {};
+         }
+         // TODO: check stride and geometry flags for validity
+      }
+      if (pMaxPrimitiveCounts[i] > primsFree)
+      {
+         NBL_LOG_ERROR("Primitive count exceeds device limit");
+         return {};
+      }
+      primsFree -= pMaxPrimitiveCounts[i];
+   }
+
+   return getAccelerationStructureBuildSizes_impl(hostBuild, flags, motionBlur, geometries, pMaxPrimitiveCounts);
+}
+
+template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
+template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
+template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
+template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
 #include "nbl/undef_logging_macros.h"

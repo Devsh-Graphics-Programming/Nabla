@@ -4,6 +4,10 @@
 #include <nbl/builtin/hlsl/emulated/float64_t_impl.hlsl>
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wunknown-attributes"
+#endif
+
 namespace nbl
 {
 namespace hlsl

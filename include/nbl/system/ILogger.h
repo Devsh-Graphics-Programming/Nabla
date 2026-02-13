@@ -32,13 +32,13 @@ class ILogger : public core::IReferenceCounted
 			ELL_ALL = 31
 		};
 
-		inline void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
+		inline void log(const std::string_view fmtString, unsigned int logLevel = ELL_DEBUG, ...)
 		{
 			if (logLevel & m_logLevelMask.value)
 			{
 				va_list args;
 				va_start(args, logLevel);
-				log_impl(fmtString, logLevel, args);
+				log_impl(fmtString, static_cast<E_LOG_LEVEL>(logLevel), args);
 				va_end(args);
 			}
 		}
@@ -60,7 +60,6 @@ class ILogger : public core::IReferenceCounted
 			using namespace std::literals;
 			using namespace std::chrono;
 			auto currentTime = std::chrono::system_clock::now();
-			const std::time_t t = std::chrono::system_clock::to_time_t(currentTime);
 			
 			// Since there is no real way in c++ to get current time with microseconds, this is my weird approach
 			auto time_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch());
@@ -70,11 +69,14 @@ class ILogger : public core::IReferenceCounted
 			// This while is for the microseconds which are less that 6 digits long to be aligned with the others
 			while (time_since_epoch.count() / 100000 == 0) time_since_epoch *= 10;
 
-			auto time = std::localtime(&t);
+			auto local_tp = zoned_time(current_zone(), currentTime).get_local_time();
+			auto dp = floor<days>(local_tp);
+			year_month_day date{ dp };
+			hh_mm_ss time{ local_tp - dp };
 
 			constexpr size_t DATE_STR_LENGTH = 28;
 			std::string timeStr(DATE_STR_LENGTH, '\0');
-			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", time->tm_mday, time->tm_mon + 1, 1900 + time->tm_year, time->tm_hour, time->tm_min, time->tm_sec, (int)time_since_epoch.count());
+			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", unsigned(date.day()), unsigned(date.month()), int(date.year()), time.hours().count(), time.minutes().count(), (int)time.seconds().count(), (int)time_since_epoch.count());
 			
 			std::string messageTypeStr;
 			switch (logLevel)
@@ -96,6 +98,8 @@ class ILogger : public core::IReferenceCounted
 				break;
 			case ELL_NONE:
 				return "";
+			default:
+				break;
 			}
 
 			va_list testArgs; // copy of va_list since it is not safe to use it twice

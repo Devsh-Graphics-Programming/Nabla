@@ -47,7 +47,7 @@ class COBBGenerator
     static hlsl::shapes::OBB<> compute(size_t vertexCount, FetchVertexFn&& fetchFn, float epsilon)
     {
       // Algorithm from Game Engine Gems 2, Fast Computation of Tight-Fitting Oriented Bounding Box
-      // Credit to Thomas Larsson and Linus Källberg
+      // Credit to Thomas Larsson and Linus KÃ¤llberg
 
       constexpr size_t SAMPLE_DIR_COUNT = 7;		// Number of sample directions
       constexpr size_t SAMPLE_COUNT = SAMPLE_DIR_COUNT * 2;
@@ -198,7 +198,7 @@ class COBBGenerator
       {
         int indexFurthestPair = 0;
         auto maxSqDist = getSqDist(extremalVertices.maxPtr()[0], extremalVertices.minPtr()[0]);
-        for (int k = 1; k < SAMPLE_DIR_COUNT; k++)
+        for (size_t k = 1; k < SAMPLE_DIR_COUNT; k++)
         {
           const auto sqDist = getSqDist(extremalVertices.maxPtr()[k], extremalVertices.minPtr()[k]);
           if (sqDist > maxSqDist) { maxSqDist = sqDist; indexFurthestPair = k; }

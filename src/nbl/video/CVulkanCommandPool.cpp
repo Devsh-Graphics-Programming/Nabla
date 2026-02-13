@@ -2,6 +2,13 @@
 #include "nbl/video/CVulkanCommandBuffer.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wmisleading-indentation"
+#endif
+
 namespace nbl::video
 {
 
@@ -65,3 +72,7 @@ bool CVulkanCommandPool::reset_impl()
 }
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

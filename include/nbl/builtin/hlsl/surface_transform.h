@@ -61,7 +61,7 @@ inline float32_t2x2 transformMatrix(const FLAG_BITS transform)
         default:
             break;
     }
-    const float _nan = numeric_limits<float>::signaling_NaN;
+    const float _nan = static_cast<float>(numeric_limits<float>::signaling_NaN);
     return float32_t2x2(_nan,_nan,_nan,_nan);
 }
 

@@ -42,7 +42,7 @@ class TimelineEventHandlerST final : public TimelineEventHandlerBase
     public:
         // Theoretically could make a factory function cause passing a null semaphore is invalid, but counting on users to be relatively intelligent.
         inline TimelineEventHandlerST(core::smart_refctd_ptr<const ISemaphore>&& sema, const uint64_t initialCapacity=4095/sizeof(FunctorValuePair)+1) :
-            TimelineEventHandlerBase(std::move(sema)), m_greatestLatch(0), m_greatestSignal(m_sema->getCounterValue()) {}
+            TimelineEventHandlerBase(std::move(sema)), m_greatestSignal(m_sema->getCounterValue()), m_greatestLatch(0) {}
         // If you don't want to deadlock here, look into the `abort*` family of methods
         ~TimelineEventHandlerST()
         {

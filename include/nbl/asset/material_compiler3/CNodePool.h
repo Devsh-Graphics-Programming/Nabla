@@ -52,7 +52,7 @@ class CNodePool : public core::IReferenceCounted
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CNodePool::CDebugInfo";}
-				inline uint32_t getSize() const {return calc_size(nullptr,m_size);}
+				inline uint32_t getSize() const override {return calc_size(nullptr,m_size);}
 				
 				static inline uint32_t calc_size(const void* data, const uint32_t size)
 				{
@@ -65,7 +65,16 @@ class CNodePool : public core::IReferenceCounted
 				inline CDebugInfo(const void* data, const uint32_t size) : m_size(size)
 				{
 					if (data)
+					{
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdynamic-class-memaccess"
+#endif
 						memcpy(std::launder(this+1),data,m_size);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+					}
 				}
 				inline CDebugInfo(const std::string_view& view) : CDebugInfo(nullptr,view.length()+1)
 				{
@@ -185,13 +194,20 @@ class CNodePool : public core::IReferenceCounted
 			// wipe v-table to mark as dead (so `~CNodePool` doesn't run destructor twice)
 			// NOTE: This won't work if we start reusing memory, even zeroing out the whole node won't work! Then need an accurate record of live nodes!
 			const void* nullVTable = nullptr;
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdynamic-class-memaccess"
+#endif
 			assert(memcmp(ptr,&nullVTable,sizeof(nullVTable))!=0); // double free
 			memset(static_cast<INode*>(ptr),0,sizeof(nullVTable));
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 			free(h.untyped,size);
 		}
 
 		inline CNodePool(const uint8_t _chunkSizeLog2, const uint8_t _maxNodeAlignLog2, refctd_pmr_t&& _pmr) :
-			m_chunkSizeLog2(_chunkSizeLog2), m_maxNodeAlignLog2(_maxNodeAlignLog2), m_pmr(_pmr ? std::move(_pmr):core::getDefaultMemoryResource())
+			m_pmr(_pmr ? std::move(_pmr):core::getDefaultMemoryResource()), m_chunkSizeLog2(_chunkSizeLog2), m_maxNodeAlignLog2(_maxNodeAlignLog2)
 		{
 			assert(m_chunkSizeLog2>=14 && m_maxNodeAlignLog2>=4);
 		}
@@ -262,7 +278,7 @@ class CNodePool : public core::IReferenceCounted
 		};
 		inline uint32_t getChunkIx(const Handle h) {return h.value>>m_chunkSizeLog2;}
 
-		template<typename T> requires (std::is_base_of_v<INode,T> && !std::is_const_v<T> || std::is_void_v<T>)
+		template<typename T> requires ((std::is_base_of_v<INode,T> && !std::is_const_v<T>) || std::is_void_v<T>)
 		inline T* deref(const Handle h)
 		{
 			if (!h)

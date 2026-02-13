@@ -21,7 +21,7 @@ class CPLYMeshWriter : public IGeometryWriter
 	public:
 		CPLYMeshWriter();
 
-        virtual const char** getAssociatedFileExtensions() const
+        virtual const char** getAssociatedFileExtensions() const override
         {
             static const char* ext[]{ "ply", nullptr };
             return ext;
@@ -29,7 +29,7 @@ class CPLYMeshWriter : public IGeometryWriter
 
         virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-        virtual uint32_t getForcedFlags() { return 0u; }
+        virtual uint32_t getForcedFlags() override { return 0u; }
 
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
@@ -65,7 +65,7 @@ class CPLYMeshWriter : public IGeometryWriter
 				else
 					currentFlipOnVariable = false;
 
-					ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
+				ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
 			}
             auto str = ss.str();
 

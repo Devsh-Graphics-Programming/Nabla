@@ -351,9 +351,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             {
                 if (scissor.offset.x<0 || scissor.offset.y<0)
                     return false;
-                if (scissor.extent.width>std::numeric_limits<int32_t>::max()-scissor.offset.x)
+                if (scissor.extent.width>static_cast<uint32_t>(std::numeric_limits<int32_t>::max()-scissor.offset.x))
                     return false;
-                if (scissor.extent.height>std::numeric_limits<int32_t>::max()-scissor.offset.y)
+                if (scissor.extent.height>static_cast<uint32_t>(std::numeric_limits<int32_t>::max()-scissor.offset.y))
                     return false;
             }
 
@@ -483,7 +483,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-attachmentCount-arraylength
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-rectCount-arraylength
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-layerCount-01934
-                if (regions.empty() || !clearDepth && !clearStencil && clearColorMask==0)
+                if (regions.empty() || (!clearDepth && !clearStencil && clearColorMask==0))
                     return false;
 
                 for (const auto& region : regions)

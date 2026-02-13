@@ -39,7 +39,7 @@ class CImageLoaderOpenEXR final : public IImageLoader
 
 	private:
 
-		IAssetManager* m_manager;
+		[[maybe_unused]] IAssetManager* m_manager;
 };
 
 }

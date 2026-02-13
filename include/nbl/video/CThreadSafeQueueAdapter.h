@@ -60,7 +60,7 @@ class CThreadSafeQueueAdapter final : public IQueue
             return originalQueue;
         }
 
-        inline const void* getNativeHandle() const
+        inline const void* getNativeHandle() const override
         {
             return originalQueue->getNativeHandle();
         }

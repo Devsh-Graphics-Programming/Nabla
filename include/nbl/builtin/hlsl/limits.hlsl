@@ -12,7 +12,14 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <limits>
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonportable-include-path"
+#endif
 #include "IMath/halfLimits.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #endif
 
 /*
@@ -280,7 +287,14 @@ struct numeric_limits : std::numeric_limits<T>
 
     NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast<uint_type>(base::quiet_NaN());
     NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast<uint_type>(base::signaling_NaN());
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnan-infinity-disabled"
+#endif
     NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast<uint_type>(base::infinity());
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 };
 
 #endif

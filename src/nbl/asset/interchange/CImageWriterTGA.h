@@ -35,7 +35,7 @@ class CImageWriterTGA : public asset::IAssetWriter
 
         virtual uint32_t getSupportedFlags() override { return 0u; }
 
-        virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+        virtual uint32_t getForcedFlags() override { return asset::EWF_BINARY; }
 
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };

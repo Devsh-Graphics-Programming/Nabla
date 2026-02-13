@@ -148,7 +148,7 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
                         return isIntrospectionPushConstantRangeSubset;
                     });
 
-                auto asdf = layoutPushConstantRanges.end();
+                [[maybe_unused]] auto asdf = layoutPushConstantRanges.end();
 
                 if (subsetRangeFound == layoutPushConstantRanges.end())
                     return nullptr;
@@ -158,7 +158,7 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
         // now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
         for (uint32_t dstSetIdx = 0; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
         {
-            const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
+            [[maybe_unused]] const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
 
             const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(dstSetIdx);
             if (!introspectionDescriptorSetLayout.empty())
@@ -258,11 +258,11 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
     // validate if only descriptors with the highest bindings are run-time sized
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
-        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
+        [[maybe_unused]] const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
 
         for (const auto& descriptor : descriptorsToMerge[i])
         {
-            if (descriptor.binding < highestBindingsTmp[i].binding && descriptor.isRuntimeSized())
+            if (descriptor.binding < static_cast<uint32_t>(highestBindingsTmp[i].binding) && descriptor.isRuntimeSized())
                 return false;
         }
 
@@ -277,7 +277,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 
     // can only be success now
     const auto& pc = stageData->getPushConstants();
-    auto a = pc.size;
+    [[maybe_unused]] auto a = pc.size;
     if (pc.present())
     {
         std::span<core::bitflag<hlsl::ShaderStage>> pcRangesSpan = {
@@ -297,7 +297,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 //
 NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::CPipelineIntrospectionData::createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
-    auto& pc = introspection->getPushConstants();
+    //auto& pc = introspection->getPushConstants();
 
     core::vector<SPushConstantRange> tmp; 
     tmp.reserve(MaxPushConstantsSize);
@@ -309,6 +309,7 @@ NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector
     };
 
     SPushConstantRange current = {
+        .stageFlags = hlsl::ShaderStage::ESS_UNKNOWN,
         .offset = 0,
         .size = 0
     };
@@ -411,7 +412,10 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
             .type = restype
         },
         /*.name = */addString(r.name),
-        /*.count = */addDescriptorCount(descriptorArraySize, isArrayTypeLiteral)
+        /*.count = */addDescriptorCount(descriptorArraySize, isArrayTypeLiteral),
+        /*.restrict_ = */0,
+        /*.aliased = */0,
+        /*.union = */{}
     };
 
     auto& ref = reinterpret_cast<core::vector<CStageIntrospectionData::SDescriptorVarInfo<true>>*>(m_descriptorSetBindings)[descSet].emplace_back(std::move(res));
@@ -437,7 +441,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
     // NOTE: might need to lookup SPIRType based on `base_type_id` and forward to `SPIRType::type_alias` here instead
     introspectionStack.emplace(r.base_type_id);
 
-    bool first = true;
+    [[maybe_unused]] bool first = true;
     while (!introspectionStack.empty())
     {
         const auto entry = introspectionStack.top();
@@ -858,7 +862,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
         // get these before they change
         const auto memberTypes = type->memberTypes()(basePtr);
         const auto memberNames = type->memberNames()(basePtr);
-        for (auto m=0; m<type->memberCount; m++)
+        for (auto m=0u; m<type->memberCount; m++)
         {
             reinterpret_cast<const SType<false>**>(memberTypes)[m] = reinterpret_cast<const SType<false>*>(memberTypes[m](basePtr));
             reinterpret_cast<std::span<const char>*>(memberNames)[m] = memberNames[m](basePtr);
@@ -910,7 +914,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& 
     // pre
     auto indent = [&]() -> std::ostringstream&
     {
-        for (auto i=0; i<depth; i++)
+        for (auto i=0u; i<depth; i++)
             out << "\t";
         return out;
     };
@@ -923,7 +927,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& 
 
     // in-order
     const auto nextDepth = depth+1;
-    for (auto m=0; m<type->memberCount; m++)
+    for (auto m=0u; m<type->memberCount; m++)
     {
         printType(out,type->memberTypes()[m],nextDepth); out << " " << type->memberNames()[m].data() << "; // offset=" << type->memberOffsets()[m] << ",size=" << type->memberSizes()[m] << ",stride=" << type->memberStrides()[m] << "\n";
     }
@@ -979,7 +983,7 @@ size_t CSPIRVIntrospector::calcBytesizeForType(spirv_cross::Compiler& comp, cons
 
 void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* logger) const
 {
-    auto* const basePtr = m_memPool.data();
+    [[maybe_unused]] auto* const basePtr = m_memPool.data();
     std::ostringstream debug = {};
 
     if (!m_specConstants.empty())
@@ -1054,7 +1058,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
         }
     }
 
-    logger->log("%s", system::ILogger::ELL_DEBUG, debug.str() + '\n');
+    logger->log("%s", system::ILogger::ELL_DEBUG, (debug.str() + '\n').c_str());
 }
 
 }

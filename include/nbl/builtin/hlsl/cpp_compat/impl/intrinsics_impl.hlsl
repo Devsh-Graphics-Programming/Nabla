@@ -334,7 +334,8 @@ struct transpose_helper<Matrix>
 	{
 		using traits = matrix_traits<Matrix>;
 		// GLM's transpose function signature specializes in terms of the input argument
-		return reinterpret_cast<transposed_t&>(glm::transpose<traits::RowCount,traits::ColumnCount,traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
+		auto result = glm::transpose<traits::RowCount,traits::ColumnCount,typename traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m));
+		return reinterpret_cast<transposed_t&>(result);
 	}
 };
 template<typename Vector>
@@ -365,9 +366,16 @@ struct find_lsb_helper<T>
 	NBL_CONSTEXPR_FUNC static inline T __call(const T arg)
 	{
 		#pragma warning(suppress: 5063)
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wconstant-evaluated"
+#endif
 		if constexpr (std::is_constant_evaluated())
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 		{
-			for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
+			for (T ix = T(0); ix < T(sizeof(size_t) * 8); ix++)
 			if ((T(1) << ix) & arg) return ix;
 				return ~T(0);
 		}
@@ -449,7 +457,8 @@ struct inverse_helper<SquareMatrix>
 	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
 	{
 		using traits = matrix_traits<SquareMatrix>;
-		return reinterpret_cast<SquareMatrix&>(glm::inverse<traits::ColumnCount, traits::RowCount, traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename SquareMatrix::Base const&>(mat)));
+		auto result = glm::inverse<traits::ColumnCount, traits::RowCount, typename traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
+		return reinterpret_cast<SquareMatrix&>(result);
 	}
 };
 

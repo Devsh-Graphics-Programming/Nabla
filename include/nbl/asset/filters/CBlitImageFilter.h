@@ -149,7 +149,7 @@ class CBlitImageFilter :
 						return false;
 					const size_t offset = getScratchOffset(this,ESU_SCALED_KERNEL_PHASED_LUT);
 					const auto inType = inImage->getCreationParameters().type;
-					const size_t size = blit_utils_t::getScaledKernelPhasedLUTSize(inExtentLayerCount.xyz,outExtentLayerCount.xyz,inType,kernels);
+					[[maybe_unused]] const size_t size = blit_utils_t::getScaledKernelPhasedLUTSize(inExtentLayerCount.xyz,outExtentLayerCount.xyz,inType,kernels);
 					auto* lut = base_t::CStateBase::scratchMemory+offset;
 					return blit_utils_t::computeScaledKernelPhasedLUT(lut,inExtentLayerCount.xyz,outExtentLayerCount.xyz,inType, kernels);
 				}
@@ -224,7 +224,7 @@ class CBlitImageFilter :
 
 			const auto kAlphaHistogramSize = state->alphaBinCount * sizeof(uint32_t);
 
-			uint32_t retval = 0;
+			[[maybe_unused]] uint32_t retval = 0;
 			switch (usage)
 			{
 			case ESU_SCALED_KERNEL_PHASED_LUT:
@@ -315,7 +315,7 @@ class CBlitImageFilter :
 			const auto outFormat = outParams.format;
 			const auto inBlockDims = asset::getBlockDimensions(inFormat);
 			const auto outBlockDims = asset::getBlockDimensions(outFormat);
-			const auto* const inData = reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer());
+			[[maybe_unused]] const auto* const inData = reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer());
 			auto* const outData = reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer());
 
 			const auto inMipLevel = state->inMipLevel;
@@ -411,9 +411,9 @@ class CBlitImageFilter :
 					});
 
 					uint32_t* mergedHistogram = histograms;
-					for (auto hi = 1; hi < m_maxParallelism; ++hi)
+					for (uint32_t hi = 1; hi < m_maxParallelism; ++hi)
 					{
-						for (auto bi = 0; bi < state->alphaBinCount; ++bi)
+						for (uint32_t bi = 0; bi < state->alphaBinCount; ++bi)
 							histograms[bi] += histograms[hi * state->alphaBinCount + bi];
 					}
 
@@ -476,7 +476,14 @@ class CBlitImageFilter :
 				const hlsl::uint32_t4 outOffsetLayer(outOffsetBaseLayer.xyz,outOffsetBaseLayer.w+layer);
 				// reset coverage counter
 				constexpr bool is_seq_policy_v = std::is_same_v<std::remove_reference_t<ExecutionPolicy>,core::execution::sequenced_policy>;
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif
 				using cond_atomic_int32_t = std::conditional_t<is_seq_policy_v,int32_t,std::atomic_int32_t>;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 				using cond_atomic_uint32_t = std::conditional_t<is_seq_policy_v,uint32_t,std::atomic_uint32_t>;
 				cond_atomic_uint32_t cvg_num(0u);
 				cond_atomic_uint32_t cvg_den(0u);
@@ -539,7 +546,7 @@ class CBlitImageFilter :
 
 								auto sample = lineBuffer+i*ChannelCount;
 
-								base_t::template onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y, ChannelCount);
+								base_t::onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y, ChannelCount);
 
 								if (nonPremultBlendSemantic)
 								{
@@ -610,7 +617,7 @@ class CBlitImageFilter :
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
 					{
-						state->normalization.finalize<value_t>();
+						state->normalization.template finalize<value_t>();
 						storeToImage(core::rational<int64_t>(cvg_num,cvg_den),axis,outOffsetLayer);
 					}
 				};

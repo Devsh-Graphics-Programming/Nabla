@@ -94,8 +94,6 @@ public:
 		if (!state->scratch.memory)
 			return false;
 
-		const auto& parameters = state->inImage->getCreationParameters();
-
 		if (state->scratch.size != state_type::getRequiredScratchByteSize(state->inImage))
 			return false;
 

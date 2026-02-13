@@ -46,9 +46,9 @@ struct QuantQuaternionHash
 		static constexpr size_t primeNumber2 = 4611686018427388273ull;
 		static constexpr size_t primeNumber3 = 10278296396886393151ull;
 
-		return  (static_cast<size_t>(static_cast<double>(vec.x)*(std::numeric_limits<size_t>::max)()) * primeNumber1) ^
-			(static_cast<size_t>(static_cast<double>(vec.y)*(std::numeric_limits<size_t>::max)()) * primeNumber2) ^
-			(static_cast<size_t>(static_cast<double>(vec.z)*(std::numeric_limits<size_t>::max)()) * primeNumber3);
+		return  (static_cast<size_t>(static_cast<double>(vec.x)*static_cast<double>((std::numeric_limits<size_t>::max)())) * primeNumber1) ^
+			(static_cast<size_t>(static_cast<double>(vec.y)*static_cast<double>((std::numeric_limits<size_t>::max)())) * primeNumber2) ^
+			(static_cast<size_t>(static_cast<double>(vec.z)*static_cast<double>((std::numeric_limits<size_t>::max)())) * primeNumber3);
 	}
 };
 

@@ -207,7 +207,6 @@ class IImage : public virtual core::IReferenceCounted
 			VkOffset3D			imageOffset = {0u,0u,0u};
 			VkExtent3D			imageExtent = {0u,0u,0u};
 
-			auto operator<=>(const SBufferCopy&) const = default;
 		};
 		struct SImageCopy
 		{
@@ -297,7 +296,7 @@ class IImage : public virtual core::IReferenceCounted
 				default:
 					break;
 			}
-			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
+			const uint32_t round = hlsl::roundUpToPoT<uint32_t>(maxSideLen);
 			return hlsl::findLSB(round);
 		}
 		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
@@ -398,7 +397,7 @@ class IImage : public virtual core::IReferenceCounted
 				bool actuallyMutable = false;
 				// if only there existed a nice iterator that would let me iterate over set bits 64 faster
 				if (_params.viewFormats.any())
-				for (auto fmt=0; fmt<_params.viewFormats.size(); fmt++)
+				for (size_t fmt=0; fmt<_params.viewFormats.size(); fmt++)
 				if (_params.viewFormats.test(fmt))
 				{
 					const auto format = static_cast<asset::E_FORMAT>(fmt);
@@ -697,7 +696,7 @@ class IImage : public virtual core::IReferenceCounted
 				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
 				// The aspectMask member of imageSubresource must only have a single bit set
-				if (!hlsl::bitCount<uint32_t>(subresource.aspectMask.value) == 1u)
+				if (!(hlsl::bitCount<uint32_t>(subresource.aspectMask.value) == 1u))
 					return false;
 				if (subresource.mipLevel >= m_creationParams.mipLevels)
 					return false;

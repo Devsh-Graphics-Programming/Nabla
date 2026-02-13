@@ -100,7 +100,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
-					logger(std::move(_logger)), workingDirectory(cwd)
+					workingDirectory(cwd), logger(std::move(_logger))
 			{
 			}
 
@@ -109,8 +109,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				decryptionKey(rhs.decryptionKey),
 				cacheFlags(rhs.cacheFlags),
 				loaderFlags(rhs.loaderFlags),
-				logger(rhs.logger),
-				workingDirectory(rhs.workingDirectory)
+				workingDirectory(rhs.workingDirectory),
+				logger(rhs.logger)
 			{
 			}
 
@@ -193,7 +193,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				//!
 				inline virtual std::pair<core::smart_refctd_ptr<IAsset>,const IAssetMetadata*> findDefaultAsset(const std::string& inSearchKey, const IAsset::E_TYPE assetType, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
-					size_t storageSz = 1ull;
+					[[maybe_unused]] size_t storageSz = 1ull;
 					const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
 					auto bundle = findCachedAsset(inSearchKey,types,ctx,hierarchyLevel);

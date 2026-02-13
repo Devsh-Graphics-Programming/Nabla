@@ -547,7 +547,7 @@ class ISwapchain : public IBackendObject
         core::smart_refctd_ptr<ISwapchain> m_oldSwapchain;
 
     private:
-        friend class CCleanupSwapchainReference;
+        friend struct CCleanupSwapchainReference;
         //
         inline void freeImageExists(const uint8_t ix)
         {

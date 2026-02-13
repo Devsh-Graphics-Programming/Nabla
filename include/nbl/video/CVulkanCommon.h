@@ -315,6 +315,9 @@ inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpaceKHR in
         result.primary = asset::ECP_SRGB;
         result.eotf = asset::EOTF_UNKNOWN;
     } break;
+
+    default:
+        break;
     }
 
     return result;

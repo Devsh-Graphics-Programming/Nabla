@@ -92,7 +92,7 @@ class NBL_API2 IPropertyPool : public core::IReferenceCounted
                 indexAllocator.free_addr(*it,unit);
             }
             const uint32_t head = getAllocated();
-            const uint32_t removedCount = oldHead-head;
+            [[maybe_unused]] const uint32_t removedCount = oldHead-head;
             // no point trying to move anything if we've freed nothing or everything
             if (isContiguous() && head!=oldHead)
             {

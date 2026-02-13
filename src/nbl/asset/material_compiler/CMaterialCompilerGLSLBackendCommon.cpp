@@ -5,7 +5,6 @@
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 #include <iostream>
-#include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 namespace nbl
 {

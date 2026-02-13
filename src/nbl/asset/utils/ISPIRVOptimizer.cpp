@@ -106,7 +106,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     if (!resultBytesize)
         return nullptr;
 
-    auto result = ICPUBuffer::create({ resultBytesize });
+    auto result = ICPUBuffer::create({ { resultBytesize } });
     memcpy(result->getPointer(), optimized.data(), resultBytesize);
 
     return result;

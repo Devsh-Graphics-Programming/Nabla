@@ -24,7 +24,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 
 		inline bool setWindowSize(IWindow* window, const uint32_t width, const uint32_t height)
 		{
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager()!=this || !window->canProgrammaticallyResize())
 				return false;
 
@@ -33,7 +33,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 
 		inline bool setWindowPosition(IWindow* window, const int32_t x, const int32_t y)
 		{
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager()!=this)
 				return false;
 
@@ -44,7 +44,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		{
 			// TODO
 			/*
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager() != this || !window->canRotate() || landscape == window->isRotationLandscape())
 				return false;
 
@@ -55,7 +55,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 
 		inline bool show(IWindow* window)
 		{
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager() != this || !window->isHidden())
 				return false;
 
@@ -64,7 +64,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 
 		inline bool hide(IWindow* window)
 		{
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager() != this || window->isHidden())
 				return false;
 
@@ -73,7 +73,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 
 		inline bool maximize(IWindow* window)
 		{
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager() != this || window->isMaximized())
 				return false;
 
@@ -82,7 +82,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 
 		inline bool minimize(IWindow* window)
 		{
-			auto cb = window->getEventCallback();
+			[[maybe_unused]] auto cb = window->getEventCallback();
 			if (window->getManager() != this || window->isMinimized())
 				return false;
 

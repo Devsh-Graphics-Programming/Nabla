@@ -30,13 +30,13 @@ IFileArchive::SFileList IFileArchive::listAssets(path pathRelativeToArchive) con
 			//
 			// lower bound
 			// by appending slash and char with code 1, we essentially make sure that all matches will be lexicographically greater, and start with pathRelativeToArchive/
-			const auto lower = std::lower_bound(begin,end, SFileList::SEntry{pathRelativeToArchive/"\1"});
+			const auto lower = std::lower_bound(begin,end, SFileList::SEntry{pathRelativeToArchive/"\1", 0ull, 0ull, 0u, EAT_NULL });
 			if (lower!=end)
 			{
 				// upper bound
 				// we cannot do std::upper_bound, because any value longer than pathRelativeToArchive is greater, thus the only matches between std::lower_bound and std::upper_bound would be ones exactly matching pathRelativeToArchive
 				// by appending char with code 1 and taking the lower bound, we can find the first element with prefix greater than pathRelativeToArchive, thus the upper bound
-				auto upper = std::lower_bound(lower,end,SFileList::SEntry{pathRelativeToArchive.string()+"\1"});
+				auto upper = std::lower_bound(lower,end,SFileList::SEntry{pathRelativeToArchive.string()+"\1", 0ull, 0ull, 0u, EAT_NULL });
 				trimmedList.m_span = {lower,upper};
 			}
 			else

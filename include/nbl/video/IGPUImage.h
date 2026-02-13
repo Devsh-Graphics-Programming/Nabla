@@ -18,6 +18,8 @@ namespace nbl::video
 class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 {
 	public:
+		using asset::IImage::validateCopies;
+
 		enum class TILING : uint8_t
 		{
 			OPTIMAL,

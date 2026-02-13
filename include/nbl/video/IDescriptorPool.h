@@ -66,7 +66,8 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         inline core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
         {
             core::smart_refctd_ptr<IGPUDescriptorSet> set;
-            const bool result = createDescriptorSets(1, &layout.get(), &set);
+            const IGPUDescriptorSetLayout* const pLayout = layout.get();
+            const bool result = createDescriptorSets({&pLayout, 1}, &set);
             if (result)
                 return set;
             else

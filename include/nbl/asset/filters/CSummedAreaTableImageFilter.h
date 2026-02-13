@@ -133,8 +133,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 		{
 			const asset::E_FORMAT inFormat = state->inImage->getCreationParameters().format;
 			const asset::E_FORMAT outFormat = state->outImage->getCreationParameters().format;
-			const auto inTexelByteSize = asset::getTexelOrBlockBytesize(inFormat);
-			const auto outTexelByteSize = asset::getTexelOrBlockBytesize(outFormat);
+			[[maybe_unused]] const auto inTexelByteSize = asset::getTexelOrBlockBytesize(inFormat);
+			[[maybe_unused]] const auto outTexelByteSize = asset::getTexelOrBlockBytesize(outFormat);
 			const auto currentChannelCount = asset::getFormatChannelCount(inFormat);
 			const auto arrayLayers = state->inImage->getCreationParameters().arrayLayers;
 			static constexpr auto maxChannels = 4u;

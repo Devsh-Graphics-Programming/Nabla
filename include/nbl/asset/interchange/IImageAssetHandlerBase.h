@@ -88,7 +88,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				size_t bufferSize = 0u;
 				const TexelBlockInfo info(newImageParams.format);
 				const core::rational<size_t> bytesPerPixel = asset::getBytesPerPixel(newImageParams.format);
-				for (auto i = 0; i < newMipCount; i++)
+				for (uint32_t i = 0; i < newMipCount; i++)
 				{
 					auto& region = newRegions->operator[](i);
 					region.bufferOffset = bufferSize;
@@ -110,7 +110,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					bufferSize += memsize.getIntegerApprox();
 				}
 
-				auto texelBuffer = ICPUBuffer::create({ bufferSize });
+				auto texelBuffer = ICPUBuffer::create({{ bufferSize, {} }});
 				newImage->setBufferAndRegions(std::move(texelBuffer), newRegions);
 				newImage->setContentHash(IPreHashed::INVALID_HASH);
 			}
@@ -125,7 +125,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				identityTransform = identityTransform && (mapping == (decltype(mapping)::ES_R + i) || mapping == (decltype(mapping)::ES_IDENTITY));
 			}
 
-			for (auto i = 0; i < newMipCount; i++)
+			for (uint32_t i = 0; i < newMipCount; i++)
 			{
 				auto fillCommonState = [&](auto& state)
 				{
@@ -178,7 +178,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 		static inline void performImageFlip(core::smart_refctd_ptr<asset::ICPUImage> image)
 		{
-			bool status = image->getBuffer() && image->getRegions().data();
+			[[maybe_unused]] bool status = image->getBuffer() && image->getRegions().data();
 			assert(status);// , "An image doesn't have a texel buffer and regions attached!");
 
 			auto format = image->getCreationParameters().format;

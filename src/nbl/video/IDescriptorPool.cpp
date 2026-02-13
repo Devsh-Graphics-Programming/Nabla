@@ -7,7 +7,7 @@ namespace nbl::video
 IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreateInfo& createInfo)
     : IBackendObject(std::move(dev)), m_creationParameters(createInfo), m_logger(getOriginDevice()->getPhysicalDevice()->getDebugCallback() ? getOriginDevice()->getPhysicalDevice()->getDebugCallback()->getLogger():nullptr)
 {
-    for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
+    for (size_t i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
         m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[i], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
 
     // For mutable samplers pertaining to combined image samplers. We don't know if there will be mutable samplers in sets allocated by this pool when we create the pool.
@@ -87,7 +87,7 @@ bool IDescriptorPool::reset()
 {
     // something else except for the allocated sets needs to be holding onto the pool, so that
     // we don't have an implicit call to `~IDescriptorPool` on `this` before we get out of the current stackframe  
-    assert(getReferenceCount() > m_descriptorSetAllocator.get_allocated_size());
+    assert(std::cmp_greater(getReferenceCount(), m_descriptorSetAllocator.get_allocated_size()));
 
     const auto& compilerIsRetarded = m_descriptorSetAllocator;
     for (const uint32_t setIndex : compilerIsRetarded)

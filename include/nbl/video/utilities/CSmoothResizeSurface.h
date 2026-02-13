@@ -159,7 +159,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 					return true;
 			}
 
-			bool retval = recreateSwapchain(w,h);
+			[[maybe_unused]] bool retval = recreateSwapchain(w,h);
 			auto current = getSwapchainResources();
 			// no point racing to present to old SC
 			if (current->getSwapchain()==oldSwapchain.get())
@@ -378,7 +378,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			if (willBlit)
 			{
 				// let the others know we've enqueued another TBP
-				const auto oldVal = m_lastPresent.pPresentSemaphoreWaitValue->exchange(acquireCount);
+				[[maybe_unused]] const auto oldVal = m_lastPresent.pPresentSemaphoreWaitValue->exchange(acquireCount);
 				assert(oldVal<acquireCount);
 
 				return ISimpleManagedSurface::present(acquire.imageIndex,presented);

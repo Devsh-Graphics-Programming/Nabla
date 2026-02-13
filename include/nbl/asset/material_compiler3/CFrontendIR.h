@@ -111,7 +111,14 @@ protected:
 		{
 			inline operator bool() const
 			{
-				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
+	#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnan-infinity-disabled"
+#endif
+			return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 			}
 			inline bool operator!=(const SParameter& other) const
 			{
@@ -129,7 +136,14 @@ protected:
 			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 			// at this stage we store the multipliers in highest precision
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnan-infinity-disabled"
+#endif
 			float scale = std::numeric_limits<float>::infinity();
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 			// rest are ignored if the view is null
 			uint8_t viewChannel : 2 = 0;
 			uint8_t padding[3] = {0,0,0};
@@ -395,7 +409,7 @@ protected:
 					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
 				}
 
-				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
+				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr,.isBTDF=false});}
 
 			protected:
 				inline ~CSpectralVariable()
@@ -882,7 +896,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 			const auto* node = entry.node;
 			const auto nodeType = node->getType();
 			const bool nodeIsMul = nodeType==IExprNode::Type::Mul;
-			const bool nodeIsAdd = nodeType==IExprNode::Type::Add;
+			[[maybe_unused]] const bool nodeIsAdd = nodeType==IExprNode::Type::Add;
 			const auto childCount = node->getChildCount();
 			bool takeOverContribSlot = true; // first add child can do this
 			for (auto childIx=0; childIx<childCount; childIx++)
@@ -890,8 +904,8 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 				const auto childHandle = node->getChildHandle(childIx);
 				if (const auto child=deref(childHandle); child)
 				{
-					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
-					StackEntry newEntry = {.node=child,.handle=childHandle};
+					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || (childIx!=0 && nodeIsMul);
+					StackEntry newEntry = {.node=child,.handle=childHandle,.contribSlot={}};
 					if (noContribBelow)
 					{
 						if (child->getType()==IExprNode::Type::Contributor)

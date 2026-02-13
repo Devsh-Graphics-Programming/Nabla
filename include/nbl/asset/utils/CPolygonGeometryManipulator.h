@@ -79,7 +79,7 @@ class NBL_API2 CPolygonGeometryManipulator
 						const auto& weightView = geo->getJointWeightViews()[weightView_i];
 						hlsl::float32_t4 weight;
 						weightView.weights.decodeElement(vertex_i, weight);
-						for (auto channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
+						for (uint32_t channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
 						if (weight[channel_i] > 0.f)
 							return true;
 					}
@@ -151,7 +151,7 @@ class NBL_API2 CPolygonGeometryManipulator
 					if (originalView) return originalView.src.buffer->getUsageFlags();
 					return core::bitflag<IBuffer::E_USAGE_FLAGS>(IBuffer::EUF_INDEX_BUFFER_BIT);
 			}();
-			auto indexBuffer = ICPUBuffer::create({ primCount * indexing->degree() * indexSize, indexBufferUsages });
+			auto indexBuffer = ICPUBuffer::create({{ primCount * indexing->degree() * indexSize, indexBufferUsages }});
 			auto indexBufferPtr = indexBuffer->getPointer();
 			auto indexView = ICPUPolygonGeometry::SDataView{
 				.composed = {

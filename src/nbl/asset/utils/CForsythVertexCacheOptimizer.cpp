@@ -54,7 +54,7 @@ namespace asset
 		core::vector<TriData> triangleData(NumPrimitives);
 
 		uint32_t curIdx = 0;
-		for (int32_t tri = 0; tri < NumPrimitives; tri++)
+		for (int32_t tri = 0; std::cmp_less(tri, NumPrimitives); tri++)
 		{
 			TriData &curTri = triangleData[tri];
 
@@ -77,7 +77,7 @@ namespace asset
 
 		// Allocate per-vertex triangle lists, and calculate the starting score of
 		// each of the verts
-		for (int32_t v = 0; v < _numVerts; v++)
+		for (int32_t v = 0; std::cmp_less(v, _numVerts); v++)
 		{
 			VertData &curVert = vertexData[v];
 			curVert.triIndex = new int32_t[curVert.numUnaddedReferences];
@@ -88,14 +88,14 @@ namespace asset
 		int32_t nextNextBestTriIdx = -1, nextBestTriIdx = -1;
 		float nextNextBestTriScore = -1.0f, nextBestTriScore = -1.0f;
 
-#define _VALIDATE_TRI_IDX(idx) if(idx > -1) { _NBL_DEBUG_BREAK_IF(idx >= NumPrimitives); /*Out of range triangle index.*/ _NBL_DEBUG_BREAK_IF(triangleData[idx].isInList); /*Triangle already in list, bad.*/ }
+#define _VALIDATE_TRI_IDX(idx) if(idx > -1) { _NBL_DEBUG_BREAK_IF(std::cmp_less_equal(idx, NumPrimitives)); /*Out of range triangle index.*/ _NBL_DEBUG_BREAK_IF(triangleData[idx].isInList); /*Triangle already in list, bad.*/ }
 #define _CHECK_NEXT_NEXT_BEST(scr, idx) { if(scr > nextNextBestTriScore) { nextNextBestTriIdx = idx; nextNextBestTriScore = scr; } }
 #define _CHECK_NEXT_BEST(scr, idx) { if(scr > nextBestTriScore) { _CHECK_NEXT_NEXT_BEST(nextBestTriScore, nextBestTriIdx); nextBestTriIdx = idx; nextBestTriScore = scr; } _VALIDATE_TRI_IDX(nextBestTriIdx); }
 
 		// Fill-in per-vertex triangle lists, and sum the scores of each vertex used
 		// per-triangle, to get the starting triangle score
 		curIdx = 0;
-		for (int32_t tri = 0; tri < NumPrimitives; tri++)
+		for (int32_t tri = 0; std::cmp_less(tri, NumPrimitives); tri++)
 		{
 			TriData &curTri = triangleData[tri];
 
@@ -123,7 +123,7 @@ namespace asset
 		// Step 2: Start emitting triangles...this is the emit loop
 		//
 		LRUCacheModel lruCache;
-		for (int32_t outIdx = 0; outIdx < _numIndices; /* this space intentionally left blank */)
+		for (int32_t outIdx = 0; std::cmp_less(outIdx, _numIndices); /* this space intentionally left blank */)
 		{
 			// If there is no next best triangle, than search for the next highest
 			// scored triangle that isn't in the list already
@@ -133,7 +133,7 @@ namespace asset
 				nextBestTriScore = nextNextBestTriScore = -1.0f;
 				nextBestTriIdx = nextNextBestTriIdx = -1;
 
-				for (int32_t tri = 0; tri < NumPrimitives; tri++)
+				for (int32_t tri = 0; std::cmp_less(tri, NumPrimitives); tri++)
 				{
 					TriData &curTri = triangleData[tri];
 
@@ -298,16 +298,16 @@ namespace asset
 			// Update cache position on verts still in cache
 			vData.cachePosition = length++;
 
-			for (int32_t i = 0; i < vData.numReferences; i++)
+			for (int32_t i = 0; std::cmp_less(i, vData.numReferences); i++)
 			{
 				const int32_t &triIdx = vData.triIndex[i];
 				if (triIdx > -1)
 				{
 					int32_t j = 0;
-					for (; j < outTrisToUpdate.size(); j++)
-						if (outTrisToUpdate[j] == triIdx)
+					for (; std::cmp_less(j, outTrisToUpdate.size()); j++)
+						if (std::cmp_equal(outTrisToUpdate[j], triIdx))
 							break;
-					if (j == outTrisToUpdate.size())
+					if (std::cmp_equal(j, outTrisToUpdate.size()))
 						outTrisToUpdate.push_back(triIdx);
 				}
 			}

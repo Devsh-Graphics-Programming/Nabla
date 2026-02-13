@@ -109,8 +109,8 @@ class CSubpassKiln
                                 }
                                 for (auto i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
                                 {
-                                    auto lhs_dsLayout = lhs_layout->getDescriptorSetLayout(i);
-                                    auto rhs_dsLayout = rhs_layout->getDescriptorSetLayout(i);
+                                    auto lhs_dsLayout = lhs_layout->getDescriptorSetLayouts()[i];
+                                    auto rhs_dsLayout = rhs_layout->getDescriptorSetLayouts()[i];
                                     if (lhs_dsLayout==rhs_dsLayout)
                                         continue;
                                     return Cmp<const void*>()(lhs_dsLayout,rhs_dsLayout);
@@ -129,7 +129,7 @@ class CSubpassKiln
                                     {
                                         if (lhs.vertexBufferBindings[i].buffer==rhs.vertexBufferBindings[i].buffer)
                                         {
-                                            if (lhs.vertexBufferBindings[i].offset,rhs.vertexBufferBindings[i].offset)
+                                            if (lhs.vertexBufferBindings[i].offset==rhs.vertexBufferBindings[i].offset)
                                                 continue;
                                             return Cmp<uint64_t>()(lhs.vertexBufferBindings[i].offset,rhs.vertexBufferBindings[i].offset);
                                         }

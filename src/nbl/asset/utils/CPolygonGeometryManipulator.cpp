@@ -42,7 +42,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
 		{
 				if (!inView)
 						return {};
-				auto buffer = ICPUBuffer::create({ outIndexCount*inView.composed.stride , inView.src.buffer->getUsageFlags() });
+				auto buffer = ICPUBuffer::create({{ outIndexCount*inView.composed.stride , inView.src.buffer->getUsageFlags() }});
 				return {
 						.composed = inView.composed,
 						.src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
@@ -118,7 +118,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
 								std::byte* const outJointIndices = reinterpret_cast<std::byte*>(outView.indices.getPointer());
 								memcpy(outJointIndices + outIndex * jointIndexSize, inJointIndices + inIndex * jointIndexSize, jointIndexSize);
 
-								const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
+								[[maybe_unused]] const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
 								const auto jointWeightSize = inView.weights.composed.stride;
 								std::byte* const outWeights = reinterpret_cast<std::byte*>(outView.weights.getPointer());
 								memcpy(outWeights + outIndex * jointWeightSize, outWeights + inIndex * jointWeightSize, jointWeightSize);
@@ -1035,7 +1035,6 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
             if (_cmpntNum < 3u)
                 return -512;
             else return -2;
-            break;
         default:
         {
         const uint32_t bitsPerCh = getTexelOrBlockBytesize(_fmt)*8u/getFormatChannelCount(_fmt);
@@ -1053,7 +1052,6 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
             if (_cmpntNum < 3u)
                 return 1023u;
             else return 3u;
-            break;
         case EF_A2R10G10B10_SSCALED_PACK32:
         case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SSCALED_PACK32:
@@ -1061,7 +1059,6 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
             if (_cmpntNum < 3u)
                 return 511u;
             else return 1u;
-            break;
         default:
         {
             const uint32_t bitsPerCh = getTexelOrBlockBytesize(_fmt)*8u/getFormatChannelCount(_fmt);

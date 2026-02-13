@@ -4,6 +4,10 @@
 // See the original file in irrlicht source for authors
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
 
 #include "CPLYMeshFileLoader.h"
 
@@ -468,18 +472,18 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		return {};
 
 	SContext ctx = {
-		asset::IAssetLoader::SAssetLoadContext{
+		.inner = asset::IAssetLoader::SAssetLoadContext{
 			_params,
 			_file
 		},
-		_hierarchyLevel,
-		_override
+		.topHierarchyLevel = _hierarchyLevel,
+		.loaderOverride = _override
 	};
 	ctx.init();
 
 	// start with empty mesh
     auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
-	uint32_t vertCount=0;
+	[[maybe_unused]] uint32_t vertCount=0;
 
 	// Currently only supports ASCII or binary meshes
 	if (strcmp(ctx.getNextLine(),"ply"))
@@ -880,4 +884,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 
 } // end namespace nbl::asset
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #endif // _NBL_COMPILE_WITH_PLY_LOADER_

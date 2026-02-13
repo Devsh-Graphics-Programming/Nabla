@@ -13,12 +13,12 @@ namespace nbl
 {
 namespace asset
 {
-static bool operator<(uint32_t lhs, const CSmoothNormalGenerator::VertexData& rhs)
+[[maybe_unused]] static bool operator<(uint32_t lhs, const CSmoothNormalGenerator::VertexData& rhs)
 {
 	return lhs < rhs.hash;
 }
 
-static bool operator<(const CSmoothNormalGenerator::VertexData& lhs, uint32_t rhs)
+[[maybe_unused]] static bool operator<(const CSmoothNormalGenerator::VertexData& lhs, uint32_t rhs)
 {
 	return lhs.hash < rhs;
 }
@@ -44,7 +44,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 {
 	const size_t idxCount = polygon->getPrimitiveCount() * 3;
 
-	const auto cellCount = std::max<uint32_t>(core::roundUpToPoT<uint32_t>((idxCount + 31) >> 5), 4);
+	const auto cellCount = std::max<uint32_t>(hlsl::roundUpToPoT<uint32_t>((idxCount + 31) >> 5), 4);
 	VertexHashMap vertices(idxCount, std::min(16u * 1024u, cellCount), epsilon * 2.f);
 
 	for (uint32_t i = 0; i < idxCount; i += 3)
@@ -75,7 +75,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 	static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
 	const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
-	auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
+	auto normalBuf = ICPUBuffer::create({{ normalFormatBytesize * outPolygon->getPositionView().getElementCount()}});
 	auto normalView = polygon->getNormalView();
 
 	hlsl::shapes::AABB<4,hlsl::float32_t> aabb;

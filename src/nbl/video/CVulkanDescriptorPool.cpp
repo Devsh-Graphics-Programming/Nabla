@@ -2,6 +2,12 @@
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 namespace nbl::video
 {
 
@@ -67,3 +73,7 @@ bool CVulkanDescriptorPool::reset_impl()
 }
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

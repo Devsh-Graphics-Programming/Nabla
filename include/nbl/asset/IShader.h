@@ -42,7 +42,7 @@ class IShader final : public IAsset
 		inline IShader(core::smart_refctd_ptr<ICPUBuffer>&& code, const E_CONTENT_TYPE contentType, std::string&& filepathHint) :
 			m_filepathHint(std::move(filepathHint)), m_code(std::move(code)), m_contentType(contentType) {}
 		inline IShader(const char* code, const E_CONTENT_TYPE contentType, std::string&& filepathHint) :
-			m_filepathHint(std::move(filepathHint)), m_code(ICPUBuffer::create({strlen(code)+1u})), m_contentType(contentType)
+			m_filepathHint(std::move(filepathHint)), m_code(ICPUBuffer::create({{strlen(code)+1u}})), m_contentType(contentType)
 		{
 			assert(contentType!=E_CONTENT_TYPE::ECT_SPIRV); // because using strlen needs `code` to be null-terminated
 			memcpy(m_code->getPointer(),code,m_code->getSize());

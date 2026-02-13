@@ -4,6 +4,12 @@
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/debug/CVulkanDebugCallback.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 // TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
@@ -214,6 +220,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     VkValidationFeatureEnableEXT validationsEnable[16u] = {};
     VkValidationFeatureDisableEXT validationsDisable[16u] = {};
     validationFeaturesEXT.pEnabledValidationFeatures = validationsEnable;
+    validationFeaturesEXT.pDisabledValidationFeatures = validationsDisable;
 
     // TODO: Do the same for other validation features as well(?)
     if (enabledFeatures.synchronizationValidation)
@@ -377,7 +384,11 @@ bool CVulkanConnection::endCapture()
 
 int vulkaninfo(const std::span<const char*> args)
 {
-    return ::vulkaninfo(args.size(), const_cast<char**>(args.data())); 
+    return ::vulkaninfo(args.size(), const_cast<char**>(args.data()));
 }
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

@@ -132,8 +132,9 @@ struct SIntendedSubmitInfo final : core::Uncopyable
                 inline CSubmitStorage(CSubmitStorage&& other) : self(other.self), m_semaphores(std::move(other.m_semaphores)) {}
                 inline CSubmitStorage& operator=(CSubmitStorage&& rhs)
                 {
-                    self = std::move(self);
+                    self = rhs.self;
                     m_semaphores = std::move(rhs.m_semaphores);
+                    return *this;
                 }
 
                 inline operator std::span<const IQueue::SSubmitInfo>() const

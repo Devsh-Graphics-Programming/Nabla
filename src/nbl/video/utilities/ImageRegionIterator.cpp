@@ -1,5 +1,7 @@
 #include "nbl/video/utilities/ImageRegionIterator.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 namespace nbl::video
 {
 
@@ -12,6 +14,7 @@ ImageRegionIterator::ImageRegionIterator(
     size_t optimalRowPitchAlignment
 )
     : regions(copyRegions)
+    , optimalRowPitchAlignment(optimalRowPitchAlignment)
     , minImageTransferGranularity(queueFamilyProps.minImageTransferGranularity)
     , srcImageFormat(srcImageFormat)
     , dstImageFormat(dstImage->getCreationParameters().format)
@@ -22,7 +25,6 @@ ImageRegionIterator::ImageRegionIterator(
     , currentSliceInLayer(0u)
     , currentLayerInRegion(0u)
     , currentRegion(0u)
-    , optimalRowPitchAlignment(optimalRowPitchAlignment)
 {
     if(srcImageFormat == asset::EF_UNKNOWN)
         srcImageFormat = dstImageFormat;
@@ -124,7 +126,7 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     // We want to first roundUp to bufferOffsetAlignment everytime we increment, because the incrementation here correspond a single copy command that needs it's bufferOffset to be aligned correctly (assuming enough memory).
     auto incrementMemoryNeeded = [&](const uint32_t size)
     {
-        memoryNeededForRemainingRegions = core::roundUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
+        memoryNeededForRemainingRegions = hlsl::roundUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
         memoryNeededForRemainingRegions += size;
     };
 
@@ -275,7 +277,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> bool 
     {
         const auto initialOffset = stagingBufferOffset;
-        stagingBufferOffset = core::roundUp(stagingBufferOffset, bufferOffsetAlignment);
+        stagingBufferOffset = hlsl::roundUp(stagingBufferOffset, bufferOffsetAlignment);
         stagingBufferOffset += size;
         const auto consumedMemory = stagingBufferOffset - initialOffset;
         if(consumedMemory <= availableMemory)

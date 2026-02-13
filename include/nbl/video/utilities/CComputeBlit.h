@@ -134,7 +134,7 @@ class CComputeBlit : public core::IReferenceCounted
 			}
 			// atomicAdd gets performed on MSB or LSB of a single DWORD
 			const auto paddedAlphaBinCount = core::min<uint16_t>(
-				core::roundUp<uint16_t>(baseBucketCount,pipelines.workgroupSize*2),
+				hlsl::roundUp<uint16_t>(baseBucketCount,pipelines.workgroupSize*2),
 				(pipelines.sharedMemorySize-sizeof(uint32_t)*2)/sizeof(uint16_t)
 			);
 			return paddedAlphaBinCount*layersToBlit;

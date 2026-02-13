@@ -25,7 +25,7 @@ class CImageWriterJPG : public asset::IAssetWriter
 	    //! constructor
 	    explicit CImageWriterJPG(core::smart_refctd_ptr<system::ISystem>&& sys);
 
-        virtual const char** getAssociatedFileExtensions() const
+        virtual const char** getAssociatedFileExtensions() const override
         {
             static const char* ext[]{ "jpg", "jpeg", "jpe", "jif", "jfif", "jfi", nullptr };
             return ext;
@@ -35,7 +35,7 @@ class CImageWriterJPG : public asset::IAssetWriter
 
         virtual uint32_t getSupportedFlags() override { return asset::EWF_COMPRESSED; }
 
-        virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+        virtual uint32_t getForcedFlags() override { return asset::EWF_BINARY; }
 
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };

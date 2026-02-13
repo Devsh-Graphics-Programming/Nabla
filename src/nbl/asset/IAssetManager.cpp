@@ -97,7 +97,7 @@ std::function<void(SAssetBundle&)> nbl::asset::makeAssetGreetFunc(const IAssetMa
 {
 	return [_mgr](SAssetBundle& _asset) {
 		_mgr->setAssetCached(_asset, true);
-		auto rng = _asset.getContents();
+		// auto rng = _asset.getContents();
 		//assets being in the cache must be immutable
         //asset mutability is changed just before insertion by inserting methods of IAssetManager
         //for (auto ass : rng)
@@ -296,7 +296,7 @@ void IAssetManager::insertBuiltinAssets()
         info.samples = asset::ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
         info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
-        auto buf = asset::ICPUBuffer::create({ info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format) });
+        auto buf = asset::ICPUBuffer::create({ { info.extent.width * info.extent.height * asset::getTexelOrBlockBytesize(info.format) } });
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
             std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),

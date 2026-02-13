@@ -74,7 +74,7 @@ class NBL_API2 CSystemWin32 : public ISystem
                     if(logRequests)
                         printf("[INFO]: Requesting \"%s\" module load with \"%s\" search path...\n", dllName, path.c_str());
 
-                    if (res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                    if ((res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH)))
                         break;
                 }
 
@@ -85,7 +85,7 @@ class NBL_API2 CSystemWin32 : public ISystem
                     if (logRequests)
                         printf("[INFO]: Requesting \"%s\" module load with \"%s\" search path...\n", dllName, path.c_str());
 
-                    if (res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                    if ((res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH)))
                         break;
                 }
             }
