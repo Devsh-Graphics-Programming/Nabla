@@ -1138,7 +1138,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
     if ((_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0)
     {
-        recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
+        computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
     }
 
     if (parsedAABB.has)

@@ -740,7 +740,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	if (computeContentHashes && !contentHashesAssigned)
 	{
-		recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
+		computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 	}
 
 	if (parsedAABB.has)
@@ -809,4 +809,3 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 }
 
 #endif // _NBL_COMPILE_WITH_STL_LOADER_
-

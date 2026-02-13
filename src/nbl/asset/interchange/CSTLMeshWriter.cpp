@@ -804,4 +804,3 @@ bool writeFaceText(
 }
 
 #endif
-

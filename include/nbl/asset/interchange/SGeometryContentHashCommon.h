@@ -16,6 +16,12 @@
 namespace nbl::asset
 {
 
+enum class EGeometryContentHashMode : uint8_t
+{
+    MissingOnly,
+    RecomputeAll
+};
+
 inline void collectGeometryBuffers(
     ICPUPolygonGeometry* geometry,
     core::vector<core::smart_refctd_ptr<ICPUBuffer>>& buffers)
@@ -50,7 +56,7 @@ inline void collectGeometryBuffers(
         appendViewBuffer(*jointOBB);
 }
 
-inline void recomputeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
+inline void computeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy, const EGeometryContentHashMode mode = EGeometryContentHashMode::MissingOnly)
 {
     if (!geometry)
         return;
@@ -66,7 +72,9 @@ inline void recomputeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry
     for (size_t i = 0ull; i < buffers.size(); ++i)
     {
         auto& buffer = buffers[i];
-        if (!buffer || buffer->getContentHash() != IPreHashed::INVALID_HASH)
+        if (!buffer)
+            continue;
+        if (mode == EGeometryContentHashMode::MissingOnly && buffer->getContentHash() != IPreHashed::INVALID_HASH)
             continue;
         totalBytes += static_cast<uint64_t>(buffer->getSize());
         pending.push_back(i);
@@ -122,6 +130,16 @@ inline void recomputeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry
         auto& buffer = buffers[pendingIx];
         buffer->setContentHash(buffer->computeContentHash());
     }
+}
+
+inline void computeMissingGeometryContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
+{
+    computeGeometryContentHashesParallel(geometry, ioPolicy, EGeometryContentHashMode::MissingOnly);
+}
+
+inline void recomputeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
+{
+    computeGeometryContentHashesParallel(geometry, ioPolicy, EGeometryContentHashMode::RecomputeAll);
 }
 
 }

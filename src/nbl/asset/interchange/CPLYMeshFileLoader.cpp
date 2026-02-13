@@ -2211,7 +2211,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		if (deferredPositionHashThread.joinable())
 			deferredPositionHashThread.join();
-		recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
+		computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 	}
 	else
 	{
@@ -2259,4 +2259,3 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 } // end namespace nbl::asset
 #endif // _NBL_COMPILE_WITH_PLY_LOADER_
-

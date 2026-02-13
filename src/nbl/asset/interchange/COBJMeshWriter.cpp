@@ -451,4 +451,3 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 } // namespace nbl::asset
 
 #endif // _NBL_COMPILE_WITH_OBJ_WRITER_
-
