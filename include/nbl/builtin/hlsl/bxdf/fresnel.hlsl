@@ -635,6 +635,7 @@ struct iridescent_helper
         NBL_UNROLL for (int m=1; m<=2; ++m)
         {
             Cm *= r123p;
+            // TODO: common subexpression, maybe we can hoist it out somehow?
             Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(scalar_type(m))*D, hlsl::promote<vector_type>(scalar_type(m))*(phi23p+phi21p));
             I  += Cm*Sm;
         }
@@ -728,7 +729,12 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
 
     T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
+        // this is a reference in hlsl but pointer in c++
+#ifdef __HLSL_VERSION
         return impl::__iridescent_base__call_const<T, false, Colorspace>(this, base_type::iork3, getEtak23(), clampedCosTheta);
+#else
+        return impl::__iridescent_base__call_const<T, false, Colorspace>(*this, base_type::iork3, getEtak23(), clampedCosTheta);
+#endif
     }
 
     vector_type getEtak23() NBL_CONST_MEMBER_FUNC
@@ -775,7 +781,11 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
 
     T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
+#ifdef __HLSL_VERSION
         return impl::__iridescent_base__call_const<T, true, Colorspace>(this, getEtak23(), getEtak23(), clampedCosTheta);
+#else
+        return impl::__iridescent_base__call_const<T, true, Colorspace>(*this, getEtak23(), getEtak23(), clampedCosTheta);
+#endif
     }
 
     scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::eta13[0]; }
