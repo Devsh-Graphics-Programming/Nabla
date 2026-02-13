@@ -202,11 +202,6 @@ ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::flo
 	return view;
 }
 
-void stlRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
-{
-	recomputeGeometryContentHashesParallel(geometry, ioPolicy);
-}
-
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager*)
 {
 }
@@ -787,7 +782,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	if (computeContentHashes && !contentHashesAssigned)
 	{
-		stlRecomputeContentHashesParallel(geometry.get(), _params.ioPolicy);
+		recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 	}
 
 	if (hasParsedAABB)

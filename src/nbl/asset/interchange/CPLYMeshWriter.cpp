@@ -57,6 +57,70 @@ bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hls
     return view.decodeElement(ix, out);
 }
 
+template<typename ScalarType>
+inline bool readVec3(const ICPUPolygonGeometry::SDataView& view, const hlsl::float32_t3* tightView, const size_t ix, ScalarType (&out)[3])
+{
+    if (tightView)
+    {
+        out[0] = static_cast<ScalarType>(tightView[ix].x);
+        out[1] = static_cast<ScalarType>(tightView[ix].y);
+        out[2] = static_cast<ScalarType>(tightView[ix].z);
+        return true;
+    }
+
+    hlsl::float64_t4 tmp = {};
+    if (!decodeVec4(view, ix, tmp))
+        return false;
+    out[0] = static_cast<ScalarType>(tmp.x);
+    out[1] = static_cast<ScalarType>(tmp.y);
+    out[2] = static_cast<ScalarType>(tmp.z);
+    return true;
+}
+
+template<typename ScalarType>
+inline bool readVec2(const ICPUPolygonGeometry::SDataView& view, const hlsl::float32_t2* tightView, const size_t ix, ScalarType (&out)[2])
+{
+    if (tightView)
+    {
+        out[0] = static_cast<ScalarType>(tightView[ix].x);
+        out[1] = static_cast<ScalarType>(tightView[ix].y);
+        return true;
+    }
+
+    hlsl::float64_t4 tmp = {};
+    if (!decodeVec4(view, ix, tmp))
+        return false;
+    out[0] = static_cast<ScalarType>(tmp.x);
+    out[1] = static_cast<ScalarType>(tmp.y);
+    return true;
+}
+
+struct SExtraAuxView
+{
+    const ICPUPolygonGeometry::SDataView* view = nullptr;
+    uint32_t components = 0u;
+    uint32_t auxIndex = 0u;
+};
+
+template<typename ScalarType, typename EmitFn>
+inline bool emitExtraAuxValues(const core::vector<SExtraAuxView>& extraAuxViews, const size_t ix, EmitFn&& emit)
+{
+    hlsl::float64_t4 tmp = {};
+    for (const auto& extra : extraAuxViews)
+    {
+        if (!extra.view || !decodeVec4(*extra.view, ix, tmp))
+            return false;
+        const ScalarType values[4] = {
+            static_cast<ScalarType>(tmp.x),
+            static_cast<ScalarType>(tmp.y),
+            static_cast<ScalarType>(tmp.z),
+            static_cast<ScalarType>(tmp.w)
+        };
+        emit(values, extra.components);
+    }
+    return true;
+}
+
 const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
 {
     if (!view)
@@ -113,8 +177,8 @@ void appendVec(std::string& out, const double* values, size_t count, bool flipVe
     }
 }
 
-bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
-bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
+bool writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, const core::vector<SExtraAuxView>& extraAuxViews, size_t extraAuxFloatCount, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors);
+bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, const core::vector<SExtraAuxView>& extraAuxViews, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors);
 
 } // namespace ply_writer_detail
 
@@ -161,6 +225,22 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             uvView = &view;
             break;
         }
+    }
+
+    core::vector<SExtraAuxView> extraAuxViews;
+    size_t extraAuxFloatCount = 0ull;
+    extraAuxViews.reserve(auxViews.size());
+    for (uint32_t auxIx = 0u; auxIx < static_cast<uint32_t>(auxViews.size()); ++auxIx)
+    {
+        const auto& view = auxViews[auxIx];
+        if (!view || (&view == uvView))
+            continue;
+        const uint32_t channels = getFormatChannelCount(view.composed.format);
+        if (channels == 0u)
+            continue;
+        const uint32_t components = std::min(4u, channels);
+        extraAuxViews.push_back({ &view, components, auxIx });
+        extraAuxFloatCount += components;
     }
 
     const size_t vertexCount = positionView.getElementCount();
@@ -261,6 +341,21 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         header += "property float v\n";
     }
 
+    for (const auto& extra : extraAuxViews)
+    {
+        for (uint32_t component = 0u; component < extra.components; ++component)
+        {
+            header += "property float aux";
+            header += std::to_string(extra.auxIndex);
+            if (extra.components > 1u)
+            {
+                header += "_";
+                header += std::to_string(component);
+            }
+            header += "\n";
+        }
+    }
+
     header += "element face ";
     header += std::to_string(faceCount);
     header += "\nproperty list uchar uint vertex_indices\n";
@@ -273,14 +368,14 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     size_t outputBytes = 0ull;
     if (binary)
     {
-        const size_t vertexStride = sizeof(float) * (3u + (writeNormals ? 3u : 0u) + (uvView ? 2u : 0u));
+        const size_t vertexStride = sizeof(float) * (3u + (writeNormals ? 3u : 0u) + (uvView ? 2u : 0u) + extraAuxFloatCount);
         const size_t faceStride = sizeof(uint8_t) + sizeof(uint32_t) * 3u;
         const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
 
         const auto binaryEncodeStart = clock_t::now();
         core::vector<uint8_t> body;
         body.resize(bodySize);
-        if (!writeBinary(geom, uvView, writeNormals, vertexCount, indices, faceCount, body.data(), flipVectors))
+        if (!writeBinary(geom, uvView, extraAuxViews, extraAuxFloatCount, writeNormals, vertexCount, indices, faceCount, body.data(), flipVectors))
             return false;
         encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - binaryEncodeStart).count();
 
@@ -344,7 +439,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     const auto textEncodeStart = clock_t::now();
     std::string body;
     body.reserve(vertexCount * ApproxPlyTextBytesPerVertex + faceCount * ApproxPlyTextBytesPerFace);
-    if (!writeText(geom, uvView, writeNormals, vertexCount, indices, faceCount, body, flipVectors))
+    if (!writeText(geom, uvView, extraAuxViews, writeNormals, vertexCount, indices, faceCount, body, flipVectors))
         return false;
     encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - textEncodeStart).count();
 
@@ -405,7 +500,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     return writeOk;
 }
 
-bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors)
+bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, const core::vector<SExtraAuxView>& extraAuxViews, size_t extraAuxFloatCount, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, uint8_t* dst, bool flipVectors)
 {
     if (!dst)
         return false;
@@ -418,8 +513,9 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
     const hlsl::float32_t3* const tightNormal = writeNormals ? getTightFloat3View(normalView) : nullptr;
     const bool hasUV = uvView != nullptr;
     const hlsl::float32_t2* const tightUV = hasUV ? getTightFloat2View(*uvView) : nullptr;
+    const bool hasExtraAux = extraAuxFloatCount > 0ull;
 
-    if (tightPos && (!writeNormals || tightNormal) && (!hasUV || tightUV) && !flipVectors)
+    if (tightPos && (!writeNormals || tightNormal) && (!hasUV || tightUV) && !hasExtraAux && !flipVectors)
     {
         for (size_t i = 0; i < vertexCount; ++i)
         {
@@ -439,24 +535,11 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
     }
     else
     {
-        hlsl::float64_t4 tmp = {};
         for (size_t i = 0; i < vertexCount; ++i)
         {
             float pos[3] = {};
-            if (tightPos)
-            {
-                pos[0] = tightPos[i].x;
-                pos[1] = tightPos[i].y;
-                pos[2] = tightPos[i].z;
-            }
-            else
-            {
-                if (!decodeVec4(positionView, i, tmp))
-                    return false;
-                pos[0] = static_cast<float>(tmp.x);
-                pos[1] = static_cast<float>(tmp.y);
-                pos[2] = static_cast<float>(tmp.z);
-            }
+            if (!readVec3(positionView, tightPos, i, pos))
+                return false;
             if (flipVectors)
                 pos[0] = -pos[0];
             std::memcpy(dst, pos, Float3Bytes);
@@ -465,20 +548,8 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
             if (writeNormals)
             {
                 float normal[3] = {};
-                if (tightNormal)
-                {
-                    normal[0] = tightNormal[i].x;
-                    normal[1] = tightNormal[i].y;
-                    normal[2] = tightNormal[i].z;
-                }
-                else
-                {
-                    if (!decodeVec4(normalView, i, tmp))
-                        return false;
-                    normal[0] = static_cast<float>(tmp.x);
-                    normal[1] = static_cast<float>(tmp.y);
-                    normal[2] = static_cast<float>(tmp.z);
-                }
+                if (!readVec3(normalView, tightNormal, i, normal))
+                    return false;
                 if (flipVectors)
                     normal[0] = -normal[0];
                 std::memcpy(dst, normal, Float3Bytes);
@@ -487,20 +558,21 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
 
             if (hasUV)
             {
-                if (tightUV)
-                {
-                    std::memcpy(dst, tightUV + i, Float2Bytes);
-                }
-                else
-                {
-                    float uv[2] = {};
-                    if (!decodeVec4(*uvView, i, tmp))
-                        return false;
-                    uv[0] = static_cast<float>(tmp.x);
-                    uv[1] = static_cast<float>(tmp.y);
-                    std::memcpy(dst, uv, Float2Bytes);
-                }
+                float uv[2] = {};
+                if (!readVec2(*uvView, tightUV, i, uv))
+                    return false;
+                std::memcpy(dst, uv, Float2Bytes);
                 dst += Float2Bytes;
+            }
+
+            if (hasExtraAux)
+            {
+                if (!emitExtraAuxValues<float>(extraAuxViews, i, [&](const float* values, const uint32_t components)
+                {
+                    std::memcpy(dst, values, sizeof(float) * components);
+                    dst += sizeof(float) * components;
+                }))
+                    return false;
             }
         }
     }
@@ -518,7 +590,7 @@ bool ply_writer_detail::writeBinary(const ICPUPolygonGeometry* geom, const ICPUP
     return true;
 }
 
-bool ply_writer_detail::writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors)
+bool ply_writer_detail::writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView* uvView, const core::vector<SExtraAuxView>& extraAuxViews, bool writeNormals, size_t vertexCount, const uint32_t* indices, size_t faceCount, std::string& output, bool flipVectors)
 {
     const auto& positionView = geom->getPositionView();
     const auto& normalView = geom->getNormalView();
@@ -526,63 +598,34 @@ bool ply_writer_detail::writeText(const ICPUPolygonGeometry* geom, const ICPUPol
     const hlsl::float32_t3* const tightNormal = writeNormals ? getTightFloat3View(normalView) : nullptr;
     const hlsl::float32_t2* const tightUV = uvView ? getTightFloat2View(*uvView) : nullptr;
 
-    hlsl::float64_t4 tmp = {};
     for (size_t i = 0; i < vertexCount; ++i)
     {
         double pos[3] = {};
-        if (tightPos)
-        {
-            pos[0] = tightPos[i].x;
-            pos[1] = tightPos[i].y;
-            pos[2] = tightPos[i].z;
-        }
-        else
-        {
-            if (!decodeVec4(positionView, i, tmp))
-                return false;
-            pos[0] = tmp.x;
-            pos[1] = tmp.y;
-            pos[2] = tmp.z;
-        }
+        if (!readVec3(positionView, tightPos, i, pos))
+            return false;
         appendVec(output, pos, 3u, flipVectors);
 
         if (writeNormals)
         {
             double normal[3] = {};
-            if (tightNormal)
-            {
-                normal[0] = tightNormal[i].x;
-                normal[1] = tightNormal[i].y;
-                normal[2] = tightNormal[i].z;
-            }
-            else
-            {
-                if (!decodeVec4(normalView, i, tmp))
-                    return false;
-                normal[0] = tmp.x;
-                normal[1] = tmp.y;
-                normal[2] = tmp.z;
-            }
+            if (!readVec3(normalView, tightNormal, i, normal))
+                return false;
             appendVec(output, normal, 3u, flipVectors);
         }
 
         if (uvView)
         {
             double uv[2] = {};
-            if (tightUV)
-            {
-                uv[0] = tightUV[i].x;
-                uv[1] = tightUV[i].y;
-            }
-            else
-            {
-                if (!decodeVec4(*uvView, i, tmp))
-                    return false;
-                uv[0] = tmp.x;
-                uv[1] = tmp.y;
-            }
+            if (!readVec2(*uvView, tightUV, i, uv))
+                return false;
             appendVec(output, uv, 2u, false);
         }
+
+        if (!emitExtraAuxValues<double>(extraAuxViews, i, [&](const double* values, const uint32_t components)
+        {
+            appendVec(output, values, components, false);
+        }))
+            return false;
 
         output += "\n";
     }

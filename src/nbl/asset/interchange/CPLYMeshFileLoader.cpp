@@ -35,17 +35,18 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	if (!success)
 		return false;
 
-	char* header = buf;
-	if (strncmp(header, "ply", 3u) != 0)
+	const std::string_view fileHeader(buf, success.getBytesProcessed());
+	if (!fileHeader.starts_with("ply\n"))
 		return false;
 
-	header += 4;
-	char* lf = strstr(header, "\n");
-	if (!lf)
+	const size_t formatLineBegin = 4ull;
+	const size_t formatLineEnd = fileHeader.find('\n', formatLineBegin);
+	if (formatLineEnd == std::string_view::npos)
 		return false;
+	const std::string_view formatLine = fileHeader.substr(formatLineBegin, formatLineEnd - formatLineBegin);
 
 	constexpr std::array<std::string_view, 3> headers = { "format ascii 1.0", "format binary_little_endian 1.0", "format binary_big_endian 1.0" };
-	return std::find(headers.begin(), headers.end(), std::string_view(header, lf)) != headers.end();
+	return std::find(headers.begin(), headers.end(), formatLine) != headers.end();
 }
 
 const auto plyByteswap = [](const auto value)
@@ -55,6 +56,61 @@ const auto plyByteswap = [](const auto value)
 	std::reverse_copy(it, it + sizeof(retval), reinterpret_cast<char*>(&retval));
 	return retval;
 };
+
+inline std::string_view plyToStringView(const char* text)
+{
+	return text ? std::string_view{ text } : std::string_view{};
+}
+
+struct SPlyAABBAccumulator
+{
+	bool has = false;
+	float minX = 0.f;
+	float minY = 0.f;
+	float minZ = 0.f;
+	float maxX = 0.f;
+	float maxY = 0.f;
+	float maxZ = 0.f;
+};
+
+inline void plyAABBExtend(SPlyAABBAccumulator& aabb, const float x, const float y, const float z)
+{
+	if (!aabb.has)
+	{
+		aabb.has = true;
+		aabb.minX = x;
+		aabb.minY = y;
+		aabb.minZ = z;
+		aabb.maxX = x;
+		aabb.maxY = y;
+		aabb.maxZ = z;
+		return;
+	}
+	if (x < aabb.minX) aabb.minX = x;
+	if (y < aabb.minY) aabb.minY = y;
+	if (z < aabb.minZ) aabb.minZ = z;
+	if (x > aabb.maxX) aabb.maxX = x;
+	if (y > aabb.maxY) aabb.maxY = y;
+	if (z > aabb.maxZ) aabb.maxZ = z;
+}
+
+inline void plySetGeometryAABB(ICPUPolygonGeometry* geometry, const SPlyAABBAccumulator& aabb)
+{
+	if (!geometry || !aabb.has)
+		return;
+	geometry->visitAABB([&aabb](auto& ref)->void
+	{
+		ref = std::remove_reference_t<decltype(ref)>::create();
+		ref.minVx.x = aabb.minX;
+		ref.minVx.y = aabb.minY;
+		ref.minVx.z = aabb.minZ;
+		ref.minVx.w = 0.0;
+		ref.maxVx.x = aabb.maxX;
+		ref.maxVx.y = aabb.maxY;
+		ref.maxVx.z = aabb.maxZ;
+		ref.maxVx.w = 0.0;
+	});
+}
 
 class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
 {
@@ -77,21 +133,16 @@ class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
 		core::smart_refctd_ptr<system::IFile> m_file;
 };
 
-IGeometry<ICPUBuffer>::SDataView plyCreateMappedF32x3View(system::IFile* file, void* ptr, const size_t byteCount)
+inline IGeometry<ICPUBuffer>::SDataView plyCreateDataView(core::smart_refctd_ptr<ICPUBuffer>&& buffer, const size_t byteCount, const uint32_t stride, const E_FORMAT format)
 {
-	if (!file || !ptr || byteCount == 0ull)
+	if (!buffer || byteCount == 0ull)
 		return {};
 
-	auto keepAliveResource = core::make_smart_refctd_ptr<CPLYMappedFileMemoryResource>(core::smart_refctd_ptr<system::IFile>(file));
-	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(keepAliveResource), alignof(float) }, core::adopt_memory);
-	if (!buffer)
-		return {};
-
-	IGeometry<ICPUBuffer>::SDataView view = {
+	return {
 		.composed = {
-			.stride = sizeof(float) * 3ull,
-			.format = EF_R32G32B32_SFLOAT,
-			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+			.stride = stride,
+			.format = format,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
 		},
 		.src = {
 			.offset = 0ull,
@@ -99,68 +150,30 @@ IGeometry<ICPUBuffer>::SDataView plyCreateMappedF32x3View(system::IFile* file, v
 			.buffer = std::move(buffer)
 		}
 	};
-	return view;
 }
 
-IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU32IndexView(core::vector<uint32_t>&& indices)
+template<typename ValueType, E_FORMAT Format>
+IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedView(core::vector<ValueType>&& data)
 {
-	if (indices.empty())
+	if (data.empty())
 		return {};
 
-	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<uint32_t>>>(std::move(indices));
+	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<ValueType>>>(std::move(data));
 	auto& storage = backer->getBacker();
+	const size_t byteCount = storage.size() * sizeof(ValueType);
 	auto* const ptr = storage.data();
-	const size_t byteCount = storage.size() * sizeof(uint32_t);
-	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(uint32_t) }, core::adopt_memory);
-	if (!buffer)
-		return {};
-
-	IGeometry<ICPUBuffer>::SDataView view = {
-		.composed = {
-			.stride = sizeof(uint32_t),
-			.format = EF_R32_UINT,
-			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32_UINT)
-		},
-		.src = {
-			.offset = 0u,
-			.size = byteCount,
-			.buffer = std::move(buffer)
-		}
-	};
-	return view;
+	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(ValueType) }, core::adopt_memory);
+	return plyCreateDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(ValueType)), Format);
 }
 
-IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedU16IndexView(core::vector<uint16_t>&& indices)
+IGeometry<ICPUBuffer>::SDataView plyCreateMappedF32x3View(system::IFile* file, void* ptr, const size_t byteCount)
 {
-	if (indices.empty())
+	if (!file || !ptr || byteCount == 0ull)
 		return {};
 
-	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<uint16_t>>>(std::move(indices));
-	auto& storage = backer->getBacker();
-	auto* const ptr = storage.data();
-	const size_t byteCount = storage.size() * sizeof(uint16_t);
-	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(uint16_t) }, core::adopt_memory);
-	if (!buffer)
-		return {};
-
-	IGeometry<ICPUBuffer>::SDataView view = {
-		.composed = {
-			.stride = sizeof(uint16_t),
-			.format = EF_R16_UINT,
-			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R16_UINT)
-		},
-		.src = {
-			.offset = 0u,
-			.size = byteCount,
-			.buffer = std::move(buffer)
-		}
-	};
-	return view;
-}
-
-void plyRecomputeContentHashesParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
-{
-	recomputeGeometryContentHashesParallel(geometry, ioPolicy);
+	auto keepAliveResource = core::make_smart_refctd_ptr<CPLYMappedFileMemoryResource>(core::smart_refctd_ptr<system::IFile>(file));
+	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(keepAliveResource), alignof(float) }, core::adopt_memory);
+	return plyCreateDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(float) * 3ull), EF_R32G32B32_SFLOAT);
 }
 
 struct SContext
@@ -172,24 +185,38 @@ struct SContext
 	{
 		static E_FORMAT getType(const char* typeString)
 		{
-			if (strcmp(typeString, "char")==0 || strcmp(typeString, "int8")==0)
-				return EF_R8_SINT;
-			else if (strcmp(typeString, "uchar")==0 || strcmp(typeString, "uint8")==0)
-				return EF_R8_UINT;
-			else if (strcmp(typeString, "short")==0 || strcmp(typeString, "int16")==0)
-				return EF_R16_SINT;
-			else if (strcmp(typeString, "ushort")==0 || strcmp(typeString, "uint16")==0)
-				return EF_R16_UINT;
-			else if (strcmp(typeString, "long")==0 || strcmp(typeString, "int")==0 || strcmp(typeString, "int32")==0)
-				return EF_R32_SINT;
-			else if (strcmp(typeString, "ulong")==0 || strcmp(typeString, "uint")==0 || strcmp(typeString, "uint32")==0)
-				return EF_R32_UINT;
-			else if (strcmp(typeString, "float")==0 || strcmp(typeString, "float32")==0)
-				return EF_R32_SFLOAT;
-			else if (strcmp(typeString, "double")==0 || strcmp(typeString, "float64")==0)
+			struct STypeAlias
+			{
+				std::string_view name;
+				E_FORMAT format;
+			};
+			constexpr std::array<STypeAlias, 16> typeAliases = {{
+				{ "char", EF_R8_SINT },
+				{ "int8", EF_R8_SINT },
+				{ "uchar", EF_R8_UINT },
+				{ "uint8", EF_R8_UINT },
+				{ "short", EF_R16_SINT },
+				{ "int16", EF_R16_SINT },
+				{ "ushort", EF_R16_UINT },
+				{ "uint16", EF_R16_UINT },
+				{ "long", EF_R32_SINT },
+				{ "int", EF_R32_SINT },
+				{ "int32", EF_R32_SINT },
+				{ "ulong", EF_R32_UINT },
+				{ "uint", EF_R32_UINT },
+				{ "uint32", EF_R32_UINT },
+				{ "float", EF_R32_SFLOAT },
+				{ "float32", EF_R32_SFLOAT }
+			}};
+			const std::string_view typeName = plyToStringView(typeString);
+			for (const auto& alias : typeAliases)
+			{
+				if (alias.name == typeName)
+					return alias.format;
+			}
+			if (typeName == "double" || typeName == "float64")
 				return EF_R64_SFLOAT;
-			else
-				return EF_UNKNOWN;
+			return EF_UNKNOWN;
 		}
 
 		bool isList() const {return type==EF_UNKNOWN && asset::isIntegerFormat(list.countType) && asset::isIntegerFormat(list.itemType);}
@@ -492,7 +519,7 @@ struct SContext
 		const char* word = getNextWord();
 		if (!word)
 			return 0u;
-		const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::strlen(word);
+		const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::char_traits<char>::length(word);
 		const char* const wordEnd = word + tokenLen;
 		if (word == wordEnd)
 			return 0u;
@@ -503,11 +530,8 @@ struct SContext
 			const auto parseResult = std::from_chars(word, wordEnd, value, 10);
 			if (parseResult.ec == std::errc() && parseResult.ptr == wordEnd)
 				return static_cast<widest_int_t>(value);
-
-			char* fallbackEnd = nullptr;
-			const auto fallback = std::strtoll(word, &fallbackEnd, 10);
-			if (fallbackEnd && fallbackEnd != word)
-				return static_cast<widest_int_t>(fallback);
+			if (parseResult.ptr != word)
+				return static_cast<widest_int_t>(value);
 			return 0u;
 		}
 		else
@@ -516,11 +540,8 @@ struct SContext
 			const auto parseResult = std::from_chars(word, wordEnd, value, 10);
 			if (parseResult.ec == std::errc() && parseResult.ptr == wordEnd)
 				return static_cast<widest_int_t>(value);
-
-			char* fallbackEnd = nullptr;
-			const auto fallback = std::strtoull(word, &fallbackEnd, 10);
-			if (fallbackEnd && fallbackEnd != word)
-				return static_cast<widest_int_t>(fallback);
+			if (parseResult.ptr != word)
+				return static_cast<widest_int_t>(value);
 			return 0u;
 		}
 	}
@@ -562,7 +583,7 @@ struct SContext
 		const char* word = getNextWord();
 		if (!word)
 			return 0.0;
-		const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::strlen(word);
+		const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::char_traits<char>::length(word);
 		const char* const wordEnd = word + tokenLen;
 		if (word == wordEnd)
 			return 0.0;
@@ -571,11 +592,8 @@ struct SContext
 		const auto parseResult = fast_float::from_chars(word, wordEnd, value);
 		if (parseResult.ec == std::errc() && parseResult.ptr == wordEnd)
 			return value;
-
-		char* fallbackEnd = nullptr;
-		const auto fallback = std::strtod(word, &fallbackEnd);
-		if (fallbackEnd && fallbackEnd != word)
-			return fallback;
+		if (parseResult.ptr != word)
+			return value;
 		return 0.0;
 	}
 	// read the next thing from the file and move the start pointer along
@@ -606,9 +624,9 @@ struct SContext
 		Success,
 		Error
 	};
-	EFastVertexReadResult readVertexElementFast(const SElement& el)
+	EFastVertexReadResult readVertexElementFast(const SElement& el, SPlyAABBAccumulator* parsedAABB)
 	{
-		if (!IsBinaryFile || IsWrongEndian || el.Name != "vertex")
+		if (!IsBinaryFile || el.Name != "vertex")
 			return EFastVertexReadResult::NotApplicable;
 
 		enum class ELayoutKind : uint8_t
@@ -728,6 +746,19 @@ struct SContext
 		if (srcBytesPerVertex == 0ull || el.Count > (std::numeric_limits<size_t>::max() / srcBytesPerVertex))
 			return EFastVertexReadResult::Error;
 
+		const bool trackAABB = parsedAABB != nullptr;
+		const bool needsByteSwap = IsWrongEndian;
+		auto decodeF32 = [needsByteSwap](const uint8_t* src)->float
+		{
+			uint32_t bits = 0u;
+			std::memcpy(&bits, src, sizeof(bits));
+			if (needsByteSwap)
+				bits = plyByteswap(bits);
+			float value = 0.f;
+			std::memcpy(&value, &bits, sizeof(value));
+			return value;
+		};
+
 		size_t remainingVertices = el.Count;
 		while (remainingVertices > 0ull)
 		{
@@ -743,7 +774,7 @@ struct SContext
 			{
 				case ELayoutKind::XYZ:
 				{
-					if (posStride == 3ull * floatBytes)
+					if (posStride == 3ull * floatBytes && !needsByteSwap && !trackAABB)
 					{
 						const size_t batchBytes = batchVertices * 3ull * floatBytes;
 						std::memcpy(posBase, src, batchBytes);
@@ -754,7 +785,14 @@ struct SContext
 					{
 						for (size_t v = 0ull; v < batchVertices; ++v)
 						{
-							std::memcpy(posBase, src, 3ull * floatBytes);
+							const float x = decodeF32(src + 0ull * floatBytes);
+							const float y = decodeF32(src + 1ull * floatBytes);
+							const float z = decodeF32(src + 2ull * floatBytes);
+							reinterpret_cast<float*>(posBase)[0] = x;
+							reinterpret_cast<float*>(posBase)[1] = y;
+							reinterpret_cast<float*>(posBase)[2] = z;
+							if (trackAABB)
+								plyAABBExtend(*parsedAABB, x, y, z);
 							src += 3ull * floatBytes;
 							posBase += posStride;
 						}
@@ -765,10 +803,19 @@ struct SContext
 				{
 					for (size_t v = 0ull; v < batchVertices; ++v)
 					{
-						std::memcpy(posBase, src, 3ull * floatBytes);
+						const float x = decodeF32(src + 0ull * floatBytes);
+						const float y = decodeF32(src + 1ull * floatBytes);
+						const float z = decodeF32(src + 2ull * floatBytes);
+						reinterpret_cast<float*>(posBase)[0] = x;
+						reinterpret_cast<float*>(posBase)[1] = y;
+						reinterpret_cast<float*>(posBase)[2] = z;
+						if (trackAABB)
+							plyAABBExtend(*parsedAABB, x, y, z);
 						src += 3ull * floatBytes;
 						posBase += posStride;
-						std::memcpy(normalBase, src, 3ull * floatBytes);
+						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
+						reinterpret_cast<float*>(normalBase)[1] = decodeF32(src + 1ull * floatBytes);
+						reinterpret_cast<float*>(normalBase)[2] = decodeF32(src + 2ull * floatBytes);
 						src += 3ull * floatBytes;
 						normalBase += normalStride;
 					}
@@ -778,13 +825,23 @@ struct SContext
 				{
 					for (size_t v = 0ull; v < batchVertices; ++v)
 					{
-						std::memcpy(posBase, src, 3ull * floatBytes);
+						const float x = decodeF32(src + 0ull * floatBytes);
+						const float y = decodeF32(src + 1ull * floatBytes);
+						const float z = decodeF32(src + 2ull * floatBytes);
+						reinterpret_cast<float*>(posBase)[0] = x;
+						reinterpret_cast<float*>(posBase)[1] = y;
+						reinterpret_cast<float*>(posBase)[2] = z;
+						if (trackAABB)
+							plyAABBExtend(*parsedAABB, x, y, z);
 						src += 3ull * floatBytes;
 						posBase += posStride;
-						std::memcpy(normalBase, src, 3ull * floatBytes);
+						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
+						reinterpret_cast<float*>(normalBase)[1] = decodeF32(src + 1ull * floatBytes);
+						reinterpret_cast<float*>(normalBase)[2] = decodeF32(src + 2ull * floatBytes);
 						src += 3ull * floatBytes;
 						normalBase += normalStride;
-						std::memcpy(uvBase, src, 2ull * floatBytes);
+						reinterpret_cast<float*>(uvBase)[0] = decodeF32(src + 0ull * floatBytes);
+						reinterpret_cast<float*>(uvBase)[1] = decodeF32(src + 1ull * floatBytes);
 						src += 2ull * floatBytes;
 						uvBase += uvStride;
 					}
@@ -1002,7 +1059,7 @@ struct SContext
 		core::blake3_hash_t& outIndexHash,
 		double& outIndexHashMs)
 	{
-		if (!IsBinaryFile || IsWrongEndian)
+		if (!IsBinaryFile)
 			return EFastFaceReadResult::NotApplicable;
 		if (element.Properties.size() != 1u)
 			return EFastFaceReadResult::NotApplicable;
@@ -1022,6 +1079,7 @@ struct SContext
 			return EFastFaceReadResult::NotApplicable;
 
 		const bool is32Bit = isSrcU32 || isSrcS32;
+		const bool needEndianSwap = IsWrongEndian;
 		const size_t indexSize = is32Bit ? sizeof(uint32_t) : sizeof(uint16_t);
 		const bool hasVertexCount = vertexCount != 0u;
 		const bool trackMaxIndex = !hasVertexCount;
@@ -1042,6 +1100,22 @@ struct SContext
 			_outIndices.resize(oldSize + triIndices);
 			uint32_t* out = _outIndices.data() + oldSize;
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(StartPointer);
+			auto readU32 = [needEndianSwap](const uint8_t* src)->uint32_t
+			{
+				uint32_t value = 0u;
+				std::memcpy(&value, src, sizeof(value));
+				if (needEndianSwap)
+					value = plyByteswap(value);
+				return value;
+			};
+			auto readU16 = [needEndianSwap](const uint8_t* src)->uint16_t
+			{
+				uint16_t value = 0u;
+				std::memcpy(&value, src, sizeof(value));
+				if (needEndianSwap)
+					value = plyByteswap(value);
+				return value;
+			};
 			bool fallbackToGeneric = false;
 			if (is32Bit)
 			{
@@ -1119,10 +1193,12 @@ struct SContext
 								break;
 							}
 							++in;
-							std::memcpy(outLocal, in, 3ull * sizeof(uint32_t));
-							const uint32_t i0 = outLocal[0];
-							const uint32_t i1 = outLocal[1];
-							const uint32_t i2 = outLocal[2];
+							const uint32_t i0 = readU32(in + 0ull * sizeof(uint32_t));
+							const uint32_t i1 = readU32(in + 1ull * sizeof(uint32_t));
+							const uint32_t i2 = readU32(in + 2ull * sizeof(uint32_t));
+							outLocal[0] = i0;
+							outLocal[1] = i1;
+							outLocal[2] = i2;
 							const uint32_t triOr = (i0 | i1 | i2);
 							if (isSrcS32 && (triOr & 0x80000000u))
 							{
@@ -1215,7 +1291,9 @@ struct SContext
 								fallbackToGeneric = true;
 								break;
 							}
-							std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
+							out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+							out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+							out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
 							ptr += 3ull * sizeof(uint32_t);
 							if (out[0] > _maxIndex) _maxIndex = out[0];
 							if (out[1] > _maxIndex) _maxIndex = out[1];
@@ -1233,7 +1311,9 @@ struct SContext
 								fallbackToGeneric = true;
 								break;
 							}
-							std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
+							out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+							out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+							out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
 							ptr += 3ull * sizeof(uint32_t);
 							if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
 								return EFastFaceReadResult::Error;
@@ -1251,7 +1331,9 @@ struct SContext
 							fallbackToGeneric = true;
 							break;
 						}
-						std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
+						out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+						out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+						out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
 						ptr += 3ull * sizeof(uint32_t);
 						if ((out[0] | out[1] | out[2]) & 0x80000000u)
 							return EFastFaceReadResult::Error;
@@ -1271,7 +1353,9 @@ struct SContext
 							fallbackToGeneric = true;
 							break;
 						}
-						std::memcpy(out, ptr, 3ull * sizeof(uint32_t));
+						out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+						out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+						out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
 						ptr += 3ull * sizeof(uint32_t);
 						const uint32_t triOr = (out[0] | out[1] | out[2]);
 						if (triOr & 0x80000000u)
@@ -1296,12 +1380,10 @@ struct SContext
 								fallbackToGeneric = true;
 								break;
 							}
-							uint16_t tri[3] = {};
-							std::memcpy(tri, ptr, sizeof(tri));
-							ptr += sizeof(tri);
-							out[0] = tri[0];
-							out[1] = tri[1];
-							out[2] = tri[2];
+							out[0] = readU16(ptr + 0ull * sizeof(uint16_t));
+							out[1] = readU16(ptr + 1ull * sizeof(uint16_t));
+							out[2] = readU16(ptr + 2ull * sizeof(uint16_t));
+							ptr += 3ull * sizeof(uint16_t);
 							if (out[0] > _maxIndex) _maxIndex = out[0];
 							if (out[1] > _maxIndex) _maxIndex = out[1];
 							if (out[2] > _maxIndex) _maxIndex = out[2];
@@ -1318,12 +1400,10 @@ struct SContext
 								fallbackToGeneric = true;
 								break;
 							}
-							uint16_t tri[3] = {};
-							std::memcpy(tri, ptr, sizeof(tri));
-							ptr += sizeof(tri);
-							out[0] = tri[0];
-							out[1] = tri[1];
-							out[2] = tri[2];
+							out[0] = readU16(ptr + 0ull * sizeof(uint16_t));
+							out[1] = readU16(ptr + 1ull * sizeof(uint16_t));
+							out[2] = readU16(ptr + 2ull * sizeof(uint16_t));
+							ptr += 3ull * sizeof(uint16_t);
 							if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
 								return EFastFaceReadResult::Error;
 							out += 3;
@@ -1340,14 +1420,15 @@ struct SContext
 							fallbackToGeneric = true;
 							break;
 						}
-						int16_t tri[3] = {};
-						std::memcpy(tri, ptr, sizeof(tri));
-						ptr += sizeof(tri);
-						if ((static_cast<uint16_t>(tri[0]) | static_cast<uint16_t>(tri[1]) | static_cast<uint16_t>(tri[2])) & 0x8000u)
+						const uint16_t t0 = readU16(ptr + 0ull * sizeof(uint16_t));
+						const uint16_t t1 = readU16(ptr + 1ull * sizeof(uint16_t));
+						const uint16_t t2 = readU16(ptr + 2ull * sizeof(uint16_t));
+						ptr += 3ull * sizeof(uint16_t);
+						if ((t0 | t1 | t2) & 0x8000u)
 							return EFastFaceReadResult::Error;
-						out[0] = static_cast<uint32_t>(tri[0]);
-						out[1] = static_cast<uint32_t>(tri[1]);
-						out[2] = static_cast<uint32_t>(tri[2]);
+						out[0] = static_cast<uint32_t>(t0);
+						out[1] = static_cast<uint32_t>(t1);
+						out[2] = static_cast<uint32_t>(t2);
 						if (out[0] > _maxIndex) _maxIndex = out[0];
 						if (out[1] > _maxIndex) _maxIndex = out[1];
 						if (out[2] > _maxIndex) _maxIndex = out[2];
@@ -1364,14 +1445,15 @@ struct SContext
 							fallbackToGeneric = true;
 							break;
 						}
-						int16_t tri[3] = {};
-						std::memcpy(tri, ptr, sizeof(tri));
-						ptr += sizeof(tri);
-						if ((static_cast<uint16_t>(tri[0]) | static_cast<uint16_t>(tri[1]) | static_cast<uint16_t>(tri[2])) & 0x8000u)
+						const uint16_t t0 = readU16(ptr + 0ull * sizeof(uint16_t));
+						const uint16_t t1 = readU16(ptr + 1ull * sizeof(uint16_t));
+						const uint16_t t2 = readU16(ptr + 2ull * sizeof(uint16_t));
+						ptr += 3ull * sizeof(uint16_t);
+						if ((t0 | t1 | t2) & 0x8000u)
 							return EFastFaceReadResult::Error;
-						out[0] = static_cast<uint32_t>(tri[0]);
-						out[1] = static_cast<uint32_t>(tri[1]);
-						out[2] = static_cast<uint32_t>(tri[2]);
+						out[0] = static_cast<uint32_t>(t0);
+						out[1] = static_cast<uint32_t>(t1);
+						out[2] = static_cast<uint32_t>(t2);
 						if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
 							return EFastFaceReadResult::Error;
 						out += 3;
@@ -1409,7 +1491,7 @@ struct SContext
 			outCount = static_cast<uint8_t>(*StartPointer++);
 			return true;
 		};
-		auto readIndex = [&ensureBytes, this, is32Bit, isSrcU32, isSrcU16](uint32_t& out)->bool
+		auto readIndex = [&ensureBytes, this, is32Bit, isSrcU32, isSrcU16, needEndianSwap](uint32_t& out)->bool
 		{
 			if (is32Bit)
 			{
@@ -1418,11 +1500,15 @@ struct SContext
 				if (isSrcU32)
 				{
 					std::memcpy(&out, StartPointer, sizeof(uint32_t));
+					if (needEndianSwap)
+						out = plyByteswap(out);
 				}
 				else
 				{
 					int32_t v = 0;
 					std::memcpy(&v, StartPointer, sizeof(v));
+					if (needEndianSwap)
+						v = plyByteswap(v);
 					if (v < 0)
 						return false;
 					out = static_cast<uint32_t>(v);
@@ -1437,12 +1523,16 @@ struct SContext
 			{
 				uint16_t v = 0u;
 				std::memcpy(&v, StartPointer, sizeof(uint16_t));
+				if (needEndianSwap)
+					v = plyByteswap(v);
 				out = v;
 			}
 			else
 			{
 				int16_t v = 0;
 				std::memcpy(&v, StartPointer, sizeof(int16_t));
+				if (needEndianSwap)
+					v = plyByteswap(v);
 				if (v < 0)
 					return false;
 				out = static_cast<uint32_t>(v);
@@ -1587,6 +1677,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	// start with empty mesh
 	auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	SPlyAABBAccumulator parsedAABB = {};
 	uint32_t vertCount=0;
 	core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers;
 	std::jthread deferredPositionHashThread;
@@ -1643,7 +1734,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	};
 
 	// Currently only supports ASCII or binary meshes
-	if (strcmp(ctx.getNextLine(),"ply"))
+	if (plyToStringView(ctx.getNextLine()) != "ply")
 	{
 		_params.logger.log("Not a valid PLY file %s", system::ILogger::ELL_ERROR,ctx.inner.mainFile->getFileName().string().c_str());
 		return {};
@@ -1654,7 +1745,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	// grab the word from this line
 	const char* word = ctx.getNextWord();
 	// ignore comments
-	for (; strcmp(word,"comment")==0; ctx.getNextLine())
+	for (; plyToStringView(word) == "comment"; ctx.getNextLine())
 		word = ctx.getNextWord();
 
 	bool readingHeader = true;
@@ -1665,7 +1756,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	do
 	{
-		if (strcmp(word,"property") == 0)
+		const std::string_view wordView = plyToStringView(word);
+		if (wordView == "property")
 		{
 			word = ctx.getNextWord();
 
@@ -1715,46 +1807,46 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				prop.Name = ctx.getNextWord();
 			}
 		}
-		else if (strcmp(word,"element")==0)
+		else if (wordView == "element")
 		{
 			auto& el = ctx.ElementList.emplace_back();
 			el.Name = ctx.getNextWord();
 			const char* const countWord = ctx.getNextWord();
 			uint64_t parsedCount = 0ull;
-			if (countWord)
+			const std::string_view countWordView = plyToStringView(countWord);
+			if (!countWordView.empty())
 			{
-				const char* const countWordEnd = countWord + std::strlen(countWord);
-				const auto parseResult = std::from_chars(countWord, countWordEnd, parsedCount, 10);
+				const char* const countWordBegin = countWordView.data();
+				const char* const countWordEnd = countWordBegin + countWordView.size();
+				const auto parseResult = std::from_chars(countWordBegin, countWordEnd, parsedCount, 10);
 				if (!(parseResult.ec == std::errc() && parseResult.ptr == countWordEnd))
-				{
-					char* fallbackEnd = nullptr;
-					parsedCount = std::strtoull(countWord, &fallbackEnd, 10);
-				}
+					parsedCount = 0ull;
 			}
 			el.Count = static_cast<size_t>(parsedCount);
 			el.KnownSize = 0;
 			if (el.Name=="vertex")
 				vertCount = el.Count;
 		}
-		else if (strcmp(word,"comment")==0)
+		else if (wordView == "comment")
 		{
 			// ignore line
 		}
 		// must be `format {binary_little_endian|binary_big_endian|ascii} 1.0`
-		else if (strcmp(word,"format") == 0)
+		else if (wordView == "format")
 		{
 			word = ctx.getNextWord();
+			const std::string_view formatView = plyToStringView(word);
 
-			if (strcmp(word, "binary_little_endian") == 0)
+			if (formatView == "binary_little_endian")
 			{
 				ctx.IsBinaryFile = true;
 			}
-			else if (strcmp(word, "binary_big_endian") == 0)
+			else if (formatView == "binary_big_endian")
 			{
 				ctx.IsBinaryFile = true;
 				ctx.IsWrongEndian = true;
 			}
-			else if (strcmp(word, "ascii")==0)
+			else if (formatView == "ascii")
 			{
 			}
 			else
@@ -1767,13 +1859,13 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (continueReading)
 			{
 				word = ctx.getNextWord();
-				if (strcmp(word, "1.0"))
+				if (plyToStringView(word) != "1.0")
 				{
 					_params.logger.log("Unsupported PLY mesh version %s",system::ILogger::ELL_WARNING,word);
 				}
 			}
 		}
-		else if (strcmp(word,"end_header")==0)
+		else if (wordView == "end_header")
 		{
 			readingHeader = false;
 			if (ctx.IsBinaryFile)
@@ -1850,6 +1942,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				if (!mappedPosView)
 					return {};
 				geometry->setPositionView(std::move(mappedPosView));
+				const auto* xyz = reinterpret_cast<const float*>(ctx.StartPointer);
+				for (size_t v = 0ull; v < el.Count; ++v)
+					plyAABBExtend(parsedAABB, xyz[v * 3ull + 0ull], xyz[v * 3ull + 1ull], xyz[v * 3ull + 2ull]);
 				hashViewBufferIfNeeded(geometry->getPositionView());
 				tryLaunchDeferredHash(geometry->getPositionView(), deferredPositionHashThread);
 				ctx.StartPointer += mappedBytes;
@@ -2089,7 +2184,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				geometry->getAuxAttributeViews()->push_back(std::move(view));
 			// loop through vertex properties
 			const auto vertexStart = clock_t::now();
-			const auto fastVertexResult = ctx.readVertexElementFast(el);
+			const auto fastVertexResult = ctx.readVertexElementFast(el, &parsedAABB);
 			if (fastVertexResult == SContext::EFastVertexReadResult::Success)
 			{
 				++fastVertexElementCount;
@@ -2171,7 +2266,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 
 	const auto aabbStart = clock_t::now();
-	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
+	if (parsedAABB.has)
+		plySetGeometryAABB(geometry.get(), parsedAABB);
+	else
+		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 	aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
 
 	const uint64_t indexCount = static_cast<uint64_t>(indices.size());
@@ -2196,7 +2294,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			core::vector<uint16_t> indices16(indices.size());
 			for (size_t i = 0u; i < indices.size(); ++i)
 				indices16[i] = static_cast<uint16_t>(indices[i]);
-			auto view = plyCreateAdoptedU16IndexView(std::move(indices16));
+			auto view = plyCreateAdoptedView<uint16_t, EF_R16_UINT>(std::move(indices16));
 			if (!view)
 				return {};
 			geometry->setIndexView(std::move(view));
@@ -2204,7 +2302,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			auto view = plyCreateAdoptedU32IndexView(std::move(indices));
+			auto view = plyCreateAdoptedView<uint32_t, EF_R32_UINT>(std::move(indices));
 			if (!view)
 				return {};
 			if (precomputedIndexHash != IPreHashed::INVALID_HASH)
@@ -2220,7 +2318,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (deferredPositionHashThread.joinable())
 			deferredPositionHashThread.join();
 		const auto hashStart = clock_t::now();
-		plyRecomputeContentHashesParallel(geometry.get(), _params.ioPolicy);
+		recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 		hashRangeMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 	}
 	else
