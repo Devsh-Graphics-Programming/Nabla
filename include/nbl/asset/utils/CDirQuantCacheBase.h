@@ -298,7 +298,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			if (!file)
 				return false;
 
-			auto buffer = asset::ICPUBuffer::create({ file->getSize() });
+			auto buffer = asset::ICPUBuffer::create({ {file->getSize(), {}} });
 
 			system::IFile::success_t succ;
 			file->read(succ, buffer->getPointer(), 0, file->getSize());
@@ -347,7 +347,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			asset::SBufferRange<asset::ICPUBuffer> bufferRange;
 			bufferRange.offset = 0;
 			bufferRange.size = getSerializedCacheSizeInBytes<CacheFormat>();
-			bufferRange.buffer = asset::ICPUBuffer::create({ bufferRange.size });
+			bufferRange.buffer = asset::ICPUBuffer::create({ {bufferRange.size, {}} });
 		
 			saveCacheToBuffer<CacheFormat>(bufferRange);
 
@@ -484,7 +484,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				for (auto corn=0u; corn<cornerCount; corn++)
 				{
 					const auto* coordIt = localCorner[corn];
-					for (auto i=0; i<dimensions; i++)
+					for (uint32_t i=0; i<dimensions; i++)
 					if (i!=maxDirCompIndex)
 						corners[corn][i] = *(coordIt++);
 				}

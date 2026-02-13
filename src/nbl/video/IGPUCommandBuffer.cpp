@@ -6,6 +6,7 @@
 #include "nbl/logging_macros.h"
 
 #include "nbl/builtin/hlsl/indirect_commands.hlsl"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 namespace nbl::video
 {
@@ -690,7 +691,14 @@ bool IGPUCommandBuffer::invalidShaderGroups(const IGPURayTracingPipeline::SShade
         return true;
 
     using PipelineFlag = IGPURayTracingPipeline::SCreationParams::FLAGS;
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif
     using PipelineFlags = core::bitflag<PipelineFlag>;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
     const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
     auto invalidBufferRegion = [this, &limits](const asset::SStridedRange<const IGPUBuffer>& stRange, const char* groupName) -> bool
@@ -1036,7 +1044,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(
             NBL_LOG_ERROR("pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", i);
             return false;
         }
-        if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayout(firstSet + i)))
+        if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayouts()[firstSet + i]))
         {
             NBL_LOG_ERROR("pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!", i, firstSet+i);
             return false;
@@ -1308,7 +1316,7 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
         return false;
     }
 
-    assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
+    assert(hlsl::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteTimestampCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
     {
@@ -1575,7 +1583,7 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
             return false;
         }
     }
-    for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
+    for (size_t i=0; i<sizeof(info.clearColorMask)*8; i++)
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
         if (info.clearColor(i) && !subpass.colorAttachments[i].render.used())

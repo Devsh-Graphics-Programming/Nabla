@@ -199,7 +199,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 						verticesB = reinterpret_cast<const uint8_t*>(triangles.vertexData[1].buffer->getPointer())+triangles.vertexData[1].offset;
 					auto hashIndices = [&]<typename IndexType>() -> void
 					{
-						for (auto i=0; i<indexCount; i++)
+						for (uint32_t i=0; i<indexCount; i++)
 						{
 							uint32_t vertexIndex = i;
 							if constexpr (std::is_integral_v<IndexType>)
@@ -228,7 +228,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 
 		inline bool missingContent() const override
 		{
-			return !m_geometryPrimitiveCount || !m_triangleGeoms && !m_AABBGeoms;
+			return !m_geometryPrimitiveCount || (!m_triangleGeoms && !m_AABBGeoms);
 		}
 
 		inline bool valid() const override
@@ -351,7 +351,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		inline bool usesMotion() const override
 		{
 			for (const auto& instance : *m_instances)
-			if (instance.getType()!=INSTANCE_TYPE::STATIC || instance.getBase().blas && instance.getBase().blas->usesMotion())
+			if (instance.getType()!=INSTANCE_TYPE::STATIC || (instance.getBase().blas && instance.getBase().blas->usesMotion()))
 				return true;
 			return false;
 		}

@@ -8,6 +8,12 @@
 #include "nbl/video/CVulkanQueryPool.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wsign-compare"
+#endif
 
 using namespace nbl;
 using namespace nbl::video;
@@ -201,7 +207,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
                 bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
                 bindImageInfo.binding.memory = ret.memory.get();
                 bindImageInfo.binding.offset = ret.offset;
-                dedicationSuccess = bindImageMemory(1u,&bindImageInfo);
+                dedicationSuccess = bindImageMemory(std::span(&bindImageInfo, 1u));
             }
                 break;
         }
@@ -651,7 +657,7 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 }
 
 // a lot of empirical research went into defining this constant
-constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
+// constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
 
 void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params)
 {
@@ -1472,7 +1478,14 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     const SSpecializationValidationResult& validation
 )
 {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif
     using SShaderGroupParams = IGPURayTracingPipeline::SCreationParams::SShaderGroupsParams;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
     using SHitShaderGroup = IGPURayTracingPipeline::SHitGroup;
 
     const auto dynamicStates = std::array{ VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR };
@@ -1697,3 +1710,7 @@ core::smart_refctd_ptr<IGPUCommandPool> CVulkanLogicalDevice::createCommandPool_
         return core::make_smart_refctd_ptr<CVulkanCommandPool>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),flags,familyIx,vk_commandPool);
     return nullptr;
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

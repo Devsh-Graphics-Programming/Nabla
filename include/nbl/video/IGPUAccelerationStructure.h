@@ -11,6 +11,7 @@
 #include "nbl/video/IGPUBuffer.h"
 
 #include "nbl/builtin/hlsl/acceleration_structures.hlsl"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 
 namespace nbl::video
@@ -221,7 +222,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 
 					const size_t vertexSize = asset::getTexelOrBlockBytesize(geometry.vertexFormat);
 					// TODO: improve in line with the spec https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03711
-					const size_t vertexAlignment = core::max(core::roundDownToPoT(vertexSize/asset::getFormatChannelCount(geometry.vertexFormat)),1ull);
+					const size_t vertexAlignment = core::max(hlsl::roundDownToPoT(vertexSize/asset::getFormatChannelCount(geometry.vertexFormat)),1ull);
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03735
 					if (!core::is_aligned_to(geometry.vertexStride,vertexAlignment))
 						return false;
@@ -448,7 +449,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 							return false;
 				
 						const bool arrayOfPointers = instanceDataTypeEncodedInPointersLSB;
-						constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
+						[[maybe_unused]] constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
 						// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
 						const size_t instanceSize = arrayOfPointers ? sizeof(void*):(
 							dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
@@ -709,7 +710,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			if (!tracked || !pBLASes)
 				return;
 			auto it = pBLASes->begin();
-			for (auto i = 0; i<origCount; i++)
+			for (uint32_t i = 0; i<origCount; i++)
 				*(tracked++) = *(it++);
 		}
 		// Useful if TLAS got built externally as well

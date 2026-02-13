@@ -81,7 +81,6 @@ class NBL_API2 CWindowWin32 final : public IWindowWin32
 
 		inline core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)
 		{
-			RAWINPUT;
 			auto it = m_mouseEventChannels.find(deviceHandle);
 			auto channel = std::move(it->second);
 			m_mouseEventChannels.erase(it);

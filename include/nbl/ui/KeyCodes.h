@@ -207,6 +207,7 @@ constexpr char keyCodeToChar(E_KEY_CODE code, bool shiftPressed)
 			case EKC_CLOSE_BRACKET: result = ']'; break;
 			case EKC_BACKSLASH: result = '\\'; break;
 			case EKC_APOSTROPHE: result = '\''; break;
+			default: break;
 		}
 	}
 	else
@@ -261,6 +262,7 @@ constexpr char keyCodeToChar(E_KEY_CODE code, bool shiftPressed)
 			case EKC_CLOSE_BRACKET: result = '}'; break;
 			case EKC_BACKSLASH: result = '|'; break;
 			case EKC_APOSTROPHE: result = '\"'; break;
+			default: break;
 		}
 	}
 	return result;

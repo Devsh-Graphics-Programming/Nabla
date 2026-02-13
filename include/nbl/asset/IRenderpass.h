@@ -221,7 +221,7 @@ class NBL_API2 IRenderpass
                     };
                     // The arrays pointed to by this array must be terminated by `PreserveAttachmentsEnd` value, which implicitly satisfies:
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-03073
-                    constexpr static inline SPreserveAttachmentRef PreserveAttachmentsEnd = {0,AttachmentUnused};
+                    constexpr static inline SPreserveAttachmentRef PreserveAttachmentsEnd = {0,AttachmentUnused&0x7FFFFFFFu};
                     const SPreserveAttachmentRef* preserveAttachments = &PreserveAttachmentsEnd; // TODO: redesign
 
                     // TODO: shading rate attachment
@@ -508,7 +508,7 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
     retval.viewMaskMSB = hlsl::findMSB(params.subpasses[0].viewMask);
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-viewMask-03057
     if (!retval.hasViewMasks())
-    for (auto i=0; i<SCreationParams::MaxMultiviewViewCount; i++)
+    for (uint32_t i=0; i<SCreationParams::MaxMultiviewViewCount; i++)
     if (params.viewCorrelationGroup[i]!=SCreationParams::vcg_init)
         return retval;
 
@@ -518,7 +518,7 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
         retval.subpassCount = 0; return false;
     };
 
-    core::visit_token_terminated_array(params.depthStencilAttachments,SCreationParams::DepthStencilAttachmentsEnd,[&params,setRetvalFalse,&retval](const SCreationParams::SDepthStencilAttachmentDescription& attachment)->bool
+    core::visit_token_terminated_array(params.depthStencilAttachments,SCreationParams::DepthStencilAttachmentsEnd,[setRetvalFalse,&retval](const SCreationParams::SDepthStencilAttachmentDescription& attachment)->bool
     {
         if (!attachment.valid())
             return setRetvalFalse();
@@ -527,7 +527,7 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
     });
     if (!retval)
         return retval;
-    core::visit_token_terminated_array(params.colorAttachments,SCreationParams::ColorAttachmentsEnd,[&params,setRetvalFalse,&retval](const SCreationParams::SColorAttachmentDescription& attachment)->bool
+    core::visit_token_terminated_array(params.colorAttachments,SCreationParams::ColorAttachmentsEnd,[setRetvalFalse,&retval](const SCreationParams::SColorAttachmentDescription& attachment)->bool
     {
         if (!attachment.valid())
             return setRetvalFalse();

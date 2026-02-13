@@ -55,8 +55,8 @@ class ISkeleton : public virtual core::IReferenceCounted
 
 	protected:
 		ISkeleton(SBufferBinding<BufferType>&& _parentJointIDsBinding, SBufferBinding<BufferType>&& _defaultTransforms, const joint_id_t _jointCount = 0u)
-			:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr), m_jointCount(_jointCount),
-				m_parentJointIDs(std::move(_parentJointIDsBinding)), m_defaultTransforms(std::move(_defaultTransforms))
+			:	m_nameToJointID(), m_stringPoolSize(0ull), m_stringPool(nullptr),
+				m_parentJointIDs(std::move(_parentJointIDsBinding)), m_defaultTransforms(std::move(_defaultTransforms)), m_jointCount(_jointCount)
 		{
 			if (m_jointCount==0u)
 				return;

@@ -59,7 +59,7 @@ void* DefaultFuncPtrLoader::loadFuncPtr(const char* funcname)
 	if (isLibraryLoaded())
 	{
 	#if defined(_NBL_WINDOWS_API_)
-		return GetProcAddress(LIB,funcname);
+		return reinterpret_cast<void*>(GetProcAddress(LIB,funcname));
 	#elif defined(_NBL_POSIX_API_)
 		return dlsym(lib,funcname);
 	#endif

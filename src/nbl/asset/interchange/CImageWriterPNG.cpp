@@ -46,7 +46,7 @@ static void png_cpexcept_warning(png_structp png_ptr, png_const_charp msg)
 // PNG function for file writing
 void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t length)
 {
-	png_size_t check;
+	[[maybe_unused]] png_size_t check;
 
 	system::IFile* file=(system::IFile*)png_get_io_ptr(png_ptr);
 	//check=(png_size_t) file->write((const void*)data,(uint32_t)length);

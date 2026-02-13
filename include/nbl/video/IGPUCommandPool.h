@@ -269,7 +269,7 @@ class IGPUCommandPool : public IBackendObject
                 } m_header;
 
             public:
-                static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
+                static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - hlsl::roundUp(sizeof(header_t), alignof(ICommand));
 
                 CCommandSegment(CCommandSegment* prev):
                     m_header(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE)
@@ -337,7 +337,14 @@ class IGPUCommandPool : public IBackendObject
                 void wipeNextCommandSize()
                 {
                     const auto nextCmdOffset = m_header.commandAllocator.get_allocated_size();
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winvalid-offsetof"
+#endif
                     const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
                     if (wipeEnd < m_header.commandAllocator.get_total_size())
                         *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
                 }
@@ -517,7 +524,7 @@ class IGPUCommandPool::CBindDescriptorSetsCmd final : public IFixedSizeCommand<C
         CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const IGPUDescriptorSet* const* const sets)
             : m_layout(std::move(pipelineLayout))
         {
-            for (auto i = 0; i < setCount; ++i)
+            for (uint32_t i = 0; i < setCount; ++i)
             {
                 assert(i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
                 m_sets[i] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(sets[i]);
@@ -620,7 +627,7 @@ class IGPUCommandPool::CBindVertexBuffersCmd final : public IFixedSizeCommand<CB
     public:
         CBindVertexBuffersCmd(const uint32_t count, const asset::SBufferBinding<const IGPUBuffer>* const pBindings)
         {
-            for (auto i=0; i<count; ++i)
+            for (uint32_t i=0; i<count; ++i)
                 m_buffers[i] = core::smart_refctd_ptr<const IGPUBuffer>(pBindings[i].buffer);
         }
 

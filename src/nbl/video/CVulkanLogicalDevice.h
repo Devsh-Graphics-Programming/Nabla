@@ -32,6 +32,12 @@
 #include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanRayTracingPipeline.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 namespace nbl::video
 {
 
@@ -78,7 +84,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
 
-        inline const void* getNativeHandle() const {return &m_vkdev;}
+        inline const void* getNativeHandle() const override {return &m_vkdev;}
         VkDevice getInternalObject() const {return m_vkdev;}
 
     private:
@@ -321,5 +327,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 };
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 #endif

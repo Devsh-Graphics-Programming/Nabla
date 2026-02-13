@@ -38,7 +38,14 @@ protected:
 
     explicit CConstantRuntimeSizedCircularBufferBase(size_t cap) : m_mem(nullptr), m_capacity(cap)
     {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
         assert(core::isPoT(cap));
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
         const size_t s = sizeof(T) * m_capacity;
         m_mem = _NBL_ALIGNED_MALLOC(s, Alignment);
@@ -47,7 +54,16 @@ protected:
         auto n_blocks = numberOfFlagBlocksNeeded(cap);
         m_flags = std::make_unique<atomic_alive_flags_block_t[]>(n_blocks);
         for (size_t i = 0u; i < n_blocks; ++i)
+        {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
             std::atomic_init(m_flags.get() + i, 0ul);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+        }
     }
 
     T* getStorage()
@@ -96,7 +112,14 @@ private:
 template <typename T, size_t S>
 class CCompileTimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
     static_assert(core::isPoT(S), "Circular buffer capacity must be PoT!");
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
     static constexpr inline auto StorageSize = sizeof(T) * S;
 
@@ -334,7 +357,7 @@ public:
         #ifdef _NBL_DEBUG
             if constexpr (!AllowOverflows)
             {
-                bool alive = isAlive(ix);
+                [[maybe_unused]] bool alive = isAlive(ix);
                 assert(alive);
             }
         #endif

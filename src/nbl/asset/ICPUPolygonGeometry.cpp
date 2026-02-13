@@ -69,7 +69,7 @@ class CTriangleStripIndexingCB final : public IPolygonGeometryBase::IIndexingCal
             else
                 indexOfIndex = ctx.beginPrimitive+2;
             const int32_t perm[] = {-1,-2,0};
-            for (const auto end=ctx.endPrimitive+2; indexOfIndex!=end; indexOfIndex++)
+            for (const auto end=ctx.endPrimitive+2; std::cmp_not_equal(indexOfIndex, end); indexOfIndex++)
                 ctx.streamOut(indexOfIndex,perm);
         }
 
@@ -102,7 +102,7 @@ class CTriangleFanIndexingCB final : public IPolygonGeometryBase::IIndexingCallb
             else
                 indexOfIndex = ctx.beginPrimitive+2;
             int32_t perm[] = {0x7eadbeefu,-1,0};
-            for (const auto end=ctx.endPrimitive+2; indexOfIndex!=end; indexOfIndex++)
+            for (const auto end=ctx.endPrimitive+2; std::cmp_not_equal(indexOfIndex, end); indexOfIndex++)
             {
                 // first index is always global 0
                 perm[0] = -indexOfIndex;

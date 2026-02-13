@@ -2,8 +2,20 @@
 // This file is part of the "Nabla Engine".
 #include "nbl/video/utilities/CAssetConverter.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 #include <type_traits>
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+#pragma clang diagnostic ignored "-Wsign-compare"
+#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+#pragma clang diagnostic ignored "-Wbitfield-constant-conversion"
+#pragma clang diagnostic ignored "-Wunused-lambda-capture"
+#endif
 
 using namespace nbl::core;
 using namespace nbl::asset;
@@ -519,7 +531,7 @@ class AssetVisitor : public CRTP
 		inline bool impl(const instance_t<ICPUPipelineLayout>& instance, const CAssetConverter::patch_t<ICPUPipelineLayout>& userPatch)
 		{
 			// individual DS layouts are optional
-			for (auto i=0; i<ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+			for (uint32_t i=0; i<ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
 			{
 				if (auto layout=instance.asset->getDescriptorSetLayout(i); layout)
 				{
@@ -609,7 +621,7 @@ class AssetVisitor : public CRTP
 				const auto& redirect = layout->getDescriptorRedirect(type);
 				const auto bindingCount = redirect.getBindingCount();
 				// go over every binding
-				for (auto j=0; j<bindingCount; j++)
+				for (uint32_t j=0; j<bindingCount; j++)
 				{
 					const IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t storageRangeIx(j);
 					const auto binding = redirect.getBinding(storageRangeIx);
@@ -1440,7 +1452,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass>
 				hasher << layout.stencil;
 		};
 
-		for (auto i=0; i<asset->getDepthStencilAttachmentCount(); i++)
+		for (uint32_t i=0; i<asset->getDepthStencilAttachmentCount(); i++)
 		{
 			auto entry = params.depthStencilAttachments[i];
 			if (!entry.valid())
@@ -1460,7 +1472,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass>
 			hashLayout(entry.format,entry.initialLayout);
 			hashLayout(entry.format,entry.finalLayout);
 		}
-		for (auto i=0; i<asset->getColorAttachmentCount(); i++)
+		for (uint32_t i=0; i<asset->getColorAttachmentCount(); i++)
 		{
 			const auto& entry = params.colorAttachments[i];
 			if (!entry.valid())
@@ -1474,7 +1486,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass>
 			hasher << ref.attachmentIndex;
 			hashLayout(params.depthStencilAttachments[ref.attachmentIndex].format,ref.layout);
 		};
-		for (auto i=0; i<asset->getSubpassCount(); i++)
+		for (uint32_t i=0; i<asset->getSubpassCount(); i++)
 		{
 			const auto& entry = params.subpasses[i];
 			const auto depthStencilRenderAtt = entry.depthStencilAttachment.render;
@@ -1542,7 +1554,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUGraphicsPip
 
 	const auto& params = asset->getCachedCreationParams();
 	{
-		for (auto i=0; i<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; i++)
+		for (size_t i=0; i<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; i++)
 		if (params.vertexInput.enabledAttribFlags&(0x1u<<i))
 		{
 			const auto& attribute = params.vertexInput.attributes[i];
@@ -1630,7 +1642,6 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUDescriptorS
 		for (const auto& info : infos)
 		if (const auto* untypedDesc=info.desc.get(); untypedDesc)
 		{
-			core::blake3_hash_t descHash = NoContentHash;
 			switch (IDescriptor::GetTypeCategory(type))
 			{
 				case IDescriptor::EC_BUFFER:
@@ -2217,6 +2228,8 @@ public:
         return &hitGroups.intersections;
       case hlsl::ShaderStage::ESS_CALLABLE:
         return &callables;
+      default:
+        break;
     }
     return nullptr;
   }
@@ -2446,7 +2459,7 @@ class MetaDeviceMemoryAllocator final
 							const auto* memBacked = getAsBase(binItems[i]);
 							const auto& memReqs = memBacked->getMemoryReqs();
 							// round up the offset to get the correct alignment
-							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
+							offsetsTmp[i] = hlsl::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
 							// record next offset
 							if (i<binItemCount-1)
 								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;
@@ -2865,7 +2878,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						.device = device,
 						.dfsCaches = dfsCaches,
 						.stack = stack
-					}.descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
+					}.template descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
 				}
 			};
 			core::for_each_in_tuple(inputs.assets,initialize);
@@ -2874,7 +2887,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			auto visit = [&]<Asset AssetType>(const patched_instance_t& user)->void
 			{
 				// we don't use the result yet
-				const bool success = AssetVisitor<DFSVisitor<AssetType>>{
+				[[maybe_unused]] const bool success = AssetVisitor<DFSVisitor<AssetType>>{
 					{
 						.inputs = inputs,
 						.device = device,
@@ -3015,7 +3028,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				}
 			);
 			// special pass to propagate Motion Acceleration Structure flag upwards from BLAS to referencing TLAS
-			std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches).for_each([device,&inputs,&dfsCaches](const instance_t<ICPUTopLevelAccelerationStructure>& assetInstance, dfs_cache<ICPUTopLevelAccelerationStructure>::created_t& created)->void
+			std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches).for_each([&inputs,&dfsCaches](const instance_t<ICPUTopLevelAccelerationStructure>& assetInstance, dfs_cache<ICPUTopLevelAccelerationStructure>::created_t& created)->void
 				{
 					auto& patch = created.patch;
 					// we already have motion, can stop searching
@@ -3205,7 +3218,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						IGPUBuffer::SCreationParams params = {};
 						constexpr size_t MinASBufferAlignment = 256u;
-						params.size = core::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
+						params.size = hlsl::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
 						params.usage = IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT;
 						// concurrent ownership if any
 						const auto queueFamilies = inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
@@ -3417,7 +3430,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					core::vector<core::smart_refctd_ptr<IGPUSampler>> immutableSamplers(asset->getImmutableSamplers().size());
 					{
 						const auto& immutableSamplerRedirects = asset->getImmutableSamplerRedirect();
-						auto outImmutableSamplers = immutableSamplers.data();
+						[[maybe_unused]] auto outImmutableSamplers = immutableSamplers.data();
 						for (auto j=0u; j<immutableSamplerRedirects.getBindingCount(); j++)
 						{
 							const storage_range_index_t storageRangeIx(j);
@@ -3591,13 +3604,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							SShaderEntryMap tesselationEvaluationEntryMap;
 							SShaderEntryMap geometryEntryMap;
 							SShaderEntryMap fragmentEntryMap;
-							bool depNotFound = false;
 							{
 								params.layout = visitor.layout;
 								params.renderpass = visitor.renderpass;
 								// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to match the slot here
-								using stage_t = hlsl::ShaderStage;
-                using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
+								using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
 								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), &vertexEntryMap);
 								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), &tesselationControlEntryMap);
 								params.tesselationEvaluationShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_EVALUATION), &tesselationEvaluationEntryMap);
@@ -3638,7 +3649,14 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							// no derivatives, special flags, etc.
 							IGPURayTracingPipeline::SCreationParams params = {};
 							using SShaderEntryMap = IGPUPipelineBase::SShaderEntryMap;
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif
 							using stage_t = hlsl::ShaderStage;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 							using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
 
 							params.layout = visitor.layout;
@@ -4536,7 +4554,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				const auto repeatSampler = device->createSampler({
 					// default everything
 				});
-				using binding_create_flags_t = IGPUDescriptorSetLayout::SBindingBase::E_CREATE_FLAGS;
 				constexpr auto BindingFlags = SubAllocatedDescriptorSet::RequiredBindingFlags;
 				// need at least as many elements in descriptor array as scratch buffers, and no more than total images
 				const uint32_t imageCount = imagesToUpload.size();
@@ -4799,7 +4816,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							//
 							{
 								// If format cannot be stored directly, alias the texel block to a compatible `uint_t` format and we'll encode manually.
-								auto storeFormat = format;
+								[[maybe_unused]] auto storeFormat = format;
 								if (!physDev->getImageFormatUsages(image->getTiling())[format].storageImage)
 								switch (image->getTexelBlockInfo().getBlockByteSize())
 								{
@@ -5318,7 +5335,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									}
 									allocSizes.push_back(size);
 									alignments.push_back(alignment);
-									const auto tmp = asToBuild.second.scratchSize;
+									//const auto tmp = asToBuild.second.scratchSize;
 									//logger.log("%p Triangle Data Size %d Align %d Scratch Size %d",system::ILogger::ELL_DEBUG,canonical.get(),size,alignment,tmp);
 								}
 							}
@@ -5371,7 +5388,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								{
 									uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
 									{
-										using blas_ref_t = IGPUBottomLevelAccelerationStructure::device_op_ref_t;
 										assert(offsetInRange%16==0);
 											
 										uint32_t bytesWritten = 0;
@@ -5641,7 +5657,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								// This is a Spec limit/rpomise we don't even expose it
 								constexpr size_t MinASBufferAlignment = 256u;
 								using usage_f = IGPUBuffer::E_USAGE_FLAGS;
-								IGPUBuffer::SCreationParams creationParams = { {.size=core::roundUp(sizes[i],MinASBufferAlignment),.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
+								IGPUBuffer::SCreationParams creationParams = { {.size=hlsl::roundUp(sizes[i],MinASBufferAlignment),.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
 								// same sharing setup as the previous AS buffer
 								creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
 								creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
@@ -5651,7 +5667,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									logFail("create Buffer backing the Compacted Acceleration Structure",as);
 									continue;
 								}
-								auto bufReqs = buf->getMemoryReqs();
 								backingBuffers[i].value = std::move(buf);
 								// allocate new memory - definitely don't want to be raytracing from across the PCIE slot
 								if (!deferredAllocator.request(backingBuffers.data()+i,physDev->getDeviceLocalMemoryTypeBits()))
@@ -6150,3 +6165,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 #endif
 }
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

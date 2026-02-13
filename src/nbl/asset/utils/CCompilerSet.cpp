@@ -32,6 +32,8 @@ core::smart_refctd_ptr<IShader> CCompilerSet::compileToSPIRV(const IShader* shad
 					outSpirvShader = core::smart_refctd_ptr<IShader>(const_cast<IShader*>(shader));
 				}
 				break;
+			default:
+				break;
 		}
 	}
 	return outSpirvShader;

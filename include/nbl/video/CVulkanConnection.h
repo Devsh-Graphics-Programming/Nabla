@@ -35,7 +35,7 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
 
     protected:
         explicit inline CVulkanConnection(const VkInstance instance, const SFeatures& enabledFeatures, std::unique_ptr<CVulkanDebugCallback>&& debugCallback, const VkDebugUtilsMessengerEXT vk_debugMessenger)
-            : IAPIConnection(enabledFeatures), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)), m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
+            : IAPIConnection(enabledFeatures), m_vkInstance(instance), m_vkDebugUtilsMessengerEXT(vk_debugMessenger), m_debugCallback(std::move(debugCallback))
         {
             flag.clear();
         }

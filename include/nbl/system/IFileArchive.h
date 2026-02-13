@@ -142,7 +142,7 @@ class IFileArchive : public core::IReferenceCounted
 
 		inline const SFileList::found_t getItemFromPath(const system::path& pathRelativeToArchive) const
 		{
-            const SFileList::SEntry itemToFind = { pathRelativeToArchive };
+			const SFileList::SEntry itemToFind = { pathRelativeToArchive, 0ull, 0ull , 0u, EAT_NULL };
 			// calling `listAssets` makes sure any "update list" overload can kick in
 			auto items = listAssets();
 			const auto span = SFileList::span_t(items);

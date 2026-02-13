@@ -68,7 +68,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
         inline bool valid() const override
         {
-            for (auto i = 0; i < m_descSetLayouts.size(); i++)
+            for (size_t i = 0; i < m_descSetLayouts.size(); i++)
             {
                 if (!m_descSetLayouts[i]) continue;
                 if (!m_descSetLayouts[i]->valid()) return false;
@@ -81,7 +81,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
       inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
       {
-          for (auto i = 0; i < m_descSetLayouts.size(); i++)
+          for (size_t i = 0; i < m_descSetLayouts.size(); i++)
           {
               if (!m_descSetLayouts[i]) continue;
               if (!visit(m_descSetLayouts[i].get())) return;

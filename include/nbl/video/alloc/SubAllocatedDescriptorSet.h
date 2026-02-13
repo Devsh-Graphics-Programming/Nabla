@@ -34,8 +34,8 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 				inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, const value_type* addresses, const T*const *const objectsToHold)
 					: m_addresses(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<value_type>>(count)) 
 					, m_objectsToHold(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ref_t>>(count))
-					, m_binding(binding)
 					, m_composed(composed)
+					, m_binding(binding)
 				{
 					memcpy(m_addresses->data(), addresses, count * sizeof(value_type));
 					for (size_t i=0u; i<count; i++)

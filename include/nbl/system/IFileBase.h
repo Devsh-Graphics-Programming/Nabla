@@ -83,7 +83,7 @@ class IFileBase : public core::IReferenceCounted
 
 		// this is an abstract interface class so this stays protected
 		explicit IFileBase(path&& _filename, const core::bitflag<E_CREATE_FLAGS> _flags, const time_point_t _initialModified) :
-			m_filename(std::move(_filename)), m_flags(_flags), m_modified(_initialModified) {}
+			m_filename(std::move(_filename)), m_modified(_initialModified), m_flags(_flags) {}
 
 	private:
 		const path m_filename;

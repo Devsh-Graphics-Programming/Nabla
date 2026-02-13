@@ -41,7 +41,7 @@ class StreamingTransientDataBuffer
             assert(getBuffer()->getBoundMemory().memory->isMappable());
             assert(getBuffer()->getBoundMemory().memory->getMappedPointer());
             // we're suballocating from a buffer, whole buffer needs to be reachable from the mapped pointer
-            const auto mappedRange = getBuffer()->getBoundMemory().memory->getMappedRange();
+            [[maybe_unused]] const auto mappedRange = getBuffer()->getBoundMemory().memory->getMappedRange();
             assert(mappedRange.offset<=getBuffer()->getBoundMemory().offset);
             assert(mappedRange.offset+mappedRange.length>=getBuffer()->getBoundMemory().offset+getBuffer()->getSize());
         }

@@ -121,8 +121,8 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         //! Constructor
         explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& system, core::smart_refctd_ptr<CCompilerSet>&& compilerSet = nullptr) :
             m_system(std::move(system)),
-            m_compilerSet(std::move(compilerSet)),
-            m_defaultLoaderOverride(this)
+            m_defaultLoaderOverride(this),
+            m_compilerSet(std::move(compilerSet))
         {
             assert(IPreHashed::INVALID_HASH == static_cast<core::blake3_hash_t>(core::blake3_hasher{}));
             initializeMeshTools();

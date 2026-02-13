@@ -594,6 +594,10 @@ class CQuadraticSpline : public ISpline
 
 					arcLen2ParameterLinear = 0.f;
 					length = getArcLenFromParameter(parameterLength);
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnan-infinity-disabled"
+#endif
 					if (isinf(length))
 					{
 						integrationConstants[0] = INFINITY;
@@ -610,6 +614,9 @@ class CQuadraticSpline : public ISpline
 						assert(integrationConstants[2] >= 0.f);
 #endif
 					}
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 					arcLen2ParameterLinear = parameterLength / length;
 				}
 
@@ -620,9 +627,9 @@ class CQuadraticSpline : public ISpline
 						auto differential = directionHelper(parameter);
 						float differentialLen = core::length(differential)[0];
 						
-						float a = 4.f*core::lengthsquared(weights[0])[0];
-						float b = 4.f*core::dot(weights[0],weights[1])[0];
-						float c = core::lengthsquared(weights[1])[0];
+						[[maybe_unused]] float a = 4.f*core::lengthsquared(weights[0])[0];
+						[[maybe_unused]] float b = 4.f*core::dot(weights[0],weights[1])[0];
+						[[maybe_unused]] float c = core::lengthsquared(weights[1])[0];
 
 						//float x = parameter;
 

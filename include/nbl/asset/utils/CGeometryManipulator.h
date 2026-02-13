@@ -29,11 +29,11 @@ class NBL_API2 CGeometryManipulator
 			if (!view || !view.composed.isFormatted())
 				return {};
 			auto it = reinterpret_cast<char*>(view.src.buffer->getPointer())+view.src.offset;
-			const auto end = it+view.src.actualSize();
+			[[maybe_unused]] const auto end = it+view.src.actualSize();
 			auto addToAABB = [&](auto& aabb)->void
 			{
 				using aabb_t = std::remove_reference_t<decltype(aabb)>;
-				for (auto i=0; i!=view.getElementCount(); i++)
+				for (uint64_t i=0; i!=view.getElementCount(); i++)
 				{
 					typename aabb_t::point_t pt;
 					view.decodeElement(i,pt);

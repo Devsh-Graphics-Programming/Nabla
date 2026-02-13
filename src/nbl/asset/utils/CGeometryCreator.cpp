@@ -85,7 +85,7 @@ template <typename IndexT>
 static ICPUPolygonGeometry::SDataView createIndexView(size_t indexCount, size_t maxIndex)
 {
 	const auto bytesize = sizeof(IndexT) * indexCount;
-	auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
+	auto indices = ICPUBuffer::create({{bytesize,IBuffer::EUF_INDEX_BUFFER_BIT}});
 
 	hlsl::shapes::AABB<4,IndexT> aabb;
 	aabb.minVx[0] = 0;
@@ -120,7 +120,7 @@ static ICPUPolygonGeometry::SDataView createPositionView(size_t positionCount, c
 {
 	using position_t = hlsl::vector<hlsl::float32_t, ElementCountV>;
 	constexpr auto AttrSize = sizeof(position_t);
-	auto buff = ICPUBuffer::create({AttrSize * positionCount,IBuffer::EUF_NONE});
+	auto buff = ICPUBuffer::create({{AttrSize * positionCount,IBuffer::EUF_NONE}});
 
 	constexpr auto format = []()
 	{
@@ -144,7 +144,7 @@ static ICPUPolygonGeometry::SDataView createPositionView(size_t positionCount, c
 static ICPUPolygonGeometry::SDataView createSnormNormalView(size_t normalCount, const hlsl::shapes::AABB<4, int8_t>& aabb)
 {
 	constexpr auto AttrSize = sizeof(snorm_normal_t);
-	auto buff = ICPUBuffer::create({AttrSize * normalCount,IBuffer::EUF_NONE});
+	auto buff = ICPUBuffer::create({{AttrSize * normalCount,IBuffer::EUF_NONE}});
 	return {
 		.composed = {
 			.encodedDataRange = {.s8=aabb},
@@ -863,7 +863,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 		}
 		{
 			constexpr auto AttrSize = sizeof(decltype(*normals));
-			auto buff = ICPUBuffer::create({AttrSize*vertexCount,IBuffer::EUF_NONE});
+			auto buff = ICPUBuffer::create({{AttrSize*vertexCount,IBuffer::EUF_NONE}});
 			shapes::AABB<4,int8_t> aabb;
 			aabb.maxVx = snorm_positive_z;
 			aabb.minVx = -aabb.maxVx;
@@ -880,14 +880,14 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 
 	// populate data
 	{
-		const float angle = 360.f / static_cast<float>(tesselation);
+		[[maybe_unused]] const float angle = 360.f / static_cast<float>(tesselation);
 		// center
 		*(positions++) = float32_t2(0.f,0.f);
 		*(uvs++) = uint16_t2(0,UnityUV);
 		// last
 		positions[tesselation] = float32_t3(0.f,radius,0.f);
 		uvs[tesselation] = uint16_t2(UnityUV,0);
-		for (auto i=0; i<tesselation; i++)
+		for (uint32_t i=0; i<tesselation; i++)
 		{
 			const float t = float(i)/float(tesselation);
 			const float rad = t * 2.f * hlsl::numbers::pi<float>;
@@ -1261,8 +1261,8 @@ private:
 			// /__ /__ /__ /__ /__                                              
 			// \  /\  /\  /\  /\  /     : (i+3, i+4), (i+3, i+5), (i+4, i+5)    
 			//  \/__\/__\/__\/__\/__                                            
-			//   \   \   \   \   \      : (i+9,i+10), (i+9, i+11)               
-			//    \   \   \   \   \                                             
+			//   \   \   \   \   \      : (i+9,i+10), (i+9, i+11)
+			/*    \   \   \   \   \  */
 			lineIndices.push_back(index);		  // (i, i+1)
 			lineIndices.push_back(index + 1);     // (i, i+1)
 			lineIndices.push_back(index + 3);     // (i+3, i+4)
@@ -1318,11 +1318,11 @@ private:
 		// smooth icosahedron has 14 non-shared (0 to 13) and
 		// 8 shared vertices (14 to 21) (total 22 vertices)
 		//  00  01  02  03  04          
-		//  /\  /\  /\  /\  /\          
-		// /  \/  \/  \/  \/  \         
-		//10--14--15--16--17--11        
-		// \  /\  /\  /\  /\  /\        
-		//  \/  \/  \/  \/  \/  \       
+		//  /\  /\  /\  /\  /\
+		// /  \/  \/  \/  \/  \
+		//10--14--15--16--17--11
+		// \  /\  /\  /\  /\  /\
+		//  \/  \/  \/  \/  \/  \
 		//  12--18--19--20--21--13      
 		//   \  /\  /\  /\  /\  /       
 		//    \/  \/  \/  \/  \/        
@@ -1522,7 +1522,7 @@ private:
 		float newT1[2], newT2[2], newT3[2];		// new texture coords
 		float normal[3];						// new face normal
 		uint32_t index = 0;					// new index value
-		int32_t i, j;
+		uint32_t i, j;
 
 		// iteration
 		for (i = 1; i <= subdivision; ++i)
@@ -1541,7 +1541,7 @@ private:
 
 			index = 0;
 			indexCount = (int)tmpIndices.size();
-			for (j = 0; j < indexCount; j += 3)
+			for (j = 0; j < static_cast<uint32_t>(indexCount); j += 3)
 			{
 				// get 3 vertice and texcoords of a triangle
 				v1 = &tmpVertices[tmpIndices[j] * 3];
@@ -1617,7 +1617,7 @@ private:
 		float newN1[3], newN2[3], newN3[3]; // new subdivided normals
 		float newT1[2], newT2[2], newT3[2]; // new subdivided texture coords
 		uint32_t newI1, newI2, newI3;   // new subdivided indices
-		int32_t i, j;
+		uint32_t i, j;
 
 		// iteration for subdivision
 		for (i = 1; i <= subdivision; ++i)
@@ -1629,8 +1629,8 @@ private:
 			indices.clear();
 			lineIndices.clear();
 
-			indexCount = tmpIndices.size();
-			for (j = 0; j < indexCount; j += 3)
+			indexCount = static_cast<int32_t>(tmpIndices.size());
+			for (j = 0; j < static_cast<uint32_t>(indexCount); j += 3)
 			{
 				// get 3 indices of each triangle
 				i1 = tmpIndices[j];
@@ -1814,7 +1814,7 @@ private:
 
 	float radius;													// circumscribed radius
 	uint32_t subdivision;
-	bool smooth;
+	[[maybe_unused]] bool smooth;
 	core::vector<float> vertices;
 	core::vector<float> normals;
 	core::vector<float> texCoords;
@@ -1854,7 +1854,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 		{
 			using normal_t = float32_t3;
 			constexpr auto AttrSize = sizeof(normal_t);
-			auto buff = ICPUBuffer::create({icosphere.getNormalSize(), IBuffer::EUF_NONE});
+			auto buff = ICPUBuffer::create({{icosphere.getNormalSize(), IBuffer::EUF_NONE}});
 			const auto normals = reinterpret_cast<normal_t*>(buff->getPointer());
 			memcpy(normals, icosphere.getNormals(), icosphere.getNormalSize());
 			shapes::AABB<4,float32_t> aabb;
@@ -1985,7 +1985,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createGrid(const h
 
 		static constexpr auto stride = getTexelOrBlockBytesize<EF_A2R10G10B10_UNORM_PACK32>();
 		const auto bytes = stride * vertexCount;
-		auto buffer = ICPUBuffer::create({ bytes, IBuffer::EUF_NONE });
+		auto buffer = ICPUBuffer::create({{ bytes, IBuffer::EUF_NONE }});
 		ICPUPolygonGeometry::SDataView positionView = {
 			.composed = {
 				.encodedDataRange = {.f32 = aabb},

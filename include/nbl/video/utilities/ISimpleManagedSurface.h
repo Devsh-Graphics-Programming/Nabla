@@ -125,7 +125,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				// NOTE: Current class doesn't trigger it because it knows nothing about how and when to create or recreate a swapchain.
 				inline bool onCreateSwapchain(const uint8_t qFam, core::smart_refctd_ptr<ISwapchain>&& _swapchain)
 				{
-					auto device = const_cast<ILogicalDevice*>(_swapchain->getOriginDevice());
+					[[maybe_unused]] auto device = const_cast<ILogicalDevice*>(_swapchain->getOriginDevice());
 					// create images
 					for (auto i=0u; i<_swapchain->getImageCount(); i++)
 					{
@@ -211,7 +211,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		};
 
 	protected: // some of the methods need to stay protected in this base class because they need to be performed under a Mutex for smooth resize variants
-		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
+		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_cb(_cb), m_surface(std::move(_surface)) {}
 		virtual inline ~ISimpleManagedSurface() = default;
 		
 		virtual inline bool checkQueueFamilyProps(const IPhysicalDevice::SQueueFamilyProperties& props) const {return true;}

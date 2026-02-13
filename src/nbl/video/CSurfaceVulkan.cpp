@@ -2,6 +2,13 @@
 #include <nbl/video/CVulkanCommon.h>
 #include <nbl/video/CVulkanPhysicalDevice.h>
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+#endif
+
 namespace nbl::video
 {
 bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physicalDevice, const uint32_t _queueFamIx) const
@@ -106,7 +113,7 @@ bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physica
 		}
 
 		capabilities.minImageCount = vk_surfaceCapabilities.surfaceCapabilities.minImageCount;
-		capabilities.maxImageCount = (vk_surfaceCapabilities.surfaceCapabilities.maxImageCount == 0u) ? ~0u : vk_surfaceCapabilities.surfaceCapabilities.maxImageCount;
+		capabilities.maxImageCount = static_cast<decltype(capabilities.maxImageCount)>((vk_surfaceCapabilities.surfaceCapabilities.maxImageCount == 0u) ? ~0u : vk_surfaceCapabilities.surfaceCapabilities.maxImageCount);
 		capabilities.currentExtent = vk_surfaceCapabilities.surfaceCapabilities.currentExtent;
 		capabilities.minImageExtent = vk_surfaceCapabilities.surfaceCapabilities.minImageExtent;
 		capabilities.maxImageExtent = vk_surfaceCapabilities.surfaceCapabilities.maxImageExtent;
@@ -166,3 +173,7 @@ core::smart_refctd_ptr<CSurfaceVulkanWin32Native> CSurfaceVulkanWin32Native::cre
 }
 #endif
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

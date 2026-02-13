@@ -36,7 +36,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
             return true;
         }
 
-        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
         {
             const auto nextDepth = _depth ? (_depth-1):0;
             auto retval = core::smart_refctd_ptr<ICPUGeometryCollection>();
@@ -55,7 +55,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         }
 
         // 
-        inline bool setAABB(const decltype(base_t::m_aabb)& aabb)
+        inline bool setAABB(const hlsl::shapes::AABB<3,hlsl::float64_t>& aabb)
         {
             if (isMutable())
             {
@@ -87,7 +87,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         template<typename Iterator>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(ICPUBottomLevelAccelerationStructure::Triangles&)>
         inline Iterator exportForBLAS(Iterator out, uint32_t* pWrittenOrdinals=nullptr) const
         {
-            return exportForBLAS(std::forward<Iterator>(out),[](const hlsl::float32_t3x4& lhs, const hlsl::float32_t3x4& rhs)->void
+            return exportForBLAS(std::forward<Iterator>(out),[this, &pWrittenOrdinals](hlsl::float32_t3x4& lhs, const hlsl::float32_t3x4& rhs)->void
                 {
                     lhs = rhs;
                     if (pWrittenOrdinals)

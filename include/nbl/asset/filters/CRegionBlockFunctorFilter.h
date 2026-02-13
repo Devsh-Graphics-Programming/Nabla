@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #ifndef __NBL_ASSET_C_REGION_BLOCK_FUNCTOR_FILTER_H_INCLUDED__
-#define __NBL_ASSET_C_REGION_BLOCK_FUNCTOR_H_INCLUDED__
+#define __NBL_ASSET_C_REGION_BLOCK_FUNCTOR_FILTER_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
 

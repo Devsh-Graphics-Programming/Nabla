@@ -177,8 +177,6 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
             case 0:
             {
                 const IGPUCommandBuffer::TLASTrackingWrite& op = std::get<0>(var);
-
-                using iterator = decltype(op.src)::iterator;
                 m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = op.dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({op.src.begin()},{op.src.end()});
                 break;
             }

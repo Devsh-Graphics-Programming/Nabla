@@ -9,6 +9,12 @@
 
 #include "nbl/video/CVulkanCommon.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wsign-compare"
+#endif
 
 namespace nbl::video
 {
@@ -19,7 +25,7 @@ template<class GPUAccelerationStructure> //requires std::is_base_of_v<IGPUAccele
 class CVulkanAccelerationStructure : public GPUAccelerationStructure
 {
 	public:
-		inline const void* getNativeHandle() const { return &m_vkAccelerationStructure; }
+		inline const void* getNativeHandle() const override { return &m_vkAccelerationStructure; }
 		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
 	
 		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;
@@ -216,5 +222,9 @@ inline VkAccelerationStructureBuildRangeInfoKHR getVkASBuildRangeInfo(const IGPU
 }
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 #endif

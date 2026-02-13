@@ -398,7 +398,7 @@ class DoublyLinkedList<Value, allocator>::Iterator
 {
 	using base_iterable_t = DoublyLinkedList<Value, allocator>;
 	using iterable_t = std::conditional_t<Mutable, base_iterable_t, const base_iterable_t>;
-	friend class base_iterable_t;
+	friend base_iterable_t;
 public:
 	using value_type = std::conditional_t<Mutable, Value, const Value>;
 	using pointer = value_type*;

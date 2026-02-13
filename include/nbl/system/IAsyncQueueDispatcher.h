@@ -3,6 +3,8 @@
 
 #include "nbl/core/declarations.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 #include "nbl/system/IThreadHandler.h"
 #include "nbl/system/atomic_state.h"
 
@@ -49,7 +51,7 @@ class IAsyncQueueDispatcherBase
                 //! ANY THREAD [except worker]: via cancellable_future_t::cancel
                 inline void cancel()
                 {
-                    const auto prev = state.exchangeNotify<false>(STATE::CANCELLED);
+                    [[maybe_unused]] const auto prev = state.exchangeNotify<false>(STATE::CANCELLED);
                     // If we were in EXECUTING then worker thread is definitely stuck in `base_t::disassociate_request` spinlock
                     assert(prev==STATE::PENDING || prev==STATE::EXECUTING);
                     // sanity check, but its not our job to set it to nullptr
@@ -202,7 +204,7 @@ class IAsyncQueueDispatcherBase
                 //! Utility to write less code, WILL ASSERT IF IT FAILS! So don't use on futures that might be cancelled or fail.
                 inline T copy() const
                 {
-                    const bool success = wait();
+                    [[maybe_unused]] const bool success = wait();
                     assert(success);
                     return *get();
                 }
@@ -347,7 +349,7 @@ class IAsyncQueueDispatcherBase
                 inline void associate_request(request_base_t* req) override final
                 {
                     base_t::associate_request(req);
-                    request_base_t* prev = request.exchange(req);
+                    [[maybe_unused]] request_base_t* prev = request.exchange(req);
                     // sanity check
                     assert(prev==nullptr);
                 }
@@ -356,7 +358,7 @@ class IAsyncQueueDispatcherBase
                     if (base_t::disassociate_request())
                     {
                         // only assign if we didn't get cancelled mid-way, otherwise will mess up `associate_request` sanity checks
-                        request_base_t* prev = request.exchange(nullptr);
+                        [[maybe_unused]] request_base_t* prev = request.exchange(nullptr);
                         assert(prev && prev->getState().query()==request_base_t::STATE::EXECUTING);
                         return true;
                     }
@@ -416,7 +418,7 @@ template<typename CRTP, typename request_metadata_t, uint32_t BufferSize=256u, t
 class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, protected impl::IAsyncQueueDispatcherBase
 {
         static_assert(BufferSize>0u, "BufferSize must not be 0!");
-        static_assert(core::isPoT(BufferSize), "BufferSize must be power of two!");
+        static_assert(hlsl::isPoT(BufferSize), "BufferSize must be power of two!");
 
     protected:
         using base_t = IThreadHandler<CRTP,InternalStateType>;

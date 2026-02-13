@@ -17,7 +17,7 @@ class atomic_state_t
         {
             static_assert(std::atomic_uint32_t::is_always_lock_free);
             // must have been consumed before exit !
-            const auto atExit = state.load();
+            [[maybe_unused]] const auto atExit = state.load();
             assert(static_cast<STATE>(atExit)==kInitial);
         }
 
@@ -78,7 +78,7 @@ class atomic_state_t
         template<bool all=true>
         inline void exchangeNotify(const STATE to, const STATE expected)
         {
-            const auto prev = exchangeNotify<all>(to);
+            [[maybe_unused]] const auto prev = exchangeNotify<all>(to);
             assert(static_cast<STATE>(prev)==expected);
         }
 

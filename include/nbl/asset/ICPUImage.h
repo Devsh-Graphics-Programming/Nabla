@@ -53,6 +53,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			return regions && !regions->empty() && (!buffer || buffer->missingContent());
 		}
 
+		using IImage::validateCopies;
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
 		{
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);

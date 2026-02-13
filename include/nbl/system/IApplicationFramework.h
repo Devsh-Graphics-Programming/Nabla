@@ -150,11 +150,11 @@ class IApplicationFramework : public core::IReferenceCounted
             if (!GlobalsInit())
                 return nullptr;
 
-            #ifdef _NBL_PLATFORM_WINDOWS_
-                return nbl::core::make_smart_refctd_ptr<CSystemWin32>();
-            #elif defined(_NBL_PLATFORM_ANDROID_)
-                return nullptr;
-            #endif
+#ifdef _NBL_PLATFORM_WINDOWS_
+            return nbl::core::make_smart_refctd_ptr<CSystemWin32>();
+#elif defined(_NBL_PLATFORM_ANDROID_)
+            return nullptr;
+#endif
             return nullptr;
         }
 

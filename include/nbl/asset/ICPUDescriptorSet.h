@@ -88,14 +88,14 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 				if (descriptorInfoArr->size() != descriptorRedirect.getTotalCount()) return false;
 
-				auto offset = 0;
-				for (auto binding_i = 0; binding_i < descriptorRedirect.getBindingCount(); binding_i++)
+				uint32_t offset = 0;
+				for (uint32_t binding_i = 0; binding_i < descriptorRedirect.getBindingCount(); binding_i++)
 				{
 					const auto storageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(binding_i);
 					const auto descriptorCount = descriptorRedirect.getCount(storageIndex);
 					const auto createFlags = descriptorRedirect.getCreateFlags(storageIndex);
 					const auto isPartiallyBound = !createFlags.hasFlags(IDescriptorSetLayoutBase::SBindingBase::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT);
-					for (auto descriptor_i = 0; descriptor_i < descriptorCount; descriptor_i++)
+					for (uint32_t descriptor_i = 0; descriptor_i < descriptorCount; descriptor_i++)
 					{
 						const auto& descriptorInfo = descriptorInfoArr->operator[](offset);
 

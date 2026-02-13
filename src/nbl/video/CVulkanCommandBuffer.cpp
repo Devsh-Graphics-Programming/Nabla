@@ -4,6 +4,12 @@
 #include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/CVulkanQueryPool.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wsign-compare"
+#endif
 
 using namespace nbl;
 using namespace nbl::video;
@@ -876,3 +882,7 @@ bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUComman
     getFunctionTable().vkCmdExecuteCommands(m_cmdbuf, count, vk_commandBuffers.data());
     return true;
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

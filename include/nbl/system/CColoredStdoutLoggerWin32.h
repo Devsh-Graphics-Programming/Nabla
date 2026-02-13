@@ -36,9 +36,13 @@ class NBL_API2 CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 				{
 					return 11;
 				}
-				case ELL_NONE: 
+				case ELL_NONE:
 				{
 					assert(false); // how did this happen?? Btw, do we even need this log level?
+					break;
+				}
+				case ELL_ALL:
+				{
 					break;
 				}
 			}

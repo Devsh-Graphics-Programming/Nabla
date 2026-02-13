@@ -78,7 +78,7 @@ class CGlobalNormalizationState
 		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			#ifdef _NBL_DEBUG
-			bool status = isFloatingPointFormat(format)||isNormalizedFormat(format);
+			[[maybe_unused]] bool status = isFloatingPointFormat(format)||isNormalizedFormat(format);
 			assert(status);
 			#endif // _NBL_DEBUG
 			if (isSignedFormat(format))
@@ -167,7 +167,7 @@ class CDerivativeMapNormalizationStateBase
 		{
 			assert(channels>=kChannels);
 			#ifdef _NBL_DEBUG
-			bool status = isFloatingPointFormat(format)||isNormalizedFormat(format);
+			[[maybe_unused]] bool status = isFloatingPointFormat(format)||isNormalizedFormat(format);
 			assert(status);
 			#endif // _NBL_DEBUG
 

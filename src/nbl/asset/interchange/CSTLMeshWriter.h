@@ -22,7 +22,7 @@ class CSTLMeshWriter : public IGeometryWriter
     public:
         CSTLMeshWriter();
 
-        virtual const char** getAssociatedFileExtensions() const
+        virtual const char** getAssociatedFileExtensions() const override
         {
             static const char* ext[]{ "stl", nullptr };
             return ext;
@@ -30,7 +30,7 @@ class CSTLMeshWriter : public IGeometryWriter
 
         virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-        virtual uint32_t getForcedFlags() { return 0u; }
+        virtual uint32_t getForcedFlags() override { return 0u; }
 
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 

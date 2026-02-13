@@ -4,6 +4,13 @@
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanConnection.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nbl::video
 {
 
@@ -515,3 +522,7 @@ void CVulkanSwapchain::setObjectDebugName(const char* label) const
 }
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
