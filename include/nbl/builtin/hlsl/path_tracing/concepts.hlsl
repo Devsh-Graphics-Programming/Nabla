@@ -56,8 +56,8 @@ NBL_CONCEPT_BEGIN(3)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scene_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::id_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::id_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::object_handle_type))
 );
 #undef scene
 #undef ray
@@ -69,7 +69,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (matsys, T)
 #define NBL_CONCEPT_PARAM_1 (_sample, typename T::sample_type)
-#define NBL_CONCEPT_PARAM_2 (matid, uint32_t)
+#define NBL_CONCEPT_PARAM_2 (matid, typename T::material_id_type)
 #define NBL_CONCEPT_PARAM_3 (aniso_inter, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_4 (iso_inter, typename T::isotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_5 (aniso_cache, typename T::anisocache_type)
@@ -88,6 +88,7 @@ NBL_CONCEPT_BEGIN(9)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::material_id_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::measure_type))
@@ -181,14 +182,14 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (scene, T)
 #define NBL_CONCEPT_PARAM_1 (intersectP, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_2 (id, typename T::id_type)
+#define NBL_CONCEPT_PARAM_2 (id, typename T::object_handle_type)
 NBL_CONCEPT_BEGIN(3)
 #define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define intersectP NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::id_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getBsdfLightIDs(id)), ::nbl::hlsl::is_same_v, uint32_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getNormal(id, intersectP)), ::nbl::hlsl::is_same_v, typename T::vector3_type))
 );

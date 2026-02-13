@@ -63,7 +63,7 @@ struct Unidirectional
     using sample_type = typename NextEventEstimator::sample_type;
     using ray_dir_info_type = typename sample_type::ray_dir_info_type;
     using ray_type = typename RayGen::ray_type;
-    using id_type = typename Intersector::id_type;
+    using object_handle_type = typename Intersector::object_handle_type;
     using light_type = typename NextEventEstimator::light_type;
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
     using anisotropic_interaction_type = typename MaterialSystem::anisotropic_interaction_type;
@@ -92,7 +92,7 @@ struct Unidirectional
     // TODO: probably will only work with isotropic surfaces, need to do aniso
     bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(scene_type) scene)
     {
-        const id_type objectID = ray.objectID;
+        const object_handle_type objectID = ray.objectID;
         const vector3_type intersection = ray.origin + ray.direction * ray.intersectionT;
 
         uint32_t bsdfLightIDs = scene.getBsdfLightIDs(objectID);
