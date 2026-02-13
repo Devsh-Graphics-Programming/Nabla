@@ -9,6 +9,7 @@
 #include "nbl/core/hash/blake.h"
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
+#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/COBBGenerator.h"
@@ -91,6 +92,15 @@ class NBL_API2 CPolygonGeometryManipulator
 				auto addToAABB = [&](auto& aabb)->void
 				{
 					using aabb_t = std::remove_reference_t<decltype(aabb)>;
+					using point_t = typename aabb_t::point_t;
+					using component_t = std::remove_cv_t<std::remove_reference_t<decltype(point_t{}.x)>>;
+					SAABBAccumulator3<component_t> parsedAABB = {};
+					auto addVertexToAABB = [&](const uint32_t vertex_i)->void
+					{
+						point_t pt;
+						geo->getPositionView().decodeElement(vertex_i, pt);
+						extendAABBAccumulator(parsedAABB, pt);
+					};
 					if (geo->getIndexView())
 					{
 						for (auto index_i = 0u; index_i != geo->getIndexView().getElementCount(); index_i++)
@@ -98,20 +108,17 @@ class NBL_API2 CPolygonGeometryManipulator
 							hlsl::vector<uint32_t, 1> vertex_i;
 							geo->getIndexView().decodeElement(index_i, vertex_i);
 							if (isVertexSkinned(geo, vertex_i.x)) continue;
-							typename aabb_t::point_t pt;
-							geo->getPositionView().decodeElement(vertex_i.x, pt);
-							aabb.addPoint(pt);
+							addVertexToAABB(vertex_i.x);
 						}
 					} else
 					{
 						for (auto vertex_i = 0u; vertex_i != geo->getPositionView().getElementCount(); vertex_i++)
 						{
 							if (isVertexSkinned(geo, vertex_i)) continue;
-							typename aabb_t::point_t pt;
-							geo->getPositionView().decodeElement(vertex_i, pt);
-							aabb.addPoint(pt);
+							addVertexToAABB(vertex_i);
 						}
 					}
+					assignAABBFromAccumulator(aabb, parsedAABB);
 				};
 				IGeometryBase::SDataViewBase tmp = geo->getPositionView().composed;
 				tmp.resetRange();

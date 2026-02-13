@@ -11,9 +11,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <execution>
 #include <limits>
-#include <ranges>
 #include <thread>
 #include <vector>
 
@@ -51,10 +49,41 @@ constexpr uint64_t loaderRuntimeCeilDiv(const uint64_t numerator, const uint64_t
     return (numerator + denominator - 1ull) / denominator;
 }
 
+inline uint64_t resolveLoaderRuntimeSampleBytes(const SFileIOPolicy& ioPolicy, const uint64_t knownInputBytes)
+{
+    if (knownInputBytes == 0ull)
+        return 0ull;
+
+    const uint64_t minSampleBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.minSampleBytes);
+    const uint64_t maxSampleBytes = std::max<uint64_t>(minSampleBytes, ioPolicy.runtimeTuning.maxSampleBytes);
+    const uint64_t cappedMin = std::min<uint64_t>(minSampleBytes, knownInputBytes);
+    const uint64_t cappedMax = std::min<uint64_t>(maxSampleBytes, knownInputBytes);
+    const uint64_t adaptive = std::max<uint64_t>(knownInputBytes / 64ull, cappedMin);
+    return std::clamp<uint64_t>(adaptive, cappedMin, cappedMax);
+}
+
+inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes)
+{
+    const uint64_t thresholdBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes);
+    return inputBytes <= thresholdBytes;
+}
+
 inline size_t resolveLoaderHardwareThreads(const uint32_t requested = 0u)
 {
     const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency());
     return hw ? hw : 1ull;
+}
+
+inline size_t resolveLoaderHardMaxWorkers(const size_t hardwareThreads, const uint32_t workerHeadroom)
+{
+    const size_t hw = std::max<size_t>(1ull, hardwareThreads);
+    const size_t minWorkers = hw >= 2ull ? 2ull : 1ull;
+    const size_t headroom = static_cast<size_t>(workerHeadroom);
+    if (headroom == 0ull)
+        return hw;
+    if (hw <= headroom)
+        return minWorkers;
+    return std::max<size_t>(minWorkers, hw - headroom);
 }
 
 template<typename Fn>
@@ -65,11 +94,12 @@ inline void loaderRuntimeDispatchWorkers(const size_t workerCount, Fn&& fn)
         fn(0ull);
         return;
     }
-    auto workerIds = std::views::iota(size_t{0ull}, workerCount);
-    std::for_each(std::execution::par, workerIds.begin(), workerIds.end(), [&fn](const size_t workerIx)
-    {
-        fn(workerIx);
-    });
+
+    std::vector<std::jthread> workers;
+    workers.reserve(workerCount - 1ull);
+    for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
+        workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
+    fn(0ull);
 }
 
 inline uint64_t loaderRuntimeBenchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
@@ -129,7 +159,7 @@ inline SLoaderRuntimeSampleStats loaderRuntimeBenchmarkSampleStats(
     std::vector<uint64_t> samples;
     samples.reserve(observationCount);
 
-    (void)loaderRuntimeBenchmarkSample(sampleData, sampleBytes, workerCount, 1u);
+    loaderRuntimeBenchmarkSample(sampleData, sampleBytes, workerCount, 1u);
     for (uint32_t obsIx = 0u; obsIx < observationCount; ++obsIx)
     {
         const uint64_t elapsedNs = loaderRuntimeBenchmarkSample(sampleData, sampleBytes, workerCount, passes);

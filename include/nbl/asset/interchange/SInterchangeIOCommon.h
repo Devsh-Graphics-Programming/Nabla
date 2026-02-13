@@ -64,6 +64,17 @@ inline bool isTinyIOTelemetryLikely(
         (minBytes < tinyChunkBytesThreshold && telemetry.callCount > tinyChunkCallsThreshold);
 }
 
+inline bool isTinyIOTelemetryLikely(const SFileIOTelemetry& telemetry, const uint64_t payloadBytes, const SFileIOPolicy& ioPolicy)
+{
+    return isTinyIOTelemetryLikely(
+        telemetry,
+        payloadBytes,
+        ioPolicy.runtimeTuning.tinyIoPayloadThresholdBytes,
+        ioPolicy.runtimeTuning.tinyIoAvgBytesThreshold,
+        ioPolicy.runtimeTuning.tinyIoMinBytesThreshold,
+        ioPolicy.runtimeTuning.tinyIoMinCallCount);
+}
+
 inline bool readFileExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SFileReadTelemetry* ioTelemetry = nullptr)
 {
     if (!file || (!dst && bytes != 0ull))

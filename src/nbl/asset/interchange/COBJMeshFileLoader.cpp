@@ -6,6 +6,7 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
+#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
@@ -165,24 +166,6 @@ inline bool parseObjFloat(const char*& ptr, const char* const end, float& out)
     out = static_cast<float>(negative ? -value : value);
     ptr = p;
     return true;
-}
-
-void extendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const Float3& p)
-{
-    if (!hasAABB)
-    {
-        aabb.minVx = p;
-        aabb.maxVx = p;
-        hasAABB = true;
-        return;
-    }
-
-    if (p.x < aabb.minVx.x) aabb.minVx.x = p.x;
-    if (p.y < aabb.minVx.y) aabb.minVx.y = p.y;
-    if (p.z < aabb.minVx.z) aabb.minVx.z = p.z;
-    if (p.x > aabb.maxVx.x) aabb.maxVx.x = p.x;
-    if (p.y > aabb.maxVx.y) aabb.maxVx.y = p.y;
-    if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
 }
 
 const auto createAdoptedView = [](auto&& data, const E_FORMAT format) -> IGeometry<ICPUBuffer>::SDataView
@@ -730,14 +713,15 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         uint32_t outIndex = 0u;
     };
     const size_t hw = resolveLoaderHardwareThreads();
+    const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
     SLoaderRuntimeTuningRequest dedupTuningRequest = {};
     dedupTuningRequest.inputBytes = static_cast<uint64_t>(filesize);
     dedupTuningRequest.totalWorkUnits = estimatedOutVertexCount;
     dedupTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-    dedupTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hw);
-    dedupTuningRequest.targetChunksPerWorker = 1u;
+    dedupTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
+    dedupTuningRequest.targetChunksPerWorker = _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
     dedupTuningRequest.sampleData = reinterpret_cast<const uint8_t*>(buf);
-    dedupTuningRequest.sampleBytes = std::min<uint64_t>(static_cast<uint64_t>(filesize), 128ull << 10);
+    dedupTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(_params.ioPolicy, static_cast<uint64_t>(filesize));
     const auto dedupTuning = tuneLoaderRuntime(_params.ioPolicy, dedupTuningRequest);
     const size_t dedupHotSeed = std::max<size_t>(
         16ull,
@@ -748,8 +732,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
     bool hasNormals = false;
     bool hasUVs = false;
-    hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
-    bool hasParsedAABB = false;
+    SAABBAccumulator3<float> parsedAABB = {};
     auto allocateOutVertex = [&](uint32_t& outIx) -> bool
     {
         if (outVertexWriteCount >= outPositions.size())
@@ -826,7 +809,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         const auto& srcPos = positions[idx[0]];
         outPositions[static_cast<size_t>(outIx)] = srcPos;
-        extendAABB(parsedAABB, hasParsedAABB, srcPos);
+        extendAABBAccumulator(parsedAABB, srcPos);
 
         Float2 uv(0.f, 0.f);
         if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
@@ -889,7 +872,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         const auto& srcPos = positions[static_cast<size_t>(posIx)];
         outPositions[static_cast<size_t>(outIx)] = srcPos;
-        extendAABB(parsedAABB, hasParsedAABB, srcPos);
+        extendAABBAccumulator(parsedAABB, srcPos);
         outUVs[static_cast<size_t>(outIx)] = uvs[static_cast<size_t>(uvIx)];
         outNormals[static_cast<size_t>(outIx)] = normals[static_cast<size_t>(normalIx)];
         hotEntry.pos = posIx;
@@ -1158,26 +1141,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
     }
 
-    if (hasParsedAABB)
-    {
-        geometry->visitAABB([&parsedAABB](auto& ref)->void
-        {
-            ref = std::remove_reference_t<decltype(ref)>::create();
-            ref.minVx.x = parsedAABB.minVx.x;
-            ref.minVx.y = parsedAABB.minVx.y;
-            ref.minVx.z = parsedAABB.minVx.z;
-            ref.minVx.w = 0.0;
-            ref.maxVx.x = parsedAABB.maxVx.x;
-            ref.maxVx.y = parsedAABB.maxVx.y;
-            ref.maxVx.z = parsedAABB.maxVx.z;
-            ref.maxVx.w = 0.0;
-        });
-    }
+    if (parsedAABB.has)
+        applyAABBToGeometry(geometry.get(), parsedAABB);
     else
     {
         CPolygonGeometryManipulator::recomputeAABB(geometry.get());
     }
-    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize)))
+    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
     {
         _params.logger.log(
             "OBJ loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",

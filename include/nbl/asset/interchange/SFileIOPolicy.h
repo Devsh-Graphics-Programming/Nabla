@@ -28,10 +28,19 @@ struct SFileIOPolicy
         float samplingBudgetRatio = 0.05f;
         float minExpectedGainRatio = 0.03f;
         uint32_t maxWorkers = 0u;
+        uint32_t workerHeadroom = 2u;
         uint32_t samplingMaxCandidates = 4u;
         uint32_t samplingPasses = 1u;
         uint64_t samplingMinWorkUnits = 0ull;
         uint32_t targetChunksPerWorker = 4u;
+        uint32_t hashTaskTargetChunksPerWorker = 1u;
+        uint64_t hashInlineThresholdBytes = 1ull << 20;
+        uint64_t minSampleBytes = 4ull << 10;
+        uint64_t maxSampleBytes = 128ull << 10;
+        uint64_t tinyIoPayloadThresholdBytes = 1ull << 20;
+        uint64_t tinyIoAvgBytesThreshold = 1024ull;
+        uint64_t tinyIoMinBytesThreshold = 64ull;
+        uint64_t tinyIoMinCallCount = 1024ull;
     };
 
     enum class Strategy : uint8_t

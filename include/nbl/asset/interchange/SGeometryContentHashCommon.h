@@ -84,7 +84,7 @@ inline void recomputeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry
         if (!ptr)
             continue;
         hashSampleData = ptr;
-        hashSampleBytes = std::min<uint64_t>(static_cast<uint64_t>(buffer->getSize()), 128ull << 10);
+        hashSampleBytes = resolveLoaderRuntimeSampleBytes(ioPolicy, static_cast<uint64_t>(buffer->getSize()));
         if (hashSampleBytes > 0ull)
             break;
     }
@@ -94,8 +94,9 @@ inline void recomputeGeometryContentHashesParallel(ICPUPolygonGeometry* geometry
     tuningRequest.totalWorkUnits = pending.size();
     tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, loaderRuntimeCeilDiv(totalBytes, static_cast<uint64_t>(pending.size())));
     tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-    tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(pending.size(), hw));
-    tuningRequest.targetChunksPerWorker = 1u;
+    const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, ioPolicy.runtimeTuning.workerHeadroom);
+    tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(pending.size(), hardMaxWorkers));
+    tuningRequest.targetChunksPerWorker = ioPolicy.runtimeTuning.hashTaskTargetChunksPerWorker;
     tuningRequest.sampleData = hashSampleData;
     tuningRequest.sampleBytes = hashSampleBytes;
     const auto tuning = tuneLoaderRuntime(ioPolicy, tuningRequest);

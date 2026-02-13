@@ -5,7 +5,9 @@
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include "CPLYMeshFileLoader.h"
+#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
@@ -60,56 +62,6 @@ const auto plyByteswap = [](const auto value)
 inline std::string_view plyToStringView(const char* text)
 {
 	return text ? std::string_view{ text } : std::string_view{};
-}
-
-struct SPlyAABBAccumulator
-{
-	bool has = false;
-	float minX = 0.f;
-	float minY = 0.f;
-	float minZ = 0.f;
-	float maxX = 0.f;
-	float maxY = 0.f;
-	float maxZ = 0.f;
-};
-
-inline void plyAABBExtend(SPlyAABBAccumulator& aabb, const float x, const float y, const float z)
-{
-	if (!aabb.has)
-	{
-		aabb.has = true;
-		aabb.minX = x;
-		aabb.minY = y;
-		aabb.minZ = z;
-		aabb.maxX = x;
-		aabb.maxY = y;
-		aabb.maxZ = z;
-		return;
-	}
-	if (x < aabb.minX) aabb.minX = x;
-	if (y < aabb.minY) aabb.minY = y;
-	if (z < aabb.minZ) aabb.minZ = z;
-	if (x > aabb.maxX) aabb.maxX = x;
-	if (y > aabb.maxY) aabb.maxY = y;
-	if (z > aabb.maxZ) aabb.maxZ = z;
-}
-
-inline void plySetGeometryAABB(ICPUPolygonGeometry* geometry, const SPlyAABBAccumulator& aabb)
-{
-	if (!geometry || !aabb.has)
-		return;
-	geometry->visitAABB([&aabb](auto& ref)->void
-	{
-		ref = std::remove_reference_t<decltype(ref)>::create();
-		ref.minVx.x = aabb.minX;
-		ref.minVx.y = aabb.minY;
-		ref.minVx.z = aabb.minZ;
-		ref.minVx.w = 0.0;
-		ref.maxVx.x = aabb.maxX;
-		ref.maxVx.y = aabb.maxY;
-		ref.maxVx.z = aabb.maxZ;
-		ref.maxVx.w = 0.0;
-	});
 }
 
 class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
@@ -624,7 +576,7 @@ struct SContext
 		Success,
 		Error
 	};
-	EFastVertexReadResult readVertexElementFast(const SElement& el, SPlyAABBAccumulator* parsedAABB)
+	EFastVertexReadResult readVertexElementFast(const SElement& el, SAABBAccumulator3<float>* parsedAABB)
 	{
 		if (!IsBinaryFile || el.Name != "vertex")
 			return EFastVertexReadResult::NotApplicable;
@@ -792,7 +744,7 @@ struct SContext
 							reinterpret_cast<float*>(posBase)[1] = y;
 							reinterpret_cast<float*>(posBase)[2] = z;
 							if (trackAABB)
-								plyAABBExtend(*parsedAABB, x, y, z);
+								extendAABBAccumulator(*parsedAABB, x, y, z);
 							src += 3ull * floatBytes;
 							posBase += posStride;
 						}
@@ -810,7 +762,7 @@ struct SContext
 						reinterpret_cast<float*>(posBase)[1] = y;
 						reinterpret_cast<float*>(posBase)[2] = z;
 						if (trackAABB)
-							plyAABBExtend(*parsedAABB, x, y, z);
+							extendAABBAccumulator(*parsedAABB, x, y, z);
 						src += 3ull * floatBytes;
 						posBase += posStride;
 						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
@@ -832,7 +784,7 @@ struct SContext
 						reinterpret_cast<float*>(posBase)[1] = y;
 						reinterpret_cast<float*>(posBase)[2] = z;
 						if (trackAABB)
-							plyAABBExtend(*parsedAABB, x, y, z);
+							extendAABBAccumulator(*parsedAABB, x, y, z);
 						src += 3ull * floatBytes;
 						posBase += posStride;
 						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
@@ -1056,8 +1008,7 @@ struct SContext
 		uint64_t& _faceCount,
 		const uint32_t vertexCount,
 		const bool computeIndexHash,
-		core::blake3_hash_t& outIndexHash,
-		double& outIndexHashMs)
+		core::blake3_hash_t& outIndexHash)
 	{
 		if (!IsBinaryFile)
 			return EFastFaceReadResult::NotApplicable;
@@ -1120,16 +1071,17 @@ struct SContext
 			if (is32Bit)
 			{
 				const size_t hw = resolveLoaderHardwareThreads();
+				const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, inner.params.ioPolicy.runtimeTuning.workerHeadroom);
 				const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
 				SLoaderRuntimeTuningRequest faceTuningRequest = {};
 				faceTuningRequest.inputBytes = minBytesNeeded;
 				faceTuningRequest.totalWorkUnits = element.Count;
 				faceTuningRequest.minBytesPerWorker = recordBytes;
 				faceTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-				faceTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hw);
-				faceTuningRequest.targetChunksPerWorker = 4u;
+				faceTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
+				faceTuningRequest.targetChunksPerWorker = inner.params.ioPolicy.runtimeTuning.targetChunksPerWorker;
 				faceTuningRequest.sampleData = ptr;
-				faceTuningRequest.sampleBytes = std::min<uint64_t>(minBytesNeeded, 128ull << 10);
+				faceTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(inner.params.ioPolicy, minBytesNeeded);
 				const auto faceTuning = tuneLoaderRuntime(inner.params.ioPolicy, faceTuningRequest);
 				size_t workerCount = std::min(faceTuning.workerCount, element.Count);
 				if (workerCount > 1ull)
@@ -1152,7 +1104,6 @@ struct SContext
 							try
 							{
 								core::blake3_hasher hasher;
-								const auto hashStart = std::chrono::high_resolution_clock::now();
 								for (size_t workerIx = 0ull; workerIx < workerCount; ++workerIx)
 								{
 									auto ready = std::atomic_ref<uint8_t>(workerReady[workerIx]);
@@ -1169,7 +1120,6 @@ struct SContext
 									const size_t faceCount = end - begin;
 									hasher.update(out + begin * 3ull, faceCount * 3ull * sizeof(uint32_t));
 								}
-								outIndexHashMs += std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - hashStart).count();
 								parsedIndexHash = static_cast<core::blake3_hash_t>(hasher);
 							}
 							catch (...)
@@ -1235,16 +1185,7 @@ struct SContext
 							ready.notify_one();
 						}
 					};
-					const auto runParallelWorkers = [](const size_t localWorkerCount, const auto& fn) -> void
-					{
-						if (localWorkerCount <= 1ull) { fn(0ull); return; }
-						core::vector<std::jthread> workers;
-						workers.reserve(localWorkerCount - 1ull);
-						for (size_t workerIx = 1ull; workerIx < localWorkerCount; ++workerIx)
-							workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
-						fn(0ull);
-					};
-					runParallelWorkers(workerCount, [&](const size_t workerIx) { const size_t begin = (element.Count * workerIx) / workerCount; const size_t end = (element.Count * (workerIx + 1ull)) / workerCount; parseChunk(workerIx, begin, end); });
+					loaderRuntimeDispatchWorkers(workerCount, [&](const size_t workerIx) { const size_t begin = (element.Count * workerIx) / workerCount; const size_t end = (element.Count * (workerIx + 1ull)) / workerCount; parseChunk(workerIx, begin, end); });
 					if (hashThread.joinable())
 						hashThread.join();
 
@@ -1630,18 +1571,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (!_file)
 		return {};
 
-	using clock_t = std::chrono::high_resolution_clock;
-	double headerMs = 0.0;
-	double vertexMs = 0.0;
-	double vertexFastMs = 0.0;
-	double vertexGenericMs = 0.0;
-	double faceMs = 0.0;
-	double skipMs = 0.0;
-	double layoutNegotiateMs = 0.0;
-	double viewCreateMs = 0.0;
-	double hashRangeMs = 0.0;
-	double indexBuildMs = 0.0;
-	double aabbMs = 0.0;
 	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
 	uint64_t faceCount = 0u;
 	uint64_t fastFaceElementCount = 0u;
@@ -1649,7 +1578,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	uint32_t maxIndexRead = 0u;
 	core::blake3_hash_t precomputedIndexHash = IPreHashed::INVALID_HASH;
 	const uint64_t fileSize = _file->getSize();
-	const bool hashInBuild = computeContentHashes && (fileSize <= (1ull << 20));
+	const bool hashInBuild = computeContentHashes && shouldInlineHashBuild(_params.ioPolicy, fileSize);
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true);
 	if (!ioPlan.valid)
 	{
@@ -1677,7 +1606,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	// start with empty mesh
 	auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
-	SPlyAABBAccumulator parsedAABB = {};
+	SAABBAccumulator3<float> parsedAABB = {};
 	uint32_t vertCount=0;
 	core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers;
 	std::jthread deferredPositionHashThread;
@@ -1690,9 +1619,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if (hashed.get() == buffer)
 				return;
 		}
-		const auto hashStart = clock_t::now();
 		buffer->setContentHash(buffer->computeContentHash());
-		hashRangeMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 		hashedBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(buffer));
 	};
 	auto tryLaunchDeferredHash = [&](const IGeometry<ICPUBuffer>::SDataView& view, std::jthread& deferredThread)->void
@@ -1752,7 +1679,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	bool continueReading = true;
 	ctx.IsBinaryFile = false;
 	ctx.IsWrongEndian= false;
-	const auto headerStart = clock_t::now();
 
 	do
 	{
@@ -1896,8 +1822,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 	}
 	while (readingHeader && continueReading);
-	headerMs = std::chrono::duration<double, std::milli>(clock_t::now() - headerStart).count();
-
 	//
 	if (!continueReading)
 		return {};
@@ -1912,7 +1836,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	for (uint32_t i=0; i<ctx.ElementList.size(); ++i)
 	{
 		auto& el = ctx.ElementList[i];
-		if (el.Name=="vertex") // TODO: are multiple of these possible in a file? do we create a geometry collection then? Probably not -> https://paulbourke.net/dataformats/ply/
+		if (el.Name=="vertex") // multiple vertex elements are currently treated as unsupported
 		{
 			if (verticesProcessed)
 			{
@@ -1937,27 +1861,22 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				const size_t mappedBytes = el.Count * sizeof(float) * 3ull;
 				if (ctx.StartPointer + mappedBytes > ctx.EndPointer)
 					return {};
-				const auto vertexStart = clock_t::now();
 				auto mappedPosView = plyCreateMappedF32x3View(_file, ctx.StartPointer, mappedBytes);
 				if (!mappedPosView)
 					return {};
 				geometry->setPositionView(std::move(mappedPosView));
 				const auto* xyz = reinterpret_cast<const float*>(ctx.StartPointer);
 				for (size_t v = 0ull; v < el.Count; ++v)
-					plyAABBExtend(parsedAABB, xyz[v * 3ull + 0ull], xyz[v * 3ull + 1ull], xyz[v * 3ull + 2ull]);
+					extendAABBAccumulator(parsedAABB, xyz[v * 3ull + 0ull], xyz[v * 3ull + 1ull], xyz[v * 3ull + 2ull]);
 				hashViewBufferIfNeeded(geometry->getPositionView());
 				tryLaunchDeferredHash(geometry->getPositionView(), deferredPositionHashThread);
 				ctx.StartPointer += mappedBytes;
 				++fastVertexElementCount;
-				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
-				vertexFastMs += elapsedMs;
-				vertexMs += elapsedMs;
 				verticesProcessed = true;
 				continue;
 			}
 			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {}, uvView = {};
 			core::vector<ICPUPolygonGeometry::SDataView> extraViews;
-			const auto layoutStart = clock_t::now();
 			for (auto& vertexProperty : el.Properties)
 			{
 				const auto& propertyName = vertexProperty.Name;
@@ -1987,13 +1906,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					negotiateFormat(uvView,1);
 				else
 				{
-// TODO: record the `propertyName`
-					const auto extraViewStart = clock_t::now();
+// property names for extra channels are currently not persisted in metadata
 					extraViews.push_back(createView(vertexProperty.type,el.Count));
-					viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - extraViewStart).count();
 				}
 			}
-			layoutNegotiateMs += std::chrono::duration<double, std::milli>(clock_t::now() - layoutStart).count();
 			auto setFinalFormat = [&ctx](ICPUPolygonGeometry::SDataViewBase& view)->void
 			{
 				const auto componentFormat = view.format;
@@ -2142,36 +2058,30 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			};
 			if (posView.format!=EF_UNKNOWN)
 			{
-				const auto viewCreateStart = clock_t::now();
 				auto beginIx = ctx.vertAttrIts.size();
 				setFinalFormat(posView);
 				auto view = createView(posView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->setPositionView(std::move(view));
-				viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - viewCreateStart).count();
 			}
 			if (normalView.format!=EF_UNKNOWN)
 			{
-				const auto viewCreateStart = clock_t::now();
 				auto beginIx = ctx.vertAttrIts.size();
 				setFinalFormat(normalView);
 				auto view = createView(normalView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->setNormalView(std::move(view));
-				viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - viewCreateStart).count();
 			}
 			if (uvView.format!=EF_UNKNOWN)
 			{
-				const auto viewCreateStart = clock_t::now();
 				auto beginIx = ctx.vertAttrIts.size();
 				setFinalFormat(uvView);
 				auto view = createView(uvView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
 				geometry->getAuxAttributeViews()->push_back(std::move(view));
-				viewCreateMs += std::chrono::duration<double, std::milli>(clock_t::now() - viewCreateStart).count();
 			}
 			//
 			for (auto& view : extraViews)
@@ -2183,21 +2093,14 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			for (auto& view : extraViews)
 				geometry->getAuxAttributeViews()->push_back(std::move(view));
 			// loop through vertex properties
-			const auto vertexStart = clock_t::now();
 			const auto fastVertexResult = ctx.readVertexElementFast(el, &parsedAABB);
 			if (fastVertexResult == SContext::EFastVertexReadResult::Success)
 			{
 				++fastVertexElementCount;
-				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
-				vertexFastMs += elapsedMs;
-				vertexMs += elapsedMs;
 			}
 			else if (fastVertexResult == SContext::EFastVertexReadResult::NotApplicable)
 			{
 				ctx.readVertex(_params,el);
-				const double elapsedMs = std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
-				vertexGenericMs += elapsedMs;
-				vertexMs += elapsedMs;
 			}
 			else
 			{
@@ -2213,7 +2116,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else if (el.Name=="face")
 		{
-			const auto faceStart = clock_t::now();
 			const uint32_t vertexCount32 = vertCount <= static_cast<size_t>(std::numeric_limits<uint32_t>::max()) ? static_cast<uint32_t>(vertCount) : 0u;
 			const auto fastFaceResult = ctx.readFaceElementFast(
 				el,
@@ -2222,8 +2124,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				faceCount,
 				vertexCount32,
 				computeContentHashes && !hashInBuild,
-				precomputedIndexHash,
-				hashRangeMs);
+				precomputedIndexHash);
 			if (fastFaceResult == SContext::EFastFaceReadResult::Success)
 			{
 				++fastFaceElementCount;
@@ -2243,12 +2144,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				_params.logger.log("PLY face fast path failed on malformed data for %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 				return {};
 			}
-			faceMs += std::chrono::duration<double, std::milli>(clock_t::now() - faceStart).count();
 		}
 		else
 		{
 			// skip these elements
-			const auto skipStart = clock_t::now();
 			if (ctx.IsBinaryFile && el.KnownSize)
 			{
 				const uint64_t bytesToSkip64 = static_cast<uint64_t>(el.KnownSize) * static_cast<uint64_t>(el.Count);
@@ -2261,19 +2160,15 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				for (size_t j=0; j<el.Count; ++j)
 					el.skipElement(ctx);
 			}
-			skipMs += std::chrono::duration<double, std::milli>(clock_t::now() - skipStart).count();
 		}
 	}
 
-	const auto aabbStart = clock_t::now();
 	if (parsedAABB.has)
-		plySetGeometryAABB(geometry.get(), parsedAABB);
+		applyAABBToGeometry(geometry.get(), parsedAABB);
 	else
 		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
-	aabbMs = std::chrono::duration<double, std::milli>(clock_t::now() - aabbStart).count();
 
 	const uint64_t indexCount = static_cast<uint64_t>(indices.size());
-	const auto indexStart = clock_t::now();
 	if (indices.empty())
 	{
 		// no index buffer means point cloud
@@ -2311,15 +2206,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			hashViewBufferIfNeeded(geometry->getIndexView());
 		}
 	}
-	indexBuildMs = std::chrono::duration<double, std::milli>(clock_t::now() - indexStart).count();
 
 	if (computeContentHashes && !hashInBuild)
 	{
 		if (deferredPositionHashThread.joinable())
 			deferredPositionHashThread.join();
-		const auto hashStart = clock_t::now();
 		recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
-		hashRangeMs += std::chrono::duration<double, std::milli>(clock_t::now() - hashStart).count();
 	}
 	else
 	{
@@ -2328,13 +2220,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	const uint64_t ioMinRead = ctx.readCallCount ? ctx.readMinBytes : 0ull;
 	const uint64_t ioAvgRead = ctx.readCallCount ? (ctx.readBytesTotal / ctx.readCallCount) : 0ull;
-	if (
-		fileSize > (1ull << 20) &&
-		(
-			ioAvgRead < 1024ull ||
-			(ioMinRead < 64ull && ctx.readCallCount > 1024ull)
-		)
-	)
+	const SFileReadTelemetry ioTelemetry = {
+		.callCount = ctx.readCallCount,
+		.totalBytes = ctx.readBytesTotal,
+		.minBytes = ctx.readMinBytes
+	};
+	if (isTinyIOTelemetryLikely(ioTelemetry, fileSize, _params.ioPolicy))
 	{
 		_params.logger.log(
 			"PLY loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",

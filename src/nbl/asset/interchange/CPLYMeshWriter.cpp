@@ -4,6 +4,7 @@
 // See the original file in irrlicht source for authors
 
 #include "CPLYMeshWriter.h"
+#include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
@@ -14,7 +15,6 @@
 #include <cstring>
 #include <array>
 #include <charconv>
-#include <chrono>
 #include <cstdio>
 #include <limits>
 #include <system_error>
@@ -121,28 +121,6 @@ inline bool emitExtraAuxValues(const core::vector<SExtraAuxView>& extraAuxViews,
     return true;
 }
 
-const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
-{
-    if (!view)
-        return nullptr;
-    if (view.composed.format != EF_R32G32B32_SFLOAT)
-        return nullptr;
-    if (view.composed.getStride() != sizeof(hlsl::float32_t3))
-        return nullptr;
-    return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
-}
-
-const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
-{
-    if (!view)
-        return nullptr;
-    if (view.composed.format != EF_R32G32_SFLOAT)
-        return nullptr;
-    if (view.composed.getStride() != sizeof(hlsl::float32_t2))
-        return nullptr;
-    return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
-}
-
 void appendUInt(std::string& out, const uint32_t value)
 {
     std::array<char, 16> buf = {};
@@ -185,12 +163,6 @@ bool writeText(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SData
 bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     using namespace ply_writer_detail;
-    using clock_t = std::chrono::high_resolution_clock;
-
-    const auto totalStart = clock_t::now();
-    double encodeMs = 0.0;
-    double formatMs = 0.0;
-    double writeMs = 0.0;
     SFileWriteTelemetry ioTelemetry = {};
 
     if (!_override)
@@ -259,8 +231,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     core::vector<uint32_t> indexData;
     const uint32_t* indices = nullptr;
     size_t faceCount = 0;
-    const auto encodeStart = clock_t::now();
-
     if (indexView)
     {
         const size_t indexCount = indexView.getElementCount();
@@ -309,12 +279,8 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         indices = indexData.data();
         faceCount = vertexCount / 3u;
     }
-    encodeMs = std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
-
     const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
     const bool binary = (flags & E_WRITER_FLAGS::EWF_BINARY) != 0u;
-
-    const auto formatStart = clock_t::now();
     std::string header = "ply\n";
     header += binary ? "format binary_little_endian 1.0" : "format ascii 1.0";
     header += "\ncomment Nabla ";
@@ -360,8 +326,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     header += std::to_string(faceCount);
     header += "\nproperty list uchar uint vertex_indices\n";
     header += "end_header\n";
-    formatMs += std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
-
     const bool flipVectors = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 
     bool writeOk = false;
@@ -372,12 +336,10 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         const size_t faceStride = sizeof(uint8_t) + sizeof(uint32_t) * 3u;
         const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
 
-        const auto binaryEncodeStart = clock_t::now();
         core::vector<uint8_t> body;
         body.resize(bodySize);
         if (!writeBinary(geom, uvView, extraAuxViews, extraAuxFloatCount, writeNormals, vertexCount, indices, faceCount, body.data(), flipVectors))
             return false;
-        encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - binaryEncodeStart).count();
 
         const size_t outputSize = header.size() + body.size();
         const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true);
@@ -388,7 +350,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         }
 
         outputBytes = outputSize;
-        const auto writeStart = clock_t::now();
         writeOk = writeTwoBuffersWithPolicy(
             file,
             ioPlan,
@@ -397,13 +358,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             body.data(),
             body.size(),
             &ioTelemetry);
-        writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
-
-        const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
-        const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
         const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
         const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-        if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes)))
+        if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
         {
             _params.logger.log(
                 "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -428,20 +385,13 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             toString(ioPlan.strategy),
             static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
             ioPlan.reason);
-        (void)totalMs;
-        (void)encodeMs;
-        (void)formatMs;
-        (void)writeMs;
-        (void)miscMs;
         return writeOk;
     }
 
-    const auto textEncodeStart = clock_t::now();
     std::string body;
     body.reserve(vertexCount * ApproxPlyTextBytesPerVertex + faceCount * ApproxPlyTextBytesPerFace);
     if (!writeText(geom, uvView, extraAuxViews, writeNormals, vertexCount, indices, faceCount, body, flipVectors))
         return false;
-    encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - textEncodeStart).count();
 
     const size_t outputSize = header.size() + body.size();
     const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true);
@@ -452,7 +402,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     }
 
     outputBytes = outputSize;
-    const auto writeStart = clock_t::now();
     writeOk = writeTwoBuffersWithPolicy(
         file,
         ioPlan,
@@ -461,13 +410,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         reinterpret_cast<const uint8_t*>(body.data()),
         body.size(),
         &ioTelemetry);
-    writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
-
-    const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
-    const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
     const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
     const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes)))
+    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
     {
         _params.logger.log(
             "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -492,11 +437,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         toString(ioPlan.strategy),
         static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
         ioPlan.reason);
-    (void)totalMs;
-    (void)encodeMs;
-    (void)formatMs;
-    (void)writeMs;
-    (void)miscMs;
     return writeOk;
 }
 

@@ -5,15 +5,13 @@
 #include "nbl/system/IFile.h"
 
 #include "CSTLMeshWriter.h"
+#include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
 #include <algorithm>
 #include <array>
-#include <charconv>
-#include <chrono>
 #include <cmath>
 #include <cstring>
-#include <cstdio>
 #include <limits>
 #include <memory>
 #include <new>
@@ -33,9 +31,6 @@ struct SContext
 	SResolvedFileIOPolicy ioPlan = {};
 	core::vector<uint8_t> ioBuffer = {};
 	size_t fileOffset = 0ull;
-	double formatMs = 0.0;
-	double encodeMs = 0.0;
-	double writeMs = 0.0;
 	SFileWriteTelemetry writeTelemetry = {};
 };
 
@@ -66,7 +61,6 @@ using SContext = stl_writer_detail::SContext;
 
 bool flushBytes(SContext* context);
 bool writeBytes(SContext* context, const void* data, size_t size);
-const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view);
 bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView& posView, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, uint32_t& outFaceCount);
 bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx);
 bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal);
@@ -81,7 +75,6 @@ bool writeFaceText(
 	const bool flipHandedness,
 	SContext* context);
 
-char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value);
 bool appendLiteral(char*& cursor, char* const end, const char* text, const size_t textSize);
 bool appendVectorAsAsciiLine(char*& cursor, char* const end, const core::vectorSIMDf& v);
 
@@ -114,9 +107,6 @@ uint32_t CSTLMeshWriter::getForcedFlags()
 
 bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-	using clock_t = std::chrono::high_resolution_clock;
-	const auto totalStart = clock_t::now();
-
 	if (!_override)
 		getDefaultOverride(_override);
 
@@ -141,7 +131,6 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 	const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(context.writeContext, geom, 0u);
 	const bool binary = (flags & asset::EWF_BINARY) != 0u;
-	const auto formatStart = clock_t::now();
 
 	uint64_t expectedSize = 0ull;
 	bool sizeKnown = false;
@@ -162,7 +151,6 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		context.ioBuffer.reserve(static_cast<size_t>(expectedSize));
 	else
 		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes, stl_writer_detail::IoFallbackReserveBytes)));
-	context.formatMs = std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
 
 	const bool written = binary ? writeMeshBinary(geom, &context) : writeMeshASCII(geom, &context);
 	if (!written)
@@ -172,11 +160,9 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (!flushed)
 		return false;
 
-	const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
-	const double miscMs = std::max(0.0, totalMs - (context.formatMs + context.encodeMs + context.writeMs));
 	const uint64_t ioMinWrite = context.writeTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = context.writeTelemetry.getAvgOrZero();
-	if (isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset))
+	if (isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset, _params.ioPolicy))
 	{
 		_params.logger.log(
 			"STL writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -199,11 +185,6 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		toString(context.ioPlan.strategy),
 		static_cast<unsigned long long>(context.ioPlan.chunkSizeBytes),
 		context.ioPlan.reason);
-	(void)totalMs;
-	(void)miscMs;
-	(void)context.formatMs;
-	(void)context.encodeMs;
-	(void)context.writeMs;
 
 	return true;
 }
@@ -215,8 +196,6 @@ bool flushBytes(SContext* context)
 	if (context->ioBuffer.empty())
 		return true;
 
-	using clock_t = std::chrono::high_resolution_clock;
-	const auto writeStart = clock_t::now();
 	size_t bytesWritten = 0ull;
 	const size_t totalBytes = context->ioBuffer.size();
 	while (bytesWritten < totalBytes)
@@ -237,7 +216,6 @@ bool flushBytes(SContext* context)
 	}
 	context->fileOffset += totalBytes;
 	context->ioBuffer.clear();
-	context->writeMs += std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
 	return true;
 }
 
@@ -284,22 +262,6 @@ bool writeBytes(SContext* context, const void* data, size_t size)
 	}
 }
 
-char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
-{
-	if (!dst || dst >= end)
-		return end;
-
-	const auto result = std::to_chars(dst, end, value, std::chars_format::fixed, 6);
-	if (result.ec == std::errc())
-		return result.ptr;
-
-	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%.6f", static_cast<double>(value));
-	if (written <= 0)
-		return dst;
-	const size_t writeLen = static_cast<size_t>(written);
-	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
-}
-
 bool appendLiteral(char*& cursor, char* const end, const char* text, const size_t textSize)
 {
 	if (!cursor || cursor + textSize > end)
@@ -324,17 +286,6 @@ bool appendVectorAsAsciiLine(char*& cursor, char* const end, const core::vectorS
 		return false;
 	*(cursor++) = '\n';
 	return true;
-}
-
-const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
-{
-	if (!view)
-		return nullptr;
-	if (view.composed.format != EF_R32G32B32_SFLOAT)
-		return nullptr;
-	if (view.composed.getStride() != sizeof(hlsl::float32_t3))
-		return nullptr;
-	return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
 }
 
 bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView& posView, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, uint32_t& outFaceCount)
@@ -455,8 +406,6 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	if (!geom || !context || !context->writeContext.outputFile)
 		return false;
-	using clock_t = std::chrono::high_resolution_clock;
-	const auto encodeStart = clock_t::now();
 
 	const auto& posView = geom->getPositionView();
 	if (!posView)
@@ -742,10 +691,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		}
 	}
 
-	context->encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
-	const auto writeStart = clock_t::now();
 	const bool writeOk = writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
-	context->writeMs += std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
 	if (writeOk)
 		context->fileOffset += outputSize;
 	return writeOk;
@@ -755,8 +701,6 @@ bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	if (!geom)
 		return false;
-	using clock_t = std::chrono::high_resolution_clock;
-	const auto encodeStart = clock_t::now();
 
 	const auto* indexing = geom->getIndexingCallback();
 	if (!indexing || indexing->degree() != 3u)
@@ -801,7 +745,6 @@ bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	if (!writeBytes(context, solidName.data(), solidName.size()))
 		return false;
 
-	context->encodeMs += std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
 	return true;
 }
 

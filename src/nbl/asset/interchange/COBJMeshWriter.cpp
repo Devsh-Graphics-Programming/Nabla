@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/interchange/COBJMeshWriter.h"
+#include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
@@ -11,7 +12,6 @@
 
 #include <algorithm>
 #include <charconv>
-#include <chrono>
 #include <cstring>
 #include <cstdio>
 #include <limits>
@@ -64,28 +64,6 @@ bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hls
 	return view.decodeElement(ix, out);
 }
 
-const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
-{
-	if (!view)
-		return nullptr;
-	if (view.composed.format != EF_R32G32B32_SFLOAT)
-		return nullptr;
-	if (view.composed.getStride() != sizeof(hlsl::float32_t3))
-		return nullptr;
-	return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
-}
-
-const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
-{
-	if (!view)
-		return nullptr;
-	if (view.composed.format != EF_R32G32_SFLOAT)
-		return nullptr;
-	if (view.composed.getStride() != sizeof(hlsl::float32_t2))
-		return nullptr;
-	return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
-}
-
 char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
 {
 	if (!dst || dst >= end)
@@ -96,22 +74,6 @@ char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
 		return result.ptr;
 
 	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%u", value);
-	if (written <= 0)
-		return dst;
-	const size_t writeLen = static_cast<size_t>(written);
-	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
-}
-
-char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
-{
-	if (!dst || dst >= end)
-		return end;
-
-	const auto result = std::to_chars(dst, end, value, std::chars_format::fixed, 6);
-	if (result.ec == std::errc())
-		return result.ptr;
-
-	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%.6f", static_cast<double>(value));
 	if (written <= 0)
 		return dst;
 	const size_t writeLen = static_cast<size_t>(written);
@@ -230,12 +192,6 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	using namespace obj_writer_detail;
-	using clock_t = std::chrono::high_resolution_clock;
-
-	const auto totalStart = clock_t::now();
-	double encodeMs = 0.0;
-	double formatMs = 0.0;
-	double writeMs = 0.0;
 	SFileWriteTelemetry ioTelemetry = {};
 
 	if (!_override)
@@ -293,8 +249,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	core::vector<uint32_t> indexData;
 	const uint32_t* indices = nullptr;
 	size_t faceCount = 0;
-	const auto encodeStart = clock_t::now();
-
 	if (indexView)
 	{
 		const size_t indexCount = indexView.getElementCount();
@@ -343,12 +297,10 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		indices = indexData.data();
 		faceCount = vertexCount / 3u;
 	}
-	encodeMs = std::chrono::duration<double, std::milli>(clock_t::now() - encodeStart).count();
 
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool flipHandedness = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 	std::string output;
-	const auto formatStart = clock_t::now();
 	output.reserve(vertexCount * ApproxObjBytesPerVertex + faceCount * ApproxObjBytesPerFace);
 
 	output.append("# Nabla OBJ\n");
@@ -457,7 +409,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 		appendFaceLine(output, faceIndexStorage, faceIndexRefs, f0, f1, f2);
 	}
-	formatMs = std::chrono::duration<double, std::milli>(clock_t::now() - formatStart).count();
 
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
 	if (!ioPlan.valid)
@@ -466,15 +417,10 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		return false;
 	}
 
-	const auto writeStart = clock_t::now();
 	const bool writeOk = writeFileWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
-	writeMs = std::chrono::duration<double, std::milli>(clock_t::now() - writeStart).count();
-
-	const double totalMs = std::chrono::duration<double, std::milli>(clock_t::now() - totalStart).count();
-	const double miscMs = std::max(0.0, totalMs - (encodeMs + formatMs + writeMs));
 	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-	if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size())))
+	if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy))
 	{
 		_params.logger.log(
 			"OBJ writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -498,11 +444,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		toString(ioPlan.strategy),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
 		ioPlan.reason);
-	(void)totalMs;
-	(void)encodeMs;
-	(void)formatMs;
-	(void)writeMs;
-	(void)miscMs;
 
 	return writeOk;
 }

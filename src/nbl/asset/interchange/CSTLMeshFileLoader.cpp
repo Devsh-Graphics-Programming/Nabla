@@ -7,6 +7,7 @@
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
+#include "nbl/asset/interchange/SGeometryAABBCommon.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
@@ -157,24 +158,6 @@ class CStlSplitBlockMemoryResource final : public core::refctd_memory_resource
 		size_t m_alignment = 1ull;
 };
 
-void stlExtendAABB(hlsl::shapes::AABB<3, hlsl::float32_t>& aabb, bool& hasAABB, const hlsl::float32_t3& p)
-{
-	if (!hasAABB)
-	{
-		aabb.minVx = p;
-		aabb.maxVx = p;
-		hasAABB = true;
-		return;
-	}
-
-	if (p.x < aabb.minVx.x) aabb.minVx.x = p.x;
-	if (p.y < aabb.minVx.y) aabb.minVx.y = p.y;
-	if (p.z < aabb.minVx.z) aabb.minVx.z = p.z;
-	if (p.x > aabb.maxVx.x) aabb.maxVx.x = p.x;
-	if (p.y > aabb.maxVx.y) aabb.maxVx.y = p.y;
-	if (p.z > aabb.maxVx.z) aabb.maxVx.z = p.z;
-}
-
 ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::float32_t3>&& values)
 {
 	if (values.empty())
@@ -310,8 +293,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-	hlsl::shapes::AABB<3, hlsl::float32_t> parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
-	bool hasParsedAABB = false;
+	SAABBAccumulator3<float> parsedAABB = {};
 	uint64_t vertexCount = 0ull;
 
 	if (!binary && wholeFileDataIsMapped)
@@ -412,17 +394,18 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * SSTLContext::TriangleRecordBytes)
 			return {};
 		const size_t hw = resolveLoaderHardwareThreads();
+		const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
 		SLoaderRuntimeTuningRequest parseTuningRequest = {};
 		parseTuningRequest.inputBytes = dataSize;
 		parseTuningRequest.totalWorkUnits = triangleCount;
 		parseTuningRequest.minBytesPerWorker = SSTLContext::TriangleRecordBytes;
 		parseTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::max<size_t>(1ull, hw > 2ull ? (hw - 2ull) : hw));
-		parseTuningRequest.targetChunksPerWorker = 2u;
+		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
+		parseTuningRequest.targetChunksPerWorker = _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
 		parseTuningRequest.minChunkWorkUnits = 1ull;
 		parseTuningRequest.maxChunkWorkUnits = std::max<uint64_t>(1ull, triangleCount);
 		parseTuningRequest.sampleData = payloadData;
-		parseTuningRequest.sampleBytes = std::min<uint64_t>(dataSize, 128ull << 10);
+		parseTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(_params.ioPolicy, dataSize);
 		const auto parseTuning = tuneLoaderRuntime(_params.ioPolicy, parseTuningRequest);
 		const size_t workerCount = std::max<size_t>(1ull, std::min(parseTuning.workerCount, static_cast<size_t>(std::max<uint64_t>(1ull, triangleCount))));
 		static constexpr bool ComputeAABBInParse = true;
@@ -647,16 +630,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if constexpr (ComputeAABBInParse)
 				threadAABBs[workerIx] = localAABB;
 		};
-		const auto runParallelWorkers = [](const size_t localWorkerCount, const auto& fn) -> void
-		{
-			if (localWorkerCount <= 1ull) { fn(0ull); return; }
-			core::vector<std::jthread> workers;
-			workers.reserve(localWorkerCount - 1ull);
-			for (size_t workerIx = 1ull; workerIx < localWorkerCount; ++workerIx)
-				workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
-			fn(0ull);
-		};
-		runParallelWorkers(workerCount, parseWorker);
+		loaderRuntimeDispatchWorkers(workerCount, parseWorker);
 		if (positionHashThread.joinable())
 			positionHashThread.join();
 		if (normalHashThread.joinable())
@@ -675,24 +649,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			{
 				if (!localAABB.has)
 					continue;
-				if (!hasParsedAABB)
-				{
-					hasParsedAABB = true;
-					parsedAABB = hlsl::shapes::AABB<3, hlsl::float32_t>::create();
-					parsedAABB.minVx.x = localAABB.minX;
-					parsedAABB.minVx.y = localAABB.minY;
-					parsedAABB.minVx.z = localAABB.minZ;
-					parsedAABB.maxVx.x = localAABB.maxX;
-					parsedAABB.maxVx.y = localAABB.maxY;
-					parsedAABB.maxVx.z = localAABB.maxZ;
-					continue;
-				}
-				if (localAABB.minX < parsedAABB.minVx.x) parsedAABB.minVx.x = localAABB.minX;
-				if (localAABB.minY < parsedAABB.minVx.y) parsedAABB.minVx.y = localAABB.minY;
-				if (localAABB.minZ < parsedAABB.minVx.z) parsedAABB.minVx.z = localAABB.minZ;
-				if (localAABB.maxX > parsedAABB.maxVx.x) parsedAABB.maxVx.x = localAABB.maxX;
-				if (localAABB.maxY > parsedAABB.maxVx.y) parsedAABB.maxVx.y = localAABB.maxY;
-				if (localAABB.maxZ > parsedAABB.maxVx.z) parsedAABB.maxVx.z = localAABB.maxZ;
+				extendAABBAccumulator(parsedAABB, localAABB.minX, localAABB.minY, localAABB.minZ);
+				extendAABBAccumulator(parsedAABB, localAABB.maxX, localAABB.maxY, localAABB.maxZ);
 			}
 		}
 		geometry->setPositionView(std::move(posView));
@@ -754,9 +712,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
-			stlExtendAABB(parsedAABB, hasParsedAABB, p[2u]);
-			stlExtendAABB(parsedAABB, hasParsedAABB, p[1u]);
-			stlExtendAABB(parsedAABB, hasParsedAABB, p[0u]);
+			extendAABBAccumulator(parsedAABB, p[2u]);
+			extendAABBAccumulator(parsedAABB, p[1u]);
+			extendAABBAccumulator(parsedAABB, p[0u]);
 
 			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endloop"))
 				return {};
@@ -785,28 +743,15 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		recomputeGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 	}
 
-	if (hasParsedAABB)
-	{
-		geometry->visitAABB([&parsedAABB](auto& ref)->void
-		{
-			ref = std::remove_reference_t<decltype(ref)>::create();
-			ref.minVx.x = parsedAABB.minVx.x;
-			ref.minVx.y = parsedAABB.minVx.y;
-			ref.minVx.z = parsedAABB.minVx.z;
-			ref.minVx.w = 0.0;
-			ref.maxVx.x = parsedAABB.maxVx.x;
-			ref.maxVx.y = parsedAABB.maxVx.y;
-			ref.maxVx.z = parsedAABB.maxVx.z;
-			ref.maxVx.w = 0.0;
-		});
-	}
+	if (parsedAABB.has)
+		applyAABBToGeometry(geometry.get(), parsedAABB);
 	else
 	{
 		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 	}
 	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
-	if (isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize)))
+	if (isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
 	{
 		_params.logger.log(
 			"STL loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
