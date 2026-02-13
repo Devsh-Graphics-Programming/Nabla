@@ -84,7 +84,7 @@ struct SphericalTriangle
         pdf = 1.0 / solidAngle;
 
         const scalar_type cosAngleAlongBC_s = nbl::hlsl::dot(L, tri.vertices[1]);
-        const scalar_type csc_a_ = 1.0 / nbl::hlsl::sqrt(1.0 - cosAngleAlongBC_s * cosAngleAlongBC_s);
+        const scalar_type csc_a_ = nbl::hlsl::rsqrt(1.0 - cosAngleAlongBC_s * cosAngleAlongBC_s);
         const scalar_type cos_b_ = nbl::hlsl::dot(L, tri.vertices[0]);
 
         const scalar_type cosB_ = (cos_b_ - cosAngleAlongBC_s * cos_c) * csc_a_ * csc_c;

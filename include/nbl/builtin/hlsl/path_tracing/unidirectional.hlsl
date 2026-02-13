@@ -110,8 +110,11 @@ struct Unidirectional
         const uint32_t lightID = glsl::bitfieldExtract(bsdfLightIDs, 16, 16);
         if (lightID != light_type::INVALID_ID)
         {
-            float _pdf;
-            ray.payload.accumulation += nee.deferredEvalAndPdf(_pdf, scene, lightID, ray) * throughput / (1.0 + _pdf * _pdf * ray.payload.otherTechniqueHeuristic);
+            scalar_type _pdf;
+            measure_type emissive = nee.deferredEvalAndPdf(_pdf, scene, lightID, ray) * throughput;
+            scalar_type _pdfSq = hlsl::mix(_pdf, _pdf * _pdf, _pdf < numeric_limits<scalar_type>::max);
+            emissive /= (1.0 + _pdfSq * ray.payload.otherTechniqueHeuristic);
+            ray.payload.accumulation += emissive;
         }
 
         const uint32_t bsdfID = glsl::bitfieldExtract(bsdfLightIDs, 0, 16);
@@ -119,8 +122,6 @@ struct Unidirectional
             return false;
 
         bxdfnode_type bxdf = materialSystem.bxdfs[bsdfID];
-
-        // TODO: ifdef kill diffuse specular paths
 
         const bool isBSDF = material_system_type::isBSDF(bxdf.materialType);
 
@@ -135,7 +136,7 @@ struct Unidirectional
         const scalar_type monochromeEta = hlsl::dot<vector3_type>(throughputCIE_Y, eta) / (throughputCIE_Y.r + throughputCIE_Y.g + throughputCIE_Y.b);  // TODO: imaginary eta?
 
         // sample lights
-        const scalar_type neeProbability = 1.0; // BSDFNode_getNEEProb(bsdf);
+        const scalar_type neeProbability = bxdf.getNEEProb();
         scalar_type rcpChoiceProb;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
         partitionRandVariable.leftProb = neeProbability;
@@ -160,11 +161,7 @@ struct Unidirectional
 
             if (neeContrib_pdf.pdf < numeric_limits<scalar_type>::max)
             {
-                if (nbl::hlsl::any(hlsl::isnan(nee_sample.getL().getDirection())))
-                    ray.payload.accumulation += vector3_type(1000.f, 0.f, 0.f);
-                else if (nbl::hlsl::all((vector3_type)69.f == nee_sample.getL().getDirection()))
-                    ray.payload.accumulation += vector3_type(0.f, 1000.f, 0.f);
-                else if (validPath)
+                if (validPath)
                 {
                     // example only uses isotropic bxdfs
                     quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(bxdf.materialType, bxdf.params, nee_sample, interaction.isotropic, _cache.iso_cache);
@@ -172,9 +169,6 @@ struct Unidirectional
                     const scalar_type otherGenOverChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb;
                     const scalar_type otherGenOverLightAndChoice = otherGenOverChoice / bsdf_quotient_pdf.pdf;
                     neeContrib_pdf.quotient *= otherGenOverChoice / (1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice);   // balance heuristic
-
-                    // TODO: ifdef NEE only
-                    // neeContrib_pdf.quotient *= otherGenOverChoice;
 
                     ray_type nee_ray;
                     nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
@@ -185,8 +179,6 @@ struct Unidirectional
                 }
             }
         }
-
-        // return false;   // NEE only
 
         // sample BSDF
         scalar_type bxdfPdf;
