@@ -29,7 +29,7 @@ struct ProjectedSphericalTriangle
     static ProjectedSphericalTriangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalTriangle<T>) tri)
     {
         ProjectedSphericalTriangle<T> retval;
-        retval.tri = tri;
+        retval.sphtri = sampling::SphericalTriangle<T>::create(tri);
         return retval;
     }
 
@@ -37,56 +37,45 @@ struct ProjectedSphericalTriangle
     {
         const scalar_type minimumProjSolidAngle = 0.0;
 
-        matrix<T, 3, 3> m = matrix<T, 3, 3>(tri.vertex0, tri.vertex1, tri.vertex2);
-        const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(isBSDF, nbl::hlsl::mul(m, receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
+        matrix<T, 3, 3> m = matrix<T, 3, 3>(sphtri.tri.vertices[0], sphtri.tri.vertices[1], sphtri.tri.vertices[2]);
+        const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(isBSDF, hlsl::mul(m, receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
 
         return bxdfPdfAtVertex.yyxz;
     }
 
-    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, scalar_type solidAngle, const vector3_type cos_vertices, const vector3_type sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, const vector3_type receiverNormal, bool isBSDF, const vector2_type _u)
+    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, scalar_type solidAngle, scalar_type cos_c, scalar_type csc_b, const vector3_type receiverNormal, bool isBSDF, const vector2_type _u)
     {
         vector2_type u;
         // pre-warp according to proj solid angle approximation
         vector4_type patch = computeBilinearPatch(receiverNormal, isBSDF);
         Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        u = bilinear.generate(rcpPdf, _u);
+        u = bilinear.generate(_u);
 
         // now warp the points onto a spherical triangle
-        const vector3_type L = sphtri.generate(solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, u);
-        rcpPdf *= solidAngle;
+        const vector3_type L = sphtri.generate(cos_c, csc_b, u);
+        rcpPdf = solidAngle / bilinear.backwardPdf(u);
 
         return L;
     }
 
     vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, const vector3_type receiverNormal, bool isBSDF, const vector2_type u)
     {
-        scalar_type cos_a, cos_c, csc_b, csc_c;
-        vector3_type cos_vertices, sin_vertices;
-        const scalar_type solidAngle = tri.solidAngleOfTriangle(cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c);
-        return generate(rcpPdf, solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, receiverNormal, isBSDF, u);
+        const scalar_type cos_c = sphtri.tri.cos_sides[2];
+        const scalar_type csc_b = sphtri.tri.csc_sides[1];
+        const scalar_type solidAngle = sphtri.tri.solidAngle();
+        return generate(rcpPdf, solidAngle, cos_c, csc_b, receiverNormal, isBSDF, u);
     }
 
-    scalar_type pdf(scalar_type solidAngle, const vector3_type cos_vertices, const vector3_type sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, const vector3_type receiverNormal, bool receiverWasBSDF, const vector3_type L)
-    {
-        scalar_type pdf;
-        const vector2_type u = sphtri.generateInverse(pdf, solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, L);
-
-        vector4_type patch = computeBilinearPatch(receiverNormal, receiverWasBSDF);
-        Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        return pdf * bilinear.pdf(u);
-    }
-
-    scalar_type pdf(const vector3_type receiverNormal, bool receiverWasBSDF, const vector3_type L)
+    scalar_type backwardPdf(const vector3_type receiverNormal, bool receiverWasBSDF, const vector3_type L)
     {
         scalar_type pdf;
         const vector2_type u = sphtri.generateInverse(pdf, L);
 
         vector4_type patch = computeBilinearPatch(receiverNormal, receiverWasBSDF);
         Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-        return pdf * bilinear.pdf(u);
+        return pdf * bilinear.backwardPdf(u);
     }
 
-    shapes::SphericalTriangle<T> tri;
     sampling::SphericalTriangle<T> sphtri;
 };
 
