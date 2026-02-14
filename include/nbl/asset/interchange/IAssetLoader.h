@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
@@ -11,6 +11,7 @@
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
+#include "nbl/asset/interchange/SFileIOPolicy.h"
 
 
 namespace nbl::asset
@@ -90,17 +91,18 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			ELPF_NONE = 0,									//!< default value, it doesn't do anything
 //[[deprecated]] ELPF_RIGHT_HANDED_MESHES = 0x1,	//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
 //[[deprecated]] ELPF_DONT_COMPILE_GLSL = 0x2,		//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
-			ELPF_LOAD_METADATA_ONLY = 0x4					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
+			ELPF_LOAD_METADATA_ONLY = 0x4,					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
+			ELPF_DONT_COMPUTE_CONTENT_HASHES = 0x8			//!< opt-out from computing content hashes of produced buffers before returning.
 		};
 
 		struct SAssetLoadParams
 		{
 			inline SAssetLoadParams(const size_t _decryptionKeyLen = 0u, const uint8_t* const _decryptionKey = nullptr,
 				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS _loaderFlags = ELPF_NONE, 
-				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
+				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
-					logger(std::move(_logger)), workingDirectory(cwd)
+					logger(std::move(_logger)), workingDirectory(cwd), ioPolicy(_ioPolicy)
 			{
 			}
 
@@ -110,7 +112,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				cacheFlags(rhs.cacheFlags),
 				loaderFlags(rhs.loaderFlags),
 				logger(rhs.logger),
-				workingDirectory(rhs.workingDirectory)
+				workingDirectory(rhs.workingDirectory),
+				ioPolicy(rhs.ioPolicy)
 			{
 			}
 
@@ -120,6 +123,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
+			SFileIOPolicy ioPolicy = {};
 		};
 
 		//! Struct for keeping the state of the current loadoperation for safe threading
@@ -234,6 +238,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				//! Called before loading a file to determine the correct path (could be relative or absolute)
 				inline virtual void getLoadFilename(system::path& inOutFilename, const system::ISystem* sys,  const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
+					if (inOutFilename.is_absolute() || inOutFilename.has_root_path())
+						return;
 					// try compute absolute path
 					auto absolute = ctx.params.workingDirectory/inOutFilename;
 					if (sys->exists(absolute,system::IFile::ECF_READ))

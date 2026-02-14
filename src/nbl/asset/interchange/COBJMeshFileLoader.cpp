@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
@@ -6,742 +6,1187 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
+#include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
+#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
-#include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
-
-#include "nbl/asset/utils/CQuantNormalCache.h"
 
 #include "COBJMeshFileLoader.h"
 
-#include <filesystem>
+#include <bit>
+#include <cmath>
+#include <fast_float/fast_float.h>
+#include <type_traits>
 
-namespace nbl
+namespace nbl::asset
 {
-namespace asset
+
+namespace
 {
 
-//#ifdef _NBL_DEBUG
-#define _NBL_DEBUG_OBJ_LOADER_
-//#endif
-
-static const uint32_t WORD_BUFFER_LENGTH = 512;
-
-constexpr uint32_t POSITION = 0u;
-constexpr uint32_t UV = 2u;
-constexpr uint32_t NORMAL = 3u;
-constexpr uint32_t BND_NUM = 0u;
-
-//! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), System(_manager->getSystem())
+struct ObjVertexDedupNode
 {
+    int32_t uv = -1;
+    int32_t normal = -1;
+    uint32_t smoothingGroup = 0u;
+    uint32_t outIndex = 0u;
+    int32_t next = -1;
+};
+
+using Float3 = hlsl::float32_t3;
+using Float2 = hlsl::float32_t2;
+
+static_assert(sizeof(Float3) == sizeof(float) * 3ull);
+static_assert(sizeof(Float2) == sizeof(float) * 2ull);
+
+inline bool isObjInlineWhitespace(const char c)
+{
+    return c == ' ' || c == '\t' || c == '\v' || c == '\f';
 }
 
-
-//! destructor
-COBJMeshFileLoader::~COBJMeshFileLoader()
+inline bool isObjDigit(const char c)
 {
+    return c >= '0' && c <= '9';
 }
 
-asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+inline bool parseObjFloat(const char*& ptr, const char* const end, float& out)
 {
-    SContext ctx(
-        asset::IAssetLoader::SAssetLoadContext{
-            _params,
-            _file
-        },
-		_hierarchyLevel,
-        _override
-    );
+    const char* const start = ptr;
+    if (start >= end)
+        return false;
 
-	if (_params.meshManipulatorOverride == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		assert(false);
-	}
-
-	CQuantNormalCache* const quantNormalCache = _params.meshManipulatorOverride->getQuantNormalCache();
-
-	const long filesize = _file->getSize();
-	if (!filesize)
-        return {};
-
-	const uint32_t WORD_BUFFER_LENGTH = 512u;
-    char tmpbuf[WORD_BUFFER_LENGTH]{};
-
-	uint32_t smoothingGroup=0;
-
-	const std::filesystem::path fullName = _file->getFileName();
-	const std::string relPath = [&fullName]() -> std::string
-	{
-		auto dir = fullName.parent_path().string();
-		return dir;
-	}();
-
-    //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
-	using pipeline_meta_pair_t = std::pair<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,const CMTLMetadata::CRenderpassIndependentPipeline*>;
-	struct hash_t
-	{
-		inline auto operator()(const pipeline_meta_pair_t& item) const
-		{
-			return std::hash<std::string>()(item.second->m_name);
-		}
-	};
-	struct key_equal_t
-	{
-		inline bool operator()(const pipeline_meta_pair_t& lhs, const pipeline_meta_pair_t& rhs) const
-		{
-			return lhs.second->m_name==rhs.second->m_name;
-		}
-	};
-    core::unordered_multiset<pipeline_meta_pair_t,hash_t,key_equal_t> pipelines;
-
-	// TODO: map the file whenever possible
-    std::string fileContents;
-    fileContents.resize(filesize);
-	char* const buf = fileContents.data();
-
-	system::IFile::success_t success;
-	_file->read(success, buf, 0, filesize);
-	if (!success)
-		return {};
-
-	const char* const bufEnd = buf+filesize;
-	// Process obj information
-	const char* bufPtr = buf;
-	std::string grpName, mtlName;
-
-	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded)
-	{
-		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-			performOnRightHanded();
-		else
-			performOnLeftHanded();
-	};
-
-
-    struct vec3 {
-        float data[3];
-    };
-    struct vec2 {
-        float data[2];
-    };
-    core::vector<vec3> vertexBuffer;
-    core::vector<vec3> normalsBuffer;
-    core::vector<vec2> textureCoordBuffer;
-
-    core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> submeshes;
-    core::vector<core::vector<uint32_t>> indices;
-    core::vector<SObjVertex> vertices;
-    core::map<SObjVertex, uint32_t> map_vtx2ix;
-    core::vector<bool> recalcNormals;
-    core::vector<bool> submeshWasLoadedFromCache;
-    core::vector<std::string> submeshCacheKeys;
-    core::vector<std::string> submeshMaterialNames;
-    core::vector<uint32_t> vtxSmoothGrp;
-
-	// TODO: handle failures much better!
-	constexpr const char* NO_MATERIAL_MTL_NAME = "#";
-	bool noMaterial = true;
-	bool dummyMaterialCreated = false;
-	while(bufPtr != bufEnd)
-	{
-		switch(bufPtr[0])
-		{
-		case 'm':	// mtllib (material)
-		{
-			if (ctx.useMaterials)
-			{
-				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-				_params.logger.log("Reading material _file %s", system::ILogger::ELL_DEBUG, tmpbuf);
-
-                std::string mtllib = tmpbuf;
-                std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
-                SAssetLoadParams loadParams(_params);
-				loadParams.workingDirectory = _file->getFileName().parent_path();
-                auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
-                
-				if (bundle.getContents().empty())
-					break;
-
-				if (bundle.getMetadata())
-				{
-					auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
-					if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
-					for (auto ass : bundle.getContents())
-					{
-						auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
-						const auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
-						if (!pplnMeta)
-							continue;
-
-						pipelines.emplace(std::move(ppln),pplnMeta);
-					}
-				}
-			}
-		}
-			break;
-
-		case 'v':               // v, vn, vt
-			//reset flags
-			noMaterial = true;
-			dummyMaterialCreated = false;
-			switch(bufPtr[1])
-			{
-			case ' ':          // vertex
-				{
-					vec3 vec;
-					bufPtr = readVec3(bufPtr, vec.data, bufEnd);
-					performActionBasedOnOrientationSystem([&]() {vec.data[0] = -vec.data[0];}, [&]() {});
-					vertexBuffer.push_back(vec);
-				}
-				break;
-
-			case 'n':       // normal
-				{
-					vec3 vec;
-					bufPtr = readVec3(bufPtr, vec.data, bufEnd);
-					performActionBasedOnOrientationSystem([&]() {vec.data[0] = -vec.data[0]; }, [&]() {});
-					normalsBuffer.push_back(vec);
-				}
-				break;
-
-			case 't':       // texcoord
-				{
-					vec2 vec;
-					bufPtr = readUV(bufPtr, vec.data, bufEnd);
-					textureCoordBuffer.push_back(vec);
-				}
-				break;
-			}
-			break;
-
-		case 'g': // group name
-            bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-            grpName = tmpbuf;
-			break;
-		case 's': // smoothing can be a group or off (equiv. to 0)
-			{
-				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-				_params.logger.log("Loaded smoothing group start %s",system::ILogger::ELL_DEBUG, tmpbuf);
-				if (strcmp("off", tmpbuf)==0)
-					smoothingGroup=0u;
-				else
-                    sscanf(tmpbuf,"%u",&smoothingGroup);
-			}
-			break;
-
-		case 'u': // usemtl
-			// get name of material
-			{
-				noMaterial = false;
-				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-				_params.logger.log("Loaded material start %s", system::ILogger::ELL_DEBUG, tmpbuf);
-				mtlName=tmpbuf;
-
-                if (ctx.useMaterials && !ctx.useGroups)
-                {
-                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
-                    auto mbs = mb_bundle.getContents();
-					bool notempty = mbs.size()!=0ull;
-                    {
-                        auto mb = notempty ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.begin()) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-                        submeshes.push_back(std::move(mb));
-                    }
-                    indices.emplace_back();
-                    recalcNormals.push_back(false);
-                    submeshWasLoadedFromCache.push_back(notempty);
-                    //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
-                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName));
-                    submeshMaterialNames.push_back(mtlName);
-                }
-			}
-			break;
-		case 'f':               // face
-		{
-			if (noMaterial && !dummyMaterialCreated)
-			{
-				dummyMaterialCreated = true;
-
-				submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
-				indices.emplace_back();
-				recalcNormals.push_back(false);
-				submeshWasLoadedFromCache.push_back(false);
-				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().string(), NO_MATERIAL_MTL_NAME, grpName));
-				submeshMaterialNames.push_back(NO_MATERIAL_MTL_NAME);
-			}
-
-			SObjVertex v;
-
-			// get all vertices data in this face (current line of obj _file)
-			const std::string wordBuffer = copyLine(bufPtr, bufEnd);
-			const char* linePtr = wordBuffer.c_str();
-			const char* const endPtr = linePtr + wordBuffer.size();
-
-			core::vector<uint32_t> faceCorners;
-			faceCorners.reserve(32ull);
-
-			// read in all vertices
-			linePtr = goNextWord(linePtr, endPtr);
-			while (0 != linePtr[0])
-			{
-				// Array to communicate with retrieveVertexIndices()
-				// sends the buffer sizes and gets the actual indices
-				// if index not set returns -1
-				int32_t Idx[3];
-				Idx[1] = Idx[2] = -1;
-
-				// read in next vertex's data
-				uint32_t wlength = copyWord(tmpbuf, linePtr, WORD_BUFFER_LENGTH, endPtr);
-				// this function will also convert obj's 1-based index to c++'s 0-based index
-				retrieveVertexIndices(tmpbuf, Idx, tmpbuf+wlength+1, vertexBuffer.size(), textureCoordBuffer.size(), normalsBuffer.size());
-				v.pos[0] = vertexBuffer[Idx[0]].data[0];
-				v.pos[1] = vertexBuffer[Idx[0]].data[1];
-				v.pos[2] = vertexBuffer[Idx[0]].data[2];
-				//set texcoord
-				if ( -1 != Idx[1] )
-                {
-					v.uv[0] = textureCoordBuffer[Idx[1]].data[0];
-					v.uv[1] = textureCoordBuffer[Idx[1]].data[1];
-                }
-				else
-                {
-					v.uv[0] = core::nan<float>();
-					v.uv[1] = core::nan<float>();
-                }
-                //set normal
-				if ( -1 != Idx[2] )
-                {
-					core::vectorSIMDf simdNormal;
-					simdNormal.set(normalsBuffer[Idx[2]].data);
-                    simdNormal.makeSafe3D();
-					v.normal32bit = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(simdNormal);
-                }
-				else
-				{
-					v.normal32bit = core::vectorSIMDu32(0u);
-                    recalcNormals.back() = true;
-				}
-
-				uint32_t ix;
-				auto vtx_ix = map_vtx2ix.find(v);
-				if (vtx_ix != map_vtx2ix.end() && smoothingGroup==vtxSmoothGrp[vtx_ix->second])
-					ix = vtx_ix->second;
-				else
-				{
-					ix = vertices.size();
-					vertices.push_back(v);
-                    vtxSmoothGrp.push_back(smoothingGroup);
-					map_vtx2ix.insert({v, ix});
-				}
-
-				faceCorners.push_back(ix);
-
-				// go to next vertex
-				linePtr = goNextWord(linePtr, endPtr);
-			}
-
-            // triangulate the face
-            for (uint32_t i = 1u; i < faceCorners.size()-1u; ++i)
-            {
-                // Add a triangle
-                performActionBasedOnOrientationSystem
-                (
-                [&]()
-                {
-                    indices.back().push_back(faceCorners[0]);
-                    indices.back().push_back(faceCorners[i]);
-                    indices.back().push_back(faceCorners[i + 1]);
-                },
-                [&]()
-                {
-                    indices.back().push_back(faceCorners[i + 1]);
-                    indices.back().push_back(faceCorners[i]);
-                    indices.back().push_back(faceCorners[0]);
-                }
-                );
-            }
-		}
-		break;
-
-		case '#': // comment
-		default:
-			break;
-		}	// end switch(bufPtr[0])
-		// eat up rest of line
-		bufPtr = goNextLine(bufPtr, bufEnd);
-	}	// end while(bufPtr && (bufPtr-buf<filesize))
-
-	// prune out invalid empty shape groups (TODO: convert to AoS and use an erase_if)
-	for (size_t i = 0ull; i < submeshes.size(); ++i)
-	if (indices[i].size())
-		i++;
-	else
-	{
-		submeshes.erase(submeshes.begin()+i);
-		indices.erase(indices.begin()+i);
-		recalcNormals.erase(recalcNormals.begin()+i);
-		submeshWasLoadedFromCache.erase(submeshWasLoadedFromCache.begin()+i);
-		submeshCacheKeys.erase(submeshCacheKeys.begin()+i);
-		submeshMaterialNames.erase(submeshMaterialNames.begin()+i);
-	}
-	
-    core::unordered_set<pipeline_meta_pair_t,hash_t,key_equal_t> usedPipelines;
+    const char* p = start;
+    bool negative = false;
+    if (*p == '-' || *p == '+')
     {
-        uint64_t ixBufOffset = 0ull;
-        for (size_t i = 0ull; i < submeshes.size(); ++i)
+        negative = (*p == '-');
+        ++p;
+        if (p >= end)
+            return false;
+    }
+
+    if (*p == '.' || !isObjDigit(*p))
+    {
+        const auto parseResult = fast_float::from_chars(start, end, out);
+        if (parseResult.ec == std::errc() && parseResult.ptr != start)
         {
-            if (submeshWasLoadedFromCache[i])
-                continue;                
+            ptr = parseResult.ptr;
+            return true;
+        }
+        return false;
+    }
 
-            submeshes[i]->setIndexCount(indices[i].size());
-            submeshes[i]->setIndexType(EIT_32BIT);
-			submeshes[i]->setIndexBufferBinding({ixBufOffset,nullptr});
-            ixBufOffset += indices[i].size()*4ull;
+    uint64_t integerPart = 0ull;
+    while (p < end && isObjDigit(*p))
+    {
+        integerPart = integerPart * 10ull + static_cast<uint64_t>(*p - '0');
+        ++p;
+    }
 
-            const uint32_t hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
-			using namespace std::string_literals;
-			_params.logger.log("Has UV: "s + (hasUV ? "YES":"NO"), system::ILogger::ELL_DEBUG);
-			// search in loaded
-			pipeline_meta_pair_t pipeline;
-			{
-				CMTLMetadata::CRenderpassIndependentPipeline dummyKey;
-				dummyKey.m_name = submeshCacheKeys[i].substr(submeshCacheKeys[i].find_last_of('?')+1u);
-				pipeline_meta_pair_t dummy{nullptr,&dummyKey};
-
-				auto rng = pipelines.equal_range(dummy);
-				for (auto it=rng.first; it!=rng.second; it++)
-				if (it->second->m_hash==hasUV)
-				{
-					pipeline = *it;
-					break;
-				}
-			}
-			//if there's no pipeline for this meshbuffer, set dummy one
-			if (!pipeline.first)
-			{
-				const IAsset::E_TYPE searchTypes[] = {IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE,static_cast<IAsset::E_TYPE>(0u)};
-				auto bundle = _override->findCachedAsset("nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline",searchTypes,ctx.inner,_hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-				const auto* meta = bundle.getMetadata()->selfCast<CMTLMetadata>();
-				const auto contents = bundle.getContents();
-				for (auto pplnIt=contents.begin(); pplnIt!=contents.end(); pplnIt++)
-				{
-					auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*pplnIt);
-					auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
-					if (pplnMeta && pplnMeta->m_hash==hasUV)
-					{
-						pipeline = { std::move(ppln),pplnMeta };
-						break;
-					}
-				}
-			}
-			// do some checks
-			assert(pipeline.first && pipeline.second);
-			const auto* cPpln = pipeline.first.get();
-            if (hasUV)
+    double value = static_cast<double>(integerPart);
+    if (p < end && *p == '.')
+    {
+        const char* const dot = p;
+        if ((dot + 7) <= end)
+        {
+            const char d0 = dot[1];
+            const char d1 = dot[2];
+            const char d2 = dot[3];
+            const char d3 = dot[4];
+            const char d4 = dot[5];
+            const char d5 = dot[6];
+            if (
+                isObjDigit(d0) && isObjDigit(d1) && isObjDigit(d2) &&
+                isObjDigit(d3) && isObjDigit(d4) && isObjDigit(d5)
+            )
             {
-                const auto& vtxParams = cPpln->getCachedCreationParams().vertexInput;
-                assert(vtxParams.attributes[POSITION].relativeOffset==offsetof(SObjVertex,pos));
-                assert(vtxParams.attributes[NORMAL].relativeOffset==offsetof(SObjVertex,normal32bit));
-                assert(vtxParams.attributes[UV].relativeOffset==offsetof(SObjVertex,uv));
-                assert(vtxParams.enabledAttribFlags&(1u<<UV));
-                assert(vtxParams.enabledBindingFlags==(1u<<BND_NUM));
+                const bool hasNext = (dot + 7) < end;
+                const char next = hasNext ? dot[7] : '\0';
+                if ((!hasNext || !isObjDigit(next)) && (!hasNext || (next != 'e' && next != 'E')))
+                {
+                    const uint32_t frac =
+                        static_cast<uint32_t>(d0 - '0') * 100000u +
+                        static_cast<uint32_t>(d1 - '0') * 10000u +
+                        static_cast<uint32_t>(d2 - '0') * 1000u +
+                        static_cast<uint32_t>(d3 - '0') * 100u +
+                        static_cast<uint32_t>(d4 - '0') * 10u +
+                        static_cast<uint32_t>(d5 - '0');
+                    value += static_cast<double>(frac) * 1e-6;
+                    p = dot + 7;
+                    out = static_cast<float>(negative ? -value : value);
+                    ptr = p;
+                    return true;
+                }
             }
-
-			const uint32_t pcoffset = cPpln->getLayout()->getPushConstantRanges().begin()[0].offset;
-			submeshes[i]->setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>(pipeline.second->m_descriptorSet3));
-			memcpy(
-				submeshes[i]->getPushConstantsDataPtr()+pcoffset,
-				&pipeline.second->m_materialParams,
-				sizeof(CMTLMetadata::CRenderpassIndependentPipeline::SMaterialParameters)
-			);
-
-			usedPipelines.insert(pipeline);
-			submeshes[i]->setPipeline(std::move(pipeline.first));
         }
 
-        core::smart_refctd_ptr<ICPUBuffer> vtxBuf = ICPUBuffer::create({ vertices.size() * sizeof(SObjVertex) });
-        memcpy(vtxBuf->getPointer(), vertices.data(), vtxBuf->getSize());
-
-        auto ixBuf = ICPUBuffer::create({ ixBufOffset });
-        for (size_t i = 0ull; i < submeshes.size(); ++i)
+        static constexpr double InvPow10[] = {
+            1.0,
+            1e-1, 1e-2, 1e-3, 1e-4, 1e-5,
+            1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
+            1e-11, 1e-12, 1e-13, 1e-14, 1e-15,
+            1e-16, 1e-17, 1e-18
+        };
+        ++p;
+        uint64_t fractionPart = 0ull;
+        uint32_t fractionDigits = 0u;
+        while (p < end && isObjDigit(*p))
         {
-            if (submeshWasLoadedFromCache[i])
+            if (fractionDigits >= (std::size(InvPow10) - 1u))
+            {
+                const auto parseResult = fast_float::from_chars(start, end, out);
+                if (parseResult.ec == std::errc() && parseResult.ptr != start)
+                {
+                    ptr = parseResult.ptr;
+                    return true;
+                }
+                return false;
+            }
+            fractionPart = fractionPart * 10ull + static_cast<uint64_t>(*p - '0');
+            ++fractionDigits;
+            ++p;
+        }
+        value += static_cast<double>(fractionPart) * InvPow10[fractionDigits];
+    }
+
+    if (p < end && (*p == 'e' || *p == 'E'))
+    {
+        const auto parseResult = fast_float::from_chars(start, end, out);
+        if (parseResult.ec == std::errc() && parseResult.ptr != start)
+        {
+            ptr = parseResult.ptr;
+            return true;
+        }
+        return false;
+    }
+
+    out = static_cast<float>(negative ? -value : value);
+    ptr = p;
+    return true;
+}
+
+const auto createAdoptedView = [](auto&& data, const E_FORMAT format) -> IGeometry<ICPUBuffer>::SDataView
+{
+    using T = typename std::decay_t<decltype(data)>::value_type;
+    if (data.empty())
+        return {};
+
+    auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<T>>>(std::move(data));
+    auto& storage = backer->getBacker();
+    auto* const ptr = storage.data();
+    const size_t byteCount = storage.size() * sizeof(T);
+    auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(T) }, core::adopt_memory);
+    if (!buffer)
+        return {};
+
+    IGeometry<ICPUBuffer>::SDataView view = {
+        .composed = {
+            .stride = sizeof(T),
+            .format = format,
+            .rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
+        },
+        .src = {
+            .offset = 0u,
+            .size = byteCount,
+            .buffer = std::move(buffer)
+        }
+    };
+    return view;
+};
+
+bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry& ioTelemetry)
+{
+    return readFileWithPolicyTimed(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, nullptr, &ioTelemetry);
+}
+
+inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
+{
+    if (ptr >= end || !isObjDigit(*ptr))
+        return false;
+
+    uint64_t value = 0ull;
+    while (ptr < end && isObjDigit(*ptr))
+    {
+        value = value * 10ull + static_cast<uint64_t>(*ptr - '0');
+        ++ptr;
+    }
+    if (value == 0ull || value > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))
+        return false;
+
+    out = static_cast<uint32_t>(value);
+    return true;
+}
+
+inline char toObjLowerAscii(const char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return static_cast<char>(c - 'A' + 'a');
+    return c;
+}
+
+inline void parseObjSmoothingGroup(const char* linePtr, const char* const lineEnd, uint32_t& outGroup)
+{
+    while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
+        ++linePtr;
+
+    if (linePtr >= lineEnd)
+    {
+        outGroup = 0u;
+        return;
+    }
+
+    const char* const tokenStart = linePtr;
+    while (linePtr < lineEnd && !isObjInlineWhitespace(*linePtr))
+        ++linePtr;
+    const size_t tokenLength = static_cast<size_t>(linePtr - tokenStart);
+
+    if (tokenLength == 2u &&
+        toObjLowerAscii(tokenStart[0]) == 'o' &&
+        toObjLowerAscii(tokenStart[1]) == 'n')
+    {
+        outGroup = 1u;
+        return;
+    }
+    if (tokenLength == 3u &&
+        toObjLowerAscii(tokenStart[0]) == 'o' &&
+        toObjLowerAscii(tokenStart[1]) == 'f' &&
+        toObjLowerAscii(tokenStart[2]) == 'f')
+    {
+        outGroup = 0u;
+        return;
+    }
+
+    uint64_t value = 0ull;
+    bool sawDigit = false;
+    for (const char* it = tokenStart; it < linePtr; ++it)
+    {
+        if (!isObjDigit(*it))
+        {
+            outGroup = 0u;
+            return;
+        }
+        sawDigit = true;
+        value = value * 10ull + static_cast<uint64_t>(*it - '0');
+        if (value > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+        {
+            outGroup = 0u;
+            return;
+        }
+    }
+
+    outGroup = sawDigit ? static_cast<uint32_t>(value) : 0u;
+}
+
+inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
+{
+    const char* ptr = lineStart;
+    int32_t* const out[3] = { idx0, idx1, idx2 };
+    for (uint32_t corner = 0u; corner < 3u; ++corner)
+    {
+        while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+            ++ptr;
+        if (ptr >= lineEnd || !isObjDigit(*ptr))
+            return false;
+
+        int32_t posIx = -1;
+        {
+            uint32_t value = 0u;
+            while (ptr < lineEnd && isObjDigit(*ptr))
+            {
+                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+                if (value > 429496729u)
+                    return false;
+                value = value * 10u + digit;
+                ++ptr;
+            }
+            if (value == 0u || value > posCount)
+                return false;
+            posIx = static_cast<int32_t>(value - 1u);
+        }
+        if (ptr >= lineEnd || *ptr != '/')
+            return false;
+        ++ptr;
+
+        int32_t uvIx = -1;
+        {
+            uint32_t value = 0u;
+            if (ptr >= lineEnd || !isObjDigit(*ptr))
+                return false;
+            while (ptr < lineEnd && isObjDigit(*ptr))
+            {
+                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+                if (value > 429496729u)
+                    return false;
+                value = value * 10u + digit;
+                ++ptr;
+            }
+            if (value == 0u || value > uvCount)
+                return false;
+            uvIx = static_cast<int32_t>(value - 1u);
+        }
+        if (ptr >= lineEnd || *ptr != '/')
+            return false;
+        ++ptr;
+
+        int32_t normalIx = -1;
+        {
+            uint32_t value = 0u;
+            if (ptr >= lineEnd || !isObjDigit(*ptr))
+                return false;
+            while (ptr < lineEnd && isObjDigit(*ptr))
+            {
+                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
+                if (value > 429496729u)
+                    return false;
+                value = value * 10u + digit;
+                ++ptr;
+            }
+            if (value == 0u || value > normalCount)
+                return false;
+            normalIx = static_cast<int32_t>(value - 1u);
+        }
+
+        int32_t* const dst = out[corner];
+        dst[0] = posIx;
+        dst[1] = uvIx;
+        dst[2] = normalIx;
+    }
+
+    while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+        ++ptr;
+    return ptr == lineEnd;
+}
+
+inline bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
+{
+    if (ptr >= end)
+        return false;
+
+    bool negative = false;
+    if (*ptr == '-')
+    {
+        negative = true;
+        ++ptr;
+    }
+    else if (*ptr == '+')
+    {
+        ++ptr;
+    }
+
+    if (ptr >= end || !isObjDigit(*ptr))
+        return false;
+
+    int64_t value = 0;
+    while (ptr < end && isObjDigit(*ptr))
+    {
+        value = value * 10ll + static_cast<int64_t>(*ptr - '0');
+        ++ptr;
+    }
+    if (negative)
+        value = -value;
+
+    if (value == 0)
+        return false;
+    if (value < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) || value > static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
+        return false;
+
+    out = static_cast<int32_t>(value);
+    return true;
+}
+
+inline bool resolveObjIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
+{
+    if (rawIndex > 0)
+    {
+        const uint64_t oneBased = static_cast<uint64_t>(rawIndex);
+        if (oneBased == 0ull)
+            return false;
+        const uint64_t zeroBased = oneBased - 1ull;
+        if (zeroBased >= elementCount)
+            return false;
+        resolved = static_cast<int32_t>(zeroBased);
+        return true;
+    }
+
+    const int64_t zeroBased = static_cast<int64_t>(elementCount) + static_cast<int64_t>(rawIndex);
+    if (zeroBased < 0 || zeroBased >= static_cast<int64_t>(elementCount))
+        return false;
+    resolved = static_cast<int32_t>(zeroBased);
+    return true;
+}
+
+inline bool parseObjFaceVertexTokenFast(const char*& linePtr, const char* const lineEnd, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
+{
+    if (!idx)
+        return false;
+
+    while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
+        ++linePtr;
+    if (linePtr >= lineEnd)
+        return false;
+
+    idx[0] = -1;
+    idx[1] = -1;
+    idx[2] = -1;
+
+    const char* ptr = linePtr;
+    if (*ptr != '-' && *ptr != '+')
+    {
+        uint32_t posRaw = 0u;
+        if (!parseUnsignedObjIndex(ptr, lineEnd, posRaw))
+            return false;
+        if (posRaw > posCount)
+            return false;
+        idx[0] = static_cast<int32_t>(posRaw - 1u);
+
+        if (ptr < lineEnd && *ptr == '/')
+        {
+            ++ptr;
+            if (ptr < lineEnd && *ptr != '/')
+            {
+                uint32_t uvRaw = 0u;
+                if (!parseUnsignedObjIndex(ptr, lineEnd, uvRaw))
+                    return false;
+                if (uvRaw > uvCount)
+                    return false;
+                idx[1] = static_cast<int32_t>(uvRaw - 1u);
+            }
+
+            if (ptr < lineEnd && *ptr == '/')
+            {
+                ++ptr;
+                if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+                {
+                    uint32_t normalRaw = 0u;
+                    if (!parseUnsignedObjIndex(ptr, lineEnd, normalRaw))
+                        return false;
+                    if (normalRaw > normalCount)
+                        return false;
+                    idx[2] = static_cast<int32_t>(normalRaw - 1u);
+                }
+            }
+            else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+            {
+                return false;
+            }
+        }
+        else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        int32_t raw = 0;
+        if (!parseSignedObjIndex(ptr, lineEnd, raw))
+            return false;
+        if (!resolveObjIndex(raw, posCount, idx[0]))
+            return false;
+
+        if (ptr < lineEnd && *ptr == '/')
+        {
+            ++ptr;
+
+            if (ptr < lineEnd && *ptr != '/')
+            {
+                if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                    return false;
+                if (!resolveObjIndex(raw, uvCount, idx[1]))
+                    return false;
+            }
+
+            if (ptr < lineEnd && *ptr == '/')
+            {
+                ++ptr;
+                if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+                {
+                    if (!parseSignedObjIndex(ptr, lineEnd, raw))
+                        return false;
+                    if (!resolveObjIndex(raw, normalCount, idx[2]))
+                        return false;
+                }
+            }
+            else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+            {
+                return false;
+            }
+        }
+        else if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+        {
+            return false;
+        }
+    }
+
+    if (ptr < lineEnd && !isObjInlineWhitespace(*ptr))
+        return false;
+    linePtr = ptr;
+    return true;
+}
+
+}
+
+COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager*)
+{
+}
+
+COBJMeshFileLoader::~COBJMeshFileLoader() = default;
+
+bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
+{
+    if (!_file)
+        return false;
+    system::IFile::success_t succ;
+    char firstChar = 0;
+    _file->read(succ, &firstChar, 0ull, sizeof(firstChar));
+    return succ && (firstChar == '#' || firstChar == 'v');
+}
+
+const char** COBJMeshFileLoader::getAssociatedFileExtensions() const
+{
+    static const char* ext[] = { "obj", nullptr };
+    return ext;
+}
+
+asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride*, uint32_t)
+{
+    if (!_file)
+        return {};
+
+    uint64_t faceCount = 0u;
+    uint64_t faceFastTokenCount = 0u;
+    uint64_t faceFallbackTokenCount = 0u;
+    SFileReadTelemetry ioTelemetry = {};
+
+    const long filesize = _file->getSize();
+    if (filesize <= 0)
+        return {};
+    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true);
+    if (!ioPlan.valid)
+    {
+        _params.logger.log("OBJ loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);
+        return {};
+    }
+
+    std::string fileContents = {};
+    const char* buf = nullptr;
+    if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+    {
+        const auto* constFile = static_cast<const system::IFile*>(_file);
+        const auto* mapped = reinterpret_cast<const char*>(constFile->getMappedPointer());
+        if (mapped)
+        {
+            buf = mapped;
+            ioTelemetry.account(static_cast<uint64_t>(filesize));
+        }
+    }
+    if (!buf)
+    {
+        fileContents.resize(static_cast<size_t>(filesize));
+        if (!readTextFileWithPolicy(_file, fileContents.data(), fileContents.size(), ioPlan, ioTelemetry))
+            return {};
+        buf = fileContents.data();
+    }
+
+    const char* const bufEnd = buf + static_cast<size_t>(filesize);
+    const char* bufPtr = buf;
+
+    core::vector<Float3> positions;
+    core::vector<Float3> normals;
+    core::vector<Float2> uvs;
+
+    core::vector<Float3> outPositions;
+    core::vector<Float3> outNormals;
+    core::vector<uint8_t> outNormalNeedsGeneration;
+    core::vector<Float2> outUVs;
+    core::vector<uint32_t> indices;
+    core::vector<int32_t> dedupHeadByPos;
+    core::vector<ObjVertexDedupNode> dedupNodes;
+    const size_t estimatedAttributeCount = std::max<size_t>(16ull, static_cast<size_t>(filesize) / 32ull);
+    const size_t estimatedOutVertexCount = std::max<size_t>(estimatedAttributeCount, static_cast<size_t>(filesize) / 20ull);
+    const size_t estimatedOutIndexCount = (estimatedOutVertexCount <= (std::numeric_limits<size_t>::max() / 3ull)) ? (estimatedOutVertexCount * 3ull) : std::numeric_limits<size_t>::max();
+    positions.reserve(estimatedAttributeCount);
+    normals.reserve(estimatedAttributeCount);
+    uvs.reserve(estimatedAttributeCount);
+    const size_t initialOutVertexCapacity = std::max<size_t>(1ull, estimatedOutVertexCount);
+    const size_t initialOutIndexCapacity = (estimatedOutIndexCount == std::numeric_limits<size_t>::max()) ? 3ull : std::max<size_t>(3ull, estimatedOutIndexCount);
+    outPositions.resize(initialOutVertexCapacity);
+    outNormals.resize(initialOutVertexCapacity);
+    outNormalNeedsGeneration.resize(initialOutVertexCapacity, 0u);
+    outUVs.resize(initialOutVertexCapacity);
+    indices.resize(initialOutIndexCapacity);
+    dedupHeadByPos.reserve(estimatedAttributeCount);
+    dedupNodes.resize(initialOutVertexCapacity);
+    size_t outVertexWriteCount = 0ull;
+    size_t outIndexWriteCount = 0ull;
+    size_t dedupNodeCount = 0ull;
+    struct SDedupHotEntry
+    {
+        int32_t pos = -1;
+        int32_t uv = -1;
+        int32_t normal = -1;
+        uint32_t outIndex = 0u;
+    };
+    const size_t hw = resolveLoaderHardwareThreads();
+    const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
+    SLoaderRuntimeTuningRequest dedupTuningRequest = {};
+    dedupTuningRequest.inputBytes = static_cast<uint64_t>(filesize);
+    dedupTuningRequest.totalWorkUnits = estimatedOutVertexCount;
+    dedupTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+    dedupTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
+    dedupTuningRequest.targetChunksPerWorker = _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
+    dedupTuningRequest.sampleData = reinterpret_cast<const uint8_t*>(buf);
+    dedupTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(_params.ioPolicy, static_cast<uint64_t>(filesize));
+    const auto dedupTuning = tuneLoaderRuntime(_params.ioPolicy, dedupTuningRequest);
+    const size_t dedupHotSeed = std::max<size_t>(
+        16ull,
+        estimatedOutVertexCount / std::max<size_t>(1ull, dedupTuning.workerCount * 8ull));
+    const size_t dedupHotEntryCount = std::bit_ceil(dedupHotSeed);
+    core::vector<SDedupHotEntry> dedupHotCache(dedupHotEntryCount);
+    const size_t dedupHotMask = dedupHotEntryCount - 1ull;
+
+    bool hasProvidedNormals = false;
+    bool needsNormalGeneration = false;
+    bool hasUVs = false;
+    SAABBAccumulator3<float> parsedAABB = {};
+    auto allocateOutVertex = [&](uint32_t& outIx) -> bool
+    {
+        if (outVertexWriteCount >= outPositions.size())
+        {
+            const size_t newCapacity = std::max<size_t>(outVertexWriteCount + 1ull, outPositions.size() * 2ull);
+            outPositions.resize(newCapacity);
+            outNormals.resize(newCapacity);
+            outNormalNeedsGeneration.resize(newCapacity, 0u);
+            outUVs.resize(newCapacity);
+        }
+        if (outVertexWriteCount > static_cast<size_t>(std::numeric_limits<uint32_t>::max()))
+            return false;
+        outIx = static_cast<uint32_t>(outVertexWriteCount++);
+        return true;
+    };
+
+    auto appendIndex = [&](const uint32_t value) -> bool
+    {
+        if (outIndexWriteCount >= indices.size())
+        {
+            const size_t newCapacity = std::max<size_t>(outIndexWriteCount + 1ull, indices.size() * 2ull);
+            indices.resize(newCapacity);
+        }
+        indices[outIndexWriteCount++] = value;
+        return true;
+    };
+
+    auto allocateDedupNode = [&]() -> int32_t
+    {
+        if (dedupNodeCount >= dedupNodes.size())
+        {
+            const size_t newCapacity = std::max<size_t>(dedupNodeCount + 1ull, dedupNodes.size() * 2ull);
+            dedupNodes.resize(newCapacity);
+        }
+        if (dedupNodeCount > static_cast<size_t>(std::numeric_limits<int32_t>::max()))
+            return -1;
+        const int32_t ix = static_cast<int32_t>(dedupNodeCount++);
+        return ix;
+    };
+
+    auto acquireCornerIndex = [&](const int32_t* idx, const uint32_t smoothingGroup, uint32_t& outIx)->bool
+    {
+        if (!idx)
+            return false;
+
+        const int32_t posIx = idx[0];
+        if (posIx < 0 || static_cast<size_t>(posIx) >= positions.size())
+            return false;
+        const uint32_t dedupSmoothingGroup = (idx[2] >= 0) ? 0u : smoothingGroup;
+        if (static_cast<size_t>(posIx) >= dedupHeadByPos.size())
+            dedupHeadByPos.resize(positions.size(), -1);
+
+        int32_t nodeIx = dedupHeadByPos[posIx];
+        while (nodeIx >= 0)
+        {
+            const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
+            if (node.uv == idx[1] && node.normal == idx[2] && node.smoothingGroup == dedupSmoothingGroup)
+            {
+                outIx = node.outIndex;
+                return true;
+            }
+            nodeIx = node.next;
+        }
+
+        if (!allocateOutVertex(outIx))
+            return false;
+        const int32_t newNodeIx = allocateDedupNode();
+        if (newNodeIx < 0)
+            return false;
+        auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
+        node.uv = idx[1];
+        node.normal = idx[2];
+        node.smoothingGroup = dedupSmoothingGroup;
+        node.outIndex = outIx;
+        node.next = dedupHeadByPos[posIx];
+        dedupHeadByPos[posIx] = newNodeIx;
+
+        const auto& srcPos = positions[idx[0]];
+        outPositions[static_cast<size_t>(outIx)] = srcPos;
+        extendAABBAccumulator(parsedAABB, srcPos);
+
+        Float2 uv(0.f, 0.f);
+        if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
+        {
+            uv = uvs[idx[1]];
+            hasUVs = true;
+        }
+        outUVs[static_cast<size_t>(outIx)] = uv;
+
+        Float3 normal(0.f, 0.f, 0.f);
+        if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
+        {
+            normal = normals[idx[2]];
+            hasProvidedNormals = true;
+            outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 0u;
+        }
+        else
+        {
+            needsNormalGeneration = true;
+            outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 1u;
+        }
+        outNormals[static_cast<size_t>(outIx)] = normal;
+        return true;
+    };
+
+    auto acquireCornerIndexPositiveTriplet = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, uint32_t& outIx)->bool
+    {
+        const uint32_t hotHash =
+            static_cast<uint32_t>(posIx) * 73856093u ^
+            static_cast<uint32_t>(uvIx) * 19349663u ^
+            static_cast<uint32_t>(normalIx) * 83492791u;
+        auto& hotEntry = dedupHotCache[static_cast<size_t>(hotHash) & dedupHotMask];
+        if (hotEntry.pos == posIx && hotEntry.uv == uvIx && hotEntry.normal == normalIx)
+        {
+            outIx = hotEntry.outIndex;
+            return true;
+        }
+
+        int32_t nodeIx = dedupHeadByPos[static_cast<size_t>(posIx)];
+        while (nodeIx >= 0)
+        {
+            const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
+            if (node.uv == uvIx && node.normal == normalIx)
+            {
+                outIx = node.outIndex;
+                hotEntry.pos = posIx;
+                hotEntry.uv = uvIx;
+                hotEntry.normal = normalIx;
+                hotEntry.outIndex = outIx;
+                return true;
+            }
+            nodeIx = node.next;
+        }
+
+        if (!allocateOutVertex(outIx))
+            return false;
+        const int32_t newNodeIx = allocateDedupNode();
+        if (newNodeIx < 0)
+            return false;
+        auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
+        node.uv = uvIx;
+        node.normal = normalIx;
+        node.smoothingGroup = 0u;
+        node.outIndex = outIx;
+        node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
+        dedupHeadByPos[static_cast<size_t>(posIx)] = newNodeIx;
+
+        const auto& srcPos = positions[static_cast<size_t>(posIx)];
+        outPositions[static_cast<size_t>(outIx)] = srcPos;
+        extendAABBAccumulator(parsedAABB, srcPos);
+        outUVs[static_cast<size_t>(outIx)] = uvs[static_cast<size_t>(uvIx)];
+        outNormals[static_cast<size_t>(outIx)] = normals[static_cast<size_t>(normalIx)];
+        hotEntry.pos = posIx;
+        hotEntry.uv = uvIx;
+        hotEntry.normal = normalIx;
+        hotEntry.outIndex = outIx;
+        hasUVs = true;
+        hasProvidedNormals = true;
+        outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 0u;
+        return true;
+    };
+
+    uint32_t currentSmoothingGroup = 0u;
+    while (bufPtr < bufEnd)
+    {
+            const char* const lineStart = bufPtr;
+            const size_t remaining = static_cast<size_t>(bufEnd - lineStart);
+            const char* lineTerminator = static_cast<const char*>(std::memchr(lineStart, '\n', remaining));
+            if (!lineTerminator)
+                lineTerminator = static_cast<const char*>(std::memchr(lineStart, '\r', remaining));
+            if (!lineTerminator)
+                lineTerminator = bufEnd;
+
+            const char* lineEnd = lineTerminator;
+            if (lineEnd > lineStart && lineEnd[-1] == '\r')
+                --lineEnd;
+
+            if (lineStart < lineEnd)
+            {
+                if (*lineStart == 'v')
+                {
+                    if ((lineStart + 1) < lineEnd && lineStart[1] == ' ')
+                    {
+                        Float3 vec{};
+                        const char* ptr = lineStart + 2;
+                        for (uint32_t i = 0u; i < 3u; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd)
+                                return {};
+                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                                return {};
+                        }
+                        positions.push_back(vec);
+                        dedupHeadByPos.push_back(-1);
+                    }
+                    else if ((lineStart + 2) < lineEnd && lineStart[1] == 'n' && isObjInlineWhitespace(lineStart[2]))
+                    {
+                        Float3 vec{};
+                        const char* ptr = lineStart + 3;
+                        for (uint32_t i = 0u; i < 3u; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd)
+                                return {};
+                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                                return {};
+                        }
+                        normals.push_back(vec);
+                    }
+                    else if ((lineStart + 2) < lineEnd && lineStart[1] == 't' && isObjInlineWhitespace(lineStart[2]))
+                    {
+                        Float2 vec{};
+                        const char* ptr = lineStart + 3;
+                        for (uint32_t i = 0u; i < 2u; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd)
+                                return {};
+                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
+                                return {};
+                        }
+                        vec.y = 1.f - vec.y;
+                        uvs.push_back(vec);
+                    }
+                }
+                else if (*lineStart == 's' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
+                {
+                    parseObjSmoothingGroup(lineStart + 2, lineEnd, currentSmoothingGroup);
+                }
+                else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
+                {
+                    if (positions.empty())
+                        return {};
+                    ++faceCount;
+                    const size_t posCount = positions.size();
+                    const size_t uvCount = uvs.size();
+                    const size_t normalCount = normals.size();
+                    const char* triLinePtr = lineStart + 1;
+                    int32_t triIdx0[3] = { -1, -1, -1 };
+                    int32_t triIdx1[3] = { -1, -1, -1 };
+                    int32_t triIdx2[3] = { -1, -1, -1 };
+                    bool triangleFastPath = parseObjTrianglePositiveTripletLine(lineStart + 1, lineEnd, triIdx0, triIdx1, triIdx2, posCount, uvCount, normalCount);
+                    bool parsedFirstThree = triangleFastPath;
+                    if (!triangleFastPath)
+                    {
+                        triLinePtr = lineStart + 1;
+                        parsedFirstThree =
+                            parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx0, posCount, uvCount, normalCount) &&
+                            parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx1, posCount, uvCount, normalCount) &&
+                            parseObjFaceVertexTokenFast(triLinePtr, lineEnd, triIdx2, posCount, uvCount, normalCount);
+                        triangleFastPath = parsedFirstThree;
+                        if (parsedFirstThree)
+                        {
+                            while (triLinePtr < lineEnd && isObjInlineWhitespace(*triLinePtr))
+                                ++triLinePtr;
+                            triangleFastPath = (triLinePtr == lineEnd);
+                        }
+                    }
+                    if (triangleFastPath)
+                    {
+                        const bool fullTriplet =
+                            triIdx0[0] >= 0 && triIdx0[1] >= 0 && triIdx0[2] >= 0 &&
+                            triIdx1[0] >= 0 && triIdx1[1] >= 0 && triIdx1[2] >= 0 &&
+                            triIdx2[0] >= 0 && triIdx2[1] >= 0 && triIdx2[2] >= 0;
+                        if (!fullTriplet)
+                            triangleFastPath = false;
+                    }
+                    if (triangleFastPath)
+                    {
+                        uint32_t c0 = 0u;
+                        uint32_t c1 = 0u;
+                        uint32_t c2 = 0u;
+                        if (!acquireCornerIndexPositiveTriplet(triIdx0[0], triIdx0[1], triIdx0[2], c0))
+                            return {};
+                        if (!acquireCornerIndexPositiveTriplet(triIdx1[0], triIdx1[1], triIdx1[2], c1))
+                            return {};
+                        if (!acquireCornerIndexPositiveTriplet(triIdx2[0], triIdx2[1], triIdx2[2], c2))
+                            return {};
+                        faceFastTokenCount += 3u;
+                        if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
+                            return {};
+                    }
+                    else
+                    {
+                        const char* linePtr = lineStart + 1;
+                        uint32_t firstCorner = 0u;
+                        uint32_t previousCorner = 0u;
+                        uint32_t cornerCount = 0u;
+
+                        if (parsedFirstThree)
+                        {
+                            uint32_t c0 = 0u;
+                            uint32_t c1 = 0u;
+                            uint32_t c2 = 0u;
+                            if (!acquireCornerIndex(triIdx0, currentSmoothingGroup, c0))
+                                return {};
+                            if (!acquireCornerIndex(triIdx1, currentSmoothingGroup, c1))
+                                return {};
+                            if (!acquireCornerIndex(triIdx2, currentSmoothingGroup, c2))
+                                return {};
+                            faceFallbackTokenCount += 3u;
+                            if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
+                                return {};
+                            firstCorner = c0;
+                            previousCorner = c2;
+                            cornerCount = 3u;
+                            linePtr = triLinePtr;
+                        }
+
+                        while (linePtr < lineEnd)
+                        {
+                            while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
+                                ++linePtr;
+                            if (linePtr >= lineEnd)
+                                break;
+
+                            int32_t idx[3] = { -1, -1, -1 };
+                            if (!parseObjFaceVertexTokenFast(linePtr, lineEnd, idx, posCount, uvCount, normalCount))
+                                return {};
+                            ++faceFallbackTokenCount;
+
+                            uint32_t cornerIx = 0u;
+                            if (!acquireCornerIndex(idx, currentSmoothingGroup, cornerIx))
+                                return {};
+
+                            if (cornerCount == 0u)
+                            {
+                                firstCorner = cornerIx;
+                                ++cornerCount;
+                                continue;
+                            }
+
+                            if (cornerCount == 1u)
+                            {
+                                previousCorner = cornerIx;
+                                ++cornerCount;
+                                continue;
+                            }
+
+                            if (!appendIndex(cornerIx) || !appendIndex(previousCorner) || !appendIndex(firstCorner))
+                                return {};
+                            previousCorner = cornerIx;
+                            ++cornerCount;
+                        }
+                    }
+                }
+            }
+
+            if (lineTerminator >= bufEnd)
+                bufPtr = bufEnd;
+            else if (*lineTerminator == '\r' && (lineTerminator + 1) < bufEnd && lineTerminator[1] == '\n')
+                bufPtr = lineTerminator + 2;
+            else
+                bufPtr = lineTerminator + 1;
+    }
+    if (outVertexWriteCount == 0ull)
+        return {};
+
+    outPositions.resize(outVertexWriteCount);
+    outNormals.resize(outVertexWriteCount);
+    outNormalNeedsGeneration.resize(outVertexWriteCount);
+    outUVs.resize(outVertexWriteCount);
+    indices.resize(outIndexWriteCount);
+
+    if (needsNormalGeneration)
+    {
+        core::vector<Float3> generatedNormals(outVertexWriteCount, Float3(0.f, 0.f, 0.f));
+        const size_t triangleCount = indices.size() / 3ull;
+        for (size_t triIx = 0ull; triIx < triangleCount; ++triIx)
+        {
+            const uint32_t i0 = indices[triIx * 3ull + 0ull];
+            const uint32_t i1 = indices[triIx * 3ull + 1ull];
+            const uint32_t i2 = indices[triIx * 3ull + 2ull];
+            if (i0 >= outVertexWriteCount || i1 >= outVertexWriteCount || i2 >= outVertexWriteCount)
                 continue;
 
-            submeshes[i]->setPositionAttributeIx(POSITION);
-			submeshes[i]->setNormalAttributeIx(NORMAL);
-			
-			submeshes[i]->setIndexBufferBinding({submeshes[i]->getIndexBufferBinding().offset,ixBuf});
-            const uint64_t offset = submeshes[i]->getIndexBufferBinding().offset;
-            memcpy(reinterpret_cast<uint8_t*>(ixBuf->getPointer())+offset, indices[i].data(), indices[i].size()*4ull);
+            const auto& p0 = outPositions[static_cast<size_t>(i0)];
+            const auto& p1 = outPositions[static_cast<size_t>(i1)];
+            const auto& p2 = outPositions[static_cast<size_t>(i2)];
 
-            SBufferBinding<ICPUBuffer> vtxBufBnd;
-            vtxBufBnd.offset = 0ull;
-            vtxBufBnd.buffer = vtxBuf;
-            submeshes[i]->setVertexBufferBinding(std::move(vtxBufBnd), BND_NUM);
+            const float e10x = p1.x - p0.x;
+            const float e10y = p1.y - p0.y;
+            const float e10z = p1.z - p0.z;
+            const float e20x = p2.x - p0.x;
+            const float e20y = p2.y - p0.y;
+            const float e20z = p2.z - p0.z;
 
-			if (recalcNormals[i])
-			{
-				auto vtxcmp = [&vtxSmoothGrp](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer)
-				{
-					return vtxSmoothGrp[v0.indexOffset]==vtxSmoothGrp[v1.indexOffset];
-				};
+            const Float3 faceNormal(
+                e10y * e20z - e10z * e20y,
+                e10z * e20x - e10x * e20z,
+                e10x * e20y - e10y * e20x);
 
-				auto* meshManipulator = AssetManager->getMeshManipulator();
-				meshManipulator->calculateSmoothNormals(submeshes[i].get(), false, 1.52e-5f, NORMAL, vtxcmp);
-			}
+            const float faceLenSq = faceNormal.x * faceNormal.x + faceNormal.y * faceNormal.y + faceNormal.z * faceNormal.z;
+            if (faceLenSq <= 1e-20f)
+                continue;
+
+            auto accumulateIfNeeded = [&](const uint32_t vertexIx)->void
+            {
+                if (outNormalNeedsGeneration[static_cast<size_t>(vertexIx)] == 0u)
+                    return;
+                auto& dstNormal = generatedNormals[static_cast<size_t>(vertexIx)];
+                dstNormal.x += faceNormal.x;
+                dstNormal.y += faceNormal.y;
+                dstNormal.z += faceNormal.z;
+            };
+
+            accumulateIfNeeded(i0);
+            accumulateIfNeeded(i1);
+            accumulateIfNeeded(i2);
+        }
+
+        for (size_t i = 0ull; i < outVertexWriteCount; ++i)
+        {
+            if (outNormalNeedsGeneration[i] == 0u)
+                continue;
+
+            auto normal = generatedNormals[i];
+            const float lenSq = normal.x * normal.x + normal.y * normal.y + normal.z * normal.z;
+            if (lenSq > 1e-20f)
+            {
+                const float invLen = 1.f / std::sqrt(lenSq);
+                normal.x *= invLen;
+                normal.y *= invLen;
+                normal.z *= invLen;
+            }
+            else
+            {
+                normal = Float3(0.f, 0.f, 1.f);
+            }
+            outNormals[i] = normal;
         }
     }
 
-    auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
-    for (auto& submesh : submeshes)
+    const size_t outVertexCount = outPositions.size();
+    const size_t outIndexCount = indices.size();
+    auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
     {
-		IMeshManipulator::recalculateBoundingBox(submesh.get());
-        mesh->getMeshBufferVector().emplace_back(std::move(submesh));
+        auto view = createAdoptedView(std::move(outPositions), EF_R32G32B32_SFLOAT);
+        if (!view)
+            return {};
+        geometry->setPositionView(std::move(view));
     }
 
-	IMeshManipulator::recalculateBoundingBox(mesh.get());
-	if (mesh->getMeshBuffers().empty())
-        return {};
-    
-	//
-	auto meta = core::make_smart_refctd_ptr<COBJMetadata>(usedPipelines.size());
-	uint32_t metaOffset = 0u;
-	for (auto pipeAndMeta : usedPipelines)
-		meta->placeMeta(metaOffset++,pipeAndMeta.first.get(),*pipeAndMeta.second);
+    const bool hasNormals = hasProvidedNormals || needsNormalGeneration;
+    if (hasNormals)
+    {
+        auto view = createAdoptedView(std::move(outNormals), EF_R32G32B32_SFLOAT);
+        if (!view)
+            return {};
+        geometry->setNormalView(std::move(view));
+    }
 
-    //at the very end, insert submeshes into cache
-	uint32_t i = 0u;
-	for (auto meshbuffer : mesh->getMeshBuffers())
-	{
-		auto bundle = SAssetBundle(meta,{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) });
-        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
-	}
+    if (hasUVs)
+    {
+        auto view = createAdoptedView(std::move(outUVs), EF_R32G32_SFLOAT);
+        if (!view)
+            return {};
+        geometry->getAuxAttributeViews()->push_back(std::move(view));
+    }
 
-	return SAssetBundle(std::move(meta),{std::move(mesh)});
+    if (!indices.empty())
+    {
+        geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+        if (outVertexCount <= static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1ull)
+        {
+            core::vector<uint16_t> indices16(indices.size());
+            for (size_t i = 0u; i < indices.size(); ++i)
+                indices16[i] = static_cast<uint16_t>(indices[i]);
+            auto view = createAdoptedView(std::move(indices16), EF_R16_UINT);
+            if (!view)
+                return {};
+            geometry->setIndexView(std::move(view));
+        }
+        else
+        {
+            auto view = createAdoptedView(std::move(indices), EF_R32_UINT);
+            if (!view)
+                return {};
+            geometry->setIndexView(std::move(view));
+        }
+    }
+    else
+    {
+        geometry->setIndexing(IPolygonGeometryBase::PointList());
+    }
+
+    if ((_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0)
+    {
+        computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
+    }
+
+    if (parsedAABB.has)
+        applyAABBToGeometry(geometry.get(), parsedAABB);
+    else
+    {
+        CPolygonGeometryManipulator::recomputeAABB(geometry.get());
+    }
+    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
+    {
+        _params.logger.log(
+            "OBJ loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
+            system::ILogger::ELL_WARNING,
+            _file->getFileName().string().c_str(),
+            static_cast<unsigned long long>(ioTelemetry.callCount),
+            static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
+            static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()));
+    }
+    _params.logger.log(
+        "OBJ loader stats: file=%s in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+        system::ILogger::ELL_PERFORMANCE,
+        _file->getFileName().string().c_str(),
+        static_cast<unsigned long long>(positions.size()),
+        static_cast<unsigned long long>(normals.size()),
+        static_cast<unsigned long long>(uvs.size()),
+        static_cast<unsigned long long>(outVertexCount),
+        static_cast<unsigned long long>(outIndexCount),
+        static_cast<unsigned long long>(faceCount),
+        static_cast<unsigned long long>(faceFastTokenCount),
+        static_cast<unsigned long long>(faceFallbackTokenCount),
+        static_cast<unsigned long long>(ioTelemetry.callCount),
+        static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
+        static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()),
+        toString(_params.ioPolicy.strategy),
+        toString(ioPlan.strategy),
+        static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+        ioPlan.reason);
+
+    return SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>(), { std::move(geometry) });
 }
 
-
-//! Read 3d vector of floats
-const char* COBJMeshFileLoader::readVec3(const char* bufPtr, float vec[3], const char* const bufEnd)
-{
-	const uint32_t WORD_BUFFER_LENGTH = 256;
-	char wordBuffer[WORD_BUFFER_LENGTH];
-
-	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",vec);
-	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",vec+1);
-	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",vec+2);
-
-    vec[0] = -vec[0]; // change handedness
-	return bufPtr;
 }
-
-
-//! Read 2d vector of floats
-const char* COBJMeshFileLoader::readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
-{
-	const uint32_t WORD_BUFFER_LENGTH = 256;
-	char wordBuffer[WORD_BUFFER_LENGTH];
-
-	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",vec);
-	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",vec+1);
-
-	vec[1] = 1.f-vec[1]; // change handedness
-	return bufPtr;
-}
-
-
-//! Read boolean value represented as 'on' or 'off'
-const char* COBJMeshFileLoader::readBool(const char* bufPtr, bool& tf, const char* const bufEnd)
-{
-	const uint32_t BUFFER_LENGTH = 8;
-	char tfStr[BUFFER_LENGTH];
-
-	bufPtr = goAndCopyNextWord(tfStr, bufPtr, BUFFER_LENGTH, bufEnd);
-	tf = strcmp(tfStr, "off") != 0;
-	return bufPtr;
-}
-
-//! skip space characters and stop on first non-space
-const char* COBJMeshFileLoader::goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines)
-{
-	// skip space characters
-	if (acrossNewlines)
-		while((buf != bufEnd) && core::isspace(*buf))
-			++buf;
-	else
-		while((buf != bufEnd) && core::isspace(*buf) && (*buf != '\n'))
-			++buf;
-
-	return buf;
-}
-
-
-//! skip current word and stop at beginning of next one
-const char* COBJMeshFileLoader::goNextWord(const char* buf, const char* const bufEnd, bool acrossNewlines)
-{
-	// skip current word
-	while(( buf != bufEnd ) && !core::isspace(*buf))
-		++buf;
-
-	return goFirstWord(buf, bufEnd, acrossNewlines);
-}
-
-
-//! Read until line break is reached and stop at the next non-space character
-const char* COBJMeshFileLoader::goNextLine(const char* buf, const char* const bufEnd)
-{
-	// look for newline characters
-	while(buf != bufEnd)
-	{
-		// found it, so leave
-		if (*buf=='\n' || *buf=='\r')
-			break;
-		++buf;
-	}
-	return goFirstWord(buf, bufEnd);
-}
-
-
-uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uint32_t outBufLength, const char* const bufEnd)
-{
-	if (!outBufLength)
-		return 0;
-	if (!inBuf)
-	{
-		*outBuf = 0;
-		return 0;
-	}
-
-	uint32_t i = 0;
-	while(inBuf[i])
-	{
-		if (core::isspace(inBuf[i]) || &(inBuf[i]) == bufEnd)
-			break;
-		++i;
-	}
-
-	uint32_t length = core::min(i, outBufLength-1);
-	for (uint32_t j=0; j<length; ++j)
-		outBuf[j] = inBuf[j];
-
-	outBuf[length] = 0;
-	return length;
-}
-
-
-std::string COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
-{
-	if (!inBuf)
-		return std::string();
-
-	const char* ptr = inBuf;
-	while (ptr<bufEnd)
-	{
-		if (*ptr=='\n' || *ptr=='\r')
-			break;
-		++ptr;
-	}
-	// we must avoid the +1 in case the array is used up
-	return std::string(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
-}
-
-
-const char* COBJMeshFileLoader::goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* bufEnd)
-{
-	inBuf = goNextWord(inBuf, bufEnd, false);
-	copyWord(outBuf, inBuf, outBufLength, bufEnd);
-	return inBuf;
-}
-
-
-bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, const char* bufEnd, uint32_t vbsize, uint32_t vtsize, uint32_t vnsize)
-{
-	char word[16] = "";
-	const char* p = goFirstWord(vertexData, bufEnd);
-	uint32_t idxType = 0;	// 0 = posIdx, 1 = texcoordIdx, 2 = normalIdx
-
-	uint32_t i = 0;
-	while ( p != bufEnd )
-	{
-		if ( ( core::isdigit(*p)) || (*p == '-') )
-		{
-			// build up the number
-			word[i++] = *p;
-		}
-		else if ( *p == '/' || *p == ' ' || *p == '\0' )
-		{
-			// number is completed. Convert and store it
-			word[i] = '\0';
-			// if no number was found index will become 0 and later on -1 by decrement
-			sscanf(word,"%d",idx+idxType);
-			if (idx[idxType]<0)
-			{
-				switch (idxType)
-				{
-					case 0:
-						idx[idxType] += vbsize;
-						break;
-					case 1:
-						idx[idxType] += vtsize;
-						break;
-					case 2:
-						idx[idxType] += vnsize;
-						break;
-				}
-			}
-			else
-				idx[idxType]-=1;
-
-			// reset the word
-			word[0] = '\0';
-			i = 0;
-
-			// go to the next kind of index type
-			if (*p == '/')
-			{
-				if ( ++idxType > 2 )
-				{
-					// error checking, shouldn't reach here unless file is wrong
-					idxType = 0;
-				}
-			}
-			else
-			{
-				// set all missing values to disable (=-1)
-				while (++idxType < 3)
-					idx[idxType]=-1;
-				++p;
-				break; // while
-			}
-		}
-
-		// go to the next char
-		++p;
-	}
-
-	return true;
-}
-
-std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const
-{
-    return _baseKey + "?" + _grpName + "?" + _mtlName;
-}
-
-
-
-
-} // end namespace scene
-} // end namespace nbl
 
 #endif // _NBL_COMPILE_WITH_OBJ_LOADER_

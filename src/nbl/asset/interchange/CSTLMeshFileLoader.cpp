@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
@@ -7,431 +7,866 @@
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
+#include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
+#include "nbl/asset/format/convertColor.h"
+#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/asset/asset.h"
-
-#include "nbl/asset/IAssetManager.h"
-
-#include "nbl/system/ISystem.h"
+#include "nbl/asset/metadata/CSTLMetadata.h"
+#include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+#include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
 
-using namespace nbl;
-using namespace nbl::asset;
+#include <fast_float/fast_float.h>
 
-constexpr auto POSITION_ATTRIBUTE = 0;
-constexpr auto COLOR_ATTRIBUTE = 1;
-constexpr auto UV_ATTRIBUTE = 2;
-constexpr auto NORMAL_ATTRIBUTE = 3;
-
-CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr)
-	: IRenderpassIndependentPipelineLoader(_m_assetMgr), m_assetMgr(_m_assetMgr)
+namespace nbl::asset
 {
-	
+
+struct SSTLContext
+{
+	IAssetLoader::SAssetLoadContext inner;
+	SFileReadTelemetry ioTelemetry = {};
+	static constexpr size_t TextProbeBytes = 6ull;
+	static constexpr size_t BinaryHeaderBytes = 80ull;
+	static constexpr size_t TriangleCountBytes = sizeof(uint32_t);
+	static constexpr size_t BinaryPrefixBytes = BinaryHeaderBytes + TriangleCountBytes;
+	static constexpr size_t TriangleFloatCount = 12ull;
+	static constexpr size_t TriangleFloatBytes = sizeof(float) * TriangleFloatCount;
+	static constexpr size_t TriangleAttributeBytes = sizeof(uint16_t);
+	static constexpr size_t TriangleRecordBytes = TriangleFloatBytes + TriangleAttributeBytes;
+	static constexpr size_t VerticesPerTriangle = 3ull;
+	static constexpr size_t FloatChannelsPerVertex = 3ull;
+};
+
+const char* stlSkipWhitespace(const char* ptr, const char* const end)
+{
+	while (ptr < end && core::isspace(*ptr))
+		++ptr;
+	return ptr;
 }
 
-void CSTLMeshFileLoader::initialize()
+bool stlReadTextToken(const char*& ptr, const char* const end, std::string_view& outToken)
 {
-	IRenderpassIndependentPipelineLoader::initialize();
-
-	auto precomputeAndCachePipeline = [&](bool withColorAttribute)
+	ptr = stlSkipWhitespace(ptr, end);
+	if (ptr >= end)
 	{
-		auto getShaderDefaultPaths = [&]() -> std::pair<std::string_view, std::string_view>
-		{
-			if (withColorAttribute)
-				return std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag");
-			else
-				return std::make_pair("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert", "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
-		 };
+		outToken = {};
+		return false;
+	}
 
-		auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
-		const std::string pipelineCacheHash = getPipelineCacheKey(withColorAttribute).data();
-		const uint32_t _hierarchyLevel = 0;
-		const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
+	const char* tokenEnd = ptr;
+	while (tokenEnd < end && !core::isspace(*tokenEnd))
+		++tokenEnd;
 
-		const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-		auto pipelineBundle = defaultOverride.findCachedAsset(pipelineCacheHash, types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-		if (pipelineBundle.getContents().empty())
-		{
-			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-			{
-				const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-				const auto shaderPaths = getShaderDefaultPaths();
-
-				auto vertexShaderBundle = m_assetMgr->findAssets(shaderPaths.first.data(), types);
-				auto fragmentShaderBundle = m_assetMgr->findAssets(shaderPaths.second.data(), types);
-
-				mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
-				mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
-			}
-
-			auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
-
-			const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-			auto mbBundlePipelineLayout = defaultOverride.findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/STL", fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
-			auto mbPipelineLayout = mbBundlePipelineLayout.first;
-
-			auto const positionFormatByteSize = getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT);
-			auto const colorFormatByteSize = withColorAttribute ? getTexelOrBlockBytesize(EF_B8G8R8A8_UNORM) : 0;
-			auto const normalFormatByteSize = getTexelOrBlockBytesize(EF_A2B10G10R10_SNORM_PACK32);
-
-			SVertexInputParams mbInputParams;
-			const auto stride = positionFormatByteSize + colorFormatByteSize + normalFormatByteSize;
-			mbInputParams.enabledBindingFlags |= core::createBitmask({ 0 });
-			mbInputParams.enabledAttribFlags |= core::createBitmask({ POSITION_ATTRIBUTE, NORMAL_ATTRIBUTE, withColorAttribute ? COLOR_ATTRIBUTE : 0 });
-			mbInputParams.bindings[0] = { stride, EVIR_PER_VERTEX };
-
-			mbInputParams.attributes[POSITION_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-			mbInputParams.attributes[POSITION_ATTRIBUTE].relativeOffset = 0;
-			mbInputParams.attributes[POSITION_ATTRIBUTE].binding = 0;
-
-			if (withColorAttribute)
-			{
-				mbInputParams.attributes[COLOR_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-				mbInputParams.attributes[COLOR_ATTRIBUTE].relativeOffset = positionFormatByteSize;
-				mbInputParams.attributes[COLOR_ATTRIBUTE].binding = 0;
-			}
-
-			mbInputParams.attributes[NORMAL_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-			mbInputParams.attributes[NORMAL_ATTRIBUTE].relativeOffset = positionFormatByteSize + colorFormatByteSize;
-			mbInputParams.attributes[NORMAL_ATTRIBUTE].binding = 0;
-
-			SBlendParams blendParams;
-			SPrimitiveAssemblyParams primitiveAssemblyParams;
-			primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
-
-			SRasterizationParams rastarizationParmas;
-
-			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-			{
-				mbPipeline->setShaderAtStage(asset::IShader::ESS_VERTEX, mbVertexShader.get());
-				mbPipeline->setShaderAtStage(asset::IShader::ESS_FRAGMENT, mbFragmentShader.get());
-			}
-
-			asset::SAssetBundle newPipelineBundle(nullptr, {core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline)});
-			defaultOverride.insertAssetIntoCache(newPipelineBundle, pipelineCacheHash, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-		}
-		else
-			return;
-	};
-
-	/*
-		Pipeline permutations are cached
-	*/
-
-	precomputeAndCachePipeline(true);
-	precomputeAndCachePipeline(false);
+	outToken = std::string_view(ptr, static_cast<size_t>(tokenEnd - ptr));
+	ptr = tokenEnd;
+	return true;
 }
 
-SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+bool stlReadTextFloat(const char*& ptr, const char* const end, float& outValue)
+{
+	ptr = stlSkipWhitespace(ptr, end);
+	if (ptr >= end)
+		return false;
+
+	const auto parseResult = fast_float::from_chars(ptr, end, outValue);
+	if (parseResult.ec == std::errc() && parseResult.ptr != ptr)
+	{
+		ptr = parseResult.ptr;
+		return true;
+	}
+
+	char* fallbackEnd = nullptr;
+	outValue = std::strtof(ptr, &fallbackEnd);
+	if (!fallbackEnd || fallbackEnd == ptr)
+		return false;
+	ptr = fallbackEnd <= end ? fallbackEnd : end;
+	return true;
+}
+
+bool stlReadTextVec3(const char*& ptr, const char* const end, hlsl::float32_t3& outVec)
+{
+	return stlReadTextFloat(ptr, end, outVec.x) && stlReadTextFloat(ptr, end, outVec.y) && stlReadTextFloat(ptr, end, outVec.z);
+}
+
+hlsl::float32_t3 stlNormalizeOrZero(const hlsl::float32_t3& v)
+{
+	const float len2 = hlsl::dot(v, v);
+	if (len2 <= 0.f)
+		return hlsl::float32_t3(0.f, 0.f, 0.f);
+	return hlsl::normalize(v);
+}
+
+hlsl::float32_t3 stlComputeFaceNormal(const hlsl::float32_t3& a, const hlsl::float32_t3& b, const hlsl::float32_t3& c)
+{
+	return stlNormalizeOrZero(hlsl::cross(b - a, c - a));
+}
+
+hlsl::float32_t3 stlResolveStoredNormal(const hlsl::float32_t3& fileNormal)
+{
+	const float fileLen2 = hlsl::dot(fileNormal, fileNormal);
+	if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
+		return fileNormal;
+	return stlNormalizeOrZero(fileNormal);
+}
+
+void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::float32_t3>& positions)
+{
+	positions.push_back(p[2u]);
+	positions.push_back(p[1u]);
+	positions.push_back(p[0u]);
+}
+
+inline uint32_t stlDecodeViscamColorToB8G8R8A8(const uint16_t packedColor)
+{
+	const void* src[4] = { &packedColor, nullptr, nullptr, nullptr };
+	uint32_t outColor = 0u;
+	convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(src, &outColor, 0u, 0u);
+	return outColor;
+}
+
+class CStlSplitBlockMemoryResource final : public core::refctd_memory_resource
+{
+	public:
+		inline CStlSplitBlockMemoryResource(
+			core::smart_refctd_ptr<core::refctd_memory_resource>&& upstream,
+			void* block,
+			const size_t blockBytes,
+			const size_t alignment
+		) : m_upstream(std::move(upstream)), m_block(block), m_blockBytes(blockBytes), m_alignment(alignment)
+		{
+		}
+
+		inline void* allocate(std::size_t, std::size_t) override
+		{
+			assert(false);
+			return nullptr;
+		}
+
+		inline void deallocate(void* p, std::size_t bytes, std::size_t) override
+		{
+			const auto* const begin = reinterpret_cast<const uint8_t*>(m_block);
+			const auto* const end = begin + m_blockBytes;
+			const auto* const ptr = reinterpret_cast<const uint8_t*>(p);
+			assert(ptr >= begin && ptr <= end);
+			assert(ptr + bytes <= end);
+		}
+
+	protected:
+		inline ~CStlSplitBlockMemoryResource() override
+		{
+			if (m_upstream && m_block)
+				m_upstream->deallocate(m_block, m_blockBytes, m_alignment);
+		}
+
+	private:
+		core::smart_refctd_ptr<core::refctd_memory_resource> m_upstream;
+		void* m_block = nullptr;
+		size_t m_blockBytes = 0ull;
+		size_t m_alignment = 1ull;
+};
+
+ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::float32_t3>&& values)
+{
+	if (values.empty())
+		return {};
+
+	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<hlsl::float32_t3>>>(std::move(values));
+	auto& payload = backer->getBacker();
+	auto* const payloadPtr = payload.data();
+	const size_t byteCount = payload.size() * sizeof(hlsl::float32_t3);
+	auto buffer = ICPUBuffer::create({ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(hlsl::float32_t3) }, core::adopt_memory);
+	if (!buffer)
+		return {};
+
+	ICPUPolygonGeometry::SDataView view = {};
+	view.composed = {
+		.stride = sizeof(hlsl::float32_t3),
+		.format = EF_R32G32B32_SFLOAT,
+		.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+	};
+	view.src = {
+		.offset = 0u,
+		.size = byteCount,
+		.buffer = std::move(buffer)
+	};
+	return view;
+}
+
+ICPUPolygonGeometry::SDataView stlCreateAdoptedColorView(core::vector<uint32_t>&& values)
+{
+	if (values.empty())
+		return {};
+
+	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<uint32_t>>>(std::move(values));
+	auto& payload = backer->getBacker();
+	auto* const payloadPtr = payload.data();
+	const size_t byteCount = payload.size() * sizeof(uint32_t);
+	auto buffer = ICPUBuffer::create({ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(uint32_t) }, core::adopt_memory);
+	if (!buffer)
+		return {};
+
+	ICPUPolygonGeometry::SDataView view = {};
+	view.composed = {
+		.stride = sizeof(uint32_t),
+		.format = EF_B8G8R8A8_UNORM,
+		.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_B8G8R8A8_UNORM)
+	};
+	view.src = {
+		.offset = 0u,
+		.size = byteCount,
+		.buffer = std::move(buffer)
+	};
+	return view;
+}
+
+CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager*)
+{
+}
+
+const char** CSTLMeshFileLoader::getAssociatedFileExtensions() const
+{
+	static const char* ext[] = { "stl", nullptr };
+	return ext;
+}
+
+SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride*, uint32_t)
 {
 	if (!_file)
 		return {};
 
-	SContext context = {
-		asset::IAssetLoader::SAssetLoadContext{
-			_params,
-			_file
-		},
-		_hierarchyLevel,
-		_override
-	};
+	uint64_t triangleCount = 0u;
+	const char* parsePath = "unknown";
+	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
+	bool hasTriangleColors = false;
 
+	SSTLContext context = { asset::IAssetLoader::SAssetLoadContext{ _params,_file },0ull };
 
 	const size_t filesize = context.inner.mainFile->getSize();
-	if (filesize < 6ull) // we need a header
+	if (filesize < SSTLContext::TextProbeBytes)
 		return {};
 
-	bool hasColor = false;
+	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true);
+	if (!ioPlan.valid)
+	{
+		_params.logger.log("STL loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);
+		return {};
+	}
 
-	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
-	auto meshbuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-	meshbuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-	meshbuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
+	core::vector<uint8_t> wholeFilePayload;
+	const uint8_t* wholeFileData = nullptr;
+	bool wholeFileDataIsMapped = false;
+	if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+	{
+		const auto* constFile = static_cast<const system::IFile*>(context.inner.mainFile);
+		const auto* mapped = reinterpret_cast<const uint8_t*>(constFile->getMappedPointer());
+		if (mapped)
+		{
+			wholeFileData = mapped;
+			wholeFileDataIsMapped = true;
+			context.ioTelemetry.account(filesize);
+		}
+		else
+		{
+			wholeFilePayload.resize(filesize + 1ull);
+			if (!readFileExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
+				return {};
+			wholeFilePayload[filesize] = 0u;
+			wholeFileData = wholeFilePayload.data();
+		}
+	}
 
 	bool binary = false;
-	std::string token;
-	if (getNextToken(&context, token) != "solid")
-		binary = hasColor = true;
+	bool hasBinaryTriCountFromDetect = false;
+	uint32_t binaryTriCountFromDetect = 0u;
+	{
+		std::array<uint8_t, SSTLContext::BinaryPrefixBytes> prefix = {};
+		bool hasPrefix = false;
+		if (wholeFileData && filesize >= SSTLContext::BinaryPrefixBytes)
+		{
+			std::memcpy(prefix.data(), wholeFileData, SSTLContext::BinaryPrefixBytes);
+			hasPrefix = true;
+		}
+		else
+		{
+			hasPrefix = filesize >= SSTLContext::BinaryPrefixBytes && readFileExact(context.inner.mainFile, prefix.data(), 0ull, SSTLContext::BinaryPrefixBytes, &context.ioTelemetry);
+		}
+		bool startsWithSolid = false;
+		if (hasPrefix)
+		{
+			startsWithSolid = (std::memcmp(prefix.data(), "solid ", SSTLContext::TextProbeBytes) == 0);
+		}
+		else
+		{
+			char header[SSTLContext::TextProbeBytes] = {};
+			if (wholeFileData)
+				std::memcpy(header, wholeFileData, sizeof(header));
+			else if (!readFileExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
+				return {};
+			startsWithSolid = (std::strncmp(header, "solid ", SSTLContext::TextProbeBytes) == 0);
+		}
 
-	core::vector<core::vectorSIMDf> positions, normals;
-	core::vector<uint32_t> colors;
+		bool binaryBySize = false;
+		if (hasPrefix)
+		{
+			uint32_t triCount = 0u;
+			std::memcpy(&triCount, prefix.data() + SSTLContext::BinaryHeaderBytes, sizeof(triCount));
+			binaryTriCountFromDetect = triCount;
+			hasBinaryTriCountFromDetect = true;
+			const uint64_t expectedSize = SSTLContext::BinaryPrefixBytes + static_cast<uint64_t>(triCount) * SSTLContext::TriangleRecordBytes;
+			binaryBySize = (expectedSize == filesize);
+		}
+
+		if (binaryBySize)
+			binary = true;
+		else if (!startsWithSolid)
+			binary = true;
+		else
+			binary = false;
+
+	}
+
+	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+	SAABBAccumulator3<float> parsedAABB = {};
+	uint64_t vertexCount = 0ull;
+
+	if (!binary && wholeFileDataIsMapped)
+	{
+		wholeFilePayload.resize(filesize + 1ull);
+		std::memcpy(wholeFilePayload.data(), wholeFileData, filesize);
+		wholeFilePayload[filesize] = 0u;
+		wholeFileData = wholeFilePayload.data();
+		wholeFileDataIsMapped = false;
+	}
+
 	if (binary)
 	{
-		if (_file->getSize() < 80)
+		parsePath = "binary_fast";
+		if (filesize < SSTLContext::BinaryPrefixBytes)
 			return {};
 
-		constexpr size_t headerOffset = 80; 
-		context.fileOffset = headerOffset; //! skip header
+		uint32_t triangleCount32 = binaryTriCountFromDetect;
+		if (!hasBinaryTriCountFromDetect)
+		{
+			if (!readFileExact(context.inner.mainFile, &triangleCount32, SSTLContext::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+				return {};
+		}
 
-		uint32_t vertexCount = 0u;
-
-		system::IFile::success_t success;
-		context.inner.mainFile->read(success, &vertexCount, context.fileOffset, sizeof(vertexCount));
-		if (!success)
+		triangleCount = triangleCount32;
+		const size_t dataSize = static_cast<size_t>(triangleCount) * SSTLContext::TriangleRecordBytes;
+		const size_t expectedSize = SSTLContext::BinaryPrefixBytes + dataSize;
+		if (filesize < expectedSize)
 			return {};
-		context.fileOffset += sizeof(vertexCount);
 
-		positions.reserve(3 * vertexCount);
-		normals.reserve(vertexCount);
-		colors.reserve(vertexCount);
+		const uint8_t* payloadData = nullptr;
+		if (wholeFileData)
+		{
+			payloadData = wholeFileData + SSTLContext::BinaryPrefixBytes;
+		}
+		else
+		{
+			core::vector<uint8_t> payload;
+			payload.resize(dataSize);
+			if (!readFileWithPolicy(context.inner.mainFile, payload.data(), SSTLContext::BinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
+				return {};
+			wholeFilePayload = std::move(payload);
+			payloadData = wholeFilePayload.data();
+		}
+
+		vertexCount = triangleCount * SSTLContext::VerticesPerTriangle;
+		const size_t vertexCountSizeT = static_cast<size_t>(vertexCount);
+		if (vertexCountSizeT > (std::numeric_limits<size_t>::max() / sizeof(hlsl::float32_t3)))
+			return {};
+		const size_t viewByteSize = vertexCountSizeT * sizeof(hlsl::float32_t3);
+		if (viewByteSize > (std::numeric_limits<size_t>::max() - viewByteSize))
+			return {};
+		const size_t blockBytes = viewByteSize * 2ull;
+		auto upstream = core::getDefaultMemoryResource();
+		if (!upstream)
+			return {};
+		void* block = upstream->allocate(blockBytes, alignof(float));
+		if (!block)
+			return {};
+		auto blockResource = core::make_smart_refctd_ptr<CStlSplitBlockMemoryResource>(
+			core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(upstream)),
+			block,
+			blockBytes,
+			alignof(float));
+		auto posBuffer = ICPUBuffer::create({ { viewByteSize },block,core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),alignof(float) }, core::adopt_memory);
+		auto normalBuffer = ICPUBuffer::create({ { viewByteSize },reinterpret_cast<uint8_t*>(block) + viewByteSize,core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),alignof(float) }, core::adopt_memory);
+		if (!posBuffer || !normalBuffer)
+			return {};
+		ICPUPolygonGeometry::SDataView posView = {};
+		posView.composed = {
+			.stride = sizeof(hlsl::float32_t3),
+			.format = EF_R32G32B32_SFLOAT,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+		};
+		posView.src = {
+			.offset = 0ull,
+			.size = viewByteSize,
+			.buffer = std::move(posBuffer)
+		};
+		ICPUPolygonGeometry::SDataView normalView = {};
+		normalView.composed = {
+			.stride = sizeof(hlsl::float32_t3),
+			.format = EF_R32G32B32_SFLOAT,
+			.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
+		};
+		normalView.src = {
+			.offset = 0ull,
+			.size = viewByteSize,
+			.buffer = std::move(normalBuffer)
+		};
+		auto* posOutFloat = reinterpret_cast<float*>(posView.getPointer());
+		auto* normalOutFloat = reinterpret_cast<float*>(normalView.getPointer());
+		if (!posOutFloat || !normalOutFloat)
+			return {};
+
+		const uint8_t* cursor = payloadData;
+		const uint8_t* const end = cursor + dataSize;
+		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * SSTLContext::TriangleRecordBytes)
+			return {};
+		core::vector<uint32_t> faceColors(static_cast<size_t>(triangleCount), 0u);
+		std::atomic_bool colorValidForAllFaces = true;
+		const size_t hw = resolveLoaderHardwareThreads();
+		const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
+		SLoaderRuntimeTuningRequest parseTuningRequest = {};
+		parseTuningRequest.inputBytes = dataSize;
+		parseTuningRequest.totalWorkUnits = triangleCount;
+		parseTuningRequest.minBytesPerWorker = SSTLContext::TriangleRecordBytes;
+		parseTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+		parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
+		parseTuningRequest.targetChunksPerWorker = _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
+		parseTuningRequest.minChunkWorkUnits = 1ull;
+		parseTuningRequest.maxChunkWorkUnits = std::max<uint64_t>(1ull, triangleCount);
+		parseTuningRequest.sampleData = payloadData;
+		parseTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(_params.ioPolicy, dataSize);
+		const auto parseTuning = tuneLoaderRuntime(_params.ioPolicy, parseTuningRequest);
+		const size_t workerCount = std::max<size_t>(1ull, std::min(parseTuning.workerCount, static_cast<size_t>(std::max<uint64_t>(1ull, triangleCount))));
+		static constexpr bool ComputeAABBInParse = true;
+		struct SThreadAABB
+		{
+			bool has = false;
+			float minX = 0.f;
+			float minY = 0.f;
+			float minZ = 0.f;
+			float maxX = 0.f;
+			float maxY = 0.f;
+			float maxZ = 0.f;
+		};
+		std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount : 0ull);
+		const uint64_t parseChunkTriangles = std::max<uint64_t>(1ull, parseTuning.chunkWorkUnits);
+		const size_t parseChunkCount = static_cast<size_t>(loaderRuntimeCeilDiv(triangleCount, parseChunkTriangles));
+		const bool hashInParsePipeline = computeContentHashes;
+		std::vector<uint8_t> hashChunkReady(hashInParsePipeline ? parseChunkCount : 0ull, 0u);
+		std::atomic_bool hashPipelineOk = true;
+		core::blake3_hash_t parsedPositionHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
+		core::blake3_hash_t parsedNormalHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
+		auto parseRange = [&](const uint64_t beginTri, const uint64_t endTri, SThreadAABB& localAABB) -> void
+		{
+			const uint8_t* localCursor = payloadData + beginTri * SSTLContext::TriangleRecordBytes;
+			float* posCursor = posOutFloat + beginTri * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
+			float* normalCursor = normalOutFloat + beginTri * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
+			for (uint64_t tri = beginTri; tri < endTri; ++tri)
+			{
+				const uint8_t* const triRecord = localCursor;
+				localCursor += SSTLContext::TriangleRecordBytes;
+				float triValues[SSTLContext::TriangleFloatCount];
+				std::memcpy(triValues, triRecord, sizeof(triValues));
+				uint16_t packedColor = 0u;
+				std::memcpy(&packedColor, triRecord + SSTLContext::TriangleFloatBytes, sizeof(packedColor));
+				if (packedColor & 0x8000u)
+					faceColors[static_cast<size_t>(tri)] = stlDecodeViscamColorToB8G8R8A8(packedColor);
+				else
+					colorValidForAllFaces.store(false, std::memory_order_relaxed);
+
+				float normalX = triValues[0ull];
+				float normalY = triValues[1ull];
+				float normalZ = triValues[2ull];
+
+				const float vertex0x = triValues[9ull];
+				const float vertex0y = triValues[10ull];
+				const float vertex0z = triValues[11ull];
+				const float vertex1x = triValues[6ull];
+				const float vertex1y = triValues[7ull];
+				const float vertex1z = triValues[8ull];
+				const float vertex2x = triValues[3ull];
+				const float vertex2y = triValues[4ull];
+				const float vertex2z = triValues[5ull];
+
+				posCursor[0ull] = vertex0x;
+				posCursor[1ull] = vertex0y;
+				posCursor[2ull] = vertex0z;
+				posCursor[3ull] = vertex1x;
+				posCursor[4ull] = vertex1y;
+				posCursor[5ull] = vertex1z;
+				posCursor[6ull] = vertex2x;
+				posCursor[7ull] = vertex2y;
+				posCursor[8ull] = vertex2z;
+				if constexpr (ComputeAABBInParse)
+				{
+					if (!localAABB.has)
+					{
+						localAABB.has = true;
+						localAABB.minX = vertex0x;
+						localAABB.minY = vertex0y;
+						localAABB.minZ = vertex0z;
+						localAABB.maxX = vertex0x;
+						localAABB.maxY = vertex0y;
+						localAABB.maxZ = vertex0z;
+					}
+					if (vertex0x < localAABB.minX) localAABB.minX = vertex0x;
+					if (vertex0y < localAABB.minY) localAABB.minY = vertex0y;
+					if (vertex0z < localAABB.minZ) localAABB.minZ = vertex0z;
+					if (vertex0x > localAABB.maxX) localAABB.maxX = vertex0x;
+					if (vertex0y > localAABB.maxY) localAABB.maxY = vertex0y;
+					if (vertex0z > localAABB.maxZ) localAABB.maxZ = vertex0z;
+					if (vertex1x < localAABB.minX) localAABB.minX = vertex1x;
+					if (vertex1y < localAABB.minY) localAABB.minY = vertex1y;
+					if (vertex1z < localAABB.minZ) localAABB.minZ = vertex1z;
+					if (vertex1x > localAABB.maxX) localAABB.maxX = vertex1x;
+					if (vertex1y > localAABB.maxY) localAABB.maxY = vertex1y;
+					if (vertex1z > localAABB.maxZ) localAABB.maxZ = vertex1z;
+					if (vertex2x < localAABB.minX) localAABB.minX = vertex2x;
+					if (vertex2y < localAABB.minY) localAABB.minY = vertex2y;
+					if (vertex2z < localAABB.minZ) localAABB.minZ = vertex2z;
+					if (vertex2x > localAABB.maxX) localAABB.maxX = vertex2x;
+					if (vertex2y > localAABB.maxY) localAABB.maxY = vertex2y;
+					if (vertex2z > localAABB.maxZ) localAABB.maxZ = vertex2z;
+				}
+				if (normalX == 0.f && normalY == 0.f && normalZ == 0.f)
+				{
+					const float edge10x = vertex1x - vertex0x;
+					const float edge10y = vertex1y - vertex0y;
+					const float edge10z = vertex1z - vertex0z;
+					const float edge20x = vertex2x - vertex0x;
+					const float edge20y = vertex2y - vertex0y;
+					const float edge20z = vertex2z - vertex0z;
+
+					normalX = edge10y * edge20z - edge10z * edge20y;
+					normalY = edge10z * edge20x - edge10x * edge20z;
+					normalZ = edge10x * edge20y - edge10y * edge20x;
+					const float planeLen2 = normalX * normalX + normalY * normalY + normalZ * normalZ;
+					if (planeLen2 > 0.f)
+					{
+						const float invLen = 1.f / std::sqrt(planeLen2);
+						normalX *= invLen;
+						normalY *= invLen;
+						normalZ *= invLen;
+					}
+					else
+					{
+						normalX = 0.f;
+						normalY = 0.f;
+						normalZ = 0.f;
+					}
+				}
+				normalCursor[0ull] = normalX;
+				normalCursor[1ull] = normalY;
+				normalCursor[2ull] = normalZ;
+				normalCursor[3ull] = normalX;
+				normalCursor[4ull] = normalY;
+				normalCursor[5ull] = normalZ;
+				normalCursor[6ull] = normalX;
+				normalCursor[7ull] = normalY;
+				normalCursor[8ull] = normalZ;
+				posCursor += SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
+				normalCursor += SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex;
+			}
+		};
+		std::jthread positionHashThread;
+		std::jthread normalHashThread;
+		if (hashInParsePipeline)
+		{
+			positionHashThread = std::jthread([&]()
+			{
+				try
+				{
+					core::blake3_hasher positionHasher;
+					size_t chunkIx = 0ull;
+					while (chunkIx < parseChunkCount)
+					{
+						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
+						while (ready.load(std::memory_order_acquire) == 0u)
+							ready.wait(0u, std::memory_order_acquire);
+
+						size_t runEnd = chunkIx + 1ull;
+						while (runEnd < parseChunkCount)
+						{
+							const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
+							if (runReady == 0u)
+								break;
+							++runEnd;
+						}
+
+						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
+						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
+						const size_t runTriangles = static_cast<size_t>(endTri - begin);
+						const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
+						positionHasher.update(posOutFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
+						chunkIx = runEnd;
+					}
+					parsedPositionHash = static_cast<core::blake3_hash_t>(positionHasher);
+				}
+				catch (...)
+				{
+					hashPipelineOk.store(false, std::memory_order_relaxed);
+				}
+			});
+			normalHashThread = std::jthread([&]()
+			{
+				try
+				{
+					core::blake3_hasher normalHasher;
+					size_t chunkIx = 0ull;
+					while (chunkIx < parseChunkCount)
+					{
+						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
+						while (ready.load(std::memory_order_acquire) == 0u)
+							ready.wait(0u, std::memory_order_acquire);
+
+						size_t runEnd = chunkIx + 1ull;
+						while (runEnd < parseChunkCount)
+						{
+							const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
+							if (runReady == 0u)
+								break;
+							++runEnd;
+						}
+
+						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
+						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
+						const size_t runTriangles = static_cast<size_t>(endTri - begin);
+						const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
+						normalHasher.update(normalOutFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
+						chunkIx = runEnd;
+					}
+					parsedNormalHash = static_cast<core::blake3_hash_t>(normalHasher);
+				}
+				catch (...)
+				{
+					hashPipelineOk.store(false, std::memory_order_relaxed);
+				}
+			});
+		}
+		std::atomic_size_t nextChunkIx = 0ull;
+		auto parseWorker = [&](const size_t workerIx) -> void
+		{
+			SThreadAABB localAABB = {};
+			while (true)
+			{
+				const size_t chunkIx = nextChunkIx.fetch_add(1ull, std::memory_order_relaxed);
+				if (chunkIx >= parseChunkCount)
+					break;
+				const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
+				const uint64_t endTri = std::min<uint64_t>(begin + parseChunkTriangles, triangleCount);
+				parseRange(begin, endTri, localAABB);
+				if (hashInParsePipeline)
+				{
+					auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
+					ready.store(1u, std::memory_order_release);
+					ready.notify_all();
+				}
+			}
+			if constexpr (ComputeAABBInParse)
+				threadAABBs[workerIx] = localAABB;
+		};
+		loaderRuntimeDispatchWorkers(workerCount, parseWorker);
+		if (positionHashThread.joinable())
+			positionHashThread.join();
+		if (normalHashThread.joinable())
+			normalHashThread.join();
+		if (hashInParsePipeline)
+		{
+			if (!hashPipelineOk.load(std::memory_order_relaxed))
+				return {};
+			posView.src.buffer->setContentHash(parsedPositionHash);
+			normalView.src.buffer->setContentHash(parsedNormalHash);
+		}
+		if constexpr (ComputeAABBInParse)
+		{
+			for (const auto& localAABB : threadAABBs)
+			{
+				if (!localAABB.has)
+					continue;
+				extendAABBAccumulator(parsedAABB, localAABB.minX, localAABB.minY, localAABB.minZ);
+				extendAABBAccumulator(parsedAABB, localAABB.maxX, localAABB.maxY, localAABB.maxZ);
+			}
+		}
+		geometry->setPositionView(std::move(posView));
+		geometry->setNormalView(std::move(normalView));
+		if (colorValidForAllFaces.load(std::memory_order_relaxed))
+		{
+			core::vector<uint32_t> vertexColors(vertexCountSizeT);
+			for (size_t triIx = 0ull; triIx < static_cast<size_t>(triangleCount); ++triIx)
+			{
+				const uint32_t triColor = faceColors[triIx];
+				const size_t baseIx = triIx * SSTLContext::VerticesPerTriangle;
+				vertexColors[baseIx + 0ull] = triColor;
+				vertexColors[baseIx + 1ull] = triColor;
+				vertexColors[baseIx + 2ull] = triColor;
+			}
+			auto colorView = stlCreateAdoptedColorView(std::move(vertexColors));
+			if (!colorView)
+				return {};
+			geometry->getAuxAttributeViews()->push_back(std::move(colorView));
+			hasTriangleColors = true;
+		}
 	}
 	else
-		goNextLine(&context); // skip header
-
-	uint16_t attrib = 0u;
-	token.reserve(32);
-	while (context.fileOffset < filesize) // TODO: check it
 	{
-		if (!binary)
+		parsePath = "ascii_fallback";
+		if (!wholeFileData)
 		{
-			if (getNextToken(&context, token) != "facet")
+			wholeFilePayload.resize(filesize + 1ull);
+			if (!readFileWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
+				return {};
+			wholeFilePayload[filesize] = 0u;
+			wholeFileData = wholeFilePayload.data();
+		}
+
+		const char* cursor = reinterpret_cast<const char*>(wholeFileData);
+		const char* const end = cursor + filesize;
+		core::vector<hlsl::float32_t3> positions;
+		core::vector<hlsl::float32_t3> normals;
+		std::string_view textToken = {};
+		if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("solid"))
+			return {};
+
+		while (stlReadTextToken(cursor, end, textToken))
+		{
+			if (textToken == std::string_view("endsolid"))
+				break;
+			if (textToken != std::string_view("facet"))
 			{
-				if (token == "endsolid")
-					break;
-				return {};
+				continue;
 			}
-			if (getNextToken(&context, token) != "normal")
-			{
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("normal"))
 				return {};
-			}
-		}
 
-		{
-			core::vectorSIMDf n;
-			getNextVector(&context, n, binary);
-			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
-			normals.push_back(core::normalize(n));
-		}
-
-		if (!binary)
-		{
-			if (getNextToken(&context, token) != "outer" || getNextToken(&context, token) != "loop")
+			hlsl::float32_t3 fileNormal = {};
+			if (!stlReadTextVec3(cursor, end, fileNormal))
 				return {};
-		}
 
-		{
-			core::vectorSIMDf p[3];
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("outer"))
+				return {};
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("loop"))
+				return {};
+
+			hlsl::float32_t3 p[3] = {};
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
-				if (!binary)
-				{
-					if (getNextToken(&context, token) != "vertex")
-						return {};
-				}
-				getNextVector(&context, p[i], binary);
-				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-					performActionBasedOnOrientationSystem<float>(p[i].x, [](float& varToFlip){varToFlip = -varToFlip; });
+				if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("vertex"))
+					return {};
+				if (!stlReadTextVec3(cursor, end, p[i]))
+					return {};
 			}
-			for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
-				positions.push_back(p[2u - i]);
-		}
 
-		if (!binary)
-		{
-			if (getNextToken(&context, token) != "endloop" || getNextToken(&context, token) != "endfacet")
+			stlPushTriangleReversed(p, positions);
+			hlsl::float32_t3 faceNormal = stlResolveStoredNormal(fileNormal);
+			if (hlsl::dot(faceNormal, faceNormal) <= 0.f)
+				faceNormal = stlComputeFaceNormal(p[2u], p[1u], p[0u]);
+			normals.push_back(faceNormal);
+			normals.push_back(faceNormal);
+			normals.push_back(faceNormal);
+			extendAABBAccumulator(parsedAABB, p[2u]);
+			extendAABBAccumulator(parsedAABB, p[1u]);
+			extendAABBAccumulator(parsedAABB, p[0u]);
+
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endloop"))
+				return {};
+			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endfacet"))
 				return {};
 		}
-		else
-		{
-			system::IFile::success_t success;
-			context.inner.mainFile->read(success, &attrib, context.fileOffset, sizeof(attrib));
-			if (!success)
-				return {};
-			context.fileOffset += sizeof(attrib);
-		}
+		if (positions.empty())
+			return {};
 
-		if (hasColor && (attrib & 0x8000u)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
-		{
-			const void* srcColor[1]{ &attrib };
-			uint32_t color{};
-			convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(srcColor, &color, 0u, 0u);
-			colors.push_back(color);
-		}
-		else
-		{
-			hasColor = false;
-			colors.clear();
-		}
+		triangleCount = positions.size() / SSTLContext::VerticesPerTriangle;
+		vertexCount = positions.size();
 
-		if ((normals.back() == core::vectorSIMDf()).all())
-		{
-			normals.back().set(
-				core::plane3dSIMDf(
-					*(positions.rbegin() + 2),
-					*(positions.rbegin() + 1),
-					*(positions.rbegin() + 0)).getNormal()
-			);
-		}
-	} // end while (_file->getPos() < filesize)
-
-	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
-
-	quant_normal_t normal;
-	for (size_t i = 0u; i < positions.size(); ++i)
-	{
-		if (i % 3 == 0)
-			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
-		uint8_t* ptr = (reinterpret_cast<uint8_t*>(vertexBuf->getPointer())) + i * vtxSize;
-		memcpy(ptr, positions[i].pointer, 3 * 4);
-
-		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;
-
-		if (hasColor)
-			memcpy(ptr + 16, colors.data() + i / 3, 4);
+		auto posView = stlCreateAdoptedFloat3View(std::move(positions));
+		auto normalView = stlCreateAdoptedFloat3View(std::move(normals));
+		if (!posView || !normalView)
+			return {};
+		geometry->setPositionView(std::move(posView));
+		geometry->setNormalView(std::move(normalView));
 	}
 
-	const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-	auto pipelineBundle = _override->findCachedAsset(getPipelineCacheKey(hasColor).data(), types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+	if (vertexCount == 0ull)
+		return {};
+
+	if (computeContentHashes)
 	{
-		bool status = !pipelineBundle.getContents().empty();
-		assert(status);
+		computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 	}
 
-	auto mbPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipelineBundle.getContents().begin()[0]);
-
-	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u, std::move(m_basicViewParamsSemantics));
-	meta->placeMeta(0u, mbPipeline.get());
-
-	meshbuffer->setPipeline(std::move(mbPipeline));
-	meshbuffer->setIndexCount(positions.size());
-	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
-
-	meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
-	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
-	
-	return SAssetBundle(std::move(meta), { std::move(mesh) });
+	if (parsedAABB.has)
+		applyAABBToGeometry(geometry.get(), parsedAABB);
+	else
+	{
+		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
+	}
+	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
+	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
+	if (isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
+	{
+		_params.logger.log(
+			"STL loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
+			system::ILogger::ELL_WARNING,
+			_file->getFileName().string().c_str(),
+			static_cast<unsigned long long>(context.ioTelemetry.callCount),
+			static_cast<unsigned long long>(ioMinRead),
+			static_cast<unsigned long long>(ioAvgRead));
+	}
+	_params.logger.log(
+		"STL loader stats: file=%s binary=%d parse_path=%s triangles=%llu vertices=%llu colors=%d io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		system::ILogger::ELL_PERFORMANCE,
+		_file->getFileName().string().c_str(),
+		binary ? 1 : 0,
+		parsePath,
+		static_cast<unsigned long long>(triangleCount),
+		static_cast<unsigned long long>(vertexCount),
+		hasTriangleColors ? 1 : 0,
+		static_cast<unsigned long long>(context.ioTelemetry.callCount),
+		static_cast<unsigned long long>(ioMinRead),
+		static_cast<unsigned long long>(ioAvgRead),
+		toString(_params.ioPolicy.strategy),
+		toString(ioPlan.strategy),
+		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+		ioPlan.reason);
+	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>();
+	return SAssetBundle(std::move(meta), { std::move(geometry) });
 }
 
-bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
+bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
-	if (!_file || _file->getSize() <= 6u)
+	if (!_file || _file->getSize() <= SSTLContext::TextProbeBytes)
 		return false;
 
-	char header[6];
+	const size_t fileSize = _file->getSize();
+	if (fileSize < SSTLContext::BinaryPrefixBytes)
 	{
-		system::IFile::success_t success;
-		_file->read(success, header, 0, sizeof(header));
-		if (!success)
+		char header[SSTLContext::TextProbeBytes] = {};
+		if (!readFileExact(_file, header, 0ull, sizeof(header)))
 			return false;
+		return std::strncmp(header, "solid ", SSTLContext::TextProbeBytes) == 0;
 	}
 
-	if (strncmp(header, "solid ", 6u) == 0)
+	std::array<uint8_t, SSTLContext::BinaryPrefixBytes> prefix = {};
+	if (!readFileExact(_file, prefix.data(), 0ull, prefix.size()))
+		return false;
+
+	uint32_t triangleCount = 0u;
+	std::memcpy(&triangleCount, prefix.data() + SSTLContext::BinaryHeaderBytes, sizeof(triangleCount));
+	if (std::memcmp(prefix.data(), "solid ", SSTLContext::TextProbeBytes) == 0)
 		return true;
-	else
-	{
-		if (_file->getSize() < 84u)
-			return false;
 
-		uint32_t triangleCount;
-
-		constexpr size_t readOffset = 80;
-		system::IFile::success_t success;
-		_file->read(success, &triangleCount, readOffset, sizeof(triangleCount));
-		if (!success)
-			return false;
-
-		constexpr size_t STL_TRI_SZ = 50u;
-		return _file->getSize() == (STL_TRI_SZ * triangleCount + 84u);
-	}
+	return fileSize == (SSTLContext::TriangleRecordBytes * triangleCount + SSTLContext::BinaryPrefixBytes);
 }
 
-//! Read 3d vector of floats
-void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const
-{
-	if (binary)
-	{
-		{
-			system::IFile::success_t success;
-			context->inner.mainFile->read(success, &vec.X, context->fileOffset, 4);
-			context->fileOffset += success.getBytesProcessed();
-		}
-		
-		{
-			system::IFile::success_t success;
-			context->inner.mainFile->read(success, &vec.Y, context->fileOffset, 4);
-			context->fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;
-			context->inner.mainFile->read(success, &vec.Z, context->fileOffset, 4);
-			context->fileOffset += success.getBytesProcessed();
-		}
-	}
-	else
-	{
-		goNextWord(context);
-		std::string tmp;
-
-		getNextToken(context, tmp);
-		sscanf(tmp.c_str(), "%f", &vec.X);
-		getNextToken(context, tmp);
-		sscanf(tmp.c_str(), "%f", &vec.Y);
-		getNextToken(context, tmp);
-		sscanf(tmp.c_str(), "%f", &vec.Z);
-	}
-	vec.X = -vec.X;
 }
-
-//! Read next word
-const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::string& token) const
-{
-	goNextWord(context);
-	char c;
-	token = "";
-
-	while (context->fileOffset != context->inner.mainFile->getSize())
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		context->fileOffset += success.getBytesProcessed();
-
-		// found it, so leave
-		if (core::isspace(c))
-			break;
-		token += c;
-	}
-	return token;
-}
-
-//! skip to next word
-void CSTLMeshFileLoader::goNextWord(SContext* context) const
-{
-	uint8_t c;
-	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		context->fileOffset += success.getBytesProcessed();
-
-		// found it, so leave
-		if (!core::isspace(c))
-		{
-			context->fileOffset -= success.getBytesProcessed();
-			break;
-		}
-	}
-}
-
-//! Read until line break is reached and stop at the next non-space character
-void CSTLMeshFileLoader::goNextLine(SContext* context) const
-{
-	uint8_t c;
-	// look for newline characters
-	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		context->fileOffset += success.getBytesProcessed();
-
-		// found it, so leave
-		if (c == '\n' || c == '\r')
-			break;
-	}
-}
-
 
 #endif // _NBL_COMPILE_WITH_STL_LOADER_

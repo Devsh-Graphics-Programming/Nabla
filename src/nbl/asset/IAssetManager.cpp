@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -8,6 +8,7 @@
 #include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
 
+#include <algorithm>
 #include <array>
 #include <nbl/core/string/StringLiteral.h>	
 
@@ -53,6 +54,10 @@
 
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
 #include "nbl/asset/interchange/CSTLMeshWriter.h"
+#endif
+
+#ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
+#include "nbl/asset/interchange/COBJMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
@@ -160,6 +165,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
     addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif
+#ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
+	addAssetWriter(core::make_smart_refctd_ptr<asset::COBJMeshWriter>());
+#endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
 #endif
@@ -195,9 +203,11 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     IAssetLoader::SAssetLoadContext ctx{params,_file};
 
     std::filesystem::path filename = _file ? _file->getFileName() : std::filesystem::path(_supposedFilename);
-    auto file = _override->getLoadFile(_file, filename.string(), ctx, _hierarchyLevel);
+    auto filenameString = filename.string();
+    auto file = _override->getLoadFile(_file, filenameString, ctx, _hierarchyLevel);
 
     filename = file.get() ? file->getFileName() : std::filesystem::path(_supposedFilename);
+    filenameString = filename.string();
     // TODO: should we remove? (is a root absolute path working dir ever needed)
     if (params.workingDirectory.empty())
         params.workingDirectory = filename.parent_path();
@@ -207,10 +217,10 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     SAssetBundle bundle;
     if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
     {
-        auto found = findAssets(filename.string());
+        auto found = findAssets(filenameString);
         if (found->size())
             return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
-        else if (!(bundle = _override->handleSearchFail(filename.string(), ctx, _hierarchyLevel)).getContents().empty())
+        else if (!(bundle = _override->handleSearchFail(filenameString, ctx, _hierarchyLevel)).getContents().empty())
             return bundle;
     }
 
@@ -220,15 +230,21 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
 
     auto ext = system::extension_wo_dot(filename);
     auto capableLoadersRng = m_loaders.perFileExt.findRange(ext);
-    // loaders associated with the file's extension tryout
+    core::vector<IAssetLoader*> extensionLoaders;
+    extensionLoaders.reserve(8u);
     for (auto& loader : capableLoadersRng)
     {
-        if (loader.second->isALoadableFileFormat(file.get()) && !(bundle = loader.second->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+        auto* extensionLoader = loader.second;
+        extensionLoaders.push_back(extensionLoader);
+        if (extensionLoader->isALoadableFileFormat(file.get()) && !(bundle = extensionLoader->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
             break;
     }
-    for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+    for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr)
     {
-        if ((*loaderItr)->isALoadableFileFormat(file.get()) && !(bundle = (*loaderItr)->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+        auto* loader = loaderItr->get();
+        if (std::find(extensionLoaders.begin(), extensionLoaders.end(), loader) != extensionLoaders.end())
+            continue;
+        if (loader->isALoadableFileFormat(file.get()) && !(bundle = loader->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
             break;
     }
 
@@ -236,14 +252,14 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
         ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
         ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
     {
-        _override->insertAssetIntoCache(bundle, filename.string(), ctx.params, _hierarchyLevel);
+        _override->insertAssetIntoCache(bundle, filenameString, ctx.params, _hierarchyLevel);
     }
     else if (bundle.getContents().empty())
     {
         bool addToCache;
-        bundle = _override->handleLoadFail(addToCache, file.get(), filename.string(), filename.string(), ctx, _hierarchyLevel);
+        bundle = _override->handleLoadFail(addToCache, file.get(), filenameString, filenameString, ctx, _hierarchyLevel);
         if (!bundle.getContents().empty() && addToCache)
-            _override->insertAssetIntoCache(bundle, filename.string(), ctx.params, _hierarchyLevel);
+            _override->insertAssetIntoCache(bundle, filenameString, ctx.params, _hierarchyLevel);
     }            
     return bundle;
 }

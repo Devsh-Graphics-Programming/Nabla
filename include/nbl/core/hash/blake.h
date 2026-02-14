@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2024 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
@@ -54,6 +54,9 @@ class NBL_API2 blake3_hasher final
 
 		explicit operator blake3_hash_t() const;
 };
+
+NBL_API2 blake3_hash_t blake3_hash_buffer(const void* data, size_t bytes);
+NBL_API2 blake3_hash_t blake3_hash_buffer_sequential(const void* data, size_t bytes);
 
 // Useful specializations
 template<typename Dummy>

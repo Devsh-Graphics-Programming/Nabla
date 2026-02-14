@@ -1,4 +1,4 @@
-// Copyright (C) 2020 AnastaZIuk
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in Nabla.h
 
@@ -60,7 +60,7 @@ using namespace nbl::asset;
 
 				core::smart_refctd_ptr<const system::IFile> glslFile = loadBuiltinData(decltype(constexprStringType)::value);
 				auto glsl = asset::ICPUBuffer::create({ glslFile->getSize() });
-				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
+				memcpy(glsl->getPointer(),static_cast<const system::IFile*>(glslFile.get())->getMappedPointer(),glsl->getSize());
 
 				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), stage, asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
 				if (extraDefine)

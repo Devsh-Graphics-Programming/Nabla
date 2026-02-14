@@ -9,6 +9,7 @@
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/IAsset.h"
+#include "nbl/asset/interchange/SFileIOPolicy.h"
 
 
 namespace nbl::asset
@@ -85,10 +86,10 @@ public:
 	*/
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr _logger = nullptr, system::path cwd = "") :
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr _logger = nullptr, system::path cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData), logger(_logger), workingDirectory(cwd)
+            userData(_userData), logger(_logger), workingDirectory(cwd), ioPolicy(_ioPolicy)
         {
         }
 
@@ -100,6 +101,7 @@ public:
         const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
         system::logger_opt_ptr logger;
         system::path workingDirectory;
+        SFileIOPolicy ioPolicy = {};
     };
 
     //! Struct for keeping the state of the current write operation for safe threading

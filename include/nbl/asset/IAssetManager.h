@@ -180,19 +180,29 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         SAssetBundle getAssetInHierarchy_impl(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 
             system::path filePath = _filePath;
             _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
-            if (!m_system->exists(filePath,system::IFile::ECF_READ))
-            {
-                filePath = _params.workingDirectory/filePath;
-                _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
-            }
-            
-            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            m_system->createFile(future, filePath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+            if (auto file=future.acquire())
+                return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
             m_system->createFile(future, filePath, system::IFile::ECF_READ);
             if (auto file=future.acquire())
                 return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+
+            auto fallbackPath = _params.workingDirectory / filePath;
+            if (fallbackPath != filePath)
+            {
+                filePath = std::move(fallbackPath);
+                _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
+                m_system->createFile(future, filePath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+                if (auto file=future.acquire())
+                    return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+                m_system->createFile(future, filePath, system::IFile::ECF_READ);
+                if (auto file=future.acquire())
+                    return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+            }
             return SAssetBundle(0);
         }
 
@@ -350,8 +360,12 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
             if (!_override)
                 _override = &defOverride;
 
+            system::path filename = _filename;
+            if (filename.is_relative() && !_params.workingDirectory.empty())
+                filename = _params.workingDirectory / filename;
+
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            m_system->createFile(future, (_params.workingDirectory.generic_string()+_filename).c_str(), system::IFile::ECF_WRITE);
+            m_system->createFile(future, std::move(filename), system::IFile::ECF_WRITE);
             if (auto file=future.acquire())
                 return writeAsset(file->get(), _params, _override);
             return false;

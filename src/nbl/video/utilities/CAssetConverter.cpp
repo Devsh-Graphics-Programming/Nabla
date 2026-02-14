@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2024 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 #include "nbl/video/utilities/CAssetConverter.h"
 
@@ -1183,7 +1183,10 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	auto patchedParams = lookup.asset->getCreationParams();
 	assert(lookup.patch->usage.hasFlags(patchedParams.usage));
 	patchedParams.usage = lookup.patch->usage;
-	hasher.update(&patchedParams,sizeof(patchedParams)) << lookup.asset->getContentHash();
+	auto contentHash = lookup.asset->getContentHash();
+	if (contentHash==NoContentHash)
+		contentHash = lookup.asset->computeContentHash();
+	hasher.update(&patchedParams,sizeof(patchedParams)) << contentHash;
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)
