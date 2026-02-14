@@ -234,8 +234,9 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     extensionLoaders.reserve(8u);
     for (auto& loader : capableLoadersRng)
     {
-        extensionLoaders.push_back(loader.second);
-        if (!(bundle = loader.second->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+        auto* extensionLoader = loader.second;
+        extensionLoaders.push_back(extensionLoader);
+        if (extensionLoader->isALoadableFileFormat(file.get()) && !(bundle = extensionLoader->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
             break;
     }
     for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr)

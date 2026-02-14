@@ -30,7 +30,7 @@ const char** CPLYMeshFileLoader::getAssociatedFileExtensions() const
 
 bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
-	char buf[40];
+	char buf[128];
 
 	system::IFile::success_t success;
 	_file->read(success, buf, 0, sizeof(buf));
@@ -38,17 +38,39 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 		return false;
 
 	const std::string_view fileHeader(buf, success.getBytesProcessed());
-	if (!fileHeader.starts_with("ply\n"))
-		return false;
+	auto trimWhitespace = [](std::string_view line) -> std::string_view
+	{
+		const auto isWhitespace = [](const char c) -> bool { return c == ' ' || c == '\t' || c == '\r'; };
+		while (!line.empty() && isWhitespace(line.front()))
+			line.remove_prefix(1ull);
+		while (!line.empty() && isWhitespace(line.back()))
+			line.remove_suffix(1ull);
+		return line;
+	};
 
-	const size_t formatLineBegin = 4ull;
-	const size_t formatLineEnd = fileHeader.find('\n', formatLineBegin);
-	if (formatLineEnd == std::string_view::npos)
+	size_t lineStart = 0ull;
+	const size_t firstLineEnd = fileHeader.find('\n');
+	std::string_view firstLine = fileHeader.substr(0ull, firstLineEnd);
+	firstLine = trimWhitespace(firstLine);
+	if (firstLine != "ply")
 		return false;
-	const std::string_view formatLine = fileHeader.substr(formatLineBegin, formatLineEnd - formatLineBegin);
+	if (firstLineEnd == std::string_view::npos)
+		return false;
+	lineStart = firstLineEnd + 1ull;
 
 	constexpr std::array<std::string_view, 3> headers = { "format ascii 1.0", "format binary_little_endian 1.0", "format binary_big_endian 1.0" };
-	return std::find(headers.begin(), headers.end(), formatLine) != headers.end();
+	while (lineStart < fileHeader.size())
+	{
+		size_t lineEnd = fileHeader.find('\n', lineStart);
+		if (lineEnd == std::string_view::npos)
+			lineEnd = fileHeader.size();
+		std::string_view line = trimWhitespace(fileHeader.substr(lineStart, lineEnd - lineStart));
+		if (line.starts_with("format "))
+			return std::find(headers.begin(), headers.end(), line) != headers.end();
+		lineStart = lineEnd + 1ull;
+	}
+
+	return false;
 }
 
 const auto plyByteswap = [](const auto value)

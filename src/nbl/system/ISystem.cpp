@@ -214,7 +214,14 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
     // try archives (readonly, for now)
     if (!writeUsage && !pathExists)
     {
-        const auto found = findFileInArchive(filename);
+        auto found = findFileInArchive(filename);
+        if (!found.archive && !absoluteInput)
+        {
+            fsEc.clear();
+            const auto absolute = std::filesystem::absolute(filename, fsEc);
+            if (!fsEc)
+                found = findFileInArchive(absolute);
+        }
         if (found.archive)
         {
             auto file = found.archive->getFile(found.pathRelativeToArchive,flags,accessToken);
