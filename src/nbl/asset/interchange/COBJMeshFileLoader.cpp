@@ -19,6 +19,7 @@
 #include "COBJMeshFileLoader.h"
 
 #include <bit>
+#include <cmath>
 #include <fast_float/fast_float.h>
 #include <type_traits>
 
@@ -32,6 +33,7 @@ struct ObjVertexDedupNode
 {
     int32_t uv = -1;
     int32_t normal = -1;
+    uint32_t smoothingGroup = 0u;
     uint32_t outIndex = 0u;
     int32_t next = -1;
 };
@@ -218,6 +220,66 @@ inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint3
 
     out = static_cast<uint32_t>(value);
     return true;
+}
+
+inline char toObjLowerAscii(const char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return static_cast<char>(c - 'A' + 'a');
+    return c;
+}
+
+inline void parseObjSmoothingGroup(const char* linePtr, const char* const lineEnd, uint32_t& outGroup)
+{
+    while (linePtr < lineEnd && isObjInlineWhitespace(*linePtr))
+        ++linePtr;
+
+    if (linePtr >= lineEnd)
+    {
+        outGroup = 0u;
+        return;
+    }
+
+    const char* const tokenStart = linePtr;
+    while (linePtr < lineEnd && !isObjInlineWhitespace(*linePtr))
+        ++linePtr;
+    const size_t tokenLength = static_cast<size_t>(linePtr - tokenStart);
+
+    if (tokenLength == 2u &&
+        toObjLowerAscii(tokenStart[0]) == 'o' &&
+        toObjLowerAscii(tokenStart[1]) == 'n')
+    {
+        outGroup = 1u;
+        return;
+    }
+    if (tokenLength == 3u &&
+        toObjLowerAscii(tokenStart[0]) == 'o' &&
+        toObjLowerAscii(tokenStart[1]) == 'f' &&
+        toObjLowerAscii(tokenStart[2]) == 'f')
+    {
+        outGroup = 0u;
+        return;
+    }
+
+    uint64_t value = 0ull;
+    bool sawDigit = false;
+    for (const char* it = tokenStart; it < linePtr; ++it)
+    {
+        if (!isObjDigit(*it))
+        {
+            outGroup = 0u;
+            return;
+        }
+        sawDigit = true;
+        value = value * 10ull + static_cast<uint64_t>(*it - '0');
+        if (value > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+        {
+            outGroup = 0u;
+            return;
+        }
+    }
+
+    outGroup = sawDigit ? static_cast<uint32_t>(value) : 0u;
 }
 
 inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, int32_t* idx0, int32_t* idx1, int32_t* idx2, const size_t posCount, const size_t uvCount, const size_t normalCount)
@@ -539,6 +601,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
     core::vector<Float3> outPositions;
     core::vector<Float3> outNormals;
+    core::vector<uint8_t> outNormalNeedsGeneration;
     core::vector<Float2> outUVs;
     core::vector<uint32_t> indices;
     core::vector<int32_t> dedupHeadByPos;
@@ -553,6 +616,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     const size_t initialOutIndexCapacity = (estimatedOutIndexCount == std::numeric_limits<size_t>::max()) ? 3ull : std::max<size_t>(3ull, estimatedOutIndexCount);
     outPositions.resize(initialOutVertexCapacity);
     outNormals.resize(initialOutVertexCapacity);
+    outNormalNeedsGeneration.resize(initialOutVertexCapacity, 0u);
     outUVs.resize(initialOutVertexCapacity);
     indices.resize(initialOutIndexCapacity);
     dedupHeadByPos.reserve(estimatedAttributeCount);
@@ -585,7 +649,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     core::vector<SDedupHotEntry> dedupHotCache(dedupHotEntryCount);
     const size_t dedupHotMask = dedupHotEntryCount - 1ull;
 
-    bool hasNormals = false;
+    bool hasProvidedNormals = false;
+    bool needsNormalGeneration = false;
     bool hasUVs = false;
     SAABBAccumulator3<float> parsedAABB = {};
     auto allocateOutVertex = [&](uint32_t& outIx) -> bool
@@ -595,6 +660,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             const size_t newCapacity = std::max<size_t>(outVertexWriteCount + 1ull, outPositions.size() * 2ull);
             outPositions.resize(newCapacity);
             outNormals.resize(newCapacity);
+            outNormalNeedsGeneration.resize(newCapacity, 0u);
             outUVs.resize(newCapacity);
         }
         if (outVertexWriteCount > static_cast<size_t>(std::numeric_limits<uint32_t>::max()))
@@ -627,7 +693,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         return ix;
     };
 
-    auto acquireCornerIndex = [&](const int32_t* idx, uint32_t& outIx)->bool
+    auto acquireCornerIndex = [&](const int32_t* idx, const uint32_t smoothingGroup, uint32_t& outIx)->bool
     {
         if (!idx)
             return false;
@@ -635,6 +701,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         const int32_t posIx = idx[0];
         if (posIx < 0 || static_cast<size_t>(posIx) >= positions.size())
             return false;
+        const uint32_t dedupSmoothingGroup = (idx[2] >= 0) ? 0u : smoothingGroup;
         if (static_cast<size_t>(posIx) >= dedupHeadByPos.size())
             dedupHeadByPos.resize(positions.size(), -1);
 
@@ -642,7 +709,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         while (nodeIx >= 0)
         {
             const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
-            if (node.uv == idx[1] && node.normal == idx[2])
+            if (node.uv == idx[1] && node.normal == idx[2] && node.smoothingGroup == dedupSmoothingGroup)
             {
                 outIx = node.outIndex;
                 return true;
@@ -658,6 +725,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
         node.uv = idx[1];
         node.normal = idx[2];
+        node.smoothingGroup = dedupSmoothingGroup;
         node.outIndex = outIx;
         node.next = dedupHeadByPos[posIx];
         dedupHeadByPos[posIx] = newNodeIx;
@@ -674,11 +742,17 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         }
         outUVs[static_cast<size_t>(outIx)] = uv;
 
-        Float3 normal(0.f, 0.f, 1.f);
+        Float3 normal(0.f, 0.f, 0.f);
         if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
         {
             normal = normals[idx[2]];
-            hasNormals = true;
+            hasProvidedNormals = true;
+            outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 0u;
+        }
+        else
+        {
+            needsNormalGeneration = true;
+            outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 1u;
         }
         outNormals[static_cast<size_t>(outIx)] = normal;
         return true;
@@ -721,6 +795,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
         node.uv = uvIx;
         node.normal = normalIx;
+        node.smoothingGroup = 0u;
         node.outIndex = outIx;
         node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
         dedupHeadByPos[static_cast<size_t>(posIx)] = newNodeIx;
@@ -735,10 +810,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         hotEntry.normal = normalIx;
         hotEntry.outIndex = outIx;
         hasUVs = true;
-        hasNormals = true;
+        hasProvidedNormals = true;
+        outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 0u;
         return true;
     };
 
+    uint32_t currentSmoothingGroup = 0u;
     while (bufPtr < bufEnd)
     {
             const char* const lineStart = bufPtr;
@@ -805,6 +882,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                         uvs.push_back(vec);
                     }
                 }
+                else if (*lineStart == 's' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
+                {
+                    parseObjSmoothingGroup(lineStart + 2, lineEnd, currentSmoothingGroup);
+                }
                 else if (*lineStart == 'f' && (lineStart + 1) < lineEnd && isObjInlineWhitespace(lineStart[1]))
                 {
                     if (positions.empty())
@@ -870,11 +951,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                             uint32_t c0 = 0u;
                             uint32_t c1 = 0u;
                             uint32_t c2 = 0u;
-                            if (!acquireCornerIndex(triIdx0, c0))
+                            if (!acquireCornerIndex(triIdx0, currentSmoothingGroup, c0))
                                 return {};
-                            if (!acquireCornerIndex(triIdx1, c1))
+                            if (!acquireCornerIndex(triIdx1, currentSmoothingGroup, c1))
                                 return {};
-                            if (!acquireCornerIndex(triIdx2, c2))
+                            if (!acquireCornerIndex(triIdx2, currentSmoothingGroup, c2))
                                 return {};
                             faceFallbackTokenCount += 3u;
                             if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
@@ -898,7 +979,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                             ++faceFallbackTokenCount;
 
                             uint32_t cornerIx = 0u;
-                            if (!acquireCornerIndex(idx, cornerIx))
+                            if (!acquireCornerIndex(idx, currentSmoothingGroup, cornerIx))
                                 return {};
 
                             if (cornerCount == 0u)
@@ -936,8 +1017,78 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
     outPositions.resize(outVertexWriteCount);
     outNormals.resize(outVertexWriteCount);
+    outNormalNeedsGeneration.resize(outVertexWriteCount);
     outUVs.resize(outVertexWriteCount);
     indices.resize(outIndexWriteCount);
+
+    if (needsNormalGeneration)
+    {
+        core::vector<Float3> generatedNormals(outVertexWriteCount, Float3(0.f, 0.f, 0.f));
+        const size_t triangleCount = indices.size() / 3ull;
+        for (size_t triIx = 0ull; triIx < triangleCount; ++triIx)
+        {
+            const uint32_t i0 = indices[triIx * 3ull + 0ull];
+            const uint32_t i1 = indices[triIx * 3ull + 1ull];
+            const uint32_t i2 = indices[triIx * 3ull + 2ull];
+            if (i0 >= outVertexWriteCount || i1 >= outVertexWriteCount || i2 >= outVertexWriteCount)
+                continue;
+
+            const auto& p0 = outPositions[static_cast<size_t>(i0)];
+            const auto& p1 = outPositions[static_cast<size_t>(i1)];
+            const auto& p2 = outPositions[static_cast<size_t>(i2)];
+
+            const float e10x = p1.x - p0.x;
+            const float e10y = p1.y - p0.y;
+            const float e10z = p1.z - p0.z;
+            const float e20x = p2.x - p0.x;
+            const float e20y = p2.y - p0.y;
+            const float e20z = p2.z - p0.z;
+
+            const Float3 faceNormal(
+                e10y * e20z - e10z * e20y,
+                e10z * e20x - e10x * e20z,
+                e10x * e20y - e10y * e20x);
+
+            const float faceLenSq = faceNormal.x * faceNormal.x + faceNormal.y * faceNormal.y + faceNormal.z * faceNormal.z;
+            if (faceLenSq <= 1e-20f)
+                continue;
+
+            auto accumulateIfNeeded = [&](const uint32_t vertexIx)->void
+            {
+                if (outNormalNeedsGeneration[static_cast<size_t>(vertexIx)] == 0u)
+                    return;
+                auto& dstNormal = generatedNormals[static_cast<size_t>(vertexIx)];
+                dstNormal.x += faceNormal.x;
+                dstNormal.y += faceNormal.y;
+                dstNormal.z += faceNormal.z;
+            };
+
+            accumulateIfNeeded(i0);
+            accumulateIfNeeded(i1);
+            accumulateIfNeeded(i2);
+        }
+
+        for (size_t i = 0ull; i < outVertexWriteCount; ++i)
+        {
+            if (outNormalNeedsGeneration[i] == 0u)
+                continue;
+
+            auto normal = generatedNormals[i];
+            const float lenSq = normal.x * normal.x + normal.y * normal.y + normal.z * normal.z;
+            if (lenSq > 1e-20f)
+            {
+                const float invLen = 1.f / std::sqrt(lenSq);
+                normal.x *= invLen;
+                normal.y *= invLen;
+                normal.z *= invLen;
+            }
+            else
+            {
+                normal = Float3(0.f, 0.f, 1.f);
+            }
+            outNormals[i] = normal;
+        }
+    }
 
     const size_t outVertexCount = outPositions.size();
     const size_t outIndexCount = indices.size();
@@ -949,6 +1100,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         geometry->setPositionView(std::move(view));
     }
 
+    const bool hasNormals = hasProvidedNormals || needsNormalGeneration;
     if (hasNormals)
     {
         auto view = createAdoptedView(std::move(outNormals), EF_R32G32B32_SFLOAT);

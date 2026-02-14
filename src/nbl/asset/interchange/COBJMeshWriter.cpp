@@ -223,7 +223,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (!view)
 			continue;
 		const auto channels = getFormatChannelCount(view.composed.format);
-		if (channels >= 2u)
+		if (channels == 2u)
 		{
 			uvView = &view;
 			break;
