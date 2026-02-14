@@ -86,27 +86,6 @@ inline std::string_view plyToStringView(const char* text)
 	return text ? std::string_view{ text } : std::string_view{};
 }
 
-class CPLYMappedFileMemoryResource final : public core::refctd_memory_resource
-{
-	public:
-		explicit CPLYMappedFileMemoryResource(core::smart_refctd_ptr<system::IFile>&& file) : m_file(std::move(file))
-		{
-		}
-
-		inline void* allocate(std::size_t, std::size_t) override
-		{
-			assert(false);
-			return nullptr;
-		}
-
-		inline void deallocate(void*, std::size_t, std::size_t) override
-		{
-		}
-
-	private:
-		core::smart_refctd_ptr<system::IFile> m_file;
-};
-
 inline IGeometry<ICPUBuffer>::SDataView plyCreateDataView(core::smart_refctd_ptr<ICPUBuffer>&& buffer, const size_t byteCount, const uint32_t stride, const E_FORMAT format)
 {
 	if (!buffer || byteCount == 0ull)
@@ -138,16 +117,6 @@ IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedView(core::vector<ValueType>&& 
 	auto* const ptr = storage.data();
 	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(ValueType) }, core::adopt_memory);
 	return plyCreateDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(ValueType)), Format);
-}
-
-IGeometry<ICPUBuffer>::SDataView plyCreateMappedF32x3View(system::IFile* file, void* ptr, const size_t byteCount)
-{
-	if (!file || !ptr || byteCount == 0ull)
-		return {};
-
-	auto keepAliveResource = core::make_smart_refctd_ptr<CPLYMappedFileMemoryResource>(core::smart_refctd_ptr<system::IFile>(file));
-	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(keepAliveResource), alignof(float) }, core::adopt_memory);
-	return plyCreateDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(float) * 3ull), EF_R32G32B32_SFLOAT);
 }
 
 struct SContext
@@ -253,7 +222,6 @@ struct SContext
 		Buffer.resize(ioReadWindowSize + ReadWindowPaddingBytes, '\0');
 		EndPointer = StartPointer = Buffer.data();
 		LineEndPointer = EndPointer-1;
-		UsingMappedBinaryWindow = false;
 
 		fillBuffer();
 	}
@@ -408,7 +376,6 @@ struct SContext
 		LineEndPointer = StartPointer - 1;
 		WordLength = -1;
 		EndOfFile = true;
-		UsingMappedBinaryWindow = true;
 		fileOffset = inner.mainFile ? inner.mainFile->getSize() : fileOffset;
 	}
 	// skips x bytes in the file, getting more data if required
@@ -1577,7 +1544,6 @@ struct SContext
 	int32_t LineLength = 0;
 	int32_t WordLength = -1; // this variable is a misnomer, its really the offset to next word minus one
 	bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
-	bool UsingMappedBinaryWindow = false;
 	size_t fileOffset = {};
 	uint64_t readCallCount = 0ull;
 	uint64_t readBytesTotal = 0ull;
@@ -1864,38 +1830,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			{
 				_params.logger.log("Multiple `vertex` elements not supported!", system::ILogger::ELL_ERROR);
 				return {};
-			}
-			const bool mappedXYZAliasCandidate =
-				ctx.IsBinaryFile &&
-				(!ctx.IsWrongEndian) &&
-				ctx.UsingMappedBinaryWindow &&
-				el.Properties.size() == 3u &&
-				el.Properties[0].type == EF_R32_SFLOAT &&
-				el.Properties[1].type == EF_R32_SFLOAT &&
-				el.Properties[2].type == EF_R32_SFLOAT &&
-				el.Properties[0].Name == "x" &&
-				el.Properties[1].Name == "y" &&
-				el.Properties[2].Name == "z";
-			if (mappedXYZAliasCandidate)
-			{
-				if (el.Count > (std::numeric_limits<size_t>::max() / (sizeof(float) * 3ull)))
-					return {};
-				const size_t mappedBytes = el.Count * sizeof(float) * 3ull;
-				if (ctx.StartPointer + mappedBytes > ctx.EndPointer)
-					return {};
-				auto mappedPosView = plyCreateMappedF32x3View(_file, ctx.StartPointer, mappedBytes);
-				if (!mappedPosView)
-					return {};
-				geometry->setPositionView(std::move(mappedPosView));
-				const auto* xyz = reinterpret_cast<const float*>(ctx.StartPointer);
-				for (size_t v = 0ull; v < el.Count; ++v)
-					extendAABBAccumulator(parsedAABB, xyz[v * 3ull + 0ull], xyz[v * 3ull + 1ull], xyz[v * 3ull + 2ull]);
-				hashViewBufferIfNeeded(geometry->getPositionView());
-				tryLaunchDeferredHash(geometry->getPositionView(), deferredPositionHashThread);
-				ctx.StartPointer += mappedBytes;
-				++fastVertexElementCount;
-				verticesProcessed = true;
-				continue;
 			}
 			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {}, uvView = {};
 			core::vector<ICPUPolygonGeometry::SDataView> extraViews;
