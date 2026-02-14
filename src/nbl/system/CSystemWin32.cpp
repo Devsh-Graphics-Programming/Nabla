@@ -39,9 +39,8 @@ ISystem::SystemInfo CSystemWin32::getSystemInfo() const
 }
 
 
-core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags)
+core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags)
 {
-	core::bitflag<IFile::E_CREATE_FLAGS> effectiveFlags = flags;
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
 	const DWORD fileAccess = ((flags.value&IFile::ECF_READ) ? FILE_GENERIC_READ:0)|(writeAccess ? FILE_GENERIC_WRITE:0);
 	DWORD shareMode = FILE_SHARE_READ;
@@ -77,7 +76,7 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
         _fileMappingObj = CreateFileMappingA(_native,nullptr,writeAccess ? PAGE_READWRITE:PAGE_READONLY, 0, 0, nullptr);
         if (!_fileMappingObj)
         {
-            effectiveFlags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
+            flags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
         }
 		else
         {
@@ -100,11 +99,11 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
             {
                 CloseHandle(_fileMappingObj);
                 _fileMappingObj = nullptr;
-                effectiveFlags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
+                flags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
             }
 		}
     }
-    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),effectiveFlags,_mappedPtr,_native,_fileMappingObj);
+    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_native,_fileMappingObj);
 }
 
 bool isDebuggerAttached()

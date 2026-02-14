@@ -11,6 +11,27 @@ extern "C"
 #include "blake3_impl.h"
 }
 
+/*
+	BLAKE3 is tree-based and explicitly designed for parallel processing. The tree mode
+	(chunks and parent-node reduction) is part of the specification, so a parallel
+	implementation can be done without changing hash semantics.
+
+	Why this local implementation exists:
+	- Nabla needs a multithreaded hash path integrated with its own runtime policy and
+	  standard C++ threading.
+	- Upstream C API exposes a single-threaded update path and an optional oneTBB path
+	  (`blake3_hasher_update_tbb`) which requires building with `BLAKE3_USE_TBB`.
+	- Here we keep the same algorithmic rules and final digest, while using only C++20
+	  standard facilities (`std::async`, `std::thread`) and no oneTBB dependency.
+	- The local helpers below are adapted from upstream tree-processing internals used
+	  in `c/blake3.c` and the oneTBB integration path.
+
+	Primary references:
+	- BLAKE3 spec repository (paper): https://github.com/BLAKE3-team/BLAKE3-specs
+	- C2SP BLAKE3 specification: https://c2sp.org/BLAKE3
+	- Upstream BLAKE3 C API notes (`update_tbb`): https://github.com/BLAKE3-team/BLAKE3/blob/master/c/README.md
+*/
+
 namespace nbl::core
 {
 

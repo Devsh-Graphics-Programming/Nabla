@@ -21,26 +21,43 @@ namespace nbl::asset
 
 struct SLoaderRuntimeTuningRequest
 {
+    // Total input bytes for the tuned stage.
     uint64_t inputBytes = 0ull;
+    // Total amount of stage work in logical units.
     uint64_t totalWorkUnits = 0ull;
+    // Minimum work units assigned to one worker.
     uint64_t minWorkUnitsPerWorker = 1ull;
+    // Minimum input bytes assigned to one worker.
     uint64_t minBytesPerWorker = 1ull;
+    // Hardware thread count override. 0 means auto-detect.
     uint32_t hardwareThreads = 0u;
+    // Hard cap for workers for this request. 0 means no extra cap.
     uint32_t hardMaxWorkers = 0u;
+    // Preferred chunk count per worker for this stage. 0 means policy default.
     uint32_t targetChunksPerWorker = 0u;
+    // Minimum work units in one chunk.
     uint64_t minChunkWorkUnits = 1ull;
+    // Maximum work units in one chunk.
     uint64_t maxChunkWorkUnits = std::numeric_limits<uint64_t>::max();
+    // Pointer to representative sample bytes for hybrid sampling.
     const uint8_t* sampleData = nullptr;
+    // Number of sample bytes available at sampleData.
     uint64_t sampleBytes = 0ull;
+    // Sampling pass count override. 0 means policy default.
     uint32_t samplePasses = 0u;
+    // Sampling candidate count override. 0 means policy default.
     uint32_t sampleMaxCandidates = 0u;
+    // Minimum work units required to allow sampling. 0 means policy or auto value.
     uint64_t sampleMinWorkUnits = 0ull;
 };
 
 struct SLoaderRuntimeTuningResult
 {
+    // Selected worker count for the stage.
     size_t workerCount = 1ull;
+    // Work units per chunk assigned by tuner.
     uint64_t chunkWorkUnits = 1ull;
+    // Total chunk count for the stage.
     size_t chunkCount = 1ull;
 };
 

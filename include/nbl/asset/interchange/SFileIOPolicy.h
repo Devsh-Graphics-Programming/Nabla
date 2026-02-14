@@ -16,59 +16,96 @@ struct SFileIOPolicy
 {
     struct SRuntimeTuning
     {
+        // Runtime tuning strategy for worker/chunk selection.
         enum class Mode : uint8_t
         {
+            // Disable runtime tuning. Use static heuristics only.
             None,
+            // Use deterministic heuristics derived from input size and hardware.
             Heuristic,
+            // Use heuristics and optionally refine with lightweight sampling.
             Hybrid
         };
 
+        // Runtime tuning mode.
         Mode mode = Mode::Heuristic;
+        // Maximum acceptable tuning overhead as a fraction of estimated full workload time.
         float maxOverheadRatio = 0.05f;
+        // Maximum sampling budget as a fraction of estimated full workload time.
         float samplingBudgetRatio = 0.05f;
+        // Minimum expected gain required to keep extra workers enabled.
         float minExpectedGainRatio = 0.03f;
+        // Hard cap for worker count. 0 means auto.
         uint32_t maxWorkers = 0u;
+        // Reserved hardware threads not used by the loader. Prevents full CPU saturation.
         uint32_t workerHeadroom = 2u;
+        // Maximum number of worker-count candidates tested in hybrid mode.
         uint32_t samplingMaxCandidates = 4u;
+        // Number of benchmark passes per candidate in hybrid mode.
         uint32_t samplingPasses = 1u;
+        // Minimum work units required before hybrid sampling is allowed. 0 means auto.
         uint64_t samplingMinWorkUnits = 0ull;
+        // Target chunk count assigned to each worker for loader stages.
         uint32_t targetChunksPerWorker = 4u;
+        // Target chunk count assigned to each worker for hash stages.
         uint32_t hashTaskTargetChunksPerWorker = 1u;
+        // Hash inlining threshold. Inputs up to this size prefer inline hash build.
         uint64_t hashInlineThresholdBytes = 1ull << 20;
+        // Lower bound for sampled byte count in hybrid mode.
         uint64_t minSampleBytes = 4ull << 10;
+        // Upper bound for sampled byte count in hybrid mode.
         uint64_t maxSampleBytes = 128ull << 10;
+        // Payload size threshold for tiny-IO anomaly detection.
         uint64_t tinyIoPayloadThresholdBytes = 1ull << 20;
+        // Average operation size threshold for tiny-IO anomaly detection.
         uint64_t tinyIoAvgBytesThreshold = 1024ull;
+        // Minimum operation size threshold for tiny-IO anomaly detection.
         uint64_t tinyIoMinBytesThreshold = 64ull;
+        // Minimum operation count required to report tiny-IO anomaly.
         uint64_t tinyIoMinCallCount = 1024ull;
     };
 
+    // File IO strategy selection mode.
     enum class Strategy : uint8_t
     {
+        // Pick whole-file or chunked dynamically based on file size and policy limits.
         Auto,
+        // Force whole-file path. May fallback when not feasible unless strict=true.
         WholeFile,
+        // Force chunked path.
         Chunked
     };
 
+    // Requested IO strategy.
     Strategy strategy = Strategy::Auto;
+    // If true and requested strategy is not feasible then resolution fails instead of fallback.
     bool strict = false;
+    // Maximum payload size allowed for whole-file strategy in auto mode.
     uint64_t wholeFileThresholdBytes = 64ull * 1024ull * 1024ull;
+    // Chunk size used by chunked strategy.
     uint64_t chunkSizeBytes = 4ull * 1024ull * 1024ull;
+    // Maximum staging allocation allowed for whole-file strategy.
     uint64_t maxStagingBytes = 256ull * 1024ull * 1024ull;
+    // Runtime tuning controls used by loaders and hash stages.
     SRuntimeTuning runtimeTuning = {};
 };
 
 struct SResolvedFileIOPolicy
 {
+    // Strategy selected after resolving SFileIOPolicy against runtime constraints.
     enum class Strategy : uint8_t
     {
         WholeFile,
         Chunked
     };
 
+    // Effective strategy chosen by resolver.
     Strategy strategy = Strategy::Chunked;
+    // Effective chunk size. Also set for whole-file for telemetry consistency.
     uint64_t chunkSizeBytes = 0ull;
+    // False when strict policy cannot be satisfied.
     bool valid = true;
+    // Human-readable resolver reason used in logs and diagnostics.
     const char* reason = "ok";
 };
 

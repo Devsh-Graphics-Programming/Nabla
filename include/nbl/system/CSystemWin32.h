@@ -19,7 +19,7 @@ class NBL_API2 CSystemWin32 : public ISystem
             public:
                 CCaller(ISystem* _system) : ICaller(_system) {}
 
-                core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) override final;
+                core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) override final;
         };
         
     public:
