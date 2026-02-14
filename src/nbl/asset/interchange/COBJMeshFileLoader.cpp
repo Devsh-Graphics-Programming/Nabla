@@ -202,91 +202,6 @@ bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, co
     return readFileWithPolicyTimed(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, nullptr, &ioTelemetry);
 }
 
-const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines = true)
-{
-    if (acrossNewlines)
-        while ((buf != bufEnd) && core::isspace(*buf))
-            ++buf;
-    else
-        while ((buf != bufEnd) && core::isspace(*buf) && (*buf != '\n'))
-            ++buf;
-
-    return buf;
-}
-
-const char* goNextWord(const char* buf, const char* const bufEnd, bool acrossNewlines = true)
-{
-    while ((buf != bufEnd) && !core::isspace(*buf))
-        ++buf;
-
-    return goFirstWord(buf, bufEnd, acrossNewlines);
-}
-
-const char* goNextLine(const char* buf, const char* const bufEnd)
-{
-    while (buf != bufEnd)
-    {
-        if (*buf == '\n' || *buf == '\r')
-            break;
-        ++buf;
-    }
-    return goFirstWord(buf, bufEnd);
-}
-
-bool parseFloatToken(const char*& ptr, const char* const end, float& out)
-{
-    const auto parseResult = fast_float::from_chars(ptr, end, out);
-    if (parseResult.ec == std::errc() && parseResult.ptr != ptr)
-    {
-        ptr = parseResult.ptr;
-        return true;
-    }
-
-    char* fallbackEnd = nullptr;
-    out = std::strtof(ptr, &fallbackEnd);
-    if (!fallbackEnd || fallbackEnd == ptr)
-        return false;
-    ptr = fallbackEnd;
-    return true;
-}
-
-const char* readVec3(const char* bufPtr, float vec[3], const char* const bufEnd)
-{
-    bufPtr = goNextWord(bufPtr, bufEnd, false);
-    for (uint32_t i = 0u; i < 3u; ++i)
-    {
-        if (bufPtr >= bufEnd)
-            return bufPtr;
-
-        if (!parseFloatToken(bufPtr, bufEnd, vec[i]))
-            return bufPtr;
-
-        while (bufPtr < bufEnd && core::isspace(*bufPtr) && *bufPtr != '\n' && *bufPtr != '\r')
-            ++bufPtr;
-    }
-
-    return bufPtr;
-}
-
-const char* readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
-{
-    bufPtr = goNextWord(bufPtr, bufEnd, false);
-    for (uint32_t i = 0u; i < 2u; ++i)
-    {
-        if (bufPtr >= bufEnd)
-            return bufPtr;
-
-        if (!parseFloatToken(bufPtr, bufEnd, vec[i]))
-            return bufPtr;
-
-        while (bufPtr < bufEnd && core::isspace(*bufPtr) && *bufPtr != '\n' && *bufPtr != '\r')
-            ++bufPtr;
-    }
-
-    vec[1] = 1.f - vec[1];
-    return bufPtr;
-}
-
 inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
 {
     if (ptr >= end || !isObjDigit(*ptr))
@@ -302,66 +217,6 @@ inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint3
         return false;
 
     out = static_cast<uint32_t>(value);
-    return true;
-}
-
-inline bool parseObjFaceTokenPositiveTriplet(const char*& ptr, const char* const end, int32_t* idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
-{
-    while (ptr < end && isObjInlineWhitespace(*ptr))
-        ++ptr;
-    if (ptr >= end || !isObjDigit(*ptr))
-        return false;
-
-    uint32_t posRaw = 0u;
-    if (!parseUnsignedObjIndex(ptr, end, posRaw))
-        return false;
-    if (posRaw > posCount)
-        return false;
-
-    if (ptr >= end || *ptr != '/')
-        return false;
-    ++ptr;
-
-    uint32_t uvRaw = 0u;
-    if (!parseUnsignedObjIndex(ptr, end, uvRaw))
-        return false;
-    if (uvRaw > uvCount)
-        return false;
-
-    if (ptr >= end || *ptr != '/')
-        return false;
-    ++ptr;
-
-    uint32_t normalRaw = 0u;
-    if (!parseUnsignedObjIndex(ptr, end, normalRaw))
-        return false;
-    if (normalRaw > normalCount)
-        return false;
-
-    idx[0] = static_cast<int32_t>(posRaw - 1u);
-    idx[1] = static_cast<int32_t>(uvRaw - 1u);
-    idx[2] = static_cast<int32_t>(normalRaw - 1u);
-    return true;
-}
-
-inline bool parseObjPositiveIndexBounded(const char*& ptr, const char* const end, const size_t maxCount, int32_t& out)
-{
-    if (ptr >= end || !isObjDigit(*ptr))
-        return false;
-
-    uint32_t value = 0u;
-    while (ptr < end && isObjDigit(*ptr))
-    {
-        const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
-        if (value > 429496729u)
-            return false;
-        value = value * 10u + digit;
-        ++ptr;
-    }
-    if (value == 0u || value > maxCount)
-        return false;
-
-    out = static_cast<int32_t>(value - 1u);
     return true;
 }
 
@@ -1021,7 +876,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                                 return {};
                             if (!acquireCornerIndex(triIdx2, c2))
                                 return {};
-                            faceFastTokenCount += 3u;
+                            faceFallbackTokenCount += 3u;
                             if (!appendIndex(c2) || !appendIndex(c1) || !appendIndex(c0))
                                 return {};
                             firstCorner = c0;
@@ -1040,7 +895,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                             int32_t idx[3] = { -1, -1, -1 };
                             if (!parseObjFaceVertexTokenFast(linePtr, lineEnd, idx, posCount, uvCount, normalCount))
                                 return {};
-                            ++faceFastTokenCount;
+                            ++faceFallbackTokenCount;
 
                             uint32_t cornerIx = 0u;
                             if (!acquireCornerIndex(idx, cornerIx))

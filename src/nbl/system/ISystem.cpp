@@ -274,31 +274,69 @@ core::smart_refctd_ptr<IFileArchive> ISystem::openFileArchive(core::smart_refctd
 
 ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolutePath) const
 {
-    const auto normalizedAbsolutePath = absolutePath.lexically_normal();
-    system::path path = normalizedAbsolutePath.parent_path().lexically_normal();
-    // going up the directory tree
-    while (!path.empty() && path.parent_path()!=path)
+    std::error_code fsEc;
+    const system::path normalizedAbsolutePath = absolutePath.lexically_normal();
+    system::path normalizedAbsoluteFallback = {};
+    bool hasAbsoluteFallback = false;
+    if (!normalizedAbsolutePath.is_absolute())
     {
-        std::error_code fsEc;
-        const auto relative = std::filesystem::relative(normalizedAbsolutePath, path, fsEc);
-        if (fsEc)
+        const auto absoluteCandidate = std::filesystem::absolute(normalizedAbsolutePath, fsEc);
+        if (!fsEc)
         {
-            path = path.parent_path();
-            continue;
+            normalizedAbsoluteFallback = absoluteCandidate.lexically_normal();
+            hasAbsoluteFallback = true;
         }
-        const auto archives = m_cachedArchiveFiles.findRange(path);
-        for (auto& archive : archives)
-        {
-            const auto items = static_cast<IFileArchive::SFileList::range_t>(archive.second->listAssets());
+    }
 
-            const IFileArchive::SFileList::SEntry itemToFind = { relative };
-            auto found = std::lower_bound(items.begin(), items.end(), itemToFind);
-            if (found!=items.end() && found->pathRelativeToArchive==relative)
-                return {archive.second.get(),relative};
+    auto tryMatchAtPath = [&](const system::path& archivePath) -> FoundArchiveFile
+    {
+        auto tryMatchSingle = [&](const system::path& normalizedPath) -> FoundArchiveFile
+        {
+            std::error_code relativeEc;
+            const auto relative = std::filesystem::relative(normalizedPath, archivePath, relativeEc);
+            if (relativeEc)
+                return { nullptr, {} };
+
+            const auto archives = m_cachedArchiveFiles.findRange(archivePath);
+            for (auto& archive : archives)
+            {
+                const auto items = static_cast<IFileArchive::SFileList::range_t>(archive.second->listAssets());
+                const IFileArchive::SFileList::SEntry itemToFind = { relative };
+                auto found = std::lower_bound(items.begin(), items.end(), itemToFind);
+                if (found != items.end() && found->pathRelativeToArchive == relative)
+                    return { archive.second.get(), relative };
+            }
+            return { nullptr, {} };
+        };
+
+        if (auto found = tryMatchSingle(normalizedAbsolutePath); found.archive)
+            return found;
+        if (hasAbsoluteFallback)
+            return tryMatchSingle(normalizedAbsoluteFallback);
+        return { nullptr, {} };
+    };
+
+    system::path path = normalizedAbsolutePath.parent_path().lexically_normal();
+    while (!path.empty() && path.parent_path() != path)
+    {
+        if (auto found = tryMatchAtPath(path); found.archive)
+            return found;
+
+        fsEc.clear();
+        if (std::filesystem::exists(path, fsEc) && !fsEc)
+        {
+            fsEc.clear();
+            const auto canonicalPath = std::filesystem::canonical(path, fsEc);
+            if (!fsEc && canonicalPath != path)
+            {
+                if (auto found = tryMatchAtPath(canonicalPath); found.archive)
+                    return found;
+            }
         }
+
         path = path.parent_path();
     }
-    return { nullptr,{} };
+    return { nullptr, {} };
 }
 
 
