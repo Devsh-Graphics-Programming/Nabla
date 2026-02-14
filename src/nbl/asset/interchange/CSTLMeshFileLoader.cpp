@@ -10,6 +10,7 @@
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
+#include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
@@ -117,6 +118,14 @@ void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::
 	positions.push_back(p[0u]);
 }
 
+inline uint32_t stlDecodeViscamColorToB8G8R8A8(const uint16_t packedColor)
+{
+	const void* src[4] = { &packedColor, nullptr, nullptr, nullptr };
+	uint32_t outColor = 0u;
+	convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(src, &outColor, 0u, 0u);
+	return outColor;
+}
+
 class CStlSplitBlockMemoryResource final : public core::refctd_memory_resource
 {
 	public:
@@ -185,6 +194,33 @@ ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::flo
 	return view;
 }
 
+ICPUPolygonGeometry::SDataView stlCreateAdoptedColorView(core::vector<uint32_t>&& values)
+{
+	if (values.empty())
+		return {};
+
+	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<uint32_t>>>(std::move(values));
+	auto& payload = backer->getBacker();
+	auto* const payloadPtr = payload.data();
+	const size_t byteCount = payload.size() * sizeof(uint32_t);
+	auto buffer = ICPUBuffer::create({ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(uint32_t) }, core::adopt_memory);
+	if (!buffer)
+		return {};
+
+	ICPUPolygonGeometry::SDataView view = {};
+	view.composed = {
+		.stride = sizeof(uint32_t),
+		.format = EF_B8G8R8A8_UNORM,
+		.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_B8G8R8A8_UNORM)
+	};
+	view.src = {
+		.offset = 0u,
+		.size = byteCount,
+		.buffer = std::move(buffer)
+	};
+	return view;
+}
+
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager*)
 {
 }
@@ -203,7 +239,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	uint64_t triangleCount = 0u;
 	const char* parsePath = "unknown";
 	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
-	bool contentHashesAssigned = false;
+	bool hasTriangleColors = false;
 
 	SSTLContext context = { asset::IAssetLoader::SAssetLoadContext{ _params,_file },0ull };
 
@@ -393,6 +429,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		const uint8_t* const end = cursor + dataSize;
 		if (end < cursor || static_cast<size_t>(end - cursor) < static_cast<size_t>(triangleCount) * SSTLContext::TriangleRecordBytes)
 			return {};
+		core::vector<uint32_t> faceColors(static_cast<size_t>(triangleCount), 0u);
+		std::atomic_bool colorValidForAllFaces = true;
 		const size_t hw = resolveLoaderHardwareThreads();
 		const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
 		SLoaderRuntimeTuningRequest parseTuningRequest = {};
@@ -438,6 +476,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				localCursor += SSTLContext::TriangleRecordBytes;
 				float triValues[SSTLContext::TriangleFloatCount];
 				std::memcpy(triValues, triRecord, sizeof(triValues));
+				uint16_t packedColor = 0u;
+				std::memcpy(&packedColor, triRecord + SSTLContext::TriangleFloatBytes, sizeof(packedColor));
+				if (packedColor & 0x8000u)
+					faceColors[static_cast<size_t>(tri)] = stlDecodeViscamColorToB8G8R8A8(packedColor);
+				else
+					colorValidForAllFaces.store(false, std::memory_order_relaxed);
 
 				float normalX = triValues[0ull];
 				float normalY = triValues[1ull];
@@ -641,7 +685,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				return {};
 			posView.src.buffer->setContentHash(parsedPositionHash);
 			normalView.src.buffer->setContentHash(parsedNormalHash);
-			contentHashesAssigned = true;
 		}
 		if constexpr (ComputeAABBInParse)
 		{
@@ -655,6 +698,23 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		geometry->setPositionView(std::move(posView));
 		geometry->setNormalView(std::move(normalView));
+		if (colorValidForAllFaces.load(std::memory_order_relaxed))
+		{
+			core::vector<uint32_t> vertexColors(vertexCountSizeT);
+			for (size_t triIx = 0ull; triIx < static_cast<size_t>(triangleCount); ++triIx)
+			{
+				const uint32_t triColor = faceColors[triIx];
+				const size_t baseIx = triIx * SSTLContext::VerticesPerTriangle;
+				vertexColors[baseIx + 0ull] = triColor;
+				vertexColors[baseIx + 1ull] = triColor;
+				vertexColors[baseIx + 2ull] = triColor;
+			}
+			auto colorView = stlCreateAdoptedColorView(std::move(vertexColors));
+			if (!colorView)
+				return {};
+			geometry->getAuxAttributeViews()->push_back(std::move(colorView));
+			hasTriangleColors = true;
+		}
 	}
 	else
 	{
@@ -738,7 +798,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (vertexCount == 0ull)
 		return {};
 
-	if (computeContentHashes && !contentHashesAssigned)
+	if (computeContentHashes)
 	{
 		computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
 	}
@@ -762,13 +822,14 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			static_cast<unsigned long long>(ioAvgRead));
 	}
 	_params.logger.log(
-		"STL loader stats: file=%s binary=%d parse_path=%s triangles=%llu vertices=%llu io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		"STL loader stats: file=%s binary=%d parse_path=%s triangles=%llu vertices=%llu colors=%d io_reads=%llu io_min_read=%llu io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE,
 		_file->getFileName().string().c_str(),
 		binary ? 1 : 0,
 		parsePath,
 		static_cast<unsigned long long>(triangleCount),
 		static_cast<unsigned long long>(vertexCount),
+		hasTriangleColors ? 1 : 0,
 		static_cast<unsigned long long>(context.ioTelemetry.callCount),
 		static_cast<unsigned long long>(ioMinRead),
 		static_cast<unsigned long long>(ioAvgRead),

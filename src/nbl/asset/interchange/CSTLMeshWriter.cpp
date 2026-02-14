@@ -5,6 +5,7 @@
 #include "nbl/system/IFile.h"
 
 #include "CSTLMeshWriter.h"
+#include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 
@@ -57,6 +58,11 @@ bool writeBytes(SContext* context, const void* data, size_t size);
 bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, const ICPUPolygonGeometry::SDataView& posView, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, uint32_t& outFaceCount);
 bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, core::vectorSIMDf& out0, core::vectorSIMDf& out1, core::vectorSIMDf& out2, uint32_t* outIdx);
 bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, core::vectorSIMDf& outNormal);
+double stlNormalizeColorComponentToUnit(double value);
+uint16_t stlPackViscamColorFromB8G8R8A8(uint32_t color);
+const ICPUPolygonGeometry::SDataView* stlFindColorView(const ICPUPolygonGeometry* geom, size_t vertexCount);
+bool stlDecodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor);
+void stlDecodeColorUnitRGBAFromB8G8R8A8(uint32_t color, double (&out)[4]);
 bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context);
 bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context);
 bool writeFaceText(
@@ -395,6 +401,76 @@ bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, cons
 	return true;
 }
 
+double stlNormalizeColorComponentToUnit(double value)
+{
+	if (!std::isfinite(value))
+		return 0.0;
+	if (value > 1.0)
+		value /= 255.0;
+	return std::clamp(value, 0.0, 1.0);
+}
+
+uint16_t stlPackViscamColorFromB8G8R8A8(const uint32_t color)
+{
+	const void* src[4] = { &color, nullptr, nullptr, nullptr };
+	uint16_t packed = 0u;
+	convertColor<EF_B8G8R8A8_UNORM, EF_A1R5G5B5_UNORM_PACK16>(src, &packed, 0u, 0u);
+	packed |= 0x8000u;
+	return packed;
+}
+
+const ICPUPolygonGeometry::SDataView* stlFindColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
+{
+	if (!geom)
+		return nullptr;
+
+	const auto& auxViews = geom->getAuxAttributeViews();
+	const ICPUPolygonGeometry::SDataView* fallback = nullptr;
+	for (const auto& view : auxViews)
+	{
+		if (!view || view.getElementCount() != vertexCount)
+			continue;
+		const uint32_t channels = getFormatChannelCount(view.composed.format);
+		if (channels < 3u)
+			continue;
+		if (view.composed.format == EF_B8G8R8A8_UNORM)
+			return &view;
+		if (!fallback)
+			fallback = &view;
+	}
+	return fallback;
+}
+
+bool stlDecodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor)
+{
+	if (colorView.composed.format == EF_B8G8R8A8_UNORM && colorView.composed.getStride() == sizeof(uint32_t))
+	{
+		const auto* const ptr = reinterpret_cast<const uint8_t*>(colorView.getPointer());
+		if (!ptr)
+			return false;
+		std::memcpy(&outColor, ptr + static_cast<size_t>(ix) * sizeof(uint32_t), sizeof(outColor));
+		return true;
+	}
+
+	hlsl::float64_t4 decoded = {};
+	if (!colorView.decodeElement(ix, decoded))
+		return false;
+	const double rgbaUnit[4] = {
+		stlNormalizeColorComponentToUnit(decoded.x),
+		stlNormalizeColorComponentToUnit(decoded.y),
+		stlNormalizeColorComponentToUnit(decoded.z),
+		stlNormalizeColorComponentToUnit(decoded.w)
+	};
+	encodePixels<EF_B8G8R8A8_UNORM, double>(&outColor, rgbaUnit);
+	return true;
+}
+
+void stlDecodeColorUnitRGBAFromB8G8R8A8(const uint32_t color, double (&out)[4])
+{
+	const void* src[4] = { &color, nullptr, nullptr, nullptr };
+	decodePixels<EF_B8G8R8A8_UNORM, double>(src, out, 0u, 0u);
+}
+
 bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	if (!geom || !context || !context->writeContext.outputFile)
@@ -429,6 +505,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 
 	const auto& normalView = geom->getNormalView();
 	const bool hasNormals = static_cast<bool>(normalView);
+	const auto* const colorView = stlFindColorView(geom, vertexCount);
 	const hlsl::float32_t3* const tightPositions = getTightFloat3View(posView);
 	const hlsl::float32_t3* const tightNormals = hasNormals ? getTightFloat3View(normalView) : nullptr;
 	const float handednessSign = flipHandedness ? -1.f : 1.f;
@@ -454,7 +531,36 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		}
 		return normalView.decodeElement(ix, out);
 	};
-	auto writeRecord = [&dst](const float nx, const float ny, const float nz, const float v1x, const float v1y, const float v1z, const float v2x, const float v2y, const float v2z, const float v3x, const float v3y, const float v3z)->void
+	auto computeFaceColor = [&](const uint32_t i0, const uint32_t i1, const uint32_t i2, uint16_t& outColor)->bool
+	{
+		outColor = 0u;
+		if (!colorView)
+			return true;
+		uint32_t c0 = 0u, c1 = 0u, c2 = 0u;
+		if (!stlDecodeColorB8G8R8A8(*colorView, i0, c0))
+			return false;
+		if (!stlDecodeColorB8G8R8A8(*colorView, i1, c1))
+			return false;
+		if (!stlDecodeColorB8G8R8A8(*colorView, i2, c2))
+			return false;
+		double rgba0[4] = {};
+		double rgba1[4] = {};
+		double rgba2[4] = {};
+		stlDecodeColorUnitRGBAFromB8G8R8A8(c0, rgba0);
+		stlDecodeColorUnitRGBAFromB8G8R8A8(c1, rgba1);
+		stlDecodeColorUnitRGBAFromB8G8R8A8(c2, rgba2);
+		const double rgbaAvg[4] = {
+			(rgba0[0] + rgba1[0] + rgba2[0]) / 3.0,
+			(rgba0[1] + rgba1[1] + rgba2[1]) / 3.0,
+			(rgba0[2] + rgba1[2] + rgba2[2]) / 3.0,
+			1.0
+		};
+		uint32_t avgColor = 0u;
+		encodePixels<EF_B8G8R8A8_UNORM, double>(&avgColor, rgbaAvg);
+		outColor = stlPackViscamColorFromB8G8R8A8(avgColor);
+		return true;
+	};
+	auto writeRecord = [&dst](const float nx, const float ny, const float nz, const float v1x, const float v1y, const float v1z, const float v2x, const float v2y, const float v2z, const float v3x, const float v3y, const float v3z, const uint16_t attribute)->void
 	{
 		const float payload[stl_writer_detail::BinaryTriangleFloatCount] = {
 			nx, ny, nz,
@@ -464,7 +570,6 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		};
 		std::memcpy(dst, payload, stl_writer_detail::BinaryTriangleFloatBytes);
 		dst += stl_writer_detail::BinaryTriangleFloatBytes;
-		const uint16_t attribute = 0u;
 		std::memcpy(dst, &attribute, stl_writer_detail::BinaryTriangleAttributeBytes);
 		dst += stl_writer_detail::BinaryTriangleAttributeBytes;
 	};
@@ -490,6 +595,10 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		{
 			for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
 			{
+				uint16_t faceColor = 0u;
+				if (!computeFaceColor(primIx * 3u + 0u, primIx * 3u + 1u, primIx * 3u + 2u, faceColor))
+					return false;
+
 				const hlsl::float32_t3 vertex1 = posTri[2u];
 				const hlsl::float32_t3 vertex2 = posTri[1u];
 				const hlsl::float32_t3 vertex3 = posTri[0u];
@@ -505,13 +614,18 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 					attrNormal.x, attrNormal.y, attrNormal.z,
 					vertex1x, vertex1.y, vertex1.z,
 					vertex2x, vertex2.y, vertex2.z,
-					vertex3x, vertex3.y, vertex3.z);
+					vertex3x, vertex3.y, vertex3.z,
+					faceColor);
 			}
 		}
 		else
 		{
 			for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
 			{
+				uint16_t faceColor = 0u;
+				if (!computeFaceColor(primIx * 3u + 0u, primIx * 3u + 1u, primIx * 3u + 2u, faceColor))
+					return false;
+
 				const hlsl::float32_t3 vertex1 = posTri[2u];
 				const hlsl::float32_t3 vertex2 = posTri[1u];
 				const hlsl::float32_t3 vertex3 = posTri[0u];
@@ -562,7 +676,8 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 					normalX, normalY, normalZ,
 					vertex1x, vertex1.y, vertex1.z,
 					vertex2x, vertex2.y, vertex2.z,
-					vertex3x, vertex3.y, vertex3.z);
+					vertex3x, vertex3.y, vertex3.z,
+					faceColor);
 			}
 		}
 	}
@@ -571,6 +686,10 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		const hlsl::float32_t3* posTri = tightPositions;
 		for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u)
 		{
+			uint16_t faceColor = 0u;
+			if (!computeFaceColor(primIx * 3u + 0u, primIx * 3u + 1u, primIx * 3u + 2u, faceColor))
+				return false;
+
 			const hlsl::float32_t3 vertex1 = posTri[2u];
 			const hlsl::float32_t3 vertex2 = posTri[1u];
 			const hlsl::float32_t3 vertex3 = posTri[0u];
@@ -601,7 +720,8 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 				normalX, normalY, normalZ,
 				vertex1x, vertex1.y, vertex1.z,
 				vertex2x, vertex2.y, vertex2.z,
-				vertex3x, vertex3.y, vertex3.z);
+				vertex3x, vertex3.y, vertex3.z,
+				faceColor);
 		}
 	}
 	else
@@ -612,6 +732,9 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 			const uint32_t i1 = indices ? indices[primIx * 3u + 1u] : (primIx * 3u + 1u);
 			const uint32_t i2 = indices ? indices[primIx * 3u + 2u] : (primIx * 3u + 2u);
 			if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+				return false;
+			uint16_t faceColor = 0u;
+			if (!computeFaceColor(i0, i1, i2, faceColor))
 				return false;
 
 			hlsl::float32_t3 p0 = {};
@@ -680,7 +803,8 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 				normal.x, normal.y, normal.z,
 				vertex1.x, vertex1.y, vertex1.z,
 				vertex2.x, vertex2.y, vertex2.z,
-				vertex3.x, vertex3.y, vertex3.z);
+				vertex3.x, vertex3.y, vertex3.z,
+				faceColor);
 		}
 	}
 
