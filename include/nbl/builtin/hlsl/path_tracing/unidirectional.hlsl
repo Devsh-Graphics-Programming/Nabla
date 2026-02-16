@@ -110,9 +110,9 @@ struct Unidirectional
         const uint32_t lightID = glsl::bitfieldExtract(bsdfLightIDs, 16, 16);
         if (lightID != light_type::INVALID_ID)
         {
-            scalar_type _pdf;
-            measure_type emissive = nee.deferredEvalAndPdf(_pdf, scene, lightID, ray) * throughput;
-            scalar_type _pdfSq = hlsl::mix(_pdf, _pdf * _pdf, _pdf < numeric_limits<scalar_type>::max);
+            typename nee_type::eval_pdf_return_type ret = nee.deferred_eval_and_pdf(lightID, ray);
+            measure_type emissive = ret.radiance * throughput;
+            scalar_type _pdfSq = hlsl::mix(ret.pdf, ret.pdf * ret.pdf, ret.pdf < numeric_limits<scalar_type>::max);
             emissive /= (1.0 + _pdfSq * ray.payload.otherTechniqueHeuristic);
             ray.payload.accumulation += emissive;
         }
@@ -143,13 +143,13 @@ struct Unidirectional
         if (!partitionRandVariable(eps0.z, rcpChoiceProb) && depth < 2u)
         {
             uint32_t randLightID = uint32_t(float32_t(randGen.rng()) / numeric_limits<uint32_t>::max) * nee.lightCount;
-            quotient_pdf_type neeContrib_pdf;
-            scalar_type t;
-            sample_type nee_sample = nee.generate_and_quotient_and_pdf(
-                neeContrib_pdf, t,
-                scene, randLightID, intersection, interaction,
+            typename nee_type::sample_quotient_return_type ret = nee.generate_and_quotient_and_pdf(
+                randLightID, intersection, interaction,
                 isBSDF, eps0, depth
             );
+            scalar_type t = ret.newRayMaxT;
+            sample_type nee_sample = ret.sample_;
+            quotient_pdf_type neeContrib_pdf = ret.quotient_pdf;
 
             // We don't allow non watertight transmitters in this renderer
             bool validPath = nee_sample.getNdotL() > numeric_limits<scalar_type>::min && nee_sample.isValid();
@@ -240,6 +240,8 @@ struct Unidirectional
         vector3_type uvw = rand3d(0u, sampleIndex, 0u);
         ray_type ray = rayGen.generate(uvw);
         ray.initPayload();
+
+        nee.scene = scene;
 
         NBL_IF_CONSTEXPR (nee_type::IsPolygonMethodProjectedSolidAngle)
         {

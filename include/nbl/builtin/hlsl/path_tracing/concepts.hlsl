@@ -114,25 +114,19 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (nee, T)
 #define NBL_CONCEPT_PARAM_1 (ray, typename T::ray_type)
-#define NBL_CONCEPT_PARAM_2 (scene, typename T::scene_type)
-#define NBL_CONCEPT_PARAM_3 (id, typename T::light_id_type)
-#define NBL_CONCEPT_PARAM_4 (pdf, typename T::scalar_type)
-#define NBL_CONCEPT_PARAM_5 (quo_pdf, typename T::quotient_pdf_type)
-#define NBL_CONCEPT_PARAM_6 (v, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_7 (interaction, typename T::interaction_type)
-#define NBL_CONCEPT_PARAM_8 (b, bool)
-#define NBL_CONCEPT_PARAM_9 (depth, uint32_t)
-NBL_CONCEPT_BEGIN(10)
+#define NBL_CONCEPT_PARAM_2 (id, typename T::light_id_type)
+#define NBL_CONCEPT_PARAM_3 (v, typename T::vector3_type)
+#define NBL_CONCEPT_PARAM_4 (interaction, typename T::interaction_type)
+#define NBL_CONCEPT_PARAM_5 (is_bsdf, bool)
+#define NBL_CONCEPT_PARAM_6 (depth, uint32_t)
+NBL_CONCEPT_BEGIN(7)
 #define nee NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
-#define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
-#define quo_pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
-#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
-#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
-#define b NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
-#define depth NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_9
+#define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define is_bsdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+#define depth NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -144,17 +138,16 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferredEvalAndPdf(pdf, scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.generate_and_quotient_and_pdf(quo_pdf, pdf, scene, id, v, interaction, b, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::eval_pdf_return_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_eval_and_pdf(id, ray)), ::nbl::hlsl::is_same_v, typename T::eval_pdf_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.generate_and_quotient_and_pdf(id, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
 );
 #undef depth
-#undef b
+#undef is_bsdf
 #undef interaction
 #undef v
-#undef quo_pdf
-#undef pdf
 #undef id
-#undef scene
 #undef ray
 #undef nee
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
