@@ -10,8 +10,6 @@
 
 namespace nbl::ext::MitsubaLoader
 {
-class CGlobalMitsubaMetadata;
-
 class CElementSampler : public IElement
 {
 	public:

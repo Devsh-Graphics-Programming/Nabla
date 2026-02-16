@@ -134,6 +134,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			const CIncludeFinder* includeFinder = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
+			bool depfile = false;
+			system::path depfilePath = {};
 		};
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
@@ -211,6 +213,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 							// Needed for json vector serialization. Making it private and declaring from_json(_, SEntry&) as friend didn't work
 							inline SPreprocessingDependency() {}
+
+							inline const system::path& getRequestingSourceDir() const { return requestingSourceDir; }
+							inline std::string_view getIdentifier() const { return identifier; }
+							inline bool isStandardInclude() const { return standardInclude; }
 
 						private:
 							friend class CCache;
@@ -440,6 +446,17 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
+
+		struct DepfileWriteParams
+		{
+			system::ISystem* system = nullptr;
+			std::string_view depfilePath = {};
+			std::string_view outputPath = {};
+			std::string_view sourceIdentifier = {};
+			system::path workingDirectory = {};
+		};
+
+		static bool writeDepfile(const DepfileWriteParams& params, const CCache::SEntry::dependency_container_t& dependencies, const CIncludeFinder* includeFinder = nullptr, system::logger_opt_ptr logger = nullptr);
 
 		core::smart_refctd_ptr<IShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const;
 

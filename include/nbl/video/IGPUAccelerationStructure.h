@@ -272,7 +272,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
-							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf)))
+							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(hlsl::float32_t3x4),sizeof(core::vectorSIMDf)))
 								return false;
 						}
 						else
@@ -622,7 +622,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				inline PolymorphicInstance(const PolymorphicInstance<blas_ref_t>&) = default;
 				inline PolymorphicInstance(PolymorphicInstance<blas_ref_t>&&) = default;
 
-				// I made all these assignment operators because of the `core::matrix3x4SIMD` alignment and keeping `type` correct at all times
+				// I made all these assignment operators because of the `hlsl::float32_t3x4` alignment and keeping `type` correct at all times
 				inline PolymorphicInstance<blas_ref_t>& operator=(const StaticInstance<blas_ref_t>& _static)
 				{
 					type = INSTANCE_TYPE::STATIC;
@@ -657,7 +657,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				static_assert(std::is_same_v<std::underlying_type_t<INSTANCE_TYPE>,uint32_t>);
 				// these must be 0 as per vulkan spec
 				uint32_t reservedMotionFlags = 0u;
-				// I don't do an actual union because the preceeding members don't play nicely with alignment of `core::matrix3x4SIMD` and Vulkan requires this struct to be packed
+				// I don't do an actual union because the preceeding members don't play nicely with alignment of `hlsl::float32_t3x4` and Vulkan requires this struct to be packed
 				SRTMotionInstance<blas_ref_t> largestUnionMember = {};
 				static_assert(alignof(SRTMotionInstance<blas_ref_t>)==8ull);
 

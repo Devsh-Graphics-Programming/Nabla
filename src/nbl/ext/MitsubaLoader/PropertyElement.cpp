@@ -12,6 +12,7 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
 #include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
+#include "nbl/builtin/hlsl/math/quaternions.hlsl"
 #include "glm/gtc/matrix_transform.hpp"
 
 
@@ -202,9 +203,9 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 					invalidXMLFileStructure(logger,"Invalid element, name:\'"+result.name+"\' Axis can't be (0,0,0)");
 					return {};
 				}
-				// TODO: quaternion after the rework
-				using namespace nbl::hlsl::math;//::linalg;
-				result.mvalue = linalg::promote_affine<4,4>(linalg::rotation_mat<float>(hlsl::radians(atof(desiredAttributes[0])),axis));
+				using namespace nbl::hlsl::math;
+				const auto rotation = quaternion<float>::create(axis, hlsl::radians(atof(desiredAttributes[0])));
+				result.mvalue = linalg::promote_affine<4,4>(hlsl::_static_cast<hlsl::float32_t3x3>(rotation));
 			}
 			break;
 		case SPropertyElementData::Type::SCALE:
@@ -260,7 +261,7 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 				const auto lookAtGLM = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtLH<float>(origin,target,up));
 				const auto lookAt = hlsl::transpose(lookAtGLM);
 				// mitsuba understands look-at and right-handed camera little bit differently than I do
-				const auto rotation = hlsl::inverse<hlsl::float32_t3x3>(hlsl::float32_t3x3(lookAt));
+				const auto rotation = hlsl::inverse(hlsl::float32_t3x3(lookAt));
 				// set the origin to avoid numerical issues
 				for (auto r=0; r<3; r++)
 				{
