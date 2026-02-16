@@ -184,7 +184,8 @@ NBL_CONCEPT_BEGIN(3)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getBsdfLightIDs(id)), ::nbl::hlsl::is_same_v, uint32_t))
+    ((NBL_CONCEPT_REQ_TYPE)(T::mat_light_id_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getMatLightIDs(id)), ::nbl::hlsl::is_same_v, typename T::mat_light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getNormal(id, intersectP)), ::nbl::hlsl::is_same_v, typename T::vector3_type))
 );
 #undef id
