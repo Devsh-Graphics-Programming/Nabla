@@ -74,9 +74,8 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_4 (iso_inter, typename T::isotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_5 (aniso_cache, typename T::anisocache_type)
 #define NBL_CONCEPT_PARAM_6 (iso_cache, typename T::isocache_type)
-#define NBL_CONCEPT_PARAM_7 (params, typename T::create_params_t)
-#define NBL_CONCEPT_PARAM_8 (u, typename T::vector3_type)
-NBL_CONCEPT_BEGIN(9)
+#define NBL_CONCEPT_PARAM_7 (u, typename T::vector3_type)
+NBL_CONCEPT_BEGIN(8)
 #define matsys NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define matid NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -84,8 +83,7 @@ NBL_CONCEPT_BEGIN(9)
 #define iso_inter NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define aniso_cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define iso_cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
-#define params NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::material_id_type))
@@ -97,12 +95,11 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::create_params_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, params, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::measure_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, params, aniso_inter, u, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, params, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::measure_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, aniso_inter, u, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
 );
 #undef u
-#undef params
 #undef iso_cache
 #undef aniso_cache
 #undef iso_inter
@@ -118,13 +115,14 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_0 (nee, T)
 #define NBL_CONCEPT_PARAM_1 (ray, typename T::ray_type)
 #define NBL_CONCEPT_PARAM_2 (scene, typename T::scene_type)
-#define NBL_CONCEPT_PARAM_3 (id, uint32_t)
+#define NBL_CONCEPT_PARAM_3 (id, typename T::light_id_type)
 #define NBL_CONCEPT_PARAM_4 (pdf, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_5 (quo_pdf, typename T::quotient_pdf_type)
 #define NBL_CONCEPT_PARAM_6 (v, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_7 (interaction, typename T::interaction_type)
 #define NBL_CONCEPT_PARAM_8 (b, bool)
-NBL_CONCEPT_BEGIN(9)
+#define NBL_CONCEPT_PARAM_9 (depth, uint32_t)
+NBL_CONCEPT_BEGIN(10)
 #define nee NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -134,19 +132,22 @@ NBL_CONCEPT_BEGIN(9)
 #define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 #define b NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
+#define depth NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_9
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scene_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::light_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::light_id_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferredEvalAndPdf(pdf, scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.generate_and_quotient_and_pdf(quo_pdf, pdf, scene, id, v, interaction, b, v, id)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.generate_and_quotient_and_pdf(quo_pdf, pdf, scene, id, v, interaction, b, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_type))
 );
+#undef depth
 #undef b
 #undef interaction
 #undef v

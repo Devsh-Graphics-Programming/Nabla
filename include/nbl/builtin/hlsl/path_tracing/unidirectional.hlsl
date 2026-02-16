@@ -123,7 +123,7 @@ struct Unidirectional
 
         bxdfnode_type bxdf = materialSystem.bxdfs[bsdfID];
 
-        const bool isBSDF = material_system_type::isBSDF(bxdf.materialType);
+        const bool isBSDF = materialSystem.isBSDF(bsdfID);
 
         vector3_type eps0 = rand3d(depth, _sample, 0u);
         vector3_type eps1 = rand3d(depth, _sample, 1u);
@@ -157,14 +157,14 @@ struct Unidirectional
             bxdf::fresnel::OrientedEtas<monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(monochromeEta));
             anisocache_type _cache = anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, nee_sample, orientedEta);
             validPath = validPath && _cache.getAbsNdotH() >= 0.0;
-            bxdf.params.eta = monochromeEta;
+            materialSystem.bxdfs[bsdfID].params.eta = monochromeEta;
 
             if (neeContrib_pdf.pdf < numeric_limits<scalar_type>::max)
             {
                 if (validPath)
                 {
                     // example only uses isotropic bxdfs
-                    quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(bxdf.materialType, bxdf.params, nee_sample, interaction.isotropic, _cache.iso_cache);
+                    quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(bsdfID, nee_sample, interaction.isotropic, _cache.iso_cache);
                     neeContrib_pdf.quotient *= bxdf.albedo * throughput * bsdf_quotient_pdf.quotient;
                     const scalar_type otherGenOverChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb;
                     const scalar_type otherGenOverLightAndChoice = otherGenOverChoice / bsdf_quotient_pdf.pdf;
@@ -185,14 +185,14 @@ struct Unidirectional
         vector3_type bxdfSample;
         {
             anisocache_type _cache;
-            sample_type bsdf_sample = materialSystem.generate(bxdf.materialType, bxdf.params, interaction, eps1, _cache);
+            sample_type bsdf_sample = materialSystem.generate(bsdfID, interaction, eps1, _cache);
 
             if (!bsdf_sample.isValid())
                 return false;
 
             // example only uses isotropic bxdfs
             // the value of the bsdf divided by the probability of the sample being generated
-            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(bxdf.materialType, bxdf.params, bsdf_sample, interaction.isotropic, _cache.iso_cache);
+            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(bsdfID, bsdf_sample, interaction.isotropic, _cache.iso_cache);
             throughput *= bxdf.albedo * bsdf_quotient_pdf.quotient;
             bxdfPdf = bsdf_quotient_pdf.pdf;
             bxdfSample = bsdf_sample.getL().getDirection();
