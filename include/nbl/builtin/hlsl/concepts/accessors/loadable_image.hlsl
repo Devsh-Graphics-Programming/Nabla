@@ -47,8 +47,8 @@ NBL_CONCEPT_END(
 
 // declare concept
 #define NBL_CONCEPT_NAME MipmappedLoadableImage
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)(int32_t)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)(Components)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (a,U)
 #define NBL_CONCEPT_PARAM_1 (uv,vector<uint16_t,Dims>)
@@ -62,7 +62,7 @@ NBL_CONCEPT_BEGIN(4)
 #define layer NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define level NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(uv,layer,level)) , ::nbl::hlsl::is_same_v, vector<T,4>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(uv,layer,level)) , ::nbl::hlsl::is_same_v, vector<T, Components>))
 );
 #undef level
 #undef layer
