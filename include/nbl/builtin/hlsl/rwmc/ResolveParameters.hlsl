@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_RWMC_RESOLVE_PARAMETERS_HLSL_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include <nbl/builtin/hlsl/colorspace/encodeCIEXYZ.hlsl>
 
 namespace nbl
 {
@@ -12,6 +13,8 @@ namespace rwmc
 
 struct ResolveParameters
 {
+	using scalar_t = float32_t;
+
 	static ResolveParameters create(float base, uint32_t sampleCount, float minReliableLuma, float kappa)
 	{
 		ResolveParameters retval;
@@ -26,6 +29,12 @@ struct ResolveParameters
 		retval.NOverKappa = N * retval.reciprocalKappa;
 
 		return retval;
+	}
+
+	template<typename SampleType>
+	scalar_t calcLuma(NBL_CONST_REF_ARG(SampleType) col)
+	{
+		return hlsl::dot<SampleType>(hlsl::transpose(colorspace::scRGBtoXYZ)[1], col);
 	}
 
 	float initialEmin; // a minimum image brightness that we always consider reliable
