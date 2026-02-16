@@ -81,12 +81,12 @@ struct ResolveAccessorAdaptor
 	}
 };
 
-template<typename CascadeAccessor, uint16_t CascadeCount, typename ResolveParamsType = ResolveParameters NBL_PRIMARY_REQUIRES(ResolveAccessor<CascadeAccessor> && ResolveLumaParams<ResolveParamsType, typename CascadeAccessor::output_t>)
+template<typename CascadeAccessor, uint16_t CascadeCount NBL_PRIMARY_REQUIRES(ResolveAccessor<CascadeAccessor> && ResolveLumaParams<ResolveParameters, typename CascadeAccessor::output_t>)
 struct Resolver
 {
 	using output_t = typename CascadeAccessor::output_t;
 	using output_scalar_t = typename vector_traits<output_t>::scalar_type;
-	using scalar_t = typename ResolveParamsType::scalar_t;
+	using scalar_t = typename ResolveParameters::scalar_t;
 	NBL_CONSTEXPR static uint16_t last_cascade = CascadeCount - 1u;
 
 	struct CascadeSample
@@ -96,7 +96,7 @@ struct Resolver
 		float normalizedNeighbourhoodAverageLuma;
 	};
 
-	static Resolver create(NBL_REF_ARG(ResolveParamsType) resolveParameters)
+	static Resolver create(NBL_REF_ARG(ResolveParameters) resolveParameters)
 	{
 		Resolver retval;
 		retval.params = resolveParameters;
@@ -168,7 +168,7 @@ struct Resolver
 		return accumulation;
 	}
 
-	ResolveParamsType params;
+	ResolveParameters params;
 
 	// pseudo private stuff:
 
