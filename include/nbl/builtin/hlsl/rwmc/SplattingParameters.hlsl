@@ -2,7 +2,7 @@
 #define _NBL_BUILTIN_HLSL_RWMC_SPLATTING_PARAMETERS_HLSL_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include <nbl/builtin/hlsl/colorspace/encodeCIEXYZ.hlsl>
+#include <nbl/builtin/hlsl/colorspace.hlsl>
 
 namespace nbl
 {
@@ -14,6 +14,12 @@ namespace rwmc
 struct SplattingParameters
 {
     using scalar_t = float32_t;
+    struct SPrecomputed
+    {
+        scalar_t RcpLog2Base;
+        scalar_t Log2BaseRootOfStart;
+        scalar_t BrightSampleLumaBias;
+    };
 
     // float16_t baseRootOfStart; 0
     // float16_t rcpLog2Base; 1
@@ -35,10 +41,22 @@ struct SplattingParameters
         return unpackedLog2Parameters()[1];
     }
 
-    template<typename CascadeLayerType>
+    template<uint32_t CascadeCount>
+    SPrecomputed precompute()
+    {
+        const scalar_t LastCascade = scalar_t(CascadeCount - 1u);
+        const float32_t2 unpacked = unpackedLog2Parameters();
+        SPrecomputed retval;
+        retval.RcpLog2Base = unpacked[1];
+        retval.Log2BaseRootOfStart = log2<scalar_t>(unpacked[0]);
+        retval.BrightSampleLumaBias = (retval.Log2BaseRootOfStart + LastCascade) / retval.RcpLog2Base;
+        return retval;
+    }
+
+    template<typename CascadeLayerType, typename Colorspace = colorspace::scRGB>
     scalar_t calcLuma(NBL_CONST_REF_ARG(CascadeLayerType) col)
     {
-        return hlsl::dot<CascadeLayerType>(hlsl::transpose(colorspace::scRGBtoXYZ)[1], col);
+        return hlsl::dot<CascadeLayerType>(hlsl::transpose(Colorspace::ToXYZ())[1], col);
     }
 };
 
