@@ -20,7 +20,7 @@ namespace accessors
 // concept `LoadableImage` translates to smth like this:
 //template<typename U, typename T, int32_t Dims, int32_t Components>
 //concept LoadableImage = requires(U a, vector<uint16_t, Dims> uv, uint16_t layer, vector<T, Components> outVal) {
-//    ::nbl::hlsl::is_same_v<decltype(declval<U>().template get<T,Dims>(uv,layer,outVal)), void>;
+//    ::nbl::hlsl::is_same_v<decltype(declval<U>().template get<T,Dims>(outVal,uv,layer)), void>;
 //};
 
 // declare concept
@@ -40,7 +40,7 @@ NBL_CONCEPT_BEGIN(4)
 #define layer NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define outVal NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(uv,layer,outVal)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(outVal,uv,layer)), ::nbl::hlsl::is_same_v, void))
 );
 #undef outVal
 #undef layer
@@ -67,7 +67,7 @@ NBL_CONCEPT_BEGIN(5)
 #define level NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define outVal NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(uv,layer,level,outVal)) , ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<T,Dims>(outVal,uv,layer,level)) , ::nbl::hlsl::is_same_v, void))
 );
 #undef outVal
 #undef level

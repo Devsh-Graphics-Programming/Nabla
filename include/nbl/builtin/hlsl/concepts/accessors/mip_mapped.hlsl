@@ -35,7 +35,7 @@ NBL_CONCEPT_BEGIN(5)
 #define level NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define outVal NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<Dims>(uv,layer,level,outVal)) , ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<Dims>(outVal,uv,layer,level)) , ::nbl::hlsl::is_same_v, void))
 );
 #undef outVal
 #undef level

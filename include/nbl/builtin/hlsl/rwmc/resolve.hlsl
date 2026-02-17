@@ -46,19 +46,11 @@ struct SResolveAccessorAdaptor
 	NBL_CONSTEXPR_STATIC_INLINE int32_t image_dimension = 2;
 
 	template<typename OutputScalarType, int32_t Dimension>
-	void get(vector<uint16_t, 2> uv, uint16_t layer, uint16_t level, NBL_REF_ARG(output_t) value)
+	void get(NBL_REF_ARG(output_t) value, vector<uint16_t, 2> uv, uint16_t layer, uint16_t level)
 	{
 		typename AccessorType::output_t sampled;
-		accessor.template get<typename AccessorType::output_scalar_t, Dimension>(uv, layer, level, sampled);
+		accessor.template get<typename AccessorType::output_scalar_t, Dimension>(sampled, uv, layer, level);
 		value = sampled.xyz;
-	}
-
-	template<typename OutputScalarType, int32_t Dimension>
-	output_t get(vector<uint16_t, 2> uv, uint16_t layer, uint16_t level)
-	{
-		output_t value;
-		get<OutputScalarType, Dimension>(uv, layer, level, value);
-		return value;
 	}
 
 	AccessorType accessor;
@@ -163,25 +155,25 @@ struct SResolver
 		output_t sampleValue;
 		scalar_t excl_hood_luma_sum = 0.f;
 
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(-1, -1), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(-1, -1), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(0, -1), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(0, -1), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(1, -1), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(1, -1), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(-1, 0), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(-1, 0), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
 
 		SCascadeSample retval;
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(0, 0), cascadeIndex, 0u, retval.centerValue);
+		acc.template get<output_scalar_t, 2>(retval.centerValue, coord + int16_t2(0, 0), cascadeIndex, 0u);
 		const scalar_t centerLuma = params.template calcLuma<output_t>(retval.centerValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(1, 0), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(1, 0), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(-1, 1), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(-1, 1), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(0, 1), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(0, 1), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
-		acc.template get<output_scalar_t, 2>(coord + int16_t2(1, 1), cascadeIndex, 0u, sampleValue);
+		acc.template get<output_scalar_t, 2>(sampleValue, coord + int16_t2(1, 1), cascadeIndex, 0u);
 		excl_hood_luma_sum += params.template calcLuma<output_t>(sampleValue);
 
 		retval.normalizedCenterLuma = centerLuma * reciprocalBaseI;
