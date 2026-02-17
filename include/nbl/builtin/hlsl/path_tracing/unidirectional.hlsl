@@ -79,7 +79,7 @@ struct Unidirectional
     vector3_type rand3d(uint32_t protoDimension, uint32_t _sample, uint32_t i)
     {
         using sequence_type = sampling::QuantizedSequence<uint32_t2,3>;
-        uint32_t address = glsl::bitfieldInsert<uint32_t>(protoDimension, _sample, MAX_DEPTH_LOG2, MAX_SAMPLES_LOG2);
+        uint32_t address = glsl::bitfieldInsert<uint32_t>(protoDimension, _sample, MaxDepthLog2, MaxSamplesLog2);
         sequence_type tmpSeq = vk::RawBufferLoad<sequence_type>(pSampleBuffer + (address + i) * sizeof(sequence_type));
         return tmpSeq.template decode<float32_t>(randGen());
     }
@@ -271,8 +271,8 @@ struct Unidirectional
         // TODO: russian roulette early exit?
     }
 
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t MAX_DEPTH_LOG2 = 4u;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t MAX_SAMPLES_LOG2 = 10u;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxDepthLog2 = 4u;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxSamplesLog2 = 10u;
 
     randgen_type randGen;
     raygen_type rayGen;

@@ -29,7 +29,7 @@ struct DefaultAccumulator
 
     void addSample(uint32_t sampleCount, input_sample_type _sample)
     {
-        scalar_type rcpSampleSize = 1.0 / (sampleCount);
+        scalar_type rcpSampleSize = scalar_type(1.0) / _static_cast<scalar_type>(sampleCount);
         accumulation += (_sample - accumulation) * rcpSampleSize;
     }
 
