@@ -156,24 +156,24 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline bool isMutable() const {return m_mutable;}
 
-    inline void visitDependents(std::function<bool(const IAsset*)> visit) const
-    {
-        visitDependents_impl([&visit](const IAsset* dep)->bool
-        {
-            if (dep)
-                return visit(dep);
-            return true;
-        });
-    }
+		inline void visitDependents(std::function<bool(const IAsset*)> visit) const
+		{
+			visitDependents_impl([&visit](const IAsset* dep)->bool
+			{
+				if (dep)
+					return visit(dep);
+				return true;
+			});
+		}
 
-    inline void visitDependents(std::function<bool(IAsset*)> visit)
-    {
-        assert(isMutable());
-        visitDependents([&](const IAsset* dependent) -> bool
-        {
-            return visit(const_cast<IAsset*>(dependent));
-        });
-    }
+		inline void visitDependents(std::function<bool(IAsset*)> visit)
+		{
+			assert(isMutable());
+			visitDependents([&](const IAsset* dependent) -> bool
+			{
+				return visit(const_cast<IAsset*>(dependent));
+			});
+		}
 
 		virtual bool valid() const = 0;
 
@@ -194,4 +194,72 @@ concept Asset = std::is_base_of_v<IAsset,T>;
 
 }
 
+namespace nbl::system::impl
+{
+template<>
+struct to_string_helper<asset::IAsset::E_TYPE>
+{
+	private:
+		using enum_t = asset::IAsset::E_TYPE;
+
+	public:
+		static inline std::string __call(const enum_t value)
+		{
+			switch (value)
+			{
+				case enum_t::ET_BUFFER:
+					return "ICPUBuffer";
+				case enum_t::ET_BUFFER_VIEW:
+					return "ICPUBufferView";
+				case enum_t::ET_SAMPLER:
+					return "ICPUSampler";
+				case enum_t::ET_IMAGE:
+					return "ICPUImage";
+				case enum_t::ET_IMAGE_VIEW:
+					return "ICPUImageView";
+				case enum_t::ET_DESCRIPTOR_SET:
+					return "ICPUDescriptorSet";
+				case enum_t::ET_DESCRIPTOR_SET_LAYOUT:
+					return "ICPUDescriptorSetLayout";
+				case enum_t::ET_SKELETON:
+					return "ICPUSkeleton";
+				case enum_t::ET_ANIMATION_LIBRARY:
+					return "ICPUAnimationLibrary";
+				case enum_t::ET_PIPELINE_LAYOUT:
+					return "ICPUPipelineLayout";
+				case enum_t::ET_SHADER:
+					return "IShader";
+				case enum_t::ET_GEOMETRY:
+					return "IGeometry<ICPUBuffer>";
+				case enum_t::ET_RENDERPASS:
+					return "ICPURenderpass";
+				case enum_t::ET_FRAMEBUFFER:
+					return "ICPUFramebuffer";
+				case enum_t::ET_GRAPHICS_PIPELINE:
+					return "ICPUGraphicsPipeline";
+				case enum_t::ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE:
+					return "ICPUBottomLevelAccelerationStructure";
+				case enum_t::ET_TOP_LEVEL_ACCELERATION_STRUCTURE:
+					return "ICPUTopLevelAccelerationStructure";
+				case enum_t::ET_GEOMETRY_COLLECTION:
+					return "ICPUGeometryCollection";
+				case enum_t::ET_MORPH_TARGETS:
+					return "ICPUMorphTargets";
+				case enum_t::ET_COMPUTE_PIPELINE:
+					return "ICPUComputePipeline";
+				case enum_t::ET_PIPELINE_CACHE:
+					return "ICPUPipelineCache";
+				case enum_t::ET_SCENE:
+					return "ICPUScene";
+				case enum_t::ET_RAYTRACING_PIPELINE:
+					return "ICPURayTracingPipeline";
+				case enum_t::ET_IMPLEMENTATION_SPECIFIC_METADATA:
+					return "";
+				default:
+					break;
+			}
+			return "";
+		}
+};
+}
 #endif

@@ -18,6 +18,30 @@ struct type_list_size<type_list<T...>> : std::integral_constant<size_t,sizeof...
 template<typename TypeList>
 inline constexpr size_t type_list_size_v = type_list_size<TypeList>::value;
 
+template<template<typename> class, typename TypeList>
+struct filter;
+template<template<typename> class Pred, typename... T>
+struct filter<Pred,type_list<T...>>
+{
+    using type = type_list<>;
+};
+
+template<template<typename> class Pred, typename T, typename... Ts>
+struct filter<Pred,type_list<T,Ts...>>
+{
+    template<typename, typename>
+    struct Cons;
+    template<typename Head, typename... Tail>
+    struct Cons<Head,type_list<Tail...>>
+    {
+        using type = type_list<Head,Tail...>;
+    };
+
+    using type = std::conditional_t<Pred<T>::value,typename Cons<T,typename filter<Pred,type_list<Ts...>>::type>::type,typename filter<Pred,type_list<Ts...>>::type>;
+};
+template<template<typename> class Pred, typename TypeList>
+using filter_t = filter<Pred,TypeList>::type;
+
 template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
 struct list_transform
 {

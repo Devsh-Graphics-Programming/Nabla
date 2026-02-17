@@ -1,109 +1,59 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MISTUBA_LOADER_C_MITSUBA_LOADER_CONTEXT_H_INCLUDED_
+#define _NBL_EXT_MISTUBA_LOADER_C_MITSUBA_LOADER_CONTEXT_H_INCLUDED_
 
-#ifndef __C_MITSUBA_LOADER_CONTEXT_H_INCLUDED__
-#define __C_MITSUBA_LOADER_CONTEXT_H_INCLUDED__
 
-
-#include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/utils/IGeometryCreator.h"
-#include "nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/CIESProfileLoader.h"
 
-#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+//#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+
+namespace nbl::ext::MitsubaLoader
 {
 
-struct SContext
+struct SContext final
 {
 	public:
 		SContext(
-			const asset::IGeometryCreator* _geomCreator,
-			const asset::IMeshManipulator* _manipulator,
+//			const asset::IGeometryCreator* _geomCreator,
+//			const asset::IMeshManipulator* _manipulator,
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
 			CMitsubaMetadata* _metadata
 		);
 
-		const asset::IGeometryCreator* creator;
-		const asset::IMeshManipulator* manipulator;
+		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUPolygonGeometry>;
+		shape_ass_type loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape);
+		using group_ass_type = core::smart_refctd_ptr<asset::ICPUGeometryCollection>;
+		group_ass_type loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+
+		inline void transferMetadata()
+		{
+			meta->setPolygonGeometryMeta(std::move(shapeCache));
+		}
+
+//		const asset::IGeometryCreator* creator;
+//		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		CMitsubaMetadata* meta;
+		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_SZ_LOG2 = 7u;//128
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2 = 4u;//16
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_PADDING = 8u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VT_MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u;//4096
+	private:
+		//
+		core::unordered_map<const CElementShape::ShapeGroup*,group_ass_type> groupCache;
+		//
+		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryMetaPair> shapeCache;
 
-		//
-		using group_ass_type = core::vector<core::smart_refctd_ptr<asset::ICPUMesh>>;
-		//core::map<const CElementShape::ShapeGroup*, group_ass_type> groupCache;
-		//
-		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
-		core::map<const CElementShape*, shape_ass_type> shapeCache;
+#if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
-		//image, scale
+		//image, scale 
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
-
-		//
-		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
-		{
-			std::string key = bitmap.filename.svalue;
-			switch (bitmap.channel)
-			{
-				case CElementTexture::Bitmap::CHANNEL::R:
-					key += "?rrrr";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::G:
-					key += "?gggg";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::B:
-					key += "?bbbb";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::A:
-					key += "?aaaa";
-					break;
-				default:
-					break;
-			}
-			switch (semantic)
-			{
-				case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
-					key += "?blend";
-					break;
-				case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
-					key += "?deriv?n";
-					break;
-				case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
-					key += "?deriv?h";
-					{
-						static const char* wrap[5]
-						{
-							"?repeat",
-							"?mirror",
-							"?clamp",
-							"?zero",
-							"?one"
-						};
-						key += wrap[bitmap.wrapModeU];
-						key += wrap[bitmap.wrapModeV];
-					}
-					break;
-				default:
-					break;
-			}
-			key += "?view";
-			return key;
-		}
 
 		static asset::ISampler::SParams emissionProfileSamplerParams(const CElementEmissionProfile* profile, const asset::CIESProfileMetadata& meta)
 		{
@@ -171,110 +121,13 @@ struct SContext
 			return params;
 		}
 
-		inline core::smart_refctd_ptr<asset::ICPUSampler> getSampler(const asset::ICPUSampler::SParams& params) const
-		{
-			const std::string samplerKey = samplerCacheKey(params);
-			const asset::IAsset::E_TYPE types[2] = {asset::IAsset::ET_SAMPLER,asset::IAsset::ET_TERMINATING_ZERO};
-			auto samplerBundle = override_->findCachedAsset(samplerKey,types,inner,0u);
-			if (samplerBundle.getContents().empty())
-			{
-				auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-				override_->insertAssetIntoCache(asset::SAssetBundle(nullptr,{sampler}),samplerKey,inner,0);
-				return sampler;
-			}
-			else
-				return core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
-		}
-
 		//index of root node in IR
 		using bsdf_type = const CMitsubaMaterialCompilerFrontend::front_and_back_t;
 		//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
 		core::unordered_map<const CElementBSDF*, bsdf_type> instrStreamCache;
-
-		struct SInstanceData
-		{
-			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitterFront, const CElementEmitter& _emitterBack) :
-				tform(_tform), bsdf(_bsdf),
-#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-				bsdf_id(_id),
 #endif
-				emitter{_emitterFront, _emitterBack}
-			{}
-
-			core::matrix3x4SIMD tform;
-			SContext::bsdf_type bsdf;
-#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-			std::string bsdf_id;
-#endif
-			struct {
-				// type is invalid if not used
-				CElementEmitter front;
-				CElementEmitter back;
-			} emitter;
-		};
-		core::unordered_multimap<const shape_ass_type::pointee*, SInstanceData> mapMesh2instanceData;
-
-		struct SPipelineCacheKey
-		{
-			asset::SVertexInputParams vtxParams;
-			asset::SPrimitiveAssemblyParams primParams;
-
-			inline bool operator==(const SPipelineCacheKey& rhs) const
-			{
-				return memcmp(&vtxParams, &rhs.vtxParams, sizeof(vtxParams)) == 0 && memcmp(&primParams, &rhs.primParams, sizeof(primParams)) == 0;
-			}
-
-			struct hash
-			{
-				inline size_t operator()(const SPipelineCacheKey& k) const
-				{
-					constexpr size_t BYTESZ = sizeof(k.vtxParams) + sizeof(k.primParams);
-					uint8_t mem[BYTESZ]{};
-					uint8_t* ptr = mem;
-					memcpy(ptr, &k.vtxParams, sizeof(k.vtxParams));
-					ptr += sizeof(k.vtxParams);
-					memcpy(ptr, &k.primParams, sizeof(k.primParams));
-					ptr += sizeof(k.primParams);
-
-					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), BYTESZ));
-				}
-			};
-		};
-		core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
-
-		//material compiler
-		core::smart_refctd_ptr<asset::material_compiler::IR> ir;
-		CMitsubaMaterialCompilerFrontend frontend;
-		asset::material_compiler::CMaterialCompilerGLSLRasterBackend::SContext backend_ctx;
-		asset::material_compiler::CMaterialCompilerGLSLRasterBackend backend;
-
-	private:
-		// TODO: commonalize this to all loaders
-		static std::string samplerCacheKey(const asset::ICPUSampler::SParams& samplerParams)
-		{
-			std::string samplerCacheKey = "__Sampler";
-
-			if (samplerParams.MinFilter==asset::ISampler::ETF_LINEAR)
-				samplerCacheKey += "?trilinear";
-			else
-				samplerCacheKey += "?nearest";
-
-			static const char* wrapModeName[] =
-			{
-				"?repeat",
-				"?clamp_to_edge",
-				"?clamp_to_border",
-				"?mirror",
-				"?mirror_clamp_to_edge",
-				"?mirror_clamp_to_border"
-			};
-			samplerCacheKey += wrapModeName[samplerParams.TextureWrapU];
-			samplerCacheKey += wrapModeName[samplerParams.TextureWrapV];
-
-			return samplerCacheKey;
-		}
+		core::smart_refctd_ptr<asset::material_compiler3::CFrontendIR> frontIR;
 };
 
-}}}
-
+}
 #endif

@@ -134,20 +134,22 @@ NBL_CONSTEXPR_FUNC this_t operator OP() NBL_CONST_MEMBER_FUNC \
 }
 
 #define NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(OP)\
-NBL_CONSTEXPR_FUNC this_t operator OP (component_t val) NBL_CONST_MEMBER_FUNC \
-{\
-    this_t output;\
-    [[unroll]]\
-    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, this_t::getComponent(i) OP val);\
-    return output;\
-}\
 NBL_CONSTEXPR_FUNC this_t operator OP (this_t other) NBL_CONST_MEMBER_FUNC \
 {\
     this_t output;\
     [[unroll]]\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
         output.setComponent(i, this_t::getComponent(i) OP other.getComponent(i));\
+    return output;\
+}
+
+#define NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(OP)\
+NBL_CONSTEXPR_FUNC this_t operator OP (component_t val) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    [[unroll]]\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, CRTP::getComponent(i) OP val);\
     return output;\
 }
 
@@ -183,6 +185,14 @@ NBL_CONSTEXPR_FUNC vector<bool, CRTP::Dimension> operator OP (vector<component_t
 #define NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM \
 using this_t = emulated_vector<ComponentType, CRTP>;\
 using component_t = ComponentType;\
+template<typename T>\
+NBL_CONSTEXPR_STATIC this_t create(vector<T, CRTP::Dimension> other)\
+{\
+    this_t output;\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, component_t::create(other[i]));\
+    return output;\
+}\
 NBL_CONSTEXPR_STATIC this_t create(this_t other)\
 {\
     CRTP output;\
@@ -209,6 +219,43 @@ NBL_CONSTEXPR_STATIC this_t create(vector<component_t, CRTP::Dimension> other)\
     return output;\
 }
 
+#define DEFINE_OPERATORS_FOR_TYPE(...)\
+NBL_CONSTEXPR_FUNC this_t operator+(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, CRTP::getComponent(i) + _static_cast<component_t>(val));\
+\
+    return output;\
+}\
+\
+NBL_CONSTEXPR_FUNC this_t operator-(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, CRTP::getComponent(i) - _static_cast<component_t>(val));\
+\
+    return output;\
+}\
+\
+NBL_CONSTEXPR_FUNC this_t operator*(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, CRTP::getComponent(i) * _static_cast<component_t>(val));\
+\
+    return output;\
+}\
+\
+NBL_CONSTEXPR_FUNC this_t operator/(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
+{\
+    this_t output;\
+    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+        output.setComponent(i, CRTP::getComponent(i) / _static_cast<component_t>(val));\
+\
+    return output;\
+}\
+
 // Fundamental, integral
 template <typename ComponentType, typename CRTP> NBL_PARTIAL_REQ_TOP(is_fundamental_v<ComponentType> && concepts::IntegralLikeScalar<ComponentType>)
 struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(is_fundamental_v<ComponentType>&& concepts::IntegralLikeScalar<ComponentType>) > : CRTP
@@ -220,6 +267,9 @@ struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(is_fundamental_v<
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(&)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(|)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(^)
+    NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(&)
+    NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(|)
+    NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(^)
     NBL_EMULATED_VECTOR_UNARY_OPERATOR(-)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(+)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR(-)
@@ -232,6 +282,15 @@ struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(is_fundamental_v<
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(<=)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>=)
+
+    DEFINE_OPERATORS_FOR_TYPE(emulated_uint64_t)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_int64_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint16_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint32_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint64_t)
+    DEFINE_OPERATORS_FOR_TYPE(int16_t)
+    DEFINE_OPERATORS_FOR_TYPE(int32_t)
+    DEFINE_OPERATORS_FOR_TYPE(int64_t)
 };
 
 // Fundamental, not integral
@@ -253,6 +312,15 @@ struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(is_fundamental_v<
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(<=)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>)
     NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR(>=)
+
+    DEFINE_OPERATORS_FOR_TYPE(emulated_uint64_t)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_int64_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint16_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint32_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint64_t)
+    DEFINE_OPERATORS_FOR_TYPE(int16_t)
+    DEFINE_OPERATORS_FOR_TYPE(int32_t)
+    DEFINE_OPERATORS_FOR_TYPE(int64_t)
 };
 
 // Not fundamental, integral
@@ -266,6 +334,9 @@ struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(!is_fundamental_v
     NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(&)
     NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(|)
     NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(^)
+    NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(&)
+    NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(|)
+    NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR(^)
     NBL_EMULATED_VECTOR_UNARY_OPERATOR(-)
     NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(+)
     NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR(-)
@@ -278,6 +349,20 @@ struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(!is_fundamental_v
     NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(<=)
     NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>)
     NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>=)
+
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, true>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
+    DEFINE_OPERATORS_FOR_TYPE(float16_t)
+    DEFINE_OPERATORS_FOR_TYPE(float32_t)
+    DEFINE_OPERATORS_FOR_TYPE(float64_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint16_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint32_t)
+    DEFINE_OPERATORS_FOR_TYPE(uint64_t)
+    DEFINE_OPERATORS_FOR_TYPE(int16_t)
+    DEFINE_OPERATORS_FOR_TYPE(int32_t)
+    DEFINE_OPERATORS_FOR_TYPE(int64_t)
 };
 
 // Not fundamental, not integral
@@ -299,107 +384,12 @@ struct emulated_vector<ComponentType, CRTP NBL_PARTIAL_REQ_BOT(!is_fundamental_v
     NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(<=)
     NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>)
     NBL_EMULATED_VECTOR_COMPARISON_OPERATOR(>=)
-};
-
-#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM
-#undef NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM
-#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR
-#undef NBL_EMULATED_VECTOR_COMPARISON_OPERATOR
-#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR
-#undef NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR
-#undef NBL_EMULATED_VECTOR_UNARY_OPERATOR
-
-// ----------------------------------------------------- EMULATED FLOAT SPECIALIZATION --------------------------------------------------------------------
-
-#define DEFINE_OPERATORS_FOR_TYPE(...)\
-NBL_CONSTEXPR_FUNC this_t operator+(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
-{\
-    this_t output;\
-    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, CRTP::getComponent(i) + component_t::create(val));\
-\
-    return output;\
-}\
-\
-NBL_CONSTEXPR_FUNC this_t operator-(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
-{\
-    this_t output;\
-    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, CRTP::getComponent(i) - component_t::create(val));\
-\
-    return output;\
-}\
-\
-NBL_CONSTEXPR_FUNC this_t operator*(__VA_ARGS__ val) NBL_CONST_MEMBER_FUNC \
-{\
-    this_t output;\
-    for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, CRTP::getComponent(i) * component_t::create(val));\
-\
-    return output;\
-}\
-\
-
-
-template <bool FastMath, bool FlushDenormToZero, typename CRTP>
-struct emulated_vector<emulated_float64_t<FastMath, FlushDenormToZero>, CRTP> : CRTP
-{
-    using component_t = emulated_float64_t<FastMath, FlushDenormToZero>;
-    using this_t = emulated_vector<component_t, CRTP>;
-
-    NBL_CONSTEXPR_STATIC this_t create(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, other.getComponent(i));
-
-        return output;
-    }
-
-    template<typename T>
-    NBL_CONSTEXPR_STATIC this_t create(vector<T, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, component_t::create(other[i]));
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_FUNC this_t operator+(this_t other) NBL_CONST_MEMBER_FUNC
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) + other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_FUNC this_t operator-(this_t other) NBL_CONST_MEMBER_FUNC
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_FUNC this_t operator*(this_t other) NBL_CONST_MEMBER_FUNC
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * other.getComponent(i));
-
-        return output;
-    }
 
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, true>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
+    DEFINE_OPERATORS_FOR_TYPE(float16_t)
     DEFINE_OPERATORS_FOR_TYPE(float32_t)
     DEFINE_OPERATORS_FOR_TYPE(float64_t)
     DEFINE_OPERATORS_FOR_TYPE(uint16_t)
@@ -408,17 +398,16 @@ struct emulated_vector<emulated_float64_t<FastMath, FlushDenormToZero>, CRTP> : 
     DEFINE_OPERATORS_FOR_TYPE(int16_t)
     DEFINE_OPERATORS_FOR_TYPE(int32_t)
     DEFINE_OPERATORS_FOR_TYPE(int64_t)
-
-    NBL_CONSTEXPR_FUNC component_t calcComponentSum() NBL_CONST_MEMBER_FUNC
-    {
-        component_t sum = component_t::create(0);
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            sum = sum + CRTP::getComponent(i);
-
-        return sum;
-    }
 };
 
+#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_CREATION_AND_COMPONENT_SUM
+#undef NBL_EMULATED_VECTOR_CREATION_AND_COMPONENT_SUM
+#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_COMPARISON_OPERATOR
+#undef NBL_EMULATED_VECTOR_COMPARISON_OPERATOR
+#undef NBL_EMULATED_FUNDAMENTAL_TYPE_VECTOR_ARITHMETIC_OPERATOR
+#undef NBL_EMULATED_VECTOR_ARITHMETIC_OPERATOR
+#undef NBL_EMULATED_VECTOR_SCALAR_BITWISE_OPERATOR
+#undef NBL_EMULATED_VECTOR_UNARY_OPERATOR
 #undef DEFINE_OPERATORS_FOR_TYPE
 
 template<typename T, uint32_t N>

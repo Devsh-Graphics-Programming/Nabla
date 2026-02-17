@@ -28,8 +28,15 @@ struct matrix final : private glm::mat<N,M,T>
         return *this;
     }
 
-    friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
-    friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
+    // not sure how to forward this
+    //inline friend matrix operator*(matrix const& lhs, T rhs) {return matrix(reinterpret_cast<Base const&>(lhs)*rhs);}
+
+    // scalar compound assignment multiply and divide
+    inline matrix& operator*=(const T rhs) {return reinterpret_cast<matrix&>(Base::template operator*=(rhs));}
+    inline matrix& operator/=(const T rhs) {return reinterpret_cast<matrix&>(Base::template operator/=(rhs));}
+
+    inline friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
+    inline friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
 
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
@@ -43,6 +50,14 @@ struct matrix final : private glm::mat<N,M,T>
     inline friend vector<T, M> mul(vector<T, N> const& lhs, matrix const& rhs)
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
+    }
+    inline friend bool operator==(matrix const& lhs, matrix const& rhs)
+    {
+        return glm::operator==(reinterpret_cast<Base const&>(lhs), reinterpret_cast<Base const&>(rhs));
+    }
+    inline friend bool operator!=(matrix const& lhs, matrix const& rhs)
+    {
+        return glm::operator!=(reinterpret_cast<Base const&>(lhs), reinterpret_cast<Base const&>(rhs));
     }
 };
 #endif
