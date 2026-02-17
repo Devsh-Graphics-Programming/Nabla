@@ -59,22 +59,16 @@ struct Unidirectional
     using vector3_type = vector<scalar_type, 3>;
     using monochrome_type = vector<scalar_type, 1>;
     using measure_type = typename MaterialSystem::measure_type;
-    using output_storage_type = typename Accumulator::output_storage_type; // ?
     using sample_type = typename NextEventEstimator::sample_type;
     using ray_dir_info_type = typename sample_type::ray_dir_info_type;
     using ray_type = typename RayGen::ray_type;
     using object_handle_type = typename Intersector::object_handle_type;
-    using light_type = typename NextEventEstimator::light_type;
+    using intersect_data_type = typename Intersector::intersect_data_type;
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
     using anisotropic_interaction_type = typename MaterialSystem::anisotropic_interaction_type;
     using isotropic_interaction_type = typename anisotropic_interaction_type::isotropic_interaction_type;
     using anisocache_type = typename MaterialSystem::anisocache_type;
-    using isocache_type = typename anisocache_type::isocache_type;
     using quotient_pdf_type = typename NextEventEstimator::quotient_pdf_type;
-
-    using diffuse_op_type = typename MaterialSystem::diffuse_op_type;
-    using conductor_op_type = typename MaterialSystem::conductor_op_type;
-    using dielectric_op_type = typename MaterialSystem::dielectric_op_type;
 
     vector3_type rand3d(uint32_t protoDimension, uint32_t _sample, uint32_t i)
     {
@@ -90,23 +84,19 @@ struct Unidirectional
     }
 
     // TODO: probably will only work with isotropic surfaces, need to do aniso
-    bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(scene_type) scene)
+    bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(intersect_data_type) intersectData, NBL_CONST_REF_ARG(scene_type) scene)
     {
-        const object_handle_type objectID = ray.objectID;
-        const vector3_type intersection = ray.origin + ray.direction * ray.intersectionT;
+        const vector3_type intersection = intersectData.intersection;
 
-        typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(objectID);
-        vector3_type N = scene.getNormal(objectID, intersection);
-        N = nbl::hlsl::normalize(N);
-        ray_dir_info_type V;
-        V.setDirection(-ray.direction);
-        isotropic_interaction_type iso_interaction = isotropic_interaction_type::create(V, N);
+        isotropic_interaction_type iso_interaction = intersectData.iso_interaction;
+        anisotropic_interaction_type interaction = intersectData.aniso_interaction;
         iso_interaction.luminosityContributionHint = colorspace::scRGBtoXYZ[1];
-        anisotropic_interaction_type interaction = anisotropic_interaction_type::create(iso_interaction);
+        interaction.isotropic.luminosityContributionHint = colorspace::scRGBtoXYZ[1];
 
         vector3_type throughput = ray.payload.throughput;
 
         // emissive
+        typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(ray.objectID);
         if (matLightID.isLight())
         {
             typename nee_type::eval_pdf_return_type ret = nee.deferred_eval_and_pdf(matLightID.lightID, ray);
@@ -173,7 +163,7 @@ struct Unidirectional
                     nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
                     nee_ray.direction = nee_sample.getL().getDirection();
                     nee_ray.intersectionT = t;
-                    if (bsdf_quotient_pdf.pdf < numeric_limits<scalar_type>::max && getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && intersector_type::traceRay(nee_ray, scene).id == -1)
+                    if (bsdf_quotient_pdf.pdf < numeric_limits<scalar_type>::max && getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && !intersector_type::traceRay(nee_ray, scene).foundHit)
                         ray.payload.accumulation += neeContrib_pdf.quotient;
                 }
             }
@@ -233,7 +223,7 @@ struct Unidirectional
     }
 
     // Li
-    void sampleMeasure(uint32_t sampleIndex, uint32_t maxDepth, NBL_CONST_REF_ARG(scene_type) scene, NBL_REF_ARG(Accumulator) accumulator)
+    void sampleMeasure(uint32_t sampleIndex, uint32_t maxDepth, NBL_REF_ARG(Accumulator) accumulator)
     {
         //scalar_type meanLumaSq = 0.0;
         vector3_type uvw = rand3d(0u, sampleIndex, 0u);
@@ -254,11 +244,11 @@ struct Unidirectional
         for (int d = 1; (d <= maxDepth) && hit && rayAlive; d += 2)
         {
             ray.intersectionT = numeric_limits<scalar_type>::max;
-            ray.objectID = intersector_type::traceRay(ray, scene);
+            intersect_data_type intersection = intersector_type::traceRay(ray, scene);
 
-            hit = ray.objectID.id != -1;
+            hit = intersection.foundHit;
             if (hit)
-                rayAlive = closestHitProgram(1, sampleIndex, ray, scene);
+                rayAlive = closestHitProgram(d, sampleIndex, ray, intersection, scene);
         }
         if (!hit)
             missProgram(ray);
@@ -278,6 +268,7 @@ struct Unidirectional
     raygen_type rayGen;
     material_system_type materialSystem;
     nee_type nee;
+    scene_type scene;
 
     uint64_t pSampleBuffer;
 };

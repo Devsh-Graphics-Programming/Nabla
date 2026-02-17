@@ -57,7 +57,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scene_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::object_handle_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::intersect_data_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::intersect_data_type))
 );
 #undef scene
 #undef ray
