@@ -29,6 +29,12 @@ struct ProtoPipeline final
 		);
 
 		core::smart_refctd_ptr<asset::IShader> m_vxShader;
+
+		constexpr static inline asset::SRasterizationParams DefaultRasterParams = {
+			.faceCullingMode = asset::EFCM_NONE,
+			.depthWriteEnable = false,
+			.depthCompareOp = asset::ECO_ALWAYS
+		};
 };
 
 bool recordDrawCall(video::IGPUCommandBuffer* commandBuffer);
