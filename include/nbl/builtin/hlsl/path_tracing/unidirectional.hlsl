@@ -6,7 +6,6 @@
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
 #include <nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl>
-#include <nbl/builtin/hlsl/sampling/quantized_sequence.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/path_tracing/concepts.hlsl>
 
@@ -70,20 +69,12 @@ struct Unidirectional
     using anisocache_type = typename MaterialSystem::anisocache_type;
     using quotient_pdf_type = typename NextEventEstimator::quotient_pdf_type;
 
-    vector3_type rand3d(uint32_t protoDimension, uint32_t _sample, uint32_t i)
-    {
-        using sequence_type = sampling::QuantizedSequence<uint32_t2,3>;
-        uint32_t address = glsl::bitfieldInsert<uint32_t>(protoDimension, _sample, MaxDepthLog2, MaxSamplesLog2);
-        sequence_type tmpSeq = vk::RawBufferLoad<sequence_type>(pSampleBuffer + (address + i) * sizeof(sequence_type));
-        return tmpSeq.template decode<float32_t>(randGen());
-    }
-
     scalar_type getLuma(NBL_CONST_REF_ARG(vector3_type) col)
     {
         return hlsl::dot<vector3_type>(colorspace::scRGBtoXYZ[1], col);
     }
 
-    // TODO: probably will only work with isotropic surfaces, need to do aniso
+    // TODO: will only work with isotropic surfaces, need to do aniso
     bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(intersect_data_type) intersectData, NBL_CONST_REF_ARG(scene_type) scene)
     {
         const vector3_type intersection = intersectData.intersection;
@@ -114,8 +105,8 @@ struct Unidirectional
 
         const bool isBSDF = materialSystem.isBSDF(matID);
 
-        vector3_type eps0 = rand3d(depth, _sample, 0u);
-        vector3_type eps1 = rand3d(depth, _sample, 1u);
+        vector3_type eps0 = randGen(depth, _sample, 0u);
+        vector3_type eps1 = randGen(depth, _sample, 1u);
 
         // thresholds
         const scalar_type bxdfPdfThreshold = 0.0001;
@@ -226,7 +217,7 @@ struct Unidirectional
     void sampleMeasure(uint32_t sampleIndex, uint32_t maxDepth, NBL_REF_ARG(Accumulator) accumulator)
     {
         //scalar_type meanLumaSq = 0.0;
-        vector3_type uvw = rand3d(0u, sampleIndex, 0u);
+        vector3_type uvw = randGen(0u, sampleIndex, 0u);
         ray_type ray = rayGen.generate(uvw);
         ray.initPayload();
 
@@ -269,8 +260,6 @@ struct Unidirectional
     material_system_type materialSystem;
     nee_type nee;
     scene_type scene;
-
-    uint64_t pSampleBuffer;
 };
 
 }

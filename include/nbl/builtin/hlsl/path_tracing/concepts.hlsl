@@ -16,13 +16,16 @@ namespace concepts
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (rand, T)
-NBL_CONCEPT_BEGIN(1)
+#define NBL_CONCEPT_PARAM_1 (sample_, uint32_t)
+NBL_CONCEPT_BEGIN(2)
 #define rand NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define sample_ NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::rng_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::return_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rand()), ::nbl::hlsl::is_same_v, typename T::return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rand(sample_, sample_, sample_)), ::nbl::hlsl::is_same_v, typename T::return_type))
 );
+#undef sample_
 #undef rand
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
