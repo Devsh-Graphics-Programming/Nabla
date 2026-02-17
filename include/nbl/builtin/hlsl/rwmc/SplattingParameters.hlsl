@@ -30,21 +30,21 @@ struct SPackedSplattingParameters
     // float16_t baseRootOfStart; 0
     // float16_t rcpLog2Base; 1
     // pack as Half2x16
-    int32_t PackedLog2;
+    int32_t PackedBaseRootAndRcpLog2Base;
 
     // float16_t log2BaseRootOfStart; 2
     // float16_t brightSampleLumaBias; 3
     // pack as Half2x16
-    int32_t PackedPrecomputed;
+    int32_t PackedLog2BaseRootAndBrightSampleLumaBias;
 
     SSplattingParameters unpack()
     {
         SSplattingParameters retval;
-        const float32_t2 unpackedLog2 = hlsl::unpackHalf2x16(PackedLog2);
-        const float32_t2 unpackedPrecomputed = hlsl::unpackHalf2x16(PackedPrecomputed);
-        retval.RcpLog2Base = unpackedLog2[1];
-        retval.Log2BaseRootOfStart = unpackedPrecomputed[0];
-        retval.BrightSampleLumaBias = unpackedPrecomputed[1];
+        const float32_t2 unpackedBaseRootAndRcpLog2Base = hlsl::unpackHalf2x16(PackedBaseRootAndRcpLog2Base);
+        const float32_t2 unpackedLog2BaseRootAndBrightSampleLumaBias = hlsl::unpackHalf2x16(PackedLog2BaseRootAndBrightSampleLumaBias);
+        retval.RcpLog2Base = unpackedBaseRootAndRcpLog2Base[1];
+        retval.Log2BaseRootOfStart = unpackedLog2BaseRootAndBrightSampleLumaBias[0];
+        retval.BrightSampleLumaBias = unpackedLog2BaseRootAndBrightSampleLumaBias[1];
         return retval;
     }
 };
