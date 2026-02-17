@@ -26,17 +26,20 @@ namespace accessors
 #define NBL_CONCEPT_PARAM_2 (layer,uint16_t)
 #define NBL_CONCEPT_PARAM_3 (dU,vector<float32_t,Dims>)
 #define NBL_CONCEPT_PARAM_4 (dV,vector<float32_t,Dims>)
+#define NBL_CONCEPT_PARAM_5 (outVal,float32_t4)
 // start concept
-NBL_CONCEPT_BEGIN(5)
+NBL_CONCEPT_BEGIN(6)
 // need to be defined AFTER the cocnept begins
 #define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define uv NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define layer NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define dU NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define dV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define outVal NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<Dims>(uv,layer,dU,dV)) , ::nbl::hlsl::is_same_v, float32_t4>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get<Dims>(uv,layer,dU,dV,outVal)) , ::nbl::hlsl::is_same_v, void))
 );
+#undef outVal
 #undef dV
 #undef dU
 #undef layer
