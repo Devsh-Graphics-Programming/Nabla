@@ -187,13 +187,10 @@ struct Unidirectional
             ray.payload.otherTechniqueHeuristic = otherTechniqueHeuristic * otherTechniqueHeuristic;
 
             // trace new ray
-            ray.origin = intersection + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
-            ray.direction = bxdfSample;
-            NBL_IF_CONSTEXPR (nee_type::IsPolygonMethodProjectedSolidAngle)
-            {
-                ray.normalAtOrigin = interaction.getN();
-                ray.wasBSDFAtOrigin = isBSDF;
-            }
+            vector3_type origin = intersection + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
+            vector3_type direction = bxdfSample;
+
+            ray.initData(origin, direction, interaction.getN(), isBSDF);
             return true;
         }
 
@@ -222,12 +219,6 @@ struct Unidirectional
         ray.initPayload();
 
         nee.scene = scene;
-
-        NBL_IF_CONSTEXPR (nee_type::IsPolygonMethodProjectedSolidAngle)
-        {
-            ray.normalAtOrigin = hlsl::promote<vector3_type>(0.0);
-            ray.wasBSDFAtOrigin = false;
-        }
 
         // bounces
         bool hit = true;

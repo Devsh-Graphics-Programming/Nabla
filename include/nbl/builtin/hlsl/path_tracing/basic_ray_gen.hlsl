@@ -24,15 +24,14 @@ struct BasicRayGenerator
 
     ray_type generate(const vector3_type randVec)
     {
-        ray_type ray;
-        ray.origin = camPos;
-
         vector4_type tmp = NDC;
         GaussianFilter<scalar_type> filter = GaussianFilter<scalar_type>::create(2.5, 1.5); // stochastic reconstruction filter
         tmp.xy += pixOffsetParam * filter.sample(randVec);
         // for depth of field we could do another stochastic point-pick
         tmp = nbl::hlsl::mul(invMVP, tmp);
-        ray.direction = nbl::hlsl::normalize(tmp.xyz / tmp.w - camPos);
+
+        ray_type ray;
+        ray.initData(camPos, hlsl::normalize(tmp.xyz / tmp.w - camPos), hlsl::promote<vector3_type>(0.0), false);
 
         return ray;
     }
