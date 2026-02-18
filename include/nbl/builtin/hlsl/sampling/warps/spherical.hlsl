@@ -14,54 +14,69 @@ namespace sampling
 namespace warp
 {
 
+template <typename T = float32_t>
 struct Spherical 
 {
-	using domain_type = float32_t2;
-	using codomain_type = float32_t3;
+	using scalar_type = T;
+	using domain_type = vector<scalar_type, 2>;
+	using codomain_type = vector<scalar_type, 3>;
 
 	template <typename DomainT NBL_FUNC_REQUIRES(is_same_v<DomainT, domain_type>)
 	static WarpResult<codomain_type> warp(const DomainT uv)
 	{
-		const float32_t phi = 2 * uv.x * numbers::pi<float32_t>;
-		const float32_t theta = uv.y * numbers::pi<float32_t>;
-		float32_t3 dir;
-		dir.x = cos(uv.x * 2.f * numbers::pi<float32_t>);
-		dir.y = sqrt(1.f - dir.x * dir.x);
-		if (uv.x > 0.5f) dir.y = -dir.y;
-		const float32_t cosTheta = cos(theta);
-		float32_t sinTheta = (1.0 - cosTheta * cosTheta);
-		dir.xy *= sinTheta;
-		dir.z = cosTheta;
+		codomain_type dir;
+		dir.x = cos(uv.x * scalar_type(2) * numbers::pi<scalar_type>);
+		dir.z = sqrt(scalar_type(1) - (dir.x * dir.x));
+    if (uv.x > scalar_type(0.5))
+			dir.z = -dir.z;
+		const scalar_type theta = uv.y * numbers::pi<scalar_type>;
+		const scalar_type cosTheta = cos(theta);
+		const scalar_type sinTheta = sqrt(scalar_type(1) - (cosTheta * cosTheta));
+		dir.xz *= sinTheta;
+		dir.y = cosTheta;
+
 		WarpResult<codomain_type> warpResult;
 		warpResult.dst = dir;
-		warpResult.density = 1 / (sinTheta * numbers::pi<float32_t> * numbers::pi<float32_t>);
+		warpResult.density = scalar_type(1) / (scalar_type(2) * sinTheta * numbers::pi<scalar_type> * numbers::pi<scalar_type>);
+
 		return warpResult;
+	}
+
+	template <typename DomainT NBL_FUNC_REQUIRES(is_same_v<DomainT, domain_type>)
+	static float32_t2 warp2(const DomainT uv)
+	{
+		const scalar_type phi = scalar_type(2) * uv.x * numbers::pi<scalar_type> - numbers::pi<scalar_type>;
+		const scalar_type theta = uv.y * numbers::pi<scalar_type>;
+		return float32_t2(phi, theta);
 	}
 
 	template <typename CodomainT NBL_FUNC_REQUIRES(is_same_v<CodomainT, codomain_type>) 
 	static domain_type inverseWarp(const CodomainT v)
 	{
-		float32_t2 uv = float32_t2(atan(v.y, v.x), acos(v.z));
-		uv.x *= (numbers::inv_pi<float32_t> * 0.5);
-		if (v.y < 0.0f)
-		  uv.x += 1.0f;
-		uv.y *= numbers::inv_pi<float32_t>;
-		return uv;
+		const scalar_type phi = atan2(v.z, v.x);
+		const scalar_type theta = acos(v.y);
+		scalar_type uv_x = phi * scalar_type(0.5) * numbers::inv_pi<scalar_type>;
+		if (uv_x < scalar_type(0))
+			uv_x += scalar_type(1);
+		scalar_type uv_y = theta * numbers::inv_pi<scalar_type>;
+    return domain_type(uv_x, uv_y);
 	}
 
 
 	template <typename DomainT NBL_FUNC_REQUIRES(is_same_v<DomainT, domain_type>)
-	static float32_t forwardDensity(const DomainT uv)
+	static scalar_type forwardDensity(const DomainT uv)
 	{
-		const float32_t theta = uv.y * numbers::pi<float32_t>;
-		return 1.0f / (sin(theta) * 2 * numbers::pi<float32_t> * numbers::pi<float32_t>);
+		const scalar_type theta = uv.y * numbers::pi<scalar_type>;
+		return scalar_type(1) / (sin(theta) * scalar_type(2) * numbers::pi<scalar_type> * numbers::pi<scalar_type>);
 
 	}
 
 	template <typename CodomainT NBL_FUNC_REQUIRES(is_same_v<CodomainT, codomain_type>)
-	static float32_t backwardDensity(const CodomainT dst)
+	static scalar_type backwardDensity(const CodomainT dst)
 	{
-		return 1.0f / (sqrt(1.0f - dst.z * dst.z) * 2 * numbers::pi<float32_t> * numbers::pi<float32_t>);
+		const scalar_type cosTheta = dst.y;
+		const scalar_type sinTheta = sqrt(scalar_type(1) - (cosTheta * cosTheta));
+		return scalar_type(1) / (sinTheta * scalar_type(2) * numbers::pi<scalar_type> * numbers::pi<scalar_type>);
 	}
 };
 
