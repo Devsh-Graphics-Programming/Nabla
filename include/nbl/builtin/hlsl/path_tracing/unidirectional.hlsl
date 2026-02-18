@@ -78,13 +78,13 @@ struct Unidirectional
     bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(intersect_data_type) intersectData, NBL_CONST_REF_ARG(scene_type) scene)
     {
         const vector3_type intersection = intersectData.intersection;
+        vector3_type throughput = ray.payload.throughput;
+        const vector3_type throughputCIE_Y = hlsl::normalize(colorspace::sRGBtoXYZ[1] * throughput);    // TODO: this only works if spectral_type is dim 3
 
         isotropic_interaction_type iso_interaction = intersectData.iso_interaction;
         anisotropic_interaction_type interaction = intersectData.aniso_interaction;
-        iso_interaction.luminosityContributionHint = colorspace::scRGBtoXYZ[1];
-        interaction.isotropic.luminosityContributionHint = colorspace::scRGBtoXYZ[1];
-
-        vector3_type throughput = ray.payload.throughput;
+        iso_interaction.luminosityContributionHint = throughputCIE_Y;
+        interaction.isotropic.luminosityContributionHint = throughputCIE_Y;
 
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(ray.objectID);
@@ -106,12 +106,11 @@ struct Unidirectional
         const bool isBSDF = materialSystem.isBSDF(matID);
 
         vector3_type eps0 = randGen(depth * 2u, _sample, 0u);
-        vector3_type eps1 = randGen(depth * 2u, _sample, 1u);
+        vector3_type eps1 = randGen(depth * 2u + 1u, _sample, 1u);
 
         // thresholds
         const scalar_type bxdfPdfThreshold = 0.0001;
         const scalar_type lumaContributionThreshold = getLuma(colorspace::eotf::sRGB<vector3_type>((vector3_type)1.0 / 255.0)); // OETF smallest perceptible value
-        const vector3_type throughputCIE_Y = colorspace::sRGBtoXYZ[1] * throughput;    // TODO: this only works if spectral_type is dim 3
         const measure_type eta = bxdf.params.ior1 / bxdf.params.ior0;
         const scalar_type monochromeEta = hlsl::dot<vector3_type>(throughputCIE_Y, eta) / (throughputCIE_Y.r + throughputCIE_Y.g + throughputCIE_Y.b);  // TODO: imaginary eta?
 
