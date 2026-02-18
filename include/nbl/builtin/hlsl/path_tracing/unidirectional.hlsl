@@ -88,21 +88,26 @@ struct Unidirectional
 
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(ray.objectID);
-        if (matLightID.isLight())
+        const uint32_t matID = matLightID.matID;
+        const bool isEmissive = materialSystem.hasEmission(matID);
+        if (isEmissive)
         {
-            typename nee_type::eval_pdf_return_type ret = nee.deferred_eval_and_pdf(matLightID.lightID, ray);
-            measure_type emissive = ret.radiance * throughput;
-            scalar_type _pdfSq = hlsl::mix(ret.pdf, ret.pdf * ret.pdf, ret.pdf < numeric_limits<scalar_type>::max);
-            emissive /= (1.0 + _pdfSq * ray.payload.otherTechniqueHeuristic);
+            measure_type emissive = materialSystem.getEmission(matID, interaction.isotropic);
+
+            const uint32_t lightID = matLightID.lightID;
+            if (matLightID.isLight())
+            {
+                const scalar_type pdf = nee.deferred_pdf(lightID, ray);
+                scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
+                emissive *= ray.foundEmissiveMIS(pdfSq);
+            }
             ray.payload.accumulation += emissive;
         }
 
-        if (!matLightID.isBxDF())
+        if (!matLightID.isBxDF() || isEmissive)
             return false;
 
-        const uint32_t matID = matLightID.matID;
         bxdfnode_type bxdf = materialSystem.bxdfs[matID];
-
         const bool isBSDF = materialSystem.isBSDF(matID);
 
         vector3_type eps0 = randGen(depth * 2u, _sample, 0u);
@@ -122,8 +127,9 @@ struct Unidirectional
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             uint32_t randLightID = uint32_t(float32_t(randGen.rng()) / numeric_limits<uint32_t>::max) * nee.lightCount;
+            measure_type lightEmission = materialSystem.getEmission(nee.lights[randLightID].emissiveMatID, interaction.isotropic);
             typename nee_type::sample_quotient_return_type ret = nee.generate_and_quotient_and_pdf(
-                randLightID, intersection, interaction,
+                randLightID, lightEmission, intersection, interaction,
                 isBSDF, eps0, depth
             );
             scalar_type t = ret.newRayMaxT;
