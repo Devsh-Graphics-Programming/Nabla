@@ -1,4 +1,4 @@
-#ifndef _NBL_BUILTIN_HLSL_CONCEPTS_ACCESSORS_HIERARCHICAL_IMAGE_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_HIERARCHICAL_IMAGE_ACCESSORS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CONCEPTS_ACCESSORS_HIERARCHICAL_IMAGE_INCLUDED_
 
 #include "nbl/builtin/hlsl/concepts/accessors/generic_shared_data.hlsl"
@@ -34,13 +34,14 @@ NBL_CONCEPT_END(
 #undef a
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+// sampleUvs return 4 UVs in a square to calculate the jacobian matrix
 // declare concept
 #define NBL_CONCEPT_NAME HierarchicalSampler
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (HierarchicalSamplerT)(ScalarT)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (sampler,HierarchicalSamplerT)
-#define NBL_CONCEPT_PARAM_1 (coord,vector<ScalarT, 2>)
+#define NBL_CONCEPT_PARAM_1 (coord,vector<uint32_t, 2>)
 // start concept
 NBL_CONCEPT_BEGIN(2)
 // need to be defined AFTER the concept begins
