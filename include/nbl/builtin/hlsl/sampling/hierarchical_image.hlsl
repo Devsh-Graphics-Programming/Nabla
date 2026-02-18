@@ -7,7 +7,7 @@
 
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
 #include <nbl/builtin/hlsl/sampling/warp.hlsl>
-#include <nbl/builtin/hlsl/concepts/accessors/hierarchical_image.hlsl>
+#include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 
 namespace nbl
