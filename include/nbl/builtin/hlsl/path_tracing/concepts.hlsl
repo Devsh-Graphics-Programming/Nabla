@@ -146,6 +146,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_eval_and_pdf(id, ray)), ::nbl::hlsl::is_same_v, typename T::eval_pdf_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.generate_and_quotient_and_pdf(id, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
 );
 #undef depth
 #undef is_bsdf

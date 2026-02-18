@@ -105,8 +105,8 @@ struct Unidirectional
 
         const bool isBSDF = materialSystem.isBSDF(matID);
 
-        vector3_type eps0 = randGen(depth, _sample, 0u);
-        vector3_type eps1 = randGen(depth, _sample, 1u);
+        vector3_type eps0 = randGen(depth * 2u, _sample, 0u);
+        vector3_type eps1 = randGen(depth * 2u, _sample, 1u);
 
         // thresholds
         const scalar_type bxdfPdfThreshold = 0.0001;
@@ -120,7 +120,7 @@ struct Unidirectional
         scalar_type rcpChoiceProb;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
         partitionRandVariable.leftProb = neeProbability;
-        if (!partitionRandVariable(eps0.z, rcpChoiceProb) && depth < 2u)
+        if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             uint32_t randLightID = uint32_t(float32_t(randGen.rng()) / numeric_limits<uint32_t>::max) * nee.lightCount;
             typename nee_type::sample_quotient_return_type ret = nee.generate_and_quotient_and_pdf(
@@ -200,14 +200,8 @@ struct Unidirectional
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
         vector3_type finalContribution = ray.payload.throughput;
-        // #ifdef USE_ENVMAP
-        //     vec2 uv = SampleSphericalMap(ray.direction);
-        //     finalContribution *= textureLod(envMap, uv, 0.0).rgb;
-        // #else
-        const vector3_type kConstantEnvLightRadiance = vector3_type(0.15, 0.21, 0.3);   // TODO: match spectral_type
-        finalContribution *= kConstantEnvLightRadiance;
+        finalContribution *= nee.get_environment_radiance(ray);
         ray.payload.accumulation += finalContribution;
-        // #endif
     }
 
     // Li
@@ -223,7 +217,7 @@ struct Unidirectional
         // bounces
         bool hit = true;
         bool rayAlive = true;
-        for (int d = 1; (d <= maxDepth) && hit && rayAlive; d += 2)
+        for (int d = 1; (d <= maxDepth) && hit && rayAlive; d++)
         {
             ray.intersectionT = numeric_limits<scalar_type>::max;
             intersect_data_type intersection = intersector_type::traceRay(ray, scene);
