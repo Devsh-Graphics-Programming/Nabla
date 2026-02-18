@@ -1,6 +1,15 @@
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#pragma clang diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nbl::video
 {
 
@@ -410,9 +419,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.conformanceVersion.patch = vulkan12Properties.conformanceVersion.patch;
             
         // Helper bools :D
-        const bool isIntelGPU = (properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
-        const bool isAMDGPU = (properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
-        const bool isNVIDIAGPU = (properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
+        [[maybe_unused]] const bool isIntelGPU = (properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+        [[maybe_unused]] const bool isAMDGPU = (properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+        [[maybe_unused]] const bool isNVIDIAGPU = (properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
 
         //vulkan12Properties.denormBehaviorIndependence;
         //vulkan12Properties.denormBehaviorIndependence;
@@ -647,7 +656,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             
         properties.limits.dispatchBase = true;
         properties.limits.allowCommandBufferQueryCopies = true; // TODO: REDO WE NOW SUPPORT PERF QUERIES always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
-        properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
+        properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(hlsl::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
             
         auto invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(properties.driverID);
         if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
@@ -1339,6 +1348,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 if (!isExtensionSupported(VK_IMG_FORMAT_PVRTC_EXTENSION_NAME))
                     skip = true;
                 break;
+            default:
+                break;
         }
         if (skip)
             continue;
@@ -1928,3 +1939,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 }
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

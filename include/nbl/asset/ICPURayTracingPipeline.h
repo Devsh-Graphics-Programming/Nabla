@@ -36,7 +36,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         
         inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override
         {
-            switch (stage) 
+            switch (stage)
             {
                 case hlsl::ShaderStage::ESS_RAYGEN:
                   return { &m_raygen, 1 };
@@ -50,7 +50,8 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
                   return m_hitGroups.intersections;
                 case hlsl::ShaderStage::ESS_CALLABLE:
                   return m_callables;
-
+                default:
+                  break;
             }
             return {};
         }
@@ -63,7 +64,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         inline core::vector<SShaderSpecInfo>* getSpecInfoVector(const hlsl::ShaderStage stage)
         {
             if (!isMutable()) return nullptr;
-            switch (stage) 
+            switch (stage)
             {
                 // raygen is not stored as vector so we can't return it here. Use getSpecInfo
                 case hlsl::ShaderStage::ESS_MISS:
@@ -76,7 +77,8 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
                   return &m_hitGroups.intersections;
                 case hlsl::ShaderStage::ESS_CALLABLE:
                   return &m_callables;
-
+                default:
+                  break;
             }
             return nullptr;
         }

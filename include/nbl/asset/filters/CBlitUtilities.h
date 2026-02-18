@@ -91,8 +91,8 @@ public:
 	using convolution_kernel_y_t = std::tuple_element_t<1, convolution_kernels_t>;
 	using convolution_kernel_z_t = std::tuple_element_t<2, convolution_kernels_t>;
 
-	using value_type = convolution_kernel_x_t::value_t;
-	static_assert(std::is_same_v<value_type,convolution_kernel_y_t::value_t> && std::is_same_v<value_type,convolution_kernel_z_t::value_t>);
+	using value_type = typename convolution_kernel_x_t::value_t;
+	static_assert(std::is_same_v<value_type,typename convolution_kernel_y_t::value_t> && std::is_same_v<value_type,typename convolution_kernel_z_t::value_t>);
 
 	using lut_value_type = LutDataType;
 	static_assert(std::is_same_v<lut_value_type,hlsl::float16_t> || std::is_same_v<lut_value_type,hlsl::float32_t>, "Invalid LUT data type.");

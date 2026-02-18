@@ -176,7 +176,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
         struct SDataViewBase
         {
             // mostly checking validity of the format
-            inline operator bool() const {return format==EF_UNKNOWN || !isBlockCompressionFormat(format) && !isDepthOrStencilFormat(format);}
+            inline operator bool() const {return format==EF_UNKNOWN || (!isBlockCompressionFormat(format) && !isDepthOrStencilFormat(format));}
 
             //
             inline bool isFormatted() const {return format!=EF_UNKNOWN && bool(*this);}
@@ -366,10 +366,10 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             inline void encodeElement(const Index elIx, const V& v)
             {
                 if (!composed.isFormatted())
-                    return false;
+                    return;
                 void* const out = getPointer<Index>(elIx);
                 if (!out)
-                    return false;
+                    return;
                 using traits = hlsl::vector_traits<V>;
                 using code_t = std::conditional_t<hlsl::concepts::FloatingPointVector<V>,hlsl::float64_t,std::conditional_t<hlsl::concepts::SignedIntVector<V>,int64_t,uint64_t>>;
                 code_t tmp[traits::Dimension];
@@ -382,9 +382,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                         tmp[i] = v[i];
                 }
                 assert(!isScaledFormat(composed.format)); // handle this by improving the decode functions, not adding workarounds here
-                if (encodePixels<code_t>(composed.format,out,tmp))
-                    return true;
-                return false;
+                encodePixels<code_t>(composed.format,out,tmp);
             }
 
             //
@@ -417,14 +415,14 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                 inline void* getPointer(const Index elIx=0)
                 {
                     if (_this)
-                        return _this->getPointer<Index,BufferType>(elIx);
+                        return _this->template getPointer<Index,BufferType>(elIx);
                     return nullptr;
                 }
                 template<typename V, typename Index=uint32_t> requires hlsl::concepts::Vector<V>
                 inline void encodeElement(const Index elIx, const V& v)
                 {
                     if (_this)
-                        _this->encodeElement<V,Index,BufferType>(elIx,v);
+                        _this->template encodeElement<V,Index,BufferType>(elIx,v);
                 }
         };
         //
@@ -501,7 +499,7 @@ class IIndexableGeometry : public IGeometry<BufferType>
         template<typename _B=BufferType> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
         inline base_t::template MutableElementAccessor<_B> getIndexElementAccessor() {return base_t::template createElementAccessor<_B>(m_indexView);}
 
-        inline const uint64_t getIndexCount() const
+        inline uint64_t getIndexCount() const
         {
             return m_indexView.getElementCount();
         }

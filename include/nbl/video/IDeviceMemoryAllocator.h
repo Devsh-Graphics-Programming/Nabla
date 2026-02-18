@@ -46,7 +46,7 @@ class NBL_API2 IDeviceMemoryAllocator
 		{
 			public:
 				IMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
-					: m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), m_reqs(reqs) {}
+					: m_reqs(reqs), m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)) {}
 
 				static inline uint32_t end() {return 32u;}
 

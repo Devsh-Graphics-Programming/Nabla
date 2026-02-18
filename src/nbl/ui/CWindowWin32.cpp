@@ -32,7 +32,7 @@ CWindowWin32::CWindowWin32(SCreationParams&& params, core::smart_refctd_ptr<CWin
 		core::vector<RAWINPUTDEVICELIST> devices(deviceCount);
 		GetRawInputDeviceList(devices.data(), &deviceCount, sizeof(RAWINPUTDEVICELIST));
 		auto deviceList = devices.data();
-		for (int i = 0; i < deviceCount; i++)
+		for (UINT i = 0; i < deviceCount; i++)
 		{
 			auto hDevice = deviceList[i].hDevice;
 			switch (deviceList[i].dwType)
@@ -76,7 +76,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 		}
 		case WM_SHOWWINDOW:
 		{
-			if (wParam = TRUE)
+			if (wParam == TRUE)
 			{
 				if(!eventCallback->onWindowShown(window)) shouldCallDefProc = false;
 			}
@@ -148,7 +148,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 			RID_DEVICE_INFO deviceInfo;
 			deviceInfo.cbSize = sizeof(RID_DEVICE_INFO);
 			UINT size = sizeof(RID_DEVICE_INFO);
-			bool success = GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
+			GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
 
 			HANDLE deviceHandle = HANDLE(lParam);
 
@@ -205,7 +205,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 		{
 			RAWINPUT* rawInput;
 			UINT size;
-			UINT headerSize;
+			[[maybe_unused]] UINT headerSize;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
 			core::vector<std::byte> data(size); // TODO: preallocate some upper bound, dont want an alloc here!
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, data.data(), &size, sizeof(RAWINPUTHEADER));

@@ -6,6 +6,8 @@
 #include "nbl/system/ILogger.h"
 #include "spirv-tools/libspirv.hpp"
 
+#include <compare>
+
 using namespace nbl::asset;
 
 static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
@@ -152,7 +154,7 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
     // Keep in mind about this layout while reading all the code below: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#LogicalLayout
 
     // skip until entry point
-    while (offset < spirvDwordCount) {
+    while (std::cmp_less(offset, spirvDwordCount)) {
         const auto instruction = spirv[offset];
         const auto [length, opcode] = parse_instruction(instruction);
         if (opcode == spv::OpEntryPoint) break;
@@ -160,7 +162,7 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
     }
 
     // handle entry points removal
-    while (offset < spirvDwordCount) {
+    while (std::cmp_less(offset, spirvDwordCount)) {
         const auto curOffset = offset;
         const auto instruction = spirv[curOffset];
         const auto [length, opcode] = parse_instruction(instruction);
@@ -204,7 +206,7 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
         minimizedSpirv.insert(minimizedSpirv.end(), spirv + curOffset, spirv + offset);
     }
 
-    const auto wereAllEntryPointsFound = foundEntryPoint == entryPoints.size();
+    const auto wereAllEntryPointsFound = std::cmp_equal(foundEntryPoint, entryPoints.size());
     if (!wereAllEntryPointsFound)
     {
         logger.log("Some entry point that is requested to be retained is not found in SPIR-V", system::ILogger::ELL_ERROR);
@@ -223,7 +225,7 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
     }
 
     // handle execution model removal
-    while (offset < spirvDwordCount)
+    while (std::cmp_less(offset, spirvDwordCount))
     {
         const auto curOffset = offset;
         const auto instruction = spirv[curOffset];

@@ -4,6 +4,7 @@
 // See the original file in irrlicht source for authors
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
+#include <nbl/builtin/hlsl/math/intutil.hlsl>
 
 #include "CSTLMeshWriter.h"
 #include "SColor.h"
@@ -12,10 +13,10 @@ using namespace nbl;
 using namespace nbl::asset;
 
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
-constexpr auto POSITION_ATTRIBUTE = 0;
+// constexpr auto POSITION_ATTRIBUTE = 0;
 constexpr auto COLOR_ATTRIBUTE = 1;
-constexpr auto UV_ATTRIBUTE = 2;
-constexpr auto NORMAL_ATTRIBUTE = 3;
+// constexpr auto UV_ATTRIBUTE = 2;
+// constexpr auto NORMAL_ATTRIBUTE = 3;
 
 CSTLMeshWriter::CSTLMeshWriter()
 {
@@ -67,7 +68,7 @@ template <class I>
 inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
 	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
-	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
+	bool hasColor = inputParams.enabledAttribFlags & hlsl::createBitmask({ COLOR_ATTRIBUTE });
     const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
 
     const uint32_t indexCount = buffer->getIndexCount();

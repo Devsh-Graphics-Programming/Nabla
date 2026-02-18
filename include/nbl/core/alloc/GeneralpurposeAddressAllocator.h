@@ -184,7 +184,7 @@ protected:
         //! trims the start of a free block to satisfy the alignment constraint of the start and also the minimum block size of the preceeding free space that would be created
         inline bool alignBlockStart(Block& newBlock, const Block& origBlock, const size_type alignment) const
         {
-            newBlock.startOffset = core::roundUp(origBlock.startOffset,alignment);
+            newBlock.startOffset = hlsl::roundUp(origBlock.startOffset,alignment);
             
         #ifdef _NBL_DEBUG
             assert(&newBlock!=&origBlock);
@@ -193,7 +193,7 @@ protected:
             {
                 auto initialPreceedingBlockSize = newBlock.startOffset-origBlock.startOffset;
                 if (initialPreceedingBlockSize<minBlockSize)
-                    newBlock.startOffset += core::roundUp(minBlockSize-initialPreceedingBlockSize,alignment);
+                    newBlock.startOffset += hlsl::roundUp(minBlockSize-initialPreceedingBlockSize,alignment);
             }
 
             return newBlock.startOffset<origBlock.endOffset;

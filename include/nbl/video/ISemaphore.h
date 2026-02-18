@@ -95,7 +95,7 @@ class ISemaphore : public IBackendObject
                 }
                 inline ~future_t()
                 {
-                    const auto success = wait();
+                    [[maybe_unused]] const auto success = wait();
                     assert(success!=WAIT_RESULT::TIMEOUT);
                     storage_t::destruct();
                 }

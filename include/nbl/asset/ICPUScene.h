@@ -39,18 +39,18 @@ class ICPUScene final : public IAsset, public IScene
             auto materialTableOffsetIt = m_instances.materials.begin();
             for (const auto& targets : m_instances.morphTargets)
             {
-                const auto materialTableOffset = *(materialTableOffsetIt++);
+                [[maybe_unused]] const auto materialTableOffset = *(materialTableOffsetIt++);
                 // TODO: check if `materialTableOffset` can be contained in `materialTable`
                 if (!targets || targets->valid())
                     return false;
-                const auto geoCount = targets->getGeometryExclusiveCount({});
+                [[maybe_unused]] const auto geoCount = targets->getGeometryExclusiveCount({});
                 // TODO: check if `materialTableOffset+geoCount` can be contained in `materialTable`
                 // TODO: check every material is either null or belongs in `m_materialPool`
             }
             return true;
         }
 
-        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
         {
             const auto nextDepth = _depth ? (_depth-1):0;
             // TODO: copy the material_table state/contents!

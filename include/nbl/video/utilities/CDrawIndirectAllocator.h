@@ -46,7 +46,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
             // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
-            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.minSSBOAlignment);
+            explicit_params.drawCommandBuffer.size = hlsl::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.minSSBOAlignment);
 
             creationParams.size = explicit_params.drawCommandBuffer.size;
             explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(std::move(creationParams));
@@ -55,7 +55,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
 
             explicit_params.drawCountBuffer.offset = 0ull;
-            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.minSSBOAlignment);
+            explicit_params.drawCountBuffer.size = hlsl::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.minSSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
             {
                 creationParams.size = explicit_params.drawCountBuffer.size;
@@ -105,7 +105,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
 
         static inline size_t computeReservedSize(const uint64_t bufferSize, const uint32_t maxStride)
         {
-            return DrawIndirectAddressAllocator::reserved_size(core::roundUpToPoT(maxStride),bufferSize,maxStride);
+            return DrawIndirectAddressAllocator::reserved_size(hlsl::roundUpToPoT(maxStride),bufferSize,maxStride);
         }
 
         allocator<uint8_t> m_alloc;

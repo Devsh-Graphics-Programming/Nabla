@@ -234,7 +234,7 @@ class CVertexWelder {
         positionView.decodeElement<hlsl::float32_t3>(index, position);
         auto remappedVertexIndex = INVALID_INDEX;
         as.forEachBroadphaseNeighborCandidates(position, [&](const typename AccelStructureT::vertex_data_t& candidate) {
-          const auto neighborRemappedIndex = remappedVertexIndexes[candidate.index];
+          [[maybe_unused]] const auto neighborRemappedIndex = remappedVertexIndexes[candidate.index];
           // make sure we can only map higher indices to lower indices to disallow loops
           if (candidate.index<index)
           {
@@ -266,7 +266,7 @@ class CVertexWelder {
 
       auto createRemappedIndexView = [&](size_t indexCount) {
         const uint32_t indexSize = remappedRangeFormat == IGeometryBase::EAABBFormat::U16 ? sizeof(uint16_t) : sizeof(uint32_t);
-        auto remappedIndexBuffer = ICPUBuffer::create({indexSize * indexCount, IBuffer::EUF_INDEX_BUFFER_BIT});
+        auto remappedIndexBuffer = ICPUBuffer::create({{indexSize * indexCount, IBuffer::EUF_INDEX_BUFFER_BIT}});
         auto remappedIndexView = ICPUPolygonGeometry::SDataView{
           .composed = {
             .stride = indexSize,

@@ -62,7 +62,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             if (bytes==0 || alignment>Base::maxRequestableAlignment)
                 return invalid_address;
 
-            size_type result = core::roundUp(cursor,alignment);
+            size_type result = hlsl::roundUp(cursor,alignment);
             size_type newCursor = result+bytes;
             if (newCursor>bufferSize || newCursor<cursor) // the extra OR checks for wraparound
                 return invalid_address;

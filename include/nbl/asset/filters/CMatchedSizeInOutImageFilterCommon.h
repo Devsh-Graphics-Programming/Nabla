@@ -198,7 +198,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer()),
 				inRegions,
 				outRegions,
-				outRegions.data(), {}, {}
+				outRegions.data(), {}, {}, {}
 			};
 
 			const asset::TexelBlockInfo srcImageTexelBlockInfo(commonExecuteData.inFormat);

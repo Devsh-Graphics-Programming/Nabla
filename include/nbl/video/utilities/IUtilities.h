@@ -32,8 +32,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     uint32_t allocationAlignmentForBufferImageCopy)
             : m_device(std::move(device))
             , m_logger(nbl::system::logger_opt_smart_ptr(logger))
-            , m_defaultUploadBuffer(std::move(defaultUploadBuffer))
             , m_defaultDownloadBuffer(std::move(defaultDownloadBuffer))
+            , m_defaultUploadBuffer(std::move(defaultUploadBuffer))
             , m_allocationAlignment(allocationAlignment)
             , m_allocationAlignmentForBufferImageCopy(allocationAlignmentForBufferImageCopy)
         {
@@ -581,7 +581,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     auto device = const_cast<ILogicalDevice*>(downstreamingBuffer->getOriginDevice());
                     if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
                     {
-                        const auto nonCoherentAtomSize = device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
+                        [[maybe_unused]] const auto nonCoherentAtomSize = device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
                         auto flushRange = ILogicalDevice::MappedMemoryRange(downstreamingBuffer->getBoundMemory().memory,m_copyRange.offset,m_copyRange.length,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
                         device->invalidateMappedMemoryRanges(1u,&flushRange);
                     }
@@ -698,7 +698,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             {
                 return downloadBufferRangeViaStagingBuffer(default_data_consumption_callback_t(data),nextSubmit,srcBufferRange);
             };
-            if (autoSubmit(submit,lambda).copy<IQueue::RESULT>()!=IQueue::RESULT::SUCCESS)
+            if (autoSubmit(submit,lambda).template copy<IQueue::RESULT>()!=IQueue::RESULT::SUCCESS)
                 return false;
 
             //! NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~! 

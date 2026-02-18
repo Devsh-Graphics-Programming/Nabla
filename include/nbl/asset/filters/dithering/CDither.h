@@ -50,7 +50,7 @@ namespace nbl
 					const auto& return_value = static_cast<CRTP*>(this)->get(static_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
 
 					#ifdef _NBL_DEBUG
-					bool status = return_value >= 0 && return_value <= 1;
+					[[maybe_unused]] bool status = return_value >= 0 && return_value <= 1;
 					assert(status);
 					#endif // _NBL_DEBUG
 					

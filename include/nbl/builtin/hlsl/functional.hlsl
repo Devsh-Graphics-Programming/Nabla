@@ -10,6 +10,9 @@
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
 #include "nbl/builtin/hlsl/array_accessors.hlsl"
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wunknown-attributes"
+#endif
 
 namespace nbl
 {

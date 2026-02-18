@@ -33,7 +33,7 @@ class CBufferLoaderBIN final : public asset::IAssetLoader
 	private:
 		struct SContext
 		{
-			SContext(const size_t& sizeInBytes) : sourceCodeBuffer(ICPUBuffer::create({ sizeInBytes })) {}
+			SContext(const size_t& sizeInBytes) : sourceCodeBuffer(ICPUBuffer::create({{ sizeInBytes }})) {}
 			system::IFile* file;
 			core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
 		};

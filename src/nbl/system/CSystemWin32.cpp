@@ -60,7 +60,7 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
 	HANDLE _native = CreateFileA(p.string().data(), fileAccess, shareMode, &secAttribs, creationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (_native==INVALID_HANDLE_VALUE)
     {
-        auto e = GetLastError();
+        [[maybe_unused]] auto e = GetLastError();
         return nullptr;
     }
 

@@ -132,6 +132,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
         }
 
         // Note(kevinyu): For some reason overload resolution cannot find this function when I name id getSpecInfos. It always use the const variant. Will check on it later.
+        using ICPUPipelineBase::getSpecInfos;
         inline std::span<SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage)
         {
             if (!isMutable()) return {};

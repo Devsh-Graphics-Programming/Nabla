@@ -2,6 +2,12 @@
 #include "nbl/video/CVulkanDeviceMemoryBacked.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#endif
+
 namespace nbl::video
 {
 
@@ -44,3 +50,7 @@ template class CVulkanDeviceMemoryBacked<IGPUBuffer>;
 template class CVulkanDeviceMemoryBacked<IGPUImage>;
 
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

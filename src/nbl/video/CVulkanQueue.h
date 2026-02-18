@@ -16,7 +16,7 @@ class CVulkanQueue final : public IQueue
 {
     public:
         inline CVulkanQueue(ILogicalDevice* logicalDevice, renderdoc_api_t* rdoc, VkInstance vkinst, VkQueue vkq, const uint32_t _famIx, const core::bitflag<IQueue::CREATE_FLAGS> _flags, const float _priority)
-            : IQueue(logicalDevice, _famIx, _flags, _priority), m_vkQueue(vkq), m_rdoc_api(rdoc), m_vkInstance(vkinst) {}
+            : IQueue(logicalDevice, _famIx, _flags, _priority), m_rdoc_api(rdoc), m_vkInstance(vkinst), m_vkQueue(vkq) {}
 
         static inline RESULT getResultFrom(const VkResult result)
         {
@@ -45,8 +45,8 @@ class CVulkanQueue final : public IQueue
         RESULT submit_impl(const std::span<const SSubmitInfo> _submits) override;
         RESULT waitIdle_impl() const override;
 
-        renderdoc_api_t* m_rdoc_api;
-	    VkInstance m_vkInstance;
+        [[maybe_unused]] renderdoc_api_t* m_rdoc_api;
+	    [[maybe_unused]] VkInstance m_vkInstance;
         VkQueue m_vkQueue;
 };
 

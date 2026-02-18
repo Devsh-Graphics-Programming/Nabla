@@ -31,7 +31,7 @@ public:
     //! constructor
     explicit CImageWriterPNG(core::smart_refctd_ptr<system::ISystem>&& sys);
     
-    virtual const char** getAssociatedFileExtensions() const
+    virtual const char** getAssociatedFileExtensions() const override
     {
         static const char* ext[]{ "png", nullptr };
         return ext;
@@ -41,7 +41,7 @@ public:
     
     virtual uint32_t getSupportedFlags() override { return 0u; }
     
-    virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+    virtual uint32_t getForcedFlags() override { return asset::EWF_BINARY; }
     
     virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };

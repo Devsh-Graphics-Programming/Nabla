@@ -65,7 +65,7 @@ namespace core
                      // pointer to reserved memory has to be aligned to SIMD types!
                     assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
                     assert(maxAllocatableAlignment);
-                    assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
+                    assert(hlsl::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
                 #endif // _NBL_DEBUG
             }
             AddressAllocatorBase(CRTP&& other, void* newReservedSpc)

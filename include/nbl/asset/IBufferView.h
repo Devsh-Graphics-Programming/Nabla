@@ -25,7 +25,7 @@ class IBufferView : public IDescriptor
 		size_t getByteSize() const { return m_size; }
 
 	protected:
-		IBufferView(const SBufferRange<BufferType>& underlying, E_FORMAT _format) : m_size(underlying.size), m_offset(underlying.offset), m_buffer(underlying.buffer), m_format(_format)
+		IBufferView(const SBufferRange<BufferType>& underlying, E_FORMAT _format) : m_offset(underlying.offset), m_size(underlying.size), m_buffer(underlying.buffer), m_format(_format)
 		{
 			if (m_size==asset::SBufferRange<BufferType>::WholeBuffer)
 				m_size = m_buffer->getSize()-m_offset;

@@ -93,7 +93,7 @@ class SAssetBundle
 		//! Overloaded operator checking if both collections of Assets\b aren't\b the same arrays in memory
 		inline bool operator!=(const SAssetBundle& _other) const
 		{
-			return !((*this) != _other);
+			return !((*this) == _other);
 		}
 
 	private:

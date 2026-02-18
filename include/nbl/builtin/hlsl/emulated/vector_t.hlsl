@@ -7,6 +7,10 @@
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wunknown-attributes"
+#endif
+
 namespace nbl
 {
 namespace hlsl

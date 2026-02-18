@@ -409,7 +409,7 @@ class CAssetConverter : public core::IReferenceCounted
 					if (invalid || other.invalid)
 						return {false,*this};
 					this_t retval = *this;
-					for (auto byte=0; byte!=pushConstantBytes.size(); byte++)
+					for (size_t byte=0; byte!=pushConstantBytes.size(); byte++)
 						retval.pushConstantBytes[byte] |= other.pushConstantBytes[byte];
 					return {true,retval};
 				}
@@ -537,12 +537,12 @@ class CAssetConverter : public core::IReferenceCounted
 				template<asset::Asset AssetType>
 				inline container_t<AssetType>::iterator find(const lookup_t<AssetType>& assetAndPatch)
 				{
-					return std::get<container_t<AssetType>>(m_containers).find<lookup_t<AssetType>>(assetAndPatch);
+					return std::get<container_t<AssetType>>(m_containers).template find<lookup_t<AssetType>>(assetAndPatch);
 				}
 				template<asset::Asset AssetType>
 				inline container_t<AssetType>::const_iterator find(const lookup_t<AssetType>& assetAndPatch) const
 				{
-					return std::get<container_t<AssetType>>(m_containers).find<lookup_t<AssetType>>(assetAndPatch);
+					return std::get<container_t<AssetType>>(m_containers).template find<lookup_t<AssetType>>(assetAndPatch);
 				}
 				template<asset::Asset AssetType>
 				inline container_t<AssetType>::const_iterator end() const

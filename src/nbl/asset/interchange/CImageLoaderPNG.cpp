@@ -86,9 +86,9 @@ bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file, const system::
 	// Read the first few bytes of the PNG _file
 	system::IFile::success_t success;
 	_file->read(success, buffer, 0, sizeof(buffer));
-    if (!success)
-        return false;
-    
+	if (!success)
+		return false;
+
 	// Check if it really is a PNG _file
 	return !png_sig_cmp(buffer, 0, 8);
 #else
@@ -286,7 +286,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = imgInfo.extent;
 
-	auto texelBuffer = ICPUBuffer::create({ region.bufferRowLength * region.imageExtent.height * texelFormatBytesize });
+	auto texelBuffer = ICPUBuffer::create({{ region.bufferRowLength * region.imageExtent.height * texelFormatBytesize }});
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = region.bufferRowLength*texelFormatBytesize;

@@ -103,7 +103,7 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
                 inline uint32_t getCommandStructSize(const uint32_t i) const
                 {
                     assert(i<count);
-                    if (ptrdiff_t(cmdStride)<(0x1ull<<16ull))
+                    if (ptrdiff_t(cmdStride)<ptrdiff_t(0x1ull<<16ull))
                         return ptrdiff_t(cmdStride);
                     return cmdStride[i];
                 }
@@ -165,7 +165,7 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
         using draw_count_pool_t = CPropertyPool<core::allocator,uint32_t>;
 
         IDrawIndirectAllocator(core::smart_refctd_ptr<draw_count_pool_t>&& _drawCountPool, const uint16_t _maxDrawCommandStride, asset::SBufferRange<IGPUBuffer>&& _drawCommandBlock, void* _drawAllocatorReserved)
-            :   m_drawCountPool(std::move(_drawCountPool)), m_drawAllocator(_drawAllocatorReserved,0u,0u,core::roundUpToPoT<uint32_t>(_maxDrawCommandStride),_drawCommandBlock.size,_maxDrawCommandStride),
+            :   m_drawCountPool(std::move(_drawCountPool)), m_drawAllocator(_drawAllocatorReserved,0u,0u,hlsl::roundUpToPoT<uint32_t>(_maxDrawCommandStride),_drawCommandBlock.size,_maxDrawCommandStride),
                 m_drawCommandBlock(std::move(_drawCommandBlock)), m_drawAllocatorReserved(_drawAllocatorReserved), m_maxDrawCommandStride(_maxDrawCommandStride)
         {
         }

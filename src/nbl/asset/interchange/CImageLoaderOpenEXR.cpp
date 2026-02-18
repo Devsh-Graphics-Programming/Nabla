@@ -123,7 +123,7 @@ using suffixOfChannelBundle = std::string;
 using channelName = std::string;	     									// sytnax if as follows
 using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
-class SContext;
+struct SContext;
 bool readVersionField(IMF::IStream* nblIStream, SContext& ctx, const system::logger_opt_ptr);
 bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 template<typename rgbaFormat>
@@ -328,8 +328,8 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			const auto mapOfChannels = data.second;
 			PerImageData perImageData;
 
-			int width;
-			int height;
+			int width = 0;
+			int height = 0;
 
 			auto params = perImageData.params;
 			params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
@@ -359,7 +359,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			auto image = ICPUImage::create(std::move(params));
 			{ // create image and buffer that backs it
 				const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
-				auto texelBuffer = ICPUBuffer::create({ image->getImageDataSizeInBytes() });
+				auto texelBuffer = ICPUBuffer::create({{ image->getImageDataSizeInBytes() }});
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 				ICPUImage::SBufferCopy& region = regions->front();
 				region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
@@ -561,8 +561,8 @@ bool readHeader(IMF::IStream* nblIStream, SContext& ctx)
 	if (!file.isComplete())
 		return false;
 
-	auto& attribs = ctx.attributes;
-	auto& versionField = ctx.versionField;
+	[[maybe_unused]] auto& attribs = ctx.attributes;
+	// auto& versionField = ctx.versionField;
 
 	/*
 
