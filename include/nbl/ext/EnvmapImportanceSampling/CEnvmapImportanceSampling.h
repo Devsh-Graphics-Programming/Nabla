@@ -69,7 +69,7 @@ class EnvmapImportanceSampling final : public core::IReferenceCounted
 
     static core::smart_refctd_ptr<video::IGPUImageView> createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, std::string_view debugName = "");
 
-    void computeWarpMap(video::IGPUCommandBuffer* cmdBuf);
+    void computeWarpMap(video::IQueue* queue);
 
     // use this to synchronize warp map after computeWarpMap call
     nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t getWarpMapBarrier(
@@ -77,14 +77,25 @@ class EnvmapImportanceSampling final : public core::IReferenceCounted
       core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
       nbl::video::IGPUImage::LAYOUT oldLayout);
 
-    inline core::smart_refctd_ptr<video::IGPUImageView> getLumaMapView()
+    // use this to synchronize luma map after computeWarpMap call
+    nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t getLumaMapBarrier(
+      core::bitflag<nbl::asset::PIPELINE_STAGE_FLAGS> dstStageMask,
+      core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
+      nbl::video::IGPUImage::LAYOUT oldLayout);
+
+    inline core::smart_refctd_ptr<video::IGPUImageView> getLumaMapView() const
     {
       return m_lumaMap;
     }
 
-    inline core::smart_refctd_ptr<video::IGPUImageView> getWarpMapView()
+    inline core::smart_refctd_ptr<video::IGPUImageView> getWarpMapView() const
     {
       return m_warpMap;
+    }
+
+    inline hlsl::float32_t getAvgLuma() const
+    {
+      return m_avgLuma;
     }
 
   protected:
@@ -121,6 +132,8 @@ class EnvmapImportanceSampling final : public core::IReferenceCounted
 
     hlsl::uint32_t2 m_lumaWorkgroupCount;
     hlsl::uint32_t2 m_warpWorkgroupCount;
+
+    hlsl::float32_t m_avgLuma;
 
     core::smart_refctd_ptr<video::IGPUImageView> m_lumaMap;
     core::smart_refctd_ptr<video::IGPUImageView> m_warpMap;

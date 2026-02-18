@@ -27,23 +27,26 @@ namespace
   {
     const auto mipLevels = image->getCreationParameters().mipLevels;
     const auto extent = image->getCreationParameters().extent;
-    for (uint32_t mip_i = 1; mip_i < mipLevels; mip_i++)
+    for (uint32_t srcMip_i = 0; srcMip_i < mipLevels-1; srcMip_i++)
     {
       
       const IGPUCommandBuffer::SImageBlit blit = {
         .srcMinCoord = {0, 0, 0},
-        .srcMaxCoord = {extent.width >> (mip_i - 1), extent.height >> (mip_i - 1), 1},
+        .srcMaxCoord = {extent.width >> (srcMip_i), extent.height >> (srcMip_i), 1},
         .dstMinCoord = {0, 0, 0},
-        .dstMaxCoord = {extent.width >> mip_i, extent.height >> mip_i, 1},
+        .dstMaxCoord = {extent.width >> srcMip_i + 1, extent.height >> srcMip_i + 1, 1},
         .layerCount = 1,
         .srcBaseLayer = 0,
         .dstBaseLayer = 0,
-        .srcMipLevel = mip_i - 1,
-        .dstMipLevel = mip_i,
+        .srcMipLevel = srcMip_i,
+        .dstMipLevel = srcMip_i + 1,
         .aspectMask = IGPUImage::E_ASPECT_FLAGS::EAF_COLOR_BIT,
       };
       cmdBuf->blitImage(image, IImage::LAYOUT::TRANSFER_SRC_OPTIMAL, image, IImage::LAYOUT::TRANSFER_DST_OPTIMAL, { &blit, 1 }, IGPUSampler::E_TEXTURE_FILTER::ETF_LINEAR);
 
+      // last mip no need to transition
+      if (srcMip_i + 1 == mipLevels - 1) break;
+      
       IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barrier = {
         .barrier = {
           .dep = {
@@ -56,7 +59,7 @@ namespace
         .image = image,
         .subresourceRange = {
           .aspectMask = IImage::EAF_COLOR_BIT,
-          .baseMipLevel = mip_i,
+          .baseMipLevel = srcMip_i + 1,
           .levelCount = 1,
           .baseArrayLayer = 0u,
           .layerCount = 1u
@@ -370,7 +373,7 @@ core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapImportanceSampling::cr
   };
 
   const auto setLayout = device->createDescriptorSetLayout(bindings);
-	return device->createPipelineLayout({ &pcRange, 1 }, setLayout, nullptr, nullptr, nullptr);
+	return device->createPipelineLayout({ &pcRange, 1 }, setLayout);
 
 }
 
@@ -397,8 +400,36 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapImportanceSampling::crea
 	return device->createPipelineLayout({}, setLayout, nullptr, nullptr, nullptr);
 }
 
-void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
+void EnvmapImportanceSampling::computeWarpMap(video::IQueue* queue)
 {
+  const auto logicalDevice = m_cachedCreationParams.utilities->getLogicalDevice();
+
+  core::smart_refctd_ptr<IGPUCommandBuffer> cmdBuf;
+	{
+		// commandbuffer should refcount the pool, so it should be 100% legal to drop at the end of the scope
+		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+		if (!gpuCommandPool)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("Compute Warpmap: failed to create command pool.", system::ILogger::ELL_ERROR);
+			return;
+		}
+		gpuCommandPool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &cmdBuf);
+		if (!cmdBuf)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("Compute Warpmap: failed to create command buffer.", system::ILogger::ELL_ERROR);
+			return;
+		}
+	}
+
+  if (!cmdBuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("Compute Warpmap: failed to begin command buffer.", system::ILogger::ELL_ERROR);
+		return;
+	}
+
   const auto lumaMapImage = m_lumaMap->getCreationParameters().image.get();
   const auto lumaMapMipLevels = lumaMapImage->getCreationParameters().mipLevels;
   const auto lumaMapExtent = lumaMapImage->getCreationParameters().extent;
@@ -434,7 +465,7 @@ void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
   // Gen Luma Map
   {
     SLumaGenPushConstants pcData = {};
-    pcData.luminanceScales = { 0.2126729f, 0.7151522f, 0.0721750f, 0.0f };
+    pcData.luminanceScales = { 0.2126729f, 0.7151522f, 0.0721750f };
     pcData.lumaMapResolution = {lumaMapExtent.width, lumaMapExtent.height};
 
     cmdBuf->bindComputePipeline(m_genLumaPipeline.get());
@@ -490,7 +521,67 @@ void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
       }
     };                
     cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
-    generateMipmap(cmdBuf, lumaMapImage);
+    generateMipmap(cmdBuf.get(), lumaMapImage);
+  }
+
+  core::smart_refctd_ptr<IGPUBuffer> lumaTexelBuffer;
+  const auto lumaMapLastMip = lumaMapMipLevels - 1;
+  const auto lumaMapLastMipExtent = lumaMapImage->getMipSize(lumaMapLastMip);
+  const auto lumaMapLastTexelCount = lumaMapLastMipExtent.x * lumaMapLastMipExtent.y * lumaMapLastMipExtent.z;
+  {
+    IGPUImage::SBufferCopy region = {};
+    region.imageSubresource.aspectMask = IImage::EAF_COLOR_BIT;
+    region.imageSubresource.mipLevel = lumaMapLastMip;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent = { lumaMapLastMipExtent.x, lumaMapLastMipExtent.y, lumaMapLastMipExtent.z };
+
+    IGPUBuffer::SCreationParams bufferCreationParams = {};
+    bufferCreationParams.size = lumaMapLastTexelCount * getTexelOrBlockBytesize(EF_R32_SFLOAT);
+    bufferCreationParams.usage = IGPUBuffer::EUF_TRANSFER_DST_BIT;
+    lumaTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));
+    if (!lumaTexelBuffer)
+    {
+      if (auto* logger = logicalDevice->getLogger())
+        logger->log("ScreenShot: failed to create GPU texel buffer.", system::ILogger::ELL_ERROR);
+      return;
+    }
+    auto gpuTexelBufferMemReqs = lumaTexelBuffer->getMemoryReqs();
+    gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+    if (!gpuTexelBufferMemReqs.memoryTypeBits)
+    {
+      if (auto* logger = logicalDevice->getLogger())
+        logger->log("ScreenShot: no down-streaming memory type for texel buffer.", system::ILogger::ELL_ERROR);
+      return;
+    }
+    auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, lumaTexelBuffer.get());
+    if (!gpuTexelBufferMem.isValid())
+    {
+      if (auto* logger = logicalDevice->getLogger())
+        logger->log("ScreenShot: failed to allocate texel buffer memory.", system::ILogger::ELL_ERROR);
+      return;
+    }
+
+    IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
+		decltype(info)::image_barrier_t barrier = {};
+		info.imgBarriers = { &barrier, &barrier + 1 };
+
+		{
+			barrier.barrier.dep.srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT;
+			barrier.barrier.dep.srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT;
+			barrier.barrier.dep.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT;
+			barrier.barrier.dep.dstAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT;
+			barrier.oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL;
+			barrier.newLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL;
+			barrier.image = lumaMapImage;
+			barrier.subresourceRange.aspectMask = IImage::EAF_COLOR_BIT;
+			barrier.subresourceRange.baseMipLevel = lumaMapMipLevels - 1;
+			barrier.subresourceRange.levelCount = 1u;
+			barrier.subresourceRange.baseArrayLayer = 0;
+			barrier.subresourceRange.layerCount = 1;
+			cmdBuf->pipelineBarrier(EDF_NONE,info);
+		}
+    cmdBuf->copyImageToBuffer(lumaMapImage,IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,lumaTexelBuffer.get(),1,&region);
   }
 
   {
@@ -500,7 +591,7 @@ void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
           .dep = {
             .srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
             .srcAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT,
-            .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS,
             .dstAccessMask = ACCESS_FLAGS::SHADER_READ_BITS
           }
         },
@@ -518,10 +609,10 @@ void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
       {
         .barrier = {
           .dep = {
-            .srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
-            .srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
-            .dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
-            .dstAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS
+            .srcStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
+            .srcAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS,
+            .dstAccessMask = ACCESS_FLAGS::SHADER_READ_BITS
           }
         },
         .image = lumaMapImage,
@@ -532,7 +623,7 @@ void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
           .baseArrayLayer = 0u,
           .layerCount = 1u
         },
-        .oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
+        .oldLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
         .newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
       },
       {
@@ -563,6 +654,77 @@ void EnvmapImportanceSampling::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
     cmdBuf->dispatch(m_warpWorkgroupCount.x, m_warpWorkgroupCount.y, 1);
   }
 
+  {
+    IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barriers[] = {
+      {
+        .barrier = {
+          .dep = {
+            .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+            .srcAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS,
+            .dstStageMask = PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS,
+            .dstAccessMask = ACCESS_FLAGS::SHADER_READ_BITS
+          }
+        },
+        .image = warpMapImage,
+        .subresourceRange = {
+          .aspectMask = IImage::EAF_COLOR_BIT,
+          .baseMipLevel = 0,
+          .levelCount = 1,
+          .baseArrayLayer = 0u,
+          .layerCount = 1u
+        },
+        .oldLayout = IImage::LAYOUT::GENERAL,
+        .newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
+      }
+    };                
+    cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+  }
+
+  if (!cmdBuf->end())
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: failed to end command buffer.", system::ILogger::ELL_ERROR);
+		return;
+	}
+
+  {
+    auto signalSemaphore = logicalDevice->createSemaphore(0);
+
+    IQueue::SSubmitInfo info;
+    IQueue::SSubmitInfo::SCommandBufferInfo cmdBufferInfo{ cmdBuf.get() };
+    IQueue::SSubmitInfo::SSemaphoreInfo signalSemaphoreInfo;
+    signalSemaphoreInfo.semaphore = signalSemaphore.get();
+    signalSemaphoreInfo.value = 1;
+    signalSemaphoreInfo.stageMask = PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS;
+    info.commandBuffers = { &cmdBufferInfo, &cmdBufferInfo + 1 };
+    info.signalSemaphores = { &signalSemaphoreInfo, &signalSemaphoreInfo + 1 };
+
+    if (auto* logger = logicalDevice->getLogger())
+      logger->log("Compute Warpmap: submitting copy command buffer.", system::ILogger::ELL_INFO);
+    if (queue->submit({ &info, &info + 1}) != IQueue::RESULT::SUCCESS)
+    {
+      if (auto* logger = logicalDevice->getLogger())
+        logger->log("Compute Warpmap: failed to submit copy command buffer.", system::ILogger::ELL_ERROR);
+      return;
+    }
+
+    ISemaphore::SWaitInfo waitInfo{ signalSemaphore.get(), 1u};
+
+    if (auto* logger = logicalDevice->getLogger())
+      logger->log("Compute Warpmap: waiting for copy completion.", system::ILogger::ELL_INFO);
+    if (logicalDevice->blockForSemaphores({&waitInfo, &waitInfo + 1}) != ISemaphore::WAIT_RESULT::SUCCESS)
+    {
+      if (auto* logger = logicalDevice->getLogger())
+        logger->log("Compute Warpmap: failed to wait for copy completion.", system::ILogger::ELL_ERROR);
+      return;
+    }
+
+    auto* allocation = lumaTexelBuffer->getBoundMemory().memory;
+    const IDeviceMemoryAllocation::MemoryRange range = { 0u, lumaTexelBuffer->getSize() };
+    auto* ptr = reinterpret_cast<hlsl::float32_t*>(allocation->map(range, IDeviceMemoryAllocation::EMCAF_READ));
+
+    m_avgLuma = std::reduce(ptr, ptr + lumaMapLastTexelCount) / float32_t(lumaMapLastTexelCount);
+  }
 }
 
 nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t EnvmapImportanceSampling::getWarpMapBarrier(
@@ -592,5 +754,34 @@ nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t E
     .newLayout = newLayout,
   };
 }
+
+nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t EnvmapImportanceSampling::getLumaMapBarrier(
+  core::bitflag<nbl::asset::PIPELINE_STAGE_FLAGS> dstStageMask,
+  core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
+  nbl::video::IGPUImage::LAYOUT newLayout)
+{
+  const auto lumaMapImage = m_lumaMap->getCreationParameters().image.get();
+  return {
+    .barrier = {
+      .dep = {
+        .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+        .srcAccessMask = ACCESS_FLAGS::SHADER_READ_BITS,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask
+      }
+    },
+    .image = lumaMapImage,
+    .subresourceRange = {
+      .aspectMask = IImage::EAF_COLOR_BIT,
+      .baseMipLevel = 0,
+      .levelCount = 1,
+      .baseArrayLayer = 0u,
+      .layerCount = 1u
+    },
+    .oldLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
+    .newLayout = newLayout,
+  };
+}
+
 
 }
