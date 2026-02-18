@@ -24,6 +24,13 @@ struct Bilinear
     using vector3_type = vector<T, 3>;
     using vector4_type = vector<T, 4>;
 
+    // BijectiveSampler concept types
+    using domain_type = vector2_type;
+    using codomain_type = vector2_type;
+    using density_type = scalar_type;
+    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
+    using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
+
     static Bilinear<T> create(const vector4_type bilinearCoeffs)
     {
         Bilinear<T> retval;
