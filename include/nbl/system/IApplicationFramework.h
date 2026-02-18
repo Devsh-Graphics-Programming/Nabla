@@ -115,7 +115,7 @@ class IApplicationFramework : public core::IReferenceCounted
             };
 
             #ifdef NBL_RELOCATABLE_PACKAGE
-            if (not load(module.dxc, { install.dxc, env.dxc, rel.dxc }))
+            if (not load(module.dxc, { env.dxc, rel.dxc, install.dxc }))
             #else
             if (not load(module.dxc, { build.dxc }))
             #endif
@@ -123,7 +123,7 @@ class IApplicationFramework : public core::IReferenceCounted
 
             #ifdef _NBL_SHARED_BUILD_
             #ifdef NBL_RELOCATABLE_PACKAGE
-            if (not load(module.nabla, { install.nabla, env.nabla, rel.nabla }))
+            if (not load(module.nabla, { env.nabla, rel.nabla, install.nabla }))
             #else
             if (not load(module.nabla, { build.nabla }))
             #endif
