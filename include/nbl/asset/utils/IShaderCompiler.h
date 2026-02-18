@@ -12,9 +12,7 @@
 
 #include "nbl/asset/IShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-
-// Less leakage than "nlohmann/json.hpp" only forward declarations
-#include "nlohmann/json_fwd.hpp"
+#include "nbl/system/json.h"
 
 #include "nbl/builtin/hlsl/enums.hlsl"
 
@@ -111,11 +109,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		//
 		struct SMacroDefinition
 		{
-			friend void to_json(nlohmann::json&, const SMacroDefinition&);
-			friend void from_json(const nlohmann::json&, SMacroDefinition&);
-
 			std::string_view identifier;
 			std::string_view definition;
+
+			friend struct system::json::adl_serializer<SMacroDefinition>;
 		};
 
 		//
@@ -222,9 +219,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							inline bool isStandardInclude() const { return standardInclude; }
 
 						private:
-							friend void to_json(nlohmann::json& j, const SEntry::SPreprocessingDependency& dependency);
-							friend void from_json(const nlohmann::json& j, SEntry::SPreprocessingDependency& dependency);
 							friend class CCache;
+							friend struct system::json::adl_serializer<SEntry::SPreprocessingDependency>;
 
 							// path or identifier
 							system::path requestingSourceDir = "";
@@ -258,8 +254,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							friend class SCompilerArgs;
 							friend class SEntry;
 							friend class CCache;
-							friend void to_json(nlohmann::json&, const SPreprocessorArgs&);
-							friend void from_json(const nlohmann::json&, SPreprocessorArgs&);
+							friend struct system::json::adl_serializer<SPreprocessorArgs>;
 
 							// Default constructor needed for json serialization of SCompilerArgs
 							SPreprocessorArgs() {};
@@ -301,8 +296,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						private:
 							friend class SEntry;
 							friend class CCache;
-							friend void to_json(nlohmann::json&, const SCompilerArgs&);
-							friend void from_json(const nlohmann::json&, SCompilerArgs&);
+							friend struct system::json::adl_serializer<SCompilerArgs>;
 
 							// Default constructor needed for json serialization of SEntry
 							SCompilerArgs() {}

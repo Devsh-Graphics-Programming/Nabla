@@ -16,7 +16,7 @@
 #include "nbl/asset/metadata/CHLSLMetadata.h"
 #include "nlohmann/json.hpp"
 
-using json = nlohmann::json;
+using json = ::nlohmann::json;
 using namespace nbl;
 using namespace nbl::system;
 using namespace nbl::core;
@@ -416,14 +416,14 @@ private:
 
     static void dumpBuildInfo(const argparse::ArgumentParser& program)
     {
-        json j;
+        ::json j;
         auto& modules = j["modules"];
 
         auto serialize = [&](const gtml::GitInfo& info, std::string_view target)
         {
             auto& s = modules[target.data()];
             s["isPopulated"] = info.isPopulated;
-            s["hasUncommittedChanges"] = info.hasUncommittedChanges.has_value() ? json(info.hasUncommittedChanges.value()) : json("UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE");
+            s["hasUncommittedChanges"] = info.hasUncommittedChanges.has_value() ? ::json(info.hasUncommittedChanges.value()) : ::json("UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE");
             s["commitAuthorName"] = info.commitAuthorName;
             s["commitAuthorEmail"] = info.commitAuthorEmail;
             s["commitHash"] = info.commitHash;
