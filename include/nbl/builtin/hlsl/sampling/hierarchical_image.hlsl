@@ -50,6 +50,7 @@ struct LuminanceMapSampler
 
 	vector2_type binarySearch(const uint32_t2 coord)
 	{
+		// We use _lastWarpPixel here for corner sampling
     float32_t2 xi = float32_t2(coord)/ _lastWarpPixel;
 		uint32_t2 p = uint32_t2(0, 0);
 		const uint32_t2 mip2x1 = findMSB(_mapSize.y);
