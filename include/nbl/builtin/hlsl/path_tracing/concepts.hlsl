@@ -52,17 +52,22 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_0 (intersect, T)
 #define NBL_CONCEPT_PARAM_1 (ray, typename T::ray_type)
 #define NBL_CONCEPT_PARAM_2 (scene, typename T::scene_type)
-NBL_CONCEPT_BEGIN(3)
+#define NBL_CONCEPT_PARAM_3 (objectID, typename T::object_handle_type)
+NBL_CONCEPT_BEGIN(4)
 #define intersect NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define objectID NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scene_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::intersect_data_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::intersect_data_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(ray, scene, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
+#undef objectID
 #undef scene
 #undef ray
 #undef intersect

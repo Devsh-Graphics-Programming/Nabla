@@ -151,8 +151,8 @@ struct Unidirectional
                 nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
                 nee_ray.direction = nee_sample.getL().getDirection();
                 nee_ray.intersectionT = t;
-                if (getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && !intersector_type::traceRay(nee_ray, scene).foundHit)
-                    ray.payload.accumulation += neeContrib_pdf.quotient;
+                if (getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold)
+                    ray.payload.accumulation += neeContrib_pdf.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.lightObjectID);
             }
         }
 
