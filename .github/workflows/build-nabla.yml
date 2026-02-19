@@ -31,7 +31,7 @@ jobs:
       matrix:
         # vendor: [msvc, clangcl]
         # TODO: Yas please fix ClangCL, we have a few new compile errors
-        # if we build MSVC then build "run-compiler-explorer" target, for ClangCL build just "nsc"
+        # build full Nabla preset, run-compiler-explorer is pulled in via ALL when Docker integration is enabled
         vendor: [msvc]
         config: [Release, Debug, RelWithDebInfo]
         tag: ['17.13.6']
@@ -125,12 +125,12 @@ jobs:
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
-      - name: Container – Build NSC
+      - name: Container – Build Nabla
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
-              -t run-compiler-explorer --config ${{ matrix.config }}
+              --config ${{ matrix.config }}
 
       - name: Container – Install Nabla
         run: |
