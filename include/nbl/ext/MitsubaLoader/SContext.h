@@ -19,25 +19,22 @@ struct SContext final
 {
 	public:
 		SContext(
-//			const asset::IGeometryCreator* _geomCreator,
-//			const asset::IMeshManipulator* _manipulator,
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
 			CMitsubaMetadata* _metadata
 		);
 
-		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUPolygonGeometry>;
+		using shape_ass_type = core::smart_refctd_ptr<const asset::ICPUGeometryCollection>;
 		shape_ass_type loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape);
-		using group_ass_type = core::smart_refctd_ptr<asset::ICPUGeometryCollection>;
-		group_ass_type loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+		// the `shape` will have to be `Type::SHAPEGROUP`
+		shape_ass_type loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape* shape);
 
 		inline void transferMetadata()
 		{
-			meta->setPolygonGeometryMeta(std::move(shapeCache));
+			meta->setGeometryCollectionMeta(std::move(shapeCache));
+			meta->setGeometryCollectionMeta(std::move(groupCache));
 		}
 
-//		const asset::IGeometryCreator* creator;
-//		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		CMitsubaMetadata* meta;
@@ -45,9 +42,9 @@ struct SContext final
 
 	private:
 		//
-		core::unordered_map<const CElementShape::ShapeGroup*,group_ass_type> groupCache;
+		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryCollectionMetaPair> shapeCache;
 		//
-		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryMetaPair> shapeCache;
+		core::unordered_map<const CElementShape::ShapeGroup*,CMitsubaMetadata::SGeometryCollectionMetaPair> groupCache;
 
 #if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler

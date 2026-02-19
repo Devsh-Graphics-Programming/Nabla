@@ -2,11 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-
-#include <cwchar>
+#include "nbl/builtin/hlsl/math/linalg/basic.hlsl"
+#include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
+
+#include <cwchar>
 
 #if 0
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
@@ -21,7 +23,8 @@
 
 namespace nbl
 {
-using namespace asset;
+using namespace nbl::asset;
+using namespace nbl::hlsl;
 
 namespace ext::MitsubaLoader
 {
@@ -210,8 +213,6 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 	else
 	{
 		SContext ctx(
-//			m_assetMgr->getGeometryCreator(),
-//			m_assetMgr->getMeshManipulator(),
 			IAssetLoader::SAssetLoadContext{ 
 				IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,_params.loaderFlags,_params.logger,_file->getFileName().parent_path()),
 				_file
@@ -224,8 +225,8 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 
 
 		// TODO: abstract/move away since many loaders will need to do this
-		core::unordered_map<const ICPUGeometryCollection*,core::smart_refctd_ptr<ICPUMorphTargets>> morphTargetCache;
-		auto createMorphTargets = [&_params,&morphTargetCache](core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->core::smart_refctd_ptr<ICPUMorphTargets>
+		core::unordered_map<const ICPUGeometryCollection*,core::smart_refctd_ptr<const ICPUMorphTargets>> morphTargetCache;
+		auto createMorphTargets = [&_params,&morphTargetCache](core::smart_refctd_ptr<const ICPUGeometryCollection>&& collection)->core::smart_refctd_ptr<const ICPUMorphTargets>
 		{
 			auto found = morphTargetCache.find(collection.get());
 			if (found!=morphTargetCache.end())
@@ -234,7 +235,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			if (targets)
 			{
 				morphTargetCache[collection.get()] = targets;
-				targets->getTargets()->push_back({.geoCollection=std::move(collection)});
+				targets->getTargets()->push_back({.geoCollection=core::smart_refctd_ptr<ICPUGeometryCollection>(const_cast<ICPUGeometryCollection*>(collection.get()))});
 			}
 			return targets;
 		};
@@ -242,9 +243,14 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		//
 		auto& instances = ctx.scene->getInstances();
 		instances.reserve(result.shapegroups.size());
-		auto addToScene = [&](const CElementShape* shape, core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->void
+		auto addToScene = [&](const CElementShape* shape, core::smart_refctd_ptr<const ICPUGeometryCollection>&& collection)->void
 		{
-			assert(shape && collection);
+			if (!collection)
+			{
+				_params.logger.log("Failed to load a ICPUGeometryCollection for Shape with id %s",LoggerError,shape->id.c_str());
+				return;
+			}
+			assert(shape);
 			auto targets = createMorphTargets(std::move(collection));
 			if (!targets)
 			{
@@ -253,7 +259,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			}
 			const auto index = instances.size();
 			instances.resize(index+1);
-			instances.getMorphTargets()[index] = std::move(targets);
+			instances.getMorphTargets()[index] = core::smart_refctd_ptr<ICPUMorphTargets>(const_cast<ICPUMorphTargets*>(targets.get()));
 			// TODO: add materials (incl emission) to the instances
 			/*
 				auto emitter = shape->obtainEmitter();
@@ -269,6 +275,8 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 					CElementEmitter{} // no backface emission
 				);
 			*/
+			if (shape->transform.matrix[3]!=float32_t4(0,0,0,1))
+				_params.logger.log("Shape with id %s has Non-Affine transformation matrix, last row is not 0,0,0,1!",system::ILogger::ELL_ERROR,shape->id.c_str());
 			instances.getInitialTransforms()[index] = shape->getTransform();
 		};
 
@@ -281,29 +289,14 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 				continue;
 
 			if (shapedef->type!=CElementShape::Type::INSTANCE)
-			{
-				auto geometry = ctx.loadBasicShape(_hierarchyLevel,shapedef);
-				if (!geometry)
-					continue;
-				auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
-				if (!collection)
-				{
-					_params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",LoggerError,shapedef->id.c_str());
-					continue;
-				}
-				// we don't put a transform on the geometry, because we want the transform on the instance
-				collection->getGeometries()->push_back({.geometry=std::move(geometry)});
-				addToScene(shapedef,std::move(collection));
-			}
+				addToScene(shapedef,ctx.loadBasicShape(_hierarchyLevel,shapedef));
 			else // mitsuba is weird and lists instances under a shapegroup instead of having instances reference the shapegroup
 			{
 				// get group reference
 				const CElementShape* parent = shapedef->instance.parent;
 				if (!parent) // we should probably assert this
 					continue;
-				assert(parent->type==CElementShape::Type::SHAPEGROUP);
-				auto collection = ctx.loadShapeGroup(_hierarchyLevel,&parent->shapegroup);
-				addToScene(shapedef,std::move(collection));
+				addToScene(shapedef,ctx.loadShapeGroup(_hierarchyLevel,parent));
 			}
 		}
 		result.shapegroups.clear();
@@ -621,12 +614,10 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 using namespace std::string_literals;
 
 SContext::SContext(
-//	const asset::IGeometryCreator* _geomCreator,
-//	const asset::IMeshManipulator* _manipulator,
 	const asset::IAssetLoader::SAssetLoadContext& _ctx,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CMitsubaMetadata* _metadata
-) : /*creator(_geomCreator), manipulator(_manipulator),*/ inner(_ctx), override_(_override), meta(_metadata)
+) : inner(_ctx), override_(_override), meta(_metadata)
 //,ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
 	auto materialPool = material_compiler3::CTrueIR::create();
@@ -634,11 +625,13 @@ SContext::SContext(
 	frontIR = material_compiler3::CFrontendIR::create();
 }
 
-auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup) -> SContext::group_ass_type
+auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape* shape) -> SContext::shape_ass_type
 {
+	assert(shape->type==CElementShape::Type::SHAPEGROUP);
+	const auto* const shapegroup = &shape->shapegroup;
 	auto found = groupCache.find(shapegroup);
 	if (found!=groupCache.end())
-		return found->second;
+		return found->second.collection;
 	
 	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
 	if (!collection)
@@ -652,80 +645,54 @@ auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape
 			auto child = children[i];
 			if (!child)
 				continue;
-
+			// shape groups cannot contain instances
 			assert(child->type!=CElementShape::Type::INSTANCE);
+
+			shape_ass_type nestedCollection;
 			if (child->type!=CElementShape::Type::SHAPEGROUP)
-			{
-				auto geometry = loadBasicShape(hierarchyLevel,child);
-				if (geometry)
-					geometries->push_back({.transform=child->getTransform(),.geometry=std::move(geometry)});
-			}
+				nestedCollection = loadBasicShape(hierarchyLevel,child);
 			else
-			{
-				auto nestedCollection = loadShapeGroup(hierarchyLevel,&child->shapegroup);
-				if (!nestedCollection)
-					continue;
-				auto* nestedGeometries = nestedCollection->getGeometries();
-				for (auto& ref : *nestedGeometries)
-				{
-					auto& newRef = geometries->emplace_back(std::move(ref));
-					// thankfully because SHAPEGROUPS are not allowed to have transforms we don't need to rack them up
-					//if (newRef.hasTransform())
-					//	newRef.transform = hlsl::mul(thisTransform,newRef.transform);
-					//else
-					//	newRef.transform = thisTransform;
-				}
-			}
+				nestedCollection = loadShapeGroup(hierarchyLevel,child);
+			if (!nestedCollection)
+				continue;
+
+			// note that we flatten geometry collections, different children are their own collections we turn them into one mega-collection
+			const auto& nestedGeometries = nestedCollection->getGeometries();
+			// thankfully because SHAPEGROUPS are not allowed to have transforms we don't need to rack them up
+			//if (newRef.hasTransform())
+			//	newRef.transform = hlsl::mul(thisTransform,newRef.transform);
+			//else
+			//	newRef.transform = thisTransform;
+			geometries->insert(geometries->end(),nestedGeometries.begin(),nestedGeometries.end());
 		}
-		groupCache.insert({shapegroup,collection});
+		CMitsubaMetadata::SGeometryCollectionMetaPair pair = {.collection=collection};
+		pair.meta.m_id = shape->id;
+		pair.meta.type = shape->type;
+		groupCache.insert({shapegroup,std::move(pair)});
 	}
 	return collection;
 }
-
-#if 0
-static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data, asset::IAssetManager* _manager)
-{
-	//creating pipeline just to forward vtx and primitive params
-	auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-		nullptr, nullptr, nullptr, //no layout nor shaders
-		_data.inputParams, 
-		asset::SBlendParams(),
-		_data.assemblyParams,
-		asset::SRasterizationParams()
-		);
-
-	auto mb = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
-		nullptr, nullptr,
-		_data.bindings, std::move(_data.indexBuffer)
-	);
-	mb->setIndexCount(_data.indexCount);
-	mb->setIndexType(_data.indexType);
-	mb->setBoundingBox(_data.bbox);
-	mb->setPipeline(std::move(pipeline));
-	constexpr auto NORMAL_ATTRIBUTE = 3;
-	mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
-
-	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
-	mesh->getMeshBufferVector().push_back(std::move(mb));
-
-	return mesh;
-}
-#endif
 
 auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape) -> SContext::shape_ass_type
 {
 	auto found = shapeCache.find(shape);
 	if (found!=shapeCache.end())
-		return found->second.geom;
+		return found->second.collection;
 
-	core::smart_refctd_ptr<asset::ICPUPolygonGeometry> geo;
-	auto exiter = core::makeRAIIExiter<>([&]()->void
-		{
-			if (geo)
-				return;
-			this->inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
-		}
-	);
+	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
+	if (!collection)
+	{
+		inner.params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",LoggerError,shape->id.c_str());
+		return nullptr;
+	}
+	// the geometry reference transform shall only contain an exceptional and optional relative transform like to make Builtin shapes like cubes, spheres, etc. of different sizes
+	// the whole shape (which is a geometry collection) has its own transform
+	auto* pGeometries = collection->getGeometries();
+	auto addGeometry = [pGeometries](ICPUGeometryCollection::SGeometryReference&& ref)->void
+	{
+		if (ref)
+			pGeometries->push_back(std::move(ref));
+	};
 
 #if 0
 	constexpr uint32_t UV_ATTRIB_ID = 2u;
@@ -775,62 +742,52 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 #endif
 	bool flipNormals = false;
 	bool faceNormals = false;
-	float maxSmoothAngle = hlsl::bit_cast<float>(hlsl::numeric_limits<float>::quiet_NaN);
+	float maxSmoothAngle = bit_cast<float>(numeric_limits<float>::quiet_NaN);
+	auto* const creator = override_->getGeometryCreator();
 	switch (shape->type)
 	{
-#if 0
+		// TODO: cache the simple geos to not spam new objects ?
+		// FAR TODO: create some special non-poly geometries for procedural raycasts?
 		case CElementShape::Type::CUBE:
 		{
-			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
-
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCubeMesh(core::vector3df(2.f)), m_assetMgr);
 			flipNormals = flipNormals!=shape->cube.flipNormals;
+			addGeometry({.geometry=creator->createCube(promote<float32_t3>(2.f))});
 			break;
 		}
 		case CElementShape::Type::SPHERE:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createSphereMesh(1.f,64u,64u), m_assetMgr);
 			flipNormals = flipNormals!=shape->sphere.flipNormals;
 			{
-				core::matrix3x4SIMD tform;
-				tform.setScale(core::vectorSIMDf(shape->sphere.radius,shape->sphere.radius,shape->sphere.radius));
-				tform.setTranslation(shape->sphere.center);
-				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(tform));
+				auto tform = math::linalg::diagonal<float32_t3x4>(shape->sphere.radius);
+				math::linalg::setTranslation(tform,shape->sphere.center);
+				addGeometry({.transform=tform,.geometry=creator->createSphere(1.f,64u,64u)});
 			}
 			break;
 		case CElementShape::Type::CYLINDER:
-			{
-				auto diff = shape->cylinder.p0-shape->cylinder.p1;
-				mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCylinderMesh(1.f, 1.f, 64), m_assetMgr);
-				core::vectorSIMDf up(0.f);
-				float maxDot = diff[0];
-				uint32_t index = 0u;
-				for (auto i = 1u; i < 3u; i++)
-					if (diff[i] < maxDot)
-					{
-						maxDot = diff[i];
-						index = i;
-					}
-				up[index] = 1.f;
-				core::matrix3x4SIMD tform;
-				// mesh is left haded so transforming by LH matrix is fine (I hope but lets check later on)
-				core::matrix3x4SIMD::buildCameraLookAtMatrixLH(shape->cylinder.p0,shape->cylinder.p1,up).getInverse(tform);
-				core::matrix3x4SIMD scale;
-				scale.setScale(core::vectorSIMDf(shape->cylinder.radius,shape->cylinder.radius,core::length(diff).x));
-				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(core::concatenateBFollowedByA(tform,scale)));
-			}
 			flipNormals = flipNormals!=shape->cylinder.flipNormals;
+			{
+				// start off as transpose, so rows are columns
+				float32_t4x3 extra;
+				extra[2] = shape->cylinder.p1 - shape->cylinder.p0;
+				extra[3] = shape->cylinder.p0;
+				math::frisvad(normalize(extra[2]),extra[0],extra[1]);
+				for (auto i=0u; i<2u; i++)
+				{
+					assert(length(extra[i])==1.f);
+					extra[i] *= shape->cylinder.radius;
+				}
+				addGeometry({.transform=transpose(extra),.geometry=creator->createCylinder(1.f,1.f,64u)});
+			}
 			break;
 		case CElementShape::Type::RECTANGLE:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f)), m_assetMgr);
-			flipNormals = flipNormals!=shape->rectangle.flipNormals;
+			flipNormals = flipNormals!=shape->cylinder.flipNormals;
+			addGeometry({.geometry=creator->createRectangle(promote<float32_t2>(1.f))});
 			break;
 		case CElementShape::Type::DISK:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createDiskMesh(1.f,64u), m_assetMgr);
-			flipNormals = flipNormals!=shape->disk.flipNormals;
+			flipNormals = flipNormals!=shape->cylinder.flipNormals;
+			addGeometry({.geometry=creator->createDisk(1.f,64)});
 			break;
-#endif
-#if 0
 		case CElementShape::Type::OBJ:
+#if 0 // TODO: Arek
 			mesh = loadModel(shape->obj.filename);
 			flipNormals = flipNormals!=shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
@@ -898,70 +855,69 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 					}
 				}
 			}
+#endif
 			break;
 		case CElementShape::Type::SERIALIZED:
-			mesh = loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
+//			mesh = loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
 			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;
-#endif
 		case CElementShape::Type::SHAPEGROUP:
 			[[fallthrough]];
 		case CElementShape::Type::INSTANCE:
-			assert(false);
+			assert(false); // this shouldn't happen, our parser code shouldn't reach here
 			break;
 		default:
 //			_NBL_DEBUG_BREAK_IF(true);
 			break;
 	}
-	//
-	if (geo)
+	// handle fail
+	if (pGeometries->empty())
 	{
-#if 0
-		// mesh including meshbuffers needs to be cloned because instance counts and base instances will be changed
-		if (!newMesh)
-			newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
-		// flip normals if necessary
-		if (flipNormals)
-		{
-			for (auto& meshbuffer : mesh->getMeshBufferVector())
-			{
-				auto binding = meshbuffer->getIndexBufferBinding();
-				binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
-				meshbuffer->setIndexBufferBinding(std::move(binding));
-				ctx.manipulator->flipSurfaces(meshbuffer.get());
-			}
-		}
-		// recompute normalis if necessary
-		if (faceNormals || !std::isnan(maxSmoothAngle))
-			for (auto& meshbuffer : mesh->getMeshBufferVector())
-			{
-				const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
-
-				// TODO: make these mesh manipulator functions const-correct
-				auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer.get());
-				ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
-				ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
-					[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-					{
-						if (faceNormals)
-							return a.indexOffset == b.indexOffset;
-						else
-							return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-					});
-				meshbuffer = std::move(newMeshBuffer);
-			}
-		IMeshManipulator::recalculateBoundingBox(newMesh.get());
-		mesh = std::move(newMesh);
-#endif
-		// cache and return
-		CMitsubaMetadata::SGeometryMetaPair geoMeta = {.geom=std::move(geo)};
-		geoMeta.meta.m_id = shape->id;
-		geoMeta.meta.type = shape->type;
-		shapeCache.insert({shape,std::move(geoMeta)});
+		inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+		return nullptr;
 	}
-	return geo;
+
+	// recompute and flip normals if necessary
+	if (faceNormals || !std::isnan(maxSmoothAngle))
+	{
+		for (auto& ref : *pGeometries)
+		{
+			const float smoothAngleCos = cos(radians(maxSmoothAngle));
+
+			auto* const polyGeo = static_cast<ICPUPolygonGeometry*>(ref.geometry.get());
+			ref.geometry = CPolygonGeometryManipulator::createSmoothVertexNormal(
+				CPolygonGeometryManipulator::createUnweldedList(polyGeo,flipNormals,false).get(),false,0.f, // TODO: maybe enable welding based on `!faceNormals` later
+				[faceNormals,smoothAngleCos](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer)
+				{ 
+					if (faceNormals)
+						return v0.index==v1.index;
+					else
+						return dot(v0.weightedNormal,v1.weightedNormal)*rsqrt(dot(v0.weightedNormal,v0.weightedNormal)*dot(v1.weightedNormal,v1.weightedNormal)) >= smoothAngleCos;
+				},
+				true // rewelding or initial unweld mess with all vertex attributes and index buffers, so recompute every hash
+			);
+		}
+	}
+	else if (flipNormals)
+	{
+		for (auto& ref : *pGeometries)
+		{
+			auto* const polyGeo = static_cast<ICPUPolygonGeometry*>(ref.geometry.get());
+			auto flippedGeo = CPolygonGeometryManipulator::createTriangleListIndexing(polyGeo,true,false);
+			CGeometryManipulator::recomputeContentHash(flippedGeo->getIndexView());
+			// TODO: don't we also need to flip the normal buffer values? changing the winding doesn't help because the normals weren't recomputed !
+			ref.geometry = std::move(flippedGeo);
+		}
+	}
+
+	// cache and return
+	CMitsubaMetadata::SGeometryCollectionMetaPair pair = {.collection=collection};
+	pair.meta.m_id = shape->id;
+	pair.meta.type = shape->type;
+	shapeCache.insert({shape,std::move(pair)});
+	return collection;
 }
 
 }
