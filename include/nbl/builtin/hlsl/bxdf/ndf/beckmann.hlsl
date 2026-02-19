@@ -100,7 +100,7 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
     using scalar_type = T;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
+    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
     {
         if (a2 < numeric_limits<scalar_type>::min)
         {
@@ -115,7 +115,7 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
         return ndf;
     }
 
-    scalar_type C2(scalar_type NdotX2)
+    scalar_type C2(scalar_type NdotX2) NBL_CONST_MEMBER_FUNC
     {
         assert(NdotX2 >= scalar_type(0.0));
         return NdotX2 / (a2 * (scalar_type(1.0) - NdotX2));
@@ -131,7 +131,7 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
     using scalar_type = T;
 
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
+    scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
     {
         if (a2 < numeric_limits<scalar_type>::min)
         {
@@ -147,7 +147,7 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         return ndf;
     }
 
-    scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
+    scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2) NBL_CONST_MEMBER_FUNC
     {
         return NdotX2 / (TdotX2 * ax2 + BdotX2 * ay2);
     }
@@ -164,7 +164,7 @@ struct BeckmannGenerateH
     using vector2_type = vector<T, 2>;
     using vector3_type = vector<T, 3>;
 
-    vector3_type __call(const vector3_type localV, const vector2_type u)
+    vector3_type __call(const vector3_type localV, const vector2_type u) NBL_CONST_MEMBER_FUNC
     {
         //stretch
         vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(ax * localV.x, ay * localV.y, localV.z));
@@ -275,7 +275,7 @@ struct Beckmann
     }
 
     template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
+    quant_query_type createQuantQuery(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta) NBL_CONST_MEMBER_FUNC
     {
         quant_query_type quant_query;   // only has members for refraction
         NBL_IF_CONSTEXPR(SupportsTransmission)
@@ -285,7 +285,7 @@ struct Beckmann
         return quant_query;
     }
     template<class Interaction, class MicrofacetCache, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    enable_if_t<C::value && !IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    enable_if_t<C::value && !IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         dg1_query_type dg1_query;
         bool dummy;
@@ -294,7 +294,7 @@ struct Beckmann
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    enable_if_t<C::value && !IsAnisotropic, g2g1_query_type> createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    enable_if_t<C::value && !IsAnisotropic, g2g1_query_type> createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction) NBL_CONST_MEMBER_FUNC
     {
         g2g1_query_type g2_query;
         g2_query.lambda_L = Lambda(__ndf_base.C2(_sample.getNdotL2()));
@@ -302,7 +302,7 @@ struct Beckmann
         return g2_query;
     }
     template<class Interaction, class MicrofacetCache, typename C=bool_constant<IsAnisotropic> NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    enable_if_t<C::value && IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    enable_if_t<C::value && IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         dg1_query_type dg1_query;
         bool dummy;
@@ -311,7 +311,7 @@ struct Beckmann
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    enable_if_t<C::value && IsAnisotropic, g2g1_query_type> createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    enable_if_t<C::value && IsAnisotropic, g2g1_query_type> createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction) NBL_CONST_MEMBER_FUNC
     {
         g2g1_query_type g2_query;
         g2_query.lambda_L = Lambda(__ndf_base.C2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2()));
@@ -319,20 +319,20 @@ struct Beckmann
         return g2_query;
     }
 
-    vector3_type generateH(const vector3_type localV, const vector2_type u)
+    vector3_type generateH(const vector3_type localV, const vector2_type u) NBL_CONST_MEMBER_FUNC
     {
         return __generate_base.__call(localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity)
+    quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
     {
         scalar_type d = __ndf_base.template D<MicrofacetCache>(cache, isInfinity);
         return createDualMeasureQuantity<T, reflect_refract, quant_query_type>(d, interaction.getNdotV(BxDFClampMode::BCM_ABS), _sample.getNdotL(BxDFClampMode::BCM_ABS), quant_query);
     }
 
     template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
-    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_REF_ARG(bool) isInfinity)
+    quant_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query, NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
     {
         scalar_type D = query.getNdf();
         isInfinity = hlsl::isinf(D);
@@ -348,7 +348,7 @@ struct Beckmann
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    scalar_type correlated(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
         scalar_type lambda_L = query.getLambdaL();
@@ -356,7 +356,7 @@ struct Beckmann
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
         scalar_type lambda_L = query.getLambdaL();
