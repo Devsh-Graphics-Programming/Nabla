@@ -10,7 +10,7 @@ using namespace nbl::core;
 using namespace nbl::asset;
 
 // todo NEED DOCS
-IAssetLoader::IAssetLoaderOverride::IAssetLoaderOverride(IAssetManager* _manager) : m_manager(_manager), m_system(m_manager->getSystem())
+IAssetLoader::IAssetLoaderOverride::IAssetLoaderOverride(SCreationParams&& params) : m_creationParams(std::move(params))
 {
 }
 
@@ -20,7 +20,7 @@ SAssetBundle IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::stri
     if ((levelFlag & ECF_DUPLICATE_TOP_LEVEL) == ECF_DUPLICATE_TOP_LEVEL)
         return {};
 
-    auto found = m_manager->findAssets(inSearchKey, inAssetTypes);
+    auto found = getManager()->findAssets(inSearchKey, inAssetTypes);
     if (!found->size())
         return handleSearchFail(inSearchKey, ctx, hierarchyLevel);
     return chooseRelevantFromFound(found->begin(), found->end(), ctx, hierarchyLevel);
@@ -28,11 +28,11 @@ SAssetBundle IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::stri
 
 void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadParams& _params, const uint32_t hierarchyLevel)
 {
-    m_manager->changeAssetKey(asset, supposedKey);
+	getManager()->changeAssetKey(asset, supposedKey);
 
     auto levelFlag = _params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
     if (!(levelFlag&ECF_DONT_CACHE_TOP_LEVEL))
-        m_manager->insertAssetIntoCache(asset,ASSET_MUTABILITY_ON_CACHE_INSERT);
+		getManager()->insertAssetIntoCache(asset,ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
 SAssetBundle IAssetLoader::interm_getAssetInHierarchy(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)

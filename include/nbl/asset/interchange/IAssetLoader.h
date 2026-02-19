@@ -11,6 +11,7 @@
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
+#include "nbl/asset/utils/CGeometryCreator.h"
 
 
 namespace nbl::asset
@@ -171,14 +172,35 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			protected:
 				constexpr static inline bool ASSET_MUTABILITY_ON_CACHE_INSERT = true;
 
-				IAssetManager* m_manager;
 				system::ISystem* m_system;
 
 			public:
-				NBL_API2 IAssetLoaderOverride(IAssetManager* _manager);
+				struct SCreationParams
+				{
+					IAssetManager* manager = nullptr;
+					core::smart_refctd_ptr<CGeometryCreator> geoCreator = nullptr;
+					//core::smart_refctd_ptr<CPolygonGeometryManipulator> polyGeoManip = nullptr;
+				};
+				NBL_API2 IAssetLoaderOverride(SCreationParams&& params);
 
 				//
-				inline IAssetManager* getManager() const {return m_manager;}
+				inline IAssetManager* getManager() const {return m_creationParams.manager;}
+
+				//
+				inline CGeometryCreator* getGeometryCreator()
+				{
+					if (!m_creationParams.geoCreator)
+						m_creationParams.geoCreator = core::make_smart_refctd_ptr<CGeometryCreator>();
+					return m_creationParams.geoCreator.get();
+				}
+
+				/*
+				inline CPolygonGeometryManipulator* getPolygonGeometryManipulator()
+				{
+					if (!m_creationParams.geoCreator)
+						m_creationParams.geoCreator = core::make_smart_refctd_ptr<CPolygonGeometryManipulator>();
+					return m_creationParams.polyGeoManip.get();
+				}*/
 
 				//!
 				template<class AssetT>
@@ -274,6 +296,9 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				//! After a successful load of an asset or sub-asset
 				//TODO change name
 				virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadParams& _params, const uint32_t hierarchyLevel);
+
+			private:
+				SCreationParams m_creationParams;
 		};
 
 	public:
