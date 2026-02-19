@@ -97,7 +97,7 @@ struct Unidirectional
             const uint32_t lightID = matLightID.lightID;
             if (matLightID.isLight())
             {
-                const scalar_type pdf = nee.deferred_pdf(lightID, ray);
+                const scalar_type pdf = nee.deferred_pdf(lightID, ray, scene);
                 scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
                 emissive *= ray.foundEmissiveMIS(pdfSq);
             }
@@ -122,10 +122,11 @@ struct Unidirectional
         scalar_type rcpChoiceProb;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
         partitionRandVariable.leftProb = neeProbability;
+        assert(neeProbability >= 0.0 && neeProbability <= 1.0)
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
-                materialSystem, intersection, interaction,
+                materialSystem, scene, intersection, interaction,
                 isBSDF, eps0, depth
             );
             scalar_type t = ret.newRayMaxT;
@@ -206,8 +207,6 @@ struct Unidirectional
         vector3_type uvw = randGen(0u, sampleIndex, 0u);
         ray_type ray = rayGen.generate(uvw);
         ray.initPayload();
-
-        nee.scene = scene;
 
         // bounces
         bool hit = true;

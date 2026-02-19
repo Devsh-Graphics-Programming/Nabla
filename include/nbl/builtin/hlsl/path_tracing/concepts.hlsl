@@ -129,7 +129,8 @@ struct DummyMaterialSystem {};
 #define NBL_CONCEPT_PARAM_5 (interaction, typename T::interaction_type)
 #define NBL_CONCEPT_PARAM_6 (is_bsdf, bool)
 #define NBL_CONCEPT_PARAM_7 (depth, uint32_t)
-NBL_CONCEPT_BEGIN(8)
+#define NBL_CONCEPT_PARAM_8 (scene, typename T::scene_type)
+NBL_CONCEPT_BEGIN(9)
 #define nee NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -138,6 +139,7 @@ NBL_CONCEPT_BEGIN(8)
 #define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define is_bsdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define depth NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
+#define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -150,10 +152,11 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_quotient_return_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(matSys, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(id, ray, scene)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(matSys, scene, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
 );
+#undef scene
 #undef depth
 #undef is_bsdf
 #undef interaction
