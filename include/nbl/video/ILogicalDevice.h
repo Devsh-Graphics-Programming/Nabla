@@ -831,6 +831,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IShaderCompiler::CCache* writeCache = nullptr;
             std::span<const asset::IShaderCompiler::SMacroDefinition> extraDefines = {};
             hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
+            core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS> debugInfoFlags = asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE;
         };
         core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
