@@ -1,6 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_CONCEPTS_WARP_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_CONCEPTS_WARP_INCLUDED_
 
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 namespace nbl
 {
@@ -9,11 +10,11 @@ namespace hlsl
 namespace sampling
 {
   
-template <typename CodomainT>
+template <typename CodomainT, typename DensityT = float32_t>
 struct WarpResult
 {
   CodomainT dst;
-  float32_t density;
+  DensityT density;
 };
 }
 
@@ -35,6 +36,11 @@ NBL_CONCEPT_BEGIN(3)
 #define dst NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(U::domain_type))
+    ((NBL_CONCEPT_REQ_TYPE)(U::codomain_type))
+    ((NBL_CONCEPT_REQ_TYPE)(U::density_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((warper.template warp<typename U::domain_type>(xi)) , ::nbl::hlsl::is_same_v, sampling::WarpResult<typename U::codomain_type, typename U::density_type>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((warper.template forwardDensity<typename U::domain_type>(xi)) , ::nbl::hlsl::is_same_v, typename U::density_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((warper.template backwardDensity<typename U::codomain_type>(dst)) , ::nbl::hlsl::is_same_v, typename U::density_type))
 );
 #undef dst
 #undef xi
