@@ -15,43 +15,47 @@
 namespace nbl::asset
 {
 
-inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
+class SGeometryWriterCommon
 {
-    if (!view)
-        return nullptr;
-    if (view.composed.format != EF_R32G32B32_SFLOAT)
-        return nullptr;
-    if (view.composed.getStride() != sizeof(hlsl::float32_t3))
-        return nullptr;
-    return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
-}
+    public:
+        static inline const hlsl::float32_t3* getTightFloat3View(const ICPUPolygonGeometry::SDataView& view)
+        {
+            if (!view)
+                return nullptr;
+            if (view.composed.format != EF_R32G32B32_SFLOAT)
+                return nullptr;
+            if (view.composed.getStride() != sizeof(hlsl::float32_t3))
+                return nullptr;
+            return reinterpret_cast<const hlsl::float32_t3*>(view.getPointer());
+        }
 
-inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
-{
-    if (!view)
-        return nullptr;
-    if (view.composed.format != EF_R32G32_SFLOAT)
-        return nullptr;
-    if (view.composed.getStride() != sizeof(hlsl::float32_t2))
-        return nullptr;
-    return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
-}
+        static inline const hlsl::float32_t2* getTightFloat2View(const ICPUPolygonGeometry::SDataView& view)
+        {
+            if (!view)
+                return nullptr;
+            if (view.composed.format != EF_R32G32_SFLOAT)
+                return nullptr;
+            if (view.composed.getStride() != sizeof(hlsl::float32_t2))
+                return nullptr;
+            return reinterpret_cast<const hlsl::float32_t2*>(view.getPointer());
+        }
 
-inline char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
-{
-    if (!dst || dst >= end)
-        return end;
+        static inline char* appendFloatFixed6ToBuffer(char* dst, char* const end, const float value)
+        {
+            if (!dst || dst >= end)
+                return end;
 
-    const auto result = std::to_chars(dst, end, value, std::chars_format::fixed, 6);
-    if (result.ec == std::errc())
-        return result.ptr;
+            const auto result = std::to_chars(dst, end, value, std::chars_format::fixed, 6);
+            if (result.ec == std::errc())
+                return result.ptr;
 
-    const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%.6f", static_cast<double>(value));
-    if (written <= 0)
-        return dst;
-    const size_t writeLen = static_cast<size_t>(written);
-    return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
-}
+            const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%.6f", static_cast<double>(value));
+            if (written <= 0)
+                return dst;
+            const size_t writeLen = static_cast<size_t>(written);
+            return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
+        }
+};
 
 }
 

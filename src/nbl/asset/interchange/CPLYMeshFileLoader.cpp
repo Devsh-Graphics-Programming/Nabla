@@ -1567,8 +1567,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	core::blake3_hash_t precomputedIndexHash = IPreHashed::INVALID_HASH;
 	const uint64_t fileSize = _file->getSize();
 	const bool hashInBuild = computeContentHashes && shouldInlineHashBuild(_params.ioPolicy, fileSize);
-	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true);
-	if (!ioPlan.valid)
+	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(_file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
+	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true, fileMappable);
+	if (!ioPlan.isValid())
 	{
 		_params.logger.log("PLY loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);
 		return {};
@@ -1582,7 +1583,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		_hierarchyLevel,
 		_override
 	};
-	uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + SContext::ReadWindowPaddingBytes) : ioPlan.chunkSizeBytes;
+	uint64_t desiredReadWindow = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (fileSize + SContext::ReadWindowPaddingBytes) : ioPlan.chunkSizeBytes();
 	if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
 	{
 		const bool mappedInput = static_cast<const system::IFile*>(_file)->getMappedPointer() != nullptr;
@@ -1594,7 +1595,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	// start with empty mesh
 	auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
-	SAABBAccumulator3<float> parsedAABB = {};
+	SAABBAccumulator3<float> parsedAABB = createAABBAccumulator<float>();
 	uint32_t vertCount=0;
 	core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers;
 	std::jthread deferredPositionHashThread;
@@ -2119,8 +2120,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 	}
 
-	if (parsedAABB.has)
-		applyAABBToGeometry(geometry.get(), parsedAABB);
+	if (!parsedAABB.empty())
+		geometry->applyAABB(parsedAABB.value);
 	else
 		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 
@@ -2167,7 +2168,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		if (deferredPositionHashThread.joinable())
 			deferredPositionHashThread.join();
-		computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
+		SPolygonGeometryContentHash::computeMissingParallel(geometry.get(), _params.ioPolicy);
 	}
 	else
 	{
@@ -2181,7 +2182,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		.totalBytes = ctx.readBytesTotal,
 		.minBytes = ctx.readMinBytes
 	};
-	if (isTinyIOTelemetryLikely(ioTelemetry, fileSize, _params.ioPolicy))
+	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, fileSize, _params.ioPolicy))
 	{
 		_params.logger.log(
 			"PLY loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
@@ -2206,7 +2207,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		static_cast<unsigned long long>(ioAvgRead),
 		toString(_params.ioPolicy.strategy),
 		toString(ioPlan.strategy),
-		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+		static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
 		ioPlan.reason);
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});

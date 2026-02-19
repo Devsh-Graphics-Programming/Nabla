@@ -40,6 +40,7 @@ enum E_WRITER_FLAGS : uint32_t
     //!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation	
     EWF_MESH_IS_RIGHT_HANDED = 1u << 3u
 };
+using writer_flags_t = core::bitflag<E_WRITER_FLAGS>;
 
 //! A class that defines rules during Asset-writing (saving) process
 /**
@@ -86,7 +87,7 @@ public:
 	*/
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr _logger = nullptr, system::path cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
+        SAssetWriteParams(IAsset* _asset, const writer_flags_t _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr _logger = nullptr, system::path cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
             userData(_userData), logger(_logger), workingDirectory(cwd), ioPolicy(_ioPolicy)
@@ -94,7 +95,7 @@ public:
         }
 
         const IAsset* rootAsset;			//!< An Asset on which entire writing process is based.
-        E_WRITER_FLAGS flags;				//!< Flags set by user that defines rules during writing process.
+        writer_flags_t flags;				//!< Flags set by user that defines rules during writing process.
         float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched.
         size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
         const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
@@ -132,10 +133,10 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Returns which flags are supported for writing modes
-    virtual uint32_t getSupportedFlags() = 0;
+    virtual writer_flags_t getSupportedFlags() = 0;
 
     //! Returns which flags are forced for writing modes, i.e. a writer can only support binary
-    virtual uint32_t getForcedFlags() = 0;
+    virtual writer_flags_t getForcedFlags() = 0;
 
     //! Override class to facilitate changing how assets are written, especially the sub-assets
 	/*
@@ -148,7 +149,7 @@ public:
         //! The only reason these functions are not declared static is to allow stateful overrides
     public:
         //! To allow the asset writer to write different sub-assets with different flags
-        inline virtual E_WRITER_FLAGS getAssetWritingFlags(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual writer_flags_t getAssetWritingFlags(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return ctx.params.flags;
         }

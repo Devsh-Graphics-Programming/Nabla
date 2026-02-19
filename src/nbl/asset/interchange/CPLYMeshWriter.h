@@ -20,8 +20,8 @@ class CPLYMeshWriter : public IGeometryWriter
 
 		const char** getAssociatedFileExtensions() const override;
 
-		uint32_t getSupportedFlags() override;
-		uint32_t getForcedFlags() override;
+		writer_flags_t getSupportedFlags() override;
+		writer_flags_t getForcedFlags() override;
 
 		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };

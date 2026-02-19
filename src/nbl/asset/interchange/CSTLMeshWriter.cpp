@@ -94,14 +94,14 @@ const char** CSTLMeshWriter::getAssociatedFileExtensions() const
 	return ext;
 }
 
-uint32_t CSTLMeshWriter::getSupportedFlags()
+writer_flags_t CSTLMeshWriter::getSupportedFlags()
 {
 	return asset::EWF_BINARY;
 }
 
-uint32_t CSTLMeshWriter::getForcedFlags()
+writer_flags_t CSTLMeshWriter::getForcedFlags()
 {
-	return 0u;
+	return EWF_NONE;
 }
 
 bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
@@ -128,8 +128,8 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 	_params.logger.log("WRITING STL: writing the file %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
-	const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(context.writeContext, geom, 0u);
-	const bool binary = (flags & asset::EWF_BINARY) != 0u;
+	const auto flags = _override->getAssetWritingFlags(context.writeContext, geom, 0u);
+	const bool binary = flags.hasAnyFlag(asset::EWF_BINARY);
 
 	uint64_t expectedSize = 0ull;
 	bool sizeKnown = false;
@@ -139,8 +139,9 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		sizeKnown = true;
 	}
 
-	context.ioPlan = resolveFileIOPolicy(_params.ioPolicy, expectedSize, sizeKnown);
-	if (!context.ioPlan.valid)
+	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
+	context.ioPlan = resolveFileIOPolicy(_params.ioPolicy, expectedSize, sizeKnown, fileMappable);
+	if (!context.ioPlan.isValid())
 	{
 		_params.logger.log("STL writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), context.ioPlan.reason);
 		return false;
@@ -149,7 +150,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (context.ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile && sizeKnown)
 		context.ioBuffer.reserve(static_cast<size_t>(expectedSize));
 	else
-		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes, stl_writer_detail::IoFallbackReserveBytes)));
+		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes(), stl_writer_detail::IoFallbackReserveBytes)));
 
 	const bool written = binary ? writeMeshBinary(geom, &context) : writeMeshASCII(geom, &context);
 	if (!written)
@@ -161,7 +162,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 	const uint64_t ioMinWrite = context.writeTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = context.writeTelemetry.getAvgOrZero();
-	if (isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset, _params.ioPolicy))
+	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset, _params.ioPolicy))
 	{
 		_params.logger.log(
 			"STL writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -182,7 +183,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		static_cast<unsigned long long>(ioAvgWrite),
 		toString(_params.ioPolicy.strategy),
 		toString(context.ioPlan.strategy),
-		static_cast<unsigned long long>(context.ioPlan.chunkSizeBytes),
+		static_cast<unsigned long long>(context.ioPlan.chunkSizeBytes()),
 		context.ioPlan.reason);
 
 	return true;
@@ -238,7 +239,7 @@ bool writeBytes(SContext* context, const void* data, size_t size)
 		case SResolvedFileIOPolicy::Strategy::Chunked:
 		default:
 		{
-			const size_t chunkSize = static_cast<size_t>(context->ioPlan.chunkSizeBytes);
+			const size_t chunkSize = static_cast<size_t>(context->ioPlan.chunkSizeBytes());
 			size_t remaining = size;
 			while (remaining > 0ull)
 			{
@@ -272,15 +273,15 @@ bool appendLiteral(char*& cursor, char* const end, const char* text, const size_
 
 bool appendVectorAsAsciiLine(char*& cursor, char* const end, const core::vectorSIMDf& v)
 {
-	cursor = appendFloatFixed6ToBuffer(cursor, end, v.X);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, end, v.X);
 	if (cursor >= end)
 		return false;
 	*(cursor++) = ' ';
-	cursor = appendFloatFixed6ToBuffer(cursor, end, v.Y);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, end, v.Y);
 	if (cursor >= end)
 		return false;
 	*(cursor++) = ' ';
-	cursor = appendFloatFixed6ToBuffer(cursor, end, v.Z);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, end, v.Z);
 	if (cursor >= end)
 		return false;
 	*(cursor++) = '\n';
@@ -480,7 +481,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	if (!posView)
 		return false;
 
-	const bool flipHandedness = !(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
+	const bool flipHandedness = !context->writeContext.params.flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 	const size_t vertexCount = posView.getElementCount();
 	if (vertexCount == 0ull)
 		return false;
@@ -506,8 +507,8 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	const auto& normalView = geom->getNormalView();
 	const bool hasNormals = static_cast<bool>(normalView);
 	const auto* const colorView = stlFindColorView(geom, vertexCount);
-	const hlsl::float32_t3* const tightPositions = getTightFloat3View(posView);
-	const hlsl::float32_t3* const tightNormals = hasNormals ? getTightFloat3View(normalView) : nullptr;
+	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightFloat3View(posView);
+	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightFloat3View(normalView) : nullptr;
 	const float handednessSign = flipHandedness ? -1.f : 1.f;
 
 	auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out)->bool
@@ -808,7 +809,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		}
 	}
 
-	const bool writeOk = writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
+	const bool writeOk = SInterchangeIOCommon::writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
 	if (writeOk)
 		context->fileOffset += outputSize;
 	return writeOk;
@@ -827,7 +828,7 @@ bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	if (!posView)
 		return false;
 	const auto& normalView = geom->getNormalView();
-	const bool flipHandedness = !(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
+	const bool flipHandedness = !context->writeContext.params.flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
 	const std::string_view solidName = name.empty() ? std::string_view(stl_writer_detail::AsciiDefaultName) : std::string_view(name);

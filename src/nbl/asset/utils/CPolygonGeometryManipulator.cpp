@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CVertexWelder.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
@@ -20,89 +21,115 @@
 namespace nbl::asset
 {
 
-core::blake3_hash_t CPolygonGeometryManipulator::computeDeterministicContentHash(const ICPUPolygonGeometry* geo)
+void CPolygonGeometryManipulator::collectUniqueBuffers(ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers)
 {
 	if (!geo)
-		return IPreHashed::INVALID_HASH;
-
-	const auto* indexing = geo->getIndexingCallback();
-	if (!indexing)
-		return IPreHashed::INVALID_HASH;
-
-	// Keep this as a standalone helper instead of an IPreHashed override on geometry.
-	// A polygon geometry is a composition of shared views over external buffers, not a single owned payload.
-	// Caching a hash inside the geometry object would need global invalidation across external buffer mutations.
-	core::blake3_hasher hasher;
-	hasher << indexing->degree();
-	hasher << indexing->rate();
-	hasher << indexing->knownTopology();
-
-	auto hashView = [&](const IGeometry<ICPUBuffer>::SDataView& view)->bool
 	{
-		if (!view)
+		outBuffers.clear();
+		return;
+	}
+
+	outBuffers.clear();
+	auto appendBuffer = [&outBuffers](const IGeometry<ICPUBuffer>::SDataView& view)->void
+	{
+		if (!view || !view.src.buffer)
+			return;
+		for (const auto& existing : outBuffers)
 		{
-			hasher << false;
-			return true;
+			if (existing.get() == view.src.buffer.get())
+				return;
 		}
-
-		hasher << true;
-		hasher << view.composed.format;
-		hasher << view.composed.stride;
-		hasher << view.composed.getStride();
-		hasher << view.composed.rangeFormat;
-		hasher << view.src.offset;
-		hasher << view.src.actualSize();
-
-		const auto* const buffer = view.src.buffer.get();
-		if (!buffer || buffer->missingContent())
-			return false;
-
-		const auto* const data = reinterpret_cast<const uint8_t*>(buffer->getPointer());
-		if (!data)
-			return false;
-
-		hasher.update(data + view.src.offset, view.src.actualSize());
-		return true;
+		outBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer));
 	};
 
-	if (!hashView(geo->getPositionView()))
-		return IPreHashed::INVALID_HASH;
-	if (!hashView(geo->getIndexView()))
-		return IPreHashed::INVALID_HASH;
-	if (!hashView(geo->getNormalView()))
-		return IPreHashed::INVALID_HASH;
-
-	hasher << geo->getJointCount();
-	if (geo->isSkinned())
+	appendBuffer(geo->getPositionView());
+	appendBuffer(geo->getIndexView());
+	appendBuffer(geo->getNormalView());
+	for (const auto& view : *geo->getAuxAttributeViews())
+		appendBuffer(view);
+	for (const auto& view : *geo->getJointWeightViews())
 	{
-		if (const auto* jointOBBView = geo->getJointOBBView(); jointOBBView)
-		{
-			if (!hashView(*jointOBBView))
-				return IPreHashed::INVALID_HASH;
-		}
-		else
-			hasher << false;
+		appendBuffer(view.indices);
+		appendBuffer(view.weights);
+	}
+	if (auto jointOBB = geo->getJointOBBView(); jointOBB)
+		appendBuffer(*jointOBB);
+}
 
-		const auto& jointWeightViews = geo->getJointWeightViews();
-		hasher << jointWeightViews.size();
-		for (const auto& view : jointWeightViews)
-		{
-			if (!hashView(view.indices))
-				return IPreHashed::INVALID_HASH;
-			if (!hashView(view.weights))
-				return IPreHashed::INVALID_HASH;
-		}
+void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy, const EContentHashMode mode)
+{
+	if (!geo)
+		return;
+
+	core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+	collectUniqueBuffers(geo, buffers);
+	if (buffers.empty())
+		return;
+
+	core::vector<size_t> pending;
+	pending.reserve(buffers.size());
+	uint64_t totalBytes = 0ull;
+	for (size_t i = 0ull; i < buffers.size(); ++i)
+	{
+		auto& buffer = buffers[i];
+		if (!buffer)
+			continue;
+		if (mode == EContentHashMode::MissingOnly && buffer->getContentHash() != IPreHashed::INVALID_HASH)
+			continue;
+		totalBytes += static_cast<uint64_t>(buffer->getSize());
+		pending.push_back(i);
+	}
+	if (pending.empty())
+		return;
+
+	const size_t hw = resolveLoaderHardwareThreads();
+	const uint8_t* hashSampleData = nullptr;
+	uint64_t hashSampleBytes = 0ull;
+	for (const auto pendingIx : pending)
+	{
+		auto& buffer = buffers[pendingIx];
+		const auto* ptr = reinterpret_cast<const uint8_t*>(buffer->getPointer());
+		if (!ptr)
+			continue;
+		hashSampleData = ptr;
+		hashSampleBytes = resolveLoaderRuntimeSampleBytes(ioPolicy, static_cast<uint64_t>(buffer->getSize()));
+		if (hashSampleBytes > 0ull)
+			break;
 	}
 
-	const auto& auxAttributeViews = geo->getAuxAttributeViews();
-	hasher << auxAttributeViews.size();
-	for (const auto& view : auxAttributeViews)
+	SLoaderRuntimeTuningRequest tuningRequest = {};
+	tuningRequest.inputBytes = totalBytes;
+	tuningRequest.totalWorkUnits = pending.size();
+	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, loaderRuntimeCeilDiv(totalBytes, static_cast<uint64_t>(pending.size())));
+	tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+	const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, ioPolicy.runtimeTuning.workerHeadroom);
+	tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(pending.size(), hardMaxWorkers));
+	tuningRequest.targetChunksPerWorker = ioPolicy.runtimeTuning.hashTaskTargetChunksPerWorker;
+	tuningRequest.sampleData = hashSampleData;
+	tuningRequest.sampleBytes = hashSampleBytes;
+	const auto tuning = tuneLoaderRuntime(ioPolicy, tuningRequest);
+	const size_t workerCount = std::min(tuning.workerCount, pending.size());
+
+	if (workerCount > 1ull)
 	{
-		if (!hashView(view))
-			return IPreHashed::INVALID_HASH;
+		loaderRuntimeDispatchWorkers(workerCount, [&](const size_t workerIx)
+		{
+			const size_t beginIx = (pending.size() * workerIx) / workerCount;
+			const size_t endIx = (pending.size() * (workerIx + 1ull)) / workerCount;
+			for (size_t i = beginIx; i < endIx; ++i)
+			{
+				auto& buffer = buffers[pending[i]];
+				buffer->setContentHash(buffer->computeContentHash());
+			}
+		});
+		return;
 	}
 
-	return static_cast<core::blake3_hash_t>(hasher);
+	for (const auto pendingIx : pending)
+	{
+		auto& buffer = buffers[pendingIx];
+		buffer->setContentHash(buffer->computeContentHash());
+	}
 }
 
 

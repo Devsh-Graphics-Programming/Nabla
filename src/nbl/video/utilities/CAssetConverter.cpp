@@ -1183,9 +1183,9 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	auto patchedParams = lookup.asset->getCreationParams();
 	assert(lookup.patch->usage.hasFlags(patchedParams.usage));
 	patchedParams.usage = lookup.patch->usage;
-	auto contentHash = lookup.asset->getContentHash();
+	const auto contentHash = lookup.asset->getContentHash();
 	if (contentHash==NoContentHash)
-		contentHash = lookup.asset->computeContentHash();
+		return false;
 	hasher.update(&patchedParams,sizeof(patchedParams)) << contentHash;
 	return true;
 }

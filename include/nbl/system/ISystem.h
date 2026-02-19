@@ -105,7 +105,8 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         void createFile(
             future_t<core::smart_refctd_ptr<IFile>>& future, // creation may happen on a dedicated thread, so its async
             path filename, // absolute path within our virtual filesystem
-            const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, // access flags (IMPORTANT: files from most archives wont open with ECF_WRITE bit)
+            const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, // intended access flags (IMPORTANT: files from most archives wont open with ECF_WRITE bit)
+            // actual file flags may be downgraded when backend/archive cannot honor all requested flags (for example mapping/coherency)
             const std::string_view& accessToken="" // usually password for archives, but should be SSH key for URL downloads
         );
         

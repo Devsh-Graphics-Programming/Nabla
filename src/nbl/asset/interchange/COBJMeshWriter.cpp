@@ -33,14 +33,14 @@ const char** COBJMeshWriter::getAssociatedFileExtensions() const
 	return ext;
 }
 
-uint32_t COBJMeshWriter::getSupportedFlags()
+writer_flags_t COBJMeshWriter::getSupportedFlags()
 {
-	return 0u;
+	return EWF_NONE;
 }
 
-uint32_t COBJMeshWriter::getForcedFlags()
+writer_flags_t COBJMeshWriter::getForcedFlags()
 {
-	return 0u;
+	return EWF_NONE;
 }
 
 namespace obj_writer_detail
@@ -91,13 +91,13 @@ void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSiz
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, x);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, x);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, y);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, y);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, z);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, z);
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
@@ -115,10 +115,10 @@ void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSiz
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, x);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, x);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = appendFloatFixed6ToBuffer(cursor, lineEnd, y);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, y);
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
@@ -299,16 +299,16 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
-	const bool flipHandedness = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
+	const bool flipHandedness = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 	std::string output;
 	output.reserve(vertexCount * ApproxObjBytesPerVertex + faceCount * ApproxObjBytesPerFace);
 
 	output.append("# Nabla OBJ\n");
 
 	hlsl::float64_t4 tmp = {};
-	const hlsl::float32_t3* const tightPositions = getTightFloat3View(positionView);
-	const hlsl::float32_t3* const tightNormals = hasNormals ? getTightFloat3View(normalView) : nullptr;
-	const hlsl::float32_t2* const tightUV = hasUVs ? getTightFloat2View(*uvView) : nullptr;
+	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightFloat3View(positionView);
+	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightFloat3View(normalView) : nullptr;
+	const hlsl::float32_t2* const tightUV = hasUVs ? SGeometryWriterCommon::getTightFloat2View(*uvView) : nullptr;
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
 		float x = 0.f;
@@ -410,17 +410,18 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		appendFaceLine(output, faceIndexStorage, faceIndexRefs, f0, f1, f2);
 	}
 
-	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true);
-	if (!ioPlan.valid)
+	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
+	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true, fileMappable);
+	if (!ioPlan.isValid())
 	{
 		_params.logger.log("OBJ writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
 		return false;
 	}
 
-	const bool writeOk = writeFileWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
+	const bool writeOk = SInterchangeIOCommon::writeFileWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
 	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-	if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy))
+	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy))
 	{
 		_params.logger.log(
 			"OBJ writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -442,7 +443,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		static_cast<unsigned long long>(ioAvgWrite),
 		toString(_params.ioPolicy.strategy),
 		toString(ioPlan.strategy),
-		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+		static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
 		ioPlan.reason);
 
 	return writeOk;

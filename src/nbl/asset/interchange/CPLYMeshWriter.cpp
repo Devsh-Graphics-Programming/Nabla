@@ -36,14 +36,14 @@ const char** CPLYMeshWriter::getAssociatedFileExtensions() const
     return ext;
 }
 
-uint32_t CPLYMeshWriter::getSupportedFlags()
+writer_flags_t CPLYMeshWriter::getSupportedFlags()
 {
     return asset::EWF_BINARY;
 }
 
-uint32_t CPLYMeshWriter::getForcedFlags()
+writer_flags_t CPLYMeshWriter::getForcedFlags()
 {
-    return 0u;
+    return EWF_NONE;
 }
 
 namespace ply_writer_detail
@@ -562,8 +562,8 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         faceCount = vertexCount / 3u;
     }
     const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
-    const bool binary = (flags & E_WRITER_FLAGS::EWF_BINARY) != 0u;
-    const bool flipVectors = !(flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
+    const bool binary = flags.hasAnyFlag(E_WRITER_FLAGS::EWF_BINARY);
+    const bool flipVectors = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
     const bool write16BitIndices = vertexCount <= static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1ull;
 
     EPlyScalarType positionScalarType = selectPlyScalarType(positionView.composed.format);
@@ -665,15 +665,16 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             return false;
 
         const size_t outputSize = header.size() + body.size();
-        const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true);
-        if (!ioPlan.valid)
+        const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
+        const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
+        if (!ioPlan.isValid())
         {
             _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
             return false;
         }
 
         outputBytes = outputSize;
-        writeOk = writeTwoBuffersWithPolicy(
+        writeOk = SInterchangeIOCommon::writeTwoBuffersWithPolicy(
             file,
             ioPlan,
             reinterpret_cast<const uint8_t*>(header.data()),
@@ -683,7 +684,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             &ioTelemetry);
         const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
         const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-        if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
+        if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
         {
             _params.logger.log(
                 "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -706,7 +707,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             static_cast<unsigned long long>(ioAvgWrite),
             toString(_params.ioPolicy.strategy),
             toString(ioPlan.strategy),
-            static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+            static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
             ioPlan.reason);
         return writeOk;
     }
@@ -717,15 +718,16 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         return false;
 
     const size_t outputSize = header.size() + body.size();
-    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true);
-    if (!ioPlan.valid)
+    const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
+    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
+    if (!ioPlan.isValid())
     {
         _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
         return false;
     }
 
     outputBytes = outputSize;
-    writeOk = writeTwoBuffersWithPolicy(
+    writeOk = SInterchangeIOCommon::writeTwoBuffersWithPolicy(
         file,
         ioPlan,
         reinterpret_cast<const uint8_t*>(header.data()),
@@ -735,7 +737,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         &ioTelemetry);
     const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
     const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-    if (isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
+    if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
     {
         _params.logger.log(
             "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -758,7 +760,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         static_cast<unsigned long long>(ioAvgWrite),
         toString(_params.ioPolicy.strategy),
         toString(ioPlan.strategy),
-        static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+        static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
         ioPlan.reason);
     return writeOk;
 }

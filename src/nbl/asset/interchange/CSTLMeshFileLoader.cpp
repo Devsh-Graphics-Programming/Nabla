@@ -247,8 +247,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (filesize < SSTLContext::TextProbeBytes)
 		return {};
 
-	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true);
-	if (!ioPlan.valid)
+	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(_file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
+	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true, fileMappable);
+	if (!ioPlan.isValid())
 	{
 		_params.logger.log("STL loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);
 		return {};
@@ -270,7 +271,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		else
 		{
 			wholeFilePayload.resize(filesize + 1ull);
-			if (!readFileExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
+			if (!SInterchangeIOCommon::readFileExact(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, &context.ioTelemetry))
 				return {};
 			wholeFilePayload[filesize] = 0u;
 			wholeFileData = wholeFilePayload.data();
@@ -290,7 +291,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			hasPrefix = filesize >= SSTLContext::BinaryPrefixBytes && readFileExact(context.inner.mainFile, prefix.data(), 0ull, SSTLContext::BinaryPrefixBytes, &context.ioTelemetry);
+			hasPrefix = filesize >= SSTLContext::BinaryPrefixBytes && SInterchangeIOCommon::readFileExact(context.inner.mainFile, prefix.data(), 0ull, SSTLContext::BinaryPrefixBytes, &context.ioTelemetry);
 		}
 		bool startsWithSolid = false;
 		if (hasPrefix)
@@ -302,7 +303,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			char header[SSTLContext::TextProbeBytes] = {};
 			if (wholeFileData)
 				std::memcpy(header, wholeFileData, sizeof(header));
-			else if (!readFileExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
+			else if (!SInterchangeIOCommon::readFileExact(context.inner.mainFile, header, 0ull, sizeof(header), &context.ioTelemetry))
 				return {};
 			startsWithSolid = (std::strncmp(header, "solid ", SSTLContext::TextProbeBytes) == 0);
 		}
@@ -329,7 +330,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-	SAABBAccumulator3<float> parsedAABB = {};
+	SAABBAccumulator3<float> parsedAABB = createAABBAccumulator<float>();
 	uint64_t vertexCount = 0ull;
 
 	if (!binary && wholeFileDataIsMapped)
@@ -350,7 +351,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		uint32_t triangleCount32 = binaryTriCountFromDetect;
 		if (!hasBinaryTriCountFromDetect)
 		{
-			if (!readFileExact(context.inner.mainFile, &triangleCount32, SSTLContext::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+			if (!SInterchangeIOCommon::readFileExact(context.inner.mainFile, &triangleCount32, SSTLContext::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
 				return {};
 		}
 
@@ -369,7 +370,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			core::vector<uint8_t> payload;
 			payload.resize(dataSize);
-			if (!readFileWithPolicy(context.inner.mainFile, payload.data(), SSTLContext::BinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
+			if (!SInterchangeIOCommon::readFileWithPolicy(context.inner.mainFile, payload.data(), SSTLContext::BinaryPrefixBytes, dataSize, ioPlan, &context.ioTelemetry))
 				return {};
 			wholeFilePayload = std::move(payload);
 			payloadData = wholeFilePayload.data();
@@ -722,7 +723,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (!wholeFileData)
 		{
 			wholeFilePayload.resize(filesize + 1ull);
-			if (!readFileWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
+			if (!SInterchangeIOCommon::readFileWithPolicy(context.inner.mainFile, wholeFilePayload.data(), 0ull, filesize, ioPlan, &context.ioTelemetry))
 				return {};
 			wholeFilePayload[filesize] = 0u;
 			wholeFileData = wholeFilePayload.data();
@@ -800,18 +801,18 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	if (computeContentHashes)
 	{
-		computeMissingGeometryContentHashesParallel(geometry.get(), _params.ioPolicy);
+		SPolygonGeometryContentHash::computeMissingParallel(geometry.get(), _params.ioPolicy);
 	}
 
-	if (parsedAABB.has)
-		applyAABBToGeometry(geometry.get(), parsedAABB);
+	if (!parsedAABB.empty())
+		geometry->applyAABB(parsedAABB.value);
 	else
 	{
 		CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 	}
 	const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
-	if (isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
+	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(context.ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
 	{
 		_params.logger.log(
 			"STL loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",
@@ -835,7 +836,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		static_cast<unsigned long long>(ioAvgRead),
 		toString(_params.ioPolicy.strategy),
 		toString(ioPlan.strategy),
-		static_cast<unsigned long long>(ioPlan.chunkSizeBytes),
+		static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
 		ioPlan.reason);
 	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>();
 	return SAssetBundle(std::move(meta), { std::move(geometry) });
@@ -850,13 +851,13 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	if (fileSize < SSTLContext::BinaryPrefixBytes)
 	{
 		char header[SSTLContext::TextProbeBytes] = {};
-		if (!readFileExact(_file, header, 0ull, sizeof(header)))
+		if (!SInterchangeIOCommon::readFileExact(_file, header, 0ull, sizeof(header)))
 			return false;
 		return std::strncmp(header, "solid ", SSTLContext::TextProbeBytes) == 0;
 	}
 
 	std::array<uint8_t, SSTLContext::BinaryPrefixBytes> prefix = {};
-	if (!readFileExact(_file, prefix.data(), 0ull, prefix.size()))
+	if (!SInterchangeIOCommon::readFileExact(_file, prefix.data(), 0ull, prefix.size()))
 		return false;
 
 	uint32_t triangleCount = 0u;

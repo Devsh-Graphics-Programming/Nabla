@@ -113,6 +113,41 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
         }
         template<typename Scalar>
         inline bool setAABB(const hlsl::shapes::AABB<3,Scalar>& aabb) {return visitAABB([&aabb](auto&& ref)->void{ref=aabb;});}
+        template<typename Scalar>
+        inline bool applyAABB(const hlsl::shapes::AABB<3, Scalar>& aabb)
+        {
+            if (
+                aabb.minVx.x > aabb.maxVx.x ||
+                aabb.minVx.y > aabb.maxVx.y ||
+                aabb.minVx.z > aabb.maxVx.z)
+                return false;
+            return visitAABB([&aabb](auto&& ref)->void
+            {
+                if constexpr (requires { ref.minVx.x; ref.minVx.y; ref.minVx.z; ref.maxVx.x; ref.maxVx.y; ref.maxVx.z; })
+                {
+                    ref.minVx.x = static_cast<decltype(ref.minVx.x)>(aabb.minVx.x);
+                    ref.minVx.y = static_cast<decltype(ref.minVx.y)>(aabb.minVx.y);
+                    ref.minVx.z = static_cast<decltype(ref.minVx.z)>(aabb.minVx.z);
+                    ref.maxVx.x = static_cast<decltype(ref.maxVx.x)>(aabb.maxVx.x);
+                    ref.maxVx.y = static_cast<decltype(ref.maxVx.y)>(aabb.maxVx.y);
+                    ref.maxVx.z = static_cast<decltype(ref.maxVx.z)>(aabb.maxVx.z);
+                    if constexpr (requires { ref.minVx.w; ref.maxVx.w; })
+                    {
+                        ref.minVx.w = 0;
+                        ref.maxVx.w = 0;
+                    }
+                }
+                else
+                {
+                    ref.minVx[0] = static_cast<decltype(ref.minVx[0])>(aabb.minVx[0]);
+                    ref.minVx[1] = static_cast<decltype(ref.minVx[1])>(aabb.minVx[1]);
+                    ref.minVx[2] = static_cast<decltype(ref.minVx[2])>(aabb.minVx[2]);
+                    ref.maxVx[0] = static_cast<decltype(ref.maxVx[0])>(aabb.maxVx[0]);
+                    ref.maxVx[1] = static_cast<decltype(ref.maxVx[1])>(aabb.maxVx[1]);
+                    ref.maxVx[2] = static_cast<decltype(ref.maxVx[2])>(aabb.maxVx[2]);
+                }
+            });
+        }
 
         //
         inline bool setJointCount(const uint32_t count)

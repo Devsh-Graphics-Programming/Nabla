@@ -76,6 +76,7 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
         _fileMappingObj = CreateFileMappingA(_native,nullptr,writeAccess ? PAGE_READWRITE:PAGE_READONLY, 0, 0, nullptr);
         if (!_fileMappingObj)
         {
+            // backend fallback: file opens successfully but mapping-related flags are removed
             flags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
         }
 		else
@@ -99,6 +100,7 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
             {
                 CloseHandle(_fileMappingObj);
                 _fileMappingObj = nullptr;
+                // backend fallback: file opens successfully but mapping-related flags are removed
                 flags.value &= ~(IFile::ECF_COHERENT | IFile::ECF_MAPPABLE);
             }
 		}

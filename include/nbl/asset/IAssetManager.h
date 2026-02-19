@@ -181,27 +181,29 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            const auto tryLoadAssetFromPath = [&](const system::path& path)->SAssetBundle
+            {
+                m_system->createFile(future, path, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+                if (auto file=future.acquire())
+                    return getAssetInHierarchy_impl(file->get(), path.string(), ctx.params, _hierarchyLevel, _override);
+                m_system->createFile(future, path, system::IFile::ECF_READ);
+                if (auto file=future.acquire())
+                    return getAssetInHierarchy_impl(file->get(), path.string(), ctx.params, _hierarchyLevel, _override);
+                return SAssetBundle(0);
+            };
 
             system::path filePath = _filePath;
             _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
-            m_system->createFile(future, filePath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
-            if (auto file=future.acquire())
-                return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
-            m_system->createFile(future, filePath, system::IFile::ECF_READ);
-            if (auto file=future.acquire())
-                return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+            if (auto bundle=tryLoadAssetFromPath(filePath); !bundle.getContents().empty())
+                return bundle;
 
             auto fallbackPath = _params.workingDirectory / filePath;
             if (fallbackPath != filePath)
             {
                 filePath = std::move(fallbackPath);
                 _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
-                m_system->createFile(future, filePath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
-                if (auto file=future.acquire())
-                    return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
-                m_system->createFile(future, filePath, system::IFile::ECF_READ);
-                if (auto file=future.acquire())
-                    return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+                if (auto bundle=tryLoadAssetFromPath(filePath); !bundle.getContents().empty())
+                    return bundle;
             }
             return SAssetBundle(0);
         }

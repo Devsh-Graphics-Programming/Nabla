@@ -6,9 +6,9 @@
 
 
 #include "nbl/core/declarations.h"
-#include "nbl/core/hash/blake.h"
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
+#include "nbl/asset/interchange/SFileIOPolicy.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/COBBGenerator.h"
@@ -22,24 +22,26 @@ namespace nbl::asset
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
-		static core::blake3_hash_t computeDeterministicContentHash(const ICPUPolygonGeometry* geo);
+		enum class EContentHashMode : uint8_t
+		{
+			MissingOnly,
+			RecomputeAll
+		};
+
+		static void collectUniqueBuffers(ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers);
+		static void computeContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy, const EContentHashMode mode = EContentHashMode::MissingOnly);
+		static inline void computeMissingContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy)
+		{
+			computeContentHashesParallel(geo, ioPolicy, EContentHashMode::MissingOnly);
+		}
+		static inline void recomputeContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy)
+		{
+			computeContentHashesParallel(geo, ioPolicy, EContentHashMode::RecomputeAll);
+		}
 
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
 		{
-			if (!geo)
-				return;
-			CGeometryManipulator::recomputeContentHash(geo->getPositionView());
-			CGeometryManipulator::recomputeContentHash(geo->getIndexView());
-			CGeometryManipulator::recomputeContentHash(geo->getNormalView());
-			for (const auto& view : *geo->getJointWeightViews())
-			{
-				CGeometryManipulator::recomputeContentHash(view.indices);
-				CGeometryManipulator::recomputeContentHash(view.weights);
-			}
-			if (auto pView=geo->getJointOBBView(); pView)
-				CGeometryManipulator::recomputeContentHash(*pView);
-			for (const auto& view : *geo->getAuxAttributeViews())
-				CGeometryManipulator::recomputeContentHash(view);
+			recomputeContentHashesParallel(geo, SFileIOPolicy{});
 		}
 
 		//
@@ -94,7 +96,7 @@ class NBL_API2 CPolygonGeometryManipulator
 					using aabb_t = std::remove_reference_t<decltype(aabb)>;
 					using point_t = typename aabb_t::point_t;
 					using component_t = std::remove_cv_t<std::remove_reference_t<decltype(point_t{}.x)>>;
-					SAABBAccumulator3<component_t> parsedAABB = {};
+					SAABBAccumulator3<component_t> parsedAABB = createAABBAccumulator<component_t>();
 					auto addVertexToAABB = [&](const uint32_t vertex_i)->void
 					{
 						point_t pt;
