@@ -114,11 +114,19 @@ class IApplicationFramework : public core::IReferenceCounted
                 return true;
             };
 
-            if (not load(module.dxc, { install.dxc, env.dxc, build.dxc, rel.dxc }))
+            #ifdef NBL_RELOCATABLE_PACKAGE
+            if (not load(module.dxc, { env.dxc, rel.dxc, install.dxc }))
+            #else
+            if (not load(module.dxc, { build.dxc }))
+            #endif
                 return false;
 
             #ifdef _NBL_SHARED_BUILD_
-            if (not load(module.nabla, { install.nabla, env.nabla, build.nabla, rel.nabla }))
+            #ifdef NBL_RELOCATABLE_PACKAGE
+            if (not load(module.nabla, { env.nabla, rel.nabla, install.nabla }))
+            #else
+            if (not load(module.nabla, { build.nabla }))
+            #endif
                 return false;
             #endif
 

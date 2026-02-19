@@ -10,6 +10,7 @@
 #include "nbl/asset/IAccelerationStructure.h"
 
 #include <span>
+#include <ranges>
 
 namespace nbl::asset
 {
@@ -39,41 +40,53 @@ class IPolygonGeometryBase : public virtual core::IReferenceCounted
                 template<typename OutT> requires (sizeof(OutT)<8 && hlsl::concepts::UnsignedIntegralScalar<OutT>)
                 struct SContext final
                 {
-                    // `indexOfIndex` is somewhat of a baseIndex
-                    template<typename Range>
-                    inline void streamOut(const uint32_t indexOfIndex, const Range& permutation)
-                    {
-                        auto& typedOut = reinterpret_cast<OutT*&>(out);
-                        if (indexBuffer)                  
-                        switch (indexSize)
+                    private:
+                        // `indexOfIndex` is somewhat of a baseIndex
+                        template<typename Range>
+                        inline void impl_streamOut(const uint32_t indexOfIndex, const Range permutation)
                         {
-                            case 1:
-                                for (const auto relIx : permutation)
-                                    *(typedOut++) = reinterpret_cast<const uint8_t*>(indexBuffer)[indexOfIndex+relIx];
-                                break;
-                            case 2:
-                                for (const auto relIx : permutation)
-                                    *(typedOut++) = reinterpret_cast<const uint16_t*>(indexBuffer)[indexOfIndex+relIx];
-                                break;
-                            case 4:
-                                for (const auto relIx : permutation)
-                                    *(typedOut++) = reinterpret_cast<const uint32_t*>(indexBuffer)[indexOfIndex+relIx];
-                                break;
-                            default:
-                                assert(false);
-                                break;
+                            auto& typedOut = reinterpret_cast<OutT*&>(out);
+                            if (indexBuffer)                  
+                            switch (indexSize)
+                            {
+                                case 1:
+                                    for (const auto relIx : permutation)
+                                        *(typedOut++) = reinterpret_cast<const uint8_t*>(indexBuffer)[indexOfIndex+relIx];
+                                    break;
+                                case 2:
+                                    for (const auto relIx : permutation)
+                                        *(typedOut++) = reinterpret_cast<const uint16_t*>(indexBuffer)[indexOfIndex+relIx];
+                                    break;
+                                case 4:
+                                    for (const auto relIx : permutation)
+                                        *(typedOut++) = reinterpret_cast<const uint32_t*>(indexBuffer)[indexOfIndex+relIx];
+                                    break;
+                                default:
+                                    assert(false);
+                                    break;
+                            }
+                            else
+                            for (const auto relIx : permutation)
+                                *(typedOut++) = indexOfIndex+relIx;
                         }
-                        else
-                        for (const auto relIx : permutation)
-                            *(typedOut++) = indexOfIndex+relIx;
-                    }
 
-                    // always the base pointer, doesn't get advanced
-                    const void* const indexBuffer;
-                    const uint64_t indexSize : 3;
-                    const uint64_t beginPrimitive : 30;
-                    const uint64_t endPrimitive : 31;
-                    void* out;
+                    public:
+                        template<std::ranges::view V> requires std::ranges::bidirectional_range<V>
+                        inline void streamOut(const uint32_t indexOfIndex, const V& permutation)
+                        {
+                            if (reversePrims)
+                                impl_streamOut(indexOfIndex,permutation|std::views::reverse);
+                            else
+                                impl_streamOut(indexOfIndex,permutation);
+                        }
+
+                        // always the base pointer, doesn't get advanced
+                        const void* const indexBuffer;
+                        const uint64_t indexSize : 3;
+                        const uint64_t beginPrimitive : 30;
+                        const uint64_t endPrimitive : 30;
+                        const uint64_t reversePrims : 1 = false;
+                        void* out;
                 };
                 // could have been a static if not virtual
                 virtual void operator()(SContext<uint8_t>& ctx) const = 0;
