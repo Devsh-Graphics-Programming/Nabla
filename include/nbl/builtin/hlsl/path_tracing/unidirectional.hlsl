@@ -142,16 +142,15 @@ struct Unidirectional
             {
                 // example only uses isotropic bxdfs
                 quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction.isotropic, _cache.iso_cache);
-                neeContrib_pdf.quotient *= bxdf.albedo * throughput * bsdf_quotient_pdf.quotient;
-                const scalar_type otherGenOverChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb;
-                const scalar_type otherGenOverLightAndChoice = otherGenOverChoice / bsdf_quotient_pdf.pdf;
-                neeContrib_pdf.quotient *= otherGenOverChoice / (1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice);   // balance heuristic
+                neeContrib_pdf.quotient *= materialSystem.eval(matID, nee_sample, interaction.isotropic, _cache.iso_cache) * rcpChoiceProb;
+                const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib_pdf.pdf;
+                neeContrib_pdf.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
                 ray_type nee_ray;
                 nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
                 nee_ray.direction = nee_sample.getL().getDirection();
                 nee_ray.intersectionT = t;
-                if (bsdf_quotient_pdf.pdf < numeric_limits<scalar_type>::max && getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && !intersector_type::traceRay(nee_ray, scene).foundHit)
+                if (getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && !intersector_type::traceRay(nee_ray, scene).foundHit)
                     ray.payload.accumulation += neeContrib_pdf.quotient;
             }
         }
@@ -169,7 +168,7 @@ struct Unidirectional
             // example only uses isotropic bxdfs
             // the value of the bsdf divided by the probability of the sample being generated
             quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, interaction.isotropic, _cache.iso_cache);
-            throughput *= bxdf.albedo * bsdf_quotient_pdf.quotient;
+            throughput *= bsdf_quotient_pdf.quotient;
             bxdfPdf = bsdf_quotient_pdf.pdf;
             bxdfSample = bsdf_sample.getL().getDirection();
         }
