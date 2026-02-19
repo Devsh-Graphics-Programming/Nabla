@@ -2,19 +2,18 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+
 #include "nbl/builtin/hlsl/math/linalg/basic.hlsl"
 #include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 
 #include <cwchar>
 
-#if 0
-#include "nbl/asset/utils/CDerivativeMapCreator.h"
+//#include "nbl/asset/utils/CDerivativeMapCreator.h"
 
-#include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
-#endif
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -220,6 +219,10 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			_override,
 			result.metadata.get()
 		);
+		ctx.interm_getAssetInHierarchy = [&](const char* filename, const uint16_t hierarchyOffset)->SAssetBundle
+		{
+			return this->interm_getAssetInHierarchy(filename,ctx.inner.params,_hierarchyLevel+hierarchyOffset,ctx.override_);
+		};
 		//
 		ctx.scene->m_ambientLight = result.ambient;
 
@@ -289,14 +292,14 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 				continue;
 
 			if (shapedef->type!=CElementShape::Type::INSTANCE)
-				addToScene(shapedef,ctx.loadBasicShape(_hierarchyLevel,shapedef));
+				addToScene(shapedef,ctx.loadBasicShape(shapedef));
 			else // mitsuba is weird and lists instances under a shapegroup instead of having instances reference the shapegroup
 			{
 				// get group reference
 				const CElementShape* parent = shapedef->instance.parent;
 				if (!parent) // we should probably assert this
 					continue;
-				addToScene(shapedef,ctx.loadShapeGroup(_hierarchyLevel,parent));
+				addToScene(shapedef,ctx.loadShapeGroup(parent));
 			}
 		}
 		result.shapegroups.clear();
@@ -625,7 +628,7 @@ SContext::SContext(
 	frontIR = material_compiler3::CFrontendIR::create();
 }
 
-auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape* shape) -> SContext::shape_ass_type
+auto SContext::loadShapeGroup(const CElementShape* shape) -> SContext::shape_ass_type
 {
 	assert(shape->type==CElementShape::Type::SHAPEGROUP);
 	const auto* const shapegroup = &shape->shapegroup;
@@ -650,9 +653,9 @@ auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape
 
 			shape_ass_type nestedCollection;
 			if (child->type!=CElementShape::Type::SHAPEGROUP)
-				nestedCollection = loadBasicShape(hierarchyLevel,child);
+				nestedCollection = loadBasicShape(child);
 			else
-				nestedCollection = loadShapeGroup(hierarchyLevel,child);
+				nestedCollection = loadShapeGroup(child);
 			if (!nestedCollection)
 				continue;
 
@@ -673,7 +676,7 @@ auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape
 	return collection;
 }
 
-auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape) -> SContext::shape_ass_type
+auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass_type
 {
 	auto found = shapeCache.find(shape);
 	if (found!=shapeCache.end())
@@ -697,68 +700,96 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 
 	auto loadModel = [&](const char* filename, int64_t index=-1) -> void
 	{
-#if 0
-		auto retval = interm_getAssetInHierarchy(filename,inner.params,hierarchyLevel+/*ICPUScene::GEOMETRY_COLLECTION_HIERARCHY_LEVELS_BELOW*/1,override_);
-		if (retval.getContents().empty())
+		auto retval = interm_getAssetInHierarchy(filename,/*ICPUScene::GEOMETRY_COLLECTION_HIERARCHY_LEVELS_BELOW*/1);
+		auto contentRange = retval.getContents();
+		if (contentRange.empty())
 		{
-			os::Printer::log(std::string("[ERROR] Could Not Find Mesh: ") + filename.svalue, ELL_ERROR);
+			inner.params.logger.log("Could Not Load Shape : %s",LoggerError,filename);
 			return;
 		}
+		
+		// we used to load with the IAssetLoader::ELPF_RIGHT_HANDED_MESHES flag, this means flipping the mesh x-axis
+		auto transform = math::linalg::diagonal<float32_t3x4>(1.f);
+		transform[0][0] = -1.f;
 
-		uint32_t actualIndex = 0;
+		//
+		auto addCollectionGeometries = [&](const ICPUGeometryCollection* col)->void
+		{
+			if (col)
+			for (auto ref : col->getGeometries())
+			{
+				if (ref.hasTransform())
+					ref.transform = math::linalg::promoted_mul(ref.transform,transform);
+				else
+					ref.transform = transform;
+				addGeometry(std::move(ref));
+			}
+		};
+
+		// take first target and replace the collection
+		auto addFirstTargetGeometries = [&](const ICPUMorphTargets* morph)->void
+		{
+			if (const auto& targets=morph->getTargets(); !targets.empty())
+				addCollectionGeometries(targets.front().geoCollection.get());
+		};
+
 		switch (retval.getAssetType())
 		{
 			case IAsset::ET_GEOMETRY:
 			{
-				auto contentRange = retval.getContents();
+				// only add one geometry, if we meant to add a whole collection, the file would load a collection
+				const IGeometry<ICPUBuffer>* geo = nullptr;
 				auto serializedMeta = retval.getMetadata()->selfCast<CMitsubaSerializedMetadata>();
-				//
-				if (index>=0ll && serializedMeta)
 				for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
 				{
-					auto meshMeta = static_cast<const CMitsubaSerializedMetadata::CMesh*>(serializedMeta->getAssetSpecificMetadata(IAsset::castDown<ICPUMesh>(*it).get()));
-					if (meshMeta->m_id!=static_cast<uint32_t>(index))
-						continue;
-					actualIndex = it-contentRange.begin();
-					break;
+					geo = IAsset::castDown<const ICPUPolygonGeometry>(*it).get();
+					assert(geo);
+					if (!serializedMeta || index<0ll || index>numeric_limits<uint32_t>::max) // not Misuba serialized or shape index not specialized
+						break;
+					auto* const meta = serializedMeta->getAssetSpecificMetadata(static_cast<const ICPUPolygonGeometry*>(geo));
+					assert(meta);
+					auto* const polygonMeta = static_cast<const CMitsubaSerializedMetadata::CPolygonGeometry*>(meta);
+					if (polygonMeta->m_id==static_cast<uint32_t>(index))
+						break;
 				}
-				//
-				if (contentRange.begin()+actualIndex < contentRange.end())
-				{
-					auto asset = contentRange.begin()[actualIndex];
-					if (!asset)
-					{
-						return;
-					}
-					addGeometry(asset);
-				}
+				if (auto* const mg=const_cast<IGeometry<ICPUBuffer>*>(geo); mg)
+					addGeometry({.transform=transform,.geometry=core::smart_refctd_ptr<IGeometry<ICPUBuffer>>(mg)});
+				break;
 			}
 			case IAsset::ET_GEOMETRY_COLLECTION:
 			{
-				// TODO: replace the collection
+				// only add the first collection's geometries
+				addCollectionGeometries(IAsset::castDown<const ICPUGeometryCollection>(contentRange[0]).get());
 				break;
 			}
 			case IAsset::ET_MORPH_TARGETS:
 			{
-				// TODO: take first target and replace the collection
-				_NBL_DEBUG_BREAK_IF(true); // we have no such loaders right now
+				addFirstTargetGeometries(IAsset::castDown<const ICPUMorphTargets>(contentRange[0]).get());
 				break;
 			}
 			case IAsset::ET_SCENE:
 			{
-				// TODO: flatten the scene into a single instance, this is path for OBJ loading
-				// NOTE: also need to preserve/forward the materials somehow (need to chape the `shape_ass_type` to have a default Material Binding Table)
+				// flatten the scene into a single instance, this is path for OBJ loading
+				const auto& instances = IAsset::castDown<const ICPUScene>(contentRange[0])->getInstances();
+				const auto instanceTforms = instances.getInitialTransforms();
+				for (auto i=0u; i<instances.size(); i++)
+				{
+					auto* const targets = instances.getMorphTargets()[i].get();
+					const auto oldGeoBegin = pGeometries->size();
+					addFirstTargetGeometries(targets);
+					if (!instanceTforms.empty())
+					for (auto geoIx=oldGeoBegin; geoIx<pGeometries->size(); geoIx++)
+					{
+						auto& ref = pGeometries->operator[](geoIx);
+						ref.transform = math::linalg::promoted_mul(instanceTforms[i],ref.transform);
+					}
+					// NOTE: also need to preserve/forward the materials somehow (need to chape the `shape_ass_type` to have a default Material Binding Table)
+				}
+				break;
 			}
 			default:
-				os::Printer::log("[ERROR] Loaded an Asset but it wasn't a mesh, was E_ASSET_TYPE " + std::to_string(retval.getAssetType()), ELL_ERROR);
+				inner.params.logger.log("Loaded an Asset but it didn't contain any geometry, was %s",LoggerError,system::to_string(retval.getAssetType()));
 				break;
-		}
-#endif
-		// we used to load with the IAssetLoader::ELPF_RIGHT_HANDED_MESHES flag, this means flipping the mesh x-axis
-		for (auto& ref : *pGeometries)
-		{
-			ref.transform = math::linalg::diagonal<float32_t3x4>(1.f);
-			ref.transform[0][0] = -1.f;
 		}
 	};
 

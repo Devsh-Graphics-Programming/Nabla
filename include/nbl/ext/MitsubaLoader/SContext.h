@@ -14,10 +14,13 @@
 
 namespace nbl::ext::MitsubaLoader
 {
+class CMitsubaLoader;
 
 struct SContext final
 {
 	public:
+		using interm_getAssetInHierarchy_t = asset::SAssetBundle(const char*, const uint16_t);
+
 		SContext(
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
@@ -25,9 +28,9 @@ struct SContext final
 		);
 
 		using shape_ass_type = core::smart_refctd_ptr<const asset::ICPUGeometryCollection>;
-		shape_ass_type loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape);
+		shape_ass_type loadBasicShape(const CElementShape* shape);
 		// the `shape` will have to be `Type::SHAPEGROUP`
-		shape_ass_type loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape* shape);
+		shape_ass_type loadShapeGroup(const CElementShape* shape);
 
 		inline void transferMetadata()
 		{
@@ -37,6 +40,7 @@ struct SContext final
 
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
+		std::function<interm_getAssetInHierarchy_t> interm_getAssetInHierarchy;
 		CMitsubaMetadata* meta;
 		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
