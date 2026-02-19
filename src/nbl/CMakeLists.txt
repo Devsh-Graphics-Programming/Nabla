@@ -788,6 +788,16 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
+if(TARGET ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB})
+	set_target_properties(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)
+	nbl_install_lib_spec(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} "nbl/ext/FULL_SCREEN_TRIANGLE")
+	target_link_libraries(Nabla INTERFACE
+		"$<INSTALL_INTERFACE:$<$<CONFIG:Debug>:$<INSTALL_PREFIX>/debug/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_d.lib>>"
+		"$<INSTALL_INTERFACE:$<$<CONFIG:Release>:$<INSTALL_PREFIX>/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE.lib>>"
+		"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_rwdi.lib>>"
+	)
+endif()
+
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
