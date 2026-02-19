@@ -694,52 +694,74 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 			pGeometries->push_back(std::move(ref));
 	};
 
-#if 0
-	constexpr uint32_t UV_ATTRIB_ID = 2u;
 
-
-
-	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
+	auto loadModel = [&](const char* filename, int64_t index=-1) -> void
 	{
-		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto loadParams = ctx.inner.params;
-		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
-		auto retval = interm_getAssetInHierarchy( filename.svalue, loadParams, hierarchyLevel/*+ICPUScene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
+#if 0
+		auto retval = interm_getAssetInHierarchy(filename,inner.params,hierarchyLevel+/*ICPUScene::GEOMETRY_COLLECTION_HIERARCHY_LEVELS_BELOW*/1,override_);
 		if (retval.getContents().empty())
 		{
 			os::Printer::log(std::string("[ERROR] Could Not Find Mesh: ") + filename.svalue, ELL_ERROR);
-			return nullptr;
+			return;
 		}
-		if (retval.getAssetType()!=asset::IAsset::ET_MESH)
-		{
-			os::Printer::log("[ERROR] Loaded an Asset but it wasn't a mesh, was E_ASSET_TYPE " + std::to_string(retval.getAssetType()), ELL_ERROR);
-			return nullptr;
-		}
-		auto contentRange = retval.getContents();
-		auto serializedMeta = retval.getMetadata()->selfCast<CMitsubaSerializedMetadata>();
-		//
+
 		uint32_t actualIndex = 0;
-		if (index>=0ll && serializedMeta)
-		for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
+		switch (retval.getAssetType())
 		{
-			auto meshMeta = static_cast<const CMitsubaSerializedMetadata::CMesh*>(serializedMeta->getAssetSpecificMetadata(IAsset::castDown<ICPUMesh>(*it).get()));
-			if (meshMeta->m_id!=static_cast<uint32_t>(index))
-				continue;
-			actualIndex = it-contentRange.begin();
-			break;
+			case IAsset::ET_GEOMETRY:
+			{
+				auto contentRange = retval.getContents();
+				auto serializedMeta = retval.getMetadata()->selfCast<CMitsubaSerializedMetadata>();
+				//
+				if (index>=0ll && serializedMeta)
+				for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
+				{
+					auto meshMeta = static_cast<const CMitsubaSerializedMetadata::CMesh*>(serializedMeta->getAssetSpecificMetadata(IAsset::castDown<ICPUMesh>(*it).get()));
+					if (meshMeta->m_id!=static_cast<uint32_t>(index))
+						continue;
+					actualIndex = it-contentRange.begin();
+					break;
+				}
+				//
+				if (contentRange.begin()+actualIndex < contentRange.end())
+				{
+					auto asset = contentRange.begin()[actualIndex];
+					if (!asset)
+					{
+						return;
+					}
+					addGeometry(asset);
+				}
+			}
+			case IAsset::ET_GEOMETRY_COLLECTION:
+			{
+				// TODO: replace the collection
+				break;
+			}
+			case IAsset::ET_MORPH_TARGETS:
+			{
+				// TODO: take first target and replace the collection
+				_NBL_DEBUG_BREAK_IF(true); // we have no such loaders right now
+				break;
+			}
+			case IAsset::ET_SCENE:
+			{
+				// TODO: flatten the scene into a single instance, this is path for OBJ loading
+				// NOTE: also need to preserve/forward the materials somehow (need to chape the `shape_ass_type` to have a default Material Binding Table)
+			}
+			default:
+				os::Printer::log("[ERROR] Loaded an Asset but it wasn't a mesh, was E_ASSET_TYPE " + std::to_string(retval.getAssetType()), ELL_ERROR);
+				break;
 		}
-		//
-		if (contentRange.begin()+actualIndex < contentRange.end())
-		{
-			auto asset = contentRange.begin()[actualIndex];
-			if (!asset)
-				return nullptr;
-			return core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
-		}
-		else
-			return nullptr;
-	};
 #endif
+		// we used to load with the IAssetLoader::ELPF_RIGHT_HANDED_MESHES flag, this means flipping the mesh x-axis
+		for (auto& ref : *pGeometries)
+		{
+			ref.transform = math::linalg::diagonal<float32_t3x4>(1.f);
+			ref.transform[0][0] = -1.f;
+		}
+	};
+
 	bool flipNormals = false;
 	bool faceNormals = false;
 	float maxSmoothAngle = bit_cast<float>(numeric_limits<float>::quiet_NaN);
@@ -792,8 +814,10 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 			flipNormals = flipNormals!=shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
-			if (mesh && shape->obj.flipTexCoords)
+			if (!pGeometries->empty() && shape->obj.flipTexCoords)
 			{
+				_NBL_DEBUG_BREAK_IF(true);
+				// TODO: find the UV attribute, it doesn't help we don't name them
 				newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh> (mesh->clone(1u));
 				for (auto& meshbuffer : mesh->getMeshBufferVector())
 				{
@@ -811,54 +835,25 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 					}
 				}
 			}
+#endif
 			// collapse parameter gets ignored
 			break;
 		case CElementShape::Type::PLY:
 			_NBL_DEBUG_BREAK_IF(true); // this code has never been tested
-			mesh = loadModel(shape->ply.filename);
+			loadModel(shape->ply.filename);
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
-			if (mesh && shape->ply.srgb)
+			if (shape->ply.srgb)
+			for (auto& ref : *pGeometries)
 			{
-				uint32_t totalVertexCount = 0u;
-				for (auto meshbuffer : mesh->getMeshBuffers())
-					totalVertexCount += IMeshManipulator::upperBoundVertexID(meshbuffer);
-				if (totalVertexCount)
-				{
-					constexpr uint32_t hidefRGBSize = 4u;
-					auto newRGBbuff = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
-					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
-					constexpr uint32_t COLOR_ATTR = 1u;
-					constexpr uint32_t COLOR_BUF_BINDING = 15u;
-					uint32_t* newRGB = reinterpret_cast<uint32_t*>(newRGBbuff->getPointer());
-					uint32_t offset = 0u;
-					for (auto& meshbuffer : mesh->getMeshBufferVector())
-					{
-						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb,COLOR_ATTR,i); i++,offset++)
-						{
-							for (auto i=0; i<3u; i++)
-								rgb[i] = core::srgb2lin(rgb[i]);
-							ICPUMeshBuffer::setAttribute(rgb,newRGB+offset,asset::EF_A2B10G10R10_UNORM_PACK32);
-						}
-						auto newPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(meshbuffer->getPipeline()->clone(0u));
-						auto& vtxParams = newPipeline->getVertexInputParams();
-						vtxParams.attributes[COLOR_ATTR].format = EF_A2B10G10R10_UNORM_PACK32;
-						vtxParams.attributes[COLOR_ATTR].relativeOffset = 0u;
-						vtxParams.attributes[COLOR_ATTR].binding = COLOR_BUF_BINDING;
-						vtxParams.bindings[COLOR_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
-						vtxParams.bindings[COLOR_BUF_BINDING].stride = hidefRGBSize;
-						vtxParams.enabledBindingFlags |= (1u<<COLOR_BUF_BINDING);
-						meshbuffer->setPipeline(std::move(newPipeline));
-						meshbuffer->setVertexBufferBinding({offset*hidefRGBSize,core::smart_refctd_ptr(newRGBbuff)},COLOR_BUF_BINDING);
-					}
-				}
+				// TODO: find the color attribute  (it doesn't help we don't name them, just slap them in vectors)
+				// TODO: clone geometry
+				// TODO: change the color aux attribute's format from UNORM8 to SRGB
 			}
-#endif
 			break;
 		case CElementShape::Type::SERIALIZED:
-//			mesh = loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
+			loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
 			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
