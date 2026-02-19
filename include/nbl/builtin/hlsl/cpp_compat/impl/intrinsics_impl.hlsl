@@ -27,7 +27,7 @@ template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<Unsigned
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
 	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
-	NBL_CONSTEXPR UnsignedInteger Mask = (UnsignedInteger(0) - 1) >> 1;
+	NBL_CONSTEXPR_FUNC_SCOPE_VAR UnsignedInteger Mask = (UnsignedInteger(0) - 1) >> 1;
 	UnsignedInteger absVal = val & Mask;
 	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
 }
@@ -48,7 +48,7 @@ NBL_VALID_EXPRESSION(MixIsCallable, (T)(U), glm::mix(declval<T>(),declval<T>(),d
 template<typename T, typename U>
 NBL_BOOL_CONCEPT MixCallingBuiltins =
 #ifdef __HLSL_VERSION
-(spirv::FMixIsCallable<T> && is_same_v<T,U>) || spirv::SelectIsCallable<T,U>;
+(spirv::FMixIsCallable<T> && is_same_v<T,U>);
 #else
 MixIsCallable<T,U>;
 #endif
@@ -90,6 +90,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct all_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct any_helper;
+template<typename T, typename B NBL_STRUCT_CONSTRAINABLE>
+struct select_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -119,6 +121,12 @@ struct nMax_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nClamp_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct addCarry_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct subBorrow_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct undef_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct fma_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
@@ -133,8 +141,8 @@ struct fma_helper;
 // the template<> needs to be written ourselves
 // return type is __VA_ARGS__ to protect against `,` in templated return types
 #define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
-NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
-struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
+NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME< BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) >(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME< BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) >(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
 {\
 	using return_t = __VA_ARGS__;\
 	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
@@ -156,8 +164,9 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fract_helper, fract, (T), (T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, (T), (T), bool)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, all, (T), (T), bool)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), bool)
+template<typename T, typename B> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(select_helper, select, (T)(B), (B)(T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, (T), (T), T)
@@ -179,6 +188,10 @@ template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(refract_hel
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMax_helper, nMax, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMin_helper, nMin, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nClamp_helper, nClamp, (T), (T)(T), T)
+// Can use trivial case and not worry about restricting `T` with a concept since `spirv::AddCarryOutput / SubBorrowOutput` already take care of that
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(addCarry_helper, addCarry, (T), (T)(T), spirv::AddCarryOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(subBorrow_helper, subBorrow, (T), (T)(T), spirv::SubBorrowOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(undef_helper, undef, (T), , T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
@@ -252,20 +265,6 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(spirv::FMixIsCallable<T>) >
 	static inline return_t __call(const T x, const T y, const T a)
 	{
 		return spirv::fMix<T>(x, y, a);
-	}
-};
-
-template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(spirv::SelectIsCallable<T,U> && concepts::Boolean<U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(spirv::SelectIsCallable<T,U> && concepts::Boolean<U>) >
-{
-	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
-	// for a component of a that is false, the corresponding component of x is returned
-	// for a component of a that is true, the corresponding component of y is returned
-	// so we make sure this is correct when calling the operation
-	static inline return_t __call(const T x, const T y, const U a)
-	{
-		return spirv::select<T, U>(a, y, x);
 	}
 };
 
@@ -629,6 +628,74 @@ struct nClamp_helper<T>
 	}
 };
 
+// Once again no need to restrict the two below with concepts for same reason as HLSL version
+template<typename T>
+struct addCarry_helper
+{
+	using return_t = spirv::AddCarryOutput<T>;
+	constexpr static inline return_t __call(const T operand1, const T operand2)
+	{
+		return_t retVal;
+		retVal.result = operand1 + operand2;
+		retVal.carry = T(retVal.result < operand1);
+		return retVal;
+	}
+};
+
+template<typename T>
+struct subBorrow_helper
+{
+	using return_t = spirv::SubBorrowOutput<T>;
+	constexpr static inline return_t __call(const T operand1, const T operand2)
+	{
+		return_t retVal;
+		retVal.result = static_cast<T>(operand1 - operand2);
+		retVal.borrow = T(operand1 < operand2);
+		return retVal;
+	}
+};
+
+template<typename T, typename B>
+requires (concepts::BooleanScalar<B>)
+struct select_helper<T, B>
+{
+    using return_t = T;
+	constexpr static return_t __call(const B& condition, const T& object1, const T& object2)
+	{
+		return condition ? object1 : object2;
+	}
+};
+
+template<typename T, typename B>
+requires (concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
+struct select_helper<T, B>
+{
+    using return_t = T;
+	constexpr static T __call(const B& condition, const T& object1, const T& object2)
+	{
+		using traits = vector_traits<T>;
+		array_get<B, bool> conditionGetter;
+		array_get<T, typename traits::scalar_type> objectGetter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		T selected;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(selected, i, conditionGetter(condition, i) ? objectGetter(object1, i) : objectGetter(object2, i));
+
+		return selected;
+	}
+};
+
+template<typename T>
+struct undef_helper
+{
+	NBL_CONSTEXPR_STATIC T __call()
+	{
+		T t;
+		return t;
+	}
+};
+
 template<typename FloatingPoint>
 requires concepts::FloatingPointScalar<FloatingPoint>
 struct fma_helper<FloatingPoint>
@@ -772,6 +839,17 @@ struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT> && conce
 	}
 };
 
+template<typename LhsT, typename RhsT>
+NBL_PARTIAL_REQ_TOP((concepts::Matrix<LhsT> && concepts::Scalar<RhsT>) || (concepts::Scalar<LhsT> && concepts::Matrix<RhsT>))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT((concepts::Matrix<LhsT> && concepts::Scalar<RhsT>) || (concepts::Scalar<LhsT> && concepts::Matrix<RhsT>)) >
+{
+	using return_t = hlsl::conditional_t<hlsl::is_matrix_v<LhsT>, LhsT, RhsT>;
+	static inline return_t __call(LhsT lhs, RhsT rhs)
+	{
+		return mul(lhs, rhs);
+	}
+};
+
 #define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME, REQUIREMENT, RETURN_TYPE)\
 template<typename T>\
 NBL_PARTIAL_REQ_TOP(REQUIREMENT)\
@@ -901,43 +979,24 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !imp
 	}
 };
 
+namespace impl
+{
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::BooleanScalar<U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::BooleanScalar<U>) >
+NBL_BOOL_CONCEPT MixCallingSelect =
+#ifdef __HLSL_VERSION
+spirv::SelectIsCallable<T, U>;
+#else
+concepts::Boolean<U> && (concepts::Scalar<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)) && !MixCallingBuiltins<T, U>;
+#endif
+}
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(impl::MixCallingSelect<T, U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(impl::MixCallingSelect<T, U>) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 	{
-		using traitsT = hlsl::vector_traits<T>;
-		array_get<T, typename traitsT::scalar_type> getterT;
-		array_set<return_t, typename traitsT::scalar_type> setter;
-
-		return_t output;
-		for (uint32_t i = 0; i < traitsT::Dimension; ++i)
-			setter(output, i, mix_helper<typename traitsT::scalar_type, U>::__call(getterT(x, i), getterT(y, i), a));
-
-		return output;
-	}
-};
-
-template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::Boolean<U> && concepts::Vectorial<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::Boolean<U>  && concepts::Vectorial<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
-{
-	using return_t = T;
-	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-	{
-		using traitsT = hlsl::vector_traits<T>;
-		using traitsU = hlsl::vector_traits<U>;
-		array_get<T, typename traitsT::scalar_type> getterT;
-		array_get<U, typename traitsU::scalar_type> getterU;
-		array_set<return_t, typename traitsT::scalar_type> setter;
-
-		return_t output;
-		for (uint32_t i = 0; i < traitsT::Dimension; ++i)
-			setter(output, i, mix_helper<typename traitsT::scalar_type, typename traitsU::scalar_type>::__call(getterT(x, i), getterT(y, i), getterU(a, i)));
-
-		return output;
+		return select_helper<T, U>::__call(a, y, x);
 	}
 };
 

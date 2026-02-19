@@ -19,14 +19,14 @@ template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 struct PartitionRandVariable
 {
     using floating_point_type = T;
-    using uint_type = typename unsigned_integer_of_size<sizeof(floating_point_type)>::type;
+    using uint_type = unsigned_integer_of_size_t<sizeof(floating_point_type)>;
 
-    bool operator()(floating_point_type leftProb, NBL_REF_ARG(floating_point_type) xi, NBL_REF_ARG(floating_point_type) rcpChoiceProb)
+    bool operator()(NBL_REF_ARG(floating_point_type) xi, NBL_REF_ARG(floating_point_type) rcpChoiceProb)
     {
-        const floating_point_type NEXT_ULP_AFTER_UNITY = bit_cast<floating_point_type>(bit_cast<uint_type>(floating_point_type(1.0)) + uint_type(1u));
-        const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
+        const floating_point_type NextULPAfterUnity = bit_cast<floating_point_type>(bit_cast<uint_type>(floating_point_type(1.0)) + uint_type(1u));
+        const bool pickRight = xi >= leftProb * NextULPAfterUnity;
 
-        // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
+        // This is all 100% correct taking into account the above NextULPAfterUnity
         xi -= pickRight ? leftProb : floating_point_type(0.0);
 
         rcpChoiceProb = floating_point_type(1.0) / (pickRight ? (floating_point_type(1.0) - leftProb) : leftProb);
@@ -34,6 +34,8 @@ struct PartitionRandVariable
 
         return pickRight;
     }
+
+    floating_point_type leftProb;
 };
 
 

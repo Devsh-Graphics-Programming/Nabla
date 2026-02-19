@@ -17,7 +17,7 @@ class CTrueIR : public CNodePool
 {
 	public:
 		// constructor
-		inline core::smart_refctd_ptr<CTrueIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
+		static inline core::smart_refctd_ptr<CTrueIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
 		{
 			if (chunkSizeLog2<14 || maxNodeAlignLog2<4)
 				return nullptr;

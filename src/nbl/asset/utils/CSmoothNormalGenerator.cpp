@@ -5,7 +5,7 @@
 #include "CSmoothNormalGenerator.h"
 
 #include "nbl/core/declarations.h"
-#include "nbl/builtin/hlsl/shapes/spherical_triangle.hlsl"
+#include "nbl/builtin/hlsl/shapes/triangle.hlsl"
 
 #include <algorithm>
 
@@ -29,13 +29,18 @@ static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 
-CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, VxCmpFunction vxcmp)
+CSmoothNormalGenerator::Result CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, VxCmpFunction vxcmp, const bool recomputeHash)
 {
 	assert(polygon->getIndexingCallback()->degree() == 3);
+
 	static constexpr auto MinEpsilon = 0.00001f;
 	const auto patchedEpsilon = epsilon < MinEpsilon ? MinEpsilon : epsilon;
 	VertexHashMap vertexHashMap = setupData(polygon, patchedEpsilon);
+	
 	const auto smoothPolygon = processConnectedVertices(polygon, vertexHashMap, patchedEpsilon,vxcmp);
+	if (recomputeHash)
+		CPolygonGeometryManipulator::recomputeContentHashes(smoothPolygon.get());
+
 	return { vertexHashMap, smoothPolygon };
 }
 
@@ -51,18 +56,25 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	{
 		//calculate face normal of parent triangle
 		hlsl::float32_t3 v0, v1, v2;
+		// TODO: could iterate over an index buffer properly
 		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i, v0);
 		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 1, v1);
 		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 2, v2);
 
-		const auto faceNormal = normalize(cross(v1 - v0, v2 - v0));
+		auto faceNormal = cross(v1 - v0, v2 - v0);
+		// if any triangle edge is 0 length, the cross product will be 0 length too
+		const float normLen2 = dot(faceNormal,faceNormal);
+		// need to filter invalid triangles while we're at it
+		if (normLen2<hlsl::numeric_limits<float>::min)
+			continue;
+		faceNormal *= hlsl::rsqrt(normLen2);
 
 		//set data for m_vertices
-		const auto angleWages = hlsl::shapes::util::compInternalAngle(v2 - v1, v0 - v2, v1 - v2);
+		const auto angleWeights = hlsl::shapes::util::anglesFromTriangleEdges(v2 - v1, v0 - v2, v1 - v2);
 
-		vertices.add({ i,	0,	faceNormal * angleWages.x, v0});
-		vertices.add({ i + 1,	0,	faceNormal * angleWages.y,v1});
-		vertices.add({ i + 2,	0,	faceNormal * angleWages.z, v2});
+		vertices.add({ i,	0,	faceNormal * angleWeights.x, v0});
+		vertices.add({ i + 1,	0,	faceNormal * angleWeights.y,v1});
+		vertices.add({ i + 2,	0,	faceNormal * angleWeights.z, v2});
 	}
 
 	vertices.bake();
@@ -70,14 +82,16 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	return vertices;
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConnectedVertices(const asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, float epsilon, VxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConnectedVertices(const asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, const float epsilon, VxCmpFunction vxcmp)
 {
+	// TODO: its semi doable to defer unwelding/rewelding until later an just work on a duplicated normal buffer only
 	auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 	static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
 	const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
 	auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
 	auto normalView = polygon->getNormalView();
 
+	// TODO: compute actual range
 	hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
 	aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
 	aabb.minVx = -aabb.maxVx;
@@ -117,8 +131,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 		normal = normalize(normal);
 		memcpy(normalPtr + (normalStride * processedVertex.index), &normal, sizeof(normal));
 	}
-
-	CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
 
 	return outPolygon;
 }

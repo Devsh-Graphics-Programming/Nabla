@@ -69,12 +69,9 @@ struct CascadeAccumulator
     // most of this code is stolen from https://cg.ivd.kit.edu/publications/2018/rwmc/tool/split.cpp
     void addSample(uint32_t sampleCount, input_sample_type _sample)
     {
-        const float32_t2 unpackedParams = hlsl::unpackHalf2x16(splattingParameters.packedLog2);
-        const cascade_layer_scalar_type log2Start = unpackedParams[0];
-        const cascade_layer_scalar_type log2Base = unpackedParams[1];
         const cascade_layer_scalar_type luma = getLuma(_sample);
         const cascade_layer_scalar_type log2Luma = log2<cascade_layer_scalar_type>(luma);
-        const cascade_layer_scalar_type cascade = log2Luma * 1.f / log2Base - log2Start / log2Base;
+        const cascade_layer_scalar_type cascade = log2Luma * splattingParameters.rcpLog2Base - splattingParameters.baseRootOfStart;
         const cascade_layer_scalar_type clampedCascade = clamp(cascade, 0, CascadeCount - 1);
         // c<=0 -> 0, c>=Count-1 -> Count-1 
         uint32_t lowerCascadeIndex = floor<cascade_layer_scalar_type>(cascade);
@@ -85,7 +82,7 @@ struct CascadeAccumulator
 
         // handle super bright sample case
         if (cascade > CascadeCount - 1)
-            lowerCascadeWeight = exp2(log2Start + log2Base * (CascadeCount - 1) - log2Luma);
+            lowerCascadeWeight = splattingParameters.lastCascadeLuma / luma;
 
         accumulation.addSampleIntoCascadeEntry(_sample, lowerCascadeIndex, lowerCascadeWeight, higherCascadeWeight, sampleCount);
     }

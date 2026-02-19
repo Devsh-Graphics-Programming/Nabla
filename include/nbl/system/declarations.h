@@ -5,6 +5,7 @@
 #define _NBL_SYSTEM_DECLARATIONS_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
+#include "nbl/core/definitions.h"
 
 // basic stuff
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
@@ -12,6 +13,9 @@
 #include "nbl/system/DefaultFuncPtrLoader.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/SReadWriteSpinLock.h"
+
+// printing and serialization
+#include "nbl/system/to_string.h"
 
 // files
 #include "nbl/system/IFile.h"
