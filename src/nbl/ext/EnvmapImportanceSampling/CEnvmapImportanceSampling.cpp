@@ -465,7 +465,7 @@ void EnvmapImportanceSampling::computeWarpMap(video::IQueue* queue)
   // Gen Luma Map
   {
     SLumaGenPushConstants pcData = {};
-    pcData.luminanceScales = { 0.2126729f, 0.7151522f, 0.0721750f };
+    pcData.lumaRGBCoefficients = { 0.2126729f, 0.7151522f, 0.0721750f };
     pcData.lumaMapResolution = {lumaMapExtent.width, lumaMapExtent.height};
 
     cmdBuf->bindComputePipeline(m_genLumaPipeline.get());
