@@ -124,10 +124,8 @@ struct Unidirectional
         partitionRandVariable.leftProb = neeProbability;
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
-            uint32_t randLightID = uint32_t(float32_t(randGen.rng()) / numeric_limits<uint32_t>::max) * nee.lightCount;
-            measure_type lightEmission = materialSystem.getEmission(nee.lights[randLightID].emissiveMatID, interaction.isotropic);
-            typename nee_type::sample_quotient_return_type ret = nee.generate_and_quotient_and_pdf(
-                randLightID, lightEmission, intersection, interaction,
+            typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
+                materialSystem, intersection, interaction,
                 isBSDF, eps0, depth
             );
             scalar_type t = ret.newRayMaxT;
@@ -135,31 +133,26 @@ struct Unidirectional
             quotient_pdf_type neeContrib_pdf = ret.quotient_pdf;
 
             // We don't allow non watertight transmitters in this renderer
-            bool validPath = nee_sample.getNdotL() > numeric_limits<scalar_type>::min && nee_sample.isValid();
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
             bxdf::fresnel::OrientedEtas<monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(monochromeEta));
             anisocache_type _cache = anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, nee_sample, orientedEta);
-            validPath = validPath && _cache.getAbsNdotH() >= 0.0;
             materialSystem.bxdfs[matID].params.eta = monochromeEta;
 
-            if (neeContrib_pdf.pdf < numeric_limits<scalar_type>::max)
+            if (neeContrib_pdf.pdf > scalar_type(0.0))
             {
-                if (validPath)
-                {
-                    // example only uses isotropic bxdfs
-                    quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction.isotropic, _cache.iso_cache);
-                    neeContrib_pdf.quotient *= bxdf.albedo * throughput * bsdf_quotient_pdf.quotient;
-                    const scalar_type otherGenOverChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb;
-                    const scalar_type otherGenOverLightAndChoice = otherGenOverChoice / bsdf_quotient_pdf.pdf;
-                    neeContrib_pdf.quotient *= otherGenOverChoice / (1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice);   // balance heuristic
+                // example only uses isotropic bxdfs
+                quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction.isotropic, _cache.iso_cache);
+                neeContrib_pdf.quotient *= bxdf.albedo * throughput * bsdf_quotient_pdf.quotient;
+                const scalar_type otherGenOverChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb;
+                const scalar_type otherGenOverLightAndChoice = otherGenOverChoice / bsdf_quotient_pdf.pdf;
+                neeContrib_pdf.quotient *= otherGenOverChoice / (1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice);   // balance heuristic
 
-                    ray_type nee_ray;
-                    nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
-                    nee_ray.direction = nee_sample.getL().getDirection();
-                    nee_ray.intersectionT = t;
-                    if (bsdf_quotient_pdf.pdf < numeric_limits<scalar_type>::max && getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && !intersector_type::traceRay(nee_ray, scene).foundHit)
-                        ray.payload.accumulation += neeContrib_pdf.quotient;
-                }
+                ray_type nee_ray;
+                nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
+                nee_ray.direction = nee_sample.getL().getDirection();
+                nee_ray.intersectionT = t;
+                if (bsdf_quotient_pdf.pdf < numeric_limits<scalar_type>::max && getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold && !intersector_type::traceRay(nee_ray, scene).foundHit)
+                    ray.payload.accumulation += neeContrib_pdf.quotient;
             }
         }
 
