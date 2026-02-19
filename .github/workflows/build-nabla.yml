@@ -122,22 +122,17 @@ jobs:
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
+              -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
-      - name: Container – Build Nabla
+      - name: Container – Build & Install Nabla
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
+              --target install `
               --config ${{ matrix.config }}
-
-      - name: Container – Install Nabla
-        run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} --config ${{ matrix.config }} `
-              --prefix ${{ env.install }}
 
       - name: API / Examples / Check Run (Create)
         id: check-run-create
