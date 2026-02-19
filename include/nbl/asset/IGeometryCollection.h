@@ -34,8 +34,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                     if (jointRedirectView.getElementCount()<geometry->getJointCount())
                         return false;
                 }
-                else
-                    return true;
+                return true;
             }
 
             inline bool hasTransform() const {return !core::isnan(transform[0][0]);}
