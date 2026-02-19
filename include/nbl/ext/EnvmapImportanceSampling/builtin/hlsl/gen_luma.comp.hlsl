@@ -16,9 +16,9 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 	if (all(threadID < pc.lumaMapResolution))
 	{
 
-		const float uv_y = (float(threadID.y) + 0.5) / pc.lumaMapResolution.y;
+		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapResolution.y;
 		const float32_t3 envMapSample = envMap.Load(float32_t3(threadID.xy, 0));
-		const float32_t luma = hlsl::dot(float32_t4(envMapSample, 1.0f), pc.luminanceScales) * sin(numbers::pi<float32_t> * uv_y);
+		const float32_t luma = hlsl::dot(envMapSample, pc.lumaRGBCoefficients) * sin(numbers::pi<float32_t> * uv_y);
 
 		outImage[threadID.xy] = luma;
 	}
