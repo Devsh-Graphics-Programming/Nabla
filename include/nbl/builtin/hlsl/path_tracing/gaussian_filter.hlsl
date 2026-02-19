@@ -26,9 +26,9 @@ struct GaussianFilter
         return retval;
     }
 
-    vector2_type sample(const vector<scalar_type, 3> randVec)
+    vector2_type sample(const vector2_type randVec)
     {
-        vector2_type remappedRand = randVec.xy;
+        vector2_type remappedRand = randVec;
         remappedRand.x *= 1.0 - truncation;
         remappedRand.x += truncation;
         return boxMuller(remappedRand);

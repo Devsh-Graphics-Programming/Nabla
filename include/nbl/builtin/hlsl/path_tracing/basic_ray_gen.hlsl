@@ -26,7 +26,7 @@ struct BasicRayGenerator
     {
         vector4_type tmp = NDC;
         GaussianFilter<scalar_type> filter = GaussianFilter<scalar_type>::create(2.5, 1.5); // stochastic reconstruction filter
-        tmp.xy += pixOffsetParam * filter.sample(randVec);
+        tmp.xy += pixOffsetParam * filter.sample(randVec.xy);
         // for depth of field we could do another stochastic point-pick
         tmp = nbl::hlsl::mul(invMVP, tmp);
 
