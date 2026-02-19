@@ -12,8 +12,8 @@ class CListIndexingCB final : public IPolygonGeometryBase::IIndexingCallback
         template<typename OutT>
         static void operator_impl(SContext<OutT>& ctx)
         {
-            auto indexOfIndex = ctx.beginPrimitive*3;
-            for (const auto end=ctx.endPrimitive*3; indexOfIndex!=end; indexOfIndex+=3)
+            auto indexOfIndex = ctx.beginPrimitive*Order;
+            for (const auto end=ctx.endPrimitive*Order; indexOfIndex!=end; indexOfIndex+=Order)
                 ctx.streamOut(indexOfIndex,std::ranges::iota_view{0,int(Order)});
         }
 
@@ -70,7 +70,7 @@ class CTriangleStripIndexingCB final : public IPolygonGeometryBase::IIndexingCal
                 indexOfIndex = ctx.beginPrimitive+2;
             const int32_t perm[] = {-1,-2,0};
             for (const auto end=ctx.endPrimitive+2; indexOfIndex!=end; indexOfIndex++)
-                ctx.streamOut(indexOfIndex,perm);
+                ctx.streamOut<std::span<const int32_t>>(indexOfIndex,perm);
         }
 
     public:
@@ -106,7 +106,7 @@ class CTriangleFanIndexingCB final : public IPolygonGeometryBase::IIndexingCallb
             {
                 // first index is always global 0
                 perm[0] = -indexOfIndex;
-                ctx.streamOut(indexOfIndex,perm);
+                ctx.streamOut<std::span<const int32_t>>(indexOfIndex,perm);
             }
         }
 
