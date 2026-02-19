@@ -11,6 +11,11 @@ bool IUtilities::updateImageViaStagingBuffer(
     const std::span<const asset::IImage::SBufferCopy> regions
 )
 {
+    if (!m_defaultUploadBuffer)
+    {
+        m_logger.log("no staging buffer available for upload. check `upstreamSize` passed to `IUtilities::create`",system::ILogger::ELL_ERROR);
+        return false;
+    }
     auto* scratch = commonTransferValidation(intendedNextSubmit);
     if (!scratch)
         return false;
@@ -164,6 +169,11 @@ bool IUtilities::downloadImageViaStagingBuffer(
     void* dest, const std::span<const asset::IImage::SBufferCopy> regions
 )
 {
+    if (!m_defaultDownloadBuffer)
+    {
+        m_logger.log("no staging buffer available for download. check `downstreamSize` passed to `IUtilities::create`",system::ILogger::ELL_ERROR);
+        return false;
+    }
     if (regions.empty())
         return false;
 

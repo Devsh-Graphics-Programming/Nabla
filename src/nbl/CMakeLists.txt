@@ -805,6 +805,7 @@ target_include_directories(Nabla PUBLIC
 
 target_compile_definitions(Nabla INTERFACE 
 	"$<BUILD_INTERFACE:${INTERFACE_BUILD_DEFINITIONS}>"
+	"$<INSTALL_INTERFACE:NBL_RELOCATABLE_PACKAGE>"
 )
 
 if(NBL_STATIC_BUILD)
