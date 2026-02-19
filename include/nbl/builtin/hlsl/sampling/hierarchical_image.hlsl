@@ -17,10 +17,14 @@ namespace hlsl
 namespace sampling
 {
 
-template <typename T, typename LuminanceAccessorT NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, T>)
+template <typename ScalarT, typename LuminanceAccessorT 
+  NBL_PRIMARY_REQUIRES(
+		is_scalar_v<ScalarT> && 
+		hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, ScalarT>
+	)
 struct LuminanceMapSampler
 {
-	using scalar_type = T;
+	using scalar_type = ScalarT;
 	using vector2_type = vector<scalar_type, 2>;
 	using vector4_type = vector<scalar_type, 4>;
 
@@ -29,9 +33,9 @@ struct LuminanceMapSampler
   uint32_t2 _lastWarpPixel;
 	bool _aspect2x1;
 
-	static LuminanceMapSampler<T, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1, uint32_t2 warpSize)
+	static LuminanceMapSampler<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1, uint32_t2 warpSize)
 	{
-	  LuminanceMapSampler<T, LuminanceAccessorT> result;
+	  LuminanceMapSampler<ScalarT, LuminanceAccessorT> result;
 	  result._map = lumaMap;
 	  result._mapSize = mapSize;
     result._lastWarpPixel = warpSize - uint32_t2(1, 1);
@@ -42,9 +46,9 @@ struct LuminanceMapSampler
 	static bool choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi)
 	{
 		// numerical resilience against IEEE754
-		scalar_type dummy = 0.0f;
+		scalar_type dummy = scalar_type(0);
 		PartitionRandVariable<scalar_type> partition;
-		partition.leftProb = 1.0f / (1.0f + (second / first));
+		partition.leftProb = scalar_type(1) / (scalar_type(1) + (second / first));
 		return partition(xi, dummy);
 	}
 
@@ -105,32 +109,56 @@ struct LuminanceMapSampler
 	}
 };
 
-template <typename T, typename HierarchicalSamplerT, typename PostWarpT NBL_PRIMARY_REQUIRES(is_scalar_v<T> && hierarchical_image::HierarchicalSampler<HierarchicalSamplerT, T> && concepts::Warp<PostWarpT>)
+template <typename ScalarT, typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
+  NBL_PRIMARY_REQUIRES(is_scalar_v<ScalarT> &&
+		concepts::accessors::GenericReadAccessor<LuminanceAccessorT, ScalarT, float32_t2> &&
+		hierarchical_image::HierarchicalSampler<HierarchicalSamplerT, ScalarT> &&
+		concepts::Warp<PostWarpT>)
 struct HierarchicalImage 
 {
-	using scalar_type = T;
-	using vector2_type = vector<T, 2>;
-	using vector3_type = vector<T, 3>;
-	using vector4_type = vector<T, 4>;
-	HierarchicalSamplerT sampler;
+	using scalar_type = ScalarT;
+	using vector2_type = vector<ScalarT, 2>;
+	using vector3_type = vector<ScalarT, 3>;
+	using vector4_type = vector<ScalarT, 4>;
+	LuminanceAccessorT lumaMap;
+	HierarchicalSamplerT warpMap;
 	uint32_t2 warpSize;
 	uint32_t2 lastWarpPixel;
+	scalar_type invAvgLuma;
 
-	static HierarchicalImage create(NBL_CONST_REF_ARG(HierarchicalSamplerT) sampler, uint32_t2 warpSize) 
+	static HierarchicalImage create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint32_t2 warpSize, scalar_type avgLuma) 
 	{
-		HierarchicalImage<T, HierarchicalSamplerT, PostWarpT> result;
-		result.sampler = sampler;
+		HierarchicalImage<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
+		result.lumaMap = lumaMap;
+		result.warpMap = warpMap;
 		result.warpSize = warpSize;
 		result.lastWarpPixel = warpSize - uint32_t2(1, 1);
+		result.invAvgLuma = ScalarT(1.0) / avgLuma;
 		return result;
 	}
 
-	uint32_t2 generate(NBL_REF_ARG(scalar_type) rcpPdf, vector2_type xi) NBL_CONST_MEMBER_FUNC
-	{
-		const vector2_type texelCoord = xi * lastWarpPixel;
-		const vector2_type sampleCoord = (texelCoord + vector2_type(0.5f, 0.5f)) / vector2_type(warpSize.x, warpSize.y);
+	vector2_type inverseWarp_and_deferredPdf(NBL_REF_ARG(scalar_type) pdf, vector3_type direction) NBL_CONST_MEMBER_FUNC
+  {
+		vector2_type envmapUv = PostWarpT::inverseWarp(direction);
+		scalar_type luma;
+		lumaMap.get(envmapUv, luma);
+		pdf = (luma * invAvgLuma) * PostWarpT::backwardDensity(direction);
+		return envmapUv;
+  }
 
-		matrix<scalar_type, 4, 2> uvs = sampler.sampleUvs(sampleCoord);
+	scalar_type deferredPdf(vector3_type direction) NBL_CONST_MEMBER_FUNC
+	{
+		vector2_type envmapUv = PostWarpT::inverseWarp(direction);
+		scalar_type luma;
+		lumaMap.get(envmapUv, luma);
+		return luma * invAvgLuma * PostWarpT::backwardDensity(direction);
+	}
+
+	vector3_type generate_and_pdf(NBL_REF_ARG(scalar_type) pdf, NBL_REF_ARG(vector2_type) uv, vector2_type xi) NBL_CONST_MEMBER_FUNC
+	{
+		const vector2_type texelCoord = xi * float32_t2(lastWarpPixel);
+
+		matrix<scalar_type, 4, 2> uvs = warpMap.sampleUvs(uint32_t2(texelCoord));
 
 		const vector2_type interpolant = frac(texelCoord);
 
@@ -143,16 +171,16 @@ struct HierarchicalImage
 			xDiffs[1] * interpolant.x + uvs[0]
 		};
 		const vector2_type yDiff = yVals[1] - yVals[0];
-		const vector2_type uv = yDiff * interpolant.y + yVals[0];
+		uv = yDiff * interpolant.y + yVals[0];
 
-		const WarpResult<float32_t3> warpResult = PostWarpT::warp(uv);
+		const WarpResult<vector3_type> warpResult = PostWarpT::warp(uv);
 
-		const scalar_type detInterpolJacobian = determinant(matrix<float32_t, 2, 2>(
+		const scalar_type detInterpolJacobian = determinant(transpose(matrix<scalar_type, 2, 2>(
 			lerp(xDiffs[0], xDiffs[1], interpolant.y), // first column dFdx
 			yDiff // second column dFdy
-		));
+		))) * lastWarpPixel.x * lastWarpPixel.y;
 
-		rcpPdf = abs((detInterpolJacobian * scalar_type(lastWarpPixel.x * lastWarpPixel.y)) / warpResult.density);
+		pdf = abs(warpResult.density / detInterpolJacobian);
 
 		return warpResult.dst;
 	}
