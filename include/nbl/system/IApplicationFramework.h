@@ -56,7 +56,7 @@ class IApplicationFramework : public core::IReferenceCounted
             #else
             // Build-interface binaries select lookup mode at runtime via NBL_RUN_FROM_BUILD_INTERFACE.
             // This is required because the same host-built executable can later be run from an install package.
-            const bool useInstallLookups = !readEnvFlag("NBL_RUN_FROM_BUILD_INTERFACE");
+            const bool useInstallLookups = false;// !readEnvFlag("NBL_RUN_FROM_BUILD_INTERFACE");
             #endif // NBL_RELOCATABLE_PACKAGE
 
             constexpr struct
