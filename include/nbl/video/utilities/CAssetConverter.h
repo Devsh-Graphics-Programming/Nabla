@@ -1048,13 +1048,23 @@ class CAssetConverter : public core::IReferenceCounted
 				}
 
 				//
-				inline operator bool() const {return bool(m_converter);}
+				explicit inline operator bool() const {return bool(m_converter);}
 
 				// Until `convert` is called, the Buffers and Images are not filled with content and Acceleration Structures are not built, unless found in the `SInput::readCache`
 				// WARNING: The Acceleration Structure Pointer WILL CHANGE after calling `convert` if its patch dictates that it will be compacted! (since AS can't resize)
 				// TODO: we could also return per-object semaphore values when object is ready for use (would have to propagate two semaphores up through dependants)
 				template<asset::Asset AssetType>
 				std::span<const asset_cached_t<AssetType>> getGPUObjects() const {return std::get<vector_t<AssetType>>(m_gpuObjects);}
+
+				// after a successful conversion you can move the GPU objects over
+				template<asset::Asset AssetType>
+				bool moveGPUObjects(vector_t<AssetType>& out)
+				{
+					if (m_converter)
+						return false;
+					out = std::move(std::get<vector_t<AssetType>>(m_gpuObjects));
+					return true;
+				}
 
 				// If you ever need to look up the content hashes of the assets AT THE TIME you converted them
 				// REMEMBER it can have stale hashes (asset or its dependants mutated since hash computed),
@@ -1106,7 +1116,7 @@ class CAssetConverter : public core::IReferenceCounted
 				
 				// we don't insert into the writeCache until conversions are successful
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
-        // converted IShaders do not have any object that hold a smartptr into them, so we have to persist them in this vector to prevent m_stagingCacheds hold a raw dangling pointer into them
+				// converted IShaders do not have any object that hold a smartptr into them, so we have to persist them in this vector to prevent m_stagingCacheds hold a raw dangling pointer into them
 				core::vector<core::smart_refctd_ptr<asset::IShader>> m_shaders;
 
 				// need a more explicit list of GPU objects that need device-assisted conversion

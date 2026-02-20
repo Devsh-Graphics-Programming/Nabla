@@ -14,7 +14,7 @@ namespace nbl::video
 struct SSpecializationValidationResult
 {
   constexpr static inline uint32_t Invalid = ~0u;
-  inline operator bool() const
+  explicit inline operator bool() const
   {
     return count!=Invalid && dataSize!=Invalid;
   }

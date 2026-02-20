@@ -39,7 +39,7 @@ class IPreHashed : public IAsset
 				discardContent_impl();
 		}
 
-    static inline void discardDependantsContents(const std::span<IAsset*> roots)
+    static inline void discardDependantsContents(const std::span<IAsset* const> roots)
     {
       core::vector<IAsset*> stack;
       core::unordered_set<IAsset*> alreadyVisited; // whether we have push the node to the stack
