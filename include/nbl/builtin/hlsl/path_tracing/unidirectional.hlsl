@@ -75,7 +75,7 @@ struct Unidirectional
     }
 
     // TODO: will only work with isotropic surfaces, need to do aniso
-    bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(intersect_data_type) intersectData, NBL_CONST_REF_ARG(scene_type) scene)
+    bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(intersect_data_type) intersectData)
     {
         const vector3_type intersection = intersectData.intersection;
         vector3_type throughput = ray.payload.throughput;
@@ -101,7 +101,7 @@ struct Unidirectional
                 scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
                 emissive *= ray.foundEmissiveMIS(pdfSq);
             }
-            ray.payload.accumulation += emissive;
+            ray.addPayloadContribution(emissive);
         }
 
         if (!matLightID.isBxDF() || isEmissive)
@@ -131,7 +131,7 @@ struct Unidirectional
             );
             scalar_type t = ret.newRayMaxT;
             sample_type nee_sample = ret.sample_;
-            quotient_pdf_type neeContrib_pdf = ret.quotient_pdf;
+            quotient_pdf_type neeContrib = ret.quotient_pdf;
 
             // We don't allow non watertight transmitters in this renderer
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
@@ -139,20 +139,20 @@ struct Unidirectional
             anisocache_type _cache = anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, nee_sample, orientedEta);
             materialSystem.bxdfs[matID].params.eta = monochromeEta;
 
-            if (neeContrib_pdf.pdf > scalar_type(0.0))
+            if (neeContrib.pdf > scalar_type(0.0))
             {
                 // example only uses isotropic bxdfs
                 quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction.isotropic, _cache.iso_cache);
-                neeContrib_pdf.quotient *= materialSystem.eval(matID, nee_sample, interaction.isotropic, _cache.iso_cache) * rcpChoiceProb;
-                const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib_pdf.pdf;
-                neeContrib_pdf.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
+                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction.isotropic, _cache.iso_cache) * rcpChoiceProb;
+                const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib.pdf;
+                neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
                 ray_type nee_ray;
                 nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
                 nee_ray.direction = nee_sample.getL().getDirection();
                 nee_ray.intersectionT = t;
-                if (getLuma(neeContrib_pdf.quotient) > lumaContributionThreshold)
-                    ray.payload.accumulation += neeContrib_pdf.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.lightObjectID);
+                if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
+                    ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.lightObjectID));
             }
         }
 
@@ -178,9 +178,8 @@ struct Unidirectional
         const float lumaThroughputThreshold = lumaContributionThreshold;
         if (bxdfPdf > bxdfPdfThreshold && getLuma(throughput) > lumaThroughputThreshold)
         {
-            ray.payload.throughput = throughput;
             scalar_type otherTechniqueHeuristic = neeProbability / bxdfPdf; // numerically stable, don't touch
-            ray.payload.otherTechniqueHeuristic = otherTechniqueHeuristic * otherTechniqueHeuristic;
+            ray.setPayloadMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
 
             // trace new ray
             vector3_type origin = intersection + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
@@ -197,7 +196,7 @@ struct Unidirectional
     {
         vector3_type finalContribution = ray.payload.throughput;
         finalContribution *= nee.get_environment_radiance(ray);
-        ray.payload.accumulation += finalContribution;
+        ray.addPayloadContribution(finalContribution);
     }
 
     // Li
@@ -218,7 +217,7 @@ struct Unidirectional
 
             hit = intersection.foundHit;
             if (hit)
-                rayAlive = closestHitProgram(d, sampleIndex, ray, intersection, scene);
+                rayAlive = closestHitProgram(d, sampleIndex, ray, intersection);
         }
         if (!hit)
             missProgram(ray);
