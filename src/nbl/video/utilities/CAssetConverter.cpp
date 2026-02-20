@@ -4165,7 +4165,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	struct SMissingDependent
 	{
 		// This only checks if whether we had to convert and failed, but the dependent might be in readCache of one or more converters, so if in doubt assume its okay
-		explicit inline operator bool() const {return wasInStaging && gotWiped;}
+		inline operator bool() const {return wasInStaging && gotWiped;}
 
 		bool wasInStaging;
 		bool gotWiped;
