@@ -157,6 +157,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::tolerance_method_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(id, ray, scene)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(matSys, scene, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))

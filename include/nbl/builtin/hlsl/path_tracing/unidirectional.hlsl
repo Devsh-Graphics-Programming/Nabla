@@ -16,29 +16,6 @@ namespace hlsl
 namespace path_tracing
 {
 
-// TODO: unsure what to do with this, awaiting refactor or turning into concept
-template<typename T>
-struct Tolerance
-{
-    NBL_CONSTEXPR_STATIC_INLINE T INTERSECTION_ERROR_BOUND_LOG2 = -8.0;
-
-    static T __common(uint32_t depth)
-    {
-        T depthRcp = 1.0 / T(depth);
-        return INTERSECTION_ERROR_BOUND_LOG2;
-    }
-
-    static T getStart(uint32_t depth)
-    {
-        return nbl::hlsl::exp2(__common(depth));
-    }
-
-    static T getEnd(uint32_t depth)
-    {
-        return 1.0 - nbl::hlsl::exp2(__common(depth) + 1.0);
-    }
-};
-
 template<class RandGen, class RayGen, class Intersector, class MaterialSystem, /* class PathGuider, */ class NextEventEstimator, class Accumulator, class Scene
 NBL_PRIMARY_REQUIRES(concepts::RandGenerator<RandGen> && concepts::RayGenerator<RayGen> &&
     concepts::Intersector<Intersector> && concepts::MaterialSystem<MaterialSystem> &&
@@ -68,6 +45,7 @@ struct Unidirectional
     using isotropic_interaction_type = typename anisotropic_interaction_type::isotropic_interaction_type;
     using anisocache_type = typename MaterialSystem::anisocache_type;
     using quotient_pdf_type = typename NextEventEstimator::quotient_pdf_type;
+    using tolerance_method_type = typename NextEventEstimator::tolerance_method_type;
 
     scalar_type getLuma(NBL_CONST_REF_ARG(vector3_type) col)
     {
@@ -81,7 +59,7 @@ struct Unidirectional
         isotropic_interaction_type iso_interaction = interaction.isotropic;
 
         // emissive
-        typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(ray.objectID);
+        typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(intersectData.getObjectID());
         const uint32_t matID = matLightID.matID;
         const bool isEmissive = materialSystem.hasEmission(matID);
         if (isEmissive)
@@ -143,10 +121,12 @@ struct Unidirectional
                 const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib.pdf;
                 neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
+                const vector3_type origin = intersectP;
+                const vector3_type direction = nee_sample.getL().getDirection();
                 ray_type nee_ray;
-                nee_ray.origin = intersectP + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
-                nee_ray.direction = nee_sample.getL().getDirection();
-                nee_ray.intersectionT = t;
+                nee_ray.initData(origin, direction, interaction.getN(), isBSDF);
+                nee_ray.setT(t);
+                tolerance_method_type::template adjust<ray_type>(nee_ray, direction, depth);
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
                     ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.lightObjectID));
             }
@@ -178,10 +158,12 @@ struct Unidirectional
             ray.setPayloadMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
 
             // trace new ray
-            vector3_type origin = intersectP + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
+            vector3_type origin = intersectP;
             vector3_type direction = bxdfSample;
-
             ray.initData(origin, direction, interaction.getN(), isBSDF);
+            ray.setT(1.0/*kSceneSize*/);
+            tolerance_method_type::template adjust<ray_type>(ray, direction, depth);
+
             return true;
         }
 
@@ -190,7 +172,7 @@ struct Unidirectional
 
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
-        vector3_type finalContribution = ray.payload.throughput;
+        vector3_type finalContribution = ray.getPayloadThroughput();
         finalContribution *= nee.get_environment_radiance(ray);
         ray.addPayloadContribution(finalContribution);
     }
@@ -208,7 +190,7 @@ struct Unidirectional
         bool rayAlive = true;
         for (uint16_t d = 1; (d <= maxDepth) && hit && rayAlive; d++)
         {
-            ray.intersectionT = numeric_limits<scalar_type>::max;
+            ray.setT(numeric_limits<scalar_type>::max);
             closest_hit_type intersection = intersector_type::traceRay(ray, scene);
 
             hit = intersection.foundHit();
