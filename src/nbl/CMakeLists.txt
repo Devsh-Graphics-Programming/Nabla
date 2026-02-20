@@ -803,7 +803,7 @@ if(TARGET ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB})
 		target_link_libraries(Nabla INTERFACE
 			"$<INSTALL_INTERFACE:$<$<CONFIG:Debug>:$<INSTALL_PREFIX>/debug/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild_d.lib>>"
 			"$<INSTALL_INTERFACE:$<$<CONFIG:Release>:$<INSTALL_PREFIX>/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild.lib>>"
-			"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild_rwdi.lib>>"
+			"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild.lib>>"
 		)
 	endif()
 endif()
