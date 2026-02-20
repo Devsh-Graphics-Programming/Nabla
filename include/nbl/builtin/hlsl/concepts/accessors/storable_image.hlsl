@@ -18,13 +18,13 @@ namespace accessors
 {
 // declare concept
 #define NBL_CONCEPT_NAME StorableImage
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)(int32_t)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)(Components)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (a,U)
 #define NBL_CONCEPT_PARAM_1 (uv,vector<uint16_t,Dims>)
 #define NBL_CONCEPT_PARAM_2 (layer,uint16_t)
-#define NBL_CONCEPT_PARAM_3 (data,vector<T,4>)
+#define NBL_CONCEPT_PARAM_3 (data,vector<T,Components>)
 // start concept
 NBL_CONCEPT_BEGIN(4)
 // need to be defined AFTER the cocnept begins
