@@ -1033,6 +1033,26 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
           const std::span<const IGPURayTracingPipeline::SCreationParams> params,
           core::smart_refctd_ptr<IGPURayTracingPipeline>* const output);
         
+        // Pipeline executable statistics report (VK_KHR_pipeline_executable_properties).
+        // Pipeline must have been created with CAPTURE_STATISTICS flag.
+        // If includeInternalRepresentations is true, also includes shader IR/assembly
+        // (pipeline must have been created with CAPTURE_INTERNAL_REPRESENTATIONS flag).
+        template<typename Pipeline>
+        std::string getPipelineExecutableReport(const Pipeline* pipeline, bool includeInternalRepresentations = false)
+        {
+            if (!pipeline)
+            {
+                NBL_LOG_ERROR("Null pipeline");
+                return {};
+            }
+            if (!getEnabledFeatures().pipelineExecutableInfo)
+            {
+                NBL_LOG_ERROR("Feature `pipelineExecutableInfo` is not enabled");
+                return {};
+            }
+            return getPipelineExecutableReport_impl(pipeline->getNativeHandle(), includeInternalRepresentations);
+        }
+
         // queries
         inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)
         {
@@ -1295,6 +1315,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
             const SSpecializationValidationResult& validation
         ) = 0;
+
+        virtual std::string getPipelineExecutableReport_impl(const void* nativeHandle, bool includeInternalRepresentations) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
         virtual bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;

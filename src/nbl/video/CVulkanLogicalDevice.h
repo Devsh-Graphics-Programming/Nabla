@@ -301,6 +301,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             const SSpecializationValidationResult& validation
         ) override;
 
+        // pipeline executable statistics
+        std::string getPipelineExecutableReport_impl(const void* nativeHandle, bool includeInternalRepresentations) override;
+
         // queries
         core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) override;
         bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) override;
