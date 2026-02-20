@@ -1662,6 +1662,150 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
 
+std::string CVulkanLogicalDevice::getPipelineExecutableReport_impl(const void* nativeHandle, bool includeInternalRepresentations)
+{
+    const VkPipeline vkPipeline = *reinterpret_cast<const VkPipeline*>(nativeHandle);
+
+    VkPipelineInfoKHR pipelineInfo = {VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR, nullptr};
+    pipelineInfo.pipeline = vkPipeline;
+
+    // Enumerate executables
+    uint32_t executableCount = 0;
+    m_devf.vk.vkGetPipelineExecutablePropertiesKHR(m_vkdev, &pipelineInfo, &executableCount, nullptr);
+
+    core::vector<VkPipelineExecutablePropertiesKHR> properties(executableCount);
+    for (uint32_t i = 0; i < executableCount; ++i)
+        properties[i] = {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR, nullptr};
+    m_devf.vk.vkGetPipelineExecutablePropertiesKHR(m_vkdev, &pipelineInfo, &executableCount, properties.data());
+
+    std::string report;
+	report.reserve(1024); // avoid some reallocations, we can adjust this if needed
+    for (uint32_t i = 0; i < executableCount; ++i)
+    {
+        const auto& prop = properties[i];
+
+        report += "======== ";
+        report += prop.name;
+        report += " ========\n";
+        report += prop.description;
+        report += "\n";
+
+        VkPipelineExecutableInfoKHR execInfo = {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR, nullptr};
+        execInfo.pipeline = vkPipeline;
+        execInfo.executableIndex = i;
+
+        // Statistics
+        report += "==== Statistics ====\n";
+        report += "Subgroup Size: ";
+        report += std::to_string(prop.subgroupSize);
+        report += "\n";
+
+        uint32_t statCount = 0;
+        m_devf.vk.vkGetPipelineExecutableStatisticsKHR(m_vkdev, &execInfo, &statCount, nullptr);
+
+        if (statCount > 0)
+        {
+            core::vector<VkPipelineExecutableStatisticKHR> stats(statCount);
+            for (uint32_t s = 0; s < statCount; ++s)
+                stats[s] = {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR, nullptr};
+            m_devf.vk.vkGetPipelineExecutableStatisticsKHR(m_vkdev, &execInfo, &statCount, stats.data());
+
+            // First pass: format name:value pairs and find max width for alignment
+            core::vector<std::string> nameValues(statCount);
+            size_t maxNameValueLen = 0;
+            for (uint32_t s = 0; s < statCount; ++s)
+            {
+                const auto& stat = stats[s];
+                std::string value;
+                switch (stat.format)
+                {
+                    case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
+                        value = stat.value.b32 ? "true" : "false";
+                        break;
+                    case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR:
+                        value = std::to_string(stat.value.i64);
+                        break;
+                    case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR:
+                        value = std::to_string(stat.value.u64);
+                        break;
+                    case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_FLOAT64_KHR:
+                        value = std::to_string(stat.value.f64);
+                        break;
+                    default:
+                        value = "<unknown format>";
+                        break;
+                }
+                nameValues[s] = std::string(stat.name) + ": " + value;
+                maxNameValueLen = std::max(maxNameValueLen, nameValues[s].size());
+            }
+
+			// Overkill for now, but it produces nicely aligned output which is easier to read. We can optimize later if needed.
+            // Second pass: emit with aligned columns
+            for (uint32_t s = 0; s < statCount; ++s)
+            {
+                report += nameValues[s];
+                report.append(maxNameValueLen - nameValues[s].size() + 4, ' ');
+                report += "// ";
+                report += stats[s].description;
+                report += "\n";
+            }
+        }
+
+        // Internal representations
+        if (includeInternalRepresentations)
+        {
+            uint32_t irCount = 0;
+            m_devf.vk.vkGetPipelineExecutableInternalRepresentationsKHR(m_vkdev, &execInfo, &irCount, nullptr);
+
+            if (irCount > 0)
+            {
+                core::vector<VkPipelineExecutableInternalRepresentationKHR> irs(irCount);
+                for (uint32_t r = 0; r < irCount; ++r)
+                    irs[r] = {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INTERNAL_REPRESENTATION_KHR, nullptr};
+
+                // First call to get sizes
+                m_devf.vk.vkGetPipelineExecutableInternalRepresentationsKHR(m_vkdev, &execInfo, &irCount, irs.data());
+
+                // Allocate data buffers and second call to get data
+                core::vector<core::vector<char>> irData(irCount);
+                for (uint32_t r = 0; r < irCount; ++r)
+                {
+                    irData[r].resize(irs[r].dataSize);
+                    irs[r].pData = irData[r].data();
+                }
+
+                m_devf.vk.vkGetPipelineExecutableInternalRepresentationsKHR(m_vkdev, &execInfo, &irCount, irs.data());
+
+                report += "\n";
+                for (uint32_t r = 0; r < irCount; ++r)
+                {
+                    report += "---- ";
+                    report += irs[r].name;
+                    report += " ----\n";
+                    report += "; ";
+                    report += irs[r].description;
+                    report += "\n";
+                    if (irs[r].isText)
+                    {
+                        auto* str = static_cast<const char*>(irs[r].pData);
+                        report.append(str, irs[r].dataSize > 0 ? irs[r].dataSize - 1 : 0);
+                        report += "\n";
+                    }
+                    else
+                    {
+                        report += "[binary data, ";
+                        report += std::to_string(irs[r].dataSize);
+                        report += " bytes]\n";
+                    }
+                }
+            }
+        }
+        report += "\n";
+    }
+
+    return report;
+}
+
 core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(const IQueryPool::SCreationParams& params)
 {
     VkQueryPoolCreateInfo info =  {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr};
