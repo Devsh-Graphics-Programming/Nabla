@@ -62,7 +62,7 @@ struct Unidirectional
     using ray_dir_info_type = typename sample_type::ray_dir_info_type;
     using ray_type = typename RayGen::ray_type;
     using object_handle_type = typename Intersector::object_handle_type;
-    using intersect_data_type = typename Intersector::intersect_data_type;
+    using closest_hit_type = typename Intersector::closest_hit_type;
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
     using anisotropic_interaction_type = typename MaterialSystem::anisotropic_interaction_type;
     using isotropic_interaction_type = typename anisotropic_interaction_type::isotropic_interaction_type;
@@ -75,16 +75,10 @@ struct Unidirectional
     }
 
     // TODO: will only work with isotropic surfaces, need to do aniso
-    bool closestHitProgram(uint32_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(intersect_data_type) intersectData)
+    bool closestHitProgram(uint16_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(closest_hit_type) intersectData)
     {
-        const vector3_type intersection = intersectData.intersection;
-        vector3_type throughput = ray.payload.throughput;
-        const vector3_type throughputCIE_Y = hlsl::normalize(spectralTypeToLumaCoeffs * throughput);
-
-        isotropic_interaction_type iso_interaction = intersectData.iso_interaction;
-        anisotropic_interaction_type interaction = intersectData.aniso_interaction;
-        iso_interaction.luminosityContributionHint = throughputCIE_Y;
-        interaction.isotropic.luminosityContributionHint = throughputCIE_Y;
+        anisotropic_interaction_type interaction = intersectData.getInteraction();
+        isotropic_interaction_type iso_interaction = interaction.isotropic;
 
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(ray.objectID);
@@ -113,7 +107,9 @@ struct Unidirectional
         vector3_type eps0 = randGen(depth * 2u, _sample, 0u);
         vector3_type eps1 = randGen(depth * 2u + 1u, _sample, 1u);
 
-        // thresholds
+        const vector3_type intersectP = intersectData.getPosition();
+        vector3_type throughput = ray.getPayloadThroughput();
+        const vector3_type throughputCIE_Y = hlsl::normalize(spectralTypeToLumaCoeffs * throughput);
         const measure_type eta = bxdf.params.ior1 / bxdf.params.ior0;
         const scalar_type monochromeEta = hlsl::dot<vector3_type>(throughputCIE_Y, eta) / (throughputCIE_Y.r + throughputCIE_Y.g + throughputCIE_Y.b);  // TODO: imaginary eta?
 
@@ -126,7 +122,7 @@ struct Unidirectional
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
-                materialSystem, scene, intersection, interaction,
+                materialSystem, scene, intersectP, interaction,
                 isBSDF, eps0, depth
             );
             scalar_type t = ret.newRayMaxT;
@@ -148,7 +144,7 @@ struct Unidirectional
                 neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
                 ray_type nee_ray;
-                nee_ray.origin = intersection + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
+                nee_ray.origin = intersectP + nee_sample.getL().getDirection() * t * Tolerance<scalar_type>::getStart(depth);
                 nee_ray.direction = nee_sample.getL().getDirection();
                 nee_ray.intersectionT = t;
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
@@ -182,7 +178,7 @@ struct Unidirectional
             ray.setPayloadMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
 
             // trace new ray
-            vector3_type origin = intersection + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
+            vector3_type origin = intersectP + bxdfSample * (1.0/*kSceneSize*/) * Tolerance<scalar_type>::getStart(depth);
             vector3_type direction = bxdfSample;
 
             ray.initData(origin, direction, interaction.getN(), isBSDF);
@@ -210,12 +206,12 @@ struct Unidirectional
         // bounces
         bool hit = true;
         bool rayAlive = true;
-        for (int d = 1; (d <= maxDepth) && hit && rayAlive; d++)
+        for (uint16_t d = 1; (d <= maxDepth) && hit && rayAlive; d++)
         {
             ray.intersectionT = numeric_limits<scalar_type>::max;
-            intersect_data_type intersection = intersector_type::traceRay(ray, scene);
+            closest_hit_type intersection = intersector_type::traceRay(ray, scene);
 
-            hit = intersection.foundHit;
+            hit = intersection.foundHit();
             if (hit)
                 rayAlive = closestHitProgram(d, sampleIndex, ray, intersection);
         }

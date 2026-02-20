@@ -63,8 +63,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scene_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::intersect_data_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::intersect_data_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::closest_hit_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(ray, scene, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef objectID
@@ -133,7 +133,7 @@ struct DummyMaterialSystem {};
 #define NBL_CONCEPT_PARAM_4 (matSys, impl::DummyMaterialSystem)
 #define NBL_CONCEPT_PARAM_5 (interaction, typename T::interaction_type)
 #define NBL_CONCEPT_PARAM_6 (is_bsdf, bool)
-#define NBL_CONCEPT_PARAM_7 (depth, uint32_t)
+#define NBL_CONCEPT_PARAM_7 (depth, uint16_t)
 #define NBL_CONCEPT_PARAM_8 (scene, typename T::scene_type)
 NBL_CONCEPT_BEGIN(9)
 #define nee NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
