@@ -788,6 +788,26 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
+if(TARGET ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB})
+	set_target_properties(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)
+	nbl_install_lib_spec(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} "nbl/ext/FULL_SCREEN_TRIANGLE")
+	target_link_libraries(Nabla INTERFACE
+		"$<INSTALL_INTERFACE:$<$<CONFIG:Debug>:$<INSTALL_PREFIX>/debug/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_d.lib>>"
+		"$<INSTALL_INTERFACE:$<$<CONFIG:Release>:$<INSTALL_PREFIX>/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE.lib>>"
+		"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_rwdi.lib>>"
+	)
+
+	set(_NBL_EXT_FULL_SCREEN_TRIANGLE_BUILTINS_LIB "${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB}_builtinsBuild")
+	if(NBL_EMBED_BUILTIN_RESOURCES AND TARGET ${_NBL_EXT_FULL_SCREEN_TRIANGLE_BUILTINS_LIB})
+		nbl_install_lib_spec(${_NBL_EXT_FULL_SCREEN_TRIANGLE_BUILTINS_LIB} "nbl/ext/FULL_SCREEN_TRIANGLE")
+		target_link_libraries(Nabla INTERFACE
+			"$<INSTALL_INTERFACE:$<$<CONFIG:Debug>:$<INSTALL_PREFIX>/debug/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild_d.lib>>"
+			"$<INSTALL_INTERFACE:$<$<CONFIG:Release>:$<INSTALL_PREFIX>/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild.lib>>"
+			"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild.lib>>"
+		)
+	endif()
+endif()
+
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
@@ -805,6 +825,7 @@ target_include_directories(Nabla PUBLIC
 
 target_compile_definitions(Nabla INTERFACE 
 	"$<BUILD_INTERFACE:${INTERFACE_BUILD_DEFINITIONS}>"
+	"$<INSTALL_INTERFACE:NBL_RELOCATABLE_PACKAGE>"
 )
 
 if(NBL_STATIC_BUILD)

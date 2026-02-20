@@ -327,6 +327,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 
 	protected:
 		// accessors for loaders
+		// TODO: deprecate
 		SAssetBundle interm_getAssetInHierarchy(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 		SAssetBundle interm_getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 		// only the overload we use for now

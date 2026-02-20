@@ -28,6 +28,7 @@ find_package(Nabla REQUIRED CONFIG
 
 add_executable(smoke main.cpp pch.hpp cdb.ps1)
 target_link_libraries(smoke PRIVATE Nabla::Nabla)
+target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
 
 set(CMAKE_CTEST_ARGUMENTS --verbose)
