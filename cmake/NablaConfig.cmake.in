@@ -17,46 +17,74 @@ check_required_components(Nabla)
 
 #
 # nabla_setup_runtime_modules(<target> [RUNTIME_MODULES_SUBDIR <relative-subdir>] [INSTALL_RULES <ON|OFF>])
+# nabla_setup_runtime_install_modules(<target> [RUNTIME_MODULES_SUBDIR <relative-subdir>])
 #
-# One-call runtime setup for Nabla and DXC modules.
-# This function does not modify output directories of <target>.
-# It resolves destinations from the executable location at build time:
-#   $<TARGET_FILE_DIR:<target>>
+# Runtime setup helpers for Nabla and DXC modules.
 #
-# Behavior:
+# Common behavior:
 # - Adds runtime lookup defines on <target>:
 #     NBL_CPACK_PACKAGE_NABLA_DLL_DIR="./<RUNTIME_MODULES_SUBDIR>"
 #     NBL_CPACK_PACKAGE_DXC_DLL_DIR="./<RUNTIME_MODULES_SUBDIR>"
-# - Copies runtime modules into:
+#
+# nabla_setup_runtime_modules:
+# - Adds build-time copy into:
 #     $<TARGET_FILE_DIR:<target>>/<RUNTIME_MODULES_SUBDIR>
-# - Optionally emits install rules (INSTALL_RULES ON):
+# - Optionally installs runtime modules when INSTALL_RULES is ON.
+#
+# nabla_setup_runtime_install_modules:
+# - Adds install rules only (no build-time copy):
 #     ${CMAKE_INSTALL_BINDIR}/<RUNTIME_MODULES_SUBDIR>
-#
-# Typical usage:
-# 1) Consumer follows Nabla package layout and keeps runtime next to the app:
-#      target_link_libraries(my_app PRIVATE Nabla::Nabla)
-#      # no extra call required
-#
-# 2) Consumer uses custom runtime folder, for example:
-#      <app-exe-dir>/Libraries
-#      nabla_setup_runtime_modules(my_app RUNTIME_MODULES_SUBDIR "Libraries")
-#
-# 3) Consumer also installs runtime modules together with app install tree:
-#      install(TARGETS my_app RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-#      nabla_setup_runtime_modules(
-#          my_app
-#          RUNTIME_MODULES_SUBDIR "Libraries"
-#          INSTALL_RULES ON
-#      )
 #
 # Config mapping:
 # - Source module path is resolved from $<TARGET_FILE:Nabla::Nabla>.
 # - Imported-config mapping (MAP_IMPORTED_CONFIG_*) applies automatically.
-# - Mapping can be overridden before or after this call in one configure run.
 # - If using CMAKE_MAP_IMPORTED_CONFIG_<CONFIG>, set it before find_package(Nabla).
-# - Install rules place runtime modules under CMAKE_INSTALL_BINDIR and assume app runtime is
-#   installed there (or with equivalent relative layout).
 #
+function(_nbl_runtime_modules_apply_lookup_definitions _TARGET _RUNTIME_MODULES_SUBDIR)
+  target_compile_definitions("${_TARGET}" PRIVATE
+    NBL_CPACK_PACKAGE_NABLA_DLL_DIR="./${_RUNTIME_MODULES_SUBDIR}"
+    NBL_CPACK_PACKAGE_DXC_DLL_DIR="./${_RUNTIME_MODULES_SUBDIR}"
+  )
+endfunction()
+
+function(_nbl_runtime_modules_add_install_rules _RUNTIME_MODULES_SUBDIR)
+  if(NOT DEFINED CMAKE_INSTALL_BINDIR)
+    include(GNUInstallDirs)
+  endif()
+
+  set(_nbl_install_modules_dest "${CMAKE_INSTALL_BINDIR}/${_RUNTIME_MODULES_SUBDIR}")
+  string(MD5 _nbl_install_modules_dest_key "${_nbl_install_modules_dest}")
+  get_property(_nbl_install_rules_added GLOBAL PROPERTY "NBL_RUNTIME_MODULES_INSTALL_RULES_${_nbl_install_modules_dest_key}")
+  if(NOT _nbl_install_rules_added)
+    install(FILES "$<TARGET_FILE:Nabla::Nabla>"
+      DESTINATION "${_nbl_install_modules_dest}"
+    )
+    install(DIRECTORY "$<PATH:APPEND,$<TARGET_FILE_DIR:Nabla::Nabla>,3rdparty,dxc>/"
+      DESTINATION "${_nbl_install_modules_dest}"
+    )
+    set_property(GLOBAL PROPERTY "NBL_RUNTIME_MODULES_INSTALL_RULES_${_nbl_install_modules_dest_key}" TRUE)
+  endif()
+endfunction()
+
+function(nabla_setup_runtime_install_modules _TARGET)
+  if(NOT TARGET "${_TARGET}")
+    message(FATAL_ERROR "Nabla: target \"${_TARGET}\" does not exist")
+  endif()
+
+  set(_nbl_runtime_modules_subdir "Libraries")
+  set(_nbl_options "")
+  set(_nbl_one_value_args RUNTIME_MODULES_SUBDIR)
+  set(_nbl_multi_value_args "")
+  cmake_parse_arguments(_NBL_CUSTOM "${_nbl_options}" "${_nbl_one_value_args}" "${_nbl_multi_value_args}" ${ARGN})
+
+  if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
+    set(_nbl_runtime_modules_subdir "${_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR}")
+  endif()
+
+  _nbl_runtime_modules_apply_lookup_definitions("${_TARGET}" "${_nbl_runtime_modules_subdir}")
+  _nbl_runtime_modules_add_install_rules("${_nbl_runtime_modules_subdir}")
+endfunction()
+
 function(nabla_setup_runtime_modules _TARGET)
   if(NOT TARGET "${_TARGET}")
     message(FATAL_ERROR "Nabla: target \"${_TARGET}\" does not exist")
@@ -64,7 +92,6 @@ function(nabla_setup_runtime_modules _TARGET)
 
   set(_nbl_runtime_modules_subdir "Libraries")
   set(_nbl_install_rules OFF)
-
   set(_nbl_options "")
   set(_nbl_one_value_args RUNTIME_MODULES_SUBDIR INSTALL_RULES)
   set(_nbl_multi_value_args "")
@@ -77,10 +104,7 @@ function(nabla_setup_runtime_modules _TARGET)
     set(_nbl_install_rules "${_NBL_CUSTOM_INSTALL_RULES}")
   endif()
 
-  target_compile_definitions("${_TARGET}" PRIVATE
-    NBL_CPACK_PACKAGE_NABLA_DLL_DIR="./${_nbl_runtime_modules_subdir}"
-    NBL_CPACK_PACKAGE_DXC_DLL_DIR="./${_nbl_runtime_modules_subdir}"
-  )
+  _nbl_runtime_modules_apply_lookup_definitions("${_TARGET}" "${_nbl_runtime_modules_subdir}")
 
   add_custom_command(TARGET "${_TARGET}" POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${_TARGET}>/${_nbl_runtime_modules_subdir}"
@@ -90,32 +114,8 @@ function(nabla_setup_runtime_modules _TARGET)
   )
 
   if(_nbl_install_rules)
-    if(NOT DEFINED CMAKE_INSTALL_BINDIR)
-      include(GNUInstallDirs)
-    endif()
-
-    set(_nbl_install_modules_dest "${CMAKE_INSTALL_BINDIR}/${_nbl_runtime_modules_subdir}")
-    string(MD5 _nbl_install_modules_dest_key "${_nbl_install_modules_dest}")
-    get_property(_nbl_install_rules_added GLOBAL PROPERTY "NBL_RUNTIME_MODULES_INSTALL_RULES_${_nbl_install_modules_dest_key}")
-    if(NOT _nbl_install_rules_added)
-      install(FILES "$<TARGET_FILE:Nabla::Nabla>"
-        DESTINATION "${_nbl_install_modules_dest}"
-      )
-      install(DIRECTORY "$<PATH:APPEND,$<TARGET_FILE_DIR:Nabla::Nabla>,3rdparty,dxc>/"
-        DESTINATION "${_nbl_install_modules_dest}"
-      )
-      set_property(GLOBAL PROPERTY "NBL_RUNTIME_MODULES_INSTALL_RULES_${_nbl_install_modules_dest_key}" TRUE)
-    endif()
+    _nbl_runtime_modules_add_install_rules("${_nbl_runtime_modules_subdir}")
   endif()
-endfunction()
-
-# Backward-compatible alias. Keep temporarily for external consumers.
-function(nabla_enable_custom_install_lookup _TARGET)
-  message(DEPRECATION
-    "nabla_enable_custom_install_lookup is deprecated. "
-    "Use nabla_setup_runtime_modules instead."
-  )
-  nabla_setup_runtime_modules("${_TARGET}" ${ARGN})
 endfunction()
 
 if(NABLA_FIND_PACKAGE_VERBOSE)

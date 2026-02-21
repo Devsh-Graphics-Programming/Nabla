@@ -32,22 +32,25 @@ target_link_libraries(smoke PRIVATE Nabla::Nabla)
 target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
 
-option(NBL_SMOKE_CUSTOM_INSTALL_LOOKUP "Use custom install lookup layout for smoke runtime modules" OFF)
-option(NBL_SMOKE_INSTALL_SELFTEST "Install smoke with CTest metadata and run tests from install tree" OFF)
-if(NBL_SMOKE_INSTALL_SELFTEST AND NOT NBL_SMOKE_CUSTOM_INSTALL_LOOKUP)
-    message(FATAL_ERROR "NBL_SMOKE_INSTALL_SELFTEST requires NBL_SMOKE_CUSTOM_INSTALL_LOOKUP=ON")
-endif()
-if(NBL_SMOKE_CUSTOM_INSTALL_LOOKUP)
-    set(_nbl_smoke_runtime_modules_setup_args
+set(NBL_SMOKE_FLOW "NO_BUILD_COPY" CACHE STRING "Smoke runtime flow: NO_BUILD_COPY or WITH_BUILD_COPY")
+set_property(CACHE NBL_SMOKE_FLOW PROPERTY STRINGS NO_BUILD_COPY WITH_BUILD_COPY)
+string(TOUPPER "${NBL_SMOKE_FLOW}" NBL_SMOKE_FLOW)
+message(STATUS "Smoke runtime flow: ${NBL_SMOKE_FLOW}")
+option(NBL_SMOKE_INSTALL_SELFTEST "Install smoke with CTest metadata and run tests from install tree" ON)
+
+if(NBL_SMOKE_FLOW STREQUAL "NO_BUILD_COPY")
+    # No build-time copy, install-time runtime modules in ./Libraries.
+    nabla_setup_runtime_install_modules(smoke
         RUNTIME_MODULES_SUBDIR "Libraries"
     )
-    if(NBL_SMOKE_INSTALL_SELFTEST)
-        list(APPEND _nbl_smoke_runtime_modules_setup_args INSTALL_RULES ON)
-    endif()
-
+elseif(NBL_SMOKE_FLOW STREQUAL "WITH_BUILD_COPY")
+    # Build-time copy + install-time runtime modules in ./Libraries.
     nabla_setup_runtime_modules(smoke
-        ${_nbl_smoke_runtime_modules_setup_args}
+        RUNTIME_MODULES_SUBDIR "Libraries"
+        INSTALL_RULES ON
     )
+else()
+    message(FATAL_ERROR "Invalid NBL_SMOKE_FLOW='${NBL_SMOKE_FLOW}'")
 endif()
 
 set(CMAKE_CTEST_ARGUMENTS --verbose)

@@ -20,6 +20,7 @@ struct RuntimeModuleLookup final
         std::string_view buildOutputDir = "";
         std::string_view buildDllPath = "";
         std::string_view installOverrideRel = "";
+        std::string_view installBuildFallbackRel = "";
         std::string_view runtimeAbsKey = "";
     };
 
@@ -46,13 +47,15 @@ struct RuntimeModuleLookup final
         #endif
         #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR)
         nabla.installOverrideRel = NBL_CPACK_PACKAGE_NABLA_DLL_DIR;
-        #elif defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_DEFAULT)
-        nabla.installOverrideRel = NBL_CPACK_PACKAGE_NABLA_DLL_DIR_DEFAULT;
         #endif
         #if defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR)
         dxc.installOverrideRel = NBL_CPACK_PACKAGE_DXC_DLL_DIR;
-        #elif defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR_DEFAULT)
-        dxc.installOverrideRel = NBL_CPACK_PACKAGE_DXC_DLL_DIR_DEFAULT;
+        #endif
+        #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_BUILD_FALLBACK)
+        nabla.installBuildFallbackRel = NBL_CPACK_PACKAGE_NABLA_DLL_DIR_BUILD_FALLBACK;
+        #endif
+        #if defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR_BUILD_FALLBACK)
+        dxc.installBuildFallbackRel = NBL_CPACK_PACKAGE_DXC_DLL_DIR_BUILD_FALLBACK;
         #endif
         #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY)
         nabla.runtimeAbsKey = NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;
@@ -76,11 +79,18 @@ struct RuntimeModuleLookup final
     {
         if (relocatablePackage)
         {
-            if (!hasCompleteInstallOverride())
-                tryResolveInstallPathsFromPackageLayout(exeDirectory);
+            if (!hasUsableInstallPaths())
+            {
+                if (!tryResolveInstallPathsFromPackageLayout(exeDirectory))
+                    tryResolveInstallPathsFromBuildFallbackHints(exeDirectory);
+            }
             return true;
         }
-        return hasUsableInstallPaths() || tryResolveInstallPathsFromPackageLayout(exeDirectory);
+        if (hasUsableInstallPaths())
+            return true;
+        if (tryResolveInstallPathsFromPackageLayout(exeDirectory))
+            return true;
+        return tryResolveInstallPathsFromBuildFallbackHints(exeDirectory);
     }
 
     inline void finalizeInstallLookups(bool useInstallLookups)
@@ -117,7 +127,12 @@ struct RuntimeModuleLookup final
     {
         if (relativePath.empty() || exeDirectory.empty())
             return system::path("");
-        return std::filesystem::absolute(exeDirectory / system::path(relativePath));
+
+        const auto relPath = system::path(relativePath);
+        if (relPath.is_absolute())
+            return system::path("");
+
+        return std::filesystem::absolute(exeDirectory / relPath);
     }
 
     inline bool hasUsableInstallPaths() const
@@ -173,9 +188,33 @@ struct RuntimeModuleLookup final
         return false;
     }
 
-    inline bool hasCompleteInstallOverride() const
+    inline bool tryResolveInstallPathsFromBuildFallbackHints(const system::path& exeDirectory)
     {
-        return sharedBuild ? (hasInstallOverride(nabla) && hasInstallOverride(dxc)) : hasInstallOverride(dxc);
+        Module candidateNabla = nabla;
+        Module candidateDxc = dxc;
+        candidateNabla.paths.install = system::path("");
+        candidateDxc.paths.install = system::path("");
+
+        if (!candidateNabla.installBuildFallbackRel.empty())
+            candidateNabla.paths.install = absoluteFromExe(exeDirectory, candidateNabla.installBuildFallbackRel);
+        if (!candidateDxc.installBuildFallbackRel.empty())
+            candidateDxc.paths.install = absoluteFromExe(exeDirectory, candidateDxc.installBuildFallbackRel);
+
+        if (candidateDxc.paths.install.empty() && !candidateNabla.paths.install.empty() && hasRuntimeAbsKey(nabla) && hasRuntimeAbsKey(dxc))
+        {
+            const auto dxcRelToNabla = system::path(dxc.runtimeAbsKey).lexically_relative(system::path(nabla.runtimeAbsKey));
+            if (!dxcRelToNabla.empty() && dxcRelToNabla != system::path("."))
+                candidateDxc.paths.install = std::filesystem::absolute(candidateNabla.paths.install / dxcRelToNabla);
+        }
+
+        if (!moduleExistsInDirectory(candidateDxc.paths.install, candidateDxc.name))
+            return false;
+        if (sharedBuild && !moduleExistsInDirectory(candidateNabla.paths.install, candidateNabla.name))
+            return false;
+
+        nabla.paths.install = candidateNabla.paths.install;
+        dxc.paths.install = candidateDxc.paths.install;
+        return true;
     }
 
     #if defined(_NBL_PLATFORM_WINDOWS_)

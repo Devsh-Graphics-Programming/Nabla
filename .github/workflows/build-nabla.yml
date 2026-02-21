@@ -385,32 +385,8 @@ jobs:
           if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
           tree.com smoke /F
 
-      - name: Configure Smoke
-        run: cmake -S smoke -B smoke/out
+      - name: Smoke Flow NO_BUILD_COPY
+        run: cmake -D FLOW=NO_BUILD_COPY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
 
-      - name: Build Smoke
-        run: cmake --build smoke/out --config ${{ matrix.config }}
-
-      - name: CTest Smoke
-        run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
-
-      - name: Configure Smoke Custom Lookup
-        run: cmake -S smoke -B smoke/out -D NBL_SMOKE_CUSTOM_INSTALL_LOOKUP=ON
-
-      - name: Build Smoke Custom Lookup
-        run: cmake --build smoke/out --config ${{ matrix.config }}
-
-      - name: CTest Smoke Custom Lookup
-        run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
-
-      - name: Configure Smoke Installed Runtime Test
-        run: cmake -S smoke -B smoke/out -D NBL_SMOKE_CUSTOM_INSTALL_LOOKUP=ON -D NBL_SMOKE_INSTALL_SELFTEST=ON
-
-      - name: Build Smoke Installed Runtime Test
-        run: cmake --build smoke/out --config ${{ matrix.config }}
-
-      - name: Install Smoke Installed Runtime Test
-        run: cmake --install smoke/out --config ${{ matrix.config }} --prefix smoke/out/install
-
-      - name: CTest Smoke Installed Runtime Test
-        run: ctest --verbose --test-dir smoke/out/install --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
+      - name: Smoke Flow WITH_BUILD_COPY
+        run: cmake -D FLOW=WITH_BUILD_COPY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake

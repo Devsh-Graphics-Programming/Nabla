@@ -42,7 +42,7 @@ class IApplicationFramework : public core::IReferenceCounted
 
                 Desired end state is that build outputs follow the same relative runtime layout as install so lookup can stay install-style
                 for both host build and package consumers while still allowing consumer override paths like "./Libraries".
-                No interface should expose any define that contains an absolute path.
+                No interface should ever expose any define that contains an absolute path.
                 All binaries must be emitted into the build directory and Nabla 
                 should remain fully buildable with a read-only source filesystem.
 
