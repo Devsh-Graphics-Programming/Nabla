@@ -1,0 +1,106 @@
+#include <nbl/builtin/glsl/blit/default_compute_common.comp>
+
+#ifndef _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_
+#error _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_
+#error _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_
+#error _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ must be defined
+#endif
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+
+shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_][_NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_];
+#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
+
+#include <nbl/builtin/glsl/blit/formats_encode.glsl>
+#include <nbl/builtin/glsl/blit/blit/descriptors.glsl>
+#include <nbl/builtin/glsl/blit/blit/blit.glsl>
+
+#ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
+
+#ifndef _NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
+vec4 nbl_glsl_blit_getData(in vec3 texCoord, in uint layerIdx)
+{
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
+	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, vec2(texCoord.x, layerIdx), 0.f);
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, vec3(texCoord.xy, layerIdx), 0.f);
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, texCoord, 0.f);
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
+#endif
+}
+
+#define _NBL_GLSL_BLIT_GET_DATA_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_BLIT_SET_DATA_DEFINED_
+
+#ifndef _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_
+vec4 nbl_glsl_blit_encode(in vec4 value)
+{
+	return value;
+}
+#endif
+
+void nbl_glsl_blit_setData(in vec4 value, in uvec3 coord, in uint layerIdx)
+{
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, ivec2(coord.x, layerIdx), nbl_glsl_blit_encode(value));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, ivec3(coord.xy, layerIdx), nbl_glsl_blit_encode(value));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, ivec3(coord.xyz), nbl_glsl_blit_encode(value));
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
+#endif
+}
+
+#define _NBL_GLSL_BLIT_SET_DATA_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_BLIT_GET_KERNEL_WEIGHT_DEFINED_
+
+#ifndef _NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
+vec4 nbl_glsl_blit_getKernelWeight(in uint index)
+{
+	return texelFetch(_NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_, int(index));
+}
+
+#define _NBL_GLSL_BLIT_GET_KERNEL_WEIGHT_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
+void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx)
+{
+#ifdef _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_
+	#ifndef _NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_
+		#error _NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_ must be defined
+	#endif
+
+	atomicAdd(_NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_.data[layerIdx].histogram[bucketIndex], 1u);
+#endif
+}
+#define _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
+#endif
+
+void main()
+{
+	nbl_glsl_blit_main();
+}

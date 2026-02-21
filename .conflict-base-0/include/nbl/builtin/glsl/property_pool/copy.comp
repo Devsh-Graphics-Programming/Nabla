@@ -1,0 +1,83 @@
+#version 440 core
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
+
+#include "nbl/builtin/glsl/property_pool/transfer.glsl"
+
+layout(set=0,binding=0) readonly restrict buffer TransferData
+{
+    nbl_glsl_property_pool_transfer_t transferData[];
+};
+layout(set=0,binding=1) readonly restrict buffer Addresses
+{
+    uint addresses[];
+};
+layout(set=0,binding=2) readonly buffer InData
+{
+    uint data[];
+} inBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];
+layout(set=0,binding=3) writeonly buffer OutData
+{
+    uint data[];
+} outBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];
+
+layout(push_constant) uniform PushConstants
+{
+    uint baseDWORD;
+    uint endDWORD;
+} pc;
+
+void fill_loop(in uint propDWORDs, in bool srcAddressNotIOTA, in bool dstAddressNotIOTA, in uint srcIndexOffset, in uint dstIndexOffset, in uint virtualInvocationIndex)
+{
+    const uint propID = gl_WorkGroupID.y;
+    const uint index = virtualInvocationIndex/propDWORDs;
+        
+    const uint srcAddress = srcAddressNotIOTA ? addresses[srcIndexOffset]:0u;
+    const uint dstAddress = dstAddressNotIOTA ? addresses[index+dstIndexOffset]:index;
+        
+	// its equivalent to `addresses[index]*propDWORDs+virtualInvocationIndex%propDWORDs`
+	const uint srcDWORD = (srcAddress-index)*propDWORDs+virtualInvocationIndex;
+	const uint dstDWORD = (dstAddress-index)*propDWORDs+virtualInvocationIndex;
+    outBuff[propID].data[dstDWORD] = inBuff[propID].data[srcDWORD];
+}
+
+void copy_loop(in uint propDWORDs, in bool srcAddressNotIOTA, in bool dstAddressNotIOTA, in uint srcIndexOffset, in uint dstIndexOffset, in uint virtualInvocationIndex)
+{
+    const uint propID = gl_WorkGroupID.y;
+    const uint index = virtualInvocationIndex/propDWORDs;
+        
+    const uint srcAddress = srcAddressNotIOTA ? addresses[index+srcIndexOffset]:index;
+    const uint dstAddress = dstAddressNotIOTA ? addresses[index+dstIndexOffset]:index;
+        
+	// its equivalent to `addresses[index]*propDWORDs+virtualInvocationIndex%propDWORDs`
+	const uint srcDWORD = (srcAddress-index)*propDWORDs+virtualInvocationIndex;
+	const uint dstDWORD = (dstAddress-index)*propDWORDs+virtualInvocationIndex;
+    outBuff[propID].data[dstDWORD] = inBuff[propID].data[srcDWORD-pc.baseDWORD];
+}
+
+void main()
+{
+    const uint propID = gl_WorkGroupID.y;
+    const nbl_glsl_property_pool_transfer_t transfer = transferData[propID];
+    // process transfer settings
+    const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
+	const uint propDWORDs = uint(bitfieldExtract(transfer.propertyDWORDsize_flags,0,flagsBitOffset));
+    const bool srcAddressNotIOTA = transfer.srcIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID;
+    const bool dstAddressNotIOTA = transfer.dstIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID;
+    //
+    const uint indicesToSkip = pc.baseDWORD/propDWORDs;
+    const uint dstIndexOffset = transfer.dstIndexOffset-indicesToSkip;
+    // set up loop
+    const uint DWORDs = min(transfer.elementCount*propDWORDs,pc.endDWORD);
+    const uint dispatchSize = gl_NumWorkGroups[0]*NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS;
+    //
+    const bool fill = bool(transfer.propertyDWORDsize_flags&(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL<<flagsBitOffset));
+    if (fill)
+    for (uint virtualInvocationIndex=gl_GlobalInvocationID.x+pc.baseDWORD; virtualInvocationIndex<DWORDs; virtualInvocationIndex+=dispatchSize)
+           fill_loop(propDWORDs,srcAddressNotIOTA,dstAddressNotIOTA,transfer.srcIndexOffset,dstIndexOffset,virtualInvocationIndex);
+    else
+    {
+        const uint srcIndexOffset = transfer.srcIndexOffset-indicesToSkip;
+        for (uint virtualInvocationIndex=gl_GlobalInvocationID.x+pc.baseDWORD; virtualInvocationIndex<DWORDs; virtualInvocationIndex+=dispatchSize)
+            copy_loop(propDWORDs,srcAddressNotIOTA,dstAddressNotIOTA,srcIndexOffset,dstIndexOffset,virtualInvocationIndex);
+    }
+}
