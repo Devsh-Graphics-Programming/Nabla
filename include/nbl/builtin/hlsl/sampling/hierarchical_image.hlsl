@@ -120,20 +120,20 @@ struct HierarchicalImage
 	using vector2_type = vector<ScalarT, 2>;
 	using vector3_type = vector<ScalarT, 3>;
 	using vector4_type = vector<ScalarT, 4>;
-	LuminanceAccessorT lumaMap;
-	HierarchicalSamplerT warpMap;
-	uint32_t2 warpSize;
-	uint32_t2 lastWarpPixel;
-	scalar_type invAvgLuma;
+	LuminanceAccessorT _lumaMap;
+	HierarchicalSamplerT _warpMap;
+	uint32_t2 _warpSize;
+	uint32_t2 _lastWarpPixel;
+	scalar_type _rcpAvgLuma;
 
 	static HierarchicalImage create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint32_t2 warpSize, scalar_type avgLuma) 
 	{
 		HierarchicalImage<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
-		result.lumaMap = lumaMap;
-		result.warpMap = warpMap;
-		result.warpSize = warpSize;
-		result.lastWarpPixel = warpSize - uint32_t2(1, 1);
-		result.invAvgLuma = ScalarT(1.0) / avgLuma;
+		result._lumaMap = lumaMap;
+		result._warpMap = warpMap;
+		result._warpSize = warpSize;
+		result._lastWarpPixel = warpSize - uint32_t2(1, 1);
+		result._rcpAvgLuma = ScalarT(1.0) / avgLuma;
 		return result;
 	}
 
@@ -141,8 +141,8 @@ struct HierarchicalImage
   {
 		vector2_type envmapUv = PostWarpT::inverseWarp(direction);
 		scalar_type luma;
-		lumaMap.get(envmapUv, luma);
-		pdf = (luma * invAvgLuma) * PostWarpT::backwardDensity(direction);
+		_lumaMap.get(envmapUv, luma);
+		pdf = (luma * _rcpAvgLuma) * PostWarpT::backwardDensity(direction);
 		return envmapUv;
   }
 
@@ -150,15 +150,15 @@ struct HierarchicalImage
 	{
 		vector2_type envmapUv = PostWarpT::inverseWarp(direction);
 		scalar_type luma;
-		lumaMap.get(envmapUv, luma);
-		return luma * invAvgLuma * PostWarpT::backwardDensity(direction);
+		_lumaMap.get(envmapUv, luma);
+		return luma * _rcpAvgLuma * PostWarpT::backwardDensity(direction);
 	}
 
 	vector3_type generate_and_pdf(NBL_REF_ARG(scalar_type) pdf, NBL_REF_ARG(vector2_type) uv, vector2_type xi) NBL_CONST_MEMBER_FUNC
 	{
-		const vector2_type texelCoord = xi * float32_t2(lastWarpPixel);
+		const vector2_type texelCoord = xi * float32_t2(_lastWarpPixel);
 
-		matrix<scalar_type, 4, 2> uvs = warpMap.sampleUvs(uint32_t2(texelCoord));
+		matrix<scalar_type, 4, 2> uvs = _warpMap.sampleUvs(uint32_t2(texelCoord));
 
 		const vector2_type interpolant = frac(texelCoord);
 
@@ -175,16 +175,12 @@ struct HierarchicalImage
 
 		const WarpResult<vector3_type> warpResult = PostWarpT::warp(uv);
 
-		const scalar_type detInterpolJacobian = determinant(transpose(matrix<scalar_type, 2, 2>(
+		const scalar_type detInterpolJacobian = determinant(matrix<scalar_type, 2, 2>(
 			lerp(xDiffs[0], xDiffs[1], interpolant.y), // first column dFdx
 			yDiff // second column dFdy
-		))) * lastWarpPixel.x * lastWarpPixel.y;
+		)) * _lastWarpPixel.x * _lastWarpPixel.y;
 
 		pdf = abs(warpResult.density / detInterpolJacobian);
-
-		// scalar_type luma;
-		// lumaMap.get(uv, luma);
-		// pdf = luma * invAvgLuma * warpResult.density;
 
 		return warpResult.dst;
 	}
