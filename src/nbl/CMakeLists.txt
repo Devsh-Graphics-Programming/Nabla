@@ -127,7 +127,9 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 set(NBL_CORE_SOURCES
 	core/alloc/refctd_memory_resource.cpp
 	core/hash/blake.cpp
+	core/sampling/EnvmapSampler.cpp
 )
+
 set(NBL_SYSTEM_SOURCES
 	system/DefaultFuncPtrLoader.cpp
 	system/IFileBase.cpp
