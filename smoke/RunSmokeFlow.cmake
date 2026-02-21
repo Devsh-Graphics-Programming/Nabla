@@ -1,10 +1,10 @@
 if(NOT DEFINED FLOW)
-    message(FATAL_ERROR "FLOW is required. Allowed values: NO_BUILD_COPY, WITH_BUILD_COPY")
+    message(FATAL_ERROR "FLOW is required. Allowed values: CONFIGURE_ONLY, BUILD_ONLY")
 endif()
 
 string(TOUPPER "${FLOW}" FLOW)
-if(NOT FLOW MATCHES "^(NO_BUILD_COPY|WITH_BUILD_COPY)$")
-    message(FATAL_ERROR "Invalid FLOW='${FLOW}'. Allowed values: NO_BUILD_COPY, WITH_BUILD_COPY")
+if(NOT FLOW MATCHES "^(CONFIGURE_ONLY|BUILD_ONLY)$")
+    message(FATAL_ERROR "Invalid FLOW='${FLOW}'. Allowed values: CONFIGURE_ONLY, BUILD_ONLY")
 endif()
 
 if(NOT DEFINED CONFIG)

@@ -385,8 +385,8 @@ jobs:
           if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
           tree.com smoke /F
 
-      - name: Smoke Flow NO_BUILD_COPY
-        run: cmake -D FLOW=NO_BUILD_COPY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
+      - name: Smoke Flow CONFIGURE_ONLY
+        run: cmake -D FLOW=CONFIGURE_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
 
-      - name: Smoke Flow WITH_BUILD_COPY
-        run: cmake -D FLOW=WITH_BUILD_COPY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
+      - name: Smoke Flow BUILD_ONLY
+        run: cmake -D FLOW=BUILD_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake

@@ -32,21 +32,24 @@ target_link_libraries(smoke PRIVATE Nabla::Nabla)
 target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
 
-set(NBL_SMOKE_FLOW "NO_BUILD_COPY" CACHE STRING "Smoke runtime flow: NO_BUILD_COPY or WITH_BUILD_COPY")
-set_property(CACHE NBL_SMOKE_FLOW PROPERTY STRINGS NO_BUILD_COPY WITH_BUILD_COPY)
+set(NBL_SMOKE_FLOW "CONFIGURE_ONLY" CACHE STRING "Smoke runtime flow: CONFIGURE_ONLY or BUILD_ONLY")
+set_property(CACHE NBL_SMOKE_FLOW PROPERTY STRINGS CONFIGURE_ONLY BUILD_ONLY)
 string(TOUPPER "${NBL_SMOKE_FLOW}" NBL_SMOKE_FLOW)
 message(STATUS "Smoke runtime flow: ${NBL_SMOKE_FLOW}")
 option(NBL_SMOKE_INSTALL_SELFTEST "Install smoke with CTest metadata and run tests from install tree" ON)
 
-if(NBL_SMOKE_FLOW STREQUAL "NO_BUILD_COPY")
-    # No build-time copy, install-time runtime modules in ./Libraries.
-    nabla_setup_runtime_install_modules(smoke
+if(NBL_SMOKE_FLOW STREQUAL "CONFIGURE_ONLY")
+    nabla_setup_runtime_modules(
+        TARGETS smoke
         RUNTIME_MODULES_SUBDIR "Libraries"
+        MODE CONFIGURE_TIME
+        INSTALL_RULES ON
     )
-elseif(NBL_SMOKE_FLOW STREQUAL "WITH_BUILD_COPY")
-    # Build-time copy + install-time runtime modules in ./Libraries.
-    nabla_setup_runtime_modules(smoke
+elseif(NBL_SMOKE_FLOW STREQUAL "BUILD_ONLY")
+    nabla_setup_runtime_modules(
+        TARGETS smoke
         RUNTIME_MODULES_SUBDIR "Libraries"
+        MODE BUILD_TIME
         INSTALL_RULES ON
     )
 else()
