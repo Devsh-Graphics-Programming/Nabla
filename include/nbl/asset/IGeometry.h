@@ -176,7 +176,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
         struct SDataViewBase
         {
             // mostly checking validity of the format
-            inline operator bool() const {return format==EF_UNKNOWN || !isBlockCompressionFormat(format) && !isDepthOrStencilFormat(format);}
+            explicit inline operator bool() const {return format==EF_UNKNOWN || !isBlockCompressionFormat(format) && !isDepthOrStencilFormat(format);}
 
             //
             inline bool isFormatted() const {return format!=EF_UNKNOWN && bool(*this);}
@@ -294,7 +294,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
 
         struct SDataView
         {
-            inline operator bool() const {return src && composed;}
+            explicit inline operator bool() const {return src && composed;}
 
             //
             explicit inline operator SBufferBinding<const BufferType>() const

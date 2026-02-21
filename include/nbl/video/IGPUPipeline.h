@@ -90,7 +90,7 @@ class IGPUPipelineBase {
                     .count = dataSize ? static_cast<uint32_t>(count) : 0,
                     .dataSize = static_cast<uint32_t>(dataSize),
                 };
-                return *retval;
+                return bool(*retval);
             }
 
             const asset::IShader* shader = nullptr;

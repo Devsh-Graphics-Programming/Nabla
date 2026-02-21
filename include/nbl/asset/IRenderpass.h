@@ -302,7 +302,7 @@ class NBL_API2 IRenderpass
             uint32_t dependencyCount = 0u;
             int8_t viewMaskMSB = -1;
 
-            inline operator bool() const {return subpassCount;}
+            explicit inline operator bool() const {return subpassCount;}
 
             inline bool hasViewMasks() const {return viewMaskMSB>=0;}
         };

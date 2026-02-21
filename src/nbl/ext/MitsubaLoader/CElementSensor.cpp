@@ -15,7 +15,8 @@ auto CElementSensor::compAddPropertyMap() -> AddPropertyMap<CElementSensor>
 {
 	using this_t = CElementSensor;
 	AddPropertyMap<CElementSensor> retval;
-
+#pragma warning( push )
+#pragma warning( disable : 5103 )
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(up,VECTOR,derived_from,ShutterSensor);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shiftX,FLOAT,derived_from,PerspectivePinhole);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shiftY,FLOAT,derived_from,PerspectivePinhole);
@@ -50,7 +51,7 @@ auto CElementSensor::compAddPropertyMap() -> AddPropertyMap<CElementSensor>
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(farClip,FLOAT,derived_from,CameraBase);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(focusDistance,FLOAT,derived_from,DepthOfFieldBase);
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(apertureRadius,FLOAT,derived_from,DepthOfFieldBase);
-
+#pragma warning( pop )
 	// special
 	auto setClipPlane = [](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
 	{
