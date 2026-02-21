@@ -61,7 +61,7 @@ struct LuminanceMapSampler
 
 		if (_aspect2x1) {
 			// do one split in the X axis first cause penultimate full mip would have been 2x1
-			p.x = choseSecond(_map.get(uint32_t2(0, 0), mip2x1), _map.get(uint32_t2(0, 1), mip2x1), xi.x) ? 1 : 0;
+			p.x = choseSecond(_map.get(uint32_t2(0, 0), mip2x1), _map.get(uint32_t2(1, 0), mip2x1), xi.x) ? 1 : 0;
 		}
 
 		for (int i = mip2x1 - 1; i >= 0; i--)
@@ -181,6 +181,10 @@ struct HierarchicalImage
 		))) * lastWarpPixel.x * lastWarpPixel.y;
 
 		pdf = abs(warpResult.density / detInterpolJacobian);
+
+		// scalar_type luma;
+		// lumaMap.get(uv, luma);
+		// pdf = luma * invAvgLuma * warpResult.density;
 
 		return warpResult.dst;
 	}
