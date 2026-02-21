@@ -18,6 +18,7 @@ add_compile_options(
 
 set(CMAKE_SYSTEM_VERSION 10.0)
 project(NablaSmoke CXX)
+include(${CMAKE_CURRENT_LIST_DIR}/NablaSmokeTests.cmake)
 
 # default hint for our CI, normally it needs to be path to package's directory where all autogen config .cmake scripts are
 set(PACKAGE_CONFIG_SEARCH_PATHS ${CMAKE_CURRENT_LIST_DIR}/build-ct/install/cmake ${PACKAGE_CONFIG_SEARCH_PATH_HINTS})
@@ -32,42 +33,64 @@ target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
 
 option(NBL_SMOKE_CUSTOM_INSTALL_LOOKUP "Use custom install lookup layout for smoke runtime modules" OFF)
+option(NBL_SMOKE_INSTALL_SELFTEST "Install smoke with CTest metadata and run tests from install tree" OFF)
+if(NBL_SMOKE_INSTALL_SELFTEST AND NOT NBL_SMOKE_CUSTOM_INSTALL_LOOKUP)
+    message(FATAL_ERROR "NBL_SMOKE_INSTALL_SELFTEST requires NBL_SMOKE_CUSTOM_INSTALL_LOOKUP=ON")
+endif()
 if(NBL_SMOKE_CUSTOM_INSTALL_LOOKUP)
-    if(NOT COMMAND nabla_enable_custom_install_lookup)
-        message(FATAL_ERROR "Nabla package does not expose nabla_enable_custom_install_lookup")
+    set(_nbl_smoke_runtime_modules_setup_args
+        RUNTIME_MODULES_SUBDIR "Libraries"
+    )
+    if(NBL_SMOKE_INSTALL_SELFTEST)
+        list(APPEND _nbl_smoke_runtime_modules_setup_args INSTALL_RULES ON)
     endif()
 
-    nabla_enable_custom_install_lookup(smoke
-        RUNTIME_SUBDIR "your_custom_package"
-        LIBRARIES_SUBDIR "Libraries"
+    nabla_setup_runtime_modules(smoke
+        ${_nbl_smoke_runtime_modules_setup_args}
     )
 endif()
 
 set(CMAKE_CTEST_ARGUMENTS --verbose)
 enable_testing()
 
-set(OPTS 
+set(NBL_SMOKE_TEST_ENVIRONMENT 
     NBL_EXPLICIT_MODULE_LOAD_LOG=1 
     NBL_EXPLICIT_MODULE_REQUEST_LOG=1
 )
 
 option(ENABLE_CRASH_HANDLER "Enable crash handler" ON)
 
-if(WIN32)
-    if(ENABLE_CRASH_HANDLER)
-        set(CMD
-            powershell -NoProfile -ExecutionPolicy Bypass 
-            -File "$<SHELL_PATH:${CMAKE_CURRENT_LIST_DIR}/cdb.ps1>" 
-            -Exe "$<TARGET_FILE:smoke>"
-        )
-    endif()
-endif()
+nabla_smoke_add_install_load_api_test(
+    TEST_NAME NBL_INSTALL_LOAD_API
+    EXE_PATH "$<TARGET_FILE:smoke>"
+    CRASH_HANDLER_SCRIPT "$<SHELL_PATH:${CMAKE_CURRENT_LIST_DIR}/cdb.ps1>"
+    ENABLE_CRASH_HANDLER ${ENABLE_CRASH_HANDLER}
+    ENVIRONMENT "${NBL_SMOKE_TEST_ENVIRONMENT}"
+)
 
-if(NOT ENABLE_CRASH_HANDLER)
-    set(CMD
-        "$<TARGET_FILE:smoke>"
+if(NBL_SMOKE_INSTALL_SELFTEST)
+    include(GNUInstallDirs)
+
+    install(TARGETS smoke
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+    install(FILES "${CMAKE_CURRENT_LIST_DIR}/cdb.ps1"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+
+    set(_nbl_smoke_install_cmake_dir "${CMAKE_INSTALL_DATADIR}/nabla-smoke")
+    install(FILES "${CMAKE_CURRENT_LIST_DIR}/NablaSmokeTests.cmake"
+        DESTINATION "${_nbl_smoke_install_cmake_dir}"
+    )
+
+    set(NBL_SMOKE_INSTALL_CMAKE_DIR "${_nbl_smoke_install_cmake_dir}")
+    configure_file(
+        "${CMAKE_CURRENT_LIST_DIR}/CTestTestfile.install.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/CTestTestfile.install.cmake"
+        @ONLY
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CTestTestfile.install.cmake"
+        DESTINATION "."
+        RENAME "CTestTestfile.cmake"
     )
 endif()
-
-add_test(NAME NBL_INSTALL_LOAD_API COMMAND ${CMD})
-set_tests_properties(NBL_INSTALL_LOAD_API PROPERTIES ENVIRONMENT "${OPTS}")
