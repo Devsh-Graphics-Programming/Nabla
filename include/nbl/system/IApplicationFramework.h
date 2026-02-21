@@ -15,6 +15,7 @@
 #include "nbl/system/CSystemAndroid.h"
 #include "nbl/system/CSystemLinux.h"
 #include "nbl/system/CSystemWin32.h"
+#include "nbl/system/RuntimeModuleLookup.h"
 
 namespace nbl::system
 {
@@ -25,143 +26,33 @@ class IApplicationFramework : public core::IReferenceCounted
         // this is safe to call multiple times
         static bool GlobalsInit()
         {
-            struct Interface
-            {
-                system::path install;
-                system::path build;
-            };
+            RuntimeModuleLookup lookup;
 
-            struct Module
-            {
-                Interface paths;
-                std::string_view name;
-            };
+            const auto exeDirectory = system::executableDirectory();
+            lookup.applyInstallOverrides(exeDirectory);
+            /*
+                In the current design build interface and install interface cannot share one lookup set.
 
-            Module nabla{
-                {},
-                #ifdef _NBL_SHARED_BUILD_
-                _NABLA_DLL_NAME_
-                #else
-                ""
-                #endif
-            };
+                Build lookup may point to host-only output folders while install lookup must stay relocatable.
+                Mixing them can load stale modules from host build trees and break packaged consumers.
+                Another big issue is Nabla build-system layout because runtime binaries are emitted into
+                source-side locations instead of a binary-tree runtime prefix that mirrors install layout.
+                This makes executable-relative lookup ambiguous and forces a split between build and install lookup modes.
+                There are more issues caused by this non-unified layout than the ones handled in this file.
 
-            Module dxc{
-                {},
-                "dxcompiler"
-            };
+                Desired end state is that build outputs follow the same relative runtime layout as install so lookup can stay install-style
+                for both host build and package consumers while still allowing consumer override paths like "./Libraries".
+                No interface should expose any define that contains an absolute path.
+                All binaries must be emitted into the build directory and Nabla 
+                should remain fully buildable with a read-only source filesystem.
 
-            #ifdef _NBL_SHARED_BUILD_
-            #if defined(_NABLA_OUTPUT_DIR_)
-            nabla.paths.build = _NABLA_OUTPUT_DIR_;
-            #endif
-            #endif
-            #if defined(_DXC_DLL_)
-            dxc.paths.build = path(_DXC_DLL_).parent_path();
-            #endif
+                I cannot address all of that here because it requires a broader Nabla build-system refactor.
+            */
+            const bool useInstallLookups = lookup.chooseInstallLookupMode(exeDirectory);
+            lookup.finalizeInstallLookups(useInstallLookups);
 
-            // There must be no mix between interfaces' lookup, we detect our packate layout 
-            // to determine whether its install prefix or host build tree execution
-
-            #ifdef NBL_RELOCATABLE_PACKAGE
-            const bool useInstallLookups = true;
-            #else
-            auto getExecutableDirectory = []() -> system::path
-            {
-                #if defined(_NBL_PLATFORM_WINDOWS_)
-                wchar_t modulePath[MAX_PATH] = {};
-                const auto length = GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
-                if ((length == 0) || (length >= MAX_PATH))
-                    return system::path("");
-                return std::filesystem::path(modulePath).parent_path();
-                #elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
-                std::error_code ec;
-                const auto executablePath = std::filesystem::read_symlink("/proc/self/exe", ec);
-                if (ec)
-                    return system::path("");
-                return executablePath.parent_path();
-                #else
-                return system::path("");
-                #endif
-            };
-            const auto executableDirectory = getExecutableDirectory();
-            #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR)
-            const auto nablaRelDir = system::path(NBL_CPACK_PACKAGE_NABLA_DLL_DIR);
-            nabla.paths.install = std::filesystem::absolute(executableDirectory / nablaRelDir);
-            #endif
-            #if defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR)
-			const auto dxcRelDir = system::path(NBL_CPACK_PACKAGE_DXC_DLL_DIR);
-            dxc.paths.install = std::filesystem::absolute(executableDirectory / dxcRelDir);
-            #endif
-
-            const auto detectPackageLayout = [&nabla, &dxc]()
-            {
-                auto moduleExistsInDir = [](const system::path& dir, std::string_view moduleName)
-                {
-                    if (dir.empty() || moduleName.empty() || !std::filesystem::exists(dir) || !std::filesystem::is_directory(dir))
-                        return false;
-
-                    const std::string baseName(moduleName);
-                    auto hasRegularFile = [&dir](const std::string& fileName)
-                    {
-                        const auto filePath = dir / fileName;
-                        return std::filesystem::exists(filePath) && std::filesystem::is_regular_file(filePath);
-                    };
-
-                    if (hasRegularFile(baseName))
-                        return true;
-
-                    #if defined(_NBL_PLATFORM_WINDOWS_)
-                    if (hasRegularFile(baseName + ".dll"))
-                        return true;
-                    #elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
-                    if (hasRegularFile(baseName + ".so"))
-                        return true;
-
-                    const bool hasLibPrefix = (baseName.rfind("lib", 0) == 0);
-                    const std::string libBaseName = hasLibPrefix ? baseName : ("lib" + baseName);
-                    if (hasRegularFile(libBaseName + ".so"))
-                        return true;
-
-                    const std::string versionedPrefix = libBaseName + ".so.";
-                    std::error_code ec;
-                    for (const auto& entry : std::filesystem::directory_iterator(dir, ec))
-                    {
-                        if (ec)
-                            break;
-                        if (!entry.is_regular_file(ec))
-                            continue;
-
-                        const auto fileName = entry.path().filename().string();
-                        if (fileName.rfind(versionedPrefix, 0) == 0)
-                            return true;
-                    }
-                    #elif defined(__APPLE__)
-                    if (hasRegularFile(baseName + ".dylib"))
-                        return true;
-
-                    const bool hasLibPrefix = (baseName.rfind("lib", 0) == 0);
-                    if (!hasLibPrefix && hasRegularFile("lib" + baseName + ".dylib"))
-                        return true;
-                    #endif
-
-                    return false;
-                };
-
-                const bool hasPackageDxc = moduleExistsInDir(dxc.paths.install, dxc.name);
-                #ifdef _NBL_SHARED_BUILD_
-                const bool hasPackageNabla = moduleExistsInDir(nabla.paths.install, nabla.name);
-                return hasPackageDxc && hasPackageNabla;
-                #else
-                return hasPackageDxc;
-                #endif
-            };
-
-            const bool useInstallLookups = detectPackageLayout();
-            #endif
-
-            using RV = const std::vector<system::path>;
-            auto load = [](std::string_view moduleName, const RV& searchPaths)
+            using SearchPaths = std::vector<system::path>;
+            const auto load = [](std::string_view moduleName, const SearchPaths& searchPaths)
             {
                 #ifdef _NBL_PLATFORM_WINDOWS_
                 const bool isAlreadyLoaded = GetModuleHandleA(moduleName.data());
@@ -184,11 +75,11 @@ class IApplicationFramework : public core::IReferenceCounted
                 return true;
             };
 
-            if (not load(dxc.name, useInstallLookups ? RV{ dxc.paths.install } : RV{ dxc.paths.build }))
+            if (not load(lookup.dxc.name, useInstallLookups ? SearchPaths{ lookup.dxc.paths.install } : SearchPaths{ lookup.dxc.paths.build }))
                 return false;
 
             #ifdef _NBL_SHARED_BUILD_
-            if (not load(nabla.name, useInstallLookups ? RV{ nabla.paths.install } : RV{ nabla.paths.build }))
+            if (not load(lookup.nabla.name, useInstallLookups ? SearchPaths{ lookup.nabla.paths.install } : SearchPaths{ lookup.nabla.paths.build }))
                 return false;
             #endif
 
