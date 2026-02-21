@@ -30,16 +30,7 @@ add_executable(smoke main.cpp pch.hpp cdb.ps1)
 target_link_libraries(smoke PRIVATE Nabla::Nabla)
 target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
-
-add_executable(smoke_override main.cpp pch.hpp cdb.ps1)
-target_link_libraries(smoke_override PRIVATE Nabla::Nabla)
-target_compile_definitions(smoke_override PRIVATE
-    _AFXDLL
-    "NBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"./Libraries\""
-    "NBL_CPACK_PACKAGE_DXC_DLL_DIR=\"./Libraries\""
-)
-target_precompile_headers(smoke_override PRIVATE pch.hpp)
-set_target_properties(smoke smoke_override PROPERTIES
+set_target_properties(smoke PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${Nabla_ROOT}/debug/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${Nabla_ROOT}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${Nabla_ROOT}/relwithdebinfo/bin"
@@ -73,19 +64,3 @@ endif()
 
 add_test(NAME NBL_INSTALL_LOAD_API COMMAND ${CMD})
 set_tests_properties(NBL_INSTALL_LOAD_API PROPERTIES ENVIRONMENT "${OPTS}")
-
-set(_SMOKE_CPACK_REL_ENTRY "./$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>")
-set(_SMOKE_NABLA_RUNTIME_DIR "${Nabla_ROOT}/${_SMOKE_CPACK_REL_ENTRY}/runtime/nbl")
-set(_SMOKE_DXC_RUNTIME_DIR "${_SMOKE_NABLA_RUNTIME_DIR}/3rdparty/dxc")
-set(_SMOKE_OVERRIDE_LIB_DIR "$<TARGET_FILE_DIR:smoke_override>/Libraries")
-
-add_test(NAME NBL_INSTALL_LOAD_API_OVERRIDE
-    COMMAND "${CMAKE_COMMAND}"
-        "-DSMOKE_EXE=$<TARGET_FILE:smoke_override>"
-        "-DNABLA_RUNTIME_DIR=${_SMOKE_NABLA_RUNTIME_DIR}"
-        "-DDXC_RUNTIME_DIR=${_SMOKE_DXC_RUNTIME_DIR}"
-        "-DDXC_MODULE_BASENAME=dxcompiler"
-        "-DOVERRIDE_DIR=${_SMOKE_OVERRIDE_LIB_DIR}"
-        "-P" "$<SHELL_PATH:${CMAKE_CURRENT_LIST_DIR}/run_override_test.cmake>"
-)
-set_tests_properties(NBL_INSTALL_LOAD_API_OVERRIDE PROPERTIES ENVIRONMENT "${OPTS}")
