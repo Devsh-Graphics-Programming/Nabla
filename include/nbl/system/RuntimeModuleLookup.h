@@ -46,9 +46,13 @@ struct RuntimeModuleLookup final
         #endif
         #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR)
         nabla.installOverrideRel = NBL_CPACK_PACKAGE_NABLA_DLL_DIR;
+        #elif defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_DEFAULT)
+        nabla.installOverrideRel = NBL_CPACK_PACKAGE_NABLA_DLL_DIR_DEFAULT;
         #endif
         #if defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR)
         dxc.installOverrideRel = NBL_CPACK_PACKAGE_DXC_DLL_DIR;
+        #elif defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR_DEFAULT)
+        dxc.installOverrideRel = NBL_CPACK_PACKAGE_DXC_DLL_DIR_DEFAULT;
         #endif
         #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY)
         nabla.runtimeAbsKey = NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;

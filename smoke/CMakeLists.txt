@@ -30,11 +30,18 @@ add_executable(smoke main.cpp pch.hpp cdb.ps1)
 target_link_libraries(smoke PRIVATE Nabla::Nabla)
 target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
-set_target_properties(smoke PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${Nabla_ROOT}/debug/bin"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${Nabla_ROOT}/bin"
-    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${Nabla_ROOT}/relwithdebinfo/bin"
-)
+
+option(NBL_SMOKE_CUSTOM_INSTALL_LOOKUP "Use custom install lookup layout for smoke runtime modules" OFF)
+if(NBL_SMOKE_CUSTOM_INSTALL_LOOKUP)
+    if(NOT COMMAND nabla_enable_custom_install_lookup)
+        message(FATAL_ERROR "Nabla package does not expose nabla_enable_custom_install_lookup")
+    endif()
+
+    nabla_enable_custom_install_lookup(smoke
+        RUNTIME_SUBDIR "your_custom_package"
+        LIBRARIES_SUBDIR "Libraries"
+    )
+endif()
 
 set(CMAKE_CTEST_ARGUMENTS --verbose)
 enable_testing()

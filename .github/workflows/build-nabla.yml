@@ -393,3 +393,12 @@ jobs:
 
       - name: CTest Smoke
         run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
+
+      - name: Configure Smoke Custom Lookup
+        run: cmake -S smoke -B smoke/out -D NBL_SMOKE_CUSTOM_INSTALL_LOOKUP=ON
+
+      - name: Build Smoke Custom Lookup
+        run: cmake --build smoke/out --config ${{ matrix.config }}
+
+      - name: CTest Smoke Custom Lookup
+        run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}

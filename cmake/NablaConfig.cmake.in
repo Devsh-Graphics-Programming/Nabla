@@ -15,6 +15,53 @@ endif()
 include("${CMAKE_CURRENT_LIST_DIR}/NablaExportTargets.cmake")
 check_required_components(Nabla)
 
+# Config mapping note:
+# Runtime copy sources are resolved from $<TARGET_FILE:Nabla::Nabla>.
+# CMake applies imported-config mapping (MAP_IMPORTED_CONFIG_*) to this expression.
+# If a consumer overrides mapping on Nabla::Nabla, do it before this call.
+function(nabla_enable_custom_install_lookup _TARGET)
+  if(NOT TARGET "${_TARGET}")
+    message(FATAL_ERROR "Nabla: target \"${_TARGET}\" does not exist")
+  endif()
+
+  set(_nbl_runtime_subdir "your_custom_package")
+  set(_nbl_libraries_subdir "Libraries")
+
+  set(_nbl_options "")
+  set(_nbl_one_value_args RUNTIME_SUBDIR LIBRARIES_SUBDIR)
+  set(_nbl_multi_value_args "")
+  cmake_parse_arguments(_NBL_CUSTOM "${_nbl_options}" "${_nbl_one_value_args}" "${_nbl_multi_value_args}" ${ARGN})
+
+  if(_NBL_CUSTOM_RUNTIME_SUBDIR)
+    set(_nbl_runtime_subdir "${_NBL_CUSTOM_RUNTIME_SUBDIR}")
+  endif()
+  if(_NBL_CUSTOM_LIBRARIES_SUBDIR)
+    set(_nbl_libraries_subdir "${_NBL_CUSTOM_LIBRARIES_SUBDIR}")
+  endif()
+
+  get_property(_nbl_is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+  if(_nbl_is_multi_config)
+    foreach(_nbl_cfg IN LISTS CMAKE_CONFIGURATION_TYPES)
+      string(TOUPPER "${_nbl_cfg}" _nbl_cfg_upper)
+      set_property(TARGET "${_TARGET}" PROPERTY "RUNTIME_OUTPUT_DIRECTORY_${_nbl_cfg_upper}" "${CMAKE_CURRENT_BINARY_DIR}/${_nbl_cfg}/${_nbl_runtime_subdir}")
+    endforeach()
+  else()
+    set_target_properties("${_TARGET}" PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${_nbl_runtime_subdir}")
+  endif()
+
+  target_compile_definitions("${_TARGET}" PRIVATE
+    NBL_CPACK_PACKAGE_NABLA_DLL_DIR="./${_nbl_libraries_subdir}"
+    NBL_CPACK_PACKAGE_DXC_DLL_DIR="./${_nbl_libraries_subdir}"
+  )
+
+  add_custom_command(TARGET "${_TARGET}" POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${_TARGET}>/${_nbl_libraries_subdir}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Nabla::Nabla>" "$<TARGET_FILE_DIR:${_TARGET}>/${_nbl_libraries_subdir}/"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "$<PATH:APPEND,$<TARGET_FILE_DIR:Nabla::Nabla>,3rdparty,dxc>" "$<TARGET_FILE_DIR:${_TARGET}>/${_nbl_libraries_subdir}"
+    VERBATIM
+  )
+endfunction()
+
 if(NABLA_FIND_PACKAGE_VERBOSE)
   message(STATUS
     "\n-- Nabla_ROOT = ${Nabla_ROOT}"
