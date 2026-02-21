@@ -25,87 +25,139 @@ class IApplicationFramework : public core::IReferenceCounted
         // this is safe to call multiple times
         static bool GlobalsInit()
         {
-            // TODO: update CMake and rename "DLL" in all of those defines here to "MODULE" or "RUNTIME"
-            auto resolveDir = [](const char* value)
+            struct Interface
             {
-                if (!value || (value[0] == '\0'))
-                    return system::path("");
-
-                const auto candidate = system::path(value);
-                if (std::filesystem::exists(candidate))
-                    return candidate;
-
-                return system::path("");
+                system::path install;
+                system::path build;
             };
 
-            auto readEnvFlag = [](const char* key)
+            struct Module
             {
-                const char* value = std::getenv(key);
-                if (!value || (value[0] == '\0'))
-                    return false;
-
-                const std::string_view v(value);
-                return (v != "0") && (v != "false") && (v != "off") && (v != "no");
+                Interface paths;
+                std::string_view name;
             };
 
-            const auto sdk = resolveDir(std::getenv("NBL_INSTALL_DIRECTORY"));
-
-            #ifdef NBL_RELOCATABLE_PACKAGE
-            // Relocatable package consumers must use install lookups only.
-            const bool useInstallLookups = true;
-            #else
-            // Build-interface binaries select lookup mode at runtime via NBL_RUN_FROM_BUILD_INTERFACE.
-            // This is required because the same host-built executable can later be run from an install package.
-            const bool useInstallLookups = !readEnvFlag("NBL_RUN_FROM_BUILD_INTERFACE");
-            #endif // NBL_RELOCATABLE_PACKAGE
-
-            constexpr struct
-            {
-                std::string_view nabla, dxc;
-            } module = 
-            {
+            Module nabla{
+                {},
                 #ifdef _NBL_SHARED_BUILD_
                 _NABLA_DLL_NAME_
                 #else
                 ""
                 #endif
-                , 
-                "dxcompiler" 
             };
 
-            struct
-            {
-                system::path nabla, dxc;
-            } install, env, build, rel;
-
-            #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY) && defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY)
-
-            #if defined(_NABLA_INSTALL_DIR_)
-            install.nabla = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY);
-            install.dxc = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY);
-            #endif
-
-            //! ABS key is full key to file inside relocatable package 
-            env.nabla = sdk / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;
-            env.dxc = sdk / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY;
-            #endif
+            Module dxc{
+                {},
+                "dxcompiler"
+            };
 
             #ifdef _NBL_SHARED_BUILD_
             #if defined(_NABLA_OUTPUT_DIR_)
-            build.nabla = _NABLA_OUTPUT_DIR_;
+            nabla.paths.build = _NABLA_OUTPUT_DIR_;
             #endif
             #endif
             #if defined(_DXC_DLL_)
-            build.dxc = path(_DXC_DLL_).parent_path();
+            dxc.paths.build = path(_DXC_DLL_).parent_path();
             #endif
 
-            //! consumer can set this as relative path between exe & DLLs
-            #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
-            rel.nabla = NBL_CPACK_PACKAGE_NABLA_DLL_DIR;
+            // There must be no mix between interfaces' lookup, we detect our packate layout 
+            // to determine whether its install prefix or host build tree execution
+
+            #ifdef NBL_RELOCATABLE_PACKAGE
+            const bool useInstallLookups = true;
+            #else
+            auto getExecutableDirectory = []() -> system::path
+            {
+                #if defined(_NBL_PLATFORM_WINDOWS_)
+                wchar_t modulePath[MAX_PATH] = {};
+                const auto length = GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+                if ((length == 0) || (length >= MAX_PATH))
+                    return system::path("");
+                return std::filesystem::path(modulePath).parent_path();
+                #elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
+                std::error_code ec;
+                const auto executablePath = std::filesystem::read_symlink("/proc/self/exe", ec);
+                if (ec)
+                    return system::path("");
+                return executablePath.parent_path();
+                #else
+                return system::path("");
+                #endif
+            };
+            const auto executableDirectory = getExecutableDirectory();
+            #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR)
+            const auto nablaRelDir = system::path(NBL_CPACK_PACKAGE_NABLA_DLL_DIR);
+            nabla.paths.install = std::filesystem::absolute(executableDirectory / nablaRelDir);
+            #endif
+            #if defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR)
+			const auto dxcRelDir = system::path(NBL_CPACK_PACKAGE_DXC_DLL_DIR);
+            dxc.paths.install = std::filesystem::absolute(executableDirectory / dxcRelDir);
             #endif
 
-            #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
-            rel.dxc = NBL_CPACK_PACKAGE_DXC_DLL_DIR;
+            const auto detectPackageLayout = [&nabla, &dxc]()
+            {
+                auto moduleExistsInDir = [](const system::path& dir, std::string_view moduleName)
+                {
+                    if (dir.empty() || moduleName.empty() || !std::filesystem::exists(dir) || !std::filesystem::is_directory(dir))
+                        return false;
+
+                    const std::string baseName(moduleName);
+                    auto hasRegularFile = [&dir](const std::string& fileName)
+                    {
+                        const auto filePath = dir / fileName;
+                        return std::filesystem::exists(filePath) && std::filesystem::is_regular_file(filePath);
+                    };
+
+                    if (hasRegularFile(baseName))
+                        return true;
+
+                    #if defined(_NBL_PLATFORM_WINDOWS_)
+                    if (hasRegularFile(baseName + ".dll"))
+                        return true;
+                    #elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
+                    if (hasRegularFile(baseName + ".so"))
+                        return true;
+
+                    const bool hasLibPrefix = (baseName.rfind("lib", 0) == 0);
+                    const std::string libBaseName = hasLibPrefix ? baseName : ("lib" + baseName);
+                    if (hasRegularFile(libBaseName + ".so"))
+                        return true;
+
+                    const std::string versionedPrefix = libBaseName + ".so.";
+                    std::error_code ec;
+                    for (const auto& entry : std::filesystem::directory_iterator(dir, ec))
+                    {
+                        if (ec)
+                            break;
+                        if (!entry.is_regular_file(ec))
+                            continue;
+
+                        const auto fileName = entry.path().filename().string();
+                        if (fileName.rfind(versionedPrefix, 0) == 0)
+                            return true;
+                    }
+                    #elif defined(__APPLE__)
+                    if (hasRegularFile(baseName + ".dylib"))
+                        return true;
+
+                    const bool hasLibPrefix = (baseName.rfind("lib", 0) == 0);
+                    if (!hasLibPrefix && hasRegularFile("lib" + baseName + ".dylib"))
+                        return true;
+                    #endif
+
+                    return false;
+                };
+
+                const bool hasPackageDxc = moduleExistsInDir(dxc.paths.install, dxc.name);
+                #ifdef _NBL_SHARED_BUILD_
+                const bool hasPackageNabla = moduleExistsInDir(nabla.paths.install, nabla.name);
+                return hasPackageDxc && hasPackageNabla;
+                #else
+                return hasPackageDxc;
+                #endif
+            };
+
+            const bool useInstallLookups = detectPackageLayout();
             #endif
 
             using RV = const std::vector<system::path>;
@@ -132,11 +184,11 @@ class IApplicationFramework : public core::IReferenceCounted
                 return true;
             };
 
-            if (not load(module.dxc, useInstallLookups ? RV{ rel.dxc, env.dxc, install.dxc } : RV{ build.dxc }))
+            if (not load(dxc.name, useInstallLookups ? RV{ dxc.paths.install } : RV{ dxc.paths.build }))
                 return false;
 
             #ifdef _NBL_SHARED_BUILD_
-            if (not load(module.nabla, useInstallLookups ? RV{ rel.nabla, env.nabla, install.nabla } : RV{ build.nabla }))
+            if (not load(nabla.name, useInstallLookups ? RV{ nabla.paths.install } : RV{ nabla.paths.build }))
                 return false;
             #endif
 
