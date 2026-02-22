@@ -64,8 +64,8 @@ namespace Bullet3
         return convert<const btVector4&, const core::vectorSIMDf&>(vec);
     }
 
-    inline core::matrix3x4SIMD convertbtTransform(const btTransform &trans) {
-        core::matrix3x4SIMD mat;
+    inline hlsl::float32_t3x4 convertbtTransform(const btTransform &trans) {
+        hlsl::float32_t3x4 mat;
 
         for (uint32_t i = 0; i < 3u; ++i) {
             mat.rows[i] = frombtVec3(trans.getBasis().getRow(i));
@@ -75,7 +75,7 @@ namespace Bullet3
         return mat;
     }
 
-    inline btTransform convertMatrixSIMD(const core::matrix3x4SIMD &mat) {
+    inline btTransform convertMatrixSIMD(const hlsl::float32_t3x4 &mat) {
         btTransform transform;
         
         //Calling makeSafe3D on rows erases translation so save it

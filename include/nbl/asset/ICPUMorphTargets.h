@@ -23,7 +23,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
         inline E_TYPE getAssetType() const override {return AssetType;}
 
         //
-        inline bool valid() const //override
+        inline bool valid() const override
         {
             for (const auto& target : m_targets)
             if (!target || !target.geoCollection->valid())
@@ -46,6 +46,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
         }
 
         //
+        inline auto& getTargets() const {return base_t::getTargets();}
         inline core::vector<base_t::STarget>* getTargets()
         {
             if (isMutable())
@@ -55,7 +56,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
 
     protected:
         //
-        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const //override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
             auto nonNullOnly = [&visit](const IAsset* dep)->bool
             {

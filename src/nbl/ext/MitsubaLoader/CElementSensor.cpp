@@ -1,253 +1,92 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
 
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
-{
-	
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementSensor>(const char** _atts, ParserManager* _util)
-{
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr,"");
 
-	static const core::unordered_map<std::string, CElementSensor::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-	{
-		{"perspective",			CElementSensor::Type::PERSPECTIVE},
-		{"thinlens",			CElementSensor::Type::THINLENS},
-		{"orthographic",		CElementSensor::Type::ORTHOGRAPHIC},
-		{"telecentric",			CElementSensor::Type::TELECENTRIC},
-		{"spherical",			CElementSensor::Type::SPHERICAL},
-		{"irradiancemeter",		CElementSensor::Type::IRRADIANCEMETER},
-		{"radiancemeter",		CElementSensor::Type::RADIANCEMETER},
-		{"fluencemeter",		CElementSensor::Type::FLUENCEMETER}/*,
-		{"perspective_rdist",	CElementSensor::PERSPECTIVE_RDIST}*/
-	};
-
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr, "");
-	}
-
-	CElementSensor* obj = _util->objects.construct<CElementSensor>(id);
-	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
-
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementSensor::Type::PERSPECTIVE:
-			obj->perspective = CElementSensor::PerspectivePinhole();
-			break;
-		case CElementSensor::Type::THINLENS:
-			obj->thinlens = CElementSensor::PerspectiveThinLens();
-			break;
-		case CElementSensor::Type::ORTHOGRAPHIC:
-			obj->orthographic = CElementSensor::Orthographic();
-			break;
-		case CElementSensor::Type::TELECENTRIC:
-			obj->telecentric = CElementSensor::TelecentricLens();
-			break;
-		case CElementSensor::Type::SPHERICAL:
-			obj->spherical = CElementSensor::SphericalCamera();
-			break;
-		case CElementSensor::Type::IRRADIANCEMETER:
-			obj->irradiancemeter = CElementSensor::IrradianceMeter();
-			break;
-		case CElementSensor::Type::RADIANCEMETER:
-			obj->radiancemeter = CElementSensor::RadianceMeter();
-			break;
-		case CElementSensor::Type::FLUENCEMETER:
-			obj->fluencemeter = CElementSensor::FluenceMeter();
-			break;
-		default:
-			break;
-	}
-	return CElementFactory::return_type(obj, std::move(name));
-}
-
-bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
+namespace nbl::ext::MitsubaLoader
 {
-	bool error = false;
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
+
+auto CElementSensor::compAddPropertyMap() -> AddPropertyMap<CElementSensor>
+{
+	using this_t = CElementSensor;
+	AddPropertyMap<CElementSensor> retval;
+#pragma warning( push )
+#pragma warning( disable : 5103 )
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(up,VECTOR,derived_from,ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shiftX,FLOAT,derived_from,PerspectivePinhole);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shiftY,FLOAT,derived_from,PerspectivePinhole);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(fov,FLOAT,derived_from,PerspectivePinhole);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("fovAxis",STRING,derived_from,PerspectivePinhole)
 		{
-			case CElementSensor::Type::PERSPECTIVE:
-				func(perspective);
-				break;
-			case CElementSensor::Type::THINLENS:
-				func(thinlens);
-				break;
-			case CElementSensor::Type::ORTHOGRAPHIC:
-				func(orthographic);
-				break;
-			case CElementSensor::Type::TELECENTRIC:
-				func(telecentric);
-				break;
-			case CElementSensor::Type::SPHERICAL:
-				func(spherical);
-				break;
-			case CElementSensor::Type::IRRADIANCEMETER:
-				func(irradiancemeter);
-				break;
-			case CElementSensor::Type::RADIANCEMETER:
-				func(radiancemeter);
-				break;
-			case CElementSensor::Type::FLUENCEMETER:
-				func(fluencemeter);
-				break;
-			default:
-				error = true;
-				break;
+			auto& state = _this->perspective;
+			// TODO: check if this gives problem with delay loads
+			static const core::unordered_map<std::string,PerspectivePinhole::FOVAxis,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+			{
+				{"x",		PerspectivePinhole::FOVAxis::X},
+				{"y",		PerspectivePinhole::FOVAxis::Y},
+				{"diagonal",PerspectivePinhole::FOVAxis::DIAGONAL},
+				{"smaller",	PerspectivePinhole::FOVAxis::SMALLER},
+				{"larger",	PerspectivePinhole::FOVAxis::LARGER}
+			};
+			auto found = StringToType.find(_property.svalue);
+			if (found!=StringToType.end())
+				state.fovAxis = found->second;
+			else
+				state.fovAxis = PerspectivePinhole::FOVAxis::INVALID;
+			return true;
 		}
-	};
+	);
 
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE,BASE)		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
-			if constexpr (std::is_base_of<BASE,std::remove_reference<decltype(state)>::type >::value) \
-			{ \
-				if (_property.type!=PROPERTY_TYPE) { \
-					error = true; \
-					return; \
-				} \
-				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-			} \
-		}); \
-	}
-	
-	auto setUp = SET_PROPERTY_TEMPLATE(up,SNamedPropertyElement::Type::VECTOR,ShutterSensor);
-	auto setClipPlane = [&]() -> void
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shutterOpen,FLOAT,derived_from,ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shutterClose,FLOAT,derived_from,ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(moveSpeed,FLOAT,derived_from,ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(zoomSpeed,FLOAT,derived_from,ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(rotateSpeed,FLOAT,derived_from,ShutterSensor);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(nearClip,FLOAT,derived_from,CameraBase);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(farClip,FLOAT,derived_from,CameraBase);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(focusDistance,FLOAT,derived_from,DepthOfFieldBase);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(apertureRadius,FLOAT,derived_from,DepthOfFieldBase);
+#pragma warning( pop )
+	// special
+	auto setClipPlane = [](this_t* _this, SNamedPropertyElement&& _property, const system::logger_opt_ptr logger)->bool
 	{
-		dispatch([&](auto& state) -> void
+		if (_property.getVectorDimension()!=4)
 		{
-			if (_property.type!=SNamedPropertyElement::Type::VECTOR || _property.getVectorDimension()==4)
-			{
-				error = true;
-				return;
-			}
-			constexpr std::string_view Name = "clipPlane";
-			const std::string_view sv(_property.name);
-			if (sv.length()!=Name.length()+1 || sv.find(Name)!=0)
-			{
-				error = true;
-				return;
-			}
-			const auto index = std::atoi(sv.data()+Name.length());
-			if (index>MaxClipPlanes)
-			{
-				error = true;
-				return;
-			}
-			state.clipPlanes[index] = _property.vvalue;
-		});
-	};
-	auto setShiftX = SET_PROPERTY_TEMPLATE(shiftX,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
-	auto setShiftY = SET_PROPERTY_TEMPLATE(shiftY,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
-	auto setFov = SET_PROPERTY_TEMPLATE(fov,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
-	auto setFovAxis = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void
+			return false;
+		}
+		constexpr std::string_view Name = "clipPlane";
+		const std::string_view sv(_property.name);
+		if (sv.length()!=Name.length()+1 || sv.find(Name)!=0)
 		{
-			using state_type = std::remove_reference<decltype(state)>::type;
-			if constexpr (std::is_base_of<PerspectivePinhole,state_type>::value)
-			{
-				if (_property.type!=SNamedPropertyElement::Type::STRING)
-				{
-					error = true;
-					return;
-				}
-				static const core::unordered_map<std::string,PerspectivePinhole::FOVAxis,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
-				{
-					{"x",		PerspectivePinhole::FOVAxis::X},
-					{"y",		PerspectivePinhole::FOVAxis::Y},
-					{"diagonal",PerspectivePinhole::FOVAxis::DIAGONAL},
-					{"smaller",	PerspectivePinhole::FOVAxis::SMALLER},
-					{"larger",	PerspectivePinhole::FOVAxis::LARGER}
-				};
-				auto found = StringToType.find(_property.svalue);
-				if (found!=StringToType.end())
-					state.fovAxis = found->second;
-				else
-					state.fovAxis = PerspectivePinhole::FOVAxis::INVALID;
-			}
-		});
+			return false;
+		}
+		const auto index = std::atoi(sv.data()+Name.length());
+		if (index>MaxClipPlanes)
+		{
+			return false;
+		}
+		// everyone inherits from this
+		_this->perspective.clipPlanes[index] = _property.vvalue;
+		return true;
 	};
-	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
-	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
-	auto setMoveSpeed		= SET_PROPERTY_TEMPLATE(moveSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
-	auto setZoomSpeed		= SET_PROPERTY_TEMPLATE(zoomSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
-	auto setRotateSpeed		= SET_PROPERTY_TEMPLATE(rotateSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
-	auto setNearClip		= SET_PROPERTY_TEMPLATE(nearClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
-	auto setFarClip			= SET_PROPERTY_TEMPLATE(farClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
-	auto setFocusDistance	= SET_PROPERTY_TEMPLATE(focusDistance,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
-	auto setApertureRadius	= SET_PROPERTY_TEMPLATE(apertureRadius,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
+	for (auto i=0; i<MaxClipPlanes; i++)
+		retval.registerCallback(SNamedPropertyElement::Type::VECTOR,"clipPlane"+std::to_string(i),{.func=setClipPlane});
+
+	// TODOs:
 	//auto setKc			= SET_PROPERTY_TEMPLATE(apertureRadius,SNamedPropertyElement::Type::STRING,PerspectivePinholeRadialDistortion);
+	//{"focalLength",	noIdeaHowToProcessValue},
 
-	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
-	{
-		//{"focalLength",	noIdeaHowToProcessValue},
-		{"up",				setUp},
-		{"clipPlane0",		setClipPlane},
-		{"clipPlane1",		setClipPlane},
-		{"clipPlane2",		setClipPlane},
-		{"clipPlane3",		setClipPlane},
-		{"clipPlane4",		setClipPlane},
-		{"clipPlane5",		setClipPlane},
-		// UPDATE WHENEVER `MaxClipPlanes` changes!
-		{"shiftX",			setShiftX},
-		{"shiftY",			setShiftY},
-		{"fov",				setFov},
-		{"fovAxis",			setFovAxis},
-		{"shutterOpen",		setShutterOpen},
-		{"shuttterClose",	setShutterClose},
-		{"moveSpeed",		setMoveSpeed},
-		{"zoomSpeed",		setZoomSpeed},
-		{"rotateSpeed",		setRotateSpeed},
-		{"nearClip",		setNearClip},
-		{"farClip",			setFarClip},
-		{"focusDistance",	setFocusDistance},
-		{"apertureRadius",	setApertureRadius}/*,
-		{"kc",				setKc}*/
-	};
-	
-
-	auto found = SetPropertyMap.find(_property.name);
-	if (found==SetPropertyMap.end())
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
-		return false;
-	}
-
-	found->second();
-	return !error;
+	return retval;
 }
 
-bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* meta)
+bool CElementSensor::onEndTag(CMitsubaMetadata* meta, system::logger_opt_ptr logger)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 
 	// TODO: some validation
 
@@ -257,6 +96,4 @@ bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overri
 	return true;
 }
 
-}
-}
 }

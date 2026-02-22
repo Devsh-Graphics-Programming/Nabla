@@ -3,17 +3,266 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#include "nbl/asset/utils/shaderCompiler_serialization.h"
 
 #include <sstream>
 #include <regex>
 #include <iterator>
+#include <filesystem>
+#include <algorithm>
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
 
 using namespace nbl;
 using namespace nbl::asset;
+
+// -> serialization
+// SMacroData, simple container used in SPreprocessorArgs
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<IShaderCompiler::SMacroDefinition>
+    {
+        using value_t = IShaderCompiler::SMacroDefinition;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "identifier", p.identifier },
+                { "definition", p.definition },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("identifier").get_to(p.identifier);
+            j.at("definition").get_to(p.definition);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<IShaderCompiler::SMacroDefinition>)
+
+// SPreprocessorData, holds serialized info for Preprocessor options used during compilation
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SPreprocessorArgs>
+    {
+        using value_t = SEntry::SPreprocessorArgs;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "sourceIdentifier", p.sourceIdentifier },
+                { "extraDefines", p.extraDefines},
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("sourceIdentifier").get_to(p.sourceIdentifier);
+            j.at("extraDefines").get_to(p.extraDefines);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SPreprocessorArgs>)
+
+// Optimizer pass has its own method for easier vector serialization
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<ISPIRVOptimizer::E_OPTIMIZER_PASS>
+    {
+        using value_t = ISPIRVOptimizer::E_OPTIMIZER_PASS;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t value = static_cast<uint32_t>(p);
+            j = ::json{
+                { "optPass", value },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t aux;
+            j.at("optPass").get_to(aux);
+            p = static_cast<ISPIRVOptimizer::E_OPTIMIZER_PASS>(aux);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<ISPIRVOptimizer::E_OPTIMIZER_PASS>)
+
+// SCompilerArgs, holds serialized info for all Compilation options
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SCompilerArgs>
+    {
+        using value_t = SEntry::SCompilerArgs;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t shaderStage = static_cast<uint32_t>(p.stage);
+            uint32_t spirvVersion = static_cast<uint32_t>(p.targetSpirvVersion);
+            uint32_t debugFlags = static_cast<uint32_t>(p.debugInfoFlags.value);
+
+            j = ::json{
+                { "shaderStage", shaderStage },
+                { "spirvVersion", spirvVersion },
+                { "optimizerPasses", p.optimizerPasses },
+                { "debugFlags", debugFlags },
+                { "preprocessorArgs", p.preprocessorArgs },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t shaderStage, spirvVersion, debugFlags;
+            j.at("shaderStage").get_to(shaderStage);
+            j.at("spirvVersion").get_to(spirvVersion);
+            j.at("optimizerPasses").get_to(p.optimizerPasses);
+            j.at("debugFlags").get_to(debugFlags);
+            j.at("preprocessorArgs").get_to(p.preprocessorArgs);
+            p.stage = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
+            p.targetSpirvVersion = static_cast<IShaderCompiler::E_SPIRV_VERSION>(spirvVersion);
+            p.debugInfoFlags = core::bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(debugFlags);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SCompilerArgs>)
+
+// Serialize clock's time point
+using time_point_t = nbl::system::IFileBase::time_point_t;
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<time_point_t>
+    {
+        using value_t = time_point_t;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            auto ticks = p.time_since_epoch().count();
+            j = ::json{
+                { "ticks", ticks },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint64_t ticks;
+            j.at("ticks").get_to(ticks);
+            p = time_point_t(time_point_t::clock::duration(ticks));
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<time_point_t>)
+
+// SDependency serialization. Dependencies will be saved in a vector for easier vectorization
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SPreprocessingDependency>
+    {
+        using value_t = SEntry::SPreprocessingDependency;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "requestingSourceDir", p.requestingSourceDir },
+                { "identifier", p.identifier },
+                { "hash", p.hash.data },
+                { "standardInclude", p.standardInclude },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("requestingSourceDir").get_to(p.requestingSourceDir);
+            j.at("identifier").get_to(p.identifier);
+            j.at("hash").get_to(p.hash.data);
+            j.at("standardInclude").get_to(p.standardInclude);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SPreprocessingDependency>)
+
+// We serialize shader creation parameters into a json, along with indexing info into the .bin buffer where the cache is serialized
+struct CPUShaderCreationParams {
+    IShader::E_SHADER_STAGE stage;
+    std::string filepathHint;
+    uint64_t codeByteSize = 0;
+    uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
+
+    CPUShaderCreationParams(IShader::E_SHADER_STAGE _stage, std::string_view _filepathHint, uint64_t _codeByteSize, uint64_t _offset)
+        : stage(_stage), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset) {}
+    CPUShaderCreationParams() {};
+};
+
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<CPUShaderCreationParams>
+    {
+        using value_t = CPUShaderCreationParams;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t stage = static_cast<uint32_t>(p.stage);
+            j = ::json{
+                { "stage", stage },
+                { "filepathHint", p.filepathHint },
+                { "codeByteSize", p.codeByteSize },
+                { "offset", p.offset },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t stage;
+            j.at("stage").get_to(stage);
+            j.at("filepathHint").get_to(p.filepathHint);
+            j.at("codeByteSize").get_to(p.codeByteSize);
+            j.at("offset").get_to(p.offset);
+            p.stage = static_cast<IShader::E_SHADER_STAGE>(stage);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<CPUShaderCreationParams>)
+
+// Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry>
+    {
+        using value_t = SEntry;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "mainFileContents", p.mainFileContents },
+                { "compilerArgs", p.compilerArgs },
+                { "hash", p.hash.data },
+                { "lookupHash", p.lookupHash },
+                { "dependencies", p.dependencies },
+                { "uncompressedContentHash", p.uncompressedContentHash.data },
+                { "uncompressedSize", p.uncompressedSize },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("mainFileContents").get_to(p.mainFileContents);
+            j.at("compilerArgs").get_to(p.compilerArgs);
+            j.at("hash").get_to(p.hash.data);
+            j.at("lookupHash").get_to(p.lookupHash);
+            j.at("dependencies").get_to(p.dependencies);
+            j.at("uncompressedContentHash").get_to(p.uncompressedContentHash.data);
+            j.at("uncompressedSize").get_to(p.uncompressedSize);
+            p.spirv = nullptr;
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry>)
+// <- serialization
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
@@ -21,40 +270,287 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
 }
 
+bool IShaderCompiler::writeDepfile(
+	const DepfileWriteParams& params,
+	const CCache::SEntry::dependency_container_t& dependencies,
+	const CIncludeFinder* includeFinder,
+	system::logger_opt_ptr logger)
+{
+	std::string depfilePathString;
+	if (!params.depfilePath.empty())
+		depfilePathString = std::string(params.depfilePath);
+	else
+		depfilePathString = std::string(params.outputPath) + ".d";
+
+	if (depfilePathString.empty())
+	{
+		logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+		return false;
+	}
+
+	const auto parentDirectory = std::filesystem::path(depfilePathString).parent_path();
+	if (!parentDirectory.empty() && !std::filesystem::exists(parentDirectory))
+	{
+		if (!std::filesystem::create_directories(parentDirectory))
+		{
+			logger.log("Failed to create parent directory for depfile.", system::ILogger::ELL_ERROR);
+			return false;
+		}
+	}
+
+	std::vector<std::string> depPaths;
+	depPaths.reserve(dependencies.size() + 1);
+
+	auto addDepPath = [&depPaths, &params](std::filesystem::path path)
+	{
+		if (path.empty())
+			return;
+		if (path.is_relative())
+		{
+			if (params.workingDirectory.empty())
+				return;
+			path = std::filesystem::path(params.workingDirectory) / path;
+		}
+		std::error_code ec;
+		std::filesystem::path normalized = std::filesystem::weakly_canonical(path, ec);
+		if (ec)
+		{
+			normalized = std::filesystem::absolute(path, ec);
+			if (ec)
+				return;
+		}
+		if (normalized.empty() || !std::filesystem::exists(normalized))
+			return;
+		auto normalizedString = normalized.generic_string();
+		if (normalizedString.find_first_of("\r\n") != std::string::npos)
+			return;
+		depPaths.emplace_back(std::move(normalizedString));
+	};
+
+	if (!params.sourceIdentifier.empty())
+	{
+		std::filesystem::path rootPath{std::string(params.sourceIdentifier)};
+		if (rootPath.is_relative())
+		{
+			if (!params.workingDirectory.empty())
+				rootPath = std::filesystem::absolute(std::filesystem::path(params.workingDirectory) / rootPath);
+			else
+				rootPath = std::filesystem::absolute(rootPath);
+		}
+		addDepPath(rootPath);
+	}
+
+	for (const auto& dep : dependencies)
+	{
+		if (includeFinder)
+		{
+			IShaderCompiler::IIncludeLoader::found_t header = dep.isStandardInclude() ?
+				includeFinder->getIncludeStandard(dep.getRequestingSourceDir(), std::string(dep.getIdentifier())) :
+				includeFinder->getIncludeRelative(dep.getRequestingSourceDir(), std::string(dep.getIdentifier()));
+
+			if (!header)
+				continue;
+			addDepPath(header.absolutePath);
+		}
+		else
+		{
+			std::filesystem::path candidate = dep.isStandardInclude() ? std::filesystem::path(std::string(dep.getIdentifier())) : (dep.getRequestingSourceDir() / std::string(dep.getIdentifier()));
+			if (candidate.is_relative())
+			{
+				if (!params.workingDirectory.empty())
+					candidate = std::filesystem::absolute(std::filesystem::path(params.workingDirectory) / candidate);
+				else
+					candidate = std::filesystem::absolute(candidate);
+			}
+			addDepPath(candidate);
+		}
+	}
+
+	std::sort(depPaths.begin(), depPaths.end());
+	depPaths.erase(std::unique(depPaths.begin(), depPaths.end()), depPaths.end());
+
+	auto escapeDepPath = [](const std::string& path) -> std::string
+	{
+		std::string normalized = path;
+		std::replace(normalized.begin(), normalized.end(), '\\', '/');
+		std::string out;
+		out.reserve(normalized.size());
+		for (const char c : normalized)
+		{
+			if (c == ' ' || c == '#')
+				out.push_back('\\');
+			if (c == '$')
+			{
+				out.push_back('$');
+				out.push_back('$');
+				continue;
+			}
+			out.push_back(c);
+		}
+		return out;
+	};
+
+	if (!params.system)
+	{
+		logger.log("Depfile system is null.", system::ILogger::ELL_ERROR);
+		return false;
+	}
+
+	const auto depfilePath = std::filesystem::path(depfilePathString);
+	auto tempPath = depfilePath;
+	tempPath += ".tmp";
+	params.system->deleteFile(tempPath);
+
+	core::smart_refctd_ptr<system::IFile> depfile;
+	{
+		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+		params.system->createFile(future, tempPath, system::IFileBase::ECF_WRITE);
+		if (!future.wait())
+		{
+			logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+			return false;
+		}
+		future.acquire().move_into(depfile);
+	}
+	if (!depfile)
+	{
+		logger.log("Failed to open depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
+
+	std::string targetPathString;
+	if (params.outputPath.empty())
+	{
+		std::filesystem::path targetPath = depfilePathString;
+		if (targetPath.extension() == ".d")
+			targetPath.replace_extension();
+		targetPathString = targetPath.generic_string();
+	}
+	else
+	{
+		targetPathString = std::string(params.outputPath);
+	}
+	if (targetPathString.empty())
+	{
+		logger.log("Depfile target path is empty.", system::ILogger::ELL_ERROR);
+		return false;
+	}
+	const std::string target = escapeDepPath(std::filesystem::path(targetPathString).generic_string());
+	std::vector<std::string> escapedDeps;
+	escapedDeps.reserve(depPaths.size());
+	for (const auto& depPath : depPaths)
+		escapedDeps.emplace_back(escapeDepPath(depPath));
+
+	std::string depfileContents;
+	depfileContents.append(target);
+	depfileContents.append(":");
+	if (!escapedDeps.empty())
+	{
+		depfileContents.append(" \\\n");
+		for (size_t index = 0; index < escapedDeps.size(); ++index)
+		{
+			depfileContents.append(" ");
+			depfileContents.append(escapedDeps[index]);
+			if (index + 1 < escapedDeps.size())
+				depfileContents.append(" \\\n");
+		}
+	}
+	depfileContents.append("\n");
+
+	system::IFile::success_t success;
+	depfile->write(success, depfileContents.data(), 0, depfileContents.size());
+	if (!success)
+	{
+		logger.log("Failed to write depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
+	depfile = nullptr;
+
+	params.system->deleteFile(depfilePath);
+	const std::error_code moveError = params.system->moveFileOrDirectory(tempPath, depfilePath);
+	if (moveError)
+	{
+		logger.log("Failed to replace depfile: %s", system::ILogger::ELL_ERROR, depfilePathString.c_str());
+		return false;
+	}
+	return true;
+}
+
 core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
-    CCache::SEntry entry;
-    if (options.readCache || options.writeCache)
-        entry = CCache::SEntry(code, options);
+	const bool depfileEnabled = options.preprocessorOptions.depfile;
+	const bool supportsDependencies = options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL;
 
-    if (options.readCache)
-    {
-        auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
-        if (found != options.readCache->m_container.end())
-        {
-            if (options.writeCache)
-            {
-                CCache::SEntry writeEntry = *found;
-                options.writeCache->insert(std::move(writeEntry));
-            }
-            return found->decompressShader();
-        }
-    }
+	auto writeDepfileFromDependencies = [&](const CCache::SEntry::dependency_container_t& dependencies) -> bool
+	{
+		if (!depfileEnabled)
+			return true;
 
-    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies:nullptr);
-    // compute the SPIR-V shader content hash
-    if (retVal)
-    {
-        auto backingBuffer = retVal->getContent();
-        const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
-    }
+		if (options.preprocessorOptions.depfilePath.empty())
+		{
+			options.preprocessorOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+			return false;
+		}
 
-    if (options.writeCache)
-    {
-        if (entry.setContent(retVal->getContent()))
-            options.writeCache->insert(std::move(entry));
-    }
-    return retVal;
+		IShaderCompiler::DepfileWriteParams params = {};
+		const std::string depfilePathString = options.preprocessorOptions.depfilePath.generic_string();
+		params.depfilePath = depfilePathString;
+		params.sourceIdentifier = options.preprocessorOptions.sourceIdentifier;
+		if (!params.sourceIdentifier.empty())
+			params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
+		params.system = m_system.get();
+		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);
+	};
+
+	CCache::SEntry entry;
+	if (options.readCache || options.writeCache)
+		entry = CCache::SEntry(code, options);
+
+	if (options.readCache)
+	{
+		auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+		if (found != options.readCache->m_container.end())
+		{
+			if (options.writeCache)
+			{
+				CCache::SEntry writeEntry = *found;
+				options.writeCache->insert(std::move(writeEntry));
+			}
+			auto shader = found->decompressShader();
+			if (depfileEnabled && !writeDepfileFromDependencies(found->dependencies))
+				return nullptr;
+			return shader;
+		}
+	}
+
+	CCache::SEntry::dependency_container_t depfileDependencies;
+	CCache::SEntry::dependency_container_t* dependenciesPtr = nullptr;
+	if (options.writeCache)
+		dependenciesPtr = &entry.dependencies;
+	else if (depfileEnabled && supportsDependencies)
+		dependenciesPtr = &depfileDependencies;
+
+	auto retVal = compileToSPIRV_impl(code, options, dependenciesPtr);
+	if (retVal)
+	{
+		auto backingBuffer = retVal->getContent();
+		const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+	}
+
+	if (retVal && depfileEnabled && supportsDependencies)
+	{
+		const auto* deps = options.writeCache ? &entry.dependencies : &depfileDependencies;
+		if (!writeDepfileFromDependencies(*deps))
+			return nullptr;
+	}
+
+	if (options.writeCache)
+	{
+		if (entry.setContent(retVal->getContent()))
+			options.writeCache->insert(std::move(entry));
+	}
+
+	return retVal;
 }
 
 std::string IShaderCompiler::preprocessShader(
@@ -72,7 +568,6 @@ std::string IShaderCompiler::preprocessShader(
 
     return preprocessShader(std::move(code), stage, preprocessOptions, dependencies);
 }
-
 auto IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const -> IIncludeLoader::found_t
 {
     core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
@@ -97,7 +592,7 @@ core::vector<std::string> IShaderCompiler::IIncludeGenerator::parseArgumentsFrom
     std::stringstream ss{ _path };
     std::string arg;
     while (std::getline(ss, arg, '/'))
-        args.push_back(std::move(arg));
+        args.emplace_back(std::move(arg));
 
     return args;
 }
@@ -178,7 +673,7 @@ void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPat
 {
     if (!loader)
         return;
-    m_loaders.push_back(LoaderSearchPath{ loader, searchPath });
+    m_loaders.emplace_back(LoaderSearchPath{ loader, searchPath });
 }
 
 void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd)
@@ -301,7 +796,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     size_t i = 0u;
     for (auto& entry : m_container) {
         // Add the entry as a json array
-        entries.push_back(entry);
+        entries.emplace_back(entry);
 
         // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
         // (where the params array has been moved) we don't have to read the json to get the offsets again

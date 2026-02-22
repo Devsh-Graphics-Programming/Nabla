@@ -1,9 +1,7 @@
-#include "common.hlsl"
+#include "pc.hlsl"
 #include "psinput.hlsl"
 
 using namespace nbl::ext::imgui;
-
-[[vk::push_constant]] struct PushConstants pc;
 
 struct VSInput
 {
@@ -18,6 +16,7 @@ struct VSInput
     to request per object data with BDA
 */
 
+[shader("vertex")]
 PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 {
     PSInput output;

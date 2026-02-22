@@ -61,12 +61,13 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageLoader.h"
 #include "nbl/asset/interchange/IGeometryLoader.h"
+#include "nbl/asset/interchange/ISceneLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 #include "nbl/asset/interchange/IImageWriter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
-//#include "nbl/asset/metadata/CIESProfileMetadata.h"
+#include "nbl/asset/metadata/CIESProfileMetadata.h"
 
 #endif

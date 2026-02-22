@@ -26,21 +26,38 @@ class IApplicationFramework : public core::IReferenceCounted
         static bool GlobalsInit()
         {
             // TODO: update CMake and rename "DLL" in all of those defines here to "MODULE" or "RUNTIME"
-
-            auto getEnvInstallDirectory = []()
+            auto resolveDir = [](const char* value)
             {
-                const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
+                if (!value || (value[0] == '\0'))
+                    return system::path("");
 
-                if (sdk)
-                {
-                    const auto directory = system::path(sdk);
-
-                    if (std::filesystem::exists(directory))
-                        return directory;
-                }
+                const auto candidate = system::path(value);
+                if (std::filesystem::exists(candidate))
+                    return candidate;
 
                 return system::path("");
             };
+
+            auto readEnvFlag = [](const char* key)
+            {
+                const char* value = std::getenv(key);
+                if (!value || (value[0] == '\0'))
+                    return false;
+
+                const std::string_view v(value);
+                return (v != "0") && (v != "false") && (v != "off") && (v != "no");
+            };
+
+            const auto sdk = resolveDir(std::getenv("NBL_INSTALL_DIRECTORY"));
+
+            #ifdef NBL_RELOCATABLE_PACKAGE
+            // Relocatable package consumers must use install lookups only.
+            const bool useInstallLookups = true;
+            #else
+            // Build-interface binaries select lookup mode at runtime via NBL_RUN_FROM_BUILD_INTERFACE.
+            // This is required because the same host-built executable can later be run from an install package.
+            const bool useInstallLookups = false;// !readEnvFlag("NBL_RUN_FROM_BUILD_INTERFACE");
+            #endif // NBL_RELOCATABLE_PACKAGE
 
             constexpr struct
             {
@@ -56,8 +73,6 @@ class IApplicationFramework : public core::IReferenceCounted
                 "dxcompiler" 
             };
 
-            const auto sdk = getEnvInstallDirectory();
-
             struct
             {
                 system::path nabla, dxc;
@@ -70,6 +85,7 @@ class IApplicationFramework : public core::IReferenceCounted
             install.dxc = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY);
             #endif
 
+            //! ABS key is full key to file inside relocatable package 
             env.nabla = sdk / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;
             env.dxc = sdk / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY;
             #endif
@@ -83,6 +99,7 @@ class IApplicationFramework : public core::IReferenceCounted
             build.dxc = path(_DXC_DLL_).parent_path();
             #endif
 
+            //! consumer can set this as relative path between exe & DLLs
             #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
             rel.nabla = NBL_CPACK_PACKAGE_NABLA_DLL_DIR;
             #endif
@@ -91,7 +108,8 @@ class IApplicationFramework : public core::IReferenceCounted
             rel.dxc = NBL_CPACK_PACKAGE_DXC_DLL_DIR;
             #endif
 
-            auto load = [](std::string_view moduleName, const std::vector<system::path>& searchPaths)
+            using RV = const std::vector<system::path>;
+            auto load = [](std::string_view moduleName, const RV& searchPaths)
             {
                 #ifdef _NBL_PLATFORM_WINDOWS_
                 const bool isAlreadyLoaded = GetModuleHandleA(moduleName.data());
@@ -114,11 +132,11 @@ class IApplicationFramework : public core::IReferenceCounted
                 return true;
             };
 
-            if (not load(module.dxc, { install.dxc, env.dxc, build.dxc, rel.dxc }))
+            if (not load(module.dxc, useInstallLookups ? RV{ rel.dxc, env.dxc, install.dxc } : RV{ build.dxc }))
                 return false;
 
             #ifdef _NBL_SHARED_BUILD_
-            if (not load(module.nabla, { install.nabla, env.nabla, build.nabla, rel.nabla }))
+            if (not load(module.nabla, useInstallLookups ? RV{ rel.nabla, env.nabla, install.nabla } : RV{ build.nabla }))
                 return false;
             #endif
 

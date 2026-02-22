@@ -19,9 +19,10 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
     public:
         struct index_t
         {
+            inline index_t() = default;
             explicit inline index_t(uint32_t _value) : value(_value) {}
 
-            inline operator bool() const {return value!=(~0u);}
+            explicit inline operator bool() const {return value!=(~0u);}
 
             uint32_t value = ~0u;
         };
@@ -29,6 +30,19 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
         inline uint32_t getTargetCount() const
         {
             return static_cast<uint32_t>(m_targets.size());
+        }
+        //
+        virtual inline uint32_t getGeometryExclusiveCount(index_t index) const
+        {
+            if (const auto targetCount=getTargetCount(); index.value>targetCount)
+                index.value = targetCount;
+            uint32_t retval = 0;
+            for (uint32_t i=0; i<index.value; i++)
+            {
+                const GeometryCollection* collection = m_targets[i].geoCollection.get();
+                retval += collection->getGeometries().size();
+            }
+            return retval;
         }
 
         template<typename Scalar, uint16_t Degree> requires std::is_floating_point_v<Scalar>
@@ -54,9 +68,13 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
 
         struct STarget
         {
-            inline operator bool() const
+            explicit inline operator bool() const
             {
-                return geoCollection && (!jointRedirectView || jointRedirectView.composed.isFormattedScalarInteger());
+                if (!geoCollection)
+                    return false;
+                if (!jointRedirectView)
+                    return true;
+                return jointRedirectView.composed.isFormattedScalarInteger() && jointRedirectView.getElementCount()>=geoCollection->getJointCount();
             }
 
             core::smart_refctd_ptr<GeometryCollection> geoCollection = {};

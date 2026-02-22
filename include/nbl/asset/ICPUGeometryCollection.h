@@ -24,11 +24,15 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         inline E_TYPE getAssetType() const override {return AssetType;}
 
         //
-        inline bool valid() const //override
+        inline bool valid() const override
         {
             for (const auto& ref : m_geometries)
-            if (!ref.geometry->valid())
-                return false;
+            {
+                if (!ref.operator bool() || !ref.geometry->valid())
+                    return false;
+                if (ref.jointRedirectView.src && ref.jointRedirectView.composed.getRange<hlsl::shapes::AABB<1,uint32_t>>().maxVx[0]>=getJointCount())
+                    return false;
+            }
             return true;
         }
 
@@ -62,6 +66,8 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         }
 
         //
+        inline const core::vector<SGeometryReference>& getGeometries() const {return base_t::getGeometries();}
+        //
         inline core::vector<SGeometryReference>* getGeometries()
         {
             if (isMutable())
@@ -78,17 +84,17 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         }
 
         //
-        template<typename Iterator>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(ICPUBottomLevelAccelerationStructure::Triangles&)>
-        inline Iterator exportForBLAS(Iterator out, uint32_t* pWrittenOrdinals=nullptr) const
+        class CBLASExporter final : public IBLASExporter
         {
-            return exportForBLAS(std::forward<Iterator>(out),[](const hlsl::float32_t3x4& lhs, const hlsl::float32_t3x4& rhs)->void
+            protected:
+                inline void setTransform(BLASTriangles& out, const uint32_t geomIndex) override
                 {
-                    lhs = rhs;
-                    if (pWrittenOrdinals)
-                        *(pWrittenOrdinals++) = (ptrdiff_t(&rhs)-offsetof(SGeometryReference,transform)-ptrdiff_t(base_t::m_geometries.data()))/sizeof(SGeometryReference);
+                    out.transform = m_geoms[geomIndex].transform;
                 }
-            );
-        }
+
+            public:
+                inline CBLASExporter(const core::vector<SGeometryReference>& _geoms) : IBLASExporter(_geoms) {}
+        };
 
     protected:
         //

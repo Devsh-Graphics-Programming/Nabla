@@ -1,213 +1,59 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/ext/MitsubaLoader/CElementFactory.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
+#include "nbl/ext/MitsubaLoader/ElementMacros.h"
+
+#include "nbl/type_traits.h" // legacy stuff for `is_any_of`
 #include <functional>
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 	
-template<>
-CElementFactory::return_type CElementFactory::createElement<CElementShape>(const char** _atts, ParserManager* _util)
+auto CElementShape::compAddPropertyMap() -> AddPropertyMap<CElementShape>
 {
-	const char* type;
-	const char* id;
-	std::string name;
-	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
-		return CElementFactory::return_type(nullptr,"");
+	using this_t = CElementShape;
+	AddPropertyMap<CElementShape> retval;
 
-	static const core::unordered_map<std::string, CElementShape::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-	{
-		{"cube",		CElementShape::Type::CUBE},
-		{"sphere",		CElementShape::Type::SPHERE},
-		{"cylinder",	CElementShape::Type::CYLINDER},
-		{"rectangle",	CElementShape::Type::RECTANGLE},
-		{"disk",		CElementShape::Type::DISK},
-		{"obj",			CElementShape::Type::OBJ},
-		{"ply",			CElementShape::Type::PLY},
-		{"serialized",	CElementShape::Type::SERIALIZED},
-		{"shapegroup",	CElementShape::Type::SHAPEGROUP},
-		{"instance",	CElementShape::Type::INSTANCE}/*,
-		{"hair",		CElementShape::Type::HAIR},
-		{"heightfield",	CElementShape::Type::HEIGHTFIELD}*/
-	};
 
-	auto found = StringToType.find(type);
-	if (found==StringToType.end())
-	{
-		ParserLog::invalidXMLFileStructure("unknown type");
-		_NBL_DEBUG_BREAK_IF(false);
-		return CElementFactory::return_type(nullptr, "");
-	}
+	// base
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(flipNormals,BOOLEAN,derived_from,Base);
+	// cube has nothing
 
-	CElementShape* obj = _util->objects.construct<CElementShape>(id);
-	if (!obj)
-		return CElementFactory::return_type(nullptr, "");
+	// sphere
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(center,POINT,std::is_same,Sphere);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(radius,FLOAT,is_any_of,Sphere,Cylinder/*,Hair*/);
 
-	obj->type = found->second;
-	// defaults
-	switch (obj->type)
-	{
-		case CElementShape::Type::CUBE:
-			obj->cube = CElementShape::Base();
-			break;
-		case CElementShape::Type::SPHERE:
-			obj->sphere = CElementShape::Sphere();
-			break;
-		case CElementShape::Type::CYLINDER:
-			obj->cylinder = CElementShape::Cylinder();
-			break;
-		case CElementShape::Type::RECTANGLE:
-			obj->rectangle = CElementShape::Base();
-			break;
-		case CElementShape::Type::DISK:
-			obj->disk = CElementShape::Base();
-			break;
-		case CElementShape::Type::OBJ:
-			obj->obj = CElementShape::Obj();
-			break;
-		case CElementShape::Type::PLY:
-			obj->ply = CElementShape::Ply();
-			break;
-		case CElementShape::Type::SERIALIZED:
-			obj->serialized = CElementShape::Serialized();
-			break;
-		case CElementShape::Type::SHAPEGROUP:
-			obj->shapegroup = CElementShape::ShapeGroup();
-			break;
-		case CElementShape::Type::INSTANCE:
-			obj->instance = CElementShape::Instance();
-			break;
-		default:
-			break;
-	}
-	return CElementFactory::return_type(obj, std::move(name));
-}
+	// cylinder
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(p0,POINT,std::is_same,Cylinder);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(p1,POINT,std::is_same,Cylinder);
+	// COMMON: radius
 
-bool CElementShape::addProperty(SNamedPropertyElement&& _property)
-{
-	bool error = false;
-	auto dispatch = [&](auto func) -> void
-	{
-		switch (type)
+	// LoadedFromFileBase
+	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("filename",STRING,derived_from,LoadedFromFileBase)
 		{
-			case CElementShape::Type::CUBE:
-				func(cube);
-				break;
-			case CElementShape::Type::SPHERE:
-				func(sphere);
-				break;
-			case CElementShape::Type::CYLINDER:
-				func(cylinder);
-				break;
-			case CElementShape::Type::RECTANGLE:
-				func(rectangle);
-				break;
-			case CElementShape::Type::DISK:
-				func(disk);
-				break;
-			case CElementShape::Type::OBJ:
-				func(obj);
-				break;
-			case CElementShape::Type::PLY:
-				func(ply);
-				break;
-			case CElementShape::Type::SERIALIZED:
-				func(serialized);
-				break;
-			case CElementShape::Type::SHAPEGROUP:
-				func(shapegroup);
-				break;
-			case CElementShape::Type::INSTANCE:
-				func(instance);
-				break;/*
-			case CElementShape::Type::HAIR:
-				func(hair);
-				break;
-			case CElementShape::Type::HEIGHTFIELD:
-				func(heightfield);
-				break;*/
-			default:
-				error = true;
-				break;
+			setLimitedString("filename",_this->serialized.filename,_property,logger); return true;
 		}
-	};
+	);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(faceNormals,BOOLEAN,derived_from,LoadedFromFileBase);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(maxSmoothAngle,FLOAT,derived_from,LoadedFromFileBase);
 
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
-		dispatch([&](auto& state) -> void { \
-			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
-			{ \
-				if (_property.type!=PROPERTY_TYPE) { \
-					error = true; \
-					return; \
-				} \
-				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-			} \
-		}); \
-	}
+	// Obj
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(flipTexCoords,BOOLEAN,std::is_same,Obj);
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(collapse,BOOLEAN,std::is_same,Obj);
 
-	auto setFlipNormals = SET_PROPERTY_TEMPLATE(flipNormals,SNamedPropertyElement::Type::BOOLEAN, Base,Sphere,Cylinder,Obj,Ply,Serialized/*,Heightfield*/);
-	auto setCenter = SET_PROPERTY_TEMPLATE(center,SNamedPropertyElement::Type::POINT, Sphere);
-	auto setRadius = SET_PROPERTY_TEMPLATE(radius,SNamedPropertyElement::Type::FLOAT, Sphere,Cylinder/*,Hair*/);
-	auto setP0 = SET_PROPERTY_TEMPLATE(p0,SNamedPropertyElement::Type::POINT, Cylinder);
-	auto setP1 = SET_PROPERTY_TEMPLATE(p1,SNamedPropertyElement::Type::POINT, Cylinder);
-	auto setFilename = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
+	// Ply
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(srgb,BOOLEAN,std::is_same,Ply);
 
-			if constexpr (is_any_of<state_type, Obj,Ply,Serialized/*,Hair,Heightfield*/>::value)
-			{
-				state.filename = std::move(_property);
-			}
-		});
-	};
-	auto setFaceNormals	= SET_PROPERTY_TEMPLATE(faceNormals,SNamedPropertyElement::Type::BOOLEAN, Obj,Ply,Serialized);
-	auto setMaxSmoothAngle	= SET_PROPERTY_TEMPLATE(maxSmoothAngle,SNamedPropertyElement::Type::FLOAT, Obj,Ply,Serialized);
-	auto setFlipTexCoords = SET_PROPERTY_TEMPLATE(flipTexCoords,SNamedPropertyElement::Type::BOOLEAN, Obj);
-	auto setCollapse = SET_PROPERTY_TEMPLATE(collapse,SNamedPropertyElement::Type::BOOLEAN, Obj);
-	auto setSRGB = SET_PROPERTY_TEMPLATE(srgb,SNamedPropertyElement::Type::BOOLEAN, Ply);
-	auto setShapeIndex = SET_PROPERTY_TEMPLATE(shapeIndex,SNamedPropertyElement::Type::INTEGER, Serialized);
-	//auto setToWorld = SET_PROPERTY_TEMPLATE(toWorld, SNamedPropertyElement::Type::MATRIX, Instance);
+	// Serialized
+	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(shapeIndex,INTEGER,std::is_same,Serialized);
 
-	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
-	{
-		{"flipNormals",		setFlipNormals},
-		{"center",			setCenter},
-		{"radius",			setRadius},
-		{"p0",				setP0},
-		{"p1",				setP1},
-		{"filename",		setFilename},
-		{"faceNormals",		setFaceNormals},
-		{"maxSmoothAngle",	setMaxSmoothAngle},
-		{"flipTexCoords",	setFlipTexCoords},
-		{"collapse",		setCollapse},
-		{"srgb",			setSRGB},
-		{"shapeIndex",		setShapeIndex}/*,
-		{"",				set}*/
-	};
-	
-
-	auto found = SetPropertyMap.find(_property.name);
-	if (found==SetPropertyMap.end())
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
-		return false;
-	}
-
-	found->second();
-	return !error;
+	return retval;
 }
 
-bool CElementShape::processChildData(IElement* _child, const std::string& name)
+bool CElementShape::processChildData(IElement* _child, const std::string& name, system::logger_opt_ptr logger)
 {
 	if (!_child)
 		return true;
@@ -217,7 +63,10 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 			{
 				auto tform = static_cast<CElementTransform*>(_child);
 				if (name!="toWorld")
+				{
+					logger.log("The <transform> nested inside <shape> needs to be named \"toWorld\"",system::ILogger::ELL_ERROR);
 					return false;
+				}
 				//toWorldType = IElement::Type::TRANSFORM;
 				transform = *tform;
 				return true;
@@ -237,33 +86,44 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 				switch (type)
 				{
 					case Type::SHAPEGROUP:
-						if (child->type==Type::INVALID || child->type==Type::SHAPEGROUP)
-							return false;
-						if (shapegroup.childCount == ShapeGroup::MaxChildCount)
+						if (child->type == Type::INVALID || child->type == Type::SHAPEGROUP)
 						{
-							ParserLog::invalidXMLFileStructure("Maximum shape-group children exceeded.");
+							logger.log("<shape type=\"shapegroup\"> cannot be nested inside each other or have INVALID shapes nested inside.",system::ILogger::ELL_ERROR);
+							return false;
+						}
+						if (shapegroup.childCount==ShapeGroup::MaxChildCount)
+						{
+							logger.log("The <shape type=\"shapegroup\">'s MaxChildCount of %d exceeded!",system::ILogger::ELL_ERROR,ShapeGroup::MaxChildCount);
 							return false;
 						}
 						shapegroup.children[shapegroup.childCount++] = child;
 						return true;
-						break;
 					case Type::INSTANCE:
-						if (child->type != Type::SHAPEGROUP)
+						if (child->type!=Type::SHAPEGROUP)
+						{
+							logger.log("Only <shape type=\"shapegroup\"> can be nested inside <shape type=\"instance\">",system::ILogger::ELL_ERROR);
 							return false;
-						instance.parent = child; // yeah I kknow its fucked up, but its the XML child, but Abstract Syntax Tree (or Scene Tree) parent
+						}
+						if (instance.parent)
+							logger.log("<shape type=\"instance\"> 's parent already set to %s, overriding",system::ILogger::ELL_WARNING,instance.parent->id.c_str());
+						instance.parent = child; // yeah I know its messed up, but its the XML child, not the Abstract Syntax Tree (or Scene Tree) parent
 						return true;
-						break;
 					default:
-						break;
+						logger.log("Only <shape type=\"shapegroup\"> and <shape type=\"instance\"> support nesting other <shape>s inside",system::ILogger::ELL_ERROR);
+						return false;
 				}
 			}
 			break;
 		case IElement::Type::BSDF:
+			if (bsdf)
+				logger.log("<shape>'s BSDF already set to %s, overriding",system::ILogger::ELL_WARNING,bsdf->id.c_str());
 			bsdf = static_cast<CElementBSDF*>(_child);
 			if (bsdf->type != CElementBSDF::Type::INVALID)
 				return true;
 			break;
 		case IElement::Type::EMITTER:
+			if (emitter)
+				logger.log("<shape>'s Emitter already set to %s, overriding",system::ILogger::ELL_WARNING,emitter->id.c_str());
 			emitter = static_cast<CElementEmitter*>(_child);
 			if (emitter->type != CElementEmitter::Type::INVALID)
 				return true;
@@ -271,23 +131,17 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 		default:
 			break;
 	}
+	logger.log("Invalid or unsupported child with ID %s and Name %s nested inside of <shape>",system::ILogger::ELL_ERROR,_child->id.c_str(),name.c_str());
 	return false;
 }
 
-bool CElementShape::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
+bool CElementShape::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt_ptr logger)
 {
-	if (type == Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_NBL_DEBUG_BREAK_IF(true);
-		return true;
-	}
+	NBL_EXT_MITSUBA_LOADER_ELEMENT_INVALID_TYPE_CHECK(true);
 
 	// TODO: some validation
 
 	return true;
 }
 
-}
-}
 }

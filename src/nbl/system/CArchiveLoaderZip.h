@@ -31,8 +31,18 @@ class CArchiveLoaderZip final : public IArchiveLoader
 			int16_t ExtraFieldLength;
 			// filename (variable size)
 			// extra field (variable size )
+
+			static constexpr uint32_t ExpectedSignature = 0x04034b50u;
+
+			size_t calcSize() const
+			{
+				return sizeof(SZIPFileHeader) + FilenameLength + ExtraFieldLength;
+			}
 		} PACK_STRUCT;
 		#include "nbl/nblunpack.h"
+
+		static_assert(sizeof(SZIPFileHeader) == 30);
+
 		class CArchive final : public CFileArchive
 		{
 			public:
@@ -75,6 +85,8 @@ class CArchiveLoaderZip final : public IArchiveLoader
 
 	private:
 		core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const override;
+		core::smart_refctd_ptr<IFileArchive> createArchiveFromGZIP(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const;
+		core::smart_refctd_ptr<IFileArchive> createArchiveFromZIP(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const;
 };
 
 }

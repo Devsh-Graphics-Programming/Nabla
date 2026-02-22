@@ -360,9 +360,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         commonCompileOptions.preprocessorOptions.extraDefines = creationParams.extraDefines;
 
         commonCompileOptions.stage = creationParams.stage;
-        commonCompileOptions.debugInfoFlags =
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+        commonCompileOptions.debugInfoFlags = creationParams.debugInfoFlags;
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
         commonCompileOptions.preprocessorOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
@@ -1110,14 +1108,14 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         newParams[ix] = param;
         newParams[ix].shaderGroups.raygen = trimTask.trim(param.shaderGroups.raygen, trimmedShaders);
 
-        newParams[ix].shaderGroups.misses = trimmedMissSpecs;
+        newParams[ix].shaderGroups.misses = {trimmedMissSpecData,param.shaderGroups.misses.size()};
         for (const auto& miss: param.shaderGroups.misses)
         {
             *trimmedMissSpecData = trimTask.trim(miss, trimmedShaders);
             trimmedMissSpecData++;
         }
 
-        newParams[ix].shaderGroups.hits = trimmedHitSpecs;
+        newParams[ix].shaderGroups.hits = {trimmedHitSpecData,param.shaderGroups.hits.size()};
         for (const auto& hit: param.shaderGroups.hits)
         {
             *trimmedHitSpecData = {
@@ -1128,7 +1126,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             trimmedHitSpecData++;
         }
 
-        newParams[ix].shaderGroups.callables = trimmedCallableSpecs;
+        newParams[ix].shaderGroups.callables = {trimmedCallableSpecData,param.shaderGroups.callables.size()};
         for (const auto& callable: param.shaderGroups.callables)
         {
             *trimmedCallableSpecData = trimTask.trim(callable, trimmedShaders);

@@ -24,6 +24,7 @@ struct array_set
         arr[index] = val;
     }
 };
+
 }
 }
 

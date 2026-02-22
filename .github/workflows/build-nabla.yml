@@ -31,7 +31,7 @@ jobs:
       matrix:
         # vendor: [msvc, clangcl]
         # TODO: Yas please fix ClangCL, we have a few new compile errors
-        # if we build MSVC then build "run-compiler-explorer" target, for ClangCL build just "nsc"
+        # build full Nabla preset, run-compiler-explorer is pulled in via ALL when Docker integration is enabled
         vendor: [msvc]
         config: [Release, Debug, RelWithDebInfo]
         tag: ['17.13.6']
@@ -122,22 +122,17 @@ jobs:
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
+              -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
-      - name: Container – Build NSC
+      - name: Container – Build & Install Nabla
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
-              -t run-compiler-explorer --config ${{ matrix.config }}
-
-      - name: Container – Install Nabla
-        run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} --config ${{ matrix.config }} `
-              --prefix ${{ env.install }}
+              --target install `
+              --config ${{ matrix.config }}
 
       - name: API / Examples / Check Run (Create)
         id: check-run-create
@@ -146,11 +141,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
+            const headSha = context.payload.pull_request ? context.payload.pull_request.head.sha : context.sha;
             const response = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: `Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})`,
-              head_sha: context.sha,
+              head_sha: headSha,
               status: 'in_progress'
             });
             return response.data.id;

@@ -226,6 +226,11 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CImageWriterTGA.cpp
 	asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
 	asset/interchange/CGLIWriter.cpp
+
+# IES profile loaders
+	asset/interchange/CIESProfileLoader.cpp
+	asset/utils/CIESProfileParser.cpp
+	asset/utils/CIESProfile.cpp
 )
 set(NBL_VIDEO_SOURCES
 # Utilities
@@ -396,6 +401,9 @@ nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebI
 nbl_adjust_definitions()
 
 option(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION "Enable to optimise CWaveStringResolver.cpp in Debug configuration, uses RWDI compile options for the TU" ON)
+if(NBL_SANITIZE_ADDRESS OR NBL_DEBUG_RTC_ENABLED)
+	set(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION OFF CACHE BOOL "" FORCE)
+endif()
 if(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION)
 	set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
 		# just enabling inlining and optimisations will help a lot
@@ -691,6 +699,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 			target_compile_definitions(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INTERFACE_COMPILE_DEFINITIONS>") # workaround because must use Nabla headers without linking Nabla to itself..
 			target_include_directories(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>")
 			target_include_directories(Nabla PRIVATE "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+			target_include_directories(Nabla INTERFACE "$<BUILD_INTERFACE:${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}>")
 		endforeach()
 	
 		add_dependencies(Nabla ${NBL_TARGETS})
@@ -781,15 +790,27 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
-nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
-nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
+if(TARGET ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB})
+	set_target_properties(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)
+	nbl_install_lib_spec(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} "nbl/ext/FULL_SCREEN_TRIANGLE")
+	target_link_libraries(Nabla INTERFACE
+		"$<INSTALL_INTERFACE:$<$<CONFIG:Debug>:$<INSTALL_PREFIX>/debug/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_d.lib>>"
+		"$<INSTALL_INTERFACE:$<$<CONFIG:Release>:$<INSTALL_PREFIX>/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE.lib>>"
+		"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_rwdi.lib>>"
+	)
 
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	nbl_install_builtin_resources(nblBuiltinResourceData)
-	nbl_install_builtin_resources(spirvBuiltinResourceData)
-	nbl_install_builtin_resources(boostBuiltinResourceData)
+	set(_NBL_EXT_FULL_SCREEN_TRIANGLE_BUILTINS_LIB "${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB}_builtinsBuild")
+	if(NBL_EMBED_BUILTIN_RESOURCES AND TARGET ${_NBL_EXT_FULL_SCREEN_TRIANGLE_BUILTINS_LIB})
+		nbl_install_lib_spec(${_NBL_EXT_FULL_SCREEN_TRIANGLE_BUILTINS_LIB} "nbl/ext/FULL_SCREEN_TRIANGLE")
+		target_link_libraries(Nabla INTERFACE
+			"$<INSTALL_INTERFACE:$<$<CONFIG:Debug>:$<INSTALL_PREFIX>/debug/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild_d.lib>>"
+			"$<INSTALL_INTERFACE:$<$<CONFIG:Release>:$<INSTALL_PREFIX>/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild.lib>>"
+			"$<INSTALL_INTERFACE:$<$<CONFIG:RelWithDebInfo>:$<INSTALL_PREFIX>/relwithdebinfo/lib/nbl/ext/FULL_SCREEN_TRIANGLE/NblExtFULL_SCREEN_TRIANGLE_builtinsBuild.lib>>"
+		)
+	endif()
 endif()
 
+nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
@@ -806,6 +827,7 @@ target_include_directories(Nabla PUBLIC
 
 target_compile_definitions(Nabla INTERFACE 
 	"$<BUILD_INTERFACE:${INTERFACE_BUILD_DEFINITIONS}>"
+	"$<INSTALL_INTERFACE:NBL_RELOCATABLE_PACKAGE>"
 )
 
 if(NBL_STATIC_BUILD)

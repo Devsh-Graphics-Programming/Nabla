@@ -410,7 +410,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         struct AccelerationStructureBuildSizes
         {
-            inline operator bool() const { return accelerationStructureSize!=(~0ull); }
+            explicit inline operator bool() const { return accelerationStructureSize!=(~0ull); }
 
             size_t accelerationStructureSize = ~0ull;
             size_t updateScratchSize = ~0ull;
@@ -831,6 +831,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IShaderCompiler::CCache* writeCache = nullptr;
             std::span<const asset::IShaderCompiler::SMacroDefinition> extraDefines = {};
             hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
+            core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS> debugInfoFlags = asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE;
         };
         core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
