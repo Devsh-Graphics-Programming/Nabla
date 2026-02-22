@@ -66,7 +66,7 @@ nabla_sync_runtime_modules(
 
 Rules:
 
-- use either `TARGETS` mode or `DESTINATION` / `DESTINATION_<CONFIG>` mode
+- use either `TARGETS` mode or `DESTINATION` / `DESTINATION_DEBUG` / `DESTINATION_RELEASE` / `DESTINATION_RELWITHDEBINFO` mode
 - `MODE CONFIGURE_TIME` does copy during configure/generate
 - `MODE BUILD_TIME` and `MODE BOTH` in destination mode require `BUILD_TRIGGER_TARGETS`
 
@@ -178,7 +178,7 @@ For relocatable consumers:
 
 Note:
 
-Current Nabla build interface still compiles some runtime lookup data with absolute paths.
-This is a known issue on Nabla side and will be refactored.
-Do not propagate that pattern to package consumers.
-Consumer-facing package helpers are designed to avoid exposing absolute paths in consumer compile definitions.
+- current Nabla build interface still compiles some runtime lookup data with absolute paths
+- this is a known issue on Nabla side and will be refactored
+- do not propagate that pattern to package consumers
+- consumer-facing package helpers are designed to avoid exposing absolute paths in consumer compile definitions

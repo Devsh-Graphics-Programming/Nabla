@@ -19,7 +19,9 @@ check_required_components(Nabla)
 # nabla_sync_runtime_modules(
 #   [TARGETS <t1;t2;...>]
 #   [DESTINATION <path>]
-#   [DESTINATION_<CONFIG> <path>]...
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
 #   [MODE <CONFIGURE_TIME|BUILD_TIME|BOTH>]
 #   [RUNTIME_MODULES_SUBDIR <relative-subdir>]
 #   [BUILD_TRIGGER_TARGETS <t1;t2;...>]
@@ -37,7 +39,9 @@ check_required_components(Nabla)
 # nabla_setup_runtime_modules(
 #   [TARGETS <t1;t2;...>]
 #   [DESTINATION <path>]
-#   [DESTINATION_<CONFIG> <path>]...
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
 #   [APPLY_LOOKUP_TO_TARGETS <t1;t2;...>]
 #   [RUNTIME_MODULES_SUBDIR <relative-subdir>]
 #   [MODE <CONFIGURE_TIME|BUILD_TIME|BOTH>]
@@ -106,64 +110,24 @@ function(_nbl_runtime_modules_collect_consumer_configs _OUT_CONFIGS)
   set(${_OUT_CONFIGS} ${_consumer_configs} PARENT_SCOPE)
 endfunction()
 
-function(_nbl_runtime_modules_extract_destination_overrides _OUT_OVERRIDES _OUT_UNKNOWN)
-  set(_tokens ${ARGN})
-  set(_overrides "")
-  set(_unknown "")
-
-  list(LENGTH _tokens _tokens_len)
-  math(EXPR _tokens_mod2 "${_tokens_len} % 2")
-  if(_tokens_mod2)
-    set(${_OUT_OVERRIDES} "" PARENT_SCOPE)
-    set(${_OUT_UNKNOWN} "${_tokens}" PARENT_SCOPE)
-    return()
-  endif()
-
-  while(TRUE)
-    list(LENGTH _tokens _tokens_len)
-    if(_tokens_len EQUAL 0)
-      break()
-    endif()
-
-    list(POP_FRONT _tokens _key)
-    list(POP_FRONT _tokens _value)
-    string(TOUPPER "${_key}" _key_upper)
-
-    if(_key_upper MATCHES "^DESTINATION_[A-Z0-9_]+$")
-      string(REGEX REPLACE "^DESTINATION_" "" _cfg_upper "${_key_upper}")
-      list(APPEND _overrides "${_cfg_upper}::${_value}")
-    else()
-      list(APPEND _unknown "${_key}" "${_value}")
-    endif()
-  endwhile()
-
-  set(${_OUT_OVERRIDES} ${_overrides} PARENT_SCOPE)
-  set(${_OUT_UNKNOWN} ${_unknown} PARENT_SCOPE)
-endfunction()
-
-function(_nbl_runtime_modules_expand_destination_pairs _DESTINATION_DEFAULT _DESTINATION_OVERRIDES _OUT_CFG_DST_PAIRS)
+function(_nbl_runtime_modules_expand_destination_pairs _DESTINATION_DEFAULT _DESTINATION_DEBUG _DESTINATION_RELEASE _DESTINATION_RELWITHDEBINFO _OUT_CFG_DST_PAIRS)
   _nbl_runtime_modules_collect_consumer_configs(_consumer_configs)
   set(_cfg_dst_pairs "")
 
   foreach(_consumer_config IN LISTS _consumer_configs)
     string(TOUPPER "${_consumer_config}" _cfg_upper)
-    set(_resolved_destination "")
-
-    foreach(_override IN LISTS _DESTINATION_OVERRIDES)
-      string(REPLACE "::" ";" _override_parts "${_override}")
-      list(GET _override_parts 0 _override_cfg_upper)
-      if(_override_cfg_upper STREQUAL _cfg_upper)
-        list(GET _override_parts 1 _resolved_destination)
-        break()
-      endif()
-    endforeach()
-
-    if(_resolved_destination STREQUAL "")
+    if(_cfg_upper STREQUAL "DEBUG" AND NOT _DESTINATION_DEBUG STREQUAL "")
+      set(_resolved_destination "${_DESTINATION_DEBUG}")
+    elseif(_cfg_upper STREQUAL "RELEASE" AND NOT _DESTINATION_RELEASE STREQUAL "")
+      set(_resolved_destination "${_DESTINATION_RELEASE}")
+    elseif(_cfg_upper STREQUAL "RELWITHDEBINFO" AND NOT _DESTINATION_RELWITHDEBINFO STREQUAL "")
+      set(_resolved_destination "${_DESTINATION_RELWITHDEBINFO}")
+    else()
       set(_resolved_destination "${_DESTINATION_DEFAULT}")
     endif()
 
     if(_resolved_destination STREQUAL "")
-      message(FATAL_ERROR "Nabla: missing destination for consumer config \"${_consumer_config}\". Provide DESTINATION or DESTINATION_${_cfg_upper}.")
+      message(FATAL_ERROR "Nabla: missing destination for consumer config \"${_consumer_config}\". Provide DESTINATION or one of DESTINATION_DEBUG/DESTINATION_RELEASE/DESTINATION_RELWITHDEBINFO.")
     endif()
 
     if(_resolved_destination MATCHES "\\$<")
@@ -525,7 +489,9 @@ endfunction()
 # nabla_sync_runtime_modules(
 #   [TARGETS <t1;t2;...>]
 #   [DESTINATION <path>]
-#   [DESTINATION_<CONFIG> <path> ...]
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
 #   [MODE BUILD_TIME|CONFIGURE_TIME|BOTH]
 #   [RUNTIME_MODULES_SUBDIR <relative_subdir>]
 #   [BUILD_TRIGGER_TARGETS <t1;t2;...>]
@@ -537,7 +503,7 @@ endfunction()
 # - TARGETS mode
 #   Copies beside each target runtime dir under RUNTIME_MODULES_SUBDIR.
 # - DESTINATION mode
-#   Copies to explicit DESTINATION or DESTINATION_<CONFIG> paths.
+#   Copies to explicit DESTINATION or DESTINATION_DEBUG/RELEASE/RELWITHDEBINFO paths.
 #
 # MODE:
 # - BUILD_TIME
@@ -555,11 +521,10 @@ function(nabla_sync_runtime_modules)
   set(_nbl_runtime_modules_subdir "Libraries")
   set(_nbl_mode BUILD_TIME)
 
-  cmake_parse_arguments(_NBL_CUSTOM "" "MODE;DESTINATION;RUNTIME_MODULES_SUBDIR" "TARGETS;BUILD_TRIGGER_TARGETS" ${ARGV})
-  _nbl_runtime_modules_extract_destination_overrides(_destination_overrides _unknown_tokens ${_NBL_CUSTOM_UNPARSED_ARGUMENTS})
+  cmake_parse_arguments(_NBL_CUSTOM "" "MODE;DESTINATION;DESTINATION_DEBUG;DESTINATION_RELEASE;DESTINATION_RELWITHDEBINFO;RUNTIME_MODULES_SUBDIR" "TARGETS;BUILD_TRIGGER_TARGETS" ${ARGV})
 
-  if(_unknown_tokens)
-    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_sync_runtime_modules: ${_unknown_tokens}")
+  if(_NBL_CUSTOM_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_sync_runtime_modules: ${_NBL_CUSTOM_UNPARSED_ARGUMENTS}")
   endif()
 
   if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
@@ -583,7 +548,13 @@ function(nabla_sync_runtime_modules)
   if(DEFINED _NBL_CUSTOM_DESTINATION AND NOT _NBL_CUSTOM_DESTINATION STREQUAL "")
     set(_has_destination ON)
   endif()
-  if(_destination_overrides)
+  if(DEFINED _NBL_CUSTOM_DESTINATION_DEBUG AND NOT _NBL_CUSTOM_DESTINATION_DEBUG STREQUAL "")
+    set(_has_destination ON)
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELEASE AND NOT _NBL_CUSTOM_DESTINATION_RELEASE STREQUAL "")
+    set(_has_destination ON)
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO AND NOT _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO STREQUAL "")
     set(_has_destination ON)
   endif()
 
@@ -592,7 +563,7 @@ function(nabla_sync_runtime_modules)
   endif()
 
   if(NOT _has_targets AND NOT _has_destination)
-    message(FATAL_ERROR "Nabla: nabla_sync_runtime_modules requires TARGETS or DESTINATION/DESTINATION_<CONFIG>")
+    message(FATAL_ERROR "Nabla: nabla_sync_runtime_modules requires TARGETS or DESTINATION/DESTINATION_DEBUG/DESTINATION_RELEASE/DESTINATION_RELWITHDEBINFO")
   endif()
 
   if(_has_targets)
@@ -615,7 +586,13 @@ function(nabla_sync_runtime_modules)
     return()
   endif()
 
-  _nbl_runtime_modules_expand_destination_pairs("${_NBL_CUSTOM_DESTINATION}" "${_destination_overrides}" _cfg_dst_pairs)
+  _nbl_runtime_modules_expand_destination_pairs(
+    "${_NBL_CUSTOM_DESTINATION}"
+    "${_NBL_CUSTOM_DESTINATION_DEBUG}"
+    "${_NBL_CUSTOM_DESTINATION_RELEASE}"
+    "${_NBL_CUSTOM_DESTINATION_RELWITHDEBINFO}"
+    _cfg_dst_pairs
+  )
 
   if(_nbl_mode STREQUAL "CONFIGURE_TIME" OR _nbl_mode STREQUAL "BOTH")
     set(_enable_configure_depends OFF)
@@ -639,7 +616,9 @@ endfunction()
 # nabla_setup_runtime_modules(
 #   [TARGETS <t1;t2;...>]
 #   [DESTINATION <path>]
-#   [DESTINATION_<CONFIG> <path> ...]
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
 #   [MODE BUILD_TIME|CONFIGURE_TIME|BOTH]
 #   [RUNTIME_MODULES_SUBDIR <relative_subdir>]
 #   [INSTALL_RULES ON|OFF]
@@ -662,11 +641,10 @@ function(nabla_setup_runtime_modules)
   set(_nbl_install_rules OFF)
   set(_nbl_mode BUILD_TIME)
 
-  cmake_parse_arguments(_NBL_CUSTOM "" "RUNTIME_MODULES_SUBDIR;INSTALL_RULES;MODE;DESTINATION" "TARGETS;APPLY_LOOKUP_TO_TARGETS;BUILD_TRIGGER_TARGETS" ${ARGV})
-  _nbl_runtime_modules_extract_destination_overrides(_destination_overrides _unknown_tokens ${_NBL_CUSTOM_UNPARSED_ARGUMENTS})
+  cmake_parse_arguments(_NBL_CUSTOM "" "RUNTIME_MODULES_SUBDIR;INSTALL_RULES;MODE;DESTINATION;DESTINATION_DEBUG;DESTINATION_RELEASE;DESTINATION_RELWITHDEBINFO" "TARGETS;APPLY_LOOKUP_TO_TARGETS;BUILD_TRIGGER_TARGETS" ${ARGV})
 
-  if(_unknown_tokens)
-    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_setup_runtime_modules: ${_unknown_tokens}")
+  if(_NBL_CUSTOM_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_setup_runtime_modules: ${_NBL_CUSTOM_UNPARSED_ARGUMENTS}")
   endif()
 
   if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
@@ -690,12 +668,15 @@ function(nabla_setup_runtime_modules)
   if(DEFINED _NBL_CUSTOM_DESTINATION AND NOT _NBL_CUSTOM_DESTINATION STREQUAL "")
     list(APPEND _sync_args DESTINATION "${_NBL_CUSTOM_DESTINATION}")
   endif()
-  foreach(_override IN LISTS _destination_overrides)
-    string(REPLACE "::" ";" _override_parts "${_override}")
-    list(GET _override_parts 0 _cfg_upper)
-    list(GET _override_parts 1 _cfg_destination)
-    list(APPEND _sync_args "DESTINATION_${_cfg_upper}" "${_cfg_destination}")
-  endforeach()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_DEBUG AND NOT _NBL_CUSTOM_DESTINATION_DEBUG STREQUAL "")
+    list(APPEND _sync_args DESTINATION_DEBUG "${_NBL_CUSTOM_DESTINATION_DEBUG}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELEASE AND NOT _NBL_CUSTOM_DESTINATION_RELEASE STREQUAL "")
+    list(APPEND _sync_args DESTINATION_RELEASE "${_NBL_CUSTOM_DESTINATION_RELEASE}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO AND NOT _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO STREQUAL "")
+    list(APPEND _sync_args DESTINATION_RELWITHDEBINFO "${_NBL_CUSTOM_DESTINATION_RELWITHDEBINFO}")
+  endif()
   if(_NBL_CUSTOM_BUILD_TRIGGER_TARGETS)
     list(APPEND _sync_args BUILD_TRIGGER_TARGETS ${_NBL_CUSTOM_BUILD_TRIGGER_TARGETS})
   endif()
