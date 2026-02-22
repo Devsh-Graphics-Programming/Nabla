@@ -18,16 +18,6 @@ public:
 
     bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
     {
-        const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
-
-        if (sdk)
-        {
-            auto dir = std::filesystem::absolute(std::filesystem::path(sdk).make_preferred()).string();
-            std::cout << "[INFO]: NBL_INSTALL_DIRECTORY = \"" << dir.c_str() << "\"\n";
-        }
-        else
-            std::cerr << "[INFO]: NBL_INSTALL_DIRECTORY env was not defined!\n";
-
         if (isAPILoaded())
         {
             std::cout << "[INFO]: Loaded Nabla API\n";
