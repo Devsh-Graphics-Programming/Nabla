@@ -6,7 +6,6 @@
 
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
-//#include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/interchange/CIESProfileLoader.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
@@ -15,96 +14,47 @@
 
 namespace nbl::ext::MitsubaLoader
 {
+class CMitsubaLoader;
 
 struct SContext final
 {
 	public:
+		using interm_getAssetInHierarchy_t = asset::SAssetBundle(const char*, const uint16_t);
+
 		SContext(
-//			const asset::IGeometryCreator* _geomCreator,
-//			const asset::IMeshManipulator* _manipulator,
 			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
 			CMitsubaMetadata* _metadata
 		);
 
-		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUPolygonGeometry>;
-		shape_ass_type loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape);
-		using group_ass_type = core::smart_refctd_ptr<asset::ICPUGeometryCollection>;
-		group_ass_type loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+		using shape_ass_type = core::smart_refctd_ptr<const asset::ICPUGeometryCollection>;
+		shape_ass_type loadBasicShape(const CElementShape* shape);
+		// the `shape` will have to be `Type::SHAPEGROUP`
+		shape_ass_type loadShapeGroup(const CElementShape* shape);
 
 		inline void transferMetadata()
 		{
-			meta->setPolygonGeometryMeta(std::move(shapeCache));
+			meta->setGeometryCollectionMeta(std::move(shapeCache));
+			meta->setGeometryCollectionMeta(std::move(groupCache));
 		}
 
-//		const asset::IGeometryCreator* creator;
-//		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
+		std::function<interm_getAssetInHierarchy_t> interm_getAssetInHierarchy;
 		CMitsubaMetadata* meta;
 		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
 	private:
 		//
-		core::unordered_map<const CElementShape::ShapeGroup*,group_ass_type> groupCache;
+		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryCollectionMetaPair> shapeCache;
 		//
-		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryMetaPair> shapeCache;
-#if 0
+		core::unordered_map<const CElementShape::ShapeGroup*,CMitsubaMetadata::SGeometryCollectionMetaPair> groupCache;
+
+#if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
-		//image, scale
+		//image, scale 
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
-
-		//
-		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
-		{
-			std::string key = bitmap.filename.svalue;
-			switch (bitmap.channel)
-			{
-				case CElementTexture::Bitmap::CHANNEL::R:
-					key += "?rrrr";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::G:
-					key += "?gggg";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::B:
-					key += "?bbbb";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::A:
-					key += "?aaaa";
-					break;
-				default:
-					break;
-			}
-			switch (semantic)
-			{
-				case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
-					key += "?blend";
-					break;
-				case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
-					key += "?deriv?n";
-					break;
-				case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
-					key += "?deriv?h";
-					{
-						static const char* wrap[5]
-						{
-							"?repeat",
-							"?mirror",
-							"?clamp",
-							"?zero",
-							"?one"
-						};
-						key += wrap[bitmap.wrapModeU];
-						key += wrap[bitmap.wrapModeV];
-					}
-					break;
-				default:
-					break;
-			}
-			key += "?view";
-			return key;
-		}
 
 		static asset::ISampler::SParams emissionProfileSamplerParams(const CElementEmissionProfile* profile, const asset::CIESProfileMetadata& meta)
 		{

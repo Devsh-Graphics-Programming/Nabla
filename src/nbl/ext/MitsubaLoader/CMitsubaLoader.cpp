@@ -3,17 +3,17 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
-#include <cwchar>
+#include "nbl/builtin/hlsl/math/linalg/basic.hlsl"
+#include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-
-#if 0
-#include "nbl/asset/utils/CDerivativeMapCreator.h"
-
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
-#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
-#endif
+
+#include <cwchar>
+
+//#include "nbl/asset/utils/CDerivativeMapCreator.h"
+
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -22,7 +22,8 @@
 
 namespace nbl
 {
-using namespace asset;
+using namespace nbl::asset;
+using namespace nbl::hlsl;
 
 namespace ext::MitsubaLoader
 {
@@ -30,33 +31,26 @@ namespace ext::MitsubaLoader
 #if 0 // old material compiler
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
 R"(
-#include <nbl/builtin/glsl/utils/common.glsl>
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    nbl_glsl_SBasicViewParameters params;
-} CamData;
-
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
-	vec3 campos = nbl_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	vec3 campos = ....;
 	return normalize(campos - WorldPos);
 }
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-#ifdef TEX_PREFETCH_STREAM
-mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(WorldPos),dFdy(WorldPos));}
+
+mat2x3 nbl_glsl_perturbNormal_dPdSomething()
+{
+	return mat2x3(dFdx(WorldPos),dFdy(WorldPos));
+}
 mat2 nbl_glsl_perturbNormal_dUVdSomething()
 {
     return mat2(dFdx(UV),dFdy(UV));
 }
-#endif
-#define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
-#include <nbl/builtin/glsl/format/decode.glsl>
-
 #ifndef _NBL_BSDF_COS_EVAL_DEFINED_
 #define _NBL_BSDF_COS_EVAL_DEFINED_
 // Spectrum can be exchanged to a float for monochrome
@@ -123,9 +117,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader
 
 	return createSpecShader(source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
 }
-#endif
-
-#if 0
+// TODO: move to IAssetLoader
 static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, const ICPUSampler::SParams& _samplerParams, bool fromNormalMap)
 {
 	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
@@ -152,73 +144,10 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const asset::ICPUImage* _img, const asset::ICPUImageView::SComponentMapping::E_SWIZZLE srcChannel)
 {
-	auto outParams = _img->getCreationParameters();
-	const auto inFormat = outParams.format;
-
-	asset::ICPUImage::SBufferCopy region;
-	// pick format
-	{
-		// TODO: redo the format selection when @Erfan's format promotor is operational
-		if (isSRGBFormat(inFormat))
-			outParams.format = asset::EF_B8G8R8A8_SRGB;
-		else
-		{
-			const double prec = asset::getFormatPrecision(inFormat,srcChannel,0.0);
-			if (prec<=FLT_MIN)
-				outParams.format = asset::EF_R32G32B32A32_SFLOAT;
-			else if (prec<=1.0/65535.0)
-				outParams.format = asset::EF_R16G16B16A16_UNORM;
-			else if (prec<=exp2f(-14.f))
-				outParams.format = asset::EF_R16G16B16A16_SFLOAT;
-			else if (prec<=1.0/1023.0)
-				outParams.format = asset::EF_A2B10G10R10_UNORM_PACK32;
-			else
-				outParams.format = asset::EF_R8G8B8A8_UNORM;
-		}
-	}
-	const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
-	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
-	region.imageOffset = { 0,0,0 };
-	region.imageExtent = outParams.extent;
-	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
-	region.imageSubresource.mipLevel = 0u;
-	region.bufferImageHeight = 0u;
-	region.bufferOffset = 0u;
-	auto outImg = asset::ICPUImage::create(std::move(outParams));
-	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-
-	using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN,asset::EF_UNKNOWN>;
-	convert_filter_t::state_type conv;
-	conv.extent = outParams.extent;
-	conv.layerCount = 1u;
-	conv.inMipLevel = 0u;
-	conv.outMipLevel = 0u;
-	conv.inBaseLayer = 0u;
-	conv.outBaseLayer = 0u;
-	conv.inOffset = { 0u,0u,0u };
-	conv.outOffset = { 0u,0u,0u };
-	conv.inImage = _img;
-	conv.outImage = outImg.get();
-	if (srcChannel!=asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_IDENTITY)
-		conv.swizzle = {srcChannel,srcChannel,srcChannel,srcChannel};
-	else
-	{
-		conv.swizzle = {};
-		for (auto i=asset::getFormatChannelCount(inFormat); i<4; i++)
-			conv.swizzle[i] = asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_R;
-	}
-
-	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
-	{
-		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
-		_NBL_DEBUG_BREAK_IF(true);
-	}
-
-	return outImg;
+	// deprecated will be expressed in Material Compiler Frontend AST as a swizzle
 }
 #endif
+constexpr auto LoggerError = system::ILogger::ELL_ERROR;
 
 bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
@@ -283,8 +212,6 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 	else
 	{
 		SContext ctx(
-//			m_assetMgr->getGeometryCreator(),
-//			m_assetMgr->getMeshManipulator(),
 			IAssetLoader::SAssetLoadContext{ 
 				IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,_params.loaderFlags,_params.logger,_file->getFileName().parent_path()),
 				_file
@@ -292,12 +219,17 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			_override,
 			result.metadata.get()
 		);
+		ctx.interm_getAssetInHierarchy = [&](const char* filename, const uint16_t hierarchyOffset)->SAssetBundle
+		{
+			return this->interm_getAssetInHierarchy(filename,ctx.inner.params,_hierarchyLevel+hierarchyOffset,ctx.override_);
+		};
 		//
 		ctx.scene->m_ambientLight = result.ambient;
 
+
 		// TODO: abstract/move away since many loaders will need to do this
-		core::unordered_map<const ICPUGeometryCollection*,core::smart_refctd_ptr<ICPUMorphTargets>> morphTargetCache;
-		auto createMorphTargets = [&_params,&morphTargetCache](core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->core::smart_refctd_ptr<ICPUMorphTargets>
+		core::unordered_map<const ICPUGeometryCollection*,core::smart_refctd_ptr<const ICPUMorphTargets>> morphTargetCache;
+		auto createMorphTargets = [&_params,&morphTargetCache](core::smart_refctd_ptr<const ICPUGeometryCollection>&& collection)->core::smart_refctd_ptr<const ICPUMorphTargets>
 		{
 			auto found = morphTargetCache.find(collection.get());
 			if (found!=morphTargetCache.end())
@@ -306,7 +238,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			if (targets)
 			{
 				morphTargetCache[collection.get()] = targets;
-				targets->getTargets()->push_back({.geoCollection=std::move(collection)});
+				targets->getTargets()->push_back({.geoCollection=core::smart_refctd_ptr<ICPUGeometryCollection>(const_cast<ICPUGeometryCollection*>(collection.get()))});
 			}
 			return targets;
 		};
@@ -314,18 +246,23 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		//
 		auto& instances = ctx.scene->getInstances();
 		instances.reserve(result.shapegroups.size());
-		auto addToScene = [&](const CElementShape* shape, core::smart_refctd_ptr<ICPUGeometryCollection>&& collection)->void
+		auto addToScene = [&](const CElementShape* shape, core::smart_refctd_ptr<const ICPUGeometryCollection>&& collection)->void
 		{
-			assert(shape && collection);
+			if (!collection)
+			{
+				_params.logger.log("Failed to load a ICPUGeometryCollection for Shape with id %s",LoggerError,shape->id.c_str());
+				return;
+			}
+			assert(shape);
 			auto targets = createMorphTargets(std::move(collection));
 			if (!targets)
 			{
-				_params.logger.log("Failed to create ICPUMorphTargets for Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+				_params.logger.log("Failed to create ICPUMorphTargets for Shape with id %s",LoggerError,shape->id.c_str());
 				return;
 			}
 			const auto index = instances.size();
-			instances.resize(index+1);
-			instances.getMorphTargets()[index] = std::move(targets);
+			instances.resize(index+1,true);
+			instances.getMorphTargets()[index] = core::smart_refctd_ptr<ICPUMorphTargets>(const_cast<ICPUMorphTargets*>(targets.get()));
 			// TODO: add materials (incl emission) to the instances
 			/*
 				auto emitter = shape->obtainEmitter();
@@ -341,6 +278,8 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 					CElementEmitter{} // no backface emission
 				);
 			*/
+			if (shape->transform.matrix[3]!=float32_t4(0,0,0,1))
+				_params.logger.log("Shape with id %s has Non-Affine transformation matrix, last row is not 0,0,0,1!",system::ILogger::ELL_ERROR,shape->id.c_str());
 			instances.getInitialTransforms()[index] = shape->getTransform();
 		};
 
@@ -353,29 +292,14 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 				continue;
 
 			if (shapedef->type!=CElementShape::Type::INSTANCE)
-			{
-				auto geometry = ctx.loadBasicShape(_hierarchyLevel,shapedef);
-				if (!geometry)
-					continue;
-				auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
-				if (!collection)
-				{
-					_params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shapedef->id.c_str());
-					continue;
-				}
-				// we don't put a transform on the geometry, because we want the transform on the instance
-				collection->getGeometries()->push_back({.geometry=std::move(geometry)});
-				addToScene(shapedef,std::move(collection));
-			}
+				addToScene(shapedef,ctx.loadBasicShape(shapedef));
 			else // mitsuba is weird and lists instances under a shapegroup instead of having instances reference the shapegroup
 			{
 				// get group reference
 				const CElementShape* parent = shapedef->instance.parent;
 				if (!parent) // we should probably assert this
 					continue;
-				assert(parent->type==CElementShape::Type::SHAPEGROUP);
-				auto collection = ctx.loadShapeGroup(_hierarchyLevel,&parent->shapegroup);
-				addToScene(shapedef,std::move(collection));
+				addToScene(shapedef,ctx.loadShapeGroup(parent));
 			}
 		}
 		result.shapegroups.clear();
@@ -406,31 +330,14 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			if(emitter.element->type == ext::MitsubaLoader::CElementEmitter::Type::ENVMAP)
 			{
 				const auto& envmap = emitter.element->envmap;
-#if 0
-				SAssetBundle envmapImageBundle = interm_getAssetInHierarchy(m_assetMgr,envmap.filename,ctx.inner.params,_hierarchyLevel,ctx.override_);
-				auto contentRange = envmapImageBundle.getContents();
+				SAssetBundle envmapBundle = interm_getImageViewInHierarchy<std::string>(envmap.filename,ctx.inner.params,_hierarchyLevel,ctx.override_);
+				auto contentRange = envmapBundle.getContents();
 				if (contentRange.empty())
 				{
-					os::Printer::log(std::string("[ERROR] Could Not Find Envmap Image: ") + envfilename, ELL_ERROR);
+					_params.logger.log("Could not load Envnmap image from path: %s",LoggerError,envmap.filename);
 					continue;
 				}
-				core::smart_refctd_ptr<asset::ICPUImageView> view = {};
-				switch(envmapImageBundle.getAssetType())
-				{
-					case asset::IAsset::ET_IMAGE:
-					{
-						// TODO: create image view
-					}
-					[[fallthrough]];
-					case asset::IAsset::ET_IMAGE_VIEW:
-						view = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*contentRange.begin());
-						break;
-					default:
-						os::Printer::log("[ERROR] Loaded an Asset for the Envmap but it wasn't an image, was E_ASSET_TYPE " + std::to_string(envmapImageBundle.getAssetType()), ELL_ERROR);
-						break;
-				}
-				ctx.scene->addEnvLight(ICPUScene::EEnvLightType::SphereMap,std::move(view));
-#endif
+				ctx.scene->addEnvLight(ICPUScene::EEnvLightType::SphereMap,core::smart_refctd_ptr_static_cast<const asset::ICPUImageView>(contentRange[0]));
 			}
 		}
 
@@ -448,7 +355,7 @@ void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionP
 	auto params = ctx.inner.params;
 	params.loaderFlags = asset::IAssetLoader::ELPF_LOAD_METADATA_ONLY;
 
-	auto assetLoaded = interm_getAssetInHierarchy(m_assetMgr, profile->filename, params, 0u, ctx.override_);
+	auto assetLoaded = interm_getAssetInHierarchy( profile->filename, params, 0u, ctx.override_);
 
 	if (!assetLoaded.getMetadata())
 	{
@@ -468,109 +375,25 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 			{
 				// get sampler parameters
 				const auto samplerParams = ctx.computeSamplerParameters(tex->bitmap);
-
-				// search the cache for the imageview
-				const auto cacheKey = ctx.imageViewCacheKey(tex->bitmap,semantic);
-				const asset::IAsset::E_TYPE types[]{asset::IAsset::ET_IMAGE_VIEW,asset::IAsset::ET_TERMINATING_ZERO};
-				// could not find view in the cache
-				if (ctx.override_->findCachedAsset(cacheKey,types,ctx.inner,hierarchyLevel).getContents().empty())
+				
+				asset::SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename.svalue,ctx.inner,hierarchyLevel,ctx.override_);
+				// TODO: embed the gamma in the material compiler Frontend
+				// adjust gamma on pixels (painful and long process)
+				if (!std::isnan(tex->bitmap.gamma))
 				{
-					ICPUImageView::SCreationParams viewParams = {};
-					// find or restore image from cache
-					{
-						auto loadParams = ctx.inner.params;
-						// always restore, the only reason we haven't found a view is because either the image wasnt loaded yet, or its going to be processed with channel extraction or derivative mapping
-						const uint32_t restoreLevels = semantic==CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY&&tex->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID ? 0u:2u; // all the way to the buffer providing the pixels
-						loadParams.restoreLevels = std::max(loadParams.restoreLevels,hierarchyLevel+restoreLevels);
-						// load using the actual filename, not the cache key
-						asset::SAssetBundle bundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
-
-						// check if found
-						auto contentRange = bundle.getContents();
-						if (contentRange.empty())
-						{
-						    os::Printer::log("[ERROR] Could Not Find Texture: "+cacheKey,ELL_ERROR);
-							return;
-						}
-						auto asset = contentRange.begin()[0];
-						if (asset->getAssetType()!=asset::IAsset::ET_IMAGE)
-						{
-						    os::Printer::log("[ERROR] Loaded an Asset but it wasn't a texture, was E_ASSET_TYPE "+std::to_string(asset->getAssetType()),ELL_ERROR);
-							return;
-						}
-
-						viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
-					}
-					// adjust gamma on pixels (painful and long process)
-					if (!std::isnan(tex->bitmap.gamma))
-					{
-						_NBL_DEBUG_BREAK_IF(true); // TODO : use an image filter (unify with the below maybe?)!
-					}
-					switch (semantic)
-					{
-						case CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY:
-						case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
-							{
-								switch (tex->bitmap.channel)
-								{
-									// no GL_R8_SRGB support yet
-									case CElementTexture::Bitmap::CHANNEL::R:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_R);
-										break;
-									case CElementTexture::Bitmap::CHANNEL::G:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_G);
-										break;
-									case CElementTexture::Bitmap::CHANNEL::B:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_B);
-										break;
-									case CElementTexture::Bitmap::CHANNEL::A:
-										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_A);
-										break;
-									/* special conversions needed to CIE space
-									case CElementTexture::Bitmap::CHANNEL::X:
-									case CElementTexture::Bitmap::CHANNEL::Y:
-									case CElementTexture::Bitmap::CHANNEL::Z:*/
-									case CElementTexture::Bitmap::CHANNEL::INVALID:
-										[[fallthrough]];
-									default:
-										if (semantic==CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT && asset::getFormatChannelCount(viewParams.image->getCreationParameters().format)<3u)
-											viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_IDENTITY);
-										break;
-								}
-							}
-							break;
-						case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
-							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,true);
-							break;
-						case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
-							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,false);
-							break;
-						default:
-							_NBL_DEBUG_BREAK_IF(true);
-							assert(false);
-							break;
-					}
-					// get rest of view params and insert into cache
-					{
-						viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
-						viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-						viewParams.format = viewParams.image->getCreationParameters().format;
-						viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-						viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
-						viewParams.subresourceRange.layerCount = 1u;
-						//! TODO: this stuff (custom shader sampling code?)
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
-						_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
-
-						asset::SAssetBundle viewBundle(nullptr,{ICPUImageView::create(std::move(viewParams))});
-						ctx.override_->insertAssetIntoCache(std::move(viewBundle),cacheKey,ctx.inner,hierarchyLevel);
-					}
+					_NBL_DEBUG_BREAK_IF(true);
+				}
+				{
+					//! TODO: this stuff (custom shader sampling code?)
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
+					_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
 				}
 			}
 			break;
 		case CElementTexture::Type::SCALE:
+			// get to to the linked list end
 			cacheTexture(ctx,hierarchyLevel,tex->scale.texture,semantic);
 			break;
 		default:
@@ -794,12 +617,10 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 using namespace std::string_literals;
 
 SContext::SContext(
-//	const asset::IGeometryCreator* _geomCreator,
-//	const asset::IMeshManipulator* _manipulator,
 	const asset::IAssetLoader::SAssetLoadContext& _ctx,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CMitsubaMetadata* _metadata
-) : /*creator(_geomCreator), manipulator(_manipulator),*/ inner(_ctx), override_(_override), meta(_metadata)
+) : inner(_ctx), override_(_override), meta(_metadata)
 //,ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
 	auto materialPool = material_compiler3::CTrueIR::create();
@@ -807,11 +628,13 @@ SContext::SContext(
 	frontIR = material_compiler3::CFrontendIR::create();
 }
 
-auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup) -> SContext::group_ass_type
+auto SContext::loadShapeGroup(const CElementShape* shape) -> SContext::shape_ass_type
 {
+	assert(shape->type==CElementShape::Type::SHAPEGROUP);
+	const auto* const shapegroup = &shape->shapegroup;
 	auto found = groupCache.find(shapegroup);
 	if (found!=groupCache.end())
-		return found->second;
+		return found->second.collection;
 	
 	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
 	if (!collection)
@@ -825,191 +648,207 @@ auto SContext::loadShapeGroup(const uint32_t hierarchyLevel, const CElementShape
 			auto child = children[i];
 			if (!child)
 				continue;
-
+			// shape groups cannot contain instances
 			assert(child->type!=CElementShape::Type::INSTANCE);
+
+			shape_ass_type nestedCollection;
 			if (child->type!=CElementShape::Type::SHAPEGROUP)
-			{
-				auto geometry = loadBasicShape(hierarchyLevel,child);
-				if (geometry)
-					geometries->push_back({.transform=child->getTransform(),.geometry=std::move(geometry)});
-			}
+				nestedCollection = loadBasicShape(child);
 			else
-			{
-				auto nestedCollection = loadShapeGroup(hierarchyLevel,&child->shapegroup);
-				if (!nestedCollection)
-					continue;
-				auto* nestedGeometries = nestedCollection->getGeometries();
-				for (auto& ref : *nestedGeometries)
-				{
-					auto& newRef = geometries->emplace_back(std::move(ref));
-					// thankfully because SHAPEGROUPS are not allowed to have transforms we don't need to rack them up
-					//if (newRef.hasTransform())
-					//	newRef.transform = hlsl::mul(thisTransform,newRef.transform);
-					//else
-					//	newRef.transform = thisTransform;
-				}
-			}
+				nestedCollection = loadShapeGroup(child);
+			if (!nestedCollection)
+				continue;
+
+			// note that we flatten geometry collections, different children are their own collections we turn them into one mega-collection
+			const auto& nestedGeometries = nestedCollection->getGeometries();
+			// thankfully because SHAPEGROUPS are not allowed to have transforms we don't need to rack them up
+			//if (newRef.hasTransform())
+			//	newRef.transform = hlsl::mul(thisTransform,newRef.transform);
+			//else
+			//	newRef.transform = thisTransform;
+			geometries->insert(geometries->end(),nestedGeometries.begin(),nestedGeometries.end());
 		}
-		groupCache.insert({shapegroup,collection});
+		CMitsubaMetadata::SGeometryCollectionMetaPair pair = {.collection=collection};
+		pair.meta.m_id = shape->id;
+		pair.meta.type = shape->type;
+		groupCache.insert({shapegroup,std::move(pair)});
 	}
 	return collection;
 }
 
-#if 0
-static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data, asset::IAssetManager* _manager)
-{
-	//creating pipeline just to forward vtx and primitive params
-	auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-		nullptr, nullptr, nullptr, //no layout nor shaders
-		_data.inputParams, 
-		asset::SBlendParams(),
-		_data.assemblyParams,
-		asset::SRasterizationParams()
-		);
-
-	auto mb = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
-		nullptr, nullptr,
-		_data.bindings, std::move(_data.indexBuffer)
-	);
-	mb->setIndexCount(_data.indexCount);
-	mb->setIndexType(_data.indexType);
-	mb->setBoundingBox(_data.bbox);
-	mb->setPipeline(std::move(pipeline));
-	constexpr auto NORMAL_ATTRIBUTE = 3;
-	mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
-
-	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
-	mesh->getMeshBufferVector().push_back(std::move(mb));
-
-	return mesh;
-}
-#endif
-
-auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape* shape) -> SContext::shape_ass_type
+auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass_type
 {
 	auto found = shapeCache.find(shape);
 	if (found!=shapeCache.end())
-		return found->second.geom;
+		return found->second.collection;
 
-	core::smart_refctd_ptr<asset::ICPUPolygonGeometry> geo;
-	auto exiter = core::makeRAIIExiter<>([&]()->void
-		{
-			if (geo)
-				return;
-			this->inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
-		}
-	);
-
-#if 0
-	constexpr uint32_t UV_ATTRIB_ID = 2u;
-
-
-
-	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
+	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
+	if (!collection)
 	{
-		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto loadParams = ctx.inner.params;
-		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
-		auto retval = interm_getAssetInHierarchy(m_assetMgr, filename.svalue, loadParams, hierarchyLevel/*+ICPUScene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
-		if (retval.getContents().empty())
-		{
-			os::Printer::log(std::string("[ERROR] Could Not Find Mesh: ") + filename.svalue, ELL_ERROR);
-			return nullptr;
-		}
-		if (retval.getAssetType()!=asset::IAsset::ET_MESH)
-		{
-			os::Printer::log("[ERROR] Loaded an Asset but it wasn't a mesh, was E_ASSET_TYPE " + std::to_string(retval.getAssetType()), ELL_ERROR);
-			return nullptr;
-		}
-		auto contentRange = retval.getContents();
-		auto serializedMeta = retval.getMetadata()->selfCast<CMitsubaSerializedMetadata>();
-		//
-		uint32_t actualIndex = 0;
-		if (index>=0ll && serializedMeta)
-		for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
-		{
-			auto meshMeta = static_cast<const CMitsubaSerializedMetadata::CMesh*>(serializedMeta->getAssetSpecificMetadata(IAsset::castDown<ICPUMesh>(*it).get()));
-			if (meshMeta->m_id!=static_cast<uint32_t>(index))
-				continue;
-			actualIndex = it-contentRange.begin();
-			break;
-		}
-		//
-		if (contentRange.begin()+actualIndex < contentRange.end())
-		{
-			auto asset = contentRange.begin()[actualIndex];
-			if (!asset)
-				return nullptr;
-			return core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
-		}
-		else
-			return nullptr;
+		inner.params.logger.log("Failed to create an ICPUGeometryCollection non-Instanced Shape with id %s",LoggerError,shape->id.c_str());
+		return nullptr;
+	}
+	// the geometry reference transform shall only contain an exceptional and optional relative transform like to make Builtin shapes like cubes, spheres, etc. of different sizes
+	// the whole shape (which is a geometry collection) has its own transform
+	auto* pGeometries = collection->getGeometries();
+	auto addGeometry = [pGeometries](ICPUGeometryCollection::SGeometryReference&& ref)->void
+	{
+		if (ref)
+			pGeometries->push_back(std::move(ref));
 	};
-#endif
+
+
+	auto loadModel = [&](const char* filename, int64_t index=-1) -> void
+	{
+		auto retval = interm_getAssetInHierarchy(filename,/*ICPUScene::GEOMETRY_COLLECTION_HIERARCHY_LEVELS_BELOW*/1);
+		auto contentRange = retval.getContents();
+		if (contentRange.empty())
+		{
+			inner.params.logger.log("Could Not Load Shape : %s",LoggerError,filename);
+			return;
+		}
+		
+		// we used to load with the IAssetLoader::ELPF_RIGHT_HANDED_MESHES flag, this means flipping the mesh x-axis
+		auto transform = math::linalg::diagonal<float32_t3x4>(1.f);
+		transform[0][0] = -1.f;
+
+		//
+		auto addCollectionGeometries = [&](const ICPUGeometryCollection* col)->void
+		{
+			if (col)
+			for (auto ref : col->getGeometries())
+			{
+				if (ref.hasTransform())
+					ref.transform = math::linalg::promoted_mul(ref.transform,transform);
+				else
+					ref.transform = transform;
+				addGeometry(std::move(ref));
+			}
+		};
+
+		// take first target and replace the collection
+		auto addFirstTargetGeometries = [&](const ICPUMorphTargets* morph)->void
+		{
+			if (const auto& targets=morph->getTargets(); !targets.empty())
+				addCollectionGeometries(targets.front().geoCollection.get());
+		};
+
+		switch (retval.getAssetType())
+		{
+			case IAsset::ET_GEOMETRY:
+			{
+				// only add one geometry, if we meant to add a whole collection, the file would load a collection
+				const IGeometry<ICPUBuffer>* geo = nullptr;
+				auto serializedMeta = retval.getMetadata()->selfCast<CMitsubaSerializedMetadata>();
+				for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
+				{
+					geo = IAsset::castDown<const ICPUPolygonGeometry>(*it).get();
+					assert(geo);
+					if (!serializedMeta || index<0ll || index>numeric_limits<uint32_t>::max) // not Misuba serialized or shape index not specialized
+						break;
+					auto* const meta = serializedMeta->getAssetSpecificMetadata(static_cast<const ICPUPolygonGeometry*>(geo));
+					assert(meta);
+					auto* const polygonMeta = static_cast<const CMitsubaSerializedMetadata::CPolygonGeometry*>(meta);
+					if (polygonMeta->m_id==static_cast<uint32_t>(index))
+						break;
+				}
+				if (auto* const mg=const_cast<IGeometry<ICPUBuffer>*>(geo); mg)
+					addGeometry({.transform=transform,.geometry=core::smart_refctd_ptr<IGeometry<ICPUBuffer>>(mg)});
+				break;
+			}
+			case IAsset::ET_GEOMETRY_COLLECTION:
+			{
+				// only add the first collection's geometries
+				addCollectionGeometries(IAsset::castDown<const ICPUGeometryCollection>(contentRange[0]).get());
+				break;
+			}
+			case IAsset::ET_MORPH_TARGETS:
+			{
+				addFirstTargetGeometries(IAsset::castDown<const ICPUMorphTargets>(contentRange[0]).get());
+				break;
+			}
+			case IAsset::ET_SCENE:
+			{
+				// flatten the scene into a single instance, this is path for OBJ loading
+				const auto& instances = IAsset::castDown<const ICPUScene>(contentRange[0])->getInstances();
+				const auto instanceTforms = instances.getInitialTransforms();
+				for (auto i=0u; i<instances.size(); i++)
+				{
+					auto* const targets = instances.getMorphTargets()[i].get();
+					const auto oldGeoBegin = pGeometries->size();
+					addFirstTargetGeometries(targets);
+					if (!instanceTforms.empty())
+					for (auto geoIx=oldGeoBegin; geoIx<pGeometries->size(); geoIx++)
+					{
+						auto& ref = pGeometries->operator[](geoIx);
+						ref.transform = math::linalg::promoted_mul(instanceTforms[i],ref.transform);
+					}
+					// NOTE: also need to preserve/forward the materials somehow (need to chape the `shape_ass_type` to have a default Material Binding Table)
+				}
+				break;
+			}
+			default:
+				inner.params.logger.log("Loaded an Asset but it didn't contain any geometry, was %s",LoggerError,system::to_string(retval.getAssetType()));
+				break;
+		}
+	};
+
 	bool flipNormals = false;
 	bool faceNormals = false;
-	float maxSmoothAngle = hlsl::bit_cast<float>(hlsl::numeric_limits<float>::quiet_NaN);
+	float maxSmoothAngle = bit_cast<float>(numeric_limits<float>::quiet_NaN);
+	auto* const creator = override_->getGeometryCreator();
 	switch (shape->type)
 	{
-#if 0
+		// TODO: cache the simple geos to not spam new objects ?
+		// FAR TODO: create some special non-poly geometries for procedural raycasts?
 		case CElementShape::Type::CUBE:
 		{
-			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
-
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCubeMesh(core::vector3df(2.f)), m_assetMgr);
 			flipNormals = flipNormals!=shape->cube.flipNormals;
+			addGeometry({.geometry=creator->createCube(promote<float32_t3>(2.f))});
 			break;
 		}
 		case CElementShape::Type::SPHERE:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createSphereMesh(1.f,64u,64u), m_assetMgr);
 			flipNormals = flipNormals!=shape->sphere.flipNormals;
 			{
-				core::matrix3x4SIMD tform;
-				tform.setScale(core::vectorSIMDf(shape->sphere.radius,shape->sphere.radius,shape->sphere.radius));
-				tform.setTranslation(shape->sphere.center);
-				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(tform));
+				auto tform = math::linalg::diagonal<float32_t3x4>(shape->sphere.radius);
+				math::linalg::setTranslation(tform,shape->sphere.center);
+				addGeometry({.transform=tform,.geometry=creator->createSphere(1.f,64u,64u)});
 			}
 			break;
 		case CElementShape::Type::CYLINDER:
-			{
-				auto diff = shape->cylinder.p0-shape->cylinder.p1;
-				mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCylinderMesh(1.f, 1.f, 64), m_assetMgr);
-				core::vectorSIMDf up(0.f);
-				float maxDot = diff[0];
-				uint32_t index = 0u;
-				for (auto i = 1u; i < 3u; i++)
-					if (diff[i] < maxDot)
-					{
-						maxDot = diff[i];
-						index = i;
-					}
-				up[index] = 1.f;
-				core::matrix3x4SIMD tform;
-				// mesh is left haded so transforming by LH matrix is fine (I hope but lets check later on)
-				core::matrix3x4SIMD::buildCameraLookAtMatrixLH(shape->cylinder.p0,shape->cylinder.p1,up).getInverse(tform);
-				core::matrix3x4SIMD scale;
-				scale.setScale(core::vectorSIMDf(shape->cylinder.radius,shape->cylinder.radius,core::length(diff).x));
-				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(core::concatenateBFollowedByA(tform,scale)));
-			}
 			flipNormals = flipNormals!=shape->cylinder.flipNormals;
+			{
+				// start off as transpose, so rows are columns
+				float32_t4x3 extra;
+				extra[2] = shape->cylinder.p1 - shape->cylinder.p0;
+				extra[3] = shape->cylinder.p0;
+				math::frisvad(normalize(extra[2]),extra[0],extra[1]);
+				for (auto i=0u; i<2u; i++)
+				{
+					assert(length(extra[i])==1.f);
+					extra[i] *= shape->cylinder.radius;
+				}
+				addGeometry({.transform=transpose(extra),.geometry=creator->createCylinder(1.f,1.f,64u)});
+			}
 			break;
 		case CElementShape::Type::RECTANGLE:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f)), m_assetMgr);
-			flipNormals = flipNormals!=shape->rectangle.flipNormals;
+			flipNormals = flipNormals!=shape->cylinder.flipNormals;
+			addGeometry({.geometry=creator->createRectangle(promote<float32_t2>(1.f))});
 			break;
 		case CElementShape::Type::DISK:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createDiskMesh(1.f,64u), m_assetMgr);
-			flipNormals = flipNormals!=shape->disk.flipNormals;
+			flipNormals = flipNormals!=shape->cylinder.flipNormals;
+			addGeometry({.geometry=creator->createDisk(1.f,64)});
 			break;
-#endif
-#if 0
 		case CElementShape::Type::OBJ:
+#if 0 // TODO: Arek
 			mesh = loadModel(shape->obj.filename);
 			flipNormals = flipNormals!=shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
-			if (mesh && shape->obj.flipTexCoords)
+			if (!pGeometries->empty() && shape->obj.flipTexCoords)
 			{
+				_NBL_DEBUG_BREAK_IF(true);
+				// TODO: find the UV attribute, it doesn't help we don't name them
 				newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh> (mesh->clone(1u));
 				for (auto& meshbuffer : mesh->getMeshBufferVector())
 				{
@@ -1027,114 +866,84 @@ auto SContext::loadBasicShape(const uint32_t hierarchyLevel, const CElementShape
 					}
 				}
 			}
+#endif
 			// collapse parameter gets ignored
 			break;
 		case CElementShape::Type::PLY:
 			_NBL_DEBUG_BREAK_IF(true); // this code has never been tested
-			mesh = loadModel(shape->ply.filename);
+			loadModel(shape->ply.filename);
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
-			if (mesh && shape->ply.srgb)
+			if (shape->ply.srgb)
+			for (auto& ref : *pGeometries)
 			{
-				uint32_t totalVertexCount = 0u;
-				for (auto meshbuffer : mesh->getMeshBuffers())
-					totalVertexCount += IMeshManipulator::upperBoundVertexID(meshbuffer);
-				if (totalVertexCount)
-				{
-					constexpr uint32_t hidefRGBSize = 4u;
-					auto newRGBbuff = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
-					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
-					constexpr uint32_t COLOR_ATTR = 1u;
-					constexpr uint32_t COLOR_BUF_BINDING = 15u;
-					uint32_t* newRGB = reinterpret_cast<uint32_t*>(newRGBbuff->getPointer());
-					uint32_t offset = 0u;
-					for (auto& meshbuffer : mesh->getMeshBufferVector())
-					{
-						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb,COLOR_ATTR,i); i++,offset++)
-						{
-							for (auto i=0; i<3u; i++)
-								rgb[i] = core::srgb2lin(rgb[i]);
-							ICPUMeshBuffer::setAttribute(rgb,newRGB+offset,asset::EF_A2B10G10R10_UNORM_PACK32);
-						}
-						auto newPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(meshbuffer->getPipeline()->clone(0u));
-						auto& vtxParams = newPipeline->getVertexInputParams();
-						vtxParams.attributes[COLOR_ATTR].format = EF_A2B10G10R10_UNORM_PACK32;
-						vtxParams.attributes[COLOR_ATTR].relativeOffset = 0u;
-						vtxParams.attributes[COLOR_ATTR].binding = COLOR_BUF_BINDING;
-						vtxParams.bindings[COLOR_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
-						vtxParams.bindings[COLOR_BUF_BINDING].stride = hidefRGBSize;
-						vtxParams.enabledBindingFlags |= (1u<<COLOR_BUF_BINDING);
-						meshbuffer->setPipeline(std::move(newPipeline));
-						meshbuffer->setVertexBufferBinding({offset*hidefRGBSize,core::smart_refctd_ptr(newRGBbuff)},COLOR_BUF_BINDING);
-					}
-				}
+				// TODO: find the color attribute  (it doesn't help we don't name them, just slap them in vectors)
+				// TODO: clone geometry
+				// TODO: change the color aux attribute's format from UNORM8 to SRGB
 			}
 			break;
 		case CElementShape::Type::SERIALIZED:
-			mesh = loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
+			loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
 			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;
-#endif
 		case CElementShape::Type::SHAPEGROUP:
 			[[fallthrough]];
 		case CElementShape::Type::INSTANCE:
-			assert(false);
+			assert(false); // this shouldn't happen, our parser code shouldn't reach here
 			break;
 		default:
 //			_NBL_DEBUG_BREAK_IF(true);
 			break;
 	}
-	//
-	if (geo)
+	// handle fail
+	if (pGeometries->empty())
 	{
-#if 0
-		// mesh including meshbuffers needs to be cloned because instance counts and base instances will be changed
-		if (!newMesh)
-			newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
-		// flip normals if necessary
-		if (flipNormals)
-		{
-			for (auto& meshbuffer : mesh->getMeshBufferVector())
-			{
-				auto binding = meshbuffer->getIndexBufferBinding();
-				binding.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(binding.buffer->clone(0u));
-				meshbuffer->setIndexBufferBinding(std::move(binding));
-				ctx.manipulator->flipSurfaces(meshbuffer.get());
-			}
-		}
-		// recompute normalis if necessary
-		if (faceNormals || !std::isnan(maxSmoothAngle))
-			for (auto& meshbuffer : mesh->getMeshBufferVector())
-			{
-				const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
-
-				// TODO: make these mesh manipulator functions const-correct
-				auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(meshbuffer.get());
-				ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
-				ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
-					[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-					{
-						if (faceNormals)
-							return a.indexOffset == b.indexOffset;
-						else
-							return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-					});
-				meshbuffer = std::move(newMeshBuffer);
-			}
-		IMeshManipulator::recalculateBoundingBox(newMesh.get());
-		mesh = std::move(newMesh);
-#endif
-		// cache and return
-		CMitsubaMetadata::SGeometryMetaPair geoMeta = {.geom=std::move(geo)};
-		geoMeta.meta.m_id = shape->id;
-		geoMeta.meta.type = shape->type;
-		shapeCache.insert({shape,std::move(geoMeta)});
+		inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+		return nullptr;
 	}
-	return geo;
+
+	// recompute and flip normals if necessary
+	if (faceNormals || !std::isnan(maxSmoothAngle))
+	{
+		for (auto& ref : *pGeometries)
+		{
+			const float smoothAngleCos = cos(radians(maxSmoothAngle));
+
+			auto* const polyGeo = static_cast<ICPUPolygonGeometry*>(ref.geometry.get());
+			ref.geometry = CPolygonGeometryManipulator::createSmoothVertexNormal(
+				CPolygonGeometryManipulator::createUnweldedList(polyGeo,flipNormals,false).get(),false,0.f, // TODO: maybe enable welding based on `!faceNormals` later
+				[faceNormals,smoothAngleCos](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer)
+				{ 
+					if (faceNormals)
+						return v0.index==v1.index;
+					else
+						return dot(v0.weightedNormal,v1.weightedNormal)*rsqrt(dot(v0.weightedNormal,v0.weightedNormal)*dot(v1.weightedNormal,v1.weightedNormal)) >= smoothAngleCos;
+				},
+				true // rewelding or initial unweld mess with all vertex attributes and index buffers, so recompute every hash
+			);
+		}
+	}
+	else if (flipNormals)
+	{
+		for (auto& ref : *pGeometries)
+		{
+			auto* const polyGeo = static_cast<ICPUPolygonGeometry*>(ref.geometry.get());
+			auto flippedGeo = CPolygonGeometryManipulator::createTriangleListIndexing(polyGeo,true,false);
+			CGeometryManipulator::recomputeContentHash(flippedGeo->getIndexView());
+			// TODO: don't we also need to flip the normal buffer values? changing the winding doesn't help because the normals weren't recomputed !
+			ref.geometry = std::move(flippedGeo);
+		}
+	}
+
+	// cache and return
+	CMitsubaMetadata::SGeometryCollectionMetaPair pair = {.collection=collection};
+	pair.meta.m_id = shape->id;
+	pair.meta.type = shape->type;
+	shapeCache.insert({shape,std::move(pair)});
+	return collection;
 }
 
 }

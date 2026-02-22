@@ -11,6 +11,7 @@
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/interchange/SAssetBundle.h"
+#include "nbl/asset/utils/CGeometryCreator.h"
 
 
 namespace nbl::asset
@@ -171,11 +172,35 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			protected:
 				constexpr static inline bool ASSET_MUTABILITY_ON_CACHE_INSERT = true;
 
-				IAssetManager* m_manager;
 				system::ISystem* m_system;
 
 			public:
-				NBL_API2 IAssetLoaderOverride(IAssetManager* _manager);
+				struct SCreationParams
+				{
+					IAssetManager* manager = nullptr;
+					core::smart_refctd_ptr<CGeometryCreator> geoCreator = nullptr;
+					//core::smart_refctd_ptr<CPolygonGeometryManipulator> polyGeoManip = nullptr;
+				};
+				NBL_API2 IAssetLoaderOverride(SCreationParams&& params);
+
+				//
+				inline IAssetManager* getManager() const {return m_creationParams.manager;}
+
+				//
+				inline CGeometryCreator* getGeometryCreator()
+				{
+					if (!m_creationParams.geoCreator)
+						m_creationParams.geoCreator = core::make_smart_refctd_ptr<CGeometryCreator>();
+					return m_creationParams.geoCreator.get();
+				}
+
+				/*
+				inline CPolygonGeometryManipulator* getPolygonGeometryManipulator()
+				{
+					if (!m_creationParams.geoCreator)
+						m_creationParams.geoCreator = core::make_smart_refctd_ptr<CPolygonGeometryManipulator>();
+					return m_creationParams.polyGeoManip.get();
+				}*/
 
 				//!
 				template<class AssetT>
@@ -270,7 +295,10 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 
 				//! After a successful load of an asset or sub-asset
 				//TODO change name
-				virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
+				virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadParams& _params, const uint32_t hierarchyLevel);
+
+			private:
+				SCreationParams m_creationParams;
 		};
 
 	public:
@@ -291,14 +319,19 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		//! Loads an asset from an opened file, returns nullptr in case of failure.
 		virtual SAssetBundle loadAsset(system::IFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) = 0;
 
+		//
 		virtual void initialize() {}
+
+		//
+		static core::smart_refctd_ptr<ICPUImageView> createDefaultImageView(core::smart_refctd_ptr<asset::ICPUImage>&& image);
 
 	protected:
 		// accessors for loaders
-		SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
-		SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+		// TODO: deprecate
+		SAssetBundle interm_getAssetInHierarchy(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+		SAssetBundle interm_getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 		// only the overload we use for now
-		SAssetBundle interm_getAssetInHierarchyWithAllContent(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+		SAssetBundle interm_getAssetInHierarchyWithAllContent(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 
 		void interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, const bool _val);
 
@@ -306,10 +339,86 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path);
 		bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path);
 
+		// TODO: make static?
 		inline void setAssetInBundle(SAssetBundle& bundle, const uint32_t offset, core::smart_refctd_ptr<IAsset>&& _asset)
 		{
 			bundle.setAsset(offset,std::move(_asset));
 		}
+
+		//
+		template<typename PathOrFile> requires is_any_of_v<PathOrFile,system::IFile*,std::string>
+		SAssetBundle interm_getImageViewInHierarchy(const PathOrFile& pathOrFile, const IAssetLoader::SAssetLoadParams& _params, const uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+		{
+			// TODO: first we needed to try-load to figure out the cache key to be used, but we could do it differently I guess
+			// TODO: this load shouldn't add to cache until we exit successfully
+			auto bundle = interm_getAssetInHierarchy(pathOrFile,_params,_hierarchyLevel,_override);
+			auto contentRange = bundle.getContents();
+			if (contentRange.empty())
+				return {};
+			if (const auto origType=bundle.getAssetType(); origType==IAsset::E_TYPE::ET_IMAGE_VIEW)
+				return bundle;
+			else if (origType!=IAsset::E_TYPE::ET_IMAGE)
+			{
+				_params.logger.log(
+					"IAssetLoader::interm_getImageViewInHierarchy loaded assed with key \"%s\" with was of type %s not IMAGE",
+					system::ILogger::ELL_ERROR,bundle.getCacheKey().c_str(),system::to_string(origType).c_str()
+				);
+				return {};
+			}
+
+			const auto cacheKey = bundle.getCacheKey()+"?view?IAssetLoader?default";
+			SAssetLoadContext ctx(_params,nullptr);
+			// search the cache for the imageview
+			{
+				const asset::IAsset::E_TYPE types[]{asset::IAsset::ET_IMAGE_VIEW,asset::IAsset::ET_TERMINATING_ZERO};
+				auto cachedBundle = _override->findCachedAsset(cacheKey,types,ctx,_hierarchyLevel);
+				// check if found
+				if (!cachedBundle.getContents().empty())
+					return cachedBundle;
+			}
+
+			// ok now create default views for all the images
+			auto container = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(contentRange.size());
+			auto outIt = container->begin();
+			for (auto& asset : contentRange)
+				*(outIt++) = createDefaultImageView(core::smart_refctd_ptr_static_cast<ICPUImage>(asset));
+			bundle = SAssetBundle(nullptr,std::move(container));
+			_override->insertAssetIntoCache(bundle,cacheKey,_params,_hierarchyLevel);
+			return bundle;
+		}
+
+#if 0
+		// should we have derivative, bump and normalmap getters or shall we support all 3 in Frontend?
+		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
+		{
+			std::string key = bitmap.filename.svalue;
+			switch (semantic)
+			{
+				case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
+					key += "?deriv?n";
+					break;
+				case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
+					key += "?deriv?h";
+					{
+						static const char* wrap[5]
+						{
+							"?repeat",
+							"?mirror",
+							"?clamp",
+							"?zero",
+							"?one"
+						};
+						key += wrap[bitmap.wrapModeU];
+						key += wrap[bitmap.wrapModeV];
+					}
+					break;
+				default:
+					break;
+			}
+			key += "?view";
+			return key;
+		}
+#endif
 };
 
 }
