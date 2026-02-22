@@ -50,9 +50,35 @@ jobs:
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
-            if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
-              docker network create --driver nat docker_default
-              if ($LASTEXITCODE -ne 0) { exit 1 }
+            $maxAttempts = 12
+            $delaySeconds = 5
+            $dockerReady = $false
+
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              $networkNames = docker network ls --format '{{.Name}}'
+              if ($LASTEXITCODE -eq 0) {
+                if (-not ($networkNames | Where-Object { $_ -eq 'docker_default' })) {
+                  docker network create --driver nat docker_default
+                  if ($LASTEXITCODE -eq 0) {
+                    $dockerReady = $true
+                    break
+                  }
+                }
+                else {
+                  $dockerReady = $true
+                  break
+                }
+              }
+
+              if ($attempt -lt $maxAttempts) {
+                Write-Host "Docker not ready yet (attempt $attempt/$maxAttempts), retry in ${delaySeconds}s..."
+                Start-Sleep -Seconds $delaySeconds
+              }
+            }
+
+            if (-not $dockerReady) {
+              Write-Error "Docker was not ready after $($maxAttempts*$delaySeconds)s total wait"
+              exit 1
             }
 
       - name: Set prefix

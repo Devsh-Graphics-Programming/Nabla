@@ -286,13 +286,18 @@ function(_nbl_runtime_modules_add_configure_sync_rule_for_pairs _CFG_DST_PAIRS _
 
     cmake_path(GET _nabla_runtime_file FILENAME _nabla_runtime_name)
     cmake_path(GET _dxc_runtime_file FILENAME _dxc_runtime_name)
-    file(COPY_FILE "${_nabla_runtime_file}" "${_runtime_modules_dst}/${_nabla_runtime_name}" ONLY_IF_DIFFERENT INPUT_MAY_BE_RECENT)
-    file(COPY_FILE "${_dxc_runtime_file}" "${_runtime_modules_dst}/${_dxc_runtime_name}" ONLY_IF_DIFFERENT INPUT_MAY_BE_RECENT)
+    set(_nabla_runtime_dst "${_runtime_modules_dst}/${_nabla_runtime_name}")
+    set(_dxc_runtime_dst "${_runtime_modules_dst}/${_dxc_runtime_name}")
+
+    file(COPY_FILE "${_nabla_runtime_file}" "${_nabla_runtime_dst}" ONLY_IF_DIFFERENT INPUT_MAY_BE_RECENT)
+    file(COPY_FILE "${_dxc_runtime_file}" "${_dxc_runtime_dst}" ONLY_IF_DIFFERENT INPUT_MAY_BE_RECENT)
 
     if(_ENABLE_CONFIGURE_DEPENDS)
       set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${_nabla_runtime_file}"
         "${_dxc_runtime_file}"
+        "${_nabla_runtime_dst}"
+        "${_dxc_runtime_dst}"
       )
     endif()
 
