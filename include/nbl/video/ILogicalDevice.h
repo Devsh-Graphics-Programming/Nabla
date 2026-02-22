@@ -14,6 +14,7 @@
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/CJITIncludeLoader.h"
+#include "nbl/system/to_string.h"
 
 #include "git_info.h"
 #define NBL_LOG_FUNCTION m_logger.log
@@ -1033,24 +1034,45 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
           const std::span<const IGPURayTracingPipeline::SCreationParams> params,
           core::smart_refctd_ptr<IGPURayTracingPipeline>* const output);
         
-        // Pipeline executable statistics report (VK_KHR_pipeline_executable_properties).
-        // Pipeline must have been created with CAPTURE_STATISTICS flag.
-        // If includeInternalRepresentations is true, also includes shader IR/assembly
-        // (pipeline must have been created with CAPTURE_INTERNAL_REPRESENTATIONS flag).
+        // Per-executable info from VK_KHR_pipeline_executable_properties
+        struct SPipelineExecutableInfo
+        {
+            std::string name;
+            std::string description;
+            core::bitflag<hlsl::ShaderStage> stages = hlsl::ShaderStage::ESS_UNKNOWN;
+            uint32_t subgroupSize = 0;
+            std::string statistics;
+            std::string internalRepresentations;
+        };
+
+        // Query pipeline executable properties (VK_KHR_pipeline_executable_properties).
+        // Pipeline must have been created with CAPTURE_STATISTICS flag for statistics.
+        // Pipeline must have been created with CAPTURE_INTERNAL_REPRESENTATIONS flag for IR.
         template<typename Pipeline>
-        std::string getPipelineExecutableReport(const Pipeline* pipeline, bool includeInternalRepresentations = false)
+        core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties(const Pipeline* pipeline, bool includeInternalRepresentations = false)
         {
             if (!pipeline)
             {
                 NBL_LOG_ERROR("Null pipeline");
                 return {};
             }
-            if (!getEnabledFeatures().pipelineExecutableInfo)
+            using flags_t = Pipeline::SCreationParams::FLAGS;
+            if (!pipeline->getCreationFlags().hasFlags(flags_t::CAPTURE_STATISTICS))
             {
-                NBL_LOG_ERROR("Feature `pipelineExecutableInfo` is not enabled");
+                NBL_LOG_ERROR("Pipeline was not created with CAPTURE_STATISTICS flag");
                 return {};
             }
-            return getPipelineExecutableReport_impl(pipeline->getNativeHandle(), includeInternalRepresentations);
+            if (includeInternalRepresentations && !pipeline->getCreationFlags().hasFlags(flags_t::CAPTURE_INTERNAL_REPRESENTATIONS))
+            {
+                NBL_LOG_ERROR("Pipeline was not created with CAPTURE_INTERNAL_REPRESENTATIONS flag");
+                return {};
+            }
+            auto properties = getPipelineExecutableProperties_impl(pipeline, includeInternalRepresentations);
+            if (properties.empty())
+            {
+            	NBL_LOG_ERROR("Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation.");
+			}
+            return properties;
         }
 
         // queries
@@ -1293,6 +1315,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return {};
                 }
 
+                // CAPTURE_STATISTICS and CAPTURE_INTERNAL_REPRESENTATIONS require pipelineExecutableInfo feature
+                constexpr auto CaptureStatsFlag = CreationParams::FLAGS::CAPTURE_STATISTICS;
+                constexpr auto CaptureIRFlag = CreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS;
+                if (ci.getFlags().hasFlags(CaptureStatsFlag) && !getEnabledFeatures().pipelineExecutableInfo)
+                {
+                    NBL_LOG_ERROR("CAPTURE_STATISTICS flag requires `pipelineExecutableInfo` feature (params[%d])", i);
+                    return {};
+                }
+                if (ci.getFlags().hasFlags(CaptureIRFlag) && !getEnabledFeatures().pipelineExecutableInfo)
+                {
+                    NBL_LOG_ERROR("CAPTURE_INTERNAL_REPRESENTATIONS flag requires `pipelineExecutableInfo` feature (params[%d])", i);
+                    return {};
+                }
+
                 retval += validation;
             }
             return retval;
@@ -1316,7 +1352,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const SSpecializationValidationResult& validation
         ) = 0;
 
-        virtual std::string getPipelineExecutableReport_impl(const void* nativeHandle, bool includeInternalRepresentations) = 0;
+        virtual core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_impl(const IGPUComputePipeline* pipeline, bool includeInternalRepresentations) = 0;
+        virtual core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_impl(const IGPUGraphicsPipeline* pipeline, bool includeInternalRepresentations) = 0;
+        virtual core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_impl(const IGPURayTracingPipeline* pipeline, bool includeInternalRepresentations) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
         virtual bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;
@@ -1626,6 +1664,52 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
 }
 
 } // namespace nbl::video
+
+namespace nbl::system::impl
+{
+
+template<>
+struct to_string_helper<video::ILogicalDevice::SPipelineExecutableInfo>
+{
+    static std::string __call(const video::ILogicalDevice::SPipelineExecutableInfo& info)
+    {
+        std::string result;
+        result += "======== ";
+        result += info.name;
+        result += " ========\n";
+        result += info.description;
+        result += "\nSubgroup Size: ";
+        result += std::to_string(info.subgroupSize);
+        if (!info.statistics.empty())
+        {
+			result += "\n";
+            result += info.statistics;
+        }
+        if (!info.internalRepresentations.empty())
+        {
+            result += "\n";
+            result += info.internalRepresentations;
+        }
+        return result;
+    }
+};
+
+template<>
+struct to_string_helper<core::vector<video::ILogicalDevice::SPipelineExecutableInfo>>
+{
+    static std::string __call(const core::vector<video::ILogicalDevice::SPipelineExecutableInfo>& infos)
+    {
+        std::string result;
+        for (const auto& info : infos)
+        {
+            result += to_string_helper<video::ILogicalDevice::SPipelineExecutableInfo>::__call(info);
+            result += "\n";
+        }
+        return result;
+    }
+};
+
+}
 
 #include "nbl/undef_logging_macros.h"
 #endif //_NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_

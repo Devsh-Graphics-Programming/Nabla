@@ -1662,10 +1662,23 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
 
-std::string CVulkanLogicalDevice::getPipelineExecutableReport_impl(const void* nativeHandle, bool includeInternalRepresentations)
+core::vector<ILogicalDevice::SPipelineExecutableInfo> CVulkanLogicalDevice::getPipelineExecutableProperties_impl(const IGPUComputePipeline* pipeline, bool includeInternalRepresentations)
 {
-    const VkPipeline vkPipeline = *reinterpret_cast<const VkPipeline*>(nativeHandle);
+    return getPipelineExecutableProperties_helper(static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject(), includeInternalRepresentations);
+}
 
+core::vector<ILogicalDevice::SPipelineExecutableInfo> CVulkanLogicalDevice::getPipelineExecutableProperties_impl(const IGPUGraphicsPipeline* pipeline, bool includeInternalRepresentations)
+{
+    return getPipelineExecutableProperties_helper(static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject(), includeInternalRepresentations);
+}
+
+core::vector<ILogicalDevice::SPipelineExecutableInfo> CVulkanLogicalDevice::getPipelineExecutableProperties_impl(const IGPURayTracingPipeline* pipeline, bool includeInternalRepresentations)
+{
+    return getPipelineExecutableProperties_helper(static_cast<const CVulkanRayTracingPipeline*>(pipeline)->getInternalObject(), includeInternalRepresentations);
+}
+
+core::vector<ILogicalDevice::SPipelineExecutableInfo> CVulkanLogicalDevice::getPipelineExecutableProperties_helper(VkPipeline vkPipeline, bool includeInternalRepresentations)
+{
     VkPipelineInfoKHR pipelineInfo = {VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR, nullptr};
     pipelineInfo.pipeline = vkPipeline;
 
@@ -1673,32 +1686,31 @@ std::string CVulkanLogicalDevice::getPipelineExecutableReport_impl(const void* n
     uint32_t executableCount = 0;
     m_devf.vk.vkGetPipelineExecutablePropertiesKHR(m_vkdev, &pipelineInfo, &executableCount, nullptr);
 
+    if (executableCount == 0)
+    {
+        return {};
+    }
+
     core::vector<VkPipelineExecutablePropertiesKHR> properties(executableCount);
     for (uint32_t i = 0; i < executableCount; ++i)
         properties[i] = {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR, nullptr};
     m_devf.vk.vkGetPipelineExecutablePropertiesKHR(m_vkdev, &pipelineInfo, &executableCount, properties.data());
 
-    std::string report;
-	report.reserve(1024); // avoid some reallocations, we can adjust this if needed
+    core::vector<SPipelineExecutableInfo> result(executableCount);
+
     for (uint32_t i = 0; i < executableCount; ++i)
     {
         const auto& prop = properties[i];
+        auto& info = result[i];
 
-        report += "======== ";
-        report += prop.name;
-        report += " ========\n";
-        report += prop.description;
-        report += "\n";
+        info.name = prop.name;
+        info.description = prop.description;
+        info.stages = static_cast<hlsl::ShaderStage>(prop.stages);
+        info.subgroupSize = prop.subgroupSize;
 
         VkPipelineExecutableInfoKHR execInfo = {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR, nullptr};
         execInfo.pipeline = vkPipeline;
         execInfo.executableIndex = i;
-
-        // Statistics
-        report += "==== Statistics ====\n";
-        report += "Subgroup Size: ";
-        report += std::to_string(prop.subgroupSize);
-        report += "\n";
 
         uint32_t statCount = 0;
         m_devf.vk.vkGetPipelineExecutableStatisticsKHR(m_vkdev, &execInfo, &statCount, nullptr);
@@ -1739,15 +1751,15 @@ std::string CVulkanLogicalDevice::getPipelineExecutableReport_impl(const void* n
                 maxNameValueLen = std::max(maxNameValueLen, nameValues[s].size());
             }
 
-			// Overkill for now, but it produces nicely aligned output which is easier to read. We can optimize later if needed.
             // Second pass: emit with aligned columns
+            std::string& statsStr = info.statistics;
             for (uint32_t s = 0; s < statCount; ++s)
             {
-                report += nameValues[s];
-                report.append(maxNameValueLen - nameValues[s].size() + 4, ' ');
-                report += "// ";
-                report += stats[s].description;
-                report += "\n";
+                statsStr += nameValues[s];
+                statsStr.append(maxNameValueLen - nameValues[s].size() + 4, ' ');
+                statsStr += "// ";
+                statsStr += stats[s].description;
+                statsStr += "\n";
             }
         }
 
@@ -1776,34 +1788,32 @@ std::string CVulkanLogicalDevice::getPipelineExecutableReport_impl(const void* n
 
                 m_devf.vk.vkGetPipelineExecutableInternalRepresentationsKHR(m_vkdev, &execInfo, &irCount, irs.data());
 
-                report += "\n";
+                std::string& irStr = info.internalRepresentations;
                 for (uint32_t r = 0; r < irCount; ++r)
                 {
-                    report += "---- ";
-                    report += irs[r].name;
-                    report += " ----\n";
-                    report += "; ";
-                    report += irs[r].description;
-                    report += "\n";
+                    irStr += "---- ";
+                    irStr += irs[r].name;
+                    irStr += " ----\n";
+                    irStr += irs[r].description;
+                    irStr += "\n";
                     if (irs[r].isText)
                     {
                         auto* str = static_cast<const char*>(irs[r].pData);
-                        report.append(str, irs[r].dataSize > 0 ? irs[r].dataSize - 1 : 0);
-                        report += "\n";
+                        irStr.append(str, irs[r].dataSize > 0 ? irs[r].dataSize - 1 : 0);
+                        irStr += "\n";
                     }
                     else
                     {
-                        report += "[binary data, ";
-                        report += std::to_string(irs[r].dataSize);
-                        report += " bytes]\n";
+                        irStr += "[binary data, ";
+                        irStr += std::to_string(irs[r].dataSize);
+                        irStr += " bytes]\n";
                     }
                 }
             }
         }
-        report += "\n";
     }
 
-    return report;
+    return result;
 }
 
 core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(const IQueryPool::SCreationParams& params)
