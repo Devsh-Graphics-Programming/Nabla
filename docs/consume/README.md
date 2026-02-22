@@ -182,3 +182,18 @@ Note:
 - this is a known issue on Nabla side and will be refactored
 - do not propagate that pattern to package consumers
 - consumer-facing package helpers are designed to avoid exposing absolute paths in consumer compile definitions
+
+## 9. Smoke reference
+
+`smoke/` is a reference consumer for Nabla package consumption.
+
+It contains multiple usage flows:
+
+- `MINIMALISTIC` link-only consumption without helper calls
+- `CONFIGURE_ONLY` helper-based configure-time runtime sync
+- `BUILD_ONLY` helper-based build-time runtime sync
+
+Flow selection is done with `NBL_SMOKE_FLOW` in `smoke/CMakeLists.txt` and `FLOW` in `smoke/RunSmokeFlow.cmake`.
+
+Smoke is also used as CI coverage for package consumption flows.  
+The `smoke-tests` job in `.github/workflows/build-nabla.yml` runs those flows as end-to-end checks.

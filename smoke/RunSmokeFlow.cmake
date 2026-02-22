@@ -1,10 +1,10 @@
 if(NOT DEFINED FLOW)
-    message(FATAL_ERROR "FLOW is required. Allowed values: CONFIGURE_ONLY, BUILD_ONLY")
+    message(FATAL_ERROR "FLOW is required. Allowed values: MINIMALISTIC, CONFIGURE_ONLY, BUILD_ONLY")
 endif()
 
 string(TOUPPER "${FLOW}" FLOW)
-if(NOT FLOW MATCHES "^(CONFIGURE_ONLY|BUILD_ONLY)$")
-    message(FATAL_ERROR "Invalid FLOW='${FLOW}'. Allowed values: CONFIGURE_ONLY, BUILD_ONLY")
+if(NOT FLOW MATCHES "^(MINIMALISTIC|CONFIGURE_ONLY|BUILD_ONLY)$")
+    message(FATAL_ERROR "Invalid FLOW='${FLOW}'. Allowed values: MINIMALISTIC, CONFIGURE_ONLY, BUILD_ONLY")
 endif()
 
 if(NOT DEFINED CONFIG)
@@ -44,12 +44,17 @@ endfunction()
 
 file(REMOVE_RECURSE "${BUILD_DIR}")
 
+set(_run_install_selftest ON)
+if(FLOW STREQUAL "MINIMALISTIC")
+    set(_run_install_selftest OFF)
+endif()
+
 run_cmd(
     "${CMAKE_COMMAND}"
     -S "${SMOKE_SOURCE_DIR}"
     -B "${BUILD_DIR}"
     -D "NBL_SMOKE_FLOW=${FLOW}"
-    -D "NBL_SMOKE_INSTALL_SELFTEST=ON"
+    -D "NBL_SMOKE_INSTALL_SELFTEST=${_run_install_selftest}"
 )
 
 run_cmd(
@@ -68,21 +73,23 @@ run_cmd(
     -C "${CONFIG}"
 )
 
-file(REMOVE_RECURSE "${INSTALL_DIR}")
+if(_run_install_selftest)
+    file(REMOVE_RECURSE "${INSTALL_DIR}")
 
-run_cmd(
-    "${CMAKE_COMMAND}"
-    --install "${BUILD_DIR}"
-    --config "${CONFIG}"
-    --prefix "${INSTALL_DIR}"
-)
+    run_cmd(
+        "${CMAKE_COMMAND}"
+        --install "${BUILD_DIR}"
+        --config "${CONFIG}"
+        --prefix "${INSTALL_DIR}"
+    )
 
-run_cmd(
-    "${CTEST_BIN}"
-    --verbose
-    --test-dir "${INSTALL_DIR}"
-    --force-new-ctest-process
-    --output-on-failure
-    --no-tests=error
-    -C "${CONFIG}"
-)
+    run_cmd(
+        "${CTEST_BIN}"
+        --verbose
+        --test-dir "${INSTALL_DIR}"
+        --force-new-ctest-process
+        --output-on-failure
+        --no-tests=error
+        -C "${CONFIG}"
+    )
+endif()

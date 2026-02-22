@@ -32,13 +32,15 @@ target_link_libraries(smoke PRIVATE Nabla::Nabla)
 target_compile_definitions(smoke PRIVATE _AFXDLL)
 target_precompile_headers(smoke PRIVATE pch.hpp)
 
-set(NBL_SMOKE_FLOW "CONFIGURE_ONLY" CACHE STRING "Smoke runtime flow: CONFIGURE_ONLY or BUILD_ONLY")
-set_property(CACHE NBL_SMOKE_FLOW PROPERTY STRINGS CONFIGURE_ONLY BUILD_ONLY)
+set(NBL_SMOKE_FLOW "CONFIGURE_ONLY" CACHE STRING "Smoke runtime flow: MINIMALISTIC, CONFIGURE_ONLY or BUILD_ONLY")
+set_property(CACHE NBL_SMOKE_FLOW PROPERTY STRINGS MINIMALISTIC CONFIGURE_ONLY BUILD_ONLY)
 string(TOUPPER "${NBL_SMOKE_FLOW}" NBL_SMOKE_FLOW)
 message(STATUS "Smoke runtime flow: ${NBL_SMOKE_FLOW}")
 option(NBL_SMOKE_INSTALL_SELFTEST "Install smoke with CTest metadata and run tests from install tree" ON)
 
-if(NBL_SMOKE_FLOW STREQUAL "CONFIGURE_ONLY")
+if(NBL_SMOKE_FLOW STREQUAL "MINIMALISTIC")
+    message(STATUS "Smoke minimalistic flow uses only package default runtime lookup")
+elseif(NBL_SMOKE_FLOW STREQUAL "CONFIGURE_ONLY")
     nabla_setup_runtime_modules(
         TARGETS smoke
         RUNTIME_MODULES_SUBDIR "Libraries"
