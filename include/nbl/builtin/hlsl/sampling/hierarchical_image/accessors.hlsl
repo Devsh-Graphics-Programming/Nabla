@@ -26,8 +26,8 @@ NBL_CONCEPT_BEGIN(3)
 #define coord NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define level NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template get(coord,level)) , ::nbl::hlsl::is_same_v, ScalarT))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template gather(coord,level)) , ::nbl::hlsl::is_same_v, vector<ScalarT, 4>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template texelFetch(coord,level)) , ::nbl::hlsl::is_same_v, ScalarT))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template texelGather(coord,level)) , ::nbl::hlsl::is_same_v, vector<ScalarT, 4>))
 );
 #undef level
 #undef coord

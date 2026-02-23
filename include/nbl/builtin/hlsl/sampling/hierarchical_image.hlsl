@@ -61,13 +61,13 @@ struct LuminanceMapSampler
 
 		if (_aspect2x1) {
 			// do one split in the X axis first cause penultimate full mip would have been 2x1
-			p.x = choseSecond(_map.get(uint32_t2(0, 0), mip2x1), _map.get(uint32_t2(1, 0), mip2x1), xi.x) ? 1 : 0;
+			p.x = choseSecond(_map.texelFetch(uint32_t2(0, 0), mip2x1), _map.texelFetch(uint32_t2(1, 0), mip2x1), xi.x) ? 1 : 0;
 		}
 
 		for (int i = mip2x1 - 1; i >= 0; i--)
 		{
 			p <<= 1;
-			const vector4_type values = _map.gather(p, i);
+			const vector4_type values = _map.texelGather(p, i);
 			scalar_type wx_0, wx_1;
 			{
 				const scalar_type wy_0 = values[3] + values[2];
