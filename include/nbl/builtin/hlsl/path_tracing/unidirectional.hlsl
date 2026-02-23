@@ -199,7 +199,7 @@ struct Unidirectional
             missProgram(ray);
 
         const uint32_t sampleCount = sampleIndex + 1;
-        accumulator.addSample(sampleCount, ray.payload.accumulation);
+        accumulator.addSample(sampleCount, ray.getPayloadAccumulatiion());
 
         // TODO: visualize high variance
 

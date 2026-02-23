@@ -29,6 +29,41 @@ NBL_CONCEPT_END(
 #undef rand
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+#define NBL_CONCEPT_NAME Ray
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (ray, T)
+#define NBL_CONCEPT_PARAM_1 (v, typename T::vector3_type)
+#define NBL_CONCEPT_PARAM_2 (b, bool)
+#define NBL_CONCEPT_PARAM_3 (scalar, typename T::scalar_type)
+#define NBL_CONCEPT_PARAM_4 (color, typename T::spectral_type)
+NBL_CONCEPT_BEGIN(5)
+#define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define b NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define scalar NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define color NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initData(v, v, v, b)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initPayload()), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.foundEmissiveMIS(scalar)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.addPayloadContribution(color)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.getPayloadAccumulatiion()), ::nbl::hlsl::is_same_v, typename T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.setPayloadMISWeights(color, scalar)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.setT(scalar)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.getT()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.getPayloadThroughput()), ::nbl::hlsl::is_same_v, typename T::spectral_type))
+);
+#undef color
+#undef scalar
+#undef b
+#undef v
+#undef ray
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 #define NBL_CONCEPT_NAME RayGenerator
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -40,6 +75,7 @@ NBL_CONCEPT_BEGIN(2)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((raygen.generate(randVec)), ::nbl::hlsl::is_same_v, typename T::ray_type))
 );
 #undef randVec
@@ -83,6 +119,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IntersectorClosestHit, typename T::closest_hit_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(ray, scene, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
@@ -219,6 +256,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::tolerance_method_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NextEventEstimatorSampleQuotientReturn, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(id, ray, scene)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(matSys, scene, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
