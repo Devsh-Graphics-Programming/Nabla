@@ -128,27 +128,28 @@ class NBL_API2 CPolygonGeometryManipulator
 				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
 		}
 
-		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(const ICPUPolygonGeometry* geo)
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(const ICPUPolygonGeometry* geo, const bool reverse=false, const bool recomputeHash=true)
 		{
 			const auto* indexing = geo->getIndexingCallback();
-			if (!indexing) return nullptr;
-			if (indexing->degree() != 3) return nullptr;
+			if (!indexing || indexing->degree()!=3) // TODO: why just triangle?
+				return nullptr;
 
 			const auto originalView = geo->getIndexView();
-			const auto originalIndexSize = originalView ? originalView.composed.stride : 0;
+			const auto originalIndexSize = originalView ? originalView.composed.stride:0;
 			const auto primCount = geo->getPrimitiveCount();
 			const auto maxIndex = geo->getPositionView().getElementCount() - 1;
 			const uint8_t indexSize = maxIndex <= std::numeric_limits<uint16_t>::max() ? sizeof(uint16_t) : sizeof(uint32_t);
 			const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
 
-			if (indexing && indexing->knownTopology() == EPT_TRIANGLE_LIST) 
+			if (indexing->knownTopology()==EPT_TRIANGLE_LIST && !reverse)
 				return outGeometry;
 
 			
 			auto* outGeo = outGeometry.get();
 			const auto indexBufferUsages = [&]
 			{
-					if (originalView) return originalView.src.buffer->getUsageFlags();
+					if (originalView)
+						return originalView.src.buffer->getUsageFlags();
 					return core::bitflag<IBuffer::E_USAGE_FLAGS>(IBuffer::EUF_INDEX_BUFFER_BIT);
 			}();
 			auto indexBuffer = ICPUBuffer::create({ primCount * indexing->degree() * indexSize, indexBufferUsages });
@@ -173,7 +174,8 @@ class NBL_API2 CPolygonGeometryManipulator
 						.indexSize = originalIndexSize,
 						.beginPrimitive = 0,
 						.endPrimitive = primCount,
-						.out = indexBufferPtr,
+						.reversePrims = reverse,
+						.out = indexBufferPtr
 					};
 					indexing->operator()(context);
 
@@ -190,7 +192,8 @@ class NBL_API2 CPolygonGeometryManipulator
 						.indexSize = originalIndexSize,
 						.beginPrimitive = 0,
 						.endPrimitive = primCount,
-						.out = indexBufferPtr,
+						.reversePrims = reverse,
+						.out = indexBufferPtr
 					};
 					indexing->operator()(context);
 
@@ -209,10 +212,34 @@ class NBL_API2 CPolygonGeometryManipulator
 			 
 			outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
 			outGeo->setIndexView(std::move(indexView));
-			CGeometryManipulator::recomputeContentHash(outGeo->getIndexView());
+
+			if (recomputeHash)
+				CGeometryManipulator::recomputeContentHash(outGeo->getIndexView());
 
 			return outGeometry;
 		}
+
+		template <typename FetchVertexFn> 
+		  requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
+		static inline hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn, float epsilon = 1.525e-5f)
+		{
+				return COBBGenerator::compute(vertexCount, std::forward<FetchVertexFn>(fetchFn), epsilon);
+		}
+
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo, const bool reverse=false, const bool recomputeHash=true);
+
+		using SSNGVertexData = CSmoothNormalGenerator::VertexData;
+		using SSNGVxCmpFunction = CSmoothNormalGenerator::VxCmpFunction;
+		// NOTE: Requires unwelded mesh on input, TODO make it resillient against that (only unweld normals temporarily, maybe even avoid position unweld)
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, const bool enableWelding=false, float epsilon=1.525e-5f,
+			SSNGVxCmpFunction vxcmp=[](const SSNGVertexData& v0, const SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
+			{ 
+				constexpr float cosOf45Deg = 0.70710678118f;
+				return hlsl::dot(v0.weightedNormal,v1.weightedNormal)*hlsl::rsqrt(hlsl::dot(v0.weightedNormal,v0.weightedNormal)*hlsl::dot(v1.weightedNormal,v1.weightedNormal)) > cosOf45Deg;
+			},
+			const bool recomputeHash = true
+		);
+		
 
 		//! Comparison methods
 		enum E_ERROR_METRIC
@@ -232,26 +259,6 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
-
-    template <typename FetchVertexFn> 
-      requires (std::same_as<std::invoke_result_t<FetchVertexFn, size_t>, hlsl::float32_t3>)
-    static inline hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(size_t vertexCount, FetchVertexFn&& fetchFn, float epsilon = 1.525e-5f)
-    {
-			return COBBGenerator::compute(vertexCount, std::forward<FetchVertexFn>(fetchFn), epsilon);
-    }
-
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
-
-		using SSNGVertexData = CSmoothNormalGenerator::VertexData;
-		using SSNGVxCmpFunction = CSmoothNormalGenerator::VxCmpFunction;
-
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, bool enableWelding = false, float epsilon = 1.525e-5f,
-				SSNGVxCmpFunction vxcmp = [](const SSNGVertexData& v0, const SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
-				{ 
-					constexpr float cosOf45Deg = 0.70710678118f;
-					return dot(normalize(v0.weightedNormal),normalize(v1.weightedNormal)) > cosOf45Deg;
-				});
-
 #if 0 // TODO: REDO
 		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
 		/**
@@ -384,24 +391,6 @@ class NBL_API2 CPolygonGeometryManipulator
 				@param _outIndexType Type of output index buffer data (32bit or 16bit).
 				*/
 				static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-
-				//! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
-				/**
-				@param _input Input index buffer's data.
-				@param _idxCount Index count.
-				@param _inIndexType Type of input index buffer data (32bit or 16bit).
-				@param _outIndexType Type of output index buffer data (32bit or 16bit).
-				*/
-				static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-
-				//! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
-				/**
-				@param _input Input index buffer's data.
-				@param _idxCount Index count.
-				@param _inIndexType Type of input index buffer data (32bit or 16bit).
-				@param _outIndexType Type of output index buffer data (32bit or 16bit).
-				*/
-				static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
 		//!
 		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
@@ -606,40 +595,6 @@ class NBL_API2 CPolygonGeometryManipulator
 			return aabb;
 		}
 
-		//! Recalculates the cached bounding box of the meshbuffer
-		static inline void recalculateBoundingBox(ICPUMeshBuffer* meshbuffer)
-		{
-			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs()));
-		}
-
-		//! Flips the direction of surfaces.
-		/** Changes backfacing triangles to frontfacing
-		triangles and vice versa.
-		\param mesh Mesh on which the operation is performed. */
-		static void flipSurfaces(ICPUMeshBuffer* inbuffer);
-
-		//! Creates a copy of a mesh with all vertices unwelded
-		/** \param mesh Input mesh
-		\return Mesh consisting only of unique faces. All vertices
-		which were previously shared are now duplicated. */
-		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf = false);
-
-		//
-		static core::smart_refctd_ptr<ICPUMeshBuffer> calculateSmoothNormals(ICPUMeshBuffer* inbuffer, bool makeNewMesh = false, float epsilon = 1.525e-5f,
-				uint32_t normalAttrID = 3u, 
-				VxCmpFunction vxcmp = [](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer) 
-				{ 
-					static constexpr float cosOf45Deg = 0.70710678118f;
-					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
-				});
-
-
-		//! Creates a copy of a mesh with vertices welded
-		/** \param mesh Input mesh
-				\param errMetrics Array of size EVAI_COUNT. Describes error metric for each vertex attribute (used if attribute is of floating point or normalized type).
-		\param tolerance The threshold for vertex comparisons.
-		\return Mesh without redundant vertices. */
-		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh = false);
 
 		//! Throws meshbuffer into full optimizing pipeline consisting of: vertices welding, z-buffer optimization, vertex cache optimization (Forsyth's algorithm), fetch optimization and attributes requantization. A new meshbuffer is created unless given meshbuffer doesn't own (getMeshDataAndFormat()==NULL) a data format descriptor.
 		/**@return A new meshbuffer or NULL if an error occured. */
@@ -858,45 +813,6 @@ class CMeshManipulator : public IMeshManipulator
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
 			for (uint32_t i = 0, j = 0; i < outputSize;)
 			{
-				optr[i++] = iptr[j++];
-				optr[i++] = iptr[j];
-			}
-			return output;
-		}
-
-		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, uint32_t& _idxCount)
-		{
-			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
-			
-			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
-			const auto* iptr = reinterpret_cast<const InType*>(_input);
-			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
-			for (uint32_t i = 0, j = 0; i < outputSize; j += 2)
-			{
-				optr[i++] = iptr[j + 0];
-				optr[i++] = iptr[j + 1];
-				optr[i++] = iptr[j + 2];
-				if (i == outputSize)
-					break;
-				optr[i++] = iptr[j + 2];
-				optr[i++] = iptr[j + 1];
-				optr[i++] = iptr[j + 3];
-			}
-			return output;
-		}
-
-		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, uint32_t& _idxCount)
-		{
-			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
-
-			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
-			const auto* iptr = reinterpret_cast<const InType*>(_input);
-			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
-			for (uint32_t i = 0, j = 1; i < outputSize;)
-			{
-				optr[i++] = iptr[0];
 				optr[i++] = iptr[j++];
 				optr[i++] = iptr[j];
 			}
