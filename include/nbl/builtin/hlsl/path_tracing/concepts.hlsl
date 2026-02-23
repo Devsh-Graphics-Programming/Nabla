@@ -120,7 +120,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IntersectorClosestHit, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceClosestHit(ray, scene)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(ray, scene, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef objectID

@@ -189,7 +189,7 @@ struct Unidirectional
         for (uint16_t d = 1; (d <= maxDepth) && hit && rayAlive; d++)
         {
             ray.setT(numeric_limits<scalar_type>::max);
-            closest_hit_type intersection = intersector_type::traceRay(ray, scene);
+            closest_hit_type intersection = intersector_type::traceClosestHit(ray, scene);
 
             hit = intersection.foundHit();
             if (hit)
