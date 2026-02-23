@@ -15,6 +15,7 @@
 #include "nbl/system/CSystemAndroid.h"
 #include "nbl/system/CSystemLinux.h"
 #include "nbl/system/CSystemWin32.h"
+#include "nbl/system/RuntimeModuleLookup.h"
 
 namespace nbl::system
 {
@@ -25,73 +26,33 @@ class IApplicationFramework : public core::IReferenceCounted
         // this is safe to call multiple times
         static bool GlobalsInit()
         {
-            // TODO: update CMake and rename "DLL" in all of those defines here to "MODULE" or "RUNTIME"
+            RuntimeModuleLookup lookup;
 
-            auto getEnvInstallDirectory = []()
-            {
-                const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
+            const auto exeDirectory = system::executableDirectory();
+            lookup.applyInstallOverrides(exeDirectory);
+            /*
+                In the current design build interface and install interface cannot share one lookup set.
 
-                if (sdk)
-                {
-                    const auto directory = system::path(sdk);
+                Build lookup may point to host-only output folders while install lookup must stay relocatable.
+                Mixing them can load stale modules from host build trees and break packaged consumers.
+                Another big issue is Nabla build-system layout because runtime binaries are emitted into
+                source-side locations instead of a binary-tree runtime prefix that mirrors install layout.
+                This makes executable-relative lookup ambiguous and forces a split between build and install lookup modes.
+                There are more issues caused by this non-unified layout than the ones handled in this file.
 
-                    if (std::filesystem::exists(directory))
-                        return directory;
-                }
+                Desired end state is that build outputs follow the same relative runtime layout as install so lookup can stay install-style
+                for both host build and package consumers while still allowing consumer override paths like "./Libraries".
+                No interface should ever expose any define that contains an absolute path.
+                All binaries must be emitted into the build directory and Nabla 
+                should remain fully buildable with a read-only source filesystem.
 
-                return system::path("");
-            };
+                I cannot address all of that here because it requires a broader Nabla build-system refactor.
+            */
+            const bool useInstallLookups = lookup.chooseInstallLookupMode(exeDirectory);
+            lookup.finalizeInstallLookups(useInstallLookups);
 
-            constexpr struct
-            {
-                std::string_view nabla, dxc;
-            } module = 
-            {
-                #ifdef _NBL_SHARED_BUILD_
-                _NABLA_DLL_NAME_
-                #else
-                ""
-                #endif
-                , 
-                "dxcompiler" 
-            };
-
-            const auto sdk = getEnvInstallDirectory();
-
-            struct
-            {
-                system::path nabla, dxc;
-            } install, env, build, rel;
-
-            #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY) && defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY)
-
-            #if defined(_NABLA_INSTALL_DIR_)
-            install.nabla = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY);
-            install.dxc = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY);
-            #endif
-
-            env.nabla = sdk / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;
-            env.dxc = sdk / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY;
-            #endif
-
-            #ifdef _NBL_SHARED_BUILD_
-            #if defined(_NABLA_OUTPUT_DIR_)
-            build.nabla = _NABLA_OUTPUT_DIR_;
-            #endif
-            #endif
-            #if defined(_DXC_DLL_)
-            build.dxc = path(_DXC_DLL_).parent_path();
-            #endif
-
-            #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
-            rel.nabla = NBL_CPACK_PACKAGE_NABLA_DLL_DIR;
-            #endif
-
-            #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
-            rel.dxc = NBL_CPACK_PACKAGE_DXC_DLL_DIR;
-            #endif
-
-            auto load = [](std::string_view moduleName, const std::vector<system::path>& searchPaths)
+            using SearchPaths = std::vector<system::path>;
+            const auto load = [](std::string_view moduleName, const SearchPaths& searchPaths)
             {
                 #ifdef _NBL_PLATFORM_WINDOWS_
                 const bool isAlreadyLoaded = GetModuleHandleA(moduleName.data());
@@ -114,19 +75,11 @@ class IApplicationFramework : public core::IReferenceCounted
                 return true;
             };
 
-            #ifdef NBL_RELOCATABLE_PACKAGE
-            if (not load(module.dxc, { env.dxc, rel.dxc, install.dxc }))
-            #else
-            if (not load(module.dxc, { build.dxc }))
-            #endif
+            if (not load(lookup.dxc.name, useInstallLookups ? SearchPaths{ lookup.dxc.paths.install } : SearchPaths{ lookup.dxc.paths.build }))
                 return false;
 
             #ifdef _NBL_SHARED_BUILD_
-            #ifdef NBL_RELOCATABLE_PACKAGE
-            if (not load(module.nabla, { env.nabla, rel.nabla, install.nabla }))
-            #else
-            if (not load(module.nabla, { build.nabla }))
-            #endif
+            if (not load(lookup.nabla.name, useInstallLookups ? SearchPaths{ lookup.nabla.paths.install } : SearchPaths{ lookup.nabla.paths.build }))
                 return false;
             #endif
 

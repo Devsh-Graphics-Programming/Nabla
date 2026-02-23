@@ -410,7 +410,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         struct AccelerationStructureBuildSizes
         {
-            inline operator bool() const { return accelerationStructureSize!=(~0ull); }
+            explicit inline operator bool() const { return accelerationStructureSize!=(~0ull); }
 
             size_t accelerationStructureSize = ~0ull;
             size_t updateScratchSize = ~0ull;
