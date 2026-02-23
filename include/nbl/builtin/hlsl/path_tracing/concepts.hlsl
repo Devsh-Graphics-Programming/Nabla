@@ -46,6 +46,24 @@ NBL_CONCEPT_END(
 #undef raygen
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+#define NBL_CONCEPT_NAME IntersectorClosestHit
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (closest_hit, T)
+NBL_CONCEPT_BEGIN(1)
+#define closest_hit NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.foundHit()), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getObjectID()), ::nbl::hlsl::is_same_v, typename T::object_handle_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getPosition()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getInteraction()), ::nbl::hlsl::is_same_v, typename T::interaction_type))
+);
+#undef closest_hit
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 #define NBL_CONCEPT_NAME Intersector
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -64,12 +82,26 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::closest_hit_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IntersectorClosestHit, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceRay(ray, scene)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(ray, scene, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef objectID
 #undef scene
 #undef ray
+#undef intersect
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+#define NBL_CONCEPT_NAME BxdfNode
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (node, T)
+NBL_CONCEPT_BEGIN(1)
+#define intersect NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.getNEEProb()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+);
 #undef intersect
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
@@ -84,7 +116,8 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_5 (aniso_cache, typename T::anisocache_type)
 #define NBL_CONCEPT_PARAM_6 (iso_cache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (u, typename T::vector3_type)
-NBL_CONCEPT_BEGIN(8)
+#define NBL_CONCEPT_PARAM_8 (cie_y, typename T::measure_type)
+NBL_CONCEPT_BEGIN(9)
 #define matsys NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define matid NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -93,6 +126,7 @@ NBL_CONCEPT_BEGIN(8)
 #define aniso_cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define iso_cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
+#define cie_y NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::material_id_type))
@@ -103,11 +137,18 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::create_params_t))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BxdfNode, typename T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::measure_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, aniso_inter, u, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getBxDFNode(matid)), ::nbl::hlsl::is_same_v, typename T::bxdfnode_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.hasEmission(matid)), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.setMonochromeEta(matid, cie_y)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getEmission(matid, iso_inter)), ::nbl::hlsl::is_same_v, typename T::measure_type))
 );
+#undef cie_y
 #undef u
 #undef iso_cache
 #undef aniso_cache
@@ -122,6 +163,25 @@ namespace impl
 {
 struct DummyMaterialSystem {};
 }
+
+#define NBL_CONCEPT_NAME NextEventEstimatorSampleQuotientReturn
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (sqr, T)
+NBL_CONCEPT_BEGIN(1)
+#define sqr NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getSample()), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getQuotientPdf()), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getT()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getLightObjectID()), ::nbl::hlsl::is_same_v, typename T::object_handle_type))
+);
+#undef sqr
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 #define NBL_CONCEPT_NAME NextEventEstimator
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
@@ -158,6 +218,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::tolerance_method_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NextEventEstimatorSampleQuotientReturn, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(id, ray, scene)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(matSys, scene, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))

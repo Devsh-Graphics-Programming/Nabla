@@ -79,7 +79,7 @@ struct Unidirectional
         if (!matLightID.isBxDF() || isEmissive)
             return false;
 
-        bxdfnode_type bxdf = materialSystem.bxdfs[matID];
+        bxdfnode_type bxdf = materialSystem.getBxDFNode(matID);
         const bool isBSDF = materialSystem.isBSDF(matID);
 
         vector3_type eps0 = randGen(depth * 2u, _sample, 0u);
@@ -88,8 +88,6 @@ struct Unidirectional
         const vector3_type intersectP = intersectData.getPosition();
         vector3_type throughput = ray.getPayloadThroughput();
         const vector3_type throughputCIE_Y = hlsl::normalize(spectralTypeToLumaCoeffs * throughput);
-        const measure_type eta = bxdf.params.ior1 / bxdf.params.ior0;
-        const scalar_type monochromeEta = hlsl::dot<vector3_type>(throughputCIE_Y, eta) / (throughputCIE_Y.r + throughputCIE_Y.g + throughputCIE_Y.b);  // TODO: imaginary eta?
 
         // sample lights
         const scalar_type neeProbability = bxdf.getNEEProb();
@@ -103,15 +101,15 @@ struct Unidirectional
                 materialSystem, scene, intersectP, interaction,
                 isBSDF, eps0, depth
             );
-            scalar_type t = ret.newRayMaxT;
-            sample_type nee_sample = ret.sample_;
-            quotient_pdf_type neeContrib = ret.quotient_pdf;
+            scalar_type t = ret.getT();
+            sample_type nee_sample = ret.getSample();
+            quotient_pdf_type neeContrib = ret.getQuotientPdf();
 
             // We don't allow non watertight transmitters in this renderer
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
+            const scalar_type monochromeEta = materialSystem.setMonochromeEta(matID, throughputCIE_Y);
             bxdf::fresnel::OrientedEtas<monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(monochromeEta));
             anisocache_type _cache = anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, nee_sample, orientedEta);
-            materialSystem.bxdfs[matID].params.eta = monochromeEta;
 
             if (neeContrib.pdf > scalar_type(0.0))
             {
@@ -128,7 +126,7 @@ struct Unidirectional
                 nee_ray.setT(t);
                 tolerance_method_type::template adjust<ray_type>(nee_ray, direction, depth);
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
-                    ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.lightObjectID));
+                    ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.getLightObjectID()));
             }
         }
 
