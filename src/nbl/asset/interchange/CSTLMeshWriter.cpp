@@ -5,6 +5,8 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 
+#include <iostream>
+
 #include "CSTLMeshWriter.h"
 #include "SColor.h"
 
@@ -24,9 +26,9 @@ CSTLMeshWriter::CSTLMeshWriter()
 	#endif
 }
 
-
 CSTLMeshWriter::~CSTLMeshWriter()
 {
+
 }
 
 //! writes a mesh
@@ -37,11 +39,11 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
     SAssetWriteContext inCtx{_params, _file};
 
-    const asset::ICPUMesh* mesh =
+    const asset::ICPUPolygonGeometry* mesh =
 #   ifndef _NBL_DEBUG
-        static_cast<const asset::ICPUMesh*>(_params.rootAsset);
+        static_cast<const asset::ICPUPolygonGeometry*>(_params.rootAsset);
 #   else
-        dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
+        dynamic_cast<const asset::ICPUPolygonGeometry*>(_params.rootAsset);
 #   endif
     assert(mesh);
 
@@ -61,123 +63,110 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		return writeMeshASCII(mesh, &context);
 }
 
+inline static hlsl::float32_t3 calculateNormal(const hlsl::float32_t3& p1, const hlsl::float32_t3& p2, const hlsl::float32_t3& p3)
+{
+	return hlsl::normalize(hlsl::cross(p2 - p1, p3 - p1));
+}
+
 namespace
 {
-template <class I>
-inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
+template <typename IndexType>
+inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
-	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
-	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
-    const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
+	using pos_t = hlsl::float32_t3;
 
-    const uint32_t indexCount = buffer->getIndexCount();
-    for (uint32_t j = 0u; j < indexCount; j += 3u)
-    {
-        I idx[3];
-        for (uint32_t i = 0u; i < 3u; ++i)
-        {
-            if (noIndices)
-                idx[i] = j + i;
-            else
-                idx[i] = ((I*)buffer->getIndices())[j + i];
-        }
+	// bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
+	// const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
 
-        core::vectorSIMDf v[3];
-        for (uint32_t i = 0u; i < 3u; ++i)
-            v[i] = buffer->getPosition(idx[i]);
+	auto& posView = geom->getPositionView();
+	auto& normalView = geom->getNormalView();
+	auto& idxView = geom->getIndexView();
+	
+	const auto vertexCount = posView.getElementCount();
+	const auto idxCount = idxView.getElementCount();
 
-        uint16_t color = 0u;
-        if (hasColor)
-        {
-            if (asset::isIntegerFormat(colorType))
-            {
-                uint32_t res[4];
-                for (uint32_t i = 0u; i < 3u; ++i)
-                {
-                    uint32_t d[4];
-                    buffer->getAttribute(d, _colorVaid, idx[i]);
-                    res[0] += d[0]; res[1] += d[1]; res[2] += d[2];
-                }
-                color = video::RGB16(res[0]/3, res[1]/3, res[2]/3);
-            }
-            else
-            {
-                core::vectorSIMDf res;
-                for (uint32_t i = 0u; i < 3u; ++i)
-                {
-                    core::vectorSIMDf d;
-                    buffer->getAttribute(d, _colorVaid, idx[i]);
-                    res += d;
-                }
-                res /= 3.f;
-                color = video::RGB16(res.X, res.Y, res.Z);
-            }
-        }
+	assert((idxView.src.buffer->getSize() / idxCount) == sizeof(IndexType));
 
-		core::vectorSIMDf normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
-		core::vectorSIMDf vertex1 = v[2];
-		core::vectorSIMDf vertex2 = v[1];
-		core::vectorSIMDf vertex3 = v[0];
+	const IndexType* idxBufPtr = reinterpret_cast<const IndexType*>(idxView.getPointer());
+	const pos_t* vtxBufPtr = reinterpret_cast<const pos_t*>(posView.getPointer());
 
-		auto flipVectors = [&]()
+	for (size_t i = 0; i < idxCount; i+=3)
+	{
+		IndexType idx[3] = {};
+		for (size_t j = 0; j < 3; j++)
+			idx[i] = *(idxBufPtr + j + i);
+
+		pos_t pos[3] = {};
+		for (size_t j = 0; j < 3; j++)
+			pos[j] = *(vtxBufPtr + idx[j]);
+
+		// TODO: vertex color
+
+		pos_t normal = calculateNormal(pos[0], pos[1], pos[2]);
+
+		// success variable can be reused, no need to scope it
+
+		// write normal
 		{
-			vertex1.X = -vertex1.X;
-			vertex2.X = -vertex2.X;
-			vertex3.X = -vertex3.X;
-			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
-		};
-
-		if (!(context->params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
-			flipVectors();
-
-		{
-			system::IFile::success_t success;;
+			system::IFile::success_t success;
 			file->write(success, &normal, *fileOffset, 12);
-	
 			*fileOffset += success.getBytesProcessed();
 		}
 
+		// write positions
+		for (size_t j = 0; j < 3; j++)
 		{
-			system::IFile::success_t success;;
-			file->write(success, &vertex1, *fileOffset, 12);
-	
+			system::IFile::success_t success;
+			file->write(success, &pos[i], *fileOffset, 12);
 			*fileOffset += success.getBytesProcessed();
 		}
+	}
+  //      uint16_t color = 0u;
+  //      if (hasColor)
+  //      {
+  //          if (asset::isIntegerFormat(colorType))
+  //          {
+  //              uint32_t res[4];
+  //              for (uint32_t i = 0u; i < 3u; ++i)
+  //              {
+  //                  uint32_t d[4];
+  //                  buffer->getAttribute(d, _colorVaid, idx[i]);
+  //                  res[0] += d[0]; res[1] += d[1]; res[2] += d[2];
+  //              }
+  //              color = video::RGB16(res[0]/3, res[1]/3, res[2]/3);
+  //          }
+  //          else
+  //          {
+  //              core::vectorSIMDf res;
+  //              for (uint32_t i = 0u; i < 3u; ++i)
+  //              {
+  //                  core::vectorSIMDf d;
+  //                  buffer->getAttribute(d, _colorVaid, idx[i]);
+  //                  res += d;
+  //              }
+  //              res /= 3.f;
+  //              color = video::RGB16(res.X, res.Y, res.Z);
+  //          }
+  //      }
 
-		{
-			system::IFile::success_t success;;
-			file->write(success, &vertex2, *fileOffset, 12);
+		//{
+		//	system::IFile::success_t success;;
+		//	file->write(success, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
 	
-			*fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;;
-			file->write(success, &vertex3, *fileOffset, 12);
-	
-			*fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;;
-			file->write(success, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
-	
-			*fileOffset += success.getBytesProcessed();
-		}
-    }
+		//	*fileOffset += success.getBytesProcessed();
+		//}
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* context)
+bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
-    const char headerTxt[] = "Irrlicht-baw Engine";
-    constexpr size_t HEADER_SIZE = 80u;
+	const char headerTxt[] = "Nabla Engine";
+	constexpr size_t HEADER_SIZE = 80u;
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt));
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
@@ -186,9 +175,8 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 
 	if (sizeleft < 0)
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, HEADER_SIZE - sizeof(headerTxt));
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 	else
@@ -196,277 +184,237 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 		const char buf[80] = {0};
 
 		{
-			system::IFile::success_t success;;
+			system::IFile::success_t success;
 			context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-	
 			context->fileOffset += success.getBytesProcessed();
 		}
 
 		{
-			system::IFile::success_t success;;
+			system::IFile::success_t success;
 			context->writeContext.outputFile->write(success, buf, context->fileOffset, sizeleft);
-	
 			context->fileOffset += success.getBytesProcessed();
 		}
 	}
+	
+	size_t idxCount = geom->getIndexCount();
+	size_t facesCount = idxCount / 3;
 
-	uint32_t facenum = 0;
-	for (auto& mb : mesh->getMeshBuffers())
-		facenum += mb->getIndexCount()/3;
+	if (idxCount > 0)
 	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, &facenum, context->fileOffset, sizeof(facenum));
+		auto& idxView = geom->getIndexView();
+		size_t idxSize = idxView.src.size / idxCount;
 
-		context->fileOffset += success.getBytesProcessed();
-	}
-	// write mesh buffers
-
-	for (auto& buffer : mesh->getMeshBuffers())
-	if (buffer)
-	{
-        asset::E_INDEX_TYPE type = buffer->getIndexType();
-		if (!buffer->getIndexBufferBinding().buffer)
-            type = asset::EIT_UNKNOWN;
-
-		if (type== asset::EIT_16BIT)
-            writeFacesBinary<uint16_t>(buffer, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
-		else if (type== asset::EIT_32BIT)
-            writeFacesBinary<uint32_t>(buffer, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
+		if (idxSize == sizeof(uint16_t))
+			writeFacesBinary<uint16_t>(geom, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
 		else
-            writeFacesBinary<uint16_t>(buffer, true, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset); //template param doesn't matter if there's no indices
+			writeFacesBinary<uint32_t>(geom, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
 	}
+	else
+	{
+		writeFacesBinary<uint16_t>(geom, true, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
+	}
+
 	return true;
 }
 
-bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context)
+bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
+	using pos_t = hlsl::float32_t3;
+
 	// write STL MESH header
-    const char headerTxt[] = "Irrlicht-baw Engine ";
+   constexpr char headerTxt[] = "Nabla Engine ";
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "solid ", context->fileOffset, 6);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
-
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-	// write mesh buffers
-	for (auto& buffer : mesh->getMeshBuffers())
-	if (buffer)
+	auto& idxView = geom->getIndexView();
+
+	const size_t idxCount = geom->getIndexCount();
+	const size_t idxSize = idxView.src.buffer->getSize() / idxCount;
+	const size_t facesCount = idxCount / 3;
+
+	auto& posView = geom->getPositionView();
+	const pos_t* posBufPtr = reinterpret_cast<const pos_t*>(posView.getPointer());
+
+	uint32_t idx[3];
+	pos_t positions[3];
+	for (size_t i = 0; i < idxCount; i += 3)
 	{
-        asset::E_INDEX_TYPE type = buffer->getIndexType();
-		if (!buffer->getIndexBufferBinding().buffer)
-            type = asset::EIT_UNKNOWN;
-		const uint32_t indexCount = buffer->getIndexCount();
-		if (type==asset::EIT_16BIT)
+		for (size_t j = 0; j < 3; j++)
 		{
-            //os::Printer::log("Writing mesh with 16bit indices");
-            for (uint32_t j=0; j<indexCount; j+=3)
-            {
-                writeFaceText(
-                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
-                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
-                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
-					context
-                );
-            }
+			if (idxSize == sizeof(uint32_t))
+			{
+				const uint32_t* buf = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+				idx[j] = *(buf + i + j);
+			}
+			else if (idxSize == sizeof(uint16_t))
+			{
+				const uint16_t* buf = reinterpret_cast<const uint16_t*>(idxView.getPointer());
+				idx[j] = *(buf + i + j);
+			}
+			else
+				assert(false);
 		}
-		else if (type==asset::EIT_32BIT)
+
+		for (size_t j = 0; j < 3; j++)
 		{
-            //os::Printer::log("Writing mesh with 32bit indices");
-            for (uint32_t j=0; j<indexCount; j+=3)
-            {
-                writeFaceText(
-                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
-                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
-                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
-					context
-                );
-            }
+			positions[j] = *(posBufPtr + idx[j]);
 		}
-		else
-        {
-            //os::Printer::log("Writing mesh with no indices");
-            for (uint32_t j=0; j<indexCount; j+=3)
-            {
-                writeFaceText(
-                    buffer->getPosition(j),
-                    buffer->getPosition(j+1ul),
-                    buffer->getPosition(j+2ul),
-					context
-                );
-            }
-        }
+
+		writeFaceText(positions[0], positions[1], positions[2], context);
 
 		{
-			system::IFile::success_t success;;
+			system::IFile::success_t success;
 			context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);
-	
 			context->fileOffset += success.getBytesProcessed();
 		}
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "endsolid ", context->fileOffset, 9);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
-
+	
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	return true;
 }
 
-void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const
+void CSTLMeshWriter::getVectorAsStringLine(const pos_t& v, std::string& s) const
 {
     std::ostringstream tmp;
-    tmp << v.X << " " << v.Y << " " << v.Z << "\n";
+	 tmp << std::fixed << std::setprecision(2);
+    tmp << v.x << " " << v.y << " " << v.z << "\n";
     s = std::string(tmp.str().c_str());
 }
 
 void CSTLMeshWriter::writeFaceText(
-		const core::vectorSIMDf& v1,
-		const core::vectorSIMDf& v2,
-		const core::vectorSIMDf& v3,
+		const pos_t& v1,
+		const pos_t& v2,
+		const pos_t& v3,
 		SContext* context)
 {
-	core::vectorSIMDf vertex1 = v3;
-	core::vectorSIMDf vertex2 = v2;
-	core::vectorSIMDf vertex3 = v1;
-	core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	pos_t vertex1 = v1;
+	pos_t vertex2 = v2;
+	pos_t vertex3 = v3;
+	normal_t normal = calculateNormal(v1, v2, v3);
 	std::string tmp;
 
 	auto flipVectors = [&]()
 	{
-		vertex1.X = -vertex1.X;
-		vertex2.X = -vertex2.X;
-		vertex3.X = -vertex3.X;
-		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+		vertex1.x = -vertex1.x;
+		vertex2.x = -vertex2.x;
+		vertex3.x = -vertex3.x;
+		normal_t normal = calculateNormal(vertex1, vertex2, vertex3);
 	};
 	
 	if (!(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 		flipVectors();
-	
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "facet normal ", context->fileOffset, 13);
 
+	{
+		system::IFile::success_t success;
+		context->writeContext.outputFile->write(success, "facet normal ", context->fileOffset, 13);
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	getVectorAsStringLine(normal, tmp);
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "  outer loop\n", context->fileOffset, 13);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	getVectorAsStringLine(vertex1, tmp);
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	getVectorAsStringLine(vertex2, tmp);
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	getVectorAsStringLine(vertex3, tmp);
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "  endloop\n", context->fileOffset, 10);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 
 	{
-		system::IFile::success_t success;;
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, "endfacet\n", context->fileOffset, 9);
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 }

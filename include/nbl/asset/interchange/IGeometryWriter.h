@@ -26,6 +26,8 @@ class IGeometryWriter : public IAssetWriter
 	private:
 };
 
+inline IGeometryWriter::~IGeometryWriter() { }
+
 }
 
 #endif

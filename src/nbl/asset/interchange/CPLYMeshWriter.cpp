@@ -9,7 +9,6 @@
 
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
 
 namespace nbl
 {
@@ -57,179 +56,94 @@ CPLYMeshWriter::CPLYMeshWriter()
 }
 
 //! writes a mesh
-bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override) 
 {
-    if (!_override)
-        getDefaultOverride(_override);
+   if (!_override)
+      getDefaultOverride(_override);
 
-    SAssetWriteContext inCtx{ _params, _file };
+   SAssetWriteContext inCtx{ _params, _file };
 
-    const asset::ICPUMesh* mesh = IAsset::castDown<const ICPUMesh>(_params.rootAsset);
-    if (!mesh)
-        return false;
+   const asset::ICPUPolygonGeometry* geom = IAsset::castDown<const ICPUPolygonGeometry>(_params.rootAsset);
+   if (!geom)
+      return false;
 
-    system::IFile* file = _override->getOutputFile(_file, inCtx, {mesh, 0u});
+   system::IFile* file = _override->getOutputFile(_file, inCtx, {geom, 0u});
+   if (!file || !geom)
+      return false;
 
-    auto meshbuffers = mesh->getMeshBuffers();
-	if (!file || !mesh)
-		return false;
+   SContext context = { SAssetWriteContext{ inCtx.params, file} };
 
-    SContext context = { SAssetWriteContext{ inCtx.params, file} };
-    
-    if (meshbuffers.size() > 1)
-    {
-        #ifdef  _NBL_DEBUG
-        context.writeContext.params.logger.log("PLY WRITER WARNING (" + std::to_string(__LINE__) + " line): Only one meshbuffer input is allowed for writing! Saving first one", system::ILogger::ELL_WARNING, file->getFileName().string().c_str());
-        #endif // _NBL_DEBUG
-    }
+   context.writeContext.params.logger.log("Writing PLY file", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
-    context.writeContext.params.logger.log("Writing PLY mesh", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
+   const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(context.writeContext, geom, 0u);
 
-    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(context.writeContext, mesh, 0u);
+   const auto& idxView = geom->getIndexView();
+   const auto& vtxView = geom->getPositionView();
+   const auto& normalView = geom->getNormalView();
+   const auto& auxAttributes = geom->getAuxAttributeViews();
 
-    auto getConvertedCpuMeshBufferWithIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
-    {
-        auto inputMeshBuffer = *meshbuffers.begin();
-        const bool doesItHaveIndexBuffer = inputMeshBuffer->getIndexBufferBinding().buffer.get();
-        const bool isItNotTriangleListsPrimitive = inputMeshBuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType != asset::EPT_TRIANGLE_LIST;
-        
-        if (doesItHaveIndexBuffer && isItNotTriangleListsPrimitive)
-        {
-            auto cpuConvertedMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMeshBuffer>(inputMeshBuffer->clone());
-            IMeshManipulator::homogenizePrimitiveTypeAndIndices(&cpuConvertedMeshBuffer, &cpuConvertedMeshBuffer + 1, asset::EPT_TRIANGLE_LIST, asset::EIT_32BIT);
-            return cpuConvertedMeshBuffer;
-        }
-        else
-            return nullptr;
-    };
+   // TODO: quads?
+   const size_t faceCount = geom->getIndexCount() / 3;
 
-    const auto cpuConvertedMeshBufferWithIndexBuffer = getConvertedCpuMeshBufferWithIndexBuffer();
-    const asset::ICPUMeshBuffer* rawCopyMeshBuffer = cpuConvertedMeshBufferWithIndexBuffer.get() ? cpuConvertedMeshBufferWithIndexBuffer.get() : *meshbuffers.begin();
-    const bool doesItUseIndexBufferBinding = (rawCopyMeshBuffer->getIndexBufferBinding().buffer.get() && rawCopyMeshBuffer->getIndexType() != asset::EIT_UNKNOWN);
+   // indices:
+   // 0 for vertices (always enabled)
+   // 1 for normals (optional)
+   // 2 for vertex colors (optional)
+   // 3 for texcoords (optional)
+   bool attrsToWrite[4] = { true, false, false, false };
 
-    uint32_t faceCount = {}; 
-    size_t vertexCount = {};
+   // write PLY header
+   std::string header = "ply\n";
+   header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
+   header += "\ncomment Nabla ";
+   header +=  NABLA_SDK_VERSION;
 
-    void* indices = nullptr;
-    {
-        auto indexCount = rawCopyMeshBuffer->getIndexCount();
+   // vertex definition
+   header += "\nelement vertex ";
+   header += std::to_string(vtxView.getElementCount()) + '\n';
 
-        indices = _NBL_ALIGNED_MALLOC(indexCount * sizeof(uint32_t), _NBL_SIMD_ALIGNMENT);
-        memcpy(indices, rawCopyMeshBuffer->getIndices(), indexCount * sizeof(uint32_t));
-        
-        IMeshManipulator::getPolyCount(faceCount, rawCopyMeshBuffer);
-        vertexCount = IMeshManipulator::upperBoundVertexID(rawCopyMeshBuffer);
-    }
+   std::string typeStr = getTypeString(vtxView.composed.format);
+   header += "property " + typeStr + " x\n" +
+      "property " + typeStr + " y\n" +
+      "property " + typeStr + " z\n";
 
-	// write PLY header
-    std::string header = "ply\n";
-    header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
-	header += "\ncomment IrrlichtBAW ";
-	header +=  NABLA_SDK_VERSION;
+   if (normalView.getElementCount() > 0)
+   {
+      attrsToWrite[1] = true;
+      std::string typeStr = getTypeString(normalView.composed.format);
+      header += "property " + typeStr + " nx\n" +
+         "property " + typeStr + " ny\n" +
+         "property " + typeStr + " nz\n";
+   }
 
-	// vertex definition
-	header += "\nelement vertex ";
-	header += std::to_string(vertexCount) + '\n';
+   header += "element face " + std::to_string(faceCount) + '\n';
+   header += "property list uchar " + getTypeString(idxView.composed.format) + " vertex_index\n";
 
-    bool vaidToWrite[4]{ 0, 0, 0, 0 };
-
-    const uint32_t POSITION_ATTRIBUTE = rawCopyMeshBuffer->getPositionAttributeIx();
-    constexpr uint32_t COLOR_ATTRIBUTE = 1;
-    constexpr uint32_t UV_ATTRIBUTE = 2;
-    const uint32_t NORMAL_ATTRIBUTE = rawCopyMeshBuffer->getNormalAttributeIx();
-
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(POSITION_ATTRIBUTE).buffer)
-    {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(POSITION_ATTRIBUTE);
-        std::string typeStr = getTypeString(t);
-        vaidToWrite[0] = true;
-        header +=
-            "property " + typeStr + " x\n" +
-            "property " + typeStr + " y\n" +
-            "property " + typeStr + " z\n";
-    }
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(COLOR_ATTRIBUTE).buffer)
-    {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(COLOR_ATTRIBUTE);
-        std::string typeStr = getTypeString(t);
-        vaidToWrite[1] = true;
-        header +=
-            "property " + typeStr + " red\n" +
-            "property " + typeStr + " green\n" +
-            "property " + typeStr + " blue\n";
-        if (asset::getFormatChannelCount(t) == 4u)
-        {
-            header += "property " + typeStr + " alpha\n";
-        }
-    }
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(UV_ATTRIBUTE).buffer)
-    {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(UV_ATTRIBUTE);
-        std::string typeStr = getTypeString(t);
-        vaidToWrite[2] = true;
-        header +=
-            "property " + typeStr + " u\n" +
-            "property " + typeStr + " v\n";
-    }
-    if (rawCopyMeshBuffer->getAttribBoundBuffer(NORMAL_ATTRIBUTE).buffer)
-    {
-        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(NORMAL_ATTRIBUTE);
-        std::string typeStr = getTypeString(t);
-        vaidToWrite[3] = true;
-        header +=
-            "property " + typeStr + " nx\n" +
-            "property " + typeStr + " ny\n" +
-            "property " + typeStr + " nz\n";
-    }    
-
-    asset::E_INDEX_TYPE idxT = asset::EIT_UNKNOWN;
-    bool forceFaces = false;
-
-    const auto primitiveType = rawCopyMeshBuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType;
-    const auto indexType = rawCopyMeshBuffer->getIndexType();
+   if (auxAttributes.size() > 0)
+   for (auto& attr : auxAttributes)
+   {
+      // TODO: Texcoords, vertex colors and any additional properties
+   }
   
-    if (primitiveType == asset::EPT_POINT_LIST)
-        faceCount = 0u;
-    else if (doesItUseIndexBufferBinding)
-    {
-        header += "element face ";
-        header += std::to_string(faceCount) + '\n';
-        idxT = indexType;
-        const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
-        header += "property list uchar " + idxTypeStr + " vertex_indices\n";
-    }
-    else if (primitiveType == asset::EPT_TRIANGLE_LIST)
-    {
-        forceFaces = true;
+   header += "end_header\n";
+   
+   {
+      system::IFile::success_t success;
+      context.writeContext.outputFile->write(success, header.data(), context.fileOffset, header.size());
+      context.fileOffset += success.getBytesProcessed();
+   }
 
-        header += "element face ";
-        header += std::to_string(faceCount) + '\n';
-        idxT = vertexCount <= ((1u<<16) - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
-        const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
-        header += "property list uchar " + idxTypeStr + " vertex_indices\n";
-    }
-    else
-        faceCount = 0u;
-    header += "end_header\n";
+   if (flags & asset::EWF_BINARY)
+      writeBinary(geom, attrsToWrite, true, context);
+   else
+      writeText(geom, attrsToWrite, true, context);
 
-    {
-        system::IFile::success_t success;
-        file->write(success, header.c_str(), context.fileOffset, header.size());
-        context.fileOffset += success.getBytesProcessed();
-    }
- 
-    if (flags & asset::EWF_BINARY)
-        writeBinary(rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, context);
-    else
-        writeText(rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, context);
-
-    _NBL_ALIGNED_FREE(const_cast<void*>(indices));
-
-	return true;
+   return true;
 }
 
-void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const
+void CPLYMeshWriter::writeBinary(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const
 {
+#if 0
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
 
 	bool flipVectors = (!(context.writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)) ? true : false;
@@ -316,138 +230,43 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
 
     if (_forceFaces)
         _NBL_ALIGNED_FREE(indices);
+#endif
 }
 
-void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const
+void CPLYMeshWriter::writeText(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const
 {
-    auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+   auto& posView = geom->getPositionView();
+   auto& normalView = geom->getNormalView();
+   auto& idxView = geom->getIndexView();
 
-    auto writefunc = [&context, &mbCopy, this](uint32_t _vaid, size_t _ix, size_t _cpa)
-    {
-		bool flipVerteciesAndNormals = false;
-		if (!(context.writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
-			if(_vaid == 0u || _vaid == 3u)
-				flipVerteciesAndNormals = true;
+   std::span<const hlsl::float32_t3> positions(
+      reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer()), 
+      reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer(posView.getElementCount()))
+   );
 
-        uint32_t ui[4];
-        core::vectorSIMDf f;
-        const asset::E_FORMAT t = mbCopy->getAttribFormat(_vaid);
-        if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
-        {
-            mbCopy->getAttribute(ui, _vaid, _ix);
-            if (!asset::isSignedFormat(t))
-                writeVectorAsText(context, ui, _cpa, flipVerteciesAndNormals);
-            else
-            {
-                int32_t ii[4];
-                memcpy(ii, ui, 4*4);
-                writeVectorAsText(context, ii, _cpa, flipVerteciesAndNormals);
-            }
-        }
-        else
-        {
-            mbCopy->getAttribute(f, _vaid, _ix);
-            writeVectorAsText(context, f.pointer, _cpa, flipVerteciesAndNormals);
-        }
-    };
+   const auto* idxBegPtr = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+   std::span<const uint32_t> indices(idxBegPtr, idxBegPtr + idxView.getElementCount());
 
-    const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
+   for (size_t i = 0; i < positions.size(); i++)
+      writeVertexAsText(context, positions[i], (attrsToWrite[1] ? reinterpret_cast<const hlsl::float32_t3*>(normalView.getPointer(i)) : nullptr));
 
-    for (size_t i = 0u; i < _vtxCount; ++i)
-    {
-        core::vectorSIMDf f;
-        uint32_t ui[4];
-        if (_vaidToWrite[0])
-        {
-            writefunc(0, i, 3u);
-        }
-        if (_vaidToWrite[1])
-        {
-            writefunc(1, i, colCpa);
-        }
-        if (_vaidToWrite[2])
-        {
-            writefunc(2, i, 2u);
-        }
-        if (_vaidToWrite[3])
-        {
-            writefunc(3, i, 3u);
-        }
+   // write indices
+   for (size_t i = 0; i < indices.size(); i += 3)
+   {
+      std::string str = "3 ";
+      for (size_t j = 0; j < 3; j++)
+         str += std::to_string(indices[i + j]) + " ";
+      str += "\n";
 
-        {
-            system::IFile::success_t success;
-            context.writeContext.outputFile->write(success, "\n", context.fileOffset, 1);
-            context.fileOffset += success.getBytesProcessed();
-        }
-    }
-
-    const char* listSize = "3 ";
-    void* indices = _indices;
-    if (_forceFaces)
-    {
-        indices = _NBL_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * 3 * _fcCount,_NBL_SIMD_ALIGNMENT);
-        if (_idxType == asset::EIT_16BIT)
-        {
-            for (uint16_t i = 0u; i < _fcCount; ++i)
-                ((uint16_t*)indices)[i] = i;
-        }
-        else
-        {
-            for (uint32_t i = 0u; i < _fcCount; ++i)
-                ((uint32_t*)indices)[i] = i;
-        }
-    }
-    if (_idxType == asset::EIT_32BIT)
-    {
-        uint32_t* ind = (uint32_t*)indices;
-        for (size_t i = 0u; i < _fcCount; ++i)
-        {
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, listSize, context.fileOffset, 2);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            writeVectorAsText(context, ind, 3);
-
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, "\n", context.fileOffset, 1);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            ind += 3;
-        }
-    }
-    else
-    {
-        uint16_t* ind = (uint16_t*)indices;
-        for (size_t i = 0u; i < _fcCount; ++i)
-        {
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, listSize, context.fileOffset, 2);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            writeVectorAsText(context, ind, 3);
-
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, "\n", context.fileOffset, 1);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            ind += 3;
-        }
-    }
-
-    if (_forceFaces)
-        _NBL_ALIGNED_FREE(indices);
+      system::IFile::success_t success;
+      context.writeContext.outputFile->write(success, str.data(), context.fileOffset, str.size());
+      context.fileOffset += success.getBytesProcessed();
+   }
 }
 
-void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const
+void CPLYMeshWriter::writeAttribBinary(SContext& context, ICPUPolygonGeometry* geom, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const
 {
+#if 0
     uint32_t ui[4];
     core::vectorSIMDf f;
     asset::E_FORMAT t = _mbuf->getAttribFormat(_vaid);
@@ -504,10 +323,12 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
             context.fileOffset += success.getBytesProcessed();
         }
     }
+#endif
 }
 
-core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPLYMeshWriter::createCopyNormalizedReplacedWithTrueInt(const ICPUPolygonGeometry* geom)
 {
+#if 0
     auto mbCopy = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(_mbuf->clone(2));
 
     for (size_t i = 0; i < ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
@@ -520,6 +341,8 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNor
     }
 
     return mbCopy;
+#endif
+    return nullptr;
 }
 
 std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)
