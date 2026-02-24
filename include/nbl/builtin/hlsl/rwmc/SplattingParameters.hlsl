@@ -37,6 +37,21 @@ struct SPackedSplattingParameters
     // pack as Half2x16
     int32_t PackedLog2BaseRootAndBrightSampleLumaBias;
 
+    static SPackedSplattingParameters create(float32_t base, float32_t start, uint32_t cascadeCount)
+    {
+        const float32_t rcpLog2Base = 1.0f / hlsl::log2(base);
+        const float32_t baseRootOfStart = hlsl::exp2(hlsl::log2(start) * rcpLog2Base);
+        const float32_t log2BaseRootOfStart = hlsl::log2(baseRootOfStart);
+        const float32_t brightSampleLumaBias = (log2BaseRootOfStart + float32_t(cascadeCount - 1u)) / rcpLog2Base;
+        float32_t2 packLogs = float32_t2(baseRootOfStart, rcpLog2Base);
+        float32_t2 packPrecomputed = float32_t2(log2BaseRootOfStart, brightSampleLumaBias);
+        
+        SPackedSplattingParameters retval;
+        retval.PackedBaseRootAndRcpLog2Base = hlsl::packHalf2x16(packLogs);
+        retval.PackedLog2BaseRootAndBrightSampleLumaBias = hlsl::packHalf2x16(packPrecomputed);
+        return retval;
+    }
+
     SSplattingParameters unpack()
     {
         SSplattingParameters retval;
