@@ -1,3 +1,6 @@
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_PATH_TRACING_CONCEPTS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_PATH_TRACING_CONCEPTS_INCLUDED_
 
@@ -16,16 +19,16 @@ namespace concepts
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (rand, T)
-#define NBL_CONCEPT_PARAM_1 (sample_, uint32_t)
+#define NBL_CONCEPT_PARAM_1 (sampleIx, uint32_t)
 NBL_CONCEPT_BEGIN(2)
 #define rand NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define sample_ NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define sampleIx NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::rng_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::return_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rand(sample_, sample_, sample_)), ::nbl::hlsl::is_same_v, typename T::return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rand(sampleIx, sampleIx)), ::nbl::hlsl::is_same_v, typename T::return_type))
 );
-#undef sample_
+#undef sampleIx
 #undef rand
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 

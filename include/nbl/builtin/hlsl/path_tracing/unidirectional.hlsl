@@ -1,3 +1,6 @@
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_PATH_TRACING_UNIDIRECTIONAL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_PATH_TRACING_UNIDIRECTIONAL_INCLUDED_
 
@@ -82,8 +85,8 @@ struct Unidirectional
         bxdfnode_type bxdf = materialSystem.getBxDFNode(matID);
         const bool isBSDF = materialSystem.isBSDF(matID);
 
-        vector3_type eps0 = randGen(depth * 2u, _sample, 0u);
-        vector3_type eps1 = randGen(depth * 2u + 1u, _sample, 1u);
+        vector3_type eps0 = randGen(depth * 2u, _sample);
+        vector3_type eps1 = randGen(depth * 2u + 1u, _sample);
 
         const vector3_type intersectP = intersectData.getPosition();
         vector3_type throughput = ray.getPayloadThroughput();
@@ -179,7 +182,7 @@ struct Unidirectional
     void sampleMeasure(uint32_t sampleIndex, uint32_t maxDepth, NBL_REF_ARG(Accumulator) accumulator)
     {
         //scalar_type meanLumaSq = 0.0;
-        vector3_type uvw = randGen(0u, sampleIndex, 0u);
+        vector3_type uvw = randGen(0u, sampleIndex);
         ray_type ray = rayGen.generate(uvw);
         ray.initPayload();
 
