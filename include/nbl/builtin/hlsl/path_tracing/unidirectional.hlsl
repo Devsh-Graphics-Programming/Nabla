@@ -60,13 +60,13 @@ struct Unidirectional
 
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(intersectData.getObjectID());
-        const uint32_t matID = matLightID.matID;
+        const typename material_system_type::material_id_type matID = matLightID.getMaterialID();
         const bool isEmissive = materialSystem.hasEmission(matID);
         if (isEmissive)
         {
             measure_type emissive = materialSystem.getEmission(matID, interaction.isotropic);
 
-            const uint32_t lightID = matLightID.lightID;
+            const typename nee_type::light_id_type lightID = matLightID.getLightID();
             if (matLightID.isLight())
             {
                 const scalar_type pdf = nee.deferred_pdf(lightID, ray, scene);
@@ -76,7 +76,7 @@ struct Unidirectional
             ray.addPayloadContribution(emissive);
         }
 
-        if (!matLightID.isBxDF() || isEmissive)
+        if (!matLightID.isMaterial() || isEmissive)
             return false;
 
         bxdfnode_type bxdf = materialSystem.getBxDFNode(matID);

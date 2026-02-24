@@ -291,6 +291,23 @@ NBL_CONCEPT_END(
 #undef acc
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+#define NBL_CONCEPT_NAME MaterialLightID
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (id, T)
+NBL_CONCEPT_BEGIN(1)
+#define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::light_id_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::material_id_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.getLightID()), ::nbl::hlsl::is_same_v, typename T::light_id_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.getMaterialID()), ::nbl::hlsl::is_same_v, typename T::material_id_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.isLight()), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.isMaterial()), ::nbl::hlsl::is_same_v, bool))
+);
+#undef id
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 #define NBL_CONCEPT_NAME Scene
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -305,6 +322,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::mat_light_id_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(MaterialLightID, typename T::mat_light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getMatLightIDs(id)), ::nbl::hlsl::is_same_v, typename T::mat_light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getNormal(id, intersectP)), ::nbl::hlsl::is_same_v, typename T::vector3_type))
 );
