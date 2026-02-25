@@ -72,7 +72,7 @@ struct Unidirectional
             const typename nee_type::light_id_type lightID = matLightID.getLightID();
             if (matLightID.isLight())
             {
-                const scalar_type pdf = nee.deferred_pdf(lightID, ray, scene);
+                const scalar_type pdf = nee.deferred_pdf(scene, lightID, ray);
                 scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
                 emissive *= ray.foundEmissiveMIS(pdfSq);
             }
@@ -101,7 +101,7 @@ struct Unidirectional
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
-                materialSystem, scene, intersectP, interaction,
+                scene, materialSystem, intersectP, interaction,
                 isBSDF, eps0, depth
             );
             scalar_type t = ret.getT();
@@ -129,7 +129,7 @@ struct Unidirectional
                 nee_ray.setT(t);
                 tolerance_method_type::template adjust<ray_type>(nee_ray, direction, depth);
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
-                    ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(nee_ray, scene, ret.getLightObjectID()));
+                    ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
             }
         }
 
@@ -187,18 +187,17 @@ struct Unidirectional
         ray.initPayload();
 
         // bounces
-        bool hit = true;
-        bool rayAlive = true;
-        for (uint16_t d = 1; (d <= maxDepth) && hit && rayAlive; d++)
+        bool continuePath = true;
+        for (uint16_t d = 1; (d <= maxDepth) && continuePath; d++)
         {
             ray.setT(numeric_limits<scalar_type>::max);
-            closest_hit_type intersection = intersector_type::traceClosestHit(ray, scene);
+            closest_hit_type intersection = intersector_type::traceClosestHit(scene, ray);
 
-            hit = intersection.foundHit();
-            if (hit)
-                rayAlive = closestHitProgram(d, sampleIndex, ray, intersection);
+            continuePath = intersection.foundHit();
+            if (continuePath)
+                continuePath &= closestHitProgram(d, sampleIndex, ray, intersection);
         }
-        if (!hit)
+        if (!continuePath)
             missProgram(ray);
 
         const uint32_t sampleCount = sampleIndex + 1;

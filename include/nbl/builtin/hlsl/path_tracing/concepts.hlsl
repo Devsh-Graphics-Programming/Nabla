@@ -123,8 +123,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IntersectorClosestHit, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceClosestHit(ray, scene)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(ray, scene, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceClosestHit(scene, ray)), ::nbl::hlsl::is_same_v, typename T::closest_hit_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((intersect.traceShadowRay(scene, ray, objectID)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef objectID
 #undef scene
@@ -260,8 +260,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::tolerance_method_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NextEventEstimatorSampleQuotientReturn, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(id, ray, scene)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(matSys, scene, v, interaction, is_bsdf, v, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, is_bsdf, v/*xi*/, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
 );
 #undef scene
