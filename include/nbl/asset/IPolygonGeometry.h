@@ -208,7 +208,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
         struct SJointWeight
         {
             // one thing this doesn't check is whether every vertex has a weight and index
-            inline operator bool() const {return indices && isIntegerFormat(indices.composed.format) && weights && weights.composed.isFormatted() && indices.getElementCount()==weights.getElementCount();}
+            explicit inline operator bool() const {return indices && isIntegerFormat(indices.composed.format) && weights && weights.composed.isFormatted() && indices.getElementCount()==weights.getElementCount();}
 
             SDataView indices;
             // Assumption is that only non-zero weights are present, which is why the joints are indexed (sparseness)
