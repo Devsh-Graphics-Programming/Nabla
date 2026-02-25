@@ -833,13 +833,18 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     return retval;
 }
 
-bool MeshGraphicsCommonValidation(
+bool ILogicalDevice::createRasterizationPipelineCommonValidation(
     const IGPURenderpass* renderpass, uint8_t subpassIndex,
-    SPhysicalDeviceLimits const& limits, SPhysicalDeviceFeatures const& features,
-    nbl::asset::SRasterizationParams const& rasterParams, nbl::asset::SBlendParams const& blendParams,
-    const system::logger_opt_ptr m_logger,
-    const IPhysicalDevice::SFormatImageUsages& formatUsages
+    nbl::asset::SRasterizationParams const& rasterParams, nbl::asset::SBlendParams const& blendParams
 ) {
+    if (!renderpass->wasCreatedBy(this)) {
+        NBL_LOG_ERROR("Invalid renderpass was given");
+        return false;
+    }
+
+    const auto& features = getEnabledFeatures();
+    const auto& limits = getPhysicalDeviceLimits();
+
     if (rasterParams.alphaToOneEnable && !features.alphaToOne)
     {
         NBL_LOG_ERROR("Feature `alpha to one` is not enabled");
@@ -894,7 +899,7 @@ bool MeshGraphicsCommonValidation(
         {
             const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-            if (blendParams.blendParams[i].blendEnabled() && !formatUsages[attachment.format].attachmentBlend)
+            if (blendParams.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
             {
                 NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", subpassIndex, i);
                 return false;
@@ -918,10 +923,7 @@ bool MeshGraphicsCommonValidation(
     return true;
 }
 
-//this is a COPY of graphics pipeline, with MINOR adjustments. 
-//no changes should be made DIRECTLY here
-//UNLESS it's DIRECTLY for mesh/task
-//there SHOULD be a function that duplicates functionality between graphics and mesh pipeline that can be adjusted first
+//attempt to put changes in createRasterizationPipelineCommonValidation first
 bool ILogicalDevice::createMeshPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUMeshPipeline::SCreationParams> params,
@@ -947,30 +949,37 @@ bool ILogicalDevice::createMeshPipelines(
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
+        const auto& passParams = ci.renderpass->getCreationParameters();
+        const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
 
-        if (params[ix].taskShader.shader != nullptr) {
+        if (ci.taskShader.shader != nullptr) {
             if (!features.taskShader) {
-                NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
+                NBL_LOG_ERROR("Feature `task shader` is not enabled");
                 return false;
             }
         }
-
-        //check extensions here
-        //it SEEMS like createGraphicsPipeline does, but it does it in a weird way I don't understand? 
-        //geo and tess are just flat disabled??
+        
+        //a mesh shader is required in mesh pipelines
         if (!features.meshShader) {
             NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
             return false;
         }
+        /* MOMENTARILY DISABLED, FIX BEFORE MERGING
+        if(subpass.viewMask){
+            
+            //https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-07064
+            //https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-07720
+            if(!limits.multiviewMeshShader){
+                    NBL_LOG_ERROR("Feature 'multiviewMeshShader' is not enabled");
+                    return false;
+            }
+        }
+        */
 
-        auto renderpass = ci.renderpass;
-        if (!renderpass->wasCreatedBy(this)) {
-            NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
+        if (!createRasterizationPipelineCommonValidation(ci.renderpass, ci.cached.subpassIx, ci.cached.rasterization, ci.cached.blend)) {
+            NBL_LOG_ERROR("failed common rasterization pipline validation from mesh [%d]", ix);
             return false;
         }
-
-
-        MeshGraphicsCommonValidation(renderpass, ci.cached.subpassIx, limits, features, ci.cached.rasterization, ci.cached.blend, m_logger, getPhysicalDevice()->getImageFormatUsagesOptimalTiling());
 
         SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
         trimTask.insertEntryPoint(ci.taskShader, hlsl::ShaderStage::ESS_TASK);
@@ -1026,32 +1035,54 @@ bool ILogicalDevice::createGraphicsPipelines(
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
+        const auto& passParams = ci.renderpass->getCreationParameters();
+        const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00705
         if (ci.tesselationControlShader.shader)
         {
-            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationControlShader.shader);
-            return false;
+            if (!features.tessellationShader)
+            {
+                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationControlShader.shader);
+                return false;
+            }
+            if (subpass.viewMask){
+                if(!limits.multiviewTessellationShader){
+                    NBL_LOG_ERROR("Feature 'multiviewTessellationShader' is not enabled");
+                    return false;
+                }
+            }
         }
 
         if (ci.tesselationEvaluationShader.shader)
         {
-            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationEvaluationShader.shader);
-            return false;
+            if (!features.tessellationShader)
+            {
+                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationEvaluationShader.shader);
+                return false;
+            }
+            if (subpass.viewMask){
+                if(!limits.multiviewTessellationShader){
+                    NBL_LOG_ERROR("Feature 'multiviewTessellationShader' is not enabled");
+                    return false;
+                }
+            }
         }
 
         if (ci.geometryShader.shader)
         {
-            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", ci.geometryShader.shader);
-            return false;
-        }
-
-        auto renderpass = ci.renderpass;
-        if (!renderpass->wasCreatedBy(this))
-        {
-            NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
-            return false;
+            if(!features.geometryShader)
+            {
+                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", ci.geometryShader.shader);
+                return false;
+            }
+            if (subpass.viewMask){
+                if(!limits.multiviewGeometryShader){
+                    NBL_LOG_ERROR("Feature 'multiviewGeometryShader' is not enabled");
+                    return false;
+                }
+            }
         }
 
         // TODO: loads more validation on extra parameters here!
@@ -1060,7 +1091,10 @@ bool ILogicalDevice::createGraphicsPipelines(
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01505
         // baiscally the AMD version must have the rasterization samples equal to the maximum of all attachment samples counts
 
-        MeshGraphicsCommonValidation(renderpass, ci.cached.subpassIx, limits, features, ci.cached.rasterization, ci.cached.blend, m_logger, getPhysicalDevice()->getImageFormatUsagesOptimalTiling());
+        if (!createRasterizationPipelineCommonValidation(ci.renderpass, ci.cached.subpassIx, ci.cached.rasterization, ci.cached.blend)) {
+            NBL_LOG_ERROR("failed common rasterization pipline validation from graphics [%d]", ix);
+            return false;
+        }
 
         SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
         trimTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);

@@ -1448,26 +1448,26 @@ bool IGPUCommandBuffer::copyQueryPoolResults(
 }
 
 
-bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ)
+bool IGPUCommandBuffer::dispatch(const hlsl::vector<uint16_t, 3> groupCount)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (groupCountX==0 || groupCountY==0 || groupCountZ==0)
+    if (groupCount.x==0 || groupCount.y==0 || groupCount.z==0)
     {
-        NBL_LOG_ERROR("invalid group counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ);
+        NBL_LOG_ERROR("invalid group counts (%d, %d, %d)!", groupCount.x, groupCount.y, groupCount.z);
         return false;
     }
 
     const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
-    if (groupCountX>limits.maxComputeWorkGroupCount[0] || groupCountY>limits.maxComputeWorkGroupCount[1] || groupCountZ>limits.maxComputeWorkGroupCount[2])
+    if (groupCount.x>limits.maxComputeWorkGroupCount[0] || groupCount.y>limits.maxComputeWorkGroupCount[1] || groupCount.z>limits.maxComputeWorkGroupCount[2])
     {
-        NBL_LOG_ERROR("group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ, limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2]);
+        NBL_LOG_ERROR("group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCount.x, groupCount.y, groupCount.z, limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2]);
         return false;
     }
 
     m_noCommands = false;
-    return dispatch_impl(groupCountX,groupCountY,groupCountZ);
+    return dispatch_impl(groupCount.x,groupCount.y,groupCount.z);
 }
 
 bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding)
@@ -1488,58 +1488,24 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
     return dispatchIndirect_impl(binding);
 }
 
-bool IGPUCommandBuffer::drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) {
+bool IGPUCommandBuffer::drawMeshTasks(const hlsl::vector<uint16_t, 3> groupCount) {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT, RENDERPASS_SCOPE::INSIDE))
         return false;
 
-    if (groupCountX == 0 || groupCountY == 0 || groupCountZ == 0)
+    if (groupCount.x == 0 || groupCount.y == 0 || groupCount.z == 0)
     {
-        NBL_LOG_ERROR("invalid group counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ);
+        NBL_LOG_ERROR("invalid group counts (%d, %d, %d)!", groupCount.x, groupCount.y, groupCount.z);
         return false;
     }
 
     const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
-    if (groupCountX > limits.maxMeshWorkGroupCount[0] || groupCountY > limits.maxMeshWorkGroupCount[1] || groupCountZ > limits.maxMeshWorkGroupCount[2])
-    {
-        NBL_LOG_ERROR("group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ, limits.maxMeshWorkGroupCount[0], limits.maxMeshWorkGroupCount[1], limits.maxMeshWorkGroupCount[2]);
+    if (groupCount.x > limits.maxMeshWorkGroupCount[0] || groupCount.y > limits.maxMeshWorkGroupCount[1] || groupCount.z > limits.maxMeshWorkGroupCount[2]) {
+        NBL_LOG_ERROR("group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCount.x, groupCount.y, groupCount.z, limits.maxMeshWorkGroupCount[0], limits.maxMeshWorkGroupCount[1], limits.maxMeshWorkGroupCount[2]);
         return false;
     }
 
     m_noCommands = false;
-    return drawMeshTasks_impl(groupCountX, groupCountY, groupCountZ);
-}
-
-bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
-        return false;
-    if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT)){
-        return false;
-    }
-
-    if (drawCount) {
-        if (drawCount==1u)
-            stride = sizeof(hlsl::DrawMeshTasksIndirectCommand_t);
-        if (stride&0x3u || stride<sizeof(hlsl::DrawMeshTasksIndirectCommand_t)) {
-            NBL_LOG_ERROR("invalid command buffer stride (%d)!", stride);
-            return false;
-        }
-        if (drawCount > getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount) {
-            NBL_LOG_ERROR("draw count (%d) exceeds maximum allowed amount (%d)!", drawCount, getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount);
-            return false;
-        }
-        if (invalidBufferRange({ binding.offset,stride * (drawCount - 1u) + sizeof(hlsl::DrawMeshTasksIndirectCommand_t),binding.buffer }, alignof(uint32_t), IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
-            return false;
-    } // i get the feeling the vk command shouldnt be called if drawCount is 0, but this is how drawindirect does it
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
-    {
-        NBL_LOG_ERROR("out of host memory!");
-        return false;
-    }
-
-    m_noCommands = false;
-    return drawMeshTasksIndirect_impl(binding, drawCount, stride);
+    return drawMeshTasks_impl(groupCount.x, groupCount.y, groupCount.z);
 }
 
 bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
@@ -1740,7 +1706,7 @@ bool IGPUCommandBuffer::drawIndexed(const uint32_t indexCount, const uint32_t in
     return drawIndexed_impl(indexCount,instanceCount,firstIndex,vertexOffset,firstInstance);
 }
 
-template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
+template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t, hlsl::DrawMeshTasksIndirectCommand_t>
 bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
@@ -1767,8 +1733,9 @@ bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IG
 }
 template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawMeshTasksIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 
-template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
+template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t, hlsl::DrawMeshTasksIndirectCommand_t>
 bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
     if (!getOriginDevice()->getPhysicalDevice()->getLimits().drawIndirectCount)
@@ -1786,6 +1753,7 @@ bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<con
 }
 template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
 template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawMeshTasksIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
 
 bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
@@ -1817,6 +1785,21 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IG
     return drawIndexedIndirect_impl(binding, drawCount, stride);
 }
 
+bool IGPUCommandBuffer::drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
+{
+    if (invalidDrawIndirect<hlsl::DrawMeshTasksIndirectCommand_t>(binding,drawCount,stride))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+    return drawMeshTasksIndirect_impl(binding, drawCount, stride);
+}
+
 bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
     if (!invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
@@ -1845,6 +1828,21 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<con
 
     m_noCommands = false;
     return drawIndexedIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
+}
+
+bool IGPUCommandBuffer::drawMeshTasksIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
+{
+    if (!invalidDrawIndirectCount<hlsl::DrawMeshTasksIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
+        return false;
+    
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+    return drawMeshTasksIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
 }
 
 /*

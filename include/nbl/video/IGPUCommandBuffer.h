@@ -436,19 +436,20 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         );
 
         //! dispatches
-        bool dispatch(const uint32_t groupCountX, const uint32_t groupCountY=1, const uint32_t groupCountZ=1);
-        template<typename T> requires std::is_integral_v<T>
-        bool dispatch(const hlsl::vector<T,3> groupCount)
-        {
-            return dispatch(groupCount.x,groupCount.y,groupCount.z);
+        bool dispatch(const hlsl::vector<uint16_t, 3> groupCount);
+        inline bool dispatch(const uint32_t groupCountX, const uint32_t groupCountY=1, const uint32_t groupCountZ=1)
+        {    
+            return dispatch(hlsl::vector<uint16_t, 3>{groupCountX, groupCountY, groupCountZ});
         }
         bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
 
-        bool drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY = 1, const uint32_t groupCountZ = 1);
-        inline bool drawMeshTasks(const hlsl::vector<uint16_t, 3> groupCount)        {
-            return drawMeshTasks(groupCount.x, groupCount.y, groupCount.z);
+        bool drawMeshTasks(const hlsl::vector<uint16_t, 3> groupCount);
+        inline bool drawMeshTasks(const uint32_t groupCountX, const uint32_t groupCountY = 1, const uint32_t groupCountZ = 1)
+        {
+            return drawMeshTasks(hlsl::vector<uint16_t, 3>{groupCountX, groupCountY, groupCountZ});
         }
         bool drawMeshTasksIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);
+        bool drawMeshTasksIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
@@ -719,13 +720,15 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool draw_impl(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance) = 0;
         virtual bool drawIndexed_impl(const uint32_t indexCount, const uint32_t instanceCount, const uint32_t firstIndex, const int32_t vertexOffset, const uint32_t firstInstance) = 0;
+        virtual bool drawMeshTasks_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
+        
         virtual bool drawIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) = 0;
         virtual bool drawIndexedIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) = 0;
+        virtual bool drawMeshTasksIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) = 0;
+        
         virtual bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
         virtual bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
-
-        virtual bool drawMeshTasks_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
-        virtual bool drawMeshTasksIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride) = 0;
+        virtual bool drawMeshTasksIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
 
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
@@ -907,10 +910,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         bool invalidDynamic(const uint32_t first, const uint32_t count);
 
-        template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
+        template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t, hlsl::DrawMeshTasksIndirectCommand_t>
         bool invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);
 
-        template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
+        template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t, hlsl::DrawMeshTasksIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
         core::smart_refctd_ptr<const core::IReferenceCounted>* reserveReferences(const uint32_t size);

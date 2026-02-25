@@ -9,43 +9,12 @@
 
 //related spec
 
-//i feel like this MIGHT get stuffed into graphicspipeline but idk
-
 /*
 https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-PrimitiveId-06264
-** If the pipeline requires pre-rasterization shader state, it includes a mesh shader and the fragment shader code reads from an input variable that is decorated with PrimitiveId, then the mesh shader code must write to a matching output variable, decorated with PrimitiveId, in all execution paths
+* If the pipeline requires pre-rasterization shader state, it includes a mesh shader and the fragment shader code reads from an input variable that is decorated 
+*   with PrimitiveId, then the mesh shader code must write to a matching output variable, decorated with PrimitiveId, in all execution paths
 
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-07064
-* If renderPass is not VK_NULL_HANDLE, the pipeline is being created with pre-rasterization shader state, subpass viewMask is not 0, and multiviewMeshShader is not enabled, then pStages must not include a mesh shader
-
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-None-02322
-* If the pipeline requires pre-rasterization shader state, and there are any mesh shader stages in the pipeline there must not be any shader stage in the pipeline with a Xfb execution mode
-*** whats a xfb
-
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-shaderMeshEnqueue-10187
-* If the shaderMeshEnqueue feature is not enabled, shaders specified by pStages must not declare the ShaderEnqueueAMDX capability
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-flags-10188
-* If flags does not include VK_PIPELINE_CREATE_LIBRARY_BIT_KHR, shaders specified by pStages must not declare the ShaderEnqueueAMDX capability
-*** my understanding is nabla strictly controls it's extensions, so this shouldnt be an issue
-
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-07065
-* If the pipeline requires pre-rasterization shader state, and includes a mesh shader, there must be no element of the
-*  pDynamicStates member of pDynamicState set to VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY, or VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE
-*** this one seems the most relevant
-
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-07066
-* If the pipeline requires pre-rasterization shader state, and includes a mesh shader, there must be no element of the
-*  pDynamicStates member of pDynamicState set to VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE, or VK_DYNAMIC_STATE_PATCH_CONTROL_POINTS_EXT
-
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-07067
-* If the pipeline requires pre-rasterization shader state, and includes a mesh shader, there must be no element of the pDynamicStates member of pDynamicState set to VK_DYNAMIC_STATE_VERTEX_INPUT_EXT
-
-https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-07720
-* If renderPass is VK_NULL_HANDLE, the pipeline is being created with pre-rasterization shader state, and
-*  VkPipelineRenderingCreateInfo::viewMask is not 0, and multiviewMeshShader is not enabled, then pStages must not include a mesh shader
-
-
-* theres 1 or 2 more about pipeline libraries, but im not going to worry about that
+* theres a few more about pipeline libraries that aren't included
 */
 
 namespace nbl::video
@@ -81,7 +50,7 @@ namespace nbl::video
                 if (!renderpass || cached.subpassIx >= renderpass->getSubpassCount())
                     return {};
 
-                // TODO: check rasterization samples, etc.
+                // TODO: check rasterization samples, etc. (sourced from IGPUGraphicsPipeline)
                 //rp->getCreationParameters().subpasses[i]
 
                 core::bitflag<hlsl::ShaderStage> stagePresence = {};
@@ -137,7 +106,7 @@ namespace nbl::video
 
             inline uint32_t getShaderCount() const
             {
-                uint32_t count = 0; //count = 2 and only check task shader??
+                uint32_t count = 0;
                 count += (taskShader.shader != nullptr);
                 count += (meshShader.shader != nullptr);
                 count += (fragmentShader.shader != nullptr);

@@ -44,7 +44,7 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 if (!renderpass || cached.subpassIx>=renderpass->getSubpassCount())
                     return {};
 
-                // TODO: check rasterization samples, etc.
+                // TODO: check rasterization samples, etc. //when done, also add to IGPUMeshPipeline
                 //rp->getCreationParameters().subpasses[i]
 
                 core::bitflag<hlsl::ShaderStage> stagePresence = {};

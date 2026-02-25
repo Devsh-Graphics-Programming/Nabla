@@ -1280,7 +1280,7 @@ void PopulateColorBlend(
 }
 
 template<typename SCreationParams>
-void PopulateMeshGraphicsCommonData(
+void PopulateRasterizationPipelineCommonData(
     const std::span<const SCreationParams> createInfos,
     core::vector<VkGraphicsPipelineCreateInfo>& vk_createInfos,
 
@@ -1346,18 +1346,15 @@ core::vector<VkDynamicState> getDefaultDynamicStates(SPhysicalDeviceFeatures con
     }
     // TODO: VK_DYNAMIC_STATE_DISCARD_RECTANGLE_EXT, VK_DYNAMIC_STATE_DISCARD_RECTANGLE_ENABLE_EXT, VK_DYNAMIC_STATE_DISCARD_RECTANGLE_MODE_EXT
 
+    /*
+    specs on dynamic state with mesh pipelines, notes for the future
+        https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-07065
+        https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-07066
+        https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-07067
+    */
+
     return ret;
 }
-
-//maximum cleanliness,i tried it and im not a big fan
-//struct CommonPipelineStruct {
-//    VkPipelineRasterizationStateCreateInfo vk_rasterizationStates{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0 };
-//    VkPipelineMultisampleStateCreateInfo vk_multisampleStates{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0 };
-//    VkPipelineDepthStencilStateCreateInfo vk_depthStencilStates{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0 };
-//    VkPipelineColorBlendStateCreateInfo vk_colorBlendStates{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0 };
-//    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates{ IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments };
-//};
-
 
 void CVulkanLogicalDevice::createMeshPipelines_impl(
     IGPUPipelineCache* const pipelineCache,
@@ -1396,7 +1393,7 @@ void CVulkanLogicalDevice::createMeshPipelines_impl(
         .pScissors = nullptr,
                                                                       });
 
-    PopulateMeshGraphicsCommonData(
+    PopulateRasterizationPipelineCommonData(
         createInfos, vk_createInfos,
 
         vk_viewportStates,
@@ -1409,12 +1406,16 @@ void CVulkanLogicalDevice::createMeshPipelines_impl(
         vk_dynamicStates, vk_dynamicStateCreateInfo
     );
 
-    //not used in mesh pipelines
+    /*
+    not used in mesh pipelines
+
+    shoudl already be nullptr, leaving the comment for clarity
     for (auto& outCreateInfo : vk_createInfos) {
         outCreateInfo.pVertexInputState = nullptr;
         outCreateInfo.pInputAssemblyState = nullptr;
         outCreateInfo.pTessellationState = nullptr;
     }
+    */
     auto outCreateInfo = vk_createInfos.data();
 
     const auto maxShaderStages = createInfos.size() * IGPUMeshPipeline::MESH_SHADER_STAGE_COUNT;
@@ -1526,17 +1527,19 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         .dynamicStateCount = static_cast<uint32_t>(vk_dynamicStates.size()),
         .pDynamicStates = vk_dynamicStates.data()
     };
-    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(), {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .pNext = nullptr, // the extensions that interest us have a dynamic state variant anyway
-        .flags = 0, // must be 0
-        .viewportCount = 0,
-        .pViewports = nullptr,
-        .scissorCount = 0,
-        .pScissors = nullptr,
-                                                                      });
+    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(), 
+        {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .pNext = nullptr, // the extensions that interest us have a dynamic state variant anyway
+            .flags = 0, // must be 0
+            .viewportCount = 0,
+            .pViewports = nullptr,
+            .scissorCount = 0,
+            .pScissors = nullptr,
+        }
+    );
 
-    PopulateMeshGraphicsCommonData(
+    PopulateRasterizationPipelineCommonData(
         createInfos, vk_createInfos,
 
         vk_viewportStates,
@@ -1749,6 +1752,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     size_t maxShaderGroups = 0;
     for (const auto& info : createInfos)
         maxShaderGroups += info.shaderGroups.getShaderGroupCount();
+        
     core::vector<VkRayTracingPipelineCreateInfoKHR> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,nullptr });
     core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages,{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0});
     core::vector<std::string> entryPoints(maxShaderStages);

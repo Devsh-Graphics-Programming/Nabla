@@ -1345,6 +1345,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         void addCommonShaderDefines(const bool runningInRenderDoc);
 
+        bool createRasterizationPipelineCommonValidation(
+            const IGPURenderpass* renderpass, uint8_t subpassIndex, 
+            nbl::asset::SRasterizationParams const& rasterParams, 
+            nbl::asset::SBlendParams const& blendParams
+        );
+
         inline bool invalidAllocationForBind(const IDeviceMemoryBacked* resource, const IDeviceMemoryBacked::SMemoryBinding& binding, const size_t alignment)
         {
             if (!resource->wasCreatedBy(this))

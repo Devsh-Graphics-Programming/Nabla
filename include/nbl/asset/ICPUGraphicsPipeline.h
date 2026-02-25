@@ -53,21 +53,21 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return base_t::getSpecInfos(stage);
         }
 
-        SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage)
+        std::span<SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage)
         {
-            if (!isMutable()) return nullptr;
+            if (!isMutable()) return {};
             const auto stageIndex = stageToIndex(stage);
             if (stageIndex != -1)
-                return &m_specInfos[stageIndex];
-            return nullptr;
+                return {&m_specInfos[stageIndex], 1};
+            return {};
         }
 
-        const SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage) const
+        std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const
         {
             const auto stageIndex = stageToIndex(stage);
             if (stageIndex != -1)
-                return &m_specInfos[stageIndex];
-            return nullptr;
+                return {&m_specInfos[stageIndex], 1};
+            return {};
         }
 
         inline bool valid() const override

@@ -52,23 +52,25 @@ class ICPUMeshPipeline final : public ICPUPipeline<IMeshPipeline<ICPUPipelineLay
             return base_t::getSpecInfos(stage);
         }
 
-        SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage)
+        std::span<SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage)
         {
-            if (!isMutable()) return nullptr;
+            if (!isMutable()) return {};
             switch (stage) {
-                case hlsl::ShaderStage::ESS_TASK:       return &m_specInfos[0];
-                case hlsl::ShaderStage::ESS_MESH:       return &m_specInfos[1];
-                case hlsl::ShaderStage::ESS_FRAGMENT:   return &m_specInfos[2];
+                case hlsl::ShaderStage::ESS_TASK:       return { &m_specInfos[0], 1 };
+                case hlsl::ShaderStage::ESS_MESH:       return { &m_specInfos[1], 1 };
+                case hlsl::ShaderStage::ESS_FRAGMENT:   return { &m_specInfos[2], 1 };
             }
-            return nullptr;
+            return {};
         }
 
-        const SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage) const
+        std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const
         {
-            const auto stageIndex = stageToIndex(stage);
-            if (stageIndex != -1)
-                return &m_specInfos[stageIndex];
-            return nullptr;
+            switch (stage) {
+                case hlsl::ShaderStage::ESS_TASK:       return { &m_specInfos[0], 1 };
+                case hlsl::ShaderStage::ESS_MESH:       return { &m_specInfos[1], 1 };
+                case hlsl::ShaderStage::ESS_FRAGMENT:   return { &m_specInfos[2], 1 };
+            }
+            return {};
         }
 
         inline bool valid() const override
@@ -102,10 +104,12 @@ class ICPUMeshPipeline final : public ICPUPipeline<IMeshPipeline<ICPUPipelineLay
 
         static inline int8_t stageToIndex(const hlsl::ShaderStage stage)
         {
-            const auto stageIx = hlsl::findLSB(stage);
-            if (stageIx < 0 || stageIx >= MESH_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
-              return -1;
-            return stageIx;
+            switch(stage){
+                case hlsl::ShaderStage::ESS_TASK:       return 0;
+                case hlsl::ShaderStage::ESS_MESH:       return 1;
+                case hlsl::ShaderStage::ESS_FRAGMENT:   return 2;
+            }
+            return -1;
         }
 
         static inline hlsl::ShaderStage indexToStage(const int8_t index)

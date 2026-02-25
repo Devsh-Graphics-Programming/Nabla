@@ -829,8 +829,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
             features.meshShader = meshShaderFeatures.meshShader;
             features.taskShader = meshShaderFeatures.taskShader;
+            //properties.limits.multiviewMeshShader = meshShaderFeatures.multiviewMeshShader;
             //TODO
-            //VkBool32           multiviewMeshShader;
             //VkBool32           primitiveFragmentShadingRateMeshShader;
             //VkBool32           meshShaderQueries;
 
@@ -963,12 +963,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
 
         properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
-	if (!vulkan12Features.shaderFloat16)
-	{
-		// only fail if 16bit floats can be used
-		if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
-		    RETURN_NULL_PHYSICAL_DEVICE;
-	}
+        if (!vulkan12Features.shaderFloat16)
+        {
+            // only fail if 16bit floats can be used
+            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+                RETURN_NULL_PHYSICAL_DEVICE;
+        }
 	    
         if (!vulkan12Features.shaderInt8)
             RETURN_NULL_PHYSICAL_DEVICE;
@@ -1872,7 +1872,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         meshShaderFeatures.meshShader = enabledFeatures.meshShader;
         meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_FALSE;//needs to be explicitly set?
         meshShaderFeatures.meshShaderQueries = VK_FALSE;
-        meshShaderFeatures.multiviewMeshShader = VK_FALSE;
+        //meshShaderFeatures.multiviewMeshShader = limits.multiviewMeshShader;
 
         //shaderClockFeatures [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 

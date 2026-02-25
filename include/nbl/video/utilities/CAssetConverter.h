@@ -47,10 +47,11 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUDescriptorSetLayout,
 			asset::ICPUPipelineLayout,
 			asset::ICPUPipelineCache,
-			asset::ICPUComputePipeline,
-			asset::ICPURayTracingPipeline,
 			asset::ICPURenderpass,
 			asset::ICPUGraphicsPipeline,
+			asset::ICPUComputePipeline,
+			asset::ICPUMeshPipeline,
+			asset::ICPURayTracingPipeline,
 			asset::ICPUDescriptorSet,
 			//asset::ICPUFramebuffer doesn't exist yet XD
 			asset::ICPUPolygonGeometry
@@ -690,10 +691,11 @@ class CAssetConverter : public core::IReferenceCounted
 					bool operator()(lookup_t<asset::ICPUDescriptorSetLayout>);
 					bool operator()(lookup_t<asset::ICPUPipelineLayout>);
 					bool operator()(lookup_t<asset::ICPUPipelineCache>);
-					bool operator()(lookup_t<asset::ICPUComputePipeline>);
-					bool operator()(lookup_t<asset::ICPURayTracingPipeline>);
 					bool operator()(lookup_t<asset::ICPURenderpass>);
 					bool operator()(lookup_t<asset::ICPUGraphicsPipeline>);
+					bool operator()(lookup_t<asset::ICPUComputePipeline>);
+					bool operator()(lookup_t<asset::ICPUMeshPipeline>);
+					bool operator()(lookup_t<asset::ICPURayTracingPipeline>);
 					bool operator()(lookup_t<asset::ICPUDescriptorSet>);
 					bool operator()(lookup_t<asset::ICPUPolygonGeometry>);
 				};

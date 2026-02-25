@@ -789,6 +789,15 @@ bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBin
     return true;
 }
 
+bool CVulkanCommandBuffer::drawMeshTasksIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
+{
+    getFunctionTable().vkCmdDrawMeshTasksIndirectCountEXT(
+        m_cmdbuf,static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),indirectBinding.offset,
+        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),countBinding.offset,maxDrawCount,stride
+    );
+    return true;
+}
+
 bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
     VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
