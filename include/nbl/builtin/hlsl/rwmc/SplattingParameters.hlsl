@@ -27,39 +27,32 @@ struct SSplattingParameters
 
 struct SPackedSplattingParameters
 {
-    // float16_t baseRootOfStart; 0
-    // float16_t rcpLog2Base; 1
+    // float16_t rcpLog2Base; 0
+    // float16_t log2BaseRootOfStart; 1
     // pack as Half2x16
-    int32_t PackedBaseRootAndRcpLog2Base;
-
-    // float16_t log2BaseRootOfStart; 2
-    // float16_t brightSampleLumaBias; 3
-    // pack as Half2x16
-    int32_t PackedLog2BaseRootAndBrightSampleLumaBias;
+    int32_t PackedRcpLog2BaseAndLog2BaseRoot;
+    float32_t BrightSampleLumaBias;
 
     static SPackedSplattingParameters create(float32_t base, float32_t start, uint32_t cascadeCount)
     {
         const float32_t rcpLog2Base = 1.0f / hlsl::log2(base);
-        const float32_t baseRootOfStart = hlsl::exp2(hlsl::log2(start) * rcpLog2Base);
-        const float32_t log2BaseRootOfStart = hlsl::log2(baseRootOfStart);
+        const float32_t log2BaseRootOfStart = hlsl::log2(start) * rcpLog2Base;
         const float32_t brightSampleLumaBias = (log2BaseRootOfStart + float32_t(cascadeCount - 1u)) / rcpLog2Base;
-        float32_t2 packLogs = float32_t2(baseRootOfStart, rcpLog2Base);
-        float32_t2 packPrecomputed = float32_t2(log2BaseRootOfStart, brightSampleLumaBias);
+        float32_t2 packLogs = float32_t2(rcpLog2Base, log2BaseRootOfStart);
         
         SPackedSplattingParameters retval;
-        retval.PackedBaseRootAndRcpLog2Base = hlsl::packHalf2x16(packLogs);
-        retval.PackedLog2BaseRootAndBrightSampleLumaBias = hlsl::packHalf2x16(packPrecomputed);
+        retval.PackedRcpLog2BaseAndLog2BaseRoot = hlsl::packHalf2x16(packLogs);
+        retval.BrightSampleLumaBias = brightSampleLumaBias;
         return retval;
     }
 
     SSplattingParameters unpack()
     {
         SSplattingParameters retval;
-        const float32_t2 unpackedBaseRootAndRcpLog2Base = hlsl::unpackHalf2x16(PackedBaseRootAndRcpLog2Base);
-        const float32_t2 unpackedLog2BaseRootAndBrightSampleLumaBias = hlsl::unpackHalf2x16(PackedLog2BaseRootAndBrightSampleLumaBias);
-        retval.RcpLog2Base = unpackedBaseRootAndRcpLog2Base[1];
-        retval.Log2BaseRootOfStart = unpackedLog2BaseRootAndBrightSampleLumaBias[0];
-        retval.BrightSampleLumaBias = unpackedLog2BaseRootAndBrightSampleLumaBias[1];
+        const float32_t2 unpackedRcpLog2BaseAndLog2BaseRoot = hlsl::unpackHalf2x16(PackedRcpLog2BaseAndLog2BaseRoot);
+        retval.RcpLog2Base = unpackedRcpLog2BaseAndLog2BaseRoot[0];
+        retval.Log2BaseRootOfStart = unpackedRcpLog2BaseAndLog2BaseRoot[1];
+        retval.BrightSampleLumaBias = BrightSampleLumaBias;
         return retval;
     }
 };
