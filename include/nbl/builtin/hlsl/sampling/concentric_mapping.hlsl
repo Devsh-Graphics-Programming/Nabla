@@ -20,11 +20,11 @@ template<typename T>
 vector<T, 2> concentricMapping(const vector<T, 2> _u)
 {
 	//map [0;1]^2 to [-1;1]^2
-	vector<T, 2> u = 2.0f * _u - hlsl::promote<vector<T, 2>>(1.0);
+	vector<T, 2> u = 2.0f * _u - hlsl::promote<vector<T, 2> >(1.0);
 
 	vector<T, 2> p;
-	if (hlsl::all<vector<bool, 2>>(glsl::equal(u, hlsl::promote<vector<T, 2>>(0.0))))
-		p = hlsl::promote<vector<T, 2>>(0.0);
+	if (hlsl::all<vector<bool, 2> >(glsl::equal(u, hlsl::promote<vector<T, 2> >(0.0))))
+		p = hlsl::promote<vector<T, 2> >(0.0);
 	else
 	{
 		T r;

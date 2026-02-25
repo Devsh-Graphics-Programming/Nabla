@@ -7,7 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
-#include <nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl>
+#include <nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl>
 
 namespace nbl
 {

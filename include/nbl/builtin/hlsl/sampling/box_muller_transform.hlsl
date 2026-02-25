@@ -7,7 +7,7 @@
 
 #include "nbl/builtin/hlsl/math/functions.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
-#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
+#include "nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -22,7 +22,7 @@ struct BoxMullerTransform
 	using scalar_type = T;
 	using vector2_type = vector<T, 2>;
 
-	// BackwardDensitySampler concept types
+	// ResamplableSampler concept types
 	using domain_type = vector2_type;
 	using codomain_type = vector2_type;
 	using density_type = scalar_type;

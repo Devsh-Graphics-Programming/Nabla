@@ -10,7 +10,7 @@
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/math/quaternions.hlsl>
 #include <nbl/builtin/hlsl/shapes/spherical_triangle.hlsl>
-#include <nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl>
+#include <nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl>
 
 namespace nbl
 {

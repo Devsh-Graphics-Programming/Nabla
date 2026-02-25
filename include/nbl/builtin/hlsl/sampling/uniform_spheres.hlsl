@@ -9,6 +9,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
+#include "nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -44,7 +45,7 @@ struct UniformHemisphere
 		return T(1.0) / (T(2.0) * numbers::pi<T>);
 	}
 
-	template<typename U = vector<T, 1>>
+	template<typename U = vector<T, 1> >
 	static ::nbl::hlsl::sampling::quotient_and_pdf<U, T> quotient_and_pdf()
 	{
 		return ::nbl::hlsl::sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
@@ -78,7 +79,7 @@ struct UniformSphere
 		return T(1.0) / (T(4.0) * numbers::pi<T>);
 	}
 
-	template<typename U = vector<T, 1>>
+	template<typename U = vector<T, 1> >
 	static ::nbl::hlsl::sampling::quotient_and_pdf<U, T> quotient_and_pdf()
 	{
 		return ::nbl::hlsl::sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());

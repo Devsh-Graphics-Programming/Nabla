@@ -9,7 +9,7 @@
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/shapes/spherical_rectangle.hlsl>
-#include <nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl>
+#include <nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl>
 
 namespace nbl
 {
@@ -26,7 +26,7 @@ struct SphericalRectangle
 	using vector3_type = vector<T, 3>;
 	using vector4_type = vector<T, 4>;
 
-	// BackwardDensitySampler concept types
+	// ResamplableSampler concept types
 	using domain_type = vector2_type;
 	using codomain_type = vector2_type;
 	using density_type = scalar_type;
