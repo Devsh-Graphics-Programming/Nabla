@@ -18,6 +18,8 @@ class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 
         inline VkPipeline getInternalObject() const {return m_vkPipeline;}
 
+        void populateExecutableInfo(bool includeInternalRepresentations);
+
     private:
         ~CVulkanGraphicsPipeline();
 

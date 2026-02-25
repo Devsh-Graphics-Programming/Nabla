@@ -10,6 +10,7 @@
 #include "nbl/video/SPipelineCreationParams.h"
 #include "nbl/asset/ICPUPipeline.h"
 #include "nbl/asset/IPipeline.h"
+#include "nbl/system/to_string.h"
 
 namespace nbl::video
 {
@@ -127,6 +128,21 @@ class IGPUPipelineBase {
 
         using SShaderEntryMap = SShaderSpecInfo::entry_map_t;
 
+        // Per-executable info from VK_KHR_pipeline_executable_properties
+        struct SExecutableInfo
+        {
+            std::string name;
+            std::string description;
+            core::bitflag<hlsl::ShaderStage> stages = hlsl::ShaderStage::ESS_UNKNOWN;
+            uint32_t subgroupSize = 0;
+            std::string statistics;
+            std::string internalRepresentations;
+        };
+
+        inline std::span<const SExecutableInfo> getExecutableInfo() const { return m_executableInfo; }
+
+    protected:
+        core::vector<SExecutableInfo> m_executableInfo;
 };
 
 // Common Base class for pipelines
@@ -142,6 +158,53 @@ class IGPUPipeline : public IBackendObject, public PipelineNonBackendObjectBase,
         {}
         virtual ~IGPUPipeline() = default;
 
+};
+
+}
+
+namespace nbl::system::impl
+{
+
+template<>
+struct to_string_helper<video::IGPUPipelineBase::SExecutableInfo>
+{
+		static std::string __call(const video::IGPUPipelineBase::SExecutableInfo& info)
+		{
+			std::string result;
+			result += "======== ";
+			result += info.name;
+			result += " ========\n";
+			result += info.description;
+			result += "\nSubgroup Size: ";
+			result += std::to_string(info.subgroupSize);
+			if (!info.statistics.empty())
+			{
+				result += "\n";
+				result += info.statistics;
+			}
+			if (!info.internalRepresentations.empty())
+			{
+				result += "\n";
+				result += info.internalRepresentations;
+			}
+			return result;
+		}
+};
+
+// Another version for core::vector?
+template<>
+struct to_string_helper<std::span<const video::IGPUPipelineBase::SExecutableInfo>>
+{
+		static std::string __call(const std::span<const video::IGPUPipelineBase::SExecutableInfo>& infos)
+		{
+			std::string result;
+			for (const auto& info : infos)
+			{
+				result += to_string_helper<video::IGPUPipelineBase::SExecutableInfo>::__call(info);
+				result += "\n";
+			}
+			return result;
+		}
 };
 
 }

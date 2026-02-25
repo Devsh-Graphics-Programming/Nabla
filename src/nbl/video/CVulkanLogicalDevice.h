@@ -301,12 +301,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             const SSpecializationValidationResult& validation
         ) override;
 
-        // pipeline executable properties
-        core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_impl(const IGPUComputePipeline* pipeline, bool includeInternalRepresentations) override;
-        core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_impl(const IGPUGraphicsPipeline* pipeline, bool includeInternalRepresentations) override;
-        core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_impl(const IGPURayTracingPipeline* pipeline, bool includeInternalRepresentations) override;
-        core::vector<SPipelineExecutableInfo> getPipelineExecutableProperties_helper(VkPipeline vkPipeline, bool includeInternalRepresentations);
-
         // queries
         core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) override;
         bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) override;
