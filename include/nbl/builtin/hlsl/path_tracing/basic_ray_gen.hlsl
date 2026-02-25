@@ -31,7 +31,7 @@ struct BasicRayGenerator
         tmp = nbl::hlsl::mul(invMVP, tmp);
 
         ray_type ray;
-        ray.initData(camPos, hlsl::normalize(tmp.xyz / tmp.w - camPos), hlsl::promote<vector3_type>(0.0), false);
+        ray.init(camPos, hlsl::normalize(tmp.xyz / tmp.w - camPos));
 
         return ray;
     }

@@ -59,7 +59,7 @@ struct Unidirectional
     bool closestHitProgram(uint16_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(closest_hit_type) intersectData)
     {
         anisotropic_interaction_type interaction = intersectData.getInteraction();
-        isotropic_interaction_type iso_interaction = interaction.isotropic;
+        isotropic_interaction_type iso_interaction = interaction.getIsotropic();
 
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(intersectData.getObjectID());
@@ -67,7 +67,7 @@ struct Unidirectional
         const bool isEmissive = materialSystem.hasEmission(matID);
         if (isEmissive)
         {
-            measure_type emissive = materialSystem.getEmission(matID, interaction.isotropic);
+            measure_type emissive = materialSystem.getEmission(matID, iso_interaction);
 
             const typename nee_type::light_id_type lightID = matLightID.getLightID();
             if (matLightID.isLight())
@@ -82,8 +82,8 @@ struct Unidirectional
         if (!matLightID.isMaterial() || isEmissive)
             return false;
 
-        bxdfnode_type bxdf = materialSystem.getBxDFNode(matID);
-        const bool isBSDF = materialSystem.isBSDF(matID);
+        bxdfnode_type bxdf = materialSystem.getBxDFNode(matID, interaction);
+        // const bool isBSDF = materialSystem.isBSDF(matID);
 
         vector3_type eps0 = randGen(depth * 2u, _sample);
         vector3_type eps1 = randGen(depth * 2u + 1u, _sample);
@@ -102,7 +102,7 @@ struct Unidirectional
         {
             typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
                 scene, materialSystem, intersectP, interaction,
-                isBSDF, eps0, depth
+                eps0, depth
             );
             scalar_type t = ret.getT();
             sample_type nee_sample = ret.getSample();
@@ -117,15 +117,16 @@ struct Unidirectional
             if (neeContrib.pdf > scalar_type(0.0))
             {
                 // example only uses isotropic bxdfs
-                quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction.isotropic, _cache.iso_cache);
-                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction.isotropic, _cache.iso_cache) * rcpChoiceProb;
+                quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, iso_interaction, _cache.iso_cache);
+                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, iso_interaction, _cache.iso_cache) * rcpChoiceProb;
                 const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib.pdf;
                 neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
                 const vector3_type origin = intersectP;
                 const vector3_type direction = nee_sample.getL().getDirection();
                 ray_type nee_ray;
-                nee_ray.initData(origin, direction, interaction.getN(), isBSDF);
+                nee_ray.init(origin, direction);
+                nee_ray.template initInteraction<anisotropic_interaction_type>(interaction);
                 nee_ray.setT(t);
                 tolerance_method_type::template adjust<ray_type>(nee_ray, direction, depth);
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
@@ -145,7 +146,7 @@ struct Unidirectional
 
             // example only uses isotropic bxdfs
             // the value of the bsdf divided by the probability of the sample being generated
-            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, interaction.isotropic, _cache.iso_cache);
+            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, iso_interaction, _cache.iso_cache);
             throughput *= bsdf_quotient_pdf.quotient;
             bxdfPdf = bsdf_quotient_pdf.pdf;
             bxdfSample = bsdf_sample.getL().getDirection();
@@ -161,7 +162,8 @@ struct Unidirectional
             // trace new ray
             vector3_type origin = intersectP;
             vector3_type direction = bxdfSample;
-            ray.initData(origin, direction, interaction.getN(), isBSDF);
+            ray.init(origin, direction);
+            ray.template initInteraction<anisotropic_interaction_type>(interaction);
             ray.setT(1.0/*kSceneSize*/);
             tolerance_method_type::template adjust<ray_type>(ray, direction, depth);
 

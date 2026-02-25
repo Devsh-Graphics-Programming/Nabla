@@ -32,25 +32,31 @@ NBL_CONCEPT_END(
 #undef rand
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+namespace impl
+{
+struct DummyInteraction {};
+}
+
 #define NBL_CONCEPT_NAME Ray
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (ray, T)
 #define NBL_CONCEPT_PARAM_1 (v, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_2 (b, bool)
+#define NBL_CONCEPT_PARAM_2 (interaction, impl::DummyInteraction)
 #define NBL_CONCEPT_PARAM_3 (scalar, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_4 (color, typename T::spectral_type)
 NBL_CONCEPT_BEGIN(5)
 #define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define b NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define scalar NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define color NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initData(v, v, v, b)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.init(v/*origin*/, v/*direction*/)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.template initInteraction<impl::DummyInteraction>(interaction)), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initPayload()), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.foundEmissiveMIS(scalar)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.addPayloadContribution(color)), ::nbl::hlsl::is_same_v, void))
@@ -62,7 +68,7 @@ NBL_CONCEPT_END(
 );
 #undef color
 #undef scalar
-#undef b
+#undef interaction
 #undef v
 #undef ray
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -183,7 +189,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::measure_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, aniso_inter, u, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, _sample, iso_inter, iso_cache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getBxDFNode(matid)), ::nbl::hlsl::is_same_v, typename T::bxdfnode_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getBxDFNode(matid, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.hasEmission(matid)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.setMonochromeEta(matid, cie_y)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getEmission(matid, iso_inter)), ::nbl::hlsl::is_same_v, typename T::measure_type))
@@ -232,19 +238,17 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_3 (v, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_4 (matSys, impl::DummyMaterialSystem)
 #define NBL_CONCEPT_PARAM_5 (interaction, typename T::interaction_type)
-#define NBL_CONCEPT_PARAM_6 (is_bsdf, bool)
-#define NBL_CONCEPT_PARAM_7 (depth, uint16_t)
-#define NBL_CONCEPT_PARAM_8 (scene, typename T::scene_type)
-NBL_CONCEPT_BEGIN(9)
+#define NBL_CONCEPT_PARAM_6 (depth, uint16_t)
+#define NBL_CONCEPT_PARAM_7 (scene, typename T::scene_type)
+NBL_CONCEPT_BEGIN(8)
 #define nee NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define matSys NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
-#define is_bsdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
-#define depth NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
-#define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
+#define depth NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
+#define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -261,12 +265,11 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NextEventEstimatorSampleQuotientReturn, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, is_bsdf, v/*xi*/, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, v/*xi*/, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
 );
 #undef scene
 #undef depth
-#undef is_bsdf
 #undef interaction
 #undef matSys
 #undef v
