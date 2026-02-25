@@ -30,6 +30,31 @@ namespace shapes
 
 // You can compute it from an OBB matrix (as given by/to imguizmo to position a [0,1]^2 rectangle mesh where Z+ is the front face.
 
+/*
+matrix<scalar_type,3,3> check = mul(modelSpace,tranpose(modelSpace));
+// orthogonality (don't need to check the other 3 lower half numbers, cause MM^T is symmetric)
+assert(check[0][1]==0.f);
+assert(check[0][2]==0.f);
+assert(check[1][2]==0.f);
+// the scales are squared
+const vector2_type scalesSq = vector2_type(check[0][0],check[1][1]);
+const vector2_type scalesRcp = rsqrt(scalesSq);
+// only rotation, scale needs to be thrown away
+basis = tranpose(modelSpace);
+// right now `mul(basis,fromObserver)` will apply extent scales on the dot product
+// need to remove that
+basis[0] *= scalesRcp[0];
+basis[1] *= scalesRcp[1];
+// but also back it up so we know the size of the original rectangle
+extents = promote(vector2_type>(1.f)/scalesRcp;
+if (dontAssertZScaleIsOne)
+   basis[2] *= rsqrt(check[2][2]);
+else
+{
+    assert(check[2][2]==1.f);
+}
+*/
+
 // Now, can apply translation:
 // 1) post-rotation so a it automatically gets added during a affine pseudo-mul of a 3x4, so pseudo_mul(basis,observer)
 // 2) pre-rotation so you keep a worldspace rectangle origin and subtract it before, e.g. mul(basis,worldSpaceOrigin-observer) - this one is possibly better due to next point

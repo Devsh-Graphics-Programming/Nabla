@@ -59,7 +59,7 @@ struct SphericalRectangle
         const scalar_type CLAMP_EPS = 1e-5;
 
         // flip z axis if r0.z > 0
-        r0.z = ieee754::flipSignIfRHSNegative<scalar_type>(r0.z, -r0.z);
+        r0.z = -hlsl::abs(r0.z);
         vector3_type r1 = r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
 
         const scalar_type au = uv.x * S + k;
