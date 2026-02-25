@@ -64,10 +64,9 @@ struct Unidirectional
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(intersectData.getObjectID());
         const typename material_system_type::material_id_type matID = matLightID.getMaterialID();
-        const bool isEmissive = materialSystem.hasEmission(matID);
-        if (isEmissive)
+        if (materialSystem.hasEmission(matID))
         {
-            measure_type emissive = materialSystem.getEmission(matID, iso_interaction);
+            measure_type emissive = materialSystem.getEmission(matID, interaction);
 
             const typename nee_type::light_id_type lightID = matLightID.getLightID();
             if (matLightID.isLight())
@@ -79,18 +78,23 @@ struct Unidirectional
             ray.addPayloadContribution(emissive);
         }
 
-        if (!matLightID.isMaterial() || isEmissive)
+        if (!matLightID.canContinuePath())
             return false;
 
         bxdfnode_type bxdf = materialSystem.getBxDFNode(matID, interaction);
-        // const bool isBSDF = materialSystem.isBSDF(matID);
 
         vector3_type eps0 = randGen(depth * 2u, _sample);
         vector3_type eps1 = randGen(depth * 2u + 1u, _sample);
 
         const vector3_type intersectP = intersectData.getPosition();
         vector3_type throughput = ray.getPayloadThroughput();
-        const vector3_type throughputCIE_Y = hlsl::normalize(spectralTypeToLumaCoeffs * throughput);
+        measure_type throughputCIE_Y = spectralTypeToLumaCoeffs * throughput;
+        {
+            scalar_type sum_throughput = throughputCIE_Y[0];
+            NBL_UNROLL for (uint16_t i = 1; i < vector_traits<measure_type>::Dimension; i++)
+                sum_throughput += throughputCIE_Y[i];
+            throughputCIE_Y /= sum_throughput;
+        }
 
         // sample lights
         const scalar_type neeProbability = bxdf.getNEEProb();
@@ -209,9 +213,6 @@ struct Unidirectional
 
         // TODO: russian roulette early exit?
     }
-
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxDepthLog2 = 4u;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxSamplesLog2 = 10u;
 
     randgen_type randGen;
     raygen_type rayGen;

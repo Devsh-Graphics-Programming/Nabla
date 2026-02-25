@@ -192,7 +192,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getBxDFNode(matid, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.hasEmission(matid)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.setMonochromeEta(matid, cie_y)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getEmission(matid, iso_inter)), ::nbl::hlsl::is_same_v, typename T::measure_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getEmission(matid, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::measure_type))
 );
 #undef cie_y
 #undef u
@@ -309,7 +309,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.getLightID()), ::nbl::hlsl::is_same_v, typename T::light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.getMaterialID()), ::nbl::hlsl::is_same_v, typename T::material_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.isLight()), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.isMaterial()), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((id.canContinuePath()), ::nbl::hlsl::is_same_v, bool))
 );
 #undef id
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
