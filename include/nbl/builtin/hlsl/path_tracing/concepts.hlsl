@@ -318,20 +318,19 @@ NBL_CONCEPT_END(
 namespace impl
 {
 struct DummyRay {};
+struct DummyIntersect {};
 }
 
 #define NBL_CONCEPT_NAME Scene
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (scene, T)
-#define NBL_CONCEPT_PARAM_1 (intersectP, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_2 (id, typename T::object_handle_type)
-#define NBL_CONCEPT_PARAM_3 (ray, impl::DummyRay)
-NBL_CONCEPT_BEGIN(4)
+#define NBL_CONCEPT_PARAM_1 (id, typename T::object_handle_type)
+#define NBL_CONCEPT_PARAM_2 (ray, impl::DummyRay)
+NBL_CONCEPT_BEGIN(3)
 #define scene NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define intersectP NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define id NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
@@ -339,11 +338,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::interaction_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(MaterialLightID, typename T::mat_light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.getMatLightIDs(id)), ::nbl::hlsl::is_same_v, typename T::mat_light_id_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.template getInteraction<impl::DummyRay>(id, intersectP, ray)), ::nbl::hlsl::is_same_v, typename T::interaction_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((scene.template getIntersection<impl::DummyIntersect, impl::DummyRay>(id, ray)), ::nbl::hlsl::is_same_v, impl::DummyIntersect))
 );
 #undef ray
 #undef id
-#undef intersectP
 #undef scene
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 

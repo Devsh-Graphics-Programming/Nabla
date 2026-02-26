@@ -55,7 +55,6 @@ struct Unidirectional
         return hlsl::dot(spectralTypeToLumaCoeffs, col);
     }
 
-    // TODO: will only work with isotropic surfaces, need to do aniso
     bool closestHitProgram(uint16_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(closest_hit_type) intersectData)
     {
         anisotropic_interaction_type interaction = intersectData.getInteraction();
@@ -117,8 +116,13 @@ struct Unidirectional
             bxdf::fresnel::OrientedEtas<monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(monochromeEta));
             anisocache_type _cache = anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, nee_sample, orientedEta);
 
+            // While NEE or other generators are not supposed to pick up Delta lobes by accident, we need the MIS weights to add up to 1 for the non-delta lobes.
+            // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
+            // Meaning that eval's pdf should equal quotient's pdf , this way even the diffuse contributions coming from within a specular lobe get a MIS weight near 0 for NEE.
+            // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
             if (neeContrib.pdf > scalar_type(0.0))
             {
+                // we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
                 const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction, _cache);
                 neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction, _cache) * rcpChoiceProb;
                 const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
