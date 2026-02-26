@@ -69,7 +69,7 @@ namespace nbl::video
                 if (!hasRequiredStages(stagePresence))
                     return {};
 
-                //if (!vertexShader.shader) return {}; //i dont quite understand why this line was in IGPUGraphics. checking if the shader itself was made correctly?
+                if (!meshShader.shader) return {}; //mesh shader is required in mesh pipelines, fragment and task are optional
 
                 return retval;
             }

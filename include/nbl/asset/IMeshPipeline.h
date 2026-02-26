@@ -5,27 +5,25 @@
 #include "nbl/asset/RasterizationStates.h"
 #include "nbl/asset/IPipeline.h"
 
+#include "nbl/asset/IRasterizationPipeline.h"
+
 
 namespace nbl::asset {
     class IMeshPipelineBase : public virtual core::IReferenceCounted {
     public:
         constexpr static inline uint8_t MESH_SHADER_STAGE_COUNT = 3u;
-        struct SCachedCreationParams final {
-            SRasterizationParams rasterization = {};
-            SBlendParams blend = {};
-            uint32_t subpassIx = 0u;
+        struct SCachedCreationParams final : public IRasterizationPipelineBase::SCachedCreationParams
+        {
             uint8_t requireFullSubgroups = false;
         };
-
     };
 
     template<typename PipelineLayoutType, typename RenderpassType>
-    class IMeshPipeline : public IPipeline<PipelineLayoutType>, public IMeshPipelineBase {
+    class IMeshPipeline : public IRasterizationPipeline<PipelineLayoutType, RenderpassType>, public IMeshPipelineBase {
     protected:
         using renderpass_t = RenderpassType;
     public:
         inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
-        inline const renderpass_t* getRenderpass() const {return m_renderpass.get();}
 
         static inline bool hasRequiredStages(const core::bitflag<hlsl::ShaderStage>& stagePresence)
         {
@@ -33,14 +31,12 @@ namespace nbl::asset {
         }
         
     protected:
-        explicit IMeshPipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams, renderpass_t* renderpass) :
-            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(layout)),
-            m_params(cachedParams), m_renderpass(core::smart_refctd_ptr<renderpass_t>(renderpass))
-        {
-        }
+        explicit IMeshPipeline(PipelineLayoutType* layout, const IMeshPipelineBase::SCachedCreationParams& cachedParams, renderpass_t* renderpass) :
+            IRasterizationPipeline<PipelineLayoutType, renderpass_t>(layout, renderpass),
+            m_params(cachedParams)
+        {}
 
         SCachedCreationParams m_params = {};
-        core::smart_refctd_ptr<renderpass_t> m_renderpass = nullptr;
     };
 
 }
