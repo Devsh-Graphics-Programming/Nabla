@@ -59,7 +59,6 @@ struct Unidirectional
     bool closestHitProgram(uint16_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(closest_hit_type) intersectData)
     {
         anisotropic_interaction_type interaction = intersectData.getInteraction();
-        isotropic_interaction_type iso_interaction = interaction.getIsotropic();
 
         // emissive
         typename scene_type::mat_light_id_type matLightID = scene.getMatLightIDs(intersectData.getObjectID());
@@ -72,7 +71,8 @@ struct Unidirectional
             if (matLightID.isLight())
             {
                 const scalar_type pdf = nee.deferred_pdf(scene, lightID, ray);
-                scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
+                assert(!hlsl::isinf(pdf));
+                const scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
                 emissive *= ray.foundEmissiveMIS(pdfSq);
             }
             ray.addPayloadContribution(emissive);
@@ -101,7 +101,7 @@ struct Unidirectional
         scalar_type rcpChoiceProb;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
         partitionRandVariable.leftProb = neeProbability;
-        assert(neeProbability >= 0.0 && neeProbability <= 1.0)
+        assert(neeProbability >= 0.0 && neeProbability <= 1.0);
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
@@ -120,9 +120,8 @@ struct Unidirectional
 
             if (neeContrib.pdf > scalar_type(0.0))
             {
-                // example only uses isotropic bxdfs
-                quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, iso_interaction, _cache.iso_cache);
-                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, iso_interaction, _cache.iso_cache) * rcpChoiceProb;
+                quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction, _cache);
+                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction, _cache) * rcpChoiceProb;
                 const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib.pdf;
                 neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
@@ -148,9 +147,8 @@ struct Unidirectional
             if (!bsdf_sample.isValid())
                 return false;
 
-            // example only uses isotropic bxdfs
             // the value of the bsdf divided by the probability of the sample being generated
-            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, iso_interaction, _cache.iso_cache);
+            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, interaction, _cache);
             throughput *= bsdf_quotient_pdf.quotient;
             bxdfPdf = bsdf_quotient_pdf.pdf;
             bxdfSample = bsdf_sample.getL().getDirection();
@@ -161,6 +159,7 @@ struct Unidirectional
         if (bxdfPdf > bxdfPdfThreshold && getLuma(throughput) > lumaThroughputThreshold)
         {
             scalar_type otherTechniqueHeuristic = neeProbability / bxdfPdf; // numerically stable, don't touch
+            assert(!hlsl::isinf(otherTechniqueHeuristic));
             ray.setPayloadMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
 
             // trace new ray
