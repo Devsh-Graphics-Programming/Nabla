@@ -359,7 +359,15 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 			param.fragmentShader = { .shader = shaders.fragment.get(), .entryPoint = "PSMain" };
 			param.layout = pipelineLayout.get();
 			param.renderpass = creationParams.renderpass.get();
-			param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = creationParams.subpassIx };
+			param.cached = {
+				{ //cant do designated, "no non-static member named 'nbl'"
+					.rasterization = rasterizationParams,
+					.blend = blendParams,
+					.subpassIx = creationParams.subpassIx,
+				},
+				/*.vertexInput =*/ vertexInputParams, //cant mix designated and non-designated
+				/*.primitiveAssembly = */ primitiveAssemblyParams
+			};
 		};
 		
 		if (!creationParams.utilities->getLogicalDevice()->createGraphicsPipelines(creationParams.pipelineCache.get(), params, &pipeline))
