@@ -68,12 +68,11 @@ struct Unidirectional
             measure_type emissive = materialSystem.getEmission(matID, interaction);
 
             const typename nee_type::light_id_type lightID = matLightID.getLightID();
-            if (matLightID.isLight())
+            if (ray.shouldDoMIS() && matLightID.isLight())
             {
                 const scalar_type pdf = nee.deferred_pdf(scene, lightID, ray);
                 assert(!hlsl::isinf(pdf));
-                const scalar_type pdfSq = hlsl::mix(pdf, pdf * pdf, pdf < numeric_limits<scalar_type>::max);
-                emissive *= ray.foundEmissiveMIS(pdfSq);
+                emissive *= ray.foundEmissiveMIS(pdf * pdf);
             }
             ray.addPayloadContribution(emissive);
         }
@@ -120,9 +119,9 @@ struct Unidirectional
 
             if (neeContrib.pdf > scalar_type(0.0))
             {
-                quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, nee_sample, interaction, _cache);
+                const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction, _cache);
                 neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction, _cache) * rcpChoiceProb;
-                const scalar_type otherGenOverLightAndChoice = bsdf_quotient_pdf.pdf * rcpChoiceProb / neeContrib.pdf;
+                const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
                 neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
                 const vector3_type origin = intersectP;
