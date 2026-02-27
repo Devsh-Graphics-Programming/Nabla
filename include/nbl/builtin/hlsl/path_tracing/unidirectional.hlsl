@@ -173,8 +173,11 @@ struct Unidirectional
 
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
-        vector3_type finalContribution = ray.getPayloadThroughput();
-        finalContribution *= nee.get_environment_radiance(ray);
+        vector3_type finalContribution = nee.get_environment_radiance(ray);
+        typename nee_type::light_id_type env_light_id;
+        env_light_id.id = 0u;
+        const scalar_type pdf = nee.deferred_pdf(scene, env_light_id, ray);
+        finalContribution *= ray.foundEmissiveMIS(pdf * pdf);
         ray.addPayloadContribution(finalContribution);
     }
 
