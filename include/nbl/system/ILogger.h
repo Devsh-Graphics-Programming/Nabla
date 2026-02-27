@@ -61,20 +61,15 @@ class ILogger : public core::IReferenceCounted
 			using namespace std::chrono;
 			auto currentTime = std::chrono::system_clock::now();
 			const std::time_t t = std::chrono::system_clock::to_time_t(currentTime);
-			
-			// Since there is no real way in c++ to get current time with microseconds, this is my weird approach
-			auto time_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch());
-			auto time_since_epoch_s = duration_cast<seconds>(system_clock::now().time_since_epoch());
-			time_since_epoch -= duration_cast<microseconds>(time_since_epoch_s);
-
-			// This while is for the microseconds which are less that 6 digits long to be aligned with the others
-			while (time_since_epoch.count() / 100000 == 0) time_since_epoch *= 10;
 
 			auto time = std::localtime(&t);
 
+			// since there's no microseconds in `time`
+			const auto us_fraction = duration_cast<microseconds>(currentTime.time_since_epoch()) - duration_cast<microseconds>(duration_cast<seconds>(currentTime.time_since_epoch()));
+
 			constexpr size_t DATE_STR_LENGTH = 28;
 			std::string timeStr(DATE_STR_LENGTH, '\0');
-			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", time->tm_mday, time->tm_mon + 1, 1900 + time->tm_year, time->tm_hour, time->tm_min, time->tm_sec, (int)time_since_epoch.count());
+			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%06d]", time->tm_mday, time->tm_mon + 1, 1900 + time->tm_year, time->tm_hour, time->tm_min, time->tm_sec, (int)us_fraction.count());
 			
 			std::string messageTypeStr;
 			switch (logLevel)
