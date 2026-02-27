@@ -1,17 +1,15 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED_
+#define _NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED_
 
-#ifndef __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace nbl
-{
-namespace core
-{
 
+namespace nbl::core
+{
 
 template<typename _size_type>
 class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type>
@@ -20,21 +18,23 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
+        // TODO: get rid of this eventually
         #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~LinearAddressAllocator() {}
 
-        LinearAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz) noexcept :
-                    Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), bufferSize(bufSz-Base::alignOffset)
+        using extra_ctor_param_types = type_list<>;
+        inline LinearAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz) noexcept :
+            Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), bufferSize(bufSz-Base::alignOffset)
         {
             reset();
         }
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
-        LinearAddressAllocator(_size_type newBuffSz, LinearAddressAllocator&& other, Args&&... args) :
+        inline LinearAddressAllocator(_size_type newBuffSz, LinearAddressAllocator&& other, Args&&... args) :
             Base(std::move(other),std::forward<Args>(args)...), bufferSize(invalid_address), cursor(invalid_address)
         {
             std::swap(bufferSize,other.bufferSize);
@@ -42,13 +42,13 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             std::swap(cursor,other.cursor);
         }
         template<typename... Args>
-        LinearAddressAllocator(_size_type newBuffSz, const LinearAddressAllocator& other, Args&&... args) :
+        inline LinearAddressAllocator(_size_type newBuffSz, const LinearAddressAllocator& other, Args&&... args) :
             Base(other,std::forward<Args>(args)...), bufferSize(invalid_address), cursor(other.cursor)
         {
             bufferSize = newBuffSz-Base::alignOffset;
         }
 
-        LinearAddressAllocator& operator=(LinearAddressAllocator&& other)
+        inline LinearAddressAllocator& operator=(LinearAddressAllocator&& other)
         {
             Base::operator=(std::move(other));
             std::swap(bufferSize,other.bufferSize);
@@ -125,30 +125,23 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         {
             return bufferSize+Base::alignOffset;
         }
+
     protected:
         size_type bufferSize;
         size_type cursor;
 };
 
-
-}
 }
 
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
-namespace nbl
-{
-namespace core
-{
 
-
+namespace nbl::core
+{
 // aliases
 template<typename size_type>
 using LinearAddressAllocatorST = LinearAddressAllocator<size_type>;
 
 template<typename size_type, class RecursiveLockable>
 using LinearAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<LinearAddressAllocator<size_type>,RecursiveLockable>;
-
 }
-}
-
 #endif

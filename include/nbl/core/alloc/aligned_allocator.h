@@ -8,11 +8,10 @@
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/AllocatorTrivialBases.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
+// TODO: deprecate and replace everywhere with `refctd_memory_resource`
 template <class T, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(T)>
 class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public nbl::core::AllocatorTrivialBase<T>
 {
@@ -70,10 +69,8 @@ class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public nbl::core
 };
 
 template <typename T>
-using default_aligned_allocator = aligned_allocator<T, _NBL_DEFAULT_ALIGNMENT(T)>;
+using default_aligned_allocator = aligned_allocator<T,_NBL_DEFAULT_ALIGNMENT(T)>;
 
-} // end namespace core
-} // end namespace nbl
-
+} // end namespace nbl::core
 #endif
 
