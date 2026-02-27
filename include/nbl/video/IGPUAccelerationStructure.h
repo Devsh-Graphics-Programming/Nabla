@@ -289,8 +289,9 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
 				}
-
-				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
+				
+				template<typename ForwardIterator> // TODO: requires
+				inline ForwardIterator fillTracking(ForwardIterator oit) const
 				{
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratch.buffer);
 					if (Base::isUpdate)
@@ -486,7 +487,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 					return retval;
 				}
 
-				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
+				template<typename ForwardIterator> // TODO: requires
+				inline ForwardIterator fillTracking(ForwardIterator oit) const
 				{
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratch.buffer);
 					if (Base::isUpdate)
@@ -713,8 +715,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				*(tracked++) = *(it++);
 		}
 		// Useful if TLAS got built externally as well
-		template<typename Iterator>
-		inline void insertTrackedBLASes(const Iterator begin, const Iterator end, const build_ver_t buildVer)
+		template<typename ForwardIterator>
+		inline void insertTrackedBLASes(ForwardIterator begin, const uint32_t count, const build_ver_t buildVer)
 		{
 			if (buildVer==0)
 				return;
@@ -725,14 +727,19 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			for (auto it=std::next(prev); it!=m_pendingBuilds.end()&&it->ordinal>buildVer; prev=it++) {}
 			auto inserted = m_pendingBuilds.emplace_after(prev);
 			// now fill the contents
-			inserted->BLASes.insert(begin,end);
+			inserted->BLASes.reserve(count);
+			for (auto i=0u; i<count; i++)
+			{
+				inserted->BLASes.insert(*begin);
+				++begin;
+			}
 			inserted->ordinal = buildVer;
 		}
-		template<typename Iterator>
-		inline build_ver_t pushTrackedBLASes(const Iterator begin, const Iterator end)
+		template<typename ForwardIterator>
+		inline build_ver_t pushTrackedBLASes(const ForwardIterator begin, const uint32_t count)
 		{
 			const auto buildVer = registerNextBuildVer();
-			insertTrackedBLASes<Iterator>(begin,end,buildVer);
+			insertTrackedBLASes<ForwardIterator>(begin,count,buildVer);
 			return buildVer;
 		}
 		// a little utility to make sure nothing from before this build version gets tracked
@@ -750,18 +757,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		const uint32_t m_maxInstanceCount;
 
 	private:
-		struct DynamicUpCastingSpanIterator
-		{
-			inline bool operator!=(const DynamicUpCastingSpanIterator& other) const {return ptr!=other.ptr;}
-
-			inline DynamicUpCastingSpanIterator operator++() {return {ptr++};}
-
-			inline const IGPUBottomLevelAccelerationStructure* operator*() const {return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get());}
-
-			std::span<const core::smart_refctd_ptr<const core::IReferenceCounted>>::iterator ptr;
-		};
 		friend class ILogicalDevice;
 		friend class IQueue;
+
 		inline const core::unordered_set<blas_smart_ptr_t>* getPendingBuildTrackedBLASes(const build_ver_t buildVer) const
 		{
 			const auto found = std::find_if(m_pendingBuilds.begin(),m_pendingBuilds.end(),[buildVer](const auto& item)->bool{return item.ordinal==buildVer;});
