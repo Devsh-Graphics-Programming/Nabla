@@ -1,17 +1,15 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED__
+#ifndef _NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED_
+#define _NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED_
 
 
 #include "nbl/core/decl/BaseClasses.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
-namespace nbl
-{
-namespace core
+
+namespace nbl::core
 {
 
 class NBL_FORCE_EBO IAddressAllocator : Interface
@@ -42,6 +40,7 @@ template <class AddressAllocator>
 class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
+
     public:
         typedef address_allocator_traits<AddressAllocator> traits;
 
@@ -84,7 +83,5 @@ class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
 };
 
 }
-}
-
 #endif
 
