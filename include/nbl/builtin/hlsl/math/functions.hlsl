@@ -152,7 +152,7 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
 
         Uint32VectorWithDimensionOfT xAsUintVec = bit_cast<Uint32VectorWithDimensionOfT, T>(x);
 
-        const Uint32VectorWithDimensionOfT mask = cond ? _static_cast<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max >> 1) : _static_cast<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max);
+        const Uint32VectorWithDimensionOfT mask = cond ? promote<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max >> 1) : promote<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max);
         const Uint32VectorWithDimensionOfT condAbsAsUint = xAsUintVec & mask;
         T condAbs = bit_cast<T, Uint32VectorWithDimensionOfT>(condAbsAsUint);
 

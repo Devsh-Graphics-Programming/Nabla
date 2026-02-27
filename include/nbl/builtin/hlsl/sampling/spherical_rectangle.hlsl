@@ -32,10 +32,11 @@ struct SphericalRectangle
         return retval;
     }
 
-    vector2_type generate(const vector2_type rectangleExtents, const vector2_type uv, NBL_REF_ARG(scalar_type) S)
+    vector2_type generate(const vector3_type observer, const vector2_type uv, NBL_REF_ARG(scalar_type) S)
     {
-        const vector4_type denorm_n_z = vector4_type(-rect.r0.y, rect.r0.x + rectangleExtents.x, rect.r0.y + rectangleExtents.y, -rect.r0.x);
-        const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>(hlsl::promote<vector4_type>(rect.r0.z * rect.r0.z) + denorm_n_z * denorm_n_z);
+        vector3_type r0 = hlsl::mul(rect.basis, rect.origin - observer);
+        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + rect.extents.x, r0.y + rect.extents.y, -r0.x);
+        const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>(hlsl::promote<vector4_type>(r0.z * r0.z) + denorm_n_z * denorm_n_z);
         const vector4_type cosGamma = vector4_type(
             -n_z[0] * n_z[1],
             -n_z[1] * n_z[2],
@@ -57,27 +58,27 @@ struct SphericalRectangle
 
         const scalar_type CLAMP_EPS = 1e-5;
 
-        // flip z axis if rect.r0.z > 0
-        rect.r0.z = ieee754::flipSignIfRHSNegative<scalar_type>(rect.r0.z, -rect.r0.z);
-        vector3_type r1 = rect.r0 + vector3_type(rectangleExtents.x, rectangleExtents.y, 0);
+        // flip z axis if r0.z > 0
+        r0.z = -hlsl::abs(r0.z);
+        vector3_type r1 = r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
 
         const scalar_type au = uv.x * S + k;
         const scalar_type fu = (hlsl::cos<scalar_type>(au) * b0 - b1) / hlsl::sin<scalar_type>(au);
         const scalar_type cu_2 = hlsl::max<scalar_type>(fu * fu + b0 * b0, 1.f); // forces `cu` to be in [-1,1]
         const scalar_type cu = ieee754::flipSignIfRHSNegative<scalar_type>(scalar_type(1.0) / hlsl::sqrt<scalar_type>(cu_2), fu);
 
-        scalar_type xu = -(cu * rect.r0.z) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - cu * cu);
-        xu = hlsl::clamp<scalar_type>(xu, rect.r0.x, r1.x); // avoid Infs
-        const scalar_type d_2 = xu * xu + rect.r0.z * rect.r0.z;
+        scalar_type xu = -(cu * r0.z) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - cu * cu);
+        xu = hlsl::clamp<scalar_type>(xu, r0.x, r1.x); // avoid Infs
+        const scalar_type d_2 = xu * xu + r0.z * r0.z;
         const scalar_type d = hlsl::sqrt<scalar_type>(d_2);
 
-        const scalar_type h0 = rect.r0.y / hlsl::sqrt<scalar_type>(d_2 + rect.r0.y * rect.r0.y);
+        const scalar_type h0 = r0.y / hlsl::sqrt<scalar_type>(d_2 + r0.y * r0.y);
         const scalar_type h1 = r1.y / hlsl::sqrt<scalar_type>(d_2 + r1.y * r1.y);
         const scalar_type hv = h0 + uv.y * (h1 - h0);
         const scalar_type hv2 = hv * hv;
         const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - CLAMP_EPS);
 
-        return vector2_type((xu - rect.r0.x) / rectangleExtents.x, (yv - rect.r0.y) / rectangleExtents.y);
+        return vector2_type((xu - r0.x) / rect.extents.x, (yv - r0.y) / rect.extents.y);
     }
 
     shapes::SphericalRectangle<T> rect;

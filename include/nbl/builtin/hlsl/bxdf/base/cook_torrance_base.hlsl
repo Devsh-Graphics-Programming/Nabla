@@ -202,9 +202,10 @@ struct SCookTorrance
         // fail if samples have invalid paths
         const scalar_type NdotL = hlsl::mix(scalar_type(2.0) * VdotH * localH.z - NdotV,
                                     localH.z * (VdotH * rcpEta.value[0] + LdotH) - NdotV * rcpEta.value[0], transmitted);
+        assert(!hlsl::isnan(NdotL));
         // VNDF sampling guarantees that `VdotH` has same sign as `NdotV`
         // and `transmitted` controls the sign of `LdotH` relative to `VdotH` by construction (reflect -> same sign, or refract -> opposite sign)
-        if (hlsl::isnan(NdotL) || ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
+        if (ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV, NdotL) != transmitted)
         {
             valid = false;
             return sample_type::createInvalid();    // should check if sample direction is invalid
@@ -307,7 +308,16 @@ struct SCookTorrance
         partitionRandVariable.leftProb = reflectance;
         bool transmitted = partitionRandVariable(z, rcpChoiceProb);
 
-        const scalar_type LdotH = hlsl::mix(VdotH, ieee754::copySign(hlsl::sqrt(rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0]), -VdotH), transmitted);
+        scalar_type LdotH;
+        if (transmitted)
+        {
+            scalar_type det = rcpEta.value2[0]*VdotH*VdotH + scalar_type(1.0) - rcpEta.value2[0];
+            if (det < scalar_type(0.0))
+                return sample_type::createInvalid();
+            LdotH = ieee754::copySign(hlsl::sqrt(det), -VdotH);
+        }
+        else
+            LdotH = VdotH;
         bool valid;
         sample_type s = __generate_common(interaction, localH, NdotV, VdotH, LdotH, transmitted, rcpEta, valid);
         if (valid)
