@@ -19,16 +19,15 @@ namespace hlsl
 namespace path_tracing
 {
 
-template<class RandGen, class RayGen, class Intersector, class MaterialSystem, /* class PathGuider, */ class NextEventEstimator, class Accumulator, class Scene
-NBL_PRIMARY_REQUIRES(concepts::RandGenerator<RandGen> && concepts::RayGenerator<RayGen> &&
+template<class RandGen, class Ray, class Intersector, class MaterialSystem, /* class PathGuider, */ class NextEventEstimator, class Accumulator, class Scene
+NBL_PRIMARY_REQUIRES(concepts::RandGenerator<RandGen> && concepts::Ray<Ray> &&
     concepts::Intersector<Intersector> && concepts::MaterialSystem<MaterialSystem> &&
     concepts::NextEventEstimator<NextEventEstimator> && concepts::Accumulator<Accumulator> &&
     concepts::Scene<Scene>)
 struct Unidirectional
 {
-    using this_t = Unidirectional<RandGen, RayGen, Intersector, MaterialSystem, NextEventEstimator, Accumulator, Scene>;
+    using this_t = Unidirectional<RandGen, Ray, Intersector, MaterialSystem, NextEventEstimator, Accumulator, Scene>;
     using randgen_type = RandGen;
-    using raygen_type = RayGen;
     using intersector_type = Intersector;
     using material_system_type = MaterialSystem;
     using nee_type = NextEventEstimator;
@@ -40,7 +39,7 @@ struct Unidirectional
     using measure_type = typename MaterialSystem::measure_type;
     using sample_type = typename NextEventEstimator::sample_type;
     using ray_dir_info_type = typename sample_type::ray_dir_info_type;
-    using ray_type = typename RayGen::ray_type;
+    using ray_type = Ray;
     using object_handle_type = typename Intersector::object_handle_type;
     using closest_hit_type = typename Intersector::closest_hit_type;
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
@@ -180,14 +179,10 @@ struct Unidirectional
     }
 
     // Li
-    void sampleMeasure(uint32_t sampleIndex, uint32_t maxDepth, NBL_REF_ARG(Accumulator) accumulator)
+    void sampleMeasure(NBL_REF_ARG(ray_type) ray, uint32_t sampleIndex, uint32_t maxDepth, NBL_REF_ARG(Accumulator) accumulator)
     {
-        //scalar_type meanLumaSq = 0.0;
-        vector3_type uvw = randGen(0u, sampleIndex);
-        ray_type ray = rayGen.generate(uvw);
-        ray.initPayload();
-
         // bounces
+        // note do 1-based indexing because we expect first dimension was consumed to generate the ray
         bool continuePath = true;
         for (uint16_t d = 1; (d <= maxDepth) && continuePath; d++)
         {
@@ -210,7 +205,6 @@ struct Unidirectional
     }
 
     randgen_type randGen;
-    raygen_type rayGen;
     material_system_type materialSystem;
     nee_type nee;
     scene_type scene;
