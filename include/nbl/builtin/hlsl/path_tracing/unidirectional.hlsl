@@ -85,14 +85,7 @@ struct Unidirectional
         vector3_type eps1 = randGen(depth * 2u + 1u, _sample);
 
         const vector3_type intersectP = intersectData.getPosition();
-        vector3_type throughput = ray.getPayloadThroughput();
-        measure_type throughputCIE_Y = spectralTypeToLumaCoeffs * throughput;
-        {
-            scalar_type sum_throughput = throughputCIE_Y[0];
-            NBL_UNROLL for (uint16_t i = 1; i < vector_traits<measure_type>::Dimension; i++)
-                sum_throughput += throughputCIE_Y[i];
-            throughputCIE_Y /= sum_throughput;
-        }
+        measure_type throughputCIE_Y = interaction.getLuminosityContributionHint();
 
         // sample lights
         const scalar_type neeProbability = bxdf.getNEEProb();
@@ -132,7 +125,7 @@ struct Unidirectional
                 const vector3_type direction = nee_sample.getL().getDirection();
                 ray_type nee_ray;
                 nee_ray.init(origin, direction);
-                nee_ray.template initInteraction<anisotropic_interaction_type>(interaction);
+                nee_ray.template setInteraction<anisotropic_interaction_type>(interaction);
                 nee_ray.setT(t);
                 tolerance_method_type::template adjust<ray_type>(nee_ray, direction, depth);
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
@@ -143,6 +136,7 @@ struct Unidirectional
         // sample BSDF
         scalar_type bxdfPdf;
         vector3_type bxdfSample;
+        vector3_type throughput = ray.getPayloadThroughput();
         {
             anisocache_type _cache;
             sample_type bsdf_sample = materialSystem.generate(matID, interaction, eps1, _cache);
@@ -163,13 +157,13 @@ struct Unidirectional
         {
             scalar_type otherTechniqueHeuristic = neeProbability / bxdfPdf; // numerically stable, don't touch
             assert(!hlsl::isinf(otherTechniqueHeuristic));
-            ray.setPayloadMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
+            ray.updateThroughputAndMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
 
             // trace new ray
             vector3_type origin = intersectP;
             vector3_type direction = bxdfSample;
             ray.init(origin, direction);
-            ray.template initInteraction<anisotropic_interaction_type>(interaction);
+            ray.template setInteraction<anisotropic_interaction_type>(interaction);
             ray.setT(1.0/*kSceneSize*/);
             tolerance_method_type::template adjust<ray_type>(ray, direction, depth);
 
@@ -203,7 +197,7 @@ struct Unidirectional
 
             continuePath = intersection.foundHit();
             if (continuePath)
-                continuePath &= closestHitProgram(d, sampleIndex, ray, intersection);
+                continuePath = closestHitProgram(d, sampleIndex, ray, intersection);
         }
         if (!continuePath)
             missProgram(ray);
