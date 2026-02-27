@@ -127,7 +127,7 @@ struct Unidirectional
                 nee_ray.init(origin, direction);
                 nee_ray.template setInteraction<anisotropic_interaction_type>(interaction);
                 nee_ray.setT(t);
-                tolerance_method_type::template adjust<ray_type>(nee_ray, direction, depth);
+                tolerance_method_type::template adjust<ray_type>(nee_ray, intersectData.getGeometricNormal(), depth);
                 if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
                     ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
             }
@@ -164,8 +164,7 @@ struct Unidirectional
             vector3_type direction = bxdfSample;
             ray.init(origin, direction);
             ray.template setInteraction<anisotropic_interaction_type>(interaction);
-            ray.setT(1.0/*kSceneSize*/);
-            tolerance_method_type::template adjust<ray_type>(ray, direction, depth);
+            tolerance_method_type::template adjust<ray_type>(ray, intersectData.getGeometricNormal(), depth);
 
             return true;
         }

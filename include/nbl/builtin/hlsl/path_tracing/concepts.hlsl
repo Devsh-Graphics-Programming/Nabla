@@ -106,6 +106,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getObjectID()), ::nbl::hlsl::is_same_v, typename T::object_handle_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getPosition()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getInteraction()), ::nbl::hlsl::is_same_v, typename T::interaction_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((closest_hit.getGeometricNormal()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
 );
 #undef closest_hit
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
