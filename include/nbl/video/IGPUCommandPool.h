@@ -80,6 +80,7 @@ class IGPUCommandPool : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
         
         // Host access to Command Pools needs to be externally synchronized anyway so its completely fine to do this
+        // TODO: abstract it away, useful in other externally synchronised contexts
         template<typename T>
         class StackAllocation final
         {
@@ -157,6 +158,88 @@ class IGPUCommandPool : public IBackendObject
         class CTraceRaysIndirectCmd;
         class CBindRayTracingPipelineCmd;
 
+        class IVariableSizeCommandBase;
+        class CExtraResourceTrackingBlock;
+        class CTrackedIterator final
+        {
+            public:
+                using value_t = core::smart_refctd_ptr<const IReferenceCounted>;
+
+            private:
+                IVariableSizeCommandBase* m_cmd = nullptr;
+                value_t* m_res = nullptr;
+
+            public:
+                inline CTrackedIterator() {}
+                inline CTrackedIterator(IVariableSizeCommandBase* beginCmd) : m_cmd(beginCmd), m_res(m_cmd ? m_cmd->getLocalResources():nullptr) {}
+
+                explicit inline operator bool() const {return m_cmd && m_res && m_res<m_cmd->getLocalResources()+m_cmd->getLocalResourceCount();}
+                inline bool operator!=(const CTrackedIterator& other) const
+                {
+                    const bool selfInvalid = bool(*this);
+                    if (selfInvalid!=bool(other))
+                        return true;
+                    if (selfInvalid)
+                        return false;
+                    return m_cmd!=other.m_cmd || m_res!=other.m_res;
+                }
+
+                inline value_t& operator*()
+                {
+                    assert(bool(*this));
+                    return *m_res;
+                }
+                inline const value_t& operator*() const
+                {
+                    assert(bool(*this));
+                    return *m_res;
+                }
+
+                inline CTrackedIterator operator+(uint32_t advance) const
+                {
+                    CTrackedIterator retval = *this;
+                    if (bool(*this))
+                    {
+                        auto* const localRes = m_cmd->getLocalResources();
+                        assert(m_res>=localRes);
+                        uint32_t localPos = m_res-localRes;
+                        if (const auto localCount=m_cmd->getLocalResourceCount(); localPos+advance<localCount)
+                            retval.m_res += advance;
+                        else
+                        { 
+                            advance -= localCount-localPos;
+                            for (constexpr auto MaxTracked=CCommandSegment::STORAGE_SIZE/sizeof(value_t); true; advance-=MaxTracked)
+                            {
+                                retval.m_cmd = retval.m_cmd->m_next;
+                                if (!retval.m_cmd)
+                                {
+                                    retval.m_res = nullptr;
+                                    break;
+                                }
+                                retval.m_res = retval.m_cmd->getLocalResources();
+                                if (advance<MaxTracked)
+                                {
+                                    retval.m_res += advance;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    return retval;
+                }
+                inline CTrackedIterator& operator++()
+                {
+                    *this = *this + 1;
+                    return *this;
+                }
+                inline CTrackedIterator operator++(int)
+                {
+                    CTrackedIterator retval = *this;
+                    *this = *this + 1;
+                    return retval;
+                }
+        };
+
     protected:
         IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint8_t _familyIx)
             : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
@@ -168,9 +251,24 @@ class IGPUCommandPool : public IBackendObject
 
         // for access to what?
         friend class IGPUCommandBuffer;
+        struct DynamicBLASCastingIterator
+        {
+            inline bool operator!=(const DynamicBLASCastingIterator& other) const { return orig != other.orig; }
 
+            inline DynamicBLASCastingIterator operator++() {return {++orig};}
+
+            inline core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> operator*() const
+            {
+                return core::smart_refctd_ptr_dynamic_cast<const IGPUBottomLevelAccelerationStructure>(*orig);
+            }
+
+            IGPUCommandPool::CTrackedIterator orig;
+        };
+        friend class ILogicalDevice;
+        friend class IQueue;
+        
         class CCommandSegment;
-        class alignas(COMMAND_ALIGNMENT) ICommand
+        class ICommand
         {
                 friend class CCommandSegment;
 
@@ -203,55 +301,90 @@ class IGPUCommandPool : public IBackendObject
                 void operator delete( ICommand* ptr, std::destroying_delete_t,
                                         std::size_t sz, std::align_val_t al ) { ptr->~ICommand(); }
 
-
             private:
-
-                friend CCommandSegment;
-
                 const uint32_t m_size;
+                // 4 bytes unused
         };
-
         template<class CRTP>
-        class NBL_FORCE_EBO IFixedSizeCommand : public ICommand
+        class IFixedSizeCommand : public ICommand
         {
             public:
                 template <typename... Args>
-                static uint32_t calc_size(const Args&...)
+                static inline uint32_t calc_size(const Args&...)
                 {
                     static_assert(std::is_final_v<CRTP>);
+                    //static_assert(sizeof(CRTP)<=CCommandSegment::STORAGE_SIZE);
                     return sizeof(CRTP);
                 }
 
-                virtual ~IFixedSizeCommand() = default;
+                inline virtual ~IFixedSizeCommand() = default;
 
             protected:
                 inline IFixedSizeCommand() : ICommand(calc_size()) {}
         };
+        // I can't refactor this into a base class for tracking handles, cause I want them to live at the end :(
+        class CCommandSegmentListPool;
+        class IVariableSizeCommandBase : public ICommand
+        {
+            public:
+                inline virtual ~IVariableSizeCommandBase()
+                {
+                    std::destroy_n(getLocalResources(),getLocalResourceCount());
+                }
+
+                inline uint32_t getLocalResourceCount() const {return reinterpret_cast<const uint32_t*>(static_cast<const ICommand*>(this)+1)[-1];}
+
+            protected:
+                struct SConstructionParams
+                {
+                    uint32_t size;
+                    uint32_t resources;
+                };
+                static SConstructionParams calc_size(const uint32_t memoryLeft, const uint32_t thisSize, const uint32_t resourceCount)
+                {
+                    SConstructionParams retval = {.size=std::min<uint32_t>(thisSize+resourceCount*sizeof(CTrackedIterator::value_t),memoryLeft)};
+                    retval.resources = (retval.size-thisSize)/sizeof(CTrackedIterator::value_t);
+                    return retval;
+                }
+
+                inline IVariableSizeCommandBase(const SConstructionParams& param) : ICommand(param.size), m_next(nullptr)
+                {
+                    reinterpret_cast<uint32_t*>(static_cast<ICommand*>(this)+1)[-1] = param.resources;
+                    std::uninitialized_default_construct_n(getLocalResources(),getLocalResourceCount());
+                }
+
+            private:
+                friend class CTrackedIterator;
+                friend class CCommandSegmentListPool;
+
+                // methods for the iterator
+                inline CTrackedIterator::value_t* getLocalResources()
+                {
+                    return reinterpret_cast<CTrackedIterator::value_t*>(reinterpret_cast<uint8_t*>(this)+getSize())-getLocalResourceCount();
+                }
+                inline const CTrackedIterator::value_t* getLocalResources() const
+                {
+                    CTrackedIterator::value_t* retval = const_cast<IVariableSizeCommandBase*>(this)->getLocalResources();
+                    return retval;
+                }
+
+                CExtraResourceTrackingBlock* m_next;
+        };
         template<class CRTP>
-        class NBL_FORCE_EBO IVariableSizeCommand : public ICommand
+        class IVariableSizeCommand : public IVariableSizeCommandBase
         {
             public:
                 template <typename... Args>
-                static uint32_t calc_size(const Args&... args)
+                static SConstructionParams calc_size(const uint32_t memoryLeft, const Args&... args)
                 {
                     static_assert(std::is_final_v<CRTP>);
-                    return core::alignUp(sizeof(CRTP)+CRTP::calc_resources(args...)*sizeof(core::smart_refctd_ptr<const IReferenceCounted>),alignof(CRTP));
+                    static_assert(alignof(CRTP)>=alignof(CTrackedIterator::value_t));
+                    return IVariableSizeCommandBase::calc_size(memoryLeft,sizeof(CRTP),CRTP::calc_resources(args...));
                 }
-
-                virtual ~IVariableSizeCommand()
-                {
-                    std::destroy_n(getVariableCountResources(),m_resourceCount);
-                }
-                inline core::smart_refctd_ptr<const IReferenceCounted>* getVariableCountResources() { return reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(static_cast<CRTP*>(this)+1); }
 
             protected:
                 template <typename... Args>
-                inline IVariableSizeCommand(const Args&... args) : ICommand(calc_size(args...)), m_resourceCount(CRTP::calc_resources(args...))
-                {
-                    std::uninitialized_default_construct_n(getVariableCountResources(),m_resourceCount);
-                }
-
-                const uint32_t m_resourceCount;
+                inline IVariableSizeCommand(const uint32_t memoryLeft, const Args&... args) : IVariableSizeCommandBase(calc_size(memoryLeft,args...)) {}
         };
 
         class alignas(COMMAND_SEGMENT_ALIGNMENT) CCommandSegment
@@ -269,19 +402,20 @@ class IGPUCommandPool : public IBackendObject
                 } m_header;
 
             public:
-                static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
+                static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t),alignof(ICommand));
 
-                CCommandSegment(CCommandSegment* prev):
+                inline CCommandSegment(CCommandSegment* prev):
                     m_header(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE)
                 {
-                    static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
+                    static_assert(alignof(ICommand) <= COMMAND_ALIGNMENT);
+                    static_assert(COMMAND_ALIGNMENT <= COMMAND_SEGMENT_ALIGNMENT);
                     wipeNextCommandSize();
 
                     if (prev)
                         prev->m_header.next = this;
                 }
 
-                ~CCommandSegment()
+                inline ~CCommandSegment()
                 {
                     for (ICommand* cmd = begin(); cmd != end();)
                     {
@@ -297,8 +431,12 @@ class IGPUCommandPool : public IBackendObject
                 template <typename Cmd, typename... Args>
                 Cmd* allocate(const Args&... args)
                 {
-                    const uint32_t cmdSize = Cmd::calc_size(args...);
-                    const auto address = m_header.commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
+                    uint32_t cmdSize;
+                    if constexpr (std::is_base_of_v<IVariableSizeCommandBase,Cmd>)
+                        cmdSize = Cmd::calc_size(args...).size;
+                    else
+                        cmdSize = Cmd::calc_size(args...);
+                    const auto address = m_header.commandAllocator.alloc_addr(cmdSize,alignof(Cmd));
                     if (address == decltype(m_header.commandAllocator)::invalid_address)
                         return nullptr;
 
@@ -307,6 +445,8 @@ class IGPUCommandPool : public IBackendObject
                     auto cmdMem = reinterpret_cast<Cmd*>(m_data + address);
                     return cmdMem;
                 }
+
+                inline uint32_t max_size() const {return m_header.commandAllocator.max_size();}
 
                 inline CCommandSegment* getNext() const { return m_header.next; }
                 inline CCommandSegment* getNextHead() const { return m_header.nextHead; }
@@ -337,7 +477,7 @@ class IGPUCommandPool : public IBackendObject
                 void wipeNextCommandSize()
                 {
                     const auto nextCmdOffset = m_header.commandAllocator.get_allocated_size();
-                    const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
+                    const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand,m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
                     if (wipeEnd < m_header.commandAllocator.get_total_size())
                         *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
                 }
@@ -345,6 +485,23 @@ class IGPUCommandPool : public IBackendObject
         static_assert(sizeof(CCommandSegment)==COMMAND_SEGMENT_SIZE);
 
     private:
+        class CExtraResourceTrackingBlock final : public IVariableSizeCommandBase
+        {
+            public:
+                static SConstructionParams calc_size(const uint32_t extraResourceCount)
+                {
+                    static_assert(alignof(CExtraResourceTrackingBlock)>=alignof(CTrackedIterator::value_t));
+                    return IVariableSizeCommandBase::calc_size(CCommandSegment::STORAGE_SIZE,sizeof(CExtraResourceTrackingBlock),extraResourceCount);
+                }
+
+                // this command will always be created at the start of a new segment, the whole reason it exists is because previous command has overflown the segment
+                inline CExtraResourceTrackingBlock(const uint32_t extraResourceCount) : IVariableSizeCommandBase(calc_size(extraResourceCount)) {}
+
+                static inline uint32_t calc_resources(const uint32_t extraResourceCount)
+                {
+                    return extraResourceCount;
+                }
+        };
         class CCommandSegmentListPool
         {
             public:
@@ -354,7 +511,7 @@ class IGPUCommandPool : public IBackendObject
                     CCommandSegment* tail = nullptr;
                 };
 
-                CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
+                inline CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
 
                 template <typename Cmd, typename... Args>
                 Cmd* emplace(SCommandSegmentList& list, Args&&... args)
@@ -362,14 +519,29 @@ class IGPUCommandPool : public IBackendObject
                     if (!list.tail && !appendToList(list))
                         return nullptr;
 
+                    constexpr bool IsVariableSize = std::is_base_of_v<IVariableSizeCommand<Cmd>,Cmd>;
+                    uint32_t resourcesLeft = 0u;
+                    if constexpr (IsVariableSize)
+                        resourcesLeft = Cmd::calc_resources(args...);
                     // not forwarding twice because newCmd() will never be called the second time
                     auto newCmd = [&]() -> Cmd*
                     {
-                        auto cmdMem = list.tail->allocate<Cmd>(args...);
+                        Cmd* cmdMem;
+                        uint32_t unallocatedSize;
+                        if constexpr (IsVariableSize)
+                        {
+                            unallocatedSize = list.tail->max_size();
+                            cmdMem = list.tail->allocate<Cmd>(unallocatedSize,args...);
+                        }
+                        else
+                            cmdMem = list.tail->allocate<Cmd>(args...);
                         if (!cmdMem)
                             return nullptr;
 
-                        return new (cmdMem) Cmd(std::forward<Args>(args)...);
+                        if constexpr (IsVariableSize)
+                            return new (cmdMem) Cmd(unallocatedSize,std::forward<Args>(args)...);
+                        else
+                            return new (cmdMem) Cmd(std::forward<Args>(args)...);
                     };
 
                     auto cmd = newCmd();
@@ -379,10 +551,21 @@ class IGPUCommandPool : public IBackendObject
                             return nullptr;
 
                         cmd = newCmd();
-                        if (!cmd)
+                        assert(cmd);
+                    }
+
+                    // now handle segmenting the tracked resources
+                    if constexpr (IsVariableSize)
+                    {
+                        for (IVariableSizeCommandBase* prev=cmd; (resourcesLeft-=prev->getLocalResourceCount())!=0u; )
                         {
-                            assert(false);
-                            return nullptr;
+                            if (!appendToList(list))
+                                return nullptr;
+                            auto* const mem = list.tail->allocate<CExtraResourceTrackingBlock>(resourcesLeft);
+                            assert(mem);
+                            auto* const extra =  new (mem) CExtraResourceTrackingBlock(resourcesLeft);
+                            prev->m_next = extra;
+                            prev = extra;
                         }
                     }
 
@@ -398,13 +581,13 @@ class IGPUCommandPool : public IBackendObject
                     if (head == m_head)
                         m_head = head->getNextHead();
 
-                    CCommandSegment::linkHeads(head->getPrevHead(), head->getNextHead());
+                    CCommandSegment::linkHeads(head->getPrevHead(),head->getNextHead());
 
                     for (auto& segment = head; segment;)
                     {
                         auto nextSegment = segment->getNext();
                         segment->~CCommandSegment();
-                        m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
+                        m_pool.deallocate(segment,COMMAND_SEGMENT_SIZE);
                         segment = nextSegment;
                     }
                 }
@@ -462,7 +645,7 @@ class IGPUCommandPool : public IBackendObject
 class IGPUCommandPool::CBindIndexBufferCmd final : public IFixedSizeCommand<CBindIndexBufferCmd>
 {
     public:
-        CBindIndexBufferCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& indexBuffer) : m_indexBuffer(std::move(indexBuffer)) {}
+        inline CBindIndexBufferCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& indexBuffer) : m_indexBuffer(std::move(indexBuffer)) {}
 
     private:
         core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
@@ -471,7 +654,7 @@ class IGPUCommandPool::CBindIndexBufferCmd final : public IFixedSizeCommand<CBin
 class IGPUCommandPool::CIndirectCmd final : public IFixedSizeCommand<CIndirectCmd>
 {
     public:
-        CIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+        inline CIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
     private:
         core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
@@ -480,7 +663,7 @@ class IGPUCommandPool::CIndirectCmd final : public IFixedSizeCommand<CIndirectCm
 class IGPUCommandPool::CDrawIndirectCountCmd final : public IFixedSizeCommand<CDrawIndirectCountCmd>
 {
     public:
-        CDrawIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
+        inline CDrawIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
             : m_buffer(std::move(buffer)), m_countBuffer(std::move(countBuffer))
         {}
 
@@ -503,9 +686,10 @@ class IGPUCommandPool::CBeginRenderPassCmd final : public IFixedSizeCommand<CBeg
 class IGPUCommandPool::CPipelineBarrierCmd final : public IVariableSizeCommand<CPipelineBarrierCmd>
 {
     public:
-        CPipelineBarrierCmd(const uint32_t bufferCount, const uint32_t imageCount) : IVariableSizeCommand<CPipelineBarrierCmd>(bufferCount,imageCount) {}
+        inline CPipelineBarrierCmd(const uint32_t memoryLeft, const uint32_t bufferCount, const uint32_t imageCount) :
+            IVariableSizeCommand<CPipelineBarrierCmd>(memoryLeft,bufferCount,imageCount) {}
 
-        static uint32_t calc_resources(const uint32_t bufferCount, const uint32_t imageCount)
+        static inline uint32_t calc_resources(const uint32_t bufferCount, const uint32_t imageCount)
         {
             return bufferCount+imageCount;
         }
@@ -514,7 +698,7 @@ class IGPUCommandPool::CPipelineBarrierCmd final : public IVariableSizeCommand<C
 class IGPUCommandPool::CBindDescriptorSetsCmd final : public IFixedSizeCommand<CBindDescriptorSetsCmd>
 {
     public:
-        CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const IGPUDescriptorSet* const* const sets)
+        inline CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const IGPUDescriptorSet* const* const sets)
             : m_layout(std::move(pipelineLayout))
         {
             for (auto i = 0; i < setCount; ++i)
@@ -532,7 +716,7 @@ class IGPUCommandPool::CBindDescriptorSetsCmd final : public IFixedSizeCommand<C
 class IGPUCommandPool::CBindComputePipelineCmd final : public IFixedSizeCommand<CBindComputePipelineCmd>
 {
     public:
-        CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+        inline CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
 
     private:
         core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
@@ -679,7 +863,7 @@ class IGPUCommandPool::CCopyImageToBufferCmd final : public IFixedSizeCommand<CC
 class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<CExecuteCommandsCmd>
 {
     public:
-        CExecuteCommandsCmd(const uint32_t count) : IVariableSizeCommand<CExecuteCommandsCmd>(count) {}
+        CExecuteCommandsCmd(const uint32_t memoryLeft, const uint32_t count) : IVariableSizeCommand<CExecuteCommandsCmd>(memoryLeft,count) {}
 
         static uint32_t calc_resources(const uint32_t count)
         {
@@ -690,7 +874,7 @@ class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<C
 class IGPUCommandPool::CCustomReferenceCmd final : public IVariableSizeCommand<CCustomReferenceCmd>
 {
     public:
-        CCustomReferenceCmd(const uint32_t count) : IVariableSizeCommand<CCustomReferenceCmd>(count) {}
+        CCustomReferenceCmd(const uint32_t memoryLeft, const uint32_t count) : IVariableSizeCommand<CCustomReferenceCmd>(memoryLeft,count) {}
 
         static uint32_t calc_resources(const uint32_t count)
         {
@@ -701,22 +885,13 @@ class IGPUCommandPool::CCustomReferenceCmd final : public IVariableSizeCommand<C
 class IGPUCommandPool::CWaitEventsCmd final : public IVariableSizeCommand<CWaitEventsCmd>
 {
     public:
-        CWaitEventsCmd(const uint32_t eventCount, IEvent *const *const events, const uint32_t totalBufferCount, const uint32_t totalImageCount)
-            : IVariableSizeCommand<CWaitEventsCmd>(eventCount,events,totalBufferCount,totalImageCount), m_eventCount(eventCount)
-        {
-            for (auto i=0u; i<eventCount; ++i)
-                getVariableCountResources()[i] = core::smart_refctd_ptr<const IEvent>(events[i]);
-        }
+        CWaitEventsCmd(const uint32_t memoryLeft, const uint32_t eventCount, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+            : IVariableSizeCommand<CWaitEventsCmd>(memoryLeft,eventCount,totalBufferCount,totalImageCount) {}
 
-        inline core::smart_refctd_ptr<const IDeviceMemoryBacked>* getDeviceMemoryBacked() {return reinterpret_cast<core::smart_refctd_ptr<const IDeviceMemoryBacked>*>(getVariableCountResources()+m_eventCount);}
-
-        static uint32_t calc_resources(const uint32_t eventCount, const IEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+        static uint32_t calc_resources(const uint32_t eventCount, const uint32_t totalBufferCount, const uint32_t totalImageCount)
         {
             return eventCount+totalBufferCount+totalImageCount;
         }
-
-    private:
-        const uint32_t m_eventCount;
 };
 
 class IGPUCommandPool::CCopyImageCmd final : public IFixedSizeCommand<CCopyImageCmd>
@@ -790,9 +965,9 @@ class IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd final : public I
         // If we take queryPool as rvalue ref here (core::smart_refctd_ptr<const IQueryPool>&&), in calc_size it will become const core::smart_refctd_ptr<const IQueryPool>
         // because calc_size takes its arguments by const ref (https://github.com/Devsh-Graphics-Programming/Nabla/blob/04fcae3029772cbc739ccf6ba80f72e6e12f54e8/include/nbl/video/IGPUCommandPool.h#L76)
         // , that means we will not be able to pass a core::smart_refctd_ptr<const IQueryPool> when emplacing the command. So instead, we take a raw pointer and create refctd pointers here.
-        CWriteAccelerationStructurePropertiesCmd(const IQueryPool* queryPool, const uint32_t accelerationStructureCount)
-            : IVariableSizeCommand<CWriteAccelerationStructurePropertiesCmd>(queryPool,accelerationStructureCount), m_queryPool(core::smart_refctd_ptr<const IQueryPool>(queryPool))
-        {}
+        CWriteAccelerationStructurePropertiesCmd(const uint32_t memoryLeft, const IQueryPool* queryPool, const uint32_t accelerationStructureCount)
+            : IVariableSizeCommand<CWriteAccelerationStructurePropertiesCmd>(memoryLeft,queryPool,accelerationStructureCount),
+            m_queryPool(core::smart_refctd_ptr<const IQueryPool>(queryPool)) {}
 
         static uint32_t calc_resources(const IQueryPool* queryPool, const uint32_t accelerationStructureCount)
         {
@@ -806,7 +981,7 @@ class IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd final : public I
 class IGPUCommandPool::CBuildAccelerationStructuresCmd final : public IVariableSizeCommand<CBuildAccelerationStructuresCmd>
 {
     public:
-        inline CBuildAccelerationStructuresCmd(const uint32_t resourceCount) : IVariableSizeCommand<CBuildAccelerationStructuresCmd>(resourceCount) {}
+        inline CBuildAccelerationStructuresCmd(const uint32_t memoryLeft, const uint32_t resourceCount) : IVariableSizeCommand<CBuildAccelerationStructuresCmd>(memoryLeft,resourceCount) {}
 
         static inline uint32_t calc_resources(const uint32_t resourceCount)
         {
