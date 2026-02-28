@@ -591,8 +591,9 @@ CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 	if (_size==0ull)
 		return {nullptr,NVRTC_ERROR_INVALID_INPUT};
 
-	auto ptx = asset::ICPUBuffer::create({ _size });
-	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,reinterpret_cast<char*>(ptx->getPointer()))};
+	auto ptx = asset::ICPUBuffer::create({_size});
+	auto ptxPtr = static_cast<char*>(ptx->getPointer());
+	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
 }
 
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)
