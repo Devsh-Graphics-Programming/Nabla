@@ -421,6 +421,10 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
+if(NBL_COMPILE_WITH_CUDA)
+	target_compile_definitions(Nabla PUBLIC _NBL_COMPILE_WITH_CUDA_)
+endif()
+
 set(INTERFACE_BUILD_DEFINITIONS
 	_DXC_DLL_="${DXC_DLL}"
 )
