@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/video/CCUDAHandler.h"
+#include "nbl/system/CFileView.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #include "jitify/jitify.hpp"
