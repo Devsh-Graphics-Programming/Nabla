@@ -690,8 +690,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 			if (arch==CCUDADevice::EVA_COUNT)
 				continue;
 
-			auto device = new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch);
-			return core::smart_refctd_ptr<CCUDADevice>(device,core::dont_grab);
+			return core::smart_refctd_ptr<CCUDADevice>(new CCUDADevice(std::move(vulkanConnection), physicalDevice, arch, device.handle, core::smart_refctd_ptr<CCUDAHandler>(this)),core::dont_grab);
 		}
 	}
 	return nullptr;
