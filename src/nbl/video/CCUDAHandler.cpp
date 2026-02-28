@@ -614,7 +614,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 		CUuuid uuid = {};
 		if (m_cuda.pcuDeviceGetUuid(&uuid,handle)!=CUDA_SUCCESS)
 			continue;
-				if (!memcmp(&uuid,&physicalDevice->getLimits().deviceUUID,VK_UUID_SIZE))
+				if (!memcmp(&uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
 			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
 			for (int i=0; i<CU_DEVICE_ATTRIBUTE_MAX; i++)
