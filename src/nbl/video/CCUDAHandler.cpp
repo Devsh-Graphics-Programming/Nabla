@@ -410,7 +410,39 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	NVRTC nvrtc = {};
 	#if defined(_NBL_WINDOWS_API_)
 	// Perpetual TODO: any new CUDA releases we need to account for?
-	const char* nvrtc64_versions[] = { "nvrtc64_111","nvrtc64_110","nvrtc64_102","nvrtc64_101","nvrtc64_100","nvrtc64_92","nvrtc64_91","nvrtc64_90","nvrtc64_80","nvrtc64_75","nvrtc64_70",nullptr };
+	// Version List: https://developer.nvidia.com/cuda-toolkit-archive
+	const char* nvrtc64_versions[] = {
+		"nvrtc64_131",
+		"nvrtc64_130",
+		"nvrtc64_129",
+		"nvrtc64_128",
+		"nvrtc64_126",
+		"nvrtc64_125",
+		"nvrtc64_124",
+		"nvrtc64_123",
+		"nvrtc64_122",
+		"nvrtc64_121",
+		"nvrtc64_120",
+		"nvrtc64_118",
+		"nvrtc64_117",
+		"nvrtc64_116",
+		"nvrtc64_115",
+		"nvrtc64_114",
+		"nvrtc64_113",
+		"nvrtc64_112",
+		"nvrtc64_111",
+		"nvrtc64_110",
+		"nvrtc64_102",
+		"nvrtc64_101",
+		"nvrtc64_100",
+		"nvrtc64_92",
+		"nvrtc64_91",
+		"nvrtc64_90",
+		"nvrtc64_80",
+		"nvrtc64_75",
+		"nvrtc64_70",
+		nullptr
+	};
 	const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
 	for (auto verpath=nvrtc64_versions; *verpath; verpath++)
 	{
