@@ -544,8 +544,10 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	{
 		const void* contents = it.second.data();
 		headers.push_back(core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
-			core::smart_refctd_ptr<system::ISystem>(system),it.first.c_str(),
+			it.first.c_str(),
 			core::bitflag(system::IFile::ECF_READ)|system::IFile::ECF_MAPPABLE,
+			// ASK(kevin): What initial_modified_time should I use? Is this how this parameter is used?
+			std::chrono::clock_cast<system::IFile::time_point_t::clock>(std::chrono::system_clock::now()),
 			const_cast<void*>(contents),it.second.size()+1u
 		));
 	}
