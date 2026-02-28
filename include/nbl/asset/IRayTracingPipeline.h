@@ -31,6 +31,8 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
             NO_NULL_MISS_SHADERS = 1<<16,
             NO_NULL_INTERSECTION_SHADERS = 1<<17,
             ALLOW_MOTION = 1<<20,
+            CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
+            CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
         };
         #undef base_flag
 

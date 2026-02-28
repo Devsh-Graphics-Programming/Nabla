@@ -1,6 +1,7 @@
 #include "nbl/video/CVulkanComputePipeline.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
+#include "nbl/video/CVulkanPipelineExecutableInfo.h"
 
 namespace nbl::video
 {
@@ -10,6 +11,12 @@ CVulkanComputePipeline::~CVulkanComputePipeline()
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
     vk->vk.vkDestroyPipeline(vulkanDevice->getInternalObject(), m_pipeline, nullptr);
+}
+
+void CVulkanComputePipeline::populateExecutableInfo(bool includeInternalRepresentations)
+{
+	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	populateExecutableInfoFromVulkan(m_executableInfo, vulkanDevice->getFunctionTable(), vulkanDevice->getInternalObject(), m_pipeline, includeInternalRepresentations);
 }
 
 void CVulkanComputePipeline::setObjectDebugName(const char* label) const

@@ -23,13 +23,13 @@ namespace nbl::asset
 	Vulkan supports multiple types of pipelines:
 	- graphics pipeline
 	- compute pipeline
-	- TODO: Raytracing
+	- raytracing pipeline
 */
 class IPipelineBase
 {
     public:
       // TODO: tbf these shouldn't even be laying around in `nbl::asset`, we should probably move to `nbl::video::IGPUPipelineBase`
-      enum class CreationFlags : uint64_t
+		enum class CreationFlags : uint64_t
       {
         NONE = 0, // disallowed in maintanance5
         DISABLE_OPTIMIZATIONS = 1 << 0,
@@ -47,10 +47,8 @@ class IPipelineBase
         // This is for NV-raytracing extension. Now this is done via IDeferredOperation
         //DEFER_COMPILE_NV = 1<<5,
 
-        // We use Renderdoc to take care of this for us,
-        // we won't be parsing the statistics and internal representation ourselves.
-        //CAPTURE_STATISTICS = 1<<6,
-        //CAPTURE_INTERNAL_REPRESENTATIONS = 1<<7,
+        CAPTURE_STATISTICS = 1<<6,
+        CAPTURE_INTERNAL_REPRESENTATIONS = 1<<7,
 
         // Will soon be deprecated due to
         // https://github.com/Devsh-Graphics-Programming/Nabla/issues/854

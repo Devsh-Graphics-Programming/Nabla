@@ -22,7 +22,9 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
         inline const void* getNativeHandle() const override { return &m_pipeline; }
 
         inline VkPipeline getInternalObject() const { return m_pipeline; }
-    
+
+        void populateExecutableInfo(bool includeInternalRepresentations);
+
         void setObjectDebugName(const char* label) const override;
 
     private:
