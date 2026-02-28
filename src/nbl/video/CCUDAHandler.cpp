@@ -591,7 +591,9 @@ CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 	if (_size==0ull)
 		return {nullptr,NVRTC_ERROR_INVALID_INPUT};
 
-	auto ptx = asset::ICPUBuffer::create({_size});
+	asset::ICPUBuffer::SCreationParams ptxParams = {};
+	ptxParams.size = _size;
+	auto ptx = asset::ICPUBuffer::create(std::move(ptxParams));
 	auto ptxPtr = static_cast<char*>(ptx->getPointer());
 	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
 }
