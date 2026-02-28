@@ -11,6 +11,47 @@
 namespace nbl::video
 {
 	
+CCUDAHandler::CCUDAHandler(
+	CUDA&& _cuda, 
+	NVRTC&& _nvrtc, 
+	core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, 
+	core::smart_refctd_ptr<system::ILogger>&& _logger,
+	int _version)
+	: m_cuda(std::move(_cuda))
+	, m_nvrtc(std::move(_nvrtc))
+	, m_headers(std::move(_headers))
+	, m_logger(std::move(_logger))
+	, m_version(_version)
+{
+	for (auto& header : m_headers)
+	{
+		m_headerContents.push_back(reinterpret_cast<const char*>(header->getMappedPointer()));
+		m_headerNamesStorage.push_back(header->getFileName().string());
+		m_headerNames.push_back(m_headerNamesStorage.back().c_str());
+	}
+
+	int deviceCount = 0;
+	if (m_cuda.pcuDeviceGetCount(&deviceCount) != CUDA_SUCCESS || deviceCount <= 0)
+		return;
+
+	for (int device_i = 0; device_i < deviceCount; device_i++)
+	{
+		CUdevice handle = -1;
+		if (m_cuda.pcuDeviceGet(&handle, device_i) != CUDA_SUCCESS || handle < 0)
+			continue;
+
+		CUuuid uuid = {};
+		if (m_cuda.pcuDeviceGetUuid(&uuid, handle) != CUDA_SUCCESS)
+			continue;
+
+		m_availableDevices.emplace_back(handle, uuid);
+
+		int* attributes = m_availableDevices.back().attributes;
+		for (int i = 0; i < CU_DEVICE_ATTRIBUTE_MAX; i++)
+			m_cuda.pcuDeviceGetAttribute(attributes + i, static_cast<CUdevice_attribute>(i), handle);
+
+	}
+}
 bool CCUDAHandler::defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
 {
 	switch (result)
