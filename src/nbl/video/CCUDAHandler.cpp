@@ -606,11 +606,11 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 	if (std::find(devices.begin(),devices.end(),physicalDevice)==devices.end())
 		return nullptr;
 
-		int deviceCount = 0;
-		if (m_cuda.pcuDeviceGetCount(&deviceCount)!=CUDA_SUCCESS || deviceCount<=0)
+	int deviceCount = 0;
+	if (m_cuda.pcuDeviceGetCount(&deviceCount)!=CUDA_SUCCESS || deviceCount<=0)
 		return nullptr;
 
-		for (int ordinal=0; ordinal<deviceCount; ordinal++)
+	for (int ordinal=0; ordinal<deviceCount; ordinal++)
 	{
 		CUdevice handle = -1;
 		if (m_cuda.pcuDeviceGet(&handle,ordinal)!=CUDA_SUCCESS || handle<0)
@@ -619,7 +619,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 		CUuuid uuid = {};
 		if (m_cuda.pcuDeviceGetUuid(&uuid,handle)!=CUDA_SUCCESS)
 			continue;
-				if (!memcmp(&uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
+		if (!memcmp(&uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
 			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
 			for (int i=0; i<CU_DEVICE_ATTRIBUTE_MAX; i++)
@@ -706,9 +706,9 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 				continue;
 
 			auto device = new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch);
-						return core::smart_refctd_ptr<CCUDADevice>(device,core::dont_grab);
-				}
+			return core::smart_refctd_ptr<CCUDADevice>(device,core::dont_grab);
 		}
+	}
 	return nullptr;
 }
 
