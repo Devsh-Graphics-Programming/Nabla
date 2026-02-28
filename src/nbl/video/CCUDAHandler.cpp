@@ -606,28 +606,13 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 	if (std::find(devices.begin(),devices.end(),physicalDevice)==devices.end())
 		return nullptr;
 
-	int deviceCount = 0;
-	if (m_cuda.pcuDeviceGetCount(&deviceCount)!=CUDA_SUCCESS || deviceCount<=0)
-		return nullptr;
-
-	for (int ordinal=0; ordinal<deviceCount; ordinal++)
+	for (const auto& device : m_availableDevices)
 	{
-		CUdevice handle = -1;
-		if (m_cuda.pcuDeviceGet(&handle,ordinal)!=CUDA_SUCCESS || handle<0)
-			continue;
-
-		CUuuid uuid = {};
-		if (m_cuda.pcuDeviceGetUuid(&uuid,handle)!=CUDA_SUCCESS)
-			continue;
-		if (!memcmp(&uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
+		if (!memcmp(&device.uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
-			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
-			for (int i=0; i<CU_DEVICE_ATTRIBUTE_MAX; i++)
-				m_cuda.pcuDeviceGetAttribute(attributes+i,static_cast<CUdevice_attribute>(i),handle);
-
 			CCUDADevice::E_VIRTUAL_ARCHITECTURE arch = CCUDADevice::EVA_COUNT;
-			const int& archMajor = attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR];
-			const int& archMinor = attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR];
+			const int& archMajor = device.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR];
+			const int& archMinor = device.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR];
 			switch (archMajor)
 			{
 				case 3:
