@@ -18,7 +18,7 @@ namespace nbl::video
 
 class CCUDAHandler : public core::IReferenceCounted
 {
-    public:
+		public:
 		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger=nullptr);
 		inline bool defaultHandleResult(CUresult result)
 		{
@@ -34,7 +34,7 @@ class CCUDAHandler : public core::IReferenceCounted
 		static T* cast_CUDA_ptr(CUdeviceptr ptr) { return reinterpret_cast<T*>(ptr); }
 
 		//
-		core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
+		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
 
 		//
 		using LibLoader = system::DefaultFuncPtrLoader;
@@ -119,6 +119,24 @@ class CCUDAHandler : public core::IReferenceCounted
 			,cuSurfObjectDestroy
 			,cuTexObjectCreate
 			,cuTexObjectDestroy
+			,cuImportExternalMemory
+			,cuDestroyExternalMemory
+			,cuExternalMemoryGetMappedBuffer
+			,cuMemUnmap
+			,cuMemAddressFree
+			,cuMemGetAllocationGranularity
+			,cuMemAddressReserve
+			,cuMemCreate
+			,cuMemExportToShareableHandle
+			,cuMemMap
+			,cuMemRelease
+			,cuMemSetAccess
+			,cuMemImportFromShareableHandle
+			,cuLaunchHostFunc
+			,cuDestroyExternalSemaphore
+			,cuImportExternalSemaphore
+			,cuSignalExternalSemaphoresAsync
+			,cuWaitExternalSemaphoresAsync
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
@@ -157,11 +175,23 @@ class CCUDAHandler : public core::IReferenceCounted
 			const auto filesize = file->getSize();
 			std::string source(filesize+1u,'0');
 
-			system::future<size_t> bytesRead;
+			system::IFile::success_t bytesRead;
 			file->read(bytesRead,source.data(),0u,file->getSize());
-			source.resize(bytesRead.get());
+			source.resize(bytesRead.getBytesProcessed());
 
 			return createProgram(prog,std::move(source),file->getFileName().string().c_str(),headerCount,headerContents,includeNames);
+		}
+
+		struct SCUDADeviceInfo
+		{
+			CUdevice handle = {};
+			CUuuid uuid = {};
+			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
+		};
+
+		inline core::vector<SCUDADeviceInfo> const& getAvailableDevices() const
+		{
+			return m_availableDevices;
 		}
 
 		//
@@ -228,16 +258,8 @@ class CCUDAHandler : public core::IReferenceCounted
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 
 	protected:
-		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version)
-			: m_cuda(std::move(_cuda)), m_nvrtc(std::move(_nvrtc)), m_headers(std::move(_headers)), m_logger(std::move(_logger)), m_version(_version)
-		{
-			for (auto& header : m_headers)
-			{
-				m_headerContents.push_back(reinterpret_cast<const char*>(header->getMappedPointer()));
-				m_headerNamesStorage.push_back(header->getFileName().string());
-				m_headerNames.push_back(m_headerNamesStorage.back().c_str());
-			}
-		}
+		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
+
 		~CCUDAHandler() = default;
 		
 		//
@@ -260,6 +282,7 @@ class CCUDAHandler : public core::IReferenceCounted
 		NVRTC m_nvrtc;
 
 		//
+		core::vector<SCUDADeviceInfo> m_availableDevices;
 		core::vector<core::smart_refctd_ptr<system::IFile>> m_headers;
 		core::vector<const char*> m_headerContents;
 		core::vector<std::string> m_headerNamesStorage;
