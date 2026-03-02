@@ -43,13 +43,19 @@ struct SphericalTriangle
         return hlsl::any<vector<bool, 3> >(csc_sides >= hlsl::promote<vector3_type>(numeric_limits<scalar_type>::max));
     }
 
+    vector3_type __getCosVertices()
+    {
+        // using Spherical Law of Cosines (TODO: do we need to clamp anymore? since the pyramid angles method introduction?)
+        return hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, hlsl::promote<vector3_type>(-1.0), hlsl::promote<vector3_type>(1.0));
+    }
+
     scalar_type solidAngle(NBL_REF_ARG(vector3_type) cos_vertices, NBL_REF_ARG(vector3_type) sin_vertices)
     {
         if (pyramidAngles())
             return 0.f;
 
         // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
-        cos_vertices = hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, hlsl::promote<vector3_type>(-1.0), hlsl::promote<vector3_type>(1.0)); // using Spherical Law of Cosines (TODO: do we need to clamp anymore? since the pyramid angles method introduction?) 
+        cos_vertices = __getCosVertices();
         sin_vertices = hlsl::sqrt(hlsl::promote<vector3_type>(1.0) - cos_vertices * cos_vertices);
 
         math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cos_vertices[0], sin_vertices[0]);
@@ -69,7 +75,7 @@ struct SphericalTriangle
         if (pyramidAngles())
             return 0.f;
 
-        cos_vertices = hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, hlsl::promote<vector3_type>(-1.0), hlsl::promote<vector3_type>(1.0));
+        cos_vertices = __getCosVertices();
 
         matrix<scalar_type, 3, 3> awayFromEdgePlane;
         awayFromEdgePlane[0] = hlsl::cross(vertices[1], vertices[2]) * csc_sides[0];

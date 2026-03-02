@@ -84,20 +84,16 @@ struct SphericalRectangle
     using vector3_type = vector<Scalar, 3>;
     using matrix3x3_type = matrix<Scalar, 3, 3>;
 
-    static SphericalRectangle<Scalar> create(const vector3_type rectangleOrigin, const vector3_type right, const vector3_type up)
-    {
-        SphericalRectangle<scalar_type> retval;
-        retval.origin = rectangleOrigin;
-        retval.extents = vector2_type(hlsl::length(right), hlsl::length(up));
-        retval.basis[0] = right / retval.extents[0];
-        retval.basis[1] = up / retval.extents[1];
-        retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
-        return retval;
-    }
-
     static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(CompressedSphericalRectangle<Scalar>) compressed)
     {
-        return create(compressed.origin, compressed.right, compressed.up);
+        SphericalRectangle<scalar_type> retval;
+        retval.origin = compressed.origin;
+        retval.extents = vector2_type(hlsl::length(compressed.right), hlsl::length(compressed.up));
+        retval.basis[0] = compressed.right / retval.extents[0];
+        retval.basis[1] = compressed.up / retval.extents[1];
+        assert(hlsl::dot(retval.basis[0], retval.basis[1]) > scalar_type(0.0));
+        retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
+        return retval;
     }
 
     scalar_type solidAngle(const vector3_type observer)
