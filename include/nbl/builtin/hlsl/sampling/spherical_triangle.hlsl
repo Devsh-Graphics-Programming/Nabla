@@ -44,8 +44,11 @@ struct SphericalTriangle
         return retval;
     }
 
-    vector3_type generate(scalar_type cos_c, scalar_type csc_b, const vector2_type u)
+    vector3_type generate(const vector2_type u)
     {
+        const scalar_type cos_c = tri.cos_sides[2];
+        const scalar_type csc_b = tri.csc_sides[1];
+
         scalar_type negSinSubSolidAngle,negCosSubSolidAngle;
         math::sincos(solidAngle * u.x - numbers::pi<scalar_type>, negSinSubSolidAngle, negCosSubSolidAngle);
 
@@ -77,19 +80,10 @@ struct SphericalTriangle
         return retval;
     }
 
-    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, const vector2_type u)
+    vector2_type generateInverse(const vector3_type L)
     {
         const scalar_type cos_c = tri.cos_sides[2];
-        const scalar_type csc_b = tri.csc_sides[1];
-
-        rcpPdf = solidAngle;
-
-        return generate(cos_c, csc_b, u);
-    }
-
-    vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, scalar_type cos_c, scalar_type csc_c, const vector3_type L)
-    {
-        pdf = 1.0 / solidAngle;
+        const scalar_type csc_c = tri.csc_sides[2];
 
         const scalar_type cosAngleAlongBC_s = nbl::hlsl::dot(L, tri.vertices[1]);
         const scalar_type csc_a_ = 1.0 / nbl::hlsl::sqrt(1.0 - cosAngleAlongBC_s * cosAngleAlongBC_s);
@@ -113,12 +107,9 @@ struct SphericalTriangle
         return vector2_type(u,v);
     }
 
-    vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, const vector3_type L)
+    scalar_type backwardPdf(const vector3_type L)
     {
-        const scalar_type cos_c = tri.cos_sides[2];
-        const scalar_type csc_c = tri.csc_sides[2];
-
-        return generateInverse(pdf, cos_c, csc_c, L);
+        return scalar_type(1.0) / solidAngle;
     }
 
     shapes::SphericalTriangle<T> tri;
