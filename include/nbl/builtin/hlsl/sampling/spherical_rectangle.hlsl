@@ -51,7 +51,6 @@ struct SphericalRectangle
         // flip z axis if r0.z > 0
         retval.r0 = -hlsl::abs(retval.r0.z);
         retval.r1 = retval.r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
-        retval.extents = rect.extents;
 
         retval.b0 = n_z[0];
         retval.b1 = n_z[2];
@@ -86,7 +85,7 @@ struct SphericalRectangle
         const scalar_type hv2 = hv * hv;
         const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - ClampEps);
 
-        return vector2_type((xu - r0.x) / extents.x, (yv - r0.y) / extents.y);
+        return vector2_type((xu - r0.x), (yv - r0.y));
     }
 
     vector4_type cosGamma;
@@ -94,7 +93,6 @@ struct SphericalRectangle
     scalar_type b1;
     vector3_type r0;
     vector3_type r1;
-    vector2_type extents;
 };
 
 } // namespace sampling
