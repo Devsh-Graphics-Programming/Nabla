@@ -18,45 +18,30 @@ namespace nbl::asset
 //! Meshloader capable of loading STL meshes.
 class CSTLMeshFileLoader final : public IGeometryLoader
 {
-	public:
+   public:
 
-		CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr);
+      inline CSTLMeshFileLoader() = default;
 
-		asset::SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+      asset::SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
+      bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "stl", nullptr };
-			return ext;
-		}
+      const char** getAssociatedFileExtensions() const override
+      {
+         static const char* ext[]{ "stl", nullptr };
+         return ext;
+      }
 
-	private:
-		struct SContext
-		{
-			IAssetLoader::SAssetLoadContext inner;
-			uint32_t topHierarchyLevel;
-			IAssetLoader::IAssetLoaderOverride* loaderOverride;
+   private:
+      const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
 
-			size_t fileOffset = {};
-		};
+      asset::IAssetManager* m_assetMgr;
 
-		virtual void initialize() override;
-
-		const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
-
-		// skips to the first non-space character available
-		void goNextWord(SContext* context) const;
-		// returns the next word
-
-		const std::string& getNextToken(SContext* context, std::string& token) const;
-		// skip to next printable character after the first line break
-		void goNextLine(SContext* context) const;
-		//! Read 3d vector of floats
-		void getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const;
-
-		asset::IAssetManager* m_assetMgr;
+      template <typename aType>
+      static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+      {
+         performOnCertainOrientation(varToHandle);
+      }
 };
 
 }	// end namespace nbl::scene
