@@ -34,8 +34,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                     if (jointRedirectView.getElementCount()<geometry->getJointCount())
                         return false;
                 }
-                else
-                    return true;
+                return true;
             }
 
             inline bool hasTransform() const {return !core::isnan(transform[0][0]);}
@@ -57,7 +56,45 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         inline bool isSkinned() const {return getJointCount()>0;}
         // View of matrices being the inverse bind pose
         inline const SDataView& getInverseBindPoseView() const {return m_inverseBindPoseView;}
+        
+        
+        //
+        class IBLASExporter
+        {
+            protected:
+                using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const_t<BufferType>>;
 
+                inline IBLASExporter(const core::vector<SGeometryReference>& _geoms) : m_geoms(_geoms) {}
+                virtual void setTransform(BLASTriangles& out, const uint32_t geomIndex) = 0;
+
+                const core::vector<SGeometryReference>& m_geoms;
+
+            public:
+                template<typename TriIter, typename PrimCountIter> // requires (std::is_same_v<decltype(*declval<TriIter>()),decltype(BLASTriangles&)> && PrimCountIter is integral && OrdinalIter is also)
+                inline TriIter operator()(TriIter outIt, PrimCountIter outPrimCount, uint32_t* pWrittenOrdinals=nullptr)
+                {
+                    for (const auto& ref : m_geoms)
+                    {
+                        // not a polygon geometry
+                        const auto* geo = ref.geometry.get();
+                        if (geo->getPrimitiveType()!=IGeometryBase::EPrimitiveType::Polygon)
+                            continue;
+                        const auto ordinal = std::distance(m_geoms.data(),&ref);
+                        const auto* polyGeo = static_cast<const IPolygonGeometry<BufferType>*>(geo);
+                        *outIt = polyGeo->exportForBLAS();
+                        if (outIt->vertexData[0])
+                        {
+                            if (pWrittenOrdinals)
+                                *(pWrittenOrdinals++) = ordinal;
+                            *(outPrimCount++) = polyGeo->getPrimitiveCount();
+                            if (ref.hasTransform())
+                                setTransform(*outIt,ordinal);
+                            outIt++;
+                        }
+                    }
+                    return outIt;
+                }
+        };
 
     protected:
         virtual ~IGeometryCollection() = default;
@@ -93,25 +130,6 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
             m_inverseBindPoseView = std::move(inverseBindPoseView);
             m_jointAABBView = std::move(jointAABBView);
             return true;
-        }
-        
-        // need to be protected because of the mess around `transform` requires us to provide diffferent signatures for ICPUGeometryCollection and IGPUGeometryCollection
-        using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const_t<BufferType>>;
-        template<typename Iterator, typename Callback>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(BLASTriangles&)>
-        inline Iterator exportForBLAS(Iterator out, Callback& setTransform) const
-        {
-            for (const auto& ref : m_geometries)
-            {
-                // not a polygon geometry
-                const auto* geo = ref.geometry.get();
-                if (geo->getPrimitiveType()==IGeometryBase::EPrimitiveType::Polygon)
-                    continue;
-                const auto* polyGeo = static_cast<const IPolygonGeometry<BufferType>*>(geo);
-                *out = polyGeo->exportForBLAS();
-                if (out->vertexData[0])
-                    out++;
-            }
-            return out;
         }
 
 
