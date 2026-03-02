@@ -177,9 +177,7 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
             case 0:
             {
                 const IGPUCommandBuffer::TLASTrackingWrite& op = std::get<0>(var);
-
-                using iterator = decltype(op.src)::iterator;
-                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = op.dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({op.src.begin()},{op.src.end()});
+                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = op.dst->pushTrackedBLASes<IGPUCommandPool::DynamicBLASCastingIterator>({.orig=op.srcBegin},op.count);
                 break;
             }
             case 1:
@@ -192,8 +190,7 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
                 // stop multiple threads messing with us
                 std::lock_guard lk(op.src->m_trackingLock);
                 const auto* pSrcBLASes = op.src->getPendingBuildTrackedBLASes(ver);
-                const std::span<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> emptySpan = {};
-                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = pSrcBLASes ? op.dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end()):op.dst->pushTrackedBLASes(emptySpan.begin(),emptySpan.end());
+                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = pSrcBLASes ? op.dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->size()):op.dst->pushTrackedBLASes<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(nullptr,0);
                 break;
             }
             case 2:
