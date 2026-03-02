@@ -32,25 +32,34 @@ struct SphericalRectangle
     using density_type = scalar_type;
     using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 
-    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect)
+    NBL_CONSTEXPR_STATIC_INLINE scalar_type ClampEps = 1e-5;
+
+    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect, const vector3_type observer)
     {
         SphericalRectangle<T> retval;
-        retval.rect = rect;
-        return retval;
-    }
-
-    vector2_type generate(const vector3_type observer, const vector2_type uv, NBL_REF_ARG(scalar_type) S)
-    {
-        vector3_type r0 = hlsl::mul(rect.basis, rect.origin - observer);
-        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + rect.extents.x, r0.y + rect.extents.y, -r0.x);
-        const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>(hlsl::promote<vector4_type>(r0.z * r0.z) + denorm_n_z * denorm_n_z);
-        const vector4_type cosGamma = vector4_type(
+        
+        retval.r0 = hlsl::mul(rect.basis, rect.origin - observer);
+        const vector4_type denorm_n_z = vector4_type(-retval.r0.y, retval.r0.x + rect.extents.x, retval.r0.y + rect.extents.y, -retval.r0.x);
+        const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>(hlsl::promote<vector4_type>(retval.r0.z * retval.r0.z) + denorm_n_z * denorm_n_z);
+        retval.cosGamma = vector4_type(
             -n_z[0] * n_z[1],
             -n_z[1] * n_z[2],
             -n_z[2] * n_z[3],
             -n_z[3] * n_z[0]
         );
 
+        // flip z axis if r0.z > 0
+        retval.r0 = -hlsl::abs(retval.r0.z);
+        retval.r1 = retval.r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
+        retval.extents = rect.extents;
+
+        retval.b0 = n_z[0];
+        retval.b1 = n_z[2];
+        return retval;
+    }
+
+    vector2_type generate(const vector2_type uv, NBL_REF_ARG(scalar_type) S)
+    {
         math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
         angle_adder.addCosine(cosGamma[1]);
         scalar_type p = angle_adder.getSumofArccos();
@@ -59,15 +68,7 @@ struct SphericalRectangle
         scalar_type q = angle_adder.getSumofArccos();
 
         const scalar_type k = scalar_type(2.0) * numbers::pi<scalar_type> - q;
-        const scalar_type b0 = n_z[0];
-        const scalar_type b1 = n_z[2];
         S = p + q - scalar_type(2.0) * numbers::pi<scalar_type>;
-
-        const scalar_type CLAMP_EPS = 1e-5;
-
-        // flip z axis if r0.z > 0
-        r0.z = -hlsl::abs(r0.z);
-        vector3_type r1 = r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
 
         const scalar_type au = uv.x * S + k;
         const scalar_type fu = (hlsl::cos<scalar_type>(au) * b0 - b1) / hlsl::sin<scalar_type>(au);
@@ -83,12 +84,17 @@ struct SphericalRectangle
         const scalar_type h1 = r1.y / hlsl::sqrt<scalar_type>(d_2 + r1.y * r1.y);
         const scalar_type hv = h0 + uv.y * (h1 - h0);
         const scalar_type hv2 = hv * hv;
-        const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - CLAMP_EPS);
+        const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - ClampEps);
 
-        return vector2_type((xu - r0.x) / rect.extents.x, (yv - r0.y) / rect.extents.y);
+        return vector2_type((xu - r0.x) / extents.x, (yv - r0.y) / extents.y);
     }
 
-    shapes::SphericalRectangle<T> rect;
+    vector4_type cosGamma;
+    scalar_type b0;
+    scalar_type b1;
+    vector3_type r0;
+    vector3_type r1;
+    vector2_type extents;
 };
 
 } // namespace sampling
