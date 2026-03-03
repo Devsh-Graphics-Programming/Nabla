@@ -254,11 +254,6 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenLumaP
 	options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
 
 	const auto workgroupDimStr = std::to_string(params.genLumaMapWorkgroupDimension);
-	const IShaderCompiler::SMacroDefinition defines[] = {
-		{ "WORKGROUP_DIM", workgroupDimStr.data() },
-	};
-
-	options.preprocessorOptions.extraDefines = defines;
 
 	const auto overridenUnspecialized = compiler->compileToSPIRV((const char*)shaderSource->getContent()->getPointer(), options);
 	const auto shader = device->compileShader({ overridenUnspecialized.get() });
