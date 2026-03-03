@@ -457,7 +457,8 @@ void EnvmapSampler::computeWarpMap(video::IQueue* queue)
 	{
 		SLumaGenPushConstants pcData = {};
 		pcData.lumaRGBCoefficients = { 0.2126729f, 0.7151522f, 0.0721750f };
-		pcData.lumaMapResolution = {lumaMapExtent.width, lumaMapExtent.height};
+		pcData.lumaMapWidth = lumaMapExtent.width;
+		pcData.lumaMapHeight = lumaMapExtent.height;
 
 		cmdBuf->bindComputePipeline(m_genLumaPipeline.get());
 		cmdBuf->pushConstants(m_genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
