@@ -70,7 +70,7 @@ else()
 	message(STATUS "Vulkan SDK is not found")
 endif()
 
-option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" ON)
 
 if(NBL_COMPILE_WITH_CUDA)
 	find_package(CUDAToolkit REQUIRED)
@@ -181,7 +181,6 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension?" ON)
-option(NBL_BUILD_ENVMAP_IMPORTANCE_SAMPLING "Enable Nabla Envmap Importance Sampling extension?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
@@ -196,7 +195,7 @@ endif()
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
-option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" OFF)
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 option(NBL_ENABLE_DOCKER_INTEGRATION "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
 
 if (NBL_ENABLE_DOCKER_INTEGRATION)
