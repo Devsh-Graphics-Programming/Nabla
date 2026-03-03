@@ -34,7 +34,7 @@ NBL_CONCEPT_END(
 #undef a
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-// sampleUvs return 4 UVs in a square to calculate the jacobian matrix
+// sampleUvs return 4 UVs in a square for manual bilinear interpolation with differentiability
 // declare concept
 #define NBL_CONCEPT_NAME HierarchicalSampler
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
