@@ -13,10 +13,10 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {	
-	if (all(threadID < pc.lumaMapResolution))
+	if (all(threadID.xy < uint32_t2(pc.lumaMapWidth, pc.lumaMapHeight)))
 	{
 
-		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapResolution.y;
+		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapHeight;
 		const float32_t3 envMapSample = envMap.Load(float32_t3(threadID.xy, 0));
 		const float32_t luma = hlsl::dot(envMapSample, pc.lumaRGBCoefficients) * sin(numbers::pi<float32_t> * uv_y);
 

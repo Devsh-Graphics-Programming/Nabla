@@ -15,7 +15,8 @@ namespace hierarchical_image
 struct SLumaGenPushConstants
 {
   float32_t3 lumaRGBCoefficients;
-  uint32_t2 lumaMapResolution;
+  uint32_t lumaMapWidth : 16;
+  uint32_t lumaMapHeight : 16;
 };
 
 }
