@@ -19,6 +19,8 @@ struct SLumaGenPushConstants
   uint32_t lumaMapHeight : 16;
 };
 
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint32_t GEN_WARP_WORKGROUP_DIM = 16;
+
 }
 }
 }

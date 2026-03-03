@@ -1,4 +1,5 @@
 #include "nbl/builtin/hlsl/sampling/hierarchical_image.hlsl"
+#include "nbl/builtin/hlsl/sampling/hierarchical_image/common.hlsl"
 
 [[vk::binding(0, 0)]] Texture2D<float32_t> lumaMap;
 
@@ -7,6 +8,7 @@
 using namespace nbl;
 using namespace nbl::hlsl;
 using namespace nbl::hlsl::sampling;
+using namespace nbl::hlsl::sampling::hierarchical_image;
 
 struct LuminanceAccessor
 {
@@ -27,7 +29,7 @@ struct LuminanceAccessor
     }
 };
 
-[numthreads(WORKGROUP_DIM, WORKGROUP_DIM, 1)]
+[numthreads(GEN_WARP_WORKGROUP_DIM, GEN_WARP_WORKGROUP_DIM, 1)]
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
