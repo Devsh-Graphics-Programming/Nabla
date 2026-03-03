@@ -48,6 +48,16 @@ struct SphericalRectangle
             -n_z[3] * n_z[0]
         );
 
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
+        angle_adder.addCosine(cosGamma[1]);
+        scalar_type p = angle_adder.getSumofArccos();
+        angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
+        angle_adder.addCosine(cosGamma[3]);
+        scalar_type q = angle_adder.getSumofArccos();
+
+        const scalar_type k = scalar_type(2.0) * numbers::pi<scalar_type> - q;
+        retval.solidAngle = p + q - scalar_type(2.0) * numbers::pi<scalar_type>;
+
         // flip z axis if r0.z > 0
         retval.r0 = -hlsl::abs(retval.r0.z);
         retval.r1 = retval.r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
@@ -57,19 +67,14 @@ struct SphericalRectangle
         return retval;
     }
 
-    vector2_type generate(const vector2_type uv, NBL_REF_ARG(scalar_type) S)
+    vector2_type generate(const vector2_type u)
     {
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
-        angle_adder.addCosine(cosGamma[1]);
-        scalar_type p = angle_adder.getSumofArccos();
-        angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
         angle_adder.addCosine(cosGamma[3]);
         scalar_type q = angle_adder.getSumofArccos();
-
         const scalar_type k = scalar_type(2.0) * numbers::pi<scalar_type> - q;
-        S = p + q - scalar_type(2.0) * numbers::pi<scalar_type>;
 
-        const scalar_type au = uv.x * S + k;
+        const scalar_type au = u.x * solidAngle + k;
         const scalar_type fu = (hlsl::cos<scalar_type>(au) * b0 - b1) / hlsl::sin<scalar_type>(au);
         const scalar_type cu_2 = hlsl::max<scalar_type>(fu * fu + b0 * b0, 1.f); // forces `cu` to be in [-1,1]
         const scalar_type cu = ieee754::flipSignIfRHSNegative<scalar_type>(scalar_type(1.0) / hlsl::sqrt<scalar_type>(cu_2), fu);
@@ -81,13 +86,24 @@ struct SphericalRectangle
 
         const scalar_type h0 = r0.y / hlsl::sqrt<scalar_type>(d_2 + r0.y * r0.y);
         const scalar_type h1 = r1.y / hlsl::sqrt<scalar_type>(d_2 + r1.y * r1.y);
-        const scalar_type hv = h0 + uv.y * (h1 - h0);
+        const scalar_type hv = h0 + u.y * (h1 - h0);
         const scalar_type hv2 = hv * hv;
         const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - ClampEps);
 
         return vector2_type((xu - r0.x), (yv - r0.y));
     }
 
+    scalar_type forwardPdf(const vector2_type u)
+    {
+        return scalar_type(1.0) / solidAngle;
+    }
+
+    scalar_type backwardPdf(const vector2_type L)
+    {
+        return scalar_type(1.0) / solidAngle;
+    }
+
+    scalar_type solidAngle;
     vector4_type cosGamma;
     scalar_type b0;
     scalar_type b1;

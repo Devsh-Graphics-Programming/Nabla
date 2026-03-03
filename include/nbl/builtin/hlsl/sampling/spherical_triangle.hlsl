@@ -104,6 +104,11 @@ struct SphericalTriangle
         return vector2_type(u,v);
     }
 
+    scalar_type forwardPdf(const vector2_type u)
+    {
+        return scalar_type(1.0) / solidAngle;
+    }
+
     scalar_type backwardPdf(const vector3_type L)
     {
         return scalar_type(1.0) / solidAngle;

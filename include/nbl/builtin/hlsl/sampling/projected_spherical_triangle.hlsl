@@ -33,7 +33,7 @@ struct ProjectedSphericalTriangle
     using density_type = scalar_type;
     using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 
-    Bilinear<scalar_type> bilinear computeBilinearPatch()
+    Bilinear<scalar_type> computeBilinearPatch()
     {
         const scalar_type minimumProjSolidAngle = 0.0;
 
@@ -53,6 +53,13 @@ struct ProjectedSphericalTriangle
         // now warp the points onto a spherical triangle
         const vector3_type L = sphtri.generate(u);
         return L;
+    }
+
+    scalar_type forwardPdf(const vector2_type u)
+    {
+        const scalar_type pdf = sphtri.forwardPdf(u);
+        Bilinear<scalar_type> bilinear = computeBilinearPatch();
+        return pdf * bilinear.backwardPdf(u);
     }
 
     scalar_type backwardPdf(const vector3_type L)
