@@ -28,6 +28,18 @@ struct BoxMullerTransform
     using density_type = scalar_type;
     using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 
+    vector2_type generate(const vector2_type u)
+    {
+        scalar_type sinPhi, cosPhi;
+        math::sincos<scalar_type>(2.0 * numbers::pi<scalar_type> * xi.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
+        return vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(-2.0 * nbl::hlsl::log(xi.x)) * stddev;
+    }
+
+    vector2_type forwardPdf(const vector2_type u)
+    {
+        return backwardPdf(generate(u));
+    }
+
     vector2_type backwardPdf(const vector2_type outPos)
     {
         const vector2_type outPos2 = outPos * outPos;
