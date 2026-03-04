@@ -41,6 +41,8 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 	using this_t = CElementIntegrator;
 	AddPropertyMap<CElementIntegrator> retval;
 
+#pragma warning( push )
+#pragma warning( disable : 5103 )
 	// common
 	// this one has really funny legacy behaviour which Mitsuba allowed contrary to its PDF docs
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY_CONSTRAINED("shadingSamples",INTEGER,is_any_of,AmbientOcclusion,DirectIllumination)
@@ -200,7 +202,7 @@ auto CElementIntegrator::compAddPropertyMap() -> AddPropertyMap<CElementIntegrat
 
 	// multi channel no extra members
 
-	
+#pragma warning( pop )
 	return retval;
 }
 
