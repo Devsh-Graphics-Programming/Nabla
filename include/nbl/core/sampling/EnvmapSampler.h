@@ -17,8 +17,6 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		struct SCachedCreationParameters
 		{
 				core::smart_refctd_ptr<video::IUtilities> utilities;
-				uint32_t genLumaMapWorkgroupDimension = DefaultLumaMipMapGenWorkgroupDimension;
-				uint32_t genWarpMapWorkgroupDimension = DefaultWarpMapGenWorkgroupDimension;
 		};
 
 		struct SCreationParameters : public SCachedCreationParameters

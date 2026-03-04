@@ -146,12 +146,12 @@ core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&
 
 	ConstructorParams constructorParams;
 	
-	constructorParams.lumaWorkgroupCount = calcWorkgroupSize(EnvMapPoTExtent, params.genLumaMapWorkgroupDimension);
+	constructorParams.lumaWorkgroupCount = calcWorkgroupSize(EnvMapPoTExtent, GEN_LUMA_WORKGROUP_DIM);
 	constructorParams.lumaMap = createLumaMap(device, EnvMapPoTExtent, MipCountLuminance);
 
 	const auto upscale = 0;
 	const asset::VkExtent3D WarpMapExtent = {EnvMapPoTExtent.width<<upscale,EnvMapPoTExtent.height<<upscale,EnvMapPoTExtent.depth};
-	constructorParams.warpWorkgroupCount = calcWorkgroupSize(WarpMapExtent, params.genWarpMapWorkgroupDimension);
+	constructorParams.warpWorkgroupCount = calcWorkgroupSize(WarpMapExtent, GEN_WARP_WORKGROUP_DIM);
 	constructorParams.warpMap = createWarpMap(device, WarpMapExtent);
 
 	const auto genLumaPipelineLayout = createGenLumaPipelineLayout(device);
@@ -253,8 +253,6 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenLumaP
 	options.preprocessorOptions.logger = logger.get();
 	options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
 
-	const auto workgroupDimStr = std::to_string(params.genLumaMapWorkgroupDimension);
-
 	const auto overridenUnspecialized = compiler->compileToSPIRV((const char*)shaderSource->getContent()->getPointer(), options);
 	const auto shader = device->compileShader({ overridenUnspecialized.get() });
 	if (!shader)
@@ -302,13 +300,6 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenWarpP
 	options.preprocessorOptions.sourceIdentifier = shaderSource->getFilepathHint();
 	options.preprocessorOptions.logger = logger.get();
 	options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
-
-	const auto workgroupDimStr = std::to_string(params.genWarpMapWorkgroupDimension);
-	const IShaderCompiler::SMacroDefinition defines[] = {
-		{ "WORKGROUP_DIM", workgroupDimStr.data() },
-	};
-
-	options.preprocessorOptions.extraDefines = defines;
 
 	const auto overridenUnspecialized = compiler->compileToSPIRV((const char*)shaderSource->getContent()->getPointer(), options);
 	const auto shader = device->compileShader({ overridenUnspecialized.get() });
