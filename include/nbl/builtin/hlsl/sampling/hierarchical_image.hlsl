@@ -114,7 +114,7 @@ template <typename ScalarT, typename LuminanceAccessorT, typename HierarchicalSa
 		concepts::accessors::GenericReadAccessor<LuminanceAccessorT, ScalarT, float32_t2> &&
 		hierarchical_image::HierarchicalSampler<HierarchicalSamplerT, ScalarT> &&
 		concepts::Warp<PostWarpT>)
-struct HierarchicalImage 
+struct WarpmapSampler 
 {
 	using scalar_type = ScalarT;
 	using vector2_type = vector<ScalarT, 2>;
@@ -126,9 +126,9 @@ struct HierarchicalImage
 	uint32_t2 _lastWarpPixel;
 	scalar_type _rcpAvgLuma;
 
-	static HierarchicalImage create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint32_t2 warpSize, scalar_type avgLuma) 
+	static WarpmapSampler create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint32_t2 warpSize, scalar_type avgLuma) 
 	{
-		HierarchicalImage<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
+		WarpmapSampler<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
 		result._lumaMap = lumaMap;
 		result._warpMap = warpMap;
 		result._warpSize = warpSize;
