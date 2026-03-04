@@ -6,6 +6,7 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 [[vk::push_constant]] SLumaGenPushConstants pc;
 
+// TODO: Use layer texture, to implement envmap importance sampling for cube map
 [[vk::binding(0, 0)]] Texture2D<float32_t4> envMap;
 [[vk::binding(1, 0)]] RWTexture2D<float32_t> outImage;
 
