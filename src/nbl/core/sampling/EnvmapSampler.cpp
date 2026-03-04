@@ -355,6 +355,12 @@ core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapSampler::createGenLuma
 
 core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createGenWarpPipelineLayout(video::ILogicalDevice* device)
 {
+	asset::SPushConstantRange pcRange = {
+		.stageFlags = hlsl::ESS_COMPUTE,
+		.offset = 0,
+		.size = sizeof(SLumaGenPushConstants)
+	};
+
 	const IGPUDescriptorSetLayout::SBinding bindings[] = {
 		{
 			.binding = 0u,
@@ -373,7 +379,7 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createGenWarpPi
 	};
 
 	const auto setLayout = device->createDescriptorSetLayout(bindings);
-	return device->createPipelineLayout({}, setLayout, nullptr, nullptr, nullptr);
+	return device->createPipelineLayout({&pcRange, 1}, setLayout);
 }
 
 void EnvmapSampler::computeWarpMap(video::IQueue* queue)
@@ -411,6 +417,7 @@ void EnvmapSampler::computeWarpMap(video::IQueue* queue)
 	const auto lumaMapExtent = lumaMapImage->getCreationParameters().extent;
 
 	const auto warpMapImage = m_warpMap->getCreationParameters().image.get();
+	const auto warpMapExtent = warpMapImage->getCreationParameters().extent;
 
 	{
 		IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t barriers[] = {
@@ -625,9 +632,18 @@ void EnvmapSampler::computeWarpMap(video::IQueue* queue)
 			}
 		};                
 		cmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+
+		const SWarpGenPushConstants pcData = {
+		  .lumaMapWidth = lumaMapExtent.width,
+			.lumaMapHeight = lumaMapExtent.height,
+			.warpMapWidth = warpMapExtent.width,
+			.warpMapHeight = warpMapExtent.height
+		};
 		cmdBuf->bindComputePipeline(m_genWarpPipeline.get());
 		cmdBuf->bindDescriptorSets(EPBP_COMPUTE, m_genWarpPipeline->getLayout(),
 			0, 1, &m_genWarpDescriptorSet.get());
+		cmdBuf->pushConstants(m_genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
+			0, sizeof(SLumaGenPushConstants), &pcData);
 		cmdBuf->dispatch(m_warpWorkgroupCount.x, m_warpWorkgroupCount.y, 1);
 	}
 
