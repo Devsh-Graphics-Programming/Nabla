@@ -149,8 +149,7 @@ core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&
 	constructorParams.lumaWorkgroupCount = calcWorkgroupSize(EnvMapPoTExtent, GEN_LUMA_WORKGROUP_DIM);
 	constructorParams.lumaMap = createLumaMap(device, EnvMapPoTExtent, MipCountLuminance);
 
-	const auto upscale = 0;
-	const asset::VkExtent3D WarpMapExtent = {EnvMapPoTExtent.width<<upscale,EnvMapPoTExtent.height<<upscale,EnvMapPoTExtent.depth};
+	const asset::VkExtent3D WarpMapExtent = {EnvMapPoTExtent.width << params.upscaleLog2, EnvMapPoTExtent.height << params.upscaleLog2, EnvMapPoTExtent.depth };
 	constructorParams.warpWorkgroupCount = calcWorkgroupSize(WarpMapExtent, GEN_WARP_WORKGROUP_DIM);
 	constructorParams.warpMap = createWarpMap(device, WarpMapExtent);
 

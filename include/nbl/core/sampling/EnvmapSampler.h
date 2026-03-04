@@ -23,6 +23,7 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		{
 				core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;
 				core::smart_refctd_ptr<video::IGPUImageView> envMap = nullptr;
+				uint8_t upscaleLog2 = 0;
 
 				inline bool validate() const
 				{
