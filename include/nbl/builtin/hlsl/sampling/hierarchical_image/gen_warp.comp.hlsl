@@ -33,18 +33,24 @@ struct LuminanceAccessor
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
+  uint32_t warpMapWidth, warpMapHeight;
+  warpMap.GetDimensions(warpMapWidth, warpMapHeight);
+
+  if (threadID.x < warpMapWidth && threadID.y < warpMapHeight)
+  {
     LuminanceAccessor luminanceAccessor;
     uint32_t lumaMapWidth, lumaMapHeight;
 
     lumaMap.GetDimensions(lumaMapWidth, lumaMapHeight);
-
     using LuminanceSampler = LuminanceMapSampler<float32_t, LuminanceAccessor>;
 
     LuminanceSampler luminanceSampler = 
-      LuminanceSampler::create(luminanceAccessor, uint32_t2(lumaMapWidth, lumaMapHeight), lumaMapWidth != lumaMapHeight, uint32_t2(lumaMapWidth, lumaMapHeight));
+      LuminanceSampler::create(luminanceAccessor, uint32_t2(lumaMapWidth, lumaMapHeight), lumaMapWidth != lumaMapHeight, uint32_t2(pc.warpMapWidth, pc.warpMapHeight));
 
     uint32_t2 pixelCoord = threadID.xy;
 
     outImage[pixelCoord] = luminanceSampler.binarySearch(pixelCoord);
+  }
+
 
 }
