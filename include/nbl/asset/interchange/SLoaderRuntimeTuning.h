@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <limits>
 #include <thread>
+#include <utility>
 #include <vector>
 
 
@@ -61,6 +62,14 @@ struct SLoaderRuntimeTuningResult
     size_t chunkCount = 1ull;
 };
 
+struct SLoaderRuntimeTuner
+{
+    template<typename Fn>
+    static void dispatchWorkers(const size_t workerCount, Fn&& fn);
+
+    static inline SLoaderRuntimeTuningResult tune(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request);
+};
+
 constexpr uint64_t loaderRuntimeCeilDiv(const uint64_t numerator, const uint64_t denominator)
 {
     return (numerator + denominator - 1ull) / denominator;
@@ -104,7 +113,7 @@ inline size_t resolveLoaderHardMaxWorkers(const size_t hardwareThreads, const ui
 }
 
 template<typename Fn>
-inline void loaderRuntimeDispatchWorkers(const size_t workerCount, Fn&& fn)
+void SLoaderRuntimeTuner::dispatchWorkers(const size_t workerCount, Fn&& fn)
 {
     if (workerCount <= 1ull)
     {
@@ -117,6 +126,12 @@ inline void loaderRuntimeDispatchWorkers(const size_t workerCount, Fn&& fn)
     for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
         workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
     fn(0ull);
+}
+
+template<typename Fn>
+inline void loaderRuntimeDispatchWorkers(const size_t workerCount, Fn&& fn)
+{
+    SLoaderRuntimeTuner::dispatchWorkers(workerCount, std::forward<Fn>(fn));
 }
 
 inline uint64_t loaderRuntimeBenchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
@@ -207,7 +222,7 @@ inline void loaderRuntimeAppendCandidate(std::vector<size_t>& dst, const size_t 
         dst.push_back(candidate);
 }
 
-inline SLoaderRuntimeTuningResult tuneLoaderRuntime(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request)
+SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request)
 {
     using RTMode = SFileIOPolicy::SRuntimeTuning::Mode;
     SLoaderRuntimeTuningResult result = {};
@@ -383,6 +398,11 @@ inline SLoaderRuntimeTuningResult tuneLoaderRuntime(const SFileIOPolicy& ioPolic
     result.chunkWorkUnits = chunkWorkUnits;
     result.chunkCount = static_cast<size_t>(loaderRuntimeCeilDiv(request.totalWorkUnits, chunkWorkUnits));
     return result;
+}
+
+inline SLoaderRuntimeTuningResult tuneLoaderRuntime(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request)
+{
+    return SLoaderRuntimeTuner::tune(ioPolicy, request);
 }
 
 }
