@@ -5,6 +5,7 @@
 #define _NBL_ASSET_I_CPU_SCENE_H_INCLUDED_
 
 
+// TODO: not memory pool but ... object pool
 #include "nbl/core/containers/CMemoryPool.h"
 
 #include "nbl/asset/IScene.h"

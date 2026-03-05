@@ -18,6 +18,7 @@ struct type_list_size<type_list<T...>> : std::integral_constant<size_t,sizeof...
 template<typename TypeList>
 inline constexpr size_t type_list_size_v = type_list_size<TypeList>::value;
 
+//
 template<template<typename> class, typename TypeList>
 struct filter;
 template<template<typename> class Pred, typename... T>
@@ -42,6 +43,13 @@ struct filter<Pred,type_list<T,Ts...>>
 template<template<typename> class Pred, typename TypeList>
 using filter_t = filter<Pred,TypeList>::type;
 
+// to work around `std::identity` not matching
+namespace impl
+{
+template<typename T>
+class identitiy {};
+}
+//
 template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
 struct list_transform
 {
@@ -52,9 +60,20 @@ struct list_transform
 	public:
 		using type = decltype(_impl(std::declval<ListLike>()));
 };
+template<template<class...> class ListLikeOutT, typename ListLike>
+struct list_transform<ListLikeOutT,impl::identitiy,ListLike>
+{
+	private:
+		template<template<class...> class ListLikeInT, typename... T>
+		static ListLikeOutT<T...> _impl(const ListLikeInT<T...>&);
+		
+	public:
+		using type = decltype(_impl(std::declval<ListLike>()));
+};
 template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
 using list_transform_t = list_transform<ListLikeOutT,X,ListLike>::type;
 
+//
 template<template<class> class X, typename ListLike>
 using tuple_transform_t = list_transform_t<std::tuple,X,ListLike>;
 

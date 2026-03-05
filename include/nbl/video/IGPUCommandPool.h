@@ -630,10 +630,12 @@ class IGPUCommandPool : public IBackendObject
                 }
 
                 CCommandSegment* m_head = nullptr;
-        
-                template <typename T>
-                using pool_alignment = core::aligned_allocator<T,COMMAND_SEGMENT_ALIGNMENT>;
-                core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,pool_alignment,false,uint32_t> m_pool;
+                struct PoolConfig
+                {
+                    using AddressAllocator = core::PoolAddressAllocator<uint32_t>;
+                    constexpr static inline bool ThreadSafe = false;
+                };
+                core::CMemoryPool<PoolConfig> m_pool;
         };
 
         const core::bitflag<CREATE_FLAGS> m_flags;
