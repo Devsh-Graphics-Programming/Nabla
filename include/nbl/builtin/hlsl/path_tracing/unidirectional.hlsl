@@ -37,6 +37,7 @@ struct Unidirectional
     using vector3_type = vector<scalar_type, 3>;
     using monochrome_type = vector<scalar_type, 1>;
     using measure_type = typename MaterialSystem::measure_type;
+    using spectral_type = typename NextEventEstimator::spectral_type;
     using sample_type = typename NextEventEstimator::sample_type;
     using ray_dir_info_type = typename sample_type::ray_dir_info_type;
     using ray_type = Ray;
@@ -209,7 +210,7 @@ struct Unidirectional
 
     scalar_type bxdfPdfThreshold;
     scalar_type lumaContributionThreshold; // OETF smallest perceptible value
-    measure_type spectralTypeToLumaCoeffs;
+    spectral_type spectralTypeToLumaCoeffs;
 };
 
 }
