@@ -22,11 +22,11 @@ namespace nbl::core
 //! Does not resize memory arenas, therefore once allocated pointers shall not move
 //! Needs an address allocator that takes a Block Size after max alignment parameter
 template<class AddressAllocator>
-class SimpleBlockBasedAllocator final
+class SimpleBlockBasedAllocator
 {
 	public:
 		using addr_alloc_traits = address_allocator_traits<AddressAllocator>;
-		using extra_params_t = tuple_transform_t<impl::identitiy,addr_alloc_traits::extra_ctor_param_types>;
+		using extra_params_t = tuple_transform_t<impl::identitiy,typename addr_alloc_traits::extra_ctor_param_types>;
 		using size_type = typename addr_alloc_traits::size_type;
 		// The blocks will be allocated aligned to at least this value
 		constexpr static inline size_type meta_alignment = 64u;
@@ -80,7 +80,7 @@ class SimpleBlockBasedAllocator final
 				{
 					std::apply([&params]<typename... Args>(const Args&... args)->void
 						{
-							addrAlloc = AddressAllocator(this+1,./*no address offset*/0u,/*no alignment offset needed*/0u,meta_alignment,params.blockSize,args...);
+							addrAlloc = AddressAllocator(this+1,/*no address offset*/0u,/*no alignment offset needed*/0u,meta_alignment,params.blockSize,args...);
 						},params.addrCreationArgs
 					);
 					assert(addr_alloc_traits::get_align_offset(addrAlloc) == 0ul);
@@ -116,33 +116,36 @@ class SimpleBlockBasedAllocator final
 
 		struct SCreationParams
 		{
-			smart_refctd_ptr<refctd_memory_resource> mem_resource;
+			smart_refctd_ptr<refctd_memory_resource> mem_resource = nullptr;
 			extra_params_t addrAllocCtorExtraParams;
 			size_type blockSize = 128u<<10;
 			size_type initBlockCount = 1;
 		};
 		inline SimpleBlockBasedAllocator(SCreationParams&& params) : m_blockCreationParams(params.blockSize,std::move(params.addrAllocCtorExtraParams)),
-			m_initBlockCount(std::max<size_type>(_initBlockCount,1)), m_mem_resource(std::move(params.mem_resource))
+			m_initBlockCount(std::max<size_type>(params.initBlockCount,1)), m_mem_resource(params.mem_resource ? std::move(params.mem_resource):core::getDefaultMemoryResource())
 		{
-			m_blocks.reserve(m_initBlockCount);
 			for (auto i=0u; i<m_initBlockCount; i++)
 				m_blocks.insert(createBlock());
 		}
+		SimpleBlockBasedAllocator(const SimpleBlockBasedAllocator&) = delete;
+		SimpleBlockBasedAllocator(SimpleBlockBasedAllocator&&) = delete;
 
 		// deallocates everything
         inline void	reset()
         {
 			assert(m_blocks.size()>=m_initBlockCount);
 			auto it = m_blocks.begin();
-			for (auto i=0u; i<m_initBlockCount; i++)
+			for (auto i=0u; i<m_initBlockCount; i++,it++)
 			{
-				auto* block = *(it++);
+				Block* block = *it;
 				if (i<m_initBlockCount)
-					block->getAllocator().reset();
+					block->addrAlloc.reset();
 				else
+				{
 					deleteBlock(block);
+					m_blocks.erase(it);
+				}
 			}
-			m_blocks.erase(m_blocks.begin()+m_initBlockCount,m_blocks.end());
         }
 
 		//
@@ -181,7 +184,7 @@ class SimpleBlockBasedAllocator final
 				m_blocks.erase(found);
 			}
 		}
-
+#if 0 // what do we even need these for
 		inline bool	operator!=(const this_t& other) const noexcept
 		{
 			if (m_blockCreationParams != other.m_blockCreationParams)
@@ -190,7 +193,7 @@ class SimpleBlockBasedAllocator final
 				return true;
 			if (m_mem_resource != other.m_mem_resource)
 				return true;
-			if (m_backBlock != other.m_backBlock)
+			if (m_blocks != other.m_blocks)
 				return true;
 			return false;
 		}
@@ -198,14 +201,14 @@ class SimpleBlockBasedAllocator final
 		{
 			return !operator!=(other);
 		}
-
+#endif
     protected:
 		using block_map_t = gtl::btree_set<Block*>;
 		
 		inline Block* createBlock()
 		{
 			auto* block = reinterpret_cast<Block*>(m_mem_resource->allocate(m_blockCreationParams.totalSize,meta_alignment));
-			std::construct_at(block,m_blockCreationArgs);
+			std::construct_at(block,m_blockCreationParams);
 			m_blocks.insert(block);
 			return block;
 		}
@@ -239,23 +242,7 @@ class SimpleBlockBasedAllocatorMT final
 	public:
         using size_type = typename Composed::size_type;
 
-		template<typename... Args>
-		inline SimpleBlockBasedAllocatorMT(size_type _blockSize, size_type _minBlockCount, size_type _maxBlockCount, Args&&... args) :
-			m_composed(_blockSize,_minBlockCount,_maxBlockCount,std::forward<Args>(args)...), m_lock() {}
-
-		inline auto& operator=(this_t&& other)
-        {
-			// TODO: lock both locks till complete?
-			std::swap(m_lock,other.m_lock);
-			std::swap(m_composed,other.m_composed);
-			return *this;
-        }
-
-		inline SimpleBlockBasedAllocatorMT(this_t&& other)
-		{
-			operator=(std::move(other));
-		}
-
+		inline SimpleBlockBasedAllocatorMT(Composed::SCreationParams&& params) : m_composed(std::move(params)), m_lock() {}
         virtual inline ~SimpleBlockBasedAllocatorMT() {}
 
 		//
@@ -285,7 +272,8 @@ class SimpleBlockBasedAllocatorMT final
 		{
 			return m_lock;
 		}
-		
+
+#if 0 // what do we even need these for
 		inline bool		operator!=(const SimpleBlockBasedAllocatorMT<AddressAllocator>& other) const noexcept
 		{
 			return m_composed!=other.m_composed || other.m_lock!=m_lock;
@@ -294,6 +282,7 @@ class SimpleBlockBasedAllocatorMT final
 		{
 			return m_composed==other.m_composed && other.m_lock==m_lock;
 		}
+#endif
 };
 // no aliases
 

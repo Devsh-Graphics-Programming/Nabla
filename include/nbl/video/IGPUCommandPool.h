@@ -33,7 +33,6 @@ class IGPUCommandPool : public IBackendObject
         static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
         static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;
 
-        static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
         static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
         static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
 
@@ -511,7 +510,7 @@ class IGPUCommandPool : public IBackendObject
                     CCommandSegment* tail = nullptr;
                 };
 
-                inline CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
+                inline CCommandSegmentListPool() : m_pool({.addrAllocCtorExtraParams={MIN_POOL_ALLOC_SIZE},.blockSize=COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE}) {}
 
                 template <typename Cmd, typename... Args>
                 Cmd* emplace(SCommandSegmentList& list, Args&&... args)

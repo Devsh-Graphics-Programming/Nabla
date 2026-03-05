@@ -1,10 +1,13 @@
+// Copyright (C) 2020-2026 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_CORE_C_MEMORY_POOL_H_INCLUDED_
 #define _NBL_CORE_C_MEMORY_POOL_H_INCLUDED_
 
 
 #include "nbl/core/decl/compile_config.h"
-#include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
 #include "nbl/core/decl/BaseClasses.h"
+#include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
 
 #include <memory>
 #include <type_traits>
@@ -13,80 +16,84 @@
 namespace nbl::core
 {
 
-// TODO: change DataAllocator to PMR
-template <class AddressAllocator, template<class> class DataAllocator, bool isThreadSafe, typename... Args>
-class CMemoryPool : public Uncopyable
+template<typename C>
+concept MemoryPoolConfig = requires
 {
-public:
-    using addr_allocator_type = AddressAllocator;
-    using allocator_type = typename std::conditional<isThreadSafe,
-        SimpleBlockBasedAllocatorMT<AddressAllocator,DataAllocator, std::recursive_mutex, Args...>,
-        SimpleBlockBasedAllocatorST<AddressAllocator,DataAllocator, Args...>>::type;
-    using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
-    using addr_type = size_type;
+//    {C::ThreadSafe} -> std::same_as<bool>; // TODO: how to do it
+    typename C::AddressAllocator; // TODO: check its an Address Allocator
+};
 
-    CMemoryPool(size_type _blockSize, size_type _minBlockCount, size_type _maxBlockCount, Args... args) : // intentionally no && here, i dont wont to do here anything like reference collapsing, `Args` come from class template
-        m_alctr(_blockSize,_minBlockCount,_maxBlockCount,std::forward<Args>(args)...)
-    {
-    }
+template<MemoryPoolConfig Config>
+class CMemoryPool final : public Uncopyable
+{
+        using block_allocator_st_type = SimpleBlockBasedAllocatorST<typename Config::AddressAllocator>;
+    public:
+        using addr_allocator_type = Config::AddressAllocator;
+        using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
+
+        using block_allocator_type = std::conditional_t<Config::ThreadSafe,SimpleBlockBasedAllocatorMT<block_allocator_st_type,std::recursive_mutex>,block_allocator_st_type>;
+// TODO: not appropriate
+//        using addr_type = size_type;
+
+        inline CMemoryPool(block_allocator_st_type::SCreationParams&& params) : m_block_alctr(std::move(params)) {}
     
-    void* allocate(size_type s, size_type a)
-    {
-        return m_alctr.allocate(s, a);
-    }
-    void deallocate(void* _ptr, size_type s)
-    {
-        m_alctr.deallocate(_ptr, s);
-    }
-
-    template <typename T, typename... FuncArgs>
-    T* emplace_n(uint32_t n, FuncArgs&&... args)
-    {
-        size_type s = static_cast<size_type>(n) * sizeof(T);
-        size_type a = alignof(T);
-        void* ptr = allocate(s, a);
-        if (!ptr)
-            return nullptr;
-
-        using traits_t = std::allocator_traits<DataAllocator<T>>;
-        DataAllocator<T> data_alctr;
-        if constexpr (sizeof...(FuncArgs)!=0u || !std::is_trivial_v<T>)
+        //
+        inline void* allocate(const size_type s, const size_type a)
         {
-            for (uint32_t i = 0u; i < n; ++i)
-                traits_t::construct(data_alctr, reinterpret_cast<T*>(ptr) + i, std::forward<FuncArgs>(args)...);
+            return m_block_alctr.allocate(s,a);
         }
-        return reinterpret_cast<T*>(ptr);
-    }
-    template <typename T, typename... FuncArgs>
-    T* emplace(FuncArgs&&... args)
-    {
-        return emplace_n<T,FuncArgs...>(1u, std::forward<FuncArgs>(args)...);
-    }
-
-    template <typename T>
-    void free_n(void* _ptr, uint32_t n)
-    {
-        using traits_t = std::allocator_traits<DataAllocator<T>>;
-        DataAllocator<T> data_alctr;
-
-        T* ptr = reinterpret_cast<T*>(_ptr);
-        if constexpr (!std::is_trivially_destructible_v<T>)
+        inline void deallocate(void* _ptr, const size_type s)
         {
-            for (uint32_t i = 0u; i < n; ++i)
-                traits_t::destroy(data_alctr, ptr + i);
+            m_block_alctr.deallocate(_ptr,s);
         }
-        deallocate(_ptr, sizeof(T)*n);
-    }
-    template <typename T>
-    void free(void* ptr)
-    {
-        return free_n<T>(ptr, 1u);
-    }
 
-private:
-    allocator_type m_alctr;
+        //
+        template <typename T, typename... FuncArgs> requires (!std::is_array_v<T>) // for now until we have a test
+        inline T* emplace_n(const uint32_t n, FuncArgs&&... args)
+        {
+            size_type s = static_cast<size_type>(n)*sizeof(T);
+            size_type a = alignof(T);
+            T* const ptr = std::launder(reinterpret_cast<T*>(allocate(s,a)));
+            if (!ptr)
+                return nullptr;
+
+            if constexpr (!std::is_trivial_v<T>)
+            {
+                if constexpr (sizeof...(FuncArgs)!=0u)
+                {
+                    for (uint32_t i=0u; i<n; ++i)
+                        std::construct_at(ptr+i,std::forward<FuncArgs>(args)...);
+                }
+                else
+                    std::uninitialized_default_construct_n(ptr,n);
+            }
+            return ptr;
+        }
+        template <typename T, typename... FuncArgs>
+        inline T* emplace(FuncArgs&&... args)
+        {
+            return emplace_n<T,FuncArgs...>(1u,std::forward<FuncArgs>(args)...);
+        }
+
+        // You must know the original type, we don't keep track of original size
+        // TODO: this shouldn't be called `free` but `delete`
+        template <typename T> requires (!std::is_array_v<T>) // for now until we have a test
+        inline void free_n(void* _ptr, const uint32_t n)
+        {
+            T* ptr = reinterpret_cast<T*>(_ptr);
+            if constexpr (!std::is_trivially_destructible_v<T>)
+                std::destroy_n(ptr,n);
+            deallocate(_ptr,sizeof(T)*n);
+        }
+        template <typename T>
+        inline void free(void* ptr)
+        {
+            return free_n<T>(ptr,1u);
+        }
+
+    private:
+        block_allocator_type m_block_alctr;
 };
 
 }
-
 #endif
