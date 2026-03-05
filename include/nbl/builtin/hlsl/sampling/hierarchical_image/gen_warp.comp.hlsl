@@ -40,7 +40,7 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
   if (threadID.x < pc.warpMapWidth && threadID.y < pc.warpMapHeight)
   {
-    using LuminanceSampler = LuminanceMapSampler<float32_t, LuminanceAccessor>;
+    using LuminanceSampler = HierarchicalLuminanceSampler<float32_t, LuminanceAccessor>;
 
     LuminanceAccessor luminanceAccessor;
     LuminanceSampler luminanceSampler = 

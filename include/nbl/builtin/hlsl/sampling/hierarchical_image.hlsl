@@ -22,7 +22,7 @@ template <typename ScalarT, typename LuminanceAccessorT
 		is_scalar_v<ScalarT> && 
 		hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, ScalarT>
 	)
-struct LuminanceMapSampler
+struct HierarchicalLuminanceSampler
 {
 	using scalar_type = ScalarT;
 	using vector2_type = vector<scalar_type, 2>;
@@ -33,9 +33,9 @@ struct LuminanceMapSampler
   uint32_t2 _lastWarpPixel;
 	bool _aspect2x1;
 
-	static LuminanceMapSampler<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1, uint32_t2 warpSize)
+	static HierarchicalLuminanceSampler<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1, uint32_t2 warpSize)
 	{
-	  LuminanceMapSampler<ScalarT, LuminanceAccessorT> result;
+	  HierarchicalLuminanceSampler<ScalarT, LuminanceAccessorT> result;
 	  result._map = lumaMap;
 	  result._mapSize = mapSize;
     result._lastWarpPixel = warpSize - uint32_t2(1, 1);
