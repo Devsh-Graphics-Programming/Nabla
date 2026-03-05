@@ -801,7 +801,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	if (computeContentHashes)
 	{
-		SPolygonGeometryContentHash::computeMissingParallel(geometry.get(), _params.ioPolicy);
+		SPolygonGeometryContentHash::computeMissing(geometry.get(), _params.ioPolicy);
 	}
 
 	if (!parsedAABB.empty())

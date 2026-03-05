@@ -21,7 +21,7 @@
 namespace nbl::asset
 {
 
-void CPolygonGeometryManipulator::collectUniqueBuffers(ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers)
+void CPolygonGeometryManipulator::collectUniqueBuffers(const ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers)
 {
 	if (!geo)
 	{
@@ -45,9 +45,9 @@ void CPolygonGeometryManipulator::collectUniqueBuffers(ICPUPolygonGeometry* geo,
 	appendBuffer(geo->getPositionView());
 	appendBuffer(geo->getIndexView());
 	appendBuffer(geo->getNormalView());
-	for (const auto& view : *geo->getAuxAttributeViews())
+	for (const auto& view : geo->getAuxAttributeViews())
 		appendBuffer(view);
-	for (const auto& view : *geo->getJointWeightViews())
+	for (const auto& view : geo->getJointWeightViews())
 	{
 		appendBuffer(view.indices);
 		appendBuffer(view.weights);
@@ -81,6 +81,21 @@ void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeomet
 	}
 	if (pending.empty())
 		return;
+
+	const auto hashPendingRange = [&](const size_t beginIx, const size_t endIx) -> void
+	{
+		for (size_t i = beginIx; i < endIx; ++i)
+		{
+			auto& buffer = buffers[pending[i]];
+			buffer->setContentHash(buffer->computeContentHash());
+		}
+	};
+
+	if (ioPolicy.runtimeTuning.mode == SFileIOPolicy::SRuntimeTuning::Mode::Sequential)
+	{
+		hashPendingRange(0ull, pending.size());
+		return;
+	}
 
 	const size_t hw = resolveLoaderHardwareThreads();
 	const uint8_t* hashSampleData = nullptr;
@@ -116,20 +131,12 @@ void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeomet
 		{
 			const size_t beginIx = (pending.size() * workerIx) / workerCount;
 			const size_t endIx = (pending.size() * (workerIx + 1ull)) / workerCount;
-			for (size_t i = beginIx; i < endIx; ++i)
-			{
-				auto& buffer = buffers[pending[i]];
-				buffer->setContentHash(buffer->computeContentHash());
-			}
+			hashPendingRange(beginIx, endIx);
 		});
 		return;
 	}
 
-	for (const auto pendingIx : pending)
-	{
-		auto& buffer = buffers[pendingIx];
-		buffer->setContentHash(buffer->computeContentHash());
-	}
+	hashPendingRange(0ull, pending.size());
 }
 
 

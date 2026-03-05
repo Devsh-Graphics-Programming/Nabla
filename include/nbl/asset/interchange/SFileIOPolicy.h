@@ -23,8 +23,10 @@ struct SFileIOPolicy
         // Runtime tuning strategy for worker/chunk selection.
         enum class Mode : uint8_t
         {
-            // Disable runtime tuning. Use static heuristics only.
-            None,
+            // Disable runtime tuning and force sequential execution.
+            Sequential,
+            // Backward-compatible alias for Sequential.
+            None = Sequential,
             // Use deterministic heuristics derived from input size and hardware.
             Heuristic,
             // Use heuristics and optionally refine with lightweight sampling.

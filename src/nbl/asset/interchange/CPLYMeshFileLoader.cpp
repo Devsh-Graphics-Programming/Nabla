@@ -2168,7 +2168,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		if (deferredPositionHashThread.joinable())
 			deferredPositionHashThread.join();
-		SPolygonGeometryContentHash::computeMissingParallel(geometry.get(), _params.ioPolicy);
+		SPolygonGeometryContentHash::computeMissing(geometry.get(), _params.ioPolicy);
 	}
 	else
 	{

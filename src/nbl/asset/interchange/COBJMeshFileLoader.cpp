@@ -891,7 +891,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         }
 
         if ((_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0)
-            SPolygonGeometryContentHash::computeMissingParallel(geometry.get(), _params.ioPolicy);
+            SPolygonGeometryContentHash::computeMissing(geometry.get(), _params.ioPolicy);
 
         if (!parsedAABB.empty())
             geometry->applyAABB(parsedAABB.value);

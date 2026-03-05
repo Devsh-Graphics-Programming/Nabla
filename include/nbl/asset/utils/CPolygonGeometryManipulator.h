@@ -28,7 +28,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			RecomputeAll
 		};
 
-		static void collectUniqueBuffers(ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers);
+		static void collectUniqueBuffers(const ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers);
 		static void computeContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy, const EContentHashMode mode = EContentHashMode::MissingOnly);
 		static inline void computeMissingContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy)
 		{

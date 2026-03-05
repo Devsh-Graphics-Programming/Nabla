@@ -5,7 +5,9 @@
 #define _NBL_ASSET_S_GEOMETRY_CONTENT_HASH_COMMON_H_INCLUDED_
 
 
+#include "nbl/asset/IPreHashed.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+#include "nbl/core/hash/blake.h"
 
 
 namespace nbl::asset
@@ -17,25 +19,51 @@ class SPolygonGeometryContentHash
         using EMode = CPolygonGeometryManipulator::EContentHashMode;
 
         static inline void collectBuffers(
-            ICPUPolygonGeometry* geometry,
+            const ICPUPolygonGeometry* geometry,
             core::vector<core::smart_refctd_ptr<ICPUBuffer>>& buffers)
         {
             CPolygonGeometryManipulator::collectUniqueBuffers(geometry, buffers);
         }
 
-        static inline void computeParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy, const EMode mode = EMode::MissingOnly)
+        static inline void reset(ICPUPolygonGeometry* geometry)
         {
-            CPolygonGeometryManipulator::computeContentHashesParallel(geometry, ioPolicy, mode);
+            core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+            collectBuffers(geometry, buffers);
+            for (auto& buffer : buffers)
+                if (buffer)
+                    buffer->setContentHash(IPreHashed::INVALID_HASH);
         }
 
-        static inline void computeMissingParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
+        static inline core::blake3_hash_t getHash(const ICPUPolygonGeometry* geometry)
+        {
+            if (!geometry)
+                return IPreHashed::INVALID_HASH;
+
+            core::blake3_hasher hasher;
+            if (const auto* indexing = geometry->getIndexingCallback(); indexing)
+            {
+                hasher << indexing->degree();
+                hasher << indexing->rate();
+                hasher << indexing->knownTopology();
+            }
+
+            core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+            collectBuffers(geometry, buffers);
+            for (const auto& buffer : buffers)
+                hasher << (buffer ? buffer->getContentHash() : IPreHashed::INVALID_HASH);
+            return static_cast<core::blake3_hash_t>(hasher);
+        }
+
+        static inline core::blake3_hash_t computeMissing(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
         {
             CPolygonGeometryManipulator::computeMissingContentHashesParallel(geometry, ioPolicy);
+            return getHash(geometry);
         }
 
-        static inline void recomputeParallel(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
+        static inline core::blake3_hash_t recompute(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
         {
             CPolygonGeometryManipulator::recomputeContentHashesParallel(geometry, ioPolicy);
+            return getHash(geometry);
         }
 };
 

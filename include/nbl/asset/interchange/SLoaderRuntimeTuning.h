@@ -245,7 +245,7 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
     const uint64_t minBytesPerWorker = std::max<uint64_t>(1ull, request.minBytesPerWorker);
     const size_t maxByWork = static_cast<size_t>(loaderRuntimeCeilDiv(request.totalWorkUnits, minWorkUnitsPerWorker));
     const size_t maxByBytes = request.inputBytes ? static_cast<size_t>(loaderRuntimeCeilDiv(request.inputBytes, minBytesPerWorker)) : maxWorkers;
-    const bool heuristicEnabled = ioPolicy.runtimeTuning.mode != RTMode::None;
+    const bool heuristicEnabled = ioPolicy.runtimeTuning.mode != RTMode::Sequential;
     const bool hybridEnabled = ioPolicy.runtimeTuning.mode == RTMode::Hybrid;
 
     size_t workerCount = 1ull;
