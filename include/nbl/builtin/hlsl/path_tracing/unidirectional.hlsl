@@ -44,8 +44,7 @@ struct Unidirectional
     using closest_hit_type = typename Intersector::closest_hit_type;
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
     using anisotropic_interaction_type = typename MaterialSystem::anisotropic_interaction_type;
-    using isotropic_interaction_type = typename anisotropic_interaction_type::isotropic_interaction_type;
-    using anisocache_type = typename MaterialSystem::anisocache_type;
+    using cache_type = typename MaterialSystem::cache_type;
     using quotient_pdf_type = typename NextEventEstimator::quotient_pdf_type;
     using tolerance_method_type = typename NextEventEstimator::tolerance_method_type;
 
@@ -102,11 +101,7 @@ struct Unidirectional
             sample_type nee_sample = ret.getSample();
             quotient_pdf_type neeContrib = ret.getQuotientPdf();
 
-            // We don't allow non watertight transmitters in this renderer
-            // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
-            const scalar_type monochromeEta = materialSystem.setMonochromeEta(matID, throughputCIE_Y);
-            bxdf::fresnel::OrientedEtas<monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(monochromeEta));
-            anisocache_type _cache = anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, nee_sample, orientedEta);
+            // We don't allow non watertight transmitters in this renderer, one cannot reach a light from the backface (optimization)
 
             // While NEE or other generators are not supposed to pick up Delta lobes by accident, we need the MIS weights to add up to 1 for the non-delta lobes.
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
@@ -114,9 +109,9 @@ struct Unidirectional
             // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
             if (neeContrib.pdf > scalar_type(0.0))
             {
-                // we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
-                const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction, _cache);
-                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction, _cache) * rcpChoiceProb;
+                // TODO: we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
+                const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction);
+                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction) * rcpChoiceProb;
                 const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
                 neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
 
@@ -137,7 +132,7 @@ struct Unidirectional
         vector3_type bxdfSample;
         vector3_type throughput = ray.getPayloadThroughput();
         {
-            anisocache_type _cache;
+            cache_type _cache;
             sample_type bsdf_sample = materialSystem.generate(matID, interaction, eps1, _cache);
 
             if (!bsdf_sample.isValid())

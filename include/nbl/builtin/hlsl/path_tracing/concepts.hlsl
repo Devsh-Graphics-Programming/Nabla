@@ -161,7 +161,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_2 (matid, typename T::material_id_type)
 #define NBL_CONCEPT_PARAM_3 (aniso_inter, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_4 (iso_inter, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_5 (aniso_cache, typename T::anisocache_type)
+#define NBL_CONCEPT_PARAM_5 (cache_, typename T::cache_type)
 #define NBL_CONCEPT_PARAM_6 (iso_cache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (u, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_8 (cie_y, typename T::measure_type)
@@ -171,7 +171,7 @@ NBL_CONCEPT_BEGIN(9)
 #define matid NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define aniso_inter NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define iso_inter NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
-#define aniso_cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+#define cache_ NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define iso_cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 #define cie_y NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
@@ -182,15 +182,14 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::measure_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::cache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::create_params_t))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BxdfNode, typename T::bxdfnode_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, _sample, aniso_inter, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::measure_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, aniso_inter, u, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, _sample, aniso_inter, aniso_cache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, _sample, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::measure_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, aniso_inter, u, cache_)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.pdf(matid, _sample, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, _sample, aniso_inter, cache_)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getBxDFNode(matid, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.hasEmission(matid)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.setMonochromeEta(matid, cie_y)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
@@ -199,7 +198,7 @@ NBL_CONCEPT_END(
 #undef cie_y
 #undef u
 #undef iso_cache
-#undef aniso_cache
+#undef cache_
 #undef iso_inter
 #undef aniso_inter
 #undef matid
