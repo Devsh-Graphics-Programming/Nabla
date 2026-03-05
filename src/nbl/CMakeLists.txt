@@ -128,6 +128,7 @@ set(NBL_CORE_SOURCES
 	core/alloc/refctd_memory_resource.cpp
 	core/hash/blake.cpp
 )
+
 set(NBL_SYSTEM_SOURCES
 	system/DefaultFuncPtrLoader.cpp
 	system/IFileBase.cpp
@@ -291,6 +292,9 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	video/CCUDAHandler.cpp
 	video/CCUDADevice.cpp
+
+# Sampling
+	video/sampling/EnvmapSampler.cpp
 )
 
 set(NBL_SCENE_SOURCES
