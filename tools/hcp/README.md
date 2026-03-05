@@ -3,9 +3,11 @@
 Headless parity checker for polygon geometry content hashing.
 
 ## What it checks
+- input geometry buffers are generated as deterministic dummy blobs from `--seed`
 - `recompute(..., sequential)` as baseline
 - `recompute(..., <selected mode>)` equals baseline hash
 - `computeMissing(..., <selected mode>)` preserves pre-set hashes and equals baseline hash
+- confirms `BLAKE3` content hashing parity independent of runtime tuning mode
 - timing logs for baseline, recompute and computeMissing
 
 ## Args
