@@ -15,6 +15,700 @@ endif()
 include("${CMAKE_CURRENT_LIST_DIR}/NablaExportTargets.cmake")
 check_required_components(Nabla)
 
+#
+# nabla_sync_runtime_modules(
+#   [TARGETS <t1;t2;...>]
+#   [DESTINATION <path>]
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
+#   [MODE <CONFIGURE_TIME|BUILD_TIME|BOTH>]
+#   [RUNTIME_MODULES_SUBDIR <relative-subdir>]
+#   [BUILD_TRIGGER_TARGETS <t1;t2;...>]
+# )
+#
+# nabla_apply_runtime_lookup(
+#   TARGETS <t1;t2;...>
+#   [RUNTIME_MODULES_SUBDIR <relative-subdir>]
+# )
+#
+# nabla_setup_runtime_install_modules(
+#   [RUNTIME_MODULES_SUBDIR <relative-subdir>]
+# )
+#
+# nabla_setup_runtime_modules(
+#   [TARGETS <t1;t2;...>]
+#   [DESTINATION <path>]
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
+#   [APPLY_LOOKUP_TO_TARGETS <t1;t2;...>]
+#   [RUNTIME_MODULES_SUBDIR <relative-subdir>]
+#   [MODE <CONFIGURE_TIME|BUILD_TIME|BOTH>]
+#   [INSTALL_RULES <ON|OFF>]
+#   [BUILD_TRIGGER_TARGETS <t1;t2;...>]
+# )
+#
+# Wrapper around sync + lookup + install helpers.
+#
+# Config mapping:
+# - Runtime source path is resolved from mapped imported config of Nabla::Nabla.
+# - MAP_IMPORTED_CONFIG_* and CMAKE_MAP_IMPORTED_CONFIG_* are applied automatically.
+# - MODE=CONFIGURE_TIME and MODE=BOTH resolve mapped imported config during configure/generate.
+# - For MODE=CONFIGURE_TIME and MODE=BOTH, finalize mapping before calling helpers.
+# - If using CMAKE_MAP_IMPORTED_CONFIG_<CONFIG>, set it before find_package(Nabla).
+#
+
+function(_nbl_runtime_modules_apply_lookup_definitions _TARGET _RUNTIME_MODULES_SUBDIR)
+  target_compile_definitions("${_TARGET}" PRIVATE
+    NBL_CPACK_PACKAGE_NABLA_DLL_DIR="./${_RUNTIME_MODULES_SUBDIR}"
+    NBL_CPACK_PACKAGE_DXC_DLL_DIR="./${_RUNTIME_MODULES_SUBDIR}"
+  )
+endfunction()
+
+function(_nbl_runtime_modules_apply_lookup_definitions_to_targets _TARGETS _RUNTIME_MODULES_SUBDIR)
+  set(_targets ${_TARGETS})
+  list(REMOVE_DUPLICATES _targets)
+
+  foreach(_target IN LISTS _targets)
+    if(NOT TARGET "${_target}")
+      message(FATAL_ERROR "Nabla: target \"${_target}\" does not exist")
+    endif()
+    _nbl_runtime_modules_apply_lookup_definitions("${_target}" "${_RUNTIME_MODULES_SUBDIR}")
+  endforeach()
+endfunction()
+
+function(_nbl_runtime_modules_add_install_rules _RUNTIME_MODULES_SUBDIR)
+  if(NOT DEFINED CMAKE_INSTALL_BINDIR)
+    include(GNUInstallDirs)
+  endif()
+
+  set(_nbl_install_modules_dest "${CMAKE_INSTALL_BINDIR}/${_RUNTIME_MODULES_SUBDIR}")
+  string(MD5 _nbl_install_modules_dest_key "${_nbl_install_modules_dest}")
+  get_property(_nbl_install_rules_added GLOBAL PROPERTY "NBL_RUNTIME_MODULES_INSTALL_RULES_${_nbl_install_modules_dest_key}")
+  if(NOT _nbl_install_rules_added)
+    install(FILES "$<TARGET_FILE:Nabla::Nabla>"
+      DESTINATION "${_nbl_install_modules_dest}"
+    )
+    install(DIRECTORY "$<PATH:APPEND,$<TARGET_FILE_DIR:Nabla::Nabla>,3rdparty,dxc>/"
+      DESTINATION "${_nbl_install_modules_dest}"
+    )
+    set_property(GLOBAL PROPERTY "NBL_RUNTIME_MODULES_INSTALL_RULES_${_nbl_install_modules_dest_key}" TRUE)
+  endif()
+endfunction()
+
+function(_nbl_runtime_modules_collect_consumer_configs _OUT_CONFIGS)
+  if(CMAKE_CONFIGURATION_TYPES)
+    set(_consumer_configs ${CMAKE_CONFIGURATION_TYPES})
+  elseif(CMAKE_BUILD_TYPE)
+    set(_consumer_configs "${CMAKE_BUILD_TYPE}")
+  else()
+    set(_consumer_configs Debug)
+  endif()
+
+  list(REMOVE_DUPLICATES _consumer_configs)
+  set(${_OUT_CONFIGS} ${_consumer_configs} PARENT_SCOPE)
+endfunction()
+
+function(_nbl_runtime_modules_expand_destination_pairs _DESTINATION_DEFAULT _DESTINATION_DEBUG _DESTINATION_RELEASE _DESTINATION_RELWITHDEBINFO _OUT_CFG_DST_PAIRS)
+  _nbl_runtime_modules_collect_consumer_configs(_consumer_configs)
+  set(_cfg_dst_pairs "")
+
+  foreach(_consumer_config IN LISTS _consumer_configs)
+    string(TOUPPER "${_consumer_config}" _cfg_upper)
+    if(_cfg_upper STREQUAL "DEBUG" AND NOT _DESTINATION_DEBUG STREQUAL "")
+      set(_resolved_destination "${_DESTINATION_DEBUG}")
+    elseif(_cfg_upper STREQUAL "RELEASE" AND NOT _DESTINATION_RELEASE STREQUAL "")
+      set(_resolved_destination "${_DESTINATION_RELEASE}")
+    elseif(_cfg_upper STREQUAL "RELWITHDEBINFO" AND NOT _DESTINATION_RELWITHDEBINFO STREQUAL "")
+      set(_resolved_destination "${_DESTINATION_RELWITHDEBINFO}")
+    else()
+      set(_resolved_destination "${_DESTINATION_DEFAULT}")
+    endif()
+
+    if(_resolved_destination STREQUAL "")
+      message(FATAL_ERROR "Nabla: missing destination for consumer config \"${_consumer_config}\". Provide DESTINATION or one of DESTINATION_DEBUG/DESTINATION_RELEASE/DESTINATION_RELWITHDEBINFO.")
+    endif()
+
+    if(_resolved_destination MATCHES "\\$<")
+      message(FATAL_ERROR "Nabla: DESTINATION for MODE CONFIGURE_TIME must be a plain path without generator expressions.")
+    endif()
+
+    cmake_path(IS_ABSOLUTE _resolved_destination _is_abs)
+    if(NOT _is_abs)
+      cmake_path(ABSOLUTE_PATH _resolved_destination BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" OUTPUT_VARIABLE _resolved_destination)
+    endif()
+
+    list(APPEND _cfg_dst_pairs "${_consumer_config}::${_resolved_destination}")
+  endforeach()
+
+  set(${_OUT_CFG_DST_PAIRS} ${_cfg_dst_pairs} PARENT_SCOPE)
+endfunction()
+
+function(_nbl_runtime_modules_resolve_imported_nabla_file _CONSUMER_CONFIG _OUT_IMPORTED_FILE)
+  string(TOUPPER "${_CONSUMER_CONFIG}" _cfg_upper)
+
+  # Resolve runtime source from mapped imported config for given consumer config.
+  set(_mapped_candidates "")
+  get_target_property(_target_map "Nabla::Nabla" "MAP_IMPORTED_CONFIG_${_cfg_upper}")
+  if(_target_map AND NOT _target_map STREQUAL "NOTFOUND")
+    list(APPEND _mapped_candidates ${_target_map})
+  endif()
+
+  set(_global_map_var "CMAKE_MAP_IMPORTED_CONFIG_${_cfg_upper}")
+  if(DEFINED ${_global_map_var} AND NOT "${${_global_map_var}}" STREQUAL "")
+    list(APPEND _mapped_candidates ${${_global_map_var}})
+  endif()
+
+  list(APPEND _mapped_candidates "${_cfg_upper}")
+
+  foreach(_mapped_config IN LISTS _mapped_candidates)
+    if(_mapped_config STREQUAL "")
+      get_target_property(_candidate "Nabla::Nabla" IMPORTED_LOCATION)
+    else()
+      string(TOUPPER "${_mapped_config}" _mapped_upper)
+      get_target_property(_candidate "Nabla::Nabla" "IMPORTED_LOCATION_${_mapped_upper}")
+    endif()
+
+    if(_candidate AND NOT _candidate STREQUAL "NOTFOUND" AND EXISTS "${_candidate}")
+      set(${_OUT_IMPORTED_FILE} "${_candidate}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+
+  get_target_property(_imported_configs "Nabla::Nabla" IMPORTED_CONFIGURATIONS)
+  foreach(_imported_config IN LISTS _imported_configs)
+    get_target_property(_candidate "Nabla::Nabla" "IMPORTED_LOCATION_${_imported_config}")
+    if(_candidate AND NOT _candidate STREQUAL "NOTFOUND" AND EXISTS "${_candidate}")
+      set(${_OUT_IMPORTED_FILE} "${_candidate}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+
+  get_target_property(_candidate "Nabla::Nabla" IMPORTED_LOCATION)
+  if(_candidate AND NOT _candidate STREQUAL "NOTFOUND" AND EXISTS "${_candidate}")
+    set(${_OUT_IMPORTED_FILE} "${_candidate}" PARENT_SCOPE)
+    return()
+  endif()
+
+  message(FATAL_ERROR "Nabla: cannot resolve imported runtime location for consumer config \"${_CONSUMER_CONFIG}\"")
+endfunction()
+
+function(_nbl_runtime_modules_resolve_dxc_runtime_file _NABLA_IMPORTED_FILE _OUT_DXC_IMPORTED_FILE)
+  cmake_path(GET _NABLA_IMPORTED_FILE PARENT_PATH _nabla_runtime_dir)
+  set(_dxc_runtime_file "${_nabla_runtime_dir}/3rdparty/dxc/${CMAKE_SHARED_LIBRARY_PREFIX}dxcompiler${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
+  if(NOT EXISTS "${_dxc_runtime_file}")
+    message(FATAL_ERROR "Nabla: DXC runtime module not found at \"${_dxc_runtime_file}\"")
+  endif()
+
+  set(${_OUT_DXC_IMPORTED_FILE} "${_dxc_runtime_file}" PARENT_SCOPE)
+endfunction()
+
+function(_nbl_runtime_modules_expand_target_configure_sync_pairs _TARGET _RUNTIME_MODULES_SUBDIR _OUT_CFG_DST_PAIRS)
+  if(NOT TARGET "${_TARGET}")
+    message(FATAL_ERROR "Nabla: target \"${_TARGET}\" does not exist")
+  endif()
+
+  get_target_property(_runtime_output_dir "${_TARGET}" RUNTIME_OUTPUT_DIRECTORY)
+  if(_runtime_output_dir)
+    set(_runtime_output_base "${_runtime_output_dir}")
+  elseif(DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY STREQUAL "")
+    set(_runtime_output_base "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+  else()
+    if(CMAKE_CONFIGURATION_TYPES)
+      set(_runtime_output_base "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+    else()
+      set(_runtime_output_base "${CMAKE_CURRENT_BINARY_DIR}")
+    endif()
+  endif()
+
+  _nbl_runtime_modules_collect_consumer_configs(_consumer_configs)
+  set(_cfg_dst_pairs "")
+
+  if(_runtime_output_base MATCHES "\\$<CONFIG>")
+    set(_runtime_output_without_config "${_runtime_output_base}")
+    string(REPLACE "$<CONFIG>" "" _runtime_output_without_config "${_runtime_output_without_config}")
+    if(_runtime_output_without_config MATCHES "\\$<")
+      message(FATAL_ERROR "Nabla: MODE CONFIGURE_TIME supports only $<CONFIG> generator expression in runtime output directory")
+    endif()
+
+    foreach(_consumer_config IN LISTS _consumer_configs)
+      set(_runtime_output_resolved "${_runtime_output_base}")
+      string(REPLACE "$<CONFIG>" "${_consumer_config}" _runtime_output_resolved "${_runtime_output_resolved}")
+      cmake_path(IS_ABSOLUTE _runtime_output_resolved _is_abs)
+      if(NOT _is_abs)
+        cmake_path(ABSOLUTE_PATH _runtime_output_resolved BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" OUTPUT_VARIABLE _runtime_output_resolved)
+      endif()
+      set(_runtime_modules_dst "${_runtime_output_resolved}/${_RUNTIME_MODULES_SUBDIR}")
+      list(APPEND _cfg_dst_pairs "${_consumer_config}::${_runtime_modules_dst}")
+    endforeach()
+  else()
+    if(_runtime_output_base MATCHES "\\$<")
+      message(FATAL_ERROR "Nabla: MODE CONFIGURE_TIME supports only plain paths or paths with $<CONFIG> in runtime output directory")
+    endif()
+
+    list(LENGTH _consumer_configs _consumer_configs_count)
+    if(_consumer_configs_count GREATER 1)
+      message(FATAL_ERROR "Nabla: MODE CONFIGURE_TIME with multi-config generators requires $<CONFIG> in runtime output directory")
+    endif()
+
+    list(GET _consumer_configs 0 _consumer_config)
+    cmake_path(IS_ABSOLUTE _runtime_output_base _is_abs)
+    if(NOT _is_abs)
+      cmake_path(ABSOLUTE_PATH _runtime_output_base BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" OUTPUT_VARIABLE _runtime_output_base)
+    endif()
+    set(_runtime_modules_dst "${_runtime_output_base}/${_RUNTIME_MODULES_SUBDIR}")
+    list(APPEND _cfg_dst_pairs "${_consumer_config}::${_runtime_modules_dst}")
+  endif()
+
+  set(${_OUT_CFG_DST_PAIRS} ${_cfg_dst_pairs} PARENT_SCOPE)
+endfunction()
+
+function(_nbl_runtime_modules_add_configure_sync_rule_for_pairs _CFG_DST_PAIRS _ENABLE_CONFIGURE_DEPENDS)
+  set(_cfg_dst_pairs ${_CFG_DST_PAIRS})
+
+  foreach(_cfg_dst_pair IN LISTS _cfg_dst_pairs)
+    string(REPLACE "::" ";" _cfg_dst_parts "${_cfg_dst_pair}")
+    list(GET _cfg_dst_parts 0 _consumer_config)
+    list(GET _cfg_dst_parts 1 _runtime_modules_dst)
+
+    string(MD5 _runtime_modules_dst_key "${_runtime_modules_dst}")
+    get_property(_runtime_modules_config_synced GLOBAL PROPERTY "NBL_RUNTIME_MODULES_CONFIG_SYNC_${_runtime_modules_dst_key}")
+    if(_runtime_modules_config_synced)
+      continue()
+    endif()
+
+    _nbl_runtime_modules_resolve_imported_nabla_file("${_consumer_config}" _nabla_runtime_file)
+    _nbl_runtime_modules_resolve_dxc_runtime_file("${_nabla_runtime_file}" _dxc_runtime_file)
+
+    file(MAKE_DIRECTORY "${_runtime_modules_dst}")
+
+    cmake_path(GET _nabla_runtime_file FILENAME _nabla_runtime_name)
+    cmake_path(GET _dxc_runtime_file FILENAME _dxc_runtime_name)
+    set(_nabla_runtime_dst "${_runtime_modules_dst}/${_nabla_runtime_name}")
+    set(_dxc_runtime_dst "${_runtime_modules_dst}/${_dxc_runtime_name}")
+
+    file(COPY_FILE "${_nabla_runtime_file}" "${_nabla_runtime_dst}" ONLY_IF_DIFFERENT INPUT_MAY_BE_RECENT)
+    file(COPY_FILE "${_dxc_runtime_file}" "${_dxc_runtime_dst}" ONLY_IF_DIFFERENT INPUT_MAY_BE_RECENT)
+
+    if(_ENABLE_CONFIGURE_DEPENDS)
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${_nabla_runtime_file}"
+        "${_dxc_runtime_file}"
+        "${_nabla_runtime_dst}"
+        "${_dxc_runtime_dst}"
+      )
+    endif()
+
+    set_property(GLOBAL PROPERTY "NBL_RUNTIME_MODULES_CONFIG_SYNC_${_runtime_modules_dst_key}" TRUE)
+  endforeach()
+endfunction()
+
+function(_nbl_runtime_modules_add_configure_sync_rule_for_targets _TARGETS _RUNTIME_MODULES_SUBDIR _ENABLE_CONFIGURE_DEPENDS)
+  set(_targets ${_TARGETS})
+  list(REMOVE_DUPLICATES _targets)
+
+  set(_cfg_dst_pairs "")
+  foreach(_target IN LISTS _targets)
+    _nbl_runtime_modules_expand_target_configure_sync_pairs("${_target}" "${_RUNTIME_MODULES_SUBDIR}" _target_cfg_dst_pairs)
+    list(APPEND _cfg_dst_pairs ${_target_cfg_dst_pairs})
+  endforeach()
+
+  _nbl_runtime_modules_add_configure_sync_rule_for_pairs("${_cfg_dst_pairs}" "${_ENABLE_CONFIGURE_DEPENDS}")
+endfunction()
+
+function(_nbl_runtime_modules_add_build_sync_rule_for_target _TARGET _RUNTIME_MODULES_SUBDIR)
+  if(NOT TARGET "${_TARGET}")
+    message(FATAL_ERROR "Nabla: target \"${_TARGET}\" does not exist")
+  endif()
+
+  get_target_property(_nbl_runtime_output_dir "${_TARGET}" RUNTIME_OUTPUT_DIRECTORY)
+  if(_nbl_runtime_output_dir)
+    set(_nbl_runtime_modules_dest "$<PATH:APPEND,${_nbl_runtime_output_dir},${_RUNTIME_MODULES_SUBDIR}>")
+  elseif(DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY STREQUAL "")
+    set(_nbl_runtime_modules_dest "$<PATH:APPEND,${CMAKE_RUNTIME_OUTPUT_DIRECTORY},${_RUNTIME_MODULES_SUBDIR}>")
+  else()
+    set(_nbl_runtime_modules_dest "$<TARGET_FILE_DIR:${_TARGET}>/${_RUNTIME_MODULES_SUBDIR}")
+  endif()
+
+  string(MD5 _nbl_runtime_modules_dest_key "${_nbl_runtime_modules_dest}")
+
+  get_property(_nbl_runtime_modules_stamp GLOBAL PROPERTY "NBL_RUNTIME_MODULES_BUILD_SYNC_${_nbl_runtime_modules_dest_key}")
+  if(NOT _nbl_runtime_modules_stamp)
+    set(_nbl_runtime_modules_stamp "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/nabla_runtime_modules_${_nbl_runtime_modules_dest_key}.stamp")
+
+    add_custom_command(
+      OUTPUT "${_nbl_runtime_modules_stamp}"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${_nbl_runtime_modules_dest}"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Nabla::Nabla>" "${_nbl_runtime_modules_dest}/"
+      COMMAND ${CMAKE_COMMAND} -E copy_directory "$<PATH:APPEND,$<TARGET_FILE_DIR:Nabla::Nabla>,3rdparty,dxc>" "${_nbl_runtime_modules_dest}"
+      COMMAND ${CMAKE_COMMAND} -E touch "${_nbl_runtime_modules_stamp}"
+      DEPENDS
+        "$<TARGET_FILE:Nabla::Nabla>"
+        "$<PATH:APPEND,$<TARGET_FILE_DIR:Nabla::Nabla>,3rdparty,dxc,${CMAKE_SHARED_LIBRARY_PREFIX}dxcompiler${CMAKE_SHARED_LIBRARY_SUFFIX}>"
+        "$<PATH:APPEND,${_nbl_runtime_modules_dest},$<TARGET_FILE_NAME:Nabla::Nabla>>"
+      COMMAND_EXPAND_LISTS
+      VERBATIM
+    )
+
+    set_property(GLOBAL PROPERTY "NBL_RUNTIME_MODULES_BUILD_SYNC_${_nbl_runtime_modules_dest_key}" "${_nbl_runtime_modules_stamp}")
+  endif()
+
+  set_source_files_properties("${_nbl_runtime_modules_stamp}" PROPERTIES GENERATED TRUE)
+  target_sources("${_TARGET}" PRIVATE "${_nbl_runtime_modules_stamp}")
+endfunction()
+
+function(_nbl_runtime_modules_add_build_sync_rule_for_targets _TARGETS _RUNTIME_MODULES_SUBDIR)
+  set(_targets ${_TARGETS})
+  list(REMOVE_DUPLICATES _targets)
+
+  foreach(_target IN LISTS _targets)
+    _nbl_runtime_modules_add_build_sync_rule_for_target("${_target}" "${_RUNTIME_MODULES_SUBDIR}")
+  endforeach()
+endfunction()
+
+function(_nbl_runtime_modules_add_build_sync_rule_for_destination_pairs _BUILD_TRIGGER_TARGETS _CFG_DST_PAIRS)
+  set(_build_trigger_targets ${_BUILD_TRIGGER_TARGETS})
+  list(REMOVE_DUPLICATES _build_trigger_targets)
+
+  foreach(_target IN LISTS _build_trigger_targets)
+    if(NOT TARGET "${_target}")
+      message(FATAL_ERROR "Nabla: BUILD_TRIGGER_TARGETS contains unknown target \"${_target}\"")
+    endif()
+  endforeach()
+
+  set(_cfg_dst_pairs ${_CFG_DST_PAIRS})
+
+  foreach(_cfg_dst_pair IN LISTS _cfg_dst_pairs)
+    string(REPLACE "::" ";" _cfg_dst_parts "${_cfg_dst_pair}")
+    list(GET _cfg_dst_parts 0 _consumer_config)
+    list(GET _cfg_dst_parts 1 _runtime_modules_dst)
+
+    _nbl_runtime_modules_resolve_imported_nabla_file("${_consumer_config}" _nabla_runtime_file)
+    _nbl_runtime_modules_resolve_dxc_runtime_file("${_nabla_runtime_file}" _dxc_runtime_file)
+
+    cmake_path(GET _nabla_runtime_file FILENAME _nabla_runtime_name)
+    cmake_path(GET _dxc_runtime_file FILENAME _dxc_runtime_name)
+    set(_nabla_runtime_dst "${_runtime_modules_dst}/${_nabla_runtime_name}")
+    set(_dxc_runtime_dst "${_runtime_modules_dst}/${_dxc_runtime_name}")
+
+    string(MD5 _runtime_modules_dst_key "${_consumer_config}::${_runtime_modules_dst}")
+
+    get_property(_sync_target GLOBAL PROPERTY "NBL_RUNTIME_MODULES_BUILD_SYNC_DEST_TARGET_${_runtime_modules_dst_key}")
+    if(NOT _sync_target)
+      set(_sync_target "nabla_runtime_modules_dest_sync_${_runtime_modules_dst_key}")
+      set(_sync_stamp "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_sync_target}.stamp")
+
+      add_custom_command(
+        OUTPUT "${_sync_stamp}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_runtime_modules_dst}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_nabla_runtime_file}" "${_runtime_modules_dst}/"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_dxc_runtime_file}" "${_runtime_modules_dst}/"
+        COMMAND ${CMAKE_COMMAND} -E touch "${_sync_stamp}"
+        DEPENDS
+          "${_nabla_runtime_file}"
+          "${_dxc_runtime_file}"
+          "${_nabla_runtime_dst}"
+          "${_dxc_runtime_dst}"
+        VERBATIM
+      )
+
+      add_custom_target("${_sync_target}" DEPENDS "${_sync_stamp}")
+      set_target_properties("${_sync_target}" PROPERTIES
+        FOLDER "CMakePredefinedTargets"
+        EXCLUDE_FROM_ALL TRUE
+      )
+
+      set_property(GLOBAL PROPERTY "NBL_RUNTIME_MODULES_BUILD_SYNC_DEST_TARGET_${_runtime_modules_dst_key}" "${_sync_target}")
+    endif()
+
+    foreach(_target IN LISTS _build_trigger_targets)
+      add_dependencies("${_target}" "${_sync_target}")
+    endforeach()
+  endforeach()
+endfunction()
+
+#
+# nabla_apply_runtime_lookup(
+#   TARGETS <t1;t2;...>
+#   [RUNTIME_MODULES_SUBDIR <relative_subdir>]
+# )
+#
+# Applies runtime lookup compile definitions to executable targets.
+# The lookup is always relative to executable directory and does not expose
+# absolute paths.
+#
+# Notes:
+# - TARGETS is required.
+# - RUNTIME_MODULES_SUBDIR defaults to "Libraries".
+#
+function(nabla_apply_runtime_lookup)
+  set(_nbl_runtime_modules_subdir "Libraries")
+
+  cmake_parse_arguments(_NBL_CUSTOM "" "RUNTIME_MODULES_SUBDIR" "TARGETS" ${ARGV})
+
+  if(_NBL_CUSTOM_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_apply_runtime_lookup: ${_NBL_CUSTOM_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
+    set(_nbl_runtime_modules_subdir "${_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR}")
+  endif()
+
+  if(NOT _NBL_CUSTOM_TARGETS)
+    message(FATAL_ERROR "Nabla: nabla_apply_runtime_lookup requires TARGETS <t1;t2;...>")
+  endif()
+
+  _nbl_runtime_modules_apply_lookup_definitions_to_targets("${_NBL_CUSTOM_TARGETS}" "${_nbl_runtime_modules_subdir}")
+endfunction()
+
+#
+# nabla_setup_runtime_install_modules(
+#   [RUNTIME_MODULES_SUBDIR <relative_subdir>]
+# )
+#
+# Adds install() rules that copy Nabla and DXC runtime modules into:
+#   ${CMAKE_INSTALL_BINDIR}/<RUNTIME_MODULES_SUBDIR>
+#
+# Notes:
+# - RUNTIME_MODULES_SUBDIR defaults to "Libraries".
+# - This helper only adds install rules.
+#
+function(nabla_setup_runtime_install_modules)
+  set(_nbl_runtime_modules_subdir "Libraries")
+  cmake_parse_arguments(_NBL_CUSTOM "" "RUNTIME_MODULES_SUBDIR" "" ${ARGV})
+
+  if(_NBL_CUSTOM_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_setup_runtime_install_modules: ${_NBL_CUSTOM_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
+    set(_nbl_runtime_modules_subdir "${_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR}")
+  endif()
+
+  _nbl_runtime_modules_add_install_rules("${_nbl_runtime_modules_subdir}")
+endfunction()
+
+#
+# nabla_sync_runtime_modules(
+#   [TARGETS <t1;t2;...>]
+#   [DESTINATION <path>]
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
+#   [MODE BUILD_TIME|CONFIGURE_TIME|BOTH]
+#   [RUNTIME_MODULES_SUBDIR <relative_subdir>]
+#   [BUILD_TRIGGER_TARGETS <t1;t2;...>]
+# )
+#
+# Synchronizes runtime modules from Nabla package into consumer runtime layout.
+#
+# Input modes (mutually exclusive):
+# - TARGETS mode
+#   Copies beside each target runtime dir under RUNTIME_MODULES_SUBDIR.
+# - DESTINATION mode
+#   Copies to explicit DESTINATION or DESTINATION_DEBUG/RELEASE/RELWITHDEBINFO paths.
+#
+# MODE:
+# - BUILD_TIME
+#   Copy during build.
+# - CONFIGURE_TIME
+#   Copy during configure/generate and set configure depends.
+# - BOTH
+#   Run configure-time copy and build-time copy.
+#
+# Rules:
+# - exactly one input mode must be used
+# - BUILD_TRIGGER_TARGETS is valid only in DESTINATION mode for BUILD_TIME/BOTH
+#
+function(nabla_sync_runtime_modules)
+  set(_nbl_runtime_modules_subdir "Libraries")
+  set(_nbl_mode BUILD_TIME)
+
+  cmake_parse_arguments(_NBL_CUSTOM "" "MODE;DESTINATION;DESTINATION_DEBUG;DESTINATION_RELEASE;DESTINATION_RELWITHDEBINFO;RUNTIME_MODULES_SUBDIR" "TARGETS;BUILD_TRIGGER_TARGETS" ${ARGV})
+
+  if(_NBL_CUSTOM_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_sync_runtime_modules: ${_NBL_CUSTOM_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
+    set(_nbl_runtime_modules_subdir "${_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_MODE)
+    set(_nbl_mode "${_NBL_CUSTOM_MODE}")
+  endif()
+
+  string(TOUPPER "${_nbl_mode}" _nbl_mode)
+  if(NOT _nbl_mode MATCHES "^(BUILD_TIME|CONFIGURE_TIME|BOTH)$")
+    message(FATAL_ERROR "Nabla: invalid MODE='${_nbl_mode}', expected BUILD_TIME, CONFIGURE_TIME or BOTH")
+  endif()
+
+  set(_has_targets OFF)
+  if(_NBL_CUSTOM_TARGETS)
+    set(_has_targets ON)
+  endif()
+
+  set(_has_destination OFF)
+  if(DEFINED _NBL_CUSTOM_DESTINATION AND NOT _NBL_CUSTOM_DESTINATION STREQUAL "")
+    set(_has_destination ON)
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_DEBUG AND NOT _NBL_CUSTOM_DESTINATION_DEBUG STREQUAL "")
+    set(_has_destination ON)
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELEASE AND NOT _NBL_CUSTOM_DESTINATION_RELEASE STREQUAL "")
+    set(_has_destination ON)
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO AND NOT _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO STREQUAL "")
+    set(_has_destination ON)
+  endif()
+
+  if(_has_targets AND _has_destination)
+    message(FATAL_ERROR "Nabla: use either TARGETS mode or DESTINATION mode, not both")
+  endif()
+
+  if(NOT _has_targets AND NOT _has_destination)
+    message(FATAL_ERROR "Nabla: nabla_sync_runtime_modules requires TARGETS or DESTINATION/DESTINATION_DEBUG/DESTINATION_RELEASE/DESTINATION_RELWITHDEBINFO")
+  endif()
+
+  if(_has_targets)
+    if(_NBL_CUSTOM_BUILD_TRIGGER_TARGETS)
+      message(FATAL_ERROR "Nabla: BUILD_TRIGGER_TARGETS is valid only in DESTINATION mode")
+    endif()
+
+    if(_nbl_mode STREQUAL "CONFIGURE_TIME" OR _nbl_mode STREQUAL "BOTH")
+      set(_enable_configure_depends OFF)
+      if(_nbl_mode STREQUAL "CONFIGURE_TIME")
+        set(_enable_configure_depends ON)
+      endif()
+      _nbl_runtime_modules_add_configure_sync_rule_for_targets("${_NBL_CUSTOM_TARGETS}" "${_nbl_runtime_modules_subdir}" "${_enable_configure_depends}")
+    endif()
+
+    if(_nbl_mode STREQUAL "BUILD_TIME" OR _nbl_mode STREQUAL "BOTH")
+      _nbl_runtime_modules_add_build_sync_rule_for_targets("${_NBL_CUSTOM_TARGETS}" "${_nbl_runtime_modules_subdir}")
+    endif()
+
+    return()
+  endif()
+
+  _nbl_runtime_modules_expand_destination_pairs(
+    "${_NBL_CUSTOM_DESTINATION}"
+    "${_NBL_CUSTOM_DESTINATION_DEBUG}"
+    "${_NBL_CUSTOM_DESTINATION_RELEASE}"
+    "${_NBL_CUSTOM_DESTINATION_RELWITHDEBINFO}"
+    _cfg_dst_pairs
+  )
+
+  if(_nbl_mode STREQUAL "CONFIGURE_TIME" OR _nbl_mode STREQUAL "BOTH")
+    set(_enable_configure_depends OFF)
+    if(_nbl_mode STREQUAL "CONFIGURE_TIME")
+      set(_enable_configure_depends ON)
+    endif()
+    _nbl_runtime_modules_add_configure_sync_rule_for_pairs("${_cfg_dst_pairs}" "${_enable_configure_depends}")
+  endif()
+
+  if(_nbl_mode STREQUAL "BUILD_TIME" OR _nbl_mode STREQUAL "BOTH")
+    if(NOT _NBL_CUSTOM_BUILD_TRIGGER_TARGETS)
+      message(FATAL_ERROR "Nabla: DESTINATION mode with MODE ${_nbl_mode} requires BUILD_TRIGGER_TARGETS")
+    endif()
+    _nbl_runtime_modules_add_build_sync_rule_for_destination_pairs("${_NBL_CUSTOM_BUILD_TRIGGER_TARGETS}" "${_cfg_dst_pairs}")
+  elseif(_NBL_CUSTOM_BUILD_TRIGGER_TARGETS)
+    message(FATAL_ERROR "Nabla: BUILD_TRIGGER_TARGETS is valid only for MODE BUILD_TIME or MODE BOTH")
+  endif()
+endfunction()
+
+#
+# nabla_setup_runtime_modules(
+#   [TARGETS <t1;t2;...>]
+#   [DESTINATION <path>]
+#   [DESTINATION_DEBUG <path>]
+#   [DESTINATION_RELEASE <path>]
+#   [DESTINATION_RELWITHDEBINFO <path>]
+#   [MODE BUILD_TIME|CONFIGURE_TIME|BOTH]
+#   [RUNTIME_MODULES_SUBDIR <relative_subdir>]
+#   [INSTALL_RULES ON|OFF]
+#   [APPLY_LOOKUP_TO_TARGETS <t1;t2;...>]
+#   [BUILD_TRIGGER_TARGETS <t1;t2;...>]
+# )
+#
+# Convenience wrapper that composes:
+# - nabla_sync_runtime_modules(...)
+# - nabla_apply_runtime_lookup(...)
+# - nabla_setup_runtime_install_modules(...) when INSTALL_RULES is enabled
+#
+# Lookup behavior:
+# - if APPLY_LOOKUP_TO_TARGETS is set, lookup is applied to that list
+# - else if TARGETS mode is used, lookup is applied to TARGETS
+# - else no lookup changes are applied
+#
+function(nabla_setup_runtime_modules)
+  set(_nbl_runtime_modules_subdir "Libraries")
+  set(_nbl_install_rules OFF)
+  set(_nbl_mode BUILD_TIME)
+
+  cmake_parse_arguments(_NBL_CUSTOM "" "RUNTIME_MODULES_SUBDIR;INSTALL_RULES;MODE;DESTINATION;DESTINATION_DEBUG;DESTINATION_RELEASE;DESTINATION_RELWITHDEBINFO" "TARGETS;APPLY_LOOKUP_TO_TARGETS;BUILD_TRIGGER_TARGETS" ${ARGV})
+
+  if(_NBL_CUSTOM_UNPARSED_ARGUMENTS)
+    message(FATAL_ERROR "Nabla: unexpected arguments for nabla_setup_runtime_modules: ${_NBL_CUSTOM_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if(_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR)
+    set(_nbl_runtime_modules_subdir "${_NBL_CUSTOM_RUNTIME_MODULES_SUBDIR}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_INSTALL_RULES)
+    set(_nbl_install_rules "${_NBL_CUSTOM_INSTALL_RULES}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_MODE)
+    set(_nbl_mode "${_NBL_CUSTOM_MODE}")
+  endif()
+
+  set(_sync_args
+    MODE "${_nbl_mode}"
+    RUNTIME_MODULES_SUBDIR "${_nbl_runtime_modules_subdir}"
+  )
+
+  if(_NBL_CUSTOM_TARGETS)
+    list(APPEND _sync_args TARGETS ${_NBL_CUSTOM_TARGETS})
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION AND NOT _NBL_CUSTOM_DESTINATION STREQUAL "")
+    list(APPEND _sync_args DESTINATION "${_NBL_CUSTOM_DESTINATION}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_DEBUG AND NOT _NBL_CUSTOM_DESTINATION_DEBUG STREQUAL "")
+    list(APPEND _sync_args DESTINATION_DEBUG "${_NBL_CUSTOM_DESTINATION_DEBUG}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELEASE AND NOT _NBL_CUSTOM_DESTINATION_RELEASE STREQUAL "")
+    list(APPEND _sync_args DESTINATION_RELEASE "${_NBL_CUSTOM_DESTINATION_RELEASE}")
+  endif()
+  if(DEFINED _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO AND NOT _NBL_CUSTOM_DESTINATION_RELWITHDEBINFO STREQUAL "")
+    list(APPEND _sync_args DESTINATION_RELWITHDEBINFO "${_NBL_CUSTOM_DESTINATION_RELWITHDEBINFO}")
+  endif()
+  if(_NBL_CUSTOM_BUILD_TRIGGER_TARGETS)
+    list(APPEND _sync_args BUILD_TRIGGER_TARGETS ${_NBL_CUSTOM_BUILD_TRIGGER_TARGETS})
+  endif()
+
+  nabla_sync_runtime_modules(${_sync_args})
+
+  set(_lookup_targets "")
+  if(_NBL_CUSTOM_APPLY_LOOKUP_TO_TARGETS)
+    set(_lookup_targets ${_NBL_CUSTOM_APPLY_LOOKUP_TO_TARGETS})
+  elseif(_NBL_CUSTOM_TARGETS)
+    set(_lookup_targets ${_NBL_CUSTOM_TARGETS})
+  endif()
+
+  if(_lookup_targets)
+    nabla_apply_runtime_lookup(
+      TARGETS ${_lookup_targets}
+      RUNTIME_MODULES_SUBDIR "${_nbl_runtime_modules_subdir}"
+    )
+  endif()
+
+  if(_nbl_install_rules)
+    nabla_setup_runtime_install_modules(
+      RUNTIME_MODULES_SUBDIR "${_nbl_runtime_modules_subdir}"
+    )
+  endif()
+endfunction()
+
 if(NABLA_FIND_PACKAGE_VERBOSE)
   message(STATUS
     "\n-- Nabla_ROOT = ${Nabla_ROOT}"

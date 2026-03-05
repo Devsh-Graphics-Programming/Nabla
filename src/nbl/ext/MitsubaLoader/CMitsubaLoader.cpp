@@ -261,7 +261,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 				return;
 			}
 			const auto index = instances.size();
-			instances.resize(index+1);
+			instances.resize(index+1,true);
 			instances.getMorphTargets()[index] = core::smart_refctd_ptr<ICPUMorphTargets>(const_cast<ICPUMorphTargets*>(targets.get()));
 			// TODO: add materials (incl emission) to the instances
 			/*

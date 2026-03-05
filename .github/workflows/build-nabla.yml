@@ -50,9 +50,35 @@ jobs:
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
-            if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
-              docker network create --driver nat docker_default
-              if ($LASTEXITCODE -ne 0) { exit 1 }
+            $maxAttempts = 12
+            $delaySeconds = 5
+            $dockerReady = $false
+
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              $networkNames = docker network ls --format '{{.Name}}'
+              if ($LASTEXITCODE -eq 0) {
+                if (-not ($networkNames | Where-Object { $_ -eq 'docker_default' })) {
+                  docker network create --driver nat docker_default
+                  if ($LASTEXITCODE -eq 0) {
+                    $dockerReady = $true
+                    break
+                  }
+                }
+                else {
+                  $dockerReady = $true
+                  break
+                }
+              }
+
+              if ($attempt -lt $maxAttempts) {
+                Write-Host "Docker not ready yet (attempt $attempt/$maxAttempts), retry in ${delaySeconds}s..."
+                Start-Sleep -Seconds $delaySeconds
+              }
+            }
+
+            if (-not $dockerReady) {
+              Write-Error "Docker was not ready after $($maxAttempts*$delaySeconds)s total wait"
+              exit 1
             }
 
       - name: Set prefix
@@ -385,11 +411,11 @@ jobs:
           if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
           tree.com smoke /F
 
-      - name: Configure Smoke
-        run: cmake -S smoke -B smoke/out
+      - name: Smoke Flow MINIMALISTIC
+        run: cmake -D FLOW=MINIMALISTIC -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
 
-      - name: Build Smoke
-        run: cmake --build smoke/out --config ${{ matrix.config }}
+      - name: Smoke Flow CONFIGURE_ONLY
+        run: cmake -D FLOW=CONFIGURE_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
 
-      - name: CTest Smoke
-        run: ctest --verbose --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
+      - name: Smoke Flow BUILD_ONLY
+        run: cmake -D FLOW=BUILD_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake

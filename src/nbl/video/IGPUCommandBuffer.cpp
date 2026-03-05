@@ -337,16 +337,17 @@ bool IGPUCommandBuffer::waitEvents(const std::span<IEvent*> events, const SEvent
         totalImageCount += depInfo.imgBarriers.size();
     }
 
-    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,events.size(),events.data(),totalBufferCount,totalImageCount);
+    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,static_cast<uint32_t>(events.size()),totalBufferCount,totalImageCount);
     if (!cmd)
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
     }
 
-    auto outIt = cmd->getDeviceMemoryBacked();
+    IGPUCommandPool::CTrackedIterator outIt(cmd);
     for (auto i=0u; i<events.size(); ++i)
     {
+        *(outIt++) = core::smart_refctd_ptr<const IEvent>(events[i]);
         const auto& depInfo = depInfos[i];
         for (const auto& barrier : depInfo.bufBarriers)
             *(outIt++) = barrier.range.buffer;
@@ -453,7 +454,7 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
         return false;
     }
 
-    auto outIt = cmd->getVariableCountResources();
+    IGPUCommandPool::CTrackedIterator outIt(cmd);
     for (const auto& barrier : depInfo.bufBarriers)
         *(outIt++) = barrier.range.buffer;
     for (const auto& barrier : depInfo.imgBarriers)
@@ -804,18 +805,15 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
         return false;
     }
 
-    auto oit = cmd->getVariableCountResources();
+    auto oit = IGPUCommandPool::CTrackedIterator(cmd);
     if (indirectBuffer)
         *(oit++) = core::smart_refctd_ptr<const IGPUBuffer>(indirectBuffer);
     for (const auto& info : infos)
     {
-        oit = info.fillTracking(oit);
-        // we still need to clear the BLAS tracking list if the TLAS has nothing to track
+        // we still need to clear the BLAS tracking list if the TLAS has nothing to track, so add even if trackedBLASes.empty()
         if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
-        {
-            const auto blasCount = info.trackedBLASes.size();
-            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit-blasCount,blasCount},.dst=info.dstAS});
-        }
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.srcBegin=oit,.count=static_cast<uint32_t>(info.trackedBLASes.size()),.dst=info.dstAS});
+        oit = info.fillTracking(oit);
     }
 
     return totalGeometries;
@@ -918,11 +916,11 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const AccelerationSt
     const bool retval = copyAccelerationStructureFromMemory_impl(copyInfo.src,copyInfo.dst);
     if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
     {
-        const auto size = copyInfo.trackedBLASes.size();
+        const uint32_t size = copyInfo.trackedBLASes.size();
         auto oit = reserveReferences(size);
         if (oit)
         {
-            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit,size},.dst=copyInfo.dst});
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.srcBegin=oit,.count=size,.dst=copyInfo.dst});
             for (const auto& blas : copyInfo.trackedBLASes)
                 *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(blas);
         }
@@ -1353,7 +1351,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
         return false;
     }
 
-    auto oit = cmd->getVariableCountResources();
+    auto oit = IGPUCommandPool::CTrackedIterator(cmd);
     for (const auto* as : pAccelerationStructures)
         *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(as);
     m_noCommands = false;
@@ -2057,13 +2055,14 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
         NBL_LOG_ERROR("out of host memory!");
         return false;
     }
+    auto oit = IGPUCommandPool::CTrackedIterator(cmd);
     for (auto i=0u; i<count; i++)
-        cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
+        *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
     m_noCommands = false;
     return executeCommands_impl(count,cmdbufs);
 }
 
-core::smart_refctd_ptr<const core::IReferenceCounted>* IGPUCommandBuffer::reserveReferences(const uint32_t size)
+IGPUCommandPool::CTrackedIterator IGPUCommandBuffer::reserveReferences(const uint32_t size)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT|queue_flags_t::SPARSE_BINDING_BIT))
         return nullptr;
@@ -2074,7 +2073,7 @@ core::smart_refctd_ptr<const core::IReferenceCounted>* IGPUCommandBuffer::reserv
         NBL_LOG_ERROR("out of host memory!");
         return nullptr;
     }
-    return cmd->getVariableCountResources();
+    return IGPUCommandPool::CTrackedIterator(cmd);
 }
 
 }
