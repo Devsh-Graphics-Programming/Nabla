@@ -1193,12 +1193,6 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
             auto pipeline = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
                 info,vk_pipeline
             );
-            if (info.flags.hasFlags(IGPUComputePipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS))
-            {
-                pipeline->populateExecutableInfo(info.flags.hasFlags(IGPUComputePipeline::SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
-                if (pipeline->getExecutableInfo().empty())
-                    m_logger.log("Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation.", system::ILogger::ELL_WARNING);
-            }
             output[i] = std::move(pipeline);
             debugNameBuilder.str("");
             const auto& specInfo = createInfos[i].shader;
@@ -1454,12 +1448,6 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
             auto pipeline = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i],vk_pipeline);
-            if (createInfo.flags.hasFlags(IGPUGraphicsPipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS))
-            {
-                pipeline->populateExecutableInfo(createInfo.flags.hasFlags(IGPUGraphicsPipeline::SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
-                if (pipeline->getExecutableInfo().empty())
-					m_logger.log("Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation.", system::ILogger::ELL_WARNING);
-            }
             output[i] = std::move(pipeline);
             debugNameBuilder.str("");
             auto buildDebugName = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage stage)
@@ -1671,12 +1659,6 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
               std::move(shaderGroupHandles)
             );
 
-            if (info.cached.flags.hasFlags(IGPURayTracingPipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS))
-            {
-                pipeline->populateExecutableInfo(info.cached.flags.hasFlags(IGPURayTracingPipeline::SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
-                if (pipeline->getExecutableInfo().empty())
-					m_logger.log("Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation.", system::ILogger::ELL_WARNING);
-            }
             output[i] = std::move(pipeline);
         }
     }

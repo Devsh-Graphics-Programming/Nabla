@@ -158,6 +158,8 @@ class IGPUPipeline : public IBackendObject, public PipelineNonBackendObjectBase,
         {}
         virtual ~IGPUPipeline() = default;
 
+        virtual void populateExecutableInfo(bool includeInternalRepresentations) = 0;
+
 };
 
 }

@@ -17,13 +17,17 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
         CVulkanComputePipeline(
             const SCreationParams& params,
             const VkPipeline pipeline
-        ) : IGPUComputePipeline(params), m_pipeline(pipeline) {}
+        ) : IGPUComputePipeline(params), m_pipeline(pipeline)
+        {
+            if (params.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_STATISTICS))
+                populateExecutableInfo(params.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
+        }
 
         inline const void* getNativeHandle() const override { return &m_pipeline; }
 
         inline VkPipeline getInternalObject() const { return m_pipeline; }
 
-        void populateExecutableInfo(bool includeInternalRepresentations);
+        void populateExecutableInfo(bool includeInternalRepresentations) override;
 
         void setObjectDebugName(const char* label) const override;
 

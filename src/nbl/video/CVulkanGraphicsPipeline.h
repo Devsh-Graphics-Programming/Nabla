@@ -12,13 +12,17 @@ class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 {
     public:
         CVulkanGraphicsPipeline(const SCreationParams& params, const VkPipeline vk_pipeline) :
-            IGPUGraphicsPipeline(params), m_vkPipeline(vk_pipeline) {}
+            IGPUGraphicsPipeline(params), m_vkPipeline(vk_pipeline)
+        {
+            if (params.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_STATISTICS))
+                populateExecutableInfo(params.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
+        }
 
         inline const void* getNativeHandle() const override {return &m_vkPipeline;}
 
         inline VkPipeline getInternalObject() const {return m_vkPipeline;}
 
-        void populateExecutableInfo(bool includeInternalRepresentations);
+        void populateExecutableInfo(bool includeInternalRepresentations) override;
 
     private:
         ~CVulkanGraphicsPipeline();

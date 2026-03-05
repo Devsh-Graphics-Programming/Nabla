@@ -65,11 +65,14 @@ namespace nbl::video
     for (size_t shaderGroupIx = 0; shaderGroupIx < params.shaderGroups.callables.size(); shaderGroupIx++)
     {
       m_callableStackSizes->operator[](shaderGroupIx) = getVkShaderGroupStackSize(
-        getCallableBaseIndex(), 
-        shaderGroupIx, 
+        getCallableBaseIndex(),
+        shaderGroupIx,
         params.shaderGroups.callables[shaderGroupIx].shader,
         VK_SHADER_GROUP_SHADER_GENERAL_KHR);
     }
+
+    if (params.cached.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_STATISTICS))
+      populateExecutableInfo(params.cached.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
   }
 
   CVulkanRayTracingPipeline::~CVulkanRayTracingPipeline()
