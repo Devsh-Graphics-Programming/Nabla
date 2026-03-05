@@ -29,7 +29,7 @@ struct Promote<To, From NBL_PARTIAL_REQ_BOT(concepts::Vectorial<To> && (concepts
         array_set<To, From> setter;
         To output;
         [[unroll]]
-        for (int i = 0; i < vector_traits<To>::Dimension; ++i)
+        for (uint32_t i=0; i<vector_traits<To>::Dimension; ++i)
             setter(output, i, v);
         return output;
     }

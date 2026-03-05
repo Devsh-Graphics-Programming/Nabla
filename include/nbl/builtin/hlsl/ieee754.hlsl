@@ -261,8 +261,8 @@ struct flipSignIfRHSNegative_helper<Vectorial, FloatingPoint NBL_PARTIAL_REQ_BOT
 };
 }
 
-template <typename T, typename U>
-NBL_CONSTEXPR_FUNC T flipSign(T val, U flip)
+template <typename T, typename U = bool>
+NBL_CONSTEXPR_FUNC T flipSign(T val, U flip = true)
 {
 	return impl::flipSign_helper<T, U>::__call(val, flip);
 }

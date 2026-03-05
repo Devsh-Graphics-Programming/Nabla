@@ -530,9 +530,6 @@ nbl_install_dir(imath/src/Imath)
 
 nbl_install_file(blake/c/blake3.h)
 
-nbl_install_file_spec(nlohmann_json/include/nlohmann/json_fwd.hpp nlohmann)
-nbl_install_file_spec(nlohmann_json/include/nlohmann/detail/abi_macros.hpp nlohmann/detail)
-
 nbl_install_dir(boost/superproject/libs/preprocessor/include/boost)
 
 nbl_install_file_spec(renderdoc/renderdoc_app.h renderdoc)

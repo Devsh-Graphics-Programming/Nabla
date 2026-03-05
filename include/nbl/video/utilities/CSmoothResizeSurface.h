@@ -107,7 +107,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 
 		struct SCachedPresentInfo
 		{
-			inline operator bool() const {return source.image && waitSemaphore && waitValue && pPresentSemaphoreWaitValue;}
+			explicit inline operator bool() const {return source.image && waitSemaphore && waitValue && pPresentSemaphoreWaitValue;}
 
 			SPresentSource source = {};
 			// only allow waiting for one semaphore, because there's only one source to present!
