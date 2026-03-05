@@ -280,6 +280,8 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/projected_spherical_
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/spherical_rectangle.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/cos_weighted_spheres.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/quotient_and_pdf.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/value_and_pdf.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/concepts.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/uniform_spheres.hlsl")
 #
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ndarray_addressing.hlsl")
@@ -386,6 +388,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/rwmc/ResolveParameters.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/morton.hlsl")
 #testing
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/testing/relative_approx_compare.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/testing/approx_compare.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/testing/orientation_compare.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/testing/vector_length_compare.hlsl")
 

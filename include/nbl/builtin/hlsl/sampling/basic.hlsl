@@ -18,29 +18,29 @@ namespace sampling
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 struct PartitionRandVariable
 {
-    using floating_point_type = T;
-    using uint_type = unsigned_integer_of_size_t<sizeof(floating_point_type)>;
+	using floating_point_type = T;
+	using uint_type = unsigned_integer_of_size_t<sizeof(floating_point_type)>;
 
-    bool operator()(NBL_REF_ARG(floating_point_type) xi, NBL_REF_ARG(floating_point_type) rcpChoiceProb)
-    {
-        const floating_point_type NextULPAfterUnity = bit_cast<floating_point_type>(bit_cast<uint_type>(floating_point_type(1.0)) + uint_type(1u));
-        const bool pickRight = xi >= leftProb * NextULPAfterUnity;
+	bool operator()(NBL_REF_ARG(floating_point_type) xi, NBL_REF_ARG(floating_point_type) rcpChoiceProb)
+	{
+		const floating_point_type NextULPAfterUnity = bit_cast<floating_point_type>(bit_cast<uint_type>(floating_point_type(1.0)) + uint_type(1u));
+		const bool pickRight = xi >= leftProb * NextULPAfterUnity;
 
-        // This is all 100% correct taking into account the above NextULPAfterUnity
-        xi -= pickRight ? leftProb : floating_point_type(0.0);
+		// This is all 100% correct taking into account the above NextULPAfterUnity
+		xi -= pickRight ? leftProb : floating_point_type(0.0);
 
-        rcpChoiceProb = floating_point_type(1.0) / (pickRight ? (floating_point_type(1.0) - leftProb) : leftProb);
-        xi *= rcpChoiceProb;
+		rcpChoiceProb = floating_point_type(1.0) / (pickRight ? (floating_point_type(1.0) - leftProb) : leftProb);
+		xi *= rcpChoiceProb;
 
-        return pickRight;
-    }
+		return pickRight;
+	}
 
-    floating_point_type leftProb;
+	floating_point_type leftProb;
 };
 
 
-}
-}
-}
+} // namespace sampling
+} // namespace hlsl
+} // namespace nbl
 
 #endif
