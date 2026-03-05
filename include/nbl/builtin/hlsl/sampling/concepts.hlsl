@@ -17,9 +17,9 @@ namespace concepts
 //
 // Checks that a sample type bundles a value with its PDF.
 //
-// Required members/methods:
-//   value  - the sampled value (member or method)
-//   pdf    - the probability density
+// Required methods:
+//   value()  - the sampled value
+//   pdf()    - the probability density
 //
 // Satisfied by: codomain_and_pdf, domain_and_pdf, quotient_and_pdf
 // ============================================================================
@@ -32,8 +32,8 @@ namespace concepts
 NBL_CONCEPT_BEGIN(1)
 #define s NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_EXPR)(s.pdf))
-    ((NBL_CONCEPT_REQ_EXPR)(s.value)));
+	((NBL_CONCEPT_REQ_EXPR)(s.pdf()))
+    ((NBL_CONCEPT_REQ_EXPR)(s.value())));
 #undef s
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 // clang-format on
@@ -43,9 +43,9 @@ NBL_CONCEPT_END(
 //
 // Checks that a sample type bundles a value with its reciprocal PDF.
 //
-// Required members/methods:
-//   value  - the sampled value (member or method)
-//   rcpPdf - the reciprocal probability density
+// Required methods:
+//   value()   - the sampled value
+//   rcpPdf()  - the reciprocal probability density
 //
 // Satisfied by: codomain_and_rcpPdf, domain_and_rcpPdf
 // ============================================================================
@@ -58,8 +58,8 @@ NBL_CONCEPT_END(
 NBL_CONCEPT_BEGIN(1)
 #define s NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_EXPR)(s.rcpPdf))
-    ((NBL_CONCEPT_REQ_EXPR)(s.value)));
+	((NBL_CONCEPT_REQ_EXPR)(s.rcpPdf()))
+    ((NBL_CONCEPT_REQ_EXPR)(s.value())));
 #undef s
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 // clang-format on
@@ -148,11 +148,20 @@ NBL_CONCEPT_END(
 // ============================================================================
 // ResamplableSampler
 //
-// Extends TractableSampler with the ability to evaluate the PDF given
-// a codomain value (i.e. without knowing the original domain input).
+// Extends BasicSampler with forward and backward importance weights, enabling
+// use in Multiple Importance Sampling (MIS) and Resampled Importance
+// Sampling (RIS).
 //
-// Required methods (in addition to TractableSampler):
-//   density_type backwardPdf(codomain_type v)
+// Note: resampling does not require tractability - the weights need not be
+// normalized probability densities, so this concept is satisfied by
+// intractable samplers as well.
+//
+// Required types (in addition to BasicSampler):
+//   weight_type - the type of the importance weight
+//
+// Required methods (in addition to BasicSampler):
+//   weight_type forwardWeight(domain_type u)    - forward weight for MIS
+//   weight_type backwardWeight(codomain_type v) - backward weight for RIS
 // ============================================================================
 
 // clang-format off
@@ -160,14 +169,59 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (_sampler, T)
-#define NBL_CONCEPT_PARAM_1 (v, typename T::codomain_type)
-NBL_CONCEPT_BEGIN(2)
+#define NBL_CONCEPT_PARAM_1 (u, typename T::domain_type)
+#define NBL_CONCEPT_PARAM_2 (v, typename T::codomain_type)
+NBL_CONCEPT_BEGIN(3)
 #define _sampler NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+NBL_CONCEPT_END(
+	((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BasicSampler, T))
+    ((NBL_CONCEPT_REQ_TYPE)(T::weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.forwardWeight(u)), ::nbl::hlsl::is_same_v, typename T::weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardWeight(v)), ::nbl::hlsl::is_same_v, typename T::weight_type)));
+#undef v
+#undef u
+#undef _sampler
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+// clang-format on
+
+// ============================================================================
+// InvertibleSampler
+//
+// Extends TractableSampler with the ability to evaluate the PDF given
+// a codomain value (i.e. without knowing the original domain input).
+// The reverse mapping could be implemented via bisection search and is
+// not necessarily bijective - input/output pairs need not match.
+//
+// Also exposes forward and backward importance weights for use in MIS and RIS.
+// For an invertible sampler these are just the forward and backward PDFs,
+// but the names signal the intended use at call sites.
+//
+// Required methods (in addition to TractableSampler):
+//   density_type backwardPdf(codomain_type v)
+//   density_type forwardWeight(domain_type u)    - weight for MIS
+//   density_type backwardWeight(codomain_type v) - weight for RIS
+// ============================================================================
+
+// clang-format off
+#define NBL_CONCEPT_NAME InvertibleSampler
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (_sampler, T)
+#define NBL_CONCEPT_PARAM_1 (u, typename T::domain_type)
+#define NBL_CONCEPT_PARAM_2 (v, typename T::codomain_type)
+NBL_CONCEPT_BEGIN(3)
+#define _sampler NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
 	((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(TractableSampler, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardPdf(v)), ::nbl::hlsl::is_same_v, typename T::density_type)));
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardPdf(v)), ::nbl::hlsl::is_same_v, typename T::density_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.forwardWeight(u)), ::nbl::hlsl::is_same_v, typename T::density_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardWeight(v)), ::nbl::hlsl::is_same_v, typename T::density_type)));
 #undef v
+#undef u
 #undef _sampler
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 // clang-format on
@@ -176,19 +230,21 @@ NBL_CONCEPT_END(
 // BijectiveSampler
 //
 // The mapping domain <-> codomain is bijective (1:1), so it can be
-// inverted. Extends ResamplableSampler with invertGenerate.
+// inverted. Extends InvertibleSampler with invertGenerate.
 //
-// Because the mapping is bijective, the Jacobian of the inverse is
-// the reciprocal of the Jacobian of the forward mapping:
-//   backwardPdf(v) == 1.0 / forwardPdf(invertGenerate(v).value)
+// Because the mapping is bijective, the absolute value of the determinant
+// of the Jacobian matrix of the inverse equals the reciprocal of the
+// absolute value of the determinant of the Jacobian matrix of the forward
+// mapping (the Jacobian is an NxM matrix, not a scalar):
+//   backwardPdf(v) == 1.0 / forwardPdf(invertGenerate(v).value())
 //
-// Required types (in addition to ResamplableSampler):
+// Required types (in addition to InvertibleSampler):
 //   inverse_sample_type - bundled return of invertGenerate, should be
 //                         one of:
 //                         domain_and_rcpPdf<domain_type, density_type> (preferred)
 //                         domain_and_pdf<domain_type, density_type>
 //
-// Required methods (in addition to ResamplableSampler):
+// Required methods (in addition to InvertibleSampler):
 //   inverse_sample_type invertGenerate(codomain_type v)
 // ============================================================================
 
@@ -202,7 +258,7 @@ NBL_CONCEPT_BEGIN(2)
 #define _sampler NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ResamplableSampler, T))
+	((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(InvertibleSampler, T))
     ((NBL_CONCEPT_REQ_TYPE)(T::inverse_sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(SampleWithDensity, typename T::inverse_sample_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.invertGenerate(v)), ::nbl::hlsl::is_same_v, typename T::inverse_sample_type)));

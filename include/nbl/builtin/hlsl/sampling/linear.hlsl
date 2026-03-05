@@ -7,7 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
-#include <nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl>
+#include <nbl/builtin/hlsl/sampling/value_and_pdf.hlsl>
 
 namespace nbl
 {
@@ -42,7 +42,7 @@ struct Linear
 
 	scalar_type generate(const scalar_type u)
 	{
-		return hlsl::mix(u, (linearCoeffStart - hlsl::sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max);
+		return hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, abs(rcpDiff) < numeric_limits<scalar_type>::max);
 	}
 
 	scalar_type linearCoeffStart;

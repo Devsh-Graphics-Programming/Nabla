@@ -9,7 +9,7 @@
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/shapes/spherical_rectangle.hlsl>
-#include <nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl>
+#include <nbl/builtin/hlsl/sampling/value_and_pdf.hlsl>
 
 namespace nbl
 {

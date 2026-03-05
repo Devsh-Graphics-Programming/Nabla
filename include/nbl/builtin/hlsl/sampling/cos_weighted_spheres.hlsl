@@ -8,7 +8,7 @@
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
 #include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
-#include "nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl"
+#include "nbl/builtin/hlsl/sampling/value_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -44,15 +44,15 @@ struct ProjectedHemisphere
 	}
 
 	template<typename U = vector<T, 1> >
-	static ::nbl::hlsl::sampling::quotient_and_pdf<U, T> quotient_and_pdf(const T L)
+	static quotient_and_pdf<U, T> quotientAndPdf(const T L)
 	{
-		return ::nbl::hlsl::sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
+		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
 	}
 
 	template<typename U = vector<T, 1> >
-	static ::nbl::hlsl::sampling::quotient_and_pdf<U, T> quotient_and_pdf(const vector_t3 L)
+	static quotient_and_pdf<U, T> quotientAndPdf(const vector_t3 L)
 	{
-		return ::nbl::hlsl::sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
+		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
 	}
 };
 
@@ -88,15 +88,15 @@ struct ProjectedSphere
 	}
 
 	template<typename U = vector<T, 1> >
-	static ::nbl::hlsl::sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
+	static quotient_and_pdf<U, T> quotientAndPdf(T L)
 	{
-		return ::nbl::hlsl::sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
+		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
 	}
 
 	template<typename U = vector<T, 1> >
-	static ::nbl::hlsl::sampling::quotient_and_pdf<U, T> quotient_and_pdf(const vector_t3 L)
+	static quotient_and_pdf<U, T> quotientAndPdf(const vector_t3 L)
 	{
-		return ::nbl::hlsl::sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
+		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
 	}
 };
 

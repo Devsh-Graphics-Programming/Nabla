@@ -25,26 +25,29 @@ struct quotient_and_pdf
     static this_t create(const Q _quotient, const P _pdf)
     {
         this_t retval;
-        retval.quotient = _quotient;
-        retval.pdf = _pdf;
+        retval._quotient = _quotient;
+        retval._pdf = _pdf;
         return retval;
     }
 
     static this_t create(const scalar_q _quotient, const P _pdf)
     {
         this_t retval;
-        retval.quotient = hlsl::promote<Q>(_quotient);
-        retval.pdf = _pdf;
+        retval._quotient = hlsl::promote<Q>(_quotient);
+        retval._pdf = _pdf;
         return retval;
     }
 
+    Q quotient() { return _quotient; }
+    P pdf() { return _pdf; }
+
     Q value()
     {
-        return quotient*pdf;
+        return _quotient * _pdf;
     }
 
-    Q quotient;
-    P pdf;
+    Q _quotient;
+    P _pdf;
 };
 
 }

@@ -76,10 +76,10 @@ struct SLambertianBase
     {
         sampling::quotient_and_pdf<monochrome_type, scalar_type> qp;
         NBL_IF_CONSTEXPR (IsBSDF)
-            qp = sampling::ProjectedSphere<scalar_type>::template quotient_and_pdf(_sample.getNdotL(_clamp));
+            qp = sampling::ProjectedSphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
         else
-            qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(_sample.getNdotL(_clamp));
-        return quotient_pdf_type::create(qp.quotient[0], qp.pdf);
+            qp = sampling::ProjectedHemisphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
+        return quotient_pdf_type::create(qp.quotient()[0], qp.pdf());
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {

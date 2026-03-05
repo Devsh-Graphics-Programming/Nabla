@@ -10,7 +10,7 @@
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/sampling/bilinear.hlsl>
 #include <nbl/builtin/hlsl/sampling/spherical_triangle.hlsl>
-#include <nbl/builtin/hlsl/sampling/warp_and_pdf.hlsl>
+#include <nbl/builtin/hlsl/sampling/value_and_pdf.hlsl>
 
 namespace nbl
 {
