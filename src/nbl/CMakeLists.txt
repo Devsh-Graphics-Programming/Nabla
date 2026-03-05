@@ -127,7 +127,6 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 set(NBL_CORE_SOURCES
 	core/alloc/refctd_memory_resource.cpp
 	core/hash/blake.cpp
-	core/sampling/EnvmapSampler.cpp
 )
 
 set(NBL_SYSTEM_SOURCES
@@ -296,6 +295,9 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	video/CCUDAHandler.cpp
 	video/CCUDADevice.cpp
+
+# Sampling
+	video/sampling/EnvmapSampler.cpp
 )
 
 set(NBL_SCENE_SOURCES

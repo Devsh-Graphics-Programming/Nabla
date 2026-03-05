@@ -1,4 +1,4 @@
-#include "nbl/core/sampling/EnvmapSampler.h"
+#include "nbl/video/sampling/EnvmapSampler.h"
 #include "nbl/builtin/hlsl/sampling/hierarchical_image/common.hlsl"
 #include "nlohmann/detail/input/parser.hpp"
 
@@ -10,7 +10,7 @@ using namespace asset;
 using namespace hlsl;
 using namespace nbl::hlsl::sampling::hierarchical_image;
 
-namespace nbl::core
+namespace nbl::video
 {
 
 class EnvmapSampler;

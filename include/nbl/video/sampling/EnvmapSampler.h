@@ -3,7 +3,7 @@
 
 #include "nbl/video/declarations.h"
 
-namespace nbl::core
+namespace nbl::video
 {
 
 class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
