@@ -28,8 +28,7 @@ struct Linear
 	using density_type = scalar_type;
 	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
-
-	static Linear<T> create(const vector2_type linearCoeffs) // start and end importance values (start, end)
+	static Linear<T> create(const vector2_type linearCoeffs) // start and end importance values (start, end), assumed to be at x=0 and x=1
 	{
 		Linear<T> retval;
 		retval.linearCoeffStart = linearCoeffs[0];
