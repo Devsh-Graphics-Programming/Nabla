@@ -68,6 +68,7 @@ struct Unidirectional
             const typename nee_type::light_id_type lightID = matLightID.getLightID();
             if (ray.shouldDoMIS() && matLightID.isLight())
             {
+                emissive *= ray.getPayloadThroughput();
                 const scalar_type pdf = nee.deferred_pdf(scene, lightID, ray);
                 assert(!hlsl::isinf(pdf));
                 emissive *= ray.foundEmissiveMIS(pdf * pdf);
@@ -110,7 +111,7 @@ struct Unidirectional
                 // TODO: we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
                 const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction);
                 neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction) * rcpChoiceProb;
-                if (!hlsl::isinf(neeContrib.pdf))
+                if (neeContrib.pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
                 {
                     const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
                     neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
@@ -172,7 +173,9 @@ struct Unidirectional
         measure_type finalContribution = nee.get_environment_radiance(ray);
         typename nee_type::light_id_type env_light_id = nee.get_env_light_id();
         const scalar_type pdf = nee.deferred_pdf(scene, env_light_id, ray);
-        finalContribution *= ray.foundEmissiveMIS(pdf * pdf);
+        finalContribution *= ray.getPayloadThroughput();
+        if (pdf > scalar_type(0.0))
+            finalContribution *= ray.foundEmissiveMIS(pdf * pdf);
         ray.addPayloadContribution(finalContribution);
     }
 
