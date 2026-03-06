@@ -454,10 +454,22 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         return false;
     }
 
-    const auto* geom = SGeometryWriterCommon::resolvePolygonGeometry(_params.rootAsset);
+    const auto items = SGeometryWriterCommon::collectPolygonGeometryWriteItems(_params.rootAsset);
+    if (items.size() != 1u)
+    {
+        _params.logger.log("PLY writer: expected exactly one polygon geometry to write.", system::ILogger::ELL_ERROR);
+        return false;
+    }
+    const auto& item = items.front();
+    const auto* geom = item.geometry;
     if (!geom || !geom->valid())
     {
         _params.logger.log("PLY writer: root asset is not a valid polygon geometry.", system::ILogger::ELL_ERROR);
+        return false;
+    }
+    if (!SGeometryWriterCommon::isIdentityTransform(item.transform))
+    {
+        _params.logger.log("PLY writer: transformed scene or collection export is not supported.", system::ILogger::ELL_ERROR);
         return false;
     }
 

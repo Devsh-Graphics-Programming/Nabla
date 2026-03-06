@@ -10,7 +10,16 @@
 
 namespace nbl::asset
 {
-//! Meshloader capable of loading obj meshes.
+/*
+	Loads plain OBJ as polygon geometry or geometry collections.
+	Multiple `o` and `g` blocks mean multiple geometry pieces in one file, not a real scene.
+	This loader keeps that split as geometry collections because plain OBJ does not define scene hierarchy, instancing, or node transforms.
+	OBJ/MTL material data also belongs here and remains TODO, but that still does not turn plain OBJ into a scene format.
+	A single mesh payload can therefore load as one geometry, while multiple split pieces still load as geometry collections instead of a synthetic scene.
+	References:
+	- https://www.loc.gov/preservation/digital/formats/fdd/fdd000507
+	- https://www.fileformat.info/format/wavefrontobj/egff.htm
+*/
 class COBJMeshFileLoader : public IGeometryLoader
 {
 	public:

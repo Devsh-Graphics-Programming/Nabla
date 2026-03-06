@@ -576,7 +576,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         const size_t outVertexCount = outPositions.size();
         auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
         {
-            auto view = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(outPositions));
+            auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(std::move(outPositions));
             if (!view)
                 return false;
             geometry->setPositionView(std::move(view));
@@ -585,7 +585,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         const bool hasNormals = hasProvidedNormals || needsNormalGeneration;
         if (hasNormals)
         {
-            auto view = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(outNormals));
+            auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(std::move(outNormals));
             if (!view)
                 return false;
             geometry->setNormalView(std::move(view));
@@ -593,7 +593,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         if (hasUVs)
         {
-            auto view = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t2, EF_R32G32_SFLOAT>(std::move(outUVs));
+            auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32G32_SFLOAT>(std::move(outUVs));
             if (!view)
                 return false;
             geometry->getAuxAttributeViews()->push_back(std::move(view));
@@ -607,14 +607,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 core::vector<uint16_t> indices16(indices.size());
                 for (size_t i = 0u; i < indices.size(); ++i)
                     indices16[i] = static_cast<uint16_t>(indices[i]);
-                auto view = SGeometryLoaderCommon::createAdoptedView<uint16_t, EF_R16_UINT>(std::move(indices16));
+                auto view = SGeometryLoaderCommon::createAdoptedView<EF_R16_UINT>(std::move(indices16));
                 if (!view)
                     return false;
                 geometry->setIndexView(std::move(view));
             }
             else
             {
-                auto view = SGeometryLoaderCommon::createAdoptedView<uint32_t, EF_R32_UINT>(std::move(indices));
+                auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32_UINT>(std::move(indices));
                 if (!view)
                     return false;
                 geometry->setIndexView(std::move(view));
@@ -1081,9 +1081,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
             ioPlan.reason);
 
+        // Plain OBJ is still just one polygon geometry here.
         return SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>(), { core::smart_refctd_ptr_static_cast<IAsset>(std::move(loadedGeometries.front().geometry)) });
     }
 
+    // Plain OBJ can group many polygon geometries with `o` and `g`, but it still does not define
+    // a real scene graph, instancing, or node transforms. Keep that as geometry collections instead
+    // of fabricating an ICPUScene on load.
     core::vector<std::string> objectNames;
     core::vector<core::smart_refctd_ptr<ICPUGeometryCollection>> objectCollections;
     for (auto& loaded : loadedGeometries)

@@ -652,7 +652,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				vertexColors[baseIx + 1ull] = triColor;
 				vertexColors[baseIx + 2ull] = triColor;
 			}
-			auto colorView = SGeometryLoaderCommon::createAdoptedView<uint32_t, EF_B8G8R8A8_UNORM>(std::move(vertexColors));
+			auto colorView = SGeometryLoaderCommon::createAdoptedView<EF_B8G8R8A8_UNORM>(std::move(vertexColors));
 			if (!colorView)
 				return {};
 			geometry->getAuxAttributeViews()->push_back(std::move(colorView));
@@ -742,8 +742,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		triangleCount = positions.size() / SSTLContext::VerticesPerTriangle;
 		vertexCount = positions.size();
 
-		auto posView = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(positions));
-		auto normalView = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(normals));
+		auto posView = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(std::move(positions));
+		auto normalView = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(std::move(normals));
 		if (!posView || !normalView)
 			return {};
 		geometry->setPositionView(std::move(posView));

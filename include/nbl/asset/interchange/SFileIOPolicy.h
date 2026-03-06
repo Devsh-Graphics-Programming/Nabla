@@ -100,6 +100,7 @@ struct SFileIOPolicy
     static inline constexpr uint64_t DEFAULT_CHUNK_SIZE_BYTES = 4ull << 20u; // 4 MiB
     static inline constexpr uint64_t DEFAULT_MAX_STAGING_BYTES = 256ull << 20u; // 256 MiB
 
+    // These defaults are stored and clamped as log2(byte_count), so the source byte values must stay powers of two.
     static_assert(std::has_single_bit(MIN_CHUNK_SIZE_BYTES));
     static_assert(std::has_single_bit(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES));
     static_assert(std::has_single_bit(DEFAULT_CHUNK_SIZE_BYTES));
@@ -163,7 +164,7 @@ struct SResolvedFileIOPolicy
     Strategy strategy = Strategy::Invalid;
     // Effective chunk size encoded as log2(bytes). Also set for whole-file for telemetry consistency.
     uint8_t chunkSizeLog2 = SFileIOPolicy::MIN_CHUNK_SIZE_LOG2;
-    // Human-readable resolver reason used in logs and diagnostics.
+    // Resolver reason string used in logs and diagnostics.
     const char* reason = "invalid";
 
     inline constexpr bool isValid() const

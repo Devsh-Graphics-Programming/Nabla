@@ -34,7 +34,9 @@ class SPolygonGeometryContentHash
                     buffer->setContentHash(IPreHashed::INVALID_HASH);
         }
 
-        static inline core::blake3_hash_t computeHash(const ICPUPolygonGeometry* geometry)
+        // Composes a geometry hash from indexing metadata and the current content hashes of referenced buffers.
+        // It does not compute missing buffer content hashes. Any buffer without a content hash contributes INVALID_HASH.
+        static inline core::blake3_hash_t composeHashFromBufferContentHashes(const ICPUPolygonGeometry* geometry)
         {
             if (!geometry)
                 return IPreHashed::INVALID_HASH;
@@ -57,13 +59,13 @@ class SPolygonGeometryContentHash
         static inline core::blake3_hash_t computeMissing(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
         {
             CPolygonGeometryManipulator::computeMissingContentHashesParallel(geometry, ioPolicy);
-            return computeHash(geometry);
+            return composeHashFromBufferContentHashes(geometry);
         }
 
         static inline core::blake3_hash_t recompute(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
         {
             CPolygonGeometryManipulator::recomputeContentHashesParallel(geometry, ioPolicy);
-            return computeHash(geometry);
+            return composeHashFromBufferContentHashes(geometry);
         }
 };
 

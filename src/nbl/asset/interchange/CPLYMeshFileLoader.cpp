@@ -2114,7 +2114,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			core::vector<uint16_t> indices16(indices.size());
 			for (size_t i = 0u; i < indices.size(); ++i)
 				indices16[i] = static_cast<uint16_t>(indices[i]);
-			auto view = SGeometryLoaderCommon::createAdoptedView<uint16_t, EF_R16_UINT>(std::move(indices16));
+			auto view = SGeometryLoaderCommon::createAdoptedView<EF_R16_UINT>(std::move(indices16));
 			if (!view)
 				return {};
 			geometry->setIndexView(std::move(view));
@@ -2122,7 +2122,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			auto view = SGeometryLoaderCommon::createAdoptedView<uint32_t, EF_R32_UINT>(std::move(indices));
+			auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32_UINT>(std::move(indices));
 			if (!view)
 				return {};
 			if (precomputedIndexHash != IPreHashed::INVALID_HASH)
