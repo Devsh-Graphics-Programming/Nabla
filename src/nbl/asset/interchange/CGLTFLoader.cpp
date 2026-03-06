@@ -1274,26 +1274,26 @@ using namespace nbl::asset;
 													auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
 													auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
 
-													auto quantize = [&](const core::vectorSIMDf& input, void* data, const E_FORMAT requestQuantizeFormat)
+													auto quantize = [&](const hlsl::float32_t4& input, void* data, const E_FORMAT requestQuantizeFormat)
 													{
-														return ICPUMeshBuffer::setAttribute(input, data, requestQuantizeFormat);
+														return ICPUMeshBuffer::setAttribute(&input[0], data, requestQuantizeFormat);
 													};
 
 													auto decodeQuant = [&](void* data, const E_FORMAT requestQuantizeFormat)
 													{
-														core::vectorSIMDf out;
-														ICPUMeshBuffer::getAttribute(out, data, requestQuantizeFormat);
+														hlsl::float32_t4 out = {};
+														ICPUMeshBuffer::getAttribute(&out[0], data, requestQuantizeFormat);
 														return out;
 													};
 
-													core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+													hlsl::float32_t4 packedWeightsStream = {}; //! always go with full float4 stream, weights being not used are leaved with default vector's compoment value and are not considered
 
 													for (uint16_t i = 0, vxSkinComponentOffset = 0; i < 4u; ++i) //! packing
 													{
 														if (unpackedWeightsData[i])
 														{
 															packedJointsData[vxSkinComponentOffset] = unpackedJointsData[i];
-															packedWeightsStream.pointer[i] = packedWeightsData[vxSkinComponentOffset] = unpackedWeightsData[i];
+															packedWeightsStream[i] = packedWeightsData[vxSkinComponentOffset] = unpackedWeightsData[i];
 
 															++vxSkinComponentOffset;
 															assert(vxSkinComponentOffset <= maxJointsPerVertex);
@@ -1309,14 +1309,14 @@ using namespace nbl::asset;
 														const E_FORMAT requestQuantFormat = std::get<E_FORMAT>(encode);
 
 														quantize(packedWeightsStream, quantBuffer, requestQuantFormat);
-														core::vectorSIMDf quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
+														hlsl::float32_t4 quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
 
 														for (uint16_t i = 0; i < MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
 														{
-															const auto& weightInput = packedWeightsStream.pointer[i];
+															const auto weightInput = packedWeightsStream[i];
 															if (weightInput)
 															{
-																const typename QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+																const typename QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded[i] - weightInput);
 
 																if (errorComponent)
 																{
@@ -1420,13 +1420,13 @@ using namespace nbl::asset;
 															const size_t quantizedVWeightsOffset = vAttributeIx * weightComponentsByteStride;
 															void* quantizedWeightsData = reinterpret_cast<uint8_t*>(vOverrideQuantizedWeightsBuffer->getPointer()) + quantizedVWeightsOffset;
 
-															core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+															hlsl::float32_t4 packedWeightsStream = {}; //! always go with full float4 stream, weights being not used are leaved with default vector's compoment value and are not considered
 															auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
 
 															for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
-																packedWeightsStream.pointer[i] = packedWeightsData[i];
+																packedWeightsStream[i] = packedWeightsData[i];
 
-															ICPUMeshBuffer::setAttribute(packedWeightsStream, quantizedWeightsData, weightsQuantizeFormat); //! quantize
+															ICPUMeshBuffer::setAttribute(&packedWeightsStream[0], quantizedWeightsData, weightsQuantizeFormat); //! quantize
 														}
 													}
 
