@@ -2173,8 +2173,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		static_cast<unsigned long long>(ctx.readCallCount),
 		static_cast<unsigned long long>(ioMinRead),
 		static_cast<unsigned long long>(ioAvgRead),
-		toString(_params.ioPolicy.strategy),
-		toString(ioPlan.strategy),
+		system::to_string(_params.ioPolicy.strategy).c_str(),
+		system::to_string(ioPlan.strategy).c_str(),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
 		ioPlan.reason);
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();

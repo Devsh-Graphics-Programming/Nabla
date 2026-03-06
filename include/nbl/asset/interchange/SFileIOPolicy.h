@@ -10,11 +10,43 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 
 namespace nbl::asset
 {
+
+namespace impl
+{
+inline constexpr bool hasSingleBit(const uint64_t value)
+{
+    return value && ((value & (value - 1u)) == 0u);
+}
+
+inline constexpr uint8_t bytesToLog2(uint64_t value)
+{
+    uint8_t result = 0u;
+    while (value > 1u)
+    {
+        value >>= 1u;
+        ++result;
+    }
+    return result;
+}
+}
+
+enum class EFileIOStrategy : uint8_t
+{
+    // Sentinel used when strategy resolution fails or the value is uninitialized.
+    Invalid = 0u,
+    // Pick whole-file or chunked dynamically based on file size and policy limits.
+    Auto,
+    // Force whole-file strategy. May fallback when not feasible unless strict=true.
+    WholeFile,
+    // Force chunked strategy.
+    Chunked
+};
 
 struct SFileIOPolicy
 {
@@ -71,16 +103,7 @@ struct SFileIOPolicy
         uint64_t tinyIoMinCallCount = 1024ull;
     };
 
-    // File IO strategy selection mode.
-    enum class Strategy : uint8_t
-    {
-        // Pick whole-file or chunked dynamically based on file size and policy limits.
-        Auto,
-        // Force whole-file strategy. May fallback when not feasible unless strict=true.
-        WholeFile,
-        // Force chunked strategy.
-        Chunked
-    };
+    using Strategy = EFileIOStrategy;
 
     enum E_FLAGS : uint8_t
     {
@@ -88,8 +111,17 @@ struct SFileIOPolicy
         EF_STRICT_BIT = 1u << 0u
     };
 
-    static inline constexpr uint8_t MIN_CHUNK_SIZE_LOG2 = 16u;
-    static inline constexpr uint8_t MAX_BYTE_SIZE_LOG2 = 63u;
+    static inline constexpr uint64_t MIN_CHUNK_SIZE_BYTES = 64ull << 10u;
+    static inline constexpr uint8_t MIN_CHUNK_SIZE_LOG2 = impl::bytesToLog2(MIN_CHUNK_SIZE_BYTES);
+    static inline constexpr uint8_t MAX_BYTE_SIZE_LOG2 = std::numeric_limits<uint64_t>::digits - 1u;
+    static inline constexpr uint64_t DEFAULT_WHOLE_FILE_THRESHOLD_BYTES = 64ull << 20u;
+    static inline constexpr uint64_t DEFAULT_CHUNK_SIZE_BYTES = 4ull << 20u;
+    static inline constexpr uint64_t DEFAULT_MAX_STAGING_BYTES = 256ull << 20u;
+
+    static_assert(impl::hasSingleBit(MIN_CHUNK_SIZE_BYTES));
+    static_assert(impl::hasSingleBit(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES));
+    static_assert(impl::hasSingleBit(DEFAULT_CHUNK_SIZE_BYTES));
+    static_assert(impl::hasSingleBit(DEFAULT_MAX_STAGING_BYTES));
 
     static inline constexpr uint8_t clampBytesLog2(const uint8_t value, const uint8_t minValue = 0u)
     {
@@ -106,30 +138,30 @@ struct SFileIOPolicy
     // Resolution flags.
     core::bitflag<E_FLAGS> flags = EF_NONE;
     // Maximum payload size allowed for whole-file strategy in auto mode.
-    uint8_t wholeFileThresholdLog2 = 26u; // 64 MiB
+    uint8_t wholeFileThresholdLog2 = impl::bytesToLog2(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES);
     // Chunk size used by chunked strategy encoded as log2(bytes).
-    uint8_t chunkSizeLog2 = 22u; // 4 MiB
+    uint8_t chunkSizeLog2 = impl::bytesToLog2(DEFAULT_CHUNK_SIZE_BYTES);
     // Maximum staging allocation for whole-file strategy encoded as log2(bytes).
-    uint8_t maxStagingLog2 = 28u; // 256 MiB
+    uint8_t maxStagingLog2 = impl::bytesToLog2(DEFAULT_MAX_STAGING_BYTES);
     // Runtime tuning controls used by loaders and hash stages.
     SRuntimeTuning runtimeTuning = {};
 
-    inline bool strict() const
+    inline constexpr bool strict() const
     {
         return flags.hasAnyFlag(EF_STRICT_BIT);
     }
 
-    inline uint64_t wholeFileThresholdBytes() const
+    inline constexpr uint64_t wholeFileThresholdBytes() const
     {
         return bytesFromLog2(wholeFileThresholdLog2, MIN_CHUNK_SIZE_LOG2);
     }
 
-    inline uint64_t chunkSizeBytes() const
+    inline constexpr uint64_t chunkSizeBytes() const
     {
         return bytesFromLog2(chunkSizeLog2, MIN_CHUNK_SIZE_LOG2);
     }
 
-    inline uint64_t maxStagingBytes() const
+    inline constexpr uint64_t maxStagingBytes() const
     {
         return bytesFromLog2(maxStagingLog2, MIN_CHUNK_SIZE_LOG2);
     }
@@ -137,16 +169,10 @@ struct SFileIOPolicy
 
 struct SResolvedFileIOPolicy
 {
-    // Strategy selected after resolving SFileIOPolicy against runtime constraints.
-    enum class Strategy : uint8_t
-    {
-        Invalid = 0u,
-        WholeFile,
-        Chunked
-    };
+    using Strategy = EFileIOStrategy;
 
-    SResolvedFileIOPolicy() = default;
-    inline SResolvedFileIOPolicy(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false) :
+    constexpr SResolvedFileIOPolicy() = default;
+    inline constexpr SResolvedFileIOPolicy(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false) :
         SResolvedFileIOPolicy(resolve(policy, byteCount, sizeKnown, fileMappable))
     {
     }
@@ -158,17 +184,17 @@ struct SResolvedFileIOPolicy
     // Human-readable resolver reason used in logs and diagnostics.
     const char* reason = "invalid";
 
-    inline bool isValid() const
+    inline constexpr bool isValid() const
     {
         return strategy != Strategy::Invalid;
     }
 
-    inline uint64_t chunkSizeBytes() const
+    inline constexpr uint64_t chunkSizeBytes() const
     {
         return SFileIOPolicy::bytesFromLog2(chunkSizeLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2);
     }
 
-    static inline SResolvedFileIOPolicy resolve(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false)
+    static inline constexpr SResolvedFileIOPolicy resolve(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false)
     {
         const uint8_t maxStagingLog2 = SFileIOPolicy::clampBytesLog2(policy.maxStagingLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2);
         const uint8_t chunkSizeLog2 = std::min<uint8_t>(
@@ -188,6 +214,8 @@ struct SResolvedFileIOPolicy
 
         switch (policy.strategy)
         {
+            case SFileIOPolicy::Strategy::Invalid:
+                return makeResolved(Strategy::Invalid, "invalid_requested_strategy");
             case SFileIOPolicy::Strategy::WholeFile:
             {
                 if (fileMappable || (sizeKnown && byteCount <= maxStaging))
@@ -215,39 +243,9 @@ struct SResolvedFileIOPolicy
     }
 };
 
-inline SResolvedFileIOPolicy resolveFileIOPolicy(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false)
+inline constexpr SResolvedFileIOPolicy resolveFileIOPolicy(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false)
 {
     return SResolvedFileIOPolicy(policy, byteCount, sizeKnown, fileMappable);
-}
-
-inline const char* toString(const SFileIOPolicy::Strategy value)
-{
-    switch (value)
-    {
-        case SFileIOPolicy::Strategy::Auto:
-            return "auto";
-        case SFileIOPolicy::Strategy::WholeFile:
-            return "whole";
-        case SFileIOPolicy::Strategy::Chunked:
-            return "chunked";
-        default:
-            return "unknown";
-    }
-}
-
-inline const char* toString(const SResolvedFileIOPolicy::Strategy value)
-{
-    switch (value)
-    {
-        case SResolvedFileIOPolicy::Strategy::Invalid:
-            return "invalid";
-        case SResolvedFileIOPolicy::Strategy::WholeFile:
-            return "whole";
-        case SResolvedFileIOPolicy::Strategy::Chunked:
-            return "chunked";
-        default:
-            return "unknown";
-    }
 }
 
 }
@@ -255,20 +253,23 @@ inline const char* toString(const SResolvedFileIOPolicy::Strategy value)
 namespace nbl::system::impl
 {
 template<>
-struct to_string_helper<asset::SFileIOPolicy::Strategy>
+struct to_string_helper<asset::EFileIOStrategy>
 {
-    static inline std::string __call(const asset::SFileIOPolicy::Strategy value)
+    static inline std::string __call(const asset::EFileIOStrategy value)
     {
-        return asset::toString(value);
-    }
-};
-
-template<>
-struct to_string_helper<asset::SResolvedFileIOPolicy::Strategy>
-{
-    static inline std::string __call(const asset::SResolvedFileIOPolicy::Strategy value)
-    {
-        return asset::toString(value);
+        switch (value)
+        {
+            case asset::EFileIOStrategy::Invalid:
+                return "invalid";
+            case asset::EFileIOStrategy::Auto:
+                return "auto";
+            case asset::EFileIOStrategy::WholeFile:
+                return "whole";
+            case asset::EFileIOStrategy::Chunked:
+                return "chunked";
+            default:
+                return "unknown";
+        }
     }
 };
 }

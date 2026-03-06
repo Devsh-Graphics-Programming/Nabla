@@ -44,6 +44,13 @@ class NBL_API2 CPolygonGeometryManipulator
 			recomputeContentHashesParallel(geo, SFileIOPolicy{});
 		}
 
+		static bool generateMissingSmoothNormals(
+			core::vector<hlsl::float32_t3>& normals,
+			const core::vector<hlsl::float32_t3>& positions,
+			const core::vector<uint32_t>& indices,
+			const core::vector<uint8_t>& normalNeedsGeneration
+		);
+
 		//
 		static inline void recomputeRanges(ICPUPolygonGeometry* geo, const bool deduceRangeFormats=true)
 		{

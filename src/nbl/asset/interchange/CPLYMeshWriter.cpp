@@ -216,19 +216,16 @@ void appendInt(std::string& out, const int64_t value)
         out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
 }
 
-void appendFloatFixed6(std::string& out, double value)
-{
-    std::array<char, 64> buf = {};
-    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::fixed, 6);
-    if (res.ec == std::errc())
-    {
-        out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
-        return;
-    }
+constexpr size_t MaxFloatTextChars = std::numeric_limits<double>::max_digits10 + 16ull;
 
-    const int written = std::snprintf(buf.data(), buf.size(), "%.6f", value);
-    if (written > 0)
-        out.append(buf.data(), static_cast<size_t>(written));
+void appendFloat(std::string& out, double value)
+{
+    const size_t oldSize = out.size();
+    out.resize(oldSize + MaxFloatTextChars);
+    char* const begin = out.data() + oldSize;
+    char* const end = begin + MaxFloatTextChars;
+    char* const cursor = SGeometryWriterCommon::appendFloatToBuffer(begin, end, value);
+    out.resize(oldSize + static_cast<size_t>(cursor - begin));
 }
 
 void appendVec(std::string& out, const double* values, size_t count, bool flipVectors = false)
@@ -237,7 +234,7 @@ void appendVec(std::string& out, const double* values, size_t count, bool flipVe
     for (size_t i = 0u; i < count; ++i)
     {
         const bool flip = flipVectors && i == xID;
-        appendFloatFixed6(out, flip ? -values[i] : values[i]);
+        appendFloat(out, flip ? -values[i] : values[i]);
         out.push_back(' ');
     }
 }
@@ -370,7 +367,7 @@ inline bool writeTypedViewText(std::string& output, const ICPUPolygonGeometry::S
                 double value = (&tmp.x)[c];
                 if (flipVectors && c == 0u)
                     value = -value;
-                appendFloatFixed6(output, value);
+                appendFloat(output, value);
                 output.push_back(' ');
             }
             return true;
@@ -665,8 +662,8 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             static_cast<unsigned long long>(ioTelemetry.callCount),
             static_cast<unsigned long long>(ioMinWrite),
             static_cast<unsigned long long>(ioAvgWrite),
-            toString(_params.ioPolicy.strategy),
-            toString(ioPlan.strategy),
+            system::to_string(_params.ioPolicy.strategy).c_str(),
+            system::to_string(ioPlan.strategy).c_str(),
             static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
             ioPlan.reason);
         return writeOk;
@@ -721,8 +718,8 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         static_cast<unsigned long long>(ioTelemetry.callCount),
         static_cast<unsigned long long>(ioMinWrite),
         static_cast<unsigned long long>(ioAvgWrite),
-        toString(_params.ioPolicy.strategy),
-        toString(ioPlan.strategy),
+        system::to_string(_params.ioPolicy.strategy).c_str(),
+        system::to_string(ioPlan.strategy).c_str(),
         static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
         ioPlan.reason);
     return writeOk;

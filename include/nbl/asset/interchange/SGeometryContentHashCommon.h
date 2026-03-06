@@ -34,36 +34,36 @@ class SPolygonGeometryContentHash
                     buffer->setContentHash(IPreHashed::INVALID_HASH);
         }
 
-        static inline core::blake3_hash_t getHash(const ICPUPolygonGeometry* geometry)
+        static inline core::blake3_hash_t computeHash(const ICPUPolygonGeometry* geometry)
         {
             if (!geometry)
                 return IPreHashed::INVALID_HASH;
 
-            core::blake3_hasher hasher;
+            core::blake3_hasher hashBuilder = {};
             if (const auto* indexing = geometry->getIndexingCallback(); indexing)
             {
-                hasher << indexing->degree();
-                hasher << indexing->rate();
-                hasher << indexing->knownTopology();
+                hashBuilder << indexing->degree();
+                hashBuilder << indexing->rate();
+                hashBuilder << indexing->knownTopology();
             }
 
             core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
             collectBuffers(geometry, buffers);
             for (const auto& buffer : buffers)
-                hasher << (buffer ? buffer->getContentHash() : IPreHashed::INVALID_HASH);
-            return static_cast<core::blake3_hash_t>(hasher);
+                hashBuilder << (buffer ? buffer->getContentHash() : IPreHashed::INVALID_HASH);
+            return static_cast<core::blake3_hash_t>(hashBuilder);
         }
 
         static inline core::blake3_hash_t computeMissing(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
         {
             CPolygonGeometryManipulator::computeMissingContentHashesParallel(geometry, ioPolicy);
-            return getHash(geometry);
+            return computeHash(geometry);
         }
 
         static inline core::blake3_hash_t recompute(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy)
         {
             CPolygonGeometryManipulator::recomputeContentHashesParallel(geometry, ioPolicy);
-            return getHash(geometry);
+            return computeHash(geometry);
         }
 };
 

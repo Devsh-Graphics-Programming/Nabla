@@ -53,7 +53,7 @@ namespace obj_writer_detail
 
 constexpr size_t ApproxObjBytesPerVertex = 96ull;
 constexpr size_t ApproxObjBytesPerFace = 48ull;
-constexpr size_t MaxFloatFixed6Chars = 48ull;
+constexpr size_t MaxFloatTextChars = std::numeric_limits<float>::max_digits10 + 8ull;
 constexpr size_t MaxUInt32Chars = std::numeric_limits<uint32_t>::digits10 + 1ull;
 constexpr size_t MaxIndexTokenBytes = MaxUInt32Chars * 3ull + 2ull;
 
@@ -72,7 +72,7 @@ bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hls
 void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSize, const hlsl::float32_t3& v)
 {
 	const size_t oldSize = out.size();
-	out.resize(oldSize + prefixSize + (3ull * MaxFloatFixed6Chars) + 3ull);
+	out.resize(oldSize + prefixSize + (3ull * MaxFloatTextChars) + 3ull);
 	char* const lineBegin = out.data() + oldSize;
 	char* cursor = lineBegin;
 	char* const lineEnd = out.data() + out.size();
@@ -80,13 +80,13 @@ void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSiz
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.x);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.x);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.y);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.y);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.z);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.z);
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
@@ -96,7 +96,7 @@ void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSiz
 void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSize, const hlsl::float32_t2& v)
 {
 	const size_t oldSize = out.size();
-	out.resize(oldSize + prefixSize + (2ull * MaxFloatFixed6Chars) + 2ull);
+	out.resize(oldSize + prefixSize + (2ull * MaxFloatTextChars) + 2ull);
 	char* const lineBegin = out.data() + oldSize;
 	char* cursor = lineBegin;
 	char* const lineEnd = out.data() + out.size();
@@ -104,10 +104,10 @@ void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSiz
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.x);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.x);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.y);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.y);
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
@@ -236,9 +236,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	output.append("# Nabla OBJ\n");
 
 	hlsl::float64_t4 tmp = {};
-	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightFloat3View(positionView);
-	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightFloat3View(normalView) : nullptr;
-	const hlsl::float32_t2* const tightUV = hasUVs ? SGeometryWriterCommon::getTightFloat2View(*uvView) : nullptr;
+	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(positionView);
+	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
+	const hlsl::float32_t2* const tightUV = hasUVs ? SGeometryWriterCommon::getTightView<hlsl::float32_t2, EF_R32G32_SFLOAT>(*uvView) : nullptr;
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
 		hlsl::float32_t3 vertex = {};
@@ -356,8 +356,8 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		static_cast<unsigned long long>(ioTelemetry.callCount),
 		static_cast<unsigned long long>(ioMinWrite),
 		static_cast<unsigned long long>(ioAvgWrite),
-		toString(_params.ioPolicy.strategy),
-		toString(ioPlan.strategy),
+		system::to_string(_params.ioPolicy.strategy).c_str(),
+		system::to_string(ioPlan.strategy).c_str(),
 		static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
 		ioPlan.reason);
 

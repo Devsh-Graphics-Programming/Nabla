@@ -176,8 +176,8 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		static_cast<unsigned long long>(context.writeTelemetry.callCount),
 		static_cast<unsigned long long>(ioMinWrite),
 		static_cast<unsigned long long>(ioAvgWrite),
-		toString(_params.ioPolicy.strategy),
-		toString(context.ioPlan.strategy),
+		system::to_string(_params.ioPolicy.strategy).c_str(),
+		system::to_string(context.ioPlan.strategy).c_str(),
 		static_cast<unsigned long long>(context.ioPlan.chunkSizeBytes()),
 		context.ioPlan.reason);
 
@@ -266,15 +266,15 @@ bool appendLiteral(char*& cursor, char* const end, const char* text, const size_
 
 bool appendVectorAsAsciiLine(char*& cursor, char* const end, const hlsl::float32_t3& v)
 {
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, end, v.x);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, end, v.x);
 	if (cursor >= end)
 		return false;
 	*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, end, v.y);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, end, v.y);
 	if (cursor >= end)
 		return false;
 	*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, end, v.z);
+	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, end, v.z);
 	if (cursor >= end)
 		return false;
 	*(cursor++) = '\n';
@@ -454,8 +454,8 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	const auto& normalView = geom->getNormalView();
 	const bool hasNormals = static_cast<bool>(normalView);
 	const auto* const colorView = stlFindColorView(geom, vertexCount);
-	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightFloat3View(posView);
-	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightFloat3View(normalView) : nullptr;
+	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(posView);
+	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
 	const float handednessSign = flipHandedness ? -1.f : 1.f;
 
 	auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out)->bool

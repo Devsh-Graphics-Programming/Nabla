@@ -564,71 +564,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         if (needsNormalGeneration)
         {
-            core::vector<Float3> generatedNormals(outVertexWriteCount, Float3(0.f, 0.f, 0.f));
-            const size_t triangleCount = indices.size() / 3ull;
-            for (size_t triIx = 0ull; triIx < triangleCount; ++triIx)
-            {
-                const uint32_t i0 = indices[triIx * 3ull + 0ull];
-                const uint32_t i1 = indices[triIx * 3ull + 1ull];
-                const uint32_t i2 = indices[triIx * 3ull + 2ull];
-                if (i0 >= outVertexWriteCount || i1 >= outVertexWriteCount || i2 >= outVertexWriteCount)
-                    continue;
-
-                const auto& p0 = outPositions[static_cast<size_t>(i0)];
-                const auto& p1 = outPositions[static_cast<size_t>(i1)];
-                const auto& p2 = outPositions[static_cast<size_t>(i2)];
-
-                const float e10x = p1.x - p0.x;
-                const float e10y = p1.y - p0.y;
-                const float e10z = p1.z - p0.z;
-                const float e20x = p2.x - p0.x;
-                const float e20y = p2.y - p0.y;
-                const float e20z = p2.z - p0.z;
-
-                const Float3 faceNormal(
-                    e10y * e20z - e10z * e20y,
-                    e10z * e20x - e10x * e20z,
-                    e10x * e20y - e10y * e20x);
-
-                const float faceLenSq = faceNormal.x * faceNormal.x + faceNormal.y * faceNormal.y + faceNormal.z * faceNormal.z;
-                if (faceLenSq <= 1e-20f)
-                    continue;
-
-                const auto accumulateIfNeeded = [&](const uint32_t vertexIx)->void
-                {
-                    if (outNormalNeedsGeneration[static_cast<size_t>(vertexIx)] == 0u)
-                        return;
-                    auto& dstNormal = generatedNormals[static_cast<size_t>(vertexIx)];
-                    dstNormal.x += faceNormal.x;
-                    dstNormal.y += faceNormal.y;
-                    dstNormal.z += faceNormal.z;
-                };
-
-                accumulateIfNeeded(i0);
-                accumulateIfNeeded(i1);
-                accumulateIfNeeded(i2);
-            }
-
-            for (size_t i = 0ull; i < outVertexWriteCount; ++i)
-            {
-                if (outNormalNeedsGeneration[i] == 0u)
-                    continue;
-
-                auto normal = generatedNormals[i];
-                const float lenSq = normal.x * normal.x + normal.y * normal.y + normal.z * normal.z;
-                if (lenSq > 1e-20f)
-                {
-                    const float invLen = 1.f / std::sqrt(lenSq);
-                    normal.x *= invLen;
-                    normal.y *= invLen;
-                    normal.z *= invLen;
-                }
-                else
-                {
-                    normal = Float3(0.f, 0.f, 1.f);
-                }
-                outNormals[i] = normal;
-            }
+            // OBJ smoothing groups are already encoded in the parser-side vertex split
+            // corners that must stay sharp become different output vertices even if they share position.
+            // This helper works on that final indexed output and fills only normals missing in the source.
+            // `createSmoothVertexNormal` is still not enough here even with indexed-view support,
+            // because it would also need a "missing only" mode and proper OBJ smoothing-group handling.
+            if (!CPolygonGeometryManipulator::generateMissingSmoothNormals(outNormals, outPositions, indices, outNormalNeedsGeneration))
+                return false;
         }
 
         const size_t outVertexCount = outPositions.size();
@@ -1134,8 +1076,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             static_cast<unsigned long long>(ioTelemetry.callCount),
             static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
             static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()),
-            toString(_params.ioPolicy.strategy),
-            toString(ioPlan.strategy),
+            system::to_string(_params.ioPolicy.strategy).c_str(),
+            system::to_string(ioPlan.strategy).c_str(),
             static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
             ioPlan.reason);
 
@@ -1195,8 +1137,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         static_cast<unsigned long long>(ioTelemetry.callCount),
         static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
         static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()),
-        toString(_params.ioPolicy.strategy),
-        toString(ioPlan.strategy),
+        system::to_string(_params.ioPolicy.strategy).c_str(),
+        system::to_string(ioPlan.strategy).c_str(),
         static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
         ioPlan.reason);
 

@@ -200,6 +200,7 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
+	asset/interchange/SGeometryWriterCommon.cpp
 	asset/interchange/COBJMeshWriter.cpp
 	asset/interchange/CPLYMeshWriter.cpp
 	asset/interchange/CSTLMeshWriter.cpp
