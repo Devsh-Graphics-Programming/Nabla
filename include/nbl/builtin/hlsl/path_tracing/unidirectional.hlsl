@@ -84,7 +84,6 @@ struct Unidirectional
         vector3_type eps1 = randGen(depth * 2u + 1u, _sample);
 
         const vector3_type intersectP = intersectData.getPosition();
-        measure_type throughputCIE_Y = interaction.getLuminosityContributionHint();
 
         // sample lights
         const scalar_type neeProbability = bxdf.getNEEProb();
@@ -102,8 +101,6 @@ struct Unidirectional
             sample_type nee_sample = ret.getSample();
             quotient_pdf_type neeContrib = ret.getQuotientPdf();
 
-            // We don't allow non watertight transmitters in this renderer, one cannot reach a light from the backface (optimization)
-
             // While NEE or other generators are not supposed to pick up Delta lobes by accident, we need the MIS weights to add up to 1 for the non-delta lobes.
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
             // Meaning that eval's pdf should equal quotient's pdf , this way even the diffuse contributions coming from within a specular lobe get a MIS weight near 0 for NEE.
@@ -113,8 +110,11 @@ struct Unidirectional
                 // TODO: we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
                 const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction);
                 neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction) * rcpChoiceProb;
-                const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
-                neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
+                if (!hlsl::isinf(neeContrib.pdf))
+                {
+                    const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
+                    neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
+                }
 
                 const vector3_type origin = intersectP;
                 const vector3_type direction = nee_sample.getL().getDirection();
@@ -169,9 +169,8 @@ struct Unidirectional
 
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
-        vector3_type finalContribution = nee.get_environment_radiance(ray);
-        typename nee_type::light_id_type env_light_id;
-        env_light_id.id = 0u;
+        measure_type finalContribution = nee.get_environment_radiance(ray);
+        typename nee_type::light_id_type env_light_id = nee.get_env_light_id();
         const scalar_type pdf = nee.deferred_pdf(scene, env_light_id, ray);
         finalContribution *= ray.foundEmissiveMIS(pdf * pdf);
         ray.addPayloadContribution(finalContribution);
@@ -197,8 +196,6 @@ struct Unidirectional
 
         const uint32_t sampleCount = sampleIndex + 1;
         accumulator.addSample(sampleCount, ray.getPayloadAccumulatiion());
-
-        // TODO: visualize high variance
 
         // TODO: russian roulette early exit?
     }

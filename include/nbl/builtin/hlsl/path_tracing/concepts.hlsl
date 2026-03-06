@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_PATH_TRACING_CONCEPTS_INCLUDED_
 
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/bxdf/common.hlsl>
 
 namespace nbl
 {
@@ -32,17 +33,12 @@ NBL_CONCEPT_END(
 #undef rand
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-namespace impl
-{
-struct DummyInteraction {};
-}
-
 #define NBL_CONCEPT_NAME Ray
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (ray, T)
 #define NBL_CONCEPT_PARAM_1 (v, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_2 (interaction, impl::DummyInteraction)
+#define NBL_CONCEPT_PARAM_2 (interaction, bxdf::surface_interactions::SIsotropic<bxdf::ray_dir_info::SBasic<float>, typename T::spectral_type>)
 #define NBL_CONCEPT_PARAM_3 (scalar, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_4 (color, typename T::spectral_type)
 NBL_CONCEPT_BEGIN(5)
@@ -56,7 +52,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.init(v/*origin*/, v/*direction*/)), ::nbl::hlsl::is_same_v, void))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.template setInteraction<impl::DummyInteraction>(interaction)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.template setInteraction<bxdf::surface_interactions::SIsotropic<bxdf::ray_dir_info::SBasic<float>, typename T::spectral_type> >(interaction)), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initPayload()), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.shouldDoMIS()), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.foundEmissiveMIS(scalar)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
@@ -267,6 +263,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, v/*xi*/, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_env_light_id()), ::nbl::hlsl::is_same_v, typename T::light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
 );
 #undef scene
