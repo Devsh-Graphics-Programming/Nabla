@@ -21,12 +21,6 @@ namespace nbl::asset
 
 namespace impl
 {
-
-inline hlsl::float32_t3x4 identityAffineTransform()
-{
-    return hlsl::math::linalg::diagonal<hlsl::float32_t3x4>(1.f);
-}
-
 template<typename Container> concept PolygonGeometryWriteItemContainer = requires(Container& c, const ICPUPolygonGeometry* geometry, const hlsl::float32_t3x4 transform, const uint32_t instanceIx, const uint32_t targetIx, const uint32_t geometryIx) { c.emplace_back(geometry, transform, instanceIx, targetIx, geometryIx); };
 
 template<typename Container>
@@ -35,7 +29,7 @@ static inline void appendPolygonGeometryWriteItemsFromCollection(Container& out,
     if (!collection)
         return;
 
-    const auto identity = identityAffineTransform();
+    const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
     const auto& geometries = collection->getGeometries();
     for (uint32_t geometryIx = 0u; geometryIx < geometries.size(); ++geometryIx)
     {
@@ -58,7 +52,7 @@ class SGeometryWriterCommon
             inline SPolygonGeometryWriteItem(const ICPUPolygonGeometry* _geometry, const hlsl::float32_t3x4& _transform, const uint32_t _instanceIx, const uint32_t _targetIx, const uint32_t _geometryIx) : geometry(_geometry), transform(_transform), instanceIx(_instanceIx), targetIx(_targetIx), geometryIx(_geometryIx) {}
 
             const ICPUPolygonGeometry* geometry = nullptr;
-            hlsl::float32_t3x4 transform = impl::identityAffineTransform();
+            hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
             uint32_t instanceIx = ~0u;
             uint32_t targetIx = ~0u;
             uint32_t geometryIx = 0u;
@@ -71,7 +65,7 @@ class SGeometryWriterCommon
             if (!rootAsset)
                 return out;
 
-            const auto identity = impl::identityAffineTransform();
+            const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY)
             {
                 const auto* geometry = static_cast<const IGeometry<ICPUBuffer>*>(rootAsset);
@@ -110,10 +104,7 @@ class SGeometryWriterCommon
 
         static inline bool isIdentityTransform(const hlsl::float32_t3x4& transform)
         {
-            return
-                transform[0].x == 1.f && transform[0].y == 0.f && transform[0].z == 0.f && transform[0].w == 0.f &&
-                transform[1].x == 0.f && transform[1].y == 1.f && transform[1].z == 0.f && transform[1].w == 0.f &&
-                transform[2].x == 0.f && transform[2].y == 0.f && transform[2].z == 1.f && transform[2].w == 0.f;
+            return transform == hlsl::math::linalg::identity<hlsl::float32_t3x4>();
         }
 
         static inline const ICPUPolygonGeometry::SDataView* findFirstAuxViewByChannelCount(const ICPUPolygonGeometry* geom, const uint32_t channels, const size_t requiredElementCount = 0ull)
