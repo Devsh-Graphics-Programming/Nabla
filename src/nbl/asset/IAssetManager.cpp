@@ -212,10 +212,10 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     if (params.workingDirectory.empty())
         params.workingDirectory = filename.parent_path();
 
-    const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
+    const auto levelFlags = IAssetLoader::caching_flags_t(static_cast<uint64_t>(params.cacheFlags.value) >> ((uint64_t)_hierarchyLevel * 2ull));
 
     SAssetBundle bundle;
-    if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
+    if (!levelFlags.hasFlags(IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
     {
         auto found = findAssets(filenameString);
         if (found->size())
@@ -249,8 +249,8 @@ SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const
     }
 
     if (!bundle.getContents().empty() && 
-        ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
-        ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
+        !levelFlags.hasFlags(IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
+        !levelFlags.hasFlags(IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
     {
         _override->insertAssetIntoCache(bundle, filenameString, ctx.params, _hierarchyLevel);
     }

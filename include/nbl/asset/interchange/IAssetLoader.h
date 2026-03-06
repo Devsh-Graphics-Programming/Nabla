@@ -78,6 +78,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			//! meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
 			ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
 		};
+		using caching_flags_t = core::bitflag<E_CACHING_FLAGS>;
 
 		//! Parameter flags for a loader
 		/**
@@ -102,7 +103,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		struct SAssetLoadParams
 		{
 			inline SAssetLoadParams(const size_t _decryptionKeyLen = 0u, const uint8_t* const _decryptionKey = nullptr,
-				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING, const loader_flags_t _loaderFlags = ELPF_NONE,
+				const caching_flags_t _cacheFlags = ECF_CACHE_EVERYTHING, const loader_flags_t _loaderFlags = ELPF_NONE,
 				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
@@ -123,7 +124,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 
 			size_t decryptionKeyLen;
 			const uint8_t* decryptionKey;
-			E_CACHING_FLAGS cacheFlags;
+			caching_flags_t cacheFlags;
 			loader_flags_t loaderFlags;			//!< Flags having an impact on extraordinary tasks during loading process
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
@@ -140,37 +141,37 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		};
 
 		// following could be inlined
-		static E_CACHING_FLAGS ECF_DONT_CACHE_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DONT_CACHE_LEVEL(uint64_t N)
 		{
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DONT_CACHE_TOP_LEVEL << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DONT_CACHE_TOP_LEVEL) << N);
 		}
-		static E_CACHING_FLAGS ECF_DUPLICATE_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DUPLICATE_LEVEL(uint64_t N)
 		{
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DUPLICATE_TOP_LEVEL << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DUPLICATE_TOP_LEVEL) << N);
 		}
-		static E_CACHING_FLAGS ECF_DONT_CACHE_FROM_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DONT_CACHE_FROM_LEVEL(uint64_t N)
 		{
 			// (Criss) Shouldn't be set all DONT_CACHE bits from hierarchy numbers N-1 to 32 (64==2*32) ? Same for ECF_DUPLICATE_FROM_LEVEL below
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DONT_CACHE_REFERENCES << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DONT_CACHE_REFERENCES) << N);
 		}
-		static E_CACHING_FLAGS ECF_DUPLICATE_FROM_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DUPLICATE_FROM_LEVEL(uint64_t N)
 		{
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DUPLICATE_REFERENCES << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DUPLICATE_REFERENCES) << N);
 		}
-		static E_CACHING_FLAGS ECF_DONT_CACHE_UNTIL_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DONT_CACHE_UNTIL_LEVEL(uint64_t N)
 		{
 			// (Criss) is this ok? Shouldn't be set all DONT_CACHE bits from hierarchy numbers 0 to N-1? Same for ECF_DUPLICATE_UNTIL_LEVEL below
 			N = 64ull - N * 2ull;
-			return (E_CACHING_FLAGS)(ECF_DONT_CACHE_REFERENCES >> N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DONT_CACHE_REFERENCES) >> N);
 		}
-		static E_CACHING_FLAGS ECF_DUPLICATE_UNTIL_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DUPLICATE_UNTIL_LEVEL(uint64_t N)
 		{
 			N = 64ull - N * 2ull;
-			return (E_CACHING_FLAGS)(ECF_DUPLICATE_REFERENCES >> N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DUPLICATE_REFERENCES) >> N);
 		}
 
 		//! Override class to facilitate changing how assets are loaded

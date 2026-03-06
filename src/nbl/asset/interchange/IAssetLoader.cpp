@@ -16,8 +16,8 @@ IAssetLoader::IAssetLoaderOverride::IAssetLoaderOverride(SCreationParams&& param
 
 SAssetBundle IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 {
-    auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
-    if ((levelFlag & ECF_DUPLICATE_TOP_LEVEL) == ECF_DUPLICATE_TOP_LEVEL)
+    const auto levelFlags = caching_flags_t(static_cast<uint64_t>(ctx.params.cacheFlags.value) >> (uint64_t(hierarchyLevel) * 2ull));
+    if (levelFlags.hasFlags(ECF_DUPLICATE_TOP_LEVEL))
         return {};
 
     auto found = getManager()->findAssets(inSearchKey, inAssetTypes);
@@ -30,8 +30,8 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
 {
 	getManager()->changeAssetKey(asset, supposedKey);
 
-    auto levelFlag = _params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
-    if (!(levelFlag&ECF_DONT_CACHE_TOP_LEVEL))
+    const auto levelFlags = caching_flags_t(static_cast<uint64_t>(_params.cacheFlags.value) >> (uint64_t(hierarchyLevel) * 2ull));
+    if (!levelFlags.hasAnyFlag(ECF_DONT_CACHE_TOP_LEVEL))
 		getManager()->insertAssetIntoCache(asset,ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
