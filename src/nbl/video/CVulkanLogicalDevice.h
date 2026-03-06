@@ -39,9 +39,15 @@ class CVulkanCommandBuffer;
 
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
+        struct PoolConfig
+        {
+            using AddressAllocator = core::PoolAddressAllocator<uint32_t>;
+            constexpr static inline bool ThreadSafe = true;
+        };
+
     public:
         // in the future we'll make proper Vulkan allocators and RAII free functions to pass into Vulkan API calls
-        using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
+        using memory_pool_mt_t = core::CMemoryPool<PoolConfig>;
         
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params);
 
@@ -312,8 +318,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         const VkDevice m_vkdev;
         CVulkanDeviceFunctionTable m_devf;
     
-        constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
-        constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
         memory_pool_mt_t m_deferred_op_mempool;
 
         VkDescriptorSetLayout m_dummyDSLayout;

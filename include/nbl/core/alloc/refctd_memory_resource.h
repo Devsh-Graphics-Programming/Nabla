@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2025 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2021-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors

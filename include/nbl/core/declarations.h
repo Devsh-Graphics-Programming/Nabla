@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_DECLARATIONS_H_INCLUDED__
-#define __NBL_CORE_DECLARATIONS_H_INCLUDED__
+#ifndef _NBL_CORE_DECLARATIONS_H_INCLUDED_
+#define _NBL_CORE_DECLARATIONS_H_INCLUDED_
 
 #include "nbl/core/decl/compile_config.h"
 
@@ -23,7 +22,6 @@
 #include "nbl/core/alloc/address_allocator_traits.h"
 #include "nbl/core/alloc/AlignedBase.h"
 #include "nbl/core/alloc/aligned_allocator.h"
-#include "nbl/core/alloc/aligned_allocator_adaptor.h"
 #include "nbl/core/alloc/AllocatorTrivialBases.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/alloc/IAddressAllocator.h"
