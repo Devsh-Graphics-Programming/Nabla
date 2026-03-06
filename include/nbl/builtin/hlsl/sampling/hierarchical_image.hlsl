@@ -17,6 +17,7 @@ namespace hlsl
 namespace sampling
 {
 
+// TODO: Add an option for corner sampling or centered sampling as boolean parameter
 template <typename ScalarT, typename LuminanceAccessorT 
   NBL_PRIMARY_REQUIRES(
 		is_scalar_v<ScalarT> && 
