@@ -29,8 +29,8 @@ struct HierarchicalLuminanceSampler
 	using vector4_type = vector<scalar_type, 4>;
 
 	LuminanceAccessorT _map;
-	float32_t2 _rcpMapSize;
 	float32_t2 _rcpWarpSize;
+	uint16_t2 _mapSize;
 	uint16_t _mip2x1 : 15;
 	uint16_t _aspect2x1 : 1;
 
@@ -38,7 +38,7 @@ struct HierarchicalLuminanceSampler
 	{
 	  HierarchicalLuminanceSampler<ScalarT, LuminanceAccessorT> result;
 	  result._map = lumaMap;
-		result._rcpMapSize = scalar_type(1.0) / vector2_type(warpSize);
+		result._mapSize = vector2_type(mapSize);
 		result._rcpWarpSize = scalar_type(1.0) / vector2_type(warpSize - uint32_t2(1, 1));
 		// Note: We use mapSize.y here because the currently the map aspect ratio can only be 1x1 or 2x1
 		result._mip2x1 = findMSB(mapSize.y);
@@ -97,12 +97,12 @@ struct HierarchicalLuminanceSampler
 			xi.x = xi.x * scalar_type(0.5) + scalar_type(0.5);
 		if (p.y == 0)
 			xi.y = xi.y * scalar_type(0.5) + scalar_type(0.5);
-		if (p.x == )
-			xi.x = xi.x * scalar_type(0.5) + scalar_type(0.5);
-		if (p.y == 0)
-			xi.y = xi.y * scalar_type(0.5) + scalar_type(0.5);
+		if (p.x == _mapSize.x - 1)
+			xi.x = xi.x * scalar_type(0.5);
+		if (p.y == _mapSize.y - 1)
+			xi.y = xi.y * scalar_type(0.5);
 
-		const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) * _rcpMapSize;
+		const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) / _mapSize;
 		return directionUV;
 	}
 
