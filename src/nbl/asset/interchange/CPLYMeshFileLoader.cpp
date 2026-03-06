@@ -1027,8 +1027,8 @@ struct SContext
 			bool fallbackToGeneric = false;
 			if (is32Bit)
 			{
-				const size_t hw = resolveLoaderHardwareThreads();
-				const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, inner.params.ioPolicy.runtimeTuning.workerHeadroom);
+				const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
+				const size_t hardMaxWorkers = SLoaderRuntimeTuner::resolveHardMaxWorkers(hw, inner.params.ioPolicy.runtimeTuning.workerHeadroom);
 				const size_t recordBytes = sizeof(uint8_t) + 3ull * sizeof(uint32_t);
 				SLoaderRuntimeTuningRequest faceTuningRequest = {};
 				faceTuningRequest.inputBytes = minBytesNeeded;
@@ -1038,8 +1038,8 @@ struct SContext
 				faceTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
 				faceTuningRequest.targetChunksPerWorker = inner.params.ioPolicy.runtimeTuning.targetChunksPerWorker;
 				faceTuningRequest.sampleData = ptr;
-				faceTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(inner.params.ioPolicy, minBytesNeeded);
-				const auto faceTuning = tuneLoaderRuntime(inner.params.ioPolicy, faceTuningRequest);
+				faceTuningRequest.sampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(inner.params.ioPolicy, minBytesNeeded);
+				const auto faceTuning = SLoaderRuntimeTuner::tune(inner.params.ioPolicy, faceTuningRequest);
 				size_t workerCount = std::min(faceTuning.workerCount, element.Count);
 				if (workerCount > 1ull)
 				{
@@ -1142,7 +1142,7 @@ struct SContext
 							ready.notify_one();
 						}
 					};
-					loaderRuntimeDispatchWorkers(workerCount, [&](const size_t workerIx) { const size_t begin = (element.Count * workerIx) / workerCount; const size_t end = (element.Count * (workerIx + 1ull)) / workerCount; parseChunk(workerIx, begin, end); });
+					SLoaderRuntimeTuner::dispatchWorkers(workerCount, [&](const size_t workerIx) { const size_t begin = (element.Count * workerIx) / workerCount; const size_t end = (element.Count * (workerIx + 1ull)) / workerCount; parseChunk(workerIx, begin, end); });
 					if (hashThread.joinable())
 						hashThread.join();
 
@@ -1534,7 +1534,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	uint32_t maxIndexRead = 0u;
 	core::blake3_hash_t precomputedIndexHash = IPreHashed::INVALID_HASH;
 	const uint64_t fileSize = _file->getSize();
-	const bool hashInBuild = computeContentHashes && shouldInlineHashBuild(_params.ioPolicy, fileSize);
+	const bool hashInBuild = computeContentHashes && SLoaderRuntimeTuner::shouldInlineHashBuild(_params.ioPolicy, fileSize);
 	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(_file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
 	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true, fileMappable);
 	if (!ioPlan.isValid())

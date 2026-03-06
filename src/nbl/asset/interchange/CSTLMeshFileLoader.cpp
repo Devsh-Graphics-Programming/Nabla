@@ -373,8 +373,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			return {};
 		core::vector<uint32_t> faceColors(static_cast<size_t>(triangleCount), 0u);
 		std::atomic_bool colorValidForAllFaces = true;
-		const size_t hw = resolveLoaderHardwareThreads();
-		const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
+		const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
+		const size_t hardMaxWorkers = SLoaderRuntimeTuner::resolveHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
 		SLoaderRuntimeTuningRequest parseTuningRequest = {};
 		parseTuningRequest.inputBytes = dataSize;
 		parseTuningRequest.totalWorkUnits = triangleCount;
@@ -385,8 +385,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		parseTuningRequest.minChunkWorkUnits = 1ull;
 		parseTuningRequest.maxChunkWorkUnits = std::max<uint64_t>(1ull, triangleCount);
 		parseTuningRequest.sampleData = payloadData;
-		parseTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(_params.ioPolicy, dataSize);
-		const auto parseTuning = tuneLoaderRuntime(_params.ioPolicy, parseTuningRequest);
+		parseTuningRequest.sampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(_params.ioPolicy, dataSize);
+		const auto parseTuning = SLoaderRuntimeTuner::tune(_params.ioPolicy, parseTuningRequest);
 		const size_t workerCount = std::max<size_t>(1ull, std::min(parseTuning.workerCount, static_cast<size_t>(std::max<uint64_t>(1ull, triangleCount))));
 		static constexpr bool ComputeAABBInParse = true;
 		struct SThreadAABB
@@ -401,7 +401,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		};
 		std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount : 0ull);
 		const uint64_t parseChunkTriangles = std::max<uint64_t>(1ull, parseTuning.chunkWorkUnits);
-		const size_t parseChunkCount = static_cast<size_t>(loaderRuntimeCeilDiv(triangleCount, parseChunkTriangles));
+		const size_t parseChunkCount = static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(triangleCount, parseChunkTriangles));
 		const bool hashInParsePipeline = computeContentHashes;
 		std::vector<uint8_t> hashChunkReady(hashInParsePipeline ? parseChunkCount : 0ull, 0u);
 		std::atomic_bool hashPipelineOk = true;
@@ -616,7 +616,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			if constexpr (ComputeAABBInParse)
 				threadAABBs[workerIx] = localAABB;
 		};
-		loaderRuntimeDispatchWorkers(workerCount, parseWorker);
+		SLoaderRuntimeTuner::dispatchWorkers(workerCount, parseWorker);
 		if (positionHashThread.joinable())
 			positionHashThread.join();
 		if (normalHashThread.joinable())

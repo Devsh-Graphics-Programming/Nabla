@@ -97,7 +97,7 @@ void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeomet
 		return;
 	}
 
-	const size_t hw = resolveLoaderHardwareThreads();
+	const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
 	const uint8_t* hashSampleData = nullptr;
 	uint64_t hashSampleBytes = 0ull;
 	for (const auto pendingIx : pending)
@@ -107,7 +107,7 @@ void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeomet
 		if (!ptr)
 			continue;
 		hashSampleData = ptr;
-		hashSampleBytes = resolveLoaderRuntimeSampleBytes(ioPolicy, static_cast<uint64_t>(buffer->getSize()));
+		hashSampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(ioPolicy, static_cast<uint64_t>(buffer->getSize()));
 		if (hashSampleBytes > 0ull)
 			break;
 	}
@@ -115,19 +115,19 @@ void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeomet
 	SLoaderRuntimeTuningRequest tuningRequest = {};
 	tuningRequest.inputBytes = totalBytes;
 	tuningRequest.totalWorkUnits = pending.size();
-	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, loaderRuntimeCeilDiv(totalBytes, static_cast<uint64_t>(pending.size())));
+	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, SLoaderRuntimeTuner::ceilDiv(totalBytes, static_cast<uint64_t>(pending.size())));
 	tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
-	const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, ioPolicy.runtimeTuning.workerHeadroom);
+	const size_t hardMaxWorkers = SLoaderRuntimeTuner::resolveHardMaxWorkers(hw, ioPolicy.runtimeTuning.workerHeadroom);
 	tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(pending.size(), hardMaxWorkers));
 	tuningRequest.targetChunksPerWorker = ioPolicy.runtimeTuning.hashTaskTargetChunksPerWorker;
 	tuningRequest.sampleData = hashSampleData;
 	tuningRequest.sampleBytes = hashSampleBytes;
-	const auto tuning = tuneLoaderRuntime(ioPolicy, tuningRequest);
+	const auto tuning = SLoaderRuntimeTuner::tune(ioPolicy, tuningRequest);
 	const size_t workerCount = std::min(tuning.workerCount, pending.size());
 
 	if (workerCount > 1ull)
 	{
-		loaderRuntimeDispatchWorkers(workerCount, [&](const size_t workerIx)
+		SLoaderRuntimeTuner::dispatchWorkers(workerCount, [&](const size_t workerIx)
 		{
 			const size_t beginIx = (pending.size() * workerIx) / workerCount;
 			const size_t endIx = (pending.size() * (workerIx + 1ull)) / workerCount;

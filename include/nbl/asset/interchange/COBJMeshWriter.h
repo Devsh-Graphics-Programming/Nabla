@@ -5,14 +5,14 @@
 #define _NBL_ASSET_OBJ_MESH_WRITER_H_INCLUDED_
 
 
-#include "nbl/asset/interchange/IGeometryWriter.h"
+#include "nbl/asset/interchange/ISceneWriter.h"
 
 
 namespace nbl::asset
 {
 
 //! class to write OBJ mesh files
-class COBJMeshWriter : public IGeometryWriter
+class COBJMeshWriter : public ISceneWriter
 {
 	public:
 		COBJMeshWriter();

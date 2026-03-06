@@ -67,50 +67,50 @@ struct SLoaderRuntimeTuner
     template<typename Fn>
     static void dispatchWorkers(const size_t workerCount, Fn&& fn);
 
+    static constexpr uint64_t ceilDiv(const uint64_t numerator, const uint64_t denominator)
+    {
+        return (numerator + denominator - 1ull) / denominator;
+    }
+
+    static inline uint64_t resolveSampleBytes(const SFileIOPolicy& ioPolicy, const uint64_t knownInputBytes)
+    {
+        if (knownInputBytes == 0ull)
+            return 0ull;
+
+        const uint64_t minSampleBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.minSampleBytes);
+        const uint64_t maxSampleBytes = std::max<uint64_t>(minSampleBytes, ioPolicy.runtimeTuning.maxSampleBytes);
+        const uint64_t cappedMin = std::min<uint64_t>(minSampleBytes, knownInputBytes);
+        const uint64_t cappedMax = std::min<uint64_t>(maxSampleBytes, knownInputBytes);
+        const uint64_t adaptive = std::max<uint64_t>(knownInputBytes / 64ull, cappedMin);
+        return std::clamp<uint64_t>(adaptive, cappedMin, cappedMax);
+    }
+
+    static inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes)
+    {
+        const uint64_t thresholdBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes);
+        return inputBytes <= thresholdBytes;
+    }
+
+    static inline size_t resolveHardwareThreads(const uint32_t requested = 0u)
+    {
+        const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency());
+        return hw ? hw : 1ull;
+    }
+
+    static inline size_t resolveHardMaxWorkers(const size_t hardwareThreads, const uint32_t workerHeadroom)
+    {
+        const size_t hw = std::max<size_t>(1ull, hardwareThreads);
+        const size_t minWorkers = hw >= 2ull ? 2ull : 1ull;
+        const size_t headroom = static_cast<size_t>(workerHeadroom);
+        if (headroom == 0ull)
+            return hw;
+        if (hw <= headroom)
+            return minWorkers;
+        return std::max<size_t>(minWorkers, hw - headroom);
+    }
+
     static inline SLoaderRuntimeTuningResult tune(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request);
 };
-
-constexpr uint64_t loaderRuntimeCeilDiv(const uint64_t numerator, const uint64_t denominator)
-{
-    return (numerator + denominator - 1ull) / denominator;
-}
-
-inline uint64_t resolveLoaderRuntimeSampleBytes(const SFileIOPolicy& ioPolicy, const uint64_t knownInputBytes)
-{
-    if (knownInputBytes == 0ull)
-        return 0ull;
-
-    const uint64_t minSampleBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.minSampleBytes);
-    const uint64_t maxSampleBytes = std::max<uint64_t>(minSampleBytes, ioPolicy.runtimeTuning.maxSampleBytes);
-    const uint64_t cappedMin = std::min<uint64_t>(minSampleBytes, knownInputBytes);
-    const uint64_t cappedMax = std::min<uint64_t>(maxSampleBytes, knownInputBytes);
-    const uint64_t adaptive = std::max<uint64_t>(knownInputBytes / 64ull, cappedMin);
-    return std::clamp<uint64_t>(adaptive, cappedMin, cappedMax);
-}
-
-inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes)
-{
-    const uint64_t thresholdBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes);
-    return inputBytes <= thresholdBytes;
-}
-
-inline size_t resolveLoaderHardwareThreads(const uint32_t requested = 0u)
-{
-    const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency());
-    return hw ? hw : 1ull;
-}
-
-inline size_t resolveLoaderHardMaxWorkers(const size_t hardwareThreads, const uint32_t workerHeadroom)
-{
-    const size_t hw = std::max<size_t>(1ull, hardwareThreads);
-    const size_t minWorkers = hw >= 2ull ? 2ull : 1ull;
-    const size_t headroom = static_cast<size_t>(workerHeadroom);
-    if (headroom == 0ull)
-        return hw;
-    if (hw <= headroom)
-        return minWorkers;
-    return std::max<size_t>(minWorkers, hw - headroom);
-}
 
 template<typename Fn>
 void SLoaderRuntimeTuner::dispatchWorkers(const size_t workerCount, Fn&& fn)
@@ -128,12 +128,6 @@ void SLoaderRuntimeTuner::dispatchWorkers(const size_t workerCount, Fn&& fn)
     fn(0ull);
 }
 
-template<typename Fn>
-inline void loaderRuntimeDispatchWorkers(const size_t workerCount, Fn&& fn)
-{
-    SLoaderRuntimeTuner::dispatchWorkers(workerCount, std::forward<Fn>(fn));
-}
-
 inline uint64_t loaderRuntimeBenchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
 {
     if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
@@ -146,7 +140,7 @@ inline uint64_t loaderRuntimeBenchmarkSample(const uint8_t* const sampleData, co
     for (uint32_t passIx = 0u; passIx < passCount; ++passIx)
     {
         const auto passStart = clock_t::now();
-        loaderRuntimeDispatchWorkers(workerCount, [&](const size_t workerIx)
+        SLoaderRuntimeTuner::dispatchWorkers(workerCount, [&](const size_t workerIx)
         {
             const uint64_t begin = (sampleBytes * workerIx) / workerCount;
             const uint64_t end = (sampleBytes * (workerIx + 1ull)) / workerCount;
@@ -233,7 +227,7 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
         return result;
     }
 
-    const size_t hw = resolveLoaderHardwareThreads(request.hardwareThreads);
+    const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads(request.hardwareThreads);
     size_t maxWorkers = hw;
     if (request.hardMaxWorkers > 0u)
         maxWorkers = std::min(maxWorkers, static_cast<size_t>(request.hardMaxWorkers));
@@ -243,8 +237,8 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
 
     const uint64_t minWorkUnitsPerWorker = std::max<uint64_t>(1ull, request.minWorkUnitsPerWorker);
     const uint64_t minBytesPerWorker = std::max<uint64_t>(1ull, request.minBytesPerWorker);
-    const size_t maxByWork = static_cast<size_t>(loaderRuntimeCeilDiv(request.totalWorkUnits, minWorkUnitsPerWorker));
-    const size_t maxByBytes = request.inputBytes ? static_cast<size_t>(loaderRuntimeCeilDiv(request.inputBytes, minBytesPerWorker)) : maxWorkers;
+    const size_t maxByWork = static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(request.totalWorkUnits, minWorkUnitsPerWorker));
+    const size_t maxByBytes = request.inputBytes ? static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(request.inputBytes, minBytesPerWorker)) : maxWorkers;
     const bool heuristicEnabled = ioPolicy.runtimeTuning.mode != RTMode::Sequential;
     const bool hybridEnabled = ioPolicy.runtimeTuning.mode == RTMode::Hybrid;
 
@@ -392,17 +386,12 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
     const uint64_t minChunkWorkUnits = std::max<uint64_t>(1ull, request.minChunkWorkUnits);
     uint64_t maxChunkWorkUnits = std::max<uint64_t>(minChunkWorkUnits, request.maxChunkWorkUnits);
     const uint64_t desiredChunkCount = static_cast<uint64_t>(std::max<size_t>(1ull, result.workerCount * targetChunksPerWorker));
-    uint64_t chunkWorkUnits = loaderRuntimeCeilDiv(request.totalWorkUnits, desiredChunkCount);
+    uint64_t chunkWorkUnits = SLoaderRuntimeTuner::ceilDiv(request.totalWorkUnits, desiredChunkCount);
     chunkWorkUnits = std::clamp<uint64_t>(chunkWorkUnits, minChunkWorkUnits, maxChunkWorkUnits);
 
     result.chunkWorkUnits = chunkWorkUnits;
-    result.chunkCount = static_cast<size_t>(loaderRuntimeCeilDiv(request.totalWorkUnits, chunkWorkUnits));
+    result.chunkCount = static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(request.totalWorkUnits, chunkWorkUnits));
     return result;
-}
-
-inline SLoaderRuntimeTuningResult tuneLoaderRuntime(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request)
-{
-    return SLoaderRuntimeTuner::tune(ioPolicy, request);
 }
 
 }

@@ -479,8 +479,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         int32_t normal = -1;
         uint32_t outIndex = 0u;
     };
-    const size_t hw = resolveLoaderHardwareThreads();
-    const size_t hardMaxWorkers = resolveLoaderHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
+    const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
+    const size_t hardMaxWorkers = SLoaderRuntimeTuner::resolveHardMaxWorkers(hw, _params.ioPolicy.runtimeTuning.workerHeadroom);
     SLoaderRuntimeTuningRequest dedupTuningRequest = {};
     dedupTuningRequest.inputBytes = static_cast<uint64_t>(filesize);
     dedupTuningRequest.totalWorkUnits = estimatedOutVertexCount;
@@ -488,8 +488,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     dedupTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
     dedupTuningRequest.targetChunksPerWorker = _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
     dedupTuningRequest.sampleData = reinterpret_cast<const uint8_t*>(buf);
-    dedupTuningRequest.sampleBytes = resolveLoaderRuntimeSampleBytes(_params.ioPolicy, static_cast<uint64_t>(filesize));
-    const auto dedupTuning = tuneLoaderRuntime(_params.ioPolicy, dedupTuningRequest);
+    dedupTuningRequest.sampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(_params.ioPolicy, static_cast<uint64_t>(filesize));
+    const auto dedupTuning = SLoaderRuntimeTuner::tune(_params.ioPolicy, dedupTuningRequest);
     const size_t dedupHotSeed = std::max<size_t>(
         16ull,
         estimatedOutVertexCount / std::max<size_t>(1ull, dedupTuning.workerCount * 8ull));
