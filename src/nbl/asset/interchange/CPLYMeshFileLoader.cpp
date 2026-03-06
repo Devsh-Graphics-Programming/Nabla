@@ -1527,7 +1527,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (!_file)
 		return {};
 
-	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
+	const bool computeContentHashes = !_params.loaderFlags.hasAnyFlag(IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES);
 	uint64_t faceCount = 0u;
 	uint64_t fastFaceElementCount = 0u;
 	uint64_t fastVertexElementCount = 0u;

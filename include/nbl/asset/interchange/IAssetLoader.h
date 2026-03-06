@@ -10,6 +10,8 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ILogger.h"
 
+#include "nbl/core/util/bitflag.h"
+
 #include "nbl/asset/interchange/SAssetBundle.h"
 #include "nbl/asset/interchange/SFileIOPolicy.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
@@ -95,11 +97,12 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			ELPF_LOAD_METADATA_ONLY = 0x4,					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
 			ELPF_DONT_COMPUTE_CONTENT_HASHES = 0x8			//!< opt-out from computing content hashes of produced buffers before returning.
 		};
+		using loader_flags_t = core::bitflag<E_LOADER_PARAMETER_FLAGS>;
 
 		struct SAssetLoadParams
 		{
 			inline SAssetLoadParams(const size_t _decryptionKeyLen = 0u, const uint8_t* const _decryptionKey = nullptr,
-				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS _loaderFlags = ELPF_NONE, 
+				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING, const loader_flags_t _loaderFlags = ELPF_NONE,
 				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
@@ -121,7 +124,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			size_t decryptionKeyLen;
 			const uint8_t* decryptionKey;
 			E_CACHING_FLAGS cacheFlags;
-			E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
+			loader_flags_t loaderFlags;			//!< Flags having an impact on extraordinary tasks during loading process
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
 			SFileIOPolicy ioPolicy = {};

@@ -179,7 +179,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	uint64_t triangleCount = 0u;
 	const char* parsePath = "unknown";
-	const bool computeContentHashes = (_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0;
+	const bool computeContentHashes = !_params.loaderFlags.hasAnyFlag(IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES);
 	bool hasTriangleColors = false;
 
 	SSTLContext context = { asset::IAssetLoader::SAssetLoadContext{ _params,_file },0ull };

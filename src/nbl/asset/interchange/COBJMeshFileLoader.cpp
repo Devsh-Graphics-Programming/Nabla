@@ -625,7 +625,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             geometry->setIndexing(IPolygonGeometryBase::PointList());
         }
 
-        if ((_params.loaderFlags & IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES) == 0)
+        if (!_params.loaderFlags.hasAnyFlag(IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES))
             SPolygonGeometryContentHash::computeMissing(geometry.get(), _params.ioPolicy);
 
         if (!parsedAABB.empty())
