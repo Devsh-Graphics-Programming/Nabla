@@ -9,6 +9,7 @@
 #include "nbl/system/to_string.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -16,25 +17,6 @@
 
 namespace nbl::asset
 {
-
-namespace impl
-{
-inline constexpr bool hasSingleBit(const uint64_t value)
-{
-    return value && ((value & (value - 1u)) == 0u);
-}
-
-inline constexpr uint8_t bytesToLog2(uint64_t value)
-{
-    uint8_t result = 0u;
-    while (value > 1u)
-    {
-        value >>= 1u;
-        ++result;
-    }
-    return result;
-}
-}
 
 enum class EFileIOStrategy : uint8_t
 {
@@ -88,17 +70,17 @@ struct SFileIOPolicy
         // Target chunk count assigned to each worker for hash stages.
         uint8_t hashTaskTargetChunksPerWorker = 1u;
         // Hash inlining threshold. Inputs up to this size prefer inline hash build.
-        uint64_t hashInlineThresholdBytes = 1ull << 20;
+        uint64_t hashInlineThresholdBytes = 1ull << 20; // 1 MiB
         // Lower bound for sampled byte count in hybrid mode.
-        uint64_t minSampleBytes = 4ull << 10;
+        uint64_t minSampleBytes = 4ull << 10; // 4 KiB
         // Upper bound for sampled byte count in hybrid mode.
-        uint64_t maxSampleBytes = 128ull << 10;
+        uint64_t maxSampleBytes = 128ull << 10; // 128 KiB
         // Payload size threshold for tiny-IO anomaly detection.
-        uint64_t tinyIoPayloadThresholdBytes = 1ull << 20;
+        uint64_t tinyIoPayloadThresholdBytes = 1ull << 20; // 1 MiB
         // Average operation size threshold for tiny-IO anomaly detection.
-        uint64_t tinyIoAvgBytesThreshold = 1024ull;
+        uint64_t tinyIoAvgBytesThreshold = 1024ull; // 1 KiB
         // Minimum operation size threshold for tiny-IO anomaly detection.
-        uint64_t tinyIoMinBytesThreshold = 64ull;
+        uint64_t tinyIoMinBytesThreshold = 64ull; // 64 B
         // Minimum operation count required to report tiny-IO anomaly.
         uint64_t tinyIoMinCallCount = 1024ull;
     };
@@ -111,17 +93,17 @@ struct SFileIOPolicy
         EF_STRICT_BIT = 1u << 0u
     };
 
-    static inline constexpr uint64_t MIN_CHUNK_SIZE_BYTES = 64ull << 10u;
-    static inline constexpr uint8_t MIN_CHUNK_SIZE_LOG2 = impl::bytesToLog2(MIN_CHUNK_SIZE_BYTES);
+    static inline constexpr uint64_t MIN_CHUNK_SIZE_BYTES = 64ull << 10u; // 64 KiB
+    static inline constexpr uint8_t MIN_CHUNK_SIZE_LOG2 = static_cast<uint8_t>(std::bit_width(MIN_CHUNK_SIZE_BYTES) - 1u);
     static inline constexpr uint8_t MAX_BYTE_SIZE_LOG2 = std::numeric_limits<uint64_t>::digits - 1u;
-    static inline constexpr uint64_t DEFAULT_WHOLE_FILE_THRESHOLD_BYTES = 64ull << 20u;
-    static inline constexpr uint64_t DEFAULT_CHUNK_SIZE_BYTES = 4ull << 20u;
-    static inline constexpr uint64_t DEFAULT_MAX_STAGING_BYTES = 256ull << 20u;
+    static inline constexpr uint64_t DEFAULT_WHOLE_FILE_THRESHOLD_BYTES = 64ull << 20u; // 64 MiB
+    static inline constexpr uint64_t DEFAULT_CHUNK_SIZE_BYTES = 4ull << 20u; // 4 MiB
+    static inline constexpr uint64_t DEFAULT_MAX_STAGING_BYTES = 256ull << 20u; // 256 MiB
 
-    static_assert(impl::hasSingleBit(MIN_CHUNK_SIZE_BYTES));
-    static_assert(impl::hasSingleBit(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES));
-    static_assert(impl::hasSingleBit(DEFAULT_CHUNK_SIZE_BYTES));
-    static_assert(impl::hasSingleBit(DEFAULT_MAX_STAGING_BYTES));
+    static_assert(std::has_single_bit(MIN_CHUNK_SIZE_BYTES));
+    static_assert(std::has_single_bit(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES));
+    static_assert(std::has_single_bit(DEFAULT_CHUNK_SIZE_BYTES));
+    static_assert(std::has_single_bit(DEFAULT_MAX_STAGING_BYTES));
 
     static inline constexpr uint8_t clampBytesLog2(const uint8_t value, const uint8_t minValue = 0u)
     {
@@ -138,11 +120,11 @@ struct SFileIOPolicy
     // Resolution flags.
     core::bitflag<E_FLAGS> flags = EF_NONE;
     // Maximum payload size allowed for whole-file strategy in auto mode.
-    uint8_t wholeFileThresholdLog2 = impl::bytesToLog2(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES);
+    uint8_t wholeFileThresholdLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES) - 1u);
     // Chunk size used by chunked strategy encoded as log2(bytes).
-    uint8_t chunkSizeLog2 = impl::bytesToLog2(DEFAULT_CHUNK_SIZE_BYTES);
+    uint8_t chunkSizeLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_CHUNK_SIZE_BYTES) - 1u);
     // Maximum staging allocation for whole-file strategy encoded as log2(bytes).
-    uint8_t maxStagingLog2 = impl::bytesToLog2(DEFAULT_MAX_STAGING_BYTES);
+    uint8_t maxStagingLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_MAX_STAGING_BYTES) - 1u);
     // Runtime tuning controls used by loaders and hash stages.
     SRuntimeTuning runtimeTuning = {};
 
