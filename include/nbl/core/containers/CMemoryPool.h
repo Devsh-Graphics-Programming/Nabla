@@ -32,8 +32,6 @@ class CMemoryPool final : public Uncopyable
         using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
 
         using block_allocator_type = std::conditional_t<Config::ThreadSafe,SimpleBlockBasedAllocatorMT<block_allocator_st_type,std::recursive_mutex>,block_allocator_st_type>;
-// TODO: not appropriate
-//        using addr_type = size_type;
 
         inline CMemoryPool(block_allocator_st_type::SCreationParams&& params) : m_block_alctr(std::move(params)) {}
     
@@ -76,19 +74,17 @@ class CMemoryPool final : public Uncopyable
         }
 
         // You must know the original type, we don't keep track of original size
-        // TODO: this shouldn't be called `free` but `delete`
         template <typename T> requires (!std::is_array_v<T>) // for now until we have a test
-        inline void free_n(void* _ptr, const uint32_t n)
+        inline void _delete(const std::span<T> _range)
         {
-            T* ptr = reinterpret_cast<T*>(_ptr);
             if constexpr (!std::is_trivially_destructible_v<T>)
-                std::destroy_n(ptr,n);
-            deallocate(_ptr,sizeof(T)*n);
+                std::destroy_n(_range.data(),_range.size());
+            deallocate(_range.data(),sizeof(T)*_range.size());
         }
         template <typename T>
-        inline void free(void* ptr)
+        inline void _delete(T* const ptr)
         {
-            return free_n<T>(ptr,1u);
+            return _delete<T>({ptr,1u});
         }
 
     private:

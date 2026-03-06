@@ -318,8 +318,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         const VkDevice m_vkdev;
         CVulkanDeviceFunctionTable m_devf;
     
-        constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
-        constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
         memory_pool_mt_t m_deferred_op_mempool;
 
         VkDescriptorSetLayout m_dummyDSLayout;

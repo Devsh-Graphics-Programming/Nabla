@@ -12,10 +12,12 @@
 using namespace nbl;
 using namespace nbl::video;
 
+
 CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params)
 : ILogicalDevice(std::move(api),physicalDevice,params,rdoc),
-m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool({.addrAllocCtorExtraParams={static_cast<uint32_t>(sizeof(CVulkanDeferredOperation))},.blockSize=NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation)})
+m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool({.addrAllocCtorExtraParams={static_cast<uint32_t>(sizeof(CVulkanDeferredOperation))},.blockSizeKBLog2=12})
 {
+    static_assert(sizeof(CVulkanDeferredOperation)<=1024);
     // create actual queue objects
     for (uint32_t i=0u; i<ILogicalDevice::MaxQueueFamilies; ++i)
     {

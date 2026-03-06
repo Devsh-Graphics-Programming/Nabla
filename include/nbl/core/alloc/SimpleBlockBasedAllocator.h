@@ -64,9 +64,9 @@ class SimpleBlockBasedAllocator
 				struct SCreationParams
 				{
 					inline SCreationParams(const size_type _blockSize, const extra_params_t& extraArgs) : addrCreationArgs(extraArgs), blockSize(_blockSize),
-						reservedSize(std::apply([blockSize]<typename... Args>(const Args&... args)->size_type
+						reservedSize(std::apply([_blockSize]<typename... Args>(const Args&... args)->size_type
 							{
-								return addr_alloc_traits::reserved_size(meta_alignment,blockSize,args...);
+								return addr_alloc_traits::reserved_size(meta_alignment,_blockSize,args...);
 							},addrCreationArgs)
 						), totalSize(core::alignUp(sizeof(Block)+reservedSize,meta_alignment)+blockSize) {}
 
@@ -78,7 +78,7 @@ class SimpleBlockBasedAllocator
 				//
 				inline Block(const SCreationParams& params) : addrAlloc(AddressAllocator())
 				{
-					std::apply([&params]<typename... Args>(const Args&... args)->void
+					std::apply([&]<typename... Args>(const Args&... args)->void
 						{
 							addrAlloc = AddressAllocator(this+1,/*no address offset*/0u,/*no alignment offset needed*/0u,meta_alignment,params.blockSize,args...);
 						},params.addrCreationArgs
@@ -88,11 +88,12 @@ class SimpleBlockBasedAllocator
 				}
 
 				inline uint8_t* data(const SCreationParams& params) {return reinterpret_cast<uint8_t*>(this)+params.totalSize-params.blockSize;}
-				inline const uint8_t* data() const
+				inline const uint8_t* data(const SCreationParams& params) const
 				{
-					return const_cast<Block*>(this)->data();
+					return const_cast<const uint8_t*>(const_cast<Block*>(this)->data(params));
 				}
 				
+				AddressAllocator& getAllocator() {return addrAlloc;}
 				const AddressAllocator& getAllocator() const {return addrAlloc;}
 
 				size_type alloc(size_type bytes, size_type alignment)
@@ -118,10 +119,10 @@ class SimpleBlockBasedAllocator
 		{
 			smart_refctd_ptr<refctd_memory_resource> mem_resource = nullptr;
 			extra_params_t addrAllocCtorExtraParams;
-			size_type blockSize = 128u<<10;
-			size_type initBlockCount = 1;
+			uint16_t blockSizeKBLog2 : 5 = 7;
+			uint16_t initBlockCount : 11 = 1;
 		};
-		inline SimpleBlockBasedAllocator(SCreationParams&& params) : m_blockCreationParams(params.blockSize,std::move(params.addrAllocCtorExtraParams)),
+		inline SimpleBlockBasedAllocator(SCreationParams&& params) : m_blockCreationParams(1024u<<params.blockSizeKBLog2,std::move(params.addrAllocCtorExtraParams)),
 			m_initBlockCount(std::max<size_type>(params.initBlockCount,1)), m_mem_resource(params.mem_resource ? std::move(params.mem_resource):core::getDefaultMemoryResource())
 		{
 			for (auto i=0u; i<m_initBlockCount; i++)
@@ -129,6 +130,9 @@ class SimpleBlockBasedAllocator
 		}
 		SimpleBlockBasedAllocator(const SimpleBlockBasedAllocator&) = delete;
 		SimpleBlockBasedAllocator(SimpleBlockBasedAllocator&&) = delete;
+
+		//
+		inline const Block::SCreationParams getBlockCreationParams() const {return m_blockCreationParams;}
 
 		// deallocates everything
         inline void	reset()
@@ -149,25 +153,39 @@ class SimpleBlockBasedAllocator
         }
 
 		//
-		inline void* allocate(const size_type bytes, const size_type alignment) noexcept
+		struct SAllocResult
+		{
+			explicit inline operator bool() const {return blockData;}
+			inline operator void*() const
+			{
+				if (blockData)
+					return blockData+addr;
+				return nullptr;
+			}
+
+			uint8_t* blockData = nullptr;
+			size_type addr : (sizeof(size_type)*8-1);
+			size_type newBlock : 1 = false;
+		};
+		inline SAllocResult allocate(const size_type bytes, const size_type alignment) noexcept
 		{
 			constexpr auto invalid_address = AddressAllocator::invalid_address;
 			// TODO: better allocation strategies like tlsf
 			for (auto& entry : m_blocks)
 			{
-				auto* block = entry;
+				Block* block = const_cast<Block*>(entry);
 				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
-					return block->data()+addr;
+					return {.blockData=block->data(m_blockCreationParams),.addr=addr};
 			}
-			auto* block = createBlock();
+			Block* block = createBlock();
 			if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
 			{
 				m_blocks.insert(block);
-				return block->data()+addr;
+				return {.blockData=block->data(m_blockCreationParams),.addr=addr,.newBlock=true};
 			}
 			else
 				deleteBlock(block);
-			return nullptr;
+			return {};
 		}
 		inline void	deallocate(void* p, const size_type bytes) noexcept
 		{
@@ -175,8 +193,9 @@ class SimpleBlockBasedAllocator
 			auto found = m_blocks.lower_bound(reinterpret_cast<Block*>(p));
 			assert(found!=m_blocks.end());
 			auto* block = *found;
-			assert(block->data()<=p && p<block->data()+m_blockCreationParams.blockSize);
-			const size_type addr = reinterpret_cast<uint8_t*>(p)-block->data();
+			uint8_t* blockData = block->data(m_blockCreationParams);
+			assert(blockData<=p && p<blockData+m_blockCreationParams.blockSize);
+			const size_type addr = reinterpret_cast<uint8_t*>(p)-blockData;
 			block->free(addr,bytes);
 			if (m_blocks.size()>m_initBlockCount && addr_alloc_traits::get_allocated_size(block->getAllocator())==size_type(0u))
 			{
