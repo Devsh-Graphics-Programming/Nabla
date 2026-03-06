@@ -13,11 +13,13 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cassert>
 #include <cstring>
 #include <array>
 #include <charconv>
 #include <cstdio>
 #include <limits>
+#include <sstream>
 #include <system_error>
 
 namespace nbl::asset
@@ -49,8 +51,8 @@ writer_flags_t CPLYMeshWriter::getForcedFlags()
 namespace ply_writer_detail
 {
 
-constexpr size_t ApproxPlyTextBytesPerVertex = 96ull;
-constexpr size_t ApproxPlyTextBytesPerFace = 32ull;
+constexpr size_t ApproxPlyTextBytesPerVertex = sizeof("0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n") - 1ull;
+constexpr size_t ApproxPlyTextBytesPerFace = sizeof("3 4294967295 4294967295 4294967295\n") - 1ull;
 
 enum class EPlyScalarType : uint8_t
 {
@@ -87,40 +89,42 @@ SPlyScalarMeta getPlyScalarMeta(const EPlyScalarType type)
     }
 }
 
-bool isPlyUnsupportedPackedFormat(const E_FORMAT format)
+bool isPlySupportedScalarFormat(const E_FORMAT format)
 {
-    switch (format)
-    {
-        case EF_A2R10G10B10_UINT_PACK32:
-        case EF_A2R10G10B10_SINT_PACK32:
-        case EF_A2R10G10B10_UNORM_PACK32:
-        case EF_A2R10G10B10_SNORM_PACK32:
-        case EF_A2R10G10B10_USCALED_PACK32:
-        case EF_A2R10G10B10_SSCALED_PACK32:
-        case EF_A2B10G10R10_UINT_PACK32:
-        case EF_A2B10G10R10_SINT_PACK32:
-        case EF_A2B10G10R10_UNORM_PACK32:
-        case EF_A2B10G10R10_SNORM_PACK32:
-        case EF_A2B10G10R10_USCALED_PACK32:
-        case EF_A2B10G10R10_SSCALED_PACK32:
-        case EF_B10G11R11_UFLOAT_PACK32:
-        case EF_E5B9G9R9_UFLOAT_PACK32:
-            return true;
-        default:
-            return false;
-    }
+    if (format == EF_UNKNOWN)
+        return false;
+
+    const uint32_t channels = getFormatChannelCount(format);
+    if (channels == 0u)
+        return false;
+
+    if (!(isIntegerFormat(format) || isFloatingPointFormat(format) || isNormalizedFormat(format) || isScaledFormat(format)))
+        return false;
+
+    const auto bytesPerPixel = getBytesPerPixel(format);
+    if (bytesPerPixel.getDenominator() != 1u)
+        return false;
+    const uint32_t pixelBytes = bytesPerPixel.getNumerator();
+    if (pixelBytes == 0u || (pixelBytes % channels) != 0u)
+        return false;
+
+    const uint32_t bytesPerChannel = pixelBytes / channels;
+    return bytesPerChannel == 1u || bytesPerChannel == 2u || bytesPerChannel == 4u || bytesPerChannel == 8u;
 }
 
 EPlyScalarType selectPlyScalarType(const E_FORMAT format)
 {
-    if (format == EF_UNKNOWN || isPlyUnsupportedPackedFormat(format))
+    if (!isPlySupportedScalarFormat(format))
         return EPlyScalarType::Float32;
     if (isNormalizedFormat(format) || isScaledFormat(format))
         return EPlyScalarType::Float32;
 
     const uint32_t channels = getFormatChannelCount(format);
     if (channels == 0u)
+    {
+        assert(format == EF_UNKNOWN);
         return EPlyScalarType::Float32;
+    }
 
     const auto bytesPerPixel = getBytesPerPixel(format);
     if (bytesPerPixel.getDenominator() != 1u)
@@ -414,33 +418,28 @@ struct SExtraAuxView
     EPlyScalarType scalarType = EPlyScalarType::Float32;
 };
 
+struct SWriteInput
+{
+    const ICPUPolygonGeometry* geom = nullptr;
+    EPlyScalarType positionScalarType = EPlyScalarType::Float32;
+    const ICPUPolygonGeometry::SDataView* uvView = nullptr;
+    EPlyScalarType uvScalarType = EPlyScalarType::Float32;
+    const core::vector<SExtraAuxView>* extraAuxViews = nullptr;
+    bool writeNormals = false;
+    EPlyScalarType normalScalarType = EPlyScalarType::Float32;
+    size_t vertexCount = 0ull;
+    const uint32_t* indices = nullptr;
+    size_t faceCount = 0ull;
+    bool write16BitIndices = false;
+    bool flipVectors = false;
+};
+
 bool writeBinary(
-    const ICPUPolygonGeometry* geom,
-    const EPlyScalarType positionScalarType,
-    const ICPUPolygonGeometry::SDataView* uvView,
-    const EPlyScalarType uvScalarType,
-    const core::vector<SExtraAuxView>& extraAuxViews,
-    const bool writeNormals,
-    const EPlyScalarType normalScalarType,
-    const size_t vertexCount,
-    const uint32_t* indices,
-    const size_t faceCount,
-    const bool write16BitIndices,
-    uint8_t* dst,
-    const bool flipVectors);
+    const SWriteInput& input,
+    uint8_t* dst);
 bool writeText(
-    const ICPUPolygonGeometry* geom,
-    const EPlyScalarType positionScalarType,
-    const ICPUPolygonGeometry::SDataView* uvView,
-    const EPlyScalarType uvScalarType,
-    const core::vector<SExtraAuxView>& extraAuxViews,
-    const bool writeNormals,
-    const EPlyScalarType normalScalarType,
-    const size_t vertexCount,
-    const uint32_t* indices,
-    const size_t faceCount,
-    std::string& output,
-    const bool flipVectors);
+    const SWriteInput& input,
+    std::string& output);
 
 } // namespace ply_writer_detail
 
@@ -453,42 +452,52 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         getDefaultOverride(_override);
 
     if (!_file || !_params.rootAsset)
+    {
+        _params.logger.log("PLY writer: missing output file or root asset.", system::ILogger::ELL_ERROR);
         return false;
+    }
 
-    const auto* geom = IAsset::castDown<const ICPUPolygonGeometry>(_params.rootAsset);
+    const auto* geom = SGeometryWriterCommon::resolvePolygonGeometry(_params.rootAsset);
     if (!geom || !geom->valid())
+    {
+        _params.logger.log("PLY writer: root asset is not a valid polygon geometry.", system::ILogger::ELL_ERROR);
         return false;
+    }
 
     SAssetWriteContext ctx = { _params, _file };
     system::IFile* file = _override->getOutputFile(_file, ctx, { geom, 0u });
     if (!file)
+    {
+        _params.logger.log("PLY writer: output override returned null file.", system::ILogger::ELL_ERROR);
         return false;
+    }
 
     const auto& positionView = geom->getPositionView();
     const auto& normalView = geom->getNormalView();
-    const auto& auxViews = geom->getAuxAttributeViews();
-
-    const bool writeNormals = static_cast<bool>(normalView);
-
-    const ICPUPolygonGeometry::SDataView* uvView = nullptr;
-    for (const auto& view : auxViews)
+    const size_t vertexCount = positionView.getElementCount();
+    if (vertexCount == 0ull)
     {
-        if (!view)
-            continue;
-        const auto channels = getFormatChannelCount(view.composed.format);
-        if (channels == 2u)
-        {
-            uvView = &view;
-            break;
-        }
+        _params.logger.log("PLY writer: empty position view.", system::ILogger::ELL_ERROR);
+        return false;
+    }
+    const bool writeNormals = static_cast<bool>(normalView);
+    if (writeNormals && normalView.getElementCount() != vertexCount)
+    {
+        _params.logger.log("PLY writer: normal vertex count mismatch.", system::ILogger::ELL_ERROR);
+        return false;
     }
 
+    const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::findFirstAuxViewByChannelCount(geom, 2u, vertexCount);
+
     core::vector<SExtraAuxView> extraAuxViews;
+    const auto& auxViews = geom->getAuxAttributeViews();
     extraAuxViews.reserve(auxViews.size());
     for (uint32_t auxIx = 0u; auxIx < static_cast<uint32_t>(auxViews.size()); ++auxIx)
     {
         const auto& view = auxViews[auxIx];
         if (!view || (&view == uvView))
+            continue;
+        if (view.getElementCount() != vertexCount)
             continue;
         const uint32_t channels = getFormatChannelCount(view.composed.format);
         if (channels == 0u)
@@ -497,70 +506,28 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         extraAuxViews.push_back({ &view, components, auxIx, selectPlyScalarType(view.composed.format) });
     }
 
-    const size_t vertexCount = positionView.getElementCount();
-    if (vertexCount == 0)
-        return false;
-
     const auto* indexing = geom->getIndexingCallback();
     if (!indexing)
+    {
+        _params.logger.log("PLY writer: missing indexing callback.", system::ILogger::ELL_ERROR);
         return false;
+    }
 
     if (indexing->knownTopology() != E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST)
+    {
+        _params.logger.log("PLY writer: only triangle-list topology is supported.", system::ILogger::ELL_ERROR);
         return false;
-
-    const auto& indexView = geom->getIndexView();
+    }
 
     core::vector<uint32_t> indexData;
     const uint32_t* indices = nullptr;
-    size_t faceCount = 0;
-    if (indexView)
+    size_t faceCount = 0ull;
+    if (!SGeometryWriterCommon::decodeTriangleIndices(geom, indexData, indices, faceCount))
     {
-        const size_t indexCount = indexView.getElementCount();
-        if (indexCount % 3u != 0u)
-            return false;
-
-        const void* src = indexView.getPointer();
-        if (!src)
-            return false;
-
-        if (indexView.composed.format == EF_R32_UINT && indexView.composed.getStride() == sizeof(uint32_t))
-        {
-            indices = reinterpret_cast<const uint32_t*>(src);
-        }
-        else if (indexView.composed.format == EF_R16_UINT && indexView.composed.getStride() == sizeof(uint16_t))
-        {
-            indexData.resize(indexCount);
-            const uint16_t* src16 = reinterpret_cast<const uint16_t*>(src);
-            for (size_t i = 0; i < indexCount; ++i)
-                indexData[i] = src16[i];
-            indices = indexData.data();
-        }
-        else
-        {
-            indexData.resize(indexCount);
-            hlsl::vector<uint32_t, 1> decoded = {};
-            for (size_t i = 0; i < indexCount; ++i)
-            {
-                if (!indexView.decodeElement(i, decoded))
-                    return false;
-                indexData[i] = decoded.x;
-            }
-            indices = indexData.data();
-        }
-        faceCount = indexCount / 3u;
+        _params.logger.log("PLY writer: failed to decode triangle indices.", system::ILogger::ELL_ERROR);
+        return false;
     }
-    else
-    {
-        if (vertexCount % 3u != 0u)
-            return false;
 
-        indexData.resize(vertexCount);
-        for (size_t i = 0; i < vertexCount; ++i)
-            indexData[i] = static_cast<uint32_t>(i);
-
-        indices = indexData.data();
-        faceCount = vertexCount / 3u;
-    }
     const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
     const bool binary = flags.hasAnyFlag(E_WRITER_FLAGS::EWF_BINARY);
     const bool flipVectors = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
@@ -582,46 +549,27 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     for (const auto& extra : extraAuxViews)
         extraAuxBytesPerVertex += static_cast<size_t>(extra.components) * getPlyScalarMeta(extra.scalarType).byteSize;
 
-    std::string header = "ply\n";
-    header += binary ? "format binary_little_endian 1.0" : "format ascii 1.0";
-    header += "\ncomment Nabla ";
-    header += NABLA_SDK_VERSION;
+    std::ostringstream headerBuilder;
+    headerBuilder << "ply\n";
+    headerBuilder << (binary ? "format binary_little_endian 1.0" : "format ascii 1.0");
+    headerBuilder << "\ncomment Nabla " << NABLA_SDK_VERSION;
+    headerBuilder << "\nelement vertex " << vertexCount << "\n";
 
-    header += "\nelement vertex ";
-    header += std::to_string(vertexCount);
-    header += "\n";
-
-    header += "property ";
-    header += positionMeta.name;
-    header += " x\n";
-    header += "property ";
-    header += positionMeta.name;
-    header += " y\n";
-    header += "property ";
-    header += positionMeta.name;
-    header += " z\n";
+    headerBuilder << "property " << positionMeta.name << " x\n";
+    headerBuilder << "property " << positionMeta.name << " y\n";
+    headerBuilder << "property " << positionMeta.name << " z\n";
 
     if (writeNormals)
     {
-        header += "property ";
-        header += normalMeta.name;
-        header += " nx\n";
-        header += "property ";
-        header += normalMeta.name;
-        header += " ny\n";
-        header += "property ";
-        header += normalMeta.name;
-        header += " nz\n";
+        headerBuilder << "property " << normalMeta.name << " nx\n";
+        headerBuilder << "property " << normalMeta.name << " ny\n";
+        headerBuilder << "property " << normalMeta.name << " nz\n";
     }
 
     if (uvView)
     {
-        header += "property ";
-        header += uvMeta.name;
-        header += " u\n";
-        header += "property ";
-        header += uvMeta.name;
-        header += " v\n";
+        headerBuilder << "property " << uvMeta.name << " u\n";
+        headerBuilder << "property " << uvMeta.name << " v\n";
     }
 
     for (const auto& extra : extraAuxViews)
@@ -629,23 +577,32 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         const auto extraMeta = getPlyScalarMeta(extra.scalarType);
         for (uint32_t component = 0u; component < extra.components; ++component)
         {
-            header += "property ";
-            header += extraMeta.name;
-            header += " aux";
-            header += std::to_string(extra.auxIndex);
+            headerBuilder << "property " << extraMeta.name << " aux" << extra.auxIndex;
             if (extra.components > 1u)
-            {
-                header += "_";
-                header += std::to_string(component);
-            }
-            header += "\n";
+                headerBuilder << "_" << component;
+            headerBuilder << "\n";
         }
     }
 
-    header += "element face ";
-    header += std::to_string(faceCount);
-    header += write16BitIndices ? "\nproperty list uchar uint16 vertex_indices\n" : "\nproperty list uchar uint32 vertex_indices\n";
-    header += "end_header\n";
+    headerBuilder << "element face " << faceCount;
+    headerBuilder << (write16BitIndices ? "\nproperty list uchar uint16 vertex_indices\n" : "\nproperty list uchar uint32 vertex_indices\n");
+    headerBuilder << "end_header\n";
+    const std::string header = headerBuilder.str();
+
+    const SWriteInput input = {
+        .geom = geom,
+        .positionScalarType = positionScalarType,
+        .uvView = uvView,
+        .uvScalarType = uvScalarType,
+        .extraAuxViews = &extraAuxViews,
+        .writeNormals = writeNormals,
+        .normalScalarType = normalScalarType,
+        .vertexCount = vertexCount,
+        .indices = indices,
+        .faceCount = faceCount,
+        .write16BitIndices = write16BitIndices,
+        .flipVectors = flipVectors
+    };
 
     bool writeOk = false;
     size_t outputBytes = 0ull;
@@ -661,8 +618,11 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
         core::vector<uint8_t> body;
         body.resize(bodySize);
-        if (!writeBinary(geom, positionScalarType, uvView, uvScalarType, extraAuxViews, writeNormals, normalScalarType, vertexCount, indices, faceCount, write16BitIndices, body.data(), flipVectors))
+        if (!writeBinary(input, body.data()))
+        {
+            _params.logger.log("PLY writer: binary payload generation failed.", system::ILogger::ELL_ERROR);
             return false;
+        }
 
         const size_t outputSize = header.size() + body.size();
         const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
@@ -714,8 +674,11 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
     std::string body;
     body.reserve(vertexCount * ApproxPlyTextBytesPerVertex + faceCount * ApproxPlyTextBytesPerFace);
-    if (!writeText(geom, positionScalarType, uvView, uvScalarType, extraAuxViews, writeNormals, normalScalarType, vertexCount, indices, faceCount, body, flipVectors))
+    if (!writeText(input, body))
+    {
+        _params.logger.log("PLY writer: text payload generation failed.", system::ILogger::ELL_ERROR);
         return false;
+    }
 
     const size_t outputSize = header.size() + body.size();
     const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
@@ -766,35 +729,25 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 }
 
 bool ply_writer_detail::writeBinary(
-    const ICPUPolygonGeometry* geom,
-    const EPlyScalarType positionScalarType,
-    const ICPUPolygonGeometry::SDataView* uvView,
-    const EPlyScalarType uvScalarType,
-    const core::vector<SExtraAuxView>& extraAuxViews,
-    const bool writeNormals,
-    const EPlyScalarType normalScalarType,
-    const size_t vertexCount,
-    const uint32_t* indices,
-    const size_t faceCount,
-    const bool write16BitIndices,
-    uint8_t* dst,
-    const bool flipVectors)
+    const SWriteInput& input,
+    uint8_t* dst)
 {
-    if (!dst)
+    if (!input.geom || !input.extraAuxViews || !input.indices || !dst)
         return false;
 
-    const auto& positionView = geom->getPositionView();
-    const auto& normalView = geom->getNormalView();
+    const auto& positionView = input.geom->getPositionView();
+    const auto& normalView = input.geom->getNormalView();
+    const auto& extraAuxViews = *input.extraAuxViews;
 
-    for (size_t i = 0; i < vertexCount; ++i)
+    for (size_t i = 0; i < input.vertexCount; ++i)
     {
-        if (!writeTypedViewBinary(positionView, i, 3u, positionScalarType, flipVectors, dst))
+        if (!writeTypedViewBinary(positionView, i, 3u, input.positionScalarType, input.flipVectors, dst))
             return false;
 
-        if (writeNormals && !writeTypedViewBinary(normalView, i, 3u, normalScalarType, flipVectors, dst))
+        if (input.writeNormals && !writeTypedViewBinary(normalView, i, 3u, input.normalScalarType, input.flipVectors, dst))
             return false;
 
-        if (uvView && !writeTypedViewBinary(*uvView, i, 2u, uvScalarType, false, dst))
+        if (input.uvView && !writeTypedViewBinary(*input.uvView, i, 2u, input.uvScalarType, false, dst))
             return false;
 
         for (const auto& extra : extraAuxViews)
@@ -804,13 +757,13 @@ bool ply_writer_detail::writeBinary(
         }
     }
 
-    for (size_t i = 0; i < faceCount; ++i)
+    for (size_t i = 0; i < input.faceCount; ++i)
     {
         const uint8_t listSize = 3u;
         *dst++ = listSize;
 
-        const uint32_t* tri = indices + (i * 3u);
-        if (write16BitIndices)
+        const uint32_t* tri = input.indices + (i * 3u);
+        if (input.write16BitIndices)
         {
             const uint16_t tri16[3] = {
                 static_cast<uint16_t>(tri[0]),
@@ -831,36 +784,30 @@ bool ply_writer_detail::writeBinary(
 }
 
 bool ply_writer_detail::writeText(
-    const ICPUPolygonGeometry* geom,
-    const EPlyScalarType positionScalarType,
-    const ICPUPolygonGeometry::SDataView* uvView,
-    const EPlyScalarType uvScalarType,
-    const core::vector<SExtraAuxView>& extraAuxViews,
-    const bool writeNormals,
-    const EPlyScalarType normalScalarType,
-    const size_t vertexCount,
-    const uint32_t* indices,
-    const size_t faceCount,
-    std::string& output,
-    const bool flipVectors)
+    const SWriteInput& input,
+    std::string& output)
 {
-    const auto& positionView = geom->getPositionView();
-    const auto& normalView = geom->getNormalView();
+    if (!input.geom || !input.extraAuxViews || !input.indices)
+        return false;
 
-    for (size_t i = 0; i < vertexCount; ++i)
+    const auto& positionView = input.geom->getPositionView();
+    const auto& normalView = input.geom->getNormalView();
+    const auto& extraAuxViews = *input.extraAuxViews;
+
+    for (size_t i = 0; i < input.vertexCount; ++i)
     {
-        if (!writeTypedViewText(output, positionView, i, 3u, positionScalarType, flipVectors))
+        if (!writeTypedViewText(output, positionView, i, 3u, input.positionScalarType, input.flipVectors))
             return false;
 
-        if (writeNormals)
+        if (input.writeNormals)
         {
-            if (!writeTypedViewText(output, normalView, i, 3u, normalScalarType, flipVectors))
+            if (!writeTypedViewText(output, normalView, i, 3u, input.normalScalarType, input.flipVectors))
                 return false;
         }
 
-        if (uvView)
+        if (input.uvView)
         {
-            if (!writeTypedViewText(output, *uvView, i, 2u, uvScalarType, false))
+            if (!writeTypedViewText(output, *input.uvView, i, 2u, input.uvScalarType, false))
                 return false;
         }
 
@@ -873,9 +820,9 @@ bool ply_writer_detail::writeText(
         output += "\n";
     }
 
-    for (size_t i = 0; i < faceCount; ++i)
+    for (size_t i = 0; i < input.faceCount; ++i)
     {
-        const uint32_t* tri = indices + (i * 3u);
+        const uint32_t* tri = input.indices + (i * 3u);
         output.append("3 ");
         appendUInt(output, tri[0]);
         output.push_back(' ');

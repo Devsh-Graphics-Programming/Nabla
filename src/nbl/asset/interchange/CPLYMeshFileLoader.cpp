@@ -6,6 +6,7 @@
 
 #include "CPLYMeshFileLoader.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/IAssetManager.h"
@@ -84,39 +85,6 @@ const auto plyByteswap = [](const auto value)
 inline std::string_view plyToStringView(const char* text)
 {
 	return text ? std::string_view{ text } : std::string_view{};
-}
-
-inline IGeometry<ICPUBuffer>::SDataView plyCreateDataView(core::smart_refctd_ptr<ICPUBuffer>&& buffer, const size_t byteCount, const uint32_t stride, const E_FORMAT format)
-{
-	if (!buffer || byteCount == 0ull)
-		return {};
-
-	return {
-		.composed = {
-			.stride = stride,
-			.format = format,
-			.rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
-		},
-		.src = {
-			.offset = 0ull,
-			.size = byteCount,
-			.buffer = std::move(buffer)
-		}
-	};
-}
-
-template<typename ValueType, E_FORMAT Format>
-IGeometry<ICPUBuffer>::SDataView plyCreateAdoptedView(core::vector<ValueType>&& data)
-{
-	if (data.empty())
-		return {};
-
-	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<ValueType>>>(std::move(data));
-	auto& storage = backer->getBacker();
-	const size_t byteCount = storage.size() * sizeof(ValueType);
-	auto* const ptr = storage.data();
-	auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(ValueType) }, core::adopt_memory);
-	return plyCreateDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(ValueType)), Format);
 }
 
 struct SContext
@@ -2146,7 +2114,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			core::vector<uint16_t> indices16(indices.size());
 			for (size_t i = 0u; i < indices.size(); ++i)
 				indices16[i] = static_cast<uint16_t>(indices[i]);
-			auto view = plyCreateAdoptedView<uint16_t, EF_R16_UINT>(std::move(indices16));
+			auto view = SGeometryLoaderCommon::createAdoptedView<uint16_t, EF_R16_UINT>(std::move(indices16));
 			if (!view)
 				return {};
 			geometry->setIndexView(std::move(view));
@@ -2154,7 +2122,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			auto view = plyCreateAdoptedView<uint32_t, EF_R32_UINT>(std::move(indices));
+			auto view = SGeometryLoaderCommon::createAdoptedView<uint32_t, EF_R32_UINT>(std::move(indices));
 			if (!view)
 				return {};
 			if (precomputedIndexHash != IPreHashed::INVALID_HASH)

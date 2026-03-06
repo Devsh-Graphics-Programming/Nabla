@@ -8,6 +8,7 @@
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/SGeometryAABBCommon.h"
@@ -21,6 +22,8 @@
 
 #include <array>
 #include <bit>
+#include <charconv>
+#include <cctype>
 #include <cmath>
 #include <fast_float/fast_float.h>
 #include <string_view>
@@ -54,153 +57,17 @@ inline bool isObjInlineWhitespace(const char c)
 
 inline bool isObjDigit(const char c)
 {
-    return c >= '0' && c <= '9';
+    return std::isdigit(static_cast<unsigned char>(c)) != 0;
 }
 
 inline bool parseObjFloat(const char*& ptr, const char* const end, float& out)
 {
-    const char* const start = ptr;
-    if (start >= end)
+    const auto parseResult = fast_float::from_chars(ptr, end, out);
+    if (parseResult.ec != std::errc() || parseResult.ptr == ptr)
         return false;
-
-    const char* p = start;
-    bool negative = false;
-    if (*p == '-' || *p == '+')
-    {
-        negative = (*p == '-');
-        ++p;
-        if (p >= end)
-            return false;
-    }
-
-    if (*p == '.' || !isObjDigit(*p))
-    {
-        const auto parseResult = fast_float::from_chars(start, end, out);
-        if (parseResult.ec == std::errc() && parseResult.ptr != start)
-        {
-            ptr = parseResult.ptr;
-            return true;
-        }
-        return false;
-    }
-
-    uint64_t integerPart = 0ull;
-    while (p < end && isObjDigit(*p))
-    {
-        integerPart = integerPart * 10ull + static_cast<uint64_t>(*p - '0');
-        ++p;
-    }
-
-    double value = static_cast<double>(integerPart);
-    if (p < end && *p == '.')
-    {
-        const char* const dot = p;
-        if ((dot + 7) <= end)
-        {
-            const char d0 = dot[1];
-            const char d1 = dot[2];
-            const char d2 = dot[3];
-            const char d3 = dot[4];
-            const char d4 = dot[5];
-            const char d5 = dot[6];
-            if (
-                isObjDigit(d0) && isObjDigit(d1) && isObjDigit(d2) &&
-                isObjDigit(d3) && isObjDigit(d4) && isObjDigit(d5)
-            )
-            {
-                const bool hasNext = (dot + 7) < end;
-                const char next = hasNext ? dot[7] : '\0';
-                if ((!hasNext || !isObjDigit(next)) && (!hasNext || (next != 'e' && next != 'E')))
-                {
-                    const uint32_t frac =
-                        static_cast<uint32_t>(d0 - '0') * 100000u +
-                        static_cast<uint32_t>(d1 - '0') * 10000u +
-                        static_cast<uint32_t>(d2 - '0') * 1000u +
-                        static_cast<uint32_t>(d3 - '0') * 100u +
-                        static_cast<uint32_t>(d4 - '0') * 10u +
-                        static_cast<uint32_t>(d5 - '0');
-                    value += static_cast<double>(frac) * 1e-6;
-                    p = dot + 7;
-                    out = static_cast<float>(negative ? -value : value);
-                    ptr = p;
-                    return true;
-                }
-            }
-        }
-
-        static constexpr double InvPow10[] = {
-            1.0,
-            1e-1, 1e-2, 1e-3, 1e-4, 1e-5,
-            1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
-            1e-11, 1e-12, 1e-13, 1e-14, 1e-15,
-            1e-16, 1e-17, 1e-18
-        };
-        ++p;
-        uint64_t fractionPart = 0ull;
-        uint32_t fractionDigits = 0u;
-        while (p < end && isObjDigit(*p))
-        {
-            if (fractionDigits >= (std::size(InvPow10) - 1u))
-            {
-                const auto parseResult = fast_float::from_chars(start, end, out);
-                if (parseResult.ec == std::errc() && parseResult.ptr != start)
-                {
-                    ptr = parseResult.ptr;
-                    return true;
-                }
-                return false;
-            }
-            fractionPart = fractionPart * 10ull + static_cast<uint64_t>(*p - '0');
-            ++fractionDigits;
-            ++p;
-        }
-        value += static_cast<double>(fractionPart) * InvPow10[fractionDigits];
-    }
-
-    if (p < end && (*p == 'e' || *p == 'E'))
-    {
-        const auto parseResult = fast_float::from_chars(start, end, out);
-        if (parseResult.ec == std::errc() && parseResult.ptr != start)
-        {
-            ptr = parseResult.ptr;
-            return true;
-        }
-        return false;
-    }
-
-    out = static_cast<float>(negative ? -value : value);
-    ptr = p;
+    ptr = parseResult.ptr;
     return true;
 }
-
-const auto createAdoptedView = [](auto&& data, const E_FORMAT format) -> IGeometry<ICPUBuffer>::SDataView
-{
-    using T = typename std::decay_t<decltype(data)>::value_type;
-    if (data.empty())
-        return {};
-
-    auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<T>>>(std::move(data));
-    auto& storage = backer->getBacker();
-    auto* const ptr = storage.data();
-    const size_t byteCount = storage.size() * sizeof(T);
-    auto buffer = ICPUBuffer::create({ { byteCount }, ptr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(T) }, core::adopt_memory);
-    if (!buffer)
-        return {};
-
-    IGeometry<ICPUBuffer>::SDataView view = {
-        .composed = {
-            .stride = sizeof(T),
-            .format = format,
-            .rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
-        },
-        .src = {
-            .offset = 0u,
-            .size = byteCount,
-            .buffer = std::move(buffer)
-        }
-    };
-    return view;
-};
 
 bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry& ioTelemetry)
 {
@@ -209,27 +76,15 @@ bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, co
 
 inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
 {
-    if (ptr >= end || !isObjDigit(*ptr))
+    uint32_t value = 0u;
+    const auto parseResult = std::from_chars(ptr, end, value);
+    if (parseResult.ec != std::errc() || parseResult.ptr == ptr)
         return false;
-
-    uint64_t value = 0ull;
-    while (ptr < end && isObjDigit(*ptr))
-    {
-        value = value * 10ull + static_cast<uint64_t>(*ptr - '0');
-        ++ptr;
-    }
-    if (value == 0ull || value > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))
+    if (value == 0u || value > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
         return false;
-
-    out = static_cast<uint32_t>(value);
+    ptr = parseResult.ptr;
+    out = value;
     return true;
-}
-
-inline char toObjLowerAscii(const char c)
-{
-    if (c >= 'A' && c <= 'Z')
-        return static_cast<char>(c - 'A' + 'a');
-    return c;
 }
 
 inline void parseObjSmoothingGroup(const char* linePtr, const char* const lineEnd, uint32_t& outGroup)
@@ -246,43 +101,27 @@ inline void parseObjSmoothingGroup(const char* linePtr, const char* const lineEn
     const char* const tokenStart = linePtr;
     while (linePtr < lineEnd && !isObjInlineWhitespace(*linePtr))
         ++linePtr;
-    const size_t tokenLength = static_cast<size_t>(linePtr - tokenStart);
+    const std::string_view token(tokenStart, static_cast<size_t>(linePtr - tokenStart));
 
-    if (tokenLength == 2u &&
-        toObjLowerAscii(tokenStart[0]) == 'o' &&
-        toObjLowerAscii(tokenStart[1]) == 'n')
+    if (token.size() == 2u &&
+        static_cast<char>(std::tolower(static_cast<unsigned char>(token[0]))) == 'o' &&
+        static_cast<char>(std::tolower(static_cast<unsigned char>(token[1]))) == 'n')
     {
         outGroup = 1u;
         return;
     }
-    if (tokenLength == 3u &&
-        toObjLowerAscii(tokenStart[0]) == 'o' &&
-        toObjLowerAscii(tokenStart[1]) == 'f' &&
-        toObjLowerAscii(tokenStart[2]) == 'f')
+    if (token.size() == 3u &&
+        static_cast<char>(std::tolower(static_cast<unsigned char>(token[0]))) == 'o' &&
+        static_cast<char>(std::tolower(static_cast<unsigned char>(token[1]))) == 'f' &&
+        static_cast<char>(std::tolower(static_cast<unsigned char>(token[2]))) == 'f')
     {
         outGroup = 0u;
         return;
     }
 
-    uint64_t value = 0ull;
-    bool sawDigit = false;
-    for (const char* it = tokenStart; it < linePtr; ++it)
-    {
-        if (!isObjDigit(*it))
-        {
-            outGroup = 0u;
-            return;
-        }
-        sawDigit = true;
-        value = value * 10ull + static_cast<uint64_t>(*it - '0');
-        if (value > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
-        {
-            outGroup = 0u;
-            return;
-        }
-    }
-
-    outGroup = sawDigit ? static_cast<uint32_t>(value) : 0u;
+    uint32_t value = 0u;
+    const auto parseResult = std::from_chars(token.data(), token.data() + token.size(), value);
+    outGroup = (parseResult.ec == std::errc() && parseResult.ptr == token.data() + token.size()) ? value : 0u;
 }
 
 inline std::string parseObjIdentifier(const char* linePtr, const char* const lineEnd, const std::string_view fallback)
@@ -312,15 +151,9 @@ inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, con
         int32_t posIx = -1;
         {
             uint32_t value = 0u;
-            while (ptr < lineEnd && isObjDigit(*ptr))
-            {
-                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
-                if (value > 429496729u)
-                    return false;
-                value = value * 10u + digit;
-                ++ptr;
-            }
-            if (value == 0u || value > posCount)
+            if (!parseUnsignedObjIndex(ptr, lineEnd, value))
+                return false;
+            if (value > posCount)
                 return false;
             posIx = static_cast<int32_t>(value - 1u);
         }
@@ -331,17 +164,9 @@ inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, con
         int32_t uvIx = -1;
         {
             uint32_t value = 0u;
-            if (ptr >= lineEnd || !isObjDigit(*ptr))
+            if (!parseUnsignedObjIndex(ptr, lineEnd, value))
                 return false;
-            while (ptr < lineEnd && isObjDigit(*ptr))
-            {
-                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
-                if (value > 429496729u)
-                    return false;
-                value = value * 10u + digit;
-                ++ptr;
-            }
-            if (value == 0u || value > uvCount)
+            if (value > uvCount)
                 return false;
             uvIx = static_cast<int32_t>(value - 1u);
         }
@@ -352,17 +177,9 @@ inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, con
         int32_t normalIx = -1;
         {
             uint32_t value = 0u;
-            if (ptr >= lineEnd || !isObjDigit(*ptr))
+            if (!parseUnsignedObjIndex(ptr, lineEnd, value))
                 return false;
-            while (ptr < lineEnd && isObjDigit(*ptr))
-            {
-                const uint32_t digit = static_cast<uint32_t>(*ptr - '0');
-                if (value > 429496729u)
-                    return false;
-                value = value * 10u + digit;
-                ++ptr;
-            }
-            if (value == 0u || value > normalCount)
+            if (value > normalCount)
                 return false;
             normalIx = static_cast<int32_t>(value - 1u);
         }
@@ -380,38 +197,14 @@ inline bool parseObjTrianglePositiveTripletLine(const char* const lineStart, con
 
 inline bool parseSignedObjIndex(const char*& ptr, const char* const end, int32_t& out)
 {
-    if (ptr >= end)
+    int32_t value = 0;
+    const auto parseResult = std::from_chars(ptr, end, value);
+    if (parseResult.ec != std::errc() || parseResult.ptr == ptr)
         return false;
-
-    bool negative = false;
-    if (*ptr == '-')
-    {
-        negative = true;
-        ++ptr;
-    }
-    else if (*ptr == '+')
-    {
-        ++ptr;
-    }
-
-    if (ptr >= end || !isObjDigit(*ptr))
-        return false;
-
-    int64_t value = 0;
-    while (ptr < end && isObjDigit(*ptr))
-    {
-        value = value * 10ll + static_cast<int64_t>(*ptr - '0');
-        ++ptr;
-    }
-    if (negative)
-        value = -value;
-
     if (value == 0)
         return false;
-    if (value < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) || value > static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
-        return false;
-
-    out = static_cast<int32_t>(value);
+    ptr = parseResult.ptr;
+    out = value;
     return true;
 }
 
@@ -588,7 +381,7 @@ bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
             continue;
         }
 
-        switch (toObjLowerAscii(*ptr))
+        switch (static_cast<char>(std::tolower(static_cast<unsigned char>(*ptr))))
         {
             case 'v':
             case 'f':
@@ -841,7 +634,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         const size_t outVertexCount = outPositions.size();
         auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
         {
-            auto view = createAdoptedView(std::move(outPositions), EF_R32G32B32_SFLOAT);
+            auto view = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(outPositions));
             if (!view)
                 return false;
             geometry->setPositionView(std::move(view));
@@ -850,7 +643,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         const bool hasNormals = hasProvidedNormals || needsNormalGeneration;
         if (hasNormals)
         {
-            auto view = createAdoptedView(std::move(outNormals), EF_R32G32B32_SFLOAT);
+            auto view = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(outNormals));
             if (!view)
                 return false;
             geometry->setNormalView(std::move(view));
@@ -858,7 +651,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         if (hasUVs)
         {
-            auto view = createAdoptedView(std::move(outUVs), EF_R32G32_SFLOAT);
+            auto view = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t2, EF_R32G32_SFLOAT>(std::move(outUVs));
             if (!view)
                 return false;
             geometry->getAuxAttributeViews()->push_back(std::move(view));
@@ -872,14 +665,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 core::vector<uint16_t> indices16(indices.size());
                 for (size_t i = 0u; i < indices.size(); ++i)
                     indices16[i] = static_cast<uint16_t>(indices[i]);
-                auto view = createAdoptedView(std::move(indices16), EF_R16_UINT);
+                auto view = SGeometryLoaderCommon::createAdoptedView<uint16_t, EF_R16_UINT>(std::move(indices16));
                 if (!view)
                     return false;
                 geometry->setIndexView(std::move(view));
             }
             else
             {
-                auto view = createAdoptedView(std::move(indices), EF_R32_UINT);
+                auto view = SGeometryLoaderCommon::createAdoptedView<uint32_t, EF_R32_UINT>(std::move(indices));
                 if (!view)
                     return false;
                 geometry->setIndexView(std::move(view));
@@ -1089,10 +882,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
             if (lineStart < lineEnd)
             {
-                const char lineType = toObjLowerAscii(*lineStart);
+                const char lineType = static_cast<char>(std::tolower(static_cast<unsigned char>(*lineStart)));
                 if (lineType == 'v')
                 {
-                    const char subType = ((lineStart + 1) < lineEnd) ? toObjLowerAscii(lineStart[1]) : '\0';
+                    const char subType = ((lineStart + 1) < lineEnd) ? static_cast<char>(std::tolower(static_cast<unsigned char>(lineStart[1]))) : '\0';
                     if ((lineStart + 1) < lineEnd && subType == ' ')
                     {
                         Float3 vec{};

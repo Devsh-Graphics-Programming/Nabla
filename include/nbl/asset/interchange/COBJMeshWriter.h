@@ -17,6 +17,8 @@ class COBJMeshWriter : public IGeometryWriter
 	public:
 		COBJMeshWriter();
 
+		uint64_t getSupportedAssetTypesBitfield() const override;
+
 		const char** getAssociatedFileExtensions() const override;
 
 		writer_flags_t getSupportedFlags() override;

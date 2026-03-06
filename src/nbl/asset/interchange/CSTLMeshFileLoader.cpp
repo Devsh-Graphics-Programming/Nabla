@@ -8,6 +8,7 @@
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/format/convertColor.h"
@@ -19,6 +20,7 @@
 #include "nbl/system/IFile.h"
 
 #include <fast_float/fast_float.h>
+#include <optional>
 
 namespace nbl::asset
 {
@@ -39,76 +41,69 @@ struct SSTLContext
 	static constexpr size_t FloatChannelsPerVertex = 3ull;
 };
 
-const char* stlSkipWhitespace(const char* ptr, const char* const end)
+class SStlAsciiParser
 {
-	while (ptr < end && core::isspace(*ptr))
-		++ptr;
-	return ptr;
-}
+	public:
+		inline SStlAsciiParser(const char* begin, const char* end) : m_cursor(begin), m_end(end) {}
 
-bool stlReadTextToken(const char*& ptr, const char* const end, std::string_view& outToken)
-{
-	ptr = stlSkipWhitespace(ptr, end);
-	if (ptr >= end)
-	{
-		outToken = {};
-		return false;
-	}
+		inline std::optional<std::string_view> readToken()
+		{
+			skipWhitespace();
+			if (m_cursor >= m_end)
+				return std::nullopt;
 
-	const char* tokenEnd = ptr;
-	while (tokenEnd < end && !core::isspace(*tokenEnd))
-		++tokenEnd;
+			const char* tokenEnd = m_cursor;
+			while (tokenEnd < m_end && !core::isspace(*tokenEnd))
+				++tokenEnd;
 
-	outToken = std::string_view(ptr, static_cast<size_t>(tokenEnd - ptr));
-	ptr = tokenEnd;
-	return true;
-}
+			const std::string_view token(m_cursor, static_cast<size_t>(tokenEnd - m_cursor));
+			m_cursor = tokenEnd;
+			return token;
+		}
 
-bool stlReadTextFloat(const char*& ptr, const char* const end, float& outValue)
-{
-	ptr = stlSkipWhitespace(ptr, end);
-	if (ptr >= end)
-		return false;
+		inline std::optional<float> readFloat()
+		{
+			skipWhitespace();
+			if (m_cursor >= m_end)
+				return std::nullopt;
 
-	const auto parseResult = fast_float::from_chars(ptr, end, outValue);
-	if (parseResult.ec == std::errc() && parseResult.ptr != ptr)
-	{
-		ptr = parseResult.ptr;
-		return true;
-	}
+			float value = 0.f;
+			const auto parseResult = fast_float::from_chars(m_cursor, m_end, value);
+			if (parseResult.ec == std::errc() && parseResult.ptr != m_cursor)
+			{
+				m_cursor = parseResult.ptr;
+				return value;
+			}
+			return std::nullopt;
+		}
 
-	char* fallbackEnd = nullptr;
-	outValue = std::strtof(ptr, &fallbackEnd);
-	if (!fallbackEnd || fallbackEnd == ptr)
-		return false;
-	ptr = fallbackEnd <= end ? fallbackEnd : end;
-	return true;
-}
+		inline std::optional<hlsl::float32_t3> readVec3()
+		{
+			const auto x = readFloat();
+			const auto y = readFloat();
+			const auto z = readFloat();
+			if (!x.has_value() || !y.has_value() || !z.has_value())
+				return std::nullopt;
+			return hlsl::float32_t3(*x, *y, *z);
+		}
 
-bool stlReadTextVec3(const char*& ptr, const char* const end, hlsl::float32_t3& outVec)
-{
-	return stlReadTextFloat(ptr, end, outVec.x) && stlReadTextFloat(ptr, end, outVec.y) && stlReadTextFloat(ptr, end, outVec.z);
-}
+	private:
+		inline void skipWhitespace()
+		{
+			while (m_cursor < m_end && core::isspace(*m_cursor))
+				++m_cursor;
+		}
 
-hlsl::float32_t3 stlNormalizeOrZero(const hlsl::float32_t3& v)
-{
-	const float len2 = hlsl::dot(v, v);
-	if (len2 <= 0.f)
-		return hlsl::float32_t3(0.f, 0.f, 0.f);
-	return hlsl::normalize(v);
-}
-
-hlsl::float32_t3 stlComputeFaceNormal(const hlsl::float32_t3& a, const hlsl::float32_t3& b, const hlsl::float32_t3& c)
-{
-	return stlNormalizeOrZero(hlsl::cross(b - a, c - a));
-}
+		const char* m_cursor = nullptr;
+		const char* m_end = nullptr;
+};
 
 hlsl::float32_t3 stlResolveStoredNormal(const hlsl::float32_t3& fileNormal)
 {
 	const float fileLen2 = hlsl::dot(fileNormal, fileNormal);
 	if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
 		return fileNormal;
-	return stlNormalizeOrZero(fileNormal);
+	return SGeometryLoaderCommon::normalizeOrZero(fileNormal);
 }
 
 void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::float32_t3>& positions)
@@ -166,60 +161,6 @@ class CStlSplitBlockMemoryResource final : public core::refctd_memory_resource
 		size_t m_blockBytes = 0ull;
 		size_t m_alignment = 1ull;
 };
-
-ICPUPolygonGeometry::SDataView stlCreateAdoptedFloat3View(core::vector<hlsl::float32_t3>&& values)
-{
-	if (values.empty())
-		return {};
-
-	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<hlsl::float32_t3>>>(std::move(values));
-	auto& payload = backer->getBacker();
-	auto* const payloadPtr = payload.data();
-	const size_t byteCount = payload.size() * sizeof(hlsl::float32_t3);
-	auto buffer = ICPUBuffer::create({ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(hlsl::float32_t3) }, core::adopt_memory);
-	if (!buffer)
-		return {};
-
-	ICPUPolygonGeometry::SDataView view = {};
-	view.composed = {
-		.stride = sizeof(hlsl::float32_t3),
-		.format = EF_R32G32B32_SFLOAT,
-		.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)
-	};
-	view.src = {
-		.offset = 0u,
-		.size = byteCount,
-		.buffer = std::move(buffer)
-	};
-	return view;
-}
-
-ICPUPolygonGeometry::SDataView stlCreateAdoptedColorView(core::vector<uint32_t>&& values)
-{
-	if (values.empty())
-		return {};
-
-	auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<core::vector<uint32_t>>>(std::move(values));
-	auto& payload = backer->getBacker();
-	auto* const payloadPtr = payload.data();
-	const size_t byteCount = payload.size() * sizeof(uint32_t);
-	auto buffer = ICPUBuffer::create({ { byteCount }, payloadPtr, core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(uint32_t) }, core::adopt_memory);
-	if (!buffer)
-		return {};
-
-	ICPUPolygonGeometry::SDataView view = {};
-	view.composed = {
-		.stride = sizeof(uint32_t),
-		.format = EF_B8G8R8A8_UNORM,
-		.rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_B8G8R8A8_UNORM)
-	};
-	view.src = {
-		.offset = 0u,
-		.size = byteCount,
-		.buffer = std::move(buffer)
-	};
-	return view;
-}
 
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager*)
 {
@@ -710,7 +651,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				vertexColors[baseIx + 1ull] = triColor;
 				vertexColors[baseIx + 2ull] = triColor;
 			}
-			auto colorView = stlCreateAdoptedColorView(std::move(vertexColors));
+			auto colorView = SGeometryLoaderCommon::createAdoptedView<uint32_t, EF_B8G8R8A8_UNORM>(std::move(vertexColors));
 			if (!colorView)
 				return {};
 			geometry->getAuxAttributeViews()->push_back(std::move(colorView));
@@ -729,47 +670,57 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			wholeFileData = wholeFilePayload.data();
 		}
 
-		const char* cursor = reinterpret_cast<const char*>(wholeFileData);
-		const char* const end = cursor + filesize;
+		const char* const begin = reinterpret_cast<const char*>(wholeFileData);
+		const char* const end = begin + filesize;
+		SStlAsciiParser parser(begin, end);
 		core::vector<hlsl::float32_t3> positions;
 		core::vector<hlsl::float32_t3> normals;
-		std::string_view textToken = {};
-		if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("solid"))
+		const auto firstToken = parser.readToken();
+		if (!firstToken.has_value() || *firstToken != std::string_view("solid"))
 			return {};
 
-		while (stlReadTextToken(cursor, end, textToken))
+		for (;;)
 		{
+			const auto maybeToken = parser.readToken();
+			if (!maybeToken.has_value())
+				break;
+			const std::string_view textToken = *maybeToken;
 			if (textToken == std::string_view("endsolid"))
 				break;
 			if (textToken != std::string_view("facet"))
-			{
 				continue;
-			}
-			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("normal"))
+
+			const auto normalKeyword = parser.readToken();
+			if (!normalKeyword.has_value() || *normalKeyword != std::string_view("normal"))
 				return {};
 
-			hlsl::float32_t3 fileNormal = {};
-			if (!stlReadTextVec3(cursor, end, fileNormal))
+			const auto fileNormal = parser.readVec3();
+			if (!fileNormal.has_value())
 				return {};
 
-			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("outer"))
+			const auto outerKeyword = parser.readToken();
+			if (!outerKeyword.has_value() || *outerKeyword != std::string_view("outer"))
 				return {};
-			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("loop"))
+			const auto loopKeyword = parser.readToken();
+			if (!loopKeyword.has_value() || *loopKeyword != std::string_view("loop"))
 				return {};
 
 			hlsl::float32_t3 p[3] = {};
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
-				if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("vertex"))
+				const auto vertexKeyword = parser.readToken();
+				if (!vertexKeyword.has_value() || *vertexKeyword != std::string_view("vertex"))
 					return {};
-				if (!stlReadTextVec3(cursor, end, p[i]))
+				const auto vertex = parser.readVec3();
+				if (!vertex.has_value())
 					return {};
+				p[i] = *vertex;
 			}
 
 			stlPushTriangleReversed(p, positions);
-			hlsl::float32_t3 faceNormal = stlResolveStoredNormal(fileNormal);
+			hlsl::float32_t3 faceNormal = stlResolveStoredNormal(*fileNormal);
 			if (hlsl::dot(faceNormal, faceNormal) <= 0.f)
-				faceNormal = stlComputeFaceNormal(p[2u], p[1u], p[0u]);
+				faceNormal = SGeometryLoaderCommon::computeFaceNormal(p[2u], p[1u], p[0u]);
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
@@ -777,9 +728,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			extendAABBAccumulator(parsedAABB, p[1u]);
 			extendAABBAccumulator(parsedAABB, p[0u]);
 
-			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endloop"))
+			const auto endLoopKeyword = parser.readToken();
+			if (!endLoopKeyword.has_value() || *endLoopKeyword != std::string_view("endloop"))
 				return {};
-			if (!stlReadTextToken(cursor, end, textToken) || textToken != std::string_view("endfacet"))
+			const auto endFacetKeyword = parser.readToken();
+			if (!endFacetKeyword.has_value() || *endFacetKeyword != std::string_view("endfacet"))
 				return {};
 		}
 		if (positions.empty())
@@ -788,8 +741,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		triangleCount = positions.size() / SSTLContext::VerticesPerTriangle;
 		vertexCount = positions.size();
 
-		auto posView = stlCreateAdoptedFloat3View(std::move(positions));
-		auto normalView = stlCreateAdoptedFloat3View(std::move(normals));
+		auto posView = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(positions));
+		auto normalView = SGeometryLoaderCommon::createAdoptedView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(std::move(normals));
 		if (!posView || !normalView)
 			return {};
 		geometry->setPositionView(std::move(posView));

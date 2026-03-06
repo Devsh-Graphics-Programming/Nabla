@@ -27,6 +27,11 @@ COBJMeshWriter::COBJMeshWriter()
 	#endif
 }
 
+uint64_t COBJMeshWriter::getSupportedAssetTypesBitfield() const
+{
+	return IAsset::ET_GEOMETRY | IAsset::ET_SCENE;
+}
+
 const char** COBJMeshWriter::getAssociatedFileExtensions() const
 {
 	static const char* ext[] = { "obj", nullptr };
@@ -48,8 +53,8 @@ namespace obj_writer_detail
 
 constexpr size_t ApproxObjBytesPerVertex = 96ull;
 constexpr size_t ApproxObjBytesPerFace = 48ull;
-constexpr size_t MaxUInt32Chars = 10ull;
 constexpr size_t MaxFloatFixed6Chars = 48ull;
+constexpr size_t MaxUInt32Chars = std::numeric_limits<uint32_t>::digits10 + 1ull;
 constexpr size_t MaxIndexTokenBytes = MaxUInt32Chars * 3ull + 2ull;
 
 struct SIndexStringRef
@@ -64,23 +69,7 @@ bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hls
 	return view.decodeElement(ix, out);
 }
 
-char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
-{
-	if (!dst || dst >= end)
-		return end;
-
-	const auto result = std::to_chars(dst, end, value);
-	if (result.ec == std::errc())
-		return result.ptr;
-
-	const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%u", value);
-	if (written <= 0)
-		return dst;
-	const size_t writeLen = static_cast<size_t>(written);
-	return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
-}
-
-void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSize, const float x, const float y, const float z)
+void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSize, const hlsl::float32_t3& v)
 {
 	const size_t oldSize = out.size();
 	out.resize(oldSize + prefixSize + (3ull * MaxFloatFixed6Chars) + 3ull);
@@ -91,20 +80,20 @@ void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSiz
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, x);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.x);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, y);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.y);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, z);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.z);
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
 	out.resize(oldSize + static_cast<size_t>(cursor - lineBegin));
 }
 
-void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSize, const float x, const float y)
+void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSize, const hlsl::float32_t2& v)
 {
 	const size_t oldSize = out.size();
 	out.resize(oldSize + prefixSize + (2ull * MaxFloatFixed6Chars) + 2ull);
@@ -115,10 +104,10 @@ void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSiz
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, x);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.x);
 	if (cursor < lineEnd)
 		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, y);
+	cursor = SGeometryWriterCommon::appendFloatFixed6ToBuffer(cursor, lineEnd, v.y);
 	if (cursor < lineEnd)
 		*(cursor++) = '\n';
 
@@ -157,21 +146,21 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 		char* const token = storage.data() + oldSize;
 		char* const tokenEnd = token + MaxIndexTokenBytes;
 		char* cursor = token;
-		cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+		cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, objIx);
 		if (hasUVs && hasNormals)
 		{
 			if (cursor < tokenEnd)
 				*(cursor++) = '/';
-			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, objIx);
 			if (cursor < tokenEnd)
 				*(cursor++) = '/';
-			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, objIx);
 		}
 		else if (hasUVs)
 		{
 			if (cursor < tokenEnd)
 				*(cursor++) = '/';
-			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, objIx);
 		}
 		else if (hasNormals)
 		{
@@ -179,7 +168,7 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 				*(cursor++) = '/';
 			if (cursor < tokenEnd)
 				*(cursor++) = '/';
-			cursor = appendUIntToBuffer(cursor, tokenEnd, objIx);
+			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, objIx);
 		}
 		storage.resize(oldSize + static_cast<size_t>(cursor - token));
 	}
@@ -200,7 +189,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (!_file || !_params.rootAsset)
 		return false;
 
-	const auto* geom = IAsset::castDown<const ICPUPolygonGeometry>(_params.rootAsset);
+	const auto* geom = SGeometryWriterCommon::resolvePolygonGeometry(_params.rootAsset);
 	if (!geom || !geom->valid())
 		return false;
 
@@ -216,19 +205,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const auto& normalView = geom->getNormalView();
 	const bool hasNormals = static_cast<bool>(normalView);
 
-	const auto& auxViews = geom->getAuxAttributeViews();
-	const ICPUPolygonGeometry::SDataView* uvView = nullptr;
-	for (const auto& view : auxViews)
-	{
-		if (!view)
-			continue;
-		const auto channels = getFormatChannelCount(view.composed.format);
-		if (channels == 2u)
-		{
-			uvView = &view;
-			break;
-		}
-	}
+	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::findFirstAuxViewByChannelCount(geom, 2u);
 	const bool hasUVs = uvView != nullptr;
 
 	const size_t vertexCount = positionView.getElementCount();
@@ -245,58 +222,11 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (indexing->knownTopology() != E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST)
 		return false;
 
-	const auto& indexView = geom->getIndexView();
 	core::vector<uint32_t> indexData;
 	const uint32_t* indices = nullptr;
 	size_t faceCount = 0;
-	if (indexView)
-	{
-		const size_t indexCount = indexView.getElementCount();
-		if (indexCount % 3u != 0u)
-			return false;
-
-		const void* src = indexView.getPointer();
-		if (!src)
-			return false;
-
-		if (indexView.composed.format == EF_R32_UINT && indexView.composed.getStride() == sizeof(uint32_t))
-		{
-			indices = reinterpret_cast<const uint32_t*>(src);
-		}
-		else if (indexView.composed.format == EF_R16_UINT && indexView.composed.getStride() == sizeof(uint16_t))
-		{
-			indexData.resize(indexCount);
-			const uint16_t* src16 = reinterpret_cast<const uint16_t*>(src);
-			for (size_t i = 0; i < indexCount; ++i)
-				indexData[i] = src16[i];
-			indices = indexData.data();
-		}
-		else
-		{
-			indexData.resize(indexCount);
-			hlsl::vector<uint32_t, 1> decoded = {};
-			for (size_t i = 0; i < indexCount; ++i)
-			{
-				if (!indexView.decodeElement(i, decoded))
-					return false;
-				indexData[i] = decoded.x;
-			}
-			indices = indexData.data();
-		}
-		faceCount = indexCount / 3u;
-	}
-	else
-	{
-		if (vertexCount % 3u != 0u)
-			return false;
-
-		indexData.resize(vertexCount);
-		for (size_t i = 0; i < vertexCount; ++i)
-			indexData[i] = static_cast<uint32_t>(i);
-
-		indices = indexData.data();
-		faceCount = vertexCount / 3u;
-	}
+	if (!SGeometryWriterCommon::decodeTriangleIndices(geom, indexData, indices, faceCount))
+		return false;
 
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool flipHandedness = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
@@ -311,49 +241,40 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const hlsl::float32_t2* const tightUV = hasUVs ? SGeometryWriterCommon::getTightFloat2View(*uvView) : nullptr;
 	for (size_t i = 0u; i < vertexCount; ++i)
 	{
-		float x = 0.f;
-		float y = 0.f;
-		float z = 0.f;
+		hlsl::float32_t3 vertex = {};
 		if (tightPositions)
 		{
-			x = tightPositions[i].x;
-			y = tightPositions[i].y;
-			z = tightPositions[i].z;
+			vertex = tightPositions[i];
 		}
 		else
 		{
 			if (!decodeVec4(positionView, i, tmp))
 				return false;
-			x = static_cast<float>(tmp.x);
-			y = static_cast<float>(tmp.y);
-			z = static_cast<float>(tmp.z);
+			vertex = hlsl::float32_t3(static_cast<float>(tmp.x), static_cast<float>(tmp.y), static_cast<float>(tmp.z));
 		}
 		if (flipHandedness)
-			x = -x;
+			vertex.x = -vertex.x;
 
-		appendVec3Line(output, "v ", sizeof("v ") - 1ull, x, y, z);
+		appendVec3Line(output, "v ", sizeof("v ") - 1ull, vertex);
 	}
 
 	if (hasUVs)
 	{
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
-			float u = 0.f;
-			float v = 0.f;
+			hlsl::float32_t2 uv = {};
 			if (tightUV)
 			{
-				u = tightUV[i].x;
-				v = 1.f - tightUV[i].y;
+				uv = hlsl::float32_t2(tightUV[i].x, 1.f - tightUV[i].y);
 			}
 			else
 			{
 				if (!decodeVec4(*uvView, i, tmp))
 					return false;
-				u = static_cast<float>(tmp.x);
-				v = 1.f - static_cast<float>(tmp.y);
+				uv = hlsl::float32_t2(static_cast<float>(tmp.x), 1.f - static_cast<float>(tmp.y));
 			}
 
-			appendVec2Line(output, "vt ", sizeof("vt ") - 1ull, u, v);
+			appendVec2Line(output, "vt ", sizeof("vt ") - 1ull, uv);
 		}
 	}
 
@@ -361,27 +282,21 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	{
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
-			float x = 0.f;
-			float y = 0.f;
-			float z = 0.f;
+			hlsl::float32_t3 normal = {};
 			if (tightNormals)
 			{
-				x = tightNormals[i].x;
-				y = tightNormals[i].y;
-				z = tightNormals[i].z;
+				normal = tightNormals[i];
 			}
 			else
 			{
 				if (!decodeVec4(normalView, i, tmp))
 					return false;
-				x = static_cast<float>(tmp.x);
-				y = static_cast<float>(tmp.y);
-				z = static_cast<float>(tmp.z);
+				normal = hlsl::float32_t3(static_cast<float>(tmp.x), static_cast<float>(tmp.y), static_cast<float>(tmp.z));
 			}
 			if (flipHandedness)
-				x = -x;
+				normal.x = -normal.x;
 
-			appendVec3Line(output, "vn ", sizeof("vn ") - 1ull, x, y, z);
+			appendVec3Line(output, "vn ", sizeof("vn ") - 1ull, normal);
 		}
 	}
 
