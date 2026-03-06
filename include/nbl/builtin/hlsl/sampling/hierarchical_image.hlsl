@@ -29,21 +29,24 @@ struct HierarchicalLuminanceSampler
 	using vector4_type = vector<scalar_type, 4>;
 
 	LuminanceAccessorT _map;
-	uint32_t2 _mapSize;
-  uint32_t2 _lastWarpPixel;
-	bool _aspect2x1;
+	float32_t2 _rcpMapSize;
+	float32_t2 _rcpWarpSize;
+	uint16_t _mip2x1 : 15;
+	uint16_t _aspect2x1 : 1;
 
 	static HierarchicalLuminanceSampler<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1, uint32_t2 warpSize)
 	{
 	  HierarchicalLuminanceSampler<ScalarT, LuminanceAccessorT> result;
 	  result._map = lumaMap;
-	  result._mapSize = mapSize;
-    result._lastWarpPixel = warpSize - uint32_t2(1, 1);
-	  result._aspect2x1 = aspect2x1;
+		result._rcpMapSize = scalar_type(1.0) / vector2_type(warpSize);
+		result._rcpWarpSize = scalar_type(1.0) / vector2_type(warpSize - uint32_t2(1, 1));
+		// Note: We use mapSize.y here because the currently the map aspect ratio can only be 1x1 or 2x1
+		result._mip2x1 = findMSB(mapSize.y);
+		result._aspect2x1 = aspect2x1;
 	  return result;
 	}
 
-	static bool choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi)
+	static bool __choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi)
 	{
 		// numerical resilience against IEEE754
 		scalar_type dummy = scalar_type(0);
@@ -54,17 +57,16 @@ struct HierarchicalLuminanceSampler
 
 	vector2_type binarySearch(const uint32_t2 coord)
 	{
-		// We use _lastWarpPixel here for corner sampling
-    float32_t2 xi = float32_t2(coord)/ _lastWarpPixel;
+		// We use _rcpWarpSize here for corner sampling. Corner sampling is a sampling mechanism where we map texel_index / map_size to the center of the texel instead of the edge of the texel. So uv.x == 0 is mapped to the center of the left most texel, and uv.x == width - 1 is mapped to the center of the right most texel. That's why the length of the domain is subtracted by 1 for each dimension.
+    float32_t2 xi = float32_t2(coord) * _rcpWarpSize;
 		uint32_t2 p = uint32_t2(0, 0);
-		const uint32_t2 mip2x1 = findMSB(_mapSize.y);
 
 		if (_aspect2x1) {
 			// do one split in the X axis first cause penultimate full mip would have been 2x1
-			p.x = choseSecond(_map.texelFetch(uint32_t2(0, 0), mip2x1), _map.texelFetch(uint32_t2(1, 0), mip2x1), xi.x) ? 1 : 0;
+			p.x = __choseSecond(_map.texelFetch(uint32_t2(0, 0), _mip2x1), _map.texelFetch(uint32_t2(1, 0), _mip2x1), xi.x) ? 1 : 0;
 		}
 
-		for (int i = mip2x1 - 1; i >= 0; i--)
+		for (int i = _mip2x1 - 1; i >= 0; i--)
 		{
 			p <<= 1;
 			const vector4_type values = _map.texelGather(p, i);
@@ -72,7 +74,7 @@ struct HierarchicalLuminanceSampler
 			{
 				const scalar_type wy_0 = values[3] + values[2];
 				const scalar_type wy_1 = values[1] + values[0];
-				if (choseSecond(wy_0, wy_1, xi.y))
+				if (__choseSecond(wy_0, wy_1, xi.y))
 				{
 					p.y |= 1;
 					wx_0 = values[0];
@@ -84,13 +86,23 @@ struct HierarchicalLuminanceSampler
 					wx_1 = values[2];
 				}
       }
-      if (choseSecond(wx_0, wx_1, xi.x))
+      if (__choseSecond(wx_0, wx_1, xi.x))
         p.x |= 1;
 		}
 
 
-		// If we don`t add xi, the sample will clump to the lowest corner of environment map texel. We add xi to simulate uniform distribution within a pixel and make the sample continuous. This is why we compute the pdf not from the normalized luminance of the texel, instead from the reciprocal of the Jacobian.
-		const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) / vector2_type(_mapSize);
+		// If we don`t add xi, the sample will clump to the lowest corner of environment map texel. Each time we call PartitionRandVariable(), the output xi is the new xi that determines how left and right(or top and bottom for y axis) to choose the child partition. It means that if for some input xi, the output xi = 0, then the input xi is the edge of choosing this partition and the previous partition, and vice versa, if output xi = 1, then the input xi is the edge of choosing this partition and the next partition. Hence, by adding xi to the lower corner of the texel, we create a gradual transition from one pixel to another. Without adding output xi, the calculation of jacobian using the difference of sample value would not work.
+		// Since we want to do corner sampling. We have to handle edge texels as corner cases. Remember, in corner sampling we map uv [0,1] to [center of first texel, center of last texel]. So when p is an edge texel, we have to remap xi. [0.5, 1] when p == 0, and [0.5, 1] when p == length - 1.
+		if (p.x == 0)
+			xi.x = xi.x * scalar_type(0.5) + scalar_type(0.5);
+		if (p.y == 0)
+			xi.y = xi.y * scalar_type(0.5) + scalar_type(0.5);
+		if (p.x == )
+			xi.x = xi.x * scalar_type(0.5) + scalar_type(0.5);
+		if (p.y == 0)
+			xi.y = xi.y * scalar_type(0.5) + scalar_type(0.5);
+
+		const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) * _rcpMapSize;
 		return directionUV;
 	}
 
