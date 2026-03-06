@@ -13,6 +13,7 @@
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/utils/SGeometryAABBCommon.h"
+#include "nbl/asset/utils/SGeometryNormalCommon.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
@@ -103,7 +104,7 @@ hlsl::float32_t3 stlResolveStoredNormal(const hlsl::float32_t3& fileNormal)
 	const float fileLen2 = hlsl::dot(fileNormal, fileNormal);
 	if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
 		return fileNormal;
-	return SGeometryLoaderCommon::normalizeOrZero(fileNormal);
+	return SGeometryNormalCommon::normalizeOrZero(fileNormal);
 }
 
 void stlPushTriangleReversed(const hlsl::float32_t3 (&p)[3], core::vector<hlsl::float32_t3>& positions)
@@ -720,7 +721,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			stlPushTriangleReversed(p, positions);
 			hlsl::float32_t3 faceNormal = stlResolveStoredNormal(*fileNormal);
 			if (hlsl::dot(faceNormal, faceNormal) <= 0.f)
-				faceNormal = SGeometryLoaderCommon::computeFaceNormal(p[2u], p[1u], p[0u]);
+				faceNormal = SGeometryNormalCommon::computeFaceNormal(p[2u], p[1u], p[0u]);
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);

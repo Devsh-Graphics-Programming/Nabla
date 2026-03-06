@@ -48,19 +48,6 @@ class SGeometryLoaderCommon
                 core::adopt_memory);
             return createDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(ValueType)), Format);
         }
-
-        static inline hlsl::float32_t3 normalizeOrZero(const hlsl::float32_t3& v)
-        {
-            const float len2 = hlsl::dot(v, v);
-            if (len2 <= 0.f)
-                return hlsl::float32_t3(0.f, 0.f, 0.f);
-            return hlsl::normalize(v);
-        }
-
-        static inline hlsl::float32_t3 computeFaceNormal(const hlsl::float32_t3& a, const hlsl::float32_t3& b, const hlsl::float32_t3& c)
-        {
-            return normalizeOrZero(hlsl::cross(b - a, c - a));
-        }
 };
 
 }
