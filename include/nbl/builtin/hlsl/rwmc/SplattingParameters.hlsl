@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_RWMC_SPLATTING_PARAMETERS_HLSL_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include <nbl/builtin/hlsl/colorspace.hlsl>
 
 namespace nbl

@@ -55,7 +55,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.template setInteraction<bxdf::surface_interactions::SIsotropic<bxdf::ray_dir_info::SBasic<float>, typename T::spectral_type> >(interaction)), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initPayload()), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.shouldDoMIS()), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.foundEmissiveMIS(scalar)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.foundEmissiveMIS(scalar)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.addPayloadContribution(color)), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.getPayloadAccumulatiion()), ::nbl::hlsl::is_same_v, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.updateThroughputAndMISWeights(color, scalar)), ::nbl::hlsl::is_same_v, void))
