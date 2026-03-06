@@ -6,6 +6,8 @@
 
 
 #include "nbl/builtin/hlsl/shapes/aabb.hlsl"
+#include "nbl/builtin/hlsl/array_accessors.hlsl"
+#include "nbl/builtin/hlsl/concepts/vector.hlsl"
 
 
 namespace nbl
@@ -55,6 +57,50 @@ struct AABBAccumulator3
 
     aabb_t value;
 };
+
+template<typename Scalar>
+inline AABBAccumulator3<Scalar> createAABBAccumulator()
+{
+    return AABBAccumulator3<Scalar>::create();
+}
+
+template<typename Scalar>
+inline void extendAABBAccumulator(NBL_REF_ARG(AABBAccumulator3<Scalar>) aabb, const Scalar x, const Scalar y, const Scalar z)
+{
+    aabb.addXYZ(x, y, z);
+}
+
+template<typename Scalar, typename Point NBL_FUNC_REQUIRES(concepts::Vectorial<Point> && (vector_traits<Point>::Dimension >= 3))
+inline void extendAABBAccumulator(NBL_REF_ARG(AABBAccumulator3<Scalar>) aabb, NBL_CONST_REF_ARG(Point) point)
+{
+    array_get<Point, typename vector_traits<Point>::scalar_type> getter;
+    typename AABBAccumulator3<Scalar>::point_t converted;
+    converted.x = Scalar(getter(point, 0));
+    converted.y = Scalar(getter(point, 1));
+    converted.z = Scalar(getter(point, 2));
+    aabb.addPoint(converted);
+}
+
+template<int16_t D, typename DstScalar, typename SrcScalar NBL_FUNC_REQUIRES(D >= 3)
+inline void assignAABBFromAccumulator(NBL_REF_ARG(AABB<D, DstScalar>) dst, NBL_CONST_REF_ARG(AABBAccumulator3<SrcScalar>) aabb)
+{
+    if (aabb.empty())
+        return;
+
+    dst = AABB<D, DstScalar>::create();
+    array_set<typename AABB<D, DstScalar>::point_t, DstScalar> setter;
+    setter(dst.minVx, 0, DstScalar(aabb.value.minVx.x));
+    setter(dst.minVx, 1, DstScalar(aabb.value.minVx.y));
+    setter(dst.minVx, 2, DstScalar(aabb.value.minVx.z));
+    setter(dst.maxVx, 0, DstScalar(aabb.value.maxVx.x));
+    setter(dst.maxVx, 1, DstScalar(aabb.value.maxVx.y));
+    setter(dst.maxVx, 2, DstScalar(aabb.value.maxVx.z));
+    for (int16_t i = 3; i < D; ++i)
+    {
+        setter(dst.minVx, i, DstScalar(0));
+        setter(dst.maxVx, i, DstScalar(0));
+    }
+}
 
 }
 }

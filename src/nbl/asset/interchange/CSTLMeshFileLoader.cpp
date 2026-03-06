@@ -12,11 +12,11 @@
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/format/convertColor.h"
-#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/asset/utils/SGeometryNormalCommon.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+#include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
 
@@ -272,7 +272,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-	SAABBAccumulator3<float> parsedAABB = createAABBAccumulator<float>();
+	hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
 	uint64_t vertexCount = 0ull;
 
 	if (!binary && wholeFileDataIsMapped)
@@ -635,8 +635,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			{
 				if (!localAABB.has)
 					continue;
-				extendAABBAccumulator(parsedAABB, localAABB.minX, localAABB.minY, localAABB.minZ);
-				extendAABBAccumulator(parsedAABB, localAABB.maxX, localAABB.maxY, localAABB.maxZ);
+				hlsl::shapes::util::extendAABBAccumulator(parsedAABB, localAABB.minX, localAABB.minY, localAABB.minZ);
+				hlsl::shapes::util::extendAABBAccumulator(parsedAABB, localAABB.maxX, localAABB.maxY, localAABB.maxZ);
 			}
 		}
 		geometry->setPositionView(std::move(posView));
@@ -725,9 +725,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
 			normals.push_back(faceNormal);
-			extendAABBAccumulator(parsedAABB, p[2u]);
-			extendAABBAccumulator(parsedAABB, p[1u]);
-			extendAABBAccumulator(parsedAABB, p[0u]);
+			hlsl::shapes::util::extendAABBAccumulator(parsedAABB, p[2u]);
+			hlsl::shapes::util::extendAABBAccumulator(parsedAABB, p[1u]);
+			hlsl::shapes::util::extendAABBAccumulator(parsedAABB, p[0u]);
 
 			const auto endLoopKeyword = parser.readToken();
 			if (!endLoopKeyword.has_value() || *endLoopKeyword != std::string_view("endloop"))

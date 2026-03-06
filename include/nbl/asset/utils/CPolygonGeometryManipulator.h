@@ -12,7 +12,7 @@
 #include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/COBBGenerator.h"
-#include "nbl/asset/utils/SGeometryAABBCommon.h"
+#include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 #include "nbl/builtin/hlsl/shapes/obb.hlsl"
 
 namespace nbl::asset
@@ -103,12 +103,12 @@ class NBL_API2 CPolygonGeometryManipulator
 					using aabb_t = std::remove_reference_t<decltype(aabb)>;
 					using point_t = typename aabb_t::point_t;
 					using component_t = std::remove_cv_t<std::remove_reference_t<decltype(point_t{}.x)>>;
-					SAABBAccumulator3<component_t> parsedAABB = createAABBAccumulator<component_t>();
+					hlsl::shapes::util::AABBAccumulator3<component_t> parsedAABB = hlsl::shapes::util::createAABBAccumulator<component_t>();
 					auto addVertexToAABB = [&](const uint32_t vertex_i)->void
 					{
 						point_t pt;
 						geo->getPositionView().decodeElement(vertex_i, pt);
-						extendAABBAccumulator(parsedAABB, pt);
+						hlsl::shapes::util::extendAABBAccumulator(parsedAABB, pt);
 					};
 					if (geo->getIndexView())
 					{
@@ -127,7 +127,7 @@ class NBL_API2 CPolygonGeometryManipulator
 							addVertexToAABB(vertex_i);
 						}
 					}
-					assignAABBFromAccumulator(aabb, parsedAABB);
+					hlsl::shapes::util::assignAABBFromAccumulator(aabb, parsedAABB);
 				};
 				IGeometryBase::SDataViewBase tmp = geo->getPositionView().composed;
 				tmp.resetRange();

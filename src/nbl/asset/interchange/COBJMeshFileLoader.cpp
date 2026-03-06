@@ -11,8 +11,8 @@
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
-#include "nbl/asset/utils/SGeometryAABBCommon.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+#include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
@@ -515,7 +515,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     bool hasProvidedNormals = false;
     bool needsNormalGeneration = false;
     bool hasUVs = false;
-    SAABBAccumulator3<float> parsedAABB = createAABBAccumulator<float>();
+    hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
     uint64_t currentFaceCount = 0ull;
     uint64_t currentFaceFastTokenCount = 0ull;
     uint64_t currentFaceFallbackTokenCount = 0ull;
@@ -543,7 +543,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         hasProvidedNormals = false;
         needsNormalGeneration = false;
         hasUVs = false;
-        parsedAABB = createAABBAccumulator<float>();
+        parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
         currentFaceCount = 0ull;
         currentFaceFastTokenCount = 0ull;
         currentFaceFallbackTokenCount = 0ull;
@@ -724,7 +724,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         const auto& srcPos = positions[idx[0]];
         outPositions[static_cast<size_t>(outIx)] = srcPos;
-        extendAABBAccumulator(parsedAABB, srcPos);
+        hlsl::shapes::util::extendAABBAccumulator(parsedAABB, srcPos);
 
         Float2 uv(0.f, 0.f);
         if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
@@ -794,7 +794,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 
         const auto& srcPos = positions[static_cast<size_t>(posIx)];
         outPositions[static_cast<size_t>(outIx)] = srcPos;
-        extendAABBAccumulator(parsedAABB, srcPos);
+        hlsl::shapes::util::extendAABBAccumulator(parsedAABB, srcPos);
         outUVs[static_cast<size_t>(outIx)] = uvs[static_cast<size_t>(uvIx)];
         outNormals[static_cast<size_t>(outIx)] = normals[static_cast<size_t>(normalIx)];
         hotEntry.pos = posIx;

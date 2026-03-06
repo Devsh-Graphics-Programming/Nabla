@@ -11,7 +11,7 @@
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
-#include "nbl/asset/utils/SGeometryAABBCommon.h"
+#include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
@@ -533,7 +533,7 @@ struct SContext
 		Success,
 		Error
 	};
-	EFastVertexReadResult readVertexElementFast(const SElement& el, SAABBAccumulator3<float>* parsedAABB)
+	EFastVertexReadResult readVertexElementFast(const SElement& el, hlsl::shapes::util::AABBAccumulator3<float>* parsedAABB)
 	{
 		if (!IsBinaryFile || el.Name != "vertex")
 			return EFastVertexReadResult::NotApplicable;
@@ -701,7 +701,7 @@ struct SContext
 							reinterpret_cast<float*>(posBase)[1] = y;
 							reinterpret_cast<float*>(posBase)[2] = z;
 							if (trackAABB)
-								extendAABBAccumulator(*parsedAABB, x, y, z);
+								hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
 							src += 3ull * floatBytes;
 							posBase += posStride;
 						}
@@ -719,7 +719,7 @@ struct SContext
 						reinterpret_cast<float*>(posBase)[1] = y;
 						reinterpret_cast<float*>(posBase)[2] = z;
 						if (trackAABB)
-							extendAABBAccumulator(*parsedAABB, x, y, z);
+							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
 						src += 3ull * floatBytes;
 						posBase += posStride;
 						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
@@ -741,7 +741,7 @@ struct SContext
 						reinterpret_cast<float*>(posBase)[1] = y;
 						reinterpret_cast<float*>(posBase)[2] = z;
 						if (trackAABB)
-							extendAABBAccumulator(*parsedAABB, x, y, z);
+							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
 						src += 3ull * floatBytes;
 						posBase += posStride;
 						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
@@ -1563,7 +1563,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	// start with empty mesh
 	auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
-	SAABBAccumulator3<float> parsedAABB = createAABBAccumulator<float>();
+	hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
 	uint32_t vertCount=0;
 	core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers;
 	std::jthread deferredPositionHashThread;

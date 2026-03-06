@@ -56,6 +56,8 @@ inline matrix<T, 3, 4> rhLookAt(
 	return r;
 }
 
+// Transforms an AABB by a full affine 3x4 matrix and returns the enclosing AABB.
+// This exists because shapes::util::transform(matrix<T,3,4>, AABB) applies only the linear part and leaves translation out.
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T>)
 inline shapes::AABB<3, T> pseudo_mul(NBL_CONST_REF_ARG(matrix<T, 3, 4>) lhs, NBL_CONST_REF_ARG(shapes::AABB<3, T>) rhs)
 {
