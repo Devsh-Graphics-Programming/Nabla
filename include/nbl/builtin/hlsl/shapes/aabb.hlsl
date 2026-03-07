@@ -66,28 +66,28 @@ namespace util
 namespace impl
 {
 template<int16_t D, typename Scalar>
-struct intersect_helper<AABB<D,Scalar>>
+struct intersect_helper<AABB<D, Scalar> >
 {
     using type = AABB<D,Scalar>;
 
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = hlsl::max<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = hlsl::min<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::max<typename type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::min<typename type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };
 template<int16_t D, typename Scalar>
-struct union_helper<AABB<D,Scalar>>
+struct union_helper<AABB<D, Scalar> >
 {
     using type = AABB<D,Scalar>;
 
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = hlsl::min<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = hlsl::max<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::min<typename type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::max<typename type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };

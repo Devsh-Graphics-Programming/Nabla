@@ -28,7 +28,7 @@ struct AABBAccumulator3
 
     static AABBAccumulator3 create()
     {
-        AABBAccumulator3 retval = {};
+        AABBAccumulator3 retval;
         retval.value = aabb_t::create();
         return retval;
     }
@@ -41,18 +41,15 @@ struct AABBAccumulator3
             value.minVx.z > value.maxVx.z;
     }
 
-    void addPoint(NBL_CONST_REF_ARG(point_t) point)
+    void addPoint(NBL_CONST_REF_ARG(point_t) pt)
     {
-        value.addPoint(point);
+        value.addPoint(pt);
     }
 
     void addXYZ(const Scalar x, const Scalar y, const Scalar z)
     {
-        point_t point;
-        point.x = x;
-        point.y = y;
-        point.z = z;
-        value.addPoint(point);
+        point_t pt = point_t(x, y, z);
+        value.addPoint(pt);
     }
 
     aabb_t value;
@@ -71,14 +68,34 @@ inline void extendAABBAccumulator(NBL_REF_ARG(AABBAccumulator3<Scalar>) aabb, co
 }
 
 template<typename Scalar, typename Point NBL_FUNC_REQUIRES(concepts::Vectorial<Point> && (vector_traits<Point>::Dimension >= 3))
-inline void extendAABBAccumulator(NBL_REF_ARG(AABBAccumulator3<Scalar>) aabb, NBL_CONST_REF_ARG(Point) point)
+inline void extendAABBAccumulator(NBL_REF_ARG(AABBAccumulator3<Scalar>) aabb, NBL_CONST_REF_ARG(Point) pt)
 {
     array_get<Point, typename vector_traits<Point>::scalar_type> getter;
-    typename AABBAccumulator3<Scalar>::point_t converted;
-    converted.x = Scalar(getter(point, 0));
-    converted.y = Scalar(getter(point, 1));
-    converted.z = Scalar(getter(point, 2));
+    typename AABBAccumulator3<Scalar>::point_t converted = typename AABBAccumulator3<Scalar>::point_t(
+        Scalar(getter(pt, 0)),
+        Scalar(getter(pt, 1)),
+        Scalar(getter(pt, 2))
+    );
     aabb.addPoint(converted);
+}
+
+template<int16_t DstD, typename DstScalar, int16_t SrcD, typename SrcScalar NBL_FUNC_REQUIRES(DstD >= 3 && SrcD >= 3)
+inline void assignAABB(NBL_REF_ARG(AABB<DstD, DstScalar>) dst, NBL_CONST_REF_ARG(AABB<SrcD, SrcScalar>) src)
+{
+    array_set<typename AABB<DstD, DstScalar>::point_t, DstScalar> setter;
+    array_get<typename AABB<SrcD, SrcScalar>::point_t, SrcScalar> getter;
+
+    dst = AABB<DstD, DstScalar>::create();
+    NBL_UNROLL for (int16_t i = 0; i < 3; ++i)
+    {
+        setter(dst.minVx, i, DstScalar(getter(src.minVx, i)));
+        setter(dst.maxVx, i, DstScalar(getter(src.maxVx, i)));
+    }
+    NBL_UNROLL for (int16_t i = 3; i < DstD; ++i)
+    {
+        setter(dst.minVx, i, DstScalar(0));
+        setter(dst.maxVx, i, DstScalar(0));
+    }
 }
 
 template<int16_t D, typename DstScalar, typename SrcScalar NBL_FUNC_REQUIRES(D >= 3)
@@ -87,19 +104,7 @@ inline void assignAABBFromAccumulator(NBL_REF_ARG(AABB<D, DstScalar>) dst, NBL_C
     if (aabb.empty())
         return;
 
-    dst = AABB<D, DstScalar>::create();
-    array_set<typename AABB<D, DstScalar>::point_t, DstScalar> setter;
-    setter(dst.minVx, 0, DstScalar(aabb.value.minVx.x));
-    setter(dst.minVx, 1, DstScalar(aabb.value.minVx.y));
-    setter(dst.minVx, 2, DstScalar(aabb.value.minVx.z));
-    setter(dst.maxVx, 0, DstScalar(aabb.value.maxVx.x));
-    setter(dst.maxVx, 1, DstScalar(aabb.value.maxVx.y));
-    setter(dst.maxVx, 2, DstScalar(aabb.value.maxVx.z));
-    for (int16_t i = 3; i < D; ++i)
-    {
-        setter(dst.minVx, i, DstScalar(0));
-        setter(dst.maxVx, i, DstScalar(0));
-    }
+    assignAABB(dst, aabb.value);
 }
 
 }
