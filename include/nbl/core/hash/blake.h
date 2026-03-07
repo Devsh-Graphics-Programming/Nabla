@@ -6,20 +6,25 @@
 
 
 #include "nbl/config/BuildConfigOptions.h"
-#include "blake3.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <span>
+#include <string_view>
+#include <type_traits>
 
 
 namespace nbl::core
 {
 struct blake3_hash_t final
 {
+	static inline constexpr size_t DigestSize = 32ull;
+
 	inline bool operator==(const blake3_hash_t&) const = default;
 
 	// could initialize this to a hash of a zero-length array,
 	// but that requires a .cpp file and a static
-	uint8_t data[BLAKE3_OUT_LEN];
+	uint8_t data[DigestSize];
 };
 
 class NBL_API2 blake3_hasher final
@@ -37,7 +42,12 @@ class NBL_API2 blake3_hasher final
 			}
 		};
 
-		::blake3_hasher m_state;
+		static inline constexpr size_t OpaqueStateSize = 1920ull;
+		static inline constexpr size_t OpaqueStateAlign = 16ull;
+
+		static void validateOpaqueStateLayout();
+
+		alignas(OpaqueStateAlign) unsigned char m_state[OpaqueStateSize];
 
 	public:
 		blake3_hasher();
@@ -58,7 +68,7 @@ class NBL_API2 blake3_hasher final
 NBL_API2 blake3_hash_t blake3_hash_buffer(const void* data, size_t bytes);
 NBL_API2 blake3_hash_t blake3_hash_buffer_sequential(const void* data, size_t bytes);
 
-// Useful specializations
+// Convenience specializations for common wrapper inputs.
 template<typename Dummy>
 struct blake3_hasher::update_impl<blake3_hash_t,Dummy>
 {
@@ -116,7 +126,7 @@ struct hash<nbl::core::blake3_hash_t>
 	{
 		auto* as_p_uint64_t = reinterpret_cast<const size_t*>(blake3.data);
 		size_t retval = as_p_uint64_t[0];
-		for (auto i=1; i<BLAKE3_OUT_LEN/sizeof(size_t); i++)
+		for (auto i=1; i<nbl::core::blake3_hash_t::DigestSize/sizeof(size_t); i++)
 			retval ^= as_p_uint64_t[i] + 0x9e3779b97f4a7c15ull + (retval << 6) + (retval >> 2);
 		return retval;
 	}

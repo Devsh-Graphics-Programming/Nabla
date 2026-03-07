@@ -528,8 +528,6 @@ nbl_install_dir(glm/glm)
 nbl_install_file_spec(${CMAKE_CURRENT_BINARY_DIR}/imath/config/ImathConfig.h imath)
 nbl_install_dir(imath/src/Imath)
 
-nbl_install_file(blake/c/blake3.h)
-
 nbl_install_dir(boost/superproject/libs/preprocessor/include/boost)
 
 nbl_install_file_spec(renderdoc/renderdoc_app.h renderdoc)

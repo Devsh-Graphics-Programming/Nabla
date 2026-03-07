@@ -506,7 +506,6 @@ endif()
 
 # blake3
 add_dependencies(Nabla blake3)
-list(APPEND PUBLIC_BUILD_INCLUDE_DIRS $<TARGET_PROPERTY:blake3,INCLUDE_DIRECTORIES>)
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE blake3)
 else()

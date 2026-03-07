@@ -68,6 +68,17 @@ static uint64_t nextRand(uint64_t& state)
     return state * 2685821657736338717ull;
 }
 
+static std::vector<uint8_t> makeRandomBytes(const size_t byteCount, const uint64_t seed, const uint64_t stream)
+{
+    std::vector<uint8_t> data(byteCount);
+    uint64_t state = seed ^ (stream * 0x9e3779b97f4a7c15ull);
+    if (state == 0ull)
+        state = kDefaultSeed ^ stream;
+    for (auto& byte : data)
+        byte = static_cast<uint8_t>(nextRand(state) & 0xffull);
+    return data;
+}
+
 static std::optional<Options> parseOptions(const core::vector<std::string>& args)
 {
     argparse::ArgumentParser parser("hcp");
@@ -139,12 +150,7 @@ static core::smart_refctd_ptr<ICPUPolygonGeometry> createGeometry(const Options&
 
     auto makeBuffer = [&](size_t bytes, core::bitflag<IBuffer::E_USAGE_FLAGS> usage, uint64_t stream) -> core::smart_refctd_ptr<ICPUBuffer>
     {
-        std::vector<uint8_t> data(bytes);
-        uint64_t state = options.seed ^ (stream * 0x9e3779b97f4a7c15ull);
-        if (state == 0ull)
-            state = kDefaultSeed ^ stream;
-        for (auto& b : data)
-            b = static_cast<uint8_t>(nextRand(state) & 0xffull);
+        auto data = makeRandomBytes(bytes, options.seed, stream);
 
         ICPUBuffer::SCreationParams params = {};
         params.size = data.size();
@@ -183,7 +189,55 @@ static core::smart_refctd_ptr<ICPUPolygonGeometry> createGeometry(const Options&
     return geometry;
 }
 
-static bool runParityCheck(const Options& options, ILogger* logger)
+static bool runStandaloneBufferParityCheck(const Options& options, ILogger* logger)
+{
+    using clock_t = std::chrono::high_resolution_clock;
+    auto toMs = [](clock_t::duration d) { return std::chrono::duration<double, std::milli>(d).count(); };
+    auto toMiB = [](size_t bytes) { return static_cast<double>(bytes) / (1024.0 * 1024.0); };
+    auto throughput = [&](size_t bytes, double ms) { return ms > 0.0 ? toMiB(bytes) * 1000.0 / ms : 0.0; };
+
+    auto data = makeRandomBytes(options.bufferBytes, options.seed, 0x11ull);
+    ICPUBuffer::SCreationParams params = {};
+    params.size = data.size();
+    params.usage = IBuffer::EUF_TRANSFER_SRC_BIT;
+    params.data = data.data();
+    auto buffer = ICPUBuffer::create(std::move(params));
+    if (!buffer)
+    {
+        logger->log("Failed to create standalone buffer.", ILogger::ELL_ERROR);
+        return false;
+    }
+
+    const auto legacyStart = clock_t::now();
+    const auto legacyHash = core::blake3_hash_buffer_sequential(data.data(), data.size());
+    const double legacyMs = toMs(clock_t::now() - legacyStart);
+
+    const auto directStart = clock_t::now();
+    const auto directHash = core::blake3_hash_buffer(data.data(), data.size());
+    const double directMs = toMs(clock_t::now() - directStart);
+    if (directHash != legacyHash)
+    {
+        logger->log("Direct BLAKE3 hash mismatch.", ILogger::ELL_ERROR);
+        return false;
+    }
+
+    const auto bufferStart = clock_t::now();
+    const auto bufferHash = buffer->computeContentHash();
+    const double bufferMs = toMs(clock_t::now() - bufferStart);
+    if (bufferHash != legacyHash)
+    {
+        logger->log("ICPUBuffer::computeContentHash mismatch.", ILogger::ELL_ERROR);
+        return false;
+    }
+
+    logger->log("HCP single-buffer bytes=%llu mib=%.3f", ILogger::ELL_INFO, static_cast<unsigned long long>(data.size()), toMiB(data.size()));
+    logger->log("HCP single-buffer legacy ms=%.3f mib_s=%.3f", ILogger::ELL_INFO, legacyMs, throughput(data.size(), legacyMs));
+    logger->log("HCP single-buffer direct ms=%.3f mib_s=%.3f", ILogger::ELL_INFO, directMs, throughput(data.size(), directMs));
+    logger->log("HCP single-buffer api ms=%.3f mib_s=%.3f", ILogger::ELL_INFO, bufferMs, throughput(data.size(), bufferMs));
+    return true;
+}
+
+static bool runGeometryParityCheck(const Options& options, ILogger* logger)
 {
     using clock_t = std::chrono::high_resolution_clock;
     auto toMs = [](clock_t::duration d) { return std::chrono::duration<double, std::milli>(d).count(); };
@@ -258,6 +312,13 @@ static bool runParityCheck(const Options& options, ILogger* logger)
     logger->log("HCP recompute ms=%.3f mib_s=%.3f", ILogger::ELL_INFO, recomputeMs, throughput(totalBytes, recomputeMs));
     logger->log("HCP computeMissing ms=%.3f mib_s=%.3f missing_mib=%.3f", ILogger::ELL_INFO, missingMs, throughput(missingBytes, missingMs), toMiB(missingBytes));
     return true;
+}
+
+static bool runParityCheck(const Options& options, ILogger* logger)
+{
+    if (!runStandaloneBufferParityCheck(options, logger))
+        return false;
+    return runGeometryParityCheck(options, logger);
 }
 
 class HashContentParityApp final : public IApplicationFramework
