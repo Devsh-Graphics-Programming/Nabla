@@ -45,9 +45,6 @@ struct ObjVertexDedupNode
     int32_t next = -1;
 };
 
-using Float3 = hlsl::float32_t3;
-using Float2 = hlsl::float32_t2;
-
 inline bool isObjInlineWhitespace(const char c)
 {
     return c == ' ' || c == '\t' || c == '\v' || c == '\f';
@@ -448,18 +445,18 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     const char* const bufEnd = buf + static_cast<size_t>(filesize);
     const char* bufPtr = buf;
 
-    core::vector<Float3> positions;
-    core::vector<Float3> normals;
-    core::vector<Float2> uvs;
+    core::vector<hlsl::float32_t3> positions;
+    core::vector<hlsl::float32_t3> normals;
+    core::vector<hlsl::float32_t2> uvs;
     const size_t estimatedAttributeCount = std::max<size_t>(16ull, static_cast<size_t>(filesize) / 32ull);
     positions.reserve(estimatedAttributeCount);
     normals.reserve(estimatedAttributeCount);
     uvs.reserve(estimatedAttributeCount);
 
-    core::vector<Float3> outPositions;
-    core::vector<Float3> outNormals;
+    core::vector<hlsl::float32_t3> outPositions;
+    core::vector<hlsl::float32_t3> outNormals;
     core::vector<uint8_t> outNormalNeedsGeneration;
-    core::vector<Float2> outUVs;
+    core::vector<hlsl::float32_t2> outUVs;
     core::vector<uint32_t> indices;
     core::vector<int32_t> dedupHeadByPos;
     core::vector<ObjVertexDedupNode> dedupNodes;
@@ -726,7 +723,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         outPositions[static_cast<size_t>(outIx)] = srcPos;
         hlsl::shapes::util::extendAABBAccumulator(parsedAABB, srcPos);
 
-        Float2 uv(0.f, 0.f);
+        hlsl::float32_t2 uv(0.f, 0.f);
         if (uvIx >= 0 && static_cast<size_t>(uvIx) < uvs.size())
         {
             uv = uvs[static_cast<size_t>(uvIx)];
@@ -734,7 +731,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         }
         outUVs[static_cast<size_t>(outIx)] = uv;
 
-        Float3 normal(0.f, 0.f, 0.f);
+        hlsl::float32_t3 normal(0.f, 0.f, 0.f);
         if (normalIx >= 0 && static_cast<size_t>(normalIx) < normals.size())
         {
             normal = normals[static_cast<size_t>(normalIx)];
@@ -811,7 +808,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                     const char subType = ((lineStart + 1) < lineEnd) ? static_cast<char>(std::tolower(static_cast<unsigned char>(lineStart[1]))) : '\0';
                     if ((lineStart + 1) < lineEnd && subType == ' ')
                     {
-                        Float3 vec{};
+                        hlsl::float32_t3 vec{};
                         const char* ptr = lineStart + 2;
                         for (uint32_t i = 0u; i < 3u; ++i)
                         {
@@ -827,7 +824,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                     }
                     else if ((lineStart + 2) < lineEnd && subType == 'n' && isObjInlineWhitespace(lineStart[2]))
                     {
-                        Float3 vec{};
+                        hlsl::float32_t3 vec{};
                         const char* ptr = lineStart + 3;
                         for (uint32_t i = 0u; i < 3u; ++i)
                         {
@@ -842,7 +839,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                     }
                     else if ((lineStart + 2) < lineEnd && subType == 't' && isObjInlineWhitespace(lineStart[2]))
                     {
-                        Float2 vec{};
+                        hlsl::float32_t2 vec{};
                         const char* ptr = lineStart + 3;
                         for (uint32_t i = 0u; i < 2u; ++i)
                         {

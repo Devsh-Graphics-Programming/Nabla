@@ -11,7 +11,9 @@
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
+#include "nbl/builtin/hlsl/array_accessors.hlsl"
 #include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
+#include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
@@ -668,25 +670,23 @@ struct SContext
 			std::memcpy(&value, &bits, sizeof(value));
 			return value;
 		};
-		auto decodeFloat3 = [&](const uint8_t* src)->hlsl::float32_t3
-		{
-			return hlsl::float32_t3(
-				decodeF32(src + 0ull * floatBytes),
-				decodeF32(src + 1ull * floatBytes),
-				decodeF32(src + 2ull * floatBytes)
-			);
-		};
-		auto storeFloat3 = [](uint8_t* dst, const hlsl::float32_t3& value) -> void
-		{
-			reinterpret_cast<float*>(dst)[0] = value.x;
-			reinterpret_cast<float*>(dst)[1] = value.y;
-			reinterpret_cast<float*>(dst)[2] = value.z;
-		};
-		auto storeFloat2 = [](uint8_t* dst, const hlsl::float32_t2& value) -> void
-		{
-			reinterpret_cast<float*>(dst)[0] = value.x;
-			reinterpret_cast<float*>(dst)[1] = value.y;
-		};
+        auto decodeVector = [&]<typename Vec>(const uint8_t* src)->Vec
+        {
+            constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
+            Vec value{};
+            hlsl::array_set<Vec, float> setter;
+            for (uint32_t i = 0u; i < N; ++i)
+                setter(value, i, decodeF32(src + static_cast<size_t>(i) * floatBytes));
+            return value;
+        };
+        auto storeVector = []<typename Vec>(uint8_t* dst, const Vec& value) -> void
+        {
+            constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
+            hlsl::array_get<Vec, float> getter;
+            auto* const out = reinterpret_cast<float*>(dst);
+            for (uint32_t i = 0u; i < N; ++i)
+                out[i] = getter(value, i);
+        };
 
 		size_t remainingVertices = el.Count;
 		while (remainingVertices > 0ull)
@@ -714,10 +714,10 @@ struct SContext
 					{
 						for (size_t v = 0ull; v < batchVertices; ++v)
 						{
-							const hlsl::float32_t3 position = decodeFloat3(src);
-							storeFloat3(posBase, position);
-							if (trackAABB)
-								hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
+                            const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
+                            storeVector.operator()<hlsl::float32_t3>(posBase, position);
+                            if (trackAABB)
+                                hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
 							src += 3ull * floatBytes;
 							posBase += posStride;
 						}
@@ -728,15 +728,15 @@ struct SContext
 				{
 					for (size_t v = 0ull; v < batchVertices; ++v)
 					{
-						const hlsl::float32_t3 position = decodeFloat3(src);
-						storeFloat3(posBase, position);
-						if (trackAABB)
-							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-						src += 3ull * floatBytes;
-						posBase += posStride;
-						storeFloat3(normalBase, decodeFloat3(src));
-						src += 3ull * floatBytes;
-						normalBase += normalStride;
+                        const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
+                        storeVector.operator()<hlsl::float32_t3>(posBase, position);
+                        if (trackAABB)
+                            hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
+                        src += 3ull * floatBytes;
+                        posBase += posStride;
+                        storeVector.operator()<hlsl::float32_t3>(normalBase, decodeVector.operator()<hlsl::float32_t3>(src));
+                        src += 3ull * floatBytes;
+                        normalBase += normalStride;
 					}
 				}
 				break;
@@ -744,18 +744,18 @@ struct SContext
 				{
 					for (size_t v = 0ull; v < batchVertices; ++v)
 					{
-						const hlsl::float32_t3 position = decodeFloat3(src);
-						storeFloat3(posBase, position);
-						if (trackAABB)
-							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-						src += 3ull * floatBytes;
-						posBase += posStride;
-						storeFloat3(normalBase, decodeFloat3(src));
-						src += 3ull * floatBytes;
-						normalBase += normalStride;
-						storeFloat2(uvBase, hlsl::float32_t2(decodeF32(src + 0ull * floatBytes), decodeF32(src + 1ull * floatBytes)));
-						src += 2ull * floatBytes;
-						uvBase += uvStride;
+                        const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
+                        storeVector.operator()<hlsl::float32_t3>(posBase, position);
+                        if (trackAABB)
+                            hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
+                        src += 3ull * floatBytes;
+                        posBase += posStride;
+                        storeVector.operator()<hlsl::float32_t3>(normalBase, decodeVector.operator()<hlsl::float32_t3>(src));
+                        src += 3ull * floatBytes;
+                        normalBase += normalStride;
+                        storeVector.operator()<hlsl::float32_t2>(uvBase, decodeVector.operator()<hlsl::float32_t2>(src));
+                        src += 2ull * floatBytes;
+                        uvBase += uvStride;
 					}
 				}
 				break;
