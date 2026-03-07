@@ -80,10 +80,16 @@ inline void extendAABBAccumulator(NBL_REF_ARG(AABBAccumulator3<Scalar>) aabb, NB
 }
 
 template<int16_t DstD, typename DstScalar, int16_t SrcD, typename SrcScalar NBL_FUNC_REQUIRES(DstD >= 3 && SrcD >= 3)
-inline void assignAABB(NBL_REF_ARG(AABB<DstD, DstScalar>) dst, NBL_CONST_REF_ARG(AABB<SrcD, SrcScalar>) src)
+inline bool assignAABB(NBL_REF_ARG(AABB<DstD, DstScalar>) dst, NBL_CONST_REF_ARG(AABB<SrcD, SrcScalar>) src)
 {
     array_set<typename AABB<DstD, DstScalar>::point_t, DstScalar> setter;
     array_get<typename AABB<SrcD, SrcScalar>::point_t, SrcScalar> getter;
+
+    if (
+        getter(src.minVx, 0) > getter(src.maxVx, 0) ||
+        getter(src.minVx, 1) > getter(src.maxVx, 1) ||
+        getter(src.minVx, 2) > getter(src.maxVx, 2))
+        return false;
 
     dst = AABB<DstD, DstScalar>::create();
     NBL_UNROLL for (int16_t i = 0; i < 3; ++i)
@@ -96,15 +102,16 @@ inline void assignAABB(NBL_REF_ARG(AABB<DstD, DstScalar>) dst, NBL_CONST_REF_ARG
         setter(dst.minVx, i, DstScalar(0));
         setter(dst.maxVx, i, DstScalar(0));
     }
+    return true;
 }
 
 template<int16_t D, typename DstScalar, typename SrcScalar NBL_FUNC_REQUIRES(D >= 3)
-inline void assignAABBFromAccumulator(NBL_REF_ARG(AABB<D, DstScalar>) dst, NBL_CONST_REF_ARG(AABBAccumulator3<SrcScalar>) aabb)
+inline bool assignAABBFromAccumulator(NBL_REF_ARG(AABB<D, DstScalar>) dst, NBL_CONST_REF_ARG(AABBAccumulator3<SrcScalar>) aabb)
 {
     if (aabb.empty())
-        return;
+        return false;
 
-    assignAABB(dst, aabb.value);
+    return assignAABB(dst, aabb.value);
 }
 
 }

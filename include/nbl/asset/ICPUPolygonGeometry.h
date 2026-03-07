@@ -115,17 +115,17 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
         template<typename Scalar>
         inline bool setAABB(const hlsl::shapes::AABB<3,Scalar>& aabb)
         {
-            return visitAABB([&aabb](auto&& ref)->void{ hlsl::shapes::util::assignAABB(ref, aabb); });
+            bool assigned = false;
+            const bool visited = visitAABB([&aabb, &assigned](auto&& ref)->void
+            {
+                assigned = hlsl::shapes::util::assignAABB(ref, aabb);
+            });
+            return visited && assigned;
         }
         template<typename Scalar>
         inline bool applyAABB(const hlsl::shapes::AABB<3, Scalar>& aabb)
         {
-            if (
-                aabb.minVx.x > aabb.maxVx.x ||
-                aabb.minVx.y > aabb.maxVx.y ||
-                aabb.minVx.z > aabb.maxVx.z)
-                return false;
-            return visitAABB([&aabb](auto&& ref)->void{ hlsl::shapes::util::assignAABB(ref, aabb); });
+            return setAABB(aabb);
         }
 
         //
