@@ -9,7 +9,7 @@
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
-#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SInterchangeIO.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
@@ -72,7 +72,7 @@ inline bool parseObjFloat(const char*& ptr, const char* const end, float& out)
 
 bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry& ioTelemetry)
 {
-    return SInterchangeIOCommon::readFileWithPolicy(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, &ioTelemetry);
+    return SInterchangeIO::readFileWithPolicy(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, &ioTelemetry);
 }
 
 inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)
@@ -1048,7 +1048,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         faceFallbackTokenCountSum += loaded.faceFallbackTokenCount;
     }
 
-    if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
+    if (SInterchangeIO::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy))
     {
         _params.logger.log(
             "OBJ loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",

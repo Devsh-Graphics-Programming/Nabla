@@ -7,7 +7,7 @@
 #include "CSTLMeshWriter.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
-#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SInterchangeIO.h"
 #include "SSTLPolygonGeometryAuxLayout.h"
 
 #include <algorithm>
@@ -158,7 +158,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 	const uint64_t ioMinWrite = context.writeTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = context.writeTelemetry.getAvgOrZero();
-	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset, _params.ioPolicy))
+	if (SInterchangeIO::isTinyIOTelemetryLikely(context.writeTelemetry, context.fileOffset, _params.ioPolicy))
 	{
 		_params.logger.log(
 			"STL writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -739,7 +739,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 			return false;
 	}
 
-	const bool writeOk = SInterchangeIOCommon::writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
+	const bool writeOk = SInterchangeIO::writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
 	if (writeOk)
 		context->fileOffset += outputSize;
 	return writeOk;

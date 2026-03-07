@@ -7,7 +7,7 @@
 #include "CPLYMeshFileLoader.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
-#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SInterchangeIO.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
@@ -2153,7 +2153,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		.totalBytes = ctx.readBytesTotal,
 		.minBytes = ctx.readMinBytes
 	};
-	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, fileSize, _params.ioPolicy))
+	if (SInterchangeIO::isTinyIOTelemetryLikely(ioTelemetry, fileSize, _params.ioPolicy))
 	{
 		_params.logger.log(
 			"PLY loader tiny-io guard: file=%s reads=%llu min=%llu avg=%llu",

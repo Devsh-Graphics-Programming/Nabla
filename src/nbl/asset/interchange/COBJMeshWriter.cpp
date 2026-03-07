@@ -4,7 +4,7 @@
 
 #include "nbl/asset/interchange/COBJMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
-#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SInterchangeIO.h"
 #include "SOBJPolygonGeometryAuxLayout.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
@@ -409,10 +409,10 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		return false;
 	}
 
-	const bool writeOk = SInterchangeIOCommon::writeFileWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
+	const bool writeOk = SInterchangeIO::writeFileWithPolicy(file, ioPlan, reinterpret_cast<const uint8_t*>(output.data()), output.size(), &ioTelemetry);
 	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-	if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy))
+	if (SInterchangeIO::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy))
 	{
 		_params.logger.log(
 			"OBJ writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",

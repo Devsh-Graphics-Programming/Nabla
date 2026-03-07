@@ -5,7 +5,7 @@
 
 #include "CPLYMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
-#include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "nbl/asset/interchange/SInterchangeIO.h"
 #include "SPLYPolygonGeometryAuxLayout.h"
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
@@ -642,15 +642,15 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         }
 
         outputBytes = outputSize;
-        const SInterchangeIOCommon::SBufferRange writeBuffers[] =
+        const SInterchangeIO::SBufferRange writeBuffers[] =
         {
             { .data = reinterpret_cast<const uint8_t*>(header.data()), .byteCount = header.size() },
             { .data = body.data(), .byteCount = body.size() }
         };
-        writeOk = SInterchangeIOCommon::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
+        writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
         const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
         const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-        if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
+        if (SInterchangeIO::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
         {
             _params.logger.log(
                 "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
@@ -696,15 +696,15 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     }
 
     outputBytes = outputSize;
-    const SInterchangeIOCommon::SBufferRange writeBuffers[] =
+    const SInterchangeIO::SBufferRange writeBuffers[] =
     {
         { .data = reinterpret_cast<const uint8_t*>(header.data()), .byteCount = header.size() },
         { .data = reinterpret_cast<const uint8_t*>(body.data()), .byteCount = body.size() }
     };
-    writeOk = SInterchangeIOCommon::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
+    writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
     const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
     const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-    if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
+    if (SInterchangeIO::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
     {
         _params.logger.log(
             "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
