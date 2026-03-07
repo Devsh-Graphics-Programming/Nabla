@@ -31,16 +31,41 @@ struct ProjectedHemisphere
 	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
 
-	static vector_t3 generate(const vector_t2 _sample)
+	static vector_t3 __generate(const vector_t2 _sample)
 	{
 		vector_t2 p = concentricMapping<T>(_sample * T(0.99999) + T(0.000005));
 		T z = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - p.x * p.x - p.y * p.y));
 		return vector_t3(p.x, p.y, z);
 	}
 
-	static T pdf(const T L_z)
+	vector_t3 generate(const vector_t2 _sample)
+	{
+		return __generate(_sample);
+	}
+
+	static vector_t2 __generateInverse(const vector_t3 L)
+	{
+		return invertConcentricMapping<T>(L.xy);
+	}
+
+	vector_t2 generateInverse(const vector_t3 L)
+	{
+		return __generateInverse(L);
+	}
+
+	static T __pdf(const T L_z)
 	{
 		return L_z * numbers::inv_pi<float>;
+	}
+
+	scalar_type forwardPdf(const vector_t2 _sample)
+	{
+		return __pdf(__generate(_sample).z);
+	}
+
+	scalar_type backwardPdf(const vector_t3 L)
+	{
+		return __pdf(L.z);
 	}
 
 	template<typename U = vector<T, 1> >
@@ -71,9 +96,9 @@ struct ProjectedSphere
 	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
 
-	static vector_t3 generate(NBL_REF_ARG(vector_t3) _sample)
+	static vector_t3 __generate(NBL_REF_ARG(vector_t3) _sample)
 	{
-		vector_t3 retval = hemisphere_t::generate(_sample.xy);
+		vector_t3 retval = hemisphere_t::__generate(_sample.xy);
 		const bool chooseLower = _sample.z > T(0.5);
 		retval.z = chooseLower ? (-retval.z) : retval.z;
 		if (chooseLower)
@@ -82,9 +107,36 @@ struct ProjectedSphere
 		return retval;
 	}
 
-	static T pdf(T L_z)
+	vector_t3 generate(NBL_REF_ARG(vector_t3) _sample)
 	{
-		return T(0.5) * hemisphere_t::pdf(L_z);
+		return __generate(_sample);
+	}
+
+	static vector_t3 __generateInverse(const vector_t3 L)
+	{
+		// TODO: incomplete information to get z component, we only know mapping of (u.z > 0.5 <-> L +ve) and (u.z < 0.5 <-> L -ve)
+		// so set to 0 or 1 for now
+		return vector_t3(hemisphere_t::__generateInverse(L.xy), hlsl::mix(T(0.0), T(1.0), L.z > T(0.0)));
+	}
+
+	vector_t3 generateInverse(const vector_t3 L)
+	{
+		return __generateInverse(L);
+	}
+
+	static T __pdf(T L_z)
+	{
+		return T(0.5) * hemisphere_t::__pdf(L_z);
+	}
+
+	scalar_type forwardPdf(const vector_t2 _sample)
+	{
+		return __pdf(__generate(_sample).z);
+	}
+
+	scalar_type backwardPdf(const vector_t3 L)
+	{
+		return __pdf(L.z);
 	}
 
 	template<typename U = vector<T, 1> >

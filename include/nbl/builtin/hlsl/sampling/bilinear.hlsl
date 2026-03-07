@@ -19,17 +19,17 @@ namespace sampling
 template<typename T>
 struct Bilinear
 {
-	using scalar_type = T;
-	using vector2_type = vector<T, 2>;
-	using vector3_type = vector<T, 3>;
-	using vector4_type = vector<T, 4>;
-	
-	// BijectiveSampler concept types
-	using domain_type = vector2_type;
-	using codomain_type = vector2_type;
-	using density_type = scalar_type;
-	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
-	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+    using vector4_type = vector<T, 4>;
+
+    // BijectiveSampler concept types
+    using domain_type = vector2_type;
+    using codomain_type = vector2_type;
+    using density_type = scalar_type;
+    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
+    using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
 
     static Bilinear<T> create(const vector4_type bilinearCoeffs)
     {
@@ -37,34 +37,50 @@ struct Bilinear
         retval.bilinearCoeffs = bilinearCoeffs;
         retval.bilinearCoeffDiffs = vector2_type(bilinearCoeffs[2]-bilinearCoeffs[0], bilinearCoeffs[3]-bilinearCoeffs[1]);
         vector2_type twiceAreasUnderXCurve = vector2_type(bilinearCoeffs[0] + bilinearCoeffs[1], bilinearCoeffs[2] + bilinearCoeffs[3]);
-        retval.fourOverTwiceAreasUnderXCurveSum = scalar_type(4.0) / (twiceAreasUnderXCurve[0] + twiceAreasUnderXCurve[1]);
+        retval.twiceAreasUnderXCurveSumOverFour = scalar_type(4.0) / (twiceAreasUnderXCurve[0] + twiceAreasUnderXCurve[1]);
         retval.lineary = Linear<scalar_type>::create(twiceAreasUnderXCurve);
         return retval;
     }
 
-    vector2_type generate(const vector2_type _u)
+    vector2_type generate(const vector2_type u)
+    {
+        vector2_type p;
+        p.y = lineary.generate(u.y);
+
+        const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
+        Linear<scalar_type> linearx = Linear<scalar_type>::create(ySliceEndPoints);
+        p.x = linearx.generate(u.x);
+
+        return p;
+    }
+
+    vector2_type generateInverse(const vector2_type p)
     {
         vector2_type u;
-        u.y = lineary.generate(_u.y);
-
-        const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + u.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + u.y * bilinearCoeffDiffs[1]);
+        const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
         Linear<scalar_type> linearx = Linear<scalar_type>::create(ySliceEndPoints);
-        u.x = linearx.generate(_u.x);
+        u.x = linearx.generateInverse(p.x);
+        u.y = lineary.generateInverse(p.y);
 
         return u;
     }
 
-    scalar_type backwardPdf(const vector2_type u)
+    scalar_type forwardPdf(const vector2_type u)
     {
-        const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + u.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + u.y * bilinearCoeffDiffs[1]);
-        return nbl::hlsl::mix(ySliceEndPoints[0], ySliceEndPoints[1], u.x) * fourOverTwiceAreasUnderXCurveSum;
+        return backwardPdf(generate(u));
+    }
+
+    scalar_type backwardPdf(const vector2_type p)
+    {
+        const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
+        return nbl::hlsl::mix(ySliceEndPoints[0], ySliceEndPoints[1], p.x) * fourOverTwiceAreasUnderXCurveSum;
     }
 
     // unit square: x0y0    x1y0
     //              x0y1    x1y1
     vector4_type bilinearCoeffs;    // (x0y0, x0y1, x1y0, x1y1)
     vector2_type bilinearCoeffDiffs;
-    scalar_type fourOverTwiceAreasUnderXCurveSum;
+    vector2_type fourOverTwiceAreasUnderXCurveSum;
     Linear<scalar_type> lineary;
 };
 

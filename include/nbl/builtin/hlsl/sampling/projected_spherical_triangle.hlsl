@@ -22,67 +22,57 @@ namespace sampling
 template<typename T>
 struct ProjectedSphericalTriangle
 {
-	using scalar_type = T;
-	using vector2_type = vector<T, 2>;
-	using vector3_type = vector<T, 3>;
-	using vector4_type = vector<T, 4>;
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+    using vector4_type = vector<T, 4>;
 
-	// ResamplableSampler concept types
-	using domain_type = vector2_type;
-	using codomain_type = vector3_type;
-	using density_type = scalar_type;
-	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
-	static ProjectedSphericalTriangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalTriangle<T>) tri)
-	{
-		ProjectedSphericalTriangle<T> retval;
-		retval.sphtri = sampling::SphericalTriangle<T>::create(tri);
-		return retval;
-	}
+    // ResamplableSampler concept types
+    using domain_type = vector2_type;
+    using codomain_type = vector3_type;
+    using density_type = scalar_type;
+    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 
-	vector4_type computeBilinearPatch(const vector3_type receiverNormal, bool isBSDF)
-	{
-		const scalar_type minimumProjSolidAngle = 0.0;
+    Bilinear<scalar_type> computeBilinearPatch()
+    {
+        const scalar_type minimumProjSolidAngle = 0.0;
 
-		matrix<T, 3, 3> m = matrix<T, 3, 3>(sphtri.tri.vertices[0], sphtri.tri.vertices[1], sphtri.tri.vertices[2]);
-		const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(isBSDF, hlsl::mul(m, receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
+        matrix<T, 3, 3> m = matrix<T, 3, 3>(sphtri.tri.vertices[0], sphtri.tri.vertices[1], sphtri.tri.vertices[2]);
+        const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::mul(m, receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
 
-		return bxdfPdfAtVertex.yyxz;
-	}
+        return Bilinear<scalar_type>::create(bxdfPdfAtVertex.yyxz);
+    }
 
-	vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, scalar_type solidAngle, scalar_type cos_c, scalar_type csc_b, const vector3_type receiverNormal, bool isBSDF, const vector2_type _u)
-	{
-		vector2_type u;
-		// pre-warp according to proj solid angle approximation
-		vector4_type patch = computeBilinearPatch(receiverNormal, isBSDF);
-		Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-		u = bilinear.generate(_u);
+    vector3_type generate(const vector2_type u)
+    {
+        vector2_type u;
+        // pre-warp according to proj solid angle approximation
+        Bilinear<scalar_type> bilinear = computeBilinearPatch();
+        u = bilinear.generate(_u);
 
-		// now warp the points onto a spherical triangle
-		const vector3_type L = sphtri.generate(cos_c, csc_b, u);
-		rcpPdf = solidAngle / bilinear.backwardPdf(u);
+        // now warp the points onto a spherical triangle
+        const vector3_type L = sphtri.generate(u);
+        return L;
+    }
 
-		return L;
-	}
+    scalar_type forwardPdf(const vector2_type u)
+    {
+        const scalar_type pdf = sphtri.forwardPdf(u);
+        Bilinear<scalar_type> bilinear = computeBilinearPatch();
+        return pdf * bilinear.backwardPdf(u);
+    }
 
-	vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, const vector3_type receiverNormal, bool isBSDF, const vector2_type u)
-	{
-		const scalar_type cos_c = sphtri.tri.cos_sides[2];
-		const scalar_type csc_b = sphtri.tri.csc_sides[1];
-		const scalar_type solidAngle = sphtri.tri.solidAngle();
-		return generate(rcpPdf, solidAngle, cos_c, csc_b, receiverNormal, isBSDF, u);
-	}
+    scalar_type backwardPdf(const vector3_type L)
+    {
+        const scalar_type pdf = sphtri.backwardPdf(L);
+        const vector2_type u = sphtri.generateInverse(L);
+        Bilinear<scalar_type> bilinear = computeBilinearPatch();
+        return pdf * bilinear.backwardPdf(u);
+    }
 
-	scalar_type backwardPdf(const vector3_type receiverNormal, bool receiverWasBSDF, const vector3_type L)
-	{
-		scalar_type pdf;
-		const vector2_type u = sphtri.generateInverse(pdf, L);
-
-		vector4_type patch = computeBilinearPatch(receiverNormal, receiverWasBSDF);
-		Bilinear<scalar_type> bilinear = Bilinear<scalar_type>::create(patch);
-		return pdf * bilinear.backwardPdf(u);
-	}
-
-	sampling::SphericalTriangle<T> sphtri;
+    sampling::SphericalTriangle<T> sphtri;
+    vector3_type receiverNormal;
+    bool receiverWasBSDF;
 };
 
 } // namespace sampling

@@ -19,35 +19,57 @@ namespace sampling
 template<typename T>
 struct Linear
 {
-	using scalar_type = T;
-	using vector2_type = vector<T, 2>;
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
 
-	// BijectiveSampler concept types
-	using domain_type = scalar_type;
-	using codomain_type = scalar_type;
-	using density_type = scalar_type;
-	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
-	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
-	static Linear<T> create(const vector2_type linearCoeffs) // start and end importance values (start, end), assumed to be at x=0 and x=1
-	{
-		Linear<T> retval;
-		retval.linearCoeffStart = linearCoeffs[0];
-		retval.rcpDiff = 1.0 / (linearCoeffs[0] - linearCoeffs[1]);
-		vector2_type squaredCoeffs = linearCoeffs * linearCoeffs;
-		retval.squaredCoeffStart = squaredCoeffs[0];
-		retval.squaredCoeffDiff = squaredCoeffs[1] - squaredCoeffs[0];
-		return retval;
-	}
+    // BijectiveSampler concept types
+    using domain_type = scalar_type;
+    using codomain_type = scalar_type;
+    using density_type = scalar_type;
+    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
+    using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
 
-	scalar_type generate(const scalar_type u)
-	{
-		return hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, abs(rcpDiff) < numeric_limits<scalar_type>::max);
-	}
+    static Linear<T> create(const vector2_type linearCoeffs)   // start and end importance values (start, end), assumed to be at x=0 and x=1
+    {
+        Linear<T> retval;
+        retval.linearCoeffStart = linearCoeffs[0];
+        retval.linearCoeffDiff = linearCoeffs[1] - linearCoeffs[0];
+        retval.rcpCoeffSum = scalar_type(1.0) / (linearCoeffs[0] + linearCoeffs[1]);
+        retval.rcpDiff = -scalar_type(1.0) / retval.linearCoeffDiff;
+        vector2_type squaredCoeffs = linearCoeffs * linearCoeffs;
+        retval.squaredCoeffStart = squaredCoeffs[0];
+        retval.squaredCoeffDiff = squaredCoeffs[1] - squaredCoeffs[0];
+        return retval;
+    }
 
-	scalar_type linearCoeffStart;
-	scalar_type rcpDiff;
-	scalar_type squaredCoeffStart;
-	scalar_type squaredCoeffDiff;
+    scalar_type generate(const scalar_type u)
+    {
+        return hlsl::mix(u, (linearCoeffStart - hlsl::sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max);
+    }
+
+    scalar_type generateInverse(const scalar_type x)
+    {
+        return x * (scalar_type(2.0) * linearCoeffStart + linearCoeffDiff * x) * rcpCoeffSum;
+    }
+
+    scalar_type forwardPdf(const scalar_type u)
+    {
+        return backwardPdf(generate(u));
+    }
+
+    scalar_type backwardPdf(const scalar_type x)
+    {
+        if (x < scalar_type(0.0) || x > scalar_type(1.0))
+            return scalar_type(0.0);
+        return scalar_type(2.0) * (linearCoeffStart + x * linearCoeffDiff) * rcpCoeffSum;
+    }
+
+    scalar_type linearCoeffStart;
+    scalar_type linearCoeffDiff;
+    scalar_type rcpCoeffSum;
+    scalar_type rcpDiff;
+    scalar_type squaredCoeffStart;
+    scalar_type squaredCoeffDiff;
 };
 
 } // namespace sampling

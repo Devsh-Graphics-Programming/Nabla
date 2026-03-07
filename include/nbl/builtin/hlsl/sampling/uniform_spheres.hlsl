@@ -32,7 +32,7 @@ struct UniformHemisphere
 	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
 
-	static vector_t3 generate(const vector_t2 _sample)
+	static vector_t3 __generate(const vector_t2 _sample)
 	{
 		T z = _sample.x;
 		T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
@@ -40,9 +40,37 @@ struct UniformHemisphere
 		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
 	}
 
-	static T pdf()
+	vector_t3 generate(const vector_t2 _sample)
+	{
+		return __generate(_sample);
+	}
+
+	static vector_t2 __generateInverse(const vector_t3 _sample)
+	{
+		T phi = hlsl::atan2(_sample.y, _sample.x);
+		const T twopi = T(2.0) * numbers::pi<T>;
+		phi += hlsl::mix(T(0.0), twopi, phi < T(0.0));
+		return vector_t2(_sample.z, phi / twopi);
+	}
+
+	vector_t2 generateInverse(const vector_t3 _sample)
+	{
+		return __generateInverse(_sample);
+	}
+
+	static scalar_type __pdf()
 	{
 		return T(1.0) / (T(2.0) * numbers::pi<T>);
+	}
+
+	scalar_type forwardPdf(const vector_t2 _sample)
+	{
+		return __pdf();
+	}
+
+	scalar_type backwardPdf(const vector_t3 _sample)
+	{
+		return __pdf();
 	}
 
 	template<typename U = vector<T, 1> >
@@ -66,7 +94,7 @@ struct UniformSphere
 	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
 	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
 
-	static vector_t3 generate(const vector_t2 _sample)
+	static vector_t3 __generate(const vector_t2 _sample)
 	{
 		T z = T(1.0) - T(2.0) * _sample.x;
 		T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
@@ -74,9 +102,37 @@ struct UniformSphere
 		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
 	}
 
-	static T pdf()
+	vector_t3 generate(const vector_t2 _sample)
+	{
+		return __generate(_sample);
+	}
+
+	static vector_t2 __generateInverse(const vector_t3 _sample)
+	{
+		T phi = hlsl::atan2(_sample.y, _sample.x);
+		const T twopi = T(2.0) * numbers::pi<T>;
+		phi += hlsl::mix(T(0.0), twopi, phi < T(0.0));
+		return vector_t2((T(1.0) - _sample.z) * T(0.5), phi / twopi);
+	}
+
+	vector_t2 generateInverse(const vector_t3 _sample)
+	{
+		return __generateInverse(_sample);
+	}
+
+	static T __pdf()
 	{
 		return T(1.0) / (T(4.0) * numbers::pi<T>);
+	}
+
+	scalar_type forwardPdf(const vector_t2 _sample)
+	{
+		return __pdf();
+	}
+
+	scalar_type backwardPdf(const vector_t3 _sample)
+	{
+		return __pdf();
 	}
 
 	template<typename U = vector<T, 1> >

@@ -46,6 +46,43 @@ vector<T, 2> concentricMapping(const vector<T, 2> _u)
 	return p;
 }
 
+template<typename T>
+vector<T, 2> invertConcentricMapping(const vector<T, 2> p)
+{
+	T theta = hlsl::atan2(p.y, p.x);  // -pi -> pi
+    T r = hlsl::sqrt(p.x * p.x + p.y * p.y);
+	const T PiOver4 = T(0.25) * numbers::pi<T>;
+
+	vector<T, 2> u;
+	// TODO: should reduce branching somehow?
+	if (hlsl::abs(theta) < PiOver4 || hlsl::abs(theta) > 3 * PiOver4)
+	{
+		r = ieee754::copySign(r, p.x);
+        u.x = r;
+        if (p.x < 0) {
+            if (p.y < 0) {
+                u.y = (numbers::pi<T> + theta) * r / PiOver4;
+            } else {
+                u.y = (theta - numbers::pi<T>) * r / PiOver4;
+            }
+        } else {
+            u.y = (theta * r) / PiOver4;
+        }
+    }
+	else
+	{
+		r = ieee754::copySign(r, p.y);
+        u.y = r;
+        if (p.y < 0) {
+            u.x = -(T(0.5) * numbers::pi<T> + theta) * r / PiOver4;
+        } else {
+            u.x = (T(0.5) * numbers::pi<T> - theta) * r / PiOver4;
+        }
+    }
+
+    return (u + hlsl::promote<vector<T, 2> >(1.0)) * T(0.5);
+}
+
 } // namespace sampling
 } // namespace hlsl
 } // namespace nbl
