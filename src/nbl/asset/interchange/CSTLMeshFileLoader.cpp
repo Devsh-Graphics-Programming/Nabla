@@ -19,6 +19,7 @@
 #include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
+#include "SSTLPolygonGeometryAuxLayout.h"
 
 #include <fast_float/fast_float.h>
 #include <optional>
@@ -655,7 +656,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			auto colorView = SGeometryLoaderCommon::createAdoptedView<EF_B8G8R8A8_UNORM>(std::move(vertexColors));
 			if (!colorView)
 				return {};
-			geometry->getAuxAttributeViews()->push_back(std::move(colorView));
+			auto* const auxViews = geometry->getAuxAttributeViews();
+			auxViews->resize(SSTLPolygonGeometryAuxLayout::COLOR0 + 1u);
+			auxViews->operator[](SSTLPolygonGeometryAuxLayout::COLOR0) = std::move(colorView);
 			hasTriangleColors = true;
 		}
 	}

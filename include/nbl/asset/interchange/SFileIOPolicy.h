@@ -116,15 +116,15 @@ struct SFileIOPolicy
         return 1ull << clampBytesLog2(value, minValue);
     }
 
-    // Requested IO strategy.
+    // Requested IO strategy. Defaults to Auto.
     Strategy strategy = Strategy::Auto;
-    // Resolution flags.
+    // Resolution flags. Defaults to none.
     core::bitflag<E_FLAGS> flags = EF_NONE;
-    // Maximum payload size allowed for whole-file strategy in auto mode.
+    // Maximum payload size allowed for whole-file strategy in auto mode. Defaults to 64 MiB.
     uint8_t wholeFileThresholdLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES) - 1u);
-    // Chunk size used by chunked strategy encoded as log2(bytes).
+    // Chunk size used by chunked strategy encoded as log2(bytes). Defaults to 4 MiB.
     uint8_t chunkSizeLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_CHUNK_SIZE_BYTES) - 1u);
-    // Maximum staging allocation for whole-file strategy encoded as log2(bytes).
+    // Maximum staging allocation for whole-file strategy encoded as log2(bytes). Defaults to 256 MiB.
     uint8_t maxStagingLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_MAX_STAGING_BYTES) - 1u);
     // Runtime tuning controls used by loaders and hash stages.
     SRuntimeTuning runtimeTuning = {};

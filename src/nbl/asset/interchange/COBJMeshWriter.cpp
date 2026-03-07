@@ -5,6 +5,7 @@
 #include "nbl/asset/interchange/COBJMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "SOBJPolygonGeometryAuxLayout.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
 
@@ -270,9 +271,11 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 		const auto& normalView = geom->getNormalView();
 		const bool hasNormals = static_cast<bool>(normalView);
-		const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::findFirstAuxViewByChannelCount(geom, 2u);
-		const bool hasUVs = uvView != nullptr;
 		const size_t vertexCount = positionView.getElementCount();
+		const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, SOBJPolygonGeometryAuxLayout::UV0, vertexCount);
+		if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
+			uvView = nullptr;
+		const bool hasUVs = uvView != nullptr;
 		if (vertexCount == 0ull)
 			return false;
 		if (hasNormals && normalView.getElementCount() != vertexCount)
@@ -286,10 +289,8 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		if (indexing->knownTopology() != E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST)
 			return false;
 
-		core::vector<uint32_t> indexData;
-		const uint32_t* indices = nullptr;
 		size_t faceCount = 0ull;
-		if (!SGeometryWriterCommon::decodeTriangleIndices(geom, indexData, indices, faceCount))
+		if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
 			return false;
 
 		const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
@@ -378,12 +379,8 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			appendIndexTokenToStorage(faceIndexStorage, faceIndexRefs, positionIx, hasUVs, uvIx, hasNormals, normalIx);
 		}
 
-		for (size_t i = 0u; i < faceCount; ++i)
+		if (!SGeometryWriterCommon::visitTriangleIndices(geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2)->bool
 		{
-			const uint32_t i0 = indices[i * 3u + 0u];
-			const uint32_t i1 = indices[i * 3u + 1u];
-			const uint32_t i2 = indices[i * 3u + 2u];
-
 			const uint32_t f0 = transformState.reverseWinding ? i0 : i2;
 			const uint32_t f1 = i1;
 			const uint32_t f2 = transformState.reverseWinding ? i2 : i0;
@@ -391,7 +388,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				return false;
 
 			appendFaceLine(output, faceIndexStorage, faceIndexRefs, f0, f1, f2);
-		}
+			return true;
+		}))
+			return false;
 
 		positionBase += static_cast<uint32_t>(vertexCount);
 		if (hasUVs)

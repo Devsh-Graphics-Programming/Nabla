@@ -13,6 +13,7 @@
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
+#include "SOBJPolygonGeometryAuxLayout.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
@@ -596,7 +597,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32G32_SFLOAT>(std::move(outUVs));
             if (!view)
                 return false;
-            geometry->getAuxAttributeViews()->push_back(std::move(view));
+            auto* const auxViews = geometry->getAuxAttributeViews();
+            auxViews->resize(SOBJPolygonGeometryAuxLayout::UV0 + 1u);
+            auxViews->operator[](SOBJPolygonGeometryAuxLayout::UV0) = std::move(view);
         }
 
         if (!indices.empty())

@@ -15,6 +15,7 @@
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
+#include "SPLYPolygonGeometryAuxLayout.h"
 
 #include <fast_float/fast_float.h>
 
@@ -2006,7 +2007,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				auto view = createView(uvView.format,el.Count);
 				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
 					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
-				geometry->getAuxAttributeViews()->push_back(std::move(view));
+				auto* const auxViews = geometry->getAuxAttributeViews();
+				auxViews->resize(SPLYPolygonGeometryAuxLayout::UV0 + 1u);
+				auxViews->operator[](SPLYPolygonGeometryAuxLayout::UV0) = std::move(view);
 			}
 			//
 			for (auto& view : extraViews)

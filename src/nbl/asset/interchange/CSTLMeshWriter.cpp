@@ -8,6 +8,7 @@
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "SSTLPolygonGeometryAuxLayout.h"
 
 #include <algorithm>
 #include <array>
@@ -60,7 +61,7 @@ bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase:
 bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const uint32_t* idx, hlsl::float32_t3& outNormal);
 double stlNormalizeColorComponentToUnit(double value);
 uint16_t stlPackViscamColorFromB8G8R8A8(uint32_t color);
-const ICPUPolygonGeometry::SDataView* stlFindColorView(const ICPUPolygonGeometry* geom, size_t vertexCount);
+const ICPUPolygonGeometry::SDataView* stlGetColorView(const ICPUPolygonGeometry* geom, size_t vertexCount);
 bool stlDecodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor);
 void stlDecodeColorUnitRGBAFromB8G8R8A8(uint32_t color, double (&out)[4]);
 bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context);
@@ -363,26 +364,12 @@ uint16_t stlPackViscamColorFromB8G8R8A8(const uint32_t color)
 	return packed;
 }
 
-const ICPUPolygonGeometry::SDataView* stlFindColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
+const ICPUPolygonGeometry::SDataView* stlGetColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
 {
-	if (!geom)
+	const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, SSTLPolygonGeometryAuxLayout::COLOR0, vertexCount);
+	if (!view)
 		return nullptr;
-
-	const auto& auxViews = geom->getAuxAttributeViews();
-	const ICPUPolygonGeometry::SDataView* fallback = nullptr;
-	for (const auto& view : auxViews)
-	{
-		if (!view || view.getElementCount() != vertexCount)
-			continue;
-		const uint32_t channels = getFormatChannelCount(view.composed.format);
-		if (channels < 3u)
-			continue;
-		if (view.composed.format == EF_B8G8R8A8_UNORM)
-			return &view;
-		if (!fallback)
-			fallback = &view;
-	}
-	return fallback;
+	return getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
 }
 
 bool stlDecodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor)
@@ -429,11 +416,9 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	if (vertexCount == 0ull)
 		return false;
 
-	core::vector<uint32_t> indexData;
-	const uint32_t* indices = nullptr;
 	uint32_t facenum = 0u;
 	size_t faceCount = 0ull;
-	if (!SGeometryWriterCommon::decodeTriangleIndices(geom, indexData, indices, faceCount))
+	if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
 		return false;
 	if (faceCount > static_cast<size_t>(std::numeric_limits<uint32_t>::max()))
 		return false;
@@ -453,9 +438,10 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 
 	const auto& normalView = geom->getNormalView();
 	const bool hasNormals = static_cast<bool>(normalView);
-	const auto* const colorView = stlFindColorView(geom, vertexCount);
+	const auto* const colorView = stlGetColorView(geom, vertexCount);
 	const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(posView);
 	const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
+	const bool hasImplicitTriangleIndices = !geom->getIndexView();
 	const float handednessSign = flipHandedness ? -1.f : 1.f;
 
 	auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out)->bool
@@ -522,7 +508,7 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 		dst += stl_writer_detail::BinaryTriangleAttributeBytes;
 	};
 
-	const bool hasFastTightPath = (indices == nullptr) && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));
+	const bool hasFastTightPath = hasImplicitTriangleIndices && (tightPositions != nullptr) && (!hasNormals || (tightNormals != nullptr));
 	if (hasFastTightPath && hasNormals)
 	{
 		bool allFastNormalsNonZero = true;
@@ -674,13 +660,8 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 	}
 	else
 	{
-		for (uint32_t primIx = 0u; primIx < facenum; ++primIx)
+		if (!SGeometryWriterCommon::visitTriangleIndices(geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2)->bool
 		{
-			const uint32_t i0 = indices ? indices[primIx * 3u + 0u] : (primIx * 3u + 0u);
-			const uint32_t i1 = indices ? indices[primIx * 3u + 1u] : (primIx * 3u + 1u);
-			const uint32_t i2 = indices ? indices[primIx * 3u + 2u] : (primIx * 3u + 2u);
-			if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
-				return false;
 			uint16_t faceColor = 0u;
 			if (!computeFaceColor(i0, i1, i2, faceColor))
 				return false;
@@ -753,7 +734,9 @@ bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 				vertex2.x, vertex2.y, vertex2.z,
 				vertex3.x, vertex3.y, vertex3.z,
 				faceColor);
-		}
+			return true;
+		}))
+			return false;
 	}
 
 	const bool writeOk = SInterchangeIOCommon::writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);

@@ -14,6 +14,7 @@
 #include <charconv>
 #include <cstdio>
 #include <system_error>
+#include <type_traits>
 
 
 namespace nbl::asset
@@ -24,6 +25,7 @@ namespace impl
 template<typename Container> concept PolygonGeometryWriteItemContainer = requires(Container& c, const ICPUPolygonGeometry* geometry, const hlsl::float32_t3x4 transform, const uint32_t instanceIx, const uint32_t targetIx, const uint32_t geometryIx) { c.emplace_back(geometry, transform, instanceIx, targetIx, geometryIx); };
 
 template<typename Container>
+// Flattens a geometry collection into per-geometry write items and bakes the parent transform into each entry.
 static inline void appendPolygonGeometryWriteItemsFromCollection(Container& out, const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& parentTransform, const uint32_t instanceIx, const uint32_t targetIx)
 {
     if (!collection)
@@ -59,6 +61,7 @@ class SGeometryWriterCommon
         };
 
         template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires impl::PolygonGeometryWriteItemContainer<Container>
+        // Collects every polygon geometry a writer can serialize from a geometry, collection, or flattened scene.
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
             Container out = {};
@@ -107,27 +110,27 @@ class SGeometryWriterCommon
             return transform == hlsl::math::linalg::identity<hlsl::float32_t3x4>();
         }
 
-        static inline const ICPUPolygonGeometry::SDataView* findFirstAuxViewByChannelCount(const ICPUPolygonGeometry* geom, const uint32_t channels, const size_t requiredElementCount = 0ull)
+        // Returns the aux view stored at a specific semantic slot when it exists.
+        static inline const ICPUPolygonGeometry::SDataView* getAuxViewAt(const ICPUPolygonGeometry* geom, const uint32_t auxViewIx, const size_t requiredElementCount = 0ull)
         {
-            if (!geom || channels == 0u)
+            if (!geom)
                 return nullptr;
 
-            for (const auto& view : geom->getAuxAttributeViews())
-            {
-                if (!view)
-                    continue;
-                if (requiredElementCount && view.getElementCount() != requiredElementCount)
-                    continue;
-                if (getFormatChannelCount(view.composed.format) == channels)
-                    return &view;
-            }
+            const auto& auxViews = geom->getAuxAttributeViews();
+            if (auxViewIx >= auxViews.size())
+                return nullptr;
 
-            return nullptr;
+            const auto& view = auxViews[auxViewIx];
+            if (!view)
+                return nullptr;
+            if (requiredElementCount && view.getElementCount() != requiredElementCount)
+                return nullptr;
+            return &view;
         }
 
-        static inline bool decodeTriangleIndices(const ICPUPolygonGeometry* geom, core::vector<uint32_t>& indexData, const uint32_t*& outIndices, size_t& outFaceCount)
+        // Validates triangle-list indexing and returns the number of faces the writer will emit.
+        static inline bool getTriangleFaceCount(const ICPUPolygonGeometry* geom, size_t& outFaceCount)
         {
-            outIndices = nullptr;
             outFaceCount = 0ull;
             if (!geom)
                 return false;
@@ -143,40 +146,6 @@ class SGeometryWriterCommon
                 const size_t indexCount = indexView.getElementCount();
                 if ((indexCount % 3ull) != 0ull)
                     return false;
-
-                const void* src = indexView.getPointer();
-                if (!src)
-                    return false;
-
-                if (indexView.composed.format == EF_R32_UINT && indexView.composed.getStride() == sizeof(uint32_t))
-                {
-                    outIndices = reinterpret_cast<const uint32_t*>(src);
-                }
-                else if (indexView.composed.format == EF_R16_UINT && indexView.composed.getStride() == sizeof(uint16_t))
-                {
-                    indexData.resize(indexCount);
-                    const auto* src16 = reinterpret_cast<const uint16_t*>(src);
-                    for (size_t i = 0ull; i < indexCount; ++i)
-                        indexData[i] = src16[i];
-                    outIndices = indexData.data();
-                }
-                else
-                {
-                    indexData.resize(indexCount);
-                    hlsl::vector<uint32_t, 1> decoded = {};
-                    for (size_t i = 0ull; i < indexCount; ++i)
-                    {
-                        if (!indexView.decodeElement(i, decoded))
-                            return false;
-                        indexData[i] = decoded.x;
-                    }
-                    outIndices = indexData.data();
-                }
-
-                for (size_t i = 0ull; i < indexCount; ++i)
-                    if (outIndices[i] >= vertexCount)
-                        return false;
-
                 outFaceCount = indexCount / 3ull;
                 return true;
             }
@@ -184,12 +153,80 @@ class SGeometryWriterCommon
             if ((vertexCount % 3ull) != 0ull)
                 return false;
 
-            indexData.resize(vertexCount);
-            for (size_t i = 0ull; i < vertexCount; ++i)
-                indexData[i] = static_cast<uint32_t>(i);
-            outIndices = indexData.data();
             outFaceCount = vertexCount / 3ull;
             return true;
+        }
+
+        // Calls `visitor(i0, i1, i2)` once per triangle after validating indices and normalizing implicit/R16/R32 indexing to uint32_t.
+        template<typename Visitor>
+        static inline bool visitTriangleIndices(const ICPUPolygonGeometry* geom, Visitor&& visitor)
+        {
+            if (!geom)
+                return false;
+
+            const auto& positionView = geom->getPositionView();
+            const size_t vertexCount = positionView.getElementCount();
+            if (vertexCount == 0ull)
+                return false;
+
+            auto visit = [&]<typename IndexT>(const IndexT i0, const IndexT i1, const IndexT i2)->bool
+            {
+                const uint32_t u0 = static_cast<uint32_t>(i0);
+                const uint32_t u1 = static_cast<uint32_t>(i1);
+                const uint32_t u2 = static_cast<uint32_t>(i2);
+                if (u0 >= vertexCount || u1 >= vertexCount || u2 >= vertexCount)
+                    return false;
+
+                if constexpr (std::is_same_v<std::invoke_result_t<Visitor&, uint32_t, uint32_t, uint32_t>, bool>)
+                    return visitor(u0, u1, u2);
+                else
+                {
+                    visitor(u0, u1, u2);
+                    return true;
+                }
+            };
+
+            const auto& indexView = geom->getIndexView();
+            if (!indexView)
+            {
+                if ((vertexCount % 3ull) != 0ull)
+                    return false;
+
+                for (uint32_t i = 0u; i < vertexCount; i += 3u)
+                    if (!visit(i + 0u, i + 1u, i + 2u))
+                        return false;
+                return true;
+            }
+
+            const size_t indexCount = indexView.getElementCount();
+            if ((indexCount % 3ull) != 0ull)
+                return false;
+
+            const void* const src = indexView.getPointer();
+            if (!src)
+                return false;
+
+            switch (geom->getIndexType())
+            {
+                case EIT_32BIT:
+                {
+                    const auto* indices = reinterpret_cast<const uint32_t*>(src);
+                    for (size_t i = 0ull; i < indexCount; i += 3ull)
+                        if (!visit(indices[i + 0ull], indices[i + 1ull], indices[i + 2ull]))
+                            return false;
+                    return true;
+                }
+                case EIT_16BIT:
+                {
+                    const auto* indices = reinterpret_cast<const uint16_t*>(src);
+                    for (size_t i = 0ull; i < indexCount; i += 3ull)
+                        if (!visit(indices[i + 0ull], indices[i + 1ull], indices[i + 2ull]))
+                            return false;
+                    return true;
+                }
+                default:
+                    return false;
+            }
         }
 
         template<typename T, E_FORMAT ExpectedFormat>

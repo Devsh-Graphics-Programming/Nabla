@@ -6,6 +6,7 @@
 #include "CPLYMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
+#include "SPLYPolygonGeometryAuxLayout.h"
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 
@@ -425,7 +426,6 @@ struct SWriteInput
     bool writeNormals = false;
     EPlyScalarType normalScalarType = EPlyScalarType::Float32;
     size_t vertexCount = 0ull;
-    const uint32_t* indices = nullptr;
     size_t faceCount = 0ull;
     bool write16BitIndices = false;
     bool flipVectors = false;
@@ -496,7 +496,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         return false;
     }
 
-    const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::findFirstAuxViewByChannelCount(geom, 2u, vertexCount);
+    const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, SPLYPolygonGeometryAuxLayout::UV0, vertexCount);
+    if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
+        uvView = nullptr;
 
     core::vector<SExtraAuxView> extraAuxViews;
     const auto& auxViews = geom->getAuxAttributeViews();
@@ -504,7 +506,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     for (uint32_t auxIx = 0u; auxIx < static_cast<uint32_t>(auxViews.size()); ++auxIx)
     {
         const auto& view = auxViews[auxIx];
-        if (!view || (&view == uvView))
+        if (!view || (uvView && auxIx == SPLYPolygonGeometryAuxLayout::UV0))
             continue;
         if (view.getElementCount() != vertexCount)
             continue;
@@ -528,12 +530,10 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         return false;
     }
 
-    core::vector<uint32_t> indexData;
-    const uint32_t* indices = nullptr;
     size_t faceCount = 0ull;
-    if (!SGeometryWriterCommon::decodeTriangleIndices(geom, indexData, indices, faceCount))
+    if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
     {
-        _params.logger.log("PLY writer: failed to decode triangle indices.", system::ILogger::ELL_ERROR);
+        _params.logger.log("PLY writer: failed to validate triangle indexing.", system::ILogger::ELL_ERROR);
         return false;
     }
 
@@ -607,7 +607,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         .writeNormals = writeNormals,
         .normalScalarType = normalScalarType,
         .vertexCount = vertexCount,
-        .indices = indices,
         .faceCount = faceCount,
         .write16BitIndices = write16BitIndices,
         .flipVectors = flipVectors
@@ -741,7 +740,7 @@ bool ply_writer_detail::writeBinary(
     const SWriteInput& input,
     uint8_t* dst)
 {
-    if (!input.geom || !input.extraAuxViews || !input.indices || !dst)
+    if (!input.geom || !input.extraAuxViews || !dst)
         return false;
 
     const auto& positionView = input.geom->getPositionView();
@@ -766,37 +765,36 @@ bool ply_writer_detail::writeBinary(
         }
     }
 
-    for (size_t i = 0; i < input.faceCount; ++i)
+    return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2)->bool
     {
         const uint8_t listSize = 3u;
         *dst++ = listSize;
 
-        const uint32_t* tri = input.indices + (i * 3u);
         if (input.write16BitIndices)
         {
             const uint16_t tri16[3] = {
-                static_cast<uint16_t>(tri[0]),
-                static_cast<uint16_t>(tri[1]),
-                static_cast<uint16_t>(tri[2])
+                static_cast<uint16_t>(i0),
+                static_cast<uint16_t>(i1),
+                static_cast<uint16_t>(i2)
             };
             std::memcpy(dst, tri16, sizeof(tri16));
             dst += sizeof(tri16);
         }
         else
         {
-            std::memcpy(dst, tri, sizeof(uint32_t) * 3u);
-            dst += sizeof(uint32_t) * 3u;
+            const uint32_t tri[3] = { i0, i1, i2 };
+            std::memcpy(dst, tri, sizeof(tri));
+            dst += sizeof(tri);
         }
-    }
-
-    return true;
+        return true;
+    });
 }
 
 bool ply_writer_detail::writeText(
     const SWriteInput& input,
     std::string& output)
 {
-    if (!input.geom || !input.extraAuxViews || !input.indices)
+    if (!input.geom || !input.extraAuxViews)
         return false;
 
     const auto& positionView = input.geom->getPositionView();
@@ -829,18 +827,16 @@ bool ply_writer_detail::writeText(
         output += "\n";
     }
 
-    for (size_t i = 0; i < input.faceCount; ++i)
+    return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2)
     {
-        const uint32_t* tri = input.indices + (i * 3u);
         output.append("3 ");
-        appendUInt(output, tri[0]);
+        appendUInt(output, i0);
         output.push_back(' ');
-        appendUInt(output, tri[1]);
+        appendUInt(output, i1);
         output.push_back(' ');
-        appendUInt(output, tri[2]);
+        appendUInt(output, i2);
         output.push_back('\n');
-    }
-    return true;
+    });
 }
 
 } // namespace nbl::asset

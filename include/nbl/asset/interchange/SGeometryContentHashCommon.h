@@ -16,7 +16,7 @@ namespace nbl::asset
 class SPolygonGeometryContentHash
 {
     public:
-        using EMode = CPolygonGeometryManipulator::EContentHashMode;
+        using mode_t = CPolygonGeometryManipulator::EContentHashMode;
 
         static inline void collectBuffers(
             const ICPUPolygonGeometry* geometry,
