@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_S_BUFFER_ADOPTION_COMMON_H_INCLUDED_
-#define _NBL_ASSET_S_BUFFER_ADOPTION_COMMON_H_INCLUDED_
+#ifndef _NBL_ASSET_S_BUFFER_ADOPTION_H_INCLUDED_
+#define _NBL_ASSET_S_BUFFER_ADOPTION_H_INCLUDED_
 
 
 #include <concepts>
@@ -33,11 +33,11 @@ concept AdoptedBufferStorage =
 
 }
 
-class SBufferAdoptionCommon
+class SBufferAdoption
 {
     public:
         template<impl::AdoptedBufferStorage Storage>
-        static inline core::smart_refctd_ptr<ICPUBuffer> createAdoptedBuffer(Storage&& data)
+        static inline core::smart_refctd_ptr<ICPUBuffer> create(Storage&& data)
         {
             using storage_t = std::remove_cvref_t<Storage>;
             using value_t = std::ranges::range_value_t<storage_t>;

@@ -19,24 +19,38 @@
 
 namespace nbl::asset
 {
-
-namespace impl
-{
-template<typename Container> concept PolygonGeometryWriteItemContainer = requires(Container& c, const ICPUPolygonGeometry* geometry, const hlsl::float32_t3x4 transform, const uint32_t instanceIx, const uint32_t targetIx, const uint32_t geometryIx) { c.emplace_back(geometry, transform, instanceIx, targetIx, geometryIx); };
-}
-
 class SGeometryWriterCommon
 {
-        template<typename Container>
-        struct SPolygonGeometryWriteItemCollector
+        struct SWriteState
         {
-            static inline void appendFromCollection(Container& out, const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& parentTransform, const uint32_t instanceIx, const uint32_t targetIx)
+            hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
+            uint32_t instanceIx = ~0u;
+            uint32_t targetIx = ~0u;
+            uint32_t geometryIx = 0u;
+        };
+
+    public:
+        struct SWriteParams : SWriteState
+        {
+            const ICPUPolygonGeometry* geometry = nullptr;
+        };
+
+    private:
+        struct SCollectionParams : SWriteState
+        {
+            const ICPUGeometryCollection* collection = nullptr;
+        };
+
+        template<typename Container>
+        struct SWriteCollector
+        {
+            static inline void appendFromCollection(Container& out, const SCollectionParams& params)
             {
-                if (!collection)
+                if (!params.collection)
                     return;
 
                 const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
-                const auto& geometries = collection->getGeometries();
+                const auto& geometries = params.collection->getGeometries();
                 for (uint32_t geometryIx = 0u; geometryIx < geometries.size(); ++geometryIx)
                 {
                     const auto& ref = geometries[geometryIx];
@@ -44,7 +58,13 @@ class SGeometryWriterCommon
                         continue;
                     const auto* geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
                     const auto localTransform = ref.hasTransform() ? ref.transform : identity;
-                    out.emplace_back(geometry, hlsl::math::linalg::promoted_mul(parentTransform, localTransform), instanceIx, targetIx, geometryIx);
+                    SWriteParams itemParams = {};
+                    itemParams.geometry = geometry;
+                    itemParams.transform = hlsl::math::linalg::promoted_mul(params.transform, localTransform);
+                    itemParams.instanceIx = params.instanceIx;
+                    itemParams.targetIx = params.targetIx;
+                    itemParams.geometryIx = geometryIx;
+                    out.emplace_back(itemParams);
                 }
             }
         };
@@ -52,7 +72,7 @@ class SGeometryWriterCommon
     public:
         struct SPolygonGeometryWriteItem
         {
-            inline SPolygonGeometryWriteItem(const ICPUPolygonGeometry* _geometry, const hlsl::float32_t3x4& _transform, const uint32_t _instanceIx, const uint32_t _targetIx, const uint32_t _geometryIx) : geometry(_geometry), transform(_transform), instanceIx(_instanceIx), targetIx(_targetIx), geometryIx(_geometryIx) {}
+            inline SPolygonGeometryWriteItem(const SWriteParams& params) : geometry(params.geometry), transform(params.transform), instanceIx(params.instanceIx), targetIx(params.targetIx), geometryIx(params.geometryIx) {}
 
             const ICPUPolygonGeometry* geometry = nullptr;
             hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
@@ -62,7 +82,7 @@ class SGeometryWriterCommon
         };
 
         // Collects every polygon geometry a writer can serialize from a geometry, collection, or flattened scene.
-        template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires impl::PolygonGeometryWriteItemContainer<Container>
+        template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires requires(Container& c, const SWriteParams& params) { c.emplace_back(params); }
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
             Container out = {};
@@ -74,13 +94,19 @@ class SGeometryWriterCommon
             {
                 const auto* geometry = static_cast<const IGeometry<ICPUBuffer>*>(rootAsset);
                 if (geometry->getPrimitiveType() == IGeometryBase::EPrimitiveType::Polygon)
-                    out.emplace_back(static_cast<const ICPUPolygonGeometry*>(rootAsset), identity, ~0u, ~0u, 0u);
+                {
+                    SWriteParams itemParams = {};
+                    itemParams.geometry = static_cast<const ICPUPolygonGeometry*>(rootAsset);
+                    out.emplace_back(itemParams);
+                }
                 return out;
             }
 
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY_COLLECTION)
             {
-                SPolygonGeometryWriteItemCollector<Container>::appendFromCollection(out, static_cast<const ICPUGeometryCollection*>(rootAsset), identity, ~0u, ~0u);
+                SCollectionParams appendParams = {};
+                appendParams.collection = static_cast<const ICPUGeometryCollection*>(rootAsset);
+                SWriteCollector<Container>::appendFromCollection(out, appendParams);
                 return out;
             }
 
@@ -100,7 +126,14 @@ class SGeometryWriterCommon
                 const auto instanceTransform = initialTransforms.empty() ? identity : initialTransforms[instanceIx];
                 const auto& targetList = targets->getTargets();
                 for (uint32_t targetIx = 0u; targetIx < targetList.size(); ++targetIx)
-                    SPolygonGeometryWriteItemCollector<Container>::appendFromCollection(out, targetList[targetIx].geoCollection.get(), instanceTransform, instanceIx, targetIx);
+                {
+                    SCollectionParams appendParams = {};
+                    appendParams.collection = targetList[targetIx].geoCollection.get();
+                    appendParams.transform = instanceTransform;
+                    appendParams.instanceIx = instanceIx;
+                    appendParams.targetIx = targetIx;
+                    SWriteCollector<Container>::appendFromCollection(out, appendParams);
+                }
             }
 
             return out;

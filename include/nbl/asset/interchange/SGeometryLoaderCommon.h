@@ -8,7 +8,7 @@
 #include <ranges>
 #include <type_traits>
 
-#include "nbl/asset/SBufferAdoptionCommon.h"
+#include "nbl/asset/SBufferAdoption.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 
 
@@ -43,7 +43,7 @@ class SGeometryLoaderCommon
             using storage_t = std::remove_cvref_t<Storage>;
             using value_t = std::ranges::range_value_t<storage_t>;
 
-            auto buffer = SBufferAdoptionCommon::createAdoptedBuffer(std::forward<Storage>(data));
+            auto buffer = SBufferAdoption::create(std::forward<Storage>(data));
             if (!buffer)
                 return {};
             const size_t byteCount = buffer->getSize();
