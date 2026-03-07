@@ -72,7 +72,7 @@ inline bool parseObjFloat(const char*& ptr, const char* const end, float& out)
 
 bool readTextFileWithPolicy(system::IFile* file, char* dst, size_t byteCount, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry& ioTelemetry)
 {
-    return SInterchangeIOCommon::readFileWithPolicyTimed(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, nullptr, &ioTelemetry);
+    return SInterchangeIOCommon::readFileWithPolicy(file, reinterpret_cast<uint8_t*>(dst), 0ull, byteCount, ioPlan, &ioTelemetry);
 }
 
 inline bool parseUnsignedObjIndex(const char*& ptr, const char* const end, uint32_t& out)

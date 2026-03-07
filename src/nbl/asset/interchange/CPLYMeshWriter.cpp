@@ -642,14 +642,12 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         }
 
         outputBytes = outputSize;
-        writeOk = SInterchangeIOCommon::writeTwoBuffersWithPolicy(
-            file,
-            ioPlan,
-            reinterpret_cast<const uint8_t*>(header.data()),
-            header.size(),
-            body.data(),
-            body.size(),
-            &ioTelemetry);
+        const SInterchangeIOCommon::SBufferRange writeBuffers[] =
+        {
+            { .data = reinterpret_cast<const uint8_t*>(header.data()), .byteCount = header.size() },
+            { .data = body.data(), .byteCount = body.size() }
+        };
+        writeOk = SInterchangeIOCommon::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
         const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
         const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
         if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
@@ -698,14 +696,12 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     }
 
     outputBytes = outputSize;
-    writeOk = SInterchangeIOCommon::writeTwoBuffersWithPolicy(
-        file,
-        ioPlan,
-        reinterpret_cast<const uint8_t*>(header.data()),
-        header.size(),
-        reinterpret_cast<const uint8_t*>(body.data()),
-        body.size(),
-        &ioTelemetry);
+    const SInterchangeIOCommon::SBufferRange writeBuffers[] =
+    {
+        { .data = reinterpret_cast<const uint8_t*>(header.data()), .byteCount = header.size() },
+        { .data = reinterpret_cast<const uint8_t*>(body.data()), .byteCount = body.size() }
+    };
+    writeOk = SInterchangeIOCommon::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
     const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
     const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
     if (SInterchangeIOCommon::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))

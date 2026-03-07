@@ -40,7 +40,7 @@ class SGeometryWriterCommon
             const ICPUGeometryCollection* collection = nullptr;
         };
 
-        template<typename Container>
+        template<typename Container> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         struct SWriteCollector
         {
             static inline void appendFromCollection(Container& out, const SGeometryCollectionWriteParams& params)
