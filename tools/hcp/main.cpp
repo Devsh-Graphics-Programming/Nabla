@@ -7,7 +7,7 @@
 #include "nbl/system/CStdoutLogger.h"
 
 #include "nbl/asset/interchange/SFileIOPolicy.h"
-#include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/core/hash/blake.h"
 #include "argparse/argparse.hpp"
 

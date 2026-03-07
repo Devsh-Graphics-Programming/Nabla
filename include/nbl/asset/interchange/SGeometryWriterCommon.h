@@ -21,6 +21,7 @@ namespace nbl::asset
 {
 class SGeometryWriterCommon
 {
+    public:
         struct SWriteState
         {
             hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
@@ -29,14 +30,12 @@ class SGeometryWriterCommon
             uint32_t geometryIx = 0u;
         };
 
-    public:
-        struct SWriteParams : SWriteState
+        struct SPolygonGeometryWriteItem : SWriteState
         {
             const ICPUPolygonGeometry* geometry = nullptr;
         };
 
-    private:
-        struct SCollectionParams : SWriteState
+        struct SGeometryCollectionWriteParams : SWriteState
         {
             const ICPUGeometryCollection* collection = nullptr;
         };
@@ -44,7 +43,7 @@ class SGeometryWriterCommon
         template<typename Container>
         struct SWriteCollector
         {
-            static inline void appendFromCollection(Container& out, const SCollectionParams& params)
+            static inline void appendFromCollection(Container& out, const SGeometryCollectionWriteParams& params)
             {
                 if (!params.collection)
                     return;
@@ -58,31 +57,19 @@ class SGeometryWriterCommon
                         continue;
                     const auto* geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
                     const auto localTransform = ref.hasTransform() ? ref.transform : identity;
-                    SWriteParams itemParams = {};
-                    itemParams.geometry = geometry;
-                    itemParams.transform = hlsl::math::linalg::promoted_mul(params.transform, localTransform);
-                    itemParams.instanceIx = params.instanceIx;
-                    itemParams.targetIx = params.targetIx;
-                    itemParams.geometryIx = geometryIx;
-                    out.emplace_back(itemParams);
+                    SPolygonGeometryWriteItem item = {};
+                    item.geometry = geometry;
+                    item.transform = hlsl::math::linalg::promoted_mul(params.transform, localTransform);
+                    item.instanceIx = params.instanceIx;
+                    item.targetIx = params.targetIx;
+                    item.geometryIx = geometryIx;
+                    out.emplace_back(item);
                 }
             }
         };
 
-    public:
-        struct SPolygonGeometryWriteItem
-        {
-            inline SPolygonGeometryWriteItem(const SWriteParams& params) : geometry(params.geometry), transform(params.transform), instanceIx(params.instanceIx), targetIx(params.targetIx), geometryIx(params.geometryIx) {}
-
-            const ICPUPolygonGeometry* geometry = nullptr;
-            hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
-            uint32_t instanceIx = ~0u;
-            uint32_t targetIx = ~0u;
-            uint32_t geometryIx = 0u;
-        };
-
         // Collects every polygon geometry a writer can serialize from a geometry, collection, or flattened scene.
-        template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires requires(Container& c, const SWriteParams& params) { c.emplace_back(params); }
+        template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
             Container out = {};
@@ -95,16 +82,16 @@ class SGeometryWriterCommon
                 const auto* geometry = static_cast<const IGeometry<ICPUBuffer>*>(rootAsset);
                 if (geometry->getPrimitiveType() == IGeometryBase::EPrimitiveType::Polygon)
                 {
-                    SWriteParams itemParams = {};
-                    itemParams.geometry = static_cast<const ICPUPolygonGeometry*>(rootAsset);
-                    out.emplace_back(itemParams);
+                    SPolygonGeometryWriteItem item = {};
+                    item.geometry = static_cast<const ICPUPolygonGeometry*>(rootAsset);
+                    out.emplace_back(item);
                 }
                 return out;
             }
 
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY_COLLECTION)
             {
-                SCollectionParams appendParams = {};
+                SGeometryCollectionWriteParams appendParams = {};
                 appendParams.collection = static_cast<const ICPUGeometryCollection*>(rootAsset);
                 SWriteCollector<Container>::appendFromCollection(out, appendParams);
                 return out;
@@ -127,7 +114,7 @@ class SGeometryWriterCommon
                 const auto& targetList = targets->getTargets();
                 for (uint32_t targetIx = 0u; targetIx < targetList.size(); ++targetIx)
                 {
-                    SCollectionParams appendParams = {};
+                    SGeometryCollectionWriteParams appendParams = {};
                     appendParams.collection = targetList[targetIx].geoCollection.get();
                     appendParams.transform = instanceTransform;
                     appendParams.instanceIx = instanceIx;

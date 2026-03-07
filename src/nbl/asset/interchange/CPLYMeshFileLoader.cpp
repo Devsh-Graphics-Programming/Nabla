@@ -5,7 +5,7 @@
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include "CPLYMeshFileLoader.h"
-#include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"

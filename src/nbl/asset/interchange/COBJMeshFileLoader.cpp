@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
-#include "nbl/asset/interchange/SGeometryContentHashCommon.h"
+#include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SInterchangeIOCommon.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
