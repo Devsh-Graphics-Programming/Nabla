@@ -19,6 +19,7 @@
 namespace nbl::asset
 {
 
+// Input describing one loader or hash stage that needs worker and chunk sizing.
 struct SLoaderRuntimeTuningRequest
 {
     // Total input bytes for the tuned stage.
@@ -51,6 +52,7 @@ struct SLoaderRuntimeTuningRequest
     uint64_t sampleMinWorkUnits = 0ull;
 };
 
+// Final worker and chunk layout selected for one stage.
 struct SLoaderRuntimeTuningResult
 {
     // Selected worker count for the stage.
@@ -61,6 +63,7 @@ struct SLoaderRuntimeTuningResult
     size_t chunkCount = 1ull;
 };
 
+// Stateless runtime tuner used by loaders and hash stages to size worker pools and chunking.
 struct SLoaderRuntimeTuner
 {
     private:

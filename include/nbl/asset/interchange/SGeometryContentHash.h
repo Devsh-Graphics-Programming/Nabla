@@ -13,6 +13,7 @@
 namespace nbl::asset
 {
 
+// Polygon-geometry content-hash helper built on top of CPolygonGeometryManipulator buffer hashing.
 class SPolygonGeometryContentHash
 {
     public:

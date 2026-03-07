@@ -33,6 +33,7 @@ concept AdoptedBufferStorage =
 
 }
 
+// Generic CPU-buffer adoption helper for owning contiguous storage such as std::vector or core::vector.
 class SBufferAdoption
 {
     public:

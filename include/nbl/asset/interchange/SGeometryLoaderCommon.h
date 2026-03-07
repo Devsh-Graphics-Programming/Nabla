@@ -15,6 +15,7 @@
 namespace nbl::asset
 {
 
+// Loader-side helpers for building polygon-geometry data views backed by adopted CPU buffers.
 class SGeometryLoaderCommon
 {
     public:

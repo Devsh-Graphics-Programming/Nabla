@@ -11,6 +11,7 @@
 namespace nbl::asset
 {
 
+// Shared normal helpers used by loaders and geometry utilities for simple face-normal generation.
 class SGeometryNormalCommon
 {
     public:

@@ -7,6 +7,7 @@
 namespace nbl::asset
 {
 
+// Private PLY loader/writer contract for reserved aux slots stored in ICPUPolygonGeometry.
 class SPLYPolygonGeometryAuxLayout
 {
     public:

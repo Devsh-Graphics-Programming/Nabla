@@ -7,6 +7,7 @@
 namespace nbl::asset
 {
 
+// Private STL loader/writer contract for aux slots stored in ICPUPolygonGeometry.
 class SSTLPolygonGeometryAuxLayout
 {
     public:

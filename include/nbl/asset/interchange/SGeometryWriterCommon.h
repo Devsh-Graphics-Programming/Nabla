@@ -19,9 +19,11 @@
 
 namespace nbl::asset
 {
+// Writer-side helpers for flattening scene inputs and serializing polygon geometry views safely.
 class SGeometryWriterCommon
 {
     public:
+        // Shared write context propagated while flattening geometry collections and scenes.
         struct SWriteState
         {
             hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
@@ -30,17 +32,20 @@ class SGeometryWriterCommon
             uint32_t geometryIx = 0u;
         };
 
+        // One polygon geometry scheduled for writing together with the transform and scene indices that produced it.
         struct SPolygonGeometryWriteItem : SWriteState
         {
             const ICPUPolygonGeometry* geometry = nullptr;
         };
 
+        // Parameters used when expanding one geometry collection into polygon write items.
         struct SGeometryCollectionWriteParams : SWriteState
         {
             const ICPUGeometryCollection* collection = nullptr;
         };
 
         template<typename Container> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
+        // Collector used by collectPolygonGeometryWriteItems to flatten one collection into a caller-provided container.
         struct SWriteCollector
         {
             static inline void appendFromCollection(Container& out, const SGeometryCollectionWriteParams& params)

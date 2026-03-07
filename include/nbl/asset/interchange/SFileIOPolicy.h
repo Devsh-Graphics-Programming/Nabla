@@ -30,8 +30,10 @@ enum class EFileIOStrategy : uint8_t
     Chunked
 };
 
+// Requested IO policy shared by loaders, writers, and hash stages before file constraints are resolved.
 struct SFileIOPolicy
 {
+    // Runtime tuning knobs shared by loader parallelism and IO anomaly diagnostics.
     struct SRuntimeTuning
     {
         // Runtime tuning strategy for worker/chunk selection.
@@ -150,6 +152,7 @@ struct SFileIOPolicy
     }
 };
 
+// Resolved IO plan chosen from SFileIOPolicy after considering file size, mapping, and staging limits.
 struct SResolvedFileIOPolicy
 {
     using Strategy = EFileIOStrategy;

@@ -7,6 +7,7 @@
 namespace nbl::asset
 {
 
+// Private OBJ loader/writer contract for aux slots stored in ICPUPolygonGeometry.
 class SOBJPolygonGeometryAuxLayout
 {
     public:

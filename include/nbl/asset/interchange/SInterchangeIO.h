@@ -20,6 +20,7 @@
 namespace nbl::asset
 {
 
+// Shared read/write helpers that execute a resolved IO plan and collect simple telemetry.
 class SInterchangeIO
 {
     public:
