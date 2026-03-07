@@ -835,23 +835,17 @@ bool writeFaceText(
 	std::array<char, stl_writer_detail::AsciiFaceTextMaxBytes> faceText = {};
 	char* cursor = faceText.data();
 	char* const end = faceText.data() + faceText.size();
+	auto appendVertex = [&](const hlsl::float32_t3& vertex) -> bool
+	{
+		return appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull) && appendVectorAsAsciiLine(cursor, end, vertex);
+	};
 	if (!appendLiteral(cursor, end, "facet normal ", sizeof("facet normal ") - 1ull))
 		return false;
 	if (!appendVectorAsAsciiLine(cursor, end, normal))
 		return false;
 	if (!appendLiteral(cursor, end, "  outer loop\n", sizeof("  outer loop\n") - 1ull))
 		return false;
-	if (!appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull))
-		return false;
-	if (!appendVectorAsAsciiLine(cursor, end, vertex1))
-		return false;
-	if (!appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull))
-		return false;
-	if (!appendVectorAsAsciiLine(cursor, end, vertex2))
-		return false;
-	if (!appendLiteral(cursor, end, "    vertex ", sizeof("    vertex ") - 1ull))
-		return false;
-	if (!appendVectorAsAsciiLine(cursor, end, vertex3))
+	if (!appendVertex(vertex1) || !appendVertex(vertex2) || !appendVertex(vertex3))
 		return false;
 	if (!appendLiteral(cursor, end, "  endloop\n", sizeof("  endloop\n") - 1ull))
 		return false;

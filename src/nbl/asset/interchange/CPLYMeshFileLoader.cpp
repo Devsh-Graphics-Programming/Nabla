@@ -668,6 +668,25 @@ struct SContext
 			std::memcpy(&value, &bits, sizeof(value));
 			return value;
 		};
+		auto decodeFloat3 = [&](const uint8_t* src)->hlsl::float32_t3
+		{
+			return hlsl::float32_t3(
+				decodeF32(src + 0ull * floatBytes),
+				decodeF32(src + 1ull * floatBytes),
+				decodeF32(src + 2ull * floatBytes)
+			);
+		};
+		auto storeFloat3 = [](uint8_t* dst, const hlsl::float32_t3& value) -> void
+		{
+			reinterpret_cast<float*>(dst)[0] = value.x;
+			reinterpret_cast<float*>(dst)[1] = value.y;
+			reinterpret_cast<float*>(dst)[2] = value.z;
+		};
+		auto storeFloat2 = [](uint8_t* dst, const hlsl::float32_t2& value) -> void
+		{
+			reinterpret_cast<float*>(dst)[0] = value.x;
+			reinterpret_cast<float*>(dst)[1] = value.y;
+		};
 
 		size_t remainingVertices = el.Count;
 		while (remainingVertices > 0ull)
@@ -695,14 +714,10 @@ struct SContext
 					{
 						for (size_t v = 0ull; v < batchVertices; ++v)
 						{
-							const float x = decodeF32(src + 0ull * floatBytes);
-							const float y = decodeF32(src + 1ull * floatBytes);
-							const float z = decodeF32(src + 2ull * floatBytes);
-							reinterpret_cast<float*>(posBase)[0] = x;
-							reinterpret_cast<float*>(posBase)[1] = y;
-							reinterpret_cast<float*>(posBase)[2] = z;
+							const hlsl::float32_t3 position = decodeFloat3(src);
+							storeFloat3(posBase, position);
 							if (trackAABB)
-								hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
+								hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
 							src += 3ull * floatBytes;
 							posBase += posStride;
 						}
@@ -713,19 +728,13 @@ struct SContext
 				{
 					for (size_t v = 0ull; v < batchVertices; ++v)
 					{
-						const float x = decodeF32(src + 0ull * floatBytes);
-						const float y = decodeF32(src + 1ull * floatBytes);
-						const float z = decodeF32(src + 2ull * floatBytes);
-						reinterpret_cast<float*>(posBase)[0] = x;
-						reinterpret_cast<float*>(posBase)[1] = y;
-						reinterpret_cast<float*>(posBase)[2] = z;
+						const hlsl::float32_t3 position = decodeFloat3(src);
+						storeFloat3(posBase, position);
 						if (trackAABB)
-							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
+							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
 						src += 3ull * floatBytes;
 						posBase += posStride;
-						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
-						reinterpret_cast<float*>(normalBase)[1] = decodeF32(src + 1ull * floatBytes);
-						reinterpret_cast<float*>(normalBase)[2] = decodeF32(src + 2ull * floatBytes);
+						storeFloat3(normalBase, decodeFloat3(src));
 						src += 3ull * floatBytes;
 						normalBase += normalStride;
 					}
@@ -735,23 +744,16 @@ struct SContext
 				{
 					for (size_t v = 0ull; v < batchVertices; ++v)
 					{
-						const float x = decodeF32(src + 0ull * floatBytes);
-						const float y = decodeF32(src + 1ull * floatBytes);
-						const float z = decodeF32(src + 2ull * floatBytes);
-						reinterpret_cast<float*>(posBase)[0] = x;
-						reinterpret_cast<float*>(posBase)[1] = y;
-						reinterpret_cast<float*>(posBase)[2] = z;
+						const hlsl::float32_t3 position = decodeFloat3(src);
+						storeFloat3(posBase, position);
 						if (trackAABB)
-							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
+							hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
 						src += 3ull * floatBytes;
 						posBase += posStride;
-						reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
-						reinterpret_cast<float*>(normalBase)[1] = decodeF32(src + 1ull * floatBytes);
-						reinterpret_cast<float*>(normalBase)[2] = decodeF32(src + 2ull * floatBytes);
+						storeFloat3(normalBase, decodeFloat3(src));
 						src += 3ull * floatBytes;
 						normalBase += normalStride;
-						reinterpret_cast<float*>(uvBase)[0] = decodeF32(src + 0ull * floatBytes);
-						reinterpret_cast<float*>(uvBase)[1] = decodeF32(src + 1ull * floatBytes);
+						storeFloat2(uvBase, hlsl::float32_t2(decodeF32(src + 0ull * floatBytes), decodeF32(src + 1ull * floatBytes)));
 						src += 2ull * floatBytes;
 						uvBase += uvStride;
 					}

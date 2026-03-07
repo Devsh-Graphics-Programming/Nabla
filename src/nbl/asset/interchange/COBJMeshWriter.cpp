@@ -5,6 +5,8 @@
 #include "nbl/asset/interchange/COBJMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
+#include "nbl/builtin/hlsl/array_accessors.hlsl"
+#include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 #include "SOBJPolygonGeometryAuxLayout.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
@@ -71,47 +73,26 @@ bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hls
 	return view.decodeElement(ix, out);
 }
 
-void appendVec3Line(std::string& out, const char* prefix, const size_t prefixSize, const hlsl::float32_t3& v)
+template<typename Vec>
+void appendVecLine(std::string& out, const char* prefix, const size_t prefixSize, const Vec& values)
 {
+    constexpr size_t N = hlsl::vector_traits<Vec>::Dimension;
 	const size_t oldSize = out.size();
-	out.resize(oldSize + prefixSize + (3ull * MaxFloatTextChars) + 3ull);
+	out.resize(oldSize + prefixSize + (N * MaxFloatTextChars) + N);
 	char* const lineBegin = out.data() + oldSize;
 	char* cursor = lineBegin;
 	char* const lineEnd = out.data() + out.size();
+    hlsl::array_get<Vec, float> getter;
 
 	std::memcpy(cursor, prefix, prefixSize);
 	cursor += prefixSize;
 
-	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.x);
-	if (cursor < lineEnd)
-		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.y);
-	if (cursor < lineEnd)
-		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.z);
-	if (cursor < lineEnd)
-		*(cursor++) = '\n';
-
-	out.resize(oldSize + static_cast<size_t>(cursor - lineBegin));
-}
-
-void appendVec2Line(std::string& out, const char* prefix, const size_t prefixSize, const hlsl::float32_t2& v)
-{
-	const size_t oldSize = out.size();
-	out.resize(oldSize + prefixSize + (2ull * MaxFloatTextChars) + 2ull);
-	char* const lineBegin = out.data() + oldSize;
-	char* cursor = lineBegin;
-	char* const lineEnd = out.data() + out.size();
-
-	std::memcpy(cursor, prefix, prefixSize);
-	cursor += prefixSize;
-
-	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.x);
-	if (cursor < lineEnd)
-		*(cursor++) = ' ';
-	cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, v.y);
-	if (cursor < lineEnd)
-		*(cursor++) = '\n';
+	for (size_t i = 0ull; i < N; ++i)
+	{
+		cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, getter(values, static_cast<uint32_t>(i)));
+		if (cursor < lineEnd)
+			*(cursor++) = (i + 1ull < N) ? ' ' : '\n';
+	}
 
 	out.resize(oldSize + static_cast<size_t>(cursor - lineBegin));
 }
@@ -321,7 +302,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			if (flipHandedness)
 				vertex.x = -vertex.x;
 
-			appendVec3Line(output, "v ", sizeof("v ") - 1ull, vertex);
+			appendVecLine<hlsl::float32_t3>(output, "v ", sizeof("v ") - 1ull, vertex);
 		}
 
 		if (hasUVs)
@@ -340,7 +321,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 					uv = hlsl::float32_t2(static_cast<float>(tmp.x), 1.f - static_cast<float>(tmp.y));
 				}
 
-				appendVec2Line(output, "vt ", sizeof("vt ") - 1ull, uv);
+				appendVecLine<hlsl::float32_t2>(output, "vt ", sizeof("vt ") - 1ull, uv);
 			}
 		}
 
@@ -363,7 +344,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				if (flipHandedness)
 					normal.x = -normal.x;
 
-				appendVec3Line(output, "vn ", sizeof("vn ") - 1ull, normal);
+				appendVecLine<hlsl::float32_t3>(output, "vn ", sizeof("vn ") - 1ull, normal);
 			}
 		}
 

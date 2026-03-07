@@ -48,9 +48,6 @@ struct ObjVertexDedupNode
 using Float3 = hlsl::float32_t3;
 using Float2 = hlsl::float32_t2;
 
-static_assert(sizeof(Float3) == sizeof(float) * 3ull);
-static_assert(sizeof(Float2) == sizeof(float) * 2ull);
-
 inline bool isObjInlineWhitespace(const char c)
 {
     return c == ' ' || c == '\t' || c == '\v' || c == '\f';
@@ -688,59 +685,59 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         return ix;
     };
 
-    auto acquireCornerIndex = [&](const int32_t* idx, const uint32_t smoothingGroup, uint32_t& outIx)->bool
+    auto findCornerIndex = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, const uint32_t dedupSmoothingGroup, uint32_t& outIx)->bool
     {
-        if (!idx)
-            return false;
-
-        const int32_t posIx = idx[0];
         if (posIx < 0 || static_cast<size_t>(posIx) >= positions.size())
             return false;
-        const uint32_t dedupSmoothingGroup = (idx[2] >= 0) ? 0u : smoothingGroup;
         if (static_cast<size_t>(posIx) >= dedupHeadByPos.size())
             dedupHeadByPos.resize(positions.size(), -1);
 
-        int32_t nodeIx = dedupHeadByPos[posIx];
+        int32_t nodeIx = dedupHeadByPos[static_cast<size_t>(posIx)];
         while (nodeIx >= 0)
         {
             const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
-            if (node.uv == idx[1] && node.normal == idx[2] && node.smoothingGroup == dedupSmoothingGroup)
+            if (node.uv == uvIx && node.normal == normalIx && node.smoothingGroup == dedupSmoothingGroup)
             {
                 outIx = node.outIndex;
                 return true;
             }
             nodeIx = node.next;
         }
+        return false;
+    };
 
+    auto materializeCornerIndex = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, const uint32_t dedupSmoothingGroup, uint32_t& outIx)->bool
+    {
         if (!allocateOutVertex(outIx))
             return false;
         const int32_t newNodeIx = allocateDedupNode();
         if (newNodeIx < 0)
             return false;
+
         auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
-        node.uv = idx[1];
-        node.normal = idx[2];
+        node.uv = uvIx;
+        node.normal = normalIx;
         node.smoothingGroup = dedupSmoothingGroup;
         node.outIndex = outIx;
-        node.next = dedupHeadByPos[posIx];
-        dedupHeadByPos[posIx] = newNodeIx;
+        node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
+        dedupHeadByPos[static_cast<size_t>(posIx)] = newNodeIx;
 
-        const auto& srcPos = positions[idx[0]];
+        const auto& srcPos = positions[static_cast<size_t>(posIx)];
         outPositions[static_cast<size_t>(outIx)] = srcPos;
         hlsl::shapes::util::extendAABBAccumulator(parsedAABB, srcPos);
 
         Float2 uv(0.f, 0.f);
-        if (idx[1] >= 0 && static_cast<size_t>(idx[1]) < uvs.size())
+        if (uvIx >= 0 && static_cast<size_t>(uvIx) < uvs.size())
         {
-            uv = uvs[idx[1]];
+            uv = uvs[static_cast<size_t>(uvIx)];
             hasUVs = true;
         }
         outUVs[static_cast<size_t>(outIx)] = uv;
 
         Float3 normal(0.f, 0.f, 0.f);
-        if (idx[2] >= 0 && static_cast<size_t>(idx[2]) < normals.size())
+        if (normalIx >= 0 && static_cast<size_t>(normalIx) < normals.size())
         {
-            normal = normals[idx[2]];
+            normal = normals[static_cast<size_t>(normalIx)];
             hasProvidedNormals = true;
             outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 0u;
         }
@@ -751,6 +748,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
         }
         outNormals[static_cast<size_t>(outIx)] = normal;
         return true;
+    };
+
+    auto acquireCornerIndex = [&](const int32_t* idx, const uint32_t smoothingGroup, uint32_t& outIx)->bool
+    {
+        if (!idx)
+            return false;
+
+        const int32_t posIx = idx[0];
+        if (posIx < 0 || static_cast<size_t>(posIx) >= positions.size())
+            return false;
+        const uint32_t dedupSmoothingGroup = (idx[2] >= 0) ? 0u : smoothingGroup;
+        if (findCornerIndex(posIx, idx[1], idx[2], dedupSmoothingGroup, outIx))
+            return true;
+        return materializeCornerIndex(posIx, idx[1], idx[2], dedupSmoothingGroup, outIx);
     };
 
     auto acquireCornerIndexPositiveTriplet = [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx, uint32_t& outIx)->bool
@@ -766,48 +777,15 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
             return true;
         }
 
-        int32_t nodeIx = dedupHeadByPos[static_cast<size_t>(posIx)];
-        while (nodeIx >= 0)
+        if (findCornerIndex(posIx, uvIx, normalIx, 0u, outIx) || materializeCornerIndex(posIx, uvIx, normalIx, 0u, outIx))
         {
-            const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
-            if (node.uv == uvIx && node.normal == normalIx)
-            {
-                outIx = node.outIndex;
-                hotEntry.pos = posIx;
-                hotEntry.uv = uvIx;
-                hotEntry.normal = normalIx;
-                hotEntry.outIndex = outIx;
-                return true;
-            }
-            nodeIx = node.next;
+            hotEntry.pos = posIx;
+            hotEntry.uv = uvIx;
+            hotEntry.normal = normalIx;
+            hotEntry.outIndex = outIx;
+            return true;
         }
-
-        if (!allocateOutVertex(outIx))
-            return false;
-        const int32_t newNodeIx = allocateDedupNode();
-        if (newNodeIx < 0)
-            return false;
-        auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
-        node.uv = uvIx;
-        node.normal = normalIx;
-        node.smoothingGroup = 0u;
-        node.outIndex = outIx;
-        node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
-        dedupHeadByPos[static_cast<size_t>(posIx)] = newNodeIx;
-
-        const auto& srcPos = positions[static_cast<size_t>(posIx)];
-        outPositions[static_cast<size_t>(outIx)] = srcPos;
-        hlsl::shapes::util::extendAABBAccumulator(parsedAABB, srcPos);
-        outUVs[static_cast<size_t>(outIx)] = uvs[static_cast<size_t>(uvIx)];
-        outNormals[static_cast<size_t>(outIx)] = normals[static_cast<size_t>(normalIx)];
-        hotEntry.pos = posIx;
-        hotEntry.uv = uvIx;
-        hotEntry.normal = normalIx;
-        hotEntry.outIndex = outIx;
-        hasUVs = true;
-        hasProvidedNormals = true;
-        outNormalNeedsGeneration[static_cast<size_t>(outIx)] = 0u;
-        return true;
+        return false;
     };
 
     uint32_t currentSmoothingGroup = 0u;

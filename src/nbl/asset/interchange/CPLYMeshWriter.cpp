@@ -201,15 +201,8 @@ bool decodeUnsigned4Raw(const ICPUPolygonGeometry::SDataView& view, const size_t
     return decodePixels<uint64_t>(view.composed.format, srcArr, out, 0u, 0u);
 }
 
-void appendUInt(std::string& out, const uint64_t value)
-{
-    std::array<char, 32> buf = {};
-    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
-    if (res.ec == std::errc())
-        out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
-}
-
-void appendInt(std::string& out, const int64_t value)
+template<typename T>
+void appendIntegral(std::string& out, const T value)
 {
     std::array<char, 32> buf = {};
     const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
@@ -385,7 +378,7 @@ inline bool writeTypedViewText(std::string& output, const ICPUPolygonGeometry::S
                 int64_t value = tmp[c];
                 if (flipVectors && c == 0u)
                     value = -value;
-                appendInt(output, value);
+                appendIntegral(output, value);
                 output.push_back(' ');
             }
             return true;
@@ -399,7 +392,7 @@ inline bool writeTypedViewText(std::string& output, const ICPUPolygonGeometry::S
                 return false;
             for (uint32_t c = 0u; c < componentCount; ++c)
             {
-                appendUInt(output, tmp[c]);
+                appendIntegral(output, tmp[c]);
                 output.push_back(' ');
             }
             return true;
@@ -826,11 +819,11 @@ bool ply_writer_detail::writeText(
     return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2)
     {
         output.append("3 ");
-        appendUInt(output, i0);
+        appendIntegral(output, i0);
         output.push_back(' ');
-        appendUInt(output, i1);
+        appendIntegral(output, i1);
         output.push_back(' ');
-        appendUInt(output, i2);
+        appendIntegral(output, i2);
         output.push_back('\n');
     });
 }

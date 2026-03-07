@@ -525,76 +525,46 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		std::jthread normalHashThread;
 		if (hashInParsePipeline)
 		{
-			positionHashThread = std::jthread([&]()
+			auto launchHashThread = [&](const float* srcFloat, core::blake3_hash_t& outHash) -> std::jthread
 			{
-				try
+				return std::jthread([&, srcFloat, outHashPtr = &outHash]()
 				{
-					core::blake3_hasher positionHasher;
-					size_t chunkIx = 0ull;
-					while (chunkIx < parseChunkCount)
+					try
 					{
-						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
-						while (ready.load(std::memory_order_acquire) == 0u)
-							ready.wait(0u, std::memory_order_acquire);
-
-						size_t runEnd = chunkIx + 1ull;
-						while (runEnd < parseChunkCount)
+						core::blake3_hasher hasher;
+						size_t chunkIx = 0ull;
+						while (chunkIx < parseChunkCount)
 						{
-							const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
-							if (runReady == 0u)
-								break;
-							++runEnd;
-						}
+							auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
+							while (ready.load(std::memory_order_acquire) == 0u)
+								ready.wait(0u, std::memory_order_acquire);
 
-						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
-						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
-						const size_t runTriangles = static_cast<size_t>(endTri - begin);
-						const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
-						positionHasher.update(posOutFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
-						chunkIx = runEnd;
+							size_t runEnd = chunkIx + 1ull;
+							while (runEnd < parseChunkCount)
+							{
+								const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
+								if (runReady == 0u)
+									break;
+								++runEnd;
+							}
+
+							const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
+							const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
+							const size_t runTriangles = static_cast<size_t>(endTri - begin);
+							const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
+							hasher.update(srcFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
+							chunkIx = runEnd;
+						}
+						*outHashPtr = static_cast<core::blake3_hash_t>(hasher);
 					}
-					parsedPositionHash = static_cast<core::blake3_hash_t>(positionHasher);
-				}
-				catch (...)
-				{
-					hashPipelineOk.store(false, std::memory_order_relaxed);
-				}
-			});
-			normalHashThread = std::jthread([&]()
-			{
-				try
-				{
-					core::blake3_hasher normalHasher;
-					size_t chunkIx = 0ull;
-					while (chunkIx < parseChunkCount)
+					catch (...)
 					{
-						auto ready = std::atomic_ref<uint8_t>(hashChunkReady[chunkIx]);
-						while (ready.load(std::memory_order_acquire) == 0u)
-							ready.wait(0u, std::memory_order_acquire);
-
-						size_t runEnd = chunkIx + 1ull;
-						while (runEnd < parseChunkCount)
-						{
-							const auto runReady = std::atomic_ref<uint8_t>(hashChunkReady[runEnd]).load(std::memory_order_acquire);
-							if (runReady == 0u)
-								break;
-							++runEnd;
-						}
-
-						const uint64_t begin = static_cast<uint64_t>(chunkIx) * parseChunkTriangles;
-						const uint64_t endTri = std::min<uint64_t>(static_cast<uint64_t>(runEnd) * parseChunkTriangles, triangleCount);
-						const size_t runTriangles = static_cast<size_t>(endTri - begin);
-						const size_t runBytes = runTriangles * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex * sizeof(float);
-						normalHasher.update(normalOutFloat + begin * SSTLContext::VerticesPerTriangle * SSTLContext::FloatChannelsPerVertex, runBytes);
-						chunkIx = runEnd;
+						hashPipelineOk.store(false, std::memory_order_relaxed);
 					}
-					parsedNormalHash = static_cast<core::blake3_hash_t>(normalHasher);
-				}
-				catch (...)
-				{
-					hashPipelineOk.store(false, std::memory_order_relaxed);
-				}
-			});
+				});
+			};
+			positionHashThread = launchHashThread(posOutFloat, parsedPositionHash);
+			normalHashThread = launchHashThread(normalOutFloat, parsedNormalHash);
 		}
 		std::atomic_size_t nextChunkIx = 0ull;
 		auto parseWorker = [&](const size_t workerIx) -> void
