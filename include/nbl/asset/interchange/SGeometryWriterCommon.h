@@ -11,8 +11,11 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
+#include <array>
 #include <charconv>
 #include <cstdio>
+#include <cstring>
+#include <limits>
 #include <system_error>
 #include <type_traits>
 
@@ -44,8 +47,8 @@ class SGeometryWriterCommon
             const ICPUGeometryCollection* collection = nullptr;
         };
 
-        template<typename Container> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         // Collector used by collectPolygonGeometryWriteItems to flatten one collection into a caller-provided container.
+        template<typename Container> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         struct SWriteCollector
         {
             static inline void appendFromCollection(Container& out, const SGeometryCollectionWriteParams& params)
@@ -262,8 +265,15 @@ class SGeometryWriterCommon
             return reinterpret_cast<const T*>(view.getPointer());
         }
 
-        static char* appendFloatToBuffer(char* dst, char* end, float value);
-        static char* appendFloatToBuffer(char* dst, char* end, double value);
+        static inline char* appendFloatToBuffer(char* dst, char* end, float value)
+        {
+            return appendFloatingPointToBuffer(dst, end, value);
+        }
+
+        static inline char* appendFloatToBuffer(char* dst, char* end, double value)
+        {
+            return appendFloatingPointToBuffer(dst, end, value);
+        }
 
         static inline char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
         {
@@ -279,6 +289,34 @@ class SGeometryWriterCommon
                 return dst;
             const size_t writeLen = static_cast<size_t>(written);
             return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
+        }
+
+    private:
+        template<typename T>
+        static inline char* appendFloatingPointToBuffer(char* dst, char* const end, const T value)
+        {
+            static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+            if (!dst || dst >= end)
+                return end;
+
+            const auto result = std::to_chars(dst, end, value);
+            if (result.ec == std::errc())
+                return result.ptr;
+
+            constexpr size_t FloatingPointScratchSize = std::numeric_limits<T>::max_digits10 + 9ull;
+            std::array<char, FloatingPointScratchSize> scratch = {};
+            constexpr int Precision = std::numeric_limits<T>::max_digits10;
+            const int written = std::snprintf(scratch.data(), scratch.size(), "%.*g", Precision, static_cast<double>(value));
+            if (written <= 0)
+                return dst;
+
+            const size_t writeLen = static_cast<size_t>(written);
+            if (writeLen > static_cast<size_t>(end - dst))
+                return end;
+
+            std::memcpy(dst, scratch.data(), writeLen);
+            return dst + writeLen;
         }
 };
 
