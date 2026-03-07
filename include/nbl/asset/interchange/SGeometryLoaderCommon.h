@@ -5,33 +5,15 @@
 #define _NBL_ASSET_S_GEOMETRY_LOADER_COMMON_H_INCLUDED_
 
 
-#include <concepts>
 #include <ranges>
 #include <type_traits>
-#include <utility>
 
+#include "nbl/asset/SBufferAdoptionCommon.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 
 
 namespace nbl::asset
 {
-
-namespace impl
-{
-
-// Owns contiguous storage that can be adopted by the buffer. Views like std::span are rejected.
-template<typename Storage>
-concept AdoptedViewStorage =
-    std::ranges::contiguous_range<std::remove_reference_t<Storage>> &&
-    std::ranges::sized_range<std::remove_reference_t<Storage>> &&
-    (!std::ranges::view<std::remove_cvref_t<Storage>>) &&
-    requires(std::remove_reference_t<Storage>& storage)
-    {
-        typename std::ranges::range_value_t<std::remove_reference_t<Storage>>;
-        { std::ranges::data(storage) } -> std::same_as<std::ranges::range_value_t<std::remove_reference_t<Storage>>*>;
-    };
-
-}
 
 class SGeometryLoaderCommon
 {
@@ -55,21 +37,16 @@ class SGeometryLoaderCommon
             };
         }
 
-        template<E_FORMAT Format, impl::AdoptedViewStorage Storage>
+        template<E_FORMAT Format, impl::AdoptedBufferStorage Storage>
         static inline IGeometry<ICPUBuffer>::SDataView createAdoptedView(Storage&& data)
         {
             using storage_t = std::remove_cvref_t<Storage>;
             using value_t = std::ranges::range_value_t<storage_t>;
 
-            if (std::ranges::empty(data))
+            auto buffer = SBufferAdoptionCommon::createAdoptedBuffer(std::forward<Storage>(data));
+            if (!buffer)
                 return {};
-
-            auto backer = core::make_smart_refctd_ptr<core::adoption_memory_resource<storage_t>>(std::forward<Storage>(data));
-            auto& storage = backer->getBacker();
-            const size_t byteCount = std::ranges::size(storage) * sizeof(value_t);
-            auto buffer = ICPUBuffer::create(
-                { { byteCount }, std::ranges::data(storage), core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(backer)), alignof(value_t) },
-                core::adopt_memory);
+            const size_t byteCount = buffer->getSize();
             return createDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(value_t)), Format);
         }
 };
