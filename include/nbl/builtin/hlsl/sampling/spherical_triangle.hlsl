@@ -69,7 +69,7 @@ struct SphericalTriangle
 		const scalar_type csc_b_s = 1.0 / nbl::hlsl::sqrt(1.0 - cosBC_s * cosBC_s);
 		if (csc_b_s < numeric_limits<scalar_type>::max)
 		{
-			const scalar_type cosAngleAlongBC_s = nbl::hlsl::clamp(1.0 + cosBC_s * u.y - u.y, -1.f, 1.f);
+			const scalar_type cosAngleAlongBC_s = nbl::hlsl::clamp<scalar_type>(1.0 + cosBC_s * u.y - u.y, -1.f, 1.f);
 			if (nbl::hlsl::abs(cosAngleAlongBC_s) < 1.f)
 				retval += math::quaternion<scalar_type>::slerp_delta(tri.vertices[1], C_s * csc_b_s, cosAngleAlongBC_s);
 		}
@@ -88,10 +88,14 @@ struct SphericalTriangle
 
 	vector2_type generateInverse(NBL_REF_ARG(scalar_type) pdf, scalar_type cos_c, scalar_type csc_c, const vector3_type L)
 	{
+		using uint_type = unsigned_integer_of_size_t<sizeof(scalar_type)>;
+
 		pdf = 1.0 / solidAngle;
 
 		const scalar_type cosAngleAlongBC_s = nbl::hlsl::dot(L, tri.vertices[1]);
-		const scalar_type csc_a_ = nbl::hlsl::rsqrt(1.0 - cosAngleAlongBC_s * cosAngleAlongBC_s);
+		const scalar_type sin_a = nbl::hlsl::sqrt(nbl::hlsl::max(scalar_type(0.0), scalar_type(1.0) - cosAngleAlongBC_s * cosAngleAlongBC_s));
+		const scalar_type csc_a_ = (sin_a > scalar_type(1e-7)) ? scalar_type(1.0) / sin_a : scalar_type(1e8);
+
 		const scalar_type cos_b_ = nbl::hlsl::dot(L, tri.vertices[0]);
 
 		const scalar_type cosB_ = (cos_b_ - cosAngleAlongBC_s * cos_c) * csc_a_ * csc_c;
@@ -106,8 +110,14 @@ struct SphericalTriangle
 		const scalar_type subTriSolidAngleRatio = (angle_adder.getSumofArccos() - numbers::pi<scalar_type>)*pdf;
 		const scalar_type u = subTriSolidAngleRatio > numeric_limits<scalar_type>::min ? subTriSolidAngleRatio : 0.0;
 
-		const scalar_type cosBC_s = (cosA + cosB_ * cosC_) / (sinB_ * sinC_);
-		const scalar_type v = (1.0 - cosAngleAlongBC_s) / (1.0 - (cosBC_s < bit_cast<float>(0x3f7fffff) ? cosBC_s : cos_c));
+		const scalar_type sinBsinC = sinB_ * sinC_;
+
+		// 1 ULP below 1.0, ensures (1.0 - cosBC_s) is strictly positive in float
+		const scalar_type one_below_one = bit_cast<scalar_type>(bit_cast<uint_type>(scalar_type(1)) - uint_type(1));
+		const scalar_type cosBC_s_raw = (cosA + cosB_ * cosC_) / sinBsinC;
+		const scalar_type cosBC_s = sinBsinC > scalar_type(1e-7) ? cosBC_s_raw : cos_c;
+		const scalar_type v_denom = scalar_type(1.0) - (cosBC_s < one_below_one ? cosBC_s : cos_c);
+		const scalar_type v = (scalar_type(1.0) - cosAngleAlongBC_s) / v_denom;
 
 		return vector2_type(u, v);
 	}

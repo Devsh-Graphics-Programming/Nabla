@@ -38,12 +38,12 @@ struct SphericalTriangle
     }
 
     // checks if any angles are small enough to disregard
-    bool pyramidAngles()
+    bool pyramidAngles() NBL_CONST_MEMBER_FUNC
     {
         return hlsl::any<vector<bool, 3> >(csc_sides >= hlsl::promote<vector3_type>(numeric_limits<scalar_type>::max));
     }
 
-    scalar_type solidAngle(NBL_REF_ARG(vector3_type) cos_vertices, NBL_REF_ARG(vector3_type) sin_vertices)
+    scalar_type solidAngle(NBL_REF_ARG(vector3_type) cos_vertices, NBL_REF_ARG(vector3_type) sin_vertices) NBL_CONST_MEMBER_FUNC
     {
         if (pyramidAngles())
             return 0.f;
@@ -58,7 +58,7 @@ struct SphericalTriangle
         return angle_adder.getSumofArccos() - numbers::pi<scalar_type>;
     }
 
-    scalar_type solidAngle()
+    scalar_type solidAngle() NBL_CONST_MEMBER_FUNC
     {
         vector3_type dummy0,dummy1;
         return solidAngle(dummy0,dummy1);

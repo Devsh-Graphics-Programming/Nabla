@@ -73,9 +73,9 @@ struct SphericalRectangle
 		const scalar_type cu_2 = hlsl::max<scalar_type>(fu * fu + b0 * b0, 1.f); // forces `cu` to be in [-1,1]
 		const scalar_type cu = ieee754::flipSignIfRHSNegative<scalar_type>(scalar_type(1.0) / hlsl::sqrt<scalar_type>(cu_2), fu);
 
-		scalar_type xu = -(cu * rect.r0.z) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - cu * cu);
-		xu = hlsl::clamp<scalar_type>(xu, rect.r0.x, r1.x); // avoid Infs
-		const scalar_type d_2 = xu * xu + rect.r0.z * rect.r0.z;
+		scalar_type xu = -(cu * r0.z) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - cu * cu);
+		xu = hlsl::clamp<scalar_type>(xu, r0.x, r1.x); // avoid Infs
+		const scalar_type d_2 = xu * xu + r0.z * r0.z;
 		const scalar_type d = hlsl::sqrt<scalar_type>(d_2);
 
 		const scalar_type h0 = r0.y / hlsl::sqrt<scalar_type>(d_2 + r0.y * r0.y);
