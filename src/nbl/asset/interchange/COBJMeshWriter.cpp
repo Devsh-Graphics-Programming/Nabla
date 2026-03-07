@@ -402,7 +402,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 
 	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true, fileMappable);
+    const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(output.size()), true, fileMappable);
 	if (!ioPlan.isValid())
 	{
 		_params.logger.log("OBJ writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);

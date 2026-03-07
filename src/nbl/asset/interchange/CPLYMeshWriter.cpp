@@ -634,7 +634,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
         const size_t outputSize = header.size() + body.size();
         const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-        const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
+        const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
         if (!ioPlan.isValid())
         {
             _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
@@ -690,7 +690,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
     const size_t outputSize = header.size() + body.size();
     const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
+    const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
     if (!ioPlan.isValid())
     {
         _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);

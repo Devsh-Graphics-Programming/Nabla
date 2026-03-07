@@ -136,7 +136,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 
 	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-	context.ioPlan = resolveFileIOPolicy(_params.ioPolicy, expectedSize, sizeKnown, fileMappable);
+    context.ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, expectedSize, sizeKnown, fileMappable);
 	if (!context.ioPlan.isValid())
 	{
 		_params.logger.log("STL writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), context.ioPlan.reason);

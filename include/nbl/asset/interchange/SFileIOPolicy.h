@@ -226,11 +226,6 @@ struct SResolvedFileIOPolicy
     }
 };
 
-inline constexpr SResolvedFileIOPolicy resolveFileIOPolicy(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false)
-{
-    return SResolvedFileIOPolicy(policy, byteCount, sizeKnown, fileMappable);
-}
-
 }
 
 namespace nbl::system::impl

@@ -1537,7 +1537,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	const uint64_t fileSize = _file->getSize();
 	const bool hashInBuild = computeContentHashes && SLoaderRuntimeTuner::shouldInlineHashBuild(_params.ioPolicy, fileSize);
 	const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(_file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-	const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, fileSize, true, fileMappable);
+    const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, fileSize, true, fileMappable);
 	if (!ioPlan.isValid())
 	{
 		_params.logger.log("PLY loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);

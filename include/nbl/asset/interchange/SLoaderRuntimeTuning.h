@@ -64,6 +64,20 @@ struct SLoaderRuntimeTuningResult
 
 struct SLoaderRuntimeTuner
 {
+    private:
+        struct SBenchmarkSampleStats
+        {
+            uint64_t medianNs = 0ull;
+            uint64_t minNs = 0ull;
+            uint64_t maxNs = 0ull;
+            uint64_t totalNs = 0ull;
+        };
+
+        static inline uint64_t benchmarkSample(const uint8_t* sampleData, uint64_t sampleBytes, size_t workerCount, uint32_t passes);
+        static inline SBenchmarkSampleStats benchmarkSampleStats(const uint8_t* sampleData, uint64_t sampleBytes, size_t workerCount, uint32_t passes, uint32_t observations);
+        static inline void appendCandidate(std::vector<size_t>& dst, size_t candidate);
+
+    public:
     template<typename Fn>
     static void dispatchWorkers(const size_t workerCount, Fn&& fn);
 
@@ -128,7 +142,7 @@ void SLoaderRuntimeTuner::dispatchWorkers(const size_t workerCount, Fn&& fn)
     fn(0ull);
 }
 
-inline uint64_t loaderRuntimeBenchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
+inline uint64_t SLoaderRuntimeTuner::benchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
 {
     if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
         return 0ull;
@@ -161,15 +175,7 @@ inline uint64_t loaderRuntimeBenchmarkSample(const uint8_t* const sampleData, co
     return elapsedNs;
 }
 
-struct SLoaderRuntimeSampleStats
-{
-    uint64_t medianNs = 0ull;
-    uint64_t minNs = 0ull;
-    uint64_t maxNs = 0ull;
-    uint64_t totalNs = 0ull;
-};
-
-inline SLoaderRuntimeSampleStats loaderRuntimeBenchmarkSampleStats(
+inline SLoaderRuntimeTuner::SBenchmarkSampleStats SLoaderRuntimeTuner::benchmarkSampleStats(
     const uint8_t* const sampleData,
     const uint64_t sampleBytes,
     const size_t workerCount,
@@ -177,7 +183,7 @@ inline SLoaderRuntimeSampleStats loaderRuntimeBenchmarkSampleStats(
     const uint32_t observations
 )
 {
-    SLoaderRuntimeSampleStats stats = {};
+    SBenchmarkSampleStats stats = {};
     if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
         return stats;
 
@@ -185,10 +191,10 @@ inline SLoaderRuntimeSampleStats loaderRuntimeBenchmarkSampleStats(
     std::vector<uint64_t> samples;
     samples.reserve(observationCount);
 
-    loaderRuntimeBenchmarkSample(sampleData, sampleBytes, workerCount, 1u);
+    benchmarkSample(sampleData, sampleBytes, workerCount, 1u);
     for (uint32_t obsIx = 0u; obsIx < observationCount; ++obsIx)
     {
-        const uint64_t elapsedNs = loaderRuntimeBenchmarkSample(sampleData, sampleBytes, workerCount, passes);
+        const uint64_t elapsedNs = benchmarkSample(sampleData, sampleBytes, workerCount, passes);
         if (elapsedNs == 0ull)
             continue;
         stats.totalNs += elapsedNs;
@@ -196,7 +202,7 @@ inline SLoaderRuntimeSampleStats loaderRuntimeBenchmarkSampleStats(
     }
 
     if (samples.empty())
-        return SLoaderRuntimeSampleStats{};
+        return SBenchmarkSampleStats{};
 
     std::sort(samples.begin(), samples.end());
     stats.minNs = samples.front();
@@ -208,7 +214,7 @@ inline SLoaderRuntimeSampleStats loaderRuntimeBenchmarkSampleStats(
     return stats;
 }
 
-inline void loaderRuntimeAppendCandidate(std::vector<size_t>& dst, const size_t candidate)
+inline void SLoaderRuntimeTuner::appendCandidate(std::vector<size_t>& dst, const size_t candidate)
 {
     if (candidate == 0ull)
         return;
@@ -306,18 +312,18 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
 
                 std::vector<size_t> candidates;
                 candidates.reserve(maxCandidates);
-                loaderRuntimeAppendCandidate(candidates, heuristicWorkerCount);
-                loaderRuntimeAppendCandidate(candidates, heuristicWorkerCount > 1ull ? (heuristicWorkerCount - 1ull) : 1ull);
-                loaderRuntimeAppendCandidate(candidates, std::min(maxWorkers, heuristicWorkerCount + 1ull));
+                appendCandidate(candidates, heuristicWorkerCount);
+                appendCandidate(candidates, heuristicWorkerCount > 1ull ? (heuristicWorkerCount - 1ull) : 1ull);
+                appendCandidate(candidates, std::min(maxWorkers, heuristicWorkerCount + 1ull));
                 if (heuristicWorkerCount > 2ull)
-                    loaderRuntimeAppendCandidate(candidates, heuristicWorkerCount - 2ull);
+                    appendCandidate(candidates, heuristicWorkerCount - 2ull);
                 if (heuristicWorkerCount + 2ull <= maxWorkers)
-                    loaderRuntimeAppendCandidate(candidates, heuristicWorkerCount + 2ull);
+                    appendCandidate(candidates, heuristicWorkerCount + 2ull);
                 if (candidates.size() > maxCandidates)
                     candidates.resize(maxCandidates);
 
                 // probe heuristic first and only continue when budget can amortize additional probes
-                const auto heuristicStatsProbe = loaderRuntimeBenchmarkSampleStats(
+                const auto heuristicStatsProbe = benchmarkSampleStats(
                     request.sampleData, effectiveSampleBytes, heuristicWorkerCount, samplePasses, 2u);
                 if (heuristicStatsProbe.medianNs > 0ull)
                 {
@@ -338,7 +344,7 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
                             1ull,
                             3ull));
 
-                        SLoaderRuntimeSampleStats bestStats = heuristicStatsProbe;
+                        SBenchmarkSampleStats bestStats = heuristicStatsProbe;
                         size_t bestWorker = heuristicWorkerCount;
 
                         for (const size_t candidate : candidates)
@@ -347,7 +353,7 @@ SLoaderRuntimeTuningResult SLoaderRuntimeTuner::tune(const SFileIOPolicy& ioPoli
                                 continue;
                             if (spentNs >= samplingBudgetNs)
                                 break;
-                            const auto candidateStats = loaderRuntimeBenchmarkSampleStats(
+                            const auto candidateStats = benchmarkSampleStats(
                                 request.sampleData, effectiveSampleBytes, candidate, samplePasses, observations);
                             if (candidateStats.medianNs == 0ull)
                                 continue;

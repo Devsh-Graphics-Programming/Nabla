@@ -23,31 +23,32 @@ namespace nbl::asset
 namespace impl
 {
 template<typename Container> concept PolygonGeometryWriteItemContainer = requires(Container& c, const ICPUPolygonGeometry* geometry, const hlsl::float32_t3x4 transform, const uint32_t instanceIx, const uint32_t targetIx, const uint32_t geometryIx) { c.emplace_back(geometry, transform, instanceIx, targetIx, geometryIx); };
-
-// Flattens a geometry collection into per-geometry write items and bakes the parent transform into each entry.
-template<typename Container>
-static inline void appendPolygonGeometryWriteItemsFromCollection(Container& out, const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& parentTransform, const uint32_t instanceIx, const uint32_t targetIx)
-{
-    if (!collection)
-        return;
-
-    const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
-    const auto& geometries = collection->getGeometries();
-    for (uint32_t geometryIx = 0u; geometryIx < geometries.size(); ++geometryIx)
-    {
-        const auto& ref = geometries[geometryIx];
-        if (!ref.geometry || ref.geometry->getPrimitiveType() != IGeometryBase::EPrimitiveType::Polygon)
-            continue;
-        const auto* geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
-        const auto localTransform = ref.hasTransform() ? ref.transform : identity;
-        out.emplace_back(geometry, hlsl::math::linalg::promoted_mul(parentTransform, localTransform), instanceIx, targetIx, geometryIx);
-    }
-}
-
 }
 
 class SGeometryWriterCommon
 {
+        template<typename Container>
+        struct SPolygonGeometryWriteItemCollector
+        {
+            static inline void appendFromCollection(Container& out, const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& parentTransform, const uint32_t instanceIx, const uint32_t targetIx)
+            {
+                if (!collection)
+                    return;
+
+                const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
+                const auto& geometries = collection->getGeometries();
+                for (uint32_t geometryIx = 0u; geometryIx < geometries.size(); ++geometryIx)
+                {
+                    const auto& ref = geometries[geometryIx];
+                    if (!ref.geometry || ref.geometry->getPrimitiveType() != IGeometryBase::EPrimitiveType::Polygon)
+                        continue;
+                    const auto* geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
+                    const auto localTransform = ref.hasTransform() ? ref.transform : identity;
+                    out.emplace_back(geometry, hlsl::math::linalg::promoted_mul(parentTransform, localTransform), instanceIx, targetIx, geometryIx);
+                }
+            }
+        };
+
     public:
         struct SPolygonGeometryWriteItem
         {
@@ -79,7 +80,7 @@ class SGeometryWriterCommon
 
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY_COLLECTION)
             {
-                impl::appendPolygonGeometryWriteItemsFromCollection(out, static_cast<const ICPUGeometryCollection*>(rootAsset), identity, ~0u, ~0u);
+                SPolygonGeometryWriteItemCollector<Container>::appendFromCollection(out, static_cast<const ICPUGeometryCollection*>(rootAsset), identity, ~0u, ~0u);
                 return out;
             }
 
@@ -99,7 +100,7 @@ class SGeometryWriterCommon
                 const auto instanceTransform = initialTransforms.empty() ? identity : initialTransforms[instanceIx];
                 const auto& targetList = targets->getTargets();
                 for (uint32_t targetIx = 0u; targetIx < targetList.size(); ++targetIx)
-                    impl::appendPolygonGeometryWriteItemsFromCollection(out, targetList[targetIx].geoCollection.get(), instanceTransform, instanceIx, targetIx);
+                    SPolygonGeometryWriteItemCollector<Container>::appendFromCollection(out, targetList[targetIx].geoCollection.get(), instanceTransform, instanceIx, targetIx);
             }
 
             return out;

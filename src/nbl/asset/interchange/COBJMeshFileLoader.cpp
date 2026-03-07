@@ -421,7 +421,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     if (filesize <= 0)
         return {};
     const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(_file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-    const auto ioPlan = resolveFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true, fileMappable);
+    const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(filesize), true, fileMappable);
     if (!ioPlan.isValid())
     {
         _params.logger.log("OBJ loader: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str(), ioPlan.reason);
