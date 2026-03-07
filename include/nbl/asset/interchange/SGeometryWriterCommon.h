@@ -24,8 +24,8 @@ namespace impl
 {
 template<typename Container> concept PolygonGeometryWriteItemContainer = requires(Container& c, const ICPUPolygonGeometry* geometry, const hlsl::float32_t3x4 transform, const uint32_t instanceIx, const uint32_t targetIx, const uint32_t geometryIx) { c.emplace_back(geometry, transform, instanceIx, targetIx, geometryIx); };
 
-template<typename Container>
 // Flattens a geometry collection into per-geometry write items and bakes the parent transform into each entry.
+template<typename Container>
 static inline void appendPolygonGeometryWriteItemsFromCollection(Container& out, const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& parentTransform, const uint32_t instanceIx, const uint32_t targetIx)
 {
     if (!collection)
@@ -60,8 +60,8 @@ class SGeometryWriterCommon
             uint32_t geometryIx = 0u;
         };
 
-        template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires impl::PolygonGeometryWriteItemContainer<Container>
         // Collects every polygon geometry a writer can serialize from a geometry, collection, or flattened scene.
+        template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires impl::PolygonGeometryWriteItemContainer<Container>
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
             Container out = {};
@@ -206,24 +206,19 @@ class SGeometryWriterCommon
             if (!src)
                 return false;
 
+            auto visitIndexed = [&]<typename IndexT>()->bool
+            {
+                const auto* indices = reinterpret_cast<const IndexT*>(src);
+                for (size_t i = 0ull; i < indexCount; i += 3ull)
+                    if (!visit(indices[i + 0ull], indices[i + 1ull], indices[i + 2ull]))
+                        return false;
+                return true;
+            };
+
             switch (geom->getIndexType())
             {
-                case EIT_32BIT:
-                {
-                    const auto* indices = reinterpret_cast<const uint32_t*>(src);
-                    for (size_t i = 0ull; i < indexCount; i += 3ull)
-                        if (!visit(indices[i + 0ull], indices[i + 1ull], indices[i + 2ull]))
-                            return false;
-                    return true;
-                }
-                case EIT_16BIT:
-                {
-                    const auto* indices = reinterpret_cast<const uint16_t*>(src);
-                    for (size_t i = 0ull; i < indexCount; i += 3ull)
-                        if (!visit(indices[i + 0ull], indices[i + 1ull], indices[i + 2ull]))
-                            return false;
-                    return true;
-                }
+                case EIT_32BIT: return visitIndexed.template operator()<uint32_t>();
+                case EIT_16BIT: return visitIndexed.template operator()<uint16_t>();
                 default:
                     return false;
             }
