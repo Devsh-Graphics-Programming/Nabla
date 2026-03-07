@@ -17,6 +17,47 @@ namespace hlsl
 namespace sampling
 {
 
+// TODO(kevinyu): Temporary struct before PR #1001 merged to master
+template<typename V, typename P>
+struct value_and_rcpPdf
+{
+	using this_t = value_and_rcpPdf<V, P>;
+
+	static this_t create(const V _value, const P _rcpPdf)
+	{
+		this_t retval;
+		retval._value = _value;
+		retval._rcpPdf = _rcpPdf;
+		return retval;
+	}
+
+	V value() { return _value; }
+	P rcpPdf() { return _rcpPdf; }
+
+	V _value;
+	P _rcpPdf;
+};
+
+template<typename V, typename P>
+struct value_and_pdf
+{
+	using this_t = value_and_pdf<V, P>;
+
+	static this_t create(const V _value, const P _pdf)
+	{
+		this_t retval;
+		retval._value = _value;
+		retval._pdf = _pdf;
+		return retval;
+	}
+
+	V value() { return _value; }
+	P pdf() { return _pdf; }
+
+	V _value;
+	P _pdf;
+};
+
 // TODO: Add an option for corner sampling or centered sampling as boolean parameter
 template <typename ScalarT, typename LuminanceAccessorT 
   NBL_PRIMARY_REQUIRES(
