@@ -56,7 +56,7 @@ struct HierarchicalLuminanceSampler
 		return partition(xi, dummy);
 	}
 
-	vector2_type binarySearch(const uint32_t2 coord)
+	vector2_type binarySearch(const uint32_t2 coord) NBL_CONST_MEMBER_FUNC
 	{
 		// We use _rcpWarpSize here for corner sampling. Corner sampling is a sampling mechanism where we map texel_index / map_size to the center of the texel instead of the edge of the texel. So uv.x == 0 is mapped to the center of the left most texel, and uv.x == width - 1 is mapped to the center of the right most texel. That's why the length of the domain is subtracted by 1 for each dimension.
     float32_t2 xi = float32_t2(coord) * _rcpWarpSize;
