@@ -14,14 +14,33 @@
 #include <span>
 namespace nbl::asset
 {
-class SInterchangeIO // Shared read/write helpers that execute a resolved IO plan and collect simple telemetry.
+//! Shared read/write helpers that execute a resolved IO plan and collect simple telemetry.
+class SInterchangeIO
 {
     public:
-        struct STelemetry { uint64_t callCount = 0ull, totalBytes = 0ull, minBytes = std::numeric_limits<uint64_t>::max(); inline void account(const uint64_t bytes) { ++callCount; totalBytes += bytes; if (bytes < minBytes) minBytes = bytes; } inline uint64_t getMinOrZero() const { return callCount ? minBytes : 0ull; } inline uint64_t getAvgOrZero() const { return callCount ? (totalBytes / callCount) : 0ull; } }; // Tracks IO call count and byte distribution for tiny-io diagnostics.
+        //! Tracks IO call count and byte distribution for tiny-io diagnostics.
+        struct STelemetry
+        {
+            uint64_t callCount = 0ull; //!< Number of IO calls recorded.
+            uint64_t totalBytes = 0ull; //!< Sum of processed bytes across all calls.
+            uint64_t minBytes = std::numeric_limits<uint64_t>::max(); //!< Smallest processed byte count observed so far.
+
+            inline void account(const uint64_t bytes)
+            {
+                ++callCount;
+                totalBytes += bytes;
+                if (bytes < minBytes)
+                    minBytes = bytes;
+            }
+
+            inline uint64_t getMinOrZero() const { return callCount ? minBytes : 0ull; }
+            inline uint64_t getAvgOrZero() const { return callCount ? (totalBytes / callCount) : 0ull; }
+        };
         using SReadTelemetry = STelemetry;
         using SWriteTelemetry = STelemetry;
-        /* Default 1 MiB. Default 1 KiB. Default 64 B. Default 1024 calls. */
-        static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const uint64_t bigPayloadThresholdBytes = (1ull << 20), const uint64_t lowAvgBytesThreshold = 1024ull, const uint64_t tinyChunkBytesThreshold = 64ull, const uint64_t tinyChunkCallsThreshold = 1024ull) // Flags large payloads that were served through suspiciously small IO calls.
+        //! Flags large payloads that were served through suspiciously small IO calls.
+        //! Defaults are 1 MiB, 1 KiB, 64 B, and 1024 calls.
+        static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const uint64_t bigPayloadThresholdBytes = (1ull << 20), const uint64_t lowAvgBytesThreshold = 1024ull, const uint64_t tinyChunkBytesThreshold = 64ull, const uint64_t tinyChunkCallsThreshold = 1024ull)
         {
             if (payloadBytes <= bigPayloadThresholdBytes)
                 return false;
@@ -29,8 +48,10 @@ class SInterchangeIO // Shared read/write helpers that execute a resolved IO pla
             const uint64_t avgBytes = telemetry.getAvgOrZero();
             return avgBytes < lowAvgBytesThreshold || (minBytes < tinyChunkBytesThreshold && telemetry.callCount > tinyChunkCallsThreshold);
         }
-        static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const SFileIOPolicy& ioPolicy) { return isTinyIOTelemetryLikely(telemetry, payloadBytes, ioPolicy.runtimeTuning.tinyIoPayloadThresholdBytes, ioPolicy.runtimeTuning.tinyIoAvgBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinCallCount); } // Same tiny-io heuristic but pulls thresholds from the resolved IO policy.
-        static inline bool readFileExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SReadTelemetry* ioTelemetry = nullptr) // Issues one read request and verifies that the full byte count was returned.
+        //! Same tiny-io heuristic but pulls thresholds from the resolved IO policy.
+        static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const SFileIOPolicy& ioPolicy) { return isTinyIOTelemetryLikely(telemetry, payloadBytes, ioPolicy.runtimeTuning.tinyIoPayloadThresholdBytes, ioPolicy.runtimeTuning.tinyIoAvgBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinCallCount); }
+        //! Issues one read request and verifies that the full byte count was returned.
+        static inline bool readFileExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SReadTelemetry* ioTelemetry = nullptr)
         {
             if (!file || (!dst && bytes != 0ull)) return false;
             if (bytes == 0ull) return true;
@@ -39,9 +60,15 @@ class SInterchangeIO // Shared read/write helpers that execute a resolved IO pla
             if (success && ioTelemetry) ioTelemetry->account(success.getBytesProcessed());
             return success && success.getBytesProcessed() == bytes;
         }
+
+        /**
+            Reads a byte range using the resolved whole-file or chunked strategy.
+            When `ioTime` is non-null it also reports wall time in `TimeUnit`.
+            Default `TimeUnit` is milliseconds.
+        */
         template<typename TimeUnit = std::chrono::duration<double, std::milli>>
         requires std::same_as<TimeUnit, std::chrono::duration<typename TimeUnit::rep, typename TimeUnit::period>>
-        static inline bool readFileWithPolicy(system::IFile* file, void* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan, SReadTelemetry* ioTelemetry = nullptr, TimeUnit* ioTime = nullptr) // Reads a byte range using the resolved whole-file or chunked strategy. When ioTime is non-null it also reports wall time in TimeUnit. Default TimeUnit is milliseconds.
+        static inline bool readFileWithPolicy(system::IFile* file, void* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan, SReadTelemetry* ioTelemetry = nullptr, TimeUnit* ioTime = nullptr)
         {
             using clock_t = std::chrono::high_resolution_clock;
             const auto ioStart = ioTime ? clock_t::now() : clock_t::time_point{};
@@ -78,8 +105,14 @@ class SInterchangeIO // Shared read/write helpers that execute a resolved IO pla
                 }
             }
         }
-        struct SBufferRange { const void* data = nullptr; size_t byteCount = 0ull; }; // Describes one contiguous output buffer written as part of a larger stream.
-        static inline bool writeBuffersWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const std::span<const SBufferRange> buffers, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr) // Writes one or more buffers sequentially at fileOffset and advances it on success.
+        //! Describes one contiguous output buffer written as part of a larger stream.
+        struct SBufferRange
+        {
+            const void* data = nullptr; //!< Start of the contiguous byte range.
+            size_t byteCount = 0ull; //!< Number of bytes to write from `data`.
+        };
+        //! Writes one or more buffers sequentially at `fileOffset` and advances it on success.
+        static inline bool writeBuffersWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const std::span<const SBufferRange> buffers, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr)
         {
             if (!file) return false;
             const uint64_t chunkSizeBytes = ioPlan.chunkSizeBytes();
@@ -108,9 +141,12 @@ class SInterchangeIO // Shared read/write helpers that execute a resolved IO pla
             }
             return true;
         }
-        static inline bool writeBuffersWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const std::span<const SBufferRange> buffers, SWriteTelemetry* ioTelemetry = nullptr) { size_t fileOffset = 0ull; return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry); } // Writes one or more buffers starting from file offset 0.
-        static inline bool writeFileWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry); } // Single-buffer convenience wrapper over writeBuffersWithPolicyAtOffset.
-        static inline bool writeFileWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicy(file, ioPlan, buffers, ioTelemetry); } // Single-buffer convenience wrapper over writeBuffersWithPolicy.
+        //! Writes one or more buffers starting from file offset `0`.
+        static inline bool writeBuffersWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const std::span<const SBufferRange> buffers, SWriteTelemetry* ioTelemetry = nullptr) { size_t fileOffset = 0ull; return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry); }
+        //! Single-buffer convenience wrapper over `writeBuffersWithPolicyAtOffset`.
+        static inline bool writeFileWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry); }
+        //! Single-buffer convenience wrapper over `writeBuffersWithPolicy`.
+        static inline bool writeFileWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicy(file, ioPlan, buffers, ioTelemetry); }
 };
 using SFileIOTelemetry = SInterchangeIO::STelemetry;
 using SFileReadTelemetry = SInterchangeIO::SReadTelemetry;

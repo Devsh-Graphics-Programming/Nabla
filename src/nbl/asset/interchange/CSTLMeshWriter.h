@@ -4,15 +4,10 @@
 // See the original file in irrlicht source for authors
 #ifndef _NBL_ASSET_STL_MESH_WRITER_H_INCLUDED_
 #define _NBL_ASSET_STL_MESH_WRITER_H_INCLUDED_
-
-
 #include "nbl/asset/interchange/IGeometryWriter.h"
-
-
 namespace nbl::asset
 {
-
-//! class to write meshes, implementing a STL writer
+//! Geometry writer capable of emitting STL mesh files.
 class CSTLMeshWriter : public IGeometryWriter
 {
     public:

@@ -8,6 +8,7 @@
 #include "nbl/asset/interchange/IAssetWriter.h"
 namespace nbl::asset
 {
+//! Writer base for exporters whose root asset type is `ET_SCENE`.
 class ISceneWriter : public IAssetWriter
 {
 	public:

@@ -9,9 +9,11 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 namespace nbl::asset
 {
+//! Shared geometry-loader helpers for adopting buffers and assembling formatted data views.
 class SGeometryLoaderCommon
 {
     public:
+        //! Creates one formatted data view over an existing CPU buffer.
         static inline IGeometry<ICPUBuffer>::SDataView createDataView(core::smart_refctd_ptr<ICPUBuffer>&& buffer, const size_t byteCount, const uint32_t stride, const E_FORMAT format)
         {
             if (!buffer || byteCount == 0ull)
@@ -19,6 +21,7 @@ class SGeometryLoaderCommon
             return {.composed = {.stride = stride, .format = format, .rangeFormat = IGeometryBase::getMatchingAABBFormat(format)}, .src = {.offset = 0ull, .size = byteCount, .buffer = std::move(buffer)}};
         }
 
+        //! Adopts contiguous caller-owned storage into a CPU buffer and exposes it as a formatted data view.
         template<E_FORMAT Format, impl::AdoptedBufferStorage Storage>
         static inline IGeometry<ICPUBuffer>::SDataView createAdoptedView(Storage&& data)
         {

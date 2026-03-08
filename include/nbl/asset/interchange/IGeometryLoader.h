@@ -10,6 +10,7 @@
 #include "nbl/asset/utils/CGeometryManipulator.h"
 namespace nbl::asset
 {
+//! Geometry loader base shared by mesh-style interchange formats.
 class IGeometryLoader : public IAssetLoader
 {
 	public:
@@ -18,6 +19,7 @@ class IGeometryLoader : public IAssetLoader
 	protected:
 		inline IGeometryLoader() {}
 
+		//! Creates one geometry data view from caller-owned memory or copied storage.
 		template<bool AdoptMemory=false>
 		static inline IGeometry<ICPUBuffer>::SDataView createView(
 			const E_FORMAT format, const size_t elementCount, const void* data=nullptr,
@@ -45,7 +47,8 @@ class IGeometryLoader : public IAssetLoader
 			}
 			return retval;
 		}
-		// creates a View from a mapped file
+
+		//! Memory resource that keeps a mapped file alive while adopted geometry views reference it.
 		class CFileMemoryResource final : public core::refctd_memory_resource
 		{
 			public:
@@ -65,6 +68,8 @@ class IGeometryLoader : public IAssetLoader
 			protected:
 				core::smart_refctd_ptr<system::IFile> m_file;
 		};
+
+		//! Creates one geometry data view backed directly by a mapped file or by copied file contents.
 		static inline IGeometry<ICPUBuffer>::SDataView createView(const E_FORMAT format, const size_t elementCount, core::smart_refctd_ptr<system::IFile>&& file, const size_t offsetInFile)
 		{
 			if (auto* const basePtr=reinterpret_cast<const uint8_t*>(file->getMappedPointer()); basePtr)

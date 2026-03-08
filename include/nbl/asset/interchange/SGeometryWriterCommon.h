@@ -17,11 +17,23 @@
 #include <type_traits>
 namespace nbl::asset
 {
+//! Shared writer-side helpers used by geometry exporters.
 class SGeometryWriterCommon
 {
     public:
-        struct SWriteState { hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>(); uint32_t instanceIx = ~0u; uint32_t targetIx = ~0u; uint32_t geometryIx = 0u; };
+        //! Common scene/collection context propagated to one emitted geometry item.
+        struct SWriteState
+        {
+            //! World transform accumulated up to the emitted geometry.
+            hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
+            uint32_t instanceIx = ~0u; //!< Scene instance index or `~0u` when not applicable.
+            uint32_t targetIx = ~0u; //!< Morph-target index or `~0u` when not applicable.
+            uint32_t geometryIx = 0u; //!< Geometry index inside the current collection.
+        };
+        //! One polygon geometry together with the scene context needed by writers.
         struct SPolygonGeometryWriteItem : SWriteState { const ICPUPolygonGeometry* geometry = nullptr; };
+
+        //! Collects polygon geometry items from a geometry, geometry collection, or scene root asset.
         template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
@@ -75,7 +87,9 @@ class SGeometryWriterCommon
             }
             return out;
         }
+        //! Returns true when the transform equals the writer identity matrix.
         static inline bool isIdentityTransform(const hlsl::float32_t3x4& transform) { return transform == hlsl::math::linalg::identity<hlsl::float32_t3x4>(); }
+        //! Returns one auxiliary view when it exists and optionally matches `requiredElementCount`.
         static inline const ICPUPolygonGeometry::SDataView* getAuxViewAt(const ICPUPolygonGeometry* geom, const uint32_t auxViewIx, const size_t requiredElementCount = 0ull)
         {
             if (!geom)
@@ -90,6 +104,7 @@ class SGeometryWriterCommon
                 return nullptr;
             return &view;
         }
+        //! Resolves the triangle face count for indexed or non-indexed polygon geometry.
         static inline bool getTriangleFaceCount(const ICPUPolygonGeometry* geom, size_t& outFaceCount)
         {
             outFaceCount = 0ull;
@@ -111,6 +126,7 @@ class SGeometryWriterCommon
                 return false;
             return (outFaceCount = vertexCount / 3ull), true;
         }
+        //! Visits triangle indices as validated `uint32_t` triplets.
         template<typename Visitor>
         static inline bool visitTriangleIndices(const ICPUPolygonGeometry* geom, Visitor&& visitor)
         {
@@ -162,10 +178,14 @@ class SGeometryWriterCommon
                 default: return false;
             }
         }
+        //! Returns a direct pointer for tightly packed views that already match `ExpectedFormat`.
         template<typename T, E_FORMAT ExpectedFormat>
         static inline const T* getTightView(const ICPUPolygonGeometry::SDataView& view) { return view && view.composed.format == ExpectedFormat && view.composed.getStride() == sizeof(T) ? reinterpret_cast<const T*>(view.getPointer()) : nullptr; }
+        //! Appends one floating-point value to a caller-provided character buffer.
         static inline char* appendFloatToBuffer(char* dst, char* end, float value) { return appendFloatingPointToBuffer(dst, end, value); }
+        //! Appends one double-precision value to a caller-provided character buffer.
         static inline char* appendFloatToBuffer(char* dst, char* end, double value) { return appendFloatingPointToBuffer(dst, end, value); }
+        //! Appends one unsigned integer value to a caller-provided character buffer.
         static inline char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
         {
             if (!dst || dst >= end)
@@ -180,6 +200,7 @@ class SGeometryWriterCommon
             return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
         }
     private:
+        //! Shared floating-point backend for the `appendFloatToBuffer` overload set.
         template<typename T>
         static inline char* appendFloatingPointToBuffer(char* dst, char* const end, const T value)
         {

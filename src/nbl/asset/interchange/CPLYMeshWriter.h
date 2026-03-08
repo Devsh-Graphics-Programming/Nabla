@@ -4,15 +4,10 @@
 // See the original file in irrlicht source for authors
 #ifndef _NBL_ASSET_PLY_MESH_WRITER_H_INCLUDED_
 #define _NBL_ASSET_PLY_MESH_WRITER_H_INCLUDED_
-
-
 #include "nbl/asset/interchange/IGeometryWriter.h"
-
-
 namespace nbl::asset
 {
-
-//! class to write PLY mesh files
+//! Geometry writer capable of emitting PLY mesh files.
 class CPLYMeshWriter : public IGeometryWriter
 {
 	public:

@@ -15,32 +15,52 @@
 #include <vector>
 namespace nbl::asset
 {
+//! Input describing one loader or hash stage that needs worker and chunk sizing.
 struct SLoaderRuntimeTuningRequest
 {
-    /* Input describing one loader or hash stage that needs worker and chunk sizing. Total input bytes for the tuned stage. Total amount of stage work in logical units. Minimum work units assigned to one worker. Minimum input bytes assigned to one worker. Hardware thread count override. 0 means auto-detect. Hard cap for workers for this request. 0 means no extra cap. Preferred chunk count per worker for this stage. 0 means policy default. Minimum work units in one chunk. Maximum work units in one chunk. Pointer to representative sample bytes for hybrid sampling. Number of sample bytes available at sampleData. Sampling pass count override. 0 means policy default. Sampling candidate count override. 0 means policy default. Minimum work units required to allow sampling. 0 means policy or auto value. */
-    uint64_t inputBytes = 0ull, totalWorkUnits = 0ull, minWorkUnitsPerWorker = 1ull, minBytesPerWorker = 1ull;
-    uint32_t hardwareThreads = 0u, hardMaxWorkers = 0u, targetChunksPerWorker = 0u;
-    uint64_t minChunkWorkUnits = 1ull, maxChunkWorkUnits = std::numeric_limits<uint64_t>::max();
-    const uint8_t* sampleData = nullptr;
-    uint64_t sampleBytes = 0ull, sampleMinWorkUnits = 0ull;
-    uint32_t samplePasses = 0u, sampleMaxCandidates = 0u;
+    uint64_t inputBytes = 0ull; //!< Total input bytes for the tuned stage.
+    uint64_t totalWorkUnits = 0ull; //!< Total amount of stage work in logical units.
+    uint64_t minWorkUnitsPerWorker = 1ull; //!< Minimum work units assigned to one worker.
+    uint64_t minBytesPerWorker = 1ull; //!< Minimum input bytes assigned to one worker.
+    uint32_t hardwareThreads = 0u; //!< Hardware thread count override. 0 means auto-detect.
+    uint32_t hardMaxWorkers = 0u; //!< Hard cap for workers for this request. 0 means no extra cap.
+    uint32_t targetChunksPerWorker = 0u; //!< Preferred chunk count per worker for this stage. 0 means policy default.
+    uint64_t minChunkWorkUnits = 1ull; //!< Minimum work units in one chunk.
+    uint64_t maxChunkWorkUnits = std::numeric_limits<uint64_t>::max(); //!< Maximum work units in one chunk.
+    const uint8_t* sampleData = nullptr; //!< Pointer to representative sample bytes for hybrid sampling.
+    uint64_t sampleBytes = 0ull; //!< Number of sample bytes available at sampleData.
+    uint64_t sampleMinWorkUnits = 0ull; //!< Minimum work units required to allow sampling. 0 means policy or auto value.
+    uint32_t samplePasses = 0u; //!< Sampling pass count override. 0 means policy default.
+    uint32_t sampleMaxCandidates = 0u; //!< Sampling candidate count override. 0 means policy default.
 };
-struct SLoaderRuntimeTuningResult /* Final worker and chunk layout selected for one stage. */
+//! Final worker and chunk layout selected for one stage.
+struct SLoaderRuntimeTuningResult
 {
-    /* Selected worker count for the stage. Work units per chunk assigned by tuner. Total chunk count for the stage. */
-    size_t workerCount = 1ull, chunkCount = 1ull;
-    uint64_t chunkWorkUnits = 1ull;
+    size_t workerCount = 1ull; //!< Selected worker count for the stage.
+    size_t chunkCount = 1ull; //!< Total chunk count for the stage.
+    uint64_t chunkWorkUnits = 1ull; //!< Work units per chunk assigned by tuner.
 };
-struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash stages to size worker pools and chunking. */
+//! Stateless runtime tuner used by loaders and hash stages to size worker pools and chunking.
+struct SLoaderRuntimeTuner
 {
     private:
-        struct SBenchmarkSampleStats { uint64_t medianNs = 0ull, minNs = 0ull, maxNs = 0ull, totalNs = 0ull; }; // Aggregated timings collected while probing one worker-count candidate.
+        //! Aggregated timings collected while probing one worker-count candidate.
+        struct SBenchmarkSampleStats
+        {
+            uint64_t medianNs = 0ull;
+            uint64_t minNs = 0ull;
+            uint64_t maxNs = 0ull;
+            uint64_t totalNs = 0ull;
+        };
     public:
+        /**
+            Dispatches workers `1..N-1` on `std::jthread`
+            and runs worker `0` on the caller thread.
+        */
         template<typename Fn>
         requires std::invocable<Fn&, size_t>
         static void dispatchWorkers(const size_t workerCount, Fn&& fn)
         {
-            // std::jthread starts execution in its constructor, so emplace_back launches workers 1..N-1 immediately. The current thread runs worker 0 and std::jthread joins automatically when the local vector is destroyed.
             if (workerCount <= 1ull)
                 return fn(0ull);
             std::vector<std::jthread> workers;
@@ -49,12 +69,18 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
                 workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
             fn(0ull);
         }
-        static constexpr uint64_t ceilDiv(const uint64_t numerator, const uint64_t denominator) { return (numerator + denominator - 1ull) / denominator; } // Integer ceil division. Callers must pass a non-zero denominator.
+
+        //! Integer ceil division. Callers must pass a non-zero denominator.
+        static constexpr uint64_t ceilDiv(const uint64_t numerator, const uint64_t denominator) { return (numerator + denominator - 1ull) / denominator; }
+
+        /**
+            Measures one sampled memory-touch pass configuration
+            and returns aggregate wall time across all passes.
+        */
         template<typename TimeUnit = std::chrono::nanoseconds>
         requires std::same_as<TimeUnit, std::chrono::duration<typename TimeUnit::rep, typename TimeUnit::period>>
         static inline TimeUnit benchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
         {
-            // Measures one sampled memory-touch pass configuration and returns aggregate wall time across all passes.
             if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
                 return TimeUnit::zero();
             const uint32_t passCount = std::max<uint32_t>(1u, passes);
@@ -83,9 +109,10 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
             sink.fetch_xor(reduced, std::memory_order_relaxed);
             return std::chrono::duration_cast<TimeUnit>(std::chrono::nanoseconds(elapsedNs));
         }
+
+        //! Warms up once and then collects timing observations for one worker-count candidate.
         static inline SBenchmarkSampleStats benchmarkSampleStats(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes, const uint32_t observations)
         {
-            // Warms up once and then collects timing observations for one worker-count candidate.
             SBenchmarkSampleStats stats = {};
             if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
                 return stats;
@@ -112,10 +139,11 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
                 stats.medianNs = (samples[samples.size() / 2ull - 1ull] + samples[samples.size() / 2ull]) / 2ull;
             return stats;
         }
-        static inline void appendCandidate(std::vector<size_t>& dst, const size_t candidate) { if (candidate != 0ull && std::find(dst.begin(), dst.end(), candidate) == dst.end()) dst.push_back(candidate); } // Keeps the candidate probe list unique while preserving insertion order.
+        //! Keeps the candidate probe list unique while preserving insertion order.
+        static inline void appendCandidate(std::vector<size_t>& dst, const size_t candidate) { if (candidate != 0ull && std::find(dst.begin(), dst.end(), candidate) == dst.end()) dst.push_back(candidate); }
+        //! Chooses the sample byte budget used by hybrid tuning from the known input size and policy clamps.
         static inline uint64_t resolveSampleBytes(const SFileIOPolicy& ioPolicy, const uint64_t knownInputBytes)
         {
-            // Chooses the sample byte budget used by hybrid tuning from the known input size and policy clamps.
             if (knownInputBytes == 0ull)
                 return 0ull;
             const uint64_t minSampleBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.minSampleBytes);
@@ -125,11 +153,13 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
             const uint64_t adaptive = std::max<uint64_t>(knownInputBytes / 64ull, cappedMin);
             return std::clamp<uint64_t>(adaptive, cappedMin, cappedMax);
         }
-        static inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes) { return inputBytes <= std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes); } // Returns true when the hash build is small enough to stay on the caller thread.
-        static inline size_t resolveHardwareThreads(const uint32_t requested = 0u) { const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency()); return hw ? hw : 1ull; } // Resolves the effective hardware thread count and always returns at least one worker.
+        //! Returns true when the hash build is small enough to stay on the caller thread.
+        static inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes) { return inputBytes <= std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes); }
+        //! Resolves the effective hardware thread count and always returns at least one worker.
+        static inline size_t resolveHardwareThreads(const uint32_t requested = 0u) { const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency()); return hw ? hw : 1ull; }
+        //! Applies worker headroom while keeping at least two workers when parallel hardware is available.
         static inline size_t resolveHardMaxWorkers(const size_t hardwareThreads, const uint32_t workerHeadroom)
         {
-            // Applies worker headroom while keeping at least two workers when parallel hardware is available.
             const size_t hw = std::max<size_t>(1ull, hardwareThreads), minWorkers = hw >= 2ull ? 2ull : 1ull, headroom = static_cast<size_t>(workerHeadroom);
             if (headroom == 0ull)
                 return hw;
@@ -137,9 +167,9 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
                 return minWorkers;
             return std::max<size_t>(minWorkers, hw - headroom);
         }
+        //! Resolves worker and chunk counts for one stage using policy limits plus optional hybrid sampling.
         static inline SLoaderRuntimeTuningResult tune(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request)
         {
-            // Resolves worker and chunk counts for one stage using policy limits plus optional hybrid sampling.
             using RTMode = SFileIOPolicy::SRuntimeTuning::Mode;
             SLoaderRuntimeTuningResult result = {};
             if (request.totalWorkUnits == 0ull)
@@ -192,7 +222,7 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
                     {
                         if (request.inputBytes > 0ull)
                         {
-                            // keep probing lightweight: sample fraction scales with input and parallelism
+                            // Keep probing lightweight: sample fraction scales with input and parallelism.
                             const uint64_t sampleDivisor = std::max<uint64_t>(4ull, static_cast<uint64_t>(heuristicWorkerCount) * static_cast<uint64_t>(targetChunksPerWorker));
                             const uint64_t adaptiveSampleBytes = std::max<uint64_t>(1ull, request.inputBytes / sampleDivisor);
                             effectiveSampleBytes = std::min<uint64_t>(effectiveSampleBytes, adaptiveSampleBytes);
@@ -211,7 +241,8 @@ struct SLoaderRuntimeTuner /* Stateless runtime tuner used by loaders and hash s
                             appendCandidate(candidates, heuristicWorkerCount + 2ull);
                         if (candidates.size() > maxCandidates)
                             candidates.resize(maxCandidates);
-                        const auto heuristicStatsProbe = benchmarkSampleStats(request.sampleData, effectiveSampleBytes, heuristicWorkerCount, samplePasses, 2u); // probe heuristic first and only continue when budget can amortize additional probes
+                        // Probe heuristic first and only continue when budget can amortize additional probes.
+                        const auto heuristicStatsProbe = benchmarkSampleStats(request.sampleData, effectiveSampleBytes, heuristicWorkerCount, samplePasses, 2u);
                         if (heuristicStatsProbe.medianNs > 0ull)
                         {
                             const double scale = request.inputBytes ? (static_cast<double>(request.inputBytes) / static_cast<double>(effectiveSampleBytes)) : 1.0;

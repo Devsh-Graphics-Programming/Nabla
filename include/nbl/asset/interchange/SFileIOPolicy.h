@@ -12,51 +12,63 @@
 #include <string>
 namespace nbl::asset
 {
+//! Requested IO strategy selected before file size and mapping constraints are resolved.
 enum class EFileIOStrategy : uint8_t
 {
-    Invalid = 0u, // Sentinel used when strategy resolution fails or the value is uninitialized.
-    Auto, // Pick whole-file or chunked dynamically based on file size and policy limits.
-    WholeFile, // Force whole-file strategy. May fallback when not feasible unless strict=true.
-    Chunked // Force chunked strategy.
+    Invalid = 0u, //!< Sentinel used when strategy resolution fails or the value is uninitialized.
+    Auto, //!< Pick whole-file or chunked dynamically based on file size and policy limits.
+    WholeFile, //!< Force whole-file strategy. May fallback when not feasible unless strict=true.
+    Chunked //!< Force chunked strategy.
 };
-struct SFileIOPolicy // Requested IO policy shared by loaders, writers, and hash stages before file constraints are resolved.
+
+//! Requested IO policy shared by loaders, writers, and hash stages before file constraints are resolved.
+struct SFileIOPolicy
 {
-    struct SRuntimeTuning // Runtime tuning knobs shared by loader parallelism and IO anomaly diagnostics.
+    //! Runtime tuning knobs shared by loader parallelism and IO anomaly diagnostics.
+    struct SRuntimeTuning
     {
-        /* Disable runtime tuning and force sequential execution. Backward-compatible alias for Sequential. Use deterministic heuristics derived from input size and hardware. Use heuristics and optionally refine with lightweight sampling. */
-        enum class Mode : uint8_t { Sequential, None = Sequential, Heuristic, Hybrid }; // Runtime tuning strategy for worker/chunk selection.
-        Mode mode = Mode::Heuristic; // Runtime tuning mode.
-        float maxOverheadRatio = 0.05f; // Maximum acceptable tuning overhead as a fraction of estimated full workload time.
-        float samplingBudgetRatio = 0.05f; // Maximum sampling budget as a fraction of estimated full workload time.
-        float minExpectedGainRatio = 0.03f; // Minimum expected gain required to keep extra workers enabled.
-        uint16_t maxWorkers = 0u; // Hard cap for worker count. 0 means auto.
-        uint8_t workerHeadroom = 2u; // Reserved hardware threads not used by the loader. Prevents full CPU saturation.
-        uint8_t samplingMaxCandidates = 4u; // Maximum number of worker-count candidates tested in hybrid mode.
-        uint8_t samplingPasses = 1u; // Number of benchmark passes per candidate in hybrid mode.
-        uint64_t samplingMinWorkUnits = 0ull; // Minimum work units required before hybrid sampling is allowed. 0 means auto.
-        uint8_t targetChunksPerWorker = 4u; // Target chunk count assigned to each worker for loader stages.
-        uint8_t hashTaskTargetChunksPerWorker = 1u; // Target chunk count assigned to each worker for hash stages.
-        uint64_t hashInlineThresholdBytes = 1ull << 20; // Hash inlining threshold. Inputs up to this size prefer inline hash build.
-        uint64_t minSampleBytes = 4ull << 10; // Lower bound for sampled byte count in hybrid mode.
-        uint64_t maxSampleBytes = 128ull << 10; // Upper bound for sampled byte count in hybrid mode.
-        uint64_t tinyIoPayloadThresholdBytes = 1ull << 20; // Payload size threshold for tiny-IO anomaly detection.
-        uint64_t tinyIoAvgBytesThreshold = 1024ull; // Average operation size threshold for tiny-IO anomaly detection.
-        uint64_t tinyIoMinBytesThreshold = 64ull; // Minimum operation size threshold for tiny-IO anomaly detection.
-        uint64_t tinyIoMinCallCount = 1024ull; // Minimum operation count required to report tiny-IO anomaly.
+        //! Runtime tuning strategy for worker/chunk selection.
+        enum class Mode : uint8_t
+        {
+            Sequential, //!< Disable runtime tuning and force sequential execution.
+            None = Sequential, //!< Backward-compatible alias for Sequential.
+            Heuristic, //!< Use deterministic heuristics derived from input size and hardware.
+            Hybrid //!< Use heuristics and optionally refine with lightweight sampling.
+        };
+
+        Mode mode = Mode::Heuristic; //!< Runtime tuning mode.
+        float maxOverheadRatio = 0.05f; //!< Maximum acceptable tuning overhead as a fraction of estimated full workload time.
+        float samplingBudgetRatio = 0.05f; //!< Maximum sampling budget as a fraction of estimated full workload time.
+        float minExpectedGainRatio = 0.03f; //!< Minimum expected gain required to keep extra workers enabled.
+        uint16_t maxWorkers = 0u; //!< Hard cap for worker count. 0 means auto.
+        uint8_t workerHeadroom = 2u; //!< Reserved hardware threads not used by the loader. Prevents full CPU saturation.
+        uint8_t samplingMaxCandidates = 4u; //!< Maximum number of worker-count candidates tested in hybrid mode.
+        uint8_t samplingPasses = 1u; //!< Number of benchmark passes per candidate in hybrid mode.
+        uint64_t samplingMinWorkUnits = 0ull; //!< Minimum work units required before hybrid sampling is allowed. 0 means auto.
+        uint8_t targetChunksPerWorker = 4u; //!< Target chunk count assigned to each worker for loader stages.
+        uint8_t hashTaskTargetChunksPerWorker = 1u; //!< Target chunk count assigned to each worker for hash stages.
+        uint64_t hashInlineThresholdBytes = 1ull << 20; //!< Hash inlining threshold. Inputs up to this size prefer inline hash build.
+        uint64_t minSampleBytes = 4ull << 10; //!< Lower bound for sampled byte count in hybrid mode.
+        uint64_t maxSampleBytes = 128ull << 10; //!< Upper bound for sampled byte count in hybrid mode.
+        uint64_t tinyIoPayloadThresholdBytes = 1ull << 20; //!< Payload size threshold for tiny-IO anomaly detection.
+        uint64_t tinyIoAvgBytesThreshold = 1024ull; //!< Average operation size threshold for tiny-IO anomaly detection.
+        uint64_t tinyIoMinBytesThreshold = 64ull; //!< Minimum operation size threshold for tiny-IO anomaly detection.
+        uint64_t tinyIoMinCallCount = 1024ull; //!< Minimum operation count required to report tiny-IO anomaly.
     };
 
     using Strategy = EFileIOStrategy;
 
+    //! Extra resolution flags affecting fallback behavior.
     enum E_FLAGS : uint8_t { EF_NONE = 0u, EF_STRICT_BIT = 1u << 0u };
 
-    static inline constexpr uint64_t MIN_CHUNK_SIZE_BYTES = 64ull << 10u; // 64 KiB
+    static inline constexpr uint64_t MIN_CHUNK_SIZE_BYTES = 64ull << 10u; //!< 64 KiB.
     static inline constexpr uint8_t MIN_CHUNK_SIZE_LOG2 = static_cast<uint8_t>(std::bit_width(MIN_CHUNK_SIZE_BYTES) - 1u);
     static inline constexpr uint8_t MAX_BYTE_SIZE_LOG2 = std::numeric_limits<uint64_t>::digits - 1u;
-    static inline constexpr uint64_t DEFAULT_WHOLE_FILE_THRESHOLD_BYTES = 64ull << 20u; // 64 MiB
-    static inline constexpr uint64_t DEFAULT_CHUNK_SIZE_BYTES = 4ull << 20u; // 4 MiB
-    static inline constexpr uint64_t DEFAULT_MAX_STAGING_BYTES = 256ull << 20u; // 256 MiB
+    static inline constexpr uint64_t DEFAULT_WHOLE_FILE_THRESHOLD_BYTES = 64ull << 20u; //!< 64 MiB.
+    static inline constexpr uint64_t DEFAULT_CHUNK_SIZE_BYTES = 4ull << 20u; //!< 4 MiB.
+    static inline constexpr uint64_t DEFAULT_MAX_STAGING_BYTES = 256ull << 20u; //!< 256 MiB.
 
-    // These defaults are stored and clamped as log2(byte_count), so the source byte values must stay powers of two.
+    //! These defaults are stored and clamped as log2(byte_count), so the source byte values must stay powers of two.
     static_assert(std::has_single_bit(MIN_CHUNK_SIZE_BYTES));
     static_assert(std::has_single_bit(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES));
     static_assert(std::has_single_bit(DEFAULT_CHUNK_SIZE_BYTES));
@@ -65,26 +77,40 @@ struct SFileIOPolicy // Requested IO policy shared by loaders, writers, and hash
     static inline constexpr uint8_t clampBytesLog2(const uint8_t value, const uint8_t minValue = 0u) { return std::clamp<uint8_t>(value, minValue, MAX_BYTE_SIZE_LOG2); }
 
     static inline constexpr uint64_t bytesFromLog2(const uint8_t value, const uint8_t minValue = 0u) { return 1ull << clampBytesLog2(value, minValue); }
-    Strategy strategy = Strategy::Auto; // Requested IO strategy. Defaults to Auto.
-    core::bitflag<E_FLAGS> flags = EF_NONE; // Resolution flags. Defaults to none.
-    uint8_t wholeFileThresholdLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES) - 1u); // Maximum payload size allowed for whole-file strategy in auto mode. Defaults to 64 MiB.
-    uint8_t chunkSizeLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_CHUNK_SIZE_BYTES) - 1u); // Chunk size used by chunked strategy encoded as log2(bytes). Defaults to 4 MiB.
-    uint8_t maxStagingLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_MAX_STAGING_BYTES) - 1u); // Maximum staging allocation for whole-file strategy encoded as log2(bytes). Defaults to 256 MiB.
-    SRuntimeTuning runtimeTuning = {}; // Runtime tuning controls used by loaders and hash stages.
+
+    Strategy strategy = Strategy::Auto; //!< Requested IO strategy. Defaults to Auto.
+    core::bitflag<E_FLAGS> flags = EF_NONE; //!< Resolution flags. Defaults to none.
+
+    //! Maximum payload size allowed for whole-file strategy in auto mode. Defaults to 64 MiB.
+    uint8_t wholeFileThresholdLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_WHOLE_FILE_THRESHOLD_BYTES) - 1u);
+
+    //! Chunk size used by chunked strategy encoded as log2(bytes). Defaults to 4 MiB.
+    uint8_t chunkSizeLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_CHUNK_SIZE_BYTES) - 1u);
+
+    //! Maximum staging allocation for whole-file strategy encoded as log2(bytes). Defaults to 256 MiB.
+    uint8_t maxStagingLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_MAX_STAGING_BYTES) - 1u);
+
+    SRuntimeTuning runtimeTuning = {}; //!< Runtime tuning controls used by loaders and hash stages.
+
     inline constexpr bool strict() const { return flags.hasAnyFlag(EF_STRICT_BIT); }
     inline constexpr uint64_t wholeFileThresholdBytes() const { return bytesFromLog2(wholeFileThresholdLog2, MIN_CHUNK_SIZE_LOG2); }
     inline constexpr uint64_t chunkSizeBytes() const { return bytesFromLog2(chunkSizeLog2, MIN_CHUNK_SIZE_LOG2); }
     inline constexpr uint64_t maxStagingBytes() const { return bytesFromLog2(maxStagingLog2, MIN_CHUNK_SIZE_LOG2); }
 };
-struct SResolvedFileIOPolicy // Resolved IO plan chosen from SFileIOPolicy after considering file size, mapping, and staging limits.
+
+//! Resolved IO plan chosen from SFileIOPolicy after considering file size, mapping, and staging limits.
+struct SResolvedFileIOPolicy
 {
     using Strategy = EFileIOStrategy;
 
     constexpr SResolvedFileIOPolicy() = default;
     inline constexpr SResolvedFileIOPolicy(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false) : SResolvedFileIOPolicy(resolve(policy, byteCount, sizeKnown, fileMappable)) {}
-    Strategy strategy = Strategy::Invalid; // Effective strategy chosen by resolver. Invalid means strict policy resolution failed.
-    uint8_t chunkSizeLog2 = SFileIOPolicy::MIN_CHUNK_SIZE_LOG2; // Effective chunk size encoded as log2(bytes). Also set for whole-file for telemetry consistency.
-    const char* reason = "invalid"; // Resolver reason string used in logs and diagnostics.
+    Strategy strategy = Strategy::Invalid; //!< Effective strategy chosen by resolver. Invalid means strict policy resolution failed.
+
+    //! Effective chunk size encoded as log2(bytes). Also set for whole-file for telemetry consistency.
+    uint8_t chunkSizeLog2 = SFileIOPolicy::MIN_CHUNK_SIZE_LOG2;
+
+    const char* reason = "invalid"; //!< Resolver reason string used in logs and diagnostics.
 
     inline constexpr bool isValid() const { return strategy != Strategy::Invalid; }
 

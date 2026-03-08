@@ -4,15 +4,11 @@
 // See the original file in irrlicht source for authors
 #ifndef _NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED_
 #define _NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED_
-
 #include "nbl/core/declarations.h"
-
 #include "nbl/asset/interchange/IGeometryLoader.h"
-
 namespace nbl::asset
 {
-
-//! Meshloader capable of loading obj meshes.
+//! Mesh loader capable of loading PLY meshes.
 class CPLYMeshFileLoader final : public IGeometryLoader
 {
 	public:
@@ -22,7 +18,7 @@ class CPLYMeshFileLoader final : public IGeometryLoader
 
 		const char** getAssociatedFileExtensions() const override;
 
-		//! creates/loads an animated mesh from the file.
+		//! Loads one PLY asset bundle from an already opened file.
 		SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 

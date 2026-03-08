@@ -28,10 +28,11 @@ enum E_WRITER_FLAGS : uint32_t
     EWF_NONE = 0u,						//!< No writer flags (default writer settings)
     EWF_COMPRESSED = 1u<<0u,			//!< Write in a way that consumes less disk space if possible
     EWF_ENCRYPTED = 1u<<1u,				//!< Write encrypted if possible
-    //! write in binary format rather than text if possible
-    EWF_BINARY = 1u << 2u,
-
-    //!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation	
+    EWF_BINARY = 1u << 2u,				//!< Write in binary format rather than text if possible
+    /**
+        Specifies the incoming orientation of loaded mesh we want to write.
+        Flipping will be performed if needed in dependency of format extension orientation.
+    */
     EWF_MESH_IS_RIGHT_HANDED = 1u << 3u
 };
 using writer_flags_t = core::bitflag<E_WRITER_FLAGS>;
@@ -160,16 +161,17 @@ public:
             return ctx.params.encryptionKeyLen;
         }
 
-        //! If the writer has to output multiple files (e.g. write out textures)
+        //! If the writer has to output multiple files (e.g. write out textures).
         inline virtual void getExtraFilePaths(std::string& inOutAbsoluteFileWritePath, std::string& inOutPathToRecord, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLevel) {} // do absolutely nothing, no changes to paths
 
+        //! Lets the override replace the seeked destination file for one sub-asset.
         inline virtual system::IFile* getOutputFile(system::IFile* origIntendedOutput, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLeve)
         {
             // if you want to return something else, better drop origIntendedOutput
             return origIntendedOutput;
         }
 
-        //!This function is supposed to give an already seeked file the IAssetWriter can write to 
+        //! This function is supposed to give an already seeked file the IAssetWriter can write to.
         inline virtual system::IFile* handleWriteError(system::IFile* failingFile, const uint32_t& failedPos, const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return nullptr; // no handling of fail

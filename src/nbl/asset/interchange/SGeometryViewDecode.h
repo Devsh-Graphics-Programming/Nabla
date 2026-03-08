@@ -10,25 +10,41 @@
 #include <type_traits>
 namespace nbl::asset
 {
+//! Shared decode helper for geometry `SDataView` read paths used by writers.
 class SGeometryViewDecode
 {
 	public:
-		enum class EMode : uint8_t { Semantic, Stored };
+		//! Selects whether the output should be in logical attribute space or storage space.
+		enum class EMode : uint8_t
+		{
+			Semantic, //!< Decode values ready for writer-side math and text/binary emission.
+			Stored //!< Decode values in storage-domain form for raw integer emission.
+		};
+
+		//! Prepared decode state hoisted out of inner loops for one formatted view.
 		template<EMode Mode>
 		struct Prepared
 		{
-			const uint8_t* data = nullptr;
-			uint32_t stride = 0u;
-			E_FORMAT format = EF_UNKNOWN;
-			uint32_t channels = 0u;
-			bool normalized = false;
+			const uint8_t* data = nullptr; //!< First byte of the view payload.
+			uint32_t stride = 0u; //!< Byte stride between consecutive elements.
+			E_FORMAT format = EF_UNKNOWN; //!< Source format used by `decodePixels`.
+			uint32_t channels = 0u; //!< Channel count cached from `format`.
+			bool normalized = false; //!< True when semantic decode must apply `range`.
+
+			//! Decoded attribute range used for normalized semantic outputs.
 			hlsl::shapes::AABB<4, hlsl::float64_t> range = hlsl::shapes::AABB<4, hlsl::float64_t>::create();
 			inline explicit operator bool() const { return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u; }
+
+			//! Decodes one element into a fixed-size `std::array`.
 			template<typename T, size_t N>
 			inline bool decode(const size_t ix, std::array<T, N>& out) const { out.fill(T{}); return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out.data(), static_cast<uint32_t>(N)); }
+
+			//! Decodes one element into an HLSL vector type.
 			template<typename V> requires hlsl::concepts::Vector<V>
 			inline bool decode(const size_t ix, V& out) const { out = V{}; return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out); }
 		};
+
+		//! Prepares one decode state that can be reused across many elements of the same view.
 		template<EMode Mode>
 		static inline Prepared<Mode> prepare(const ICPUPolygonGeometry::SDataView& view)
 		{
@@ -45,9 +61,12 @@ class SGeometryViewDecode
 					retval.range = view.composed.getRange<hlsl::shapes::AABB<4, hlsl::float64_t>>();
 			return retval;
 		}
+
+		//! One-shot convenience wrapper over `prepare(...).decode(...)`.
 		template<typename Out, EMode Mode = EMode::Semantic>
 		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out) { return prepare<Mode>(view).decode(ix, out); }
 	private:
+		//! Shared scalar/vector backend that decodes one prepared element into plain components.
 		template<EMode Mode, typename T>
 		static inline bool decodePreparedComponents(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
 		{
@@ -71,6 +90,8 @@ class SGeometryViewDecode
 				out[i] = static_cast<T>(tmp[i]);
 			return true;
 		}
+
+		//! Vector overload built on top of `decodePreparedComponents`.
 		template<EMode Mode, typename V> requires hlsl::concepts::Vector<V>
 		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, V& out)
 		{
@@ -83,6 +104,8 @@ class SGeometryViewDecode
 				out[i] = tmp[i];
 			return true;
 		}
+
+		//! Pointer overload used by `std::array` and internal scratch storage.
 		template<EMode Mode, typename T>
 		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim) { return decodePreparedComponents(prepared, ix, out, outDim); }
 };

@@ -8,13 +8,16 @@
 #include "nbl/core/hash/blake.h"
 namespace nbl::asset
 {
+//! Geometry-content-hash helper operating on all unique buffers referenced by one polygon geometry.
 class SPolygonGeometryContentHash
 {
     public:
         using mode_t = CPolygonGeometryManipulator::EContentHashMode;
 
+        //! Collects all unique buffers contributing to the geometry content hash.
         static inline void collectBuffers(const ICPUPolygonGeometry* geometry, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& buffers) { CPolygonGeometryManipulator::collectUniqueBuffers(geometry, buffers); }
 
+        //! Resets all referenced buffer hashes to `INVALID_HASH`.
         static inline void reset(ICPUPolygonGeometry* geometry)
         {
             core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
@@ -24,6 +27,7 @@ class SPolygonGeometryContentHash
                     buffer->setContentHash(IPreHashed::INVALID_HASH);
         }
 
+        //! Composes the geometry hash from the current content hashes of all referenced buffers.
         static inline core::blake3_hash_t composeHashFromBufferContentHashes(const ICPUPolygonGeometry* geometry)
         {
             if (!geometry)
@@ -44,8 +48,10 @@ class SPolygonGeometryContentHash
             return static_cast<core::blake3_hash_t>(hashBuilder);
         }
 
+        //! Computes missing buffer hashes and returns the composed geometry hash.
         static inline core::blake3_hash_t computeMissing(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy) { CPolygonGeometryManipulator::computeMissingContentHashesParallel(geometry, ioPolicy); return composeHashFromBufferContentHashes(geometry); }
 
+        //! Recomputes all buffer hashes and returns the composed geometry hash.
         static inline core::blake3_hash_t recompute(ICPUPolygonGeometry* geometry, const SFileIOPolicy& ioPolicy) { CPolygonGeometryManipulator::recomputeContentHashesParallel(geometry, ioPolicy); return composeHashFromBufferContentHashes(geometry); }
 };
 }
