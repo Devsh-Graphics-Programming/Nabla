@@ -21,6 +21,5 @@ class CPLYMeshFileLoader final : public IGeometryLoader
 		//! Loads one PLY asset bundle from an already opened file.
 		SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
-
 } // end namespace nbl::asset
 #endif

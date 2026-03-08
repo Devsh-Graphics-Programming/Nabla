@@ -31,6 +31,5 @@ class COBJMeshWriter : public ISceneWriter
 
 		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
-
 } // end namespace
 #endif

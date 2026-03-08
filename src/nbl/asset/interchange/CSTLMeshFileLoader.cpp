@@ -3,7 +3,6 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
 #include "CSTLMeshFileLoader.h"
 #include "impl/SFileAccess.h"
 #include "impl/STextParse.h"
@@ -19,7 +18,6 @@
 #include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
-
 #include <optional>
 namespace nbl::asset
 {

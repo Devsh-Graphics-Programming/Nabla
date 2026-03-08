@@ -3,22 +3,15 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_S_BUFFER_ADOPTION_H_INCLUDED_
 #define _NBL_ASSET_S_BUFFER_ADOPTION_H_INCLUDED_
-
-
 #include <concepts>
 #include <ranges>
 #include <type_traits>
 #include <utility>
-
 #include "nbl/asset/ICPUBuffer.h"
-
-
 namespace nbl::asset
 {
-
 namespace impl
 {
-
 // Owns contiguous storage that can be adopted by a CPU buffer. Views like std::span are rejected.
 template<typename Storage>
 concept AdoptedBufferStorage =
@@ -30,9 +23,7 @@ concept AdoptedBufferStorage =
         typename std::ranges::range_value_t<std::remove_reference_t<Storage>>;
         { std::ranges::data(storage) } -> std::same_as<std::ranges::range_value_t<std::remove_reference_t<Storage>>*>;
     };
-
 }
-
 // Generic CPU-buffer adoption helper for owning contiguous storage such as std::vector or core::vector.
 class SBufferAdoption
 {
@@ -54,8 +45,5 @@ class SBufferAdoption
                 core::adopt_memory);
         }
 };
-
 }
-
-
 #endif

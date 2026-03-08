@@ -20,6 +20,5 @@ class CPLYMeshWriter : public IGeometryWriter
 
 		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
-
 } // end namespace
 #endif

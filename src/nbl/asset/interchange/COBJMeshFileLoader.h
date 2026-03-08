@@ -39,6 +39,5 @@ class COBJMeshFileLoader : public IGeometryLoader
 		//! Loads one OBJ asset bundle from an already opened file.
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
-
 } // end namespace nbl::asset
 #endif

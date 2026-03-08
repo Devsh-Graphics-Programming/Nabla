@@ -21,7 +21,6 @@ class CSTLMeshFileLoader final : public IGeometryLoader
 
 		const char** getAssociatedFileExtensions() const override;
 };
-
 } // end namespace nbl::asset
 #endif
 

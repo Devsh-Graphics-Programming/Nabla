@@ -2,7 +2,6 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #include "nbl/asset/interchange/COBJMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
@@ -10,9 +9,7 @@
 #include "impl/SFileAccess.h"
 #include "nbl/builtin/hlsl/array_accessors.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
-
 #include "nbl/system/IFile.h"
-
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -20,10 +17,8 @@
 #include <cstring>
 #include <limits>
 #include <system_error>
-
 namespace nbl::asset
 {
-
 COBJMeshWriter::COBJMeshWriter()
 {
 	#ifdef _NBL_DEBUG
