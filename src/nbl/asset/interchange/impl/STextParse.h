@@ -34,36 +34,29 @@ struct TextParse
 			return true;
 		}
 	}
-
 	template<typename T>
 	static inline bool parseExactNumber(const char* const begin, const char* const end, T& out) { auto ptr = begin; return parseNumber(ptr, end, out) && ptr == end; }
-
 	template<typename T>
 	static inline bool parseExactNumber(const std::string_view token, T& out) { return parseExactNumber(token.data(), token.data() + token.size(), out); }
-
 	template<typename T>
 	static inline bool parseNonZeroNumber(const char*& ptr, const char* const end, T& out)
 	{
 		return parseNumber(ptr, end, out) && out != static_cast<T>(0);
 	}
-
 	static inline bool isInlineWhitespace(const char c)
 	{
 		return c == ' ' || c == '\t' || c == '\v' || c == '\f';
 	}
-
 	static inline void skipInlineWhitespace(const char*& ptr, const char* const end)
 	{
 		while (ptr < end && isInlineWhitespace(*ptr))
 			++ptr;
 	}
-
 	static inline void skipWhitespace(const char*& ptr, const char* const end)
 	{
 		while (ptr < end && core::isspace(*ptr))
 			++ptr;
 	}
-
 	static inline std::string_view trimWhitespace(std::string_view token)
 	{
 		while (!token.empty() && core::isspace(token.front()))
@@ -72,17 +65,14 @@ struct TextParse
 			token.remove_suffix(1ull);
 		return token;
 	}
-
 	static inline std::optional<std::string_view> readToken(const char*& cursor, const char* const end)
 	{
 		skipWhitespace(cursor, end);
 		if (cursor >= end)
 			return std::nullopt;
-
 		const auto* tokenEnd = cursor;
 		while (tokenEnd < end && !core::isspace(*tokenEnd))
 			++tokenEnd;
-
 		const std::string_view token(cursor, static_cast<size_t>(tokenEnd - cursor));
 		cursor = tokenEnd;
 		return token;

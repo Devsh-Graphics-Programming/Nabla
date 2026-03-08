@@ -3,7 +3,6 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
 #include "CPLYMeshFileLoader.h"
 #include "impl/SBinaryData.h"
 #include "impl/SFileAccess.h"
@@ -20,32 +19,25 @@
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"
-
 #include <thread>
-
 namespace nbl::asset
 {
-
 namespace
 {
-
 struct Parse
 {
     static constexpr uint32_t UV0 = 0u;
     using Binary = impl::BinaryData;
 	using Common = impl::TextParse;
-
 	struct ContentHashBuild
 	{
 		bool enabled = false;
 		bool inlineHash = false;
 		core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers = {};
 		std::jthread deferredThread = {};
-
 		static inline ContentHashBuild create(const bool enabled, const bool inlineHash) { return {.enabled = enabled, .inlineHash = inlineHash}; }
 		inline bool hashesInline() const { return enabled && inlineHash; }
 		inline bool hashesDeferred() const { return enabled && !inlineHash; }
-
 		inline void hashNow(ICPUBuffer* const buffer)
 		{
 			if (!hashesInline() || !buffer || buffer->getContentHash() != IPreHashed::INVALID_HASH)
@@ -56,7 +48,6 @@ struct Parse
 			buffer->setContentHash(buffer->computeContentHash());
 			hashedBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(buffer));
 		}
-
 		inline void tryDefer(ICPUBuffer* const buffer)
 		{
 			if (!hashesDeferred() || !buffer || deferredThread.joinable() || buffer->getContentHash() != IPreHashed::INVALID_HASH)
@@ -64,21 +55,17 @@ struct Parse
 			auto keepAlive = core::smart_refctd_ptr<ICPUBuffer>(buffer);
 			deferredThread = std::jthread([buffer = std::move(keepAlive)]() mutable {buffer->setContentHash(buffer->computeContentHash());});
 		}
-
 		inline void wait() { if (deferredThread.joinable()) deferredThread.join(); }
 	};
-
 	static std::string_view toStringView(const char* text)
 	{
 		return text ? std::string_view{text} : std::string_view{};
 	}
-
 	template<size_t N>
 	static E_FORMAT selectStructuredFormat(const std::array<E_FORMAT, N>& formats, const uint32_t componentCount)
 	{
 		return componentCount > 0u && componentCount <= N ? formats[componentCount - 1u] : EF_UNKNOWN;
 	}
-
 	static E_FORMAT expandStructuredFormat(const E_FORMAT componentFormat, const uint32_t componentCount)
 	{
 		switch (componentFormat)
@@ -94,11 +81,9 @@ struct Parse
 			default: return EF_UNKNOWN;
 		}
 	}
-
 	struct Context
 	{
 		static constexpr uint64_t ReadWindowPaddingBytes = 1ull;
-
 		struct SProperty
 		{
 			static E_FORMAT getType(const char* typeString)
@@ -136,12 +121,10 @@ struct Parse
 					return EF_R64_SFLOAT;
 				return EF_UNKNOWN;
 			}
-
 			bool isList() const
 			{
 				return type == EF_UNKNOWN && asset::isIntegerFormat(list.countType) && asset::isIntegerFormat(list.itemType);
 			}
-
 			void skip(Context& _ctx) const
 			{
 				if (isList())
@@ -155,7 +138,6 @@ struct Parse
 				else
 					_ctx.getNextWord();
 			}
-
 			std::string Name;
 			E_FORMAT type;
 			struct SListTypes
@@ -164,7 +146,6 @@ struct Parse
 				E_FORMAT itemType;
 			} list;
 		};
-
 		struct SElement
 		{
 			void skipElement(Context& _ctx) const
@@ -180,15 +161,12 @@ struct Parse
 				else
 					_ctx.getNextLine();
 			}
-
 			std::string Name;
 			core::vector<SProperty> Properties;
 			size_t Count;
 			uint32_t KnownSize;
 		};
-
 		static constexpr size_t DefaultIoReadWindowBytes = 50ull << 10;
-
 		void init(size_t _ioReadWindowSize = DefaultIoReadWindowBytes)
 		{
 			ioReadWindowSize = std::max<size_t>(_ioReadWindowSize, DefaultIoReadWindowBytes);
@@ -197,7 +175,6 @@ struct Parse
 			LineEndPointer = EndPointer - 1;
 			fillBuffer();
 		}
-
 		void fillBuffer()
 		{
 			if (EndOfFile)
@@ -235,7 +212,6 @@ struct Parse
 				EndOfFile = true;
 			}
 		}
-
 		const char* getNextLine()
 		{
 			StartPointer = LineEndPointer + 1;
@@ -261,7 +237,6 @@ struct Parse
 			WordLength = -1;
 			return StartPointer;
 		}
-
 		const char* getNextWord()
 		{
 			StartPointer += WordLength + 1;
@@ -290,7 +265,6 @@ struct Parse
 			WordLength = std::distance(StartPointer, nextWord) - 1;
 			return StartPointer;
 		}
-
 		size_t getAbsoluteOffset(const char* ptr) const
 		{
 			if (!ptr || ptr > EndPointer)
@@ -298,7 +272,6 @@ struct Parse
 			const size_t trailingBytes = static_cast<size_t>(EndPointer - ptr);
 			return fileOffset >= trailingBytes ? (fileOffset - trailingBytes) : 0ull;
 		}
-
 		void useMappedBinaryWindow(const char* data, const size_t sizeBytes)
 		{
 			if (!data)
@@ -310,7 +283,6 @@ struct Parse
 			EndOfFile = true;
 			fileOffset = inner.mainFile ? inner.mainFile->getSize() : fileOffset;
 		}
-
 		void moveForward(const size_t bytes)
 		{
 			assert(IsBinaryFile);
@@ -345,15 +317,12 @@ struct Parse
 				remaining -= step;
 			}
 		}
-
 		using widest_int_t = uint32_t;
-
 		const char* getCurrentWordEnd(const char* word) const
 		{
 			const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::char_traits<char>::length(word);
 			return word + tokenLen;
 		}
-
 		widest_int_t getInt(const E_FORMAT f)
 		{
 			assert(!isFloatingPointFormat(f));
@@ -410,7 +379,6 @@ struct Parse
 			uint64_t value = 0u;
 			return parseInt(value);
 		}
-
 		hlsl::float64_t getFloat(const E_FORMAT f)
 		{
 			assert(isFloatingPointFormat(f));
@@ -454,7 +422,6 @@ struct Parse
 				return value;
 			return ptr != word ? value : 0.0;
 		}
-
 		void getData(void* dst, const E_FORMAT f)
 		{
 			const auto size = getTexelOrBlockBytesize(f);
@@ -491,7 +458,6 @@ struct Parse
                 bool hasNormals;
                 bool hasUVs;
             };
-
             auto allF32 = [&el]() -> bool {
                 for (const auto& prop : el.Properties) {
                     if (prop.type != EF_R32_SFLOAT)
@@ -501,7 +467,6 @@ struct Parse
             };
             if (!allF32())
                 return EFastVertexReadResult::NotApplicable;
-
             auto matchNames =
                 [&el](std::initializer_list<const char*> names) -> bool {
                 if (el.Properties.size() != names.size())
@@ -530,7 +495,6 @@ struct Parse
                 layout = &xyz_n_uv;
             if (!layout)
                 return EFastVertexReadResult::NotApplicable;
-
             const size_t floatBytes = sizeof(hlsl::float32_t);
             struct STupleDesc {
                 uint32_t beginIx;
@@ -575,7 +539,6 @@ struct Parse
             if (el.Count >
                 (std::numeric_limits<size_t>::max() / layout->srcBytesPerVertex))
                 return EFastVertexReadResult::Error;
-
             const bool trackAABB = parsedAABB != nullptr;
             const bool needsByteSwap = IsWrongEndian;
             auto decodeF32 = [needsByteSwap](const uint8_t* src) -> float {
@@ -613,7 +576,6 @@ struct Parse
                 tuple.base += tuple.stride;
                 return value;
             };
-
             size_t remainingVertices = el.Count;
             while (remainingVertices > 0ull) {
                 if (StartPointer + layout->srcBytesPerVertex > EndPointer)
@@ -624,7 +586,6 @@ struct Parse
                         : 0ull;
                 if (available < layout->srcBytesPerVertex)
                     return EFastVertexReadResult::Error;
-
                 const size_t batchVertices =
                     std::min(remainingVertices, available / layout->srcBytesPerVertex);
                 const uint8_t* src = reinterpret_cast<const uint8_t*>(StartPointer);
@@ -649,12 +610,10 @@ struct Parse
                         }
                     }
                 }
-
                 const size_t consumed = batchVertices * layout->srcBytesPerVertex;
                 StartPointer += consumed;
                 remainingVertices -= batchVertices;
             }
-
             for (uint32_t tupleIx = 0u; tupleIx < tupleCount; ++tupleIx)
                 commitTuple(tuples[tupleIx]);
             return EFastVertexReadResult::Success;
@@ -665,7 +624,6 @@ struct Parse
             assert(el.Properties.size() == vertAttrIts.size());
             if (!IsBinaryFile)
                 getNextLine();
-
             for (size_t j = 0; j < el.Count; ++j)
                 for (auto i = 0u; i < vertAttrIts.size(); i++) {
                     const auto& prop = el.Properties[i];
@@ -702,7 +660,6 @@ struct Parse
             if (!IsBinaryFile)
                 getNextLine();
             const bool hasVertexCount = vertexCount != 0u;
-
             for (const auto& prop : Element.Properties) {
                 if (prop.isList() &&
                     (prop.Name == "vertex_indices" || prop.Name == "vertex_index")) {
@@ -747,7 +704,6 @@ struct Parse
                         }
                         return true;
                     };
-
                     if (IsBinaryFile && !IsWrongEndian && srcIndexFmt == EF_R32_UINT) {
                         const size_t bytesNeeded =
                             static_cast<size_t>(count) * sizeof(uint32_t);
@@ -790,7 +746,6 @@ struct Parse
                             continue;
                         }
                     }
-
                     auto readIndex = [&]() -> uint32_t {
                         return static_cast<uint32_t>(getInt(srcIndexFmt));
                     };
@@ -804,11 +759,9 @@ struct Parse
             }
             return true;
         }
-
         enum class EFastFaceReadResult : uint8_t { NotApplicable,
                                                    Success,
                                                    Error };
-
         EFastFaceReadResult readFaceElementFast(
             const SElement& element, core::vector<uint32_t>& _outIndices,
             uint32_t& _maxIndex, uint64_t& _faceCount, const uint32_t vertexCount,
@@ -817,14 +770,12 @@ struct Parse
                 return EFastFaceReadResult::NotApplicable;
             if (element.Properties.size() != 1u)
                 return EFastFaceReadResult::NotApplicable;
-
             const auto& prop = element.Properties[0];
             if (!prop.isList() ||
                 (prop.Name != "vertex_indices" && prop.Name != "vertex_index"))
                 return EFastFaceReadResult::NotApplicable;
             if (prop.list.countType != EF_R8_UINT)
                 return EFastFaceReadResult::NotApplicable;
-
             const E_FORMAT srcIndexFmt = prop.list.itemType;
             const bool isSrcU32 = srcIndexFmt == EF_R32_UINT;
             const bool isSrcS32 = srcIndexFmt == EF_R32_SINT;
@@ -832,7 +783,6 @@ struct Parse
             const bool isSrcS16 = srcIndexFmt == EF_R16_SINT;
             if (!isSrcU32 && !isSrcS32 && !isSrcU16 && !isSrcS16)
                 return EFastFaceReadResult::NotApplicable;
-
             const bool is32Bit = isSrcU32 || isSrcS32;
             const bool needEndianSwap = IsWrongEndian;
             const size_t indexSize = is32Bit ? sizeof(uint32_t) : sizeof(uint16_t);
@@ -926,7 +876,6 @@ struct Parse
                                             hashPipelineOk.store(false, std::memory_order_relaxed);
                                             return;
                                         }
-
                                         const size_t begin =
                                             (element.Count * workerIx) / workerCount;
                                         const size_t end =
@@ -1000,7 +949,6 @@ struct Parse
                             });
                         if (hashThread.joinable())
                             hashThread.join();
-
                         const bool anyNonTriangle =
                             std::any_of(workerNonTriangle.begin(), workerNonTriangle.end(),
                                         [](const uint8_t v) { return v != 0u; });
@@ -1025,27 +973,23 @@ struct Parse
                         if (hashInParsePipeline &&
                             hashPipelineOk.load(std::memory_order_relaxed))
                             outIndexHash = parsedIndexHash;
-
                         StartPointer = reinterpret_cast<char*>(
                             const_cast<uint8_t*>(ptr + element.Count * recordBytes));
                         _faceCount += element.Count;
                         return EFastFaceReadResult::Success;
                     }
                 }
-
                 auto consumeTriangles = [&](const size_t indexBytes, const uint32_t signedMask, auto readTri) -> EFastFaceReadResult {
                     for (size_t j = 0u; j < element.Count; ++j) {
                         if (*ptr++ != 3u) {
                             fallbackToGeneric = true;
                             return EFastFaceReadResult::NotApplicable;
                         }
-
                         const hlsl::uint32_t3 tri = readTri(ptr);
                         ptr += 3ull * indexBytes;
                         const uint32_t triOr = tri.x | tri.y | tri.z;
                         if (signedMask && (triOr & signedMask))
                             return EFastFaceReadResult::Error;
-
                         out[0] = tri.x;
                         out[1] = tri.y;
                         out[2] = tri.z;
@@ -1074,17 +1018,14 @@ struct Parse
                                      });
                 if (fastReadResult == EFastFaceReadResult::Error)
                     return EFastFaceReadResult::Error;
-
                 if (!fallbackToGeneric) {
                     StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
                     _faceCount += element.Count;
                     return EFastFaceReadResult::Success;
                 }
-
                 _outIndices.resize(oldSize);
                 _maxIndex = oldMaxIndex;
             }
-
             if (element.Count > (std::numeric_limits<size_t>::max() / 3u))
                 return EFastFaceReadResult::Error;
             const size_t reserveCount = element.Count * 3u;
@@ -1124,7 +1065,6 @@ struct Parse
                     StartPointer += sizeof(uint32_t);
                     return true;
                 }
-
                 if (!ensureBytes(sizeof(uint16_t)))
                     return false;
                 if (isSrcU16) {
@@ -1145,7 +1085,6 @@ struct Parse
                 StartPointer += sizeof(uint16_t);
                 return true;
             };
-
             for (size_t j = 0u; j < element.Count; ++j) {
                 int32_t countSigned = 0;
                 if (!readCount(countSigned))
@@ -1160,13 +1099,11 @@ struct Parse
                     ++_faceCount;
                     continue;
                 }
-
                 uint32_t i0 = 0u;
                 uint32_t i1 = 0u;
                 uint32_t i2 = 0u;
                 if (!readIndex(i0) || !readIndex(i1) || !readIndex(i2))
                     return EFastFaceReadResult::Error;
-
                 if (trackMaxIndex) {
                     _maxIndex = std::max(_maxIndex, std::max(i0, std::max(i1, i2)));
                 } else if (i0 >= vertexCount || i1 >= vertexCount ||
@@ -1176,7 +1113,6 @@ struct Parse
                 _outIndices.push_back(i0);
                 _outIndices.push_back(i1);
                 _outIndices.push_back(i2);
-
                 uint32_t prev = i2;
                 for (uint32_t k = 3u; k < count; ++k) {
                     uint32_t idx = 0u;
@@ -1192,13 +1128,10 @@ struct Parse
                     _outIndices.push_back(idx);
                     prev = idx;
                 }
-
                 ++_faceCount;
             }
-
             return EFastFaceReadResult::Success;
         }
-
         IAssetLoader::SAssetLoadContext inner;
         uint32_t topHierarchyLevel;
         IAssetLoader::IAssetLoaderOverride* loaderOverride;
@@ -1217,25 +1150,19 @@ struct Parse
         core::vector<SVertAttrIt> vertAttrIts;
     };
 };
-
 }
-
 CPLYMeshFileLoader::CPLYMeshFileLoader() = default;
-
 const char** CPLYMeshFileLoader::getAssociatedFileExtensions() const
 {
 	static const char* ext[] = { "ply", nullptr };
 	return ext;
 }
-
 bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const {
     std::array<char, 128> buf = {};
-
     system::IFile::success_t success;
     _file->read(success, buf.data(), 0, buf.size());
     if (!success)
         return false;
-
     const std::string_view fileHeader(buf.data(), success.getBytesProcessed());
     size_t lineStart = 0ull;
     const size_t firstLineEnd = fileHeader.find('\n');
@@ -1246,7 +1173,6 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
     if (firstLineEnd == std::string_view::npos)
         return false;
     lineStart = firstLineEnd + 1ull;
-
     constexpr std::array<std::string_view, 3> headers = {
         "format ascii 1.0", "format binary_little_endian 1.0",
         "format binary_big_endian 1.0"};
@@ -1259,10 +1185,8 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
             return std::find(headers.begin(), headers.end(), line) != headers.end();
         lineStart = lineEnd + 1ull;
     }
-
     return false;
 }
-
 //! creates/loads an animated mesh from the file.
 SAssetBundle CPLYMeshFileLoader::loadAsset(
     system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params,
@@ -1270,7 +1194,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     using namespace nbl::core;
     if (!_file)
         return {};
-
     const bool computeContentHashes = !_params.loaderFlags.hasAnyFlag(
         IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES);
     uint64_t faceCount = 0u;
@@ -1285,7 +1208,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     impl::SLoadSession loadSession = {};
     if (!impl::SLoadSession::begin(_params.logger, "PLY loader", _file, _params.ioPolicy, fileSize, true, loadSession))
         return {};
-
     Parse::Context ctx = {asset::IAssetLoader::SAssetLoadContext{_params, _file},
                           _hierarchyLevel, _override};
     uint64_t desiredReadWindow =
@@ -1334,7 +1256,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             return;
         contentHashBuild.tryDefer(view.src.buffer.get());
     };
-
     if (Parse::toStringView(ctx.getNextLine()) != "ply") {
         _params.logger.log("Not a valid PLY file %s", system::ILogger::ELL_ERROR,
                            ctx.inner.mainFile->getFileName().string().c_str());
@@ -1344,17 +1265,14 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     const char* word = ctx.getNextWord();
     for (; Parse::toStringView(word) == "comment"; ctx.getNextLine())
         word = ctx.getNextWord();
-
     bool readingHeader = true;
     bool continueReading = true;
     ctx.IsBinaryFile = false;
     ctx.IsWrongEndian = false;
-
     do {
         const std::string_view wordView = Parse::toStringView(word);
         if (wordView == "property") {
             word = ctx.getNextWord();
-
             if (ctx.ElementList.empty()) {
                 _params.logger.log("PLY property token found before element %s",
                                    system::ILogger::ELL_WARNING, word);
@@ -1364,9 +1282,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 prop.type = prop.getType(word);
                 if (prop.type == EF_UNKNOWN) {
                     el.KnownSize = false;
-
                     word = ctx.getNextWord();
-
                     prop.list.countType = prop.getType(word);
                     if (ctx.IsBinaryFile && !isIntegerFormat(prop.list.countType)) {
                         _params.logger.log("Cannot read binary PLY file containing data "
@@ -1390,7 +1306,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                     continueReading = false;
                 } else
                     el.KnownSize += getTexelOrBlockBytesize(prop.type);
-
                 prop.Name = ctx.getNextWord();
             }
         } else if (wordView == "element") {
@@ -1411,7 +1326,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         } else if (wordView == "format") {
             word = ctx.getNextWord();
             const std::string_view formatView = Parse::toStringView(word);
-
             if (formatView == "binary_little_endian") {
                 ctx.IsBinaryFile = true;
             } else if (formatView == "binary_big_endian") {
@@ -1423,7 +1337,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                                    system::ILogger::ELL_ERROR, word);
                 continueReading = false;
             }
-
             if (continueReading) {
                 word = ctx.getNextWord();
                 if (Parse::toStringView(word) != "1.0") {
@@ -1450,7 +1363,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             _params.logger.log("Unknown item in PLY file %s",
                                system::ILogger::ELL_WARNING, word);
         }
-
         if (readingHeader && continueReading) {
             ctx.getNextLine();
             word = ctx.getNextWord();
@@ -1496,7 +1408,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         logMalformedElement("face");
         return false;
     };
-
     for (uint32_t i = 0; i < ctx.ElementList.size(); ++i) {
         auto& el = ctx.ElementList[i];
         if (el.Name == "vertex") {
@@ -1591,12 +1502,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 return {};
         }
     }
-
     if (!parsedAABB.empty())
         geometry->applyAABB(parsedAABB.value);
     else
         CPolygonGeometryManipulator::recomputeAABB(geometry.get());
-
     const uint64_t indexCount = static_cast<uint64_t>(indices.size());
     if (indices.empty()) {
         geometry->setIndexing(IPolygonGeometryBase::PointList());
@@ -1607,7 +1516,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                                _file->getFileName().string().c_str());
             return {};
         }
-
         geometry->setIndexing(IPolygonGeometryBase::TriangleList());
         const bool canUseU16 =
             (vertCount != 0u)
@@ -1634,7 +1542,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             hashViewBufferIfNeeded(geometry->getIndexView());
         }
     }
-
     if (contentHashBuild.hashesDeferred()) {
         contentHashBuild.wait();
         SPolygonGeometryContentHash::computeMissing(geometry.get(),
@@ -1642,7 +1549,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     } else {
         hashRemainingGeometryBuffers();
     }
-
     const uint64_t ioMinRead = ctx.readCallCount ? ctx.readMinBytes : 0ull;
     const uint64_t ioAvgRead =
         ctx.readCallCount ? (ctx.readBytesTotal / ctx.readCallCount) : 0ull;
@@ -1669,6 +1575,5 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
     return SAssetBundle(std::move(meta), {std::move(geometry)});
 }
-
 }
 #endif // _NBL_COMPILE_WITH_PLY_LOADER_

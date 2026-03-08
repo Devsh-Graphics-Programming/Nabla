@@ -8,7 +8,6 @@
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
-
 #include <array>
 #include <charconv>
 #include <cstdio>
@@ -23,7 +22,6 @@ class SGeometryWriterCommon
     public:
         struct SWriteState { hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>(); uint32_t instanceIx = ~0u; uint32_t targetIx = ~0u; uint32_t geometryIx = 0u; };
         struct SPolygonGeometryWriteItem : SWriteState { const ICPUPolygonGeometry* geometry = nullptr; };
-
         template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
@@ -76,18 +74,14 @@ class SGeometryWriterCommon
                 const auto* targets = morphTargets[instanceIx].get();
                 if (!targets)
                     continue;
-
                 const auto instanceTransform = initialTransforms.empty() ? identity : initialTransforms[instanceIx];
                 const auto& targetList = targets->getTargets();
                 for (uint32_t targetIx = 0u; targetIx < targetList.size(); ++targetIx)
                     appendFromCollection(targetList[targetIx].geoCollection.get(), instanceTransform, instanceIx, targetIx);
             }
-
             return out;
         }
-
         static inline bool isIdentityTransform(const hlsl::float32_t3x4& transform) { return transform == hlsl::math::linalg::identity<hlsl::float32_t3x4>(); }
-
         static inline const ICPUPolygonGeometry::SDataView* getAuxViewAt(const ICPUPolygonGeometry* geom, const uint32_t auxViewIx, const size_t requiredElementCount = 0ull)
         {
             if (!geom)
@@ -102,7 +96,6 @@ class SGeometryWriterCommon
                 return nullptr;
             return &view;
         }
-
         static inline bool getTriangleFaceCount(const ICPUPolygonGeometry* geom, size_t& outFaceCount)
         {
             outFaceCount = 0ull;
@@ -121,13 +114,11 @@ class SGeometryWriterCommon
                 outFaceCount = indexCount / 3ull;
                 return true;
             }
-
             if ((vertexCount % 3ull) != 0ull)
                 return false;
             outFaceCount = vertexCount / 3ull;
             return true;
         }
-
         template<typename Visitor>
         static inline bool visitTriangleIndices(const ICPUPolygonGeometry* geom, Visitor&& visitor)
         {
@@ -152,7 +143,6 @@ class SGeometryWriterCommon
                     return true;
                 }
             };
-
             const auto& indexView = geom->getIndexView();
             if (!indexView)
             {
@@ -177,7 +167,6 @@ class SGeometryWriterCommon
                         return false;
                 return true;
             };
-
             switch (geom->getIndexType())
             {
                 case EIT_32BIT: return visitIndexed.template operator()<uint32_t>();
@@ -186,13 +175,10 @@ class SGeometryWriterCommon
                     return false;
             }
         }
-
         template<typename T, E_FORMAT ExpectedFormat>
         static inline const T* getTightView(const ICPUPolygonGeometry::SDataView& view) { return view && view.composed.format == ExpectedFormat && view.composed.getStride() == sizeof(T) ? reinterpret_cast<const T*>(view.getPointer()) : nullptr; }
-
         static inline char* appendFloatToBuffer(char* dst, char* end, float value) { return appendFloatingPointToBuffer(dst, end, value); }
         static inline char* appendFloatToBuffer(char* dst, char* end, double value) { return appendFloatingPointToBuffer(dst, end, value); }
-
         static inline char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
         {
             if (!dst || dst >= end)
@@ -206,7 +192,6 @@ class SGeometryWriterCommon
             const size_t writeLen = static_cast<size_t>(written);
             return (writeLen < static_cast<size_t>(end - dst)) ? (dst + writeLen) : end;
         }
-
     private:
         template<typename T>
         static inline char* appendFloatingPointToBuffer(char* dst, char* const end, const T value)

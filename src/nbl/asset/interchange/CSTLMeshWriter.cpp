@@ -4,13 +4,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 #include "nbl/system/IFile.h"
-
 #include "CSTLMeshWriter.h"
 #include "impl/SFileAccess.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -19,13 +17,10 @@
 #include <memory>
 #include <new>
 #include <string_view>
-
 namespace nbl::asset
 {
-
 namespace
 {
-
 struct Parse
 {
 	static constexpr uint32_t COLOR0 = 0u;
@@ -36,7 +31,6 @@ struct Parse
 		core::vector<uint8_t> ioBuffer = {};
 		size_t fileOffset = 0ull;
 		SFileWriteTelemetry writeTelemetry = {};
-
 		bool flush()
 		{
 			if (ioBuffer.empty())
@@ -97,7 +91,6 @@ struct Parse
 			}
 		}
 	};
-
 	struct TriangleData
 	{
 		hlsl::float32_t3 normal = {};
@@ -105,7 +98,6 @@ struct Parse
 		hlsl::float32_t3 vertex2 = {};
 		hlsl::float32_t3 vertex3 = {};
 	};
-
 	static constexpr size_t BinaryHeaderBytes = 80ull;
 	static constexpr size_t BinaryTriangleCountBytes = sizeof(uint32_t);
 	static constexpr size_t BinaryTriangleFloatCount = 12ull;
@@ -119,7 +111,6 @@ struct Parse
 	static constexpr char AsciiEndSolidPrefix[] = "endsolid ";
 	static constexpr char AsciiDefaultName[] = "nabla_mesh";
 	static_assert(BinaryTriangleRecordBytes == 50ull);
-
 	static bool appendLiteral(char*& cursor, char* const end, const char* text, const size_t textSize)
 	{
 		if (!cursor || cursor + textSize > end)
@@ -128,7 +119,6 @@ struct Parse
 		cursor += textSize;
 		return true;
 	}
-
 	static bool appendVectorAsAsciiLine(char*& cursor, char* const end, const hlsl::float32_t3& v)
 	{
 		cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, end, v.x);
@@ -145,7 +135,6 @@ struct Parse
 		*(cursor++) = '\n';
 		return true;
 	}
-
 	static bool decodeTriangle(const ICPUPolygonGeometry* geom, const IPolygonGeometryBase::IIndexingCallback* indexing, const ICPUPolygonGeometry::SDataView& posView, uint32_t primIx, hlsl::float32_t3& out0, hlsl::float32_t3& out1, hlsl::float32_t3& out2, hlsl::uint32_t3* outIdx)
 	{
 		hlsl::uint32_t3 idx(0u);
@@ -156,7 +145,6 @@ struct Parse
 		indexing->operator()(ctx);
 		if (outIdx)
 			*outIdx = idx;
-
 		std::array<hlsl::float32_t3, 3> positions = {};
 		if (!decodeIndexedTriple(idx, [&posView](const uint32_t vertexIx, hlsl::float32_t3& out) -> bool { return posView.decodeElement(vertexIx, out); }, positions.data()))
 			return false;
@@ -165,13 +153,11 @@ struct Parse
 		out2 = positions[2];
 		return true;
 	}
-
 	template<typename DecodeFn, typename T>
 	static bool decodeIndexedTriple(const hlsl::uint32_t3& idx, DecodeFn&& decode, T* out)
 	{
 		return out && decode(idx.x, out[0]) && decode(idx.y, out[1]) && decode(idx.z, out[2]);
 	}
-
 	static bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const hlsl::uint32_t3& idx, hlsl::float32_t3& outNormal)
 	{
 		if (!normalView)
@@ -181,7 +167,6 @@ struct Parse
 			return false;
 		return selectFirstValidNormal(normals.data(), static_cast<uint32_t>(normals.size()), outNormal);
 	}
-
 	static bool selectFirstValidNormal(const hlsl::float32_t3* const normals, const uint32_t count, hlsl::float32_t3& outNormal)
 	{
 		if (!normals || count == 0u)
@@ -196,7 +181,6 @@ struct Parse
 		}
 		return false;
 	}
-
 	static void prepareVertices(const hlsl::float32_t3& p0, const hlsl::float32_t3& p1, const hlsl::float32_t3& p2, const bool flipHandedness, hlsl::float32_t3& vertex1, hlsl::float32_t3& vertex2, hlsl::float32_t3& vertex3)
 	{
 		vertex1 = p2;
@@ -209,7 +193,6 @@ struct Parse
 			vertex3.x = -vertex3.x;
 		}
 	}
-
 	static hlsl::float32_t3 computePlaneNormal(const hlsl::float32_t3& vertex1, const hlsl::float32_t3& vertex2, const hlsl::float32_t3& vertex3, float* const planeNormalLen2 = nullptr)
 	{
 		const hlsl::float32_t3 planeNormal = hlsl::cross(vertex2 - vertex1, vertex3 - vertex1);
@@ -221,7 +204,6 @@ struct Parse
 		}
 		return len2 > 0.f ? hlsl::normalize(planeNormal) : hlsl::float32_t3(0.f, 0.f, 0.f);
 	}
-
 	static hlsl::float32_t3 resolveTriangleNormal(const hlsl::float32_t3& planeNormal, const float planeNormalLen2, const hlsl::float32_t3* const attrNormals, const uint32_t attrNormalCount, const bool flipHandedness, const bool alignToPlane)
 	{
 		hlsl::float32_t3 attrNormal = {};
@@ -235,7 +217,6 @@ struct Parse
 		}
 		return planeNormalLen2 > 0.f ? hlsl::normalize(planeNormal) : hlsl::float32_t3(0.f, 0.f, 0.f);
 	}
-
 	static void buildTriangle(const hlsl::float32_t3& p0, const hlsl::float32_t3& p1, const hlsl::float32_t3& p2, const hlsl::float32_t3* const attrNormals, const uint32_t attrNormalCount, const bool flipHandedness, const bool alignToPlane, TriangleData& triangle)
 	{
 		prepareVertices(p0, p1, p2, flipHandedness, triangle.vertex1, triangle.vertex2, triangle.vertex3);
@@ -243,7 +224,6 @@ struct Parse
 		const hlsl::float32_t3 planeNormal = computePlaneNormal(triangle.vertex1, triangle.vertex2, triangle.vertex3, &planeNormalLen2);
 		triangle.normal = resolveTriangleNormal(planeNormal, planeNormalLen2, attrNormals, attrNormalCount, flipHandedness, alignToPlane);
 	}
-
 	static double normalizeColorComponentToUnit(double value)
 	{
 		if (!std::isfinite(value))
@@ -252,7 +232,6 @@ struct Parse
 			value /= 255.0;
 		return std::clamp(value, 0.0, 1.0);
 	}
-
 	static uint16_t packViscamColorFromB8G8R8A8(const uint32_t color)
 	{
 		const void* src[4] = {&color, nullptr, nullptr, nullptr};
@@ -261,13 +240,11 @@ struct Parse
 		packed |= 0x8000u;
 		return packed;
 	}
-
 	static const ICPUPolygonGeometry::SDataView* getColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
 	{
 		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, Parse::COLOR0, vertexCount);
 		return view && getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
 	}
-
 	static bool decodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor)
 	{
 		if (colorView.composed.format == EF_B8G8R8A8_UNORM && colorView.composed.getStride() == sizeof(uint32_t))
@@ -285,13 +262,11 @@ struct Parse
 		encodePixels<EF_B8G8R8A8_UNORM, double>(&outColor, rgbaUnit);
 		return true;
 	}
-
 	static void decodeColorUnitRGBAFromB8G8R8A8(const uint32_t color, double* out)
 	{
 		const void* src[4] = {&color, nullptr, nullptr, nullptr};
 		decodePixels<EF_B8G8R8A8_UNORM, double>(src, out, 0u, 0u);
 	}
-
 	static bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, Context* context)
 	{
 		if (!geom || !context || !context->writeContext.outputFile)
@@ -309,7 +284,6 @@ struct Parse
 		if (faceCount > static_cast<size_t>(std::numeric_limits<uint32_t>::max()))
 			return false;
 		const uint32_t facenum = static_cast<uint32_t>(faceCount);
-
 		const size_t outputSize = BinaryPrefixBytes + static_cast<size_t>(facenum) * BinaryTriangleRecordBytes;
 		std::unique_ptr<uint8_t[]> output(new (std::nothrow) uint8_t[outputSize]);
 		if (!output)
@@ -319,14 +293,12 @@ struct Parse
 		dst += BinaryHeaderBytes;
 		std::memcpy(dst, &facenum, sizeof(facenum));
 		dst += sizeof(facenum);
-
 		const auto& normalView = geom->getNormalView();
 		const bool hasNormals = static_cast<bool>(normalView);
 		const auto* const colorView = getColorView(geom, vertexCount);
 		const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(posView);
 		const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
 		const bool hasFastTightPath = !geom->getIndexView() && tightPositions && (!hasNormals || tightNormals);
-
 		auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool {
 			if (tightPositions)
 			{
@@ -387,7 +359,6 @@ struct Parse
 			writeRecord(triangle.normal, triangle.vertex1, triangle.vertex2, triangle.vertex3, faceColor);
 			return true;
 		};
-
 		if (hasFastTightPath)
 		{
 			const hlsl::float32_t3* posTri = tightPositions;
@@ -412,13 +383,11 @@ struct Parse
 			return emitTriangle(positions[0], positions[1], positions[2], idx, hasNormals ? normals.data() : nullptr, hasNormals ? 3u : 0u, true);
 		}))
 			return false;
-
 		const bool writeOk = SInterchangeIO::writeFileWithPolicy(context->writeContext.outputFile, context->ioPlan, output.get(), outputSize, &context->writeTelemetry);
 		if (writeOk)
 			context->fileOffset += outputSize;
 		return writeOk;
 	}
-
 	static bool writeMeshASCII(const asset::ICPUPolygonGeometry* geom, Context* context)
 	{
 		if (!geom)
@@ -431,7 +400,6 @@ struct Parse
 			return false;
 		const auto& normalView = geom->getNormalView();
 		const bool flipHandedness = !context->writeContext.params.flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
-
 		const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
 		const std::string_view solidName = name.empty() ? std::string_view(AsciiDefaultName) : std::string_view(name);
 		if (!context->write(AsciiSolidPrefix, sizeof(AsciiSolidPrefix) - 1ull))
@@ -454,14 +422,12 @@ struct Parse
 			if (!context->write("\n", sizeof("\n") - 1ull))
 				return false;
 		}
-
 		if (!context->write(AsciiEndSolidPrefix, sizeof(AsciiEndSolidPrefix) - 1ull))
 			return false;
 		if (!context->write(solidName.data(), solidName.size()))
 			return false;
 		return true;
 	}
-
 	static bool writeFaceText(const hlsl::float32_t3& v1, const hlsl::float32_t3& v2, const hlsl::float32_t3& v3, const hlsl::uint32_t3& idx, const asset::ICPUPolygonGeometry::SDataView& normalView, const bool flipHandedness, Context* context)
 	{
 		hlsl::float32_t3 attrNormal = {};
@@ -492,58 +458,45 @@ struct Parse
 		return context->write(faceText.data(), static_cast<size_t>(cursor - faceText.data()));
 	}
 };
-
 }
-
 CSTLMeshWriter::CSTLMeshWriter()
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CSTLMeshWriter");
 	#endif
 }
-
 CSTLMeshWriter::~CSTLMeshWriter()
 {
 }
-
 const char** CSTLMeshWriter::getAssociatedFileExtensions() const
 {
 	static const char* ext[] = { "stl", nullptr };
 	return ext;
 }
-
 writer_flags_t CSTLMeshWriter::getSupportedFlags()
 {
 	return asset::EWF_BINARY;
 }
-
 writer_flags_t CSTLMeshWriter::getForcedFlags()
 {
 	return EWF_NONE;
 }
-
 bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	using Context = Parse::Context;
-
 	if (!_override)
 		getDefaultOverride(_override);
-
 	IAssetWriter::SAssetWriteContext inCtx{_params, _file};
 	const asset::ICPUPolygonGeometry* geom = IAsset::castDown<const asset::ICPUPolygonGeometry>(_params.rootAsset);
 	if (!geom)
 		return false;
-
 	system::IFile* file = _override->getOutputFile(_file, inCtx, {geom, 0u});
 	if (!file)
 		return false;
-
 	Context context = {IAssetWriter::SAssetWriteContext{inCtx.params, file}};
 	_params.logger.log("WRITING STL: writing the file %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
-
 	const auto flags = _override->getAssetWritingFlags(context.writeContext, geom, 0u);
 	const bool binary = flags.hasAnyFlag(asset::EWF_BINARY);
-
 	uint64_t expectedSize = 0ull;
 	bool sizeKnown = false;
 	if (binary)
@@ -551,22 +504,18 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		expectedSize = Parse::BinaryPrefixBytes + static_cast<uint64_t>(geom->getPrimitiveCount()) * Parse::BinaryTriangleRecordBytes;
 		sizeKnown = true;
 	}
-
 	context.ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, expectedSize, sizeKnown, file);
 	if (impl::SFileAccess::logInvalidPlan(_params.logger, "STL writer", file->getFileName().string().c_str(), context.ioPlan))
 		return false;
-
 	if (context.ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile && sizeKnown)
 		context.ioBuffer.reserve(static_cast<size_t>(expectedSize));
 	else
 		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes(), Parse::IoFallbackReserveBytes)));
-
 	const bool written = binary ? Parse::writeMeshBinary(geom, &context) : Parse::writeMeshASCII(geom, &context);
 	if (!written)
 		return false;
 	if (!context.flush())
 		return false;
-
 	const uint64_t ioMinWrite = context.writeTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = context.writeTelemetry.getAvgOrZero();
 	impl::SFileAccess::logTinyIO(_params.logger, "STL writer", file->getFileName().string().c_str(), context.writeTelemetry, context.fileOffset, _params.ioPolicy, "writes");
@@ -574,10 +523,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		system::ILogger::ELL_PERFORMANCE, file->getFileName().string().c_str(), static_cast<unsigned long long>(context.fileOffset), binary ? 1 : 0,
 		static_cast<unsigned long long>(context.writeTelemetry.callCount), static_cast<unsigned long long>(ioMinWrite), static_cast<unsigned long long>(ioAvgWrite),
 		system::to_string(_params.ioPolicy.strategy).c_str(), system::to_string(context.ioPlan.strategy).c_str(), static_cast<unsigned long long>(context.ioPlan.chunkSizeBytes()), context.ioPlan.reason);
-
 	return true;
 }
-
 }
-
 #endif

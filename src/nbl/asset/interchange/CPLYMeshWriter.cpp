@@ -3,16 +3,13 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
 #include "CPLYMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "impl/SBinaryData.h"
 #include "impl/SFileAccess.h"
-
 #include "nbl/system/IFile.h"
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -23,43 +20,35 @@
 #include <limits>
 #include <sstream>
 #include <system_error>
-
 namespace nbl::asset
 {
-
 CPLYMeshWriter::CPLYMeshWriter()
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CPLYMeshWriter");
 	#endif
 }
-
 const char** CPLYMeshWriter::getAssociatedFileExtensions() const
 {
 	static const char* ext[] = { "ply", nullptr };
 	return ext;
 }
-
 writer_flags_t CPLYMeshWriter::getSupportedFlags()
 {
 	return asset::EWF_BINARY;
 }
-
 writer_flags_t CPLYMeshWriter::getForcedFlags()
 {
 	return EWF_NONE;
 }
-
 namespace
 {
-
 struct Parse
 {
 	static constexpr uint32_t UV0 = 0u;
 	using Binary = impl::BinaryData;
 	using SemanticDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Semantic>;
 	using StoredDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Stored>;
-
 	enum class ScalarType : uint8_t
 	{
 		Int8,
@@ -71,7 +60,6 @@ struct Parse
 		Float32,
 		Float64
 	};
-
 	struct ScalarMeta
 	{
 		const char* name = "float32";
@@ -79,7 +67,6 @@ struct Parse
 		bool integer = false;
 		bool signedType = true;
 	};
-
 	struct ExtraAuxView
 	{
 		const ICPUPolygonGeometry::SDataView* view = nullptr;
@@ -87,7 +74,6 @@ struct Parse
 		uint32_t auxIndex = 0u;
 		ScalarType scalarType = ScalarType::Float32;
 	};
-
 	struct WriteInput
 	{
 		const ICPUPolygonGeometry* geom = nullptr;
@@ -102,11 +88,9 @@ struct Parse
 		bool write16BitIndices = false;
 		bool flipVectors = false;
 	};
-
 	static constexpr size_t ApproxTextBytesPerVertex = sizeof("0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n") - 1ull;
 	static constexpr size_t ApproxTextBytesPerFace = sizeof("3 4294967295 4294967295 4294967295\n") - 1ull;
 	static constexpr size_t MaxFloatTextChars = std::numeric_limits<double>::max_digits10 + 16ull;
-
 	template<typename T>
 	static void appendIntegral(std::string& out, const T value)
 	{
@@ -115,7 +99,6 @@ struct Parse
 		if (res.ec == std::errc())
 			out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
 	}
-
 	static void appendFloat(std::string& out, double value)
 	{
 		const size_t oldSize = out.size();
@@ -125,7 +108,6 @@ struct Parse
 		char* const cursor = SGeometryWriterCommon::appendFloatToBuffer(begin, end, value);
 		out.resize(oldSize + static_cast<size_t>(cursor - begin));
 	}
-
 	static ScalarMeta getScalarMeta(const ScalarType type)
 	{
 		switch (type)
@@ -140,44 +122,36 @@ struct Parse
 			default: return {"float32", sizeof(float), false, true};
 		}
 	}
-
 	static bool isSupportedScalarFormat(const E_FORMAT format)
 	{
 		if (format == EF_UNKNOWN)
 			return false;
-
 		const uint32_t channels = getFormatChannelCount(format);
 		if (channels == 0u)
 			return false;
-
 		if (!(isIntegerFormat(format) || isFloatingPointFormat(format) || isNormalizedFormat(format) || isScaledFormat(format)))
 			return false;
-
 		const auto bytesPerPixel = getBytesPerPixel(format);
 		if (bytesPerPixel.getDenominator() != 1u)
 			return false;
 		const uint32_t pixelBytes = bytesPerPixel.getNumerator();
 		if (pixelBytes == 0u || (pixelBytes % channels) != 0u)
 			return false;
-
 		const uint32_t bytesPerChannel = pixelBytes / channels;
 		return bytesPerChannel == 1u || bytesPerChannel == 2u || bytesPerChannel == 4u || bytesPerChannel == 8u;
 	}
-
 	static ScalarType selectScalarType(const E_FORMAT format)
 	{
 		if (!isSupportedScalarFormat(format))
 			return ScalarType::Float32;
 		if (isNormalizedFormat(format) || isScaledFormat(format))
 			return ScalarType::Float32;
-
 		const uint32_t channels = getFormatChannelCount(format);
 		if (channels == 0u)
 		{
 			assert(format == EF_UNKNOWN);
 			return ScalarType::Float32;
 		}
-
 		const auto bytesPerPixel = getBytesPerPixel(format);
 		if (bytesPerPixel.getDenominator() != 1u)
 			return ScalarType::Float32;
@@ -185,7 +159,6 @@ struct Parse
 		if (pixelBytes == 0u || (pixelBytes % channels) != 0u)
 			return ScalarType::Float32;
 		const uint32_t bytesPerChannel = pixelBytes / channels;
-
 		if (isIntegerFormat(format))
 		{
 			const bool signedType = isSignedFormat(format);
@@ -197,13 +170,10 @@ struct Parse
 				default: return ScalarType::Float64;
 			}
 		}
-
 		if (isFloatingPointFormat(format))
 			return bytesPerChannel >= 8u ? ScalarType::Float64 : ScalarType::Float32;
-
 		return ScalarType::Float32;
 	}
-
 	struct BinarySink
 	{
 		uint8_t* cursor = nullptr;
@@ -217,7 +187,6 @@ struct Parse
 		}
 		inline bool finishVertex() { return true; }
 	};
-
 	struct TextSink
 	{
 		std::string& output;
@@ -233,12 +202,10 @@ struct Parse
 		}
 		inline bool finishVertex() { output.push_back('\n'); return true; }
 	};
-
 	template<typename Sink>
 	struct PreparedView
 	{
 		using EmitFn = bool(*)(Sink&, const PreparedView&, size_t);
-
 		uint32_t components = 0u;
 		bool flipVectors = false;
 		SemanticDecode semantic = {};
@@ -246,7 +213,6 @@ struct Parse
 		EmitFn emit = nullptr;
 		inline explicit operator bool() const { return emit != nullptr && (static_cast<bool>(semantic) || static_cast<bool>(stored)); }
 		inline bool operator()(Sink& sink, const size_t ix) const { return static_cast<bool>(*this) && emit(sink, *this, ix); }
-
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
 		static bool emitDecode(Sink& sink, const auto& decode, const size_t ix, const uint32_t components, const bool flipVectors)
 		{
@@ -266,7 +232,6 @@ struct Parse
 			}
 			return true;
 		}
-
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
 		static bool emitPrepared(Sink& sink, const PreparedView& view, const size_t ix)
 		{
@@ -274,7 +239,6 @@ struct Parse
 				return emitDecode<OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors);
 			return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
 		}
-
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
 		static inline void prepareDecode(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
 		{
@@ -285,7 +249,6 @@ struct Parse
 				view.stored = SGeometryViewDecode::prepare<Mode>(src);
 			view.emit = &emitPrepared<OutT, Mode>;
 		}
-
 		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
 		{
 			PreparedView retval = {.components = components};
@@ -305,7 +268,6 @@ struct Parse
 			return retval;
 		}
 	};
-
 	template<typename Sink>
 	static bool emitVertices(const WriteInput& input, Sink& sink)
 	{
@@ -339,7 +301,6 @@ struct Parse
 		}
 		return true;
 	}
-
 	static bool writeBinary(const WriteInput& input, uint8_t* dst)
 	{
 		BinarySink sink = {.cursor = dst};
@@ -358,7 +319,6 @@ struct Parse
 			return true;
 		});
 	}
-
 	static bool writeText(const WriteInput& input, std::string& output)
 	{
 		TextSink sink = {.output = output};
@@ -375,17 +335,13 @@ struct Parse
 		});
 	}
 };
-
 }
-
 bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	using ScalarType = Parse::ScalarType;
 	SFileWriteTelemetry ioTelemetry = {};
-
 	if (!_override)
 		getDefaultOverride(_override);
-
 	if (!_file || !_params.rootAsset)
 	{
 		_params.logger.log("PLY writer: missing output file or root asset.", system::ILogger::ELL_ERROR);
@@ -416,7 +372,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		_params.logger.log("PLY writer: output override returned null file.", system::ILogger::ELL_ERROR);
 		return false;
 	}
-
 	const auto& positionView = geom->getPositionView();
 	const auto& normalView = geom->getNormalView();
 	const size_t vertexCount = positionView.getElementCount();
@@ -434,7 +389,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
 	if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 		uvView = nullptr;
-
 	core::vector<Parse::ExtraAuxView> extraAuxViews;
 	const auto& auxViews = geom->getAuxAttributeViews();
 	extraAuxViews.reserve(auxViews.size());
@@ -451,7 +405,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const uint32_t components = std::min(4u, channels);
 		extraAuxViews.push_back({&view, components, auxIx, Parse::selectScalarType(view.composed.format)});
 	}
-
 	const auto* indexing = geom->getIndexingCallback();
 	if (!indexing)
 	{
@@ -469,7 +422,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		_params.logger.log("PLY writer: failed to validate triangle indexing.", system::ILogger::ELL_ERROR);
 		return false;
 	}
-
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool binary = flags.hasAnyFlag(E_WRITER_FLAGS::EWF_BINARY);
 	const bool flipVectors = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
@@ -481,11 +433,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (flipVectors && Parse::getScalarMeta(normalScalarType).integer && !Parse::getScalarMeta(normalScalarType).signedType)
 		normalScalarType = ScalarType::Float32;
 	const ScalarType uvScalarType = uvView ? Parse::selectScalarType(uvView->composed.format) : ScalarType::Float32;
-
 	const auto positionMeta = Parse::getScalarMeta(positionScalarType);
 	const auto normalMeta = Parse::getScalarMeta(normalScalarType);
 	const auto uvMeta = Parse::getScalarMeta(uvScalarType);
-
 	size_t extraAuxBytesPerVertex = 0ull;
 	for (const auto& extra : extraAuxViews)
 		extraAuxBytesPerVertex += static_cast<size_t>(extra.components) * Parse::getScalarMeta(extra.scalarType).byteSize;
@@ -544,7 +494,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			system::to_string(_params.ioPolicy.strategy).c_str(), system::to_string(ioPlan.strategy).c_str(), static_cast<unsigned long long>(ioPlan.chunkSizeBytes()), ioPlan.reason);
 		return writeOk;
 	};
-
 	if (binary)
 	{
 		const size_t vertexStride = static_cast<size_t>(positionMeta.byteSize) * 3ull + (writeNormals ? static_cast<size_t>(normalMeta.byteSize) * 3ull : 0ull) + (uvView ? static_cast<size_t>(uvMeta.byteSize) * 2ull : 0ull) + extraAuxBytesPerVertex;
@@ -559,7 +508,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		}
 		return writePayload(body.data(), body.size());
 	}
-
 	std::string body;
 	body.reserve(vertexCount * Parse::ApproxTextBytesPerVertex + faceCount * Parse::ApproxTextBytesPerFace);
 	if (!Parse::writeText(input, body))
@@ -569,7 +517,5 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 	return writePayload(body.data(), body.size());
 }
-
 }
-
 #endif // _NBL_COMPILE_WITH_PLY_WRITER_

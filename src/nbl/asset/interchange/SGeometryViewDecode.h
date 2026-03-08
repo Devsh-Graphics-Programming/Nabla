@@ -18,7 +18,6 @@ class SGeometryViewDecode
 			Semantic,
 			Stored
 		};
-
 		template<EMode Mode>
 		struct Prepared
 		{
@@ -28,7 +27,6 @@ class SGeometryViewDecode
 			uint32_t channels = 0u;
 			bool normalized = false;
 			hlsl::shapes::AABB<4, hlsl::float64_t> range = hlsl::shapes::AABB<4, hlsl::float64_t>::create();
-
 			inline explicit operator bool() const
 			{
 				return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u;
@@ -46,7 +44,6 @@ class SGeometryViewDecode
 				return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out);
 			}
 		};
-
 		template<EMode Mode>
 		static inline Prepared<Mode> prepare(const ICPUPolygonGeometry::SDataView& view)
 		{
@@ -67,13 +64,11 @@ class SGeometryViewDecode
 			}
 			return retval;
 		}
-
 		template<typename Out, EMode Mode = EMode::Semantic>
 		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out)
 		{
 			return prepare<Mode>(view).decode(ix, out);
 		}
-
 	private:
 		template<EMode Mode, typename T>
 		static inline bool decodePreparedComponents(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
@@ -98,7 +93,6 @@ class SGeometryViewDecode
 				out[i] = static_cast<T>(tmp[i]);
 			return true;
 		}
-
 		template<EMode Mode, typename V> requires hlsl::concepts::Vector<V>
 		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, V& out)
 		{
@@ -111,7 +105,6 @@ class SGeometryViewDecode
 				out[i] = tmp[i];
 			return true;
 		}
-
 		template<EMode Mode, typename T>
 		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
 		{

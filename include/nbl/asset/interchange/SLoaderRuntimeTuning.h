@@ -3,9 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_S_LOADER_RUNTIME_TUNING_H_INCLUDED_
 #define _NBL_ASSET_S_LOADER_RUNTIME_TUNING_H_INCLUDED_
-
 #include "nbl/asset/interchange/SFileIOPolicy.h"
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -15,7 +13,6 @@
 #include <thread>
 #include <utility>
 #include <vector>
-
 namespace nbl::asset
 {
 struct SLoaderRuntimeTuningRequest
@@ -35,14 +32,12 @@ struct SLoaderRuntimeTuningRequest
     uint32_t sampleMaxCandidates = 0u;
     uint64_t sampleMinWorkUnits = 0ull;
 };
-
 struct SLoaderRuntimeTuningResult
 {
     size_t workerCount = 1ull;
     uint64_t chunkWorkUnits = 1ull;
     size_t chunkCount = 1ull;
 };
-
 struct SLoaderRuntimeTuner
 {
     private:
@@ -53,7 +48,6 @@ struct SLoaderRuntimeTuner
             uint64_t maxNs = 0ull;
             uint64_t totalNs = 0ull;
         };
-
     public:
         template<typename Fn>
         requires std::invocable<Fn&, size_t>
@@ -64,7 +58,6 @@ struct SLoaderRuntimeTuner
                 fn(0ull);
                 return;
             }
-
             std::vector<std::jthread> workers;
             workers.reserve(workerCount - 1ull);
             for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
@@ -72,7 +65,6 @@ struct SLoaderRuntimeTuner
             fn(0ull);
         }
         static constexpr uint64_t ceilDiv(const uint64_t numerator, const uint64_t denominator) { return (numerator + denominator - 1ull) / denominator; }
-
         template<typename TimeUnit = std::chrono::nanoseconds>
         requires std::same_as<TimeUnit, std::chrono::duration<typename TimeUnit::rep, typename TimeUnit::period>>
         static inline TimeUnit benchmarkSample(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes)
@@ -105,7 +97,6 @@ struct SLoaderRuntimeTuner
             sink.fetch_xor(reduced, std::memory_order_relaxed);
             return std::chrono::duration_cast<TimeUnit>(std::chrono::nanoseconds(elapsedNs));
         }
-
         static inline SBenchmarkSampleStats benchmarkSampleStats(const uint8_t* const sampleData, const uint64_t sampleBytes, const size_t workerCount, const uint32_t passes, const uint32_t observations)
         {
             SBenchmarkSampleStats stats = {};
@@ -134,14 +125,11 @@ struct SLoaderRuntimeTuner
                 stats.medianNs = (samples[samples.size() / 2ull - 1ull] + samples[samples.size() / 2ull]) / 2ull;
             return stats;
         }
-
         static inline void appendCandidate(std::vector<size_t>& dst, const size_t candidate) { if (candidate != 0ull && std::find(dst.begin(), dst.end(), candidate) == dst.end()) dst.push_back(candidate); }
-
         static inline uint64_t resolveSampleBytes(const SFileIOPolicy& ioPolicy, const uint64_t knownInputBytes)
         {
             if (knownInputBytes == 0ull)
                 return 0ull;
-
             const uint64_t minSampleBytes = std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.minSampleBytes);
             const uint64_t maxSampleBytes = std::max<uint64_t>(minSampleBytes, ioPolicy.runtimeTuning.maxSampleBytes);
             const uint64_t cappedMin = std::min<uint64_t>(minSampleBytes, knownInputBytes);
@@ -149,10 +137,8 @@ struct SLoaderRuntimeTuner
             const uint64_t adaptive = std::max<uint64_t>(knownInputBytes / 64ull, cappedMin);
             return std::clamp<uint64_t>(adaptive, cappedMin, cappedMax);
         }
-
         static inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes) { return inputBytes <= std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes); }
         static inline size_t resolveHardwareThreads(const uint32_t requested = 0u) { const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency()); return hw ? hw : 1ull; }
-
         static inline size_t resolveHardMaxWorkers(const size_t hardwareThreads, const uint32_t workerHeadroom)
         {
             const size_t hw = std::max<size_t>(1ull, hardwareThreads), minWorkers = hw >= 2ull ? 2ull : 1ull, headroom = static_cast<size_t>(workerHeadroom);
@@ -162,7 +148,6 @@ struct SLoaderRuntimeTuner
                 return minWorkers;
             return std::max<size_t>(minWorkers, hw - headroom);
         }
-
         static inline SLoaderRuntimeTuningResult tune(const SFileIOPolicy& ioPolicy, const SLoaderRuntimeTuningRequest& request)
         {
             using RTMode = SFileIOPolicy::SRuntimeTuning::Mode;
@@ -256,7 +241,6 @@ struct SLoaderRuntimeTuner
                                     estimatedEvaluations / static_cast<uint64_t>(alternativeCandidates),
                                     1ull,
                                     3ull));
-
                                 SBenchmarkSampleStats bestStats = heuristicStatsProbe;
                                 size_t bestWorker = heuristicWorkerCount;
                                 for (const size_t candidate : candidates)
@@ -298,12 +282,10 @@ struct SLoaderRuntimeTuner
             const uint64_t desiredChunkCount = static_cast<uint64_t>(std::max<size_t>(1ull, result.workerCount * targetChunksPerWorker));
             uint64_t chunkWorkUnits = SLoaderRuntimeTuner::ceilDiv(request.totalWorkUnits, desiredChunkCount);
             chunkWorkUnits = std::clamp<uint64_t>(chunkWorkUnits, minChunkWorkUnits, maxChunkWorkUnits);
-
             result.chunkWorkUnits = chunkWorkUnits;
             result.chunkCount = static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(request.totalWorkUnits, chunkWorkUnits));
             return result;
         }
 };
-
 }
 #endif

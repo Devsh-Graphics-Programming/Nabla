@@ -1,12 +1,9 @@
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
 #include "nbl/core/declarations.h"
-
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
@@ -15,30 +12,23 @@
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
-
 #include "nbl/system/IFile.h"
-
 #include "COBJMeshFileLoader.h"
 #include "impl/SFileAccess.h"
 #include "impl/STextParse.h"
-
 #include <array>
 #include <bit>
 #include <cctype>
 #include <cmath>
 #include <string_view>
-
 namespace nbl::asset
 {
-
 namespace
 {
-
 struct Parse
 {
 	static constexpr uint32_t UV0 = 0u;
 	using Common = impl::TextParse;
-
 	struct VertexDedupNode
 	{
 		int32_t uv = -1;
@@ -47,7 +37,6 @@ struct Parse
 		uint32_t outIndex = 0u;
 		int32_t next = -1;
 	};
-
 	static bool resolveIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
 	{
 		if (rawIndex > 0)
@@ -61,14 +50,12 @@ struct Parse
 			resolved = static_cast<int32_t>(zeroBased);
 			return true;
 		}
-
 		const int64_t zeroBased = static_cast<int64_t>(elementCount) + static_cast<int64_t>(rawIndex);
 		if (zeroBased < 0 || zeroBased >= static_cast<int64_t>(elementCount))
 			return false;
 		resolved = static_cast<int32_t>(zeroBased);
 		return true;
 	}
-
 	static void parseSmoothingGroup(const char* linePtr, const char* const lineEnd, uint32_t& outGroup)
 	{
 		Common::skipInlineWhitespace(linePtr, lineEnd);
@@ -77,12 +64,10 @@ struct Parse
 			outGroup = 0u;
 			return;
 		}
-
 		const char* const tokenStart = linePtr;
 		while (linePtr < lineEnd && !Common::isInlineWhitespace(*linePtr))
 			++linePtr;
 		const std::string_view token(tokenStart, static_cast<size_t>(linePtr - tokenStart));
-
 		if (token.size() == 2u && std::tolower(token[0]) == 'o' && std::tolower(token[1]) == 'n')
 		{
 			outGroup = 1u;
@@ -93,23 +78,19 @@ struct Parse
 			outGroup = 0u;
 			return;
 		}
-
 		uint32_t value = 0u;
 		outGroup = Common::parseExactNumber(token, value) ? value : 0u;
 	}
-
 	static std::string parseIdentifier(const char* linePtr, const char* const lineEnd, const std::string_view fallback)
 	{
 		const char* endPtr = lineEnd;
 		Common::skipInlineWhitespace(linePtr, lineEnd);
 		while (endPtr > linePtr && Common::isInlineWhitespace(endPtr[-1]))
 			--endPtr;
-
 		if (linePtr >= endPtr)
 			return std::string(fallback);
 		return std::string(linePtr, static_cast<size_t>(endPtr - linePtr));
 	}
-
 	static bool parseTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, std::array<hlsl::int32_t3, 3>& out, const size_t posCount, const size_t uvCount, const size_t normalCount)
 	{
 		const char* ptr = lineStart;
@@ -118,7 +99,6 @@ struct Parse
 			Common::skipInlineWhitespace(ptr, lineEnd);
 			if (ptr >= lineEnd || !core::isdigit(*ptr))
 				return false;
-
 			int32_t posIx = -1;
 			{
 				uint32_t value = 0u;
@@ -133,7 +113,6 @@ struct Parse
 			if (ptr >= lineEnd || *ptr != '/')
 				return false;
 			++ptr;
-
 			int32_t uvIx = -1;
 			{
 				uint32_t value = 0u;
@@ -148,7 +127,6 @@ struct Parse
 			if (ptr >= lineEnd || *ptr != '/')
 				return false;
 			++ptr;
-
 			int32_t normalIx = -1;
 			{
 				uint32_t value = 0u;
@@ -160,22 +138,17 @@ struct Parse
 					return false;
 				normalIx = value - 1u;
 			}
-
 			out[corner] = hlsl::int32_t3(posIx, uvIx, normalIx);
 		}
-
 		Common::skipInlineWhitespace(ptr, lineEnd);
 		return ptr == lineEnd;
 	}
-
 	static bool parseFaceVertexToken(const char*& linePtr, const char* const lineEnd, hlsl::int32_t3& idx, const size_t posCount, const size_t uvCount, const size_t normalCount)
 	{
 		Common::skipInlineWhitespace(linePtr, lineEnd);
 		if (linePtr >= lineEnd)
 			return false;
-
 		idx = hlsl::int32_t3(-1, -1, -1);
-
 		const char* ptr = linePtr;
 		if (*ptr != '-' && *ptr != '+')
 		{
@@ -187,7 +160,6 @@ struct Parse
 			if (posRaw > posCount)
 				return false;
 			idx.x = posRaw - 1u;
-
 			if (ptr < lineEnd && *ptr == '/')
 			{
 				++ptr;
@@ -202,7 +174,6 @@ struct Parse
 						return false;
 					idx.y = uvRaw - 1u;
 				}
-
 				if (ptr < lineEnd && *ptr == '/')
 				{
 					++ptr;
@@ -231,7 +202,6 @@ struct Parse
 				return false;
 			if (!resolveIndex(raw, posCount, idx.x))
 				return false;
-
 			if (ptr < lineEnd && *ptr == '/')
 			{
 				++ptr;
@@ -242,7 +212,6 @@ struct Parse
 					if (!resolveIndex(raw, uvCount, idx.y))
 						return false;
 				}
-
 				if (ptr < lineEnd && *ptr == '/')
 				{
 					++ptr;
@@ -260,22 +229,17 @@ struct Parse
 			else if (ptr < lineEnd && !Common::isInlineWhitespace(*ptr))
 				return false;
 		}
-
 		if (ptr < lineEnd && !Common::isInlineWhitespace(*ptr))
 			return false;
 		linePtr = ptr;
 		return true;
 	}
 };
-
 }
-
 COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager*)
 {
 }
-
 COBJMeshFileLoader::~COBJMeshFileLoader() = default;
-
 bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
 	if (!_file)
@@ -283,7 +247,6 @@ bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	const auto fileSize = _file->getSize();
 	if (fileSize <= 0)
 		return false;
-
 	constexpr size_t ProbeBytes = 4096ull;
 	const size_t bytesToRead = std::min<size_t>(ProbeBytes, static_cast<size_t>(fileSize));
 	std::array<char, ProbeBytes> probe = {};
@@ -291,26 +254,22 @@ bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	_file->read(succ, probe.data(), 0ull, bytesToRead);
 	if (!succ || bytesToRead == 0ull)
 		return false;
-
 	const char* ptr = probe.data();
 	const char* const end = probe.data() + bytesToRead;
 	if ((end - ptr) >= 3 && static_cast<uint8_t>(ptr[0]) == 0xEFu && static_cast<uint8_t>(ptr[1]) == 0xBBu && static_cast<uint8_t>(ptr[2]) == 0xBFu)
 		ptr += 3;
-
 	while (ptr < end)
 	{
 		while (ptr < end && (*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || *ptr == '\n'))
 			++ptr;
 		if (ptr >= end)
 			break;
-
 		if (*ptr == '#')
 		{
 			while (ptr < end && *ptr != '\n')
 				++ptr;
 			continue;
 		}
-
 		switch (std::tolower(*ptr))
 		{
 			case 'v':
@@ -329,41 +288,34 @@ bool COBJMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	}
 	return false;
 }
-
 const char** COBJMeshFileLoader::getAssociatedFileExtensions() const
 {
 	static const char* ext[] = { "obj", nullptr };
 	return ext;
 }
-
 asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params,
     asset::IAssetLoader::IAssetLoaderOverride* _override [[maybe_unused]],
     uint32_t _hierarchyLevel [[maybe_unused]]) {
     if (!_file)
         return {};
-
     uint64_t faceCount = 0u;
     uint64_t faceFastTokenCount = 0u;
     uint64_t faceFallbackTokenCount = 0u;
     SFileReadTelemetry ioTelemetry = {};
-
     const long filesize = _file->getSize();
     if (filesize <= 0)
         return {};
     impl::SLoadSession loadSession = {};
     if (!impl::SLoadSession::begin(_params.logger, "OBJ loader", _file, _params.ioPolicy, static_cast<uint64_t>(filesize), true, loadSession))
         return {};
-
     core::vector<uint8_t> fileContents;
     const auto* fileData = loadSession.mapOrReadWholeFile(fileContents, &ioTelemetry);
     if (!fileData)
         return {};
     const char* const buf = reinterpret_cast<const char*>(fileData);
-
     const char* const bufEnd = buf + static_cast<size_t>(filesize);
     const char* bufPtr = buf;
-
     core::vector<hlsl::float32_t3> positions;
     core::vector<hlsl::float32_t3> normals;
     core::vector<hlsl::float32_t2> uvs;
@@ -372,7 +324,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     positions.reserve(estimatedAttributeCount);
     normals.reserve(estimatedAttributeCount);
     uvs.reserve(estimatedAttributeCount);
-
     core::vector<hlsl::float32_t3> outPositions;
     core::vector<hlsl::float32_t3> outNormals;
     core::vector<uint8_t> outNormalNeedsGeneration;
@@ -422,7 +373,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     const size_t dedupHotEntryCount = std::bit_ceil(dedupHotSeed);
     core::vector<SDedupHotEntry> dedupHotCache(dedupHotEntryCount);
     const size_t dedupHotMask = dedupHotEntryCount - 1ull;
-
     struct SLoadedGeometry {
         core::smart_refctd_ptr<ICPUPolygonGeometry> geometry = {};
         std::string objectName = {};
@@ -431,7 +381,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         uint64_t faceFastTokenCount = 0ull;
         uint64_t faceFallbackTokenCount = 0ull;
     };
-
     core::vector<SLoadedGeometry> loadedGeometries;
     std::string currentObjectName = "default_object";
     std::string currentGroupName = "default_group";
@@ -445,7 +394,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     uint64_t currentFaceCount = 0ull;
     uint64_t currentFaceFastTokenCount = 0ull;
     uint64_t currentFaceFallbackTokenCount = 0ull;
-
     const auto resetBuilderState = [&]() -> void {
         outPositions.clear();
         outNormals.clear();
@@ -453,7 +401,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         outUVs.clear();
         indices.clear();
         dedupNodes.clear();
-
         outPositions.resize(initialOutVertexCapacity);
         outNormals.resize(initialOutVertexCapacity);
         outNormalNeedsGeneration.resize(initialOutVertexCapacity, 0u);
@@ -461,7 +408,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         indices.resize(initialOutIndexCapacity);
         dedupHeadByPos.assign(positions.size(), -1);
         dedupNodes.resize(initialOutVertexCapacity);
-
         outVertexWriteCount = 0ull;
         outIndexWriteCount = 0ull;
         dedupNodeCount = 0ull;
@@ -475,17 +421,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         const SDedupHotEntry emptyHotEntry = {};
         std::fill(dedupHotCache.begin(), dedupHotCache.end(), emptyHotEntry);
     };
-
     const auto finalizeCurrentGeometry = [&]() -> bool {
         if (outVertexWriteCount == 0ull)
             return true;
-
         outPositions.resize(outVertexWriteCount);
         outNormals.resize(outVertexWriteCount);
         outNormalNeedsGeneration.resize(outVertexWriteCount);
         outUVs.resize(outVertexWriteCount);
         indices.resize(outIndexWriteCount);
-
         if (needsNormalGeneration) {
             // OBJ smoothing groups are already encoded in the parser-side vertex
             // split corners that must stay sharp become different output vertices
@@ -498,7 +441,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                     outNormals, outPositions, indices, outNormalNeedsGeneration))
                 return false;
         }
-
         const size_t outVertexCount = outPositions.size();
         auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
         {
@@ -508,7 +450,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                 return false;
             geometry->setPositionView(std::move(view));
         }
-
         const bool hasNormals = hasProvidedNormals || needsNormalGeneration;
         if (hasNormals) {
             auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(
@@ -517,7 +458,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                 return false;
             geometry->setNormalView(std::move(view));
         }
-
         if (hasUVs) {
             auto view = SGeometryLoaderCommon::createAdoptedView<EF_R32G32_SFLOAT>(
                 std::move(outUVs));
@@ -527,7 +467,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             auxViews->resize(Parse::UV0 + 1u);
             auxViews->operator[](Parse::UV0) = std::move(view);
         }
-
         if (!indices.empty()) {
             geometry->setIndexing(IPolygonGeometryBase::TriangleList());
             if (outVertexCount <=
@@ -550,17 +489,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         } else {
             geometry->setIndexing(IPolygonGeometryBase::PointList());
         }
-
         if (!_params.loaderFlags.hasAnyFlag(
                 IAssetLoader::ELPF_DONT_COMPUTE_CONTENT_HASHES))
             SPolygonGeometryContentHash::computeMissing(geometry.get(),
                                                         _params.ioPolicy);
-
         if (!parsedAABB.empty())
             geometry->applyAABB(parsedAABB.value);
         else
             CPolygonGeometryManipulator::recomputeAABB(geometry.get());
-
         loadedGeometries.push_back(SLoadedGeometry{
             .geometry = std::move(geometry),
             .objectName = currentObjectName,
@@ -570,7 +506,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             .faceFallbackTokenCount = currentFaceFallbackTokenCount});
         return true;
     };
-
     resetBuilderState();
     auto allocateOutVertex = [&](uint32_t& outIx) -> bool {
         if (outVertexWriteCount >= outPositions.size()) {
@@ -587,7 +522,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         outIx = static_cast<uint32_t>(outVertexWriteCount++);
         return true;
     };
-
     auto appendIndex = [&](const uint32_t value) -> bool {
         if (outIndexWriteCount >= indices.size()) {
             const size_t newCapacity =
@@ -597,7 +531,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         indices[outIndexWriteCount++] = value;
         return true;
     };
-
     auto allocateDedupNode = [&]() -> int32_t {
         if (dedupNodeCount >= dedupNodes.size()) {
             const size_t newCapacity =
@@ -610,7 +543,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         const int32_t ix = static_cast<int32_t>(dedupNodeCount++);
         return ix;
     };
-
     auto findCornerIndex =
         [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx,
             const uint32_t dedupSmoothingGroup, uint32_t& outIx) -> bool {
@@ -618,7 +550,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             return false;
         if (static_cast<size_t>(posIx) >= dedupHeadByPos.size())
             dedupHeadByPos.resize(positions.size(), -1);
-
         int32_t nodeIx = dedupHeadByPos[static_cast<size_t>(posIx)];
         while (nodeIx >= 0) {
             const auto& node = dedupNodes[static_cast<size_t>(nodeIx)];
@@ -631,7 +562,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         }
         return false;
     };
-
     auto materializeCornerIndex =
         [&](const int32_t posIx, const int32_t uvIx, const int32_t normalIx,
             const uint32_t dedupSmoothingGroup, uint32_t& outIx) -> bool {
@@ -640,7 +570,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         const int32_t newNodeIx = allocateDedupNode();
         if (newNodeIx < 0)
             return false;
-
         auto& node = dedupNodes[static_cast<size_t>(newNodeIx)];
         node.uv = uvIx;
         node.normal = normalIx;
@@ -648,18 +577,15 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         node.outIndex = outIx;
         node.next = dedupHeadByPos[static_cast<size_t>(posIx)];
         dedupHeadByPos[static_cast<size_t>(posIx)] = newNodeIx;
-
         const auto& srcPos = positions[static_cast<size_t>(posIx)];
         outPositions[static_cast<size_t>(outIx)] = srcPos;
         hlsl::shapes::util::extendAABBAccumulator(parsedAABB, srcPos);
-
         hlsl::float32_t2 uv(0.f, 0.f);
         if (uvIx >= 0 && static_cast<size_t>(uvIx) < uvs.size()) {
             uv = uvs[static_cast<size_t>(uvIx)];
             hasUVs = true;
         }
         outUVs[static_cast<size_t>(outIx)] = uv;
-
         hlsl::float32_t3 normal(0.f, 0.f, 0.f);
         if (normalIx >= 0 && static_cast<size_t>(normalIx) < normals.size()) {
             normal = normals[static_cast<size_t>(normalIx)];
@@ -672,7 +598,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         outNormals[static_cast<size_t>(outIx)] = normal;
         return true;
     };
-
     auto acquireCornerIndex = [&](const hlsl::int32_t3& idx,
                                   const uint32_t smoothingGroup,
                                   uint32_t& outIx) -> bool {
@@ -685,7 +610,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         return materializeCornerIndex(posIx, idx.y, idx.z, dedupSmoothingGroup,
                                       outIx);
     };
-
     auto acquireCornerIndexPositiveTriplet = [&](const hlsl::int32_t3& idx,
                                                  uint32_t& outIx) -> bool {
         const uint32_t hotHash = static_cast<uint32_t>(idx.x) * 73856093u ^
@@ -697,7 +621,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             outIx = hotEntry.outIndex;
             return true;
         }
-
         if (findCornerIndex(idx.x, idx.y, idx.z, 0u, outIx) ||
             materializeCornerIndex(idx.x, idx.y, idx.z, 0u, outIx)) {
             hotEntry.pos = idx.x;
@@ -714,7 +637,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     auto appendTriangle = [&](const hlsl::uint32_t3& cornerIx) -> bool {
         return appendIndex(cornerIx.z) && appendIndex(cornerIx.y) && appendIndex(cornerIx.x);
     };
-
     uint32_t currentSmoothingGroup = 0u;
     while (bufPtr < bufEnd) {
         const char* const lineStart = bufPtr;
@@ -726,11 +648,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                 static_cast<const char*>(std::memchr(lineStart, '\r', remaining));
         if (!lineTerminator)
             lineTerminator = bufEnd;
-
         const char* lineEnd = lineTerminator;
         if (lineEnd > lineStart && lineEnd[-1] == '\r')
             --lineEnd;
-
         if (lineStart < lineEnd) {
             const char lineType = std::tolower(*lineStart);
             if (lineType == 'v') {
@@ -841,7 +761,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                     uint32_t firstCorner = 0u;
                     uint32_t previousCorner = 0u;
                     uint32_t cornerCount = 0u;
-
                     if (parsedFirstThree) {
                         hlsl::uint32_t3 cornerIx = {};
                         if (!acquireTriangleCorners([&](const hlsl::int32_t3& idx, uint32_t& outIx) { return acquireCornerIndex(idx, currentSmoothingGroup, outIx); }, triIdx, cornerIx))
@@ -855,37 +774,31 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                         cornerCount = 3u;
                         linePtr = triLinePtr;
                     }
-
                     while (linePtr < lineEnd) {
                         while (linePtr < lineEnd &&
                                Parse::Common::isInlineWhitespace(*linePtr))
                             ++linePtr;
                         if (linePtr >= lineEnd)
                             break;
-
                         hlsl::int32_t3 idx(-1, -1, -1);
                         if (!Parse::parseFaceVertexToken(linePtr, lineEnd, idx, posCount,
                                                          uvCount, normalCount))
                             return {};
                         ++faceFallbackTokenCount;
                         ++currentFaceFallbackTokenCount;
-
                         uint32_t cornerIx = 0u;
                         if (!acquireCornerIndex(idx, currentSmoothingGroup, cornerIx))
                             return {};
-
                         if (cornerCount == 0u) {
                             firstCorner = cornerIx;
                             ++cornerCount;
                             continue;
                         }
-
                         if (cornerCount == 1u) {
                             previousCorner = cornerIx;
                             ++cornerCount;
                             continue;
                         }
-
                         if (!appendIndex(cornerIx) || !appendIndex(previousCorner) ||
                             !appendIndex(firstCorner))
                             return {};
@@ -895,7 +808,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                 }
             }
         }
-
         if (lineTerminator >= bufEnd)
             bufPtr = bufEnd;
         else if (*lineTerminator == '\r' && (lineTerminator + 1) < bufEnd &&
@@ -908,7 +820,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         return {};
     if (loadedGeometries.empty())
         return {};
-
     uint64_t outVertexCount = 0ull;
     uint64_t outIndexCount = 0ull;
     uint64_t faceFastTokenCountSum = 0ull;
@@ -923,9 +834,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         faceFastTokenCountSum += loaded.faceFastTokenCount;
         faceFallbackTokenCountSum += loaded.faceFallbackTokenCount;
     }
-
     loadSession.logTinyIO(_params.logger, ioTelemetry);
-
     const bool buildCollections =
         sawObjectDirective || sawGroupDirective || loadedGeometries.size() > 1ull;
     core::vector<core::smart_refctd_ptr<IAsset>> outputAssets;
@@ -952,24 +861,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                     return {};
                 objectCollections.push_back(std::move(collection));
             }
-
             auto* refs = objectCollections[objectIx]->getGeometries();
             if (!refs)
                 return {};
-
             IGeometryCollection<ICPUBuffer>::SGeometryReference ref = {};
             ref.geometry = core::smart_refctd_ptr_static_cast<IGeometry<ICPUBuffer>>(
                 loaded.geometry);
             refs->push_back(std::move(ref));
         }
-
         outputAssets.reserve(objectCollections.size());
         for (auto& collection : objectCollections)
             outputAssets.push_back(
                 core::smart_refctd_ptr_static_cast<IAsset>(std::move(collection)));
         objectCount = outputAssets.size();
     }
-
     _params.logger.log(
         "OBJ loader stats: file=%s in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu "
         "faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu "
@@ -992,11 +897,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         system::to_string(_params.ioPolicy.strategy).c_str(),
         system::to_string(loadSession.ioPlan.strategy).c_str(),
         static_cast<unsigned long long>(loadSession.ioPlan.chunkSizeBytes()), loadSession.ioPlan.reason);
-
     return SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>(),
                         std::move(outputAssets));
 }
-
 }
-
 #endif // _NBL_COMPILE_WITH_OBJ_LOADER_

@@ -17,7 +17,6 @@ struct BinaryData
 		std::reverse_copy(it, it + sizeof(retval), reinterpret_cast<char*>(&retval));
 		return retval;
 	}
-
 	template<typename T>
 	static inline T loadUnaligned(const void* src, const bool swapEndian = false)
 	{
@@ -27,13 +26,11 @@ struct BinaryData
 		std::memcpy(&value, src, sizeof(value));
 		return swapEndian ? byteswap(value) : value;
 	}
-
 	template<typename T>
 	static inline void storeUnaligned(void* dst, const T& value)
 	{
 		std::memcpy(dst, &value, sizeof(value));
 	}
-
 	template<typename T>
 	static inline void storeUnalignedAdvance(uint8_t*& dst, const T& value)
 	{

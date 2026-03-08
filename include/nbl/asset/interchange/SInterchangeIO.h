@@ -22,15 +22,12 @@ class SInterchangeIO
             uint64_t callCount = 0ull;
             uint64_t totalBytes = 0ull;
             uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-
             inline void account(const uint64_t bytes) { ++callCount; totalBytes += bytes; if (bytes < minBytes) minBytes = bytes; }
             inline uint64_t getMinOrZero() const { return callCount ? minBytes : 0ull; }
             inline uint64_t getAvgOrZero() const { return callCount ? (totalBytes / callCount) : 0ull; }
         };
-
         using SReadTelemetry = STelemetry;
         using SWriteTelemetry = STelemetry;
-
         static inline bool isTinyIOTelemetryLikely(
             const STelemetry& telemetry,
             const uint64_t payloadBytes,
@@ -52,7 +49,6 @@ class SInterchangeIO
                 return false;
             if (bytes == 0ull)
                 return true;
-
             system::IFile::success_t success;
             file->read(success, dst, offset, bytes);
             if (success && ioTelemetry)
@@ -76,7 +72,6 @@ class SInterchangeIO
             if (bytes == 0ull)
                 return finalize(true);
             auto* out = reinterpret_cast<uint8_t*>(dst);
-
             switch (ioPlan.strategy)
             {
                 case SResolvedFileIOPolicy::Strategy::WholeFile:
@@ -144,7 +139,6 @@ class SInterchangeIO
         static inline bool writeFileWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry); }
         static inline bool writeFileWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicy(file, ioPlan, buffers, ioTelemetry); }
 };
-
 using SFileIOTelemetry = SInterchangeIO::STelemetry;
 using SFileReadTelemetry = SInterchangeIO::SReadTelemetry;
 using SFileWriteTelemetry = SInterchangeIO::SWriteTelemetry;
