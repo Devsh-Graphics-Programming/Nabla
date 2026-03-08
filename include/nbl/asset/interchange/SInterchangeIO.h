@@ -103,7 +103,7 @@ class SInterchangeIO
         // When ioTime is non-null it also reports wall time in TimeUnit. Default TimeUnit is milliseconds.
         template<typename TimeUnit = std::chrono::duration<double, std::milli>>
         requires std::same_as<TimeUnit, std::chrono::duration<typename TimeUnit::rep, typename TimeUnit::period>>
-        static inline bool readFileWithPolicy(system::IFile* file, uint8_t* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan, SReadTelemetry* ioTelemetry = nullptr, TimeUnit* ioTime = nullptr)
+        static inline bool readFileWithPolicy(system::IFile* file, void* dst, const size_t offset, const size_t bytes, const SResolvedFileIOPolicy& ioPlan, SReadTelemetry* ioTelemetry = nullptr, TimeUnit* ioTime = nullptr)
         {
             using clock_t = std::chrono::high_resolution_clock;
             const auto ioStart = ioTime ? clock_t::now() : clock_t::time_point{};
@@ -118,11 +118,12 @@ class SInterchangeIO
                 return finalize(false);
             if (bytes == 0ull)
                 return finalize(true);
+            auto* out = reinterpret_cast<uint8_t*>(dst);
 
             switch (ioPlan.strategy)
             {
                 case SResolvedFileIOPolicy::Strategy::WholeFile:
-                    return finalize(readFileExact(file, dst, offset, bytes, ioTelemetry));
+                    return finalize(readFileExact(file, out, offset, bytes, ioTelemetry));
                 case SResolvedFileIOPolicy::Strategy::Chunked:
                 default:
                 {
@@ -132,7 +133,7 @@ class SInterchangeIO
                     {
                         const size_t toRead = static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, bytes - bytesRead));
                         system::IFile::success_t success;
-                        file->read(success, dst + bytesRead, offset + bytesRead, toRead);
+                        file->read(success, out + bytesRead, offset + bytesRead, toRead);
                         if (!success)
                             return false;
                         const size_t processed = success.getBytesProcessed();
@@ -150,7 +151,7 @@ class SInterchangeIO
         // Describes one contiguous output buffer written as part of a larger stream.
         struct SBufferRange
         {
-            const uint8_t* data = nullptr;
+            const void* data = nullptr;
             size_t byteCount = 0ull;
         };
 
@@ -167,6 +168,7 @@ class SInterchangeIO
                     return false;
                 if (buffer.byteCount == 0ull)
                     continue;
+                const auto* data = reinterpret_cast<const uint8_t*>(buffer.data);
 
                 size_t writtenTotal = 0ull;
                 while (writtenTotal < buffer.byteCount)
@@ -176,7 +178,7 @@ class SInterchangeIO
                             (buffer.byteCount - writtenTotal) :
                             static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, buffer.byteCount - writtenTotal));
                     system::IFile::success_t success;
-                    file->write(success, buffer.data + writtenTotal, fileOffset + writtenTotal, toWrite);
+                    file->write(success, data + writtenTotal, fileOffset + writtenTotal, toWrite);
                     if (!success)
                         return false;
                     const size_t written = success.getBytesProcessed();
@@ -199,14 +201,14 @@ class SInterchangeIO
         }
 
         // Single-buffer convenience wrapper over writeBuffersWithPolicyAtOffset.
-        static inline bool writeFileWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr)
+        static inline bool writeFileWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr)
         {
             const SBufferRange buffers[] = { { .data = data, .byteCount = byteCount } };
             return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry);
         }
 
         // Single-buffer convenience wrapper over writeBuffersWithPolicy.
-        static inline bool writeFileWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const uint8_t* data, size_t byteCount, SWriteTelemetry* ioTelemetry = nullptr)
+        static inline bool writeFileWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, SWriteTelemetry* ioTelemetry = nullptr)
         {
             const SBufferRange buffers[] = { { .data = data, .byteCount = byteCount } };
             return writeBuffersWithPolicy(file, ioPlan, buffers, ioTelemetry);
