@@ -708,6 +708,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         }
         return false;
     };
+    auto acquireTriangleCorners = [&](auto&& acquire, const std::array<hlsl::int32_t3, 3>& triIdx, hlsl::uint32_t3& cornerIx) -> bool {
+        return acquire(triIdx[0], cornerIx.x) && acquire(triIdx[1], cornerIx.y) && acquire(triIdx[2], cornerIx.z);
+    };
+    auto appendTriangle = [&](const hlsl::uint32_t3& cornerIx) -> bool {
+        return appendIndex(cornerIx.z) && appendIndex(cornerIx.y) && appendIndex(cornerIx.x);
+    };
 
     uint32_t currentSmoothingGroup = 0u;
     while (bufPtr < bufEnd) {
@@ -824,16 +830,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                 }
                 if (triangleFastPath) {
                     hlsl::uint32_t3 cornerIx = {};
-                    if (!acquireCornerIndexPositiveTriplet(triIdx[0], cornerIx.x))
-                        return {};
-                    if (!acquireCornerIndexPositiveTriplet(triIdx[1], cornerIx.y))
-                        return {};
-                    if (!acquireCornerIndexPositiveTriplet(triIdx[2], cornerIx.z))
+                    if (!acquireTriangleCorners(acquireCornerIndexPositiveTriplet, triIdx, cornerIx))
                         return {};
                     faceFastTokenCount += 3u;
                     currentFaceFastTokenCount += 3u;
-                    if (!appendIndex(cornerIx.z) || !appendIndex(cornerIx.y) ||
-                        !appendIndex(cornerIx.x))
+                    if (!appendTriangle(cornerIx))
                         return {};
                 } else {
                     const char* linePtr = lineStart + 1;
@@ -843,19 +844,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
 
                     if (parsedFirstThree) {
                         hlsl::uint32_t3 cornerIx = {};
-                        if (!acquireCornerIndex(triIdx[0], currentSmoothingGroup,
-                                                cornerIx.x))
-                            return {};
-                        if (!acquireCornerIndex(triIdx[1], currentSmoothingGroup,
-                                                cornerIx.y))
-                            return {};
-                        if (!acquireCornerIndex(triIdx[2], currentSmoothingGroup,
-                                                cornerIx.z))
+                        if (!acquireTriangleCorners([&](const hlsl::int32_t3& idx, uint32_t& outIx) { return acquireCornerIndex(idx, currentSmoothingGroup, outIx); }, triIdx, cornerIx))
                             return {};
                         faceFallbackTokenCount += 3u;
                         currentFaceFallbackTokenCount += 3u;
-                        if (!appendIndex(cornerIx.z) || !appendIndex(cornerIx.y) ||
-                            !appendIndex(cornerIx.x))
+                        if (!appendTriangle(cornerIx))
                             return {};
                         firstCorner = cornerIx.x;
                         previousCorner = cornerIx.z;

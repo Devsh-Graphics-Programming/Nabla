@@ -39,6 +39,28 @@ struct Parse
 		return text ? std::string_view{text} : std::string_view{};
 	}
 
+	template<size_t N>
+	static E_FORMAT selectStructuredFormat(const std::array<E_FORMAT, N>& formats, const uint32_t componentCount)
+	{
+		return componentCount > 0u && componentCount <= N ? formats[componentCount - 1u] : EF_UNKNOWN;
+	}
+
+	static E_FORMAT expandStructuredFormat(const E_FORMAT componentFormat, const uint32_t componentCount)
+	{
+		switch (componentFormat)
+		{
+			case EF_R8_SINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R8_SINT, EF_R8G8_SINT, EF_R8G8B8_SINT, EF_R8G8B8A8_SINT}), componentCount);
+			case EF_R8_UINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R8_UINT, EF_R8G8_UINT, EF_R8G8B8_UINT, EF_R8G8B8A8_UINT}), componentCount);
+			case EF_R16_SINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R16_SINT, EF_R16G16_SINT, EF_R16G16B16_SINT, EF_R16G16B16A16_SINT}), componentCount);
+			case EF_R16_UINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R16_UINT, EF_R16G16_UINT, EF_R16G16B16_UINT, EF_R16G16B16A16_UINT}), componentCount);
+			case EF_R32_SINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R32_SINT, EF_R32G32_SINT, EF_R32G32B32_SINT, EF_R32G32B32A32_SINT}), componentCount);
+			case EF_R32_UINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R32_UINT, EF_R32G32_UINT, EF_R32G32B32_UINT, EF_R32G32B32A32_UINT}), componentCount);
+			case EF_R32_SFLOAT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT}), componentCount);
+			case EF_R64_SFLOAT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R64_SFLOAT, EF_R64G64_SFLOAT, EF_R64G64B64_SFLOAT, EF_R64G64B64A64_SFLOAT}), componentCount);
+			default: return EF_UNKNOWN;
+		}
+	}
+
 	struct Context
 	{
 		static constexpr uint64_t ReadWindowPaddingBytes = 1ull;
@@ -1700,126 +1722,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 [&ctx](ICPUPolygonGeometry::SDataViewBase& view) -> void {
                 const auto componentFormat = view.format;
                 const auto componentCount = view.stride + 1;
-                // turn single channel format to multiple
-                view.format = [=]() -> E_FORMAT {
-                    switch (view.format) {
-                    case EF_R8_SINT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R8_SINT;
-                        case 2:
-                            return EF_R8G8_SINT;
-                        case 3:
-                            return EF_R8G8B8_SINT;
-                        case 4:
-                            return EF_R8G8B8A8_SINT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R8_UINT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R8_UINT;
-                        case 2:
-                            return EF_R8G8_UINT;
-                        case 3:
-                            return EF_R8G8B8_UINT;
-                        case 4:
-                            return EF_R8G8B8A8_UINT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R16_SINT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R16_SINT;
-                        case 2:
-                            return EF_R16G16_SINT;
-                        case 3:
-                            return EF_R16G16B16_SINT;
-                        case 4:
-                            return EF_R16G16B16A16_SINT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R16_UINT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R16_UINT;
-                        case 2:
-                            return EF_R16G16_UINT;
-                        case 3:
-                            return EF_R16G16B16_UINT;
-                        case 4:
-                            return EF_R16G16B16A16_UINT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R32_SINT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R32_SINT;
-                        case 2:
-                            return EF_R32G32_SINT;
-                        case 3:
-                            return EF_R32G32B32_SINT;
-                        case 4:
-                            return EF_R32G32B32A32_SINT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R32_UINT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R32_UINT;
-                        case 2:
-                            return EF_R32G32_UINT;
-                        case 3:
-                            return EF_R32G32B32_UINT;
-                        case 4:
-                            return EF_R32G32B32A32_UINT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R32_SFLOAT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R32_SFLOAT;
-                        case 2:
-                            return EF_R32G32_SFLOAT;
-                        case 3:
-                            return EF_R32G32B32_SFLOAT;
-                        case 4:
-                            return EF_R32G32B32A32_SFLOAT;
-                        default:
-                            break;
-                        }
-                        break;
-                    case EF_R64_SFLOAT:
-                        switch (componentCount) {
-                        case 1:
-                            return EF_R64_SFLOAT;
-                        case 2:
-                            return EF_R64G64_SFLOAT;
-                        case 3:
-                            return EF_R64G64B64_SFLOAT;
-                        case 4:
-                            return EF_R64G64B64A64_SFLOAT;
-                        default:
-                            break;
-                        }
-                        break;
-                    default:
-                        break;
-                    }
-                    return EF_UNKNOWN;
-                }();
+                view.format = Parse::expandStructuredFormat(view.format, componentCount);
                 view.stride = getTexelOrBlockBytesize(view.format);
                 //
                 for (auto c = 0u; c < componentCount; c++) {
