@@ -19,8 +19,6 @@
 #include <array>
 #include <bit>
 #include <cctype>
-#include <cmath>
-#include <fast_float/fast_float.h>
 #include <string_view>
 namespace nbl::asset
 {
@@ -31,154 +29,6 @@ struct Parse
 	static constexpr uint32_t UV0 = 0u;
 	using Common = impl::TextParse;
 	struct VertexDedupNode { int32_t uv = -1; int32_t normal = -1; uint32_t smoothingGroup = 0u; uint32_t outIndex = 0u; int32_t next = -1; };
-	static inline bool isDigit(const char c) { return c >= '0' && c <= '9'; }
-	static bool parseFloat(const char*& ptr, const char* const end, float& out)
-	{
-		const char* const start = ptr;
-		if (start >= end)
-			return false;
-		const char* p = start;
-		bool negative = false;
-		if (*p == '-' || *p == '+')
-		{
-			negative = (*p == '-');
-			++p;
-			if (p >= end)
-				return false;
-		}
-		if (*p == '.' || !isDigit(*p))
-		{
-			const auto parseResult = fast_float::from_chars(start, end, out);
-			if (parseResult.ec == std::errc() && parseResult.ptr != start)
-			{
-				ptr = parseResult.ptr;
-				return true;
-			}
-			return false;
-		}
-		uint64_t integerPart = 0ull;
-		while (p < end && isDigit(*p))
-		{
-			integerPart = integerPart * 10ull + static_cast<uint64_t>(*p - '0');
-			++p;
-		}
-		double value = static_cast<double>(integerPart);
-		if (p < end && *p == '.')
-		{
-			const char* const dot = p;
-			if ((dot + 7) <= end)
-			{
-				const char d0 = dot[1];
-				const char d1 = dot[2];
-				const char d2 = dot[3];
-				const char d3 = dot[4];
-				const char d4 = dot[5];
-				const char d5 = dot[6];
-				if (isDigit(d0) && isDigit(d1) && isDigit(d2) && isDigit(d3) && isDigit(d4) && isDigit(d5))
-				{
-					const bool hasNext = (dot + 7) < end;
-					const char next = hasNext ? dot[7] : '\0';
-					if ((!hasNext || !isDigit(next)) && (!hasNext || (next != 'e' && next != 'E')))
-					{
-						const uint32_t frac =
-							static_cast<uint32_t>(d0 - '0') * 100000u +
-							static_cast<uint32_t>(d1 - '0') * 10000u +
-							static_cast<uint32_t>(d2 - '0') * 1000u +
-							static_cast<uint32_t>(d3 - '0') * 100u +
-							static_cast<uint32_t>(d4 - '0') * 10u +
-							static_cast<uint32_t>(d5 - '0');
-						value += static_cast<double>(frac) * 1e-6;
-						p = dot + 7;
-						out = static_cast<float>(negative ? -value : value);
-						ptr = p;
-						return true;
-					}
-				}
-			}
-			static constexpr double InvPow10[] = {
-				1.0,
-				1e-1, 1e-2, 1e-3, 1e-4, 1e-5,
-				1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
-				1e-11, 1e-12, 1e-13, 1e-14, 1e-15,
-				1e-16, 1e-17, 1e-18
-			};
-			++p;
-			uint64_t fractionPart = 0ull;
-			uint32_t fractionDigits = 0u;
-			while (p < end && isDigit(*p))
-			{
-				if (fractionDigits >= (std::size(InvPow10) - 1u))
-				{
-					const auto parseResult = fast_float::from_chars(start, end, out);
-					if (parseResult.ec == std::errc() && parseResult.ptr != start)
-					{
-						ptr = parseResult.ptr;
-						return true;
-					}
-					return false;
-				}
-				fractionPart = fractionPart * 10ull + static_cast<uint64_t>(*p - '0');
-				++fractionDigits;
-				++p;
-			}
-			value += static_cast<double>(fractionPart) * InvPow10[fractionDigits];
-		}
-		if (p < end && (*p == 'e' || *p == 'E'))
-		{
-			const auto parseResult = fast_float::from_chars(start, end, out);
-			if (parseResult.ec == std::errc() && parseResult.ptr != start)
-			{
-				ptr = parseResult.ptr;
-				return true;
-			}
-			return false;
-		}
-		out = static_cast<float>(negative ? -value : value);
-		ptr = p;
-		return true;
-	}
-	static bool parseUnsignedIndex(const char*& ptr, const char* const end, uint32_t& out)
-	{
-		if (ptr >= end || !isDigit(*ptr))
-			return false;
-		uint64_t value = 0ull;
-		while (ptr < end && isDigit(*ptr))
-		{
-			value = value * 10ull + static_cast<uint64_t>(*ptr - '0');
-			++ptr;
-		}
-		if (value == 0ull || value > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))
-			return false;
-		out = static_cast<uint32_t>(value);
-		return true;
-	}
-	static bool parseSignedIndex(const char*& ptr, const char* const end, int32_t& out)
-	{
-		if (ptr >= end)
-			return false;
-		bool negative = false;
-		if (*ptr == '-')
-		{
-			negative = true;
-			++ptr;
-		}
-		else if (*ptr == '+')
-			++ptr;
-		if (ptr >= end || !isDigit(*ptr))
-			return false;
-		int64_t value = 0;
-		while (ptr < end && isDigit(*ptr))
-		{
-			value = value * 10ll + static_cast<int64_t>(*ptr - '0');
-			++ptr;
-		}
-		if (negative)
-			value = -value;
-		if (value == 0 || value < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) || value > static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
-			return false;
-		out = static_cast<int32_t>(value);
-		return true;
-	}
 	static bool resolveIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
 	{
 		if (rawIndex > 0)
@@ -229,7 +79,7 @@ struct Parse
 		const char* ptr = lineStart;
 		auto parsePositive = [&](const size_t count, int32_t& outIx) -> bool {
 			uint32_t value = 0u;
-			if (!parseUnsignedIndex(ptr, lineEnd, value))
+			if (!Common::parseNonZeroNumber(ptr, lineEnd, value))
 				return false;
 			if (value > count)
 				return false;
@@ -239,7 +89,7 @@ struct Parse
 		for (uint32_t corner = 0u; corner < 3u; ++corner)
 		{
 			Common::skipInlineWhitespace(ptr, lineEnd);
-			if (ptr >= lineEnd || !isDigit(*ptr))
+			if (ptr >= lineEnd || !Common::isDigit(*ptr))
 				return false;
 			int32_t posIx = -1;
 			if (!parsePositive(posCount, posIx))
@@ -266,7 +116,7 @@ struct Parse
 		const char* ptr = lineStart;
 		auto parsePositive = [&](const size_t count, int32_t& outIx) -> bool {
 			uint32_t value = 0u;
-			if (!parseUnsignedIndex(ptr, lineEnd, value))
+			if (!Common::parseNonZeroNumber(ptr, lineEnd, value))
 				return false;
 			if (value > count)
 				return false;
@@ -276,7 +126,7 @@ struct Parse
 		for (uint32_t corner = 0u; corner < 3u; ++corner)
 		{
 			Common::skipInlineWhitespace(ptr, lineEnd);
-			if (ptr >= lineEnd || !isDigit(*ptr))
+			if (ptr >= lineEnd || !Common::isDigit(*ptr))
 				return false;
 			int32_t posIx = -1;
 			if (!parsePositive(posCount, posIx))
@@ -301,7 +151,7 @@ struct Parse
 		const char* ptr = linePtr;
 		auto parsePositive = [&](const size_t count, int32_t& outIx) -> bool {
 			uint32_t raw = 0u;
-			if (!parseUnsignedIndex(ptr, lineEnd, raw))
+			if (!Common::parseNonZeroNumber(ptr, lineEnd, raw))
 				return false;
 			if (raw > count)
 				return false;
@@ -310,7 +160,7 @@ struct Parse
 		};
 		auto parseResolved = [&](const size_t count, int32_t& outIx) -> bool {
 			int32_t raw = 0;
-			return parseSignedIndex(ptr, lineEnd, raw) && resolveIndex(raw, count, outIx);
+			return Common::parseNonZeroNumber(ptr, lineEnd, raw) && resolveIndex(raw, count, outIx);
 		};
 		if (*ptr != '-' && *ptr != '+')
 		{
@@ -817,7 +667,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
 					for (uint32_t i = 0u; i < count; ++i) {
 						while (ptr < lineEnd && Parse::Common::isInlineWhitespace(*ptr))
 							++ptr;
-						if (ptr >= lineEnd || !Parse::parseFloat(ptr, lineEnd, values[i]))
+						if (ptr >= lineEnd || !Parse::Common::parseNumber(ptr, lineEnd, values[i]))
 							return false;
 					}
 					return true;
