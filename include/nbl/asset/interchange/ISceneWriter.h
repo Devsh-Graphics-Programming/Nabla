@@ -3,27 +3,18 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_SCENE_WRITER_H_INCLUDED_
 #define _NBL_ASSET_I_SCENE_WRITER_H_INCLUDED_
-
-
 #include "nbl/core/declarations.h"
-
 #include "nbl/asset/ICPUScene.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
-
-
 namespace nbl::asset
 {
-
 class ISceneWriter : public IAssetWriter
 {
 	public:
 		virtual inline uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_SCENE; }
-
 	protected:
 		ISceneWriter() = default;
 		virtual ~ISceneWriter() = default;
 };
-
 }
-
 #endif

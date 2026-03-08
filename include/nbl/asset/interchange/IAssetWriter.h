@@ -3,18 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_ASSET_WRITER_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_WRITER_H_INCLUDED_
-
-
 #include "nbl/system/IFile.h"
 #include "nbl/system/ILogger.h"
-
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/interchange/SFileIOPolicy.h"
-
-
 namespace nbl::asset
 {
-
 //! Writing flags
 /**
 	They have an impact on writing (saving) an Asset.
@@ -119,9 +113,7 @@ public:
         const SAssetWriteParams params;
         system::IFile* outputFile;
     };
-
 public:
-
     //! Returns an array of string literals terminated by nullptr
     virtual const char** getAssociatedFileExtensions() const = 0;
 

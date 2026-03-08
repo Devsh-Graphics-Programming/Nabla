@@ -3,19 +3,13 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_GEOMETRY_LOADER_H_INCLUDED_
 #define _NBL_ASSET_I_GEOMETRY_LOADER_H_INCLUDED_
-
-
 #include "nbl/core/declarations.h"
-
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
-
-
 namespace nbl::asset
 {
-
 class IGeometryLoader : public IAssetLoader
 {
 	public:
@@ -96,7 +90,5 @@ class IGeometryLoader : public IAssetLoader
 
 	private:
 };
-
 }
-
 #endif

@@ -3,23 +3,15 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
-
-
 #include "nbl/system/declarations.h"
-
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ILogger.h"
-
 #include "nbl/core/util/bitflag.h"
-
 #include "nbl/asset/interchange/SAssetBundle.h"
 #include "nbl/asset/interchange/SFileIOPolicy.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
-
-
 namespace nbl::asset
 {
-
 class CPolygonGeometryManipulator;
 
 //! A class automating process of loading Assets from resources, eg. files
@@ -62,7 +54,6 @@ class CPolygonGeometryManipulator;
 	@see IAssetManager
 	@see IAssetWriter
 */
-
 class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 {
 	public:
