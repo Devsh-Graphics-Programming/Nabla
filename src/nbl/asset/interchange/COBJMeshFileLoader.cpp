@@ -29,14 +29,7 @@ struct Parse
 {
 	static constexpr uint32_t UV0 = 0u;
 	using Common = impl::TextParse;
-	struct VertexDedupNode
-	{
-		int32_t uv = -1;
-		int32_t normal = -1;
-		uint32_t smoothingGroup = 0u;
-		uint32_t outIndex = 0u;
-		int32_t next = -1;
-	};
+	struct VertexDedupNode { int32_t uv = -1; int32_t normal = -1; uint32_t smoothingGroup = 0u; uint32_t outIndex = 0u; int32_t next = -1; };
 	static bool resolveIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
 	{
 		if (rawIndex > 0)
@@ -60,24 +53,15 @@ struct Parse
 	{
 		Common::skipInlineWhitespace(linePtr, lineEnd);
 		if (linePtr >= lineEnd)
-		{
-			outGroup = 0u;
-			return;
-		}
+			return void(outGroup = 0u);
 		const char* const tokenStart = linePtr;
 		while (linePtr < lineEnd && !Common::isInlineWhitespace(*linePtr))
 			++linePtr;
 		const std::string_view token(tokenStart, static_cast<size_t>(linePtr - tokenStart));
 		if (token.size() == 2u && std::tolower(token[0]) == 'o' && std::tolower(token[1]) == 'n')
-		{
-			outGroup = 1u;
-			return;
-		}
+			return void(outGroup = 1u);
 		if (token.size() == 3u && std::tolower(token[0]) == 'o' && std::tolower(token[1]) == 'f' && std::tolower(token[2]) == 'f')
-		{
-			outGroup = 0u;
-			return;
-		}
+			return void(outGroup = 0u);
 		uint32_t value = 0u;
 		outGroup = Common::parseExactNumber(token, value) ? value : 0u;
 	}
@@ -94,50 +78,35 @@ struct Parse
 	static bool parseTrianglePositiveTripletLine(const char* const lineStart, const char* const lineEnd, std::array<hlsl::int32_t3, 3>& out, const size_t posCount, const size_t uvCount, const size_t normalCount)
 	{
 		const char* ptr = lineStart;
+		auto parsePositive = [&](const size_t count, int32_t& outIx) -> bool {
+			uint32_t value = 0u;
+			if (!Common::parseNonZeroNumber(ptr, lineEnd, value))
+				return false;
+			if (value > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()) || value > count)
+				return false;
+			outIx = value - 1u;
+			return true;
+		};
 		for (uint32_t corner = 0u; corner < 3u; ++corner)
 		{
 			Common::skipInlineWhitespace(ptr, lineEnd);
 			if (ptr >= lineEnd || !core::isdigit(*ptr))
 				return false;
 			int32_t posIx = -1;
-			{
-				uint32_t value = 0u;
-				if (!Common::parseNonZeroNumber(ptr, lineEnd, value))
-					return false;
-				if (value > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
-					return false;
-				if (value > posCount)
-					return false;
-				posIx = value - 1u;
-			}
+			if (!parsePositive(posCount, posIx))
+				return false;
 			if (ptr >= lineEnd || *ptr != '/')
 				return false;
 			++ptr;
 			int32_t uvIx = -1;
-			{
-				uint32_t value = 0u;
-				if (!Common::parseNonZeroNumber(ptr, lineEnd, value))
-					return false;
-				if (value > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
-					return false;
-				if (value > uvCount)
-					return false;
-				uvIx = value - 1u;
-			}
+			if (!parsePositive(uvCount, uvIx))
+				return false;
 			if (ptr >= lineEnd || *ptr != '/')
 				return false;
 			++ptr;
 			int32_t normalIx = -1;
-			{
-				uint32_t value = 0u;
-				if (!Common::parseNonZeroNumber(ptr, lineEnd, value))
-					return false;
-				if (value > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
-					return false;
-				if (value > normalCount)
-					return false;
-				normalIx = value - 1u;
-			}
+			if (!parsePositive(normalCount, normalIx))
+				return false;
 			out[corner] = hlsl::int32_t3(posIx, uvIx, normalIx);
 		}
 		Common::skipInlineWhitespace(ptr, lineEnd);
@@ -150,43 +119,38 @@ struct Parse
 			return false;
 		idx = hlsl::int32_t3(-1, -1, -1);
 		const char* ptr = linePtr;
+		auto parsePositive = [&](const size_t count, int32_t& outIx) -> bool {
+			uint32_t raw = 0u;
+			if (!Common::parseNonZeroNumber(ptr, lineEnd, raw))
+				return false;
+			if (raw > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()) || raw > count)
+				return false;
+			outIx = raw - 1u;
+			return true;
+		};
+		auto parseResolved = [&](const size_t count, int32_t& outIx) -> bool {
+			int32_t raw = 0;
+			return Common::parseNonZeroNumber(ptr, lineEnd, raw) && resolveIndex(raw, count, outIx);
+		};
 		if (*ptr != '-' && *ptr != '+')
 		{
-			uint32_t posRaw = 0u;
-			if (!Common::parseNonZeroNumber(ptr, lineEnd, posRaw))
+			if (!parsePositive(posCount, idx.x))
 				return false;
-			if (posRaw > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
-				return false;
-			if (posRaw > posCount)
-				return false;
-			idx.x = posRaw - 1u;
 			if (ptr < lineEnd && *ptr == '/')
 			{
 				++ptr;
 				if (ptr < lineEnd && *ptr != '/')
 				{
-					uint32_t uvRaw = 0u;
-					if (!Common::parseNonZeroNumber(ptr, lineEnd, uvRaw))
+					if (!parsePositive(uvCount, idx.y))
 						return false;
-					if (uvRaw > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
-						return false;
-					if (uvRaw > uvCount)
-						return false;
-					idx.y = uvRaw - 1u;
 				}
 				if (ptr < lineEnd && *ptr == '/')
 				{
 					++ptr;
 					if (ptr < lineEnd && !Common::isInlineWhitespace(*ptr))
 					{
-						uint32_t normalRaw = 0u;
-						if (!Common::parseNonZeroNumber(ptr, lineEnd, normalRaw))
+						if (!parsePositive(normalCount, idx.z))
 							return false;
-						if (normalRaw > static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
-							return false;
-						if (normalRaw > normalCount)
-							return false;
-						idx.z = normalRaw - 1u;
 					}
 				}
 				else if (ptr < lineEnd && !Common::isInlineWhitespace(*ptr))
@@ -197,19 +161,14 @@ struct Parse
 		}
 		else
 		{
-			int32_t raw = 0;
-			if (!Common::parseNonZeroNumber(ptr, lineEnd, raw))
-				return false;
-			if (!resolveIndex(raw, posCount, idx.x))
+			if (!parseResolved(posCount, idx.x))
 				return false;
 			if (ptr < lineEnd && *ptr == '/')
 			{
 				++ptr;
 				if (ptr < lineEnd && *ptr != '/')
 				{
-					if (!Common::parseNonZeroNumber(ptr, lineEnd, raw))
-						return false;
-					if (!resolveIndex(raw, uvCount, idx.y))
+					if (!parseResolved(uvCount, idx.y))
 						return false;
 				}
 				if (ptr < lineEnd && *ptr == '/')
@@ -217,9 +176,7 @@ struct Parse
 					++ptr;
 					if (ptr < lineEnd && !Common::isInlineWhitespace(*ptr))
 					{
-						if (!Common::parseNonZeroNumber(ptr, lineEnd, raw))
-							return false;
-						if (!resolveIndex(raw, normalCount, idx.z))
+						if (!parseResolved(normalCount, idx.z))
 							return false;
 					}
 				}
@@ -840,9 +797,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     core::vector<core::smart_refctd_ptr<IAsset>> outputAssets;
     uint64_t objectCount = 1ull;
     if (!buildCollections) {
+        // Plain OBJ is still just one polygon geometry here.
         outputAssets.push_back(core::smart_refctd_ptr_static_cast<IAsset>(
             std::move(loadedGeometries.front().geometry)));
     } else {
+        // Plain OBJ can group many polygon geometries with `o` and `g`, but it
+        // still does not define a real scene graph, instancing, or node transforms.
+        // Keep that as geometry collections instead of fabricating an ICPUScene on
+        // load.
         core::vector<std::string> objectNames;
         core::vector<core::smart_refctd_ptr<ICPUGeometryCollection>>
             objectCollections;

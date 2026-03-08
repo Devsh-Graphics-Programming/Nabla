@@ -5,7 +5,6 @@
 // See the original file in irrlicht source for authors
 
 #include "CSTLMeshFileLoader.h"
-
 #include "impl/SFileAccess.h"
 #include "impl/STextParse.h"
 #include "nbl/asset/asset.h"
@@ -22,48 +21,18 @@
 #include "nbl/system/IFile.h"
 
 #include <optional>
-
 namespace nbl::asset
 {
-
 namespace
 {
-
 struct Parse
 {
 	static constexpr uint32_t COLOR0 = 0u;
 	using Common = impl::TextParse;
-
-	struct LayoutProbe
-	{
-		bool hasPrefix = false;
-		bool startsWithSolid = false;
-		bool binaryBySize = false;
-		uint32_t triangleCount = 0u;
-	};
-
-	static hlsl::float32_t3 resolveStoredNormal(const hlsl::float32_t3& fileNormal)
-	{
-		const float fileLen2 = hlsl::dot(fileNormal, fileNormal);
-		if (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f)
-			return fileNormal;
-		return SGeometryNormalCommon::normalizeOrZero(fileNormal);
-	}
-
-	static void pushTriangleReversed(const std::array<hlsl::float32_t3, 3>& p, core::vector<hlsl::float32_t3>& positions)
-	{
-		positions.push_back(p[2u]);
-		positions.push_back(p[1u]);
-		positions.push_back(p[0u]);
-	}
-
-	static uint32_t decodeViscamColorToB8G8R8A8(const uint16_t packedColor)
-	{
-		std::array<const void*, 4> src = {&packedColor};
-		uint32_t outColor = 0u;
-		convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(src.data(), &outColor, 0u, 0u);
-		return outColor;
-	}
+	struct LayoutProbe { bool hasPrefix = false; bool startsWithSolid = false; bool binaryBySize = false; uint32_t triangleCount = 0u; };
+	static hlsl::float32_t3 resolveStoredNormal(const hlsl::float32_t3& fileNormal) { const float fileLen2 = hlsl::dot(fileNormal, fileNormal); return (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f) ? fileNormal : SGeometryNormalCommon::normalizeOrZero(fileNormal); }
+	static void pushTriangleReversed(const std::array<hlsl::float32_t3, 3>& p, core::vector<hlsl::float32_t3>& positions) { positions.push_back(p[2u]); positions.push_back(p[1u]); positions.push_back(p[0u]); }
+	static uint32_t decodeViscamColorToB8G8R8A8(const uint16_t packedColor) { std::array<const void*, 4> src = {&packedColor}; uint32_t outColor = 0u; convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(src.data(), &outColor, 0u, 0u); return outColor; }
 
 	struct Context
 	{
@@ -116,30 +85,13 @@ struct Parse
 	{
 		public:
 			inline AsciiParser(const char* begin, const char* end) : m_cursor(begin), m_end(end) {}
-
-			inline std::optional<std::string_view> readToken()
-			{
-				return Common::readToken(m_cursor, m_end);
-			}
-
-			inline std::optional<float> readFloat()
-			{
-				float value = 0.f;
-				if (!Common::parseNumber(m_cursor, m_end, value))
-					return std::nullopt;
-				return value;
-			}
-
+			inline std::optional<std::string_view> readToken() { return Common::readToken(m_cursor, m_end); }
+			inline std::optional<float> readFloat() { float value = 0.f; return Common::parseNumber(m_cursor, m_end, value) ? std::optional<float>(value) : std::nullopt; }
 			inline std::optional<hlsl::float32_t3> readVec3()
 			{
-				const auto x = readFloat();
-				const auto y = readFloat();
-				const auto z = readFloat();
-				if (!x.has_value() || !y.has_value() || !z.has_value())
-					return std::nullopt;
-				return hlsl::float32_t3(*x, *y, *z);
+				const auto x = readFloat(), y = readFloat(), z = readFloat();
+				return x.has_value() && y.has_value() && z.has_value() ? std::optional<hlsl::float32_t3>(hlsl::float32_t3(*x, *y, *z)) : std::nullopt;
 			}
-
 		private:
 			const char* m_cursor = nullptr;
 			const char* m_end = nullptr;
@@ -148,14 +100,8 @@ struct Parse
 	class SplitBlockMemoryResource final : public core::refctd_memory_resource
 	{
 		public:
-			inline SplitBlockMemoryResource(core::smart_refctd_ptr<core::refctd_memory_resource>&& upstream, void* block, const size_t blockBytes, const size_t alignment)
-				: m_upstream(std::move(upstream)), m_block(block), m_blockBytes(blockBytes), m_alignment(alignment) {}
-
-			inline void* allocate(std::size_t, std::size_t) override
-			{
-				assert(false);
-				return nullptr;
-			}
+			inline SplitBlockMemoryResource(core::smart_refctd_ptr<core::refctd_memory_resource>&& upstream, void* block, const size_t blockBytes, const size_t alignment) : m_upstream(std::move(upstream)), m_block(block), m_blockBytes(blockBytes), m_alignment(alignment) {}
+			inline void* allocate(std::size_t, std::size_t) override { assert(false); return nullptr; }
 
 			inline void deallocate(void* p, std::size_t bytes, std::size_t) override
 			{
@@ -167,11 +113,7 @@ struct Parse
 			}
 
 		protected:
-			inline ~SplitBlockMemoryResource() override
-			{
-				if (m_upstream && m_block)
-					m_upstream->deallocate(m_block, m_blockBytes, m_alignment);
-			}
+			inline ~SplitBlockMemoryResource() override { if (m_upstream && m_block) m_upstream->deallocate(m_block, m_blockBytes, m_alignment); }
 
 		private:
 			core::smart_refctd_ptr<core::refctd_memory_resource> m_upstream;
@@ -180,9 +122,7 @@ struct Parse
 			size_t m_alignment = 1ull;
 	};
 };
-
 }
-
 CSTLMeshFileLoader::CSTLMeshFileLoader(asset::IAssetManager*)
 {
 }
@@ -242,27 +182,20 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if (filesize < Context::BinaryPrefixBytes)
 			return {};
 
-		uint32_t triangleCount32 = binaryTriCountFromDetect;
-		if (!hasBinaryTriCountFromDetect)
-		{
-			if (!SInterchangeIO::readFileExact(context.inner.mainFile, &triangleCount32, Context::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
-				return {};
-		}
-
-		triangleCount = triangleCount32;
-		const size_t dataSize = static_cast<size_t>(triangleCount) * Context::TriangleRecordBytes;
-		const size_t expectedSize = Context::BinaryPrefixBytes + dataSize;
-		if (filesize < expectedSize)
-			return {};
-
-		const uint8_t* payloadData = wholeFileData ? (wholeFileData + Context::BinaryPrefixBytes) : loadSession.readRange(Context::BinaryPrefixBytes, dataSize, wholeFilePayload, &context.ioTelemetry);
-		if (!payloadData)
-			return {};
-
+        uint32_t triangleCount32 = binaryTriCountFromDetect;
+        if (!hasBinaryTriCountFromDetect && !SInterchangeIO::readFileExact(context.inner.mainFile, &triangleCount32, Context::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+            return {};
+        triangleCount = triangleCount32;
+        const size_t dataSize = static_cast<size_t>(triangleCount) * Context::TriangleRecordBytes;
+        const size_t expectedSize = Context::BinaryPrefixBytes + dataSize;
+        if (filesize < expectedSize)
+            return {};
+        const uint8_t* payloadData = wholeFileData ? (wholeFileData + Context::BinaryPrefixBytes) : loadSession.readRange(Context::BinaryPrefixBytes, dataSize, wholeFilePayload, &context.ioTelemetry);
+        if (!payloadData)
+            return {};
         vertexCount = triangleCount * Context::VerticesPerTriangle;
         const size_t vertexCountSizeT = static_cast<size_t>(vertexCount);
-        if (vertexCountSizeT >
-            (std::numeric_limits<size_t>::max() / sizeof(hlsl::float32_t3)))
+        if (vertexCountSizeT > (std::numeric_limits<size_t>::max() / sizeof(hlsl::float32_t3)))
             return {};
         const size_t viewByteSize = vertexCountSizeT * sizeof(hlsl::float32_t3);
         if (viewByteSize > (std::numeric_limits<size_t>::max() - viewByteSize))
@@ -274,41 +207,17 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
         void* block = upstream->allocate(blockBytes, alignof(float));
         if (!block)
             return {};
-        auto blockResource = core::make_smart_refctd_ptr<SplitBlockMemoryResource>(
-            core::smart_refctd_ptr<core::refctd_memory_resource>(
-                std::move(upstream)),
-            block, blockBytes, alignof(float));
-        auto posBuffer = ICPUBuffer::create(
-            {{viewByteSize},
-             block,
-             core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),
-             alignof(float)},
-            core::adopt_memory);
-        auto normalBuffer = ICPUBuffer::create(
-            {{viewByteSize},
-             reinterpret_cast<uint8_t*>(block) + viewByteSize,
-             core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource),
-             alignof(float)},
-            core::adopt_memory);
+        auto blockResource = core::make_smart_refctd_ptr<SplitBlockMemoryResource>(core::smart_refctd_ptr<core::refctd_memory_resource>(std::move(upstream)), block, blockBytes, alignof(float));
+        auto posBuffer = ICPUBuffer::create({{viewByteSize}, block, core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource), alignof(float)}, core::adopt_memory);
+        auto normalBuffer = ICPUBuffer::create({{viewByteSize}, reinterpret_cast<uint8_t*>(block) + viewByteSize, core::smart_refctd_ptr<core::refctd_memory_resource>(blockResource), alignof(float)}, core::adopt_memory);
         if (!posBuffer || !normalBuffer)
             return {};
         ICPUPolygonGeometry::SDataView posView = {};
-        posView.composed = {.stride = sizeof(hlsl::float32_t3),
-                            .format = EF_R32G32B32_SFLOAT,
-                            .rangeFormat = IGeometryBase::getMatchingAABBFormat(
-                                EF_R32G32B32_SFLOAT)};
-        posView.src = {
-            .offset = 0ull,
-            .size = viewByteSize,
-            .buffer = std::move(posBuffer)};
+        posView.composed = {.stride = sizeof(hlsl::float32_t3), .format = EF_R32G32B32_SFLOAT, .rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)};
+        posView.src = {.offset = 0ull, .size = viewByteSize, .buffer = std::move(posBuffer)};
         ICPUPolygonGeometry::SDataView normalView = {};
-        normalView.composed = {.stride = sizeof(hlsl::float32_t3),
-                               .format = EF_R32G32B32_SFLOAT,
-                               .rangeFormat = IGeometryBase::getMatchingAABBFormat(
-                                   EF_R32G32B32_SFLOAT)};
-        normalView.src = {.offset = 0ull,
-                          .size = viewByteSize,
-                          .buffer = std::move(normalBuffer)};
+        normalView.composed = {.stride = sizeof(hlsl::float32_t3), .format = EF_R32G32B32_SFLOAT, .rangeFormat = IGeometryBase::getMatchingAABBFormat(EF_R32G32B32_SFLOAT)};
+        normalView.src = {.offset = 0ull, .size = viewByteSize, .buffer = std::move(normalBuffer)};
         auto* posOutFloat = reinterpret_cast<float*>(posView.getPointer());
         auto* normalOutFloat = reinterpret_cast<float*>(normalView.getPointer());
         if (!posOutFloat || !normalOutFloat)
@@ -331,64 +240,36 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
         parseTuningRequest.minBytesPerWorker = Context::TriangleRecordBytes;
         parseTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
         parseTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
-        parseTuningRequest.targetChunksPerWorker =
-            _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
+        parseTuningRequest.targetChunksPerWorker = _params.ioPolicy.runtimeTuning.targetChunksPerWorker;
         parseTuningRequest.minChunkWorkUnits = 1ull;
-        parseTuningRequest.maxChunkWorkUnits =
-            std::max<uint64_t>(1ull, triangleCount);
+        parseTuningRequest.maxChunkWorkUnits = std::max<uint64_t>(1ull, triangleCount);
         parseTuningRequest.sampleData = payloadData;
-        parseTuningRequest.sampleBytes =
-            SLoaderRuntimeTuner::resolveSampleBytes(_params.ioPolicy, dataSize);
-        const auto parseTuning =
-            SLoaderRuntimeTuner::tune(_params.ioPolicy, parseTuningRequest);
-        const size_t workerCount = std::max<size_t>(
-            1ull,
-            std::min(parseTuning.workerCount,
-                     static_cast<size_t>(std::max<uint64_t>(1ull, triangleCount))));
+        parseTuningRequest.sampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(_params.ioPolicy, dataSize);
+        const auto parseTuning = SLoaderRuntimeTuner::tune(_params.ioPolicy, parseTuningRequest);
+        const size_t workerCount = std::max<size_t>(1ull, std::min(parseTuning.workerCount, static_cast<size_t>(std::max<uint64_t>(1ull, triangleCount))));
         static constexpr bool ComputeAABBInParse = true;
-        struct SThreadAABB {
-            bool has = false;
-            float minX = 0.f;
-            float minY = 0.f;
-            float minZ = 0.f;
-            float maxX = 0.f;
-            float maxY = 0.f;
-            float maxZ = 0.f;
-        };
-        std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount
-                                                                : 0ull);
-        const uint64_t parseChunkTriangles =
-            std::max<uint64_t>(1ull, parseTuning.chunkWorkUnits);
-        const size_t parseChunkCount = static_cast<size_t>(
-            SLoaderRuntimeTuner::ceilDiv(triangleCount, parseChunkTriangles));
+        struct SThreadAABB { bool has = false; float minX = 0.f; float minY = 0.f; float minZ = 0.f; float maxX = 0.f; float maxY = 0.f; float maxZ = 0.f; };
+        std::vector<SThreadAABB> threadAABBs(ComputeAABBInParse ? workerCount : 0ull);
+        const uint64_t parseChunkTriangles = std::max<uint64_t>(1ull, parseTuning.chunkWorkUnits);
+        const size_t parseChunkCount = static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(triangleCount, parseChunkTriangles));
         const bool hashInParsePipeline = computeContentHashes;
-        std::vector<uint8_t> hashChunkReady(
-            hashInParsePipeline ? parseChunkCount : 0ull, 0u);
+        std::vector<uint8_t> hashChunkReady(hashInParsePipeline ? parseChunkCount : 0ull, 0u);
         std::atomic_bool hashPipelineOk = true;
-        core::blake3_hash_t parsedPositionHash =
-            static_cast<core::blake3_hash_t>(core::blake3_hasher{});
-        core::blake3_hash_t parsedNormalHash =
-            static_cast<core::blake3_hash_t>(core::blake3_hasher{});
-        auto parseRange = [&](const uint64_t beginTri, const uint64_t endTri,
-                              SThreadAABB& localAABB) -> void {
-            const uint8_t* localCursor =
-                payloadData + beginTri * Context::TriangleRecordBytes;
-            float* posCursor = posOutFloat + beginTri * Context::VerticesPerTriangle *
-                                                 Context::FloatChannelsPerVertex;
-            float* normalCursor =
-                normalOutFloat + beginTri * Context::VerticesPerTriangle *
-                                     Context::FloatChannelsPerVertex;
+        core::blake3_hash_t parsedPositionHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
+        core::blake3_hash_t parsedNormalHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
+        auto parseRange = [&](const uint64_t beginTri, const uint64_t endTri, SThreadAABB& localAABB) -> void {
+            const uint8_t* localCursor = payloadData + beginTri * Context::TriangleRecordBytes;
+            float* posCursor = posOutFloat + beginTri * Context::VerticesPerTriangle * Context::FloatChannelsPerVertex;
+            float* normalCursor = normalOutFloat + beginTri * Context::VerticesPerTriangle * Context::FloatChannelsPerVertex;
             for (uint64_t tri = beginTri; tri < endTri; ++tri) {
                 const uint8_t* const triRecord = localCursor;
                 localCursor += Context::TriangleRecordBytes;
                 std::array<float, Context::TriangleFloatCount> triValues = {};
                 std::memcpy(triValues.data(), triRecord, sizeof(triValues));
                 uint16_t packedColor = 0u;
-                std::memcpy(&packedColor, triRecord + Context::TriangleFloatBytes,
-                            sizeof(packedColor));
+                std::memcpy(&packedColor, triRecord + Context::TriangleFloatBytes, sizeof(packedColor));
                 if (packedColor & 0x8000u)
-                    faceColors[static_cast<size_t>(tri)] =
-                        Parse::decodeViscamColorToB8G8R8A8(packedColor);
+                    faceColors[static_cast<size_t>(tri)] = Parse::decodeViscamColorToB8G8R8A8(packedColor);
                 else
                     colorValidForAllFaces.store(false, std::memory_order_relaxed);
 
@@ -685,12 +566,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
             hlsl::shapes::util::extendAABBAccumulator(parsedAABB, p[0u]);
 
             const auto endLoopKeyword = parser.readToken();
-            if (!endLoopKeyword.has_value() ||
-                *endLoopKeyword != std::string_view("endloop"))
+            if (!endLoopKeyword.has_value() || *endLoopKeyword != std::string_view("endloop"))
                 return {};
             const auto endFacetKeyword = parser.readToken();
-            if (!endFacetKeyword.has_value() ||
-                *endFacetKeyword != std::string_view("endfacet"))
+            if (!endFacetKeyword.has_value() || *endFacetKeyword != std::string_view("endfacet"))
                 return {};
         }
         if (positions.empty())
@@ -698,13 +577,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
         triangleCount = positions.size() / Context::VerticesPerTriangle;
         vertexCount = positions.size();
-
-        auto posView =
-            SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(
-                std::move(positions));
-        auto normalView =
-            SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(
-                std::move(normals));
+        auto posView = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(std::move(positions));
+        auto normalView = SGeometryLoaderCommon::createAdoptedView<EF_R32G32B32_SFLOAT>(std::move(normals));
         if (!posView || !normalView)
             return {};
         geometry->setPositionView(std::move(posView));
@@ -713,17 +587,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
     if (vertexCount == 0ull)
         return {};
-
-    if (computeContentHashes) {
-        SPolygonGeometryContentHash::computeMissing(geometry.get(),
-                                                    _params.ioPolicy);
-    }
-
+    if (computeContentHashes)
+        SPolygonGeometryContentHash::computeMissing(geometry.get(), _params.ioPolicy);
     if (!parsedAABB.empty())
         geometry->applyAABB(parsedAABB.value);
-    else {
+    else
         CPolygonGeometryManipulator::recomputeAABB(geometry.get());
-    }
     const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
     const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
     loadSession.logTinyIO(_params.logger, context.ioTelemetry);
@@ -747,16 +616,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 bool CSTLMeshFileLoader::isALoadableFileFormat(
     system::IFile* _file, const system::logger_opt_ptr) const {
 	using Context = Parse::Context;
-
 	if (!_file || _file->getSize() <= Context::TextProbeBytes)
 		return false;
-
 	Parse::LayoutProbe layout = {};
 	if (!Parse::probeLayout(_file, _file->getSize(), nullptr, nullptr, layout))
 		return false;
 	return layout.startsWithSolid || layout.binaryBySize;
 }
-
 }
-
 #endif // _NBL_COMPILE_WITH_STL_LOADER_

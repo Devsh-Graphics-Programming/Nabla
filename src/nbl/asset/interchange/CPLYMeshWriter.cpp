@@ -49,56 +49,15 @@ struct Parse
 	using Binary = impl::BinaryData;
 	using SemanticDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Semantic>;
 	using StoredDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Stored>;
-	enum class ScalarType : uint8_t
-	{
-		Int8,
-		UInt8,
-		Int16,
-		UInt16,
-		Int32,
-		UInt32,
-		Float32,
-		Float64
-	};
-	struct ScalarMeta
-	{
-		const char* name = "float32";
-		uint32_t byteSize = sizeof(float);
-		bool integer = false;
-		bool signedType = true;
-	};
-	struct ExtraAuxView
-	{
-		const ICPUPolygonGeometry::SDataView* view = nullptr;
-		uint32_t components = 0u;
-		uint32_t auxIndex = 0u;
-		ScalarType scalarType = ScalarType::Float32;
-	};
-	struct WriteInput
-	{
-		const ICPUPolygonGeometry* geom = nullptr;
-		ScalarType positionScalarType = ScalarType::Float32;
-		const ICPUPolygonGeometry::SDataView* uvView = nullptr;
-		ScalarType uvScalarType = ScalarType::Float32;
-		const core::vector<ExtraAuxView>* extraAuxViews = nullptr;
-		bool writeNormals = false;
-		ScalarType normalScalarType = ScalarType::Float32;
-		size_t vertexCount = 0ull;
-		size_t faceCount = 0ull;
-		bool write16BitIndices = false;
-		bool flipVectors = false;
-	};
+	enum class ScalarType : uint8_t { Int8, UInt8, Int16, UInt16, Int32, UInt32, Float32, Float64 };
+	struct ScalarMeta { const char* name = "float32"; uint32_t byteSize = sizeof(float); bool integer = false; bool signedType = true; };
+	struct ExtraAuxView { const ICPUPolygonGeometry::SDataView* view = nullptr; uint32_t components = 0u; uint32_t auxIndex = 0u; ScalarType scalarType = ScalarType::Float32; };
+	struct WriteInput { const ICPUPolygonGeometry* geom = nullptr; ScalarType positionScalarType = ScalarType::Float32; const ICPUPolygonGeometry::SDataView* uvView = nullptr; ScalarType uvScalarType = ScalarType::Float32; const core::vector<ExtraAuxView>* extraAuxViews = nullptr; bool writeNormals = false; ScalarType normalScalarType = ScalarType::Float32; size_t vertexCount = 0ull; size_t faceCount = 0ull; bool write16BitIndices = false; bool flipVectors = false; };
 	static constexpr size_t ApproxTextBytesPerVertex = sizeof("0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n") - 1ull;
 	static constexpr size_t ApproxTextBytesPerFace = sizeof("3 4294967295 4294967295 4294967295\n") - 1ull;
 	static constexpr size_t MaxFloatTextChars = std::numeric_limits<double>::max_digits10 + 16ull;
 	template<typename T>
-	static void appendIntegral(std::string& out, const T value)
-	{
-		std::array<char, 32> buf = {};
-		const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value);
-		if (res.ec == std::errc())
-			out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data()));
-	}
+	static void appendIntegral(std::string& out, const T value) { std::array<char, 32> buf = {}; const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), value); if (res.ec == std::errc()) out.append(buf.data(), static_cast<size_t>(res.ptr - buf.data())); }
 	static void appendFloat(std::string& out, double value)
 	{
 		const size_t oldSize = out.size();
@@ -178,13 +137,7 @@ struct Parse
 	{
 		uint8_t* cursor = nullptr;
 		template<typename T>
-		inline bool append(const T value)
-		{
-			if (!cursor)
-				return false;
-			Binary::storeUnalignedAdvance(cursor, value);
-			return true;
-		}
+		inline bool append(const T value) { if (!cursor) return false; Binary::storeUnalignedAdvance(cursor, value); return true; }
 		inline bool finishVertex() { return true; }
 	};
 	struct TextSink
@@ -193,10 +146,8 @@ struct Parse
 		template<typename T>
 		inline bool append(const T value)
 		{
-			if constexpr (std::is_floating_point_v<T>)
-				appendFloat(output, static_cast<double>(value));
-			else
-				appendIntegral(output, value);
+			if constexpr (std::is_floating_point_v<T>) appendFloat(output, static_cast<double>(value));
+			else appendIntegral(output, value);
 			output.push_back(' ');
 			return true;
 		}
@@ -233,22 +184,9 @@ struct Parse
 			return true;
 		}
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
-		static bool emitPrepared(Sink& sink, const PreparedView& view, const size_t ix)
-		{
-			if constexpr (Mode == SGeometryViewDecode::EMode::Semantic)
-				return emitDecode<OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors);
-			return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
-		}
+		static bool emitPrepared(Sink& sink, const PreparedView& view, const size_t ix) { if constexpr (Mode == SGeometryViewDecode::EMode::Semantic) return emitDecode<OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors); return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors); }
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
-		static inline void prepareDecode(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
-		{
-			view.flipVectors = flipVectors;
-			if constexpr (Mode == SGeometryViewDecode::EMode::Semantic)
-				view.semantic = SGeometryViewDecode::prepare<Mode>(src);
-			else
-				view.stored = SGeometryViewDecode::prepare<Mode>(src);
-			view.emit = &emitPrepared<OutT, Mode>;
-		}
+		static inline void prepareDecode(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors) { view.flipVectors = flipVectors; if constexpr (Mode == SGeometryViewDecode::EMode::Semantic) view.semantic = SGeometryViewDecode::prepare<Mode>(src); else view.stored = SGeometryViewDecode::prepare<Mode>(src); view.emit = &emitPrepared<OutT, Mode>; }
 		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
 		{
 			PreparedView retval = {.components = components};
@@ -343,49 +281,28 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (!_override)
 		getDefaultOverride(_override);
 	if (!_file || !_params.rootAsset)
-	{
-		_params.logger.log("PLY writer: missing output file or root asset.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: missing output file or root asset.", system::ILogger::ELL_ERROR), false;
 	const auto items = SGeometryWriterCommon::collectPolygonGeometryWriteItems(_params.rootAsset);
 	if (items.size() != 1u)
-	{
-		_params.logger.log("PLY writer: expected exactly one polygon geometry to write.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: expected exactly one polygon geometry to write.", system::ILogger::ELL_ERROR), false;
 	const auto& item = items.front();
 	const auto* geom = item.geometry;
 	if (!geom || !geom->valid())
-	{
-		_params.logger.log("PLY writer: root asset is not a valid polygon geometry.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: root asset is not a valid polygon geometry.", system::ILogger::ELL_ERROR), false;
 	if (!SGeometryWriterCommon::isIdentityTransform(item.transform))
-	{
-		_params.logger.log("PLY writer: transformed scene or collection export is not supported.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: transformed scene or collection export is not supported.", system::ILogger::ELL_ERROR), false;
 	SAssetWriteContext ctx = {_params, _file};
 	system::IFile* file = _override->getOutputFile(_file, ctx, {geom, 0u});
 	if (!file)
-	{
-		_params.logger.log("PLY writer: output override returned null file.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: output override returned null file.", system::ILogger::ELL_ERROR), false;
 	const auto& positionView = geom->getPositionView();
 	const auto& normalView = geom->getNormalView();
 	const size_t vertexCount = positionView.getElementCount();
 	if (vertexCount == 0ull)
-	{
-		_params.logger.log("PLY writer: empty position view.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: empty position view.", system::ILogger::ELL_ERROR), false;
 	const bool writeNormals = static_cast<bool>(normalView);
 	if (writeNormals && normalView.getElementCount() != vertexCount)
-	{
-		_params.logger.log("PLY writer: normal vertex count mismatch.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: normal vertex count mismatch.", system::ILogger::ELL_ERROR), false;
 	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
 	if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 		uvView = nullptr;
@@ -407,21 +324,12 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 	const auto* indexing = geom->getIndexingCallback();
 	if (!indexing)
-	{
-		_params.logger.log("PLY writer: missing indexing callback.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: missing indexing callback.", system::ILogger::ELL_ERROR), false;
 	if (indexing->knownTopology() != E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST)
-	{
-		_params.logger.log("PLY writer: only triangle-list topology is supported.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: only triangle-list topology is supported.", system::ILogger::ELL_ERROR), false;
 	size_t faceCount = 0ull;
 	if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
-	{
-		_params.logger.log("PLY writer: failed to validate triangle indexing.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: failed to validate triangle indexing.", system::ILogger::ELL_ERROR), false;
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool binary = flags.hasAnyFlag(E_WRITER_FLAGS::EWF_BINARY);
 	const bool flipVectors = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
@@ -502,19 +410,13 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		core::vector<uint8_t> body;
 		body.resize(bodySize);
 		if (!Parse::writeBinary(input, body.data()))
-		{
-			_params.logger.log("PLY writer: binary payload generation failed.", system::ILogger::ELL_ERROR);
-			return false;
-		}
+			return _params.logger.log("PLY writer: binary payload generation failed.", system::ILogger::ELL_ERROR), false;
 		return writePayload(body.data(), body.size());
 	}
 	std::string body;
 	body.reserve(vertexCount * Parse::ApproxTextBytesPerVertex + faceCount * Parse::ApproxTextBytesPerFace);
 	if (!Parse::writeText(input, body))
-	{
-		_params.logger.log("PLY writer: text payload generation failed.", system::ILogger::ELL_ERROR);
-		return false;
-	}
+		return _params.logger.log("PLY writer: text payload generation failed.", system::ILogger::ELL_ERROR), false;
 	return writePayload(body.data(), body.size());
 }
 }

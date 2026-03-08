@@ -41,9 +41,7 @@ class SGeometryWriterCommon
                     SPolygonGeometryWriteItem item = {};
                     item.geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
                     item.transform = hlsl::math::linalg::promoted_mul(transform, ref.hasTransform() ? ref.transform : identity);
-                    item.instanceIx = instanceIx;
-                    item.targetIx = targetIx;
-                    item.geometryIx = geometryIx;
+                    item.instanceIx = instanceIx; item.targetIx = targetIx; item.geometryIx = geometryIx;
                     out.emplace_back(item);
                 }
             };
@@ -51,11 +49,7 @@ class SGeometryWriterCommon
             {
                 const auto* geometry = static_cast<const IGeometry<ICPUBuffer>*>(rootAsset);
                 if (geometry->getPrimitiveType() == IGeometryBase::EPrimitiveType::Polygon)
-                {
-                    SPolygonGeometryWriteItem item = {};
-                    item.geometry = static_cast<const ICPUPolygonGeometry*>(rootAsset);
-                    out.emplace_back(item);
-                }
+                    out.emplace_back(SPolygonGeometryWriteItem{.geometry = static_cast<const ICPUPolygonGeometry*>(rootAsset)});
                 return out;
             }
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY_COLLECTION)
@@ -111,13 +105,11 @@ class SGeometryWriterCommon
                 const size_t indexCount = indexView.getElementCount();
                 if ((indexCount % 3ull) != 0ull)
                     return false;
-                outFaceCount = indexCount / 3ull;
-                return true;
+                return (outFaceCount = indexCount / 3ull), true;
             }
             if ((vertexCount % 3ull) != 0ull)
                 return false;
-            outFaceCount = vertexCount / 3ull;
-            return true;
+            return (outFaceCount = vertexCount / 3ull), true;
         }
         template<typename Visitor>
         static inline bool visitTriangleIndices(const ICPUPolygonGeometry* geom, Visitor&& visitor)
@@ -137,11 +129,7 @@ class SGeometryWriterCommon
                     return false;
                 if constexpr (std::is_same_v<std::invoke_result_t<Visitor&, uint32_t, uint32_t, uint32_t>, bool>)
                     return visitor(u0, u1, u2);
-                else
-                {
-                    visitor(u0, u1, u2);
-                    return true;
-                }
+                else { visitor(u0, u1, u2); return true; }
             };
             const auto& indexView = geom->getIndexView();
             if (!indexView)
@@ -171,8 +159,7 @@ class SGeometryWriterCommon
             {
                 case EIT_32BIT: return visitIndexed.template operator()<uint32_t>();
                 case EIT_16BIT: return visitIndexed.template operator()<uint16_t>();
-                default:
-                    return false;
+                default: return false;
             }
         }
         template<typename T, E_FORMAT ExpectedFormat>

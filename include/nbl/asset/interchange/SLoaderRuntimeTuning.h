@@ -32,20 +32,14 @@ struct SLoaderRuntimeTuningResult
 struct SLoaderRuntimeTuner
 {
     private:
-        struct SBenchmarkSampleStats
-        {
-            uint64_t medianNs = 0ull, minNs = 0ull, maxNs = 0ull, totalNs = 0ull;
-        };
+        struct SBenchmarkSampleStats { uint64_t medianNs = 0ull, minNs = 0ull, maxNs = 0ull, totalNs = 0ull; };
     public:
         template<typename Fn>
         requires std::invocable<Fn&, size_t>
         static void dispatchWorkers(const size_t workerCount, Fn&& fn)
         {
             if (workerCount <= 1ull)
-            {
-                fn(0ull);
-                return;
-            }
+                return fn(0ull);
             std::vector<std::jthread> workers;
             workers.reserve(workerCount - 1ull);
             for (size_t workerIx = 1ull; workerIx < workerCount; ++workerIx)
@@ -141,11 +135,7 @@ struct SLoaderRuntimeTuner
             using RTMode = SFileIOPolicy::SRuntimeTuning::Mode;
             SLoaderRuntimeTuningResult result = {};
             if (request.totalWorkUnits == 0ull)
-            {
-                result.chunkWorkUnits = 0ull;
-                result.chunkCount = 0ull;
-                return result;
-            }
+                return (result.chunkWorkUnits = 0ull), (result.chunkCount = 0ull), result;
             const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads(request.hardwareThreads);
             size_t maxWorkers = hw;
             if (request.hardMaxWorkers > 0u)
@@ -225,10 +215,7 @@ struct SLoaderRuntimeTuner
                                 const uint64_t spareBudgetNs = samplingBudgetNs - spentNs;
                                 const uint64_t estimatedEvalNs = std::max<uint64_t>(1ull, heuristicStatsProbe.medianNs);
                                 const uint64_t estimatedEvaluations = std::max<uint64_t>(1ull, spareBudgetNs / estimatedEvalNs);
-                                uint32_t observations = static_cast<uint32_t>(std::clamp<uint64_t>(
-                                    estimatedEvaluations / static_cast<uint64_t>(alternativeCandidates),
-                                    1ull,
-                                    3ull));
+                                const uint32_t observations = static_cast<uint32_t>(std::clamp<uint64_t>(estimatedEvaluations / static_cast<uint64_t>(alternativeCandidates), 1ull, 3ull));
                                 SBenchmarkSampleStats bestStats = heuristicStatsProbe;
                                 size_t bestWorker = heuristicWorkerCount;
                                 for (const size_t candidate : candidates)
@@ -243,10 +230,7 @@ struct SLoaderRuntimeTuner
                                         continue;
                                     spentNs += candidateStats.totalNs;
                                     if (candidateStats.medianNs < bestStats.medianNs)
-                                    {
-                                        bestStats = candidateStats;
-                                        bestWorker = candidate;
-                                    }
+                                        bestStats = candidateStats, bestWorker = candidate;
                                 }
                                 if (bestWorker != heuristicWorkerCount)
                                 {

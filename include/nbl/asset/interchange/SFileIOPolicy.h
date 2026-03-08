@@ -23,13 +23,7 @@ struct SFileIOPolicy
 {
     struct SRuntimeTuning
     {
-        enum class Mode : uint8_t
-        {
-            Sequential,
-            None = Sequential,
-            Heuristic,
-            Hybrid
-        };
+        enum class Mode : uint8_t { Sequential, None = Sequential, Heuristic, Hybrid };
         Mode mode = Mode::Heuristic;
         float maxOverheadRatio = 0.05f;
         float samplingBudgetRatio = 0.05f;
@@ -52,11 +46,7 @@ struct SFileIOPolicy
 
     using Strategy = EFileIOStrategy;
 
-    enum E_FLAGS : uint8_t
-    {
-        EF_NONE = 0u,
-        EF_STRICT_BIT = 1u << 0u
-    };
+    enum E_FLAGS : uint8_t { EF_NONE = 0u, EF_STRICT_BIT = 1u << 0u };
 
     static inline constexpr uint64_t MIN_CHUNK_SIZE_BYTES = 64ull << 10u;
     static inline constexpr uint8_t MIN_CHUNK_SIZE_LOG2 = static_cast<uint8_t>(std::bit_width(MIN_CHUNK_SIZE_BYTES) - 1u);
@@ -105,14 +95,10 @@ struct SResolvedFileIOPolicy
     static inline constexpr SResolvedFileIOPolicy resolve(const SFileIOPolicy& policy, const uint64_t byteCount, const bool sizeKnown = true, const bool fileMappable = false)
     {
         const uint8_t maxStagingLog2 = SFileIOPolicy::clampBytesLog2(policy.maxStagingLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2);
-        const uint8_t chunkSizeLog2 = std::min<uint8_t>(
-            SFileIOPolicy::clampBytesLog2(policy.chunkSizeLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2),
-            maxStagingLog2);
+        const uint8_t chunkSizeLog2 = std::min<uint8_t>(SFileIOPolicy::clampBytesLog2(policy.chunkSizeLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2), maxStagingLog2);
         const uint64_t maxStaging = SFileIOPolicy::bytesFromLog2(maxStagingLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2);
         const uint64_t wholeThreshold = policy.wholeFileThresholdBytes();
-
         auto makeResolved = [&](const Strategy strategy, const char* const reason) -> SResolvedFileIOPolicy { SResolvedFileIOPolicy resolved = {}; resolved.strategy = strategy; resolved.chunkSizeLog2 = chunkSizeLog2; resolved.reason = reason; return resolved; };
-
         switch (policy.strategy)
         {
             case SFileIOPolicy::Strategy::Invalid:
@@ -132,10 +118,7 @@ struct SResolvedFileIOPolicy
             {
                 if (!sizeKnown)
                     return makeResolved(fileMappable ? Strategy::WholeFile : Strategy::Chunked, fileMappable ? "auto_unknown_size_mappable_whole_file" : "auto_unknown_size");
-
-                const uint64_t wholeLimit = fileMappable ?
-                    std::max<uint64_t>(wholeThreshold, maxStaging) :
-                    std::min<uint64_t>(wholeThreshold, maxStaging);
+                const uint64_t wholeLimit = fileMappable ? std::max<uint64_t>(wholeThreshold, maxStaging) : std::min<uint64_t>(wholeThreshold, maxStaging);
                 if (byteCount <= wholeLimit)
                     return makeResolved(Strategy::WholeFile, fileMappable ? "auto_mappable_prefers_whole_file" : "auto_small_enough_for_whole_file");
                 return makeResolved(Strategy::Chunked, "auto_too_large_for_whole_file");
@@ -153,16 +136,11 @@ struct to_string_helper<asset::EFileIOStrategy>
     {
         switch (value)
         {
-            case asset::EFileIOStrategy::Invalid:
-                return "invalid";
-            case asset::EFileIOStrategy::Auto:
-                return "auto";
-            case asset::EFileIOStrategy::WholeFile:
-                return "whole";
-            case asset::EFileIOStrategy::Chunked:
-                return "chunked";
-            default:
-                return "unknown";
+            case asset::EFileIOStrategy::Invalid: return "invalid";
+            case asset::EFileIOStrategy::Auto: return "auto";
+            case asset::EFileIOStrategy::WholeFile: return "whole";
+            case asset::EFileIOStrategy::Chunked: return "chunked";
+            default: return "unknown";
         }
     }
 };

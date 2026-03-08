@@ -30,52 +30,33 @@ COBJMeshWriter::COBJMeshWriter()
 	setDebugName("COBJMeshWriter");
 	#endif
 }
-
 uint64_t COBJMeshWriter::getSupportedAssetTypesBitfield() const
 {
 	return IAsset::ET_GEOMETRY | IAsset::ET_GEOMETRY_COLLECTION | IAsset::ET_SCENE;
 }
-
 const char** COBJMeshWriter::getAssociatedFileExtensions() const
 {
 	static const char* ext[] = { "obj", nullptr };
 	return ext;
 }
-
 writer_flags_t COBJMeshWriter::getSupportedFlags()
 {
 	return EWF_NONE;
 }
-
 writer_flags_t COBJMeshWriter::getForcedFlags()
 {
 	return EWF_NONE;
 }
-
 namespace
 {
-
 struct Parse
 {
 	static constexpr uint32_t UV0 = 0u;
 	static constexpr size_t MaxFloatTextChars = std::numeric_limits<float>::max_digits10 + 8ull;
 	static constexpr size_t MaxUInt32Chars = std::numeric_limits<uint32_t>::digits10 + 1ull;
 	static constexpr size_t MaxIndexTokenBytes = MaxUInt32Chars * 3ull + 2ull;
-
-	struct IndexStringRef
-	{
-		uint32_t offset = 0u;
-		uint16_t length = 0u;
-	};
-
-	struct GeometryTransformState
-	{
-		hlsl::float32_t3x4 transform;
-		hlsl::float32_t3x3 linear;
-		bool identity = true;
-		bool reverseWinding = false;
-		hlsl::math::linalg::cofactors_base<float, 3> normalTransform;
-	};
+	struct IndexStringRef { uint32_t offset = 0u; uint16_t length = 0u; };
+	struct GeometryTransformState { hlsl::float32_t3x4 transform; hlsl::float32_t3x3 linear; bool identity = true; bool reverseWinding = false; hlsl::math::linalg::cofactors_base<float, 3> normalTransform; };
 
 	template<typename Vec>
 	static void appendVecLine(std::string& out, const char* prefix, const size_t prefixSize, const Vec& values)
@@ -87,17 +68,14 @@ struct Parse
 		char* cursor = lineBegin;
 		char* const lineEnd = out.data() + out.size();
 		hlsl::array_get<Vec, float> getter;
-
 		std::memcpy(cursor, prefix, prefixSize);
 		cursor += prefixSize;
-
 		for (size_t i = 0ull; i < N; ++i)
 		{
 			cursor = SGeometryWriterCommon::appendFloatToBuffer(cursor, lineEnd, getter(values, static_cast<uint32_t>(i)));
 			if (cursor < lineEnd)
 				*(cursor++) = (i + 1ull < N) ? ' ' : '\n';
 		}
-
 		out.resize(oldSize + static_cast<size_t>(cursor - lineBegin));
 	}
 
@@ -166,41 +144,24 @@ struct Parse
 		const auto linear = hlsl::float32_t3x3(transform);
 		return {.transform = transform, .linear = linear, .identity = SGeometryWriterCommon::isIdentityTransform(transform), .reverseWinding = hlsl::determinant(linear) < 0.f, .normalTransform = hlsl::math::linalg::cofactors_base<float, 3>::create(linear)};
 	}
-
-	static hlsl::float32_t3 applyPosition(const GeometryTransformState& state, const hlsl::float32_t3& value)
-	{
-		if (state.identity)
-			return value;
-		return hlsl::mul(state.transform, hlsl::float32_t4(value.x, value.y, value.z, 1.f));
-	}
-
-	static hlsl::float32_t3 applyNormal(const GeometryTransformState& state, const hlsl::float32_t3& value)
-	{
-		return state.identity ? value : state.normalTransform.normalTransform(value);
-	}
+	static hlsl::float32_t3 applyPosition(const GeometryTransformState& state, const hlsl::float32_t3& value) { return state.identity ? value : hlsl::mul(state.transform, hlsl::float32_t4(value.x, value.y, value.z, 1.f)); }
+	static hlsl::float32_t3 applyNormal(const GeometryTransformState& state, const hlsl::float32_t3& value) { return state.identity ? value : state.normalTransform.normalTransform(value); }
 };
-
 }
-
 bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	SFileWriteTelemetry ioTelemetry = {};
-
 	if (!_override)
 		getDefaultOverride(_override);
-
 	if (!_file || !_params.rootAsset)
 		return false;
-
 	const auto items = SGeometryWriterCommon::collectPolygonGeometryWriteItems(_params.rootAsset);
 	if (items.empty())
 		return false;
-
 	SAssetWriteContext ctx = {_params, _file};
 	system::IFile* file = _override->getOutputFile(_file, ctx, {_params.rootAsset, 0u});
 	if (!file)
 		return false;
-
 	std::string output;
 	output.append("# Nabla OBJ\n");
 	uint64_t totalVertexCount = 0ull;
@@ -215,11 +176,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const auto* geom = item.geometry;
 		if (!geom || !geom->valid())
 			return false;
-
 		const auto& positionView = geom->getPositionView();
 		if (!positionView)
 			return false;
-
 		const auto& normalView = geom->getNormalView();
 		const bool hasNormals = static_cast<bool>(normalView);
 		const size_t vertexCount = positionView.getElementCount();
@@ -233,19 +192,17 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			return false;
 		if (hasUVs && uvView->getElementCount() != vertexCount)
 			return false;
-
 		const auto* indexing = geom->getIndexingCallback();
 		if (!indexing)
 			return false;
 		if (indexing->knownTopology() != E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST)
 			return false;
-
 		size_t faceCount = 0ull;
 		if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
 			return false;
-
 		const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 		const bool flipHandedness = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
+		// Scene input is flattened here by baking transforms and writing every collected polygon geometry as its own OBJ object block.
 		const auto transformState = Parse::createTransformState(item.transform);
 		const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(positionView);
 		const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
@@ -253,11 +210,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const SemanticDecode positionDecode = tightPositions ? SemanticDecode{} : SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(positionView);
 		const SemanticDecode uvDecode = (!hasUVs || tightUV) ? SemanticDecode{} : SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*uvView);
 		const SemanticDecode normalDecode = (!hasNormals || tightNormals) ? SemanticDecode{} : SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(normalView);
-
 		if (itemIx != 0u)
 			output.push_back('\n');
 		Parse::appendHeader(output, item);
-
 		for (size_t i = 0u; i < vertexCount; ++i)
 		{
 			hlsl::float32_t3 vertex = {};
@@ -270,7 +225,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				vertex.x = -vertex.x;
 			Parse::appendVecLine<hlsl::float32_t3>(output, "v ", sizeof("v ") - 1ull, vertex);
 		}
-
 		if (hasUVs)
 		{
 			for (size_t i = 0u; i < vertexCount; ++i)
@@ -285,7 +239,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				Parse::appendVecLine<hlsl::float32_t2>(output, "vt ", sizeof("vt ") - 1ull, uv);
 			}
 		}
-
 		if (hasNormals)
 		{
 			for (size_t i = 0u; i < vertexCount; ++i)
@@ -301,7 +254,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				Parse::appendVecLine<hlsl::float32_t3>(output, "vn ", sizeof("vn ") - 1ull, normal);
 			}
 		}
-
 		core::vector<Parse::IndexStringRef> faceIndexRefs;
 		faceIndexRefs.reserve(vertexCount);
 		std::string faceIndexStorage;
@@ -314,7 +266,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			Parse::appendIndexToken(faceIndexStorage, faceIndexRefs, positionIx, hasUVs, uvIx, hasNormals, normalIx);
 		}
 		const hlsl::uint32_t3 faceLimit(static_cast<uint32_t>(faceIndexRefs.size()));
-
 		if (!SGeometryWriterCommon::visitTriangleIndices(geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) -> bool {
 			const hlsl::uint32_t3 face(transformState.reverseWinding ? i0 : i2, i1, transformState.reverseWinding ? i2 : i0);
 			if (hlsl::any(glm::greaterThanEqual(face, faceLimit)))
@@ -332,11 +283,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		totalVertexCount += vertexCount;
 		totalFaceCount += faceCount;
 	}
-
 	const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(output.size()), true, file);
 	if (impl::SFileAccess::logInvalidPlan(_params.logger, "OBJ writer", file->getFileName().string().c_str(), ioPlan))
 		return false;
-
 	const bool writeOk = SInterchangeIO::writeFileWithPolicy(file, ioPlan, output.data(), output.size(), &ioTelemetry);
 	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
@@ -346,10 +295,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		static_cast<unsigned long long>(totalVertexCount), static_cast<unsigned long long>(totalFaceCount), static_cast<unsigned long long>(items.size()),
 		static_cast<unsigned long long>(ioTelemetry.callCount), static_cast<unsigned long long>(ioMinWrite), static_cast<unsigned long long>(ioAvgWrite),
 		system::to_string(_params.ioPolicy.strategy).c_str(), system::to_string(ioPlan.strategy).c_str(), static_cast<unsigned long long>(ioPlan.chunkSizeBytes()), ioPlan.reason);
-
 	return writeOk;
 }
-
 }
-
 #endif // _NBL_COMPILE_WITH_OBJ_WRITER_

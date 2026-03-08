@@ -17,24 +17,10 @@ namespace nbl::asset
 class SInterchangeIO
 {
     public:
-        struct STelemetry
-        {
-            uint64_t callCount = 0ull;
-            uint64_t totalBytes = 0ull;
-            uint64_t minBytes = std::numeric_limits<uint64_t>::max();
-            inline void account(const uint64_t bytes) { ++callCount; totalBytes += bytes; if (bytes < minBytes) minBytes = bytes; }
-            inline uint64_t getMinOrZero() const { return callCount ? minBytes : 0ull; }
-            inline uint64_t getAvgOrZero() const { return callCount ? (totalBytes / callCount) : 0ull; }
-        };
+        struct STelemetry { uint64_t callCount = 0ull, totalBytes = 0ull, minBytes = std::numeric_limits<uint64_t>::max(); inline void account(const uint64_t bytes) { ++callCount; totalBytes += bytes; if (bytes < minBytes) minBytes = bytes; } inline uint64_t getMinOrZero() const { return callCount ? minBytes : 0ull; } inline uint64_t getAvgOrZero() const { return callCount ? (totalBytes / callCount) : 0ull; } };
         using SReadTelemetry = STelemetry;
         using SWriteTelemetry = STelemetry;
-        static inline bool isTinyIOTelemetryLikely(
-            const STelemetry& telemetry,
-            const uint64_t payloadBytes,
-            const uint64_t bigPayloadThresholdBytes = (1ull << 20),
-            const uint64_t lowAvgBytesThreshold = 1024ull,
-            const uint64_t tinyChunkBytesThreshold = 64ull,
-            const uint64_t tinyChunkCallsThreshold = 1024ull)
+        static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const uint64_t bigPayloadThresholdBytes = (1ull << 20), const uint64_t lowAvgBytesThreshold = 1024ull, const uint64_t tinyChunkBytesThreshold = 64ull, const uint64_t tinyChunkCallsThreshold = 1024ull)
         {
             if (payloadBytes <= bigPayloadThresholdBytes)
                 return false;
@@ -61,12 +47,7 @@ class SInterchangeIO
         {
             using clock_t = std::chrono::high_resolution_clock;
             const auto ioStart = ioTime ? clock_t::now() : clock_t::time_point{};
-            auto finalize = [&](const bool ok) -> bool
-            {
-                if (ioTime)
-                    *ioTime = std::chrono::duration_cast<TimeUnit>(clock_t::now() - ioStart);
-                return ok;
-            };
+            auto finalize = [&](const bool ok) -> bool { if (ioTime) *ioTime = std::chrono::duration_cast<TimeUnit>(clock_t::now() - ioStart); return ok; };
             if (!file || (!dst && bytes != 0ull))
                 return finalize(false);
             if (bytes == 0ull)
@@ -87,10 +68,10 @@ class SInterchangeIO
                         system::IFile::success_t success;
                         file->read(success, out + bytesRead, offset + bytesRead, toRead);
                         if (!success)
-                            return false;
+                            return finalize(false);
                         const size_t processed = success.getBytesProcessed();
                         if (processed == 0ull)
-                            return false;
+                            return finalize(false);
                         if (ioTelemetry)
                             ioTelemetry->account(processed);
                         bytesRead += processed;
@@ -99,11 +80,7 @@ class SInterchangeIO
                 }
             }
         }
-        struct SBufferRange
-        {
-            const void* data = nullptr;
-            size_t byteCount = 0ull;
-        };
+        struct SBufferRange { const void* data = nullptr; size_t byteCount = 0ull; };
         static inline bool writeBuffersWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const std::span<const SBufferRange> buffers, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr)
         {
             if (!file)

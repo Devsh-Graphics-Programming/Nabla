@@ -13,11 +13,7 @@ namespace nbl::asset
 class SGeometryViewDecode
 {
 	public:
-		enum class EMode : uint8_t
-		{
-			Semantic,
-			Stored
-		};
+		enum class EMode : uint8_t { Semantic, Stored };
 		template<EMode Mode>
 		struct Prepared
 		{
@@ -27,10 +23,7 @@ class SGeometryViewDecode
 			uint32_t channels = 0u;
 			bool normalized = false;
 			hlsl::shapes::AABB<4, hlsl::float64_t> range = hlsl::shapes::AABB<4, hlsl::float64_t>::create();
-			inline explicit operator bool() const
-			{
-				return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u;
-			}
+			inline explicit operator bool() const { return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u; }
 			template<typename T, size_t N>
 			inline bool decode(const size_t ix, std::array<T, N>& out) const
 			{
@@ -57,11 +50,8 @@ class SGeometryViewDecode
 			retval.format = view.composed.format;
 			retval.channels = getFormatChannelCount(retval.format);
 			if constexpr (Mode == EMode::Semantic)
-			{
-				retval.normalized = isNormalizedFormat(retval.format);
-				if (retval.normalized)
+				if (retval.normalized = isNormalizedFormat(retval.format); retval.normalized)
 					retval.range = view.composed.getRange<hlsl::shapes::AABB<4, hlsl::float64_t>>();
-			}
 			return retval;
 		}
 		template<typename Out, EMode Mode = EMode::Semantic>
@@ -106,10 +96,7 @@ class SGeometryViewDecode
 			return true;
 		}
 		template<EMode Mode, typename T>
-		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
-		{
-			return decodePreparedComponents(prepared, ix, out, outDim);
-		}
+		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim) { return decodePreparedComponents(prepared, ix, out, outDim); }
 };
 }
 #endif

@@ -91,13 +91,7 @@ struct Parse
 			}
 		}
 	};
-	struct TriangleData
-	{
-		hlsl::float32_t3 normal = {};
-		hlsl::float32_t3 vertex1 = {};
-		hlsl::float32_t3 vertex2 = {};
-		hlsl::float32_t3 vertex3 = {};
-	};
+	struct TriangleData { hlsl::float32_t3 normal = {}; hlsl::float32_t3 vertex1 = {}; hlsl::float32_t3 vertex2 = {}; hlsl::float32_t3 vertex3 = {}; };
 	static constexpr size_t BinaryHeaderBytes = 80ull;
 	static constexpr size_t BinaryTriangleCountBytes = sizeof(uint32_t);
 	static constexpr size_t BinaryTriangleFloatCount = 12ull;
@@ -172,13 +166,8 @@ struct Parse
 		if (!normals || count == 0u)
 			return false;
 		for (uint32_t i = 0u; i < count; ++i)
-		{
 			if (hlsl::dot(normals[i], normals[i]) > 0.f)
-			{
-				outNormal = normals[i];
-				return true;
-			}
-		}
+				return outNormal = normals[i], true;
 		return false;
 	}
 	static void prepareVertices(const hlsl::float32_t3& p0, const hlsl::float32_t3& p1, const hlsl::float32_t3& p2, const bool flipHandedness, hlsl::float32_t3& vertex1, hlsl::float32_t3& vertex2, hlsl::float32_t3& vertex3)
@@ -198,10 +187,7 @@ struct Parse
 		const hlsl::float32_t3 planeNormal = hlsl::cross(vertex2 - vertex1, vertex3 - vertex1);
 		const float len2 = hlsl::dot(planeNormal, planeNormal);
 		if (planeNormalLen2)
-		{
-			*planeNormalLen2 = len2;
-			return planeNormal;
-		}
+			return *planeNormalLen2 = len2, planeNormal;
 		return len2 > 0.f ? hlsl::normalize(planeNormal) : hlsl::float32_t3(0.f, 0.f, 0.f);
 	}
 	static hlsl::float32_t3 resolveTriangleNormal(const hlsl::float32_t3& planeNormal, const float planeNormalLen2, const hlsl::float32_t3* const attrNormals, const uint32_t attrNormalCount, const bool flipHandedness, const bool alignToPlane)
@@ -299,24 +285,8 @@ struct Parse
 		const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(posView);
 		const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
 		const bool hasFastTightPath = !geom->getIndexView() && tightPositions && (!hasNormals || tightNormals);
-		auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool {
-			if (tightPositions)
-			{
-				out = tightPositions[ix];
-				return true;
-			}
-			return posView.decodeElement(ix, out);
-		};
-		auto decodeNormal = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool {
-			if (!hasNormals)
-				return false;
-			if (tightNormals)
-			{
-				out = tightNormals[ix];
-				return true;
-			}
-			return normalView.decodeElement(ix, out);
-		};
+		auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool { return tightPositions ? (out = tightPositions[ix], true) : posView.decodeElement(ix, out); };
+		auto decodeNormal = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool { return hasNormals && (tightNormals ? (out = tightNormals[ix], true) : normalView.decodeElement(ix, out)); };
 		auto computeFaceColor = [&](const hlsl::uint32_t3& idx, uint16_t& outColor) -> bool {
 			outColor = 0u;
 			if (!colorView)
@@ -402,11 +372,7 @@ struct Parse
 		const bool flipHandedness = !context->writeContext.params.flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 		const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
 		const std::string_view solidName = name.empty() ? std::string_view(AsciiDefaultName) : std::string_view(name);
-		if (!context->write(AsciiSolidPrefix, sizeof(AsciiSolidPrefix) - 1ull))
-			return false;
-		if (!context->write(solidName.data(), solidName.size()))
-			return false;
-		if (!context->write("\n", sizeof("\n") - 1ull))
+		if (!context->write(AsciiSolidPrefix, sizeof(AsciiSolidPrefix) - 1ull) || !context->write(solidName.data(), solidName.size()) || !context->write("\n", sizeof("\n") - 1ull))
 			return false;
 		const uint32_t faceCount = static_cast<uint32_t>(geom->getPrimitiveCount());
 		for (uint32_t primIx = 0u; primIx < faceCount; ++primIx)
@@ -422,11 +388,7 @@ struct Parse
 			if (!context->write("\n", sizeof("\n") - 1ull))
 				return false;
 		}
-		if (!context->write(AsciiEndSolidPrefix, sizeof(AsciiEndSolidPrefix) - 1ull))
-			return false;
-		if (!context->write(solidName.data(), solidName.size()))
-			return false;
-		return true;
+		return context->write(AsciiEndSolidPrefix, sizeof(AsciiEndSolidPrefix) - 1ull) && context->write(solidName.data(), solidName.size());
 	}
 	static bool writeFaceText(const hlsl::float32_t3& v1, const hlsl::float32_t3& v2, const hlsl::float32_t3& v3, const hlsl::uint32_t3& idx, const asset::ICPUPolygonGeometry::SDataView& normalView, const bool flipHandedness, Context* context)
 	{
@@ -507,10 +469,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	context.ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, expectedSize, sizeKnown, file);
 	if (impl::SFileAccess::logInvalidPlan(_params.logger, "STL writer", file->getFileName().string().c_str(), context.ioPlan))
 		return false;
-	if (context.ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile && sizeKnown)
-		context.ioBuffer.reserve(static_cast<size_t>(expectedSize));
-	else
-		context.ioBuffer.reserve(static_cast<size_t>(std::min<uint64_t>(context.ioPlan.chunkSizeBytes(), Parse::IoFallbackReserveBytes)));
+	context.ioBuffer.reserve(static_cast<size_t>(context.ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile && sizeKnown ? expectedSize : std::min<uint64_t>(context.ioPlan.chunkSizeBytes(), Parse::IoFallbackReserveBytes)));
 	const bool written = binary ? Parse::writeMeshBinary(geom, &context) : Parse::writeMeshASCII(geom, &context);
 	if (!written)
 		return false;
