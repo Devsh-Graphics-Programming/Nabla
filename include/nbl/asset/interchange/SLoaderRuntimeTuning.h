@@ -97,7 +97,7 @@ struct SLoaderRuntimeTuner
                 samples.push_back(elapsedNs);
             }
             if (samples.empty())
-                return SBenchmarkSampleStats{};
+                return {};
             std::sort(samples.begin(), samples.end());
             stats.minNs = samples.front();
             stats.maxNs = samples.back();

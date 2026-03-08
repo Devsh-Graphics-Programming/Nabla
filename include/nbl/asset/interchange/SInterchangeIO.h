@@ -31,14 +31,11 @@ class SInterchangeIO
         static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const SFileIOPolicy& ioPolicy) { return isTinyIOTelemetryLikely(telemetry, payloadBytes, ioPolicy.runtimeTuning.tinyIoPayloadThresholdBytes, ioPolicy.runtimeTuning.tinyIoAvgBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinCallCount); }
         static inline bool readFileExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SReadTelemetry* ioTelemetry = nullptr)
         {
-            if (!file || (!dst && bytes != 0ull))
-                return false;
-            if (bytes == 0ull)
-                return true;
+            if (!file || (!dst && bytes != 0ull)) return false;
+            if (bytes == 0ull) return true;
             system::IFile::success_t success;
             file->read(success, dst, offset, bytes);
-            if (success && ioTelemetry)
-                ioTelemetry->account(success.getBytesProcessed());
+            if (success && ioTelemetry) ioTelemetry->account(success.getBytesProcessed());
             return success && success.getBytesProcessed() == bytes;
         }
         template<typename TimeUnit = std::chrono::duration<double, std::milli>>
@@ -83,13 +80,11 @@ class SInterchangeIO
         struct SBufferRange { const void* data = nullptr; size_t byteCount = 0ull; };
         static inline bool writeBuffersWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const std::span<const SBufferRange> buffers, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr)
         {
-            if (!file)
-                return false;
+            if (!file) return false;
             const uint64_t chunkSizeBytes = ioPlan.chunkSizeBytes();
             for (const auto& buffer : buffers)
             {
-                if (!buffer.data && buffer.byteCount != 0ull)
-                    return false;
+                if (!buffer.data && buffer.byteCount != 0ull) return false;
                 if (buffer.byteCount == 0ull)
                     continue;
                 const auto* data = reinterpret_cast<const uint8_t*>(buffer.data);

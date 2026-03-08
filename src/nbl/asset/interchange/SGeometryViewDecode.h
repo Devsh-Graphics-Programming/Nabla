@@ -25,26 +25,17 @@ class SGeometryViewDecode
 			hlsl::shapes::AABB<4, hlsl::float64_t> range = hlsl::shapes::AABB<4, hlsl::float64_t>::create();
 			inline explicit operator bool() const { return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u; }
 			template<typename T, size_t N>
-			inline bool decode(const size_t ix, std::array<T, N>& out) const
-			{
-				out.fill(T{});
-				return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out.data(), static_cast<uint32_t>(N));
-			}
+			inline bool decode(const size_t ix, std::array<T, N>& out) const { out.fill(T{}); return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out.data(), static_cast<uint32_t>(N)); }
 			template<typename V> requires hlsl::concepts::Vector<V>
-			inline bool decode(const size_t ix, V& out) const
-			{
-				out = V{};
-				return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out);
-			}
+			inline bool decode(const size_t ix, V& out) const { out = V{}; return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out); }
 		};
 		template<EMode Mode>
 		static inline Prepared<Mode> prepare(const ICPUPolygonGeometry::SDataView& view)
 		{
 			Prepared<Mode> retval = {};
 			if (!view.composed.isFormatted())
-				return retval;
-			retval.data = reinterpret_cast<const uint8_t*>(view.getPointer());
-			if (!retval.data)
+				return {};
+			if (!(retval.data = reinterpret_cast<const uint8_t*>(view.getPointer())))
 				return {};
 			retval.stride = view.composed.getStride();
 			retval.format = view.composed.format;
@@ -55,10 +46,7 @@ class SGeometryViewDecode
 			return retval;
 		}
 		template<typename Out, EMode Mode = EMode::Semantic>
-		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out)
-		{
-			return prepare<Mode>(view).decode(ix, out);
-		}
+		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out) { return prepare<Mode>(view).decode(ix, out); }
 	private:
 		template<EMode Mode, typename T>
 		static inline bool decodePreparedComponents(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)

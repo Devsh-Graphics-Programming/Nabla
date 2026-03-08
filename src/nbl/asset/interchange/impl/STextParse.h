@@ -44,10 +44,8 @@ struct TextParse
 	static inline void skipWhitespace(const char*& ptr, const char* const end) { while (ptr < end && core::isspace(*ptr)) ++ptr; }
 	static inline std::string_view trimWhitespace(std::string_view token)
 	{
-		while (!token.empty() && core::isspace(token.front()))
-			token.remove_prefix(1ull);
-		while (!token.empty() && core::isspace(token.back()))
-			token.remove_suffix(1ull);
+		while (!token.empty() && core::isspace(token.front())) token.remove_prefix(1ull);
+		while (!token.empty() && core::isspace(token.back())) token.remove_suffix(1ull);
 		return token;
 	}
 	static inline std::optional<std::string_view> readToken(const char*& cursor, const char* const end)
@@ -59,8 +57,7 @@ struct TextParse
 		while (tokenEnd < end && !core::isspace(*tokenEnd))
 			++tokenEnd;
 		const std::string_view token(cursor, static_cast<size_t>(tokenEnd - cursor));
-		cursor = tokenEnd;
-		return token;
+		return cursor = tokenEnd, token;
 	}
 };
 }

@@ -69,13 +69,9 @@ struct SFileIOPolicy
     uint8_t chunkSizeLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_CHUNK_SIZE_BYTES) - 1u);
     uint8_t maxStagingLog2 = static_cast<uint8_t>(std::bit_width(DEFAULT_MAX_STAGING_BYTES) - 1u);
     SRuntimeTuning runtimeTuning = {};
-
     inline constexpr bool strict() const { return flags.hasAnyFlag(EF_STRICT_BIT); }
-
     inline constexpr uint64_t wholeFileThresholdBytes() const { return bytesFromLog2(wholeFileThresholdLog2, MIN_CHUNK_SIZE_LOG2); }
-
     inline constexpr uint64_t chunkSizeBytes() const { return bytesFromLog2(chunkSizeLog2, MIN_CHUNK_SIZE_LOG2); }
-
     inline constexpr uint64_t maxStagingBytes() const { return bytesFromLog2(maxStagingLog2, MIN_CHUNK_SIZE_LOG2); }
 };
 struct SResolvedFileIOPolicy

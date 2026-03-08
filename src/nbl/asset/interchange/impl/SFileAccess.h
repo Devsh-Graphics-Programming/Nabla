@@ -25,11 +25,7 @@ class SFileAccess
 		{
 			if (!SInterchangeIO::isTinyIOTelemetryLikely(telemetry, payloadBytes, ioPolicy))
 				return;
-			logger.log("%s tiny-io guard: file=%s %s=%llu min=%llu avg=%llu",
-				system::ILogger::ELL_WARNING, owner, fileName, opName,
-				static_cast<unsigned long long>(telemetry.callCount),
-				static_cast<unsigned long long>(telemetry.getMinOrZero()),
-				static_cast<unsigned long long>(telemetry.getAvgOrZero()));
+			logger.log("%s tiny-io guard: file=%s %s=%llu min=%llu avg=%llu", system::ILogger::ELL_WARNING, owner, fileName, opName, static_cast<unsigned long long>(telemetry.callCount), static_cast<unsigned long long>(telemetry.getMinOrZero()), static_cast<unsigned long long>(telemetry.getAvgOrZero()));
 		}
 		static inline const uint8_t* readRange(system::IFile* file, const size_t offset, const size_t bytes, core::vector<uint8_t>& storage, const SResolvedFileIOPolicy& ioPlan, SFileReadTelemetry* ioTelemetry = nullptr, const bool zeroTerminate = false)
 		{
@@ -44,13 +40,13 @@ class SFileAccess
 		{
 			if (wasMapped)
 				*wasMapped = false;
-			if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile) {
+			if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+			{
 				const auto* mapped = reinterpret_cast<const uint8_t*>(static_cast<const system::IFile*>(file)->getMappedPointer());
-				if (mapped) {
-					if (ioTelemetry)
-						ioTelemetry->account(bytes);
-					if (wasMapped)
-						*wasMapped = true;
+				if (mapped)
+				{
+					if (ioTelemetry) ioTelemetry->account(bytes);
+					if (wasMapped) *wasMapped = true;
 					return mapped;
 				}
 			}
