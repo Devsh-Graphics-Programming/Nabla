@@ -292,7 +292,7 @@ struct Parse
 			return true;
 		}
 
-		hlsl::float64_t4 decoded = {};
+		hlsl::float32_t4 decoded = {};
 		if (!colorView.decodeElement(ix, decoded))
 			return false;
 		const double rgbaUnit[4] = {normalizeColorComponentToUnit(decoded.x), normalizeColorComponentToUnit(decoded.y), normalizeColorComponentToUnit(decoded.z), normalizeColorComponentToUnit(decoded.w)};
@@ -366,18 +366,23 @@ struct Parse
 			outColor = 0u;
 			if (!colorView)
 				return true;
-			hlsl::uint32_t3 color(0u);
-			if (!decodeColorB8G8R8A8(*colorView, idx.x, color.x))
-				return false;
-			if (!decodeColorB8G8R8A8(*colorView, idx.y, color.y))
-				return false;
-			if (!decodeColorB8G8R8A8(*colorView, idx.z, color.z))
-				return false;
-			std::array<std::array<double, 4>, 3> rgba = {};
-			decodeColorUnitRGBAFromB8G8R8A8(color.x, rgba[0].data());
-			decodeColorUnitRGBAFromB8G8R8A8(color.y, rgba[1].data());
-			decodeColorUnitRGBAFromB8G8R8A8(color.z, rgba[2].data());
-			const std::array<double, 4> rgbaAvg = {(rgba[0][0] + rgba[1][0] + rgba[2][0]) / 3.0, (rgba[0][1] + rgba[1][1] + rgba[2][1]) / 3.0, (rgba[0][2] + rgba[1][2] + rgba[2][2]) / 3.0, 1.0};
+			const std::array<uint32_t, 3> vertexIx = {idx.x, idx.y, idx.z};
+			std::array<double, 4> rgbaAvg = {};
+			for (uint32_t corner = 0u; corner < vertexIx.size(); ++corner)
+			{
+				uint32_t color = 0u;
+				if (!decodeColorB8G8R8A8(*colorView, vertexIx[corner], color))
+					return false;
+				std::array<double, 4> rgba = {};
+				decodeColorUnitRGBAFromB8G8R8A8(color, rgba.data());
+				rgbaAvg[0] += rgba[0];
+				rgbaAvg[1] += rgba[1];
+				rgbaAvg[2] += rgba[2];
+			}
+			rgbaAvg[0] /= 3.0;
+			rgbaAvg[1] /= 3.0;
+			rgbaAvg[2] /= 3.0;
+			rgbaAvg[3] = 1.0;
 			uint32_t avgColor = 0u;
 			encodePixels<EF_B8G8R8A8_UNORM, double>(&avgColor, rgbaAvg.data());
 			outColor = packViscamColorFromB8G8R8A8(avgColor);

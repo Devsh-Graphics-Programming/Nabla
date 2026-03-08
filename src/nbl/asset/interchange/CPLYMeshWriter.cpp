@@ -277,20 +277,15 @@ struct Parse
 				return SGeometryAttributeEmit::emit<Sink, OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
 		}
 
-		template<typename OutT>
-		static inline void prepareSemantic(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
+		template<typename OutT, SGeometryViewDecode::EMode Mode>
+		static inline void prepareDecode(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
 		{
 			view.flipVectors = flipVectors;
-			view.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(src);
-			view.emit = &emitPrepared<OutT, SGeometryViewDecode::EMode::Semantic>;
-		}
-
-		template<typename OutT>
-		static inline void prepareStored(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
-		{
-			view.flipVectors = flipVectors;
-			view.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(src);
-			view.emit = &emitPrepared<OutT, SGeometryViewDecode::EMode::Stored>;
+			if constexpr (Mode == SGeometryViewDecode::EMode::Semantic)
+				view.semantic = SGeometryViewDecode::prepare<Mode>(src);
+			else
+				view.stored = SGeometryViewDecode::prepare<Mode>(src);
+			view.emit = &emitPrepared<OutT, Mode>;
 		}
 
 		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
@@ -301,14 +296,14 @@ struct Parse
 
 			switch (scalarType)
 			{
-				case ScalarType::Float64: prepareSemantic<double>(retval, *view, flipVectors); break;
-				case ScalarType::Float32: prepareSemantic<float>(retval, *view, flipVectors); break;
-				case ScalarType::Int8: prepareStored<int8_t>(retval, *view, flipVectors); break;
-				case ScalarType::UInt8: prepareStored<uint8_t>(retval, *view, false); break;
-				case ScalarType::Int16: prepareStored<int16_t>(retval, *view, flipVectors); break;
-				case ScalarType::UInt16: prepareStored<uint16_t>(retval, *view, false); break;
-				case ScalarType::Int32: prepareStored<int32_t>(retval, *view, flipVectors); break;
-				case ScalarType::UInt32: prepareStored<uint32_t>(retval, *view, false); break;
+				case ScalarType::Float64: prepareDecode<double, SGeometryViewDecode::EMode::Semantic>(retval, *view, flipVectors); break;
+				case ScalarType::Float32: prepareDecode<float, SGeometryViewDecode::EMode::Semantic>(retval, *view, flipVectors); break;
+				case ScalarType::Int8: prepareDecode<int8_t, SGeometryViewDecode::EMode::Stored>(retval, *view, flipVectors); break;
+				case ScalarType::UInt8: prepareDecode<uint8_t, SGeometryViewDecode::EMode::Stored>(retval, *view, false); break;
+				case ScalarType::Int16: prepareDecode<int16_t, SGeometryViewDecode::EMode::Stored>(retval, *view, flipVectors); break;
+				case ScalarType::UInt16: prepareDecode<uint16_t, SGeometryViewDecode::EMode::Stored>(retval, *view, false); break;
+				case ScalarType::Int32: prepareDecode<int32_t, SGeometryViewDecode::EMode::Stored>(retval, *view, flipVectors); break;
+				case ScalarType::UInt32: prepareDecode<uint32_t, SGeometryViewDecode::EMode::Stored>(retval, *view, false); break;
 			}
 			return retval;
 		}

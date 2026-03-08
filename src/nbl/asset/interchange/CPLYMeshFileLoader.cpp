@@ -1038,176 +1038,47 @@ struct Parse
                     }
                 }
 
-                if (is32Bit) {
-                    if (isSrcU32) {
-                        if (trackMaxIndex) {
-                            for (size_t j = 0u; j < element.Count; ++j) {
-                                const uint8_t c = *ptr++;
-                                if (c != 3u) {
-                                    fallbackToGeneric = true;
-                                    break;
-                                }
-                                const hlsl::uint32_t3 tri(
-                                    readU32(ptr + 0ull * sizeof(uint32_t)),
-                                    readU32(ptr + 1ull * sizeof(uint32_t)),
-                                    readU32(ptr + 2ull * sizeof(uint32_t)));
-                                out[0] = tri.x;
-                                out[1] = tri.y;
-                                out[2] = tri.z;
-                                ptr += 3ull * sizeof(uint32_t);
-                                const uint32_t triMax = std::max({tri.x, tri.y, tri.z});
-                                if (triMax > _maxIndex)
-                                    _maxIndex = triMax;
-                                out += 3u;
-                            }
-                        } else {
-                            for (size_t j = 0u; j < element.Count; ++j) {
-                                const uint8_t c = *ptr++;
-                                if (c != 3u) {
-                                    fallbackToGeneric = true;
-                                    break;
-                                }
-                                const hlsl::uint32_t3 tri(
-                                    readU32(ptr + 0ull * sizeof(uint32_t)),
-                                    readU32(ptr + 1ull * sizeof(uint32_t)),
-                                    readU32(ptr + 2ull * sizeof(uint32_t)));
-                                out[0] = tri.x;
-                                out[1] = tri.y;
-                                out[2] = tri.z;
-                                ptr += 3ull * sizeof(uint32_t);
-                                if (triExceedsVertexLimit(tri))
-                                    return EFastFaceReadResult::Error;
-                                out += 3u;
-                            }
+                auto consumeTriangles = [&](const size_t indexBytes, const uint32_t signedMask, auto readTri) -> EFastFaceReadResult {
+                    for (size_t j = 0u; j < element.Count; ++j) {
+                        if (*ptr++ != 3u) {
+                            fallbackToGeneric = true;
+                            return EFastFaceReadResult::NotApplicable;
                         }
-                    } else if (trackMaxIndex) {
-                        for (size_t j = 0u; j < element.Count; ++j) {
-                            const uint8_t c = *ptr++;
-                            if (c != 3u) {
-                                fallbackToGeneric = true;
-                                break;
-                            }
-                            const hlsl::uint32_t3 tri(readU32(ptr + 0ull * sizeof(uint32_t)),
-                                                      readU32(ptr + 1ull * sizeof(uint32_t)),
-                                                      readU32(ptr + 2ull * sizeof(uint32_t)));
-                            out[0] = tri.x;
-                            out[1] = tri.y;
-                            out[2] = tri.z;
-                            ptr += 3ull * sizeof(uint32_t);
-                            if ((tri.x | tri.y | tri.z) & 0x80000000u)
-                                return EFastFaceReadResult::Error;
+
+                        const hlsl::uint32_t3 tri = readTri(ptr);
+                        ptr += 3ull * indexBytes;
+                        const uint32_t triOr = tri.x | tri.y | tri.z;
+                        if (signedMask && (triOr & signedMask))
+                            return EFastFaceReadResult::Error;
+
+                        out[0] = tri.x;
+                        out[1] = tri.y;
+                        out[2] = tri.z;
+                        if (trackMaxIndex) {
                             const uint32_t triMax = std::max({tri.x, tri.y, tri.z});
                             if (triMax > _maxIndex)
                                 _maxIndex = triMax;
-                            out += 3u;
-                        }
-                    } else {
-                        for (size_t j = 0u; j < element.Count; ++j) {
-                            const uint8_t c = *ptr++;
-                            if (c != 3u) {
-                                fallbackToGeneric = true;
-                                break;
-                            }
-                            const hlsl::uint32_t3 tri(readU32(ptr + 0ull * sizeof(uint32_t)),
-                                                      readU32(ptr + 1ull * sizeof(uint32_t)),
-                                                      readU32(ptr + 2ull * sizeof(uint32_t)));
-                            out[0] = tri.x;
-                            out[1] = tri.y;
-                            out[2] = tri.z;
-                            ptr += 3ull * sizeof(uint32_t);
-                            const uint32_t triOr = tri.x | tri.y | tri.z;
-                            if (triOr & 0x80000000u)
-                                return EFastFaceReadResult::Error;
-                            if (triExceedsVertexLimit(tri))
-                                return EFastFaceReadResult::Error;
-                            out += 3u;
-                        }
+                        } else if (triExceedsVertexLimit(tri))
+                            return EFastFaceReadResult::Error;
+                        out += 3u;
                     }
-                } else {
-                    if (isSrcU16) {
-                        if (trackMaxIndex) {
-                            for (size_t j = 0u; j < element.Count; ++j) {
-                                const uint8_t c = *ptr++;
-                                if (c != 3u) {
-                                    fallbackToGeneric = true;
-                                    break;
-                                }
-                                const hlsl::uint32_t3 tri(
-                                    readU16(ptr + 0ull * sizeof(uint16_t)),
-                                    readU16(ptr + 1ull * sizeof(uint16_t)),
-                                    readU16(ptr + 2ull * sizeof(uint16_t)));
-                                out[0] = tri.x;
-                                out[1] = tri.y;
-                                out[2] = tri.z;
-                                ptr += 3ull * sizeof(uint16_t);
-                                const uint32_t triMax = std::max({tri.x, tri.y, tri.z});
-                                if (triMax > _maxIndex)
-                                    _maxIndex = triMax;
-                                out += 3u;
-                            }
-                        } else {
-                            for (size_t j = 0u; j < element.Count; ++j) {
-                                const uint8_t c = *ptr++;
-                                if (c != 3u) {
-                                    fallbackToGeneric = true;
-                                    break;
-                                }
-                                const hlsl::uint32_t3 tri(
-                                    readU16(ptr + 0ull * sizeof(uint16_t)),
-                                    readU16(ptr + 1ull * sizeof(uint16_t)),
-                                    readU16(ptr + 2ull * sizeof(uint16_t)));
-                                out[0] = tri.x;
-                                out[1] = tri.y;
-                                out[2] = tri.z;
-                                ptr += 3ull * sizeof(uint16_t);
-                                if (triExceedsVertexLimit(tri))
-                                    return EFastFaceReadResult::Error;
-                                out += 3u;
-                            }
-                        }
-                    } else if (trackMaxIndex) {
-                        for (size_t j = 0u; j < element.Count; ++j) {
-                            const uint8_t c = *ptr++;
-                            if (c != 3u) {
-                                fallbackToGeneric = true;
-                                break;
-                            }
-                            const hlsl::uint32_t3 tri(readU16(ptr + 0ull * sizeof(uint16_t)),
-                                                      readU16(ptr + 1ull * sizeof(uint16_t)),
-                                                      readU16(ptr + 2ull * sizeof(uint16_t)));
-                            ptr += 3ull * sizeof(uint16_t);
-                            if ((tri.x | tri.y | tri.z) & 0x8000u)
-                                return EFastFaceReadResult::Error;
-                            out[0] = tri.x;
-                            out[1] = tri.y;
-                            out[2] = tri.z;
-                            const uint32_t triMax = std::max({tri.x, tri.y, tri.z});
-                            if (triMax > _maxIndex)
-                                _maxIndex = triMax;
-                            out += 3u;
-                        }
-                    } else {
-                        for (size_t j = 0u; j < element.Count; ++j) {
-                            const uint8_t c = *ptr++;
-                            if (c != 3u) {
-                                fallbackToGeneric = true;
-                                break;
-                            }
-                            const hlsl::uint32_t3 tri(readU16(ptr + 0ull * sizeof(uint16_t)),
-                                                      readU16(ptr + 1ull * sizeof(uint16_t)),
-                                                      readU16(ptr + 2ull * sizeof(uint16_t)));
-                            ptr += 3ull * sizeof(uint16_t);
-                            if ((tri.x | tri.y | tri.z) & 0x8000u)
-                                return EFastFaceReadResult::Error;
-                            out[0] = tri.x;
-                            out[1] = tri.y;
-                            out[2] = tri.z;
-                            if (triExceedsVertexLimit(tri))
-                                return EFastFaceReadResult::Error;
-                            out += 3u;
-                        }
-                    }
-                }
+                    return EFastFaceReadResult::Success;
+                };
+                const auto fastReadResult = is32Bit ?
+                    consumeTriangles(sizeof(uint32_t), isSrcS32 ? 0x80000000u : 0u,
+                                     [&](const uint8_t* const src) -> hlsl::uint32_t3 {
+                                         return hlsl::uint32_t3(readU32(src + 0ull * sizeof(uint32_t)),
+                                                                readU32(src + 1ull * sizeof(uint32_t)),
+                                                                readU32(src + 2ull * sizeof(uint32_t)));
+                                     }) :
+                    consumeTriangles(sizeof(uint16_t), isSrcS16 ? 0x8000u : 0u,
+                                     [&](const uint8_t* const src) -> hlsl::uint32_t3 {
+                                         return hlsl::uint32_t3(readU16(src + 0ull * sizeof(uint16_t)),
+                                                                readU16(src + 1ull * sizeof(uint16_t)),
+                                                                readU16(src + 2ull * sizeof(uint16_t)));
+                                     });
+                if (fastReadResult == EFastFaceReadResult::Error)
+                    return EFastFaceReadResult::Error;
 
                 if (!fallbackToGeneric) {
                     StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
