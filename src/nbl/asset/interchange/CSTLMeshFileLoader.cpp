@@ -7,8 +7,7 @@
 #include "CSTLMeshFileLoader.h"
 
 #include "SSTLPolygonGeometryAuxLayout.h"
-#include "impl/SFileAccess.h"
-#include "impl/SIODiagnostics.h"
+#include "impl/SLoadSession.h"
 #include "impl/STextParse.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/format/convertColor.h"
@@ -174,15 +173,15 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (filesize < Context::TextProbeBytes)
 		return {};
 
-	const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(filesize), true, _file);
-	if (impl::SIODiagnostics::logInvalidPlan(_params.logger, "STL loader", _file->getFileName().string().c_str(), ioPlan))
+	impl::SLoadSession loadSession = {};
+	if (!impl::SLoadSession::begin(_params.logger, "STL loader", _file, _params.ioPolicy, static_cast<uint64_t>(filesize), true, loadSession))
 		return {};
 
 	core::vector<uint8_t> wholeFilePayload;
 	const uint8_t* wholeFileData = nullptr;
-	if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
+	if (loadSession.isWholeFile())
 	{
-		wholeFileData = impl::SFileAccess::mapOrReadWholeFile(context.inner.mainFile, filesize, wholeFilePayload, ioPlan, &context.ioTelemetry);
+		wholeFileData = loadSession.mapOrReadWholeFile(wholeFilePayload, &context.ioTelemetry);
 		if (!wholeFileData)
 			return {};
 	}
@@ -266,7 +265,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
         if (filesize < expectedSize)
             return {};
 
-        const uint8_t* payloadData = wholeFileData ? (wholeFileData + Context::BinaryPrefixBytes) : impl::SFileAccess::readRange(context.inner.mainFile, Context::BinaryPrefixBytes, dataSize, wholeFilePayload, ioPlan, &context.ioTelemetry);
+        const uint8_t* payloadData = wholeFileData ? (wholeFileData + Context::BinaryPrefixBytes) : loadSession.readRange(Context::BinaryPrefixBytes, dataSize, wholeFilePayload, &context.ioTelemetry);
         if (!payloadData)
             return {};
 
@@ -630,7 +629,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
         parsePath = "ascii_fallback";
         if (!wholeFileData)
         {
-            wholeFileData = impl::SFileAccess::mapOrReadWholeFile(context.inner.mainFile, filesize, wholeFilePayload, ioPlan, &context.ioTelemetry);
+            wholeFileData = loadSession.mapOrReadWholeFile(wholeFilePayload, &context.ioTelemetry);
             if (!wholeFileData)
                 return {};
         }
@@ -737,7 +736,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
     }
     const uint64_t ioMinRead = context.ioTelemetry.getMinOrZero();
     const uint64_t ioAvgRead = context.ioTelemetry.getAvgOrZero();
-    impl::SIODiagnostics::logTinyIO(_params.logger, "STL loader", _file->getFileName().string().c_str(), context.ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy, "reads");
+    loadSession.logTinyIO(_params.logger, context.ioTelemetry);
     _params.logger.log(
         "STL loader stats: file=%s binary=%d parse_path=%s triangles=%llu "
         "vertices=%llu colors=%d io_reads=%llu io_min_read=%llu io_avg_read=%llu "
@@ -749,8 +748,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
         static_cast<unsigned long long>(ioMinRead),
         static_cast<unsigned long long>(ioAvgRead),
         system::to_string(_params.ioPolicy.strategy).c_str(),
-        system::to_string(ioPlan.strategy).c_str(),
-        static_cast<unsigned long long>(ioPlan.chunkSizeBytes()), ioPlan.reason);
+        system::to_string(loadSession.ioPlan.strategy).c_str(),
+        static_cast<unsigned long long>(loadSession.ioPlan.chunkSizeBytes()), loadSession.ioPlan.reason);
     auto meta = core::make_smart_refctd_ptr<CSTLMetadata>();
     return SAssetBundle(std::move(meta), {std::move(geometry)});
 }

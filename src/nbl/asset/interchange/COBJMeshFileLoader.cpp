@@ -20,8 +20,7 @@
 #include "nbl/system/IFile.h"
 
 #include "COBJMeshFileLoader.h"
-#include "impl/SFileAccess.h"
-#include "impl/SIODiagnostics.h"
+#include "impl/SLoadSession.h"
 #include "impl/STextParse.h"
 
 #include <array>
@@ -352,12 +351,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     const long filesize = _file->getSize();
     if (filesize <= 0)
         return {};
-    const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(filesize), true, _file);
-    if (impl::SIODiagnostics::logInvalidPlan(_params.logger, "OBJ loader", _file->getFileName().string().c_str(), ioPlan))
+    impl::SLoadSession loadSession = {};
+    if (!impl::SLoadSession::begin(_params.logger, "OBJ loader", _file, _params.ioPolicy, static_cast<uint64_t>(filesize), true, loadSession))
         return {};
 
     core::vector<uint8_t> fileContents;
-    const auto* fileData = impl::SFileAccess::mapOrReadWholeFile(_file, static_cast<size_t>(filesize), fileContents, ioPlan, &ioTelemetry);
+    const auto* fileData = loadSession.mapOrReadWholeFile(fileContents, &ioTelemetry);
     if (!fileData)
         return {};
     const char* const buf = reinterpret_cast<const char*>(fileData);
@@ -932,7 +931,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         faceFallbackTokenCountSum += loaded.faceFallbackTokenCount;
     }
 
-    impl::SIODiagnostics::logTinyIO(_params.logger, "OBJ loader", _file->getFileName().string().c_str(), ioTelemetry, static_cast<uint64_t>(filesize), _params.ioPolicy, "reads");
+    loadSession.logTinyIO(_params.logger, ioTelemetry);
 
     const bool buildCollections =
         sawObjectDirective || sawGroupDirective || loadedGeometries.size() > 1ull;
@@ -1003,8 +1002,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
         static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()),
         system::to_string(_params.ioPolicy.strategy).c_str(),
-        system::to_string(ioPlan.strategy).c_str(),
-        static_cast<unsigned long long>(ioPlan.chunkSizeBytes()), ioPlan.reason);
+        system::to_string(loadSession.ioPlan.strategy).c_str(),
+        static_cast<unsigned long long>(loadSession.ioPlan.chunkSizeBytes()), loadSession.ioPlan.reason);
 
     return SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>(),
                         std::move(outputAssets));

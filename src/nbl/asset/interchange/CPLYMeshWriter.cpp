@@ -6,6 +6,7 @@
 
 #include "CPLYMeshWriter.h"
 #include "SPLYPolygonGeometryAuxLayout.h"
+#include "nbl/asset/interchange/SGeometryAttributeEmit.h"
 #include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
@@ -102,34 +103,6 @@ struct Parse
 		size_t faceCount = 0ull;
 		bool write16BitIndices = false;
 		bool flipVectors = false;
-	};
-
-	struct PreparedView
-	{
-		// Per-attribute emission state cached once before the vertex loop.
-		// Floats use semantic decode, integer payloads use stored decode.
-		uint32_t components = 0u;
-		ScalarType scalarType = ScalarType::Float32;
-		bool flipVectors = false;
-		SemanticDecode semantic = {};
-		StoredDecode stored = {};
-
-		inline explicit operator bool() const
-		{
-			return getScalarMeta(scalarType).integer ? static_cast<bool>(stored) : static_cast<bool>(semantic);
-		}
-
-		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
-		{
-			PreparedView retval = {.components = components, .scalarType = scalarType, .flipVectors = flipVectors};
-			if (!view)
-				return retval;
-			if (getScalarMeta(scalarType).integer)
-				retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-			else
-				retval.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*view);
-			return retval;
-		}
 	};
 
 	static constexpr size_t ApproxTextBytesPerVertex = sizeof("0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n") - 1ull;
@@ -274,44 +247,85 @@ struct Parse
 		}
 	};
 
-	template<typename Sink, typename OutT, SGeometryViewDecode::EMode Mode>
-	static bool emitDecodedView(Sink& sink, const SGeometryViewDecode::Prepared<Mode>& view, const size_t ix, const uint32_t componentCount, const bool flipVectors)
-	{
-		std::array<OutT, 4> decoded = {};
-		if (!view.decode(ix, decoded))
-			return false;
-		for (uint32_t c = 0u; c < componentCount; ++c)
-		{
-			OutT value = decoded[c];
-			if constexpr (std::is_signed_v<OutT> || std::is_floating_point_v<OutT>)
-			{
-				if (flipVectors && c == 0u)
-					value = -value;
-			}
-			if (!sink.append(value))
-				return false;
-		}
-		return true;
-	}
-
 	template<typename Sink>
-	static bool emitView(Sink& sink, const PreparedView& view, const size_t ix)
+	struct PreparedView
 	{
-		if (!view)
-			return false;
-		switch (view.scalarType)
+		using EmitFn = bool(*)(Sink&, const PreparedView&, size_t);
+
+		uint32_t components = 0u;
+		bool flipVectors = false;
+		SemanticDecode semantic = {};
+		StoredDecode stored = {};
+		EmitFn emit = nullptr;
+
+		inline explicit operator bool() const
 		{
-			case ScalarType::Float64: return emitDecodedView<Sink, double, SGeometryViewDecode::EMode::Semantic>(sink, view.semantic, ix, view.components, view.flipVectors);
-			case ScalarType::Float32: return emitDecodedView<Sink, float, SGeometryViewDecode::EMode::Semantic>(sink, view.semantic, ix, view.components, view.flipVectors);
-			case ScalarType::Int8: return emitDecodedView<Sink, int8_t, SGeometryViewDecode::EMode::Stored>(sink, view.stored, ix, view.components, view.flipVectors);
-			case ScalarType::UInt8: return emitDecodedView<Sink, uint8_t, SGeometryViewDecode::EMode::Stored>(sink, view.stored, ix, view.components, false);
-			case ScalarType::Int16: return emitDecodedView<Sink, int16_t, SGeometryViewDecode::EMode::Stored>(sink, view.stored, ix, view.components, view.flipVectors);
-			case ScalarType::UInt16: return emitDecodedView<Sink, uint16_t, SGeometryViewDecode::EMode::Stored>(sink, view.stored, ix, view.components, false);
-			case ScalarType::Int32: return emitDecodedView<Sink, int32_t, SGeometryViewDecode::EMode::Stored>(sink, view.stored, ix, view.components, view.flipVectors);
-			case ScalarType::UInt32: return emitDecodedView<Sink, uint32_t, SGeometryViewDecode::EMode::Stored>(sink, view.stored, ix, view.components, false);
+			return emit != nullptr && (static_cast<bool>(semantic) || static_cast<bool>(stored));
 		}
-		return false;
-	}
+
+		inline bool operator()(Sink& sink, const size_t ix) const
+		{
+			return static_cast<bool>(*this) && emit(sink, *this, ix);
+		}
+
+		template<typename OutT, SGeometryViewDecode::EMode Mode>
+		static bool emitPrepared(Sink& sink, const PreparedView& view, const size_t ix)
+		{
+			if constexpr (Mode == SGeometryViewDecode::EMode::Semantic)
+				return SGeometryAttributeEmit::emit<Sink, OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors);
+			else
+				return SGeometryAttributeEmit::emit<Sink, OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
+		}
+
+		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
+		{
+			PreparedView retval = {.components = components};
+			if (!view)
+				return retval;
+
+			switch (scalarType)
+			{
+				case ScalarType::Float64:
+					retval.flipVectors = flipVectors;
+					retval.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*view);
+					retval.emit = &emitPrepared<double, SGeometryViewDecode::EMode::Semantic>;
+					break;
+				case ScalarType::Float32:
+					retval.flipVectors = flipVectors;
+					retval.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*view);
+					retval.emit = &emitPrepared<float, SGeometryViewDecode::EMode::Semantic>;
+					break;
+				case ScalarType::Int8:
+					retval.flipVectors = flipVectors;
+					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
+					retval.emit = &emitPrepared<int8_t, SGeometryViewDecode::EMode::Stored>;
+					break;
+				case ScalarType::UInt8:
+					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
+					retval.emit = &emitPrepared<uint8_t, SGeometryViewDecode::EMode::Stored>;
+					break;
+				case ScalarType::Int16:
+					retval.flipVectors = flipVectors;
+					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
+					retval.emit = &emitPrepared<int16_t, SGeometryViewDecode::EMode::Stored>;
+					break;
+				case ScalarType::UInt16:
+					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
+					retval.emit = &emitPrepared<uint16_t, SGeometryViewDecode::EMode::Stored>;
+					break;
+				case ScalarType::Int32:
+					retval.flipVectors = flipVectors;
+					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
+					retval.emit = &emitPrepared<int32_t, SGeometryViewDecode::EMode::Stored>;
+					break;
+				case ScalarType::UInt32:
+					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
+					retval.emit = &emitPrepared<uint32_t, SGeometryViewDecode::EMode::Stored>;
+					break;
+			}
+			return retval;
+		}
+	};
 
 	template<typename Sink>
 	static bool emitVertices(const WriteInput& input, Sink& sink)
@@ -322,24 +336,24 @@ struct Parse
 		const auto& positionView = input.geom->getPositionView();
 		const auto& normalView = input.geom->getNormalView();
 		const auto& extraAuxViews = *input.extraAuxViews;
-		const PreparedView preparedPosition = PreparedView::create(&positionView, 3u, input.positionScalarType, input.flipVectors);
-		const PreparedView preparedNormal = input.writeNormals ? PreparedView::create(&normalView, 3u, input.normalScalarType, input.flipVectors) : PreparedView{};
-		const PreparedView preparedUV = input.uvView ? PreparedView::create(input.uvView, 2u, input.uvScalarType, false) : PreparedView{};
-		core::vector<PreparedView> preparedExtraAuxViews;
+		const PreparedView<Sink> preparedPosition = PreparedView<Sink>::create(&positionView, 3u, input.positionScalarType, input.flipVectors);
+		const PreparedView<Sink> preparedNormal = input.writeNormals ? PreparedView<Sink>::create(&normalView, 3u, input.normalScalarType, input.flipVectors) : PreparedView<Sink>{};
+		const PreparedView<Sink> preparedUV = input.uvView ? PreparedView<Sink>::create(input.uvView, 2u, input.uvScalarType, false) : PreparedView<Sink>{};
+		core::vector<PreparedView<Sink>> preparedExtraAuxViews;
 		preparedExtraAuxViews.reserve(extraAuxViews.size());
 		for (const auto& extra : extraAuxViews)
-			preparedExtraAuxViews.push_back(extra.view ? PreparedView::create(extra.view, extra.components, extra.scalarType, false) : PreparedView{});
+			preparedExtraAuxViews.push_back(extra.view ? PreparedView<Sink>::create(extra.view, extra.components, extra.scalarType, false) : PreparedView<Sink>{});
 		for (size_t i = 0u; i < input.vertexCount; ++i)
 		{
-			if (!emitView(sink, preparedPosition, i))
+			if (!preparedPosition(sink, i))
 				return false;
-			if (input.writeNormals && !emitView(sink, preparedNormal, i))
+			if (input.writeNormals && !preparedNormal(sink, i))
 				return false;
-			if (input.uvView && !emitView(sink, preparedUV, i))
+			if (input.uvView && !preparedUV(sink, i))
 				return false;
 			for (size_t extraIx = 0u; extraIx < extraAuxViews.size(); ++extraIx)
 			{
-				if (!extraAuxViews[extraIx].view || !emitView(sink, preparedExtraAuxViews[extraIx], i))
+				if (!extraAuxViews[extraIx].view || !preparedExtraAuxViews[extraIx](sink, i))
 					return false;
 			}
 			if (!sink.finishVertex())

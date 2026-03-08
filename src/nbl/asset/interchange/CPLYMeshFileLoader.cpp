@@ -7,8 +7,8 @@
 #include "CPLYMeshFileLoader.h"
 #include "SPLYPolygonGeometryAuxLayout.h"
 #include "impl/SBinaryData.h"
-#include "impl/SFileAccess.h"
-#include "impl/SIODiagnostics.h"
+#include "impl/SContentHashBuild.h"
+#include "impl/SLoadSession.h"
 #include "impl/STextParse.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
@@ -1410,20 +1410,18 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     const bool hashInBuild =
         computeContentHashes &&
         SLoaderRuntimeTuner::shouldInlineHashBuild(_params.ioPolicy, fileSize);
-    const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, fileSize, true, _file);
-    if (impl::SIODiagnostics::logInvalidPlan(_params.logger, "PLY loader", _file->getFileName().string().c_str(), ioPlan))
+    impl::SLoadSession loadSession = {};
+    if (!impl::SLoadSession::begin(_params.logger, "PLY loader", _file, _params.ioPolicy, fileSize, true, loadSession))
         return {};
 
     Parse::Context ctx = {asset::IAssetLoader::SAssetLoadContext{_params, _file},
                           _hierarchyLevel, _override};
     uint64_t desiredReadWindow =
-        ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile
+        loadSession.isWholeFile()
             ? (fileSize + Parse::Context::ReadWindowPaddingBytes)
-            : ioPlan.chunkSizeBytes();
-    if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile) {
-        const bool mappedInput =
-            static_cast<const system::IFile*>(_file)->getMappedPointer() !=
-            nullptr;
+            : loadSession.ioPlan.chunkSizeBytes();
+    if (loadSession.isWholeFile()) {
+        const bool mappedInput = loadSession.mappedPointer() != nullptr;
         if (mappedInput &&
             fileSize > (Parse::Context::DefaultIoReadWindowBytes * 2ull))
             desiredReadWindow = Parse::Context::DefaultIoReadWindowBytes;
@@ -1439,51 +1437,36 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     hlsl::shapes::util::AABBAccumulator3<float> parsedAABB =
         hlsl::shapes::util::createAABBAccumulator<float>();
     uint32_t vertCount = 0;
-    core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers;
-    std::jthread deferredPositionHashThread;
-    auto hashBufferIfNeeded = [&](ICPUBuffer* buffer) -> void {
-        if (!hashInBuild || !buffer)
-            return;
-        for (const auto& hashed : hashedBuffers) {
-            if (hashed.get() == buffer)
-                return;
-        }
-        buffer->setContentHash(buffer->computeContentHash());
-        hashedBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(buffer));
-    };
-    auto tryLaunchDeferredHash = [&](const IGeometry<ICPUBuffer>::SDataView& view,
-                                     std::jthread& deferredThread) -> void {
-        if (!computeContentHashes || hashInBuild || !view || !view.src.buffer)
-            return;
-        if (deferredThread.joinable())
-            return;
-        if (view.src.buffer->getContentHash() != IPreHashed::INVALID_HASH)
-            return;
-        auto keepAlive = core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer);
-        deferredThread = std::jthread([buffer = std::move(keepAlive)]() mutable {
-            buffer->setContentHash(buffer->computeContentHash());
-        });
-    };
-    auto hashViewBufferIfNeeded =
-        [&](const IGeometry<ICPUBuffer>::SDataView& view) -> void {
-        if (!view || !view.src.buffer)
-            return;
-        hashBufferIfNeeded(view.src.buffer.get());
-    };
-    auto hashRemainingGeometryBuffers = [&]() -> void {
-        if (!hashInBuild)
-            return;
-        hashViewBufferIfNeeded(geometry->getPositionView());
-        hashViewBufferIfNeeded(geometry->getIndexView());
-        hashViewBufferIfNeeded(geometry->getNormalView());
+    impl::SContentHashBuild contentHashBuild = impl::SContentHashBuild::create(computeContentHashes, hashInBuild);
+    auto visitVertexAttributeViews = [&](auto&& visitor) -> void {
+        visitor(geometry->getPositionView());
+        visitor(geometry->getNormalView());
         for (const auto& view : *geometry->getAuxAttributeViews())
-            hashViewBufferIfNeeded(view);
+            visitor(view);
+    };
+    auto visitGeometryViews = [&](auto&& visitor) -> void {
+        visitVertexAttributeViews(visitor);
+        visitor(geometry->getIndexView());
         for (const auto& view : *geometry->getJointWeightViews()) {
-            hashViewBufferIfNeeded(view.indices);
-            hashViewBufferIfNeeded(view.weights);
+            visitor(view.indices);
+            visitor(view.weights);
         }
         if (const auto jointObb = geometry->getJointOBBView(); jointObb)
-            hashViewBufferIfNeeded(*jointObb);
+            visitor(*jointObb);
+    };
+    auto hashViewBufferIfNeeded = [&](const IGeometry<ICPUBuffer>::SDataView& view) -> void {
+        if (!view || !view.src.buffer)
+            return;
+        contentHashBuild.hashNow(view.src.buffer.get());
+    };
+    auto hashRemainingGeometryBuffers = [&]() -> void {
+        if (contentHashBuild.hashesInline())
+            visitGeometryViews(hashViewBufferIfNeeded);
+    };
+    auto tryLaunchDeferredHash = [&](const IGeometry<ICPUBuffer>::SDataView& view) -> void {
+        if (!view || !view.src.buffer)
+            return;
+        contentHashBuild.tryDefer(view.src.buffer.get());
     };
 
     // Currently only supports ASCII or binary meshes
@@ -1598,8 +1581,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             readingHeader = false;
             if (ctx.IsBinaryFile) {
                 char* const binaryStartInBuffer = ctx.LineEndPointer + 1;
-                const auto* const mappedBase = reinterpret_cast<const char*>(
-                    static_cast<const system::IFile*>(_file)->getMappedPointer());
+                const auto* const mappedBase = reinterpret_cast<const char*>(loadSession.mappedPointer());
                 if (mappedBase) {
                     const size_t binaryOffset =
                         ctx.getAbsoluteOffset(binaryStartInBuffer);
@@ -1867,12 +1849,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                     system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
                 return {};
             }
-            hashViewBufferIfNeeded(geometry->getPositionView());
-            hashViewBufferIfNeeded(geometry->getNormalView());
-            for (const auto& view : *geometry->getAuxAttributeViews())
-                hashViewBufferIfNeeded(view);
-            tryLaunchDeferredHash(geometry->getPositionView(),
-                                  deferredPositionHashThread);
+            visitVertexAttributeViews(hashViewBufferIfNeeded);
+            tryLaunchDeferredHash(geometry->getPositionView());
             verticesProcessed = true;
         } else if (el.Name == "face") {
             const uint32_t vertexCount32 =
@@ -1881,7 +1859,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                     : 0u;
             const auto fastFaceResult = ctx.readFaceElementFast(
                 el, indices, maxIndexRead, faceCount, vertexCount32,
-                computeContentHashes && !hashInBuild, precomputedIndexHash);
+                contentHashBuild.hashesDeferred(), precomputedIndexHash);
             if (fastFaceResult == Parse::Context::EFastFaceReadResult::Success) {
                 ++fastFaceElementCount;
             } else if (fastFaceResult ==
@@ -1958,9 +1936,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         }
     }
 
-    if (computeContentHashes && !hashInBuild) {
-        if (deferredPositionHashThread.joinable())
-            deferredPositionHashThread.join();
+    if (contentHashBuild.hashesDeferred()) {
+        contentHashBuild.wait();
         SPolygonGeometryContentHash::computeMissing(geometry.get(),
                                                     _params.ioPolicy);
     } else {
@@ -1973,7 +1950,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     const SFileReadTelemetry ioTelemetry = {.callCount = ctx.readCallCount,
                                             .totalBytes = ctx.readBytesTotal,
                                             .minBytes = ctx.readMinBytes};
-    impl::SIODiagnostics::logTinyIO(_params.logger, "PLY loader", _file->getFileName().string().c_str(), ioTelemetry, fileSize, _params.ioPolicy, "reads");
+    loadSession.logTinyIO(_params.logger, ioTelemetry);
     _params.logger.log(
         "PLY loader stats: file=%s binary=%d verts=%llu faces=%llu idx=%llu "
         "vertex_fast=%llu face_fast=%llu io_reads=%llu io_min_read=%llu "
@@ -1988,8 +1965,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         static_cast<unsigned long long>(ioMinRead),
         static_cast<unsigned long long>(ioAvgRead),
         system::to_string(_params.ioPolicy.strategy).c_str(),
-        system::to_string(ioPlan.strategy).c_str(),
-        static_cast<unsigned long long>(ioPlan.chunkSizeBytes()), ioPlan.reason);
+        system::to_string(loadSession.ioPlan.strategy).c_str(),
+        static_cast<unsigned long long>(loadSession.ioPlan.chunkSizeBytes()), loadSession.ioPlan.reason);
     auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
     return SAssetBundle(std::move(meta), {std::move(geometry)});
 }
