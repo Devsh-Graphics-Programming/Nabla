@@ -17,36 +17,24 @@ namespace nbl::asset
 {
 struct SLoaderRuntimeTuningRequest
 {
-    uint64_t inputBytes = 0ull;
-    uint64_t totalWorkUnits = 0ull;
-    uint64_t minWorkUnitsPerWorker = 1ull;
-    uint64_t minBytesPerWorker = 1ull;
-    uint32_t hardwareThreads = 0u;
-    uint32_t hardMaxWorkers = 0u;
-    uint32_t targetChunksPerWorker = 0u;
-    uint64_t minChunkWorkUnits = 1ull;
-    uint64_t maxChunkWorkUnits = std::numeric_limits<uint64_t>::max();
+    uint64_t inputBytes = 0ull, totalWorkUnits = 0ull, minWorkUnitsPerWorker = 1ull, minBytesPerWorker = 1ull;
+    uint32_t hardwareThreads = 0u, hardMaxWorkers = 0u, targetChunksPerWorker = 0u;
+    uint64_t minChunkWorkUnits = 1ull, maxChunkWorkUnits = std::numeric_limits<uint64_t>::max();
     const uint8_t* sampleData = nullptr;
-    uint64_t sampleBytes = 0ull;
-    uint32_t samplePasses = 0u;
-    uint32_t sampleMaxCandidates = 0u;
-    uint64_t sampleMinWorkUnits = 0ull;
+    uint64_t sampleBytes = 0ull, sampleMinWorkUnits = 0ull;
+    uint32_t samplePasses = 0u, sampleMaxCandidates = 0u;
 };
 struct SLoaderRuntimeTuningResult
 {
-    size_t workerCount = 1ull;
+    size_t workerCount = 1ull, chunkCount = 1ull;
     uint64_t chunkWorkUnits = 1ull;
-    size_t chunkCount = 1ull;
 };
 struct SLoaderRuntimeTuner
 {
     private:
         struct SBenchmarkSampleStats
         {
-            uint64_t medianNs = 0ull;
-            uint64_t minNs = 0ull;
-            uint64_t maxNs = 0ull;
-            uint64_t totalNs = 0ull;
+            uint64_t medianNs = 0ull, minNs = 0ull, maxNs = 0ull, totalNs = 0ull;
         };
     public:
         template<typename Fn>

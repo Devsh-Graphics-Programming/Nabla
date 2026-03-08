@@ -1,5 +1,4 @@
-// Internal src-only header.
-// Do not include from public headers.
+// Internal src-only header. Do not include from public headers.
 #ifndef _NBL_ASSET_IMPL_S_BINARY_DATA_H_INCLUDED_
 #define _NBL_ASSET_IMPL_S_BINARY_DATA_H_INCLUDED_
 #include <algorithm>
