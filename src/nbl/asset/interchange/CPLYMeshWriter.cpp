@@ -4,16 +4,15 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 #include "CPLYMeshWriter.h"
-#include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
-#include "impl/SBinaryData.h"
 #include "impl/SFileAccess.h"
 #include "nbl/system/IFile.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <charconv>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -46,13 +45,10 @@ namespace
 struct Parse
 {
 	static constexpr uint32_t UV0 = 0u;
-	using Binary = impl::BinaryData;
-	using SemanticDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Semantic>;
-	using StoredDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Stored>;
 	enum class ScalarType : uint8_t { Int8, UInt8, Int16, UInt16, Int32, UInt32, Float32, Float64 };
 	struct ScalarMeta { const char* name = "float32"; uint32_t byteSize = sizeof(float); bool integer = false; bool signedType = true; };
 	struct ExtraAuxView { const ICPUPolygonGeometry::SDataView* view = nullptr; uint32_t components = 0u; uint32_t auxIndex = 0u; ScalarType scalarType = ScalarType::Float32; };
-	struct WriteInput { const ICPUPolygonGeometry* geom = nullptr; ScalarType positionScalarType = ScalarType::Float32; const ICPUPolygonGeometry::SDataView* uvView = nullptr; ScalarType uvScalarType = ScalarType::Float32; const core::vector<ExtraAuxView>* extraAuxViews = nullptr; bool writeNormals = false; ScalarType normalScalarType = ScalarType::Float32; size_t vertexCount = 0ull; size_t faceCount = 0ull; bool write16BitIndices = false; bool flipVectors = false; };
+	struct WriteInput { const ICPUPolygonGeometry* geom = nullptr; ScalarType positionScalarType = ScalarType::Float32; const ICPUPolygonGeometry::SDataView* uvView = nullptr; ScalarType uvScalarType = ScalarType::Float32; const core::vector<ExtraAuxView>* extraAuxViews = nullptr; bool writeNormals = false; ScalarType normalScalarType = ScalarType::Float32; size_t vertexCount = 0ull; const uint32_t* indices = nullptr; size_t faceCount = 0ull; bool write16BitIndices = false; bool flipVectors = false; };
 	static constexpr size_t ApproxTextBytesPerVertex = sizeof("0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n") - 1ull;
 	static constexpr size_t ApproxTextBytesPerFace = sizeof("3 4294967295 4294967295 4294967295\n") - 1ull;
 	static constexpr size_t MaxFloatTextChars = std::numeric_limits<double>::max_digits10 + 16ull;
@@ -133,150 +129,382 @@ struct Parse
 			return bytesPerChannel >= 8u ? ScalarType::Float64 : ScalarType::Float32;
 		return ScalarType::Float32;
 	}
-	struct BinarySink
+	static bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
 	{
-		uint8_t* cursor = nullptr;
-		template<typename T>
-		inline bool append(const T value) { if (!cursor) return false; Binary::storeUnalignedAdvance(cursor, value); return true; }
-		inline bool finishVertex() { return true; }
-	};
-	struct TextSink
-	{
-		std::string& output;
-		template<typename T>
-		inline bool append(const T value)
+		out = hlsl::float64_t4(0.0, 0.0, 0.0, 0.0);
+		if (!view.composed.isFormatted())
+			return false;
+		const void* src = view.getPointer(ix);
+		if (!src)
+			return false;
+		const void* srcArr[4] = {src, nullptr, nullptr, nullptr};
+		double tmp[4] = {};
+		if (!decodePixels<double>(view.composed.format, srcArr, tmp, 0u, 0u))
+			return false;
+		const uint32_t channels = std::min(4u, getFormatChannelCount(view.composed.format));
+		if (isNormalizedFormat(view.composed.format))
 		{
-			if constexpr (std::is_floating_point_v<T>) appendFloat(output, static_cast<double>(value));
-			else appendIntegral(output, value);
-			output.push_back(' ');
-			return true;
+			const auto range = view.composed.getRange<hlsl::shapes::AABB<4, hlsl::float64_t>>();
+			for (uint32_t i = 0u; i < channels; ++i)
+				(&out.x)[i] = tmp[i] * (range.maxVx[i] - range.minVx[i]) + range.minVx[i];
 		}
-		inline bool finishVertex() { output.push_back('\n'); return true; }
-	};
-	template<typename Sink>
-	struct PreparedView
-	{
-		using EmitFn = bool(*)(Sink&, const PreparedView&, size_t);
-		uint32_t components = 0u;
-		bool flipVectors = false;
-		SemanticDecode semantic = {};
-		StoredDecode stored = {};
-		EmitFn emit = nullptr;
-		inline explicit operator bool() const { return emit != nullptr && (static_cast<bool>(semantic) || static_cast<bool>(stored)); }
-		inline bool operator()(Sink& sink, const size_t ix) const { return static_cast<bool>(*this) && emit(sink, *this, ix); }
-		template<typename OutT, SGeometryViewDecode::EMode Mode>
-		static bool emitDecode(Sink& sink, const auto& decode, const size_t ix, const uint32_t components, const bool flipVectors)
+		else
 		{
-			std::array<OutT, 4> decoded = {};
-			if (!decode.decode(ix, decoded))
-				return false;
-			for (uint32_t c = 0u; c < components; ++c)
+			for (uint32_t i = 0u; i < channels; ++i)
+				(&out.x)[i] = tmp[i];
+		}
+		return true;
+	}
+	static bool decodeSigned4Raw(const ICPUPolygonGeometry::SDataView& view, const size_t ix, int64_t (&out)[4])
+	{
+		const void* src = view.getPointer(ix);
+		if (!src)
+			return false;
+		const void* srcArr[4] = {src, nullptr, nullptr, nullptr};
+		return decodePixels<int64_t>(view.composed.format, srcArr, out, 0u, 0u);
+	}
+	static bool decodeUnsigned4Raw(const ICPUPolygonGeometry::SDataView& view, const size_t ix, uint64_t (&out)[4])
+	{
+		const void* src = view.getPointer(ix);
+		if (!src)
+			return false;
+		const void* srcArr[4] = {src, nullptr, nullptr, nullptr};
+		return decodePixels<uint64_t>(view.composed.format, srcArr, out, 0u, 0u);
+	}
+	static bool isDirectScalarFormat(const E_FORMAT format, const ScalarType scalarType, const uint32_t componentCount, uint32_t& outByteSize)
+	{
+		outByteSize = 0u;
+		if (format == EF_UNKNOWN || componentCount == 0u)
+			return false;
+		if (isNormalizedFormat(format) || isScaledFormat(format))
+			return false;
+		const uint32_t channels = getFormatChannelCount(format);
+		if (channels < componentCount)
+			return false;
+		const auto bytesPerPixel = getBytesPerPixel(format);
+		if (bytesPerPixel.getDenominator() != 1u)
+			return false;
+		const uint32_t pixelBytes = bytesPerPixel.getNumerator();
+		if (pixelBytes == 0u || (pixelBytes % channels) != 0u)
+			return false;
+		const uint32_t byteSize = pixelBytes / channels;
+		const auto meta = getScalarMeta(scalarType);
+		if (byteSize != meta.byteSize)
+			return false;
+		switch (scalarType)
+		{
+			case ScalarType::Float32:
+			case ScalarType::Float64:
+				if (!isFloatingPointFormat(format))
+					return false;
+				break;
+			case ScalarType::Int8:
+			case ScalarType::Int16:
+			case ScalarType::Int32:
+				if (!isIntegerFormat(format) || !isSignedFormat(format))
+					return false;
+				break;
+			case ScalarType::UInt8:
+			case ScalarType::UInt16:
+			case ScalarType::UInt32:
+				if (!isIntegerFormat(format) || isSignedFormat(format))
+					return false;
+				break;
+		}
+		outByteSize = byteSize;
+		return true;
+	}
+	static bool writeDirectBinaryView(const ICPUPolygonGeometry::SDataView& view, const size_t ix, const uint32_t componentCount, const ScalarType scalarType, const bool flipVectors, uint8_t*& dst)
+	{
+		if (flipVectors || !dst || !view.composed.isFormatted())
+			return false;
+		uint32_t byteSize = 0u;
+		if (!isDirectScalarFormat(view.composed.format, scalarType, componentCount, byteSize))
+			return false;
+		const uint32_t pixelBytes = getBytesPerPixel(view.composed.format).getNumerator();
+		if (view.composed.getStride() != pixelBytes)
+			return false;
+		const void* src = view.getPointer(ix);
+		if (!src)
+			return false;
+		const size_t copyBytes = static_cast<size_t>(componentCount) * byteSize;
+		std::memcpy(dst, src, copyBytes);
+		dst += copyBytes;
+		return true;
+	}
+	static bool writeTypedViewBinary(const ICPUPolygonGeometry::SDataView& view, const size_t ix, const uint32_t componentCount, const ScalarType scalarType, const bool flipVectors, uint8_t*& dst)
+	{
+		if (!dst)
+			return false;
+		if (writeDirectBinaryView(view, ix, componentCount, scalarType, flipVectors, dst))
+			return true;
+		switch (scalarType)
+		{
+			case ScalarType::Float64:
+			case ScalarType::Float32:
 			{
-				OutT value = decoded[c];
-				if constexpr (std::is_signed_v<OutT> || std::is_floating_point_v<OutT>)
+				hlsl::float64_t4 tmp = {};
+				if (!decodeVec4(view, ix, tmp))
+					return false;
+				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
+					double value = (&tmp.x)[c];
 					if (flipVectors && c == 0u)
 						value = -value;
+					if (scalarType == ScalarType::Float64)
+					{
+						std::memcpy(dst, &value, sizeof(value));
+						dst += sizeof(value);
+					}
+					else
+					{
+						const float typed = static_cast<float>(value);
+						std::memcpy(dst, &typed, sizeof(typed));
+						dst += sizeof(typed);
+					}
 				}
-				if (!sink.append(value))
-					return false;
+				return true;
 			}
-			return true;
-		}
-		template<typename OutT, SGeometryViewDecode::EMode Mode>
-		static bool emitPrepared(Sink& sink, const PreparedView& view, const size_t ix) { if constexpr (Mode == SGeometryViewDecode::EMode::Semantic) return emitDecode<OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors); return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors); }
-		template<typename OutT, SGeometryViewDecode::EMode Mode>
-		static inline void prepareDecode(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors) { view.flipVectors = flipVectors; if constexpr (Mode == SGeometryViewDecode::EMode::Semantic) view.semantic = SGeometryViewDecode::prepare<Mode>(src); else view.stored = SGeometryViewDecode::prepare<Mode>(src); view.emit = &emitPrepared<OutT, Mode>; }
-		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
-		{
-			PreparedView retval = {.components = components};
-			if (!view)
-				return retval;
-			switch (scalarType)
+			case ScalarType::Int8:
+			case ScalarType::Int16:
+			case ScalarType::Int32:
 			{
-				case ScalarType::Float64: prepareDecode<double, SGeometryViewDecode::EMode::Semantic>(retval, *view, flipVectors); break;
-				case ScalarType::Float32: prepareDecode<float, SGeometryViewDecode::EMode::Semantic>(retval, *view, flipVectors); break;
-				case ScalarType::Int8: prepareDecode<int8_t, SGeometryViewDecode::EMode::Stored>(retval, *view, flipVectors); break;
-				case ScalarType::UInt8: prepareDecode<uint8_t, SGeometryViewDecode::EMode::Stored>(retval, *view, false); break;
-				case ScalarType::Int16: prepareDecode<int16_t, SGeometryViewDecode::EMode::Stored>(retval, *view, flipVectors); break;
-				case ScalarType::UInt16: prepareDecode<uint16_t, SGeometryViewDecode::EMode::Stored>(retval, *view, false); break;
-				case ScalarType::Int32: prepareDecode<int32_t, SGeometryViewDecode::EMode::Stored>(retval, *view, flipVectors); break;
-				case ScalarType::UInt32: prepareDecode<uint32_t, SGeometryViewDecode::EMode::Stored>(retval, *view, false); break;
+				int64_t tmp[4] = {};
+				if (!decodeSigned4Raw(view, ix, tmp))
+					return false;
+				for (uint32_t c = 0u; c < componentCount; ++c)
+				{
+					int64_t value = tmp[c];
+					if (flipVectors && c == 0u)
+						value = -value;
+					switch (scalarType)
+					{
+						case ScalarType::Int8:
+						{
+							const int8_t typed = static_cast<int8_t>(value);
+							std::memcpy(dst, &typed, sizeof(typed));
+							dst += sizeof(typed);
+						} break;
+						case ScalarType::Int16:
+						{
+							const int16_t typed = static_cast<int16_t>(value);
+							std::memcpy(dst, &typed, sizeof(typed));
+							dst += sizeof(typed);
+						} break;
+						default:
+						{
+							const int32_t typed = static_cast<int32_t>(value);
+							std::memcpy(dst, &typed, sizeof(typed));
+							dst += sizeof(typed);
+						} break;
+					}
+				}
+				return true;
 			}
-			return retval;
+			case ScalarType::UInt8:
+			case ScalarType::UInt16:
+			case ScalarType::UInt32:
+			{
+				uint64_t tmp[4] = {};
+				if (!decodeUnsigned4Raw(view, ix, tmp))
+					return false;
+				for (uint32_t c = 0u; c < componentCount; ++c)
+				{
+					switch (scalarType)
+					{
+						case ScalarType::UInt8:
+						{
+							const uint8_t typed = static_cast<uint8_t>(tmp[c]);
+							std::memcpy(dst, &typed, sizeof(typed));
+							dst += sizeof(typed);
+						} break;
+						case ScalarType::UInt16:
+						{
+							const uint16_t typed = static_cast<uint16_t>(tmp[c]);
+							std::memcpy(dst, &typed, sizeof(typed));
+							dst += sizeof(typed);
+						} break;
+						default:
+						{
+							const uint32_t typed = static_cast<uint32_t>(tmp[c]);
+							std::memcpy(dst, &typed, sizeof(typed));
+							dst += sizeof(typed);
+						} break;
+					}
+				}
+				return true;
+			}
 		}
-	};
-	template<typename Sink>
-	static bool emitVertices(const WriteInput& input, Sink& sink)
+		return false;
+	}
+	static bool writeTypedViewText(std::string& output, const ICPUPolygonGeometry::SDataView& view, const size_t ix, const uint32_t componentCount, const ScalarType scalarType, const bool flipVectors)
+	{
+		switch (scalarType)
+		{
+			case ScalarType::Float64:
+			case ScalarType::Float32:
+			{
+				hlsl::float64_t4 tmp = {};
+				if (!decodeVec4(view, ix, tmp))
+					return false;
+				for (uint32_t c = 0u; c < componentCount; ++c)
+				{
+					double value = (&tmp.x)[c];
+					if (flipVectors && c == 0u)
+						value = -value;
+					appendFloat(output, value);
+					output.push_back(' ');
+				}
+				return true;
+			}
+			case ScalarType::Int8:
+			case ScalarType::Int16:
+			case ScalarType::Int32:
+			{
+				int64_t tmp[4] = {};
+				if (!decodeSigned4Raw(view, ix, tmp))
+					return false;
+				for (uint32_t c = 0u; c < componentCount; ++c)
+				{
+					int64_t value = tmp[c];
+					if (flipVectors && c == 0u)
+						value = -value;
+					appendIntegral(output, value);
+					output.push_back(' ');
+				}
+				return true;
+			}
+			case ScalarType::UInt8:
+			case ScalarType::UInt16:
+			case ScalarType::UInt32:
+			{
+				uint64_t tmp[4] = {};
+				if (!decodeUnsigned4Raw(view, ix, tmp))
+					return false;
+				for (uint32_t c = 0u; c < componentCount; ++c)
+				{
+					appendIntegral(output, tmp[c]);
+					output.push_back(' ');
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+	static bool writeBinaryFast(const WriteInput& input, uint8_t*& dst)
+	{
+		if (!input.geom || !input.indices || !input.extraAuxViews || !dst || input.flipVectors || input.writeNormals || input.uvView || !input.extraAuxViews->empty() || input.positionScalarType != ScalarType::Float32)
+			return false;
+		const auto& positionView = input.geom->getPositionView();
+		if (!positionView.composed.isFormatted() || positionView.composed.format != EF_R32G32B32_SFLOAT || positionView.composed.getStride() != sizeof(hlsl::float32_t3))
+			return false;
+		const void* src = positionView.getPointer();
+		if (!src)
+			return false;
+		const size_t vertexBytes = input.vertexCount * sizeof(hlsl::float32_t3);
+		std::memcpy(dst, src, vertexBytes);
+		dst += vertexBytes;
+		for (size_t i = 0u; i < input.faceCount; ++i)
+		{
+			*dst++ = 3u;
+			const uint32_t* tri = input.indices + i * 3u;
+			if (input.write16BitIndices)
+			{
+				const uint16_t tri16[3] = {static_cast<uint16_t>(tri[0]), static_cast<uint16_t>(tri[1]), static_cast<uint16_t>(tri[2])};
+				std::memcpy(dst, tri16, sizeof(tri16));
+				dst += sizeof(tri16);
+			}
+			else
+			{
+				std::memcpy(dst, tri, sizeof(uint32_t) * 3u);
+				dst += sizeof(uint32_t) * 3u;
+			}
+		}
+		return true;
+	}
+	static bool writeBinary(const WriteInput& input, uint8_t* dst)
+	{
+		if (!input.geom || !input.extraAuxViews || !dst)
+			return false;
+		if (writeBinaryFast(input, dst))
+			return true;
+		const auto& positionView = input.geom->getPositionView();
+		const auto& normalView = input.geom->getNormalView();
+		const auto& extraAuxViews = *input.extraAuxViews;
+		for (size_t i = 0u; i < input.vertexCount; ++i)
+		{
+			if (!writeTypedViewBinary(positionView, i, 3u, input.positionScalarType, input.flipVectors, dst))
+				return false;
+			if (input.writeNormals && !writeTypedViewBinary(normalView, i, 3u, input.normalScalarType, input.flipVectors, dst))
+				return false;
+			if (input.uvView && !writeTypedViewBinary(*input.uvView, i, 2u, input.uvScalarType, false, dst))
+				return false;
+			for (const auto& extra : extraAuxViews)
+				if (!extra.view || !writeTypedViewBinary(*extra.view, i, extra.components, extra.scalarType, false, dst))
+					return false;
+		}
+		if (!input.indices)
+			return false;
+		for (size_t i = 0u; i < input.faceCount; ++i)
+		{
+			const uint8_t listSize = 3u;
+			*dst++ = listSize;
+			const uint32_t* tri = input.indices + i * 3u;
+			if (input.write16BitIndices)
+			{
+				const uint16_t tri16[3] = {static_cast<uint16_t>(tri[0]), static_cast<uint16_t>(tri[1]), static_cast<uint16_t>(tri[2])};
+				std::memcpy(dst, tri16, sizeof(tri16));
+				dst += sizeof(tri16);
+			}
+			else
+			{
+				std::memcpy(dst, tri, sizeof(uint32_t) * 3u);
+				dst += sizeof(uint32_t) * 3u;
+			}
+		}
+		return true;
+	}
+	static bool writeText(const WriteInput& input, std::string& output)
 	{
 		if (!input.geom || !input.extraAuxViews)
 			return false;
 		const auto& positionView = input.geom->getPositionView();
 		const auto& normalView = input.geom->getNormalView();
 		const auto& extraAuxViews = *input.extraAuxViews;
-		const PreparedView<Sink> preparedPosition = PreparedView<Sink>::create(&positionView, 3u, input.positionScalarType, input.flipVectors);
-		const PreparedView<Sink> preparedNormal = input.writeNormals ? PreparedView<Sink>::create(&normalView, 3u, input.normalScalarType, input.flipVectors) : PreparedView<Sink>{};
-		const PreparedView<Sink> preparedUV = input.uvView ? PreparedView<Sink>::create(input.uvView, 2u, input.uvScalarType, false) : PreparedView<Sink>{};
-		core::vector<PreparedView<Sink>> preparedExtraAuxViews;
-		preparedExtraAuxViews.reserve(extraAuxViews.size());
-		for (const auto& extra : extraAuxViews)
-			preparedExtraAuxViews.push_back(extra.view ? PreparedView<Sink>::create(extra.view, extra.components, extra.scalarType, false) : PreparedView<Sink>{});
 		for (size_t i = 0u; i < input.vertexCount; ++i)
 		{
-			if (!preparedPosition(sink, i))
+			if (!writeTypedViewText(output, positionView, i, 3u, input.positionScalarType, input.flipVectors))
 				return false;
-			if (input.writeNormals && !preparedNormal(sink, i))
+			if (input.writeNormals && !writeTypedViewText(output, normalView, i, 3u, input.normalScalarType, input.flipVectors))
 				return false;
-			if (input.uvView && !preparedUV(sink, i))
+			if (input.uvView && !writeTypedViewText(output, *input.uvView, i, 2u, input.uvScalarType, false))
 				return false;
-			for (size_t extraIx = 0u; extraIx < extraAuxViews.size(); ++extraIx)
-			{
-				if (!extraAuxViews[extraIx].view || !preparedExtraAuxViews[extraIx](sink, i))
+			for (const auto& extra : extraAuxViews)
+				if (!extra.view || !writeTypedViewText(output, *extra.view, i, extra.components, extra.scalarType, false))
 					return false;
-			}
-			if (!sink.finishVertex())
-				return false;
+			output.push_back('\n');
+		}
+		if (!input.indices)
+			return false;
+		for (size_t i = 0u; i < input.faceCount; ++i)
+		{
+			const uint32_t* tri = input.indices + i * 3u;
+			output.append("3 ");
+			appendIntegral(output, tri[0]);
+			output.push_back(' ');
+			appendIntegral(output, tri[1]);
+			output.push_back(' ');
+			appendIntegral(output, tri[2]);
+			output.push_back('\n');
 		}
 		return true;
-	}
-	static bool writeBinary(const WriteInput& input, uint8_t* dst)
-	{
-		BinarySink sink = {.cursor = dst};
-		if (!emitVertices(input, sink))
-			return false;
-		return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) -> bool {
-			if (!sink.append(static_cast<uint8_t>(3u)))
-				return false;
-			if (input.write16BitIndices)
-			{
-				if (!sink.append(static_cast<uint16_t>(i0)) || !sink.append(static_cast<uint16_t>(i1)) || !sink.append(static_cast<uint16_t>(i2)))
-					return false;
-			}
-			else if (!sink.append(i0) || !sink.append(i1) || !sink.append(i2))
-				return false;
-			return true;
-		});
-	}
-	static bool writeText(const WriteInput& input, std::string& output)
-	{
-		TextSink sink = {.output = output};
-		if (!emitVertices(input, sink))
-			return false;
-		return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) {
-			output.append("3 ");
-			appendIntegral(output, i0);
-			output.push_back(' ');
-			appendIntegral(output, i1);
-			output.push_back(' ');
-			appendIntegral(output, i2);
-			output.push_back('\n');
-		});
 	}
 };
 }
 bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	using ScalarType = Parse::ScalarType;
+	using clock_t = std::chrono::high_resolution_clock;
 	SFileWriteTelemetry ioTelemetry = {};
 	if (!_override)
 		getDefaultOverride(_override);
@@ -322,14 +550,62 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const uint32_t components = std::min(4u, channels);
 		extraAuxViews.push_back({&view, components, auxIx, Parse::selectScalarType(view.composed.format)});
 	}
+	_params.logger.log("PLY writer input: file=%s pos_fmt=%u pos_stride=%u pos_count=%llu normal_fmt=%u normal_stride=%u normal_count=%llu uv_fmt=%u uv_stride=%u uv_count=%llu aux=%u",
+		system::ILogger::ELL_INFO, file->getFileName().string().c_str(), static_cast<uint32_t>(positionView.composed.format), positionView.composed.getStride(),
+		static_cast<unsigned long long>(positionView.getElementCount()), static_cast<uint32_t>(normalView.composed.format), normalView.composed.getStride(),
+		static_cast<unsigned long long>(normalView.getElementCount()), uvView ? static_cast<uint32_t>(uvView->composed.format) : static_cast<uint32_t>(EF_UNKNOWN),
+		uvView ? uvView->composed.getStride() : 0u, uvView ? static_cast<unsigned long long>(uvView->getElementCount()) : 0ull, static_cast<uint32_t>(extraAuxViews.size()));
 	const auto* indexing = geom->getIndexingCallback();
 	if (!indexing)
 		return _params.logger.log("PLY writer: missing indexing callback.", system::ILogger::ELL_ERROR), false;
 	if (indexing->knownTopology() != E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST)
 		return _params.logger.log("PLY writer: only triangle-list topology is supported.", system::ILogger::ELL_ERROR), false;
+	const auto& indexView = geom->getIndexView();
+	core::vector<uint32_t> indexData;
+	const uint32_t* indices = nullptr;
 	size_t faceCount = 0ull;
-	if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
-		return _params.logger.log("PLY writer: failed to validate triangle indexing.", system::ILogger::ELL_ERROR), false;
+	if (indexView)
+	{
+		const size_t indexCount = indexView.getElementCount();
+		if ((indexCount % 3u) != 0u)
+			return _params.logger.log("PLY writer: failed to validate triangle indexing.", system::ILogger::ELL_ERROR), false;
+		const void* src = indexView.getPointer();
+		if (!src)
+			return _params.logger.log("PLY writer: missing index buffer pointer.", system::ILogger::ELL_ERROR), false;
+		if (indexView.composed.format == EF_R32_UINT && indexView.composed.getStride() == sizeof(uint32_t))
+			indices = reinterpret_cast<const uint32_t*>(src);
+		else if (indexView.composed.format == EF_R16_UINT && indexView.composed.getStride() == sizeof(uint16_t))
+		{
+			const auto* src16 = reinterpret_cast<const uint16_t*>(src);
+			indexData.resize(indexCount);
+			for (size_t i = 0u; i < indexCount; ++i)
+				indexData[i] = src16[i];
+			indices = indexData.data();
+		}
+		else
+		{
+			indexData.resize(indexCount);
+			for (size_t i = 0u; i < indexCount; ++i)
+			{
+				hlsl::uint32_t4 decoded = {};
+				if (!indexView.decodeElement(i, decoded))
+					return _params.logger.log("PLY writer: failed to decode index view.", system::ILogger::ELL_ERROR), false;
+				indexData[i] = decoded.x;
+			}
+			indices = indexData.data();
+		}
+		faceCount = indexCount / 3u;
+	}
+	else
+	{
+		if ((vertexCount % 3u) != 0u)
+			return _params.logger.log("PLY writer: failed to derive triangle indexing from positions.", system::ILogger::ELL_ERROR), false;
+		indexData.resize(vertexCount);
+		for (size_t i = 0u; i < vertexCount; ++i)
+			indexData[i] = static_cast<uint32_t>(i);
+		indices = indexData.data();
+		faceCount = vertexCount / 3u;
+	}
 	const auto flags = _override->getAssetWritingFlags(ctx, geom, 0u);
 	const bool binary = flags.hasAnyFlag(E_WRITER_FLAGS::EWF_BINARY);
 	const bool flipVectors = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
@@ -381,9 +657,10 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	headerBuilder << (write16BitIndices ? "\nproperty list uchar uint16 vertex_indices\n" : "\nproperty list uchar uint32 vertex_indices\n");
 	headerBuilder << "end_header\n";
 	const std::string header = headerBuilder.str();
-	const Parse::WriteInput input = {.geom = geom, .positionScalarType = positionScalarType, .uvView = uvView, .uvScalarType = uvScalarType, .extraAuxViews = &extraAuxViews, .writeNormals = writeNormals, .normalScalarType = normalScalarType, .vertexCount = vertexCount, .faceCount = faceCount, .write16BitIndices = write16BitIndices, .flipVectors = flipVectors};
+	const Parse::WriteInput input = {.geom = geom, .positionScalarType = positionScalarType, .uvView = uvView, .uvScalarType = uvScalarType, .extraAuxViews = &extraAuxViews, .writeNormals = writeNormals, .normalScalarType = normalScalarType, .vertexCount = vertexCount, .indices = indices, .faceCount = faceCount, .write16BitIndices = write16BitIndices, .flipVectors = flipVectors};
 	bool writeOk = false;
 	size_t outputBytes = 0ull;
+	double writeIoMs = 0.0;
 	auto writePayload = [&](const void* bodyData, const size_t bodySize) -> bool {
 		const size_t outputSize = header.size() + bodySize;
 		const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, file);
@@ -391,7 +668,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			return false;
 		outputBytes = outputSize;
 		const SInterchangeIO::SBufferRange writeBuffers[] = {{.data = header.data(), .byteCount = header.size()}, {.data = bodyData, .byteCount = bodySize}};
+		const auto ioStart = clock_t::now();
 		writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
+		writeIoMs = std::chrono::duration<double, std::milli>(clock_t::now() - ioStart).count();
 		const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 		const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
 		impl::SFileAccess::logTinyIO(_params.logger, "PLY writer", file->getFileName().string().c_str(), ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy, "writes");
@@ -408,16 +687,24 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const size_t faceStride = sizeof(uint8_t) + (write16BitIndices ? sizeof(uint16_t) : sizeof(uint32_t)) * 3u;
 		const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
 		core::vector<uint8_t> body;
+		const auto fillStart = clock_t::now();
 		body.resize(bodySize);
 		if (!Parse::writeBinary(input, body.data()))
 			return _params.logger.log("PLY writer: binary payload generation failed.", system::ILogger::ELL_ERROR), false;
-		return writePayload(body.data(), body.size());
+		const auto fillMs = std::chrono::duration<double, std::milli>(clock_t::now() - fillStart).count();
+		const bool ok = writePayload(body.data(), body.size());
+		_params.logger.log("PLY writer stages: file=%s header=%llu body=%llu fill=%.3f ms io=%.3f ms", system::ILogger::ELL_PERFORMANCE, file->getFileName().string().c_str(), static_cast<unsigned long long>(header.size()), static_cast<unsigned long long>(body.size()), fillMs, writeIoMs);
+		return ok;
 	}
 	std::string body;
 	body.reserve(vertexCount * Parse::ApproxTextBytesPerVertex + faceCount * Parse::ApproxTextBytesPerFace);
+	const auto fillStart = clock_t::now();
 	if (!Parse::writeText(input, body))
 		return _params.logger.log("PLY writer: text payload generation failed.", system::ILogger::ELL_ERROR), false;
-	return writePayload(body.data(), body.size());
+	const auto fillMs = std::chrono::duration<double, std::milli>(clock_t::now() - fillStart).count();
+	const bool ok = writePayload(body.data(), body.size());
+	_params.logger.log("PLY writer stages: file=%s header=%llu body=%llu fill=%.3f ms io=%.3f ms", system::ILogger::ELL_PERFORMANCE, file->getFileName().string().c_str(), static_cast<unsigned long long>(header.size()), static_cast<unsigned long long>(body.size()), fillMs, writeIoMs);
+	return ok;
 }
 }
 #endif // _NBL_COMPILE_WITH_PLY_WRITER_

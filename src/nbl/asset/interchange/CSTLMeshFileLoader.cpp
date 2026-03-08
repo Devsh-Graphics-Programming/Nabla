@@ -84,7 +84,12 @@ struct Parse
 		public:
 			inline AsciiParser(const char* begin, const char* end) : m_cursor(begin), m_end(end) {}
 			inline std::optional<std::string_view> readToken() { return Common::readToken(m_cursor, m_end); }
-			inline std::optional<float> readFloat() { float value = 0.f; return Common::parseNumber(m_cursor, m_end, value) ? std::optional<float>(value) : std::nullopt; }
+			inline std::optional<float> readFloat()
+			{
+				Common::skipWhitespace(m_cursor, m_end);
+				float value = 0.f;
+				return Common::parseNumber(m_cursor, m_end, value) ? std::optional<float>(value) : std::nullopt;
+			}
 			inline std::optional<hlsl::float32_t3> readVec3()
 			{
 				const auto x = readFloat(), y = readFloat(), z = readFloat();

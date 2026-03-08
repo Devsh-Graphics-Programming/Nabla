@@ -19,6 +19,7 @@
 #include "nbl/core/hash/blake.h"
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"
+#include <chrono>
 #include <thread>
 namespace nbl::asset
 {
@@ -435,96 +436,95 @@ struct Parse
             hlsl::shapes::util::AABBAccumulator3<float>* parsedAABB) {
             if (!IsBinaryFile || el.Name != "vertex")
                 return EFastVertexReadResult::NotApplicable;
-            struct SLayoutDesc {
-                uint32_t propertyCount;
-                uint32_t srcBytesPerVertex;
-                bool hasNormals;
-                bool hasUVs;
-            };
-            auto allF32 = [&el]() -> bool {
-                for (const auto& prop : el.Properties) {
+            enum class ELayoutKind : uint8_t { XYZ, XYZ_N, XYZ_N_UV };
+            auto allF32 = [&el]()->bool {
+                for (const auto& prop : el.Properties)
                     if (prop.type != EF_R32_SFLOAT)
                         return false;
-                }
                 return true;
             };
             if (!allF32())
                 return EFastVertexReadResult::NotApplicable;
-            auto matchNames =
-                [&el](std::initializer_list<const char*> names) -> bool {
+            auto matchNames = [&el](std::initializer_list<const char*> names)->bool {
                 if (el.Properties.size() != names.size())
                     return false;
                 size_t i = 0ull;
-                for (const auto* name : names) {
+                for (const auto* name : names)
+                {
                     if (el.Properties[i].Name != name)
                         return false;
                     ++i;
                 }
                 return true;
             };
-            static constexpr SLayoutDesc xyz = {3u, sizeof(hlsl::float32_t) * 3u,
-                                                false, false};
-            static constexpr SLayoutDesc xyz_n = {6u, sizeof(hlsl::float32_t) * 6u,
-                                                  true, false};
-            static constexpr SLayoutDesc xyz_n_uv = {8u, sizeof(hlsl::float32_t) * 8u,
-                                                     true, true};
-            const SLayoutDesc* layout = nullptr;
+            ELayoutKind layout = ELayoutKind::XYZ;
             if (matchNames({"x", "y", "z"}))
-                layout = &xyz;
+                layout = ELayoutKind::XYZ;
             else if (matchNames({"x", "y", "z", "nx", "ny", "nz"}))
-                layout = &xyz_n;
+                layout = ELayoutKind::XYZ_N;
             else if (matchNames({"x", "y", "z", "nx", "ny", "nz", "u", "v"}) ||
                      matchNames({"x", "y", "z", "nx", "ny", "nz", "s", "t"}))
-                layout = &xyz_n_uv;
-            if (!layout)
+                layout = ELayoutKind::XYZ_N_UV;
+            else
                 return EFastVertexReadResult::NotApplicable;
             const size_t floatBytes = sizeof(hlsl::float32_t);
-            struct STupleDesc {
-                uint32_t beginIx;
-                uint32_t componentCount;
-                uint32_t stride = 0u;
-                uint8_t* base = nullptr;
-            };
-            std::array<STupleDesc, 3> tuples = {STupleDesc{0u, 3u},
-                                                STupleDesc{3u, 3u},
-                                                STupleDesc{6u, 2u}};
-            const uint32_t tupleCount =
-                1u + static_cast<uint32_t>(layout->hasNormals) +
-                static_cast<uint32_t>(layout->hasUVs);
-            auto validateTuple = [&](STupleDesc& tuple) -> bool {
-                if (tuple.beginIx + tuple.componentCount > vertAttrIts.size())
+            auto validateTuple = [&](const size_t beginIx, const size_t componentCount, uint32_t& outStride, uint8_t*& outBase)->bool {
+                if (beginIx + componentCount > vertAttrIts.size())
                     return false;
-                auto& first = vertAttrIts[tuple.beginIx];
+                auto& first = vertAttrIts[beginIx];
                 if (!first.ptr || first.dstFmt != EF_R32_SFLOAT)
                     return false;
-                tuple.stride = first.stride;
-                tuple.base = first.ptr;
-                for (uint32_t c = 1u; c < tuple.componentCount; ++c) {
-                    auto& it = vertAttrIts[tuple.beginIx + c];
+                outStride = first.stride;
+                outBase = first.ptr;
+                for (size_t c = 1ull; c < componentCount; ++c)
+                {
+                    auto& it = vertAttrIts[beginIx + c];
                     if (!it.ptr || it.dstFmt != EF_R32_SFLOAT)
                         return false;
-                    if (it.stride != tuple.stride)
+                    if (it.stride != outStride)
                         return false;
-                    if (it.ptr != tuple.base + c * floatBytes)
+                    if (it.ptr != outBase + c * floatBytes)
                         return false;
                 }
                 return true;
             };
-            auto commitTuple = [&](const STupleDesc& tuple) -> void {
-                for (uint32_t c = 0u; c < tuple.componentCount; ++c)
-                    vertAttrIts[tuple.beginIx + c].ptr = tuple.base + c * floatBytes;
-            };
-            if (vertAttrIts.size() != layout->propertyCount)
-                return EFastVertexReadResult::NotApplicable;
-            for (uint32_t tupleIx = 0u; tupleIx < tupleCount; ++tupleIx)
-                if (!validateTuple(tuples[tupleIx]))
-                    return EFastVertexReadResult::NotApplicable;
-            if (el.Count >
-                (std::numeric_limits<size_t>::max() / layout->srcBytesPerVertex))
+            uint32_t posStride = 0u, normalStride = 0u, uvStride = 0u;
+            uint8_t* posBase = nullptr;
+            uint8_t* normalBase = nullptr;
+            uint8_t* uvBase = nullptr;
+            switch (layout)
+            {
+                case ELayoutKind::XYZ:
+                    if (vertAttrIts.size() != 3u || !validateTuple(0u, 3u, posStride, posBase))
+                        return EFastVertexReadResult::NotApplicable;
+                    break;
+                case ELayoutKind::XYZ_N:
+                    if (vertAttrIts.size() != 6u)
+                        return EFastVertexReadResult::NotApplicable;
+                    if (!validateTuple(0u, 3u, posStride, posBase) || !validateTuple(3u, 3u, normalStride, normalBase))
+                        return EFastVertexReadResult::NotApplicable;
+                    break;
+                case ELayoutKind::XYZ_N_UV:
+                    if (vertAttrIts.size() != 8u)
+                        return EFastVertexReadResult::NotApplicable;
+                    if (!validateTuple(0u, 3u, posStride, posBase) || !validateTuple(3u, 3u, normalStride, normalBase) || !validateTuple(6u, 2u, uvStride, uvBase))
+                        return EFastVertexReadResult::NotApplicable;
+                    break;
+            }
+            const size_t srcBytesPerVertex = [layout]()->size_t {
+                switch (layout)
+                {
+                    case ELayoutKind::XYZ: return sizeof(hlsl::float32_t) * 3ull;
+                    case ELayoutKind::XYZ_N: return sizeof(hlsl::float32_t) * 6ull;
+                    case ELayoutKind::XYZ_N_UV: return sizeof(hlsl::float32_t) * 8ull;
+                    default: return 0ull;
+                }
+            }();
+            if (srcBytesPerVertex == 0ull || el.Count > (std::numeric_limits<size_t>::max() / srcBytesPerVertex))
                 return EFastVertexReadResult::Error;
             const bool trackAABB = parsedAABB != nullptr;
             const bool needsByteSwap = IsWrongEndian;
-            auto decodeF32 = [needsByteSwap](const uint8_t* src) -> float {
+            auto decodeF32 = [needsByteSwap](const uint8_t* src)->float {
                 uint32_t bits = 0u;
                 std::memcpy(&bits, src, sizeof(bits));
                 if (needsByteSwap)
@@ -533,72 +533,240 @@ struct Parse
                 std::memcpy(&value, &bits, sizeof(value));
                 return value;
             };
-            auto decodeVector = [&]<typename Vec>(const uint8_t* src) -> Vec {
-                constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
-                Vec value{};
-                hlsl::array_set<Vec, float> setter;
-                for (uint32_t i = 0u; i < N; ++i)
-                    setter(value, i,
-                           decodeF32(src + static_cast<size_t>(i) * floatBytes));
-                return value;
-            };
-            auto storeVector = []<typename Vec>(uint8_t* dst,
-                                                const Vec& value) -> void {
-                constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
-                hlsl::array_get<Vec, float> getter;
-                auto* const out = reinterpret_cast<float*>(dst);
-                for (uint32_t i = 0u; i < N; ++i)
-                    out[i] = getter(value, i);
-            };
-            auto decodeStore = [&]<typename Vec>(STupleDesc& tuple,
-                                                 const uint8_t*& src) -> Vec {
-                Vec value = decodeVector.operator()<Vec>(src);
-                storeVector.operator()<Vec>(tuple.base, value);
-                src += static_cast<size_t>(hlsl::vector_traits<Vec>::Dimension) *
-                       floatBytes;
-                tuple.base += tuple.stride;
-                return value;
-            };
             size_t remainingVertices = el.Count;
-            while (remainingVertices > 0ull) {
-                if (StartPointer + layout->srcBytesPerVertex > EndPointer)
+            while (remainingVertices > 0ull)
+            {
+                if (StartPointer + srcBytesPerVertex > EndPointer)
                     fillBuffer();
-                const size_t available =
-                    EndPointer > StartPointer
-                        ? static_cast<size_t>(EndPointer - StartPointer)
-                        : 0ull;
-                if (available < layout->srcBytesPerVertex)
+                const size_t available = EndPointer > StartPointer ? static_cast<size_t>(EndPointer - StartPointer) : 0ull;
+                if (available < srcBytesPerVertex)
                     return EFastVertexReadResult::Error;
-                const size_t batchVertices =
-                    std::min(remainingVertices, available / layout->srcBytesPerVertex);
+                const size_t batchVertices = std::min(remainingVertices, available / srcBytesPerVertex);
                 const uint8_t* src = reinterpret_cast<const uint8_t*>(StartPointer);
-                if (!layout->hasNormals && !layout->hasUVs &&
-                    tuples[0].stride == 3ull * floatBytes && !needsByteSwap &&
-                    !trackAABB) {
-                    const size_t batchBytes = batchVertices * 3ull * floatBytes;
-                    std::memcpy(tuples[0].base, src, batchBytes);
-                    src += batchBytes;
-                    tuples[0].base += batchBytes;
-                } else {
-                    for (size_t v = 0ull; v < batchVertices; ++v) {
-                        const hlsl::float32_t3 position =
-                            decodeStore.operator()<hlsl::float32_t3>(tuples[0], src);
-                        if (trackAABB)
-                            hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-                        if (layout->hasNormals) {
-                            decodeStore.operator()<hlsl::float32_t3>(tuples[1], src);
+                switch (layout)
+                {
+                    case ELayoutKind::XYZ:
+                    {
+                        if (posStride == 3ull * floatBytes)
+                        {
+                            const size_t batchBytes = batchVertices * 3ull * floatBytes;
+                            if (trackAABB && batchVertices >= (1ull << 20))
+                            {
+                                const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
+                                const size_t hardMaxWorkers = SLoaderRuntimeTuner::resolveHardMaxWorkers(hw, inner.params.ioPolicy.runtimeTuning.workerHeadroom);
+                                SLoaderRuntimeTuningRequest vertexTuningRequest = {};
+                                vertexTuningRequest.inputBytes = batchBytes;
+                                vertexTuningRequest.totalWorkUnits = batchVertices;
+                                vertexTuningRequest.minBytesPerWorker = 3ull * floatBytes;
+                                vertexTuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+                                vertexTuningRequest.hardMaxWorkers = static_cast<uint32_t>(hardMaxWorkers);
+                                vertexTuningRequest.targetChunksPerWorker = inner.params.ioPolicy.runtimeTuning.targetChunksPerWorker;
+                                vertexTuningRequest.sampleData = reinterpret_cast<const uint8_t*>(src);
+                                vertexTuningRequest.sampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(inner.params.ioPolicy, batchBytes);
+                                const auto vertexTuning = SLoaderRuntimeTuner::tune(inner.params.ioPolicy, vertexTuningRequest);
+                                const size_t workerCount = std::min(vertexTuning.workerCount, batchVertices);
+                                if (workerCount > 1ull)
+                                {
+                                    struct SAABBRange { float minX = std::numeric_limits<float>::max(); float minY = std::numeric_limits<float>::max(); float minZ = std::numeric_limits<float>::max(); float maxX = std::numeric_limits<float>::lowest(); float maxY = std::numeric_limits<float>::lowest(); float maxZ = std::numeric_limits<float>::lowest(); };
+                                    std::vector<SAABBRange> workerRanges(workerCount);
+                                    uint8_t* dstBase = posBase;
+                                    SLoaderRuntimeTuner::dispatchWorkers(workerCount, [&](const size_t workerIx) {
+                                        const size_t begin = (batchVertices * workerIx) / workerCount;
+                                        const size_t end = (batchVertices * (workerIx + 1ull)) / workerCount;
+                                        const size_t count = end - begin;
+                                        if (count == 0ull)
+                                            return;
+                                        auto& range = workerRanges[workerIx];
+                                        const uint8_t* inBytes = src + begin * 3ull * floatBytes;
+                                        float* outFloats = reinterpret_cast<float*>(dstBase + begin * 3ull * floatBytes);
+                                        if (!needsByteSwap)
+                                        {
+                                            std::memcpy(outFloats, inBytes, count * 3ull * floatBytes);
+                                            const float* xyz = reinterpret_cast<const float*>(inBytes);
+                                            for (size_t v = 0ull; v < count; ++v)
+                                            {
+                                                const float x = xyz[v * 3ull + 0ull];
+                                                const float y = xyz[v * 3ull + 1ull];
+                                                const float z = xyz[v * 3ull + 2ull];
+                                                if (x < range.minX) range.minX = x;
+                                                if (y < range.minY) range.minY = y;
+                                                if (z < range.minZ) range.minZ = z;
+                                                if (x > range.maxX) range.maxX = x;
+                                                if (y > range.maxY) range.maxY = y;
+                                                if (z > range.maxZ) range.maxZ = z;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            for (size_t v = 0ull; v < count; ++v)
+                                            {
+                                                uint32_t xb = 0u, yb = 0u, zb = 0u;
+                                                std::memcpy(&xb, inBytes + 0ull * floatBytes, sizeof(xb));
+                                                std::memcpy(&yb, inBytes + 1ull * floatBytes, sizeof(yb));
+                                                std::memcpy(&zb, inBytes + 2ull * floatBytes, sizeof(zb));
+                                                xb = Binary::byteswap(xb);
+                                                yb = Binary::byteswap(yb);
+                                                zb = Binary::byteswap(zb);
+                                                float x = 0.f, y = 0.f, z = 0.f;
+                                                std::memcpy(&x, &xb, sizeof(x));
+                                                std::memcpy(&y, &yb, sizeof(y));
+                                                std::memcpy(&z, &zb, sizeof(z));
+                                                outFloats[0] = x;
+                                                outFloats[1] = y;
+                                                outFloats[2] = z;
+                                                if (x < range.minX) range.minX = x;
+                                                if (y < range.minY) range.minY = y;
+                                                if (z < range.minZ) range.minZ = z;
+                                                if (x > range.maxX) range.maxX = x;
+                                                if (y > range.maxY) range.maxY = y;
+                                                if (z > range.maxZ) range.maxZ = z;
+                                                inBytes += 3ull * floatBytes;
+                                                outFloats += 3ull;
+                                            }
+                                        }
+                                    });
+                                    auto& aabb = parsedAABB->value;
+                                    for (const auto& range : workerRanges)
+                                    {
+                                        if (range.minX < aabb.minVx.x) aabb.minVx.x = range.minX;
+                                        if (range.minY < aabb.minVx.y) aabb.minVx.y = range.minY;
+                                        if (range.minZ < aabb.minVx.z) aabb.minVx.z = range.minZ;
+                                        if (range.maxX > aabb.maxVx.x) aabb.maxVx.x = range.maxX;
+                                        if (range.maxY > aabb.maxVx.y) aabb.maxVx.y = range.maxY;
+                                        if (range.maxZ > aabb.maxVx.z) aabb.maxVx.z = range.maxZ;
+                                    }
+                                    src += batchBytes;
+                                    posBase += batchBytes;
+                                    break;
+                                }
+                            }
+                            if (!needsByteSwap)
+                            {
+                                std::memcpy(posBase, src, batchBytes);
+                                if (trackAABB)
+                                {
+                                    const float* xyz = reinterpret_cast<const float*>(src);
+                                    auto& aabb = parsedAABB->value;
+                                    for (size_t v = 0ull; v < batchVertices; ++v)
+                                    {
+                                        const float x = xyz[v * 3ull + 0ull];
+                                        const float y = xyz[v * 3ull + 1ull];
+                                        const float z = xyz[v * 3ull + 2ull];
+                                        if (x < aabb.minVx.x) aabb.minVx.x = x;
+                                        if (y < aabb.minVx.y) aabb.minVx.y = y;
+                                        if (z < aabb.minVx.z) aabb.minVx.z = z;
+                                        if (x > aabb.maxVx.x) aabb.maxVx.x = x;
+                                        if (y > aabb.maxVx.y) aabb.maxVx.y = y;
+                                        if (z > aabb.maxVx.z) aabb.maxVx.z = z;
+                                    }
+                                }
+                                src += batchBytes;
+                                posBase += batchBytes;
+                            }
+                            else
+                            {
+                                for (size_t v = 0ull; v < batchVertices; ++v)
+                                {
+                                    const float x = decodeF32(src + 0ull * floatBytes);
+                                    const float y = decodeF32(src + 1ull * floatBytes);
+                                    const float z = decodeF32(src + 2ull * floatBytes);
+                                    reinterpret_cast<float*>(posBase)[0] = x;
+                                    reinterpret_cast<float*>(posBase)[1] = y;
+                                    reinterpret_cast<float*>(posBase)[2] = z;
+                                    if (trackAABB)
+                                        hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
+                                    src += 3ull * floatBytes;
+                                    posBase += posStride;
+                                }
+                            }
                         }
-                        if (layout->hasUVs) {
-                            decodeStore.operator()<hlsl::float32_t2>(tuples[2], src);
+                        else
+                        {
+                            for (size_t v = 0ull; v < batchVertices; ++v)
+                            {
+                                const float x = decodeF32(src + 0ull * floatBytes);
+                                const float y = decodeF32(src + 1ull * floatBytes);
+                                const float z = decodeF32(src + 2ull * floatBytes);
+                                reinterpret_cast<float*>(posBase)[0] = x;
+                                reinterpret_cast<float*>(posBase)[1] = y;
+                                reinterpret_cast<float*>(posBase)[2] = z;
+                                if (trackAABB)
+                                    hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, x, y, z);
+                                src += 3ull * floatBytes;
+                                posBase += posStride;
+                            }
+                        }
+                    }
+                    break;
+                    case ELayoutKind::XYZ_N:
+                    {
+                        for (size_t v = 0ull; v < batchVertices; ++v)
+                        {
+                            const float x = decodeF32(src + 0ull * floatBytes);
+                            const float y = decodeF32(src + 1ull * floatBytes);
+                            const float z = decodeF32(src + 2ull * floatBytes);
+                            reinterpret_cast<float*>(posBase)[0] = x;
+                            reinterpret_cast<float*>(posBase)[1] = y;
+                            reinterpret_cast<float*>(posBase)[2] = z;
+                            if (trackAABB)
+                                hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, hlsl::float32_t3(x, y, z));
+                            src += 3ull * floatBytes;
+                            posBase += posStride;
+                            reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
+                            reinterpret_cast<float*>(normalBase)[1] = decodeF32(src + 1ull * floatBytes);
+                            reinterpret_cast<float*>(normalBase)[2] = decodeF32(src + 2ull * floatBytes);
+                            src += 3ull * floatBytes;
+                            normalBase += normalStride;
+                        }
+                    }
+                    break;
+                    case ELayoutKind::XYZ_N_UV:
+                    {
+                        for (size_t v = 0ull; v < batchVertices; ++v)
+                        {
+                            const float x = decodeF32(src + 0ull * floatBytes);
+                            const float y = decodeF32(src + 1ull * floatBytes);
+                            const float z = decodeF32(src + 2ull * floatBytes);
+                            reinterpret_cast<float*>(posBase)[0] = x;
+                            reinterpret_cast<float*>(posBase)[1] = y;
+                            reinterpret_cast<float*>(posBase)[2] = z;
+                            if (trackAABB)
+                                hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, hlsl::float32_t3(x, y, z));
+                            src += 3ull * floatBytes;
+                            posBase += posStride;
+                            reinterpret_cast<float*>(normalBase)[0] = decodeF32(src + 0ull * floatBytes);
+                            reinterpret_cast<float*>(normalBase)[1] = decodeF32(src + 1ull * floatBytes);
+                            reinterpret_cast<float*>(normalBase)[2] = decodeF32(src + 2ull * floatBytes);
+                            src += 3ull * floatBytes;
+                            normalBase += normalStride;
+                            reinterpret_cast<float*>(uvBase)[0] = decodeF32(src + 0ull * floatBytes);
+                            reinterpret_cast<float*>(uvBase)[1] = decodeF32(src + 1ull * floatBytes);
+                            src += 2ull * floatBytes;
+                            uvBase += uvStride;
                         }
                     }
                 }
-                const size_t consumed = batchVertices * layout->srcBytesPerVertex;
+                const size_t consumed = batchVertices * srcBytesPerVertex;
                 StartPointer += consumed;
                 remainingVertices -= batchVertices;
             }
-            for (uint32_t tupleIx = 0u; tupleIx < tupleCount; ++tupleIx)
-                commitTuple(tuples[tupleIx]);
+            const size_t posAdvance = el.Count * posStride;
+            vertAttrIts[0].ptr += posAdvance;
+            vertAttrIts[1].ptr += posAdvance;
+            vertAttrIts[2].ptr += posAdvance;
+            if (layout == ELayoutKind::XYZ_N || layout == ELayoutKind::XYZ_N_UV)
+            {
+                const size_t normalAdvance = el.Count * normalStride;
+                vertAttrIts[3].ptr += normalAdvance;
+                vertAttrIts[4].ptr += normalAdvance;
+                vertAttrIts[5].ptr += normalAdvance;
+            }
+            if (layout == ELayoutKind::XYZ_N_UV)
+            {
+                const size_t uvAdvance = el.Count * uvStride;
+                vertAttrIts[6].ptr += uvAdvance;
+                vertAttrIts[7].ptr += uvAdvance;
+            }
             return EFastVertexReadResult::Success;
         }
         void readVertex(const IAssetLoader::SAssetLoadParams& _params,
@@ -749,11 +917,6 @@ struct Parse
             const size_t indexSize = is32Bit ? sizeof(uint32_t) : sizeof(uint16_t);
             const bool hasVertexCount = vertexCount != 0u;
             const bool trackMaxIndex = !hasVertexCount;
-            const hlsl::uint32_t3 vertexLimit(vertexCount);
-            const auto triExceedsVertexLimit =
-                [&vertexLimit](const hlsl::uint32_t3& tri) -> bool {
-                return hlsl::any(glm::greaterThanEqual(tri, vertexLimit));
-            };
             outIndexHash = IPreHashed::INVALID_HASH;
             const size_t minTriangleRecordSize = sizeof(uint8_t) + indexSize * 3u;
             if (element.Count >
@@ -786,7 +949,6 @@ struct Parse
                         value = Binary::byteswap(value);
                     return value;
                 };
-                bool fallbackToGeneric = false;
                 if (is32Bit) {
                     const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
                     const size_t hardMaxWorkers =
@@ -864,14 +1026,13 @@ struct Parse
                                     break;
                                 }
                                 ++in;
-                                const hlsl::uint32_t3 tri(
-                                    readU32(in + 0ull * sizeof(uint32_t)),
-                                    readU32(in + 1ull * sizeof(uint32_t)),
-                                    readU32(in + 2ull * sizeof(uint32_t)));
-                                outLocal[0] = tri.x;
-                                outLocal[1] = tri.y;
-                                outLocal[2] = tri.z;
-                                const uint32_t triOr = tri.x | tri.y | tri.z;
+                                const uint32_t i0 = readU32(in + 0ull * sizeof(uint32_t));
+                                const uint32_t i1 = readU32(in + 1ull * sizeof(uint32_t));
+                                const uint32_t i2 = readU32(in + 2ull * sizeof(uint32_t));
+                                outLocal[0] = i0;
+                                outLocal[1] = i1;
+                                outLocal[2] = i2;
+                                const uint32_t triOr = i0 | i1 | i2;
                                 if (isSrcS32 && (triOr & 0x80000000u)) {
                                     workerInvalid[workerIx] = 1u;
                                     if (hashInParsePipeline)
@@ -879,16 +1040,16 @@ struct Parse
                                     break;
                                 }
                                 if (validateAgainstVertexCount) {
-                                    if (triExceedsVertexLimit(tri)) {
+                                    if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount) {
                                         workerInvalid[workerIx] = 1u;
                                         if (hashInParsePipeline)
                                             workerHashable[workerIx] = 0u;
                                         break;
                                     }
                                 } else if (needMax) {
-                                    const uint32_t triMax = std::max({tri.x, tri.y, tri.z});
-                                    if (triMax > localMax)
-                                        localMax = triMax;
+                                    if (i0 > localMax) localMax = i0;
+                                    if (i1 > localMax) localMax = i1;
+                                    if (i2 > localMax) localMax = i2;
                                 }
                                 in += 3ull * sizeof(uint32_t);
                                 outLocal += 3ull;
@@ -940,52 +1101,135 @@ struct Parse
                         return EFastFaceReadResult::Success;
                     }
                 }
-                auto consumeTriangles = [&](const size_t indexBytes, const uint32_t signedMask, auto readTri) -> EFastFaceReadResult {
-                    for (size_t j = 0u; j < element.Count; ++j) {
-                        if (*ptr++ != 3u) {
-                            fallbackToGeneric = true;
-                            return EFastFaceReadResult::NotApplicable;
+                if (is32Bit)
+                {
+                    if (isSrcU32)
+                    {
+                        if (trackMaxIndex)
+                        {
+                            for (size_t j = 0u; j < element.Count; ++j)
+                            {
+                                const uint8_t c = *ptr++;
+                                if (c != 3u)
+                                    return EFastFaceReadResult::NotApplicable;
+                                out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+                                out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+                                out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
+                                ptr += 3ull * sizeof(uint32_t);
+                                if (out[0] > _maxIndex) _maxIndex = out[0];
+                                if (out[1] > _maxIndex) _maxIndex = out[1];
+                                if (out[2] > _maxIndex) _maxIndex = out[2];
+                                out += 3u;
+                            }
                         }
-                        const hlsl::uint32_t3 tri = readTri(ptr);
-                        ptr += 3ull * indexBytes;
-                        const uint32_t triOr = tri.x | tri.y | tri.z;
-                        if (signedMask && (triOr & signedMask))
-                            return EFastFaceReadResult::Error;
-                        out[0] = tri.x;
-                        out[1] = tri.y;
-                        out[2] = tri.z;
-                        if (trackMaxIndex) {
-                            const uint32_t triMax = std::max({tri.x, tri.y, tri.z});
-                            if (triMax > _maxIndex)
-                                _maxIndex = triMax;
-                        } else if (triExceedsVertexLimit(tri))
-                            return EFastFaceReadResult::Error;
-                        out += 3u;
+                        else
+                        {
+                            for (size_t j = 0u; j < element.Count; ++j)
+                            {
+                                const uint8_t c = *ptr++;
+                                if (c != 3u)
+                                    return EFastFaceReadResult::NotApplicable;
+                                out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+                                out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+                                out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
+                                ptr += 3ull * sizeof(uint32_t);
+                                if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+                                    return EFastFaceReadResult::Error;
+                                out += 3u;
+                            }
+                        }
                     }
-                    return EFastFaceReadResult::Success;
-                };
-                const auto fastReadResult = is32Bit ?
-                    consumeTriangles(sizeof(uint32_t), isSrcS32 ? 0x80000000u : 0u,
-                                     [&](const uint8_t* const src) -> hlsl::uint32_t3 {
-                                         return hlsl::uint32_t3(readU32(src + 0ull * sizeof(uint32_t)),
-                                                                readU32(src + 1ull * sizeof(uint32_t)),
-                                                                readU32(src + 2ull * sizeof(uint32_t)));
-                                     }) :
-                    consumeTriangles(sizeof(uint16_t), isSrcS16 ? 0x8000u : 0u,
-                                     [&](const uint8_t* const src) -> hlsl::uint32_t3 {
-                                         return hlsl::uint32_t3(readU16(src + 0ull * sizeof(uint16_t)),
-                                                                readU16(src + 1ull * sizeof(uint16_t)),
-                                                                readU16(src + 2ull * sizeof(uint16_t)));
-                                     });
-                if (fastReadResult == EFastFaceReadResult::Error)
-                    return EFastFaceReadResult::Error;
-                if (!fallbackToGeneric) {
-                    StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
-                    _faceCount += element.Count;
-                    return EFastFaceReadResult::Success;
+                    else
+                    {
+                        for (size_t j = 0u; j < element.Count; ++j)
+                        {
+                            const uint8_t c = *ptr++;
+                            if (c != 3u)
+                                return EFastFaceReadResult::NotApplicable;
+                            out[0] = readU32(ptr + 0ull * sizeof(uint32_t));
+                            out[1] = readU32(ptr + 1ull * sizeof(uint32_t));
+                            out[2] = readU32(ptr + 2ull * sizeof(uint32_t));
+                            ptr += 3ull * sizeof(uint32_t);
+                            if ((out[0] | out[1] | out[2]) & 0x80000000u)
+                                return EFastFaceReadResult::Error;
+                            if (trackMaxIndex)
+                            {
+                                if (out[0] > _maxIndex) _maxIndex = out[0];
+                                if (out[1] > _maxIndex) _maxIndex = out[1];
+                                if (out[2] > _maxIndex) _maxIndex = out[2];
+                            }
+                            else if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+                                return EFastFaceReadResult::Error;
+                            out += 3u;
+                        }
+                    }
                 }
-                _outIndices.resize(oldSize);
-                _maxIndex = oldMaxIndex;
+                else
+                {
+                    if (isSrcU16)
+                    {
+                        if (trackMaxIndex)
+                        {
+                            for (size_t j = 0u; j < element.Count; ++j)
+                            {
+                                const uint8_t c = *ptr++;
+                                if (c != 3u)
+                                    return EFastFaceReadResult::NotApplicable;
+                                out[0] = readU16(ptr + 0ull * sizeof(uint16_t));
+                                out[1] = readU16(ptr + 1ull * sizeof(uint16_t));
+                                out[2] = readU16(ptr + 2ull * sizeof(uint16_t));
+                                ptr += 3ull * sizeof(uint16_t);
+                                if (out[0] > _maxIndex) _maxIndex = out[0];
+                                if (out[1] > _maxIndex) _maxIndex = out[1];
+                                if (out[2] > _maxIndex) _maxIndex = out[2];
+                                out += 3u;
+                            }
+                        }
+                        else
+                        {
+                            for (size_t j = 0u; j < element.Count; ++j)
+                            {
+                                const uint8_t c = *ptr++;
+                                if (c != 3u)
+                                    return EFastFaceReadResult::NotApplicable;
+                                out[0] = readU16(ptr + 0ull * sizeof(uint16_t));
+                                out[1] = readU16(ptr + 1ull * sizeof(uint16_t));
+                                out[2] = readU16(ptr + 2ull * sizeof(uint16_t));
+                                ptr += 3ull * sizeof(uint16_t);
+                                if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+                                    return EFastFaceReadResult::Error;
+                                out += 3u;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (size_t j = 0u; j < element.Count; ++j)
+                        {
+                            const uint8_t c = *ptr++;
+                            if (c != 3u)
+                                return EFastFaceReadResult::NotApplicable;
+                            out[0] = readU16(ptr + 0ull * sizeof(uint16_t));
+                            out[1] = readU16(ptr + 1ull * sizeof(uint16_t));
+                            out[2] = readU16(ptr + 2ull * sizeof(uint16_t));
+                            ptr += 3ull * sizeof(uint16_t);
+                            if ((out[0] | out[1] | out[2]) & 0x8000u)
+                                return EFastFaceReadResult::Error;
+                            if (trackMaxIndex)
+                            {
+                                if (out[0] > _maxIndex) _maxIndex = out[0];
+                                if (out[1] > _maxIndex) _maxIndex = out[1];
+                                if (out[2] > _maxIndex) _maxIndex = out[2];
+                            }
+                            else if (out[0] >= vertexCount || out[1] >= vertexCount || out[2] >= vertexCount)
+                                return EFastFaceReadResult::Error;
+                            out += 3u;
+                        }
+                    }
+                }
+                StartPointer = reinterpret_cast<char*>(const_cast<uint8_t*>(ptr));
+                _faceCount += element.Count;
+                return EFastFaceReadResult::Success;
             }
             if (element.Count > (std::numeric_limits<size_t>::max() / 3u))
                 return EFastFaceReadResult::Error;
@@ -993,7 +1237,10 @@ struct Parse
             if (_outIndices.size() >
                 (std::numeric_limits<size_t>::max() - reserveCount))
                 return EFastFaceReadResult::Error;
-            _outIndices.reserve(_outIndices.size() + reserveCount);
+            const size_t oldSize = _outIndices.size();
+            _outIndices.resize(oldSize + reserveCount);
+            uint32_t* out = _outIndices.data() + oldSize;
+            size_t written = 0ull;
             auto ensureBytes = [this](const size_t bytes) -> bool {
                 if (StartPointer + bytes > EndPointer)
                     fillBuffer();
@@ -1046,7 +1293,71 @@ struct Parse
                 StartPointer += sizeof(uint16_t);
                 return true;
             };
+            auto readPackedU32 = [needEndianSwap](const uint8_t* src) -> uint32_t {
+                uint32_t value = 0u;
+                std::memcpy(&value, src, sizeof(value));
+                if (needEndianSwap)
+                    value = Binary::byteswap(value);
+                return value;
+            };
+            auto readPackedU16 = [needEndianSwap](const uint8_t* src) -> uint32_t {
+                uint16_t value = 0u;
+                std::memcpy(&value, src, sizeof(value));
+                if (needEndianSwap)
+                    value = Binary::byteswap(value);
+                return value;
+            };
             for (size_t j = 0u; j < element.Count; ++j) {
+                if (is32Bit && ensureBytes(sizeof(uint8_t) + sizeof(uint32_t) * 3ull) && static_cast<uint8_t>(*StartPointer) == 3u)
+                {
+                    ++StartPointer;
+                    const uint32_t i0 = readPackedU32(reinterpret_cast<const uint8_t*>(StartPointer) + 0ull * sizeof(uint32_t));
+                    const uint32_t i1 = readPackedU32(reinterpret_cast<const uint8_t*>(StartPointer) + 1ull * sizeof(uint32_t));
+                    const uint32_t i2 = readPackedU32(reinterpret_cast<const uint8_t*>(StartPointer) + 2ull * sizeof(uint32_t));
+                    StartPointer += 3ull * sizeof(uint32_t);
+                    if (isSrcS32 && ((i0 | i1 | i2) & 0x80000000u))
+                        return EFastFaceReadResult::Error;
+                    if (trackMaxIndex)
+                    {
+                        if (i0 > _maxIndex) _maxIndex = i0;
+                        if (i1 > _maxIndex) _maxIndex = i1;
+                        if (i2 > _maxIndex) _maxIndex = i2;
+                    }
+                    else if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+                        return EFastFaceReadResult::Error;
+                    out[0] = i0;
+                    out[1] = i1;
+                    out[2] = i2;
+                    out += 3u;
+                    written += 3ull;
+                    ++_faceCount;
+                    continue;
+                }
+                if (!is32Bit && ensureBytes(sizeof(uint8_t) + sizeof(uint16_t) * 3ull) && static_cast<uint8_t>(*StartPointer) == 3u)
+                {
+                    ++StartPointer;
+                    const uint32_t i0 = readPackedU16(reinterpret_cast<const uint8_t*>(StartPointer) + 0ull * sizeof(uint16_t));
+                    const uint32_t i1 = readPackedU16(reinterpret_cast<const uint8_t*>(StartPointer) + 1ull * sizeof(uint16_t));
+                    const uint32_t i2 = readPackedU16(reinterpret_cast<const uint8_t*>(StartPointer) + 2ull * sizeof(uint16_t));
+                    StartPointer += 3ull * sizeof(uint16_t);
+                    if (isSrcS16 && ((i0 | i1 | i2) & 0x8000u))
+                        return EFastFaceReadResult::Error;
+                    if (trackMaxIndex)
+                    {
+                        if (i0 > _maxIndex) _maxIndex = i0;
+                        if (i1 > _maxIndex) _maxIndex = i1;
+                        if (i2 > _maxIndex) _maxIndex = i2;
+                    }
+                    else if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+                        return EFastFaceReadResult::Error;
+                    out[0] = i0;
+                    out[1] = i1;
+                    out[2] = i2;
+                    out += 3u;
+                    written += 3ull;
+                    ++_faceCount;
+                    continue;
+                }
                 int32_t countSigned = 0;
                 if (!readCount(countSigned))
                     return EFastFaceReadResult::Error;
@@ -1071,9 +1382,11 @@ struct Parse
                            i2 >= vertexCount) {
                     return EFastFaceReadResult::Error;
                 }
-                _outIndices.push_back(i0);
-                _outIndices.push_back(i1);
-                _outIndices.push_back(i2);
+                out[0] = i0;
+                out[1] = i1;
+                out[2] = i2;
+                out += 3u;
+                written += 3ull;
                 uint32_t prev = i2;
                 for (uint32_t k = 3u; k < count; ++k) {
                     uint32_t idx = 0u;
@@ -1084,13 +1397,22 @@ struct Parse
                     } else if (idx >= vertexCount) {
                         return EFastFaceReadResult::Error;
                     }
-                    _outIndices.push_back(i0);
-                    _outIndices.push_back(prev);
-                    _outIndices.push_back(idx);
+                    if (_outIndices.size() < oldSize + written + 3ull)
+                    {
+                        const size_t outOffset = static_cast<size_t>(out - _outIndices.data());
+                        _outIndices.resize(oldSize + written + 3ull);
+                        out = _outIndices.data() + outOffset;
+                    }
+                    out[0] = i0;
+                    out[1] = prev;
+                    out[2] = idx;
+                    out += 3u;
+                    written += 3ull;
                     prev = idx;
                 }
                 ++_faceCount;
             }
+            _outIndices.resize(oldSize + written);
             return EFastFaceReadResult::Success;
         }
         IAssetLoader::SAssetLoadContext inner;
@@ -1153,6 +1475,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params,
     IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel) {
     using namespace nbl::core;
+    using clock_t = std::chrono::high_resolution_clock;
     if (!_file)
         return {};
     const bool computeContentHashes = !_params.loaderFlags.hasAnyFlag(
@@ -1188,6 +1511,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
     uint32_t vertCount = 0;
     Parse::ContentHashBuild contentHashBuild = Parse::ContentHashBuild::create(computeContentHashes, hashInBuild);
+    double headerMs = 0.0, vertexMs = 0.0, faceMs = 0.0, finalizeMs = 0.0;
     auto visitVertexAttributeViews = [&](auto&& visitor) -> void {
         visitor(geometry->getPositionView());
         visitor(geometry->getNormalView());
@@ -1235,6 +1559,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     bool continueReading = true;
     ctx.IsBinaryFile = false;
     ctx.IsWrongEndian = false;
+    const auto headerStart = clock_t::now();
     do {
         const std::string_view wordView = Parse::toStringView(word);
         if (wordView == "property") {
@@ -1339,6 +1664,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             word = ctx.getNextWord();
         }
     } while (readingHeader && continueReading);
+    headerMs = std::chrono::duration<double, std::milli>(clock_t::now() - headerStart).count();
     if (!continueReading)
         return {};
     // now to read the actual data from the file
@@ -1384,6 +1710,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     for (uint32_t i = 0; i < ctx.ElementList.size(); ++i) {
         auto& el = ctx.ElementList[i];
         if (el.Name == "vertex") {
+            const auto vertexStart = clock_t::now();
             if (verticesProcessed) {
                 // multiple vertex elements are currently treated as unsupported
                 _params.logger.log("Multiple `vertex` elements not supported!",
@@ -1471,9 +1798,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             visitVertexAttributeViews(hashViewBufferIfNeeded);
             tryLaunchDeferredHash(geometry->getPositionView());
             verticesProcessed = true;
+            vertexMs += std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
         } else if (el.Name == "face") {
+            const auto faceStart = clock_t::now();
             if (!readFaceElement(el))
                 return {};
+            faceMs += std::chrono::duration<double, std::milli>(clock_t::now() - faceStart).count();
         } else {
             if (!skipUnknownElement(el))
                 return {};
@@ -1520,6 +1850,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             hashViewBufferIfNeeded(geometry->getIndexView());
         }
     }
+    const auto finalizeStart = clock_t::now();
     if (contentHashBuild.hashesDeferred()) {
         contentHashBuild.wait();
         SPolygonGeometryContentHash::computeMissing(geometry.get(),
@@ -1527,6 +1858,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     } else {
         hashRemainingGeometryBuffers();
     }
+    finalizeMs = std::chrono::duration<double, std::milli>(clock_t::now() - finalizeStart).count();
     const uint64_t ioMinRead = ctx.readCallCount ? ctx.readMinBytes : 0ull;
     const uint64_t ioAvgRead =
         ctx.readCallCount ? (ctx.readBytesTotal / ctx.readCallCount) : 0ull;
@@ -1550,6 +1882,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         system::to_string(_params.ioPolicy.strategy).c_str(),
         system::to_string(loadSession.ioPlan.strategy).c_str(),
         static_cast<unsigned long long>(loadSession.ioPlan.chunkSizeBytes()), loadSession.ioPlan.reason);
+    _params.logger.log("PLY loader stages: file=%s header=%.3f ms vertex=%.3f ms face=%.3f ms finalize=%.3f ms", system::ILogger::ELL_PERFORMANCE, _file->getFileName().string().c_str(), headerMs, vertexMs, faceMs, finalizeMs);
     auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
     return SAssetBundle(std::move(meta), {std::move(geometry)});
 }

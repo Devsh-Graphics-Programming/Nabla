@@ -285,6 +285,7 @@ struct Parse
 		const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(posView);
 		const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
 		const bool hasFastTightPath = !geom->getIndexView() && tightPositions && (!hasNormals || tightNormals);
+		const float handednessSign = flipHandedness ? -1.f : 1.f;
 		auto decodePosition = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool { return tightPositions ? (out = tightPositions[ix], true) : posView.decodeElement(ix, out); };
 		auto decodeNormal = [&](const uint32_t ix, hlsl::float32_t3& out) -> bool { return hasNormals && (tightNormals ? (out = tightNormals[ix], true) : normalView.decodeElement(ix, out)); };
 		auto computeFaceColor = [&](const hlsl::uint32_t3& idx, uint16_t& outColor) -> bool {
@@ -329,17 +330,72 @@ struct Parse
 			writeRecord(triangle.normal, triangle.vertex1, triangle.vertex2, triangle.vertex3, faceColor);
 			return true;
 		};
-		if (hasFastTightPath)
+		if (hasFastTightPath && hasNormals)
 		{
 			const hlsl::float32_t3* posTri = tightPositions;
 			const hlsl::float32_t3* nrmTri = tightNormals;
+			bool allFastNormalsNonZero = true;
+			for (size_t i = 0ull, normalCount = static_cast<size_t>(facenum) * 3ull; i < normalCount; ++i)
+			{
+				const auto& n = tightNormals[i];
+				if (n.x == 0.f && n.y == 0.f && n.z == 0.f)
+				{
+					allFastNormalsNonZero = false;
+					break;
+				}
+			}
+			for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u, nrmTri += 3u)
+			{
+				const hlsl::uint32_t3 idx(primIx * 3u + 0u, primIx * 3u + 1u, primIx * 3u + 2u);
+				uint16_t faceColor = 0u;
+				if (!computeFaceColor(idx, faceColor))
+					return false;
+				hlsl::float32_t3 vertex1 = posTri[2u];
+				hlsl::float32_t3 vertex2 = posTri[1u];
+				hlsl::float32_t3 vertex3 = posTri[0u];
+				vertex1.x *= handednessSign;
+				vertex2.x *= handednessSign;
+				vertex3.x *= handednessSign;
+				hlsl::float32_t3 normal = {};
+				if (allFastNormalsNonZero)
+				{
+					normal = nrmTri[0u];
+					if (flipHandedness)
+						normal.x = -normal.x;
+				}
+				else if (selectFirstValidNormal(nrmTri, 3u, normal))
+				{
+					if (flipHandedness)
+						normal.x = -normal.x;
+				}
+				else
+				{
+					float planeNormalLen2 = 0.f;
+					const hlsl::float32_t3 planeNormal = computePlaneNormal(vertex1, vertex2, vertex3, &planeNormalLen2);
+					normal = planeNormalLen2 > 0.f ? hlsl::normalize(planeNormal) : hlsl::float32_t3(0.f, 0.f, 0.f);
+				}
+				writeRecord(normal, vertex1, vertex2, vertex3, faceColor);
+			}
+		}
+		else if (hasFastTightPath)
+		{
+			const hlsl::float32_t3* posTri = tightPositions;
 			for (uint32_t primIx = 0u; primIx < facenum; ++primIx, posTri += 3u)
 			{
 				const hlsl::uint32_t3 idx(primIx * 3u + 0u, primIx * 3u + 1u, primIx * 3u + 2u);
-				if (!emitTriangle(posTri[0u], posTri[1u], posTri[2u], idx, nrmTri, hasNormals ? 3u : 0u, false))
+				uint16_t faceColor = 0u;
+				if (!computeFaceColor(idx, faceColor))
 					return false;
-				if (nrmTri)
-					nrmTri += 3u;
+				hlsl::float32_t3 vertex1 = posTri[2u];
+				hlsl::float32_t3 vertex2 = posTri[1u];
+				hlsl::float32_t3 vertex3 = posTri[0u];
+				vertex1.x *= handednessSign;
+				vertex2.x *= handednessSign;
+				vertex3.x *= handednessSign;
+				float planeNormalLen2 = 0.f;
+				const hlsl::float32_t3 planeNormal = computePlaneNormal(vertex1, vertex2, vertex3, &planeNormalLen2);
+				const hlsl::float32_t3 normal = planeNormalLen2 > 0.f ? hlsl::normalize(planeNormal) : hlsl::float32_t3(0.f, 0.f, 0.f);
+				writeRecord(normal, vertex1, vertex2, vertex3, faceColor);
 			}
 		}
 		else if (!SGeometryWriterCommon::visitTriangleIndices(geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) -> bool {

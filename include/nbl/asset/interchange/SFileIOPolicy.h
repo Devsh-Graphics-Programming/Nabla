@@ -140,11 +140,13 @@ struct SResolvedFileIOPolicy
             case SFileIOPolicy::Strategy::Auto:
             default:
             {
+                if (fileMappable)
+                    return makeResolved(Strategy::WholeFile, sizeKnown ? "auto_mappable_prefers_whole_file" : "auto_unknown_size_mappable_whole_file");
                 if (!sizeKnown)
-                    return makeResolved(fileMappable ? Strategy::WholeFile : Strategy::Chunked, fileMappable ? "auto_unknown_size_mappable_whole_file" : "auto_unknown_size");
-                const uint64_t wholeLimit = fileMappable ? std::max<uint64_t>(wholeThreshold, maxStaging) : std::min<uint64_t>(wholeThreshold, maxStaging);
+                    return makeResolved(Strategy::Chunked, "auto_unknown_size");
+                const uint64_t wholeLimit = std::min<uint64_t>(wholeThreshold, maxStaging);
                 if (byteCount <= wholeLimit)
-                    return makeResolved(Strategy::WholeFile, fileMappable ? "auto_mappable_prefers_whole_file" : "auto_small_enough_for_whole_file");
+                    return makeResolved(Strategy::WholeFile, "auto_small_enough_for_whole_file");
                 return makeResolved(Strategy::Chunked, "auto_too_large_for_whole_file");
             }
         }
