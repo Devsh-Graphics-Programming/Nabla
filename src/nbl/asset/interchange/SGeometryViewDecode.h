@@ -90,37 +90,8 @@ class SGeometryViewDecode
 		}
 
 	private:
-		template<EMode Mode, typename V> requires hlsl::concepts::Vector<V>
-		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, V& out)
-		{
-			using scalar_t = typename hlsl::vector_traits<V>::scalar_type;
-			constexpr uint32_t Dimension = hlsl::vector_traits<V>::Dimension;
-			if (!prepared || Dimension == 0u)
-				return false;
-
-			using storage_t = std::conditional_t<std::is_floating_point_v<scalar_t>, hlsl::float64_t, std::conditional_t<std::is_signed_v<scalar_t>, int64_t, uint64_t>>;
-			std::array<storage_t, 4> tmp = {};
-			const void* srcArr[4] = {prepared.data + ix * prepared.stride, nullptr};
-			if (!decodePixels<storage_t>(prepared.format, srcArr, tmp.data(), 0u, 0u))
-				return false;
-
-			const uint32_t componentCount = std::min({prepared.channels, Dimension, 4u});
-			if constexpr (Mode == EMode::Semantic && std::is_floating_point_v<storage_t>)
-			{
-				if (prepared.normalized)
-				{
-					for (uint32_t i = 0u; i < componentCount; ++i)
-						tmp[i] = static_cast<storage_t>(tmp[i] * (prepared.range.maxVx[i] - prepared.range.minVx[i]) + prepared.range.minVx[i]);
-				}
-			}
-
-			for (uint32_t i = 0u; i < componentCount; ++i)
-				out[i] = static_cast<scalar_t>(tmp[i]);
-			return true;
-		}
-
 		template<EMode Mode, typename T>
-		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
+		static inline bool decodePreparedComponents(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
 		{
 			if (!prepared || !out || outDim == 0u)
 				return false;
@@ -144,6 +115,25 @@ class SGeometryViewDecode
 			for (uint32_t i = 0u; i < componentCount; ++i)
 				out[i] = static_cast<T>(tmp[i]);
 			return true;
+		}
+
+		template<EMode Mode, typename V> requires hlsl::concepts::Vector<V>
+		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, V& out)
+		{
+			using scalar_t = typename hlsl::vector_traits<V>::scalar_type;
+			constexpr uint32_t Dimension = hlsl::vector_traits<V>::Dimension;
+			std::array<scalar_t, Dimension> tmp = {};
+			if (!decodePreparedComponents(prepared, ix, tmp.data(), Dimension))
+				return false;
+			for (uint32_t i = 0u; i < Dimension; ++i)
+				out[i] = tmp[i];
+			return true;
+		}
+
+		template<EMode Mode, typename T>
+		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
+		{
+			return decodePreparedComponents(prepared, ix, out, outDim);
 		}
 };
 

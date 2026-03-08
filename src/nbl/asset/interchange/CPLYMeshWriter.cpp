@@ -277,6 +277,22 @@ struct Parse
 				return SGeometryAttributeEmit::emit<Sink, OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
 		}
 
+		template<typename OutT>
+		static inline void prepareSemantic(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
+		{
+			view.flipVectors = flipVectors;
+			view.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(src);
+			view.emit = &emitPrepared<OutT, SGeometryViewDecode::EMode::Semantic>;
+		}
+
+		template<typename OutT>
+		static inline void prepareStored(PreparedView& view, const ICPUPolygonGeometry::SDataView& src, const bool flipVectors)
+		{
+			view.flipVectors = flipVectors;
+			view.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(src);
+			view.emit = &emitPrepared<OutT, SGeometryViewDecode::EMode::Stored>;
+		}
+
 		static PreparedView create(const ICPUPolygonGeometry::SDataView* view, const uint32_t components, const ScalarType scalarType, const bool flipVectors)
 		{
 			PreparedView retval = {.components = components};
@@ -285,43 +301,14 @@ struct Parse
 
 			switch (scalarType)
 			{
-				case ScalarType::Float64:
-					retval.flipVectors = flipVectors;
-					retval.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*view);
-					retval.emit = &emitPrepared<double, SGeometryViewDecode::EMode::Semantic>;
-					break;
-				case ScalarType::Float32:
-					retval.flipVectors = flipVectors;
-					retval.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*view);
-					retval.emit = &emitPrepared<float, SGeometryViewDecode::EMode::Semantic>;
-					break;
-				case ScalarType::Int8:
-					retval.flipVectors = flipVectors;
-					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-					retval.emit = &emitPrepared<int8_t, SGeometryViewDecode::EMode::Stored>;
-					break;
-				case ScalarType::UInt8:
-					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-					retval.emit = &emitPrepared<uint8_t, SGeometryViewDecode::EMode::Stored>;
-					break;
-				case ScalarType::Int16:
-					retval.flipVectors = flipVectors;
-					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-					retval.emit = &emitPrepared<int16_t, SGeometryViewDecode::EMode::Stored>;
-					break;
-				case ScalarType::UInt16:
-					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-					retval.emit = &emitPrepared<uint16_t, SGeometryViewDecode::EMode::Stored>;
-					break;
-				case ScalarType::Int32:
-					retval.flipVectors = flipVectors;
-					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-					retval.emit = &emitPrepared<int32_t, SGeometryViewDecode::EMode::Stored>;
-					break;
-				case ScalarType::UInt32:
-					retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(*view);
-					retval.emit = &emitPrepared<uint32_t, SGeometryViewDecode::EMode::Stored>;
-					break;
+				case ScalarType::Float64: prepareSemantic<double>(retval, *view, flipVectors); break;
+				case ScalarType::Float32: prepareSemantic<float>(retval, *view, flipVectors); break;
+				case ScalarType::Int8: prepareStored<int8_t>(retval, *view, flipVectors); break;
+				case ScalarType::UInt8: prepareStored<uint8_t>(retval, *view, false); break;
+				case ScalarType::Int16: prepareStored<int16_t>(retval, *view, flipVectors); break;
+				case ScalarType::UInt16: prepareStored<uint16_t>(retval, *view, false); break;
+				case ScalarType::Int32: prepareStored<int32_t>(retval, *view, flipVectors); break;
+				case ScalarType::UInt32: prepareStored<uint32_t>(retval, *view, false); break;
 			}
 			return retval;
 		}

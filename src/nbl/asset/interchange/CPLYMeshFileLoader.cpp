@@ -1612,6 +1612,41 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
 
     // loop through each of the elements
     bool verticesProcessed = false;
+    const std::string fileName = _file->getFileName().string();
+    auto logMalformedElement = [&](const char* const elementName) -> void {
+        _params.logger.log("PLY %s fast path failed on malformed data for %s", system::ILogger::ELL_ERROR, elementName, fileName.c_str());
+    };
+    auto skipUnknownElement = [&](const Parse::Context::SElement& el) -> bool {
+        if (ctx.IsBinaryFile && el.KnownSize) {
+            const uint64_t bytesToSkip64 = static_cast<uint64_t>(el.KnownSize) * static_cast<uint64_t>(el.Count);
+            if (bytesToSkip64 > static_cast<uint64_t>(std::numeric_limits<size_t>::max()))
+                return false;
+            ctx.moveForward(static_cast<size_t>(bytesToSkip64));
+        } else {
+            for (size_t j = 0; j < el.Count; ++j)
+                el.skipElement(ctx);
+        }
+        return true;
+    };
+    auto readFaceElement = [&](const Parse::Context::SElement& el) -> bool {
+        const uint32_t vertexCount32 = vertCount <= static_cast<size_t>(std::numeric_limits<uint32_t>::max()) ? static_cast<uint32_t>(vertCount) : 0u;
+        const auto fastFaceResult = ctx.readFaceElementFast(el, indices, maxIndexRead, faceCount, vertexCount32, contentHashBuild.hashesDeferred(), precomputedIndexHash);
+        if (fastFaceResult == Parse::Context::EFastFaceReadResult::Success) {
+            ++fastFaceElementCount;
+            return true;
+        }
+        if (fastFaceResult == Parse::Context::EFastFaceReadResult::NotApplicable) {
+            indices.reserve(indices.size() + el.Count * 3u);
+            for (size_t j = 0; j < el.Count; ++j) {
+                if (!ctx.readFace(el, indices, maxIndexRead, vertexCount32))
+                    return false;
+                ++faceCount;
+            }
+            return true;
+        }
+        logMalformedElement("face");
+        return false;
+    };
 
     for (uint32_t i = 0; i < ctx.ElementList.size(); ++i) {
         auto& el = ctx.ElementList[i];
@@ -1794,39 +1829,23 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                                                .dstFmt = componentFormat});
                 }
             };
-            if (posView.format != EF_UNKNOWN) {
+            auto attachStructuredView = [&](ICPUPolygonGeometry::SDataViewBase& baseView, auto&& setter) -> void {
+                if (baseView.format == EF_UNKNOWN)
+                    return;
                 auto beginIx = ctx.vertAttrIts.size();
-                setFinalFormat(posView);
-                auto view = createView(posView.format, el.Count);
-                for (const auto size = ctx.vertAttrIts.size(); beginIx != size;
-                     beginIx++)
-                    ctx.vertAttrIts[beginIx].ptr +=
-                        ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
-                geometry->setPositionView(std::move(view));
-            }
-            if (normalView.format != EF_UNKNOWN) {
-                auto beginIx = ctx.vertAttrIts.size();
-                setFinalFormat(normalView);
-                auto view = createView(normalView.format, el.Count);
-                for (const auto size = ctx.vertAttrIts.size(); beginIx != size;
-                     beginIx++)
-                    ctx.vertAttrIts[beginIx].ptr +=
-                        ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
-                geometry->setNormalView(std::move(view));
-            }
-            if (uvView.format != EF_UNKNOWN) {
-                auto beginIx = ctx.vertAttrIts.size();
-                setFinalFormat(uvView);
-                auto view = createView(uvView.format, el.Count);
-                for (const auto size = ctx.vertAttrIts.size(); beginIx != size;
-                     beginIx++)
-                    ctx.vertAttrIts[beginIx].ptr +=
-                        ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
+                setFinalFormat(baseView);
+                auto view = createView(baseView.format, el.Count);
+                for (const auto size = ctx.vertAttrIts.size(); beginIx != size; ++beginIx)
+                    ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
+                setter(std::move(view));
+            };
+            attachStructuredView(posView, [&](auto view) { geometry->setPositionView(std::move(view)); });
+            attachStructuredView(normalView, [&](auto view) { geometry->setNormalView(std::move(view)); });
+            attachStructuredView(uvView, [&](auto view) {
                 auto* const auxViews = geometry->getAuxAttributeViews();
                 auxViews->resize(SPLYPolygonGeometryAuxLayout::UV0 + 1u);
-                auxViews->operator[](SPLYPolygonGeometryAuxLayout::UV0) =
-                    std::move(view);
-            }
+                auxViews->operator[](SPLYPolygonGeometryAuxLayout::UV0) = std::move(view);
+            });
             //
             for (auto& view : extraViews)
                 ctx.vertAttrIts.push_back(
@@ -1844,51 +1863,18 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                        Parse::Context::EFastVertexReadResult::NotApplicable) {
                 ctx.readVertex(_params, el);
             } else {
-                _params.logger.log(
-                    "PLY vertex fast path failed on malformed data for %s",
-                    system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
+                logMalformedElement("vertex");
                 return {};
             }
             visitVertexAttributeViews(hashViewBufferIfNeeded);
             tryLaunchDeferredHash(geometry->getPositionView());
             verticesProcessed = true;
         } else if (el.Name == "face") {
-            const uint32_t vertexCount32 =
-                vertCount <= static_cast<size_t>(std::numeric_limits<uint32_t>::max())
-                    ? static_cast<uint32_t>(vertCount)
-                    : 0u;
-            const auto fastFaceResult = ctx.readFaceElementFast(
-                el, indices, maxIndexRead, faceCount, vertexCount32,
-                contentHashBuild.hashesDeferred(), precomputedIndexHash);
-            if (fastFaceResult == Parse::Context::EFastFaceReadResult::Success) {
-                ++fastFaceElementCount;
-            } else if (fastFaceResult ==
-                       Parse::Context::EFastFaceReadResult::NotApplicable) {
-                indices.reserve(indices.size() + el.Count * 3u);
-                for (size_t j = 0; j < el.Count; ++j) {
-                    if (!ctx.readFace(el, indices, maxIndexRead, vertexCount32))
-                        return {};
-                    ++faceCount;
-                }
-            } else {
-                _params.logger.log("PLY face fast path failed on malformed data for %s",
-                                   system::ILogger::ELL_ERROR,
-                                   _file->getFileName().string().c_str());
+            if (!readFaceElement(el))
                 return {};
-            }
         } else {
-            // skip these elements
-            if (ctx.IsBinaryFile && el.KnownSize) {
-                const uint64_t bytesToSkip64 = static_cast<uint64_t>(el.KnownSize) *
-                                               static_cast<uint64_t>(el.Count);
-                if (bytesToSkip64 >
-                    static_cast<uint64_t>(std::numeric_limits<size_t>::max()))
-                    return {};
-                ctx.moveForward(static_cast<size_t>(bytesToSkip64));
-            } else {
-                for (size_t j = 0; j < el.Count; ++j)
-                    el.skipElement(ctx);
-            }
+            if (!skipUnknownElement(el))
+                return {};
         }
     }
 

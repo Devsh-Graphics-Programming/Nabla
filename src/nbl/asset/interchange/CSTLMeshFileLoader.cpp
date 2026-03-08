@@ -34,6 +34,14 @@ struct Parse
 {
 	using Common = impl::TextParse;
 
+	struct LayoutProbe
+	{
+		bool hasPrefix = false;
+		bool startsWithSolid = false;
+		bool binaryBySize = false;
+		uint32_t triangleCount = 0u;
+	};
+
 	static hlsl::float32_t3 resolveStoredNormal(const hlsl::float32_t3& fileNormal)
 	{
 		const float fileLen2 = hlsl::dot(fileNormal, fileNormal);
@@ -72,6 +80,37 @@ struct Parse
 		static constexpr size_t VerticesPerTriangle = 3ull;
 		static constexpr size_t FloatChannelsPerVertex = 3ull;
 	};
+
+	static bool probeLayout(system::IFile* file, const size_t fileSize, const uint8_t* const wholeFileData, SFileReadTelemetry* const ioTelemetry, LayoutProbe& out)
+	{
+		out = {};
+		if (!file || fileSize < Context::TextProbeBytes)
+			return false;
+
+		if (fileSize >= Context::BinaryPrefixBytes)
+		{
+			std::array<uint8_t, Context::BinaryPrefixBytes> prefix = {};
+			out.hasPrefix = wholeFileData ? true : SInterchangeIO::readFileExact(file, prefix.data(), 0ull, Context::BinaryPrefixBytes, ioTelemetry);
+			if (out.hasPrefix)
+			{
+				if (wholeFileData)
+					std::memcpy(prefix.data(), wholeFileData, Context::BinaryPrefixBytes);
+				out.startsWithSolid = (std::memcmp(prefix.data(), "solid ", Context::TextProbeBytes) == 0);
+				std::memcpy(&out.triangleCount, prefix.data() + Context::BinaryHeaderBytes, sizeof(out.triangleCount));
+				const uint64_t expectedSize = Context::BinaryPrefixBytes + static_cast<uint64_t>(out.triangleCount) * Context::TriangleRecordBytes;
+				out.binaryBySize = (expectedSize == fileSize);
+				return true;
+			}
+		}
+
+		char header[Context::TextProbeBytes] = {};
+		if (wholeFileData)
+			std::memcpy(header, wholeFileData, sizeof(header));
+		else if (!SInterchangeIO::readFileExact(file, header, 0ull, sizeof(header), ioTelemetry))
+			return false;
+		out.startsWithSolid = (std::strncmp(header, "solid ", Context::TextProbeBytes) == 0);
+		return true;
+	}
 
 	class AsciiParser
 	{
@@ -186,88 +225,39 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			return {};
 	}
 
-    bool binary = false;
-    bool hasBinaryTriCountFromDetect = false;
-    uint32_t binaryTriCountFromDetect = 0u;
-    {
-        std::array<uint8_t, Context::BinaryPrefixBytes> prefix = {};
-        bool hasPrefix = false;
-        if (wholeFileData && filesize >= Context::BinaryPrefixBytes) {
-            std::memcpy(prefix.data(), wholeFileData, Context::BinaryPrefixBytes);
-            hasPrefix = true;
-        } else {
-            hasPrefix = filesize >= Context::BinaryPrefixBytes &&
-                        SInterchangeIO::readFileExact(
-                            context.inner.mainFile, prefix.data(), 0ull,
-                            Context::BinaryPrefixBytes, &context.ioTelemetry);
-        }
-        bool startsWithSolid = false;
-        if (hasPrefix) {
-            startsWithSolid =
-                (std::memcmp(prefix.data(), "solid ", Context::TextProbeBytes) == 0);
-        } else {
-            char header[Context::TextProbeBytes] = {};
-            if (wholeFileData)
-                std::memcpy(header, wholeFileData, sizeof(header));
-            else if (!SInterchangeIO::readFileExact(context.inner.mainFile, header,
-                                                    0ull, sizeof(header),
-                                                    &context.ioTelemetry))
-                return {};
-            startsWithSolid =
-                (std::strncmp(header, "solid ", Context::TextProbeBytes) == 0);
-        }
+	Parse::LayoutProbe layout = {};
+	if (!Parse::probeLayout(context.inner.mainFile, filesize, wholeFileData, &context.ioTelemetry, layout))
+		return {};
+	const bool binary = layout.binaryBySize || !layout.startsWithSolid;
+	const bool hasBinaryTriCountFromDetect = layout.hasPrefix;
+	const uint32_t binaryTriCountFromDetect = layout.triangleCount;
 
-        bool binaryBySize = false;
-        if (hasPrefix) {
-            uint32_t triCount = 0u;
-            std::memcpy(&triCount, prefix.data() + Context::BinaryHeaderBytes,
-                        sizeof(triCount));
-            binaryTriCountFromDetect = triCount;
-            hasBinaryTriCountFromDetect = true;
-            const uint64_t expectedSize =
-                Context::BinaryPrefixBytes +
-                static_cast<uint64_t>(triCount) * Context::TriangleRecordBytes;
-            binaryBySize = (expectedSize == filesize);
-        }
+	auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+	hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
+	uint64_t vertexCount = 0ull;
 
-        if (binaryBySize)
-            binary = true;
-        else if (!startsWithSolid)
-            binary = true;
-        else
-            binary = false;
-    }
+	if (binary) {
+		parsePath = "binary_fast";
+		if (filesize < Context::BinaryPrefixBytes)
+			return {};
 
-    auto geometry = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
-    geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-    hlsl::shapes::util::AABBAccumulator3<float> parsedAABB =
-        hlsl::shapes::util::createAABBAccumulator<float>();
-    uint64_t vertexCount = 0ull;
+		uint32_t triangleCount32 = binaryTriCountFromDetect;
+		if (!hasBinaryTriCountFromDetect)
+		{
+			if (!SInterchangeIO::readFileExact(context.inner.mainFile, &triangleCount32, Context::BinaryHeaderBytes, sizeof(triangleCount32), &context.ioTelemetry))
+				return {};
+		}
 
-    if (binary) {
-        parsePath = "binary_fast";
-        if (filesize < Context::BinaryPrefixBytes)
-            return {};
+		triangleCount = triangleCount32;
+		const size_t dataSize = static_cast<size_t>(triangleCount) * Context::TriangleRecordBytes;
+		const size_t expectedSize = Context::BinaryPrefixBytes + dataSize;
+		if (filesize < expectedSize)
+			return {};
 
-        uint32_t triangleCount32 = binaryTriCountFromDetect;
-        if (!hasBinaryTriCountFromDetect) {
-            if (!SInterchangeIO::readFileExact(
-                    context.inner.mainFile, &triangleCount32,
-                    Context::BinaryHeaderBytes, sizeof(triangleCount32),
-                    &context.ioTelemetry))
-                return {};
-        }
-
-        triangleCount = triangleCount32;
-        const size_t dataSize =
-            static_cast<size_t>(triangleCount) * Context::TriangleRecordBytes;
-        const size_t expectedSize = Context::BinaryPrefixBytes + dataSize;
-        if (filesize < expectedSize)
-            return {};
-
-        const uint8_t* payloadData = wholeFileData ? (wholeFileData + Context::BinaryPrefixBytes) : loadSession.readRange(Context::BinaryPrefixBytes, dataSize, wholeFilePayload, &context.ioTelemetry);
-        if (!payloadData)
-            return {};
+		const uint8_t* payloadData = wholeFileData ? (wholeFileData + Context::BinaryPrefixBytes) : loadSession.readRange(Context::BinaryPrefixBytes, dataSize, wholeFilePayload, &context.ioTelemetry);
+		if (!payloadData)
+			return {};
 
         vertexCount = triangleCount * Context::VerticesPerTriangle;
         const size_t vertexCountSizeT = static_cast<size_t>(vertexCount);
@@ -756,31 +746,15 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(
     system::IFile* _file, const system::logger_opt_ptr) const {
-    using Context = Parse::Context;
+	using Context = Parse::Context;
 
-    if (!_file || _file->getSize() <= Context::TextProbeBytes)
-        return false;
+	if (!_file || _file->getSize() <= Context::TextProbeBytes)
+		return false;
 
-    const size_t fileSize = _file->getSize();
-    if (fileSize < Context::BinaryPrefixBytes) {
-        char header[Context::TextProbeBytes] = {};
-        if (!SInterchangeIO::readFileExact(_file, header, 0ull, sizeof(header)))
-            return false;
-        return std::strncmp(header, "solid ", Context::TextProbeBytes) == 0;
-    }
-
-    std::array<uint8_t, Context::BinaryPrefixBytes> prefix = {};
-    if (!SInterchangeIO::readFileExact(_file, prefix.data(), 0ull, prefix.size()))
-        return false;
-
-    uint32_t triangleCount = 0u;
-    std::memcpy(&triangleCount, prefix.data() + Context::BinaryHeaderBytes,
-                sizeof(triangleCount));
-    if (std::memcmp(prefix.data(), "solid ", Context::TextProbeBytes) == 0)
-        return true;
-
-    return fileSize == (Context::TriangleRecordBytes * triangleCount +
-                        Context::BinaryPrefixBytes);
+	Parse::LayoutProbe layout = {};
+	if (!Parse::probeLayout(_file, _file->getSize(), nullptr, nullptr, layout))
+		return false;
+	return layout.startsWithSolid || layout.binaryBySize;
 }
 
 }
