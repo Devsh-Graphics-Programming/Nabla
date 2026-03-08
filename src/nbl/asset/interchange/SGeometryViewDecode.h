@@ -1,5 +1,4 @@
-// Internal src-only header.
-// Do not include from public headers.
+// Internal src-only header. Do not include from public headers.
 #ifndef _NBL_ASSET_S_GEOMETRY_VIEW_DECODE_H_INCLUDED_
 #define _NBL_ASSET_S_GEOMETRY_VIEW_DECODE_H_INCLUDED_
 #include "nbl/asset/ICPUPolygonGeometry.h"
@@ -34,14 +33,12 @@ class SGeometryViewDecode
 			{
 				return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u;
 			}
-
 			template<typename T, size_t N>
 			inline bool decode(const size_t ix, std::array<T, N>& out) const
 			{
 				out.fill(T{});
 				return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out.data(), static_cast<uint32_t>(N));
 			}
-
 			template<typename V> requires hlsl::concepts::Vector<V>
 			inline bool decode(const size_t ix, V& out) const
 			{
@@ -56,11 +53,9 @@ class SGeometryViewDecode
 			Prepared<Mode> retval = {};
 			if (!view.composed.isFormatted())
 				return retval;
-
 			retval.data = reinterpret_cast<const uint8_t*>(view.getPointer());
 			if (!retval.data)
 				return {};
-
 			retval.stride = view.composed.getStride();
 			retval.format = view.composed.format;
 			retval.channels = getFormatChannelCount(retval.format);
@@ -85,13 +80,11 @@ class SGeometryViewDecode
 		{
 			if (!prepared || !out || outDim == 0u)
 				return false;
-
 			using storage_t = std::conditional_t<std::is_floating_point_v<T>, hlsl::float64_t, std::conditional_t<std::is_signed_v<T>, int64_t, uint64_t>>;
 			std::array<storage_t, 4> tmp = {};
 			const void* srcArr[4] = {prepared.data + ix * prepared.stride, nullptr};
 			if (!decodePixels<storage_t>(prepared.format, srcArr, tmp.data(), 0u, 0u))
 				return false;
-
 			const uint32_t componentCount = std::min({prepared.channels, outDim, 4u});
 			if constexpr (Mode == EMode::Semantic && std::is_floating_point_v<storage_t>)
 			{
@@ -101,7 +94,6 @@ class SGeometryViewDecode
 						tmp[i] = static_cast<storage_t>(tmp[i] * (prepared.range.maxVx[i] - prepared.range.minVx[i]) + prepared.range.minVx[i]);
 				}
 			}
-
 			for (uint32_t i = 0u; i < componentCount; ++i)
 				out[i] = static_cast<T>(tmp[i]);
 			return true;

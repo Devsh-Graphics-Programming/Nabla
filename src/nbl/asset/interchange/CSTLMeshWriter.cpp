@@ -41,7 +41,6 @@ struct Parse
 		{
 			if (ioBuffer.empty())
 				return true;
-
 			size_t bytesWritten = 0ull;
 			const size_t totalBytes = ioBuffer.size();
 			while (bytesWritten < totalBytes)
@@ -60,14 +59,12 @@ struct Parse
 			ioBuffer.clear();
 			return true;
 		}
-
 		bool write(const void* data, size_t size)
 		{
 			if (!data && size != 0ull)
 				return false;
 			if (size == 0ull)
 				return true;
-
 			const uint8_t* src = reinterpret_cast<const uint8_t*>(data);
 			switch (ioPlan.strategy)
 			{
@@ -179,11 +176,9 @@ struct Parse
 	{
 		if (!normalView)
 			return false;
-
 		std::array<hlsl::float32_t3, 3> normals = {};
 		if (!decodeIndexedTriple(idx, [&normalView](const uint32_t vertexIx, hlsl::float32_t3& out) -> bool { return normalView.decodeElement(vertexIx, out); }, normals.data()))
 			return false;
-
 		return selectFirstValidNormal(normals.data(), static_cast<uint32_t>(normals.size()), outNormal);
 	}
 
@@ -270,9 +265,7 @@ struct Parse
 	static const ICPUPolygonGeometry::SDataView* getColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
 	{
 		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, Parse::COLOR0, vertexCount);
-		if (!view)
-			return nullptr;
-		return getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
+		return view && getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
 	}
 
 	static bool decodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor)
@@ -285,7 +278,6 @@ struct Parse
 			std::memcpy(&outColor, ptr + static_cast<size_t>(ix) * sizeof(uint32_t), sizeof(outColor));
 			return true;
 		}
-
 		hlsl::float32_t4 decoded = {};
 		if (!colorView.decodeElement(ix, decoded))
 			return false;
@@ -304,16 +296,13 @@ struct Parse
 	{
 		if (!geom || !context || !context->writeContext.outputFile)
 			return false;
-
 		const auto& posView = geom->getPositionView();
 		if (!posView)
 			return false;
-
 		const bool flipHandedness = !context->writeContext.params.flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 		const size_t vertexCount = posView.getElementCount();
 		if (vertexCount == 0ull)
 			return false;
-
 		size_t faceCount = 0ull;
 		if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
 			return false;
@@ -417,7 +406,6 @@ struct Parse
 			std::array<hlsl::float32_t3, 3> positions = {};
 			if (!decodeIndexedTriple(idx, decodePosition, positions.data()))
 				return false;
-
 			std::array<hlsl::float32_t3, 3> normals = {};
 			if (hasNormals && !decodeIndexedTriple(idx, decodeNormal, normals.data()))
 				return false;
@@ -435,11 +423,9 @@ struct Parse
 	{
 		if (!geom)
 			return false;
-
 		const auto* indexing = geom->getIndexingCallback();
 		if (!indexing || indexing->degree() != 3u)
 			return false;
-
 		const auto& posView = geom->getPositionView();
 		if (!posView)
 			return false;
@@ -454,7 +440,6 @@ struct Parse
 			return false;
 		if (!context->write("\n", sizeof("\n") - 1ull))
 			return false;
-
 		const uint32_t faceCount = static_cast<uint32_t>(geom->getPrimitiveCount());
 		for (uint32_t primIx = 0u; primIx < faceCount; ++primIx)
 		{
@@ -483,7 +468,6 @@ struct Parse
 		TriangleData triangle = {};
 		const hlsl::float32_t3* const attrNormalPtr = decodeTriangleNormal(normalView, idx, attrNormal) ? &attrNormal : nullptr;
 		buildTriangle(v1, v2, v3, attrNormalPtr, attrNormalPtr ? 1u : 0u, flipHandedness, true, triangle);
-
 		std::array<char, AsciiFaceTextMaxBytes> faceText = {};
 		char* cursor = faceText.data();
 		char* const end = faceText.data() + faceText.size();

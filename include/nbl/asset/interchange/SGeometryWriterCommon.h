@@ -30,7 +30,6 @@ class SGeometryWriterCommon
             Container out = {};
             if (!rootAsset)
                 return out;
-
             const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
             auto appendFromCollection = [&](const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& transform, const uint32_t instanceIx, const uint32_t targetIx) -> void {
                 if (!collection)
@@ -61,17 +60,14 @@ class SGeometryWriterCommon
                 }
                 return out;
             }
-
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY_COLLECTION)
             {
                 appendFromCollection(static_cast<const ICPUGeometryCollection*>(rootAsset), identity, ~0u, ~0u);
                 return out;
             }
-
             if (rootAsset->getAssetType() != IAsset::ET_SCENE)
                 return out;
             const auto* scene = static_cast<const ICPUScene*>(rootAsset);
-
             const auto& instances = scene->getInstances();
             const auto& morphTargets = instances.getMorphTargets();
             const auto& initialTransforms = instances.getInitialTransforms();
@@ -137,12 +133,10 @@ class SGeometryWriterCommon
         {
             if (!geom)
                 return false;
-
             const auto& positionView = geom->getPositionView();
             const size_t vertexCount = positionView.getElementCount();
             if (vertexCount == 0ull)
                 return false;
-
             auto visit = [&]<typename IndexT>(const IndexT i0, const IndexT i1, const IndexT i2)->bool
             {
                 const uint32_t u0 = static_cast<uint32_t>(i0);
@@ -150,7 +144,6 @@ class SGeometryWriterCommon
                 const uint32_t u2 = static_cast<uint32_t>(i2);
                 if (u0 >= vertexCount || u1 >= vertexCount || u2 >= vertexCount)
                     return false;
-
                 if constexpr (std::is_same_v<std::invoke_result_t<Visitor&, uint32_t, uint32_t, uint32_t>, bool>)
                     return visitor(u0, u1, u2);
                 else
@@ -165,21 +158,17 @@ class SGeometryWriterCommon
             {
                 if ((vertexCount % 3ull) != 0ull)
                     return false;
-
                 for (uint32_t i = 0u; i < vertexCount; i += 3u)
                     if (!visit(i + 0u, i + 1u, i + 2u))
                         return false;
                 return true;
             }
-
             const size_t indexCount = indexView.getElementCount();
             if ((indexCount % 3ull) != 0ull)
                 return false;
-
             const void* const src = indexView.getPointer();
             if (!src)
                 return false;
-
             auto visitIndexed = [&]<typename IndexT>()->bool
             {
                 const auto* indices = reinterpret_cast<const IndexT*>(src);
@@ -208,11 +197,9 @@ class SGeometryWriterCommon
         {
             if (!dst || dst >= end)
                 return end;
-
             const auto result = std::to_chars(dst, end, value);
             if (result.ec == std::errc())
                 return result.ptr;
-
             const int written = std::snprintf(dst, static_cast<size_t>(end - dst), "%u", value);
             if (written <= 0)
                 return dst;
@@ -225,25 +212,20 @@ class SGeometryWriterCommon
         static inline char* appendFloatingPointToBuffer(char* dst, char* const end, const T value)
         {
             static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
-
             if (!dst || dst >= end)
                 return end;
-
             const auto result = std::to_chars(dst, end, value);
             if (result.ec == std::errc())
                 return result.ptr;
-
             constexpr size_t FloatingPointScratchSize = std::numeric_limits<T>::max_digits10 + 9ull;
             std::array<char, FloatingPointScratchSize> scratch = {};
             constexpr int Precision = std::numeric_limits<T>::max_digits10;
             const int written = std::snprintf(scratch.data(), scratch.size(), "%.*g", Precision, static_cast<double>(value));
             if (written <= 0)
                 return dst;
-
             const size_t writeLen = static_cast<size_t>(written);
             if (writeLen > static_cast<size_t>(end - dst))
                 return end;
-
             std::memcpy(dst, scratch.data(), writeLen);
             return dst + writeLen;
         }

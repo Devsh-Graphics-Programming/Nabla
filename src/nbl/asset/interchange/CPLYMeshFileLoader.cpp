@@ -181,332 +181,295 @@ struct Parse
 					_ctx.getNextLine();
 			}
 
-            // name of the element. We only want "vertex" and "face" elements
-            // but we have to parse the others anyway.
-            std::string Name;
-            // Properties of this element
-            core::vector<SProperty> Properties;
-            // The number of elements in the file
-            size_t Count;
-            // known size in bytes, 0 if unknown
-            uint32_t KnownSize;
-        };
+			std::string Name;
+			core::vector<SProperty> Properties;
+			size_t Count;
+			uint32_t KnownSize;
+		};
 
-        static constexpr size_t DefaultIoReadWindowBytes = 50ull << 10;
+		static constexpr size_t DefaultIoReadWindowBytes = 50ull << 10;
 
-        void init(size_t _ioReadWindowSize = DefaultIoReadWindowBytes) {
-            ioReadWindowSize =
-                std::max<size_t>(_ioReadWindowSize, DefaultIoReadWindowBytes);
-            Buffer.resize(ioReadWindowSize + ReadWindowPaddingBytes, '\0');
-            EndPointer = StartPointer = Buffer.data();
-            LineEndPointer = EndPointer - 1;
+		void init(size_t _ioReadWindowSize = DefaultIoReadWindowBytes)
+		{
+			ioReadWindowSize = std::max<size_t>(_ioReadWindowSize, DefaultIoReadWindowBytes);
+			Buffer.resize(ioReadWindowSize + ReadWindowPaddingBytes, '\0');
+			EndPointer = StartPointer = Buffer.data();
+			LineEndPointer = EndPointer - 1;
+			fillBuffer();
+		}
 
-            fillBuffer();
-        }
+		void fillBuffer()
+		{
+			if (EndOfFile)
+				return;
+			if (fileOffset >= inner.mainFile->getSize())
+			{
+				EndOfFile = true;
+				return;
+			}
+			const auto length = std::distance(StartPointer, EndPointer);
+			auto newStart = Buffer.data();
+			if (length && StartPointer != newStart)
+				memmove(newStart, StartPointer, length);
+			StartPointer = newStart;
+			EndPointer = newStart + length;
+			const size_t usableBufferSize = Buffer.size() > 0ull ? Buffer.size() - ReadWindowPaddingBytes : 0ull;
+			if (usableBufferSize <= length)
+			{
+				EndOfFile = true;
+				return;
+			}
+			const size_t requestSize = usableBufferSize - length;
+			system::IFile::success_t success;
+			inner.mainFile->read(success, EndPointer, fileOffset, requestSize);
+			const size_t bytesRead = success.getBytesProcessed();
+			++readCallCount;
+			readBytesTotal += bytesRead;
+			if (bytesRead < readMinBytes)
+				readMinBytes = bytesRead;
+			fileOffset += bytesRead;
+			EndPointer += bytesRead;
+			if (bytesRead != requestSize)
+			{
+				*EndPointer = 0;
+				EndOfFile = true;
+			}
+		}
 
-        // gets more data from the file
-        void fillBuffer() {
-            if (EndOfFile)
-                return;
-            else if (fileOffset >= inner.mainFile->getSize()) {
-                EndOfFile = true;
-                return;
-            }
+		const char* getNextLine()
+		{
+			StartPointer = LineEndPointer + 1;
+			if (*StartPointer == '\n')
+				*(StartPointer++) = '\0';
+			const std::array<const char, 3> Terminators = {'\0', '\r', '\n'};
+			auto terminator = std::find_first_of(StartPointer, EndPointer, Terminators.begin(), Terminators.end());
+			if (terminator != EndPointer)
+				*(terminator++) = '\0';
+			if (terminator == EndPointer)
+			{
+				if (EndOfFile)
+				{
+					StartPointer = EndPointer - 1;
+					*StartPointer = '\0';
+					return StartPointer;
+				}
+				fillBuffer();
+				LineEndPointer = StartPointer - 1;
+				return StartPointer != EndPointer ? getNextLine() : StartPointer;
+			}
+			LineEndPointer = terminator - 1;
+			WordLength = -1;
+			return StartPointer;
+		}
 
-            const auto length = std::distance(StartPointer, EndPointer);
-            auto newStart = Buffer.data();
-            // copy the remaining data to the start of the buffer
-            if (length && StartPointer != newStart)
-                memmove(newStart, StartPointer, length);
-            // reset start position
-            StartPointer = newStart;
-            EndPointer = newStart + length;
+		const char* getNextWord()
+		{
+			StartPointer += WordLength + 1;
+			if (StartPointer >= EndPointer)
+			{
+				if (EndOfFile)
+				{
+					WordLength = -1;
+					return EndPointer;
+				}
+				getNextLine();
+			}
+			if (StartPointer < EndPointer && !*StartPointer)
+				getNextLine();
+			if (StartPointer >= LineEndPointer)
+			{
+				WordLength = -1;
+				return StartPointer;
+			}
+			assert(LineEndPointer <= EndPointer);
+			const std::array<const char, 3> WhiteSpace = {'\0', ' ', '\t'};
+			auto wordEnd = std::find_first_of(StartPointer, LineEndPointer, WhiteSpace.begin(), WhiteSpace.end());
+			if (wordEnd != LineEndPointer)
+				*(wordEnd++) = '\0';
+			auto nextWord = std::find_if(wordEnd, LineEndPointer, [WhiteSpace](const char c) -> bool { return std::find(WhiteSpace.begin(), WhiteSpace.end(), c) == WhiteSpace.end(); });
+			WordLength = std::distance(StartPointer, nextWord) - 1;
+			return StartPointer;
+		}
 
-            // read data from the file
-            const size_t usableBufferSize =
-                Buffer.size() > 0ull ? Buffer.size() - ReadWindowPaddingBytes : 0ull;
-            if (usableBufferSize <= length) {
-                EndOfFile = true;
-                return;
-            }
-            const size_t requestSize = usableBufferSize - length;
-            system::IFile::success_t success;
-            inner.mainFile->read(success, EndPointer, fileOffset, requestSize);
-            const size_t bytesRead = success.getBytesProcessed();
-            ++readCallCount;
-            readBytesTotal += bytesRead;
-            if (bytesRead < readMinBytes)
-                readMinBytes = bytesRead;
-            fileOffset += bytesRead;
-            EndPointer += bytesRead;
+		size_t getAbsoluteOffset(const char* ptr) const
+		{
+			if (!ptr || ptr > EndPointer)
+				return fileOffset;
+			const size_t trailingBytes = static_cast<size_t>(EndPointer - ptr);
+			return fileOffset >= trailingBytes ? (fileOffset - trailingBytes) : 0ull;
+		}
 
-            // if we didn't completely fill the buffer
-            if (bytesRead != requestSize) {
-                // cauterize the string
-                *EndPointer = 0;
-                EndOfFile = true;
-            }
-        }
-        // Split the string data into a line in place by terminating it instead of
-        // copying.
-        const char* getNextLine() {
-            // move the start pointer along
-            StartPointer = LineEndPointer + 1;
+		void useMappedBinaryWindow(const char* data, const size_t sizeBytes)
+		{
+			if (!data)
+				return;
+			StartPointer = const_cast<char*>(data);
+			EndPointer = StartPointer + sizeBytes;
+			LineEndPointer = StartPointer - 1;
+			WordLength = -1;
+			EndOfFile = true;
+			fileOffset = inner.mainFile ? inner.mainFile->getSize() : fileOffset;
+		}
 
-            // crlf split across buffer move
-            if (*StartPointer == '\n')
-                *(StartPointer++) = '\0';
+		void moveForward(const size_t bytes)
+		{
+			assert(IsBinaryFile);
+			size_t remaining = bytes;
+			if (remaining == 0ull)
+				return;
+			const size_t availableInitially = EndPointer > StartPointer ? static_cast<size_t>(EndPointer - StartPointer) : 0ull;
+			if (remaining > availableInitially)
+			{
+				remaining -= availableInitially;
+				StartPointer = EndPointer;
+				if (remaining > ioReadWindowSize)
+				{
+					const size_t fileSize = inner.mainFile->getSize();
+					const size_t fileRemaining = fileSize > fileOffset ? (fileSize - fileOffset) : 0ull;
+					const size_t directSkip = std::min(remaining, fileRemaining);
+					fileOffset += directSkip;
+					remaining -= directSkip;
+				}
+			}
+			while (remaining)
+			{
+				if (StartPointer >= EndPointer)
+				{
+					fillBuffer();
+					if (StartPointer >= EndPointer)
+						return;
+				}
+				const size_t available = static_cast<size_t>(EndPointer - StartPointer);
+				const size_t step = std::min(available, remaining);
+				StartPointer += step;
+				remaining -= step;
+			}
+		}
 
-            // begin at the start of the next line
-            const std::array<const char, 3> Terminators = {'\0', '\r', '\n'};
-            auto terminator = std::find_first_of(
-                StartPointer, EndPointer, Terminators.begin(), Terminators.end());
-            if (terminator != EndPointer)
-                *(terminator++) = '\0';
+		using widest_int_t = uint32_t;
 
-            // we have reached the end of the buffer
-            if (terminator == EndPointer) {
-                // get data from the file
-                if (EndOfFile) {
-                    StartPointer = EndPointer - 1;
-                    *StartPointer = '\0';
-                    return StartPointer;
-                } else {
-                    fillBuffer();
-                    // reset line end pointer
-                    LineEndPointer = StartPointer - 1;
-                    if (StartPointer != EndPointer)
-                        return getNextLine();
-                    else
-                        return StartPointer;
-                }
-            } else {
-                LineEndPointer = terminator - 1;
-                WordLength = -1;
-                // return pointer to the start of the line
-                return StartPointer;
-            }
-        }
-        // null terminate the next word on the previous line and move the next word
-        // pointer along since we already have a full line in the buffer, we never
-        // need to retrieve more data
-        const char* getNextWord() {
-            // move the start pointer along
-            StartPointer += WordLength + 1;
-            if (StartPointer >= EndPointer) {
-                if (EndOfFile) {
-                    WordLength = -1;
-                    return EndPointer;
-                }
-                getNextLine();
-            }
+		const char* getCurrentWordEnd(const char* word) const
+		{
+			const size_t tokenLen = WordLength >= 0 ? static_cast<size_t>(WordLength + 1) : std::char_traits<char>::length(word);
+			return word + tokenLen;
+		}
 
-            if (StartPointer < EndPointer && !*StartPointer)
-                getNextLine();
+		widest_int_t getInt(const E_FORMAT f)
+		{
+			assert(!isFloatingPointFormat(f));
+			if (IsBinaryFile)
+			{
+				if (StartPointer + sizeof(widest_int_t) > EndPointer)
+					fillBuffer();
+				switch (getTexelOrBlockBytesize(f))
+				{
+					case 1:
+						if (StartPointer + sizeof(int8_t) <= EndPointer)
+							return *(StartPointer++);
+						break;
+					case 2:
+						if (StartPointer + sizeof(int16_t) <= EndPointer)
+						{
+							const auto retval = Binary::loadUnaligned<int16_t>(StartPointer, IsWrongEndian);
+							StartPointer += sizeof(int16_t);
+							return retval;
+						}
+						break;
+					case 4:
+						if (StartPointer + sizeof(int32_t) <= EndPointer)
+						{
+							const auto retval = Binary::loadUnaligned<int32_t>(StartPointer, IsWrongEndian);
+							StartPointer += sizeof(int32_t);
+							return retval;
+						}
+						break;
+					default:
+						assert(false);
+						break;
+				}
+				return 0u;
+			}
+			const char* word = getNextWord();
+			if (!word)
+				return 0u;
+			const char* const wordEnd = getCurrentWordEnd(word);
+			if (word == wordEnd)
+				return 0u;
+			auto parseInt = [&](auto& value) -> widest_int_t
+			{
+				auto ptr = word;
+				if (Common::parseNumber(ptr, wordEnd, value) && ptr == wordEnd)
+					return static_cast<widest_int_t>(value);
+				return ptr != word ? static_cast<widest_int_t>(value) : 0u;
+			};
+			if (isSignedFormat(f))
+			{
+				int64_t value = 0;
+				return parseInt(value);
+			}
+			uint64_t value = 0u;
+			return parseInt(value);
+		}
 
-            if (StartPointer >= LineEndPointer) {
-                WordLength = -1; //
-                return StartPointer;
-            }
-            // process the next word
-            {
-                assert(LineEndPointer <= EndPointer);
-                const std::array<const char, 3> WhiteSpace = {'\0', ' ', '\t'};
-                auto wordEnd = std::find_first_of(StartPointer, LineEndPointer,
-                                                  WhiteSpace.begin(), WhiteSpace.end());
-                // null terminate the next word
-                if (wordEnd != LineEndPointer)
-                    *(wordEnd++) = '\0';
-                // find next word
-                auto notWhiteSpace = [WhiteSpace](const char c) -> bool {
-                    return std::find(WhiteSpace.begin(), WhiteSpace.end(), c) ==
-                           WhiteSpace.end();
-                };
-                auto nextWord = std::find_if(wordEnd, LineEndPointer, notWhiteSpace);
-                WordLength = std::distance(StartPointer, nextWord) - 1;
-            }
-            // return pointer to the start of current word
-            return StartPointer;
-        }
-        size_t getAbsoluteOffset(const char* ptr) const {
-            if (!ptr || ptr > EndPointer)
-                return fileOffset;
-            const size_t trailingBytes = static_cast<size_t>(EndPointer - ptr);
-            return fileOffset >= trailingBytes ? (fileOffset - trailingBytes) : 0ull;
-        }
-        void useMappedBinaryWindow(const char* data, const size_t sizeBytes) {
-            if (!data)
-                return;
-            StartPointer = const_cast<char*>(data);
-            EndPointer = StartPointer + sizeBytes;
-            LineEndPointer = StartPointer - 1;
-            WordLength = -1;
-            EndOfFile = true;
-            fileOffset = inner.mainFile ? inner.mainFile->getSize() : fileOffset;
-        }
-        // skips x bytes in the file, getting more data if required
-        void moveForward(const size_t bytes) {
-            assert(IsBinaryFile);
-            size_t remaining = bytes;
-            if (remaining == 0ull)
-                return;
+		hlsl::float64_t getFloat(const E_FORMAT f)
+		{
+			assert(isFloatingPointFormat(f));
+			if (IsBinaryFile)
+			{
+				if (StartPointer + sizeof(hlsl::float64_t) > EndPointer)
+					fillBuffer();
+				switch (getTexelOrBlockBytesize(f))
+				{
+					case 4:
+						if (StartPointer + sizeof(hlsl::float32_t) <= EndPointer)
+						{
+							const auto retval = Binary::loadUnaligned<hlsl::float32_t>(StartPointer, IsWrongEndian);
+							StartPointer += sizeof(hlsl::float32_t);
+							return retval;
+						}
+						break;
+					case 8:
+						if (StartPointer + sizeof(hlsl::float64_t) <= EndPointer)
+						{
+							const auto retval = Binary::loadUnaligned<hlsl::float64_t>(StartPointer, IsWrongEndian);
+							StartPointer += sizeof(hlsl::float64_t);
+							return retval;
+						}
+						break;
+					default:
+						assert(false);
+						break;
+				}
+				return 0.0;
+			}
+			const char* word = getNextWord();
+			if (!word)
+				return 0.0;
+			const char* const wordEnd = getCurrentWordEnd(word);
+			if (word == wordEnd)
+				return 0.0;
+			hlsl::float64_t value = 0.0;
+			auto ptr = word;
+			if (Common::parseNumber(ptr, wordEnd, value) && ptr == wordEnd)
+				return value;
+			return ptr != word ? value : 0.0;
+		}
 
-            const size_t availableInitially =
-                EndPointer > StartPointer
-                    ? static_cast<size_t>(EndPointer - StartPointer)
-                    : 0ull;
-            if (remaining > availableInitially) {
-                remaining -= availableInitially;
-                StartPointer = EndPointer;
-                if (remaining > ioReadWindowSize) {
-                    const size_t fileSize = inner.mainFile->getSize();
-                    const size_t fileRemaining =
-                        fileSize > fileOffset ? (fileSize - fileOffset) : 0ull;
-                    const size_t directSkip = std::min(remaining, fileRemaining);
-                    fileOffset += directSkip;
-                    remaining -= directSkip;
-                }
-            }
-
-            while (remaining) {
-                if (StartPointer >= EndPointer) {
-                    fillBuffer();
-                    if (StartPointer >= EndPointer)
-                        return;
-                }
-
-                const size_t available = static_cast<size_t>(EndPointer - StartPointer);
-                const size_t step = std::min(available, remaining);
-                StartPointer += step;
-                remaining -= step;
-            }
-        }
-
-        // read the next int from the file and move the start pointer along
-        using widest_int_t = uint32_t;
-        widest_int_t getInt(const E_FORMAT f) {
-            assert(!isFloatingPointFormat(f));
-            if (IsBinaryFile) {
-                if (StartPointer + sizeof(widest_int_t) > EndPointer)
-                    fillBuffer();
-
-                switch (getTexelOrBlockBytesize(f)) {
-                case 1:
-                    if (StartPointer + sizeof(int8_t) > EndPointer)
-                        break;
-                    return *(StartPointer++);
-                case 2: {
-                    if (StartPointer + sizeof(int16_t) > EndPointer)
-                        break;
-                    const auto retval = Binary::loadUnaligned<int16_t>(StartPointer, IsWrongEndian);
-                    StartPointer += sizeof(int16_t);
-                    return retval;
-                }
-                case 4: {
-                    if (StartPointer + sizeof(int32_t) > EndPointer)
-                        break;
-                    const auto retval = Binary::loadUnaligned<int32_t>(StartPointer, IsWrongEndian);
-                    StartPointer += sizeof(int32_t);
-                    return retval;
-                }
-                default:
-                    assert(false);
-                    break;
-                }
-                return 0;
-            }
-            const char* word = getNextWord();
-            if (!word)
-                return 0u;
-            const size_t tokenLen = WordLength >= 0
-                                        ? static_cast<size_t>(WordLength + 1)
-                                        : std::char_traits<char>::length(word);
-            const char* const wordEnd = word + tokenLen;
-            if (word == wordEnd)
-                return 0u;
-
-            if (isSignedFormat(f)) {
-                int64_t value = 0;
-                auto ptr = word;
-                if (Common::parseNumber(ptr, wordEnd, value) &&
-                    ptr == wordEnd)
-                    return static_cast<widest_int_t>(value);
-                if (ptr != word)
-                    return static_cast<widest_int_t>(value);
-                return 0u;
-            } else {
-                uint64_t value = 0u;
-                auto ptr = word;
-                if (Common::parseNumber(ptr, wordEnd, value) &&
-                    ptr == wordEnd)
-                    return static_cast<widest_int_t>(value);
-                if (ptr != word)
-                    return static_cast<widest_int_t>(value);
-                return 0u;
-            }
-        }
-        // read the next float from the file and move the start pointer along
-        hlsl::float64_t getFloat(const E_FORMAT f) {
-            assert(isFloatingPointFormat(f));
-            if (IsBinaryFile) {
-                if (StartPointer + sizeof(hlsl::float64_t) > EndPointer)
-                    fillBuffer();
-
-                switch (getTexelOrBlockBytesize(f)) {
-                case 4: {
-                    if (StartPointer + sizeof(hlsl::float32_t) > EndPointer)
-                        break;
-                    const auto retval = Binary::loadUnaligned<hlsl::float32_t>(StartPointer, IsWrongEndian);
-                    StartPointer += sizeof(hlsl::float32_t);
-                    return retval;
-                }
-                case 8: {
-                    if (StartPointer + sizeof(hlsl::float64_t) > EndPointer)
-                        break;
-                    const auto retval = Binary::loadUnaligned<hlsl::float64_t>(StartPointer, IsWrongEndian);
-                    StartPointer += sizeof(hlsl::float64_t);
-                    return retval;
-                }
-                default:
-                    assert(false);
-                    break;
-                }
-                return 0;
-            }
-            const char* word = getNextWord();
-            if (!word)
-                return 0.0;
-            const size_t tokenLen = WordLength >= 0
-                                        ? static_cast<size_t>(WordLength + 1)
-                                        : std::char_traits<char>::length(word);
-            const char* const wordEnd = word + tokenLen;
-            if (word == wordEnd)
-                return 0.0;
-
-            hlsl::float64_t value = 0.0;
-            auto ptr = word;
-            if (Common::parseNumber(ptr, wordEnd, value) &&
-                ptr == wordEnd)
-                return value;
-            if (ptr != word)
-                return value;
-            return 0.0;
-        }
-        // read the next thing from the file and move the start pointer along
-        void getData(void* dst, const E_FORMAT f) {
-            const auto size = getTexelOrBlockBytesize(f);
-            if (StartPointer + size > EndPointer) {
-                fillBuffer();
-                if (StartPointer + size > EndPointer)
-                    return;
-            }
-            if (IsWrongEndian)
-                std::reverse_copy(StartPointer, StartPointer + size,
-                                  reinterpret_cast<char*>(dst));
-            else
-                memcpy(dst, StartPointer, size);
-            StartPointer += size;
-        }
+		void getData(void* dst, const E_FORMAT f)
+		{
+			const auto size = getTexelOrBlockBytesize(f);
+			if (StartPointer + size > EndPointer)
+			{
+				fillBuffer();
+				if (StartPointer + size > EndPointer)
+					return;
+			}
+			if (IsWrongEndian)
+				std::reverse_copy(StartPointer, StartPointer + size, reinterpret_cast<char*>(dst));
+			else
+				memcpy(dst, StartPointer, size);
+			StartPointer += size;
+		}
         struct SVertAttrIt {
             uint8_t* ptr;
             uint32_t stride;
@@ -1239,22 +1202,18 @@ struct Parse
         IAssetLoader::SAssetLoadContext inner;
         uint32_t topHierarchyLevel;
         IAssetLoader::IAssetLoaderOverride* loaderOverride;
-        // input buffer must be at least twice as long as the longest line in the
-        // file
         core::vector<char> Buffer;
         size_t ioReadWindowSize = DefaultIoReadWindowBytes;
         core::vector<SElement> ElementList = {};
         char *StartPointer = nullptr, *EndPointer = nullptr,
              *LineEndPointer = nullptr;
         int32_t LineLength = 0;
-        int32_t WordLength = -1; // this variable is a misnomer, its really the
-                                 // offset to next word minus one
+        int32_t WordLength = -1;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         size_t fileOffset = {};
         uint64_t readCallCount = 0ull;
         uint64_t readBytesTotal = 0ull;
         uint64_t readMinBytes = std::numeric_limits<uint64_t>::max();
-        //
         core::vector<SVertAttrIt> vertAttrIts;
     };
 };
@@ -1339,16 +1298,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             fileSize > (Parse::Context::DefaultIoReadWindowBytes * 2ull))
             desiredReadWindow = Parse::Context::DefaultIoReadWindowBytes;
     }
-    const uint64_t safeReadWindow = std::min<uint64_t>(
-        desiredReadWindow,
-        static_cast<uint64_t>(std::numeric_limits<size_t>::max() -
-                              Parse::Context::ReadWindowPaddingBytes));
+    const uint64_t safeReadWindow = std::min<uint64_t>(desiredReadWindow, static_cast<uint64_t>(std::numeric_limits<size_t>::max() - Parse::Context::ReadWindowPaddingBytes));
     ctx.init(static_cast<size_t>(safeReadWindow));
-
-    // start with empty mesh
     auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
-    hlsl::shapes::util::AABBAccumulator3<float> parsedAABB =
-        hlsl::shapes::util::createAABBAccumulator<float>();
+    hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
     uint32_t vertCount = 0;
     Parse::ContentHashBuild contentHashBuild = Parse::ContentHashBuild::create(computeContentHashes, hashInBuild);
     auto visitVertexAttributeViews = [&](auto&& visitor) -> void {
@@ -1382,18 +1335,13 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         contentHashBuild.tryDefer(view.src.buffer.get());
     };
 
-    // Currently only supports ASCII or binary meshes
     if (Parse::toStringView(ctx.getNextLine()) != "ply") {
         _params.logger.log("Not a valid PLY file %s", system::ILogger::ELL_ERROR,
                            ctx.inner.mainFile->getFileName().string().c_str());
         return {};
     }
-
-    // cut the next line out
     ctx.getNextLine();
-    // grab the word from this line
     const char* word = ctx.getNextWord();
-    // ignore comments
     for (; Parse::toStringView(word) == "comment"; ctx.getNextLine())
         word = ctx.getNextWord();
 
@@ -1411,10 +1359,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 _params.logger.log("PLY property token found before element %s",
                                    system::ILogger::ELL_WARNING, word);
             } else {
-                // get element
                 auto& el = ctx.ElementList.back();
-
-                // fill property struct
                 auto& prop = el.Properties.emplace_back();
                 prop.type = prop.getType(word);
                 if (prop.type == EF_UNKNOWN) {
@@ -1463,10 +1408,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             if (el.Name == "vertex")
                 vertCount = el.Count;
         } else if (wordView == "comment") {
-            // ignore line
-        }
-        // must be `format {binary_little_endian|binary_big_endian|ascii} 1.0`
-        else if (wordView == "format") {
+        } else if (wordView == "format") {
             word = ctx.getNextWord();
             const std::string_view formatView = Parse::toStringView(word);
 
@@ -1477,7 +1419,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 ctx.IsWrongEndian = true;
             } else if (formatView == "ascii") {
             } else {
-                // abort if this isn't an ascii or a binary mesh
                 _params.logger.log("Unsupported PLY mesh format %s",
                                    system::ILogger::ELL_ERROR, word);
                 continueReading = false;
@@ -1515,15 +1456,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             word = ctx.getNextWord();
         }
     } while (readingHeader && continueReading);
-    //
     if (!continueReading)
         return {};
-
-    // now to read the actual data from the file
     using index_t = uint32_t;
     core::vector<index_t> indices = {};
-
-    // loop through each of the elements
     bool verticesProcessed = false;
     const std::string fileName = _file->getFileName().string();
     auto logMalformedElement = [&](const char* const elementName) -> void {
@@ -1563,9 +1499,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
 
     for (uint32_t i = 0; i < ctx.ElementList.size(); ++i) {
         auto& el = ctx.ElementList[i];
-        if (el.Name == "vertex") // multiple vertex elements are currently treated
-                                 // as unsupported
-        {
+        if (el.Name == "vertex") {
             if (verticesProcessed) {
                 _params.logger.log("Multiple `vertex` elements not supported!",
                                    system::ILogger::ELL_ERROR);
@@ -1576,14 +1510,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             core::vector<ICPUPolygonGeometry::SDataView> extraViews;
             for (auto& vertexProperty : el.Properties) {
                 const auto& propertyName = vertexProperty.Name;
-                // only positions and normals need to be structured/canonicalized in any
-                // way
-                auto negotiateFormat =
-                    [&vertexProperty](ICPUPolygonGeometry::SDataViewBase& view,
-                                      const uint8_t component) -> void {
+                auto negotiateFormat = [&vertexProperty](ICPUPolygonGeometry::SDataViewBase& view, const uint8_t component) -> void {
                     assert(getFormatChannelCount(vertexProperty.type) != 0);
-                    if (getTexelOrBlockBytesize(vertexProperty.type) >
-                        getTexelOrBlockBytesize(view.format))
+                    if (getTexelOrBlockBytesize(vertexProperty.type) > getTexelOrBlockBytesize(view.format))
                         view.format = vertexProperty.type;
                     view.stride = hlsl::max<uint32_t>(view.stride, component);
                 };
@@ -1603,19 +1532,14 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                     negotiateFormat(uvView, 0);
                 else if (propertyName == "v" || propertyName == "t")
                     negotiateFormat(uvView, 1);
-                else {
-                    // property names for extra channels are currently not persisted in
-                    // metadata
+                else
                     extraViews.push_back(createView(vertexProperty.type, el.Count));
-                }
             }
-            auto setFinalFormat =
-                [&ctx](ICPUPolygonGeometry::SDataViewBase& view) -> void {
+            auto setFinalFormat = [&ctx](ICPUPolygonGeometry::SDataViewBase& view) -> void {
                 const auto componentFormat = view.format;
                 const auto componentCount = view.stride + 1;
                 view.format = Parse::expandStructuredFormat(view.format, componentCount);
                 view.stride = getTexelOrBlockBytesize(view.format);
-                //
                 for (auto c = 0u; c < componentCount; c++) {
                     size_t offset = getTexelOrBlockBytesize(componentFormat) * c;
                     ctx.vertAttrIts.push_back({.ptr = reinterpret_cast<uint8_t*>(offset),
@@ -1640,16 +1564,12 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 auxViews->resize(Parse::UV0 + 1u);
                 auxViews->operator[](Parse::UV0) = std::move(view);
             });
-            //
             for (auto& view : extraViews)
-                ctx.vertAttrIts.push_back(
-                    {.ptr = reinterpret_cast<uint8_t*>(view.src.buffer->getPointer()) +
-                            view.src.offset,
-                     .stride = getTexelOrBlockBytesize(view.composed.format),
-                     .dstFmt = view.composed.format});
+                ctx.vertAttrIts.push_back({.ptr = reinterpret_cast<uint8_t*>(view.src.buffer->getPointer()) + view.src.offset,
+                                           .stride = getTexelOrBlockBytesize(view.composed.format),
+                                           .dstFmt = view.composed.format});
             for (auto& view : extraViews)
                 geometry->getAuxAttributeViews()->push_back(std::move(view));
-            // loop through vertex properties
             const auto fastVertexResult = ctx.readVertexElementFast(el, &parsedAABB);
             if (fastVertexResult == Parse::Context::EFastVertexReadResult::Success) {
                 ++fastVertexElementCount;
@@ -1679,7 +1599,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
 
     const uint64_t indexCount = static_cast<uint64_t>(indices.size());
     if (indices.empty()) {
-        // no index buffer means point cloud
         geometry->setIndexing(IPolygonGeometryBase::PointList());
     } else {
         if (vertCount != 0u && maxIndexRead >= vertCount) {

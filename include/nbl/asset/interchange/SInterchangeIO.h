@@ -41,12 +41,9 @@ class SInterchangeIO
         {
             if (payloadBytes <= bigPayloadThresholdBytes)
                 return false;
-
             const uint64_t minBytes = telemetry.getMinOrZero();
             const uint64_t avgBytes = telemetry.getAvgOrZero();
-            return
-                avgBytes < lowAvgBytesThreshold ||
-                (minBytes < tinyChunkBytesThreshold && telemetry.callCount > tinyChunkCallsThreshold);
+            return avgBytes < lowAvgBytesThreshold || (minBytes < tinyChunkBytesThreshold && telemetry.callCount > tinyChunkCallsThreshold);
         }
         static inline bool isTinyIOTelemetryLikely(const STelemetry& telemetry, const uint64_t payloadBytes, const SFileIOPolicy& ioPolicy) { return isTinyIOTelemetryLikely(telemetry, payloadBytes, ioPolicy.runtimeTuning.tinyIoPayloadThresholdBytes, ioPolicy.runtimeTuning.tinyIoAvgBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinBytesThreshold, ioPolicy.runtimeTuning.tinyIoMinCallCount); }
         static inline bool readFileExact(system::IFile* file, void* dst, const size_t offset, const size_t bytes, SReadTelemetry* ioTelemetry = nullptr)
@@ -74,7 +71,6 @@ class SInterchangeIO
                     *ioTime = std::chrono::duration_cast<TimeUnit>(clock_t::now() - ioStart);
                 return ok;
             };
-
             if (!file || (!dst && bytes != 0ull))
                 return finalize(false);
             if (bytes == 0ull)
@@ -117,7 +113,6 @@ class SInterchangeIO
         {
             if (!file)
                 return false;
-
             const uint64_t chunkSizeBytes = ioPlan.chunkSizeBytes();
             for (const auto& buffer : buffers)
             {
@@ -126,14 +121,10 @@ class SInterchangeIO
                 if (buffer.byteCount == 0ull)
                     continue;
                 const auto* data = reinterpret_cast<const uint8_t*>(buffer.data);
-
                 size_t writtenTotal = 0ull;
                 while (writtenTotal < buffer.byteCount)
                 {
-                    const size_t toWrite =
-                        ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ?
-                            (buffer.byteCount - writtenTotal) :
-                            static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, buffer.byteCount - writtenTotal));
+                    const size_t toWrite = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (buffer.byteCount - writtenTotal) : static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, buffer.byteCount - writtenTotal));
                     system::IFile::success_t success;
                     file->write(success, data + writtenTotal, fileOffset + writtenTotal, toWrite);
                     if (!success)

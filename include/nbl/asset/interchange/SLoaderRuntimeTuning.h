@@ -71,7 +71,6 @@ struct SLoaderRuntimeTuner
                 workers.emplace_back([&fn, workerIx]() { fn(workerIx); });
             fn(0ull);
         }
-
         static constexpr uint64_t ceilDiv(const uint64_t numerator, const uint64_t denominator) { return (numerator + denominator - 1ull) / denominator; }
 
         template<typename TimeUnit = std::chrono::nanoseconds>
@@ -80,7 +79,6 @@ struct SLoaderRuntimeTuner
         {
             if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
                 return TimeUnit::zero();
-
             const uint32_t passCount = std::max<uint32_t>(1u, passes);
             std::vector<uint64_t> partial(workerCount, 0ull);
             uint64_t elapsedNs = 0ull;
@@ -100,7 +98,6 @@ struct SLoaderRuntimeTuner
                 });
                 elapsedNs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(clock_t::now() - passStart).count());
             }
-
             uint64_t reduced = 0ull;
             for (const uint64_t v : partial)
                 reduced ^= v;
@@ -114,11 +111,9 @@ struct SLoaderRuntimeTuner
             SBenchmarkSampleStats stats = {};
             if (!sampleData || sampleBytes == 0ull || workerCount == 0ull)
                 return stats;
-
             const uint32_t observationCount = std::max<uint32_t>(1u, observations);
             std::vector<uint64_t> samples;
             samples.reserve(observationCount);
-
             benchmarkSample(sampleData, sampleBytes, workerCount, 1u);
             for (uint32_t obsIx = 0u; obsIx < observationCount; ++obsIx)
             {
@@ -128,10 +123,8 @@ struct SLoaderRuntimeTuner
                 stats.totalNs += elapsedNs;
                 samples.push_back(elapsedNs);
             }
-
             if (samples.empty())
                 return SBenchmarkSampleStats{};
-
             std::sort(samples.begin(), samples.end());
             stats.minNs = samples.front();
             stats.maxNs = samples.back();
@@ -158,7 +151,6 @@ struct SLoaderRuntimeTuner
         }
 
         static inline bool shouldInlineHashBuild(const SFileIOPolicy& ioPolicy, const uint64_t inputBytes) { return inputBytes <= std::max<uint64_t>(1ull, ioPolicy.runtimeTuning.hashInlineThresholdBytes); }
-
         static inline size_t resolveHardwareThreads(const uint32_t requested = 0u) { const size_t hw = requested ? static_cast<size_t>(requested) : static_cast<size_t>(std::thread::hardware_concurrency()); return hw ? hw : 1ull; }
 
         static inline size_t resolveHardMaxWorkers(const size_t hardwareThreads, const uint32_t workerHeadroom)
@@ -181,7 +173,6 @@ struct SLoaderRuntimeTuner
                 result.chunkCount = 0ull;
                 return result;
             }
-
             const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads(request.hardwareThreads);
             size_t maxWorkers = hw;
             if (request.hardMaxWorkers > 0u)
@@ -189,21 +180,16 @@ struct SLoaderRuntimeTuner
             if (ioPolicy.runtimeTuning.maxWorkers > 0u)
                 maxWorkers = std::min(maxWorkers, static_cast<size_t>(ioPolicy.runtimeTuning.maxWorkers));
             maxWorkers = std::max<size_t>(1ull, maxWorkers);
-
             const uint64_t minWorkUnitsPerWorker = std::max<uint64_t>(1ull, request.minWorkUnitsPerWorker);
             const uint64_t minBytesPerWorker = std::max<uint64_t>(1ull, request.minBytesPerWorker);
             const size_t maxByWork = static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(request.totalWorkUnits, minWorkUnitsPerWorker));
             const size_t maxByBytes = request.inputBytes ? static_cast<size_t>(SLoaderRuntimeTuner::ceilDiv(request.inputBytes, minBytesPerWorker)) : maxWorkers;
             const bool heuristicEnabled = ioPolicy.runtimeTuning.mode != RTMode::Sequential;
             const bool hybridEnabled = ioPolicy.runtimeTuning.mode == RTMode::Hybrid;
-
             size_t workerCount = 1ull;
             if (heuristicEnabled)
                 workerCount = std::max<size_t>(1ull, std::min({ maxWorkers, maxByWork, maxByBytes }));
-
-            const size_t targetChunksPerWorker = std::max<size_t>(
-                1ull,
-                static_cast<size_t>(request.targetChunksPerWorker ? request.targetChunksPerWorker : ioPolicy.runtimeTuning.targetChunksPerWorker));
+            const size_t targetChunksPerWorker = std::max<size_t>(1ull, static_cast<size_t>(request.targetChunksPerWorker ? request.targetChunksPerWorker : ioPolicy.runtimeTuning.targetChunksPerWorker));
             if (workerCount > 1ull && heuristicEnabled)
             {
                 const double maxOverheadRatio = std::max(0.0, static_cast<double>(ioPolicy.runtimeTuning.maxOverheadRatio));
@@ -220,23 +206,11 @@ struct SLoaderRuntimeTuner
                     break;
                 }
             }
-
             const size_t heuristicWorkerCount = std::max<size_t>(1ull, workerCount);
-            if (
-                heuristicEnabled &&
-                hybridEnabled &&
-                request.sampleData != nullptr &&
-                request.sampleBytes > 0ull &&
-                heuristicWorkerCount > 1ull &&
-                maxWorkers > 1ull
-            )
+            if (heuristicEnabled && hybridEnabled && request.sampleData != nullptr && request.sampleBytes > 0ull && heuristicWorkerCount > 1ull && maxWorkers > 1ull)
             {
-                const uint64_t autoMinSamplingWorkUnits = std::max<uint64_t>(
-                    static_cast<uint64_t>(targetChunksPerWorker) * 8ull,
-                    static_cast<uint64_t>(maxWorkers * targetChunksPerWorker));
-                const uint64_t minSamplingWorkUnits = request.sampleMinWorkUnits ?
-                    request.sampleMinWorkUnits :
-                    (ioPolicy.runtimeTuning.samplingMinWorkUnits ? ioPolicy.runtimeTuning.samplingMinWorkUnits : autoMinSamplingWorkUnits);
+                const uint64_t autoMinSamplingWorkUnits = std::max<uint64_t>(static_cast<uint64_t>(targetChunksPerWorker) * 8ull, static_cast<uint64_t>(maxWorkers * targetChunksPerWorker));
+                const uint64_t minSamplingWorkUnits = request.sampleMinWorkUnits ? request.sampleMinWorkUnits : (ioPolicy.runtimeTuning.samplingMinWorkUnits ? ioPolicy.runtimeTuning.samplingMinWorkUnits : autoMinSamplingWorkUnits);
                 if (request.totalWorkUnits >= minSamplingWorkUnits)
                 {
                     const double samplingBudgetRatio = std::clamp(static_cast<double>(ioPolicy.runtimeTuning.samplingBudgetRatio), 0.0, 0.5);
@@ -247,17 +221,13 @@ struct SLoaderRuntimeTuner
                     {
                         if (request.inputBytes > 0ull)
                         {
-                            const uint64_t sampleDivisor = std::max<uint64_t>(
-                                4ull,
-                                static_cast<uint64_t>(heuristicWorkerCount) * static_cast<uint64_t>(targetChunksPerWorker));
+                            const uint64_t sampleDivisor = std::max<uint64_t>(4ull, static_cast<uint64_t>(heuristicWorkerCount) * static_cast<uint64_t>(targetChunksPerWorker));
                             const uint64_t adaptiveSampleBytes = std::max<uint64_t>(1ull, request.inputBytes / sampleDivisor);
                             effectiveSampleBytes = std::min<uint64_t>(effectiveSampleBytes, adaptiveSampleBytes);
                         }
-
                         const uint32_t samplePasses = request.samplePasses ? request.samplePasses : ioPolicy.runtimeTuning.samplingPasses;
                         uint32_t maxCandidates = request.sampleMaxCandidates ? request.sampleMaxCandidates : ioPolicy.runtimeTuning.samplingMaxCandidates;
                         maxCandidates = std::max<uint32_t>(2u, maxCandidates);
-
                         std::vector<size_t> candidates;
                         candidates.reserve(maxCandidates);
                         appendCandidate(candidates, heuristicWorkerCount);
@@ -269,14 +239,10 @@ struct SLoaderRuntimeTuner
                             appendCandidate(candidates, heuristicWorkerCount + 2ull);
                         if (candidates.size() > maxCandidates)
                             candidates.resize(maxCandidates);
-
-                        const auto heuristicStatsProbe = benchmarkSampleStats(
-                            request.sampleData, effectiveSampleBytes, heuristicWorkerCount, samplePasses, 2u);
+                        const auto heuristicStatsProbe = benchmarkSampleStats(request.sampleData, effectiveSampleBytes, heuristicWorkerCount, samplePasses, 2u);
                         if (heuristicStatsProbe.medianNs > 0ull)
                         {
-                            const double scale = request.inputBytes ?
-                                (static_cast<double>(request.inputBytes) / static_cast<double>(effectiveSampleBytes)) :
-                                1.0;
+                            const double scale = request.inputBytes ? (static_cast<double>(request.inputBytes) / static_cast<double>(effectiveSampleBytes)) : 1.0;
                             const uint64_t estimatedFullNs = static_cast<uint64_t>(static_cast<double>(heuristicStatsProbe.medianNs) * std::max(1.0, scale));
                             const uint64_t samplingBudgetNs = static_cast<uint64_t>(static_cast<double>(estimatedFullNs) * samplingBudgetRatio);
                             uint64_t spentNs = heuristicStatsProbe.totalNs;
@@ -293,7 +259,6 @@ struct SLoaderRuntimeTuner
 
                                 SBenchmarkSampleStats bestStats = heuristicStatsProbe;
                                 size_t bestWorker = heuristicWorkerCount;
-
                                 for (const size_t candidate : candidates)
                                 {
                                     if (candidate == heuristicWorkerCount)
@@ -311,20 +276,14 @@ struct SLoaderRuntimeTuner
                                         bestWorker = candidate;
                                     }
                                 }
-
                                 if (bestWorker != heuristicWorkerCount)
                                 {
-                                    const double gain = static_cast<double>(heuristicStatsProbe.medianNs - bestStats.medianNs) /
-                                        static_cast<double>(heuristicStatsProbe.medianNs);
+                                    const double gain = static_cast<double>(heuristicStatsProbe.medianNs - bestStats.medianNs) / static_cast<double>(heuristicStatsProbe.medianNs);
                                     const uint64_t heuristicSpan = heuristicStatsProbe.maxNs - heuristicStatsProbe.minNs;
                                     const uint64_t bestSpan = bestStats.maxNs - bestStats.minNs;
-                                    const double heuristicNoise = static_cast<double>(heuristicSpan) /
-                                        static_cast<double>(std::max<uint64_t>(1ull, heuristicStatsProbe.medianNs));
-                                    const double bestNoise = static_cast<double>(bestSpan) /
-                                        static_cast<double>(std::max<uint64_t>(1ull, bestStats.medianNs));
-                                    const double requiredGain = std::max(
-                                        std::clamp(static_cast<double>(ioPolicy.runtimeTuning.minExpectedGainRatio), 0.0, 0.99),
-                                        std::clamp(std::max(heuristicNoise, bestNoise) * 1.25, 0.0, 0.99));
+                                    const double heuristicNoise = static_cast<double>(heuristicSpan) / static_cast<double>(std::max<uint64_t>(1ull, heuristicStatsProbe.medianNs));
+                                    const double bestNoise = static_cast<double>(bestSpan) / static_cast<double>(std::max<uint64_t>(1ull, bestStats.medianNs));
+                                    const double requiredGain = std::max(std::clamp(static_cast<double>(ioPolicy.runtimeTuning.minExpectedGainRatio), 0.0, 0.99), std::clamp(std::max(heuristicNoise, bestNoise) * 1.25, 0.0, 0.99));
                                     if (gain >= requiredGain)
                                         workerCount = bestWorker;
                                 }
@@ -333,9 +292,7 @@ struct SLoaderRuntimeTuner
                     }
                 }
             }
-
             result.workerCount = std::max<size_t>(1ull, workerCount);
-
             const uint64_t minChunkWorkUnits = std::max<uint64_t>(1ull, request.minChunkWorkUnits);
             uint64_t maxChunkWorkUnits = std::max<uint64_t>(minChunkWorkUnits, request.maxChunkWorkUnits);
             const uint64_t desiredChunkCount = static_cast<uint64_t>(std::max<size_t>(1ull, result.workerCount * targetChunksPerWorker));

@@ -192,7 +192,6 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	if (!_file || !_params.rootAsset)
 		return false;
 
-	// Scene input is flattened here by baking transforms and writing every collected polygon geometry as its own OBJ object block.
 	const auto items = SGeometryWriterCommon::collectPolygonGeometryWriteItems(_params.rootAsset);
 	if (items.empty())
 		return false;

@@ -931,14 +931,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     core::vector<core::smart_refctd_ptr<IAsset>> outputAssets;
     uint64_t objectCount = 1ull;
     if (!buildCollections) {
-        // Plain OBJ is still just one polygon geometry here.
         outputAssets.push_back(core::smart_refctd_ptr_static_cast<IAsset>(
             std::move(loadedGeometries.front().geometry)));
     } else {
-        // Plain OBJ can group many polygon geometries with `o` and `g`, but it
-        // still does not define a real scene graph, instancing, or node transforms.
-        // Keep that as geometry collections instead of fabricating an ICPUScene on
-        // load.
         core::vector<std::string> objectNames;
         core::vector<core::smart_refctd_ptr<ICPUGeometryCollection>>
             objectCollections;

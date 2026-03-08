@@ -207,7 +207,6 @@ struct Parse
 	struct BinarySink
 	{
 		uint8_t* cursor = nullptr;
-
 		template<typename T>
 		inline bool append(const T value)
 		{
@@ -216,17 +215,12 @@ struct Parse
 			Binary::storeUnalignedAdvance(cursor, value);
 			return true;
 		}
-
-		inline bool finishVertex()
-		{
-			return true;
-		}
+		inline bool finishVertex() { return true; }
 	};
 
 	struct TextSink
 	{
 		std::string& output;
-
 		template<typename T>
 		inline bool append(const T value)
 		{
@@ -237,12 +231,7 @@ struct Parse
 			output.push_back(' ');
 			return true;
 		}
-
-		inline bool finishVertex()
-		{
-			output.push_back('\n');
-			return true;
-		}
+		inline bool finishVertex() { output.push_back('\n'); return true; }
 	};
 
 	template<typename Sink>
@@ -255,16 +244,8 @@ struct Parse
 		SemanticDecode semantic = {};
 		StoredDecode stored = {};
 		EmitFn emit = nullptr;
-
-		inline explicit operator bool() const
-		{
-			return emit != nullptr && (static_cast<bool>(semantic) || static_cast<bool>(stored));
-		}
-
-		inline bool operator()(Sink& sink, const size_t ix) const
-		{
-			return static_cast<bool>(*this) && emit(sink, *this, ix);
-		}
+		inline explicit operator bool() const { return emit != nullptr && (static_cast<bool>(semantic) || static_cast<bool>(stored)); }
+		inline bool operator()(Sink& sink, const size_t ix) const { return static_cast<bool>(*this) && emit(sink, *this, ix); }
 
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
 		static bool emitDecode(Sink& sink, const auto& decode, const size_t ix, const uint32_t components, const bool flipVectors)
@@ -291,8 +272,7 @@ struct Parse
 		{
 			if constexpr (Mode == SGeometryViewDecode::EMode::Semantic)
 				return emitDecode<OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors);
-			else
-				return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
+			return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
 		}
 
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
@@ -311,7 +291,6 @@ struct Parse
 			PreparedView retval = {.components = components};
 			if (!view)
 				return retval;
-
 			switch (scalarType)
 			{
 				case ScalarType::Float64: prepareDecode<double, SGeometryViewDecode::EMode::Semantic>(retval, *view, flipVectors); break;
@@ -332,7 +311,6 @@ struct Parse
 	{
 		if (!input.geom || !input.extraAuxViews)
 			return false;
-
 		const auto& positionView = input.geom->getPositionView();
 		const auto& normalView = input.geom->getNormalView();
 		const auto& extraAuxViews = *input.extraAuxViews;
@@ -367,7 +345,6 @@ struct Parse
 		BinarySink sink = {.cursor = dst};
 		if (!emitVertices(input, sink))
 			return false;
-
 		return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) -> bool {
 			if (!sink.append(static_cast<uint8_t>(3u)))
 				return false;
@@ -387,7 +364,6 @@ struct Parse
 		TextSink sink = {.output = output};
 		if (!emitVertices(input, sink))
 			return false;
-
 		return SGeometryWriterCommon::visitTriangleIndices(input.geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) {
 			output.append("3 ");
 			appendIntegral(output, i0);
@@ -415,7 +391,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		_params.logger.log("PLY writer: missing output file or root asset.", system::ILogger::ELL_ERROR);
 		return false;
 	}
-
 	const auto items = SGeometryWriterCommon::collectPolygonGeometryWriteItems(_params.rootAsset);
 	if (items.size() != 1u)
 	{
@@ -434,7 +409,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		_params.logger.log("PLY writer: transformed scene or collection export is not supported.", system::ILogger::ELL_ERROR);
 		return false;
 	}
-
 	SAssetWriteContext ctx = {_params, _file};
 	system::IFile* file = _override->getOutputFile(_file, ctx, {geom, 0u});
 	if (!file)
@@ -457,7 +431,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		_params.logger.log("PLY writer: normal vertex count mismatch.", system::ILogger::ELL_ERROR);
 		return false;
 	}
-
 	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
 	if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 		uvView = nullptr;
@@ -490,7 +463,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		_params.logger.log("PLY writer: only triangle-list topology is supported.", system::ILogger::ELL_ERROR);
 		return false;
 	}
-
 	size_t faceCount = 0ull;
 	if (!SGeometryWriterCommon::getTriangleFaceCount(geom, faceCount))
 	{
@@ -502,7 +474,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const bool binary = flags.hasAnyFlag(E_WRITER_FLAGS::EWF_BINARY);
 	const bool flipVectors = !flags.hasAnyFlag(E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED);
 	const bool write16BitIndices = vertexCount <= static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1ull;
-
 	ScalarType positionScalarType = Parse::selectScalarType(positionView.composed.format);
 	if (flipVectors && Parse::getScalarMeta(positionScalarType).integer && !Parse::getScalarMeta(positionScalarType).signedType)
 		positionScalarType = ScalarType::Float32;
@@ -518,7 +489,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	size_t extraAuxBytesPerVertex = 0ull;
 	for (const auto& extra : extraAuxViews)
 		extraAuxBytesPerVertex += static_cast<size_t>(extra.components) * Parse::getScalarMeta(extra.scalarType).byteSize;
-
 	std::ostringstream headerBuilder;
 	headerBuilder << "ply\n";
 	headerBuilder << (binary ? "format binary_little_endian 1.0" : "format ascii 1.0");
@@ -553,9 +523,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	headerBuilder << (write16BitIndices ? "\nproperty list uchar uint16 vertex_indices\n" : "\nproperty list uchar uint32 vertex_indices\n");
 	headerBuilder << "end_header\n";
 	const std::string header = headerBuilder.str();
-
 	const Parse::WriteInput input = {.geom = geom, .positionScalarType = positionScalarType, .uvView = uvView, .uvScalarType = uvScalarType, .extraAuxViews = &extraAuxViews, .writeNormals = writeNormals, .normalScalarType = normalScalarType, .vertexCount = vertexCount, .faceCount = faceCount, .write16BitIndices = write16BitIndices, .flipVectors = flipVectors};
-
 	bool writeOk = false;
 	size_t outputBytes = 0ull;
 	auto writePayload = [&](const void* bodyData, const size_t bodySize) -> bool {
@@ -563,7 +531,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, file);
 		if (impl::SFileAccess::logInvalidPlan(_params.logger, "PLY writer", file->getFileName().string().c_str(), ioPlan))
 			return false;
-
 		outputBytes = outputSize;
 		const SInterchangeIO::SBufferRange writeBuffers[] = {{.data = header.data(), .byteCount = header.size()}, {.data = bodyData, .byteCount = bodySize}};
 		writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
@@ -583,7 +550,6 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const size_t vertexStride = static_cast<size_t>(positionMeta.byteSize) * 3ull + (writeNormals ? static_cast<size_t>(normalMeta.byteSize) * 3ull : 0ull) + (uvView ? static_cast<size_t>(uvMeta.byteSize) * 2ull : 0ull) + extraAuxBytesPerVertex;
 		const size_t faceStride = sizeof(uint8_t) + (write16BitIndices ? sizeof(uint16_t) : sizeof(uint32_t)) * 3u;
 		const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
-
 		core::vector<uint8_t> body;
 		body.resize(bodySize);
 		if (!Parse::writeBinary(input, body.data()))
