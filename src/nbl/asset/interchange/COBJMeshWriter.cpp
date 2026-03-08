@@ -4,12 +4,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/interchange/COBJMeshWriter.h"
-#include "SOBJPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "impl/SFileAccess.h"
-#include "impl/SIODiagnostics.h"
 #include "nbl/builtin/hlsl/array_accessors.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
@@ -35,7 +33,6 @@ COBJMeshWriter::COBJMeshWriter()
 
 uint64_t COBJMeshWriter::getSupportedAssetTypesBitfield() const
 {
-	// OBJ can store a single geometry, a geometry collection, or a flattened scene export.
 	return IAsset::ET_GEOMETRY | IAsset::ET_GEOMETRY_COLLECTION | IAsset::ET_SCENE;
 }
 
@@ -60,6 +57,7 @@ namespace
 
 struct Parse
 {
+	static constexpr uint32_t UV0 = 0u;
 	static constexpr size_t MaxFloatTextChars = std::numeric_limits<float>::max_digits10 + 8ull;
 	static constexpr size_t MaxUInt32Chars = std::numeric_limits<uint32_t>::digits10 + 1ull;
 	static constexpr size_t MaxIndexTokenBytes = MaxUInt32Chars * 3ull + 2ull;
@@ -226,7 +224,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const auto& normalView = geom->getNormalView();
 		const bool hasNormals = static_cast<bool>(normalView);
 		const size_t vertexCount = positionView.getElementCount();
-		const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, SOBJPolygonGeometryAuxLayout::UV0, vertexCount);
+		const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
 		if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 			uvView = nullptr;
 		const bool hasUVs = uvView != nullptr;
@@ -337,13 +335,13 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 
 	const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(output.size()), true, file);
-	if (impl::SIODiagnostics::logInvalidPlan(_params.logger, "OBJ writer", file->getFileName().string().c_str(), ioPlan))
+	if (impl::SFileAccess::logInvalidPlan(_params.logger, "OBJ writer", file->getFileName().string().c_str(), ioPlan))
 		return false;
 
 	const bool writeOk = SInterchangeIO::writeFileWithPolicy(file, ioPlan, output.data(), output.size(), &ioTelemetry);
 	const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-	impl::SIODiagnostics::logTinyIO(_params.logger, "OBJ writer", file->getFileName().string().c_str(), ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy, "writes");
+	impl::SFileAccess::logTinyIO(_params.logger, "OBJ writer", file->getFileName().string().c_str(), ioTelemetry, static_cast<uint64_t>(output.size()), _params.ioPolicy, "writes");
 	_params.logger.log("OBJ writer stats: file=%s bytes=%llu vertices=%llu faces=%llu geometries=%llu io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE, file->getFileName().string().c_str(), static_cast<unsigned long long>(output.size()),
 		static_cast<unsigned long long>(totalVertexCount), static_cast<unsigned long long>(totalFaceCount), static_cast<unsigned long long>(items.size()),

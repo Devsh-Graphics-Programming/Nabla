@@ -3,19 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_S_GEOMETRY_LOADER_COMMON_H_INCLUDED_
 #define _NBL_ASSET_S_GEOMETRY_LOADER_COMMON_H_INCLUDED_
-
-
 #include <ranges>
 #include <type_traits>
-
 #include "nbl/asset/SBufferAdoption.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
-
-
 namespace nbl::asset
 {
-
-// Loader-side helpers for building polygon-geometry data views backed by adopted CPU buffers.
 class SGeometryLoaderCommon
 {
     public:
@@ -23,19 +16,7 @@ class SGeometryLoaderCommon
         {
             if (!buffer || byteCount == 0ull)
                 return {};
-
-            return {
-                .composed = {
-                    .stride = stride,
-                    .format = format,
-                    .rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
-                },
-                .src = {
-                    .offset = 0ull,
-                    .size = byteCount,
-                    .buffer = std::move(buffer)
-                }
-            };
+            return {.composed = {.stride = stride, .format = format, .rangeFormat = IGeometryBase::getMatchingAABBFormat(format)}, .src = {.offset = 0ull, .size = byteCount, .buffer = std::move(buffer)}};
         }
 
         template<E_FORMAT Format, impl::AdoptedBufferStorage Storage>
@@ -47,12 +28,8 @@ class SGeometryLoaderCommon
             auto buffer = SBufferAdoption::create(std::forward<Storage>(data));
             if (!buffer)
                 return {};
-            const size_t byteCount = buffer->getSize();
-            return createDataView(std::move(buffer), byteCount, static_cast<uint32_t>(sizeof(value_t)), Format);
+            return createDataView(std::move(buffer), buffer->getSize(), static_cast<uint32_t>(sizeof(value_t)), Format);
         }
 };
-
 }
-
-
 #endif

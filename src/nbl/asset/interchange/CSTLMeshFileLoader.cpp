@@ -6,8 +6,7 @@
 
 #include "CSTLMeshFileLoader.h"
 
-#include "SSTLPolygonGeometryAuxLayout.h"
-#include "impl/SLoadSession.h"
+#include "impl/SFileAccess.h"
 #include "impl/STextParse.h"
 #include "nbl/asset/asset.h"
 #include "nbl/asset/format/convertColor.h"
@@ -32,6 +31,7 @@ namespace
 
 struct Parse
 {
+	static constexpr uint32_t COLOR0 = 0u;
 	using Common = impl::TextParse;
 
 	struct LayoutProbe
@@ -610,8 +610,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
             if (!colorView)
                 return {};
             auto* const auxViews = geometry->getAuxAttributeViews();
-            auxViews->resize(SSTLPolygonGeometryAuxLayout::COLOR0 + 1u);
-            auxViews->operator[](SSTLPolygonGeometryAuxLayout::COLOR0) =
+            auxViews->resize(Parse::COLOR0 + 1u);
+            auxViews->operator[](Parse::COLOR0) =
                 std::move(colorView);
             hasTriangleColors = true;
         }

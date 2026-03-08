@@ -2,18 +2,13 @@
 // Do not include from public headers.
 #ifndef _NBL_ASSET_IMPL_S_BINARY_DATA_H_INCLUDED_
 #define _NBL_ASSET_IMPL_S_BINARY_DATA_H_INCLUDED_
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-
-
 namespace nbl::asset::impl
 {
-
 struct BinaryData
 {
-	// Minimal unaligned binary primitives reused by binary interchange paths.
 	template<typename T>
 	static inline T byteswap(const T value)
 	{
@@ -46,7 +41,5 @@ struct BinaryData
 		dst += sizeof(value);
 	}
 };
-
 }
-
 #endif

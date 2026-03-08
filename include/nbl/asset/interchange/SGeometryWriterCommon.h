@@ -3,8 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_S_GEOMETRY_WRITER_COMMON_H_INCLUDED_
 #define _NBL_ASSET_S_GEOMETRY_WRITER_COMMON_H_INCLUDED_
-
-
 #include <concepts>
 #include "nbl/asset/ICPUScene.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
@@ -18,65 +16,14 @@
 #include <limits>
 #include <system_error>
 #include <type_traits>
-
-
 namespace nbl::asset
 {
-// Writer-side helpers for flattening scene inputs and serializing polygon geometry views safely.
 class SGeometryWriterCommon
 {
     public:
-        // Shared write context propagated while flattening geometry collections and scenes.
-        struct SWriteState
-        {
-            hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
-            uint32_t instanceIx = ~0u;
-            uint32_t targetIx = ~0u;
-            uint32_t geometryIx = 0u;
-        };
+        struct SWriteState { hlsl::float32_t3x4 transform = hlsl::math::linalg::identity<hlsl::float32_t3x4>(); uint32_t instanceIx = ~0u; uint32_t targetIx = ~0u; uint32_t geometryIx = 0u; };
+        struct SPolygonGeometryWriteItem : SWriteState { const ICPUPolygonGeometry* geometry = nullptr; };
 
-        // One polygon geometry scheduled for writing together with the transform and scene indices that produced it.
-        struct SPolygonGeometryWriteItem : SWriteState
-        {
-            const ICPUPolygonGeometry* geometry = nullptr;
-        };
-
-        // Parameters used when expanding one geometry collection into polygon write items.
-        struct SGeometryCollectionWriteParams : SWriteState
-        {
-            const ICPUGeometryCollection* collection = nullptr;
-        };
-
-        // Collector used by collectPolygonGeometryWriteItems to flatten one collection into a caller-provided container.
-        template<typename Container> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
-        struct SWriteCollector
-        {
-            static inline void appendFromCollection(Container& out, const SGeometryCollectionWriteParams& params)
-            {
-                if (!params.collection)
-                    return;
-
-                const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
-                const auto& geometries = params.collection->getGeometries();
-                for (uint32_t geometryIx = 0u; geometryIx < geometries.size(); ++geometryIx)
-                {
-                    const auto& ref = geometries[geometryIx];
-                    if (!ref.geometry || ref.geometry->getPrimitiveType() != IGeometryBase::EPrimitiveType::Polygon)
-                        continue;
-                    const auto* geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
-                    const auto localTransform = ref.hasTransform() ? ref.transform : identity;
-                    SPolygonGeometryWriteItem item = {};
-                    item.geometry = geometry;
-                    item.transform = hlsl::math::linalg::promoted_mul(params.transform, localTransform);
-                    item.instanceIx = params.instanceIx;
-                    item.targetIx = params.targetIx;
-                    item.geometryIx = geometryIx;
-                    out.emplace_back(item);
-                }
-            }
-        };
-
-        // Collects every polygon geometry a writer can serialize from a geometry, collection, or flattened scene.
         template<typename Container = core::vector<SPolygonGeometryWriteItem>> requires requires(Container& c, const SPolygonGeometryWriteItem& item) { c.emplace_back(item); }
         static inline Container collectPolygonGeometryWriteItems(const IAsset* rootAsset)
         {
@@ -85,6 +32,24 @@ class SGeometryWriterCommon
                 return out;
 
             const auto identity = hlsl::math::linalg::identity<hlsl::float32_t3x4>();
+            auto appendFromCollection = [&](const ICPUGeometryCollection* collection, const hlsl::float32_t3x4& transform, const uint32_t instanceIx, const uint32_t targetIx) -> void {
+                if (!collection)
+                    return;
+                const auto& geometries = collection->getGeometries();
+                for (uint32_t geometryIx = 0u; geometryIx < geometries.size(); ++geometryIx)
+                {
+                    const auto& ref = geometries[geometryIx];
+                    if (!ref.geometry || ref.geometry->getPrimitiveType() != IGeometryBase::EPrimitiveType::Polygon)
+                        continue;
+                    SPolygonGeometryWriteItem item = {};
+                    item.geometry = static_cast<const ICPUPolygonGeometry*>(ref.geometry.get());
+                    item.transform = hlsl::math::linalg::promoted_mul(transform, ref.hasTransform() ? ref.transform : identity);
+                    item.instanceIx = instanceIx;
+                    item.targetIx = targetIx;
+                    item.geometryIx = geometryIx;
+                    out.emplace_back(item);
+                }
+            };
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY)
             {
                 const auto* geometry = static_cast<const IGeometry<ICPUBuffer>*>(rootAsset);
@@ -99,9 +64,7 @@ class SGeometryWriterCommon
 
             if (rootAsset->getAssetType() == IAsset::ET_GEOMETRY_COLLECTION)
             {
-                SGeometryCollectionWriteParams appendParams = {};
-                appendParams.collection = static_cast<const ICPUGeometryCollection*>(rootAsset);
-                SWriteCollector<Container>::appendFromCollection(out, appendParams);
+                appendFromCollection(static_cast<const ICPUGeometryCollection*>(rootAsset), identity, ~0u, ~0u);
                 return out;
             }
 
@@ -121,34 +84,21 @@ class SGeometryWriterCommon
                 const auto instanceTransform = initialTransforms.empty() ? identity : initialTransforms[instanceIx];
                 const auto& targetList = targets->getTargets();
                 for (uint32_t targetIx = 0u; targetIx < targetList.size(); ++targetIx)
-                {
-                    SGeometryCollectionWriteParams appendParams = {};
-                    appendParams.collection = targetList[targetIx].geoCollection.get();
-                    appendParams.transform = instanceTransform;
-                    appendParams.instanceIx = instanceIx;
-                    appendParams.targetIx = targetIx;
-                    SWriteCollector<Container>::appendFromCollection(out, appendParams);
-                }
+                    appendFromCollection(targetList[targetIx].geoCollection.get(), instanceTransform, instanceIx, targetIx);
             }
 
             return out;
         }
 
-        static inline bool isIdentityTransform(const hlsl::float32_t3x4& transform)
-        {
-            return transform == hlsl::math::linalg::identity<hlsl::float32_t3x4>();
-        }
+        static inline bool isIdentityTransform(const hlsl::float32_t3x4& transform) { return transform == hlsl::math::linalg::identity<hlsl::float32_t3x4>(); }
 
-        // Returns the aux view stored at a specific semantic slot when it exists.
         static inline const ICPUPolygonGeometry::SDataView* getAuxViewAt(const ICPUPolygonGeometry* geom, const uint32_t auxViewIx, const size_t requiredElementCount = 0ull)
         {
             if (!geom)
                 return nullptr;
-
             const auto& auxViews = geom->getAuxAttributeViews();
             if (auxViewIx >= auxViews.size())
                 return nullptr;
-
             const auto& view = auxViews[auxViewIx];
             if (!view)
                 return nullptr;
@@ -157,18 +107,15 @@ class SGeometryWriterCommon
             return &view;
         }
 
-        // Validates triangle-list indexing and returns the number of faces the writer will emit.
         static inline bool getTriangleFaceCount(const ICPUPolygonGeometry* geom, size_t& outFaceCount)
         {
             outFaceCount = 0ull;
             if (!geom)
                 return false;
-
             const auto& positionView = geom->getPositionView();
             const size_t vertexCount = positionView.getElementCount();
             if (vertexCount == 0ull)
                 return false;
-
             const auto& indexView = geom->getIndexView();
             if (indexView)
             {
@@ -181,12 +128,10 @@ class SGeometryWriterCommon
 
             if ((vertexCount % 3ull) != 0ull)
                 return false;
-
             outFaceCount = vertexCount / 3ull;
             return true;
         }
 
-        // Calls `visitor(i0, i1, i2)` once per triangle after validating indices and normalizing implicit/R16/R32 indexing to uint32_t.
         template<typename Visitor>
         static inline bool visitTriangleIndices(const ICPUPolygonGeometry* geom, Visitor&& visitor)
         {
@@ -254,26 +199,10 @@ class SGeometryWriterCommon
         }
 
         template<typename T, E_FORMAT ExpectedFormat>
-        static inline const T* getTightView(const ICPUPolygonGeometry::SDataView& view)
-        {
-            if (!view)
-                return nullptr;
-            if (view.composed.format != ExpectedFormat)
-                return nullptr;
-            if (view.composed.getStride() != sizeof(T))
-                return nullptr;
-            return reinterpret_cast<const T*>(view.getPointer());
-        }
+        static inline const T* getTightView(const ICPUPolygonGeometry::SDataView& view) { return view && view.composed.format == ExpectedFormat && view.composed.getStride() == sizeof(T) ? reinterpret_cast<const T*>(view.getPointer()) : nullptr; }
 
-        static inline char* appendFloatToBuffer(char* dst, char* end, float value)
-        {
-            return appendFloatingPointToBuffer(dst, end, value);
-        }
-
-        static inline char* appendFloatToBuffer(char* dst, char* end, double value)
-        {
-            return appendFloatingPointToBuffer(dst, end, value);
-        }
+        static inline char* appendFloatToBuffer(char* dst, char* end, float value) { return appendFloatingPointToBuffer(dst, end, value); }
+        static inline char* appendFloatToBuffer(char* dst, char* end, double value) { return appendFloatingPointToBuffer(dst, end, value); }
 
         static inline char* appendUIntToBuffer(char* dst, char* const end, const uint32_t value)
         {
@@ -319,8 +248,5 @@ class SGeometryWriterCommon
             return dst + writeLen;
         }
 };
-
 }
-
-
 #endif

@@ -2,35 +2,27 @@
 // Do not include from public headers.
 #ifndef _NBL_ASSET_S_GEOMETRY_VIEW_DECODE_H_INCLUDED_
 #define _NBL_ASSET_S_GEOMETRY_VIEW_DECODE_H_INCLUDED_
-
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/format/decodePixels.h"
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
-
 #include <algorithm>
 #include <array>
 #include <type_traits>
-
-
 namespace nbl::asset
 {
-
 class SGeometryViewDecode
 {
 	public:
 		enum class EMode : uint8_t
 		{
-			// Semantic values ready for writer-side math and text/binary emission.
 			Semantic,
-			// Stored values preserved in the original integer storage domain.
 			Stored
 		};
 
 		template<EMode Mode>
 		struct Prepared
 		{
-			// Cached per-view decode state prepared once and reused inside tight loops.
 			const uint8_t* data = nullptr;
 			uint32_t stride = 0u;
 			E_FORMAT format = EF_UNKNOWN;
@@ -61,7 +53,6 @@ class SGeometryViewDecode
 		template<EMode Mode>
 		static inline Prepared<Mode> prepare(const ICPUPolygonGeometry::SDataView& view)
 		{
-			// Hoist view invariants out of the per-element decode path.
 			Prepared<Mode> retval = {};
 			if (!view.composed.isFormatted())
 				return retval;
@@ -85,7 +76,6 @@ class SGeometryViewDecode
 		template<typename Out, EMode Mode = EMode::Semantic>
 		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out)
 		{
-			// Convenience wrapper for one-off decode sites that do not keep prepared state.
 			return prepare<Mode>(view).decode(ix, out);
 		}
 
@@ -136,7 +126,5 @@ class SGeometryViewDecode
 			return decodePreparedComponents(prepared, ix, out, outDim);
 		}
 };
-
 }
-
 #endif

@@ -5,10 +5,8 @@
 // See the original file in irrlicht source for authors
 
 #include "CPLYMeshFileLoader.h"
-#include "SPLYPolygonGeometryAuxLayout.h"
 #include "impl/SBinaryData.h"
-#include "impl/SContentHashBuild.h"
-#include "impl/SLoadSession.h"
+#include "impl/SFileAccess.h"
 #include "impl/STextParse.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
@@ -23,6 +21,8 @@
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"
 
+#include <thread>
+
 namespace nbl::asset
 {
 
@@ -31,8 +31,42 @@ namespace
 
 struct Parse
 {
-	using Binary = impl::BinaryData;
+    static constexpr uint32_t UV0 = 0u;
+    using Binary = impl::BinaryData;
 	using Common = impl::TextParse;
+
+	struct ContentHashBuild
+	{
+		bool enabled = false;
+		bool inlineHash = false;
+		core::vector<core::smart_refctd_ptr<ICPUBuffer>> hashedBuffers = {};
+		std::jthread deferredThread = {};
+
+		static inline ContentHashBuild create(const bool enabled, const bool inlineHash) { return {.enabled = enabled, .inlineHash = inlineHash}; }
+		inline bool hashesInline() const { return enabled && inlineHash; }
+		inline bool hashesDeferred() const { return enabled && !inlineHash; }
+
+		inline void hashNow(ICPUBuffer* const buffer)
+		{
+			if (!hashesInline() || !buffer || buffer->getContentHash() != IPreHashed::INVALID_HASH)
+				return;
+			for (const auto& hashed : hashedBuffers)
+				if (hashed.get() == buffer)
+					return;
+			buffer->setContentHash(buffer->computeContentHash());
+			hashedBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(buffer));
+		}
+
+		inline void tryDefer(ICPUBuffer* const buffer)
+		{
+			if (!hashesDeferred() || !buffer || deferredThread.joinable() || buffer->getContentHash() != IPreHashed::INVALID_HASH)
+				return;
+			auto keepAlive = core::smart_refctd_ptr<ICPUBuffer>(buffer);
+			deferredThread = std::jthread([buffer = std::move(keepAlive)]() mutable {buffer->setContentHash(buffer->computeContentHash());});
+		}
+
+		inline void wait() { if (deferredThread.joinable()) deferredThread.join(); }
+	};
 
 	static std::string_view toStringView(const char* text)
 	{
@@ -535,40 +569,46 @@ struct Parse
                 return EFastVertexReadResult::NotApplicable;
 
             const size_t floatBytes = sizeof(hlsl::float32_t);
-            auto validateTuple = [&](const size_t beginIx,
-                                     const size_t componentCount, uint32_t& outStride,
-                                     uint8_t*& outBase) -> bool {
-                if (beginIx + componentCount > vertAttrIts.size())
+            struct STupleDesc {
+                uint32_t beginIx;
+                uint32_t componentCount;
+                uint32_t stride = 0u;
+                uint8_t* base = nullptr;
+            };
+            std::array<STupleDesc, 3> tuples = {STupleDesc{0u, 3u},
+                                                STupleDesc{3u, 3u},
+                                                STupleDesc{6u, 2u}};
+            const uint32_t tupleCount =
+                1u + static_cast<uint32_t>(layout->hasNormals) +
+                static_cast<uint32_t>(layout->hasUVs);
+            auto validateTuple = [&](STupleDesc& tuple) -> bool {
+                if (tuple.beginIx + tuple.componentCount > vertAttrIts.size())
                     return false;
-                auto& first = vertAttrIts[beginIx];
+                auto& first = vertAttrIts[tuple.beginIx];
                 if (!first.ptr || first.dstFmt != EF_R32_SFLOAT)
                     return false;
-                outStride = first.stride;
-                outBase = first.ptr;
-                for (size_t c = 1ull; c < componentCount; ++c) {
-                    auto& it = vertAttrIts[beginIx + c];
+                tuple.stride = first.stride;
+                tuple.base = first.ptr;
+                for (uint32_t c = 1u; c < tuple.componentCount; ++c) {
+                    auto& it = vertAttrIts[tuple.beginIx + c];
                     if (!it.ptr || it.dstFmt != EF_R32_SFLOAT)
                         return false;
-                    if (it.stride != outStride)
+                    if (it.stride != tuple.stride)
                         return false;
-                    if (it.ptr != outBase + c * floatBytes)
+                    if (it.ptr != tuple.base + c * floatBytes)
                         return false;
                 }
                 return true;
             };
-
-            uint32_t posStride = 0u;
-            uint32_t normalStride = 0u;
-            uint32_t uvStride = 0u;
-            uint8_t* posBase = nullptr;
-            uint8_t* normalBase = nullptr;
-            uint8_t* uvBase = nullptr;
-            if (vertAttrIts.size() != layout->propertyCount ||
-                !validateTuple(0u, 3u, posStride, posBase) ||
-                (layout->hasNormals &&
-                 !validateTuple(3u, 3u, normalStride, normalBase)) ||
-                (layout->hasUVs && !validateTuple(6u, 2u, uvStride, uvBase)))
+            auto commitTuple = [&](const STupleDesc& tuple) -> void {
+                for (uint32_t c = 0u; c < tuple.componentCount; ++c)
+                    vertAttrIts[tuple.beginIx + c].ptr = tuple.base + c * floatBytes;
+            };
+            if (vertAttrIts.size() != layout->propertyCount)
                 return EFastVertexReadResult::NotApplicable;
+            for (uint32_t tupleIx = 0u; tupleIx < tupleCount; ++tupleIx)
+                if (!validateTuple(tuples[tupleIx]))
+                    return EFastVertexReadResult::NotApplicable;
             if (el.Count >
                 (std::numeric_limits<size_t>::max() / layout->srcBytesPerVertex))
                 return EFastVertexReadResult::Error;
@@ -601,11 +641,14 @@ struct Parse
                 for (uint32_t i = 0u; i < N; ++i)
                     out[i] = getter(value, i);
             };
-            auto advanceTuple = [&](const uint32_t beginIx,
-                                    const uint32_t componentCount,
-                                    const size_t advance) -> void {
-                for (uint32_t i = 0u; i < componentCount; ++i)
-                    vertAttrIts[beginIx + i].ptr += advance;
+            auto decodeStore = [&]<typename Vec>(STupleDesc& tuple,
+                                                 const uint8_t*& src) -> Vec {
+                Vec value = decodeVector.operator()<Vec>(src);
+                storeVector.operator()<Vec>(tuple.base, value);
+                src += static_cast<size_t>(hlsl::vector_traits<Vec>::Dimension) *
+                       floatBytes;
+                tuple.base += tuple.stride;
+                return value;
             };
 
             size_t remainingVertices = el.Count;
@@ -623,31 +666,23 @@ struct Parse
                     std::min(remainingVertices, available / layout->srcBytesPerVertex);
                 const uint8_t* src = reinterpret_cast<const uint8_t*>(StartPointer);
                 if (!layout->hasNormals && !layout->hasUVs &&
-                    posStride == 3ull * floatBytes && !needsByteSwap && !trackAABB) {
+                    tuples[0].stride == 3ull * floatBytes && !needsByteSwap &&
+                    !trackAABB) {
                     const size_t batchBytes = batchVertices * 3ull * floatBytes;
-                    std::memcpy(posBase, src, batchBytes);
+                    std::memcpy(tuples[0].base, src, batchBytes);
                     src += batchBytes;
-                    posBase += batchBytes;
+                    tuples[0].base += batchBytes;
                 } else {
                     for (size_t v = 0ull; v < batchVertices; ++v) {
                         const hlsl::float32_t3 position =
-                            decodeVector.operator()<hlsl::float32_t3>(src);
-                        storeVector.operator()<hlsl::float32_t3>(posBase, position);
+                            decodeStore.operator()<hlsl::float32_t3>(tuples[0], src);
                         if (trackAABB)
                             hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-                        src += 3ull * floatBytes;
-                        posBase += posStride;
                         if (layout->hasNormals) {
-                            storeVector.operator()<hlsl::float32_t3>(
-                                normalBase, decodeVector.operator()<hlsl::float32_t3>(src));
-                            src += 3ull * floatBytes;
-                            normalBase += normalStride;
+                            decodeStore.operator()<hlsl::float32_t3>(tuples[1], src);
                         }
                         if (layout->hasUVs) {
-                            storeVector.operator()<hlsl::float32_t2>(
-                                uvBase, decodeVector.operator()<hlsl::float32_t2>(src));
-                            src += 2ull * floatBytes;
-                            uvBase += uvStride;
+                            decodeStore.operator()<hlsl::float32_t2>(tuples[2], src);
                         }
                     }
                 }
@@ -657,11 +692,8 @@ struct Parse
                 remainingVertices -= batchVertices;
             }
 
-            advanceTuple(0u, 3u, el.Count * posStride);
-            if (layout->hasNormals)
-                advanceTuple(3u, 3u, el.Count * normalStride);
-            if (layout->hasUVs)
-                advanceTuple(6u, 2u, el.Count * uvStride);
+            for (uint32_t tupleIx = 0u; tupleIx < tupleCount; ++tupleIx)
+                commitTuple(tuples[tupleIx]);
             return EFastVertexReadResult::Success;
         }
         void readVertex(const IAssetLoader::SAssetLoadParams& _params,
@@ -1246,21 +1278,10 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
         return false;
 
     const std::string_view fileHeader(buf.data(), success.getBytesProcessed());
-    auto trimWhitespace = [](std::string_view line) -> std::string_view {
-        const auto isWhitespace = [](const char c) -> bool {
-            return c == ' ' || c == '\t' || c == '\r';
-        };
-        while (!line.empty() && isWhitespace(line.front()))
-            line.remove_prefix(1ull);
-        while (!line.empty() && isWhitespace(line.back()))
-            line.remove_suffix(1ull);
-        return line;
-    };
-
     size_t lineStart = 0ull;
     const size_t firstLineEnd = fileHeader.find('\n');
     std::string_view firstLine = fileHeader.substr(0ull, firstLineEnd);
-    firstLine = trimWhitespace(firstLine);
+    firstLine = Parse::Common::trimWhitespace(firstLine);
     if (firstLine != "ply")
         return false;
     if (firstLineEnd == std::string_view::npos)
@@ -1274,8 +1295,7 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
         size_t lineEnd = fileHeader.find('\n', lineStart);
         if (lineEnd == std::string_view::npos)
             lineEnd = fileHeader.size();
-        std::string_view line =
-            trimWhitespace(fileHeader.substr(lineStart, lineEnd - lineStart));
+        std::string_view line = Parse::Common::trimWhitespace(fileHeader.substr(lineStart, lineEnd - lineStart));
         if (line.starts_with("format "))
             return std::find(headers.begin(), headers.end(), line) != headers.end();
         lineStart = lineEnd + 1ull;
@@ -1330,7 +1350,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     hlsl::shapes::util::AABBAccumulator3<float> parsedAABB =
         hlsl::shapes::util::createAABBAccumulator<float>();
     uint32_t vertCount = 0;
-    impl::SContentHashBuild contentHashBuild = impl::SContentHashBuild::create(computeContentHashes, hashInBuild);
+    Parse::ContentHashBuild contentHashBuild = Parse::ContentHashBuild::create(computeContentHashes, hashInBuild);
     auto visitVertexAttributeViews = [&](auto&& visitor) -> void {
         visitor(geometry->getPositionView());
         visitor(geometry->getNormalView());
@@ -1617,8 +1637,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             attachStructuredView(normalView, [&](auto view) { geometry->setNormalView(std::move(view)); });
             attachStructuredView(uvView, [&](auto view) {
                 auto* const auxViews = geometry->getAuxAttributeViews();
-                auxViews->resize(SPLYPolygonGeometryAuxLayout::UV0 + 1u);
-                auxViews->operator[](SPLYPolygonGeometryAuxLayout::UV0) = std::move(view);
+                auxViews->resize(Parse::UV0 + 1u);
+                auxViews->operator[](Parse::UV0) = std::move(view);
             });
             //
             for (auto& view : extraViews)

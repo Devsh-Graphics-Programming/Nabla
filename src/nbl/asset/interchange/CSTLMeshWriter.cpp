@@ -6,9 +6,7 @@
 #include "nbl/system/IFile.h"
 
 #include "CSTLMeshWriter.h"
-#include "SSTLPolygonGeometryAuxLayout.h"
 #include "impl/SFileAccess.h"
-#include "impl/SIODiagnostics.h"
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
@@ -30,6 +28,7 @@ namespace
 
 struct Parse
 {
+	static constexpr uint32_t COLOR0 = 0u;
 	struct Context
 	{
 		IAssetWriter::SAssetWriteContext writeContext;
@@ -161,20 +160,19 @@ struct Parse
 		if (outIdx)
 			*outIdx = idx;
 
-		hlsl::float32_t3 p0 = {};
-		hlsl::float32_t3 p1 = {};
-		hlsl::float32_t3 p2 = {};
-		if (!posView.decodeElement(idx.x, p0))
+		std::array<hlsl::float32_t3, 3> positions = {};
+		if (!decodeIndexedTriple(idx, [&posView](const uint32_t vertexIx, hlsl::float32_t3& out) -> bool { return posView.decodeElement(vertexIx, out); }, positions.data()))
 			return false;
-		if (!posView.decodeElement(idx.y, p1))
-			return false;
-		if (!posView.decodeElement(idx.z, p2))
-			return false;
-
-		out0 = p0;
-		out1 = p1;
-		out2 = p2;
+		out0 = positions[0];
+		out1 = positions[1];
+		out2 = positions[2];
 		return true;
+	}
+
+	template<typename DecodeFn, typename T>
+	static bool decodeIndexedTriple(const hlsl::uint32_t3& idx, DecodeFn&& decode, T* out)
+	{
+		return out && decode(idx.x, out[0]) && decode(idx.y, out[1]) && decode(idx.z, out[2]);
 	}
 
 	static bool decodeTriangleNormal(const ICPUPolygonGeometry::SDataView& normalView, const hlsl::uint32_t3& idx, hlsl::float32_t3& outNormal)
@@ -183,11 +181,7 @@ struct Parse
 			return false;
 
 		std::array<hlsl::float32_t3, 3> normals = {};
-		if (!normalView.decodeElement(idx.x, normals[0]))
-			return false;
-		if (!normalView.decodeElement(idx.y, normals[1]))
-			return false;
-		if (!normalView.decodeElement(idx.z, normals[2]))
+		if (!decodeIndexedTriple(idx, [&normalView](const uint32_t vertexIx, hlsl::float32_t3& out) -> bool { return normalView.decodeElement(vertexIx, out); }, normals.data()))
 			return false;
 
 		return selectFirstValidNormal(normals.data(), static_cast<uint32_t>(normals.size()), outNormal);
@@ -275,7 +269,7 @@ struct Parse
 
 	static const ICPUPolygonGeometry::SDataView* getColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
 	{
-		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, SSTLPolygonGeometryAuxLayout::COLOR0, vertexCount);
+		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, Parse::COLOR0, vertexCount);
 		if (!view)
 			return nullptr;
 		return getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
@@ -420,19 +414,14 @@ struct Parse
 		}
 		else if (!SGeometryWriterCommon::visitTriangleIndices(geom, [&](const uint32_t i0, const uint32_t i1, const uint32_t i2) -> bool {
 			const hlsl::uint32_t3 idx(i0, i1, i2);
-			hlsl::float32_t3 p0 = {};
-			hlsl::float32_t3 p1 = {};
-			hlsl::float32_t3 p2 = {};
-			if (!decodePosition(idx.x, p0) || !decodePosition(idx.y, p1) || !decodePosition(idx.z, p2))
+			std::array<hlsl::float32_t3, 3> positions = {};
+			if (!decodeIndexedTriple(idx, decodePosition, positions.data()))
 				return false;
 
-			hlsl::float32_t3 normals[3] = {};
-			if (hasNormals)
-			{
-				if (!decodeNormal(idx.x, normals[0]) || !decodeNormal(idx.y, normals[1]) || !decodeNormal(idx.z, normals[2]))
-					return false;
-			}
-			return emitTriangle(p0, p1, p2, idx, hasNormals ? normals : nullptr, hasNormals ? 3u : 0u, true);
+			std::array<hlsl::float32_t3, 3> normals = {};
+			if (hasNormals && !decodeIndexedTriple(idx, decodeNormal, normals.data()))
+				return false;
+			return emitTriangle(positions[0], positions[1], positions[2], idx, hasNormals ? normals.data() : nullptr, hasNormals ? 3u : 0u, true);
 		}))
 			return false;
 
@@ -580,7 +569,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	}
 
 	context.ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, expectedSize, sizeKnown, file);
-	if (impl::SIODiagnostics::logInvalidPlan(_params.logger, "STL writer", file->getFileName().string().c_str(), context.ioPlan))
+	if (impl::SFileAccess::logInvalidPlan(_params.logger, "STL writer", file->getFileName().string().c_str(), context.ioPlan))
 		return false;
 
 	if (context.ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile && sizeKnown)
@@ -596,7 +585,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 	const uint64_t ioMinWrite = context.writeTelemetry.getMinOrZero();
 	const uint64_t ioAvgWrite = context.writeTelemetry.getAvgOrZero();
-	impl::SIODiagnostics::logTinyIO(_params.logger, "STL writer", file->getFileName().string().c_str(), context.writeTelemetry, context.fileOffset, _params.ioPolicy, "writes");
+	impl::SFileAccess::logTinyIO(_params.logger, "STL writer", file->getFileName().string().c_str(), context.writeTelemetry, context.fileOffset, _params.ioPolicy, "writes");
 	_params.logger.log("STL writer stats: file=%s bytes=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 		system::ILogger::ELL_PERFORMANCE, file->getFileName().string().c_str(), static_cast<unsigned long long>(context.fileOffset), binary ? 1 : 0,
 		static_cast<unsigned long long>(context.writeTelemetry.callCount), static_cast<unsigned long long>(ioMinWrite), static_cast<unsigned long long>(ioAvgWrite),

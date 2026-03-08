@@ -5,14 +5,11 @@
 // See the original file in irrlicht source for authors
 
 #include "CPLYMeshWriter.h"
-#include "SPLYPolygonGeometryAuxLayout.h"
-#include "nbl/asset/interchange/SGeometryAttributeEmit.h"
 #include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "impl/SBinaryData.h"
 #include "impl/SFileAccess.h"
-#include "impl/SIODiagnostics.h"
 
 #include "nbl/system/IFile.h"
 
@@ -58,6 +55,7 @@ namespace
 
 struct Parse
 {
+	static constexpr uint32_t UV0 = 0u;
 	using Binary = impl::BinaryData;
 	using SemanticDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Semantic>;
 	using StoredDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Stored>;
@@ -269,12 +267,32 @@ struct Parse
 		}
 
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
+		static bool emitDecode(Sink& sink, const auto& decode, const size_t ix, const uint32_t components, const bool flipVectors)
+		{
+			std::array<OutT, 4> decoded = {};
+			if (!decode.decode(ix, decoded))
+				return false;
+			for (uint32_t c = 0u; c < components; ++c)
+			{
+				OutT value = decoded[c];
+				if constexpr (std::is_signed_v<OutT> || std::is_floating_point_v<OutT>)
+				{
+					if (flipVectors && c == 0u)
+						value = -value;
+				}
+				if (!sink.append(value))
+					return false;
+			}
+			return true;
+		}
+
+		template<typename OutT, SGeometryViewDecode::EMode Mode>
 		static bool emitPrepared(Sink& sink, const PreparedView& view, const size_t ix)
 		{
 			if constexpr (Mode == SGeometryViewDecode::EMode::Semantic)
-				return SGeometryAttributeEmit::emit<Sink, OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors);
+				return emitDecode<OutT, Mode>(sink, view.semantic, ix, view.components, view.flipVectors);
 			else
-				return SGeometryAttributeEmit::emit<Sink, OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
+				return emitDecode<OutT, Mode>(sink, view.stored, ix, view.components, view.flipVectors);
 		}
 
 		template<typename OutT, SGeometryViewDecode::EMode Mode>
@@ -440,7 +458,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		return false;
 	}
 
-	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, SPLYPolygonGeometryAuxLayout::UV0, vertexCount);
+	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
 	if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 		uvView = nullptr;
 
@@ -450,7 +468,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	for (uint32_t auxIx = 0u; auxIx < static_cast<uint32_t>(auxViews.size()); ++auxIx)
 	{
 		const auto& view = auxViews[auxIx];
-		if (!view || (uvView && auxIx == SPLYPolygonGeometryAuxLayout::UV0))
+		if (!view || (uvView && auxIx == Parse::UV0))
 			continue;
 		if (view.getElementCount() != vertexCount)
 			continue;
@@ -543,7 +561,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	auto writePayload = [&](const void* bodyData, const size_t bodySize) -> bool {
 		const size_t outputSize = header.size() + bodySize;
 		const auto ioPlan = impl::SFileAccess::resolvePlan(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, file);
-		if (impl::SIODiagnostics::logInvalidPlan(_params.logger, "PLY writer", file->getFileName().string().c_str(), ioPlan))
+		if (impl::SFileAccess::logInvalidPlan(_params.logger, "PLY writer", file->getFileName().string().c_str(), ioPlan))
 			return false;
 
 		outputBytes = outputSize;
@@ -551,7 +569,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
 		const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
 		const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-		impl::SIODiagnostics::logTinyIO(_params.logger, "PLY writer", file->getFileName().string().c_str(), ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy, "writes");
+		impl::SFileAccess::logTinyIO(_params.logger, "PLY writer", file->getFileName().string().c_str(), ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy, "writes");
 		_params.logger.log("PLY writer stats: file=%s bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
 			system::ILogger::ELL_PERFORMANCE, file->getFileName().string().c_str(), static_cast<unsigned long long>(outputBytes),
 			static_cast<unsigned long long>(vertexCount), static_cast<unsigned long long>(faceCount), binary ? 1 : 0,

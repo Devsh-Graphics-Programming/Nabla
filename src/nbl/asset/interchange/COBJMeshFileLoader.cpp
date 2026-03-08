@@ -7,7 +7,6 @@
 
 #include "nbl/core/declarations.h"
 
-#include "SOBJPolygonGeometryAuxLayout.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
@@ -20,7 +19,7 @@
 #include "nbl/system/IFile.h"
 
 #include "COBJMeshFileLoader.h"
-#include "impl/SLoadSession.h"
+#include "impl/SFileAccess.h"
 #include "impl/STextParse.h"
 
 #include <array>
@@ -37,6 +36,7 @@ namespace
 
 struct Parse
 {
+	static constexpr uint32_t UV0 = 0u;
 	using Common = impl::TextParse;
 
 	struct VertexDedupNode
@@ -524,8 +524,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             if (!view)
                 return false;
             auto* const auxViews = geometry->getAuxAttributeViews();
-            auxViews->resize(SOBJPolygonGeometryAuxLayout::UV0 + 1u);
-            auxViews->operator[](SOBJPolygonGeometryAuxLayout::UV0) = std::move(view);
+            auxViews->resize(Parse::UV0 + 1u);
+            auxViews->operator[](Parse::UV0) = std::move(view);
         }
 
         if (!indices.empty()) {
