@@ -13,6 +13,7 @@ namespace nbl::asset::impl
 
 struct BinaryData
 {
+	// Minimal unaligned binary primitives reused by binary interchange paths.
 	template<typename T>
 	static inline T byteswap(const T value)
 	{

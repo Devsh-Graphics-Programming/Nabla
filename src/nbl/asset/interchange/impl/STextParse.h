@@ -20,6 +20,7 @@ namespace nbl::asset::impl
 
 struct TextParse
 {
+	// Small asset-agnostic text parsing helpers shared by src-only interchange code.
 	template<typename T>
 	static inline bool parseNumber(const char*& ptr, const char* const end, T& out)
 	{
@@ -127,6 +128,7 @@ struct TextParse
 
 	struct Cursor
 	{
+		// Lightweight stateful wrapper for sequential token/number reads.
 		const char* current = nullptr;
 		const char* end = nullptr;
 

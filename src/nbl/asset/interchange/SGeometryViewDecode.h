@@ -5,11 +5,11 @@
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/format/decodePixels.h"
-#include "nbl/builtin/hlsl/array_accessors.hlsl"
+#include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
+#include <algorithm>
 #include <array>
-#include <tuple>
 #include <type_traits>
 
 
@@ -21,84 +21,130 @@ class SGeometryViewDecode
 	public:
 		enum class EMode : uint8_t
 		{
-			Cooked,
-			Raw
+			// Semantic values ready for writer-side math and text/binary emission.
+			Semantic,
+			// Stored values preserved in the original integer storage domain.
+			Stored
 		};
 
-		template<typename Out, EMode Mode = EMode::Cooked>
-		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out)
+		template<EMode Mode>
+		struct Prepared
 		{
-			using scalar_t = typename STraits<Out>::scalar_type;
+			// Cached per-view decode state prepared once and reused inside tight loops.
+			const uint8_t* data = nullptr;
+			uint32_t stride = 0u;
+			E_FORMAT format = EF_UNKNOWN;
+			uint32_t channels = 0u;
+			bool normalized = false;
+			hlsl::shapes::AABB<4, hlsl::float64_t> range = hlsl::shapes::AABB<4, hlsl::float64_t>::create();
 
-			out = {};
-			if (!view.composed.isFormatted())
-				return false;
-
-			const void* const src = view.getPointer(ix);
-			if (!src)
-				return false;
-
-			std::array<const void*, 4> srcArr = {src};
-			std::array<scalar_t, 4> tmp = {};
-			if (!decodePixels<scalar_t>(view.composed.format, srcArr.data(), tmp.data(), 0u, 0u))
-				return false;
-
-			const uint32_t channels = std::min<uint32_t>(STraits<Out>::Dimension, getFormatChannelCount(view.composed.format));
-			if constexpr (Mode == EMode::Cooked && std::is_floating_point_v<scalar_t>)
+			inline explicit operator bool() const
 			{
-				if (isNormalizedFormat(view.composed.format))
-				{
-					const auto range = view.composed.getRange<hlsl::shapes::AABB<4, hlsl::float64_t>>();
-					for (uint32_t i = 0u; i < channels; ++i)
-						tmp[i] = static_cast<scalar_t>(tmp[i] * (range.maxVx[i] - range.minVx[i]) + range.minVx[i]);
-				}
+				return data != nullptr && stride != 0u && format != EF_UNKNOWN && channels != 0u;
 			}
 
-			for (uint32_t i = 0u; i < channels; ++i)
-				STraits<Out>::set(out, i, tmp[i]);
-			return true;
+			template<typename T, size_t N>
+			inline bool decode(const size_t ix, std::array<T, N>& out) const
+			{
+				out.fill(T{});
+				return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out.data(), static_cast<uint32_t>(N));
+			}
+
+			template<typename V> requires hlsl::concepts::Vector<V>
+			inline bool decode(const size_t ix, V& out) const
+			{
+				out = V{};
+				return SGeometryViewDecode::template decodePrepared<Mode>(*this, ix, out);
+			}
+		};
+
+		template<EMode Mode>
+		static inline Prepared<Mode> prepare(const ICPUPolygonGeometry::SDataView& view)
+		{
+			// Hoist view invariants out of the per-element decode path.
+			Prepared<Mode> retval = {};
+			if (!view.composed.isFormatted())
+				return retval;
+
+			retval.data = reinterpret_cast<const uint8_t*>(view.getPointer());
+			if (!retval.data)
+				return {};
+
+			retval.stride = view.composed.getStride();
+			retval.format = view.composed.format;
+			retval.channels = getFormatChannelCount(retval.format);
+			if constexpr (Mode == EMode::Semantic)
+			{
+				retval.normalized = isNormalizedFormat(retval.format);
+				if (retval.normalized)
+					retval.range = view.composed.getRange<hlsl::shapes::AABB<4, hlsl::float64_t>>();
+			}
+			return retval;
+		}
+
+		template<typename Out, EMode Mode = EMode::Semantic>
+		static inline bool decodeElement(const ICPUPolygonGeometry::SDataView& view, const size_t ix, Out& out)
+		{
+			// Convenience wrapper for one-off decode sites that do not keep prepared state.
+			return prepare<Mode>(view).decode(ix, out);
 		}
 
 	private:
-		template<typename T>
-		struct SIsStdArray : std::false_type {};
-
-		template<typename T, size_t N>
-		struct SIsStdArray<std::array<T, N>> : std::true_type {};
-
-		template<typename T, typename = void>
-		struct SHasVectorTraits : std::false_type {};
-
-		template<typename T>
-		struct SHasVectorTraits<T, std::void_t<typename hlsl::vector_traits<T>::scalar_type>> : std::true_type {};
-
-		template<typename Out, bool IsStdArray = SIsStdArray<Out>::value, bool IsVector = (!IsStdArray && SHasVectorTraits<Out>::value)>
-		struct STraits;
-
-		template<typename Out>
-		struct STraits<Out, true, false>
+		template<EMode Mode, typename V> requires hlsl::concepts::Vector<V>
+		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, V& out)
 		{
-			using scalar_type = typename Out::value_type;
-			static constexpr uint32_t Dimension = std::tuple_size_v<Out>;
+			using scalar_t = typename hlsl::vector_traits<V>::scalar_type;
+			constexpr uint32_t Dimension = hlsl::vector_traits<V>::Dimension;
+			if (!prepared || Dimension == 0u)
+				return false;
 
-			static inline void set(Out& out, const uint32_t ix, const scalar_type value)
+			using storage_t = std::conditional_t<std::is_floating_point_v<scalar_t>, hlsl::float64_t, std::conditional_t<std::is_signed_v<scalar_t>, int64_t, uint64_t>>;
+			std::array<storage_t, 4> tmp = {};
+			const void* srcArr[4] = {prepared.data + ix * prepared.stride, nullptr};
+			if (!decodePixels<storage_t>(prepared.format, srcArr, tmp.data(), 0u, 0u))
+				return false;
+
+			const uint32_t componentCount = std::min({prepared.channels, Dimension, 4u});
+			if constexpr (Mode == EMode::Semantic && std::is_floating_point_v<storage_t>)
 			{
-				out[ix] = value;
+				if (prepared.normalized)
+				{
+					for (uint32_t i = 0u; i < componentCount; ++i)
+						tmp[i] = static_cast<storage_t>(tmp[i] * (prepared.range.maxVx[i] - prepared.range.minVx[i]) + prepared.range.minVx[i]);
+				}
 			}
-		};
 
-		template<typename Out>
-		struct STraits<Out, false, true>
+			for (uint32_t i = 0u; i < componentCount; ++i)
+				out[i] = static_cast<scalar_t>(tmp[i]);
+			return true;
+		}
+
+		template<EMode Mode, typename T>
+		static inline bool decodePrepared(const Prepared<Mode>& prepared, const size_t ix, T* out, const uint32_t outDim)
 		{
-			using scalar_type = typename hlsl::vector_traits<Out>::scalar_type;
-			static constexpr uint32_t Dimension = hlsl::vector_traits<Out>::Dimension;
+			if (!prepared || !out || outDim == 0u)
+				return false;
 
-			static inline void set(Out& out, const uint32_t ix, const scalar_type value)
+			using storage_t = std::conditional_t<std::is_floating_point_v<T>, hlsl::float64_t, std::conditional_t<std::is_signed_v<T>, int64_t, uint64_t>>;
+			std::array<storage_t, 4> tmp = {};
+			const void* srcArr[4] = {prepared.data + ix * prepared.stride, nullptr};
+			if (!decodePixels<storage_t>(prepared.format, srcArr, tmp.data(), 0u, 0u))
+				return false;
+
+			const uint32_t componentCount = std::min({prepared.channels, outDim, 4u});
+			if constexpr (Mode == EMode::Semantic && std::is_floating_point_v<storage_t>)
 			{
-				hlsl::array_set<Out, scalar_type> setter;
-				setter(out, ix, value);
+				if (prepared.normalized)
+				{
+					for (uint32_t i = 0u; i < componentCount; ++i)
+						tmp[i] = static_cast<storage_t>(tmp[i] * (prepared.range.maxVx[i] - prepared.range.minVx[i]) + prepared.range.minVx[i]);
+				}
 			}
-		};
+
+			for (uint32_t i = 0u; i < componentCount; ++i)
+				out[i] = static_cast<T>(tmp[i]);
+			return true;
+		}
 };
 
 }

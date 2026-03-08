@@ -1,3 +1,4 @@
+#ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
@@ -11,8 +12,6 @@
 #include "impl/SIODiagnostics.h"
 #include "nbl/builtin/hlsl/array_accessors.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
-
-#ifdef _NBL_COMPILE_WITH_OBJ_WRITER_
 
 #include "nbl/system/IFile.h"
 
@@ -212,7 +211,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	uint32_t positionBase = 1u;
 	uint32_t uvBase = 1u;
 	uint32_t normalBase = 1u;
-	hlsl::float64_t4 tmp = {};
+	using SemanticDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Semantic>;
 	for (size_t itemIx = 0u; itemIx < items.size(); ++itemIx)
 	{
 		const auto& item = items[itemIx];
@@ -254,6 +253,9 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const hlsl::float32_t3* const tightPositions = SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(positionView);
 		const hlsl::float32_t3* const tightNormals = hasNormals ? SGeometryWriterCommon::getTightView<hlsl::float32_t3, EF_R32G32B32_SFLOAT>(normalView) : nullptr;
 		const hlsl::float32_t2* const tightUV = hasUVs ? SGeometryWriterCommon::getTightView<hlsl::float32_t2, EF_R32G32_SFLOAT>(*uvView) : nullptr;
+		const SemanticDecode positionDecode = tightPositions ? SemanticDecode{} : SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(positionView);
+		const SemanticDecode uvDecode = (!hasUVs || tightUV) ? SemanticDecode{} : SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(*uvView);
+		const SemanticDecode normalDecode = (!hasNormals || tightNormals) ? SemanticDecode{} : SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(normalView);
 
 		if (itemIx != 0u)
 			output.push_back('\n');
@@ -264,12 +266,8 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 			hlsl::float32_t3 vertex = {};
 			if (tightPositions)
 				vertex = tightPositions[i];
-			else
-			{
-				if (!SGeometryViewDecode::decodeElement<hlsl::float64_t4>(positionView, i, tmp))
-					return false;
-				vertex = hlsl::float32_t3(static_cast<float>(tmp.x), static_cast<float>(tmp.y), static_cast<float>(tmp.z));
-			}
+			else if (!positionDecode.decode(i, vertex))
+				return false;
 			vertex = Parse::applyPosition(transformState, vertex);
 			if (flipHandedness)
 				vertex.x = -vertex.x;
@@ -283,12 +281,10 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				hlsl::float32_t2 uv = {};
 				if (tightUV)
 					uv = hlsl::float32_t2(tightUV[i].x, 1.f - tightUV[i].y);
-				else
-				{
-					if (!SGeometryViewDecode::decodeElement<hlsl::float64_t4>(*uvView, i, tmp))
-						return false;
-					uv = hlsl::float32_t2(static_cast<float>(tmp.x), 1.f - static_cast<float>(tmp.y));
-				}
+				else if (!uvDecode.decode(i, uv))
+					return false;
+				if (!tightUV)
+					uv.y = 1.f - uv.y;
 				Parse::appendVecLine<hlsl::float32_t2>(output, "vt ", sizeof("vt ") - 1ull, uv);
 			}
 		}
@@ -300,12 +296,8 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 				hlsl::float32_t3 normal = {};
 				if (tightNormals)
 					normal = tightNormals[i];
-				else
-				{
-					if (!SGeometryViewDecode::decodeElement<hlsl::float64_t4>(normalView, i, tmp))
-						return false;
-					normal = hlsl::float32_t3(static_cast<float>(tmp.x), static_cast<float>(tmp.y), static_cast<float>(tmp.z));
-				}
+				else if (!normalDecode.decode(i, normal))
+					return false;
 				normal = Parse::applyNormal(transformState, normal);
 				if (flipHandedness)
 					normal.x = -normal.x;

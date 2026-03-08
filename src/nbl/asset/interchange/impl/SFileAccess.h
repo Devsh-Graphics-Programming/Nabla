@@ -13,6 +13,7 @@ namespace nbl::asset::impl
 class SFileAccess
 {
 	public:
+		// Common file access policy glue for mapped whole-file and buffered fallback paths.
 		static inline bool isMappable(const system::IFile* file)
 		{
 			return file && core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);

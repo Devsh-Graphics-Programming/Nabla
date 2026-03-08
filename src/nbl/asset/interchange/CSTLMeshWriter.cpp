@@ -1,3 +1,4 @@
+#ifdef _NBL_COMPILE_WITH_STL_WRITER_
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
@@ -20,8 +21,6 @@
 #include <memory>
 #include <new>
 #include <string_view>
-
-#ifdef _NBL_COMPILE_WITH_STL_WRITER_
 
 namespace nbl::asset
 {

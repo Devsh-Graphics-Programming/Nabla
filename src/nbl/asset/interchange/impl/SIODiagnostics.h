@@ -13,6 +13,7 @@ namespace nbl::asset::impl
 class SIODiagnostics
 {
 	public:
+		// Shared logging helpers for IO policy failures and suspicious tiny-IO telemetry.
 		template<typename Logger>
 		static inline bool logInvalidPlan(Logger& logger, const char* const owner, const char* const fileName, const SResolvedFileIOPolicy& ioPlan)
 		{

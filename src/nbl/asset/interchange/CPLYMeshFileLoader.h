@@ -4,7 +4,6 @@
 // See the original file in irrlicht source for authors
 #ifndef _NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED_
 #define _NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED_
-#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include "nbl/core/declarations.h"
 
@@ -28,5 +27,4 @@ class CPLYMeshFileLoader final : public IGeometryLoader
 };
 
 } // end namespace nbl::asset
-#endif
 #endif
