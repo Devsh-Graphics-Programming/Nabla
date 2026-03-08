@@ -38,9 +38,7 @@ class CPolygonGeometryManipulator;
 	where 2 bits represent one single level, so we've been on second level).
     Notice that loading process can be seen as a chain. When you're loading a mesh, it can references a submesh.
     Submesh can reference graphics pipeline and descriptor set. Descriptor set can reference, for example, textures.
-    Hierarchy level is distance in such chain/tree from Root Asset
-    (the one you asked for by calling IAssetManager::getAsset())
-    and the currently loaded Asset (needed by Root Asset).
+    Hierarchy level is distance in such chain/tree from Root Asset (the one you asked for by calling IAssetManager::getAsset()) and the currently loaded Asset (needed by Root Asset).
     
 	When the class derived from IAssetLoader is added, its put once on an 
 	vector<IAssetLoader*> and once on an multimap<std::string,IAssetLoader*> 
@@ -86,14 +84,9 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		enum E_LOADER_PARAMETER_FLAGS : uint64_t
 		{
 			ELPF_NONE = 0,									//!< default value, it doesn't do anything
-			// [[deprecated]] ELPF_RIGHT_HANDED_MESHES = 0x1
-			// specifies that a mesh will be flipped in such a way
-			// that it'll look correctly in right-handed camera system
-			// [[deprecated]] ELPF_DONT_COMPILE_GLSL = 0x2
-			// it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
-
-			//! it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
-			ELPF_LOAD_METADATA_ONLY = 0x4,
+//[[deprecated]] ELPF_RIGHT_HANDED_MESHES = 0x1,	//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
+//[[deprecated]] ELPF_DONT_COMPILE_GLSL = 0x2,		//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
+			ELPF_LOAD_METADATA_ONLY = 0x4,					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
 			ELPF_DONT_COMPUTE_CONTENT_HASHES = 0x8			//!< opt-out from computing content hashes of produced buffers before returning.
 		};
 		using loader_flags_t = core::bitflag<E_LOADER_PARAMETER_FLAGS>;
@@ -208,7 +201,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 					return m_creationParams.polyGeoManip.get();
 				}*/
 
-				//! Typed convenience wrapper over the untyped `findDefaultAsset` overload.
+				//!
 				template<class AssetT>
 				inline std::pair<core::smart_refctd_ptr<AssetT>,const IAssetMetadata*> findDefaultAsset(const std::string& inSearchKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
@@ -218,7 +211,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 
 				// The only reason these functions are not declared static is to allow stateful overrides
 
-				//! Finds one default asset for a key and asset type after cache lookup.
+				//!
 				inline virtual std::pair<core::smart_refctd_ptr<IAsset>,const IAssetMetadata*> findDefaultAsset(const std::string& inSearchKey, const IAsset::E_TYPE assetType, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
 					size_t storageSz = 1ull;
@@ -232,7 +225,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 					return { chooseDefaultAsset(bundle,ctx),bundle.getMetadata() };
 				}
 
-				//! Chooses one default asset from a bundle returned by cache or load flow.
+				//!
 				inline virtual core::smart_refctd_ptr<IAsset> chooseDefaultAsset(const SAssetBundle& bundle, const SAssetLoadContext& ctx)
 				{
 					auto contents = bundle.getContents();
@@ -241,15 +234,11 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 					return *contents.begin();
 				}
 
-				//! The most imporant overrides are the ones for caching.
+				//! The most imporant overrides are the ones for caching
 				virtual SAssetBundle findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
 
-				/**
-					Since more then one asset of the same key of the same type can exist,
-					this function is called right after search for cached assets
-					(if anything was found) and decides which of them is relevant.
-					Note: this function can assume that `found` is never empty.
-				*/
+				//! Since more then one asset of the same key of the same type can exist, this function is called right after search for cached assets (if anything was found) and decides which of them is relevant.
+				//! Note: this function can assume that `found` is never empty.
 				inline virtual SAssetBundle chooseRelevantFromFound(const SAssetBundle* foundBegin, const SAssetBundle* foundEnd, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
 					return *foundBegin;
@@ -278,27 +267,18 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 					// otherwise it was already absolute
 				}
 
-				/**
-					This function can be used to swap out the actually opened
-					(or unknown unopened file if `inFile` is nullptr) file for a different one.
-					Especially useful if you've used some sort of a fake path
-					and the file won't load from that path just via `io::IFileSystem`.
-				*/
+				//! This function can be used to swap out the actually opened (or unknown unopened file if `inFile` is nullptr) file for a different one.
+				/** Especially useful if you've used some sort of a fake path and the file won't load from that path just via `io::IFileSystem` . */
 				inline virtual core::smart_refctd_ptr<system::IFile> getLoadFile(system::IFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
 					return core::smart_refctd_ptr<system::IFile>(inFile);
 				}
 
 				//! When you sometimes have different passwords for different assets
-				/**
-					\param inOutDecrKeyLen expects length of buffer `outDecrKey`,
-					then function writes into it length of actual key.
-					Write to `outDecrKey` happens only if output value of `inOutDecrKeyLen`
-					is less or equal to input value of `inOutDecrKeyLen`.
-					\param supposedFilename is the string after modification by getLoadFilename.
-					\param attempt if decryption or validation algorithm supports reporting failure,
-					you can try different key
-				*/
+				/** \param inOutDecrKeyLen expects length of buffer `outDecrKey`, then function writes into it length of actual key.
+						Write to `outDecrKey` happens only if output value of `inOutDecrKeyLen` is less or equal to input value of `inOutDecrKeyLen`.
+				\param supposedFilename is the string after modification by getLoadFilename.
+				\param attempt if decryption or validation algorithm supports reporting failure, you can try different key*/
 				inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t attempt, const system::IFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
 					if (ctx.params.decryptionKeyLen <= inOutDecrKeyLen)
