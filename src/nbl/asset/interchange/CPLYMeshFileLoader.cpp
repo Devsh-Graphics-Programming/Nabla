@@ -540,12 +540,12 @@ struct SContext
 	{
 		if (!IsBinaryFile || el.Name != "vertex")
 			return EFastVertexReadResult::NotApplicable;
-
-		enum class ELayoutKind : uint8_t
+		struct SLayoutDesc
 		{
-			XYZ,
-			XYZ_N,
-			XYZ_N_UV
+			uint32_t propertyCount;
+			uint32_t srcBytesPerVertex;
+			bool hasNormals;
+			bool hasUVs;
 		};
 
 		auto allF32 = [&el]()->bool
@@ -573,24 +573,18 @@ struct SContext
 			}
 			return true;
 		};
-
-		ELayoutKind layout = ELayoutKind::XYZ;
+		static constexpr SLayoutDesc xyz = { 3u, sizeof(hlsl::float32_t) * 3u, false, false };
+		static constexpr SLayoutDesc xyz_n = { 6u, sizeof(hlsl::float32_t) * 6u, true, false };
+		static constexpr SLayoutDesc xyz_n_uv = { 8u, sizeof(hlsl::float32_t) * 8u, true, true };
+		const SLayoutDesc* layout = nullptr;
 		if (matchNames({ "x", "y", "z" }))
-		{
-			layout = ELayoutKind::XYZ;
-		}
+			layout = &xyz;
 		else if (matchNames({ "x", "y", "z", "nx", "ny", "nz" }))
-		{
-			layout = ELayoutKind::XYZ_N;
-		}
+			layout = &xyz_n;
 		else if (matchNames({ "x", "y", "z", "nx", "ny", "nz", "u", "v" }) || matchNames({ "x", "y", "z", "nx", "ny", "nz", "s", "t" }))
-		{
-			layout = ELayoutKind::XYZ_N_UV;
-		}
-		else
-		{
+			layout = &xyz_n_uv;
+		if (!layout)
 			return EFastVertexReadResult::NotApplicable;
-		}
 
 		const size_t floatBytes = sizeof(hlsl::float32_t);
 		auto validateTuple = [&](const size_t beginIx, const size_t componentCount, uint32_t& outStride, uint8_t*& outBase)->bool
@@ -621,41 +615,9 @@ struct SContext
 		uint8_t* posBase = nullptr;
 		uint8_t* normalBase = nullptr;
 		uint8_t* uvBase = nullptr;
-		switch (layout)
-		{
-			case ELayoutKind::XYZ:
-				if (vertAttrIts.size() != 3u || !validateTuple(0u, 3u, posStride, posBase))
-					return EFastVertexReadResult::NotApplicable;
-				break;
-			case ELayoutKind::XYZ_N:
-				if (vertAttrIts.size() != 6u)
-					return EFastVertexReadResult::NotApplicable;
-				if (!validateTuple(0u, 3u, posStride, posBase) || !validateTuple(3u, 3u, normalStride, normalBase))
-					return EFastVertexReadResult::NotApplicable;
-				break;
-			case ELayoutKind::XYZ_N_UV:
-				if (vertAttrIts.size() != 8u)
-					return EFastVertexReadResult::NotApplicable;
-				if (!validateTuple(0u, 3u, posStride, posBase) || !validateTuple(3u, 3u, normalStride, normalBase) || !validateTuple(6u, 2u, uvStride, uvBase))
-					return EFastVertexReadResult::NotApplicable;
-				break;
-		}
-
-		const size_t srcBytesPerVertex = [layout]()->size_t
-		{
-			switch (layout)
-			{
-				case ELayoutKind::XYZ:
-					return sizeof(hlsl::float32_t) * 3ull;
-				case ELayoutKind::XYZ_N:
-					return sizeof(hlsl::float32_t) * 6ull;
-				case ELayoutKind::XYZ_N_UV:
-					return sizeof(hlsl::float32_t) * 8ull;
-				default:
-					return 0ull;
-			}
-		}();
-		if (srcBytesPerVertex == 0ull || el.Count > (std::numeric_limits<size_t>::max() / srcBytesPerVertex))
+		if (vertAttrIts.size() != layout->propertyCount || !validateTuple(0u, 3u, posStride, posBase) || (layout->hasNormals && !validateTuple(3u, 3u, normalStride, normalBase)) || (layout->hasUVs && !validateTuple(6u, 2u, uvStride, uvBase)))
+			return EFastVertexReadResult::NotApplicable;
+		if (el.Count > (std::numeric_limits<size_t>::max() / layout->srcBytesPerVertex))
 			return EFastVertexReadResult::Error;
 
 		const bool trackAABB = parsedAABB != nullptr;
@@ -670,119 +632,82 @@ struct SContext
 			std::memcpy(&value, &bits, sizeof(value));
 			return value;
 		};
-        auto decodeVector = [&]<typename Vec>(const uint8_t* src)->Vec
-        {
-            constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
-            Vec value{};
-            hlsl::array_set<Vec, float> setter;
-            for (uint32_t i = 0u; i < N; ++i)
-                setter(value, i, decodeF32(src + static_cast<size_t>(i) * floatBytes));
-            return value;
-        };
-        auto storeVector = []<typename Vec>(uint8_t* dst, const Vec& value) -> void
-        {
-            constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
-            hlsl::array_get<Vec, float> getter;
-            auto* const out = reinterpret_cast<float*>(dst);
-            for (uint32_t i = 0u; i < N; ++i)
-                out[i] = getter(value, i);
-        };
+		auto decodeVector = [&]<typename Vec>(const uint8_t* src)->Vec
+		{
+			constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
+			Vec value{};
+			hlsl::array_set<Vec, float> setter;
+			for (uint32_t i = 0u; i < N; ++i)
+				setter(value, i, decodeF32(src + static_cast<size_t>(i) * floatBytes));
+			return value;
+		};
+		auto storeVector = []<typename Vec>(uint8_t* dst, const Vec& value) -> void
+		{
+			constexpr uint32_t N = hlsl::vector_traits<Vec>::Dimension;
+			hlsl::array_get<Vec, float> getter;
+			auto* const out = reinterpret_cast<float*>(dst);
+			for (uint32_t i = 0u; i < N; ++i)
+				out[i] = getter(value, i);
+		};
+		auto advanceTuple = [&](const uint32_t beginIx, const uint32_t componentCount, const size_t advance) -> void
+		{
+			for (uint32_t i = 0u; i < componentCount; ++i)
+				vertAttrIts[beginIx + i].ptr += advance;
+		};
 
 		size_t remainingVertices = el.Count;
 		while (remainingVertices > 0ull)
 		{
-			if (StartPointer + srcBytesPerVertex > EndPointer)
+			if (StartPointer + layout->srcBytesPerVertex > EndPointer)
 				fillBuffer();
 			const size_t available = EndPointer > StartPointer ? static_cast<size_t>(EndPointer - StartPointer) : 0ull;
-			if (available < srcBytesPerVertex)
+			if (available < layout->srcBytesPerVertex)
 				return EFastVertexReadResult::Error;
 
-			const size_t batchVertices = std::min(remainingVertices, available / srcBytesPerVertex);
+			const size_t batchVertices = std::min(remainingVertices, available / layout->srcBytesPerVertex);
 			const uint8_t* src = reinterpret_cast<const uint8_t*>(StartPointer);
-			switch (layout)
+			if (!layout->hasNormals && !layout->hasUVs && posStride == 3ull * floatBytes && !needsByteSwap && !trackAABB)
 			{
-				case ELayoutKind::XYZ:
+				const size_t batchBytes = batchVertices * 3ull * floatBytes;
+				std::memcpy(posBase, src, batchBytes);
+				src += batchBytes;
+				posBase += batchBytes;
+			}
+			else
+			{
+				for (size_t v = 0ull; v < batchVertices; ++v)
 				{
-					if (posStride == 3ull * floatBytes && !needsByteSwap && !trackAABB)
+					const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
+					storeVector.operator()<hlsl::float32_t3>(posBase, position);
+					if (trackAABB)
+						hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
+					src += 3ull * floatBytes;
+					posBase += posStride;
+					if (layout->hasNormals)
 					{
-						const size_t batchBytes = batchVertices * 3ull * floatBytes;
-						std::memcpy(posBase, src, batchBytes);
-						src += batchBytes;
-						posBase += batchBytes;
+						storeVector.operator()<hlsl::float32_t3>(normalBase, decodeVector.operator()<hlsl::float32_t3>(src));
+						src += 3ull * floatBytes;
+						normalBase += normalStride;
 					}
-					else
+					if (layout->hasUVs)
 					{
-						for (size_t v = 0ull; v < batchVertices; ++v)
-						{
-                            const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
-                            storeVector.operator()<hlsl::float32_t3>(posBase, position);
-                            if (trackAABB)
-                                hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-							src += 3ull * floatBytes;
-							posBase += posStride;
-						}
+						storeVector.operator()<hlsl::float32_t2>(uvBase, decodeVector.operator()<hlsl::float32_t2>(src));
+						src += 2ull * floatBytes;
+						uvBase += uvStride;
 					}
 				}
-				break;
-				case ELayoutKind::XYZ_N:
-				{
-					for (size_t v = 0ull; v < batchVertices; ++v)
-					{
-                        const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
-                        storeVector.operator()<hlsl::float32_t3>(posBase, position);
-                        if (trackAABB)
-                            hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-                        src += 3ull * floatBytes;
-                        posBase += posStride;
-                        storeVector.operator()<hlsl::float32_t3>(normalBase, decodeVector.operator()<hlsl::float32_t3>(src));
-                        src += 3ull * floatBytes;
-                        normalBase += normalStride;
-					}
-				}
-				break;
-				case ELayoutKind::XYZ_N_UV:
-				{
-					for (size_t v = 0ull; v < batchVertices; ++v)
-					{
-                        const hlsl::float32_t3 position = decodeVector.operator()<hlsl::float32_t3>(src);
-                        storeVector.operator()<hlsl::float32_t3>(posBase, position);
-                        if (trackAABB)
-                            hlsl::shapes::util::extendAABBAccumulator(*parsedAABB, position);
-                        src += 3ull * floatBytes;
-                        posBase += posStride;
-                        storeVector.operator()<hlsl::float32_t3>(normalBase, decodeVector.operator()<hlsl::float32_t3>(src));
-                        src += 3ull * floatBytes;
-                        normalBase += normalStride;
-                        storeVector.operator()<hlsl::float32_t2>(uvBase, decodeVector.operator()<hlsl::float32_t2>(src));
-                        src += 2ull * floatBytes;
-                        uvBase += uvStride;
-					}
-				}
-				break;
 			}
 
-			const size_t consumed = batchVertices * srcBytesPerVertex;
+			const size_t consumed = batchVertices * layout->srcBytesPerVertex;
 			StartPointer += consumed;
 			remainingVertices -= batchVertices;
 		}
 
-		const size_t posAdvance = el.Count * posStride;
-		vertAttrIts[0].ptr += posAdvance;
-		vertAttrIts[1].ptr += posAdvance;
-		vertAttrIts[2].ptr += posAdvance;
-		if (layout == ELayoutKind::XYZ_N || layout == ELayoutKind::XYZ_N_UV)
-		{
-			const size_t normalAdvance = el.Count * normalStride;
-			vertAttrIts[3].ptr += normalAdvance;
-			vertAttrIts[4].ptr += normalAdvance;
-			vertAttrIts[5].ptr += normalAdvance;
-		}
-		if (layout == ELayoutKind::XYZ_N_UV)
-		{
-			const size_t uvAdvance = el.Count * uvStride;
-			vertAttrIts[6].ptr += uvAdvance;
-			vertAttrIts[7].ptr += uvAdvance;
-		}
+		advanceTuple(0u, 3u, el.Count * posStride);
+		if (layout->hasNormals)
+			advanceTuple(3u, 3u, el.Count * normalStride);
+		if (layout->hasUVs)
+			advanceTuple(6u, 2u, el.Count * uvStride);
 		return EFastVertexReadResult::Success;
 	}
 	void readVertex(const IAssetLoader::SAssetLoadParams& _params, const SElement& el)

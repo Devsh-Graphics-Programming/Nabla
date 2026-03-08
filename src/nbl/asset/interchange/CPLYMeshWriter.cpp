@@ -222,17 +222,6 @@ void appendFloat(std::string& out, double value)
     out.resize(oldSize + static_cast<size_t>(cursor - begin));
 }
 
-void appendVec(std::string& out, const double* values, size_t count, bool flipVectors = false)
-{
-    constexpr size_t xID = 0u;
-    for (size_t i = 0u; i < count; ++i)
-    {
-        const bool flip = flipVectors && i == xID;
-        appendFloat(out, flip ? -values[i] : values[i]);
-        out.push_back(' ');
-    }
-}
-
 inline bool writeTypedViewBinary(const ICPUPolygonGeometry::SDataView& view, const size_t ix, const uint32_t componentCount, const EPlyScalarType scalarType, const bool flipVectors, uint8_t*& dst)
 {
     if (!dst)
@@ -607,25 +596,9 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
     bool writeOk = false;
     size_t outputBytes = 0ull;
-    if (binary)
+    auto writePayload = [&](const uint8_t* bodyData, const size_t bodySize) -> bool
     {
-        const size_t vertexStride =
-            static_cast<size_t>(positionMeta.byteSize) * 3ull +
-            (writeNormals ? static_cast<size_t>(normalMeta.byteSize) * 3ull : 0ull) +
-            (uvView ? static_cast<size_t>(uvMeta.byteSize) * 2ull : 0ull) +
-            extraAuxBytesPerVertex;
-        const size_t faceStride = sizeof(uint8_t) + (write16BitIndices ? sizeof(uint16_t) : sizeof(uint32_t)) * 3u;
-        const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
-
-        core::vector<uint8_t> body;
-        body.resize(bodySize);
-        if (!writeBinary(input, body.data()))
-        {
-            _params.logger.log("PLY writer: binary payload generation failed.", system::ILogger::ELL_ERROR);
-            return false;
-        }
-
-        const size_t outputSize = header.size() + body.size();
+        const size_t outputSize = header.size() + bodySize;
         const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
         const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
         if (!ioPlan.isValid())
@@ -638,7 +611,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         const SInterchangeIO::SBufferRange writeBuffers[] =
         {
             { .data = reinterpret_cast<const uint8_t*>(header.data()), .byteCount = header.size() },
-            { .data = body.data(), .byteCount = body.size() }
+            { .data = bodyData, .byteCount = bodySize }
         };
         writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
         const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
@@ -669,6 +642,25 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
             static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
             ioPlan.reason);
         return writeOk;
+    };
+    if (binary)
+    {
+        const size_t vertexStride =
+            static_cast<size_t>(positionMeta.byteSize) * 3ull +
+            (writeNormals ? static_cast<size_t>(normalMeta.byteSize) * 3ull : 0ull) +
+            (uvView ? static_cast<size_t>(uvMeta.byteSize) * 2ull : 0ull) +
+            extraAuxBytesPerVertex;
+        const size_t faceStride = sizeof(uint8_t) + (write16BitIndices ? sizeof(uint16_t) : sizeof(uint32_t)) * 3u;
+        const size_t bodySize = vertexCount * vertexStride + faceCount * faceStride;
+
+        core::vector<uint8_t> body;
+        body.resize(bodySize);
+        if (!writeBinary(input, body.data()))
+        {
+            _params.logger.log("PLY writer: binary payload generation failed.", system::ILogger::ELL_ERROR);
+            return false;
+        }
+        return writePayload(body.data(), body.size());
     }
 
     std::string body;
@@ -678,51 +670,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
         _params.logger.log("PLY writer: text payload generation failed.", system::ILogger::ELL_ERROR);
         return false;
     }
-
-    const size_t outputSize = header.size() + body.size();
-    const bool fileMappable = core::bitflag<system::IFile::E_CREATE_FLAGS>(file->getFlags()).hasAnyFlag(system::IFile::ECF_MAPPABLE);
-    const auto ioPlan = SResolvedFileIOPolicy(_params.ioPolicy, static_cast<uint64_t>(outputSize), true, fileMappable);
-    if (!ioPlan.isValid())
-    {
-        _params.logger.log("PLY writer: invalid io policy for %s reason=%s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str(), ioPlan.reason);
-        return false;
-    }
-
-    outputBytes = outputSize;
-    const SInterchangeIO::SBufferRange writeBuffers[] =
-    {
-        { .data = reinterpret_cast<const uint8_t*>(header.data()), .byteCount = header.size() },
-        { .data = reinterpret_cast<const uint8_t*>(body.data()), .byteCount = body.size() }
-    };
-    writeOk = SInterchangeIO::writeBuffersWithPolicy(file, ioPlan, writeBuffers, &ioTelemetry);
-    const uint64_t ioMinWrite = ioTelemetry.getMinOrZero();
-    const uint64_t ioAvgWrite = ioTelemetry.getAvgOrZero();
-    if (SInterchangeIO::isTinyIOTelemetryLikely(ioTelemetry, static_cast<uint64_t>(outputBytes), _params.ioPolicy))
-    {
-        _params.logger.log(
-            "PLY writer tiny-io guard: file=%s writes=%llu min=%llu avg=%llu",
-            system::ILogger::ELL_WARNING,
-            file->getFileName().string().c_str(),
-            static_cast<unsigned long long>(ioTelemetry.callCount),
-            static_cast<unsigned long long>(ioMinWrite),
-            static_cast<unsigned long long>(ioAvgWrite));
-    }
-    _params.logger.log(
-        "PLY writer stats: file=%s bytes=%llu vertices=%llu faces=%llu binary=%d io_writes=%llu io_min_write=%llu io_avg_write=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
-        system::ILogger::ELL_PERFORMANCE,
-        file->getFileName().string().c_str(),
-        static_cast<unsigned long long>(outputBytes),
-        static_cast<unsigned long long>(vertexCount),
-        static_cast<unsigned long long>(faceCount),
-        binary ? 1 : 0,
-        static_cast<unsigned long long>(ioTelemetry.callCount),
-        static_cast<unsigned long long>(ioMinWrite),
-        static_cast<unsigned long long>(ioAvgWrite),
-        system::to_string(_params.ioPolicy.strategy).c_str(),
-        system::to_string(ioPlan.strategy).c_str(),
-        static_cast<unsigned long long>(ioPlan.chunkSizeBytes()),
-        ioPlan.reason);
-    return writeOk;
+    return writePayload(reinterpret_cast<const uint8_t*>(body.data()), body.size());
 }
 
 bool ply_writer_detail::writeBinary(

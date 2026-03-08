@@ -130,28 +130,18 @@ void appendIndexTokenToStorage(std::string& storage, core::vector<SIndexStringRe
 		char* const tokenEnd = token + MaxIndexTokenBytes;
 		char* cursor = token;
 		cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, positionIx);
-		if (hasUVs && hasNormals)
+		if (hasUVs || hasNormals)
 		{
 			if (cursor < tokenEnd)
 				*(cursor++) = '/';
-			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, uvIx);
-			if (cursor < tokenEnd)
-				*(cursor++) = '/';
-			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, normalIx);
-		}
-		else if (hasUVs)
-		{
-			if (cursor < tokenEnd)
-				*(cursor++) = '/';
-			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, uvIx);
-		}
-		else if (hasNormals)
-		{
-			if (cursor < tokenEnd)
-				*(cursor++) = '/';
-			if (cursor < tokenEnd)
-				*(cursor++) = '/';
-			cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, normalIx);
+			if (hasUVs)
+				cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, uvIx);
+			if (hasNormals)
+			{
+				if (cursor < tokenEnd)
+					*(cursor++) = '/';
+				cursor = SGeometryWriterCommon::appendUIntToBuffer(cursor, tokenEnd, normalIx);
+			}
 		}
 		storage.resize(oldSize + static_cast<size_t>(cursor - token));
 	}

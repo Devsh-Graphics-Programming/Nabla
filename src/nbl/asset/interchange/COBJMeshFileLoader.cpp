@@ -805,51 +805,38 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 const char lineType = static_cast<char>(std::tolower(static_cast<unsigned char>(*lineStart)));
                 if (lineType == 'v')
                 {
+                    auto parseVector = [&](const char* ptr, float* values, const uint32_t count)->bool
+                    {
+                        for (uint32_t i = 0u; i < count; ++i)
+                        {
+                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
+                                ++ptr;
+                            if (ptr >= lineEnd || !parseObjFloat(ptr, lineEnd, values[i]))
+                                return false;
+                        }
+                        return true;
+                    };
                     const char subType = ((lineStart + 1) < lineEnd) ? static_cast<char>(std::tolower(static_cast<unsigned char>(lineStart[1]))) : '\0';
                     if ((lineStart + 1) < lineEnd && subType == ' ')
                     {
                         hlsl::float32_t3 vec{};
-                        const char* ptr = lineStart + 2;
-                        for (uint32_t i = 0u; i < 3u; ++i)
-                        {
-                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
-                                ++ptr;
-                            if (ptr >= lineEnd)
-                                return {};
-                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
-                                return {};
-                        }
+                        if (!parseVector(lineStart + 2, &vec.x, 3u))
+                            return {};
                         positions.push_back(vec);
                         dedupHeadByPos.push_back(-1);
                     }
                     else if ((lineStart + 2) < lineEnd && subType == 'n' && isObjInlineWhitespace(lineStart[2]))
                     {
                         hlsl::float32_t3 vec{};
-                        const char* ptr = lineStart + 3;
-                        for (uint32_t i = 0u; i < 3u; ++i)
-                        {
-                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
-                                ++ptr;
-                            if (ptr >= lineEnd)
-                                return {};
-                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
-                                return {};
-                        }
+                        if (!parseVector(lineStart + 3, &vec.x, 3u))
+                            return {};
                         normals.push_back(vec);
                     }
                     else if ((lineStart + 2) < lineEnd && subType == 't' && isObjInlineWhitespace(lineStart[2]))
                     {
                         hlsl::float32_t2 vec{};
-                        const char* ptr = lineStart + 3;
-                        for (uint32_t i = 0u; i < 2u; ++i)
-                        {
-                            while (ptr < lineEnd && isObjInlineWhitespace(*ptr))
-                                ++ptr;
-                            if (ptr >= lineEnd)
-                                return {};
-                            if (!parseObjFloat(ptr, lineEnd, (&vec.x)[i]))
-                                return {};
-                        }
+                        if (!parseVector(lineStart + 3, &vec.x, 2u))
+                            return {};
                         vec.y = 1.f - vec.y;
                         uvs.push_back(vec);
                     }
