@@ -41,7 +41,7 @@ class CPLYMetadata final : public IAssetMetadata
 		friend class CPLYMeshFileLoader;
 		inline void placeMeta(const uint32_t offset, const ICPUPolygonGeometry* geometry, core::vector<std::string>&& auxAttributeNames)
 		{
-			auto& meta = m_geometryMetaStorage->operator[](offset);
+			auto& meta = (*m_geometryMetaStorage)[offset];
 			meta = CPolygonGeometry{};
 			meta.m_auxAttributeNames = std::move(auxAttributeNames);
 			IAssetMetadata::insertAssetSpecificMetadata(geometry, &meta);

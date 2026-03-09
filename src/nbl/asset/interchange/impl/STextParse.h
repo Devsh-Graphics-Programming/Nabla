@@ -57,6 +57,9 @@ struct TextParse
 				if (p >= end)
 					return false;
 			}
+			// Fast path for the plain decimal tokens dominating large text interchange datasets.
+			// It exists because routing every float through fast_float regresses benchmarked load times noticeably.
+			// This is not a standalone general-purpose parser: exponent or otherwise non-trivial spellings still fall back to fast_float.
 			if (*p != '.' && isDigit(*p))
 			{
 				uint64_t integerPart = 0ull;
