@@ -18,6 +18,40 @@
 
 namespace nbl::core
 {
+	
+template<typename HandleValue, HandleValue _Invalid> requires (std::is_integral_v<HandleValue>&& std::is_unsigned_v<HandleValue>)
+struct ConstHandle
+{
+	using value_t = HandleValue;
+	constexpr static inline value_t Invalid = _Invalid;
+
+	explicit inline operator bool() const {return value!=Invalid;}
+	// God, I love C++20
+	inline auto operator<=>(const ConstHandle&) const = default;
+
+	// LSB is the offset in the block, MSB is the block index
+	value_t value = Invalid;
+};
+template<typename _ConstHandle> requires std::is_same_v<ConstHandle<typename _ConstHandle::value_t,_ConstHandle::Invalid>,_ConstHandle>
+struct Handle : _ConstHandle
+{
+	using const_type = _ConstHandle;
+
+	inline auto operator<=>(const Handle& other) const {return _ConstHandle::operator<=>(other);}
+};
+
+template<typename T, typename _Handle> requires std::is_same_v<Handle<typename _Handle::value_t,_Handle::Invalid>,_Handle>
+struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handle::const_type,_Handle>
+{
+	private:
+		using base_t = std::conditional_t<std::is_const_v<T>,typename _Handle::const_type,_Handle>;
+
+	public:
+		inline auto operator<=>(const _Handle& other) const {return base_t::operator<=>(other);}
+		inline auto operator<=>(const typename _Handle::const_type& other) const {return base_t::operator<=>(other);}
+
+		inline operator TypedHandle<const T,_Handle>() const {return {{.value=base_t::value}};}
+};
 
 //! Does not resize memory arenas, therefore once allocations shall not move
 //! Needs an address allocator that takes a Block Size after max alignment parameter
@@ -251,40 +285,10 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		using size_type = typename base_t::size_type;
 
 		// everything is handed out by index not pointer
-		struct ConstHandle
-		{
-			using value_t = HandleValue;
-			constexpr static inline value_t Invalid = ~value_t(0);
-
-			explicit inline operator bool() const {return value!=Invalid;}
-			// God, I love C++20
-			inline auto operator<=>(const ConstHandle&) const = default;
-
-			// LSB is the offset in the block, MSB is the block index
-			value_t value = Invalid;
-		};
-		struct Handle : ConstHandle
-		{
-			inline auto operator<=>(const Handle& other) const {return ConstHandle::operator<=>(other);}
-		};
-		//
-		template<typename T>
-		struct TypedHandle final : std::conditional_t<std::is_const_v<T>,ConstHandle,Handle>
-		{
-			private:
-				using base_t = std::conditional_t<std::is_const_v<T>,ConstHandle,Handle>;
-
-			public:
-				inline auto operator<=>(const ConstHandle& other) const {return base_t::operator<=>(other);}
-
-				inline operator TypedHandle<const T>() const {return {{.value=ConstHandle::value}};}
-		};
-
-		//
 		template<typename T>
 		struct typed_pointer
 		{
-			using type = TypedHandle<T>;
+			using type = TypedHandle<T,Handle<ConstHandle<HandleValue,~HandleValue(0)> > >;
 		};
 
 		struct SCreationParams final
@@ -349,17 +353,15 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
         }
 
 		//
-		inline Handle allocate(const size_type bytes, const size_type alignment) noexcept
+		inline typename typed_pointer<void>::type allocate(const size_type bytes, const size_type alignment) noexcept
 		{
-			auto buildHandle = [&](HandleValue blockID, HandleValue addr)->Handle{return {.value=(blockID<<m_blockSizeLog2)|addr};};
-			//
 			constexpr auto invalid_address = AddressAllocator::invalid_address;
 			// TODO: better allocation strategies like tlsf
 			for (auto& entry : m_blocks)
 			{
 				block_t* block = entry.second;
 				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
-					return buildHandle(entry.first,addr);
+					return {.value=(entry.first<<m_blockSizeLog2)|addr};
 			}
 			const auto newID = m_blockIndexAlloc.alloc_addr(1,1);
 			if (newID!=block_id_alloc_t::invalid_address)
@@ -368,14 +370,14 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
 				{
 					m_blocks[newID] = block;
-					return buildHandle(newID,addr);
+					return {.value=(newID<<m_blockSizeLog2)|addr};
 				}
 				else
 					base_t::deleteBlock(block);
 			}
 			return {};
 		}
-		inline void	deallocate(const Handle h, const size_type bytes) noexcept
+		inline void	deallocate(const typename typed_pointer<void>::type h, const size_type bytes) noexcept
 		{
 			assert(m_blocks.size()>=base_t::m_initBlockCount);
 			auto found = m_blocks.find(getBlockIndex(h));
@@ -391,10 +393,10 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		}
 
     private:
-		inline HandleValue getOffsetInBlock(const ConstHandle h) const {return h.value&m_loAddrMask;}
-		inline block_t* getBlock(const ConstHandle h) const {return m_blocks[getBlockIndex(h)];}
+		inline HandleValue getOffsetInBlock(const typename typed_pointer<const void>::type h) const {return h.value&m_loAddrMask;}
+		inline block_t* getBlock(const typename typed_pointer<const void>::type h) const {return m_blocks[getBlockIndex(h)];}
 
-		inline HandleValue getBlockIndex(const ConstHandle h) const {return h.value>>m_blockSizeLog2;}
+		inline HandleValue getBlockIndex(const typename typed_pointer<const void>::type h) const {return h.value>>m_blockSizeLog2;}
 
 		// Either flat array, keeps our `deref()` fast, or hash map which isn't bad because lookup up objects from different blocks will trash anyway.
 		using block_map_t = core::unordered_map<HandleValue,block_t*>;
@@ -474,6 +476,34 @@ class SimpleBlockBasedAllocatorMT final
 };
 // no aliases
 
+}
+
+namespace std
+{
+template<typename HandleValue, HandleValue _Invalid>
+struct hash<nbl::core::ConstHandle<HandleValue,_Invalid> >
+{
+	inline size_t operator()(const nbl::core::ConstHandle<HandleValue,_Invalid> handle) const
+	{
+		return std::hash<HandleValue>()(handle.value);
+	}
+};
+template<typename HandleValue, HandleValue _Invalid>
+struct hash<nbl::core::Handle<nbl::core::ConstHandle<HandleValue,_Invalid> > >
+{
+	inline size_t operator()(const nbl::core::Handle<nbl::core::ConstHandle<HandleValue,_Invalid> > handle) const
+	{
+		return std::hash<HandleValue>()(handle.value);
+	}
+};
+template<typename T, typename HandleValue, HandleValue _Invalid>
+struct hash<nbl::core::TypedHandle<T,nbl::core::Handle<nbl::core::ConstHandle<HandleValue,_Invalid> > > >
+{
+	inline size_t operator()(const nbl::core::TypedHandle<T,nbl::core::Handle<nbl::core::ConstHandle<HandleValue,_Invalid> > > handle) const
+	{
+		return std::hash<HandleValue>()(handle.value);
+	}
+};
 }
 #endif
 
