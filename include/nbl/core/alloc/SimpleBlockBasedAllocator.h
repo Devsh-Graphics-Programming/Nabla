@@ -19,58 +19,45 @@
 namespace nbl::core
 {
 
-//! Does not resize memory arenas, therefore once allocated pointers shall not move
+//! Does not resize memory arenas, therefore once allocations shall not move
 //! Needs an address allocator that takes a Block Size after max alignment parameter
 template<class AddressAllocator>
-class SimpleBlockBasedAllocator
+class BlockBasedAllocatorBase
 {
 	public:
 		using addr_alloc_traits = address_allocator_traits<AddressAllocator>;
-		using extra_params_t = tuple_transform_t<impl::identitiy,typename addr_alloc_traits::extra_ctor_param_types>;
+		using extra_params_type = tuple_transform_t<impl::identitiy,typename addr_alloc_traits::extra_ctor_param_types>;
 		using size_type = typename addr_alloc_traits::size_type;
+
 		// The blocks will be allocated aligned to at least this value
 		constexpr static inline size_type meta_alignment = 64u;
+		
+		struct SCreationParams final
+		{
+			smart_refctd_ptr<refctd_memory_resource> mem_resource = nullptr;
+			extra_params_type addrAllocCtorExtraParams;
+			uint16_t blockSizeKBLog2 : 5 = 7;
+			uint16_t initBlockCount : 11 = 1;
+		};
 
-	private:
-		using this_t = SimpleBlockBasedAllocator<AddressAllocator>;
+	protected:
 		// Blocks get allocated/deallocated on demand, inside there's a suballocator.
 		// Blocks are always the same size, and obviously can't allocate anything larger than themselves.
 		class alignas(16) Block final
 		{
-				friend class this_t;
-
 				AddressAllocator addrAlloc;
-
-				/* if std::apply doesn't work vause of deduction kicking in https://stackoverflow.com/questions/79893672/using-stdapply-in-a-class-template
-				* 
-				* use https://www.fluentcpp.com/2021/03/05/stdindex_sequence-and-its-improvement-in-c20/ instead
-				template<int ...> struct seq {};
-				template<int N, int ...S> struct gens : gens<N - 1, N - 1, S...> { };
-				template<int ...S> struct gens<0, S...> { typedef seq<S...> type; };
-
-				template<int ...S>
-				void constructBlock(Block* mem,seq<S...>)
-				{
-					std::construct_at(mem,m_blockSize,std::get<S>(blockCreationArgs)...);
-				}
-				template<typename... Ts>
-				static inline computeReservedSize(const core::tuple<Ts...>& _addrCreationArgs)
-				{
-					return addr_alloc_traits::reserved_size(meta_alignment,blockSize,std::get<>(_addrCreationArgs)...);
-				}
-				*/
 
 			public:
 				struct SCreationParams
 				{
-					inline SCreationParams(const size_type _blockSize, const extra_params_t& extraArgs) : addrCreationArgs(extraArgs), blockSize(_blockSize),
+					inline SCreationParams(const size_type _blockSize, const extra_params_type& extraArgs) : addrCreationArgs(extraArgs), blockSize(_blockSize),
 						reservedSize(std::apply([_blockSize]<typename... Args>(const Args&... args)->size_type
 							{
 								return addr_alloc_traits::reserved_size(meta_alignment,_blockSize,args...);
 							},addrCreationArgs)
 						), totalSize(core::alignUp(sizeof(Block)+reservedSize,meta_alignment)+blockSize) {}
 
-					const extra_params_t addrCreationArgs;
+					const extra_params_type addrCreationArgs;
 					const size_type blockSize;
 					const size_type reservedSize;
 					const size_type totalSize;
@@ -108,127 +95,26 @@ class SimpleBlockBasedAllocator
 					addr_alloc_traits::multi_free_addr(addrAlloc,1u,&addr,&bytes);
 				}
 		};
+		
+		
+		inline BlockBasedAllocatorBase(SCreationParams&& params) : m_blockCreationParams(1024u<<params.blockSizeKBLog2,std::move(params.addrAllocCtorExtraParams)),
+			m_initBlockCount(std::max<size_type>(params.initBlockCount,1)), m_mem_resource(params.mem_resource ? std::move(params.mem_resource):core::getDefaultMemoryResource()) {}
+		BlockBasedAllocatorBase(const BlockBasedAllocatorBase&) = delete;
+		BlockBasedAllocatorBase(BlockBasedAllocatorBase&&) = delete;
+
+		const Block::SCreationParams m_blockCreationParams;
+		const uint32_t m_initBlockCount;
+		smart_refctd_ptr<refctd_memory_resource> m_mem_resource;
 
     public:
-        virtual inline ~SimpleBlockBasedAllocator()
-		{
-			reset();
-		}
-
-		struct SCreationParams
-		{
-			smart_refctd_ptr<refctd_memory_resource> mem_resource = nullptr;
-			extra_params_t addrAllocCtorExtraParams;
-			uint16_t blockSizeKBLog2 : 5 = 7;
-			uint16_t initBlockCount : 11 = 1;
-		};
-		inline SimpleBlockBasedAllocator(SCreationParams&& params) : m_blockCreationParams(1024u<<params.blockSizeKBLog2,std::move(params.addrAllocCtorExtraParams)),
-			m_initBlockCount(std::max<size_type>(params.initBlockCount,1)), m_mem_resource(params.mem_resource ? std::move(params.mem_resource):core::getDefaultMemoryResource())
-		{
-			for (auto i=0u; i<m_initBlockCount; i++)
-				m_blocks.insert(createBlock());
-		}
-		SimpleBlockBasedAllocator(const SimpleBlockBasedAllocator&) = delete;
-		SimpleBlockBasedAllocator(SimpleBlockBasedAllocator&&) = delete;
-
 		//
 		inline const Block::SCreationParams getBlockCreationParams() const {return m_blockCreationParams;}
 
-		// deallocates everything
-        inline void	reset()
-        {
-			assert(m_blocks.size()>=m_initBlockCount);
-			auto it = m_blocks.begin();
-			for (auto i=0u; i<m_initBlockCount; i++,it++)
-			{
-				Block* block = *it;
-				if (i<m_initBlockCount)
-					block->addrAlloc.reset();
-				else
-				{
-					deleteBlock(block);
-					m_blocks.erase(it);
-				}
-			}
-        }
-
-		//
-		struct SAllocResult
-		{
-			explicit inline operator bool() const {return blockData;}
-			inline operator void*() const
-			{
-				if (blockData)
-					return blockData+addr;
-				return nullptr;
-			}
-
-			uint8_t* blockData = nullptr;
-			size_type addr : (sizeof(size_type)*8-1);
-			size_type newBlock : 1 = false;
-		};
-		inline SAllocResult allocate(const size_type bytes, const size_type alignment) noexcept
-		{
-			constexpr auto invalid_address = AddressAllocator::invalid_address;
-			// TODO: better allocation strategies like tlsf
-			for (auto& entry : m_blocks)
-			{
-				Block* block = const_cast<Block*>(entry);
-				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
-					return {.blockData=block->data(m_blockCreationParams),.addr=addr};
-			}
-			Block* block = createBlock();
-			if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
-			{
-				m_blocks.insert(block);
-				return {.blockData=block->data(m_blockCreationParams),.addr=addr,.newBlock=true};
-			}
-			else
-				deleteBlock(block);
-			return {};
-		}
-		inline void	deallocate(void* p, const size_type bytes) noexcept
-		{
-			assert(m_blocks.size()>=m_initBlockCount);
-			auto found = m_blocks.lower_bound(reinterpret_cast<Block*>(p));
-			assert(found!=m_blocks.end());
-			auto* block = *found;
-			uint8_t* blockData = block->data(m_blockCreationParams);
-			assert(blockData<=p && p<blockData+m_blockCreationParams.blockSize);
-			const size_type addr = reinterpret_cast<uint8_t*>(p)-blockData;
-			block->free(addr,bytes);
-			if (m_blocks.size()>m_initBlockCount && addr_alloc_traits::get_allocated_size(block->getAllocator())==size_type(0u))
-			{
-				deleteBlock(block);
-				m_blocks.erase(found);
-			}
-		}
-#if 0 // what do we even need these for
-		inline bool	operator!=(const this_t& other) const noexcept
-		{
-			if (m_blockCreationParams != other.m_blockCreationParams)
-				return true;
-			if (m_initBlockCount != other.m_initBlockCount)
-				return true;
-			if (m_mem_resource != other.m_mem_resource)
-				return true;
-			if (m_blocks != other.m_blocks)
-				return true;
-			return false;
-		}
-		inline bool	operator==(const this_t& other) const noexcept
-		{
-			return !operator!=(other);
-		}
-#endif
     protected:
-		using block_map_t = gtl::btree_set<Block*>;
-		
 		inline Block* createBlock()
 		{
 			auto* block = reinterpret_cast<Block*>(m_mem_resource->allocate(m_blockCreationParams.totalSize,meta_alignment));
 			std::construct_at(block,m_blockCreationParams);
-			m_blocks.insert(block);
 			return block;
 		}
 		inline void deleteBlock(Block* block)
@@ -238,18 +124,291 @@ class SimpleBlockBasedAllocator
 			m_mem_resource->deallocate(block,m_blockCreationParams.totalSize,meta_alignment);
 		}
 
-		const Block::SCreationParams m_blockCreationParams;
-		const uint32_t m_initBlockCount;
-		smart_refctd_ptr<refctd_memory_resource> m_mem_resource;
+};
+
+// forward declare
+template<class AddressAllocator, typename HandleValue>
+class SimpleBlockBasedAllocator;
+
+//! void* makes it a regular allocator, but one needs to perform a binary search for the block in a map of live blocks when deallocating
+//! We could try to allocate the blocks with alignments so massive that we could take the pointer MSB directly, but unsure about OS guarantees
+template<class AddressAllocator>
+class SimpleBlockBasedAllocator<AddressAllocator,void*> final : protected BlockBasedAllocatorBase<AddressAllocator>
+{
+		using base_t = BlockBasedAllocatorBase<AddressAllocator>;
+		using block_t = typename base_t::Block;
+
+	public:
+		using handle_value_type = void*;
+		using addr_alloc_traits = typename base_t::addr_alloc_traits;
+		using extra_params_type = typename base_t::extra_params_type;
+		using size_type = typename base_t::size_type;
+
+		template<typename T>
+		struct typed_pointer
+		{
+			using type = T*;
+		};
+
+		struct SCreationParams final
+		{
+			base_t::SCreationParams composed;
+		};
+		inline SimpleBlockBasedAllocator(SCreationParams&& params) : base_t(std::move(params.composed))
+		{
+			for (auto i=0u; i<base_t::m_initBlockCount; i++)
+				m_blocks.insert(base_t::createBlock());
+		}
+        inline ~SimpleBlockBasedAllocator()
+		{
+			for (auto& block : m_blocks)
+				base_t::deleteBlock(const_cast<block_t*>(block));
+		}
+
+		//
+		template<typename T> requires (!std::is_const_v<T>)
+		inline T* deref(typename typed_pointer<T>::type p) {return p;}
+		template<typename T> requires std::is_const_v<T>
+		inline T* deref(typename typed_pointer<T>::type p) const {return p;}
+
+		// deallocates everything
+        inline void	reset()
+        {
+			assert(m_blocks.size()>=base_t::m_initBlockCount);
+			auto it = m_blocks.begin();
+			for (auto i=0u; i<m_blocks.size(); i++,it++)
+			{
+				block_t* block = *it;
+				if (i<base_t::m_initBlockCount)
+					block->addrAlloc.reset();
+				else
+				{
+					base_t::deleteBlock(block);
+					m_blocks.erase(it);
+				}
+			}
+        }
+
+		//
+		inline void* allocate(const size_type bytes, const size_type alignment) noexcept
+		{
+			constexpr auto invalid_address = AddressAllocator::invalid_address;
+			// TODO: better allocation strategies like tlsf
+			for (auto& entry : m_blocks)
+			{
+				block_t* block = const_cast<block_t*>(entry);
+				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
+					return block->data(base_t::m_blockCreationParams)+addr;
+			}
+			block_t* block = base_t::createBlock();
+			if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
+			{
+				m_blocks.insert(block);
+				return block->data(base_t::m_blockCreationParams)+addr;
+			}
+			else
+				base_t::deleteBlock(block);
+			return nullptr;
+		}
+		inline void	deallocate(void* p, const size_type bytes) noexcept
+		{
+			assert(m_blocks.size()>=base_t::m_initBlockCount);
+			auto found = m_blocks.lower_bound(reinterpret_cast<block_t*>(p));
+			assert(found!=m_blocks.end());
+			auto* block = *found;
+			uint8_t* blockData = block->data(base_t::m_blockCreationParams);
+			assert(blockData<=p && p<blockData+base_t::m_blockCreationParams.blockSize);
+			const size_type addr = reinterpret_cast<uint8_t*>(p)-blockData;
+			block->free(addr,bytes);
+			if (m_blocks.size()>base_t::m_initBlockCount && addr_alloc_traits::get_allocated_size(block->getAllocator())==size_type(0u))
+			{
+				base_t::deleteBlock(block);
+				m_blocks.erase(found);
+			}
+		}
+
+    private:
 		// TODO: better allocation strategies like tlsf
+		using block_map_t = gtl::btree_set<block_t*>;
 		block_map_t m_blocks;
 };
 
-template<class AddressAllocator>
-using SimpleBlockBasedAllocatorST = SimpleBlockBasedAllocator<AddressAllocator>;
+//! This one uses handles instead of pointers, this way they're quasi-serializable and compact
+template<class AddressAllocator, typename HandleValue> requires (std::is_integral_v<HandleValue> && std::is_unsigned_v<HandleValue>)
+class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected BlockBasedAllocatorBase<AddressAllocator>
+{
+		using base_t = BlockBasedAllocatorBase<AddressAllocator>;
+		using this_t = SimpleBlockBasedAllocator<AddressAllocator,HandleValue>;
+		using block_t = typename base_t::Block;
+		//
+		using block_id_t = std::conditional_t<sizeof(HandleValue)<=4,uint16_t,uint32_t>;
+		using block_id_alloc_t = PoolAddressAllocatorST<block_id_t>;
+
+	public:
+		using handle_value_type = typename HandleValue;
+		using addr_alloc_traits = typename base_t::addr_alloc_traits;
+		using extra_params_type = typename base_t::extra_params_type;
+		using size_type = typename base_t::size_type;
+
+		// everything is handed out by index not pointer
+		struct ConstHandle
+		{
+			using value_t = HandleValue;
+			constexpr static inline value_t Invalid = ~value_t(0);
+
+			explicit inline operator bool() const {return value!=Invalid;}
+			// God, I love C++20
+			inline auto operator<=>(const ConstHandle&) const = default;
+
+			// LSB is the offset in the block, MSB is the block index
+			value_t value = Invalid;
+		};
+		struct Handle : ConstHandle
+		{
+			inline auto operator<=>(const Handle& other) const {return ConstHandle::operator<=>(other);}
+		};
+		//
+		template<typename T>
+		struct TypedHandle final : std::conditional_t<std::is_const_v<T>,ConstHandle,Handle>
+		{
+			private:
+				using base_t = std::conditional_t<std::is_const_v<T>,ConstHandle,Handle>;
+
+			public:
+				inline auto operator<=>(const ConstHandle& other) const {return base_t::operator<=>(other);}
+
+				inline operator TypedHandle<const T>() const {return {{.value=ConstHandle::value}};}
+		};
+
+		//
+		template<typename T>
+		struct typed_pointer
+		{
+			using type = TypedHandle<T>;
+		};
+
+		struct SCreationParams final
+		{
+			base_t::SCreationParams composed;
+			block_id_t maxBlocks = 0x1<<15;
+		};
+		inline SimpleBlockBasedAllocator(SCreationParams&& params) : base_t(std::move(params.composed)),
+			m_blockIndexAlloc(base_t::m_mem_resource->allocate(block_id_alloc_t::reserved_size(1,params.maxBlocks,1),_NBL_SIMD_ALIGNMENT),0,0,1,params.maxBlocks,1),
+			m_blockSizeLog2(hlsl::findMSB<size_type>(base_t::getBlockCreationParams().blockSize)), m_loAddrMask((HandleValue(1)<<m_blockSizeLog2)-1)
+		{
+			assert(base_t::m_initBlockCount<=params.maxBlocks);
+			for (auto i=0u; i<base_t::m_initBlockCount; i++)
+			{
+				const auto id = m_blockIndexAlloc.alloc_addr(1,1);
+				assert(id!=block_id_alloc_t::invalid_address);
+				m_blocks[id] = base_t::createBlock();
+			}
+		}
+        inline ~SimpleBlockBasedAllocator()
+		{
+			for (auto& block : m_blocks)
+				base_t::deleteBlock(block.second);
+			const auto reservedSize = block_id_alloc_t::reserved_size(m_blockIndexAlloc,m_blockIndexAlloc.get_total_size());
+			base_t::m_mem_resource->deallocate(const_cast<void*>(m_blockIndexAlloc.getReservedSpacePtr()),reservedSize);
+		}
+
+		//
+		template<typename T> requires (!std::is_const_v<T>)
+		inline T* deref(typename typed_pointer<T>::type p)
+		{
+			return reinterpret_cast<T*>(getBlock(p)->data(base_t::m_blockCreationParams)+getOffsetInBlock(p));
+		}
+		template<typename T> requires std::is_const_v<T>
+		inline T* deref(typename typed_pointer<T>::type p) const
+		{
+			auto* mut = const_cast<this_t*>(this)->deref<std::remove_const_t<T>>(p);
+			return const_cast<T*>(mut);
+		}
+
+		// deallocates everything
+        inline void	reset()
+        {
+			block_map_t recycledBlocks;
+			recycledBlocks.reserve(base_t::m_initBlockCount);
+			assert(m_blocks.size()>=base_t::m_initBlockCount);
+			m_blockIndexAlloc.reset();
+			for (auto& entry : m_blocks)
+			{
+				block_t* block = entry.second;
+				if (recycledBlocks.size()<base_t::m_initBlockCount)
+				{
+					block->addrAlloc.reset();
+					const auto id = m_blockIndexAlloc.alloc_addr(1,1);
+					assert(id!=block_id_alloc_t::invalid_address);
+					recycledBlocks[id] = block;
+				}
+				else
+					base_t::deleteBlock(block);
+			}
+			m_blocks = std::move(recycledBlocks);
+        }
+
+		//
+		inline Handle allocate(const size_type bytes, const size_type alignment) noexcept
+		{
+			auto buildHandle = [&](HandleValue blockID, HandleValue addr)->Handle{return {.value=(blockID<<m_blockSizeLog2)|addr};};
+			//
+			constexpr auto invalid_address = AddressAllocator::invalid_address;
+			// TODO: better allocation strategies like tlsf
+			for (auto& entry : m_blocks)
+			{
+				block_t* block = entry.second;
+				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
+					return buildHandle(entry.first,addr);
+			}
+			const auto newID = m_blockIndexAlloc.alloc_addr(1,1);
+			if (newID!=block_id_alloc_t::invalid_address)
+			{
+				block_t* block = base_t::createBlock();
+				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
+				{
+					m_blocks[newID] = block;
+					return buildHandle(newID,addr);
+				}
+				else
+					base_t::deleteBlock(block);
+			}
+			return {};
+		}
+		inline void	deallocate(const Handle h, const size_type bytes) noexcept
+		{
+			assert(m_blocks.size()>=base_t::m_initBlockCount);
+			auto found = m_blocks.find(getBlockIndex(h));
+			assert(found!=m_blocks.end());
+			auto* block = found->second;
+			block->free(getOffsetInBlock(h),bytes);
+			if (m_blocks.size()>base_t::m_initBlockCount && addr_alloc_traits::get_allocated_size(block->getAllocator())==size_type(0u))
+			{
+				base_t::deleteBlock(block);
+				m_blockIndexAlloc.free_addr(found->first,1);
+				m_blocks.erase(found);
+			}
+		}
+
+    private:
+		inline HandleValue getOffsetInBlock(const ConstHandle h) const {return h.value&m_loAddrMask;}
+		inline block_t* getBlock(const ConstHandle h) const {return m_blocks[getBlockIndex(h)];}
+
+		inline HandleValue getBlockIndex(const ConstHandle h) const {return h.value>>m_blockSizeLog2;}
+
+		// Either flat array, keeps our `deref()` fast, or hash map which isn't bad because lookup up objects from different blocks will trash anyway.
+		using block_map_t = core::unordered_map<HandleValue,block_t*>;
+		block_id_alloc_t m_blockIndexAlloc;
+		block_map_t m_blocks;
+		const uint8_t m_blockSizeLog2;
+		const HandleValue m_loAddrMask;
+};
+
+template<class AddressAllocator, typename HandleValue=void*>
+using SimpleBlockBasedAllocatorST = SimpleBlockBasedAllocator<AddressAllocator,HandleValue>;
 
 
-template<class Composed, class RecursiveLockable=std::recursive_mutex> requires std::is_base_of_v<SimpleBlockBasedAllocator<typename Composed::addr_alloc_traits::allocator_type>,Composed>
+template<class Composed, class RecursiveLockable=std::recursive_mutex> requires std::is_base_of_v<SimpleBlockBasedAllocator<typename Composed::addr_alloc_traits::allocator_type,typename Composed::handle_value_type>,Composed>
 class SimpleBlockBasedAllocatorMT final
 {
 		using this_t = SimpleBlockBasedAllocatorMT<Composed,RecursiveLockable>;
@@ -260,48 +419,58 @@ class SimpleBlockBasedAllocatorMT final
 
 	public:
         using size_type = typename Composed::size_type;
+		template<typename T>
+		struct typed_pointer
+		{
+			private:
+				using __t = typename Composed::template typed_pointer<T>;
+			public:
+				using type = typename __t::type;
+		};
 
-		inline SimpleBlockBasedAllocatorMT(Composed::SCreationParams&& params) : m_composed(std::move(params)), m_lock() {}
+		using creation_params_type = Composed::SCreationParams;
+		inline SimpleBlockBasedAllocatorMT(creation_params_type&& params) : m_composed(std::move(params)), m_lock() {}
         virtual inline ~SimpleBlockBasedAllocatorMT() {}
 
 		//
-        inline void		reset()
+		template<typename T> requires (!std::is_const_v<T>)
+		inline T* deref(typename typed_pointer<T>::type p)
+		{
+			return m_composed.deref<T>(p);
+		}
+		template<typename T> requires std::is_const_v<T>
+		inline T* deref(typename typed_pointer<T>::type p) const
+		{
+			return m_composed.deref<T>(p);
+		}
+
+		//
+        inline void	reset()
         {
 			m_lock.lock();
 			m_composed.reset();
 			m_lock.unlock();
         }
 
-		inline void*	allocate(size_type bytes, size_type alignment) noexcept
+		inline typename typed_pointer<void>::type allocate(size_type bytes, size_type alignment) noexcept
 		{
 			m_lock.lock();
 			auto ret = m_composed.allocate(bytes, alignment);
 			m_lock.unlock();
 			return ret;
 		}
-		inline void		deallocate(void* p, size_type bytes) noexcept
+		inline void	deallocate(typename typed_pointer<void>::type p, size_type bytes) noexcept
 		{
 			m_lock.lock();
-			m_composed.deallocate(p, bytes);
+			m_composed.deallocate(p,bytes);
 			m_lock.unlock();
 		}
 
 		//! Extra == Use WITH EXTREME CAUTION
-		inline RecursiveLockable&   get_lock() noexcept
+		inline RecursiveLockable& get_lock() noexcept
 		{
 			return m_lock;
 		}
-
-#if 0 // what do we even need these for
-		inline bool		operator!=(const SimpleBlockBasedAllocatorMT<AddressAllocator>& other) const noexcept
-		{
-			return m_composed!=other.m_composed || other.m_lock!=m_lock;
-		}
-		inline bool		operator==(const SimpleBlockBasedAllocatorMT<AddressAllocator>& other) const noexcept
-		{
-			return m_composed==other.m_composed && other.m_lock==m_lock;
-		}
-#endif
 };
 // no aliases
 

@@ -358,7 +358,7 @@ struct ParserManager::CreateElement<CElementTransform>
 		if (core::strcmpi(_atts[0],"name"))
 			return {};
 	
-		return {ctx->result->objects->construct<CElementTransform>(),_atts[1]};
+		return {ctx->result->objects->emplace<CElementTransform>(),_atts[1]};
 	};
 };
 template<>
@@ -372,7 +372,7 @@ struct ParserManager::CreateElement<CElementEmissionProfile>
 		if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
 			return {};
 
-		CElementEmissionProfile* obj = ctx->result->objects->construct<CElementEmissionProfile>(id);
+		CElementEmissionProfile* obj = ctx->result->objects->emplace<CElementEmissionProfile>(id);
 		if (!obj)
 			return {};
 
@@ -408,7 +408,7 @@ struct ParserManager::CreateElement<Element>
 			return {};
 		}
 
-		Element* obj = ctx->result->objects->construct<Element>(id);
+		Element* obj = ctx->result->objects->emplace<Element>(id);
 		if (!obj)
 			return {};
 	

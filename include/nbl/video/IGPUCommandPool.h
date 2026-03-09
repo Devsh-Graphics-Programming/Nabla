@@ -2,9 +2,7 @@
 #define _NBL_VIDEO_I_GPU_COMMAND_POOL_H_INCLUDED_
 
 
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl/core/util/bitflag.h"
-#include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/video/IEvent.h"
 #include "nbl/video/IGPUDescriptorSet.h"
@@ -511,7 +509,7 @@ class IGPUCommandPool : public IBackendObject
                     CCommandSegment* tail = nullptr;
                 };
 
-                inline CCommandSegmentListPool() : m_pool({.addrAllocCtorExtraParams={MinPoolAllocSize},.blockSizeKBLog2=CommandSegmentsPerBlockLog2+CommandSegmentSizeLog2-10}) {}
+                inline CCommandSegmentListPool() : m_pool({.composed={.addrAllocCtorExtraParams={MinPoolAllocSize},.blockSizeKBLog2=CommandSegmentsPerBlockLog2+CommandSegmentSizeLog2-10}}) {}
 
                 template <typename Cmd, typename... Args>
                 Cmd* emplace(SCommandSegmentList& list, Args&&... args)
@@ -633,6 +631,7 @@ class IGPUCommandPool : public IBackendObject
                 struct PoolConfig
                 {
                     using AddressAllocator = core::PoolAddressAllocator<uint32_t>;
+                    using HandleValue = void*;
                     constexpr static inline bool ThreadSafe = false;
                 };
                 core::CMemoryPool<PoolConfig> m_pool;

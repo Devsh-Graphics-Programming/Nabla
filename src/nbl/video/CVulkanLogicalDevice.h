@@ -2,7 +2,7 @@
 #define _NBL_VIDEO_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
 
 
-#include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/core/declarations.h"
 
 #include <algorithm>
 
@@ -42,6 +42,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         struct PoolConfig
         {
             using AddressAllocator = core::PoolAddressAllocator<uint32_t>;
+            using HandleValue = void*;
             constexpr static inline bool ThreadSafe = true;
         };
 

@@ -9,7 +9,6 @@
 #include "nbl/core/decl/BaseClasses.h"
 #include "nbl/core/alloc/SimpleBlockBasedAllocator.h"
 
-#include <memory>
 #include <type_traits>
 
 
@@ -21,37 +20,59 @@ concept MemoryPoolConfig = requires
 {
 //    {C::ThreadSafe} -> std::same_as<bool>; // TODO: how to do it
     typename C::AddressAllocator; // TODO: check its an Address Allocator
+    typename C::HandleValue;
 };
 
 template<MemoryPoolConfig Config>
 class CMemoryPool final : public Uncopyable
 {
-        using block_allocator_st_type = SimpleBlockBasedAllocatorST<typename Config::AddressAllocator>;
+        using block_allocator_st_type = SimpleBlockBasedAllocatorST<typename Config::AddressAllocator,typename Config::HandleValue>;
     public:
         using addr_allocator_type = Config::AddressAllocator;
         using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;
+		template<typename T>
+		struct typed_pointer
+		{
+			private:
+				using __t = typename block_allocator_st_type::template typed_pointer<T>;
+			public:
+				using type = typename __t::type;
+		};
 
         using block_allocator_type = std::conditional_t<Config::ThreadSafe,SimpleBlockBasedAllocatorMT<block_allocator_st_type,std::recursive_mutex>,block_allocator_st_type>;
 
-        inline CMemoryPool(block_allocator_st_type::SCreationParams&& params) : m_block_alctr(std::move(params)) {}
+        using creation_params_type = block_allocator_st_type::SCreationParams;
+        inline CMemoryPool(creation_params_type&& params) : m_block_alctr(std::move(params)) {}
+        
+		//
+		template<typename T> requires (!std::is_const_v<T>)
+		inline T* deref(typename typed_pointer<T>::type p)
+		{
+			return m_block_alctr.deref<T>(p);
+		}
+		template<typename T> requires std::is_const_v<T>
+		inline T* deref(typename typed_pointer<T>::type p) const
+		{
+			return m_block_alctr.deref<T>(p);
+		}
     
         //
-        inline void* allocate(const size_type s, const size_type a)
+        inline typename typed_pointer<void>::type allocate(const size_type s, const size_type a)
         {
             return m_block_alctr.allocate(s,a);
         }
-        inline void deallocate(void* _ptr, const size_type s)
+        inline void deallocate(typename typed_pointer<void>::type _ptr, const size_type s)
         {
             m_block_alctr.deallocate(_ptr,s);
         }
 
         //
         template <typename T, typename... FuncArgs> requires (!std::is_array_v<T>) // for now until we have a test
-        inline T* emplace_n(const uint32_t n, FuncArgs&&... args)
+        inline typename typed_pointer<T>::type emplace_n(const uint32_t n, FuncArgs&&... args)
         {
             size_type s = static_cast<size_type>(n)*sizeof(T);
             size_type a = alignof(T);
-            T* const ptr = std::launder(reinterpret_cast<T*>(allocate(s,a)));
+            typename typed_pointer<T>::type ptr = std::launder(reinterpret_cast<T*>(allocate(s,a)));
             if (!ptr)
                 return nullptr;
 
@@ -68,23 +89,18 @@ class CMemoryPool final : public Uncopyable
             return ptr;
         }
         template <typename T, typename... FuncArgs>
-        inline T* emplace(FuncArgs&&... args)
+        inline typename typed_pointer<T>::type emplace(FuncArgs&&... args)
         {
             return emplace_n<T,FuncArgs...>(1u,std::forward<FuncArgs>(args)...);
         }
 
         // You must know the original type, we don't keep track of original size
         template <typename T> requires (!std::is_array_v<T>) // for now until we have a test
-        inline void _delete(const std::span<T> _range)
+        inline void _delete(const typename typed_pointer<T>::type h, const size_type n=1)
         {
             if constexpr (!std::is_trivially_destructible_v<T>)
-                std::destroy_n(_range.data(),_range.size());
-            deallocate(_range.data(),sizeof(T)*_range.size());
-        }
-        template <typename T>
-        inline void _delete(T* const ptr)
-        {
-            return _delete<T>({ptr,1u});
+                std::destroy_n(h,n);
+            deallocate(h,sizeof(T)*n);
         }
 
     private:

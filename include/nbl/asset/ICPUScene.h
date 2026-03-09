@@ -5,8 +5,7 @@
 #define _NBL_ASSET_I_CPU_SCENE_H_INCLUDED_
 
 
-// TODO: not memory pool but ... object pool
-#include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IScene.h"
 #include "nbl/asset/ICPUMorphTargets.h"
@@ -19,6 +18,7 @@ namespace nbl::asset
 class ICPUScene final : public IAsset, public IScene
 {
         using base_t = IScene;
+        // TODO: PoolConfig
         using material_table_allocator_t = core::GeneralpurposeAddressAllocatorST<uint32_t>;
 //        using material_table_t = core::CMemoryPool<,core::allocator,false>;
 
