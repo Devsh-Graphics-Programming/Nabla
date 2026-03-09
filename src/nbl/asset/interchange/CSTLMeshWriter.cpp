@@ -218,40 +218,49 @@ struct Parse
 			value /= 255.0;
 		return std::clamp(value, 0.0, 1.0);
 	}
+	struct PackedColor
+	{
+		uint32_t value = 0u;
+		E_FORMAT format = EF_B8G8R8A8_UNORM;
+	};
 	static uint16_t packViscamColorFromB8G8R8A8(const uint32_t color)
 	{
 		const void* src[4] = {&color, nullptr, nullptr, nullptr};
 		uint16_t packed = 0u;
 		convertColor<EF_B8G8R8A8_UNORM, EF_A1R5G5B5_UNORM_PACK16>(src, &packed, 0u, 0u);
-		packed |= 0x8000u;
-		return packed;
+		return packed | 0x8000u;
 	}
 	static const ICPUPolygonGeometry::SDataView* getColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
 	{
 		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, SSTLPolygonGeometryAuxLayout::COLOR0, vertexCount);
 		return view && getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
 	}
-	static bool decodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor)
+	static bool decodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, PackedColor& outColor)
 	{
-		if (colorView.composed.format == EF_B8G8R8A8_UNORM && colorView.composed.getStride() == sizeof(uint32_t))
+		if ((colorView.composed.format == EF_B8G8R8A8_UNORM || colorView.composed.format == EF_B8G8R8A8_SRGB) && colorView.composed.getStride() == sizeof(uint32_t))
 		{
 			const auto* const ptr = reinterpret_cast<const uint8_t*>(colorView.getPointer());
 			if (!ptr)
 				return false;
-			std::memcpy(&outColor, ptr + static_cast<size_t>(ix) * sizeof(uint32_t), sizeof(outColor));
+			std::memcpy(&outColor.value, ptr + static_cast<size_t>(ix) * sizeof(uint32_t), sizeof(outColor.value));
+			outColor.format = colorView.composed.format;
 			return true;
 		}
 		hlsl::float32_t4 decoded = {};
 		if (!colorView.decodeElement(ix, decoded))
 			return false;
-		const double rgbaUnit[4] = {normalizeColorComponentToUnit(decoded.x), normalizeColorComponentToUnit(decoded.y), normalizeColorComponentToUnit(decoded.z), normalizeColorComponentToUnit(decoded.w)};
-		encodePixels<EF_B8G8R8A8_UNORM, double>(&outColor, rgbaUnit);
+		const double rgbaUnit[4] = {normalizeColorComponentToUnit(decoded.x), normalizeColorComponentToUnit(decoded.y), normalizeColorComponentToUnit(decoded.z), getFormatChannelCount(colorView.composed.format) >= 4u ? normalizeColorComponentToUnit(decoded.w) : 1.0};
+		encodePixels<EF_B8G8R8A8_UNORM, double>(&outColor.value, rgbaUnit);
+		outColor.format = EF_B8G8R8A8_UNORM;
 		return true;
 	}
-	static void decodeColorUnitRGBAFromB8G8R8A8(const uint32_t color, double* out)
+	static void decodeColorUnitRGBAFromB8G8R8A8(const PackedColor& color, double* const outRGBA)
 	{
-		const void* src[4] = {&color, nullptr, nullptr, nullptr};
-		decodePixels<EF_B8G8R8A8_UNORM, double>(src, out, 0u, 0u);
+		const void* src[4] = {&color.value, nullptr, nullptr, nullptr};
+		if (color.format == EF_B8G8R8A8_SRGB)
+			decodePixels<EF_B8G8R8A8_SRGB, double>(src, outRGBA, 0u, 0u);
+		else
+			decodePixels<EF_B8G8R8A8_UNORM, double>(src, outRGBA, 0u, 0u);
 	}
 	static bool writeMeshBinary(const asset::ICPUPolygonGeometry* geom, Context* context)
 	{
@@ -296,7 +305,7 @@ struct Parse
 			std::array<double, 4> rgbaAvg = {};
 			for (uint32_t corner = 0u; corner < vertexIx.size(); ++corner)
 			{
-				uint32_t color = 0u;
+				PackedColor color = {};
 				if (!decodeColorB8G8R8A8(*colorView, vertexIx[corner], color))
 					return false;
 				std::array<double, 4> rgba = {};
