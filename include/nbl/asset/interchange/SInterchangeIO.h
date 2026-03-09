@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
+#include <optional>
 #include <span>
 namespace nbl::asset
 {
@@ -85,21 +87,41 @@ class SInterchangeIO
                 case SResolvedFileIOPolicy::Strategy::Chunked:
                 default:
                 {
-                    size_t bytesRead = 0ull;
+                    const size_t inFlightDepth = ioPlan.chunkedInFlightDepth;
+                    auto inFlight = std::make_unique<SChunkedRequest[]>(inFlightDepth);
+                    size_t submitOffset = 0ull;
+                    size_t activeCount = 0ull;
+                    size_t submitIndex = 0ull;
+                    size_t drainIndex = 0ull;
                     const uint64_t chunkSizeBytes = ioPlan.chunkSizeBytes();
-                    while (bytesRead < bytes)
+                    auto submitChunk = [&]() -> bool {
+                        if (submitOffset >= bytes || activeCount >= inFlightDepth)
+                            return false;
+                        auto& request = inFlight[submitIndex];
+                        const size_t toRead = static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, bytes - submitOffset));
+                        request.success.emplace();
+                        file->read(*request.success, out + submitOffset, offset + submitOffset, toRead);
+                        request.bytes = toRead;
+                        request.active = true;
+                        submitOffset += toRead;
+                        submitIndex = (submitIndex + 1ull) % inFlightDepth;
+                        ++activeCount;
+                        return true;
+                    };
+                    auto drainChunk = [&]() -> bool {
+                        auto& request = inFlight[drainIndex];
+                        if (!request.active)
+                            return false;
+                        const bool ok = drainChunkedRequest(request, ioTelemetry);
+                        drainIndex = (drainIndex + 1ull) % inFlightDepth;
+                        --activeCount;
+                        return ok;
+                    };
+                    while (submitOffset < bytes || activeCount)
                     {
-                        const size_t toRead = static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, bytes - bytesRead));
-                        system::IFile::success_t success;
-                        file->read(success, out + bytesRead, offset + bytesRead, toRead);
-                        if (!success)
+                        while (submitChunk()) {}
+                        if (activeCount && !drainChunk())
                             return finalize(false);
-                        const size_t processed = success.getBytesProcessed();
-                        if (processed == 0ull)
-                            return finalize(false);
-                        if (ioTelemetry)
-                            ioTelemetry->account(processed);
-                        bytesRead += processed;
                     }
                     return finalize(true);
                 }
@@ -123,11 +145,11 @@ class SInterchangeIO
                     continue;
                 const auto* data = reinterpret_cast<const uint8_t*>(buffer.data);
                 size_t writtenTotal = 0ull;
-                while (writtenTotal < buffer.byteCount)
+                if (ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile)
                 {
-                    const size_t toWrite = ioPlan.strategy == SResolvedFileIOPolicy::Strategy::WholeFile ? (buffer.byteCount - writtenTotal) : static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, buffer.byteCount - writtenTotal));
+                    const size_t toWrite = buffer.byteCount;
                     system::IFile::success_t success;
-                    file->write(success, data + writtenTotal, fileOffset + writtenTotal, toWrite);
+                    file->write(success, data, fileOffset, toWrite);
                     if (!success)
                         return false;
                     const size_t written = success.getBytesProcessed();
@@ -136,6 +158,46 @@ class SInterchangeIO
                     if (ioTelemetry)
                         ioTelemetry->account(written);
                     writtenTotal += written;
+                }
+                else
+                {
+                    const size_t inFlightDepth = ioPlan.chunkedInFlightDepth;
+                    auto inFlight = std::make_unique<SChunkedRequest[]>(inFlightDepth);
+                    size_t submitOffset = 0ull;
+                    size_t activeCount = 0ull;
+                    size_t submitIndex = 0ull;
+                    size_t drainIndex = 0ull;
+                    auto submitChunk = [&]() -> bool {
+                        if (submitOffset >= buffer.byteCount || activeCount >= inFlightDepth)
+                            return false;
+                        auto& request = inFlight[submitIndex];
+                        const size_t toWrite = static_cast<size_t>(std::min<uint64_t>(chunkSizeBytes, buffer.byteCount - submitOffset));
+                        request.success.emplace();
+                        file->write(*request.success, data + submitOffset, fileOffset + submitOffset, toWrite);
+                        request.bytes = toWrite;
+                        request.active = true;
+                        submitOffset += toWrite;
+                        submitIndex = (submitIndex + 1ull) % inFlightDepth;
+                        ++activeCount;
+                        return true;
+                    };
+                    auto drainChunk = [&]() -> bool {
+                        auto& request = inFlight[drainIndex];
+                        if (!request.active)
+                            return false;
+                        const bool ok = drainChunkedRequest(request, ioTelemetry);
+                        if (ok)
+                            writtenTotal += request.bytes;
+                        drainIndex = (drainIndex + 1ull) % inFlightDepth;
+                        --activeCount;
+                        return ok;
+                    };
+                    while (submitOffset < buffer.byteCount || activeCount)
+                    {
+                        while (submitChunk()) {}
+                        if (activeCount && !drainChunk())
+                            return false;
+                    }
                 }
                 fileOffset += writtenTotal;
             }
@@ -147,6 +209,24 @@ class SInterchangeIO
         static inline bool writeFileWithPolicyAtOffset(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, size_t& fileOffset, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicyAtOffset(file, ioPlan, buffers, fileOffset, ioTelemetry); }
         //! Single-buffer convenience wrapper over `writeBuffersWithPolicy`.
         static inline bool writeFileWithPolicy(system::IFile* file, const SResolvedFileIOPolicy& ioPlan, const void* data, size_t byteCount, SWriteTelemetry* ioTelemetry = nullptr) { const SBufferRange buffers[] = {{.data = data, .byteCount = byteCount}}; return writeBuffersWithPolicy(file, ioPlan, buffers, ioTelemetry); }
+    private:
+        struct SChunkedRequest
+        {
+            std::optional<system::IFile::success_t> success = std::nullopt;
+            size_t bytes = 0ull;
+            bool active = false;
+        };
+        static inline bool drainChunkedRequest(SChunkedRequest& request, STelemetry* ioTelemetry)
+        {
+            const size_t processed = request.success ? request.success->getBytesProcessed():0ull;
+            request.success.reset();
+            request.active = false;
+            if (processed != request.bytes || processed == 0ull)
+                return false;
+            if (ioTelemetry)
+                ioTelemetry->account(processed);
+            return true;
+        }
 };
 using SFileIOTelemetry = SInterchangeIO::STelemetry;
 using SFileReadTelemetry = SInterchangeIO::SReadTelemetry;

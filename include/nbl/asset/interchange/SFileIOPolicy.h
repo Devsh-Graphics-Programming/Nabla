@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <thread>
 namespace nbl::asset
 {
 //! Requested IO strategy selected before file size and mapping constraints are resolved.
@@ -54,6 +55,7 @@ struct SFileIOPolicy
         uint64_t tinyIoAvgBytesThreshold = 1024ull; //!< Average operation size threshold for tiny-IO anomaly detection.
         uint64_t tinyIoMinBytesThreshold = 64ull; //!< Minimum operation size threshold for tiny-IO anomaly detection.
         uint64_t tinyIoMinCallCount = 1024ull; //!< Minimum operation count required to report tiny-IO anomaly.
+        uint8_t chunkedInFlightDepth = 0u; //!< Chunked IO requests allowed in flight. 0 means auto, 1 disables pipelining.
     };
 
     using Strategy = EFileIOStrategy;
@@ -109,6 +111,7 @@ struct SResolvedFileIOPolicy
 
     //! Effective chunk size encoded as log2(bytes). Also set for whole-file for telemetry consistency.
     uint8_t chunkSizeLog2 = SFileIOPolicy::MIN_CHUNK_SIZE_LOG2;
+    uint8_t chunkedInFlightDepth = 1u; //!< Resolved chunked in-flight depth. Non-chunked strategies always keep this at 1.
 
     const char* reason = "invalid"; //!< Resolver reason string used in logs and diagnostics.
 
@@ -122,7 +125,19 @@ struct SResolvedFileIOPolicy
         const uint8_t chunkSizeLog2 = std::min<uint8_t>(SFileIOPolicy::clampBytesLog2(policy.chunkSizeLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2), maxStagingLog2);
         const uint64_t maxStaging = SFileIOPolicy::bytesFromLog2(maxStagingLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2);
         const uint64_t wholeThreshold = policy.wholeFileThresholdBytes();
-        auto makeResolved = [&](const Strategy strategy, const char* const reason) -> SResolvedFileIOPolicy { SResolvedFileIOPolicy resolved = {}; resolved.strategy = strategy; resolved.chunkSizeLog2 = chunkSizeLog2; resolved.reason = reason; return resolved; };
+        const uint64_t chunkSizeBytes = SFileIOPolicy::bytesFromLog2(chunkSizeLog2, SFileIOPolicy::MIN_CHUNK_SIZE_LOG2);
+        const uint64_t chunkCount = chunkSizeBytes ? std::max<uint64_t>(1ull, (byteCount + chunkSizeBytes - 1ull) / chunkSizeBytes) : 1ull;
+        auto resolveChunkedInFlightDepth = [&](const Strategy strategy) -> uint8_t
+        {
+            if (strategy != Strategy::Chunked || chunkCount <= 1ull)
+                return 1u;
+            if (policy.runtimeTuning.chunkedInFlightDepth > 0u)
+                return static_cast<uint8_t>(std::min<uint64_t>(policy.runtimeTuning.chunkedInFlightDepth, chunkCount));
+            const uint32_t hardwareThreads = policy.runtimeTuning.maxWorkers ? policy.runtimeTuning.maxWorkers : std::thread::hardware_concurrency();
+            const uint32_t usableThreads = hardwareThreads > policy.runtimeTuning.workerHeadroom ? (hardwareThreads - policy.runtimeTuning.workerHeadroom) : 1u;
+            return static_cast<uint8_t>(std::clamp<uint64_t>(usableThreads, 1ull, std::min<uint64_t>(chunkCount, std::numeric_limits<uint8_t>::max())));
+        };
+        auto makeResolved = [&](const Strategy strategy, const char* const reason) -> SResolvedFileIOPolicy { SResolvedFileIOPolicy resolved = {}; resolved.strategy = strategy; resolved.chunkSizeLog2 = chunkSizeLog2; resolved.chunkedInFlightDepth = resolveChunkedInFlightDepth(strategy); resolved.reason = reason; return resolved; };
         switch (policy.strategy)
         {
             case SFileIOPolicy::Strategy::Invalid:

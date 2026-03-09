@@ -28,13 +28,13 @@ CFilePOSIX::~CFilePOSIX()
 
 size_t CFilePOSIX::asyncRead(void* buffer, size_t offset, size_t sizeToRead)
 {
-	lseek(m_native, offset, SEEK_SET);
-	return ::read(m_native, buffer, sizeToRead);
+	const auto processed = pread(m_native, buffer, sizeToRead, static_cast<off_t>(offset));
+	return processed > 0 ? static_cast<size_t>(processed):0ull;
 }
 
 size_t CFilePOSIX::asyncWrite(const void* buffer, size_t offset, size_t sizeToWrite)
 {
-	lseek(m_native, offset, SEEK_SET);
-	return ::write(m_native, buffer, sizeToWrite);
+	const auto processed = pwrite(m_native, buffer, sizeToWrite, static_cast<off_t>(offset));
+	return processed > 0 ? static_cast<size_t>(processed):0ull;
 }
 #endif
