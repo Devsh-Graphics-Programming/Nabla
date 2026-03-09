@@ -5,6 +5,7 @@
 #include "nbl/asset/interchange/COBJMeshWriter.h"
 #include "nbl/asset/interchange/SGeometryViewDecode.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
+#include "nbl/asset/interchange/SOBJPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "impl/SFileAccess.h"
 #include "nbl/builtin/hlsl/array_accessors.hlsl"
@@ -46,7 +47,6 @@ namespace
 {
 struct Parse
 {
-	static constexpr uint32_t UV0 = 0u;
 	static constexpr size_t MaxFloatTextChars = std::numeric_limits<float>::max_digits10 + 8ull;
 	static constexpr size_t MaxUInt32Chars = std::numeric_limits<uint32_t>::digits10 + 1ull;
 	static constexpr size_t MaxIndexTokenBytes = MaxUInt32Chars * 3ull + 2ull;
@@ -177,7 +177,7 @@ bool COBJMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		const auto& normalView = geom->getNormalView();
 		const bool hasNormals = static_cast<bool>(normalView);
 		const size_t vertexCount = positionView.getElementCount();
-		const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
+		const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, SOBJPolygonGeometryAuxLayout::UV0, vertexCount);
 		if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 			uvView = nullptr;
 		const bool hasUVs = uvView != nullptr;

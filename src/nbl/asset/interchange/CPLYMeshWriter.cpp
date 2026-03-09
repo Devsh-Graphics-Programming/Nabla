@@ -4,6 +4,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 #include "CPLYMeshWriter.h"
+#include "nbl/asset/interchange/SGeometryViewDecode.h"
+#include "nbl/asset/interchange/SPLYPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "impl/SFileAccess.h"
@@ -44,8 +46,9 @@ namespace
 {
 struct Parse
 {
-	static constexpr uint32_t UV0 = 0u;
 	enum class ScalarType : uint8_t { Int8, UInt8, Int16, UInt16, Int32, UInt32, Float32, Float64 };
+	using SemanticDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Semantic>;
+	using StoredDecode = SGeometryViewDecode::Prepared<SGeometryViewDecode::EMode::Stored>;
 	struct ScalarMeta { const char* name = "float32"; uint32_t byteSize = sizeof(float); bool integer = false; bool signedType = true; };
 	struct ExtraAuxView { const ICPUPolygonGeometry::SDataView* view = nullptr; uint32_t components = 0u; uint32_t auxIndex = 0u; ScalarType scalarType = ScalarType::Float32; };
 	struct WriteInput { const ICPUPolygonGeometry* geom = nullptr; ScalarType positionScalarType = ScalarType::Float32; const ICPUPolygonGeometry::SDataView* uvView = nullptr; ScalarType uvScalarType = ScalarType::Float32; const core::vector<ExtraAuxView>* extraAuxViews = nullptr; bool writeNormals = false; ScalarType normalScalarType = ScalarType::Float32; size_t vertexCount = 0ull; const uint32_t* indices = nullptr; size_t faceCount = 0ull; bool write16BitIndices = false; bool flipVectors = false; };
@@ -77,6 +80,25 @@ struct Parse
 			default: return {"float32", sizeof(float), false, true};
 		}
 	}
+	struct PreparedView
+	{
+		const ICPUPolygonGeometry::SDataView* view = nullptr;
+		uint32_t componentCount = 0u;
+		ScalarType scalarType = ScalarType::Float32;
+		bool flipVectors = false;
+		SemanticDecode semantic = {};
+		StoredDecode stored = {};
+		static inline PreparedView create(const ICPUPolygonGeometry::SDataView& view, const uint32_t componentCount, const ScalarType scalarType, const bool flipVectors)
+		{
+			PreparedView retval = {.view = &view, .componentCount = componentCount, .scalarType = scalarType, .flipVectors = flipVectors};
+			const auto meta = getScalarMeta(scalarType);
+			if (meta.integer)
+				retval.stored = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Stored>(view);
+			else
+				retval.semantic = SGeometryViewDecode::prepare<SGeometryViewDecode::EMode::Semantic>(view);
+			return retval;
+		}
+	};
 	static bool isSupportedScalarFormat(const E_FORMAT format)
 	{
 		if (format == EF_UNKNOWN)
@@ -128,48 +150,6 @@ struct Parse
 		if (isFloatingPointFormat(format))
 			return bytesPerChannel >= 8u ? ScalarType::Float64 : ScalarType::Float32;
 		return ScalarType::Float32;
-	}
-	static bool decodeVec4(const ICPUPolygonGeometry::SDataView& view, const size_t ix, hlsl::float64_t4& out)
-	{
-		out = hlsl::float64_t4(0.0, 0.0, 0.0, 0.0);
-		if (!view.composed.isFormatted())
-			return false;
-		const void* src = view.getPointer(ix);
-		if (!src)
-			return false;
-		const void* srcArr[4] = {src, nullptr, nullptr, nullptr};
-		double tmp[4] = {};
-		if (!decodePixels<double>(view.composed.format, srcArr, tmp, 0u, 0u))
-			return false;
-		const uint32_t channels = std::min(4u, getFormatChannelCount(view.composed.format));
-		if (isNormalizedFormat(view.composed.format))
-		{
-			const auto range = view.composed.getRange<hlsl::shapes::AABB<4, hlsl::float64_t>>();
-			for (uint32_t i = 0u; i < channels; ++i)
-				(&out.x)[i] = tmp[i] * (range.maxVx[i] - range.minVx[i]) + range.minVx[i];
-		}
-		else
-		{
-			for (uint32_t i = 0u; i < channels; ++i)
-				(&out.x)[i] = tmp[i];
-		}
-		return true;
-	}
-	static bool decodeSigned4Raw(const ICPUPolygonGeometry::SDataView& view, const size_t ix, int64_t (&out)[4])
-	{
-		const void* src = view.getPointer(ix);
-		if (!src)
-			return false;
-		const void* srcArr[4] = {src, nullptr, nullptr, nullptr};
-		return decodePixels<int64_t>(view.composed.format, srcArr, out, 0u, 0u);
-	}
-	static bool decodeUnsigned4Raw(const ICPUPolygonGeometry::SDataView& view, const size_t ix, uint64_t (&out)[4])
-	{
-		const void* src = view.getPointer(ix);
-		if (!src)
-			return false;
-		const void* srcArr[4] = {src, nullptr, nullptr, nullptr};
-		return decodePixels<uint64_t>(view.composed.format, srcArr, out, 0u, 0u);
 	}
 	static bool isDirectScalarFormat(const E_FORMAT format, const ScalarType scalarType, const uint32_t componentCount, uint32_t& outByteSize)
 	{
@@ -232,8 +212,14 @@ struct Parse
 		dst += copyBytes;
 		return true;
 	}
-	static bool writeTypedViewBinary(const ICPUPolygonGeometry::SDataView& view, const size_t ix, const uint32_t componentCount, const ScalarType scalarType, const bool flipVectors, uint8_t*& dst)
+	static bool writeTypedViewBinary(const PreparedView& prepared, const size_t ix, uint8_t*& dst)
 	{
+		if (!prepared.view || !dst)
+			return false;
+		const auto& view = *prepared.view;
+		const auto componentCount = prepared.componentCount;
+		const auto scalarType = prepared.scalarType;
+		const auto flipVectors = prepared.flipVectors;
 		if (!dst)
 			return false;
 		if (writeDirectBinaryView(view, ix, componentCount, scalarType, flipVectors, dst))
@@ -243,12 +229,12 @@ struct Parse
 			case ScalarType::Float64:
 			case ScalarType::Float32:
 			{
-				hlsl::float64_t4 tmp = {};
-				if (!decodeVec4(view, ix, tmp))
+				std::array<double, 4> tmp = {};
+				if (!prepared.semantic.decode(ix, tmp))
 					return false;
 				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
-					double value = (&tmp.x)[c];
+					double value = tmp[c];
 					if (flipVectors && c == 0u)
 						value = -value;
 					if (scalarType == ScalarType::Float64)
@@ -269,8 +255,8 @@ struct Parse
 			case ScalarType::Int16:
 			case ScalarType::Int32:
 			{
-				int64_t tmp[4] = {};
-				if (!decodeSigned4Raw(view, ix, tmp))
+				std::array<int64_t, 4> tmp = {};
+				if (!prepared.stored.decode(ix, tmp))
 					return false;
 				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
@@ -305,8 +291,8 @@ struct Parse
 			case ScalarType::UInt16:
 			case ScalarType::UInt32:
 			{
-				uint64_t tmp[4] = {};
-				if (!decodeUnsigned4Raw(view, ix, tmp))
+				std::array<uint64_t, 4> tmp = {};
+				if (!prepared.stored.decode(ix, tmp))
 					return false;
 				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
@@ -337,19 +323,24 @@ struct Parse
 		}
 		return false;
 	}
-	static bool writeTypedViewText(std::string& output, const ICPUPolygonGeometry::SDataView& view, const size_t ix, const uint32_t componentCount, const ScalarType scalarType, const bool flipVectors)
+	static bool writeTypedViewText(std::string& output, const PreparedView& prepared, const size_t ix)
 	{
+		if (!prepared.view)
+			return false;
+		const auto componentCount = prepared.componentCount;
+		const auto scalarType = prepared.scalarType;
+		const auto flipVectors = prepared.flipVectors;
 		switch (scalarType)
 		{
 			case ScalarType::Float64:
 			case ScalarType::Float32:
 			{
-				hlsl::float64_t4 tmp = {};
-				if (!decodeVec4(view, ix, tmp))
+				std::array<double, 4> tmp = {};
+				if (!prepared.semantic.decode(ix, tmp))
 					return false;
 				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
-					double value = (&tmp.x)[c];
+					double value = tmp[c];
 					if (flipVectors && c == 0u)
 						value = -value;
 					appendFloat(output, value);
@@ -361,8 +352,8 @@ struct Parse
 			case ScalarType::Int16:
 			case ScalarType::Int32:
 			{
-				int64_t tmp[4] = {};
-				if (!decodeSigned4Raw(view, ix, tmp))
+				std::array<int64_t, 4> tmp = {};
+				if (!prepared.stored.decode(ix, tmp))
 					return false;
 				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
@@ -378,8 +369,8 @@ struct Parse
 			case ScalarType::UInt16:
 			case ScalarType::UInt32:
 			{
-				uint64_t tmp[4] = {};
-				if (!decodeUnsigned4Raw(view, ix, tmp))
+				std::array<uint64_t, 4> tmp = {};
+				if (!prepared.stored.decode(ix, tmp))
 					return false;
 				for (uint32_t c = 0u; c < componentCount; ++c)
 				{
@@ -431,16 +422,27 @@ struct Parse
 		const auto& positionView = input.geom->getPositionView();
 		const auto& normalView = input.geom->getNormalView();
 		const auto& extraAuxViews = *input.extraAuxViews;
+		const PreparedView preparedPosition = PreparedView::create(positionView, 3u, input.positionScalarType, input.flipVectors);
+		const PreparedView preparedNormal = input.writeNormals ? PreparedView::create(normalView, 3u, input.normalScalarType, input.flipVectors) : PreparedView{};
+		const PreparedView preparedUV = input.uvView ? PreparedView::create(*input.uvView, 2u, input.uvScalarType, false) : PreparedView{};
+		core::vector<PreparedView> preparedExtraAuxViews;
+		preparedExtraAuxViews.reserve(extraAuxViews.size());
+		for (const auto& extra : extraAuxViews)
+		{
+			if (!extra.view)
+				return false;
+			preparedExtraAuxViews.push_back(PreparedView::create(*extra.view, extra.components, extra.scalarType, false));
+		}
 		for (size_t i = 0u; i < input.vertexCount; ++i)
 		{
-			if (!writeTypedViewBinary(positionView, i, 3u, input.positionScalarType, input.flipVectors, dst))
+			if (!writeTypedViewBinary(preparedPosition, i, dst))
 				return false;
-			if (input.writeNormals && !writeTypedViewBinary(normalView, i, 3u, input.normalScalarType, input.flipVectors, dst))
+			if (input.writeNormals && !writeTypedViewBinary(preparedNormal, i, dst))
 				return false;
-			if (input.uvView && !writeTypedViewBinary(*input.uvView, i, 2u, input.uvScalarType, false, dst))
+			if (input.uvView && !writeTypedViewBinary(preparedUV, i, dst))
 				return false;
-			for (const auto& extra : extraAuxViews)
-				if (!extra.view || !writeTypedViewBinary(*extra.view, i, extra.components, extra.scalarType, false, dst))
+			for (const auto& extra : preparedExtraAuxViews)
+				if (!writeTypedViewBinary(extra, i, dst))
 					return false;
 		}
 		if (!input.indices)
@@ -468,19 +470,28 @@ struct Parse
 	{
 		if (!input.geom || !input.extraAuxViews)
 			return false;
-		const auto& positionView = input.geom->getPositionView();
-		const auto& normalView = input.geom->getNormalView();
 		const auto& extraAuxViews = *input.extraAuxViews;
+		const PreparedView preparedPosition = PreparedView::create(input.geom->getPositionView(), 3u, input.positionScalarType, input.flipVectors);
+		const PreparedView preparedNormal = input.writeNormals ? PreparedView::create(input.geom->getNormalView(), 3u, input.normalScalarType, input.flipVectors) : PreparedView{};
+		const PreparedView preparedUV = input.uvView ? PreparedView::create(*input.uvView, 2u, input.uvScalarType, false) : PreparedView{};
+		core::vector<PreparedView> preparedExtraAuxViews;
+		preparedExtraAuxViews.reserve(extraAuxViews.size());
+		for (const auto& extra : extraAuxViews)
+		{
+			if (!extra.view)
+				return false;
+			preparedExtraAuxViews.push_back(PreparedView::create(*extra.view, extra.components, extra.scalarType, false));
+		}
 		for (size_t i = 0u; i < input.vertexCount; ++i)
 		{
-			if (!writeTypedViewText(output, positionView, i, 3u, input.positionScalarType, input.flipVectors))
+			if (!writeTypedViewText(output, preparedPosition, i))
 				return false;
-			if (input.writeNormals && !writeTypedViewText(output, normalView, i, 3u, input.normalScalarType, input.flipVectors))
+			if (input.writeNormals && !writeTypedViewText(output, preparedNormal, i))
 				return false;
-			if (input.uvView && !writeTypedViewText(output, *input.uvView, i, 2u, input.uvScalarType, false))
+			if (input.uvView && !writeTypedViewText(output, preparedUV, i))
 				return false;
-			for (const auto& extra : extraAuxViews)
-				if (!extra.view || !writeTypedViewText(output, *extra.view, i, extra.components, extra.scalarType, false))
+			for (const auto& extra : preparedExtraAuxViews)
+				if (!writeTypedViewText(output, extra, i))
 					return false;
 			output.push_back('\n');
 		}
@@ -531,7 +542,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	const bool writeNormals = static_cast<bool>(normalView);
 	if (writeNormals && normalView.getElementCount() != vertexCount)
 		return _params.logger.log("PLY writer: normal vertex count mismatch.", system::ILogger::ELL_ERROR), false;
-	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, Parse::UV0, vertexCount);
+	const ICPUPolygonGeometry::SDataView* uvView = SGeometryWriterCommon::getAuxViewAt(geom, SPLYPolygonGeometryAuxLayout::UV0, vertexCount);
 	if (uvView && getFormatChannelCount(uvView->composed.format) != 2u)
 		uvView = nullptr;
 	core::vector<Parse::ExtraAuxView> extraAuxViews;
@@ -540,7 +551,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 	for (uint32_t auxIx = 0u; auxIx < static_cast<uint32_t>(auxViews.size()); ++auxIx)
 	{
 		const auto& view = auxViews[auxIx];
-		if (!view || (uvView && auxIx == Parse::UV0))
+		if (!view || (uvView && auxIx == SPLYPolygonGeometryAuxLayout::UV0))
 			continue;
 		if (view.getElementCount() != vertexCount)
 			continue;

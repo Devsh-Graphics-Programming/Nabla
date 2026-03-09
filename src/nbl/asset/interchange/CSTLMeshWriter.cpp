@@ -7,6 +7,7 @@
 #include "CSTLMeshWriter.h"
 #include "impl/SFileAccess.h"
 #include "nbl/asset/format/convertColor.h"
+#include "nbl/asset/interchange/SSTLPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SGeometryWriterCommon.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include <algorithm>
@@ -23,7 +24,6 @@ namespace
 {
 struct Parse
 {
-	static constexpr uint32_t COLOR0 = 0u;
 	struct Context
 	{
 		IAssetWriter::SAssetWriteContext writeContext;
@@ -228,7 +228,7 @@ struct Parse
 	}
 	static const ICPUPolygonGeometry::SDataView* getColorView(const ICPUPolygonGeometry* geom, const size_t vertexCount)
 	{
-		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, Parse::COLOR0, vertexCount);
+		const auto* view = SGeometryWriterCommon::getAuxViewAt(geom, SSTLPolygonGeometryAuxLayout::COLOR0, vertexCount);
 		return view && getFormatChannelCount(view->composed.format) >= 3u ? view : nullptr;
 	}
 	static bool decodeColorB8G8R8A8(const ICPUPolygonGeometry::SDataView& colorView, const uint32_t ix, uint32_t& outColor)

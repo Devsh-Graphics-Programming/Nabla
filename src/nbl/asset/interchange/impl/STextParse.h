@@ -15,6 +15,28 @@ namespace nbl::asset::impl
 //! Text token and numeric parsing helpers shared by interchange text formats.
 struct TextParse
 {
+	struct LineCursor
+	{
+		const char* cursor = nullptr;
+		const char* end = nullptr;
+		inline std::optional<std::string_view> readLine()
+		{
+			if (!cursor || cursor >= end)
+				return std::nullopt;
+			const char* lineEnd = cursor;
+			while (lineEnd < end && *lineEnd != '\0' && *lineEnd != '\r' && *lineEnd != '\n')
+				++lineEnd;
+			const std::string_view line(cursor, static_cast<size_t>(lineEnd - cursor));
+			if (lineEnd < end && *lineEnd == '\r')
+				++lineEnd;
+			if (lineEnd < end && *lineEnd == '\n')
+				++lineEnd;
+			else if (lineEnd < end && *lineEnd == '\0')
+				++lineEnd;
+			cursor = lineEnd;
+			return line;
+		}
+	};
 	static inline bool isDigit(const char c) { return c >= '0' && c <= '9'; }
 	//! Parses one arithmetic token and advances `ptr` on success.
 	template<typename T>
@@ -168,6 +190,14 @@ struct TextParse
 			++tokenEnd;
 		const std::string_view token(cursor, static_cast<size_t>(tokenEnd - cursor));
 		return cursor = tokenEnd, token;
+	}
+	//! Reads one line view from a contiguous text buffer and advances `cursor`.
+	static inline std::optional<std::string_view> readLine(const char*& cursor, const char* const end)
+	{
+		LineCursor lineCursor = {.cursor = cursor, .end = end};
+		auto line = lineCursor.readLine();
+		cursor = lineCursor.cursor;
+		return line;
 	}
 };
 }

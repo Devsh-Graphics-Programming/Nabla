@@ -8,6 +8,7 @@
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
+#include "nbl/asset/interchange/SOBJPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
@@ -26,7 +27,6 @@ namespace
 {
 struct Parse
 {
-	static constexpr uint32_t UV0 = 0u;
 	using Common = impl::TextParse;
 	struct VertexDedupNode { int32_t uv = -1; int32_t normal = -1; uint32_t smoothingGroup = 0u; uint32_t outIndex = 0u; int32_t next = -1; };
 	static bool resolveIndex(const int32_t rawIndex, const size_t elementCount, int32_t& resolved)
@@ -451,8 +451,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             if (!view)
                 return false;
             auto* const auxViews = geometry->getAuxAttributeViews();
-            auxViews->resize(Parse::UV0 + 1u);
-            auxViews->operator[](Parse::UV0) = std::move(view);
+            auxViews->resize(SOBJPolygonGeometryAuxLayout::UV0 + 1u);
+            auxViews->operator[](SOBJPolygonGeometryAuxLayout::UV0) = std::move(view);
         }
         if (!indices.empty()) {
             geometry->setIndexing(IPolygonGeometryBase::TriangleList());

@@ -10,6 +10,7 @@
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
+#include "nbl/asset/interchange/SPLYPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
@@ -27,7 +28,6 @@ namespace
 {
 struct Parse
 {
-    static constexpr uint32_t UV0 = 0u;
     using Binary = impl::BinaryData;
 	using Common = impl::TextParse;
 	struct ContentHashBuild
@@ -61,26 +61,6 @@ struct Parse
 	static std::string_view toStringView(const char* text)
 	{
 		return text ? std::string_view{text} : std::string_view{};
-	}
-	template<size_t N>
-	static E_FORMAT selectStructuredFormat(const std::array<E_FORMAT, N>& formats, const uint32_t componentCount)
-	{
-		return componentCount > 0u && componentCount <= N ? formats[componentCount - 1u] : EF_UNKNOWN;
-	}
-	static E_FORMAT expandStructuredFormat(const E_FORMAT componentFormat, const uint32_t componentCount)
-	{
-		switch (componentFormat)
-		{
-			case EF_R8_SINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R8_SINT, EF_R8G8_SINT, EF_R8G8B8_SINT, EF_R8G8B8A8_SINT}), componentCount);
-			case EF_R8_UINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R8_UINT, EF_R8G8_UINT, EF_R8G8B8_UINT, EF_R8G8B8A8_UINT}), componentCount);
-			case EF_R16_SINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R16_SINT, EF_R16G16_SINT, EF_R16G16B16_SINT, EF_R16G16B16A16_SINT}), componentCount);
-			case EF_R16_UINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R16_UINT, EF_R16G16_UINT, EF_R16G16B16_UINT, EF_R16G16B16A16_UINT}), componentCount);
-			case EF_R32_SINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R32_SINT, EF_R32G32_SINT, EF_R32G32B32_SINT, EF_R32G32B32A32_SINT}), componentCount);
-			case EF_R32_UINT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R32_UINT, EF_R32G32_UINT, EF_R32G32B32_UINT, EF_R32G32B32A32_UINT}), componentCount);
-			case EF_R32_SFLOAT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT}), componentCount);
-			case EF_R64_SFLOAT: return selectStructuredFormat(std::to_array<E_FORMAT>({EF_R64_SFLOAT, EF_R64G64_SFLOAT, EF_R64G64B64_SFLOAT, EF_R64G64B64A64_SFLOAT}), componentCount);
-			default: return EF_UNKNOWN;
-		}
 	}
 	struct Context
 	{
@@ -219,18 +199,25 @@ struct Parse
 				EndOfFile = true;
 			}
 		}
-		const char* getNextLine() // Split the string data into a line in place by terminating it instead of copying.
+		std::string_view getNextLine() // Split the string data into a line in place by terminating it instead of copying.
 		{
 			// move the start pointer along
 			StartPointer = LineEndPointer + 1;
 			// crlf split across buffer move
-			if (*StartPointer == '\n')
+			if (StartPointer < EndPointer && *StartPointer == '\n')
 				*(StartPointer++) = '\0';
+			const char* const lineStart = StartPointer;
 			// begin at the start of the next line
 			const std::array<const char, 3> Terminators = {'\0', '\r', '\n'};
 			auto terminator = std::find_first_of(StartPointer, EndPointer, Terminators.begin(), Terminators.end());
 			if (terminator != EndPointer)
+			{
+				const char* const lineEnd = terminator;
 				*(terminator++) = '\0';
+				LineEndPointer = terminator - 1;
+				WordLength = -1;
+				return std::string_view(lineStart, static_cast<size_t>(lineEnd - lineStart));
+			}
 			// we have reached the end of the buffer
 			if (terminator == EndPointer)
 			{
@@ -238,18 +225,15 @@ struct Parse
 				{
 					StartPointer = EndPointer - 1;
 					*StartPointer = '\0';
-					return StartPointer;
+					return {};
 				}
 				// get data from the file
 				fillBuffer();
 				// reset line end pointer
 				LineEndPointer = StartPointer - 1;
-				return StartPointer != EndPointer ? getNextLine() : StartPointer;
+				return StartPointer != EndPointer ? getNextLine() : std::string_view{};
 			}
-			LineEndPointer = terminator - 1;
-			WordLength = -1;
-			// return pointer to the start of the line
-			return StartPointer;
+			return {};
 		}
 		const char* getNextWord() // null terminate the next word on the previous line and move the next word pointer along since we already have a full line in the buffer, we never need to retrieve more data
 		{
@@ -1447,26 +1431,17 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
     if (!success)
         return false;
     const std::string_view fileHeader(buf.data(), success.getBytesProcessed());
-    size_t lineStart = 0ull;
-    const size_t firstLineEnd = fileHeader.find('\n');
-    std::string_view firstLine = fileHeader.substr(0ull, firstLineEnd);
-    firstLine = Parse::Common::trimWhitespace(firstLine);
-    if (firstLine != "ply")
+    Parse::Common::LineCursor lineCursor = {.cursor = fileHeader.data(), .end = fileHeader.data() + fileHeader.size()};
+    const auto firstLineOpt = lineCursor.readLine();
+    if (!firstLineOpt.has_value() || Parse::Common::trimWhitespace(*firstLineOpt) != "ply")
         return false;
-    if (firstLineEnd == std::string_view::npos)
-        return false;
-    lineStart = firstLineEnd + 1ull;
     constexpr std::array<std::string_view, 3> headers = {
         "format ascii 1.0", "format binary_little_endian 1.0",
         "format binary_big_endian 1.0"};
-    while (lineStart < fileHeader.size()) {
-        size_t lineEnd = fileHeader.find('\n', lineStart);
-        if (lineEnd == std::string_view::npos)
-            lineEnd = fileHeader.size();
-        std::string_view line = Parse::Common::trimWhitespace(fileHeader.substr(lineStart, lineEnd - lineStart));
+    while (const auto lineOpt = lineCursor.readLine()) {
+        const std::string_view line = Parse::Common::trimWhitespace(*lineOpt);
         if (line.starts_with("format "))
             return std::find(headers.begin(), headers.end(), line) != headers.end();
-        lineStart = lineEnd + 1ull;
     }
     return false;
 }
@@ -1508,6 +1483,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     ctx.init(static_cast<size_t>(safeReadWindow));
     // start with empty mesh
     auto geometry = make_smart_refctd_ptr<ICPUPolygonGeometry>();
+    std::optional<core::vector<std::string>> geometryMetadata = std::nullopt;
     hlsl::shapes::util::AABBAccumulator3<float> parsedAABB = hlsl::shapes::util::createAABBAccumulator<float>();
     uint32_t vertCount = 0;
     Parse::ContentHashBuild contentHashBuild = Parse::ContentHashBuild::create(computeContentHashes, hashInBuild);
@@ -1543,7 +1519,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         contentHashBuild.tryDefer(view.src.buffer.get());
     };
     // Currently only supports ASCII or binary meshes
-    if (Parse::toStringView(ctx.getNextLine()) != "ply") {
+    if (Parse::Common::trimWhitespace(ctx.getNextLine()) != "ply") {
         _params.logger.log("Not a valid PLY file %s", system::ILogger::ELL_ERROR,
                            ctx.inner.mainFile->getFileName().string().c_str());
         return {};
@@ -1720,52 +1696,38 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {},
                                                uvView = {};
             core::vector<ICPUPolygonGeometry::SDataView> extraViews;
+            core::vector<std::string> extraViewNames;
             for (auto& vertexProperty : el.Properties) {
                 const auto& propertyName = vertexProperty.Name;
-                // only positions and normals need to be structured/canonicalized in any way
-                auto negotiateFormat = [&vertexProperty](ICPUPolygonGeometry::SDataViewBase& view, const uint8_t component) -> void {
-                    assert(getFormatChannelCount(vertexProperty.type) != 0);
-                    if (getTexelOrBlockBytesize(vertexProperty.type) > getTexelOrBlockBytesize(view.format))
-                        view.format = vertexProperty.type;
-                    view.stride = hlsl::max<uint32_t>(view.stride, component);
-                };
                 if (propertyName == "x")
-                    negotiateFormat(posView, 0);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(posView, vertexProperty.type, 0);
                 else if (propertyName == "y")
-                    negotiateFormat(posView, 1);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(posView, vertexProperty.type, 1);
                 else if (propertyName == "z")
-                    negotiateFormat(posView, 2);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(posView, vertexProperty.type, 2);
                 else if (propertyName == "nx")
-                    negotiateFormat(normalView, 0);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(normalView, vertexProperty.type, 0);
                 else if (propertyName == "ny")
-                    negotiateFormat(normalView, 1);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(normalView, vertexProperty.type, 1);
                 else if (propertyName == "nz")
-                    negotiateFormat(normalView, 2);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(normalView, vertexProperty.type, 2);
                 else if (propertyName == "u" || propertyName == "s")
-                    negotiateFormat(uvView, 0);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(uvView, vertexProperty.type, 0);
                 else if (propertyName == "v" || propertyName == "t")
-                    negotiateFormat(uvView, 1);
+                    SGeometryLoaderCommon::negotiateStructuredComponent(uvView, vertexProperty.type, 1);
                 else
-                    // property names for extra channels are currently not persisted in metadata
+                {
                     extraViews.push_back(createView(vertexProperty.type, el.Count));
-            }
-            auto setFinalFormat = [&ctx](ICPUPolygonGeometry::SDataViewBase& view) -> void {
-                const auto componentFormat = view.format;
-                const auto componentCount = view.stride + 1;
-                view.format = Parse::expandStructuredFormat(view.format, componentCount);
-                view.stride = getTexelOrBlockBytesize(view.format);
-                for (auto c = 0u; c < componentCount; c++) {
-                    size_t offset = getTexelOrBlockBytesize(componentFormat) * c;
-                    ctx.vertAttrIts.push_back({.ptr = reinterpret_cast<uint8_t*>(offset),
-                                               .stride = view.stride,
-                                               .dstFmt = componentFormat});
+                    extraViewNames.push_back(propertyName);
                 }
-            };
+            }
             auto attachStructuredView = [&](ICPUPolygonGeometry::SDataViewBase& baseView, auto&& setter) -> void {
                 if (baseView.format == EF_UNKNOWN)
                     return;
                 auto beginIx = ctx.vertAttrIts.size();
-                setFinalFormat(baseView);
+                SGeometryLoaderCommon::finalizeStructuredBaseView(baseView, [&](const size_t offset, const uint32_t stride, const E_FORMAT componentFormat) -> void {
+                    ctx.vertAttrIts.push_back({.ptr = reinterpret_cast<uint8_t*>(offset), .stride = stride, .dstFmt = componentFormat});
+                });
                 auto view = createView(baseView.format, el.Count);
                 for (const auto size = ctx.vertAttrIts.size(); beginIx != size; ++beginIx)
                     ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
@@ -1775,15 +1737,23 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             attachStructuredView(normalView, [&](auto view) { geometry->setNormalView(std::move(view)); });
             attachStructuredView(uvView, [&](auto view) {
                 auto* const auxViews = geometry->getAuxAttributeViews();
-                auxViews->resize(Parse::UV0 + 1u);
-                auxViews->operator[](Parse::UV0) = std::move(view);
+                auxViews->resize(SPLYPolygonGeometryAuxLayout::UV0 + 1u);
+                auxViews->operator[](SPLYPolygonGeometryAuxLayout::UV0) = std::move(view);
             });
+            core::vector<std::string> auxAttributeNames;
+            const size_t extraNameOffset = geometry->getAuxAttributeViews()->size();
             for (auto& view : extraViews)
                 ctx.vertAttrIts.push_back({.ptr = reinterpret_cast<uint8_t*>(view.src.buffer->getPointer()) + view.src.offset,
                                            .stride = getTexelOrBlockBytesize(view.composed.format),
                                            .dstFmt = view.composed.format});
             for (auto& view : extraViews)
                 geometry->getAuxAttributeViews()->push_back(std::move(view));
+            if (!extraViewNames.empty())
+            {
+                auxAttributeNames.resize(geometry->getAuxAttributeViews()->size());
+                for (size_t extraIx = 0ull; extraIx < extraViewNames.size(); ++extraIx)
+                    auxAttributeNames[extraNameOffset + extraIx] = std::move(extraViewNames[extraIx]);
+            }
             // loop through vertex properties
             const auto fastVertexResult = ctx.readVertexElementFast(el, &parsedAABB);
             if (fastVertexResult == Parse::Context::EFastVertexReadResult::Success) {
@@ -1798,6 +1768,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
             visitVertexAttributeViews(hashViewBufferIfNeeded);
             tryLaunchDeferredHash(geometry->getPositionView());
             verticesProcessed = true;
+            if (!auxAttributeNames.empty())
+            {
+                geometryMetadata = std::move(auxAttributeNames);
+            }
             vertexMs += std::chrono::duration<double, std::milli>(clock_t::now() - vertexStart).count();
         } else if (el.Name == "face") {
             const auto faceStart = clock_t::now();
@@ -1883,7 +1857,9 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
         system::to_string(loadSession.ioPlan.strategy).c_str(),
         static_cast<unsigned long long>(loadSession.ioPlan.chunkSizeBytes()), loadSession.ioPlan.reason);
     _params.logger.log("PLY loader stages: file=%s header=%.3f ms vertex=%.3f ms face=%.3f ms finalize=%.3f ms", system::ILogger::ELL_PERFORMANCE, _file->getFileName().string().c_str(), headerMs, vertexMs, faceMs, finalizeMs);
-    auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
+    auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(1u);
+    if (geometryMetadata)
+        meta->placeMeta(0u, geometry.get(), std::move(*geometryMetadata));
     return SAssetBundle(std::move(meta), {std::move(geometry)});
 }
 }

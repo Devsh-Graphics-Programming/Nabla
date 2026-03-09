@@ -10,6 +10,7 @@
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
+#include "nbl/asset/interchange/SSTLPolygonGeometryAuxLayout.h"
 #include "nbl/asset/interchange/SInterchangeIO.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
@@ -25,7 +26,6 @@ namespace
 {
 struct Parse
 {
-	static constexpr uint32_t COLOR0 = 0u;
 	using Common = impl::TextParse;
 	struct LayoutProbe { bool hasPrefix = false; bool startsWithSolid = false; bool binaryBySize = false; uint32_t triangleCount = 0u; };
 	static hlsl::float32_t3 resolveStoredNormal(const hlsl::float32_t3& fileNormal) { const float fileLen2 = hlsl::dot(fileNormal, fileNormal); return (fileLen2 > 0.f && std::abs(fileLen2 - 1.f) < 1e-4f) ? fileNormal : SGeometryNormalCommon::normalizeOrZero(fileNormal); }
@@ -494,8 +494,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
             if (!colorView)
                 return {};
             auto* const auxViews = geometry->getAuxAttributeViews();
-            auxViews->resize(Parse::COLOR0 + 1u);
-            auxViews->operator[](Parse::COLOR0) =
+            auxViews->resize(SSTLPolygonGeometryAuxLayout::COLOR0 + 1u);
+            auxViews->operator[](SSTLPolygonGeometryAuxLayout::COLOR0) =
                 std::move(colorView);
             hasTriangleColors = true;
         }

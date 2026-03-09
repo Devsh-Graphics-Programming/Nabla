@@ -5,6 +5,7 @@
 #ifndef __NBL_ASSET_E_FORMAT_H_INCLUDED__
 #define __NBL_ASSET_E_FORMAT_H_INCLUDED__
 
+#include <array>
 #include <cstdint>
 #include <type_traits>
 #include "BuildConfigOptions.h"
@@ -573,6 +574,64 @@ template<E_FORMAT _fmt>
 constexpr uint32_t getFormatChannelCount()
 {
 #include "nbl/asset/format/impl/EFormat_getFormatChannelCount.h"
+}
+namespace impl
+{
+struct SStructuredFormatVariants
+{
+	E_FORMAT base;
+	std::array<E_FORMAT, 4> variants;
+};
+static inline constexpr uint32_t StructuredFormatChannelVariantCount = 4u;
+static inline constexpr auto StructuredFormatVariants = std::to_array<SStructuredFormatVariants>({
+	{EF_R8_SINT, {EF_R8_SINT, EF_R8G8_SINT, EF_R8G8B8_SINT, EF_R8G8B8A8_SINT}},
+	{EF_R8_UINT, {EF_R8_UINT, EF_R8G8_UINT, EF_R8G8B8_UINT, EF_R8G8B8A8_UINT}},
+	{EF_R16_SINT, {EF_R16_SINT, EF_R16G16_SINT, EF_R16G16B16_SINT, EF_R16G16B16A16_SINT}},
+	{EF_R16_UINT, {EF_R16_UINT, EF_R16G16_UINT, EF_R16G16B16_UINT, EF_R16G16B16A16_UINT}},
+	{EF_R32_SINT, {EF_R32_SINT, EF_R32G32_SINT, EF_R32G32B32_SINT, EF_R32G32B32A32_SINT}},
+	{EF_R32_UINT, {EF_R32_UINT, EF_R32G32_UINT, EF_R32G32B32_UINT, EF_R32G32B32A32_UINT}},
+	{EF_R32_SFLOAT, {EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT}},
+	{EF_R64_SFLOAT, {EF_R64_SFLOAT, EF_R64G64_SFLOAT, EF_R64G64B64_SFLOAT, EF_R64G64B64A64_SFLOAT}}
+	});
+	inline constexpr uint32_t getStructuredFormatVariantIndex(const E_FORMAT _fmt)
+	{
+		for (uint32_t i = 0u; i < StructuredFormatVariants.size(); ++i)
+			if (StructuredFormatVariants[i].base == _fmt)
+				return i;
+		return StructuredFormatVariants.size();
+	}
+	template<E_FORMAT _fmt>
+	inline constexpr uint32_t getStructuredFormatVariantIndex()
+	{
+		return getStructuredFormatVariantIndex(_fmt);
+	}
+	inline constexpr E_FORMAT getStructuredFormatVariant(const uint32_t _variantIndex, const uint32_t _channelCount)
+	{
+		return _variantIndex < StructuredFormatVariants.size() && _channelCount > 0u && _channelCount <= StructuredFormatChannelVariantCount ?
+			StructuredFormatVariants[_variantIndex].variants[_channelCount - 1u] : EF_UNKNOWN;
+	}
+	template<uint32_t _channelCount>
+	inline constexpr E_FORMAT getStructuredFormatVariant(const uint32_t _variantIndex)
+	{
+		if constexpr (_channelCount > 0u && _channelCount <= StructuredFormatChannelVariantCount)
+			return _variantIndex < StructuredFormatVariants.size() ? StructuredFormatVariants[_variantIndex].variants[_channelCount - 1u] : EF_UNKNOWN;
+		else
+			return EF_UNKNOWN;
+	}
+}
+template<E_FORMAT _fmt>
+inline constexpr E_FORMAT getFormatWithChannelCount(const uint32_t _channelCount)
+{
+	return impl::getStructuredFormatVariant(impl::getStructuredFormatVariantIndex<_fmt>(), _channelCount);
+}
+template<E_FORMAT _fmt, uint32_t _channelCount>
+inline constexpr E_FORMAT getFormatWithChannelCount()
+{
+	return impl::getStructuredFormatVariant<_channelCount>(impl::getStructuredFormatVariantIndex<_fmt>());
+}
+inline constexpr E_FORMAT getFormatWithChannelCount(const E_FORMAT _fmt, const uint32_t _channelCount)
+{
+	return impl::getStructuredFormatVariant(impl::getStructuredFormatVariantIndex(_fmt), _channelCount);
 }
 
 /*
