@@ -43,6 +43,74 @@ class SGeometryLoaderCommon
 			for (uint32_t c = 0u; c < componentCount; ++c)
 				onComponent(getTexelOrBlockBytesize(componentFormat) * c, view.stride, componentFormat);
 		}
+		//! Creates one owned data view with storage sized for `elementCount` items in `format`.
+		static inline IGeometry<ICPUBuffer>::SDataView createOwnedView(const E_FORMAT format, const size_t elementCount)
+		{
+			if (format == EF_UNKNOWN || elementCount == 0ull)
+				return {};
+			const auto stride = getTexelOrBlockBytesize(format);
+			auto buffer = ICPUBuffer::create({stride * elementCount});
+			return buffer ? createDataView(std::move(buffer), stride * elementCount, stride, format) : IGeometry<ICPUBuffer>::SDataView{};
+		}
+		//! Finalizes one structured base view, calls `onComponent`, and allocates the resulting owned data view.
+		template<typename Fn>
+		static inline IGeometry<ICPUBuffer>::SDataView createStructuredView(IGeometry<ICPUBuffer>::SDataViewBase& view, const size_t elementCount, Fn&& onComponent)
+		{
+			if (view.format == EF_UNKNOWN)
+				return {};
+			finalizeStructuredBaseView(view, std::forward<Fn>(onComponent));
+			return createOwnedView(view.format, elementCount);
+		}
+		//! Finalizes one structured view, appends per-component iterator bindings, rebases them against the allocated buffer, and passes the created view to `setter`.
+		template<typename IteratorContainer, typename PushComponent, typename RebaseComponent, typename Setter>
+		static inline void attachStructuredView(IGeometry<ICPUBuffer>::SDataViewBase& baseView, const size_t elementCount, IteratorContainer& iterators, PushComponent&& pushComponent, RebaseComponent&& rebaseComponent, Setter&& setter)
+		{
+			auto beginIx = iterators.size();
+			auto view = createStructuredView(baseView, elementCount, [&](const size_t offset, const uint32_t stride, const E_FORMAT componentFormat) -> void { pushComponent(iterators, offset, stride, componentFormat); });
+			if (!view)
+				return;
+			const auto basePtr = ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
+			for (const auto endIx = iterators.size(); beginIx != endIx; ++beginIx)
+				rebaseComponent(iterators[beginIx], basePtr);
+			setter(std::move(view));
+		}
+		//! Visits position, normal, and auxiliary attribute views for one polygon geometry.
+		template<typename Visitor>
+		static inline void visitVertexAttributeViews(const ICPUPolygonGeometry* geometry, Visitor&& visitor)
+		{
+			if (!geometry)
+				return;
+			visitor(geometry->getPositionView());
+			visitor(geometry->getNormalView());
+			for (const auto& view : geometry->getAuxAttributeViews())
+				visitor(view);
+		}
+		//! Visits all views owned by one polygon geometry, including index and skeletal data.
+		template<typename Visitor>
+		static inline void visitGeometryViews(const ICPUPolygonGeometry* geometry, Visitor&& visitor)
+		{
+			if (!geometry)
+				return;
+			visitVertexAttributeViews(geometry, visitor);
+			visitor(geometry->getIndexView());
+			for (const auto& view : geometry->getJointWeightViews())
+			{
+				visitor(view.indices);
+				visitor(view.weights);
+			}
+			if (const auto jointObb = geometry->getJointOBBView(); jointObb)
+				visitor(*jointObb);
+		}
+		//! Stores one auxiliary view at `slot`, resizing the aux array as needed.
+		static inline void setAuxViewAt(ICPUPolygonGeometry* geometry, const uint32_t slot, IGeometry<ICPUBuffer>::SDataView&& view)
+		{
+			if (!geometry || !view)
+				return;
+			auto* const auxViews = geometry->getAuxAttributeViews();
+			if (auxViews->size() <= slot)
+				auxViews->resize(slot + 1u);
+			(*auxViews)[slot] = std::move(view);
+		}
 
 		//! Adopts contiguous caller-owned storage into a CPU buffer and exposes it as a formatted data view.
 		template<E_FORMAT Format, impl::AdoptedBufferStorage Storage>

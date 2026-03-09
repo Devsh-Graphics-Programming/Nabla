@@ -495,8 +495,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
                 return {};
             auto* const auxViews = geometry->getAuxAttributeViews();
             auxViews->resize(SSTLPolygonGeometryAuxLayout::COLOR0 + 1u);
-            auxViews->operator[](SSTLPolygonGeometryAuxLayout::COLOR0) =
-                std::move(colorView);
+            (*auxViews)[SSTLPolygonGeometryAuxLayout::COLOR0] = std::move(colorView);
             hasTriangleColors = true;
         }
     } else {

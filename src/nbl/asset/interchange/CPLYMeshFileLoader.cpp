@@ -1488,22 +1488,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     uint32_t vertCount = 0;
     Parse::ContentHashBuild contentHashBuild = Parse::ContentHashBuild::create(computeContentHashes, hashInBuild);
     double headerMs = 0.0, vertexMs = 0.0, faceMs = 0.0, finalizeMs = 0.0;
-    auto visitVertexAttributeViews = [&](auto&& visitor) -> void {
-        visitor(geometry->getPositionView());
-        visitor(geometry->getNormalView());
-        for (const auto& view : *geometry->getAuxAttributeViews())
-            visitor(view);
-    };
-    auto visitGeometryViews = [&](auto&& visitor) -> void {
-        visitVertexAttributeViews(visitor);
-        visitor(geometry->getIndexView());
-        for (const auto& view : *geometry->getJointWeightViews()) {
-            visitor(view.indices);
-            visitor(view.weights);
-        }
-        if (const auto jointObb = geometry->getJointOBBView(); jointObb)
-            visitor(*jointObb);
-    };
     auto hashViewBufferIfNeeded = [&](const IGeometry<ICPUBuffer>::SDataView& view) -> void {
         if (!view || !view.src.buffer)
             return;
@@ -1511,7 +1495,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
     };
     auto hashRemainingGeometryBuffers = [&]() -> void {
         if (contentHashBuild.hashesInline())
-            visitGeometryViews(hashViewBufferIfNeeded);
+            SGeometryLoaderCommon::visitGeometryViews(geometry.get(), hashViewBufferIfNeeded);
     };
     auto tryLaunchDeferredHash = [&](const IGeometry<ICPUBuffer>::SDataView& view) -> void {
         if (!view || !view.src.buffer)
@@ -1721,25 +1705,15 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                     extraViewNames.push_back(propertyName);
                 }
             }
-            auto attachStructuredView = [&](ICPUPolygonGeometry::SDataViewBase& baseView, auto&& setter) -> void {
-                if (baseView.format == EF_UNKNOWN)
-                    return;
-                auto beginIx = ctx.vertAttrIts.size();
-                SGeometryLoaderCommon::finalizeStructuredBaseView(baseView, [&](const size_t offset, const uint32_t stride, const E_FORMAT componentFormat) -> void {
-                    ctx.vertAttrIts.push_back({.ptr = reinterpret_cast<uint8_t*>(offset), .stride = stride, .dstFmt = componentFormat});
-                });
-                auto view = createView(baseView.format, el.Count);
-                for (const auto size = ctx.vertAttrIts.size(); beginIx != size; ++beginIx)
-                    ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer()) + view.src.offset;
-                setter(std::move(view));
+            auto pushStructuredAttr = [](auto& iterators, const size_t offset, const uint32_t stride, const E_FORMAT componentFormat) -> void {
+                iterators.push_back({.ptr = reinterpret_cast<uint8_t*>(offset), .stride = stride, .dstFmt = componentFormat});
             };
-            attachStructuredView(posView, [&](auto view) { geometry->setPositionView(std::move(view)); });
-            attachStructuredView(normalView, [&](auto view) { geometry->setNormalView(std::move(view)); });
-            attachStructuredView(uvView, [&](auto view) {
-                auto* const auxViews = geometry->getAuxAttributeViews();
-                auxViews->resize(SPLYPolygonGeometryAuxLayout::UV0 + 1u);
-                auxViews->operator[](SPLYPolygonGeometryAuxLayout::UV0) = std::move(view);
-            });
+            auto rebaseStructuredAttr = [](auto& iter, const ptrdiff_t basePtr) -> void {
+                iter.ptr += basePtr;
+            };
+            SGeometryLoaderCommon::attachStructuredView(posView, el.Count, ctx.vertAttrIts, pushStructuredAttr, rebaseStructuredAttr, [&](auto view) { geometry->setPositionView(std::move(view)); });
+            SGeometryLoaderCommon::attachStructuredView(normalView, el.Count, ctx.vertAttrIts, pushStructuredAttr, rebaseStructuredAttr, [&](auto view) { geometry->setNormalView(std::move(view)); });
+            SGeometryLoaderCommon::attachStructuredView(uvView, el.Count, ctx.vertAttrIts, pushStructuredAttr, rebaseStructuredAttr, [&](auto view) { SGeometryLoaderCommon::setAuxViewAt(geometry.get(), SPLYPolygonGeometryAuxLayout::UV0, std::move(view)); });
             core::vector<std::string> auxAttributeNames;
             const size_t extraNameOffset = geometry->getAuxAttributeViews()->size();
             for (auto& view : extraViews)
@@ -1765,7 +1739,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(
                 logMalformedElement("vertex");
                 return {};
             }
-            visitVertexAttributeViews(hashViewBufferIfNeeded);
+            SGeometryLoaderCommon::visitVertexAttributeViews(geometry.get(), hashViewBufferIfNeeded);
             tryLaunchDeferredHash(geometry->getPositionView());
             verticesProcessed = true;
             if (!auxAttributeNames.empty())

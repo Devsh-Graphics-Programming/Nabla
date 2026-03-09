@@ -452,7 +452,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                 return false;
             auto* const auxViews = geometry->getAuxAttributeViews();
             auxViews->resize(SOBJPolygonGeometryAuxLayout::UV0 + 1u);
-            auxViews->operator[](SOBJPolygonGeometryAuxLayout::UV0) = std::move(view);
+            (*auxViews)[SOBJPolygonGeometryAuxLayout::UV0] = std::move(view);
         }
         if (!indices.empty()) {
             geometry->setIndexing(IPolygonGeometryBase::TriangleList());
