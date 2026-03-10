@@ -234,7 +234,7 @@ struct HierarchicalWarpSampler
 template <typename ScalarT, typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(is_scalar_v<ScalarT> &&
     concepts::accessors::GenericReadAccessor<LuminanceAccessorT, ScalarT, float32_t2> &&
-    hierarchical_image::HierarchicalSampler<HierarchicalSamplerT, ScalarT> &&
+    hierarchical_image::WarpAccessor<HierarchicalSamplerT, ScalarT> &&
     concepts::Warp<PostWarpT>)
 struct WarpmapSampler 
 {
@@ -244,8 +244,8 @@ struct WarpmapSampler
   using vector4_type = vector<ScalarT, 4>;
   using domain_type = vector2_type;
   using codomain_type = vector3_type;
-  using sample_type = value_and_pdf<codomain_type, density_type>;
   using weight_type = scalar_type;
+  using sample_type = value_and_pdf<codomain_type, weight_type>;
 
   LuminanceAccessorT _lumaMap;
   HierarchicalSamplerT _warpMap;
@@ -279,12 +279,9 @@ struct WarpmapSampler
 
   sample_type generate(vector2_type xi) NBL_CONST_MEMBER_FUNC
   {
-    // Need to remap xi from [0,1] to [center of first texel, center of second texel] due to corner sampling
-    const vector2_type texelCoord = xi * (_warpSize - uint32_t2(1, 1));
-    const vector2_type interpolant = frac(texelCoord);
-    const vector2_type warpmapUv = (texelCoord + vector2_type(0.5)) / _warpSize;
+    const vector2_type interpolant;
     matrix<scalar_type, 4, 2> uvs; 
-    _warpMap.gatherUv(warpmapUv, uvs);
+    _warpMap.gatherUv(xi, uvs, interpolant);
 
     const vector2_type xDiffs[] = {
       uvs[2] - uvs[3],
