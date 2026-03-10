@@ -6,6 +6,8 @@
 #include "nbl/core/declarations.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
+#include "nbl/asset/ICPUMorphTargets.h"
+#include "nbl/asset/ICPUScene.h"
 #include "nbl/asset/interchange/SGeometryContentHash.h"
 #include "nbl/asset/interchange/SGeometryLoaderCommon.h"
 #include "nbl/asset/interchange/SOBJPolygonGeometryAuxLayout.h"
@@ -23,6 +25,7 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <unordered_map>
 namespace nbl::asset
 {
 namespace
@@ -875,70 +878,75 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         faceFastTokenCountSum += loaded.faceFastTokenCount;
         faceFallbackTokenCountSum += loaded.faceFallbackTokenCount;
     }
-    loadSession.logTinyIO(_params.logger, ioTelemetry);
-    const bool buildCollections =
-        sawObjectDirective || sawGroupDirective || loadedGeometries.size() > 1ull;
-    core::vector<core::smart_refctd_ptr<IAsset>> outputAssets;
-    uint64_t objectCount = 1ull;
-    if (!buildCollections) {
-        // Plain OBJ is still just one polygon geometry here.
-        outputAssets.push_back(core::smart_refctd_ptr_static_cast<IAsset>(
-            std::move(loadedGeometries.front().geometry)));
-    } else {
-        // Plain OBJ can group many polygon geometries with `o` and `g`, but it
-        // still does not define a real scene graph, instancing, or node transforms.
-        // Keep that as geometry collections instead of fabricating an ICPUScene on
-        // load.
-        core::vector<std::string> objectNames;
-        core::vector<core::smart_refctd_ptr<ICPUGeometryCollection>>
-            objectCollections;
-        for (auto& loaded : loadedGeometries) {
-            size_t objectIx = objectNames.size();
-            for (size_t i = 0ull; i < objectNames.size(); ++i) {
-                if (objectNames[i] == loaded.objectName) {
-                    objectIx = i;
-                    break;
-                }
-            }
-            if (objectIx == objectNames.size()) {
-                objectNames.push_back(loaded.objectName);
-                auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
-                if (!collection)
-                    return {};
-                objectCollections.push_back(std::move(collection));
-            }
-            auto* refs = objectCollections[objectIx]->getGeometries();
-            if (!refs)
-                return {};
-            IGeometryCollection<ICPUBuffer>::SGeometryReference ref = {};
-            ref.geometry = core::smart_refctd_ptr_static_cast<IGeometry<ICPUBuffer>>(
-                loaded.geometry);
-            refs->push_back(std::move(ref));
-        }
-        outputAssets.reserve(objectCollections.size());
-        for (auto& collection : objectCollections)
-            outputAssets.push_back(
-                core::smart_refctd_ptr_static_cast<IAsset>(std::move(collection)));
-        objectCount = outputAssets.size();
+	loadSession.logTinyIO(_params.logger, ioTelemetry);
+	core::vector<core::smart_refctd_ptr<ICPUGeometryCollection>> objectCollections;
+	objectCollections.reserve(loadedGeometries.size());
+	std::unordered_map<std::string_view, size_t> objectIndices;
+	objectIndices.reserve(loadedGeometries.size());
+	size_t currentObjectIx = ~size_t(0ull);
+	std::string_view currentCollectionObjectName;
+	for (auto& loaded : loadedGeometries) {
+		const std::string_view objectName(loaded.objectName);
+		size_t objectIx = currentObjectIx;
+		if (objectIx == ~size_t(0ull) || currentCollectionObjectName != objectName) {
+			auto [it, inserted] = objectIndices.try_emplace(objectName, objectCollections.size());
+			if (inserted) {
+				auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
+				if (!collection)
+					return {};
+				objectCollections.push_back(std::move(collection));
+			}
+			objectIx = it->second;
+			currentObjectIx = objectIx;
+			currentCollectionObjectName = objectName;
+		}
+		auto* refs = objectCollections[objectIx]->getGeometries();
+		if (!refs)
+			return {};
+        IGeometryCollection<ICPUBuffer>::SGeometryReference ref = {};
+		ref.geometry = core::smart_refctd_ptr_static_cast<IGeometry<ICPUBuffer>>(loaded.geometry);
+		refs->push_back(std::move(ref));
+	}
+	auto scene = ICPUScene::create(nullptr);
+	if (!scene)
+		return {};
+	auto& instances = scene->getInstances();
+	instances.resize(objectCollections.size());
+	auto morphTargets = instances.getMorphTargets();
+	for (size_t i = 0ull; i < objectCollections.size(); ++i) {
+		auto targets = core::make_smart_refctd_ptr<ICPUMorphTargets>();
+		if (!targets)
+			return {};
+        auto* targetList = targets->getTargets();
+        if (!targetList)
+            return {};
+        targetList->push_back({.geoCollection = std::move(objectCollections[i])});
+        morphTargets[i] = std::move(targets);
     }
-    _params.logger.log(
-        "OBJ loader stats: file=%s in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu "
-        "faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu "
-        "geometries=%llu objects=%llu io_reads=%llu io_min_read=%llu "
-        "io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
-        system::ILogger::ELL_PERFORMANCE, _file->getFileName().string().c_str(),
-        static_cast<unsigned long long>(positions.size()),
+	// Plain OBJ now loads as a flat scene so later material pairing can attach
+	// to scene instances. We keep identity transforms here and leave material
+	// tables invalid until `MTL` support lands.
+	core::vector<core::smart_refctd_ptr<IAsset>> outputAssets;
+	outputAssets.push_back(core::smart_refctd_ptr_static_cast<IAsset>(std::move(scene)));
+	const uint64_t objectCount = objectCollections.size();
+	_params.logger.log(
+		"OBJ loader stats: file=%s in(v=%llu n=%llu uv=%llu) out(v=%llu idx=%llu "
+		"faces=%llu face_fast_tokens=%llu face_fallback_tokens=%llu "
+		"geometries=%llu objects=%llu io_reads=%llu io_min_read=%llu "
+		"io_avg_read=%llu io_req=%s io_eff=%s io_chunk=%llu io_reason=%s",
+		system::ILogger::ELL_PERFORMANCE, _file->getFileName().string().c_str(),
+		static_cast<unsigned long long>(positions.size()),
         static_cast<unsigned long long>(normals.size()),
         static_cast<unsigned long long>(uvs.size()),
         static_cast<unsigned long long>(outVertexCount),
-        static_cast<unsigned long long>(outIndexCount),
-        static_cast<unsigned long long>(faceCount),
-        static_cast<unsigned long long>(faceFastTokenCountSum),
-        static_cast<unsigned long long>(faceFallbackTokenCountSum),
-        static_cast<unsigned long long>(loadedGeometries.size()),
-        static_cast<unsigned long long>(objectCount),
-        static_cast<unsigned long long>(ioTelemetry.callCount),
-        static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
+		static_cast<unsigned long long>(outIndexCount),
+		static_cast<unsigned long long>(faceCount),
+		static_cast<unsigned long long>(faceFastTokenCountSum),
+		static_cast<unsigned long long>(faceFallbackTokenCountSum),
+		static_cast<unsigned long long>(loadedGeometries.size()),
+		static_cast<unsigned long long>(objectCount),
+		static_cast<unsigned long long>(ioTelemetry.callCount),
+		static_cast<unsigned long long>(ioTelemetry.getMinOrZero()),
         static_cast<unsigned long long>(ioTelemetry.getAvgOrZero()),
         system::to_string(_params.ioPolicy.strategy).c_str(),
         system::to_string(loadSession.ioPlan.strategy).c_str(),

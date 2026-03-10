@@ -5,26 +5,23 @@
 #ifndef _NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED_
 #define _NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED_
 #include "nbl/core/declarations.h"
-#include "nbl/asset/interchange/IGeometryLoader.h"
+#include "nbl/asset/interchange/ISceneLoader.h"
 namespace nbl::asset
 {
 /**
-	Loads plain OBJ as polygon geometry or geometry collections.
-	Multiple `o` and `g` blocks mean multiple geometry pieces in one file,
-	not a real scene.
-	This loader keeps that split as geometry collections because plain OBJ
-	does not define scene hierarchy, instancing, or node transforms.
-	OBJ/MTL material data also belongs here and remains TODO,
-	but that still does not turn plain OBJ into a scene format.
-	A single mesh payload can therefore load as one geometry,
-	while multiple split pieces still load as geometry collections
-	instead of a synthetic scene.
+	Loads plain OBJ into a flat `ICPUScene`.
+	Multiple `o` and `g` blocks become separate scene instances backed by
+	geometry collections.
+	All instance transforms stay identity here.
+	Material tables stay invalid until `MTL` support is implemented.
+	This keeps the geometry parsing logic unchanged while making the top-level
+	asset shape match how Nabla pairs geometry with materials.
 
 	References:
 	- https://www.loc.gov/preservation/digital/formats/fdd/fdd000507
 	- https://www.fileformat.info/format/wavefrontobj/egff.htm
 */
-class COBJMeshFileLoader : public IGeometryLoader
+class COBJMeshFileLoader : public ISceneLoader
 {
 	public:
 		~COBJMeshFileLoader() override;
