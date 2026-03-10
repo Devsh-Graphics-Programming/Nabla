@@ -40,7 +40,7 @@ struct Handle : _ConstHandle
 	inline auto operator<=>(const Handle& other) const {return _ConstHandle::operator<=>(other);}
 };
 
-template<typename T, typename _Handle> requires std::is_same_v<Handle<typename _Handle::value_t,_Handle::Invalid>,_Handle>
+template<typename T, typename _Handle> requires std::is_same_v<Handle<ConstHandle<typename _Handle::value_t,_Handle::Invalid>>,_Handle>
 struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handle::const_type,_Handle>
 {
 	private:
@@ -51,6 +51,19 @@ struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handl
 		inline auto operator<=>(const typename _Handle::const_type& other) const {return base_t::operator<=>(other);}
 
 		inline operator TypedHandle<const T,_Handle>() const {return {{.value=base_t::value}};}
+
+		template<typename U> requires ((std::is_void_v<U> || std::is_base_of_v<U,T>) && (!std::is_const_v<T> || std::is_const_v<U>))
+		inline operator TypedHandle<U,_Handle>() const
+		{
+			TypedHandle<U,_Handle> retval;
+			retval.value = base_t::value;
+			if constexpr (!std::is_void_v<U>)
+			{
+				const T* const fake_this = reinterpret_cast<const T*>(sizeof(T));
+				retval.value -= ptrdiff_t(static_cast<const U*>(fake_this)) - sizeof(T);
+			}
+			return retval;
+		}
 };
 
 //! Does not resize memory arenas, therefore once allocations shall not move
@@ -179,10 +192,14 @@ class SimpleBlockBasedAllocator<AddressAllocator,void*> final : protected BlockB
 		using size_type = typename base_t::size_type;
 
 		template<typename T>
-		struct typed_pointer
-		{
-			using type = T*;
-		};
+		using typed_pointer_type = T*;
+		
+		template<typename T, typename U>
+		static inline T* _const_cast(U* p) {return const_cast<T*>(p);}
+		template<typename T, typename U>
+		static inline T* _reinterpret_cast(U* p) {return reinterpret_cast<T*>(p);}
+		template<typename T, typename U>
+		static inline T* _static_cast(U* p) {return static_cast<T*>(p);}
 
 		struct SCreationParams final
 		{
@@ -201,9 +218,9 @@ class SimpleBlockBasedAllocator<AddressAllocator,void*> final : protected BlockB
 
 		//
 		template<typename T> requires (!std::is_const_v<T>)
-		inline T* deref(typename typed_pointer<T>::type p) {return p;}
+		inline T* deref(typed_pointer_type<T> p) {return p;}
 		template<typename T> requires std::is_const_v<T>
-		inline T* deref(typename typed_pointer<T>::type p) const {return p;}
+		inline T* deref(typed_pointer_type<T> p) const {return p;}
 
 		// deallocates everything
         inline void	reset()
@@ -286,10 +303,32 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 
 		// everything is handed out by index not pointer
 		template<typename T>
-		struct typed_pointer
+		using typed_pointer_type = TypedHandle<T,Handle<ConstHandle<HandleValue,~HandleValue(0)> > >;
+
+		//
+		template<typename T, typename U> requires std::is_same_v<std::remove_cv_t<T>,std::remove_cv_t<U>>
+		static inline typed_pointer_type<T> _const_cast(typed_pointer_type<U> p)
 		{
-			using type = TypedHandle<T,Handle<ConstHandle<HandleValue,~HandleValue(0)> > >;
-		};
+			typed_pointer_type<T> retval;
+			retval.value = p.value;
+			return retval;
+		}
+		template<typename T, typename U> requires (!std::is_const_v<U> || std::is_const_v<T>)
+		static inline typed_pointer_type<T> _reinterpret_cast(typed_pointer_type<U> p)
+		{
+			typed_pointer_type<T> retval;
+			retval.value = p.value;
+			return retval;
+		}
+		template<typename T, typename U>
+		static inline typed_pointer_type<T> _static_cast(typed_pointer_type<U> p)
+		{
+			const U* const fake_p = reinterpret_cast<const U*>(sizeof(U));
+			HandleValue shift = ptrdiff_t(static_cast<const T*>(fake_p)) - sizeof(U);
+			typed_pointer_type<T> retval;
+			retval.value = p.value - shift;
+			return retval;
+		}
 
 		struct SCreationParams final
 		{
@@ -313,17 +352,18 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 			for (auto& block : m_blocks)
 				base_t::deleteBlock(block.second);
 			const auto reservedSize = block_id_alloc_t::reserved_size(m_blockIndexAlloc,m_blockIndexAlloc.get_total_size());
-			base_t::m_mem_resource->deallocate(const_cast<void*>(m_blockIndexAlloc.getReservedSpacePtr()),reservedSize);
+			const void* reservedPtr = address_allocator_traits<block_id_alloc_t>::getReservedSpacePtr(m_blockIndexAlloc);
+			base_t::m_mem_resource->deallocate(const_cast<void*>(reservedPtr),reservedSize,_NBL_SIMD_ALIGNMENT);
 		}
 
 		//
 		template<typename T> requires (!std::is_const_v<T>)
-		inline T* deref(typename typed_pointer<T>::type p)
+		inline T* deref(typed_pointer_type<T> p)
 		{
-			return reinterpret_cast<T*>(getBlock(p)->data(base_t::m_blockCreationParams)+getOffsetInBlock(p));
+			return reinterpret_cast<T*>(std::launder(getBlock(p)->data(base_t::m_blockCreationParams)+getOffsetInBlock(p)));
 		}
 		template<typename T> requires std::is_const_v<T>
-		inline T* deref(typename typed_pointer<T>::type p) const
+		inline T* deref(typed_pointer_type<T> p) const
 		{
 			auto* mut = const_cast<this_t*>(this)->deref<std::remove_const_t<T>>(p);
 			return const_cast<T*>(mut);
@@ -353,7 +393,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
         }
 
 		//
-		inline typename typed_pointer<void>::type allocate(const size_type bytes, const size_type alignment) noexcept
+		inline typed_pointer_type<void> allocate(const size_type bytes, const size_type alignment) noexcept
 		{
 			constexpr auto invalid_address = AddressAllocator::invalid_address;
 			// TODO: better allocation strategies like tlsf
@@ -377,7 +417,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 			}
 			return {};
 		}
-		inline void	deallocate(const typename typed_pointer<void>::type h, const size_type bytes) noexcept
+		inline void	deallocate(const typed_pointer_type<void> h, const size_type bytes) noexcept
 		{
 			assert(m_blocks.size()>=base_t::m_initBlockCount);
 			auto found = m_blocks.find(getBlockIndex(h));
@@ -393,10 +433,10 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		}
 
     private:
-		inline HandleValue getOffsetInBlock(const typename typed_pointer<const void>::type h) const {return h.value&m_loAddrMask;}
-		inline block_t* getBlock(const typename typed_pointer<const void>::type h) const {return m_blocks[getBlockIndex(h)];}
+		inline HandleValue getOffsetInBlock(const typed_pointer_type<const void> h) const {return h.value&m_loAddrMask;}
+		inline block_t* getBlock(const typed_pointer_type<const void> h) {return m_blocks[getBlockIndex(h)];}
 
-		inline HandleValue getBlockIndex(const typename typed_pointer<const void>::type h) const {return h.value>>m_blockSizeLog2;}
+		inline HandleValue getBlockIndex(const typed_pointer_type<const void> h) const {return h.value>>m_blockSizeLog2;}
 
 		// Either flat array, keeps our `deref()` fast, or hash map which isn't bad because lookup up objects from different blocks will trash anyway.
 		using block_map_t = core::unordered_map<HandleValue,block_t*>;
@@ -422,13 +462,7 @@ class SimpleBlockBasedAllocatorMT final
 	public:
         using size_type = typename Composed::size_type;
 		template<typename T>
-		struct typed_pointer
-		{
-			private:
-				using __t = typename Composed::template typed_pointer<T>;
-			public:
-				using type = typename __t::type;
-		};
+		using typed_pointer_type = Composed::template typed_pointer_type<T>;
 
 		using creation_params_type = Composed::SCreationParams;
 		inline SimpleBlockBasedAllocatorMT(creation_params_type&& params) : m_composed(std::move(params)), m_lock() {}
@@ -436,12 +470,12 @@ class SimpleBlockBasedAllocatorMT final
 
 		//
 		template<typename T> requires (!std::is_const_v<T>)
-		inline T* deref(typename typed_pointer<T>::type p)
+		inline T* deref(typed_pointer_type<T> p)
 		{
 			return m_composed.deref<T>(p);
 		}
 		template<typename T> requires std::is_const_v<T>
-		inline T* deref(typename typed_pointer<T>::type p) const
+		inline T* deref(typed_pointer_type<T> p) const
 		{
 			return m_composed.deref<T>(p);
 		}
@@ -454,14 +488,14 @@ class SimpleBlockBasedAllocatorMT final
 			m_lock.unlock();
         }
 
-		inline typename typed_pointer<void>::type allocate(size_type bytes, size_type alignment) noexcept
+		inline typed_pointer_type<void> allocate(size_type bytes, size_type alignment) noexcept
 		{
 			m_lock.lock();
 			auto ret = m_composed.allocate(bytes, alignment);
 			m_lock.unlock();
 			return ret;
 		}
-		inline void	deallocate(typename typed_pointer<void>::type p, size_type bytes) noexcept
+		inline void	deallocate(typed_pointer_type<void> p, size_type bytes) noexcept
 		{
 			m_lock.lock();
 			m_composed.deallocate(p,bytes);

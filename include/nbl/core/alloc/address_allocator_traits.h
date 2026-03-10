@@ -19,6 +19,14 @@ namespace nbl::core
 template<typename AddressType>
 struct address_type_traits;
 
+// This got added only for the BlockID allocation in BlockBasedAllocator<NonPointerHandle>, we don't guarantee anything with uint16_t addresses!
+template<>
+struct address_type_traits<uint16_t>
+{
+    address_type_traits() = delete;
+    constexpr static inline uint16_t   invalid_address = 0xffffu;
+};
+
 template<>
 struct address_type_traits<uint32_t>
 {

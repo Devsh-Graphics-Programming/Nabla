@@ -41,6 +41,7 @@
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
 #include "nbl/core/containers/LRUCache.h"
 #include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/core/containers/CObjectPool.h"
 // hash functions
 #include "nbl/core/hash/xxHash256.h"
 #include "nbl/core/hash/blake.h"
