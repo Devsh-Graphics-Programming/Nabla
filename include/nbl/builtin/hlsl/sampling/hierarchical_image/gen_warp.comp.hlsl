@@ -15,21 +15,10 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 struct LuminanceAccessor
 {
-    float32_t texelFetch(uint32_t2 coord, uint32_t level)
+    float32_t load(uint32_t2 coord, uint32_t level) NBL_CONST_MEMBER_FUNC
     {
         assert(coord.x < pc.warpMapWidth && coord.y < pc.warpMapHeight);
         return lumaMap.Load(uint32_t3(coord, level));
-    }
-
-    float32_t4 texelGather(uint32_t2 coord, uint32_t level)
-    {
-        assert(coord.x < pc.warpMapWidth - 1 && coord.y < pc.warpMapHeight - 1);
-        return float32_t4(
-            lumaMap.Load(uint32_t3(coord, level), uint32_t2(0, 1)),
-            lumaMap.Load(uint32_t3(coord, level), uint32_t2(1, 1)),
-            lumaMap.Load(uint32_t3(coord, level), uint32_t2(1, 0)),
-            lumaMap.Load(uint32_t3(coord, level), uint32_t2(0, 0))
-        );
     }
 
 };
@@ -40,15 +29,17 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
   if (threadID.x < pc.warpMapWidth && threadID.y < pc.warpMapHeight)
   {
-    using LuminanceSampler = HierarchicalLuminanceSampler<float32_t, LuminanceAccessor>;
+    using WarpGenerator = HierarchicalWarpGenerator<float32_t, LuminanceAccessor>;
 
-    LuminanceAccessor luminanceAccessor;
-    LuminanceSampler luminanceSampler = 
-      LuminanceSampler::create(luminanceAccessor, uint32_t2(pc.lumaMapWidth, pc.lumaMapHeight), pc.lumaMapWidth != pc.lumaMapHeight, uint32_t2(pc.warpMapWidth, pc.warpMapHeight));
+    const LuminanceAccessor luminanceAccessor;
 
-    uint32_t2 pixelCoord = threadID.xy;
+    const WarpGenerator warpGenerator = WarpGenerator::create(luminanceAccessor, uint32_t2(pc.lumaMapWidth, pc.lumaMapHeight), pc.lumaMapWidth != pc.lumaMapHeight);
 
-    outImage[pixelCoord] = luminanceSampler.binarySearch(pixelCoord);
+    const uint32_t2 pixelCoord = threadID.xy;
+
+    const float32_t2 xi = float32_t2(pixelCoord) / float32_t2(pc.warpMapWidth - 1, pc.warpMapHeight - 1);
+
+    outImage[pixelCoord] = warpGenerator.generate(xi).value();
   }
 
 
