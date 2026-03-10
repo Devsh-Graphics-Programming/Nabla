@@ -58,9 +58,10 @@ struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handl
 			TypedHandle<U,_Handle> retval;
 			retval.value = base_t::value;
 			if constexpr (!std::is_void_v<U>)
+			if (*this)
 			{
 				const T* const fake_this = reinterpret_cast<const T*>(sizeof(T));
-				retval.value -= ptrdiff_t(static_cast<const U*>(fake_this)) - sizeof(T);
+				retval.value += ptrdiff_t(static_cast<const U*>(fake_this)) - sizeof(T);
 			}
 			return retval;
 		}
@@ -219,8 +220,8 @@ class SimpleBlockBasedAllocator<AddressAllocator,void*> final : protected BlockB
 		//
 		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(typed_pointer_type<T> p) {return p;}
-		template<typename T> requires std::is_const_v<T>
-		inline T* deref(typed_pointer_type<T> p) const {return p;}
+		template<typename T>
+		inline const T* deref(typed_pointer_type<T> p) const {return p;}
 
 		// deallocates everything
         inline void	reset()
@@ -323,17 +324,22 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		template<typename T, typename U>
 		static inline typed_pointer_type<T> _static_cast(typed_pointer_type<U> p)
 		{
-			const U* const fake_p = reinterpret_cast<const U*>(sizeof(U));
-			HandleValue shift = ptrdiff_t(static_cast<const T*>(fake_p)) - sizeof(U);
 			typed_pointer_type<T> retval;
-			retval.value = p.value - shift;
+			retval.value = p.value;
+			if (p)
+			{
+				const auto begin = std::max(sizeof(T),sizeof(U));
+				const U* const fake_p = reinterpret_cast<const U*>(begin);
+				retval.value += ptrdiff_t(static_cast<const T*>(fake_p)) - begin;
+			}
 			return retval;
 		}
 
 		struct SCreationParams final
 		{
 			base_t::SCreationParams composed;
-			block_id_t maxBlocks = 0x1<<15;
+			// TODO: `reserved_size` probably needs to return `size_t` cause otherwise this value can't be bigger than default
+			block_id_t maxBlocks = 0x1<<13;
 		};
 		inline SimpleBlockBasedAllocator(SCreationParams&& params) : base_t(std::move(params.composed)),
 			m_blockIndexAlloc(base_t::m_mem_resource->allocate(block_id_alloc_t::reserved_size(1,params.maxBlocks,1),_NBL_SIMD_ALIGNMENT),0,0,1,params.maxBlocks,1),
@@ -362,11 +368,11 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		{
 			return reinterpret_cast<T*>(std::launder(getBlock(p)->data(base_t::m_blockCreationParams)+getOffsetInBlock(p)));
 		}
-		template<typename T> requires std::is_const_v<T>
-		inline T* deref(typed_pointer_type<T> p) const
+		template<typename T>
+		inline const T* deref(typed_pointer_type<T> p) const
 		{
-			auto* mut = const_cast<this_t*>(this)->deref<std::remove_const_t<T>>(p);
-			return const_cast<T*>(mut);
+			std::remove_const_t<T>* mut = const_cast<this_t*>(this)->deref<std::remove_const_t<T>>(p);
+			return mut;
 		}
 
 		// deallocates everything
@@ -401,7 +407,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 			{
 				block_t* block = entry.second;
 				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
-					return {.value=(entry.first<<m_blockSizeLog2)|addr};
+					return {{{.value=(entry.first<<m_blockSizeLog2)|addr}}};
 			}
 			const auto newID = m_blockIndexAlloc.alloc_addr(1,1);
 			if (newID!=block_id_alloc_t::invalid_address)
@@ -410,7 +416,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 				if (const auto addr=block->alloc(bytes,alignment); addr!=invalid_address)
 				{
 					m_blocks[newID] = block;
-					return {.value=(newID<<m_blockSizeLog2)|addr};
+					return {{{.value=(newID<<m_blockSizeLog2)|addr}}};
 				}
 				else
 					base_t::deleteBlock(block);

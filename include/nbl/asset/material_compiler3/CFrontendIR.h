@@ -77,6 +77,7 @@ namespace nbl::asset::material_compiler3
 // polygonization. Using PN-Triangles/displacement would be the optimal solution here. 
 class CFrontendIR final : public CNodePool
 {
+		using block_allocator_type = CNodePool::obj_pool_type::block_allocator_type;
 		template<typename T>
 		using _typed_pointer_type = CNodePool::obj_pool_type::mem_pool_type::typed_pointer_type<T>;
 
@@ -124,7 +125,7 @@ class CFrontendIR final : public CNodePool
 			}
 			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
 
-			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
+			NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 			// at this stage we store the multipliers in highest precision
 			float scale = std::numeric_limits<float>::infinity();
@@ -435,8 +436,8 @@ class CFrontendIR final : public CNodePool
 					return false;
 				}
 				
-				NBL_API core::string getLabelSuffix() const override;
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 core::string getLabelSuffix() const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 			private:
 				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
@@ -517,8 +518,8 @@ class CFrontendIR final : public CNodePool
 
 			protected:
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
@@ -551,7 +552,7 @@ class CFrontendIR final : public CNodePool
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransmittance;}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
 		// @kept_secret TODO: Thin Film Interference Fresnel
@@ -572,9 +573,9 @@ class CFrontendIR final : public CNodePool
 
 			protected:
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Real":"Imaginary";}
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
 		// It's a specialization of what would be a layer of two identical smooth BRDF and BTDF with arbitrary Fresnel function and beer's
@@ -595,7 +596,7 @@ class CFrontendIR final : public CNodePool
 		{
 			protected:
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? reflectanceBottom:extinction):reflectanceTop;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
 				
@@ -649,7 +650,7 @@ class CFrontendIR final : public CNodePool
 					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
 					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
 
-					NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
+					NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
 					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
@@ -687,8 +688,8 @@ class CFrontendIR final : public CNodePool
 
 			protected:
 				inline _typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -717,11 +718,11 @@ class CFrontendIR final : public CNodePool
 
 			protected:
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 #undef TYPE_NAME_STR
 
@@ -740,8 +741,8 @@ class CFrontendIR final : public CNodePool
 		}
 
 		// To quickly make a matching backface material from a frontface or vice versa
-		NBL_API typed_pointer_type<IExprNode> reciprocate(const typed_pointer_type<const IExprNode> other);
-		NBL_API typed_pointer_type<CFresnel> createNamedFresnel(const std::string_view name);
+		NBL_API2 typed_pointer_type<IExprNode> reciprocate(const typed_pointer_type<const IExprNode> other);
+		NBL_API2 typed_pointer_type<CFresnel> createNamedFresnel(const std::string_view name);
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
@@ -749,7 +750,7 @@ class CFrontendIR final : public CNodePool
 		bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
 		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,typed_pointer_type<const INode>)`)
-		NBL_API void printDotGraph(std::ostringstream& str) const;
+		NBL_API2 void printDotGraph(std::ostringstream& str) const;
 		inline core::string printDotGraph() const
 		{
 			std::ostringstream tmp;

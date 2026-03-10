@@ -45,10 +45,10 @@ class CMemoryPool final : public Uncopyable
 		{
 			return m_block_alctr.deref<T>(p);
 		}
-		template<typename T> requires std::is_const_v<T>
-		inline T* deref(typed_pointer_type<T> p) const
+		template<typename T>
+		inline const T* deref(typed_pointer_type<T> p) const
 		{
-			return m_block_alctr.deref<T>(p);
+			return m_block_alctr.deref<const T>(p);
 		}
     
         //

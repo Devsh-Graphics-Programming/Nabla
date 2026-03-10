@@ -107,11 +107,15 @@ class CObjectPool final : public IObjectPoolBase
 			}
 			return retval;
 		}
-		template<typename T> requires std::is_const_v<T>
-		inline T* deref(const typed_pointer_type<T> h, check_t check={.value=false}) const
+		template<typename T>
+		inline const T* deref(const typed_pointer_type<T> h, check_t check={.value=false}) const
 		{
 			using non_const_t = std::remove_const_t<T>;
-			const auto mutableH = block_allocator_type::template _const_cast<non_const_t>(h);
+			typed_pointer_type<non_const_t> mutableH;
+			if constexpr (std::is_const_v<T>)
+				mutableH = block_allocator_type::template _const_cast<non_const_t>(h);
+			else
+				mutableH = h;
 			return const_cast<this_t*>(this)->deref<non_const_t>(mutableH,check);
 		}
 
@@ -139,7 +143,7 @@ class CObjectPool final : public IObjectPoolBase
 					return sizeof(T);
 			}();
 			//
-            const typed_pointer_type<T> retval = m_pool.allocate(size*n,a);
+            const auto retval = block_allocator_type::template _reinterpret_cast<T>(m_pool.allocate(size*n,a));
 			// record existence if needed
 			if constexpr (std::is_base_of_v<INonTrivial,T>)
 			{
@@ -161,7 +165,7 @@ class CObjectPool final : public IObjectPoolBase
 					if constexpr (sizeof...(FuncArgs)!=0u)
 						std::construct_at(ptr,std::forward<FuncArgs>(args)...);
 					else
-						std::uninitialized_default_construct(ptr);
+						std::uninitialized_default_construct(ptr,ptr+1);
 					// go to next object
 					ptr = reinterpret_cast<T*>(reinterpret_cast<char*>(ptr)+size);
 				}
