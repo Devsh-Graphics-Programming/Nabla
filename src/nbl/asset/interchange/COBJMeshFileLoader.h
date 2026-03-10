@@ -14,8 +14,6 @@ namespace nbl::asset
 	geometry collections.
 	All instance transforms stay identity here.
 	Material tables stay invalid until `MTL` support is implemented.
-	This keeps the geometry parsing logic unchanged while making the top-level
-	asset shape match how Nabla pairs geometry with materials.
 
 	References:
 	- https://www.loc.gov/preservation/digital/formats/fdd/fdd000507
