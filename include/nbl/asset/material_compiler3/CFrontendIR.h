@@ -773,8 +773,7 @@ class CFrontendIR final : public CNodePool
 				retval += "\\n";
 				retval += std::string_view(reinterpret_cast<const char*>(debug->data().data()),debug->data().size()-1);
 			}
-			// TODO: static and dynamic casts for handles
-			if (const auto* expr=getObjectPool().deref<const IExprNode>({{.value=handle.value}}); expr)
+			if (const auto* expr=dynamic_cast<const IExprNode*>(node); expr)
 				retval += expr->getLabelSuffix();
 			retval += "\"]";
 			return retval;

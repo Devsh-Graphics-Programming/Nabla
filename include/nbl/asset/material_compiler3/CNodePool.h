@@ -52,7 +52,7 @@ class CNodePool : public core::IReferenceCounted
 				
 				static inline uint32_t calc_size(const void* data, const uint32_t size)
 				{
-					return sizeof(CDebugInfo)+size;
+					return core::alignUp(sizeof(CDebugInfo)+size,alignof(CDebugInfo));
 				}
 				static inline uint32_t calc_size(const std::string_view& view)
 				{

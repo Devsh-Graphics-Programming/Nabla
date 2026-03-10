@@ -366,7 +366,9 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(typed_pointer_type<T> p)
 		{
-			return reinterpret_cast<T*>(std::launder(getBlock(p)->data(base_t::m_blockCreationParams)+getOffsetInBlock(p)));
+			if (p)
+				return reinterpret_cast<T*>(std::launder(getBlock(p)->data(base_t::m_blockCreationParams)+getOffsetInBlock(p)));
+			return nullptr;
 		}
 		template<typename T>
 		inline const T* deref(typed_pointer_type<T> p) const
@@ -440,7 +442,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 
     private:
 		inline HandleValue getOffsetInBlock(const typed_pointer_type<const void> h) const {return h.value&m_loAddrMask;}
-		inline block_t* getBlock(const typed_pointer_type<const void> h) {return m_blocks[getBlockIndex(h)];}
+		inline block_t* getBlock(const typed_pointer_type<const void> h) {return m_blocks.find(getBlockIndex(h))->second;}
 
 		inline HandleValue getBlockIndex(const typed_pointer_type<const void> h) const {return h.value>>m_blockSizeLog2;}
 
