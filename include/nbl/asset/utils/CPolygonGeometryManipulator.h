@@ -44,10 +44,15 @@ class NBL_API2 CPolygonGeometryManipulator
 			recomputeContentHashesParallel(geo, SFileIOPolicy{});
 		}
 
+		//! Public aliases for the generic smooth-normal accumulation core.
+		//! The default path keeps float32 positions to match current geometry storage.
 		using ESmoothNormalAccumulationMode = CSmoothNormalGenerator::EAccumulationMode;
 		using SSmoothNormalCorner = CSmoothNormalGenerator::SAccumulatedCorner<>;
 		using CSmoothNormalAccumulator = CSmoothNormalGenerator::CAccumulatedNormals<>;
 
+		//! Convenience wrapper over the incremental smooth-normal accumulator for the common
+		//! "indexed positions + generate only missing normals" case. This keeps the existing
+		//! area-weighted behaviour while reusing the generic accumulator implementation.
 		static bool generateMissingSmoothNormals(
 			core::vector<hlsl::float32_t3>& normals,
 			const core::vector<hlsl::float32_t3>& positions,

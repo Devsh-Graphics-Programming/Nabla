@@ -19,18 +19,28 @@ namespace nbl::asset
 template<typename PositionT>
 concept SmoothNormalPosition = std::same_as<PositionT, hlsl::float32_t3> || std::same_as<PositionT, hlsl::float64_t3>;
 
+//! Generic smooth-normal accumulation utilities. The core accepts triangles incrementally,
+//! supports indexed inputs, optional caller-defined grouping, and finalizes into a caller-owned
+//! normal buffer. Parsing and authoring of any format-specific grouping rules stay outside.
 class CSmoothNormalGenerator final
 {
 	public:
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
 
+		//! AreaWeighted matches the existing behaviour used by current loaders. AngleWeighted
+		//! is available for future callers that need angle-based smoothing without changing the API.
 		enum class EAccumulationMode : uint8_t
 		{
 			AreaWeighted,
 			AngleWeighted
 		};
 
+		//! One triangle corner to be accumulated. `vertexIx` points at the output vertex whose
+		//! normal will be written on finalize. `accumulationGroup` controls which corners smooth
+		//! together. This is the generic equivalent of format-specific smoothing-group semantics.
+		//! Callers can keep it equal to `vertexIx` for identity grouping or map it to any other
+		//! stable grouping key when corners that share a position must stay sharp.
 		template<SmoothNormalPosition PositionT = hlsl::float32_t3>
 		struct SAccumulatedCorner
 		{
@@ -39,6 +49,9 @@ class CSmoothNormalGenerator final
 			PositionT position = PositionT(0.f, 0.f, 0.f);
 		};
 
+		//! Incremental smooth-normal accumulator. Callers feed triangles through `addTriangle(...)`
+		//! and then materialize results with `finalize(...)`. Grouping is provided entirely by
+		//! the caller through `accumulationGroup`.
 		template<SmoothNormalPosition PositionT = hlsl::float32_t3>
 		class CAccumulatedNormals final
 		{
@@ -47,6 +60,8 @@ class CSmoothNormalGenerator final
 
 				explicit CAccumulatedNormals(const EAccumulationMode mode = EAccumulationMode::AreaWeighted) : m_mode(mode) {}
 
+				//! Records how many output vertices may need normals. This affects finalize-time
+				//! validation and may reserve group storage if non-identity grouping is already active.
 				NBL_FORCE_INLINE void reserveVertices(const size_t count)
 				{
 					if (count > m_vertexCount)
@@ -55,12 +70,17 @@ class CSmoothNormalGenerator final
 						m_groupsByVertex.reserve(growSize(count));
 				}
 
+				//! Reserves accumulation storage for explicit grouping. Callers that know they will
+				//! feed many non-identity groups can use this to avoid repeated reallocations.
 				NBL_FORCE_INLINE void reserveGroups(const size_t count)
 				{
 					if (count > m_accumulatedNormals.capacity())
 						m_accumulatedNormals.reserve(growSize(count));
 				}
 
+				//! Prepares the common identity-group case (`accumulationGroup == vertexIx`) up front.
+				//! This enables a lighter hot path where `addPreparedIdentityTriangle(...)` can skip
+				//! per-corner registration and write straight into pre-sized accumulation slots.
 				NBL_FORCE_INLINE void prepareIdentityGroups(const size_t count)
 				{
 					if (!m_groupsByVertex.empty())
@@ -68,6 +88,10 @@ class CSmoothNormalGenerator final
 					ensureGroupStorage(count);
 				}
 
+				//! Generic triangle submission path. Use this when the caller needs custom grouping.
+				//! In particular, callers can encode smoothing-group-like semantics by assigning
+				//! the same `accumulationGroup` to corners that should share a smooth normal and a
+				//! different one to corners that must stay sharp.
 				NBL_FORCE_INLINE bool addTriangle(const std::array<SAccumulatedCorner<PositionT>, 3>& corners)
 				{
 					if (canUseIdentityFastPath(corners))
@@ -96,6 +120,9 @@ class CSmoothNormalGenerator final
 					}});
 				}
 
+				//! Hot path for already-prepared identity grouping. This is still triangle accumulation,
+				//! not a separate algorithm. It simply avoids the generic registration overhead once the
+				//! caller has committed to `vertexIx == accumulationGroup`.
 				NBL_FORCE_INLINE bool addPreparedIdentityTriangle(const uint32_t i0, const PositionT& p0, const uint32_t i1, const PositionT& p1, const uint32_t i2, const PositionT& p2)
 				{
 					if (!m_groupsByVertex.empty())
@@ -108,6 +135,9 @@ class CSmoothNormalGenerator final
 					return accumulateTriangle(p0, p1, p2, i0, i1, i2);
 				}
 
+				//! Writes accumulated normals into the caller-owned output buffer. If `normalNeedsGeneration`
+				//! is supplied, only those entries marked non-zero are overwritten. This supports the
+				//! common "preserve existing normals and fill only the missing ones" workflow.
 				template<typename NormalT = hlsl::float32_t3>
 				NBL_FORCE_INLINE bool finalize(const std::span<NormalT> normals, const std::span<const uint8_t> normalNeedsGeneration = {}, const NormalT& fallback = NormalT(0.f, 0.f, 1.f)) const
 				{
