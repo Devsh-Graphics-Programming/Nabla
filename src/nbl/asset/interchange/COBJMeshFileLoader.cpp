@@ -20,6 +20,8 @@
 #include <array>
 #include <bit>
 #include <cctype>
+#include <optional>
+#include <span>
 #include <string_view>
 namespace nbl::asset
 {
@@ -315,6 +317,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
     core::vector<hlsl::float32_t3> outNormals;
     core::vector<uint8_t> outNormalNeedsGeneration;
     core::vector<hlsl::float32_t2> outUVs;
+    std::optional<CPolygonGeometryManipulator::CSmoothNormalAccumulator> smoothNormalAccumulator;
     core::vector<uint32_t> indices;
     core::vector<int32_t> dedupHeadByPos;
     core::vector<Parse::VertexDedupNode> dedupNodes;
@@ -386,6 +389,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         outNormals.clear();
         outNormalNeedsGeneration.clear();
         outUVs.clear();
+        smoothNormalAccumulator.reset();
         indices.clear();
         dedupNodes.clear();
         outPositions.resize(initialOutVertexCapacity);
@@ -419,13 +423,15 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         if (needsNormalGeneration) {
             // OBJ smoothing groups are already encoded in the parser-side vertex
             // split corners that must stay sharp become different output vertices
-            // even if they share position. This helper works on that final indexed
-            // output and fills only normals missing in the source.
-            // `createSmoothVertexNormal` is still not enough here even with
-            // indexed-view support, because it would also need a "missing only" mode
-            // and proper OBJ smoothing-group handling.
-            if (!CPolygonGeometryManipulator::generateMissingSmoothNormals(
-                    outNormals, outPositions, indices, outNormalNeedsGeneration))
+            // even if they share position. We therefore feed the parser-final
+            // indexed triangles into a smoothing accumulator and finalize only
+            // the normals that were missing in the source.
+            if (!smoothNormalAccumulator)
+                return false;
+            smoothNormalAccumulator->reserveVertices(outVertexWriteCount);
+            if (!smoothNormalAccumulator->finalize(
+                    std::span<hlsl::float32_t3>(outNormals.data(), outNormals.size()),
+                    std::span<const uint8_t>(outNormalNeedsGeneration.data(), outNormalNeedsGeneration.size())))
                 return false;
         }
         const size_t outVertexCount = outPositions.size();
@@ -502,6 +508,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
             outNormals.resize(newCapacity);
             outNormalNeedsGeneration.resize(newCapacity, 0u);
             outUVs.resize(newCapacity);
+            if (smoothNormalAccumulator) {
+                smoothNormalAccumulator->reserveVertices(newCapacity);
+                smoothNormalAccumulator->prepareIdentityGroups(newCapacity);
+            }
         }
         if (outVertexWriteCount >
             static_cast<size_t>(std::numeric_limits<uint32_t>::max()))
@@ -643,7 +653,23 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
         return acquire(triIdx[0], cornerIx.x) && acquire(triIdx[1], cornerIx.y) && acquire(triIdx[2], cornerIx.z);
     };
     auto appendTriangle = [&](const hlsl::uint32_t3& cornerIx) -> bool {
-        return appendIndex(cornerIx.z) && appendIndex(cornerIx.y) && appendIndex(cornerIx.x);
+        if (!(appendIndex(cornerIx.z) && appendIndex(cornerIx.y) && appendIndex(cornerIx.x)))
+            return false;
+        if (!needsNormalGeneration)
+            return true;
+        if (!smoothNormalAccumulator) {
+            smoothNormalAccumulator.emplace(CPolygonGeometryManipulator::ESmoothNormalAccumulationMode::AreaWeighted);
+            smoothNormalAccumulator->reserveVertices(outVertexWriteCount);
+            smoothNormalAccumulator->prepareIdentityGroups(outPositions.size());
+        }
+        if (outNormalNeedsGeneration[static_cast<size_t>(cornerIx.x)] == 0u &&
+            outNormalNeedsGeneration[static_cast<size_t>(cornerIx.y)] == 0u &&
+            outNormalNeedsGeneration[static_cast<size_t>(cornerIx.z)] == 0u)
+            return true;
+        return smoothNormalAccumulator->addPreparedIdentityTriangle(
+            cornerIx.z, outPositions[static_cast<size_t>(cornerIx.z)],
+            cornerIx.y, outPositions[static_cast<size_t>(cornerIx.y)],
+            cornerIx.x, outPositions[static_cast<size_t>(cornerIx.x)]);
     };
     uint32_t currentSmoothingGroup = 0u;
     while (bufPtr < bufEnd) {
@@ -815,8 +841,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(
                             ++cornerCount;
                             continue;
                         }
-                        if (!appendIndex(cornerIx) || !appendIndex(previousCorner) ||
-                            !appendIndex(firstCorner))
+                        if (!appendTriangle(hlsl::uint32_t3(firstCorner, previousCorner, cornerIx)))
                             return {};
                         previousCorner = cornerIx;
                         ++cornerCount;

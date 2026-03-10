@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <algorithm>
+#include <span>
 
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
@@ -149,7 +150,9 @@ bool CPolygonGeometryManipulator::generateMissingSmoothNormals(
 	if (normals.size() != positions.size() || normals.size() != normalNeedsGeneration.size())
 		return false;
 
-	core::vector<hlsl::float32_t3> generatedNormals(positions.size(), hlsl::float32_t3(0.f, 0.f, 0.f));
+	CSmoothNormalAccumulator accumulator(ESmoothNormalAccumulationMode::AreaWeighted);
+	accumulator.reserveVertices(positions.size());
+	accumulator.prepareIdentityGroups(positions.size());
 	const size_t triangleCount = indices.size() / 3ull;
 	for (size_t triIx = 0ull; triIx < triangleCount; ++triIx)
 	{
@@ -158,64 +161,15 @@ bool CPolygonGeometryManipulator::generateMissingSmoothNormals(
 		const uint32_t i2 = indices[triIx * 3ull + 2ull];
 		if (i0 >= positions.size() || i1 >= positions.size() || i2 >= positions.size())
 			continue;
-
-		const auto& p0 = positions[static_cast<size_t>(i0)];
-		const auto& p1 = positions[static_cast<size_t>(i1)];
-		const auto& p2 = positions[static_cast<size_t>(i2)];
-
-		const float e10x = p1.x - p0.x;
-		const float e10y = p1.y - p0.y;
-		const float e10z = p1.z - p0.z;
-		const float e20x = p2.x - p0.x;
-		const float e20y = p2.y - p0.y;
-		const float e20z = p2.z - p0.z;
-
-		const hlsl::float32_t3 faceNormal(
-			e10y * e20z - e10z * e20y,
-			e10z * e20x - e10x * e20z,
-			e10x * e20y - e10y * e20x);
-
-		const float faceLenSq = faceNormal.x * faceNormal.x + faceNormal.y * faceNormal.y + faceNormal.z * faceNormal.z;
-		if (faceLenSq <= 1e-20f)
-			continue;
-
-		const auto accumulateIfNeeded = [&](const uint32_t vertexIx)->void
-		{
-			if (normalNeedsGeneration[static_cast<size_t>(vertexIx)] == 0u)
-				return;
-			auto& dstNormal = generatedNormals[static_cast<size_t>(vertexIx)];
-			dstNormal.x += faceNormal.x;
-			dstNormal.y += faceNormal.y;
-			dstNormal.z += faceNormal.z;
-		};
-
-		accumulateIfNeeded(i0);
-		accumulateIfNeeded(i1);
-		accumulateIfNeeded(i2);
+		if (!accumulator.addPreparedIdentityTriangle(
+				i0, positions[static_cast<size_t>(i0)],
+				i1, positions[static_cast<size_t>(i1)],
+				i2, positions[static_cast<size_t>(i2)]))
+			return false;
 	}
-
-	for (size_t i = 0ull; i < normals.size(); ++i)
-	{
-		if (normalNeedsGeneration[i] == 0u)
-			continue;
-
-		auto normal = generatedNormals[i];
-		const float lenSq = normal.x * normal.x + normal.y * normal.y + normal.z * normal.z;
-		if (lenSq > 1e-20f)
-		{
-			const float invLen = 1.f / std::sqrt(lenSq);
-			normal.x *= invLen;
-			normal.y *= invLen;
-			normal.z *= invLen;
-		}
-		else
-		{
-			normal = hlsl::float32_t3(0.f, 0.f, 1.f);
-		}
-		normals[i] = normal;
-	}
-
-	return true;
+	return accumulator.finalize(
+		std::span<hlsl::float32_t3>(normals.data(), normals.size()),
+		std::span<const uint8_t>(normalNeedsGeneration.data(), normalNeedsGeneration.size()));
 }
 
 

@@ -44,6 +44,10 @@ class NBL_API2 CPolygonGeometryManipulator
 			recomputeContentHashesParallel(geo, SFileIOPolicy{});
 		}
 
+		using ESmoothNormalAccumulationMode = CSmoothNormalGenerator::EAccumulationMode;
+		using SSmoothNormalCorner = CSmoothNormalGenerator::SAccumulatedCorner<>;
+		using CSmoothNormalAccumulator = CSmoothNormalGenerator::CAccumulatedNormals<>;
+
 		static bool generateMissingSmoothNormals(
 			core::vector<hlsl::float32_t3>& normals,
 			const core::vector<hlsl::float32_t3>& positions,
