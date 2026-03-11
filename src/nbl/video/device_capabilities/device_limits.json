@@ -340,6 +340,31 @@
             ]
         },
         {
+            "comment": ["VkPhysicalDeviceMeshShaderPropertiesEXT"],
+            "entries":[
+                {
+                    "type": "bool",
+                    "name": "prefersLocalInvocationVertexOutput",
+                    "value": "false"
+                },
+                {
+                    "type": "bool",
+                    "name": "prefersLocalInvocationPrimitiveOutput",
+                    "value": "false"
+                },
+                {
+                    "type": "bool",
+                    "name": "prefersCompactVertexOutput",
+                    "value": "false"
+                },
+                {
+                    "type": "bool",
+                    "name": "prefersCompactPrimitiveOutput",
+                    "value": "false"
+                }
+            ]
+        },
+        {
             "comment": ["VkPhysicalDeviceMeshShaderPropertiesEXT - task"],
             "entries":[
                 {

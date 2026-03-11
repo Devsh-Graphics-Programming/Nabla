@@ -964,7 +964,6 @@ bool ILogicalDevice::createMeshPipelines(
             NBL_LOG_ERROR("Feature `mesh shader` is not enabled");
             return false;
         }
-        /* MOMENTARILY DISABLED, FIX BEFORE MERGING
         if(subpass.viewMask){
             
             //https://registry.khronos.org/vulkan/specs/latest/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-07064
@@ -974,7 +973,7 @@ bool ILogicalDevice::createMeshPipelines(
                     return false;
             }
         }
-        */
+        
 
         if (!createRasterizationPipelineCommonValidation(ci.renderpass, ci.cached.subpassIx, ci.cached.rasterization, ci.cached.blend)) {
             NBL_LOG_ERROR("failed common rasterization pipline validation from mesh [%d]", ix);

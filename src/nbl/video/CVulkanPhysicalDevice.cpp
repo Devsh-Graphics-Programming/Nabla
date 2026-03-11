@@ -1870,9 +1870,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
                 
         meshShaderFeatures.taskShader = enabledFeatures.taskShader;
         meshShaderFeatures.meshShader = enabledFeatures.meshShader;
-        meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_FALSE;//needs to be explicitly set?
-        meshShaderFeatures.meshShaderQueries = VK_FALSE;
-        //meshShaderFeatures.multiviewMeshShader = limits.multiviewMeshShader;
+        meshShaderFeatures.primitiveFragmentShadingRateMeshShader = VK_FALSE;
+        meshShaderFeatures.meshShaderQueries = enabledFeatures.meshShaderQueries;
+        meshShaderFeatures.multiviewMeshShader = limits.multiviewMeshShader;
 
         //shaderClockFeatures [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 

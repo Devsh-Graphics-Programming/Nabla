@@ -50,16 +50,6 @@
                     "type": "bool",
                     "name": "tessellationShader",
                     "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "meshShader",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "taskShader",
-                    "value": false
                 }
             ]
         },
@@ -3279,7 +3269,44 @@
         {
             "comment": [
                 "[DEPRECATED] By KHR_mesh_shader",
-                "VK_EXT_mesh_shader"
+                "VK_EXT_mesh_shader",
+                "VkPhysicalDeviceMeshShaderFeaturesEXT"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "meshShader",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "taskShader",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "multiviewMeshShader",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                },
+                {
+                    "type": "bool",
+                    "name": "meshShaderQueries",
+                    "value": false
+                }
+            ]
+        },
+        {
+            
+            "type": "bool",
+            "name": "primitiveFragmentShadingRateMeshShader",
+            "value": false,
+            "expose": "DISABLE",
+            "comment": [
+                "VkPhysicalDeviceMeshShaderFeaturesEXT",
+                "VK_EXT_mesh_shader",
+                "regular fragment shading rate isn't enabled, see below",
+                "[DO NOT EXPOSE] not implementing or exposing VRS in near or far future"
             ]
         },
         {
