@@ -1,5 +1,6 @@
 #include "nbl/system/CSystemWin32.h"
 #include "nbl/system/CFileWin32.h"
+#include "nbl/system/SWin32PathUtilities.h"
 
 using namespace nbl;
 using namespace nbl::system;
@@ -14,31 +15,6 @@ using namespace nbl::system;
 
 namespace
 {
-
-std::wstring makeLongPathAwareWindowsPath(std::filesystem::path path)
-{
-    path = path.lexically_normal();
-    if (!path.is_absolute())
-    {
-        std::error_code ec;
-        auto absolutePath = std::filesystem::absolute(path, ec);
-        if (!ec)
-            path = absolutePath.lexically_normal();
-    }
-    path.make_preferred();
-
-    std::wstring native = path.native();
-    constexpr std::wstring_view ExtendedPrefix = LR"(\\?\)";
-    constexpr std::wstring_view UncPrefix = LR"(\\)";
-    constexpr std::wstring_view ExtendedUncPrefix = LR"(\\?\UNC\)";
-
-    if (native.rfind(ExtendedPrefix.data(), 0u) == 0u)
-        return native;
-    if (native.rfind(UncPrefix.data(), 0u) == 0u)
-        return std::wstring(ExtendedUncPrefix) + native.substr(2u);
-    return std::wstring(ExtendedPrefix) + native;
-}
-
 std::string queryCpuName()
 {
     int cpuInfo[4] = {};
@@ -137,7 +113,7 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
 	system::path p = filename;
-	const auto nativePath = makeLongPathAwareWindowsPath(p);
+	const auto nativePath = impl::makeLongPathAwareWindowsPath(p);
 
     // only write access should create new files if they don't exist
 	const auto creationDisposition = writeAccess ? OPEN_ALWAYS : OPEN_EXISTING;
