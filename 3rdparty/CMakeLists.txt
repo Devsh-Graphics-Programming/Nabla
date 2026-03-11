@@ -284,6 +284,10 @@ option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will inc
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+if (EXISTS "${NBL_ROOT_PATH}/examples_tests/.git")
+	NBL_ADD_GIT_TRACKING_META_LIBRARY(examples "${NBL_ROOT_PATH}/examples_tests")
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/examples_git_info.json")
+endif()
 nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
 nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
 
