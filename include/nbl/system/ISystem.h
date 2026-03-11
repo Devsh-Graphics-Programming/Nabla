@@ -224,7 +224,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             using retval_t = core::smart_refctd_ptr<IFile>;
             void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller);
 
-            char filename[MAX_FILENAME_LENGTH] {};
+            std::filesystem::path filename;
             IFileBase::E_CREATE_FLAGS flags;
         };
         struct SRequestParams_READ

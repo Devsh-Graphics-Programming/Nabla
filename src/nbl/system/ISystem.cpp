@@ -37,10 +37,6 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
 bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) const
 {
     const bool writeUsage = flags.value&IFile::ECF_WRITE;
-    
-    // filename too long
-    if (filename.string().size() >= sizeof(SRequestParams_CREATE_FILE::filename))
-        return false;
     // regular file
     std::error_code fsEc;
     if (std::filesystem::exists(filename, fsEc) && !fsEc)
@@ -234,15 +230,8 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
     }
 
     //
-    if (filename.string().size()>=MAX_FILENAME_LENGTH)
-    {
-        future.set_result(nullptr);
-        return;
-    }
-
-
     SRequestParams_CREATE_FILE params;
-    strcpy(params.filename,filename.string().c_str());
+    params.filename = std::move(filename);
     params.flags = flags.value;
     m_dispatcher.request(&future,params);
 }

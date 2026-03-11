@@ -15,6 +15,30 @@ using namespace nbl::system;
 namespace
 {
 
+std::wstring makeLongPathAwareWindowsPath(std::filesystem::path path)
+{
+    path = path.lexically_normal();
+    if (!path.is_absolute())
+    {
+        std::error_code ec;
+        auto absolutePath = std::filesystem::absolute(path, ec);
+        if (!ec)
+            path = absolutePath.lexically_normal();
+    }
+    path.make_preferred();
+
+    std::wstring native = path.native();
+    constexpr std::wstring_view ExtendedPrefix = LR"(\\?\)";
+    constexpr std::wstring_view UncPrefix = LR"(\\)";
+    constexpr std::wstring_view ExtendedUncPrefix = LR"(\\?\UNC\)";
+
+    if (native.rfind(ExtendedPrefix.data(), 0u) == 0u)
+        return native;
+    if (native.rfind(UncPrefix.data(), 0u) == 0u)
+        return std::wstring(ExtendedUncPrefix) + native.substr(2u);
+    return std::wstring(ExtendedPrefix) + native;
+}
+
 std::string queryCpuName()
 {
     int cpuInfo[4] = {};
@@ -113,12 +137,11 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
 	system::path p = filename;
-	if (p.is_absolute()) 
-		p.make_preferred(); // Replace "/" separators with "\"
+	const auto nativePath = makeLongPathAwareWindowsPath(p);
 
     // only write access should create new files if they don't exist
 	const auto creationDisposition = writeAccess ? OPEN_ALWAYS : OPEN_EXISTING;
-	HANDLE _native = CreateFileA(p.string().data(), fileAccess, shareMode, &secAttribs, creationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
+	HANDLE _native = CreateFileW(nativePath.c_str(), fileAccess, shareMode, &secAttribs, creationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (_native==INVALID_HANDLE_VALUE)
     {
         auto e = GetLastError();
