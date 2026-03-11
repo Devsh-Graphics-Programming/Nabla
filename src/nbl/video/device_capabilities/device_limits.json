@@ -344,22 +344,22 @@
             "entries":[
                 {
                     "type": "bool",
-                    "name": "prefersLocalInvocationVertexOutput",
+                    "name": "mesh_prefersLocalInvocationVertexOutput",
                     "value": "false"
                 },
                 {
                     "type": "bool",
-                    "name": "prefersLocalInvocationPrimitiveOutput",
+                    "name": "mesh_prefersLocalInvocationPrimitiveOutput",
                     "value": "false"
                 },
                 {
                     "type": "bool",
-                    "name": "prefersCompactVertexOutput",
+                    "name": "mesh_prefersCompactVertexOutput",
                     "value": "false"
                 },
                 {
                     "type": "bool",
-                    "name": "prefersCompactPrimitiveOutput",
+                    "name": "mesh_prefersCompactPrimitiveOutput",
                     "value": "false"
                 }
             ]
@@ -400,6 +400,11 @@
                 {
                     "type": "uint32_t",
                     "name": "maxTaskPayloadAndSharedMemorySize",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxPreferredTaskWorkGroupInvocations",
                     "value": 0
                 }
             ]
@@ -469,12 +474,17 @@
                 },
                 {
                     "type": "uint32_t",
-                    "name": "maxMeshOutputPerVertexGranularity",
+                    "name": "meshOutputPerVertexGranularity",
                     "value": 0
                 },
                 {
                     "type": "uint32_t",
-                    "name": "maxMeshOutputPerPrimitiveGranularity",
+                    "name": "meshOutputPerPrimitiveGranularity",
+                    "value": 0
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxPreferredMeshWorkGroupInvocations",
                     "value": 0
                 }
 

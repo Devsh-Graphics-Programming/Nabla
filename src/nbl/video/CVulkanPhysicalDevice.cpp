@@ -327,6 +327,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
     VkPhysicalDeviceMaintenance5PropertiesKHR               maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
     VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
+    VkPhysicalDeviceMeshShaderPropertiesEXT                 meshShaderProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT };
 
      {
         //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
@@ -341,6 +342,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&sampleLocationsProperties);
         if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             addToPNextChain(&accelerationStructureProperties);
+        if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME))
+            addToPNextChain(&meshShaderProperties);
         if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
             addToPNextChain(&PCIBusInfoProperties);
         if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
@@ -585,6 +588,47 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
         }
 
+        if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) 
+        {
+
+            //VkPhysicalDeviceMeshShaderPropertiesEXT
+#define LIMIT_INIT_MESH(limitMemberName) properties.limits.limitMemberName = meshShaderProperties.limitMemberName
+            LIMIT_INIT_MESH(maxTaskWorkGroupTotalCount);
+            LIMIT_INIT_MESH(maxTaskWorkGroupInvocations);
+            LIMIT_INIT_MESH(maxTaskPayloadSize);
+            LIMIT_INIT_MESH(maxTaskSharedMemorySize);
+            LIMIT_INIT_MESH(maxTaskPayloadAndSharedMemorySize);
+
+            LIMIT_INIT_MESH(maxMeshWorkGroupInvocations);
+            LIMIT_INIT_MESH(maxMeshSharedMemorySize);
+            LIMIT_INIT_MESH(maxMeshPayloadAndSharedMemorySize);
+            LIMIT_INIT_MESH(maxMeshOutputMemorySize);
+            LIMIT_INIT_MESH(maxMeshOutputComponents);
+            LIMIT_INIT_MESH(maxMeshOutputVertices);
+            LIMIT_INIT_MESH(maxMeshOutputPrimitives);
+            LIMIT_INIT_MESH(maxMeshOutputLayers);
+            LIMIT_INIT_MESH(maxMeshMultiviewViewCount);
+
+            LIMIT_INIT_MESH(meshOutputPerVertexGranularity);
+            LIMIT_INIT_MESH(meshOutputPerPrimitiveGranularity);
+
+            LIMIT_INIT_MESH(maxPreferredTaskWorkGroupInvocations);
+            LIMIT_INIT_MESH(maxPreferredMeshWorkGroupInvocations);
+
+            properties.limits.mesh_prefersLocalInvocationVertexOutput = meshShaderProperties.prefersLocalInvocationVertexOutput;
+            properties.limits.mesh_prefersLocalInvocationPrimitiveOutput = meshShaderProperties.prefersLocalInvocationPrimitiveOutput;
+            properties.limits.mesh_prefersCompactVertexOutput = meshShaderProperties.prefersCompactVertexOutput;
+            properties.limits.mesh_prefersCompactPrimitiveOutput = meshShaderProperties.prefersCompactPrimitiveOutput;
+
+            for (uint8_t i = 0; i < 3; i++) {
+                LIMIT_INIT_MESH(maxTaskWorkGroupCount[i]);
+                LIMIT_INIT_MESH(maxTaskWorkGroupSize[i]);
+                LIMIT_INIT_MESH(maxMeshWorkGroupCount[i]);
+                LIMIT_INIT_MESH(maxMeshWorkGroupSize[i]);
+            }
+#undef LIMIT_INIT_MESH
+        }
+
         properties.limits.postDepthCoverage = isExtensionSupported(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
 
         if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
@@ -823,43 +867,13 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         features.geometryShader = deviceFeatures.features.geometryShader;
         features.tessellationShader = deviceFeatures.features.tessellationShader;
             
-        //check if features are existant first
-        //potentially put a copy of VkPhysicalDeviceMeshShaderFeaturesEXT directly into features
-        //depends on the less obvious properties
         if (isExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
             features.meshShader = meshShaderFeatures.meshShader;
             features.taskShader = meshShaderFeatures.taskShader;
-            //properties.limits.multiviewMeshShader = meshShaderFeatures.multiviewMeshShader;
+            properties.limits.multiviewMeshShader = meshShaderFeatures.multiviewMeshShader;
             //TODO
-            //VkBool32           primitiveFragmentShadingRateMeshShader;
-            //VkBool32           meshShaderQueries;
-
-            //VkPhysicalDeviceMeshShaderPropertiesEXT
-            //#define LIMIT_INIT_MESH(limitMemberName) properties.limits.limitMemberName = meshShaderProperties.limitMemberName
-            //LIMIT_INIT_MESH(maxTaskWorkGroupTotalCount);
-            //LIMIT_INIT_MESH(maxTaskWorkGroupInvocations);
-            //LIMIT_INIT_MESH(maxTaskPayloadSize);
-            //LIMIT_INIT_MESH(maxTaskSharedMemorySize);
-            //LIMIT_INIT_MESH(maxTaskPayloadAndSharedMemorySize);
-            //LIMIT_INIT_MESH(maxMeshWorkGroupInvocations);
-            //LIMIT_INIT_MESH(maxMeshSharedMemorySize);
-            //LIMIT_INIT_MESH(maxMeshPayloadAndSharedMemorySize);
-            //LIMIT_INIT_MESH(maxMeshOutputMemorySize);
-            //LIMIT_INIT_MESH(maxMeshOutputComponents);
-            //LIMIT_INIT_MESH(maxMeshOutputVertices);
-            //LIMIT_INIT_MESH(maxMeshOutputPrimitives);
-            //LIMIT_INIT_MESH(maxMeshOutputLayers);
-            //LIMIT_INIT_MESH(maxMeshMultiviewViewCount);
-            //LIMIT_INIT_MESH(maxMeshOutputPerVertexGranularity);
-            //LIMIT_INIT_MESH(maxMeshOutputPerPrimitiveGranularity);
-
-            //for(uint8_t i = 0; i < 3; i++){
-            //    LIMIT_INIT_MESH(maxTaskWorkGroupCount[i]);
-            //    LIMIT_INIT_MESH(maxTaskWorkGroupSize[i]);
-            //    LIMIT_INIT_MESH(maxMeshWorkGroupCount[i]);
-            //    LIMIT_INIT_MESH(maxMeshWorkGroupSize[i]);
-            //}
-            //#undef LIMIT_INIT_MESH
+            //VkBool32           primitiveFragmentShadingRateMeshShader; //disabled
+            features.meshShaderQueries = meshShaderFeatures.meshShaderQueries;
         }
         if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
             RETURN_NULL_PHYSICAL_DEVICE;
