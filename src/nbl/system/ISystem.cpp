@@ -12,8 +12,46 @@
 #include "nbl/system/CArchiveLoaderTar.h"
 #include "nbl/system/CMountDirectoryArchive.h"
 
+#ifdef _NBL_PLATFORM_WINDOWS_
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 using namespace nbl;
 using namespace nbl::system;
+
+namespace
+{
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+std::wstring makeLongPathAwareWindowsPath(std::filesystem::path path)
+{
+    path = path.lexically_normal();
+    if (!path.is_absolute())
+    {
+        std::error_code ec;
+        const auto absolutePath = std::filesystem::absolute(path, ec);
+        if (!ec)
+            path = absolutePath.lexically_normal();
+    }
+    path.make_preferred();
+
+    std::wstring native = path.native();
+    constexpr std::wstring_view ExtendedPrefix = LR"(\\?\)";
+    constexpr std::wstring_view UncPrefix = LR"(\\)";
+    constexpr std::wstring_view ExtendedUncPrefix = LR"(\\?\UNC\)";
+
+    if (native.rfind(ExtendedPrefix.data(), 0u) == 0u)
+        return native;
+    if (native.rfind(UncPrefix.data(), 0u) == 0u)
+        return std::wstring(ExtendedUncPrefix) + native.substr(2u);
+    return std::wstring(ExtendedPrefix) + native;
+}
+#endif
+
+}
 
 ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatcher(std::move(caller))
 {
@@ -119,10 +157,18 @@ bool ISystem::deleteDirectory(const system::path& p)
 
 bool nbl::system::ISystem::deleteFile(const system::path& p)
 {
+#ifdef _NBL_PLATFORM_WINDOWS_
+    const auto nativePath = makeLongPathAwareWindowsPath(std::filesystem::path(p.string()));
+    const DWORD attributes = GetFileAttributesW(nativePath.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY))
+        return false;
+    return DeleteFileW(nativePath.c_str());
+#else
     if (std::filesystem::exists(p) && !std::filesystem::is_directory(p))
         return std::filesystem::remove(p);
     else
         return false;
+#endif
 }
 
 std::error_code ISystem::moveFileOrDirectory(const system::path& oldPath, const system::path& newPath)
