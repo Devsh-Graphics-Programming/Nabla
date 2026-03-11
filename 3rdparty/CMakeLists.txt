@@ -282,12 +282,31 @@ target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIO
 # note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
 option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
-NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
-NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
-
-NBL_GENERATE_GIT_TRACKING_META()
+NBL_CONFIGURE_GIT_TRACKING_META_RUNTIME(
+	TARGET gtml_core
+	NAMESPACE gtml
+	IGITINFO_HEADER_PATH nbl/gtml/IGitInfo.h
+	JSON_FORMATTER_HEADER_PATH nbl/gtml/SJsonFormatter.h
+)
+NBL_ADD_GIT_TRACKING_META_LIBRARY(
+	TARGET gtml
+	NAMESPACE nbl::gtml
+	HEADER_PATH nbl/git/info.h
+	REPOS
+		nabla "${NBL_ROOT_PATH}"
+		dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc"
+)
+NBL_GET_GIT_TRACKING_META_RUNTIME_OUTPUTS(
+	IGITINFO_HEADER_OUTPUT_VAR _NBL_GTML_IGITINFO_HEADER
+	JSON_FORMATTER_HEADER_OUTPUT_VAR _NBL_GTML_JSON_FORMATTER_HEADER
+)
+NBL_GET_GIT_TRACKING_META_OUTPUTS(TARGET gtml HEADER_OUTPUT_VAR _NBL_GTML_HEADER JSON_OUTPUTS_VAR _NBL_GTML_JSONS)
+nbl_install_file_spec("${_NBL_GTML_IGITINFO_HEADER}" "nbl/gtml")
+nbl_install_file_spec("${_NBL_GTML_JSON_FORMATTER_HEADER}" "nbl/gtml")
+nbl_install_file_spec("${_NBL_GTML_HEADER}" "nbl/git")
+foreach(_NBL_GTML_JSON IN LISTS _NBL_GTML_JSONS)
+	nbl_install_file("${_NBL_GTML_JSON}")
+endforeach()
 
 # NGFX
 include(ngfx/ngfx.cmake)
@@ -456,6 +475,8 @@ set(NBL_3RDPARTY_TARGETS
 				lz4
 				aesGladman
 				spirv_cross
+				gtml_core
+				gtml
 				png_static
 				zlibstatic
 				shaderc_util
@@ -531,8 +552,6 @@ nbl_install_dir(imath/src/Imath)
 nbl_install_dir(boost/superproject/libs/preprocessor/include/boost)
 
 nbl_install_file_spec(renderdoc/renderdoc_app.h renderdoc)
-
-nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
 
 # parent scope exports, must be at the end of the file
 set(_NBL_3RDPARTY_TARGETS_ 

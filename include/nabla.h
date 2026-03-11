@@ -64,10 +64,10 @@
 #include "SColor.h"
 
 // meta info
-#include "git_info.h"
+#include "nbl/git/info.h"
 
 namespace nbl {
-	const NBL_API2 gtml::GitInfo& getGitInfo(gtml::E_GIT_REPO_META repo);
+	const NBL_API2 ::gtml::IGitInfo& getGitInfo(gtml::E_GIT_REPO_META repo);
 }
 
 

@@ -15,7 +15,7 @@
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/CJITIncludeLoader.h"
 
-#include "git_info.h"
+#include "nbl/git/info.h"
 #define NBL_LOG_FUNCTION m_logger.log
 #include "nbl/logging_macros.h"
 
