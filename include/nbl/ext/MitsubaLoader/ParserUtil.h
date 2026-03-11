@@ -72,14 +72,13 @@ class ParserManager final
 
 			private:
 				friend class ParserManager;
-				// TODO: This leaks memory all over the place because destructors are not ran!
                 struct PoolConfig
                 {
                     using AddressAllocator = core::LinearAddressAllocator<uint32_t>;
                     using HandleValue = void*;
                     constexpr static inline bool ThreadSafe = false;
                 };
-				using pool_t = core::CMemoryPool<PoolConfig>;
+				using pool_t = core::CObjectPool<PoolConfig>;
 				// could list transform  with supported_elements_t and have a separate pool per type
 				std::unique_ptr<pool_t> objects = std::make_unique<pool_t>(pool_t::creation_params_type{.composed={.addrAllocCtorExtraParams={},.blockSizeKBLog2=12,.initBlockCount=8}});
 		};
