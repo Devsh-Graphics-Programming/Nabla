@@ -150,6 +150,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         struct SystemInfo
         {
             uint64_t cpuFrequencyHz = 0u;
+            uint32_t physicalCoreCount = 0u;
 
             // in bytes
             uint64_t totalMemory = 0u;
@@ -158,6 +159,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             uint32_t desktopResX = 0u;
             uint32_t desktopResY = 0u;
 
+            std::string cpuName = "Unknown";
             std::string OSFullName = "Unknown";
         };
         virtual SystemInfo getSystemInfo() const = 0;
