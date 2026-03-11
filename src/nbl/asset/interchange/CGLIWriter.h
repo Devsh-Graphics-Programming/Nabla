@@ -35,9 +35,9 @@ class CGLIWriter final : public asset::IAssetWriter
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-		uint32_t getSupportedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
+		writer_flags_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-		uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
+		writer_flags_t getForcedFlags() override { return asset::EWF_BINARY; }
 
 		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 

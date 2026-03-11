@@ -198,13 +198,13 @@ bool CImageWriterJPG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 #else
 	SAssetWriteContext ctx{ _params, _file };
 
-	auto imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
+    auto imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
 
     system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
-    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, imageView, 0u);
+    const auto flags = _override->getAssetWritingFlags(ctx, imageView, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, imageView, 0u);
 
-	return writeJPEGFile(file, m_system.get(), imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f), _params.logger); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, m_system.get(), imageView, flags.hasAnyFlag(asset::EWF_COMPRESSED) * static_cast<uint32_t>((1.f-comprLvl)*100.f), _params.logger); // if quality==0, then it defaults to 75
 
 #endif//!defined(_NBL_COMPILE_WITH_LIBJPEG_ )
 }

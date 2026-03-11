@@ -1,22 +1,17 @@
-// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_LOADER_H_INCLUDED_
-
-
 #include "nbl/system/declarations.h"
-
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ILogger.h"
-
+#include "nbl/core/util/bitflag.h"
 #include "nbl/asset/interchange/SAssetBundle.h"
+#include "nbl/asset/interchange/SFileIOPolicy.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
-
-
 namespace nbl::asset
 {
-
 class CPolygonGeometryManipulator;
 
 //! A class automating process of loading Assets from resources, eg. files
@@ -59,7 +54,6 @@ class CPolygonGeometryManipulator;
 	@see IAssetManager
 	@see IAssetWriter
 */
-
 class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 {
 	public:
@@ -75,6 +69,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			//! meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
 			ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
 		};
+		using caching_flags_t = core::bitflag<E_CACHING_FLAGS>;
 
 		//! Parameter flags for a loader
 		/**
@@ -91,17 +86,19 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			ELPF_NONE = 0,									//!< default value, it doesn't do anything
 //[[deprecated]] ELPF_RIGHT_HANDED_MESHES = 0x1,	//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
 //[[deprecated]] ELPF_DONT_COMPILE_GLSL = 0x2,		//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
-			ELPF_LOAD_METADATA_ONLY = 0x4					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
+			ELPF_LOAD_METADATA_ONLY = 0x4,					//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
+			ELPF_DONT_COMPUTE_CONTENT_HASHES = 0x8			//!< opt-out from computing content hashes of produced buffers before returning.
 		};
+		using loader_flags_t = core::bitflag<E_LOADER_PARAMETER_FLAGS>;
 
 		struct SAssetLoadParams
 		{
 			inline SAssetLoadParams(const size_t _decryptionKeyLen = 0u, const uint8_t* const _decryptionKey = nullptr,
-				const E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS _loaderFlags = ELPF_NONE, 
-				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
+				const caching_flags_t _cacheFlags = ECF_CACHE_EVERYTHING, const loader_flags_t _loaderFlags = ELPF_NONE,
+				const system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
 					decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
 					cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
-					logger(std::move(_logger)), workingDirectory(cwd)
+					logger(std::move(_logger)), workingDirectory(cwd), ioPolicy(_ioPolicy)
 			{
 			}
 
@@ -111,16 +108,18 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				cacheFlags(rhs.cacheFlags),
 				loaderFlags(rhs.loaderFlags),
 				logger(rhs.logger),
-				workingDirectory(rhs.workingDirectory)
+				workingDirectory(rhs.workingDirectory),
+				ioPolicy(rhs.ioPolicy)
 			{
 			}
 
 			size_t decryptionKeyLen;
 			const uint8_t* decryptionKey;
-			E_CACHING_FLAGS cacheFlags;
-			E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
+			caching_flags_t cacheFlags;
+			loader_flags_t loaderFlags;			//!< Flags having an impact on extraordinary tasks during loading process
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
+			SFileIOPolicy ioPolicy = {};
 		};
 
 		//! Struct for keeping the state of the current loadoperation for safe threading
@@ -133,37 +132,37 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		};
 
 		// following could be inlined
-		static E_CACHING_FLAGS ECF_DONT_CACHE_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DONT_CACHE_LEVEL(uint64_t N)
 		{
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DONT_CACHE_TOP_LEVEL << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DONT_CACHE_TOP_LEVEL) << N);
 		}
-		static E_CACHING_FLAGS ECF_DUPLICATE_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DUPLICATE_LEVEL(uint64_t N)
 		{
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DUPLICATE_TOP_LEVEL << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DUPLICATE_TOP_LEVEL) << N);
 		}
-		static E_CACHING_FLAGS ECF_DONT_CACHE_FROM_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DONT_CACHE_FROM_LEVEL(uint64_t N)
 		{
 			// (Criss) Shouldn't be set all DONT_CACHE bits from hierarchy numbers N-1 to 32 (64==2*32) ? Same for ECF_DUPLICATE_FROM_LEVEL below
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DONT_CACHE_REFERENCES << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DONT_CACHE_REFERENCES) << N);
 		}
-		static E_CACHING_FLAGS ECF_DUPLICATE_FROM_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DUPLICATE_FROM_LEVEL(uint64_t N)
 		{
 			N *= 2ull;
-			return (E_CACHING_FLAGS)(ECF_DUPLICATE_REFERENCES << N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DUPLICATE_REFERENCES) << N);
 		}
-		static E_CACHING_FLAGS ECF_DONT_CACHE_UNTIL_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DONT_CACHE_UNTIL_LEVEL(uint64_t N)
 		{
 			// (Criss) is this ok? Shouldn't be set all DONT_CACHE bits from hierarchy numbers 0 to N-1? Same for ECF_DUPLICATE_UNTIL_LEVEL below
 			N = 64ull - N * 2ull;
-			return (E_CACHING_FLAGS)(ECF_DONT_CACHE_REFERENCES >> N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DONT_CACHE_REFERENCES) >> N);
 		}
-		static E_CACHING_FLAGS ECF_DUPLICATE_UNTIL_LEVEL(uint64_t N)
+		static caching_flags_t ECF_DUPLICATE_UNTIL_LEVEL(uint64_t N)
 		{
 			N = 64ull - N * 2ull;
-			return (E_CACHING_FLAGS)(ECF_DUPLICATE_REFERENCES >> N);
+			return caching_flags_t(static_cast<uint64_t>(ECF_DUPLICATE_REFERENCES) >> N);
 		}
 
 		//! Override class to facilitate changing how assets are loaded
@@ -256,6 +255,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				//! Called before loading a file to determine the correct path (could be relative or absolute)
 				inline virtual void getLoadFilename(system::path& inOutFilename, const system::ISystem* sys,  const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 				{
+					if (inOutFilename.is_absolute() || inOutFilename.has_root_path())
+						return;
 					// try compute absolute path
 					auto absolute = ctx.params.workingDirectory/inOutFilename;
 					if (sys->exists(absolute,system::IFile::ECF_READ))

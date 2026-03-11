@@ -5,6 +5,7 @@
 #define _NBL_ASSET_I_ASSET_MANAGER_H_INCLUDED_
 
 #include <array>
+#include <optional>
 #include <ostream>
 
 #include "nbl/core/declarations.h"
@@ -51,6 +52,12 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         friend std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
     public:
+        struct SWriterFlagInfo
+        {
+            writer_flags_t supported = EWF_NONE;
+            writer_flags_t forced = EWF_NONE;
+        };
+
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, SAssetBundle, std::multimap>;
 #else
@@ -180,19 +187,31 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         SAssetBundle getAssetInHierarchy_impl(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            const auto tryLoadAssetFromPath = [&](const system::path& path)->SAssetBundle
+            {
+                m_system->createFile(future, path, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+                if (auto file=future.acquire())
+                    return getAssetInHierarchy_impl(file->get(), path.string(), ctx.params, _hierarchyLevel, _override);
+                m_system->createFile(future, path, system::IFile::ECF_READ);
+                if (auto file=future.acquire())
+                    return getAssetInHierarchy_impl(file->get(), path.string(), ctx.params, _hierarchyLevel, _override);
+                return SAssetBundle(0);
+            };
 
             system::path filePath = _filePath;
             _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
-            if (!m_system->exists(filePath,system::IFile::ECF_READ))
+            if (auto bundle=tryLoadAssetFromPath(filePath); !bundle.getContents().empty())
+                return bundle;
+
+            auto fallbackPath = _params.workingDirectory / filePath;
+            if (fallbackPath != filePath)
             {
-                filePath = _params.workingDirectory/filePath;
+                filePath = std::move(fallbackPath);
                 _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
+                if (auto bundle=tryLoadAssetFromPath(filePath); !bundle.getContents().empty())
+                    return bundle;
             }
-            
-            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            m_system->createFile(future, filePath, system::IFile::ECF_READ);
-            if (auto file=future.acquire())
-                return getAssetInHierarchy_impl(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
             return SAssetBundle(0);
         }
 
@@ -350,8 +369,12 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
             if (!_override)
                 _override = &defOverride;
 
+            system::path filename = _filename;
+            if (filename.is_relative() && !_params.workingDirectory.empty())
+                filename = _params.workingDirectory / filename;
+
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            m_system->createFile(future, (_params.workingDirectory.generic_string()+_filename).c_str(), system::IFile::ECF_WRITE);
+            m_system->createFile(future, std::move(filename), system::IFile::ECF_WRITE);
             if (auto file=future.acquire())
                 return writeAsset(file->get(), _params, _override);
             return false;
@@ -379,6 +402,18 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         bool writeAsset(system::IFile* _file, const IAssetWriter::SAssetWriteParams& _params)
         {
             return writeAsset(_file, _params, nullptr);
+        }
+
+        inline std::optional<SWriterFlagInfo> getAssetWriterFlagInfo(const IAsset::E_TYPE assetType, const std::string_view extension) const
+        {
+            const auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({assetType, std::string(extension)});
+            if (capableWritersRng.empty())
+                return std::nullopt;
+            auto* const writer = capableWritersRng.begin()->second;
+            return SWriterFlagInfo{
+                .supported = writer->getSupportedFlags(),
+                .forced = writer->getForcedFlags()
+            };
         }
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]

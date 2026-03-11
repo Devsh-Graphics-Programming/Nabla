@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_CPU_BUFFER_H_INCLUDED_
@@ -78,10 +78,9 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 
         inline core::blake3_hash_t computeContentHash() const override
         {
-            core::blake3_hasher hasher;
-            if (m_data)
-                hasher.update(m_data, m_creationParams.size);
-            return static_cast<core::blake3_hash_t>(hasher);
+            if (!m_data)
+                return static_cast<core::blake3_hash_t>(core::blake3_hasher{});
+            return core::blake3_hash_buffer(m_data, m_creationParams.size);
         }
 
         inline bool missingContent() const override { return !m_data; }

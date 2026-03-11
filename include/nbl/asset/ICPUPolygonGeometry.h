@@ -8,6 +8,7 @@
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/IPolygonGeometry.h"
+#include "nbl/builtin/hlsl/shapes/AABBAccumulator.hlsl"
 
 
 namespace nbl::asset
@@ -112,7 +113,20 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
             return false;
         }
         template<typename Scalar>
-        inline bool setAABB(const hlsl::shapes::AABB<3,Scalar>& aabb) {return visitAABB([&aabb](auto&& ref)->void{ref=aabb;});}
+        inline bool setAABB(const hlsl::shapes::AABB<3,Scalar>& aabb)
+        {
+            bool assigned = false;
+            const bool visited = visitAABB([&aabb, &assigned](auto&& ref)->void
+            {
+                assigned = hlsl::shapes::util::assignAABB(ref, aabb);
+            });
+            return visited && assigned;
+        }
+        template<typename Scalar>
+        inline bool applyAABB(const hlsl::shapes::AABB<3, Scalar>& aabb)
+        {
+            return setAABB(aabb);
+        }
 
         //
         inline bool setJointCount(const uint32_t count)

@@ -1,4 +1,5 @@
 #include "nabla.h"
+#include "nbl/gtml/SJsonFormatter.h"
 #include "nbl/system/IApplicationFramework.h"
 #include <iostream>
 #include <cstdlib>
@@ -418,27 +419,8 @@ private:
     {
         ::json j;
         auto& modules = j["modules"];
-
-        auto serialize = [&](const gtml::GitInfo& info, std::string_view target)
-        {
-            auto& s = modules[target.data()];
-            s["isPopulated"] = info.isPopulated;
-            s["hasUncommittedChanges"] = info.hasUncommittedChanges.has_value() ? ::json(info.hasUncommittedChanges.value()) : ::json("UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE");
-            s["commitAuthorName"] = info.commitAuthorName;
-            s["commitAuthorEmail"] = info.commitAuthorEmail;
-            s["commitHash"] = info.commitHash;
-            s["commitShortHash"] = info.commitShortHash;
-            s["commitDate"] = info.commitDate;
-            s["commitSubject"] = info.commitSubject;
-            s["commitBody"] = info.commitBody;
-            s["describe"] = info.describe;
-            s["branchName"] = info.branchName;
-            s["latestTag"] = info.latestTag;
-            s["latestTagName"] = info.latestTagName;
-        };
-
-        serialize(gtml::nabla_git_info, "nabla");
-        serialize(gtml::dxc_git_info, "dxc");
+        modules["nabla"] = ::json::parse(::gtml::SJsonFormatter::toString(nbl::gtml::nabla_git_info));
+        modules["dxc"] = ::json::parse(::gtml::SJsonFormatter::toString(nbl::gtml::dxc_git_info));
 
         const auto pretty = j.dump(4);
         std::cout << pretty << std::endl;

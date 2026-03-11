@@ -4,6 +4,7 @@
 
 
 #include "nbl/asset/utils/CGeometryCreator.h"
+#include "nbl/asset/utils/SGeometryNormalCommon.h"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
 #include "nbl/builtin/hlsl/math/quaternions.hlsl"
@@ -947,44 +948,6 @@ protected:
 private:
 
 	/*
-		return face normal (4th param) of a triangle v1-v2-v3
-		if a triangle has no surface (normal length = 0), then return a zero vector
-	*/
-
-	static inline void computeFaceNormal(const float v1[3], const float v2[3], const float v3[3], float normal[3])
-	{
-		constexpr float EPSILON = 0.000001f;
-
-		// default return value (0, 0, 0)
-		normal[0] = normal[1] = normal[2] = 0;
-
-		// find 2 edge vectors: v1-v2, v1-v3
-		float ex1 = v2[0] - v1[0];
-		float ey1 = v2[1] - v1[1];
-		float ez1 = v2[2] - v1[2];
-		float ex2 = v3[0] - v1[0];
-		float ey2 = v3[1] - v1[1];
-		float ez2 = v3[2] - v1[2];
-
-		// cross product: e1 x e2
-		float nx, ny, nz;
-		nx = ey1 * ez2 - ez1 * ey2;
-		ny = ez1 * ex2 - ex1 * ez2;
-		nz = ex1 * ey2 - ey1 * ex2;
-
-		// normalize only if the length is > 0
-		float length = sqrtf(nx * nx + ny * ny + nz * nz);
-		if (length > EPSILON)
-		{
-			// normalize
-			float lengthInv = 1.0f / length;
-			normal[0] = nx * lengthInv;
-			normal[1] = ny * lengthInv;
-			normal[2] = nz * lengthInv;
-		}
-	}
-
-	/*
 		return vertex normal (2nd param) by mormalizing the vertex vector
 	*/
 
@@ -1229,27 +1192,27 @@ private:
 			t11[0] = 2 * i * S_STEP;         t11[1] = T_STEP * 3;
 
 			// add a triangle in 1st row
-			Icosphere::computeFaceNormal(v0, v1, v2, n);
+			SGeometryNormalCommon::computeFaceNormal(v0, v1, v2, n);
 			addVertices(v0, v1, v2);
 			addNormals(n, n, n);
 			addTexCoords(t0, t1, t2);
 			addIndices(index, index + 1, index + 2);
 
 			// add 2 triangles in 2nd row
-			Icosphere::computeFaceNormal(v1, v3, v2, n);
+			SGeometryNormalCommon::computeFaceNormal(v1, v3, v2, n);
 			addVertices(v1, v3, v2);
 			addNormals(n, n, n);
 			addTexCoords(t1, t3, t2);
 			addIndices(index + 3, index + 4, index + 5);
 
-			Icosphere::computeFaceNormal(v2, v3, v4, n);
+			SGeometryNormalCommon::computeFaceNormal(v2, v3, v4, n);
 			addVertices(v2, v3, v4);
 			addNormals(n, n, n);
 			addTexCoords(t2, t3, t4);
 			addIndices(index + 6, index + 7, index + 8);
 
 			// add a triangle in 3rd row
-			Icosphere::computeFaceNormal(v3, v11, v4, n);
+			SGeometryNormalCommon::computeFaceNormal(v3, v11, v4, n);
 			addVertices(v3, v11, v4);
 			addNormals(n, n, n);
 			addTexCoords(t3, t11, t4);
@@ -1562,25 +1525,25 @@ private:
 				// add 4 new triangles
 				addVertices(v1, newV1, newV3);
 				addTexCoords(t1, newT1, newT3);
-				computeFaceNormal(v1, newV1, newV3, normal);
+				SGeometryNormalCommon::computeFaceNormal(v1, newV1, newV3, normal);
 				addNormals(normal, normal, normal);
 				addIndices(index, index + 1, index + 2);
 
 				addVertices(newV1, v2, newV2);
 				addTexCoords(newT1, t2, newT2);
-				computeFaceNormal(newV1, v2, newV2, normal);
+				SGeometryNormalCommon::computeFaceNormal(newV1, v2, newV2, normal);
 				addNormals(normal, normal, normal);
 				addIndices(index + 3, index + 4, index + 5);
 
 				addVertices(newV1, newV2, newV3);
 				addTexCoords(newT1, newT2, newT3);
-				computeFaceNormal(newV1, newV2, newV3, normal);
+				SGeometryNormalCommon::computeFaceNormal(newV1, newV2, newV3, normal);
 				addNormals(normal, normal, normal);
 				addIndices(index + 6, index + 7, index + 8);
 
 				addVertices(newV3, newV2, v3);
 				addTexCoords(newT3, newT2, t3);
-				computeFaceNormal(newV3, newV2, v3, normal);
+				SGeometryNormalCommon::computeFaceNormal(newV3, newV2, v3, normal);
 				addNormals(normal, normal, normal);
 				addIndices(index + 9, index + 10, index + 11);
 

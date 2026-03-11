@@ -9,6 +9,8 @@
 #include <utility>
 #include <regex>
 #include <filesystem>
+#include <charconv>
+#include <fast_float/fast_float.h>
 
 #include "nbl/system/CFileView.h"
 
@@ -458,10 +460,15 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
                     mapType = found->second;
             }
         }
-        else if (strncmp(_bufPtr,"-bm",3)==0)
+		else if (strncmp(_bufPtr,"-bm",3)==0)
 		{
 			_bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
-			sscanf(tmpbuf, "%f", &_currMaterial->params.bumpFactor);
+            const char* tokenEnd = tmpbuf;
+            while (*tokenEnd != '\0')
+                ++tokenEnd;
+            const auto parseResult = fast_float::from_chars(tmpbuf, tokenEnd, _currMaterial->params.bumpFactor);
+            if (!(parseResult.ec == std::errc() && parseResult.ptr == tokenEnd))
+                _currMaterial->params.bumpFactor = 0.f;
 		}
 		else
 		if (strncmp(_bufPtr,"-blendu",7)==0)
@@ -763,12 +770,15 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
     char tmpbuf[WORD_BUFFER_LENGTH]{};
 
     auto readFloat = [&tmpbuf, &bufPtr, bufEnd] {
-        float f = 0.f;
-
         bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-        sscanf(tmpbuf, "%f", &f);
 
-        return f;
+        const char* tokenEnd = tmpbuf;
+        while (*tokenEnd != '\0')
+            ++tokenEnd;
+
+        float f = 0.f;
+        const auto parseResult = fast_float::from_chars(tmpbuf, tokenEnd, f);
+        return (parseResult.ec == std::errc() && parseResult.ptr == tokenEnd) ? f : 0.f;
     };
     auto readRGB = [&readFloat] {
         core::vector3df_SIMD rgb(1.f);
@@ -817,7 +827,13 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
             if (currMaterial)
             {
                 bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-                currMaterial->params.extra |= (atol(tmpbuf)&0x0f);//illum values are in range [0;10]
+                const char* tokenEnd = tmpbuf;
+                while (*tokenEnd != '\0')
+                    ++tokenEnd;
+                uint32_t illum = 0u;
+                const auto parseResult = std::from_chars(tmpbuf, tokenEnd, illum, 10);
+                if (parseResult.ec == std::errc() && parseResult.ptr == tokenEnd)
+                    currMaterial->params.extra |= (illum & 0x0fu);//illum values are in range [0;10]
             }
             break;
         case 'N':

@@ -3,17 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_ASSET_WRITER_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_WRITER_H_INCLUDED_
-
-
 #include "nbl/system/IFile.h"
 #include "nbl/system/ILogger.h"
-
 #include "nbl/asset/IAsset.h"
-
-
+#include "nbl/asset/interchange/SFileIOPolicy.h"
 namespace nbl::asset
 {
-
 //! Writing flags
 /**
 	They have an impact on writing (saving) an Asset.
@@ -36,9 +31,10 @@ enum E_WRITER_FLAGS : uint32_t
     //! write in binary format rather than text if possible
     EWF_BINARY = 1u << 2u,
 
-    //!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation	
+    //!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation
     EWF_MESH_IS_RIGHT_HANDED = 1u << 3u
 };
+using writer_flags_t = core::bitflag<E_WRITER_FLAGS>;
 
 //! A class that defines rules during Asset-writing (saving) process
 /**
@@ -85,21 +81,22 @@ public:
 	*/
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr _logger = nullptr, system::path cwd = "") :
+        SAssetWriteParams(IAsset* _asset, const writer_flags_t _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const system::logger_opt_ptr _logger = nullptr, system::path cwd = "", const SFileIOPolicy& _ioPolicy = {}) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData), logger(_logger), workingDirectory(cwd)
+            userData(_userData), logger(_logger), workingDirectory(cwd), ioPolicy(_ioPolicy)
         {
         }
 
         const IAsset* rootAsset;			//!< An Asset on which entire writing process is based.
-        E_WRITER_FLAGS flags;				//!< Flags set by user that defines rules during writing process.
+        writer_flags_t flags;				//!< Flags set by user that defines rules during writing process.
         float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched.
         size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
         const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
         const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
         system::logger_opt_ptr logger;
         system::path workingDirectory;
+        SFileIOPolicy ioPolicy = {};
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
@@ -116,9 +113,7 @@ public:
         const SAssetWriteParams params;
         system::IFile* outputFile;
     };
-
 public:
-
     //! Returns an array of string literals terminated by nullptr
     virtual const char** getAssociatedFileExtensions() const = 0;
 
@@ -130,10 +125,10 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Returns which flags are supported for writing modes
-    virtual uint32_t getSupportedFlags() = 0;
+    virtual writer_flags_t getSupportedFlags() = 0;
 
     //! Returns which flags are forced for writing modes, i.e. a writer can only support binary
-    virtual uint32_t getForcedFlags() = 0;
+    virtual writer_flags_t getForcedFlags() = 0;
 
     //! Override class to facilitate changing how assets are written, especially the sub-assets
 	/*
@@ -146,7 +141,7 @@ public:
         //! The only reason these functions are not declared static is to allow stateful overrides
     public:
         //! To allow the asset writer to write different sub-assets with different flags
-        inline virtual E_WRITER_FLAGS getAssetWritingFlags(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual writer_flags_t getAssetWritingFlags(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return ctx.params.flags;
         }

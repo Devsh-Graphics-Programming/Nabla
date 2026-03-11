@@ -5,10 +5,29 @@ using namespace nbl::system;
 
 #ifdef _NBL_PLATFORM_LINUX_
 
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <string>
+#include <unordered_set>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+namespace
+{
+
+std::string trimCopy(std::string value)
+{
+    auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
+    value.erase(value.begin(), std::find_if(value.begin(), value.end(), notSpace));
+    value.erase(std::find_if(value.rbegin(), value.rend(), notSpace).base(), value.end());
+    return value;
+}
+
+}
+
 ISystem::SystemInfo CSystemLinux::getSystemInfo() const
 {
     SystemInfo info;
@@ -26,6 +45,53 @@ ISystem::SystemInfo CSystemLinux::getSystemInfo() const
     // TODO
     info.desktopResX = 0xdeadbeefu;
     info.desktopResY = 0xdeadbeefu;
+
+    std::ifstream cpuInfo("/proc/cpuinfo");
+    std::unordered_set<std::string> uniquePhysicalCores;
+    std::string currentPhysicalId;
+    std::string currentCoreId;
+    auto flushCurrentCore = [&]()
+    {
+        if (!currentPhysicalId.empty() || !currentCoreId.empty())
+            uniquePhysicalCores.insert(currentPhysicalId + ":" + currentCoreId);
+        currentPhysicalId.clear();
+        currentCoreId.clear();
+    };
+
+    for (std::string line; std::getline(cpuInfo, line);)
+    {
+        if (line.empty())
+        {
+            flushCurrentCore();
+            continue;
+        }
+
+        if (line.starts_with("model name"))
+        {
+            const auto separator = line.find(':');
+            if (separator != std::string::npos && info.cpuName == "Unknown")
+                info.cpuName = trimCopy(line.substr(separator + 1u));
+            continue;
+        }
+
+        if (line.starts_with("physical id"))
+        {
+            const auto separator = line.find(':');
+            if (separator != std::string::npos)
+                currentPhysicalId = trimCopy(line.substr(separator + 1u));
+            continue;
+        }
+
+        if (line.starts_with("core id"))
+        {
+            const auto separator = line.find(':');
+            if (separator != std::string::npos)
+                currentCoreId = trimCopy(line.substr(separator + 1u));
+            continue;
+        }
+    }
+    flushCurrentCore();
+    info.physicalCoreCount = static_cast<uint32_t>(uniquePhysicalCores.size());
 
     return info;
 }

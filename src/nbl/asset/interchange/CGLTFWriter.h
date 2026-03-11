@@ -40,9 +40,9 @@ namespace nbl
 
 				uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-				uint32_t getSupportedFlags() override { return asset::EWF_NONE; }
+				writer_flags_t getSupportedFlags() override { return asset::EWF_NONE; }
 
-				uint32_t getForcedFlags() override { return asset::EWF_NONE; }
+				writer_flags_t getForcedFlags() override { return asset::EWF_NONE; }
 
 				bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 		};

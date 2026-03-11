@@ -33,9 +33,9 @@ class CImageWriterJPG : public asset::IAssetWriter
 
         virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-        virtual uint32_t getSupportedFlags() override { return asset::EWF_COMPRESSED; }
+        virtual writer_flags_t getSupportedFlags() override { return asset::EWF_COMPRESSED; }
 
-        virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+        virtual writer_flags_t getForcedFlags() { return asset::EWF_BINARY; }
 
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };

@@ -7,17 +7,170 @@
 
 #include <functional>
 #include <algorithm>
+#include <span>
 
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+#include "nbl/asset/interchange/SLoaderRuntimeTuning.h"
 #include "nbl/asset/utils/CVertexWelder.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
 #include "nbl/asset/utils/COverdrawPolygonGeometryOptimizer.h"
 #include "nbl/asset/utils/COBBGenerator.h"
+#include "nbl/asset/IPreHashed.h"
 
 
 namespace nbl::asset
 {
+
+void CPolygonGeometryManipulator::collectUniqueBuffers(const ICPUPolygonGeometry* geo, core::vector<core::smart_refctd_ptr<ICPUBuffer>>& outBuffers)
+{
+	if (!geo)
+	{
+		outBuffers.clear();
+		return;
+	}
+
+	outBuffers.clear();
+	auto appendBuffer = [&outBuffers](const IGeometry<ICPUBuffer>::SDataView& view)->void
+	{
+		if (!view || !view.src.buffer)
+			return;
+		for (const auto& existing : outBuffers)
+		{
+			if (existing.get() == view.src.buffer.get())
+				return;
+		}
+		outBuffers.push_back(core::smart_refctd_ptr<ICPUBuffer>(view.src.buffer));
+	};
+
+	appendBuffer(geo->getPositionView());
+	appendBuffer(geo->getIndexView());
+	appendBuffer(geo->getNormalView());
+	for (const auto& view : geo->getAuxAttributeViews())
+		appendBuffer(view);
+	for (const auto& view : geo->getJointWeightViews())
+	{
+		appendBuffer(view.indices);
+		appendBuffer(view.weights);
+	}
+	if (auto jointOBB = geo->getJointOBBView(); jointOBB)
+		appendBuffer(*jointOBB);
+}
+
+void CPolygonGeometryManipulator::computeContentHashesParallel(ICPUPolygonGeometry* geo, const SFileIOPolicy& ioPolicy, const EContentHashMode mode)
+{
+	if (!geo)
+		return;
+
+	core::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+	collectUniqueBuffers(geo, buffers);
+	if (buffers.empty())
+		return;
+
+	core::vector<size_t> pending;
+	pending.reserve(buffers.size());
+	uint64_t totalBytes = 0ull;
+	for (size_t i = 0ull; i < buffers.size(); ++i)
+	{
+		auto& buffer = buffers[i];
+		if (!buffer)
+			continue;
+		if (mode == EContentHashMode::MissingOnly && buffer->getContentHash() != IPreHashed::INVALID_HASH)
+			continue;
+		totalBytes += static_cast<uint64_t>(buffer->getSize());
+		pending.push_back(i);
+	}
+	if (pending.empty())
+		return;
+
+	const auto hashPendingRange = [&](const size_t beginIx, const size_t endIx) -> void
+	{
+		for (size_t i = beginIx; i < endIx; ++i)
+		{
+			auto& buffer = buffers[pending[i]];
+			buffer->setContentHash(buffer->computeContentHash());
+		}
+	};
+
+	if (ioPolicy.runtimeTuning.mode == SFileIOPolicy::SRuntimeTuning::Mode::Sequential)
+	{
+		hashPendingRange(0ull, pending.size());
+		return;
+	}
+
+	const size_t hw = SLoaderRuntimeTuner::resolveHardwareThreads();
+	const uint8_t* hashSampleData = nullptr;
+	uint64_t hashSampleBytes = 0ull;
+	for (const auto pendingIx : pending)
+	{
+		auto& buffer = buffers[pendingIx];
+		const auto* ptr = reinterpret_cast<const uint8_t*>(buffer->getPointer());
+		if (!ptr)
+			continue;
+		hashSampleData = ptr;
+		hashSampleBytes = SLoaderRuntimeTuner::resolveSampleBytes(ioPolicy, static_cast<uint64_t>(buffer->getSize()));
+		if (hashSampleBytes > 0ull)
+			break;
+	}
+
+	SLoaderRuntimeTuningRequest tuningRequest = {};
+	tuningRequest.inputBytes = totalBytes;
+	tuningRequest.totalWorkUnits = pending.size();
+	tuningRequest.minBytesPerWorker = std::max<uint64_t>(1ull, SLoaderRuntimeTuner::ceilDiv(totalBytes, static_cast<uint64_t>(pending.size())));
+	tuningRequest.hardwareThreads = static_cast<uint32_t>(hw);
+	const size_t hardMaxWorkers = SLoaderRuntimeTuner::resolveHardMaxWorkers(hw, ioPolicy.runtimeTuning.workerHeadroom);
+	tuningRequest.hardMaxWorkers = static_cast<uint32_t>(std::min(pending.size(), hardMaxWorkers));
+	tuningRequest.targetChunksPerWorker = ioPolicy.runtimeTuning.hashTaskTargetChunksPerWorker;
+	tuningRequest.sampleData = hashSampleData;
+	tuningRequest.sampleBytes = hashSampleBytes;
+	const auto tuning = SLoaderRuntimeTuner::tune(ioPolicy, tuningRequest);
+	const size_t workerCount = std::min(tuning.workerCount, pending.size());
+
+	if (workerCount > 1ull)
+	{
+		SLoaderRuntimeTuner::dispatchWorkers(workerCount, [&](const size_t workerIx)
+		{
+			const size_t beginIx = (pending.size() * workerIx) / workerCount;
+			const size_t endIx = (pending.size() * (workerIx + 1ull)) / workerCount;
+			hashPendingRange(beginIx, endIx);
+		});
+		return;
+	}
+
+	hashPendingRange(0ull, pending.size());
+}
+
+bool CPolygonGeometryManipulator::generateMissingSmoothNormals(
+	core::vector<hlsl::float32_t3>& normals,
+	const core::vector<hlsl::float32_t3>& positions,
+	const core::vector<uint32_t>& indices,
+	const core::vector<uint8_t>& normalNeedsGeneration
+)
+{
+	if (normals.size() != positions.size() || normals.size() != normalNeedsGeneration.size())
+		return false;
+
+	CSmoothNormalAccumulator accumulator(ESmoothNormalAccumulationMode::AreaWeighted);
+	accumulator.reserveVertices(positions.size());
+	accumulator.prepareIdentityGroups(positions.size());
+	const size_t triangleCount = indices.size() / 3ull;
+	for (size_t triIx = 0ull; triIx < triangleCount; ++triIx)
+	{
+		const uint32_t i0 = indices[triIx * 3ull + 0ull];
+		const uint32_t i1 = indices[triIx * 3ull + 1ull];
+		const uint32_t i2 = indices[triIx * 3ull + 2ull];
+		if (i0 >= positions.size() || i1 >= positions.size() || i2 >= positions.size())
+			continue;
+		if (!accumulator.addPreparedIdentityTriangle(
+				i0, positions[static_cast<size_t>(i0)],
+				i1, positions[static_cast<size_t>(i1)],
+				i2, positions[static_cast<size_t>(i2)]))
+			return false;
+	}
+	return accumulator.finalize(
+		std::span<hlsl::float32_t3>(normals.data(), normals.size()),
+		std::span<const uint8_t>(normalNeedsGeneration.data(), normalNeedsGeneration.size()));
+}
 
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* inGeo, const bool reverse, const bool recomputeHash)

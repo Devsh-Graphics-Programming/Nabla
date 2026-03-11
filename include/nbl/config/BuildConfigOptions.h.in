@@ -35,6 +35,7 @@
 #cmakedefine _NBL_COMPILE_WITH_GLTF_LOADER_
 
 // writers
+#cmakedefine _NBL_COMPILE_WITH_OBJ_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_STL_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_PLY_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_BAW_WRITER_

@@ -105,7 +105,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         void createFile(
             future_t<core::smart_refctd_ptr<IFile>>& future, // creation may happen on a dedicated thread, so its async
             path filename, // absolute path within our virtual filesystem
-            const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, // access flags (IMPORTANT: files from most archives wont open with ECF_WRITE bit)
+            const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, // intended access flags (IMPORTANT: files from most archives wont open with ECF_WRITE bit)
+            // actual file flags may be downgraded when backend/archive cannot honor all requested flags
+            // for example a backend may open the file successfully but strip mapping/coherency when it cannot provide them
             const std::string_view& accessToken="" // usually password for archives, but should be SSH key for URL downloads
         );
         
@@ -148,6 +150,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         struct SystemInfo
         {
             uint64_t cpuFrequencyHz = 0u;
+            uint32_t physicalCoreCount = 0u;
 
             // in bytes
             uint64_t totalMemory = 0u;
@@ -156,6 +159,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             uint32_t desktopResX = 0u;
             uint32_t desktopResY = 0u;
 
+            std::string cpuName = "Unknown";
             std::string OSFullName = "Unknown";
         };
         virtual SystemInfo getSystemInfo() const = 0;
@@ -168,6 +172,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         {
             public:
                 // each per-platform backend must override this function
+                // returned files may expose fewer flags than requested if the backend had to fall back
                 virtual core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags) = 0;
 
                 // these contain some hoisted common sense checks

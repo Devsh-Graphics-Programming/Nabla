@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/math/linalg/basic.hlsl>
+#include <nbl/builtin/hlsl/shapes/aabb.hlsl>
 
 namespace nbl
 {
@@ -52,7 +53,19 @@ inline matrix<T, 3, 4> rhLookAt(
     r[1] = vector<T, 4>(yaxis, -hlsl::dot(yaxis, position));
     r[2] = vector<T, 4>(zaxis, -hlsl::dot(zaxis, position));
 
-    return r;
+	return r;
+}
+
+// Transforms an AABB by a full affine 3x4 matrix and returns the enclosing AABB.
+// This exists because shapes::util::transform(matrix<T,3,4>, AABB) applies only the linear part and leaves translation out.
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T>)
+inline shapes::AABB<3, T> pseudo_mul(NBL_CONST_REF_ARG(matrix<T, 3, 4>) lhs, NBL_CONST_REF_ARG(shapes::AABB<3, T>) rhs)
+{
+	const auto translation = hlsl::transpose(lhs)[3];
+	auto transformed = shapes::util::transform(lhs, rhs);
+	transformed.minVx += translation;
+	transformed.maxVx += translation;
+	return transformed;
 }
 
 }

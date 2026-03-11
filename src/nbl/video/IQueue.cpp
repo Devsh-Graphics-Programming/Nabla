@@ -3,7 +3,7 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/TimelineEventHandlers.h"
 
-#include "git_info.h"
+#include "nbl/git/info.h"
 #define NBL_LOG_FUNCTION logger->log
 #include "nbl/logging_macros.h"
 

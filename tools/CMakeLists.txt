@@ -1,5 +1,6 @@
 add_subdirectory(nsc)
 add_subdirectory(xxHash256)
+add_subdirectory(hcp)
 
 if(NBL_BUILD_IMGUI)
 	add_subdirectory(nite EXCLUDE_FROM_ALL)

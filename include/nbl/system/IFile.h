@@ -81,11 +81,16 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 		};
 		void read(success_t& fut, void* buffer, size_t offset, size_t sizeToRead)
 		{
+			// The higher-level IO helpers may queue multiple chunked operations before waiting on the futures.
+			// Backends therefore need to treat `offset` as the request-local byte position rather than relying on
+			// a mutable shared file pointer hidden inside the OS file handle.
 			read(fut.m_internalFuture,buffer,offset,sizeToRead);
 			fut.sizeToProcess = sizeToRead;
 		}
 		void write(success_t& fut, const void* buffer, size_t offset, size_t sizeToWrite)
 		{
+			// Same requirement as `read(...)`: writes are logically positional requests and must honor the explicit
+			// byte offset even when multiple operations are submitted before the caller drains their futures.
 			write(fut.m_internalFuture,buffer,offset,sizeToWrite);
 			fut.sizeToProcess = sizeToWrite;
 		}

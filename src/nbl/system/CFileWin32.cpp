@@ -57,17 +57,19 @@ inline size_t CFileWin32::getSize() const
 
 size_t CFileWin32::asyncRead(void* buffer, size_t offset, size_t sizeToRead)
 {
-	seek(offset);
+	OVERLAPPED overlapped = {};
+	overlapped.Offset = LODWORD(offset);
+	overlapped.OffsetHigh = HIDWORD(offset);
 	DWORD numOfBytesRead;
-	ReadFile(m_native, buffer, sizeToRead, &numOfBytesRead, nullptr);
-	return numOfBytesRead;
+	return ReadFile(m_native, buffer, sizeToRead, &numOfBytesRead, &overlapped) ? numOfBytesRead:0ull;
 }
 size_t CFileWin32::asyncWrite(const void* buffer, size_t offset, size_t sizeToWrite)
 {
-	seek(offset);
+	OVERLAPPED overlapped = {};
+	overlapped.Offset = LODWORD(offset);
+	overlapped.OffsetHigh = HIDWORD(offset);
 	DWORD numOfBytesWritten;
-	WriteFile(m_native, buffer, sizeToWrite, &numOfBytesWritten, nullptr);
-	return numOfBytesWritten;
+	return WriteFile(m_native, buffer, sizeToWrite, &numOfBytesWritten, &overlapped) ? numOfBytesWritten:0ull;
 }
 
 
