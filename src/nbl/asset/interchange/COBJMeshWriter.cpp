@@ -37,7 +37,7 @@ const char** COBJMeshWriter::getAssociatedFileExtensions() const
 }
 writer_flags_t COBJMeshWriter::getSupportedFlags()
 {
-	return EWF_NONE;
+	return EWF_MESH_IS_RIGHT_HANDED;
 }
 writer_flags_t COBJMeshWriter::getForcedFlags()
 {

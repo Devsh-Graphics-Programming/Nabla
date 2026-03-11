@@ -36,7 +36,7 @@ const char** CPLYMeshWriter::getAssociatedFileExtensions() const
 }
 writer_flags_t CPLYMeshWriter::getSupportedFlags()
 {
-	return asset::EWF_BINARY;
+	return writer_flags_t(asset::EWF_BINARY | asset::EWF_MESH_IS_RIGHT_HANDED);
 }
 writer_flags_t CPLYMeshWriter::getForcedFlags()
 {

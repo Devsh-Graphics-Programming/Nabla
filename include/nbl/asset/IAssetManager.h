@@ -5,6 +5,7 @@
 #define _NBL_ASSET_I_ASSET_MANAGER_H_INCLUDED_
 
 #include <array>
+#include <optional>
 #include <ostream>
 
 #include "nbl/core/declarations.h"
@@ -51,6 +52,12 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         friend std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
     public:
+        struct SWriterFlagInfo
+        {
+            writer_flags_t supported = EWF_NONE;
+            writer_flags_t forced = EWF_NONE;
+        };
+
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, SAssetBundle, std::multimap>;
 #else
@@ -395,6 +402,18 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         bool writeAsset(system::IFile* _file, const IAssetWriter::SAssetWriteParams& _params)
         {
             return writeAsset(_file, _params, nullptr);
+        }
+
+        inline std::optional<SWriterFlagInfo> getAssetWriterFlagInfo(const IAsset::E_TYPE assetType, const std::string_view extension) const
+        {
+            const auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({assetType, std::string(extension)});
+            if (capableWritersRng.empty())
+                return std::nullopt;
+            auto* const writer = capableWritersRng.begin()->second;
+            return SWriterFlagInfo{
+                .supported = writer->getSupportedFlags(),
+                .forced = writer->getForcedFlags()
+            };
         }
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
