@@ -249,7 +249,6 @@ struct WarpmapSampler
 
   LuminanceAccessorT _lumaMap;
   HierarchicalSamplerT _warpMap;
-  uint32_t2 _warpSize;
   uint32_t _effectiveWarpArea;
   scalar_type _rcpAvgLuma;
 
@@ -258,7 +257,6 @@ struct WarpmapSampler
     WarpmapSampler<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
     result._lumaMap = lumaMap;
     result._warpMap = warpMap;
-    result._warpSize = warpSize;
     result._effectiveWarpArea = (warpSize.x - 1) * (warpSize.y - 1);
     result._rcpAvgLuma = ScalarT(1.0) / avgLuma;
     return result;
