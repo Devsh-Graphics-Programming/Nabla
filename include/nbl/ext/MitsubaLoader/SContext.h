@@ -34,7 +34,7 @@ struct SContext final
 
 		// Mitsuba XML Materials do not support emission from a BSDF node (i.e. emitter behind a coating or glass screen), its purely additive and cannot be backface emitting
 		using material_t = asset::material_compiler3::CFrontendIR::typed_pointer_type<const asset::material_compiler3::CFrontendIR::CLayer>; // TODO: change to true IR
-		material_t getMaterial(const CElementBSDF* bsdf, const CElementEmitter* frontFaceEmitter, const hlsl::float32_t3x3& iesProfileOrientation, const core::string& debugName, system::ISystem* debugFileWriter=nullptr);
+		material_t getMaterial(const CElementBSDF* bsdf, const CElementEmitter* frontFaceEmitter, const core::string& debugName, system::ISystem* debugFileWriter=nullptr);
 
 		inline void writeFrontendForestDot3(system::ISystem* system, const system::path& filepath)
 		{
@@ -60,8 +60,8 @@ struct SContext final
 		// not `frontend_ir_t::CEmitter` because the color factor gets multiplied in
 		using frontend_emitter_t = frontend_ir_t::typed_pointer_type<const frontend_ir_t::CMul>;
 		frontend_material_t genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter);
-		frontend_emitter_t getEmitter(const CElementEmitter* emitter, const hlsl::float32_t3x3& iesProfileOrientation, system::ISystem* debugFileWriter);
 		frontend_emitter_t genEmitter(const CElementEmitter* emitter, system::ISystem* debugFileWriter);
+		frontend_ir_t::SParameter getProfile(const CElementEmissionProfile* profile);
 		//
 		void writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer);
 
@@ -70,8 +70,9 @@ struct SContext final
 		//
 		core::unordered_map<const CElementShape::ShapeGroup*,CMitsubaMetadata::SGeometryCollectionMetaPair> groupCache;
 		//
-		core::unordered_map<const CElementBSDF*,frontend_material_t> bsdfCache;
 		core::unordered_map<const CElementEmitter*,frontend_emitter_t> emitterCache;
+		core::unordered_map<const CElementBSDF*,frontend_material_t> bsdfCache;
+		core::unordered_map<const CElementEmissionProfile*,frontend_ir_t::SParameter> profileCache;
 
 #if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler
@@ -79,19 +80,6 @@ struct SContext final
 		//image, scale 
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
 
-		static asset::ISampler::SParams emissionProfileSamplerParams(const CElementEmissionProfile* profile, const asset::CIESProfileMetadata& meta)
-		{
-			return {
-				asset::ISampler::ETC_REPEAT,
-				asset::ISampler::ETC_REPEAT,
-				asset::ISampler::ETC_REPEAT,
-				asset::ISampler::ETBC_INT_OPAQUE_BLACK,
-				asset::ISampler::ETF_LINEAR,
-				asset::ISampler::ETF_LINEAR,
-				asset::ISampler::ETF_LINEAR,
-				0u, false, asset::ECO_ALWAYS
-			};
-		}
 
 		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)
 		{

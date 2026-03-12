@@ -64,40 +64,10 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
     return retval;
 }
 
-
-auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) -> emission_profile_type
-{
-    constexpr static asset::IAsset::E_TYPE types[] = {asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO};
-    
-    std::string filename = _element->filename;
-    m_loaderContext->override_->getLoadFilename(filename, m_loaderContext->inner, 0u);
-
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(filename, types, m_loaderContext->inner, 0u);
-    if (viewBundle.getMetadata())
-    {
-        const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
-        return { m_loaderContext->getSampler(m_loaderContext->emissionProfileSamplerParams(_element,meta)), &meta};
-    }
-    return { nullptr, nullptr };
-}
-
-CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform)
-{
-    assert(_emitter->type == CElementEmitter::AREA);
-
-    auto* res = ir->allocNode<asset::material_compiler::IR::CEmitterNode>();
-    res->intensity = _emitter->area.radiance;
-
-    const auto inProfile = _emitter->area.emissionProfile;
-    if (inProfile)
-    {
-        auto [sampler, meta] = getEmissionProfile(inProfile);
         
-        auto fillProfile = [&]() -> bool
-        {
-            asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
 
-            // do cheap checks first
+#if 0 /// TODO when going CFrontendIR -> CTrueIR
+                asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
             {
                 auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
 
@@ -118,71 +88,9 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                 profile.up = core::normalize(worldSpaceIESTransform[1]);
                 profile.view = core::normalize(worldSpaceIESTransform[2]);
             }
-
-            core::smart_refctd_ptr<asset::ICPUImageView> iesTexture = nullptr;
-            {
-                const auto cacheName = inProfile->filename + "?ies";
-
-                // try cache
-                {
-                    const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-                    asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(cacheName,types,m_loaderContext->inner,0u);
-                    auto contents = bundle.getContents();
-                    if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
-                        iesTexture = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
-                }
-
-                // failed to find, have to create
-                if (!iesTexture)
-                {
-                    const auto optimalResolution = meta->profile.getOptimalIESResolution();
-                    iesTexture = meta->profile.createIESTexture(optimalResolution);
-                }
-                
-                // now must be loaded to proceed
-                if (!iesTexture)
-                    return false;
-                
-                // insert into cache
-                asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
-                asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(iesTexture) });
-                m_loaderContext->override_->insertAssetIntoCache(bundle, cacheName, m_loaderContext->inner, 0u);
-            }
-            profile.texture = { iesTexture, sampler, 1.f };
+#endif
     
-            // success
-            res->emissionProfile = profile;
 
-            // note that IES texel intensity value is already divided by max intensity
-            const auto maxIntesity = meta->profile.getMaxCandelaValue();
-            switch (inProfile->normalization)
-            {
-                case CElementEmissionProfile::EN_UNIT_MAX:
-                {
-                    // already normalized to max
-                } break;
-                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
-                {
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(false);
-                } break;
-                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
-                {
-                    // flatten does not affect the average over the full domain
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(true);
-                } break;
-                default:
-                {
-                    res->intensity *= maxIntesity;
-                } break;
-            }
-            return true;
-        };
-
-        if (meta && !fillProfile())
-            os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
-    }
-    return res;
-}
 
 CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend::getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const
 {
@@ -312,16 +220,6 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 
 
 
-        break;
-        case CElementBSDF::DIFFUSE_TRANSMITTER:
-        {
-            ir_node = ir->allocNode<IR::CMicrofacetDifftransBSDFNode>();
-            auto* node = static_cast<IR::CMicrofacetDifftransBSDFNode*>(ir_node);
-            node->setSmooth();
-
-            getSpectrumOrTexture(_bsdf->difftrans.transmittance, node->transmittance);
-        }
-        break;
         case CElementBSDF::PLASTIC:
         case CElementBSDF::ROUGHPLASTIC:
         {

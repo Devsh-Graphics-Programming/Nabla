@@ -301,13 +301,10 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			instances.getMorphTargets()[index] = core::smart_refctd_ptr<ICPUMorphTargets>(const_cast<ICPUMorphTargets*>(targets.get()));
 			if (shape->transform.matrix[3]!=float32_t4(0,0,0,1))
 				_params.logger.log("Shape with id %s has Non-Affine transformation matrix, last row is not 0,0,0,1!",system::ILogger::ELL_ERROR,shape->id.c_str());
-			const auto absoluteTransform = shape->getTransform();
-			instances.getInitialTransforms()[index] = absoluteTransform;
-			// add materials (incl emission) to the instances
-			const auto iesOrientation = hlsl::math::linalg::truncate<3,3>(absoluteTransform);
+			instances.getInitialTransforms()[index] = shape->getTransform();
 			//
 			const core::string debugName = shape->id.empty() ? std::format("0x{:x}",ptrdiff_t(shape)):shape->id;
-			ctx.getMaterial(shape->bsdf,shape->obtainEmitter(),iesOrientation,debugName,PrintMaterialDot3 ? m_system.get():nullptr);
+			ctx.getMaterial(shape->bsdf,shape->obtainEmitter(),debugName,PrintMaterialDot3 ? m_system.get():nullptr);
 			// TODO: compile the material into the true IR and push it into the instances
 		};
 
@@ -378,18 +375,22 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 }
 
 auto SContext::getMaterial(
-	const CElementBSDF* bsdf, const CElementEmitter* frontFaceEmitter, const hlsl::float32_t3x3& iesProfileOrientation, const core::string& debugName, system::ISystem* debugFileWriter
+	const CElementBSDF* bsdf, const CElementEmitter* frontFaceEmitter, const core::string& debugName, system::ISystem* debugFileWriter
 ) -> material_t
 {
 	// cache the BSDF part
-	auto found = bsdfCache.find(bsdf);
-	if (found==bsdfCache.end())
-		found = bsdfCache.insert({bsdf,genMaterial(bsdf,debugFileWriter)}).first;
+	auto foundBSDF = bsdfCache.find(bsdf);
+	if (foundBSDF ==bsdfCache.end())
+		foundBSDF = bsdfCache.insert({bsdf,genMaterial(bsdf,debugFileWriter)}).first;
 
 	// if we have no emitters, we can reuse existing BSDF subtree
 	if (!frontFaceEmitter)
-		return found->second;
-	const auto emitterH = getEmitter(frontFaceEmitter,iesProfileOrientation,debugFileWriter);
+		return foundBSDF->second;
+	assert(frontFaceEmitter->type==CElementEmitter::AREA);
+
+	auto foundEmitter = emitterCache.find(frontFaceEmitter);
+	if (foundEmitter==emitterCache.end())
+		foundEmitter = emitterCache.insert({frontFaceEmitter,genEmitter(frontFaceEmitter,debugFileWriter)}).first;
 
 	auto& frontPool = frontIR->getObjectPool();
 
@@ -399,18 +400,13 @@ auto SContext::getMaterial(
 	const auto rootH = frontPool.emplace<frontend_ir_t::CLayer>();
 	auto* const root = frontPool.deref(rootH);
 	root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
-	if (auto* const original=frontPool.deref(found->second); original)
+	if (auto* const original=frontPool.deref(foundBSDF->second); original)
 	{
 		// only front-face on top layer get changed, Mistuba XML only allows for unobscured/uncoated emission
 		{
 			auto combinerH = frontPool.emplace<frontend_ir_t::CAdd>();
 			auto* const combiner = frontPool.deref(combinerH);
-			combiner->lhs = emitterH._const_cast();
-	#if 0
-			// TODO cache the IR Node
-				cacheEmissionProfile(ctx, emitter->area.emissionProfile);
-				emitterIRNode = ctx.frontend.createEmitterNode(ctx.ir.get(), emitter, tform);
-	#endif
+			combiner->lhs = foundEmitter->second._const_cast();
 			combiner->rhs = original->brdfTop;
 			root->brdfTop = combinerH;
 		}
@@ -420,7 +416,7 @@ auto SContext::getMaterial(
 		root->coated = original->coated;
 	}
 	else
-		root->brdfTop = emitterH._const_cast();
+		root->brdfTop = foundEmitter->second._const_cast();
 	const bool success = frontIR->addMaterial(rootH,inner.params.logger);
 	
 	auto logger = inner.params.logger;
@@ -439,32 +435,6 @@ auto SContext::getMaterial(
 	return rootH;
 }
 
-auto SContext::getEmitter(const CElementEmitter* emitter, const hlsl::float32_t3x3& iesProfileOrientation, system::ISystem* debugFileWriter) -> frontend_emitter_t
-{
-	assert(emitter && emitter->type != CElementEmitter::INVALID);
-
-	auto found = emitterCache.find(emitter);
-	if (found==emitterCache.end())
-		found = emitterCache.insert({emitter,genEmitter(emitter,debugFileWriter)}).first;
-
-	if (!emitter->area.emissionProfile)
-		return found->second;
-#if 0
-	// create a copy of the emitter for each profile & orientation
-	// TODO: cache this if memory/hash-load ever becomes a problem
-	auto& frontPool = frontIR->getObjectPool();
-	const auto emitterH = frontPool.emplace<frontend_ir_t::CEmitter>();
-	{
-		auto* const emitter = frontPool.deref(emitterH);
-		// TODO: SParameter cache
-		emitter->profile.scale = 45.f;
-		emitter->profile.viewChannel = 0;
-		emitter->profile.view = 0;
-	}
-	return emitterH;
-#endif
-	return found->second;
-}
 
 using parameter_t = asset::material_compiler3::CFrontendIR::SParameter;
 using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariable;
@@ -501,6 +471,7 @@ void getParameter(const std::span<parameter_t,3> out, const CElementTexture::Spe
 			getParameter({out.data(),out.size()},src.value.fvalue);
 			break;
 		case SPropertyElementData::Type::SRGB: [[fallthrough]]; // already linearized when parsed!
+		case SPropertyElementData::Type::SPECTRUM: [[fallthrough]]; // we're not spectral but we convert <spectrum> tags to RGB approximately
 		case SPropertyElementData::Type::RGB:
 			getParameter<3>(out,src.value.vvalue.xyz);
 			break;
@@ -519,6 +490,88 @@ void getParameter(const std::span<parameter_t> out, const CElementTexture::Float
     }
     else
 		getParameter(out,src.value);
+}
+
+auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debugFileWriter) -> frontend_emitter_t
+{
+	auto& frontPool = frontIR->getObjectPool();
+	const auto handle = frontPool.emplace<frontend_ir_t::CMul>();
+	auto* const mul = frontPool.deref(handle);
+	// debug info first
+	const core::string debugName = _emitter->id.empty() ? std::format("0x{:x}",ptrdiff_t(_emitter)):_emitter->id;
+	mul->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
+	// emitter
+	{
+		const auto emitterH = frontPool.emplace<frontend_ir_t::CEmitter>();
+		// unit emission
+		mul->lhs = emitterH;
+		// but with a profile
+		if (const auto* const inProfile=_emitter->area.emissionProfile; inProfile)
+		{
+			auto* const emitter = frontPool.deref(emitterH);
+			auto found = profileCache.find(inProfile);
+			if (found==profileCache.end())
+				found = profileCache.insert({inProfile,getProfile(inProfile)}).first;
+			emitter->profile = found->second;
+			emitter->profileTransform = hlsl::math::linalg::truncate<3,3>(_emitter->transform.matrix);
+		}
+	}
+	{
+		spectral_var_t::SCreationParams<3> params = {};
+		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+		// if you wanted a textured emitter, this would be the place to do it
+		getParameter<3>(params.knots.params,_emitter->area.radiance);
+		mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
+	}
+
+	if (debugFileWriter)
+	{
+		frontend_ir_t::SDotPrinter printer = {frontIR.get()};
+		printer.exprStack.push(handle);
+		writeDot3File(debugFileWriter,DebugDir/"material_frontend/emitters"/(debugName+".dot"),printer);
+	}
+	return handle;
+}
+
+auto SContext::getProfile(const CElementEmissionProfile* profile) -> frontend_ir_t::SParameter
+{
+	frontend_ir_t::SParameter retval = {};
+	// load it!
+	using namespace nbl::asset;
+	const CIESProfileMetadata* iesMeta = nullptr;
+	{
+		auto assetLoaded = interm_getAssetInHierarchy(profile->filename,/*ICPUScene::EMITTER_PROFILE_HIERARCHY_LEVELS_BELOW*/1);
+		if (auto* const meta=assetLoaded.getMetadata(); meta)
+			iesMeta = meta->selfCast<const CIESProfileMetadata>();
+		if (!iesMeta)
+		{
+			inner.params.logger.log("Could Load Emission Profile from \"%s\" or its not an IES profile!",system::ILogger::ELL_ERROR,profile->filename);
+			return retval;
+		}
+		assert(assetLoaded.getAssetType()==IAsset::ET_IMAGE_VIEW);
+		retval.view = IAsset::castDown<const ICPUImageView>(*assetLoaded.getContents().begin());
+	}
+	// continue
+	retval.viewChannel = 0;
+	const float maxIntesity = iesMeta->profile.getMaxCandelaValue();
+    // note that IES texel intensity value is already divided by max 
+	switch (profile->normalization)
+	{
+		// already normalized to max
+		case CElementEmissionProfile::EN_UNIT_MAX:
+			retval.scale = 1.f; // essentially `maxIntesity/maxIntesity`
+			break;
+		case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
+			retval.scale = maxIntesity/iesMeta->profile.getAvgEmmision(false);
+			break;
+		case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
+			retval.scale = maxIntesity/iesMeta->profile.getAvgEmmision(true);
+			break;
+		default:
+			retval.scale = maxIntesity;
+			break;
+	}
+	return retval;
 }
 
 auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter) -> frontend_material_t
@@ -681,6 +734,39 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				}
 				return {.top=handle,.trans=trans};
 			}
+			case CElementBSDF::DIFFUSE_TRANSMITTER:
+			{
+				const auto diffTransH = frontPool.emplace<frontend_ir_t::CMul>();
+				{
+					auto* mul = frontPool.deref(diffTransH);
+					{
+						const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
+						auto* orenNayar = frontPool.deref(orenNayarH);
+						auto roughness = orenNayar->ndParams.getRougness();
+						roughness[0].scale = roughness[1].scale = 0.f;
+						mul->lhs = orenNayarH;
+					}
+					// another mul node
+					const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
+					mul->rhs = mulH;
+					mul = frontPool.deref(mulH);
+					{
+						spectral_var_t::SCreationParams<3> params = {};
+						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+						getParameter(params.knots.params,_bsdf->difftrans.transmittance);
+						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
+						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
+						mul->lhs = albedoH;
+					}
+					// normalize the Oren Nayar over the full sphere
+					{
+						spectral_var_t::SCreationParams<1> params = {};
+						params.knots.params[0].scale = 0.5f;
+						mul->rhs = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
+					}
+				}
+				return {.top=diffTransH,.trans=diffTransH};
+			}
 			default:
 				assert(false); // we shouldn't get this case here
 				return {};
@@ -739,37 +825,6 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 		writeDot3File(debugFileWriter,DebugDir/"material_frontend/bsdfs"/(debugName+".dot"),printer);
 	}
 	return rootH;
-}
-
-auto SContext::genEmitter(const CElementEmitter* emitter, system::ISystem* debugFileWriter) -> frontend_emitter_t
-{
-	auto& frontPool = frontIR->getObjectPool();
-	const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
-	auto* const mul = frontPool.deref(mulH);
-	// emitter
-	{
-		const auto emitterH = frontPool.emplace<frontend_ir_t::CEmitter>();
-		// no profile, unit emission
-		mul->lhs = emitterH;
-	}
-	{
-		spectral_var_t::SCreationParams<3> params = {};
-		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-		// if you wanted a textured emitter, this would be the place to do it
-		getParameter<3>(params.knots.params,emitter->area.radiance);
-		mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
-	}
-	
-	const core::string debugName = emitter->id.empty() ? std::format("0x{:x}",ptrdiff_t(emitter)):emitter->id;
-	mul->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
-
-	if (debugFileWriter)
-	{
-		frontend_ir_t::SDotPrinter printer = {frontIR.get()};
-		printer.exprStack.push(mulH);
-		writeDot3File(debugFileWriter,DebugDir/"material_frontend/emitters"/(debugName+".dot"),printer);
-	}
-	return mulH;
 }
 
 #if 0
@@ -853,23 +908,6 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 	}
 
 	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
-}
-
-void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionProfile* profile)
-{
-	if (!profile)
-		return;
-
-	auto params = ctx.inner.params;
-	params.loaderFlags = asset::IAssetLoader::ELPF_LOAD_METADATA_ONLY;
-
-	auto assetLoaded = interm_getAssetInHierarchy( profile->filename, params, 0u, ctx.override_);
-
-	if (!assetLoaded.getMetadata())
-	{
-		os::Printer::log("[ERROR] Could Not Find Emission Profile: " + profile->filename, ELL_ERROR);
-		return;
-	}
 }
 
 void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
