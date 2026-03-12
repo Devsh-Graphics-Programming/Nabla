@@ -390,7 +390,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tgmath/output_structs.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/prefix_sum_blur/blur.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/prefix_sum_blur/box_sampler.hlsl")
 #rwmc
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/rwmc/Resolve.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/rwmc/resolve.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/rwmc/CascadeAccumulator.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/rwmc/SplattingParameters.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/rwmc/ResolveParameters.hlsl")
