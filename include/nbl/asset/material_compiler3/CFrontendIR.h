@@ -749,14 +749,33 @@ class CFrontendIR final : public CNodePool
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,typed_pointer_type<const INode>)`)
-		NBL_API2 void printDotGraph(std::ostringstream& str) const;
-		inline core::string printDotGraph() const
+		// For Debug Visualization
+		struct SDotPrinter final
 		{
-			std::ostringstream tmp;
-			printDotGraph(tmp);
-			return tmp.str();
-		}
+			public:
+				inline SDotPrinter(const CFrontendIR* ir) : m_ir(ir) {}
+				// assign in reverse because we want materials to print in order
+				inline SDotPrinter(const CFrontendIR* ir, std::span<const typed_pointer_type<const CLayer>> roots) : m_ir(ir), layerStack(roots.rbegin(),roots.rend())
+				{
+					// should probably size it better, if I knew total node count allocated or live
+					visitedNodes.reserve(roots.size()<<3);
+				}
+
+				NBL_API2 void operator()(std::ostringstream& output);
+				inline core::string operator()()
+				{
+					std::ostringstream tmp;
+					operator()(tmp);
+					return tmp.str();
+				}
+			
+				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
+				// TODO: track layering depth and indent accordingly?
+				core::vector<typed_pointer_type<const CLayer>> layerStack;
+				core::stack<typed_pointer_type<const IExprNode>> exprStack;
+			private:
+				const CFrontendIR* m_ir;
+		};
 
 	protected:
 		using CNodePool::CNodePool;

@@ -294,33 +294,6 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
         using namespace asset;
         using namespace material_compiler;
 
-        auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
-        {
-            if (src.value.type == SPropertyElementData::INVALID)
-            {
-                IR::INode::STextureSource tex;
-                std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-                dst = std::move(tex);
-            }
-            else
-                dst = src.value.fvalue;
-        };
-        auto getSpectrumOrTexture = [this](
-            const CElementTexture::SpectrumOrTexture& src,
-            IR::INode::SParameter<IR::INode::color_t>& dst,
-            const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY
-        ) -> void
-        {
-            if (src.value.type == SPropertyElementData::INVALID)
-            {
-                IR::INode::STextureSource tex;
-                std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
-                assert(!core::isnan(tex.scale));
-                dst = std::move(tex);
-            }
-            else
-                dst = src.value.vvalue;
-        };
 
         constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
             IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN,
@@ -341,20 +314,10 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
             ir_node->children.count = 1u;
             getSpectrumOrTexture(_bsdf->mask.opacity,static_cast<IR::COpacityNode*>(ir_node)->opacity,EIVS_BLEND_WEIGHT);
             break;
-        case CElementBSDF::DIFFUSE:
-        case CElementBSDF::ROUGHDIFFUSE:
-            ir_node = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
-            getSpectrumOrTexture(_bsdf->diffuse.reflectance, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->reflectance);
-            if (type == CElementBSDF::ROUGHDIFFUSE)
-            {
-                getFloatOrTexture(_bsdf->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->alpha_u);
-                static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->alpha_v = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->alpha_u;
-            }
-            else
-            {
-                static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->setSmooth();
-            }
-            break;
+
+
+
+
         case CElementBSDF::CONDUCTOR:
         case CElementBSDF::ROUGHCONDUCTOR:
         {

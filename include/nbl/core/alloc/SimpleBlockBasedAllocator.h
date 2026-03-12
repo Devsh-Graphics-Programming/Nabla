@@ -29,6 +29,9 @@ struct ConstHandle
 	// God, I love C++20
 	inline auto operator<=>(const ConstHandle&) const = default;
 
+// TODO: would have to forward declare Handle template
+//	Handle<ConstHandle> _const_cast() const;
+
 	// LSB is the offset in the block, MSB is the block index
 	value_t value = Invalid;
 };
@@ -38,20 +41,32 @@ struct Handle : _ConstHandle
 	using const_type = _ConstHandle;
 
 	inline auto operator<=>(const Handle& other) const {return _ConstHandle::operator<=>(other);}
+
+//	inline _ConstHandle _const_cast() const {return *this;}
 };
 
 template<typename T, typename _Handle> requires std::is_same_v<Handle<ConstHandle<typename _Handle::value_t,_Handle::Invalid>>,_Handle>
 struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handle::const_type,_Handle>
 {
 	private:
-		using base_t = std::conditional_t<std::is_const_v<T>,typename _Handle::const_type,_Handle>;
+		constexpr static inline bool IsConst = std::is_const_v<T>;
+		using base_t = std::conditional_t<IsConst,typename _Handle::const_type,_Handle>;
 
 	public:
 		inline auto operator<=>(const _Handle& other) const {return base_t::operator<=>(other);}
 		inline auto operator<=>(const typename _Handle::const_type& other) const {return base_t::operator<=>(other);}
 
+		// implicit const_cast
 		inline operator TypedHandle<const T,_Handle>() const {return {{.value=base_t::value}};}
+		// explicit const_cast
+		inline auto _const_cast() const
+		{
+			TypedHandle<std::conditional_t<IsConst,std::remove_const_t<T>,const T>,_Handle> retval;
+			retval.value = base_t::value;
+			return retval;
+		}
 
+		// implicit static_cast
 		template<typename U> requires ((std::is_void_v<U> || std::is_base_of_v<U,T>) && (!std::is_const_v<T> || std::is_const_v<U>))
 		inline operator TypedHandle<U,_Handle>() const
 		{
@@ -308,12 +323,8 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 
 		//
 		template<typename T, typename U> requires std::is_same_v<std::remove_cv_t<T>,std::remove_cv_t<U>>
-		static inline typed_pointer_type<T> _const_cast(typed_pointer_type<U> p)
-		{
-			typed_pointer_type<T> retval;
-			retval.value = p.value;
-			return retval;
-		}
+		static inline typed_pointer_type<T> _const_cast(typed_pointer_type<U> p) {return p._const_cast();}
+		// TODO: add `_reinrepret_cast` and `_static_cast` to the TypedHandle` and do in terms of that
 		template<typename T, typename U> requires (!std::is_const_v<U> || std::is_const_v<T>)
 		static inline typed_pointer_type<T> _reinterpret_cast(typed_pointer_type<U> p)
 		{

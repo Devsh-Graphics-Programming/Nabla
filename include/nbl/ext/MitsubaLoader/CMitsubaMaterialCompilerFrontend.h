@@ -33,12 +33,6 @@ class CMitsubaMaterialCompilerFrontend
             EIVS_COUNT
         };
 
-        struct front_and_back_t
-        {
-            IRNode* front;
-            IRNode* back;
-        };
-
         explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
         front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
@@ -57,8 +51,6 @@ class CMitsubaMaterialCompilerFrontend
         emission_profile_type getEmissionProfile(const CElementEmissionProfile* _element);
 
         tex_ass_type getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const;
-
-        IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 #endif
 };
 
