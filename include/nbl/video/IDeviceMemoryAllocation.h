@@ -68,6 +68,19 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EMHF_MULTI_INSTANCE_BIT = 0x00000002,
         };
 
+        //! Flags for imported/exported allocation
+        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
+        {
+            EHT_NONE = 0,
+            EHT_OPAQUE_WIN32 = 0x00000002,
+            EHT_OPAQUE_WIN32_KMT = 0x00000004,
+            EHT_D3D11_TEXTURE = 0x00000008,
+            EHT_D3D11_TEXTURE_KMT = 0x00000010,
+            EHT_D3D12_HEAP = 0x00000020,
+            EHT_D3D12_RESOURCE = 0x00000040,
+            EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
+        };
+
         //
         const ILogicalDevice* getOriginDevice() const {return m_originDevice;}
 

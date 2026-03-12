@@ -1371,6 +1371,25 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
 #undef RETURN_NULL_PHYSICAL_DEVICE
 
+IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+{
+    assert(!(handleType & (handleType - 1)));
+    VkPhysicalDeviceExternalBufferInfo info = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+        .usage = static_cast<VkBufferUsageFlags>(usages.value),
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType)
+    };
+    VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+    vkGetPhysicalDeviceExternalBufferProperties(m_vkPhysicalDevice, &info, &externalProps);
+
+    const auto& externalMemProps = externalProps.externalMemoryProperties;
+    return SExternalMemoryProperties{
+      .exportableTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.exportFromImportedHandleTypes),
+      .compatibleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.compatibleHandleTypes),
+      .features = static_cast<E_EXTERNAL_MEMORY_FEATURE_FLAGS>(externalMemProps.externalMemoryFeatures)
+    };
+}
+
 core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params)
 {
     // We might alter it to account for dependancies.
