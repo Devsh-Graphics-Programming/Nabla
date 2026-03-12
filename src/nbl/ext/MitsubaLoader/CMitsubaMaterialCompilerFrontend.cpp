@@ -295,12 +295,6 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
         using namespace material_compiler;
 
 
-        constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
-            IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN,
-            IR::CMicrofacetSpecularBSDFNode::ENDF_GGX,
-            IR::CMicrofacetSpecularBSDFNode::ENDF_PHONG,
-            IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY
-        };
 
         const auto type = _bsdf->type;
         IRNode* ir_node = nullptr;
@@ -318,30 +312,6 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 
 
 
-        case CElementBSDF::CONDUCTOR:
-        case CElementBSDF::ROUGHCONDUCTOR:
-        {
-            ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
-            auto* node = static_cast<IR::CMicrofacetSpecularBSDFNode*>(ir_node);
-            node->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            const float extEta = _bsdf->conductor.extEta;
-            node->eta = _bsdf->conductor.eta.vvalue/extEta;
-            node->etaK = _bsdf->conductor.k.vvalue/extEta;
-
-            if (type == CElementBSDF::ROUGHCONDUCTOR)
-            {
-                node->ndf = ndfMap[_bsdf->conductor.distribution];
-                getFloatOrTexture(_bsdf->conductor.alphaU, node->alpha_u);
-                if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdf->conductor.alphaV, node->alpha_v);
-                else
-                    node->alpha_v = node->alpha_u;
-            }
-            else
-            {
-                node->setSmooth();
-            }
-        }
         break;
         case CElementBSDF::DIFFUSE_TRANSMITTER:
         {
@@ -384,37 +354,10 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
             node_diffuse->eta = coat->eta;
         }
         break;
-        case CElementBSDF::DIELECTRIC:
-        case CElementBSDF::THINDIELECTRIC:
-        case CElementBSDF::ROUGHDIELECTRIC:
-        {
-            auto* dielectric = ir->allocNode<IR::CMicrofacetDielectricBSDFNode>();
-            ir_node = dielectric;
 
-            const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
-            _NBL_DEBUG_BREAK_IF(eta==1.f);
-            if (eta == 1.f)
-		        _logger.log("WARNING: Dielectric with IoR=1.0!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 
-            dielectric->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            dielectric->eta = IR::INode::color_t(eta);
-            if (type == CElementBSDF::ROUGHDIELECTRIC)
-            {
-                dielectric->ndf = ndfMap[_bsdf->dielectric.distribution];
-                getFloatOrTexture(_bsdf->dielectric.alphaU, dielectric->alpha_u);
-                if (dielectric->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdf->dielectric.alphaV, dielectric->alpha_v);
-                else
-                    dielectric->alpha_v = dielectric->alpha_u;
-            }
-            else
-            {
-                dielectric->setSmooth();
-            }
 
-            dielectric->thin = (type == CElementBSDF::THINDIELECTRIC);
-        }
-        break;
+
         case CElementBSDF::BUMPMAP:
         {
             ir_node = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_DERIVATIVE);

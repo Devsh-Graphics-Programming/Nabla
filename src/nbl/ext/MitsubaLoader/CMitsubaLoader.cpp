@@ -201,8 +201,8 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 
 
 // TODO: make configurable
-constexpr bool PrintMaterialDot3 = false;
-system::path DebugDir("/tmp");
+constexpr bool PrintMaterialDot3 = true;
+system::path DebugDir("D:\\work\\Nabla-master\\examples_tests\\15_MitsubaLoader\\bin");
 //
 void SContext::writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer)
 {
@@ -497,6 +497,9 @@ void getParameter(const std::span<parameter_t,3> out, const CElementTexture::Spe
 	else
 	switch (src.value.type)
 	{
+		case SPropertyElementData::Type::FLOAT:
+			getParameter({out.data(),out.size()},src.value.fvalue);
+			break;
 		case SPropertyElementData::Type::SRGB: [[fallthrough]]; // already linearized when parsed!
 		case SPropertyElementData::Type::RGB:
 			getParameter<3>(out,src.value.vvalue.xyz);
@@ -525,11 +528,23 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	// this is also our top coating layer
 	auto rootH = frontPool.emplace<frontend_ir_t::CLayer>();
 	
-	auto createMistubaLeaf = [&]()->frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode>
+	struct SLeaf
 	{
-		switch (bsdf->type)
+		frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> top = {};
+		frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> trans = {};
+	};
+	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->SLeaf
+	{
+		using ndf_e = frontend_ir_t::CCookTorrance::NDF;
+        constexpr ndf_e ndfMap[4] = {
+			ndf_e::Beckmann,
+			ndf_e::GGX,
+			ndf_e::Beckmann, // Phong can be mapped to Beckmann
+			ndf_e::Beckmann // Ahskhmin is Ani Beckmann last I remember
+        };
+		switch (_bsdf->type)
 		{
-			case CElementBSDF::DIFFUSE:
+			case CElementBSDF::DIFFUSE: [[fallthrough]];
 			case CElementBSDF::ROUGHDIFFUSE:
 			{
 				const auto roughDiffuseH = frontPool.emplace<frontend_ir_t::CMul>();
@@ -539,10 +554,10 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
 						auto* orenNayar = frontPool.deref(orenNayarH);
 						auto roughness = orenNayar->ndParams.getRougness();
-						if (bsdf->type==CElementBSDF::ROUGHDIFFUSE)
+						if (_bsdf->type==CElementBSDF::ROUGHDIFFUSE)
 						{
 							// we only support isotropic Oren-Nayar
-							getParameter(roughness,bsdf->diffuse.alpha);
+							getParameter(roughness,_bsdf->diffuse.alpha);
 						}
 						else
 							roughness[0].scale = roughness[1].scale = 0.f;
@@ -551,13 +566,120 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					{
 						spectral_var_t::SCreationParams<3> params = {};
 						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						getParameter(params.knots.params,bsdf->diffuse.reflectance);
-						const auto albedoH = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
+						getParameter(params.knots.params,_bsdf->diffuse.reflectance);
+						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
 						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
 						mul->rhs = albedoH;
 					}
 				}
-				return roughDiffuseH;
+				return {.top=roughDiffuseH};
+			}
+			case CElementBSDF::DIELECTRIC: [[fallthrough]];
+			case CElementBSDF::THINDIELECTRIC: [[fallthrough]];
+			case CElementBSDF::ROUGHDIELECTRIC: [[fallthrough]];
+			case CElementBSDF::CONDUCTOR: [[fallthrough]];
+			case CElementBSDF::ROUGHCONDUCTOR:
+			{
+				const auto handle = frontPool.emplace<frontend_ir_t::CMul>();
+				frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> trans = {};
+				{
+					const bool isConductor = _bsdf->type==CElementBSDF::CONDUCTOR || _bsdf->type==CElementBSDF::ROUGHCONDUCTOR;
+					// beautiful thing we can reuse the same nodes for a transmission function without touching Etas or anything!
+					if (!isConductor)
+						trans = handle;
+					//
+					auto* mul = frontPool.deref(handle);
+					const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
+					auto* const ct = frontPool.deref(ctH);
+					{
+						auto roughness = ct->ndParams.getRougness();
+						if (_bsdf->type==CElementBSDF::ROUGHCONDUCTOR)
+						{
+							const CElementBSDF::RoughSpecularBase* rough = &_bsdf->dielectric;
+							if (isConductor)
+								rough = &_bsdf->conductor;
+							// ct->orientedRealEta gets set in the fresnel part
+							ct->ndf = ndfMap[rough->distribution];
+							getParameter(roughness,rough->alphaU);
+							if (rough->alphaV.texture || !hlsl::isnan(rough->alphaV.value))
+								getParameter(roughness,rough->alphaU);
+							else
+								roughness[1] = roughness[0];
+						}
+						else
+							roughness[0].scale = roughness[1].scale = 0.f;
+						mul->lhs = ctH;
+					}
+					// Now the fresnels
+					// do the artificial Mitsuba factor
+					{
+						const auto reflectanceMulH = frontPool.emplace<frontend_ir_t::CMul>();
+						{
+							auto* const reflectanceMul = frontPool.deref(reflectanceMulH);
+							{
+								const auto fresnelH = frontPool.emplace<frontend_ir_t::CFresnel>();
+								auto* const fresnel = frontPool.deref(fresnelH);
+								if (isConductor)
+								{
+									const float extEta = _bsdf->conductor.extEta;
+									{
+										spectral_var_t::SCreationParams<3> params = {};
+										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+										const hlsl::float32_t3 eta = _bsdf->conductor.eta.vvalue.xyz;
+										getParameter<3>(params.knots.params,eta/extEta);
+										fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
+									}
+									{
+										spectral_var_t::SCreationParams<3> params = {};
+										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+										const hlsl::float32_t3 k = _bsdf->conductor.k.vvalue.xyz;
+										getParameter<3>(params.knots.params,k/extEta);
+										fresnel->orientedImagEta = frontPool.emplace<spectral_var_t>(std::move(params));
+									}
+								}
+								else
+								{
+									spectral_var_t::SCreationParams<1> params = {};
+									params.knots.params[0].scale = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
+									ct->orientedRealEta = fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
+								}
+								reflectanceMul->lhs = fresnelH;
+								// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
+								if (_bsdf->type==CElementBSDF::THINDIELECTRIC)
+								{
+									const auto btdfH = frontPool.emplace<frontend_ir_t::CMul>();
+									{
+										auto* mul = frontPool.deref(btdfH);
+										// apply energy conserving correction
+										const auto thinInfiniteScatterH = frontPool.emplace<frontend_ir_t::CThinInfiniteScatterCorrection>();
+										{
+											auto* thinInfiniteScatter = frontPool.deref(thinInfiniteScatterH);
+											thinInfiniteScatter->reflectanceTop = fresnelH;
+											thinInfiniteScatter->reflectanceBottom = fresnelH;
+											// TODO: extinction
+										}
+										mul->lhs = frontPool.emplace<frontend_ir_t::CDeltaTransmission>(); // TODO: commonalize
+										mul->rhs = thinInfiniteScatterH;
+									}
+									trans = btdfH;
+								}
+							}
+							{
+								spectral_var_t::SCreationParams<3> params = {};
+								params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+								if (isConductor)
+									getParameter(params.knots.params,_bsdf->conductor.specularReflectance);
+								else // we'll do the specularTransmittance on the btdf stack element when cloning
+									getParameter(params.knots.params,_bsdf->dielectric.specularReflectance);
+								const auto artificialReflectanceH = frontPool.emplace<spectral_var_t>(std::move(params));
+								frontPool.deref(artificialReflectanceH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::MitsubaExtraFactor)]._const_cast();
+								reflectanceMul->rhs = artificialReflectanceH;
+							}
+						}
+						mul->rhs = reflectanceMulH;
+					}
+				}
+				return {.top=handle,.trans=trans};
 			}
 			default:
 				assert(false); // we shouldn't get this case here
@@ -568,7 +690,24 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	// Post-order Depth First Traversal (create children first, then create parent)
 	if (bsdf->isMeta()) // TODO: temporary
 		return {};
-	frontPool.deref(rootH)->brdfTop = createMistubaLeaf();
+	auto* const layer = frontPool.deref(rootH);
+	{
+		const SLeaf leaf = createMistubaLeaf(bsdf);
+		layer->brdfTop = leaf.top;
+		layer->btdf = leaf.trans;
+	}
+	// handle BTDF and bottom BRDF layer
+	switch (bsdf->type)
+	{
+			case CElementBSDF::DIELECTRIC: [[fallthrough]];
+			case CElementBSDF::THINDIELECTRIC: [[fallthrough]];
+			case CElementBSDF::ROUGHDIELECTRIC:
+				// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
+				layer->brdfBottom = layer->brdfTop;
+				break;
+			default:
+				break;
+	}
 #if 0
 	core::stack<const CElementBSDF*> stack;
 	stack.push(bsdf);
@@ -887,6 +1026,7 @@ SContext::SContext(
 		{
 #define ADD_DEBUG_NODE(NAME) commonDebugNames[uint16_t(ECommonDebug::NAME)] = frontPool.emplace<frontend_ir_t::CDebugInfo>(#NAME)
 			ADD_DEBUG_NODE(Albedo);
+			ADD_DEBUG_NODE(MitsubaExtraFactor);
 #undef ADD_DEBUG_NODE
 		}
 	}

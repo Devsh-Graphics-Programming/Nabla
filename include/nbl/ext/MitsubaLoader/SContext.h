@@ -150,6 +150,7 @@ struct SContext final
 		enum class ECommonDebug : uint16_t
 		{
 			Albedo,
+			MitsubaExtraFactor,
 			Count
 		};
 		frontend_ir_t::obj_pool_type::typed_pointer_type<const frontend_ir_t::CDebugInfo> commonDebugNames[uint16_t(ECommonDebug::Count)];
