@@ -743,6 +743,15 @@ class CFrontendIR final : public CNodePool
 		// To quickly make a matching backface material from a frontface or vice versa
 		NBL_API2 typed_pointer_type<IExprNode> reciprocate(const typed_pointer_type<const IExprNode> other);
 		NBL_API2 typed_pointer_type<CFresnel> createNamedFresnel(const std::string_view name);
+		inline typed_pointer_type<CFresnel> createConstantMonochromeRealFresnel(const hlsl::float32_t orientedRealEta)
+		{
+			const auto fresnelH = getObjectPool().emplace<CFresnel>();
+			CSpectralVariable::SCreationParams<1> params = {};
+			params.knots.params[0].scale = orientedRealEta;
+			if (auto* const fresnel=getObjectPool().deref(fresnelH); fresnel)
+				fresnel->orientedRealEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
+			return fresnelH;
+		}
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.

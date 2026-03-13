@@ -418,6 +418,7 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 		SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename,/*ICPUScene::MATERIAL_IMAGES_HIERARCHY_LEVELS_BELOW*/1);
 		if (auto contents=viewBundle.getContents(); !contents.empty())
 		{
+			retval.view = IAsset::castDown<const ICPUImageView>(*contents.begin());
 			if (bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
 				retval.viewChannel = bitmap.channel-CElementTexture::Bitmap::CHANNEL::R;
 			// get sampler parameters
@@ -618,17 +619,86 @@ auto SContext::genProfile(const CElementEmissionProfile* profile) -> frontend_ir
 auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter) -> frontend_material_t
 {
 	auto& frontPool = frontIR->getObjectPool();
+	auto logger = inner.params.logger;
+	const core::string debugName = bsdf->id.empty() ? std::format("0x{:x}",ptrdiff_t(bsdf)):bsdf->id;
+	
+	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& factor, const ECommonDebug debug)->auto
+	{
+		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
+		auto* mul = frontPool.deref(mulH);
+		spectral_var_t::SCreationParams<3> params = {};
+		params.knots.uvTransform = getParameters(params.knots.params,factor);
+		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+		const auto factorH = frontPool.emplace<spectral_var_t>(std::move(params));
+		frontPool.deref(factorH)->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
+		mul->rhs = factorH;
+		return mulH;
+	};
+	auto createCookTorrance = [&](const CElementBSDF::RoughSpecularBase* base, const frontend_ir_t::typed_pointer_type<frontend_ir_t::CFresnel> fresnelH, const CElementTexture::SpectrumOrTexture& specularReflectance)->auto
+	{
+		const auto handle = createFactorNode(specularReflectance,ECommonDebug::MitsubaExtraFactor);
+		// rhs already filled, waiting for contributor in lhs subtree
+		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
+		frontPool.deref(handle)->lhs = mulH;
+		{
+			auto* mul = frontPool.deref(mulH);
+			const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
+			{
+				using ndf_e = frontend_ir_t::CCookTorrance::NDF;
+				constexpr ndf_e ndfMap[4] = {
+					ndf_e::Beckmann,
+					ndf_e::GGX,
+					ndf_e::Beckmann, // Phong can be mapped to Beckmann
+					ndf_e::Beckmann // Ahskhmin is Ani Beckmann last I remember
+				};
+				auto* const ct = frontPool.deref(ctH);
+				auto roughness = ct->ndParams.getRougness();
+				if (base)
+				{
+					// ct->orientedRealEta gets set in the fresnel part
+					ct->ndf = ndfMap[base->distribution];
+					// this function sets both roughnesses to same alpha
+					ct->ndParams.uvTransform = getParameters(roughness,base->alpha);
+					if (base->alphaV.texture || !hlsl::isnan(base->alphaV.value))
+					{
+						// TODO: check if UV transform is the same and warn if not
+						getParameters({roughness.data()+1,1},base->alphaV);
+					}
+				}
+				else
+					roughness[0].scale = roughness[1].scale = 0.f;
+				// can only be set to monochrome 
+				if (const auto& orientedRealEta=frontPool.deref(fresnelH)->orientedRealEta; frontPool.deref(orientedRealEta)->getKnotCount()==1)
+					ct->orientedRealEta = orientedRealEta;
+			}
+			// cook torrance goes in most lhs side
+			mul->lhs = ctH;
+			mul->rhs = fresnelH;
+		}
+		return handle;
+	};
+	auto createOrenNayar = [&](const CElementTexture::SpectrumOrTexture& albedo, const CElementTexture::FloatOrTexture& alphaU, const CElementTexture::FloatOrTexture& alphaV)->auto
+	{
+		const auto mulH = createFactorNode(albedo,ECommonDebug::Albedo);
+		{
+			const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
+			auto* orenNayar = frontPool.deref(orenNayarH);
+			// TODO: factor this out between Oren-Nayar and Cook Torrance
+			auto roughness = orenNayar->ndParams.getRougness();
+			orenNayar->ndParams.uvTransform = getParameters(roughness,alphaU);
+			if (alphaV.texture || !hlsl::isnan(alphaV.value))
+			{
+				// TODO: check if UV transform is the same and warn if not
+				getParameters({roughness.data()+1,1},alphaV);
+			}
+			frontPool.deref(mulH)->lhs = orenNayarH;
+		}
+		return mulH;
+	};
 
 	// the layer returned will never have a bottom BRDF
 	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
 	{
-		using ndf_e = frontend_ir_t::CCookTorrance::NDF;
-        constexpr ndf_e ndfMap[4] = {
-			ndf_e::Beckmann,
-			ndf_e::GGX,
-			ndf_e::Beckmann, // Phong can be mapped to Beckmann
-			ndf_e::Beckmann // Ahskhmin is Ani Beckmann last I remember
-        };
 		auto retval = frontPool.emplace<frontend_ir_t::CLayer>();
 		auto* const leaf = frontPool.deref(retval);
 		switch (_bsdf->type)
@@ -670,203 +740,118 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			case CElementBSDF::CONDUCTOR: [[fallthrough]];
 			case CElementBSDF::ROUGHCONDUCTOR:
 			{
-				const auto handle = frontPool.emplace<frontend_ir_t::CMul>();
-				frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> trans = {};
+				const bool isConductor = _bsdf->type==CElementBSDF::CONDUCTOR || _bsdf->type==CElementBSDF::ROUGHCONDUCTOR;
+				// figure out the rough base to use
+				const CElementBSDF::RoughSpecularBase* rough = nullptr;
+				switch (_bsdf->type)
 				{
-					const bool isConductor = _bsdf->type==CElementBSDF::CONDUCTOR || _bsdf->type==CElementBSDF::ROUGHCONDUCTOR;
-					// beautiful thing we can reuse the same nodes for a transmission function without touching Etas or anything!
-					if (!isConductor)
-						trans = handle;
-					//
-					auto* mul = frontPool.deref(handle);
-					const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
-					auto* const ct = frontPool.deref(ctH);
+					case CElementBSDF::THINDIELECTRIC: [[fallthrough]];
+					case CElementBSDF::ROUGHDIELECTRIC:
+						rough = &_bsdf->dielectric;
+						break;
+					case CElementBSDF::ROUGHCONDUCTOR:
+						rough = &_bsdf->conductor;
+						break;
+				}
+				// the fresnels
+				frontend_ir_t::typed_pointer_type<frontend_ir_t::CFresnel> fresnelH;
+				if (isConductor)
+				{
+					fresnelH = frontPool.emplace<frontend_ir_t::CFresnel>();
+					auto* const fresnel = frontPool.deref(fresnelH);
+					const float extEta = _bsdf->conductor.extEta;
 					{
-						auto roughness = ct->ndParams.getRougness();
-						if (_bsdf->type==CElementBSDF::ROUGHCONDUCTOR)
-						{
-							const CElementBSDF::RoughSpecularBase* rough = &_bsdf->dielectric;
-							if (isConductor)
-								rough = &_bsdf->conductor;
-							// ct->orientedRealEta gets set in the fresnel part
-							ct->ndf = ndfMap[rough->distribution];
-							ct->ndParams.uvTransform = getParameters(roughness,rough->alphaU);
-							if (rough->alphaV.texture || !hlsl::isnan(rough->alphaV.value))
-								getParameters(roughness,rough->alphaU);
-							else
-								roughness[1] = roughness[0];
-						}
-						else
-							roughness[0].scale = roughness[1].scale = 0.f;
-						mul->lhs = ctH;
+						spectral_var_t::SCreationParams<3> params = {};
+						const hlsl::float32_t3 eta = _bsdf->conductor.eta.vvalue.xyz;
+						MitsubaLoader::getParameters<3>(params.knots.params,eta/extEta);
+						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+						fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
 					}
-					// Now the fresnels
-					// do the artificial Mitsuba factor
 					{
-						const auto reflectanceMulH = frontPool.emplace<frontend_ir_t::CMul>();
-						{
-							auto* const reflectanceMul = frontPool.deref(reflectanceMulH);
-							{
-								const auto fresnelH = frontPool.emplace<frontend_ir_t::CFresnel>();
-								auto* const fresnel = frontPool.deref(fresnelH);
-								if (isConductor)
-								{
-									const float extEta = _bsdf->conductor.extEta;
-									{
-										spectral_var_t::SCreationParams<3> params = {};
-										const hlsl::float32_t3 eta = _bsdf->conductor.eta.vvalue.xyz;
-										MitsubaLoader::getParameters<3>(params.knots.params,eta/extEta);
-										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-										fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
-									}
-									{
-										spectral_var_t::SCreationParams<3> params = {};
-										const hlsl::float32_t3 k = _bsdf->conductor.k.vvalue.xyz;
-										MitsubaLoader::getParameters<3>(params.knots.params,k/extEta);
-										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-										fresnel->orientedImagEta = frontPool.emplace<spectral_var_t>(std::move(params));
-									}
-								}
-								else
-								{
-									spectral_var_t::SCreationParams<1> params = {};
-									params.knots.params[0].scale = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
-									ct->orientedRealEta = fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
-								}
-								reflectanceMul->lhs = fresnelH;
-								// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
-								if (_bsdf->type==CElementBSDF::THINDIELECTRIC)
-								{
-									const auto btdfH = frontPool.emplace<frontend_ir_t::CMul>();
-									{
-										auto* mul = frontPool.deref(btdfH);
-										// apply energy conserving correction
-										const auto thinInfiniteScatterH = frontPool.emplace<frontend_ir_t::CThinInfiniteScatterCorrection>();
-										{
-											auto* thinInfiniteScatter = frontPool.deref(thinInfiniteScatterH);
-											thinInfiniteScatter->reflectanceTop = fresnelH;
-											thinInfiniteScatter->reflectanceBottom = fresnelH;
-											// TODO: extinction
-										}
-										mul->lhs = deltaTransmission._const_cast();
-										mul->rhs = thinInfiniteScatterH;
-									}
-									trans = btdfH;
-								}
-							}
-							{
-								spectral_var_t::SCreationParams<3> params = {};
-								if (isConductor)
-									params.knots.uvTransform = getParameters(params.knots.params,_bsdf->conductor.specularReflectance);
-								else // we'll do the specularTransmittance on the btdf stack element when cloning
-									params.knots.uvTransform = getParameters(params.knots.params,_bsdf->dielectric.specularReflectance);
-								params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-								const auto artificialReflectanceH = frontPool.emplace<spectral_var_t>(std::move(params));
-								frontPool.deref(artificialReflectanceH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::MitsubaExtraFactor)]._const_cast();
-								reflectanceMul->rhs = artificialReflectanceH;
-							}
-						}
-						mul->rhs = reflectanceMulH;
+						spectral_var_t::SCreationParams<3> params = {};
+						const hlsl::float32_t3 k = _bsdf->conductor.k.vvalue.xyz;
+						MitsubaLoader::getParameters<3>(params.knots.params,k/extEta);
+						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+						fresnel->orientedImagEta = frontPool.emplace<spectral_var_t>(std::move(params));
 					}
 				}
-				leaf->brdfTop = handle;
-				leaf->btdf = trans;
+				else
+					fresnelH = frontIR->createConstantMonochromeRealFresnel(_bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR);
+				const auto brdfH = createCookTorrance(rough,fresnelH,isConductor ? _bsdf->conductor.specularReflectance:_bsdf->dielectric.specularReflectance);
+				leaf->brdfTop = brdfH;
+				if (!isConductor)
+				{
+					// want a specularTransmittance instead of SpecularReflectance factor
+					const auto btdfH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					{
+						const auto* const brdf = frontPool.deref(brdfH);
+						auto* const btdf = frontPool.deref(btdfH);
+						// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
+						if (_bsdf->type==CElementBSDF::THINDIELECTRIC)
+						{
+							const auto correctedTransmissionH = frontPool.emplace<frontend_ir_t::CMul>();
+							{
+								auto* mul = frontPool.deref(correctedTransmissionH);
+								// apply energy conserving correction
+								const auto thinInfiniteScatterH = frontPool.emplace<frontend_ir_t::CThinInfiniteScatterCorrection>();
+								{
+									auto* thinInfiniteScatter = frontPool.deref(thinInfiniteScatterH);
+									thinInfiniteScatter->reflectanceTop = fresnelH;
+									thinInfiniteScatter->reflectanceBottom = fresnelH;
+									// TODO: extinction
+								}
+								mul->lhs = deltaTransmission._const_cast();
+								mul->rhs = thinInfiniteScatterH;
+							}
+							// we're rethreading the fresnel here
+							btdf->lhs = correctedTransmissionH;
+						}
+						else // beautiful thing we can reuse the same nodes for a transmission function without touching Etas or anything!
+							btdf->lhs = brdf->lhs;
+					}
+					leaf->btdf = btdfH;
+				}
 				break;
 			}
-#if 0 // TODO
 			case CElementBSDF::PLASTIC: [[fallthrough]];
 			case CElementBSDF::ROUGHPLASTIC:
 			{
-#if 0
-				const float eta = _bsdf->plastic.intIOR/_bsdf->plastic.extIOR;
-
-				coat->eta = IR::INode::color_t(eta);
-				if (type == CElementBSDF::ROUGHPLASTIC)
-				{
-					coat->ndf = ndfMap[_bsdf->plastic.distribution];
-					getFloatOrTexture(_bsdf->plastic.alphaU, coat->alpha_u);
-					if (coat->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-						getFloatOrTexture(_bsdf->plastic.alphaV, coat->alpha_v);
-					else
-						coat->alpha_v = coat->alpha_u;
-				}
-				else coat->setSmooth();
-
-				auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
-				getSpectrumOrTexture(_bsdf->plastic.diffuseReflectance, node_diffuse->reflectance);
-				node_diffuse->alpha_u = coat->alpha_u;
-				node_diffuse->alpha_v = coat->alpha_v;
-				node_diffuse->eta = coat->eta;
-#endif
-				const auto fresnelH = frontPool.emplace<frontend_ir_t::CFresnel>();
-				{
-					auto* fresnel = frontPool.deref(fresnelH);
-					spectral_var_t::SCreationParams<1> params = {};
-					params.knots.params[0].scale = 1.5f;
-					fresnel->orientedRealEta = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
-				}
-				//
-				const auto dielectricH = frontPool.emplace<frontend_ir_t::CMul>();
-				{
-					auto* mul = frontPool.deref(dielectricH);
-					// do fresnel first
-					auto* fresnel = frontPool.deref(fresnelH);
-					mul->rhs = fresnelH;
-					// BxDF always goes in left hand side of Mul
-					{
-						const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
-						auto* ct = frontPool.deref(ctH);
-						ct->ndParams.getRougness()[0].scale = ct->ndParams.getRougness()[1].scale = 0.05f;
-						// ignored for BRDFs, needed for BTDFs
-						ct->orientedRealEta = fresnel->orientedRealEta;
-						mul->lhs = ctH;
-					}
-				}
+				const auto fresnelH = frontIR->createConstantMonochromeRealFresnel(_bsdf->plastic.intIOR/_bsdf->plastic.extIOR);
+				const auto dielectricH = createCookTorrance(_bsdf->type==CElementBSDF::ROUGHPLASTIC ? &_bsdf->plastic:nullptr,fresnelH,_bsdf->plastic.specularReflectance);
 				leaf->brdfTop = dielectricH;
 				const auto transH = frontPool.emplace<frontend_ir_t::CMul>();
 				{
 					auto* const mul = frontPool.deref(transH);
 					mul->lhs = deltaTransmission._const_cast();
-					mul->rhs = fresnelH;
+					const auto transmittanceH = createFactorNode(_bsdf->plastic.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					frontPool.deref(transmittanceH)->lhs = fresnelH;
+					mul->rhs = transmittanceH;
 				}
 				leaf->btdf = transH;
 				const auto substrateH = frontPool.emplace<frontend_ir_t::CLayer>();
 				{
+					// TODO: `_bsdf->plastic.nonlinear` , do we use beer?
 					auto* const substrate = frontPool.deref(substrateH);
-					const auto roughDiffuseH = frontPool.emplace<frontend_ir_t::CMul>();
-					{
-						auto* mul = frontPool.deref(roughDiffuseH);
-						// TODO
-					}
-					substrate->brdfTop = roughDiffuseH;
+					substrate->brdfTop = createOrenNayar(_bsdf->plastic.diffuseReflectance,_bsdf->plastic.alphaU,_bsdf->plastic.alphaV);
 				}
 				leaf->coated = substrateH;
+				break;
 			}
-#endif
+			case CElementBSDF::PHONG:
+				logger.log("Failed to Create a Phong BxDF for Material for %s, Phong is Unsupported",LoggerError,debugName.c_str());
+				leaf->brdfTop = unsupportedPhong;
+				break;
+			case CElementBSDF::WARD:
+				logger.log("Failed to Create a Ward BxDF for Material for %s, Ward is Unsupported",LoggerError,debugName.c_str());
+				leaf->brdfTop = unsupportedWard;
+				break;
 			case CElementBSDF::DIFFUSE_TRANSMITTER:
 			{
 				const auto diffTransH = frontPool.emplace<frontend_ir_t::CMul>();
 				{
 					auto* mul = frontPool.deref(diffTransH);
-					{
-						const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
-						auto* orenNayar = frontPool.deref(orenNayarH);
-						auto roughness = orenNayar->ndParams.getRougness();
-						roughness[0].scale = roughness[1].scale = 0.f;
-						mul->lhs = orenNayarH;
-					}
-					// another mul node
-					const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
-					mul->rhs = mulH;
-					mul = frontPool.deref(mulH);
-					{
-						spectral_var_t::SCreationParams<3> params = {};
-						params.knots.uvTransform = getParameters(params.knots.params,_bsdf->difftrans.transmittance);
-						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
-						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
-						mul->lhs = albedoH;
-					}
+					const CElementTexture::FloatOrTexture constZero = {0.f};
+					mul->lhs = createOrenNayar(_bsdf->difftrans.transmittance,constZero,constZero);
 					// normalize the Oren Nayar over the full sphere
 					{
 						spectral_var_t::SCreationParams<1> params = {};
@@ -879,7 +864,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				break;
 			}
 			default:
-//				assert(false); // we shouldn't get this case here
+				assert(false); // we shouldn't get this case here
 				return {};
 		}
 		assert(!leaf->brdfBottom);
@@ -905,14 +890,12 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	}
 #endif
 
-	const core::string debugName = bsdf->id.empty() ? std::format("0x{:x}",ptrdiff_t(bsdf)):bsdf->id;
 	{
 		auto* const root = frontPool.deref(rootH);
 		root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
 	}
 
 	const bool success = frontIR->addMaterial(rootH,inner.params.logger);
-	auto logger = inner.params.logger;
 	if (!success)
 	{
 		logger.log("Failed to add Material for %s",LoggerError,debugName.c_str());
@@ -1042,6 +1025,27 @@ SContext::SContext(
 		//
 		{
 			deltaTransmission = frontPool.emplace<frontend_ir_t::CDeltaTransmission>();
+			const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
+			{
+				auto* const mul = frontPool.deref(mulH);
+				mul->lhs = frontPool.emplace<frontend_ir_t::COrenNayar>();
+				spectral_var_t::SCreationParams<3> params = {};
+				MitsubaLoader::getParameters<3>(params.knots.params,{1.f,0.f,1.f});
+				params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+				mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
+			}
+			errorBRDF = mulH;
+			auto constructUnsupported = [&](const std::string_view debugName)->auto
+			{
+				const auto rootH = frontPool.emplace<frontend_ir_t::CLayer>();
+				auto* const root = frontPool.deref(rootH);
+				root->brdfTop = errorBRDF._const_cast();
+				root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
+				return rootH;
+			};
+			unsupportedPhong = constructUnsupported("UNSUPPORTED Phong");
+			unsupportedWard = constructUnsupported("UNSUPPORTED Ward");
+
 		}
 		// debug names
 		{
