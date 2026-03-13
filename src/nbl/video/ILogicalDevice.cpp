@@ -298,6 +298,38 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
     return true;
 }
 
+core::smart_refctd_ptr<IGPUBuffer> ILogicalDevice::createBuffer(IGPUBuffer::SCreationParams&& creationParams)
+{
+    const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
+    if (creationParams.size > maxSize)
+    {
+        m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!", system::ILogger::ELL_ERROR, creationParams.size, this, maxSize);
+        return nullptr;
+    }
+
+    bool dedicatedOnly = false;
+    if (creationParams.externalHandleTypes.value)
+    {
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
+
+        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) != -1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << idx);
+            requestedTypes ^= handleType;
+
+            auto props = m_physicalDevice->getExternalBufferProperties(creationParams.usage, handleType);
+
+            if (!core::bitflag(props.compatibleTypes).hasFlags(creationParams.externalHandleTypes))
+            {
+              m_logger.log("Failed to create Buffer, Incompatible external handle type", system::ILogger::ELL_ERROR);
+              return nullptr;
+            }
+
+            dedicatedOnly |= (props.features & IPhysicalDevice::EEMF_DEDICATED_ONLY_BIT);
+        }
+    }
+    return createBuffer_impl(std::move(creationParams), dedicatedOnly);
+}
 
 IQueue::RESULT ILogicalDevice::waitIdle()
 {

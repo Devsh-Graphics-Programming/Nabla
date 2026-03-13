@@ -331,21 +331,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Descriptor Creation
         // Buffer (@see ICPUBuffer)
-        inline core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
-        {
-            const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
-            if (creationParams.size>maxSize)
-            {
-                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%u)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
-                return nullptr;
-            }
-            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
-            {
-                m_logger.log("Failed to create Buffer, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
-                return nullptr;
-            }
-            return createBuffer_impl(std::move(creationParams));
-        }
+        inline core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams);
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
         core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt);
         // Creates an Image (@see ICPUImage)

@@ -301,9 +301,15 @@ bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBin
 
 core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly)
 {
+
+    VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
+       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+       .handleTypes = creationParams.externalHandleTypes.value,
+    };
+
     VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     // VkBufferDeviceAddressCreateInfoEXT, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-    vk_createInfo.pNext = nullptr;
+    vk_createInfo.pNext = creationParams.externalHandleTypes.value ? &externalMemoryInfo : nullptr;
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
     vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
     vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
