@@ -639,7 +639,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             return std::span<const SQueueFamilyProperties>(m_initData.qfamProperties->data(),m_initData.qfamProperties->data()+m_initData.qfamProperties->size());
         }
 
-        enum class E_EXTERNAL_MEMORY_FEATURE_FLAGS : uint32_t
+        enum E_EXTERNAL_MEMORY_FEATURE_FLAGS : uint32_t
         {
           EEMF_NONE = 0x0,
           EEMF_DEDICATED_ONLY_BIT = 0x1,
