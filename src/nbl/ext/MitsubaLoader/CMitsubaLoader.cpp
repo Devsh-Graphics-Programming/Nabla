@@ -259,6 +259,10 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		{
 			return this->interm_getAssetInHierarchy(filename,ctx.inner.params,_hierarchyLevel+hierarchyOffset,ctx.override_);
 		};
+		ctx.interm_getImageViewInHierarchy = [&](const char* filename, const uint16_t hierarchyOffset)->SAssetBundle
+		{
+			return this->interm_getImageViewInHierarchy<std::string>(filename,ctx.inner.params,_hierarchyLevel+hierarchyOffset,ctx.override_);
+		};
 		//
 		ctx.scene->m_ambientLight = result.ambient;
 
@@ -448,7 +452,7 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 	{
 		assert(tex->type==CElementTexture::Type::BITMAP);
 		const auto& bitmap = tex->bitmap;
-		SAssetBundle viewBundle = {};// interm_getImageViewInHierarchy(tex->bitmap.filename,/*ICPUScene::MATERIAL_IMAGES_HIERARCHY_LEVELS_BELOW*/1);
+		SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename,/*ICPUScene::MATERIAL_IMAGES_HIERARCHY_LEVELS_BELOW*/1);
 		if (auto contents=viewBundle.getContents(); !contents.empty())
 		{
 			if (bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
@@ -498,9 +502,6 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 			// TODO: embed the gamma in the material compiler Frontend
 			// or adjust gamma on pixels (painful and long process)
 			assert(std::isnan(bitmap.gamma));
-			{
-				_NBL_DEBUG_BREAK_IF(true);
-			}
 			auto& transform = *outUvTransform;
 			transform[0][0] = bitmap.uscale;
 			transform[0][2] = bitmap.uoffset;
@@ -915,7 +916,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				break;
 			}
 			default:
-				assert(false); // we shouldn't get this case here
+//				assert(false); // we shouldn't get this case here
 				return {};
 		}
 		assert(!leaf->brdfBottom);
@@ -926,6 +927,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	if (bsdf->isMeta()) // TODO: temporary
 		return {};
 	const auto rootH = createMistubaLeaf(bsdf);
+	if (!rootH)
+		return {};
 	// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
 
 #if 0

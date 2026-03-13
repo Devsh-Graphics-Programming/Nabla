@@ -51,6 +51,7 @@ struct SContext final
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		std::function<interm_getAssetInHierarchy_t> interm_getAssetInHierarchy;
+		std::function<interm_getAssetInHierarchy_t> interm_getImageViewInHierarchy;
 		CMitsubaMetadata* meta;
 		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
