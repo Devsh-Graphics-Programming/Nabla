@@ -770,7 +770,7 @@ class CFrontendIR final : public CNodePool
 				}
 			
 				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
-				// TODO: track layering depth and indent accordingly?
+				// TODO: track layering depth and indent  accordingly?
 				core::vector<typed_pointer_type<const CLayer>> layerStack;
 				core::stack<typed_pointer_type<const IExprNode>> exprStack;
 			private:
