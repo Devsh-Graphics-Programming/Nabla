@@ -280,8 +280,12 @@ class SimpleBlockBasedAllocator<AddressAllocator,void*> final : protected BlockB
 		inline void	deallocate(void* p, const size_type bytes) noexcept
 		{
 			assert(m_blocks.size()>=base_t::m_initBlockCount);
-			auto found = m_blocks.lower_bound(reinterpret_cast<block_t*>(p));
-			assert(found!=m_blocks.end());
+			// pointer can be in the block, but will be past the (block start is in the block)
+			auto found = m_blocks.upper_bound(reinterpret_cast<block_t*>(p));
+			assert(found!=m_blocks.begin());
+			// need to rewind by one
+			found--;
+			// and now we've got our block
 			auto* block = *found;
 			uint8_t* blockData = block->data(base_t::m_blockCreationParams);
 			assert(blockData<=p && p<blockData+base_t::m_blockCreationParams.blockSize);
