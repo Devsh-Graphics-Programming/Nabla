@@ -186,8 +186,12 @@ class ICPUScene final : public IAsset, public IScene
 
                 virtual inline instance_flags_t getInstanceFlags(const uint32_t instanceIx, const ICPUMorphTargets::index_t targetIx)
                 {
+                    core::bitflag retval = instance_flags_t::TRIANGLE_FACING_CULL_DISABLE_BIT;
+                    // you probably want this
+                    if (hlsl::determinant(hlsl::math::linalg::truncate<3,3>(getTransform(instanceIx,targetIx)))<0.f)
+                        retval |= instance_flags_t::TRIANGLE_FLIP_FACING_BIT;
                     // TODO: could derive from the material table if we want FORCE_OPAQUE_BIT or FORCE_NO_OPAQUE_BIT but its a whole instance thing
-                    return instance_flags_t::TRIANGLE_FACING_CULL_DISABLE_BIT;
+                    return retval.value;
                 }
 
                 virtual inline uint32_t getInstanceIndex(const uint32_t instanceIx, const ICPUMorphTargets::index_t targetIx) {return instanceIx;}

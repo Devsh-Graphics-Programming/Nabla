@@ -48,8 +48,6 @@ class CMitsubaLoader final : public asset::ISceneLoader
 		virtual ~CMitsubaLoader() = default;
 
 #if 0
-		void cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
-
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
 #endif

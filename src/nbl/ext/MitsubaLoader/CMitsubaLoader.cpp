@@ -29,27 +29,6 @@ namespace ext::MitsubaLoader
 {
 
 #if 0 // old material compiler
-_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
-R"(
-vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
-{
-	vec3 campos = ....;
-	return normalize(campos - WorldPos);
-}
-vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
-{
-	return normalize(Normal);
-}
-
-mat2x3 nbl_glsl_perturbNormal_dPdSomething()
-{
-	return mat2x3(dFdx(WorldPos),dFdy(WorldPos));
-}
-mat2 nbl_glsl_perturbNormal_dUVdSomething()
-{
-    return mat2(dFdx(UV),dFdy(UV));
-}
-)";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #ifndef _NBL_BSDF_COS_EVAL_DEFINED_
 #define _NBL_BSDF_COS_EVAL_DEFINED_
@@ -104,19 +83,6 @@ void main()
 }
 #endif
 )";
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
-{
-	std::string source =
-		FRAGMENT_SHADER_PROLOGUE +
-		_mcRes.fragmentShaderSource_declarations +
-		FRAGMENT_SHADER_INPUT_OUTPUT +
-		"#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility.glsl/" + std::to_string(_VTstorageViewCount) + ">" +
-		FRAGMENT_SHADER_DEFINITIONS +
-		_mcRes.fragmentShaderSource +
-		FRAGMENT_SHADER_IMPL;
-
-	return createSpecShader(source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
-}
 // TODO: move to IAssetLoader
 static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, const ICPUSampler::SParams& _samplerParams, bool fromNormalMap)
 {
@@ -142,11 +108,8 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 
 	return derivmap_img;
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const asset::ICPUImage* _img, const asset::ICPUImageView::SComponentMapping::E_SWIZZLE srcChannel)
-{
-	// deprecated will be expressed in Material Compiler Frontend AST as a swizzle
-}
 #endif
+
 constexpr auto LoggerError = system::ILogger::ELL_ERROR;
 
 bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
@@ -216,7 +179,7 @@ void SContext::writeDot3File(system::ISystem* system, const system::path& filepa
 	}
 	if (!file)
 	{
-		inner.params.logger.log("Failed to Open \"%s\" for writing",system::ILogger::ELL_ERROR,filepath.c_str());
+		inner.params.logger.log("Failed to Open \"%s\" for writing",LoggerError,filepath.c_str());
 		return;
 	}
 	auto str = printer();
@@ -304,7 +267,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			instances.resize(index+1,true);
 			instances.getMorphTargets()[index] = core::smart_refctd_ptr<ICPUMorphTargets>(const_cast<ICPUMorphTargets*>(targets.get()));
 			if (shape->transform.matrix[3]!=float32_t4(0,0,0,1))
-				_params.logger.log("Shape with id %s has Non-Affine transformation matrix, last row is not 0,0,0,1!",system::ILogger::ELL_ERROR,shape->id.c_str());
+				_params.logger.log("Shape with id %s has Non-Affine transformation matrix, last row is not 0,0,0,1!",LoggerError,shape->id.c_str());
 			instances.getInitialTransforms()[index] = shape->getTransform();
 			//
 			const core::string debugName = shape->id.empty() ? std::format("0x{:x}",ptrdiff_t(shape)):shape->id;
@@ -426,7 +389,7 @@ auto SContext::getMaterial(
 	auto logger = inner.params.logger;
 	if (!success)
 	{
-		logger.log("Failed to add Material for %s",system::ILogger::ELL_ERROR,debugName.c_str());
+		logger.log("Failed to add Material for %s",LoggerError,debugName.c_str());
 		return {};
 	}
 	else if (debugFileWriter)
@@ -509,10 +472,10 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 			transform[1][2] = bitmap.voffset;
 		}
 		else
-			inner.params.logger.log("Failed to load bitmap texture for %p with id %s",system::ILogger::ELL_ERROR,tex,tex ? tex->id.c_str():"");
+			inner.params.logger.log("Failed to load bitmap texture for %p with id %s",LoggerError,tex,tex ? tex->id.c_str():"");
 	}
 	else
-		inner.params.logger.log("Failed to unroll texture scale for %p with id %s",system::ILogger::ELL_ERROR,rootTex,rootTex ? rootTex->id.c_str():"");
+		inner.params.logger.log("Failed to unroll texture scale for %p with id %s",LoggerError,rootTex,rootTex ? rootTex->id.c_str():"");
 	if (!retval.view) // set a clear error value
 		retval.scale = std::numeric_limits<decltype(retval.scale)>::signaling_NaN();
 	return retval;
@@ -623,7 +586,7 @@ auto SContext::genProfile(const CElementEmissionProfile* profile) -> frontend_ir
 			iesMeta = meta->selfCast<const CIESProfileMetadata>();
 		if (!iesMeta)
 		{
-			inner.params.logger.log("Could Load Emission Profile from \"%s\" or its not an IES profile!",system::ILogger::ELL_ERROR,profile->filename);
+			inner.params.logger.log("Could Load Emission Profile from \"%s\" or its not an IES profile!",LoggerError,profile->filename);
 			return retval;
 		}
 		assert(assetLoaded.getAssetType()==IAsset::ET_IMAGE_VIEW);
@@ -952,7 +915,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	auto logger = inner.params.logger;
 	if (!success)
 	{
-		logger.log("Failed to add Material for %s",system::ILogger::ELL_ERROR,debugName.c_str());
+		logger.log("Failed to add Material for %s",LoggerError,debugName.c_str());
 		return {};
 	}
 	else if (debugFileWriter)
@@ -1100,7 +1063,7 @@ auto SContext::loadShapeGroup(const CElementShape* shape) -> SContext::shape_ass
 	
 	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
 	if (!collection)
-		inner.params.logger.log("Failed to create an ICPUGeometryCollection for Shape Group",system::ILogger::ELL_ERROR);
+		inner.params.logger.log("Failed to create an ICPUGeometryCollection for Shape Group",LoggerError);
 	else
 	{
 		auto* geometries = collection->getGeometries();
@@ -1302,6 +1265,7 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 			addGeometry({.geometry=creator->createDisk(1.f,64)});
 			break;
 		case CElementShape::Type::OBJ:
+			assert(false);
 #if 0 // TODO: Arek
 			mesh = loadModel(shape->obj.filename);
 			flipNormals = flipNormals!=shape->obj.flipNormals;
@@ -1363,7 +1327,7 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 	// handle fail
 	if (pGeometries->empty())
 	{
-		inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",system::ILogger::ELL_ERROR,shape->id.c_str());
+		inner.params.logger.log("Failed to Load/Create Basic non-Instanced Shape with id %s",LoggerError,shape->id.c_str());
 		return nullptr;
 	}
 
