@@ -29,14 +29,8 @@ class CMitsubaMaterialCompilerFrontend
             EIVS_COUNT
         };
 
-        front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
-
     private:
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
-
-        const SContext* m_loaderContext;
-
-        std::pair<const CElementTexture*,float> unwindTextureScale(const CElementTexture* _element) const;
 
         tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
 #endif

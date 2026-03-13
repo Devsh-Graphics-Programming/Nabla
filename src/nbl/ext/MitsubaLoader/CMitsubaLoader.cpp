@@ -437,61 +437,138 @@ auto SContext::getMaterial(
 
 
 using parameter_t = asset::material_compiler3::CFrontendIR::SParameter;
-using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariable;
+parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::float32_t2x3* outUvTransform)
+{
+	parameter_t retval = {};
+	// unroll scale
+	const CElementTexture* tex = rootTex;
+	for (retval.scale=1.f; tex && tex->type==CElementTexture::Type::SCALE; tex=tex->scale.texture)
+		retval.scale *= tex->scale.scale;
+	if (tex)
+	{
+		assert(tex->type==CElementTexture::Type::BITMAP);
+		const auto& bitmap = tex->bitmap;
+		SAssetBundle viewBundle = {};// interm_getImageViewInHierarchy(tex->bitmap.filename,/*ICPUScene::MATERIAL_IMAGES_HIERARCHY_LEVELS_BELOW*/1);
+		if (auto contents=viewBundle.getContents(); !contents.empty())
+		{
+			if (bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
+				retval.viewChannel = bitmap.channel-CElementTexture::Bitmap::CHANNEL::R;
+			// get sampler parameters
+			using tex_clamp_e = asset::ISampler::E_TEXTURE_CLAMP;
+			auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
+			{
+				switch (mode)
+				{
+					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
+						return tex_clamp_e::ETC_CLAMP_TO_EDGE;
+						break;
+					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
+						return tex_clamp_e::ETC_MIRROR;
+						break;
+					case CElementTexture::Bitmap::WRAP_MODE::ONE:
+						assert(false); // TODO : replace whole texture?
+						break;
+					case CElementTexture::Bitmap::WRAP_MODE::ZERO:
+						assert(false); // TODO : replace whole texture?
+						break;
+					default:
+						break;
+				}
+				return tex_clamp_e::ETC_REPEAT;
+			};
+			auto& params = retval.sampler;
+			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
+			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
+			switch (bitmap.filterType)
+			{
+				case CElementTexture::Bitmap::FILTER_TYPE::EWA:
+					[[fallthrough]]; // we dont support this fancy stuff
+				case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
+					params.MinFilter = ISampler::ETF_LINEAR;
+					params.MaxFilter = ISampler::ETF_LINEAR;
+					params.MipmapMode = ISampler::ESMM_LINEAR;
+					break;
+				default:
+					params.MinFilter = ISampler::ETF_NEAREST;
+					params.MaxFilter = ISampler::ETF_NEAREST;
+					params.MipmapMode = ISampler::ESMM_NEAREST;
+					break;
+			}
+			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
+			// TODO: embed the gamma in the material compiler Frontend
+			// or adjust gamma on pixels (painful and long process)
+			assert(std::isnan(bitmap.gamma));
+			{
+				_NBL_DEBUG_BREAK_IF(true);
+			}
+			auto& transform = *outUvTransform;
+			transform[0][0] = bitmap.uscale;
+			transform[0][2] = bitmap.uoffset;
+			transform[1][1] = bitmap.vscale;
+			transform[1][2] = bitmap.voffset;
+		}
+		else
+			inner.params.logger.log("Failed to load bitmap texture for %p with id %s",system::ILogger::ELL_ERROR,tex,tex ? tex->id.c_str():"");
+	}
+	else
+		inner.params.logger.log("Failed to unroll texture scale for %p with id %s",system::ILogger::ELL_ERROR,rootTex,rootTex ? rootTex->id.c_str():"");
+	if (!retval.view) // set a clear error value
+		retval.scale = std::numeric_limits<decltype(retval.scale)>::signaling_NaN();
+	return retval;
+}
+
 
 template<int N>
-void getParameter(const std::span<parameter_t,N> out, const hlsl::vector<float32_t,N> value)
+void getParameters(const std::span<parameter_t,N> out, const hlsl::vector<float32_t,N> value)
 {
 	for (auto c=0; c<N; c++)
 		out[c].scale = value[c];
 }
-void getParameter(const std::span<parameter_t> out, const float32_t value)
+void getParameters(const std::span<parameter_t> out, const float32_t value)
 {
 	for (auto it=out.begin(); it!=out.end(); it++)
 		it->scale = value;
 }
-void getParameter(const std::span<parameter_t,3> out, const CElementTexture::SpectrumOrTexture& src)
+hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, const CElementTexture::SpectrumOrTexture& src)
 {
+	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
 	if (src.texture)
 	{
-//	out[0].viewChannel = ;
-//	out[0].view = ;
-//	out[0].sampler = ;
-		assert(false); // unimplemented
-//		E_IMAGE_VIEW_SEMANTIC semantic
-//		IR::INode::STextureSource tex;
-//		std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture, semantic);
-//		assert(!core::isnan(tex.scale));
-//		dst = std::move(tex);
+		const auto param = getTexture(src.texture,&retval);
+		for (auto c=0; c<out.size(); c++)
+		{
+			out[c] = param;
+			out[c].viewChannel = param.viewChannel+c;
+		}
 	}
 	else
 	switch (src.value.type)
 	{
 		case SPropertyElementData::Type::FLOAT:
-			getParameter({out.data(),out.size()},src.value.fvalue);
+			MitsubaLoader::getParameters({out.data(),out.size()},src.value.fvalue);
 			break;
 		case SPropertyElementData::Type::SRGB: [[fallthrough]]; // already linearized when parsed!
 		case SPropertyElementData::Type::SPECTRUM: [[fallthrough]]; // we're not spectral but we convert <spectrum> tags to RGB approximately
 		case SPropertyElementData::Type::RGB:
-			getParameter<3>(out,src.value.vvalue.xyz);
+			MitsubaLoader::getParameters<3>(out,src.value.vvalue.xyz);
 			break;
 		default:
 		assert(false);
 			break;
 	}
+	return retval;
 }
-void getParameter(const std::span<parameter_t> out, const CElementTexture::FloatOrTexture& src)
+hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, const CElementTexture::FloatOrTexture& src)
 {
+	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
     if (src.texture)
-    {
-//        IR::INode::STextureSource tex;
-//       std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-//        dst = std::move(tex);
-    }
+		std::fill(out.begin(),out.end(),getTexture(src.texture,&retval));
     else
-		getParameter(out,src.value);
+		MitsubaLoader::getParameters(out,src.value);
+	return retval;
 }
 
+using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariable;
 auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debugFileWriter) -> frontend_emitter_t
 {
 	auto& frontPool = frontIR->getObjectPool();
@@ -511,16 +588,16 @@ auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debu
 			auto* const emitter = frontPool.deref(emitterH);
 			auto found = profileCache.find(inProfile);
 			if (found==profileCache.end())
-				found = profileCache.insert({inProfile,getProfile(inProfile)}).first;
+				found = profileCache.insert({inProfile,genProfile(inProfile)}).first;
 			emitter->profile = found->second;
 			emitter->profileTransform = hlsl::math::linalg::truncate<3,3>(_emitter->transform.matrix);
 		}
 	}
 	{
 		spectral_var_t::SCreationParams<3> params = {};
-		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 		// if you wanted a textured emitter, this would be the place to do it
-		getParameter<3>(params.knots.params,_emitter->area.radiance);
+		MitsubaLoader::getParameters<3>(params.knots.params,_emitter->area.radiance);
+		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 		mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
 	}
 
@@ -533,7 +610,7 @@ auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debu
 	return handle;
 }
 
-auto SContext::getProfile(const CElementEmissionProfile* profile) -> frontend_ir_t::SParameter
+auto SContext::genProfile(const CElementEmissionProfile* profile) -> frontend_ir_t::SParameter
 {
 	frontend_ir_t::SParameter retval = {};
 	// load it!
@@ -578,15 +655,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 {
 	auto& frontPool = frontIR->getObjectPool();
 
-	// this is also our top coating layer
-	auto rootH = frontPool.emplace<frontend_ir_t::CLayer>();
-	
-	struct SLeaf
-	{
-		frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> top = {};
-		frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> trans = {};
-	};
-	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->SLeaf
+	// the layer returned will never have a bottom BRDF
+	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
 	{
 		using ndf_e = frontend_ir_t::CCookTorrance::NDF;
         constexpr ndf_e ndfMap[4] = {
@@ -595,6 +665,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			ndf_e::Beckmann, // Phong can be mapped to Beckmann
 			ndf_e::Beckmann // Ahskhmin is Ani Beckmann last I remember
         };
+		auto retval = frontPool.emplace<frontend_ir_t::CLayer>();
+		auto* const leaf = frontPool.deref(retval);
 		switch (_bsdf->type)
 		{
 			case CElementBSDF::DIFFUSE: [[fallthrough]];
@@ -610,7 +682,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						if (_bsdf->type==CElementBSDF::ROUGHDIFFUSE)
 						{
 							// we only support isotropic Oren-Nayar
-							getParameter(roughness,_bsdf->diffuse.alpha);
+							orenNayar->ndParams.uvTransform = getParameters(roughness,_bsdf->diffuse.alpha);
 						}
 						else
 							roughness[0].scale = roughness[1].scale = 0.f;
@@ -618,14 +690,15 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					}
 					{
 						spectral_var_t::SCreationParams<3> params = {};
+						params.knots.uvTransform = getParameters(params.knots.params,_bsdf->diffuse.reflectance);
 						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						getParameter(params.knots.params,_bsdf->diffuse.reflectance);
 						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
 						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
 						mul->rhs = albedoH;
 					}
 				}
-				return {.top=roughDiffuseH};
+				leaf->brdfTop = roughDiffuseH;
+				break;
 			}
 			case CElementBSDF::DIELECTRIC: [[fallthrough]];
 			case CElementBSDF::THINDIELECTRIC: [[fallthrough]];
@@ -653,9 +726,9 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 								rough = &_bsdf->conductor;
 							// ct->orientedRealEta gets set in the fresnel part
 							ct->ndf = ndfMap[rough->distribution];
-							getParameter(roughness,rough->alphaU);
+							ct->ndParams.uvTransform = getParameters(roughness,rough->alphaU);
 							if (rough->alphaV.texture || !hlsl::isnan(rough->alphaV.value))
-								getParameter(roughness,rough->alphaU);
+								getParameters(roughness,rough->alphaU);
 							else
 								roughness[1] = roughness[0];
 						}
@@ -677,16 +750,16 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 									const float extEta = _bsdf->conductor.extEta;
 									{
 										spectral_var_t::SCreationParams<3> params = {};
-										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 										const hlsl::float32_t3 eta = _bsdf->conductor.eta.vvalue.xyz;
-										getParameter<3>(params.knots.params,eta/extEta);
+										MitsubaLoader::getParameters<3>(params.knots.params,eta/extEta);
+										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 										fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
 									}
 									{
 										spectral_var_t::SCreationParams<3> params = {};
-										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 										const hlsl::float32_t3 k = _bsdf->conductor.k.vvalue.xyz;
-										getParameter<3>(params.knots.params,k/extEta);
+										MitsubaLoader::getParameters<3>(params.knots.params,k/extEta);
+										params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 										fresnel->orientedImagEta = frontPool.emplace<spectral_var_t>(std::move(params));
 									}
 								}
@@ -711,7 +784,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 											thinInfiniteScatter->reflectanceBottom = fresnelH;
 											// TODO: extinction
 										}
-										mul->lhs = frontPool.emplace<frontend_ir_t::CDeltaTransmission>(); // TODO: commonalize
+										mul->lhs = deltaTransmission._const_cast();
 										mul->rhs = thinInfiniteScatterH;
 									}
 									trans = btdfH;
@@ -719,11 +792,11 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 							}
 							{
 								spectral_var_t::SCreationParams<3> params = {};
-								params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 								if (isConductor)
-									getParameter(params.knots.params,_bsdf->conductor.specularReflectance);
+									params.knots.uvTransform = getParameters(params.knots.params,_bsdf->conductor.specularReflectance);
 								else // we'll do the specularTransmittance on the btdf stack element when cloning
-									getParameter(params.knots.params,_bsdf->dielectric.specularReflectance);
+									params.knots.uvTransform = getParameters(params.knots.params,_bsdf->dielectric.specularReflectance);
+								params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 								const auto artificialReflectanceH = frontPool.emplace<spectral_var_t>(std::move(params));
 								frontPool.deref(artificialReflectanceH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::MitsubaExtraFactor)]._const_cast();
 								reflectanceMul->rhs = artificialReflectanceH;
@@ -732,8 +805,80 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						mul->rhs = reflectanceMulH;
 					}
 				}
-				return {.top=handle,.trans=trans};
+				leaf->brdfTop = handle;
+				leaf->btdf = trans;
+				break;
 			}
+#if 0 // TODO
+			case CElementBSDF::PLASTIC: [[fallthrough]];
+			case CElementBSDF::ROUGHPLASTIC:
+			{
+#if 0
+				const float eta = _bsdf->plastic.intIOR/_bsdf->plastic.extIOR;
+
+				coat->eta = IR::INode::color_t(eta);
+				if (type == CElementBSDF::ROUGHPLASTIC)
+				{
+					coat->ndf = ndfMap[_bsdf->plastic.distribution];
+					getFloatOrTexture(_bsdf->plastic.alphaU, coat->alpha_u);
+					if (coat->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+						getFloatOrTexture(_bsdf->plastic.alphaV, coat->alpha_v);
+					else
+						coat->alpha_v = coat->alpha_u;
+				}
+				else coat->setSmooth();
+
+				auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
+				getSpectrumOrTexture(_bsdf->plastic.diffuseReflectance, node_diffuse->reflectance);
+				node_diffuse->alpha_u = coat->alpha_u;
+				node_diffuse->alpha_v = coat->alpha_v;
+				node_diffuse->eta = coat->eta;
+#endif
+				const auto fresnelH = frontPool.emplace<frontend_ir_t::CFresnel>();
+				{
+					auto* fresnel = frontPool.deref(fresnelH);
+					spectral_var_t::SCreationParams<1> params = {};
+					params.knots.params[0].scale = 1.5f;
+					fresnel->orientedRealEta = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
+				}
+				//
+				const auto dielectricH = frontPool.emplace<frontend_ir_t::CMul>();
+				{
+					auto* mul = frontPool.deref(dielectricH);
+					// do fresnel first
+					auto* fresnel = frontPool.deref(fresnelH);
+					mul->rhs = fresnelH;
+					// BxDF always goes in left hand side of Mul
+					{
+						const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
+						auto* ct = frontPool.deref(ctH);
+						ct->ndParams.getRougness()[0].scale = ct->ndParams.getRougness()[1].scale = 0.05f;
+						// ignored for BRDFs, needed for BTDFs
+						ct->orientedRealEta = fresnel->orientedRealEta;
+						mul->lhs = ctH;
+					}
+				}
+				leaf->brdfTop = dielectricH;
+				const auto transH = frontPool.emplace<frontend_ir_t::CMul>();
+				{
+					auto* const mul = frontPool.deref(transH);
+					mul->lhs = deltaTransmission._const_cast();
+					mul->rhs = fresnelH;
+				}
+				leaf->btdf = transH;
+				const auto substrateH = frontPool.emplace<frontend_ir_t::CLayer>();
+				{
+					auto* const substrate = frontPool.deref(substrateH);
+					const auto roughDiffuseH = frontPool.emplace<frontend_ir_t::CMul>();
+					{
+						auto* mul = frontPool.deref(roughDiffuseH);
+						// TODO
+					}
+					substrate->brdfTop = roughDiffuseH;
+				}
+				leaf->coated = substrateH;
+			}
+#endif
 			case CElementBSDF::DIFFUSE_TRANSMITTER:
 			{
 				const auto diffTransH = frontPool.emplace<frontend_ir_t::CMul>();
@@ -752,8 +897,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					mul = frontPool.deref(mulH);
 					{
 						spectral_var_t::SCreationParams<3> params = {};
+						params.knots.uvTransform = getParameters(params.knots.params,_bsdf->difftrans.transmittance);
 						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						getParameter(params.knots.params,_bsdf->difftrans.transmittance);
 						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
 						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
 						mul->lhs = albedoH;
@@ -765,35 +910,24 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						mul->rhs = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
 					}
 				}
-				return {.top=diffTransH,.trans=diffTransH};
+				leaf->brdfTop = diffTransH;
+				leaf->btdf = diffTransH;
+				break;
 			}
 			default:
 				assert(false); // we shouldn't get this case here
 				return {};
 		}
+		assert(!leaf->brdfBottom);
+		return retval;
 	};
 
 	// Post-order Depth First Traversal (create children first, then create parent)
 	if (bsdf->isMeta()) // TODO: temporary
 		return {};
-	auto* const layer = frontPool.deref(rootH);
-	{
-		const SLeaf leaf = createMistubaLeaf(bsdf);
-		layer->brdfTop = leaf.top;
-		layer->btdf = leaf.trans;
-	}
-	// handle BTDF and bottom BRDF layer
-	switch (bsdf->type)
-	{
-			case CElementBSDF::DIELECTRIC: [[fallthrough]];
-			case CElementBSDF::THINDIELECTRIC: [[fallthrough]];
-			case CElementBSDF::ROUGHDIELECTRIC:
-				// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
-				layer->brdfBottom = layer->brdfTop;
-				break;
-			default:
-				break;
-	}
+	const auto rootH = createMistubaLeaf(bsdf);
+	// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
+
 #if 0
 	core::stack<const CElementBSDF*> stack;
 	stack.push(bsdf);
@@ -828,127 +962,6 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 }
 
 #if 0
-auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
-{
-	{
-		auto cachePropertyTexture = [&](const auto& const_or_tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic=CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY) -> void
-		{
-			if (const_or_tex.value.type==SPropertyElementData::INVALID)
-				cacheTexture(ctx,0u,const_or_tex.texture,semantic);
-		};
-
-		core::stack<const CElementBSDF*> stack;
-		stack.push(_bsdf);
-
-		while (!stack.empty())
-		{
-			auto* bsdf = stack.top();
-			stack.pop();
-			//
-			switch (bsdf->type)
-			{
-				case CElementBSDF::COATING:
-					for (uint32_t i = 0u; i < bsdf->coating.childCount; ++i)
-						stack.push(bsdf->coating.bsdf[i]);
-					break;
-				case CElementBSDF::ROUGHCOATING:
-				case CElementBSDF::BUMPMAP:
-				case CElementBSDF::BLEND_BSDF:
-				case CElementBSDF::MIXTURE_BSDF:
-				case CElementBSDF::MASK:
-				case CElementBSDF::TWO_SIDED:
-					for (uint32_t i = 0u; i < bsdf->meta_common.childCount; ++i)
-						stack.push(bsdf->meta_common.bsdf[i]);
-				default:
-					break;
-			}
-			//
-			switch (bsdf->type)
-			{
-				case CElementBSDF::DIFFUSE:
-				case CElementBSDF::ROUGHDIFFUSE:
-					cachePropertyTexture(bsdf->diffuse.reflectance);
-					cachePropertyTexture(bsdf->diffuse.alpha);
-					break;
-				case CElementBSDF::DIFFUSE_TRANSMITTER:
-					cachePropertyTexture(bsdf->difftrans.transmittance);
-					break;
-				case CElementBSDF::DIELECTRIC:
-				case CElementBSDF::THINDIELECTRIC:
-				case CElementBSDF::ROUGHDIELECTRIC:
-					cachePropertyTexture(bsdf->dielectric.alphaU);
-					if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-						cachePropertyTexture(bsdf->dielectric.alphaV);
-					break;
-				case CElementBSDF::CONDUCTOR:
-				case CElementBSDF::ROUGHCONDUCTOR:
-					cachePropertyTexture(bsdf->conductor.alphaU);
-					if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-						cachePropertyTexture(bsdf->conductor.alphaV);
-					break;
-				case CElementBSDF::PLASTIC:
-				case CElementBSDF::ROUGHPLASTIC:
-					cachePropertyTexture(bsdf->plastic.diffuseReflectance);
-					cachePropertyTexture(bsdf->plastic.alphaU);
-					if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-						cachePropertyTexture(bsdf->plastic.alphaV);
-					break;
-				case CElementBSDF::BUMPMAP:
-					cacheTexture(ctx,0u,bsdf->bumpmap.texture,bsdf->bumpmap.wasNormal ? CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP);
-					break;
-				case CElementBSDF::BLEND_BSDF:
-					cachePropertyTexture(bsdf->blendbsdf.weight,CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
-					break;
-				case CElementBSDF::MASK:
-					cachePropertyTexture(bsdf->mask.opacity,CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
-					break;
-				default: break;
-			}
-		}
-	}
-
-	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
-}
-
-void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
-{
-	if (!tex)
-		return;
-
-	switch (tex->type)
-	{
-		case CElementTexture::Type::BITMAP:
-			{
-				// get sampler parameters
-				const auto samplerParams = ctx.computeSamplerParameters(tex->bitmap);
-				
-				asset::SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename.svalue,ctx.inner,hierarchyLevel,ctx.override_);
-				// TODO: embed the gamma in the material compiler Frontend
-				// adjust gamma on pixels (painful and long process)
-				if (!std::isnan(tex->bitmap.gamma))
-				{
-					_NBL_DEBUG_BREAK_IF(true);
-				}
-				{
-					//! TODO: this stuff (custom shader sampling code?)
-					_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
-					_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
-					_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
-					_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
-				}
-			}
-			break;
-		case CElementTexture::Type::SCALE:
-			// get to to the linked list end
-			cacheTexture(ctx,hierarchyLevel,tex->scale.texture,semantic);
-			break;
-		default:
-			_NBL_DEBUG_BREAK_IF(true);
-			break;
-	}
-}
-
-
 // Also sets instance data buffer offset into meshbuffers' base instance
 template<typename Iter>
 inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
@@ -1059,6 +1072,10 @@ SContext::SContext(
 			//const bool success = frontIR->addMaterial(blackHoleBxDF,inner.params.logger);
 			//assert(success);
 			bsdfCache.insert({nullptr,BlackHoleBxDF});
+		}
+		//
+		{
+			deltaTransmission = frontPool.emplace<frontend_ir_t::CDeltaTransmission>();
 		}
 		// debug names
 		{

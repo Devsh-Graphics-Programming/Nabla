@@ -61,9 +61,13 @@ struct SContext final
 		using frontend_emitter_t = frontend_ir_t::typed_pointer_type<const frontend_ir_t::CMul>;
 		frontend_material_t genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter);
 		frontend_emitter_t genEmitter(const CElementEmitter* emitter, system::ISystem* debugFileWriter);
-		frontend_ir_t::SParameter getProfile(const CElementEmissionProfile* profile);
 		//
 		void writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer);
+		//
+		hlsl::float32_t2x3 getParameters(const std::span<frontend_ir_t::SParameter> out, const CElementTexture::FloatOrTexture& src);
+		hlsl::float32_t2x3 getParameters(const std::span<frontend_ir_t::SParameter,3> out, const CElementTexture::SpectrumOrTexture& src);
+		frontend_ir_t::SParameter getTexture(const CElementTexture* tex, hlsl::float32_t2x3* outUvTransform);
+		frontend_ir_t::SParameter genProfile(const CElementEmissionProfile* profile);
 
 		//
 		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryCollectionMetaPair> shapeCache;
@@ -79,61 +83,10 @@ struct SContext final
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
 		//image, scale 
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
-
-
-		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)
-		{
-			asset::ICPUSampler::SParams params;
-			auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
-			{
-				switch (mode)
-				{
-					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-						return asset::ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-						return asset::ISampler::E_TEXTURE_CLAMP::ETC_MIRROR;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ONE:
-						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
-						break;
-					default:
-						break;
-				}
-				return asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
-			};
-			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
-			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
-			params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
-			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-			switch (bitmap.filterType)
-			{
-				case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-					[[fallthrough]]; // we dont support this fancy stuff
-				case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-					params.MinFilter = asset::ISampler::ETF_LINEAR;
-					params.MaxFilter = asset::ISampler::ETF_LINEAR;
-					params.MipmapMode = asset::ISampler::ESMM_LINEAR;
-					break;
-				default:
-					params.MinFilter = asset::ISampler::ETF_NEAREST;
-					params.MaxFilter = asset::ISampler::ETF_NEAREST;
-					params.MipmapMode = asset::ISampler::ESMM_NEAREST;
-					break;
-			}
-			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
-			params.CompareEnable = false;
-			params.CompareFunc = asset::ISampler::ECO_NEVER;
-			params.LodBias = 0.f;
-			params.MaxLod = 10000.f;
-			params.MinLod = 0.f;
-			return params;
-		}
 #endif
 		core::smart_refctd_ptr<frontend_ir_t> frontIR;
+		// common frontend nodes
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CDeltaTransmission> deltaTransmission;
 		// Common Debug Names
 		enum class ECommonDebug : uint16_t
 		{

@@ -1,53 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include "nbl/asset/utils/CIESProfile.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-#include "nbl/ext/MitsubaLoader/SContext.h"
 
-namespace nbl::ext::MitsubaLoader
-{
-    
-std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwindTextureScale(const CElementTexture* _element) const
-{
-    float scale = 1.f;
-    while (_element && _element->type==CElementTexture::SCALE)
-    {
-        scale *= _element->scale.scale;
-        _element = _element->scale.texture;
-    }
-    _NBL_DEBUG_BREAK_IF(_element && _element->type!=CElementTexture::BITMAP);
-
-    return {_element,scale};
-}
-
-auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
-{
-    tex_ass_type retval = {};
-
-    float& scale = std::get<float>(retval);
-    std::tie(_element,scale) = unwindTextureScale(_element);
-    if (!_element)
-    {
-        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 64x64 Magenta or Flat Error Texture.", ELL_ERROR);
-        return getErrorTexture(semantic);
-    }
-
-    // get sampler (this can't really fail)
-    std::get<core::smart_refctd_ptr<asset::ICPUSampler>>(retval) = m_loaderContext->getSampler(SContext::computeSamplerParameters(_element->bitmap));
-
-    {
-        const asset::IAsset::E_TYPE types[2] = { asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-        const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
-        auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
-        if (viewBundle.getContents().empty())
-        {
-            os::Printer::log("[ERROR] Could Not Load Texture from path \""+std::string(_element->bitmap.filename.svalue)+"\", substituting 64x64 Magenta or Flat Error Texture.",ELL_ERROR);
-            std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(getErrorTexture(semantic));
-        }
-        else
-        {
+#if 0 // bump map handling in CTrueIR
             auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
             auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
@@ -58,11 +14,7 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
             }
 
             std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::move(view);
-        }
-    }
-
-    return retval;
-}
+#endif
 
         
 
@@ -88,7 +40,6 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
                 profile.up = core::normalize(worldSpaceIESTransform[1]);
                 profile.view = core::normalize(worldSpaceIESTransform[2]);
             }
-#endif
     
 
 
@@ -196,6 +147,7 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 
     return retval;
 }
+#endif
 
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger) -> IRNode*
     {
@@ -220,38 +172,6 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 
 
 
-        case CElementBSDF::PLASTIC:
-        case CElementBSDF::ROUGHPLASTIC:
-        {
-            ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>();
-            auto* coat = static_cast<IR::CMicrofacetCoatingBSDFNode*>(ir_node);
-            coat->children.count = 1u;
-
-            auto& coated = ir_node->children[0];
-            coated = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
-
-            const float eta = _bsdf->plastic.intIOR/_bsdf->plastic.extIOR;
-
-            coat->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            coat->eta = IR::INode::color_t(eta);
-            if (type == CElementBSDF::ROUGHPLASTIC)
-            {
-                coat->ndf = ndfMap[_bsdf->plastic.distribution];
-                getFloatOrTexture(_bsdf->plastic.alphaU, coat->alpha_u);
-                if (coat->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdf->plastic.alphaV, coat->alpha_v);
-                else
-                    coat->alpha_v = coat->alpha_u;
-            }
-            else coat->setSmooth();
-
-            auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
-            getSpectrumOrTexture(_bsdf->plastic.diffuseReflectance, node_diffuse->reflectance);
-            node_diffuse->alpha_u = coat->alpha_u;
-            node_diffuse->alpha_v = coat->alpha_v;
-            node_diffuse->eta = coat->eta;
-        }
-        break;
 
 
 
