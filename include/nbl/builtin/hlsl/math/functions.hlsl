@@ -136,7 +136,7 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
         using UintOfTSize = unsigned_integer_of_size_t<sizeof(T)>;
         const T condAbs = bit_cast<T>(bit_cast<UintOfTSize>(x) & (cond ? (numeric_limits<UintOfTSize>::max >> 1) : numeric_limits<UintOfTSize>::max));
 
-        return max<T>(condAbs, limit);
+        return nbl::hlsl::max<T>(condAbs, limit);
     }
 };
 
@@ -156,7 +156,7 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
         const Uint32VectorWithDimensionOfT condAbsAsUint = xAsUintVec & mask;
         T condAbs = bit_cast<T, Uint32VectorWithDimensionOfT>(condAbsAsUint);
 
-        return max<T>(condAbs, limit);
+        return nbl::hlsl::max<T>(condAbs, limit);
     }
 };
 }

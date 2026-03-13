@@ -31,7 +31,8 @@ struct GaussianFilter
         vector2_type remappedRand = randVec;
         remappedRand.x *= 1.0 - truncation;
         remappedRand.x += truncation;
-        return boxMuller(remappedRand);
+        typename nbl::hlsl::sampling::BoxMullerTransform<scalar_type>::cache_type cache;
+        return boxMuller.generate(remappedRand, cache);
     }
 
     scalar_type truncation;

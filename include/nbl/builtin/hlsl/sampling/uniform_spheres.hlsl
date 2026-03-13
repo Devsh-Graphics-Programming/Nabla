@@ -9,7 +9,6 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
-#include "nbl/builtin/hlsl/sampling/value_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -29,10 +28,14 @@ struct UniformHemisphere
 	using domain_type = vector_t2;
 	using codomain_type = vector_t3;
 	using density_type = T;
-	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
-	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
+	using weight_type = density_type;
 
-	static vector_t3 __generate(const vector_t2 _sample)
+	struct cache_type
+	{
+		density_type pdf;
+	};
+
+	static codomain_type __generate(const domain_type _sample)
 	{
 		T z = _sample.x;
 		T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
@@ -40,12 +43,13 @@ struct UniformHemisphere
 		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
 	}
 
-	vector_t3 generate(const vector_t2 _sample)
+	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
+		cache.pdf = __pdf();
 		return __generate(_sample);
 	}
 
-	static vector_t2 __generateInverse(const vector_t3 _sample)
+	static domain_type __generateInverse(const codomain_type _sample)
 	{
 		T phi = hlsl::atan2(_sample.y, _sample.x);
 		const T twopi = T(2.0) * numbers::pi<T>;
@@ -53,8 +57,9 @@ struct UniformHemisphere
 		return vector_t2(_sample.z, phi / twopi);
 	}
 
-	vector_t2 generateInverse(const vector_t3 _sample)
+	static domain_type generateInverse(const codomain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
+		cache.pdf = __pdf();
 		return __generateInverse(_sample);
 	}
 
@@ -63,20 +68,30 @@ struct UniformHemisphere
 		return T(1.0) / (T(2.0) * numbers::pi<T>);
 	}
 
-	scalar_type forwardPdf(const vector_t2 _sample)
+	static density_type forwardPdf(const cache_type cache)
+	{
+		return cache.pdf;
+	}
+
+	static weight_type forwardWeight(const cache_type cache)
+	{
+		return forwardPdf(cache);
+	}
+
+	static density_type backwardPdf(const vector_t3 _sample)
 	{
 		return __pdf();
 	}
 
-	scalar_type backwardPdf(const vector_t3 _sample)
+	static weight_type backwardWeight(const codomain_type sample)
 	{
-		return __pdf();
+		return backwardPdf(sample);
 	}
 
 	template<typename U = vector<T, 1> >
 	static quotient_and_pdf<U, T> quotientAndPdf()
 	{
-		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
+		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), __pdf());
 	}
 };
 
@@ -91,10 +106,14 @@ struct UniformSphere
 	using domain_type = vector_t2;
 	using codomain_type = vector_t3;
 	using density_type = T;
-	using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
-	using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
+	using weight_type = density_type;
 
-	static vector_t3 __generate(const vector_t2 _sample)
+	struct cache_type
+	{
+		density_type pdf;
+	};
+
+	static codomain_type __generate(const domain_type _sample)
 	{
 		T z = T(1.0) - T(2.0) * _sample.x;
 		T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
@@ -102,12 +121,13 @@ struct UniformSphere
 		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
 	}
 
-	vector_t3 generate(const vector_t2 _sample)
+	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
+		cache.pdf = __pdf();
 		return __generate(_sample);
 	}
 
-	static vector_t2 __generateInverse(const vector_t3 _sample)
+	static domain_type __generateInverse(const codomain_type _sample)
 	{
 		T phi = hlsl::atan2(_sample.y, _sample.x);
 		const T twopi = T(2.0) * numbers::pi<T>;
@@ -115,8 +135,9 @@ struct UniformSphere
 		return vector_t2((T(1.0) - _sample.z) * T(0.5), phi / twopi);
 	}
 
-	vector_t2 generateInverse(const vector_t3 _sample)
+	static domain_type generateInverse(const codomain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
+		cache.pdf = __pdf();
 		return __generateInverse(_sample);
 	}
 
@@ -125,20 +146,30 @@ struct UniformSphere
 		return T(1.0) / (T(4.0) * numbers::pi<T>);
 	}
 
-	scalar_type forwardPdf(const vector_t2 _sample)
+	static density_type forwardPdf(const cache_type cache)
+	{
+		return cache.pdf;
+	}
+
+	static weight_type forwardWeight(const cache_type cache)
+	{
+		return forwardPdf(cache);
+	}
+
+	static density_type backwardPdf(const vector_t3 _sample)
 	{
 		return __pdf();
 	}
 
-	scalar_type backwardPdf(const vector_t3 _sample)
+	static weight_type backwardWeight(const codomain_type sample)
 	{
-		return __pdf();
+		return backwardPdf(sample);
 	}
 
 	template<typename U = vector<T, 1> >
 	static quotient_and_pdf<U, T> quotientAndPdf()
 	{
-		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
+		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), __pdf());
 	}
 };
 } // namespace sampling

@@ -22,28 +22,61 @@ struct BoxMullerTransform
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
 
-    // ResamplableSampler concept types
+    // InvertibleSampler concept types
     using domain_type = vector2_type;
     using codomain_type = vector2_type;
     using density_type = scalar_type;
-    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
+    using weight_type = density_type;
 
-    vector2_type generate(const vector2_type u)
+    struct cache_type
+    {
+        density_type pdf;
+    };
+
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
     {
         scalar_type sinPhi, cosPhi;
-        math::sincos<scalar_type>(2.0 * numbers::pi<scalar_type> * xi.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
-        return vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(-2.0 * nbl::hlsl::log(xi.x)) * stddev;
+        math::sincos<scalar_type>(scalar_type(2.0) * numbers::pi<scalar_type> * u.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
+        const codomain_type outPos = vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
+        cache.pdf = backwardPdf(outPos);
+        return outPos;
     }
 
-    vector2_type forwardPdf(const vector2_type u)
+    density_type forwardPdf(const cache_type cache)
     {
-        return backwardPdf(generate(u));
+        return cache.pdf;
     }
 
-    vector2_type backwardPdf(const vector2_type outPos)
+    vector2_type separateForwardPdf(const cache_type cache, const codomain_type outPos)
     {
+        return separateBackwardPdf(outPos);
+    }
+
+    weight_type forwardWeight(const cache_type cache)
+    {
+        return forwardPdf(cache);
+    }
+
+    density_type backwardPdf(const codomain_type outPos)
+    {
+        const vector2_type marginals = separateBackwardPdf(outPos);
+        return marginals.x * marginals.y;
+    }
+
+    vector2_type separateBackwardPdf(const codomain_type outPos)
+    {
+        const scalar_type stddev2 = stddev * stddev;
+        const scalar_type normalization = scalar_type(1.0) / (stddev * nbl::hlsl::sqrt(scalar_type(2.0) * numbers::pi<scalar_type>));
         const vector2_type outPos2 = outPos * outPos;
-        return vector2_type(nbl::hlsl::exp(scalar_type(-0.5) * (outPos2.x + outPos2.y)), numbers::pi<scalar_type> * scalar_type(0.5) * hlsl::atan2(outPos.y, outPos.x));
+        return vector2_type(
+            normalization * nbl::hlsl::exp(scalar_type(-0.5) * outPos2.x / stddev2),
+            normalization * nbl::hlsl::exp(scalar_type(-0.5) * outPos2.y / stddev2)
+        );
+    }
+
+    weight_type backwardWeight(const codomain_type outPos)
+    {
+        return backwardPdf(outPos);
     }
 
     T stddev;

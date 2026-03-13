@@ -7,7 +7,6 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
-#include <nbl/builtin/hlsl/sampling/value_and_pdf.hlsl>
 
 namespace nbl
 {
@@ -26,8 +25,12 @@ struct Linear
     using domain_type = scalar_type;
     using codomain_type = scalar_type;
     using density_type = scalar_type;
-    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
-    using inverse_sample_type = domain_and_rcpPdf<domain_type, density_type>;
+    using weight_type = density_type;
+
+    struct cache_type
+    {
+        density_type pdf;
+    };
 
     static Linear<T> create(const vector2_type linearCoeffs)   // start and end importance values (start, end), assumed to be at x=0 and x=1
     {
@@ -42,26 +45,44 @@ struct Linear
         return retval;
     }
 
-    scalar_type generate(const scalar_type u)
-    {
-        return hlsl::mix(u, (linearCoeffStart - hlsl::sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, hlsl::abs(rcpDiff) < numeric_limits<scalar_type>::max);
-    }
-
-    scalar_type generateInverse(const scalar_type x)
-    {
-        return x * (scalar_type(2.0) * linearCoeffStart + linearCoeffDiff * x) * rcpCoeffSum;
-    }
-
-    scalar_type forwardPdf(const scalar_type u)
-    {
-        return backwardPdf(generate(u));
-    }
-
-    scalar_type backwardPdf(const scalar_type x)
+    density_type __pdf(const codomain_type x)
     {
         if (x < scalar_type(0.0) || x > scalar_type(1.0))
             return scalar_type(0.0);
         return scalar_type(2.0) * (linearCoeffStart + x * linearCoeffDiff) * rcpCoeffSum;
+    }
+
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+    {
+        const codomain_type x = hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, abs(rcpDiff) < hlsl::numeric_limits<scalar_type>::max);
+        cache.pdf = __pdf(x);
+        return x;
+    }
+
+    domain_type generateInverse(const codomain_type x, NBL_REF_ARG(cache_type) cache)
+    {
+        cache.pdf = __pdf(x);
+        return x * (scalar_type(2.0) * linearCoeffStart + linearCoeffDiff * x) * rcpCoeffSum;
+    }
+
+    density_type forwardPdf(const cache_type cache)
+    {
+        return cache.pdf;
+    }
+
+    weight_type forwardWeight(const cache_type cache)
+    {
+        return forwardPdf(cache);
+    }
+
+    density_type backwardPdf(const codomain_type x)
+    {
+        return __pdf(x);
+    }
+
+    weight_type backwardWeight(const codomain_type x)
+    {
+        return backwardPdf(x);
     }
 
     scalar_type linearCoeffStart;

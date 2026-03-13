@@ -9,7 +9,6 @@
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/shapes/spherical_rectangle.hlsl>
-#include <nbl/builtin/hlsl/sampling/value_and_pdf.hlsl>
 
 namespace nbl
 {
@@ -26,18 +25,23 @@ struct SphericalRectangle
     using vector3_type = vector<T, 3>;
     using vector4_type = vector<T, 4>;
 
-    // ResamplableSampler concept types
+    // InvertibleSampler concept types
     using domain_type = vector2_type;
     using codomain_type = vector2_type;
     using density_type = scalar_type;
-    using sample_type = codomain_and_rcpPdf<codomain_type, density_type>;
+    using weight_type = density_type;
+
+    struct cache_type
+    {
+        density_type pdf;
+    };
 
     NBL_CONSTEXPR_STATIC_INLINE scalar_type ClampEps = 1e-5;
 
     static SphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect, const vector3_type observer)
     {
         SphericalRectangle<T> retval;
-        
+
         retval.r0 = hlsl::mul(rect.basis, rect.origin - observer);
         const vector4_type denorm_n_z = vector4_type(-retval.r0.y, retval.r0.x + rect.extents.x, retval.r0.y + rect.extents.y, -retval.r0.x);
         const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>(hlsl::promote<vector4_type>(retval.r0.z * retval.r0.z) + denorm_n_z * denorm_n_z);
@@ -48,18 +52,18 @@ struct SphericalRectangle
             -n_z[3] * n_z[0]
         );
 
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
-        angle_adder.addCosine(cosGamma[1]);
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(retval.cosGamma[0]);
+        angle_adder.addCosine(retval.cosGamma[1]);
         scalar_type p = angle_adder.getSumofArccos();
-        angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
-        angle_adder.addCosine(cosGamma[3]);
+        angle_adder = math::sincos_accumulator<scalar_type>::create(retval.cosGamma[2]);
+        angle_adder.addCosine(retval.cosGamma[3]);
         scalar_type q = angle_adder.getSumofArccos();
 
         const scalar_type k = scalar_type(2.0) * numbers::pi<scalar_type> - q;
         retval.solidAngle = p + q - scalar_type(2.0) * numbers::pi<scalar_type>;
 
         // flip z axis if r0.z > 0
-        retval.r0 = -hlsl::abs(retval.r0.z);
+        retval.r0 = hlsl::promote<vector3_type>(-hlsl::abs(retval.r0.z));
         retval.r1 = retval.r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
 
         retval.b0 = n_z[0];
@@ -67,7 +71,7 @@ struct SphericalRectangle
         return retval;
     }
 
-    vector2_type generate(const vector2_type u)
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
     {
         math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
         angle_adder.addCosine(cosGamma[3]);
@@ -90,17 +94,29 @@ struct SphericalRectangle
         const scalar_type hv2 = hv * hv;
         const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - ClampEps);
 
+        cache.pdf = scalar_type(1.0) / solidAngle;
+
         return vector2_type((xu - r0.x), (yv - r0.y));
     }
 
-    scalar_type forwardPdf(const vector2_type u)
+    density_type forwardPdf(const cache_type cache)
+    {
+        return cache.pdf;
+    }
+
+    weight_type forwardWeight(const cache_type cache)
+    {
+        return forwardPdf(cache);
+    }
+
+    density_type backwardPdf(const codomain_type L)
     {
         return scalar_type(1.0) / solidAngle;
     }
 
-    scalar_type backwardPdf(const vector2_type L)
+    weight_type backwardWeight(const codomain_type L)
     {
-        return scalar_type(1.0) / solidAngle;
+        return backwardPdf(L);
     }
 
     scalar_type solidAngle;
