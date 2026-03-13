@@ -70,7 +70,8 @@ else()
 	message(STATUS "Vulkan SDK is not found")
 endif()
 
-option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+# TODO(kevinyu): Turn off this flag after I finish developing the PR.
+option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" ON)
 
 if(NBL_COMPILE_WITH_CUDA)
 	find_package(CUDAToolkit REQUIRED)
