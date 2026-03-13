@@ -2,9 +2,7 @@
 #define _NBL_VIDEO_I_GPU_COMMAND_POOL_H_INCLUDED_
 
 
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl/core/util/bitflag.h"
-#include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/video/IEvent.h"
 #include "nbl/video/IGPUDescriptorSet.h"
@@ -31,11 +29,11 @@ class IGPUCommandPool : public IBackendObject
 
         static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
         static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
-        static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;
+        static inline constexpr uint8_t CommandSegmentSizeLog2 = 17;
+        static inline constexpr uint32_t CommandSegmentSize = 0x1u<<CommandSegmentSizeLog2;
 
-        static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
-        static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
-        static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
+        static inline constexpr uint8_t CommandSegmentsPerBlockLog2 = 2;
+        static inline constexpr uint32_t MinPoolAllocSize = CommandSegmentSize;
 
     public:
         enum class CREATE_FLAGS : uint8_t
@@ -208,7 +206,7 @@ class IGPUCommandPool : public IBackendObject
                         else
                         { 
                             advance -= localCount-localPos;
-                            for (constexpr auto MaxTracked=CCommandSegment::STORAGE_SIZE/sizeof(value_t); true; advance-=MaxTracked)
+                            for (constexpr auto MaxTracked=CCommandSegment::StorageSize/sizeof(value_t); true; advance-=MaxTracked)
                             {
                                 retval.m_cmd = retval.m_cmd->m_next;
                                 if (!retval.m_cmd)
@@ -313,7 +311,7 @@ class IGPUCommandPool : public IBackendObject
                 static inline uint32_t calc_size(const Args&...)
                 {
                     static_assert(std::is_final_v<CRTP>);
-                    //static_assert(sizeof(CRTP)<=CCommandSegment::STORAGE_SIZE);
+                    //static_assert(sizeof(CRTP)<=CCommandSegment::StorageSize);
                     return sizeof(CRTP);
                 }
 
@@ -402,10 +400,10 @@ class IGPUCommandPool : public IBackendObject
                 } m_header;
 
             public:
-                static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t),alignof(ICommand));
+                static inline constexpr uint32_t StorageSize = CommandSegmentSize - core::roundUp(sizeof(header_t),alignof(ICommand));
 
                 inline CCommandSegment(CCommandSegment* prev):
-                    m_header(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE)
+                    m_header(nullptr, 0u, 0u, alignof(ICommand), StorageSize)
                 {
                     static_assert(alignof(ICommand) <= COMMAND_ALIGNMENT);
                     static_assert(COMMAND_ALIGNMENT <= COMMAND_SEGMENT_ALIGNMENT);
@@ -472,7 +470,7 @@ class IGPUCommandPool : public IBackendObject
                 }
 
             private:
-                alignas(ICommand) uint8_t m_data[STORAGE_SIZE];
+                alignas(ICommand) uint8_t m_data[StorageSize];
 
                 void wipeNextCommandSize()
                 {
@@ -482,7 +480,7 @@ class IGPUCommandPool : public IBackendObject
                         *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
                 }
         };
-        static_assert(sizeof(CCommandSegment)==COMMAND_SEGMENT_SIZE);
+        static_assert(sizeof(CCommandSegment)==CommandSegmentSize);
 
     private:
         class CExtraResourceTrackingBlock final : public IVariableSizeCommandBase
@@ -491,7 +489,7 @@ class IGPUCommandPool : public IBackendObject
                 static SConstructionParams calc_size(const uint32_t extraResourceCount)
                 {
                     static_assert(alignof(CExtraResourceTrackingBlock)>=alignof(CTrackedIterator::value_t));
-                    return IVariableSizeCommandBase::calc_size(CCommandSegment::STORAGE_SIZE,sizeof(CExtraResourceTrackingBlock),extraResourceCount);
+                    return IVariableSizeCommandBase::calc_size(CCommandSegment::StorageSize,sizeof(CExtraResourceTrackingBlock),extraResourceCount);
                 }
 
                 // this command will always be created at the start of a new segment, the whole reason it exists is because previous command has overflown the segment
@@ -511,7 +509,7 @@ class IGPUCommandPool : public IBackendObject
                     CCommandSegment* tail = nullptr;
                 };
 
-                inline CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
+                inline CCommandSegmentListPool() : m_pool({.composed={.addrAllocCtorExtraParams={MinPoolAllocSize},.blockSizeKBLog2=CommandSegmentsPerBlockLog2+CommandSegmentSizeLog2-10}}) {}
 
                 template <typename Cmd, typename... Args>
                 Cmd* emplace(SCommandSegmentList& list, Args&&... args)
@@ -587,7 +585,7 @@ class IGPUCommandPool : public IBackendObject
                     {
                         auto nextSegment = segment->getNext();
                         segment->~CCommandSegment();
-                        m_pool.deallocate(segment,COMMAND_SEGMENT_SIZE);
+                        m_pool.deallocate(segment,CommandSegmentSize);
                         segment = nextSegment;
                     }
                 }
@@ -630,10 +628,13 @@ class IGPUCommandPool : public IBackendObject
                 }
 
                 CCommandSegment* m_head = nullptr;
-        
-                template <typename T>
-                using pool_alignment = core::aligned_allocator<T,COMMAND_SEGMENT_ALIGNMENT>;
-                core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,pool_alignment,false,uint32_t> m_pool;
+                struct PoolConfig
+                {
+                    using AddressAllocator = core::PoolAddressAllocator<uint32_t>;
+                    using HandleValue = void*;
+                    constexpr static inline bool ThreadSafe = false;
+                };
+                core::CMemoryPool<PoolConfig> m_pool;
         };
 
         const core::bitflag<CREATE_FLAGS> m_flags;

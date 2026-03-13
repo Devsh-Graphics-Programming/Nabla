@@ -623,9 +623,9 @@ SContext::SContext(
 ) : inner(_ctx), override_(_override), meta(_metadata)
 //,ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
-	auto materialPool = material_compiler3::CTrueIR::create();
+	auto materialPool = material_compiler3::CTrueIR::create({.composed={.blockSizeKBLog2=4}});
 	scene = ICPUScene::create(core::smart_refctd_ptr(materialPool)); // TODO: feed it max shapes per group
-	frontIR = material_compiler3::CFrontendIR::create();
+	frontIR = material_compiler3::CFrontendIR::create({.composed={.blockSizeKBLog2=4}});
 }
 
 auto SContext::loadShapeGroup(const CElementShape* shape) -> SContext::shape_ass_type

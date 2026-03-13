@@ -5,7 +5,7 @@
 #define _NBL_ASSET_I_CPU_SCENE_H_INCLUDED_
 
 
-#include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IScene.h"
 #include "nbl/asset/ICPUMorphTargets.h"
@@ -18,6 +18,7 @@ namespace nbl::asset
 class ICPUScene final : public IAsset, public IScene
 {
         using base_t = IScene;
+        // TODO: PoolConfig
         using material_table_allocator_t = core::GeneralpurposeAddressAllocatorST<uint32_t>;
 //        using material_table_t = core::CMemoryPool<,core::allocator,false>;
 
@@ -77,7 +78,7 @@ class ICPUScene final : public IAsset, public IScene
         }
 
         // TODO: change to CRootNode
-        using material_t = material_pool_t::TypedHandle<material_pool_t::INode>;
+        using material_t = material_pool_t::typed_pointer_type<material_pool_t::INode>;
         inline material_compiler3::CTrueIR* getMaterialPool() {return m_materialPool.get();}
         inline const material_compiler3::CTrueIR* getMaterialPool() const {return m_materialPool.get();}
         

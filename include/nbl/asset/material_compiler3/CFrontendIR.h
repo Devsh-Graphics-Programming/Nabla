@@ -75,21 +75,20 @@ namespace nbl::asset::material_compiler3
 // However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
 // Schussler can't help with disparity of Smooth Normal and Geometric Normal, it turns smooth surfaces into glistening "disco balls" really outlining the
 // polygonization. Using PN-Triangles/displacement would be the optimal solution here. 
-class CFrontendIR : public CNodePool
+class CFrontendIR final : public CNodePool
 {
-protected:
+		using block_allocator_type = CNodePool::obj_pool_type::block_allocator_type;
 		template<typename T>
-		using _TypedHandle = CNodePool::TypedHandle<T>;
+		using _typed_pointer_type = CNodePool::obj_pool_type::mem_pool_type::typed_pointer_type<T>;
 
 	public:
 		// constructor
-		static inline core::smart_refctd_ptr<CFrontendIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
+		using creation_params_type = typename obj_pool_type::creation_params_type;
+		static inline core::smart_refctd_ptr<CFrontendIR> create(creation_params_type&& params)
 		{
-			if (chunkSizeLog2<14 || maxNodeAlignLog2<4)
+			if (params.composed.blockSizeKBLog2<4)
 				return nullptr;
-			if (!_pmr)
-				_pmr = core::getDefaultMemoryResource();
-			return core::smart_refctd_ptr<CFrontendIR>(new CFrontendIR(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
+			return core::smart_refctd_ptr<CFrontendIR>(new CFrontendIR(std::move(params)),core::dont_grab);
 		}
 		template<typename T, uint16_t N, uint16_t M>
 		static inline void printMatrix(std::ostringstream& sstr, const hlsl::matrix<T,N,M>& m)
@@ -126,7 +125,7 @@ protected:
 			}
 			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
 
-			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
+			NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 			// at this stage we store the multipliers in highest precision
 			float scale = std::numeric_limits<float>::infinity();
@@ -206,22 +205,23 @@ protected:
 		class INode : public CNodePool::INode
 		{
 			public:
-				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
+				_typed_pointer_type<CNodePool::CDebugInfo> debugInfo;
 		};
+		//
 		template<typename T> requires std::is_base_of_v<INode,std::remove_const_t<T>>
-		using TypedHandle = _TypedHandle<T>;
+		using typed_pointer_type = _typed_pointer_type<T>;
 		
 		class IExprNode;
+#define TYPE_NAME_STR(NAME) "nbl::asset::material_compiler3::CFrontendIR::"#NAME
 		// All layers are modelled as coatings, most combinations are not feasible and what combos are feasible depend on the compiler backend you use.
 		// Do not use Coatings for things which can be achieved with linear blends! (e.g. alpha transparency)
-		class CLayer final : public INode
+		// TODO: can we have an object with a v-table thats still trivially destructible (just to know the type, but not set-up/run down anything - so no alloc tracking)
+		class CLayer final : public obj_pool_type::INonTrivial, public INode
 		{
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CLayer";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CLayer);}
 
 				// you can set the children later
-				static inline uint32_t calc_size() {return sizeof(CLayer);}
-				inline uint32_t getSize() const override {return calc_size();}
 				inline CLayer() = default;
 
 				// Whether the layer is a BSDF depends on having a non-null 2nd child (a transmission component)
@@ -231,13 +231,13 @@ protected:
 				// A null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
 				// The laws of BSDFs require reciprocity so we can only have one BTDF, but they allow separate/different BRDFs
 				// Concrete example, think Vantablack stuck to a Aluminimum foil on the other side. 
-				_TypedHandle<IExprNode> brdfTop = {};
-				_TypedHandle<IExprNode> btdf = {};
+				_typed_pointer_type<IExprNode> brdfTop = {};
+				_typed_pointer_type<IExprNode> btdf = {};
 				// when dealing with refractice indices, we expect the `brdfTop` and `brdfBottom` to be in sync (reciprocals of each other)
-				_TypedHandle<IExprNode> brdfBottom = {};
+				_typed_pointer_type<IExprNode> brdfBottom = {};
 				// The layer below us, if in the stack there's a layer with a null BTDF, we reserve the right to split up the material into two separate
 				// materials, one for the front and one for the back face in the final IR. Everything between the first and last null BTDF will get discarded.
-				_TypedHandle<CLayer> coated = {};
+				_typed_pointer_type<CLayer> coated = {};
 		};
 
 		//
@@ -246,13 +246,13 @@ protected:
 			public:
 				// Only sane child count allowed
 				virtual uint8_t getChildCount() const = 0;
-				inline _TypedHandle<IExprNode> getChildHandle(const uint8_t ix)
+				inline _typed_pointer_type<IExprNode> getChildHandle(const uint8_t ix)
 				{
 					if (ix<getChildCount())
 						return getChildHandle_impl(ix);
 					return {};
 				}
-				inline _TypedHandle<const IExprNode> getChildHandle(const uint8_t ix) const
+				inline _typed_pointer_type<const IExprNode> getChildHandle(const uint8_t ix) const
 				{
 					auto retval = const_cast<IExprNode*>(this)->getChildHandle(ix);
 					return retval;
@@ -291,7 +291,7 @@ protected:
 					}
 					return false;
 				}
-				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
+				virtual _typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 				
 				virtual inline core::string getLabelSuffix() const {return "";}
 				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
@@ -306,11 +306,11 @@ protected:
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
-		class CSpectralVariable final : public IExprNode
+		class CSpectralVariable final : public obj_pool_type::IVariableSize, public IExprNode
 		{
 			public:
 				inline uint8_t getChildCount() const override final { return 0; }
-				inline const std::string_view getTypeName() const override {return "nbl::CSpectralVariable";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable);}
 				// Variable length but has no children
 
 				enum class Semantics : uint8_t
@@ -390,10 +390,11 @@ protected:
 				{
 					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
 				}
+				/*
 				inline uint32_t getSize() const override
 				{
 					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
-				}
+				}*/
 
 				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
 
@@ -403,7 +404,7 @@ protected:
 					std::destroy_n(pWonky()->knots.params,getKnotCount());
 				}
 
-				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
+				inline _typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				inline bool invalid(const SInvalidCheckArgs& args) const override
 				{
 					const auto knotCount = getKnotCount();
@@ -435,8 +436,8 @@ protected:
 					return false;
 				}
 				
-				NBL_API core::string getLabelSuffix() const override;
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 core::string getLabelSuffix() const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 			private:
 				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
@@ -444,73 +445,65 @@ protected:
 				const uint8_t* paramsBeginPadding() const {return pWonky()->knots.params[0].padding; }
 		};
 		//
-		class IUnaryOp : public IExprNode
+		class IUnaryOp : public obj_pool_type::INonTrivial, public IExprNode
 		{
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return child;}
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return child;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 1;}
 
-				TypedHandle<IExprNode> child = {};
+				typed_pointer_type<IExprNode> child = {};
 		};
-		class IBinOp : public IExprNode
+		class IBinOp : public obj_pool_type::INonTrivial, public IExprNode
 		{
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "rhs":"lhs";}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 2;}
 
-				TypedHandle<IExprNode> lhs = {};
-				TypedHandle<IExprNode> rhs = {};
+				typed_pointer_type<IExprNode> lhs = {};
+				typed_pointer_type<IExprNode> rhs = {};
 		};
 		//! Basic combiner nodes
 		class CMul final : public IBinOp
 		{
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CMul";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CMul);}
 				inline Type getType() const override {return Type::Mul;}
 
 				// you can set the children later
-				static inline uint32_t calc_size() {return sizeof(CMul);}
-				inline uint32_t getSize() const override {return calc_size();}
 				inline CMul() = default;
 		};
 		class CAdd final : public IBinOp
 		{
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CAdd";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CAdd);}
 				inline Type getType() const override {return Type::Add;}
 
 				// you can set the children later
-				static inline uint32_t calc_size() {return sizeof(CAdd);}
-				inline uint32_t getSize() const override {return calc_size();}
 				inline CAdd() = default;
 		};
 		// does `1-expression`
 		class CComplement final : public IUnaryOp
 		{
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CComplement";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CComplement);}
 
 				// you can set the children later
-				static inline uint32_t calc_size() { return sizeof(CComplement); }
-				inline uint32_t getSize() const override { return calc_size(); }
 				inline CComplement() = default;
 		};
 		// Emission nodes are only allowed in BRDF expressions, not BTDF. To allow different emission on both sides, expressed unambigously.
 		// Basic Emitter - note that it is of unit radiance so its easier to importance sample
-		class CEmitter final : public IContributor
+		class CEmitter final : public obj_pool_type::INonTrivial, public IContributor
 		{
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CEmitter";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CEmitter);}
 				inline uint8_t getChildCount() const override {return 0;}
 
 				// you can set the members later
-				static inline uint32_t calc_size() {return sizeof(CEmitter);}
-				inline uint32_t getSize() const override {return calc_size();}
 				inline CEmitter() = default;
 
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
@@ -524,16 +517,16 @@ protected:
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
 		//! Due to the Helmholtz Reciprocity handling outlined in the comments for the entire front-end you can usually count on these nodes
 		//! getting applied once using `VdotH` for Cook-Torrance BRDF, twice using `VdotN` and `LdotN` for Diffuse BRDF, and using their
 		//! complements before multiplication for BTDFs. 
-		class IContributorDependant : public IExprNode
+		class IContributorDependant : public obj_pool_type::INonTrivial, public IExprNode
 		{
 		};
 		// Beer's Law Node, behaves differently depending on where it is:
@@ -544,24 +537,22 @@ protected:
 		class CBeer final : public IContributorDependant
 		{
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CBeer";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
 				inline uint8_t getChildCount() const override {return 1;}
 
 				// you can set the members later
-				static inline uint32_t calc_size() {return sizeof(CBeer);}
-				inline uint32_t getSize() const override {return calc_size();}
 				inline CBeer() = default;
 
 				// Effective transparency = exp2(log2(perpTransmittance)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*inversesqrt(1.f+(LdotX-1)*rcpEta))
 				// Absorption and thickness of the interface combined into a single variable, eta and `LdotX` is taken from the leaf BTDF node.
 				// With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
-				TypedHandle<CSpectralVariable> perpTransmittance = {};
+				typed_pointer_type<CSpectralVariable> perpTransmittance = {};
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransmittance;}
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransmittance;}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
 		// @kept_secret TODO: Thin Film Interference Fresnel
@@ -570,23 +561,21 @@ protected:
 			public:
 				inline uint8_t getChildCount() const override {return 2;}
 
-				inline const std::string_view getTypeName() const override {return "nbl::CFresnel";}
-				static inline uint32_t calc_size() {return sizeof(CFresnel);}
-				inline uint32_t getSize() const override {return calc_size();}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
 				inline CFresnel() = default;
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
-				TypedHandle<CSpectralVariable> orientedRealEta = {};
+				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
 				// Specifying this turns your Fresnel into a conductor one, note that currently these are disallowed on BTDFs!
-				TypedHandle<CSpectralVariable> orientedImagEta = {};
+				typed_pointer_type<CSpectralVariable> orientedImagEta = {};
 				// if you want to reuse the same parameter but want to flip the interfaces around
 				uint8_t reciprocateEtas : 1 = false;
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Real":"Imaginary";}
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
 		// It's a specialization of what would be a layer of two identical smooth BRDF and BTDF with arbitrary Fresnel function and beer's
@@ -603,31 +592,29 @@ protected:
 		// Note the transformation at the end just makes the prevention of 0/0 or 0*INF same as for a non-extinctive equation, just check `R_u*R_b < Threshold`
 		// 
 		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the extinction.
-		class CThinInfiniteScatterCorrection final : public IExprNode
+		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IExprNode
 		{
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? reflectanceBottom:extinction):reflectanceTop;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? reflectanceBottom:extinction):reflectanceTop;}
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 3;}
-				inline const std::string_view getTypeName() const override {return "nbl::CThinInfiniteScatterCorrection";}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
 
 				// you can set the children later
-				static inline uint32_t calc_size() {return sizeof(CThinInfiniteScatterCorrection);}
-				inline uint32_t getSize() const override {return calc_size();}
 				inline CThinInfiniteScatterCorrection() = default;
 
-				TypedHandle<IExprNode> reflectanceTop = {};
+				typed_pointer_type<IExprNode> reflectanceTop = {};
 				// optional
-				TypedHandle<IExprNode> extinction = {};
-				TypedHandle<IExprNode> reflectanceBottom = {};
+				typed_pointer_type<IExprNode> extinction = {};
+				typed_pointer_type<IExprNode> reflectanceBottom = {};
 		};
 		//! Basic BxDF nodes
 		// Every BxDF leaf node is supposed to pass WFT test and must not create energy, color and extinction is added on later via multipliers
-		class IBxDF : public IContributor
+		class IBxDF : public obj_pool_type::INonTrivial, public IContributor
 		{
 			public:
 				// Why are all of these kept together and forced to fetch from the same UV ?
@@ -663,7 +650,7 @@ protected:
 					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
 					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
 
-					NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
+					NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
 					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
@@ -682,16 +669,11 @@ protected:
 		{
 			public:
 				inline uint8_t getChildCount() const override {return 0;}
-				inline const std::string_view getTypeName() const override {return "nbl::CDeltaTransmission";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(CDeltaTransmission);
-				}
-				inline uint32_t getSize() const override {return calc_size();}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
 				inline CDeltaTransmission() = default;
 
 			protected:
-				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
+				inline _typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 		};
 		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		// Base diffuse node
@@ -699,17 +681,15 @@ protected:
 		{
 			public:
 				inline uint8_t getChildCount() const override {return 0;}
-				inline const std::string_view getTypeName() const override {return "nbl::COrenNayar";}
-				static inline uint32_t calc_size() {return sizeof(COrenNayar);}
-				inline uint32_t getSize() const override {return calc_size();}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 				inline COrenNayar() = default;
 
 				SBasicNDFParams ndParams = {};
 
 			protected:
-				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				inline _typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -723,12 +703,7 @@ protected:
 					Beckmann = 1
 				};
 
-				inline const std::string_view getTypeName() const override {return "nbl::CCookTorrance";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(CCookTorrance);
-				}
-				inline uint32_t getSize() const override {return calc_size();}
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
 				inline CCookTorrance() = default;
 
 				SBasicNDFParams ndParams = {};
@@ -737,37 +712,25 @@ protected:
 				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
 				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
 				// BRDFs and BTDFs components into separate expressions, and also importance sample much better, for details see comments in CTrueIR. 
-				TypedHandle<CSpectralVariable> orientedRealEta = {};
+				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
 				// 
 				NDF ndf = NDF::GGX;
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
-				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
+				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
-				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
+#undef TYPE_NAME_STR
 
-		//
-		template<typename T, typename... Args>
-		inline CNodePool::TypedHandle<T> _new(Args&&... args)
-		{
-			return CNodePool::_new<T,Args...>(std::forward<Args>(args)...);
-		}
-
-		//
-		template<typename T>
-		inline void _delete(const CNodePool::TypedHandle<T> h)
-		{
-			return CNodePool::_delete<T>(h);
-		}
 
 		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
 		// TODO: shall we copy and hand out a new handle?
-		inline std::span<const TypedHandle<const CLayer>> getMaterials() {return m_rootNodes;}
-		inline bool addMaterial(const TypedHandle<const CLayer> rootNode, system::logger_opt_ptr logger)
+		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() {return m_rootNodes;}
+		inline bool addMaterial(const typed_pointer_type<const CLayer> rootNode, system::logger_opt_ptr logger)
 		{
 			if (valid(rootNode,logger))
 			{
@@ -778,16 +741,16 @@ protected:
 		}
 
 		// To quickly make a matching backface material from a frontface or vice versa
-		NBL_API TypedHandle<IExprNode> reciprocate(const TypedHandle<const IExprNode> other);
-		NBL_API TypedHandle<CFresnel> createNamedFresnel(const std::string_view name);
+		NBL_API2 typed_pointer_type<IExprNode> reciprocate(const typed_pointer_type<const IExprNode> other);
+		NBL_API2 typed_pointer_type<CFresnel> createNamedFresnel(const std::string_view name);
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
-		bool valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
+		bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,TypedHandle<const INode>)`)
-		NBL_API void printDotGraph(std::ostringstream& str) const;
+		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,typed_pointer_type<const INode>)`)
+		NBL_API2 void printDotGraph(std::ostringstream& str) const;
 		inline core::string printDotGraph() const
 		{
 			std::ostringstream tmp;
@@ -798,28 +761,28 @@ protected:
 	protected:
 		using CNodePool::CNodePool;
 
-		inline core::string getNodeID(const TypedHandle<const INode> handle) const {return core::string("_")+std::to_string(handle.untyped.value);}
-		inline core::string getLabelledNodeID(const TypedHandle<const INode> handle) const
+		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
+		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
 		{
-			const INode* node = deref(handle);
+			const INode* node = getObjectPool().deref(handle);
 			core::string retval = getNodeID(handle);
 			retval += " [label=\"";
 			retval += node->getTypeName();
-			if (const auto* debug=deref(node->debugInfo); debug && !debug->data().empty())
+			if (const auto* debug=getObjectPool().deref<const CDebugInfo>(node->debugInfo); debug && !debug->data().empty())
 			{
 				retval += "\\n";
 				retval += std::string_view(reinterpret_cast<const char*>(debug->data().data()),debug->data().size()-1);
 			}
-			if (const auto* expr=deref<const IExprNode>({.untyped=handle.untyped}); expr)
+			if (const auto* expr=dynamic_cast<const IExprNode*>(node); expr)
 				retval += expr->getLabelSuffix();
 			retval += "\"]";
 			return retval;
 		}
 
-		core::vector<TypedHandle<const CLayer>> m_rootNodes;
+		core::vector<typed_pointer_type<const CLayer>> m_rootNodes;
 };
 
-inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
+inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 {
 	constexpr auto ELL_ERROR = system::ILogger::E_LOG_LEVEL::ELL_ERROR;
 			
@@ -831,7 +794,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 	struct StackEntry
 	{
 		const IExprNode* node;
-		TypedHandle<const IExprNode> handle;
+		typed_pointer_type<const IExprNode> handle;
 		uint8_t contribSlot;
 		SubtreeContributorState contribState = SubtreeContributorState::Required;
 		// using post-order like stack but with a pre-order DFS
@@ -839,21 +802,21 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 	};
 	core::stack<StackEntry> exprStack;
 	// why a separate stack to the main one? Because we don't push siblings.
-	core::vector<TypedHandle<const IExprNode>> ancestorPrefix;
+	core::vector<typed_pointer_type<const IExprNode>> ancestorPrefix;
 	// unused yet
-	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
+	core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
 	// should probably size it better, if I knew total node count allocated or live
 	visitedNodes.reserve(m_rootNodes.size()<<3);
 	//
-	auto validateExpression = [&](const TypedHandle<const IExprNode> exprRoot, const bool isBTDF) -> bool
+	auto validateExpression = [&](const typed_pointer_type<const IExprNode> exprRoot, const bool isBTDF) -> bool
 	{
 		if (!exprRoot)
 			return true;
 		//
-		const auto* root = deref(exprRoot);
+		const auto* root = getObjectPool().deref<const IExprNode>(exprRoot);
 		if (!root)
 		{
-			logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.untyped.value,getTypeName(exprRoot).data());
+			logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.value,getTypeName(exprRoot).data());
 			return false;
 		}
 		//
@@ -888,7 +851,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 			for (auto childIx=0; childIx<childCount; childIx++)
 			{
 				const auto childHandle = node->getChildHandle(childIx);
-				if (const auto child=deref(childHandle); child)
+				if (const auto child=getObjectPool().deref(childHandle); child)
 				{
 					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
 					StackEntry newEntry = {.node=child,.handle=childHandle};
@@ -930,7 +893,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 				{
 					logger.log(
 						"Node %u of type %s has a %u th child %u which doesn't cast to `IExprNode`, its type is %s instead!",ELL_ERROR,
-						entry.handle.untyped.value,node->getTypeName().data(),childIx,childHandle,getTypeName(childHandle).data()
+						entry.handle.value,node->getTypeName().data(),childIx,childHandle,getTypeName(childHandle).data()
 					);
 					return false;
 				}
@@ -938,7 +901,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 			// check only after we know all children are OK
 			if (node->invalid(invalidCheckArgs))
 			{
-				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.untyped.value,node->getTypeName().data());
+				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().data());
 				return false;
 			}
 			if (entry.contribSlot<MaxContributors)
@@ -947,25 +910,25 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		for (uint8_t i=0; i<contributorCount; i++)
 		if (!contributorsFound.test(i))
 		{
-			logger.log("Expression starting with node %u does not have a Contributor Leaf Node in all of its additively distributive subtrees",ELL_ERROR,exprRoot.untyped.value);
+			logger.log("Expression starting with node %u does not have a Contributor Leaf Node in all of its additively distributive subtrees",ELL_ERROR,exprRoot.value);
 			return false;
 		}
 		return true;
 	};
 
 	core::vector<const CLayer*> layerStack;
-	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
+	auto pushLayer = [&](const typed_pointer_type<const CLayer> layerHandle)->bool
 	{
-		const auto* layer = deref(layerHandle);
+		const auto* layer = getObjectPool().deref(layerHandle);
 		if (!layer)
 		{
-			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).data());
+			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.value,getTypeName(layerHandle).data());
 			return false;
 		}
 		auto found = std::find(layerStack.begin(),layerStack.end(),layer);
 		if (found!=layerStack.end())
 		{
-			logger.log("Layer node %u is involved in a Cycle!",ELL_ERROR,layerHandle.untyped.value);
+			logger.log("Layer node %u is involved in a Cycle!",ELL_ERROR,layerHandle.value);
 			return false;
 		}
 		layerStack.push_back(layer);

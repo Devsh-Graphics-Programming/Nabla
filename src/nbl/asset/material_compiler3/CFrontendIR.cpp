@@ -27,7 +27,7 @@ bool CFrontendIR::CEmitter::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(perpTransmittance))
+	if (!args.pool->getObjectPool().deref(perpTransmittance))
 	{
 		args.logger.log("Perpendicular Transparency node of correct type must be attached, but is %u of type %s",ELL_ERROR,perpTransmittance,args.pool->getTypeName(perpTransmittance).data());
 		return true;
@@ -37,12 +37,12 @@ bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(orientedRealEta))
+	if (!args.pool->getObjectPool().deref(orientedRealEta))
 	{
 		args.logger.log("Oriented Real Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedRealEta,args.pool->getTypeName(orientedRealEta).data());
 		return true;
 	}
-	if (const auto imagEta=args.pool->deref(orientedImagEta); imagEta)
+	if (const auto imagEta=args.pool->getObjectPool().deref(orientedImagEta); imagEta)
 	{
 		if (args.isBTDF)
 		{
@@ -67,17 +67,17 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CThinInfiniteScatterCorrection::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(reflectanceTop))
+	if (!args.pool->getObjectPool().deref(reflectanceTop))
 	{
 		args.logger.log("Top reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectanceTop,args.pool->getTypeName(reflectanceTop).data());
 		return true;
 	}
-	if (extinction && !args.pool->deref(extinction))
+	if (extinction && !args.pool->getObjectPool().deref(extinction))
 	{
 		args.logger.log("Extinction node of incorrect type attached, but is %u of type %s",ELL_ERROR,extinction,args.pool->getTypeName(extinction).data());
 		return true;
 	}
-	if (!args.pool->deref(reflectanceBottom))
+	if (!args.pool->getObjectPool().deref(reflectanceBottom))
 	{
 		args.logger.log("Top reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectanceBottom,args.pool->getTypeName(reflectanceBottom).data());
 		return true;
@@ -102,7 +102,7 @@ bool CFrontendIR::CCookTorrance::invalid(const SInvalidCheckArgs& args) const
 		args.logger.log("Normal Distribution Parameters are invalid",ELL_ERROR);
 		return true;
 	}
-	if (args.isBTDF && !args.pool->deref(orientedRealEta))
+	if (args.isBTDF && !args.pool->getObjectPool().deref(orientedRealEta))
 	{
 		args.logger.log("Cook Torrance BTDF requires the Index of Refraction to compute the refraction direction, but is %u of type %s",ELL_ERROR,orientedRealEta,args.pool->getTypeName(orientedRealEta).data());
 		return true;
@@ -111,12 +111,12 @@ bool CFrontendIR::CCookTorrance::invalid(const SInvalidCheckArgs& args) const
 }
 
 
-auto CFrontendIR::reciprocate(const TypedHandle<const IExprNode> other) -> TypedHandle<IExprNode>
+auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> other) -> typed_pointer_type<IExprNode>
 {
-	if (const auto* in=deref<CFresnel>({.untyped=other.untyped}); in)
+	if (const auto* in=getObjectPool().deref(block_allocator_type::_static_cast<const CFresnel>(other)); in)
 	{
-		auto fresnelH = _new<CFresnel>();
-		auto* fresnel = deref(fresnelH);
+		auto fresnelH = getObjectPool().emplace<CFresnel>();
+		auto* fresnel = getObjectPool().deref(fresnelH);
 		*fresnel = *in;
 		fresnel->reciprocateEtas = ~in->reciprocateEtas;
 		return fresnelH;
@@ -125,7 +125,7 @@ auto CFrontendIR::reciprocate(const TypedHandle<const IExprNode> other) -> Typed
 	return {};
 }
 
-auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle<CFresnel>
+auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_pointer_type<CFresnel>
 {
 	using complex32_t = hlsl::complex_t<float>;
 	using spectral_complex_t = hlsl::portable_vector_t<complex32_t,3>;
@@ -198,16 +198,16 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle
 	if (found==creationLambdas.end())
 		return {};
 	//
-	const auto frH = _new<CFrontendIR::CFresnel>();
-	auto* fr = deref(frH);
-	fr->debugInfo = _new<CNodePool::CDebugInfo>(found->first);
+	const auto frH = getObjectPool().emplace<CFrontendIR::CFresnel>();
+	auto* fr = getObjectPool().deref(frH);
+	fr->debugInfo = getObjectPool().emplace<CNodePool::CDebugInfo>(found->first);
 	{
 		CSpectralVariable::SCreationParams<3> params = {};
 		params.getSemantics() = CSpectralVariable::Semantics::Fixed3_SRGB;
 		params.knots.params[0].scale = found->second.x.real();
 		params.knots.params[1].scale = found->second.y.real();
 		params.knots.params[2].scale = found->second.z.real();
-		fr->orientedRealEta = _new<CSpectralVariable>(std::move(params));
+		fr->orientedRealEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
 	}
 	{
 		CSpectralVariable::SCreationParams<3> params = {};
@@ -215,7 +215,7 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle
 		params.knots.params[0].scale = found->second.x.imag();
 		params.knots.params[1].scale = found->second.y.imag();
 		params.knots.params[2].scale = found->second.z.imag();
-		fr->orientedImagEta = _new<CSpectralVariable>(std::move(params));
+		fr->orientedImagEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
 	}
 	return frH;
 }
@@ -224,13 +224,13 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 {
 	str << "digraph {\n";
 	
-	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
+	core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
 	// should probably size it better, if I knew total node count allocated or live
 	visitedNodes.reserve(m_rootNodes.size()<<3);
 	// TODO: track layering depth and indent accordingly?
 	// assign in reverse because we want materials to print in order
-	core::vector<TypedHandle<const CLayer>> layerStack(m_rootNodes.rbegin(),m_rootNodes.rend());
-	core::stack<TypedHandle<const IExprNode>> exprStack;
+	core::vector<typed_pointer_type<const CLayer>> layerStack(m_rootNodes.rbegin(),m_rootNodes.rend());
+	core::stack<typed_pointer_type<const IExprNode>> exprStack;
 	while (!layerStack.empty())
 	{
 		const auto layerHandle = layerStack.back();
@@ -240,7 +240,7 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 		if (visited!=visitedNodes.end())
 			continue;
 		visitedNodes.insert(layerHandle);
-		const auto* layerNode = deref(layerHandle);
+		const auto* layerNode = getObjectPool().deref(layerHandle);
 		//
 		const auto layerID = getNodeID(layerHandle);
 		str << "\n\t" << getLabelledNodeID(layerHandle);
@@ -250,7 +250,7 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 			str << "\n\t" << layerID << " -> " << getNodeID(layerNode->coated) << "[label=\"coats\"]\n";
 			layerStack.push_back(layerNode->coated);
 		}
-		auto pushExprRoot = [&](const TypedHandle<const IExprNode> root, const std::string_view edgeLabel)->void
+		auto pushExprRoot = [&](const typed_pointer_type<const IExprNode> root, const std::string_view edgeLabel)->void
 		{
 			if (!root)
 				return;
@@ -272,14 +272,14 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 			exprStack.pop();
 			const auto nodeID = getNodeID(entry);
 			str << "\n\t" << getLabelledNodeID(entry);
-			const auto* node = deref(entry);
+			const auto* node = getObjectPool().deref(entry);
 			const auto childCount = node->getChildCount();
 			if (childCount)
 			{
 				for (auto childIx=0; childIx<childCount; childIx++)
 				{
 					const auto childHandle = node->getChildHandle(childIx);
-					if (const auto child=deref(childHandle); child)
+					if (const auto child=getObjectPool().deref(childHandle); child)
 					{
 						str << "\n\t" << nodeID << " -> " << getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
 						const auto visited = visitedNodes.find(childHandle);

@@ -1,16 +1,12 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED_
+#define _NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED_
 
-#ifndef __NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
-#define __NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
 
-
-namespace nbl
+namespace nbl::core
 {
-namespace core
-{
-
 template<typename T> class AllocatorTrivialBase;
 
 template<>
@@ -39,8 +35,5 @@ class NBL_FORCE_EBO AllocatorTrivialBase
         typedef const void*                                     const_void_pointer;
 };
 
-
 }
-}
-
 #endif
