@@ -88,12 +88,13 @@ struct SContext final
 		core::smart_refctd_ptr<frontend_ir_t> frontIR;
 		// common frontend nodes
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::IExprNode> errorBRDF;
-		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> unsupportedPhong, unsupportedWard;
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> errorMaterial, unsupportedPhong, unsupportedWard;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CDeltaTransmission> deltaTransmission;
 		// Common Debug Names
 		enum class ECommonDebug : uint16_t
 		{
 			Albedo,
+			Opacity,
 			MitsubaExtraFactor,
 			Count
 		};
