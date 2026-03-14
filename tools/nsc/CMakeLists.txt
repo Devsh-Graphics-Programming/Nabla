@@ -13,6 +13,14 @@ if(NOT NBL_NSC_MODE MATCHES "^(SOURCE|PACKAGE)$")
 	message(FATAL_ERROR "Invalid NBL_NSC_MODE=\"${NBL_NSC_MODE}\". Valid values are SOURCE and PACKAGE.")
 endif()
 
+if(NBL_ENABLE_CONFIG_INSTALL)
+	configure_file(
+		"${NBL_ROOT_PATH}/cmake/NablaNSCHelpers.cmake"
+		"${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake"
+		COPYONLY
+	)
+endif()
+
 function(nbl_nsc_get_default_host_channel OUT_VAR)
 	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 		set(_os windows)
@@ -73,6 +81,9 @@ function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
 		"${NBL_ROOT_PATH_BINARY}/NablaConfig.cmake"
 		"${NBL_ROOT_PATH_BINARY}/NablaConfigVersion.cmake"
 	)
+	if(EXISTS "${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake")
+		list(APPEND _nbl_nsc_config_files "${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake")
+	endif()
 
 	install(EXPORT NablaNSCExportTargets
 		NAMESPACE Nabla::
@@ -157,6 +168,15 @@ if(NBL_NSC_MODE STREQUAL "PACKAGE")
 	endif()
 
 	set_property(TARGET Nabla::nsc PROPERTY IMPORTED_GLOBAL TRUE)
+	nabla_add_nsc_ide_target(
+		TARGET nsc
+		MANIFEST_ROOT "${_nbl_nsc_manifest_root}"
+		CHANNEL "${_nbl_nsc_channel}"
+	)
+	set_target_properties(nsc PROPERTIES
+		EXCLUDE_FROM_ALL TRUE
+		PROJECT_LABEL "nsc (package)"
+	)
 
 	return()
 endif()
