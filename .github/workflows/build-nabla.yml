@@ -252,17 +252,17 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command `
               & 'C:/mount/nabla/build-ct/nsc-package/exe/nsc.exe' --dump-build-info --file 'C:/mount/nabla/build-ct/nsc-package/exe/build-info.json'
 
-      - name: Package NSC runtime channel layout
+      - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
         run: |
-          python tools/nsc/ci/package_nsc_toolchain.py `
-            --package-root build-ct/nsc-package `
-            --payload-root build-ct/nsc-release/payload `
-            --manifest-root build-ct/nsc-release/manifests `
-            --channel ${{ steps.set-prefix.outputs.nscChannel }} `
-            --manifests-zip build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip `
-            --metadata-json build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-payload.json `
-            --clean
+          cmake `
+            -D SOURCE_ROOT=C:/mount/nabla/build-ct/nsc-package `
+            -D PAYLOAD_ROOT=C:/mount/nabla/build-ct/nsc-release/payload `
+            -D MANIFEST_ROOT=C:/mount/nabla/build-ct/nsc-release/manifests `
+            -D CHANNEL=${{ steps.set-prefix.outputs.nscChannel }} `
+            -D MANIFESTS_ZIP=C:/mount/nabla/build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip `
+            -D PRUNE=ON `
+            -P C:/mount/nabla/cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
 
       - name: Package left workflow artifacts
         run: |
@@ -289,13 +289,6 @@ jobs:
         with:
           name: ${{ steps.set-prefix.outputs.nscManifestArtifactName }}
           path: build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip
-
-      - name: Upload NSC payload metadata artifact
-        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.set-prefix.outputs.nscChannel }}-payload-metadata
-          path: build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-payload.json
 
       - name: Upload profiling artifacts
         uses: actions/upload-artifact@v4

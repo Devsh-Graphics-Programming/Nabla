@@ -88,10 +88,10 @@ real Nabla package layout required by `find_package(Nabla COMPONENTS NSC)`.
 
 ## Local packaging helper
 
-For local validation this repository also carries:
+For local validation this repository uses the maintainer helper shipped by NAM:
 
 ```text
-tools/nsc/ci/package_nsc_toolchain.py
+cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
 ```
 
 It takes an installed `NSC` component and emits:
@@ -103,13 +103,14 @@ It takes an installed `NSC` component and emits:
 Example:
 
 ```powershell
-python tools/nsc/ci/package_nsc_toolchain.py `
-  --package-root build/dynamic/nsc-package `
-  --payload-root build/dynamic/nsc-release/payload `
-  --manifest-root tools/nsc/manifests `
-  --channel nsc-windows-x64-release `
-  --manifests-zip build/dynamic/nsc-release/nsc-windows-x64-release-manifests.zip `
-  --clean
+cmake `
+  -D SOURCE_ROOT=build/dynamic/nsc-package `
+  -D PAYLOAD_ROOT=build/dynamic/nsc-release/payload `
+  -D MANIFEST_ROOT=tools/nsc/manifests `
+  -D CHANNEL=nsc-windows-x64-release `
+  -D MANIFESTS_ZIP=build/dynamic/nsc-release/nsc-windows-x64-release-manifests.zip `
+  -D PRUNE=ON `
+  -P cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
 ```
 
 ## CI packaging intent
