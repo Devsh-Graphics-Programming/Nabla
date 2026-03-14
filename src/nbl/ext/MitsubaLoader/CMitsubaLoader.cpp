@@ -832,6 +832,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 							btdfH = brdf->lhs;
 					}
 					leaf->btdf = mul(btdfH,factorH);
+					// By default, all non-transmissive scattering models in Mitsuba are one-sided = all transmissive are two sided
+					leaf->brdfBottom = brdfH;
 				}
 				break;
 			}
@@ -882,6 +884,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				}
 				leaf->brdfTop = diffTransH;
 				leaf->btdf = diffTransH;
+				// By default, all non-transmissive scattering models in Mitsuba are one-sided = all transmissive are two sided
+				leaf->brdfBottom = diffTransH;
 				break;
 			}
 			default:
@@ -891,32 +895,21 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 		}
 		leaf = frontPool.deref(retval);
 		assert(leaf->brdfTop);
-		assert(!leaf->brdfBottom);
 		return retval;
 	};
 
 	// Post-order Depth First Traversal (create children first, then create parent)
 	struct SStackEntry
 	{
-		enum class ExpectedNodeType : uint64_t
-		{
-			Layer,
-			Count
-		};
 		const CElementBSDF* bsdf;
-		ExpectedNodeType expectedNodeType : 2 = ExpectedNodeType::Layer;
 		uint64_t visited : 1 = false;
-		uint64_t unused : 61 = 0;
+		uint64_t unused : 63 = 0;
 	};
 	core::vector<SStackEntry> stack;
 	stack.reserve(128);
 	stack.emplace_back() = {.bsdf=bsdf};
 	// for the static casts of handles
-	using block_allocator_t  = frontend_ir_t::obj_pool_type::mem_pool_type::block_allocator_type;
-	using node_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::INode>;
-	using expected_e = SStackEntry::ExpectedNodeType;
-	const node_t errorNodes[size_t(expected_e::Count)] = {errorMaterial}; // TODO: {errorFactor,errorBRDF,errorLayer}
-	core::unordered_map<const CElementBSDF*,node_t> localCache;
+	core::unordered_map<const CElementBSDF*,material_t> localCache;
 	localCache.reserve(16);
 	//
 	while (!stack.empty())
@@ -935,49 +928,32 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				{
 					case CElementBSDF::COATING: [[fallthrough]];
 					case CElementBSDF::ROUGHCOATING: [[fallthrough]];
+					case CElementBSDF::BUMPMAP: [[fallthrough]];
+					case CElementBSDF::NORMALMAP: [[fallthrough]];
 					case CElementBSDF::MASK:
-					{
 						assert(meta_common.childCount==1);
-						stack.emplace_back() = {.bsdf=meta_common.bsdf[0],.expectedNodeType=expected_e::Layer};
 						break;
-					}
-					case CElementBSDF::BUMPMAP:
-					{
-						assert(false); // unimplemented
-						break;
-					}
-					case CElementBSDF::NORMALMAP:
-					{
-						assert(false); // unimplemented
-						break;
-					}
 					case CElementBSDF::MIXTURE_BSDF:
-					{
-						assert(false); // unimplemented
 						break;
-					}
 					case CElementBSDF::BLEND_BSDF:
-					{
-						assert(false); // unimplemented
+						assert(meta_common.childCount==2);
 						break;
-					}
 					case CElementBSDF::TWO_SIDED:
-					{
 						assert(meta_common.childCount<=2);
-						stack.emplace_back() = {.bsdf=meta_common.bsdf[0],.expectedNodeType=expected_e::Layer};
-						assert(false); // unimplemented
 						break;
-					}
 					default:
 						assert(false); // we shouldn't get this case here
 						break;
 				}
+				stack.emplace_back() = {.bsdf=meta_common.bsdf[0]};
+				for (decltype(meta_common.childCount) i=1; i<meta_common.childCount; i++)
+					stack.emplace_back() = {.bsdf=meta_common.bsdf[i]};
 			}
 			entry.visited = true;
 		}
 		else
 		{
-			node_t newNodeH = {};
+			material_t newNodeH = {};
 			if (_bsdf->isMeta())
 			{
 				switch(_bsdf->type)
@@ -992,7 +968,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						// BTDF thats transmission with absorption
 						// TODO
 						// attach leaf as layer
-						coating->coated = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(localCache[_bsdf->mask.bsdf[0]]);
+						coating->coated = localCache[_bsdf->mask.bsdf[0]]._const_cast();
 						newNodeH = coatingH;
 						break;
 					}
@@ -1001,8 +977,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						const auto maskH = frontPool.emplace<frontend_ir_t::CLayer>();
 						auto* const mask = frontPool.deref(maskH);
 						//
-						const auto nestedH = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(localCache[_bsdf->mask.bsdf[0]]);
-						auto* const nested = frontPool.deref(nestedH);
+						const auto nestedH = localCache[_bsdf->mask.bsdf[0]];
+						const auto* const nested = frontPool.deref(nestedH);
 						assert(nested && nested->brdfTop);
 						const auto opacityH = createFactorNode(_bsdf->mask.opacity,ECommonDebug::Opacity);
 						mask->brdfTop = mul(nested->brdfTop,opacityH);
@@ -1037,8 +1013,39 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					}
 					case CElementBSDF::TWO_SIDED:
 					{
-						// create a copy of the layer, with different settings (don't want to disturb the original)
-						// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
+						const auto origFrontH = localCache[_bsdf->mask.bsdf[0]];
+						const auto* const origFront = frontPool.deref(origFrontH);
+#if 0
+						// attach the original on both sides
+						if (_bsdf->twosided.childCount==1)
+						{
+							// get to the bottom layer
+							auto lastLayerH = origTopH;
+							while (lastLayerH)
+							{
+								const auto* const layer = frontPool.deref(lastLayerH);
+								lastLayerH = layer->coated;
+							}
+							// do we even have a non-twosided material?
+							// 
+
+							// create a copy of the layer, with different settings (don't want to disturb the original)
+							const auto twoSidedH = frontPool.emplace<frontend_ir_t::CLayer>();
+							auto* const twoSided = frontPool.deref(twoSidedH);
+							if (origTop->coated)
+							{
+								//
+							}
+							else
+								//
+							twoSided->brdfBottom = origTop->brdfTop;
+						}
+						else
+						{
+							// glue a copy of the second child in reverse from its last layer to the front while reciprocating
+							const auto origBottomH = localCache[_bsdf->mask.bsdf[1]];
+						}
+#endif
 						assert(false); // unimplemented
 						break;
 					}
@@ -1050,7 +1057,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			else
 				newNodeH = createMistubaLeaf(_bsdf);
 			if (!newNodeH)
-				newNodeH = errorNodes[size_t(entry.expectedNodeType)];
+				newNodeH = errorMaterial;
 			localCache[_bsdf] = newNodeH;
 			stack.pop_back();
 		}
@@ -1059,7 +1066,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	const auto found = localCache.find(bsdf);
 	if (found!=localCache.end())
 		return errorMaterial;
-	const auto rootH = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(found->second);
+	const auto rootH = found->second._const_cast();
 	if (!rootH)
 		return errorMaterial;
 	auto* const root = frontPool.deref(rootH);
