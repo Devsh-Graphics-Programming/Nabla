@@ -261,6 +261,8 @@ jobs:
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         working-directory: ${{ github.workspace }}
         run: |
+          New-Item -ItemType Directory -Force -Path build-ct/nsc-release | Out-Null
+
           cmake `
             -D SOURCE_ROOT=build-ct/nsc-package `
             -D PAYLOAD_ROOT=build-ct/nsc-release/payload `
