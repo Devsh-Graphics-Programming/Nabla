@@ -40,6 +40,53 @@ function(nbl_nsc_get_default_toolchain_root OUT_VAR)
 	set(${OUT_VAR} "${_toolchain_root}" PARENT_SCOPE)
 endfunction()
 
+function(nbl_nsc_register_manifest_dependencies MANIFEST_ROOT CHANNEL)
+	file(GLOB_RECURSE _nbl_nsc_manifest_files CONFIGURE_DEPENDS LIST_DIRECTORIES false "${MANIFEST_ROOT}/${CHANNEL}/*.dvc")
+	if(_nbl_nsc_manifest_files)
+		set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_nbl_nsc_manifest_files})
+	endif()
+endfunction()
+
+function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
+	export(TARGETS ${EXECUTABLE_TARGET} NAMESPACE Nabla:: FILE "${NBL_ROOT_PATH_BINARY}/NablaNSCExport.cmake")
+
+	if(NOT NBL_ENABLE_CONFIG_INSTALL OR NBL_STATIC_BUILD)
+		return()
+	endif()
+
+	set(_nbl_nsc_package_exe_dir "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe")
+
+	install(TARGETS ${EXECUTABLE_TARGET}
+		EXPORT NablaNSCExportTargets
+		RUNTIME DESTINATION "${_nbl_nsc_package_exe_dir}"
+		COMPONENT NSC
+	)
+
+	install(PROGRAMS
+		$<TARGET_FILE:Nabla>
+		"${DXC_DLL}"
+		DESTINATION "${_nbl_nsc_package_exe_dir}"
+		COMPONENT NSC
+	)
+
+	set(_nbl_nsc_config_files
+		"${NBL_ROOT_PATH_BINARY}/NablaConfig.cmake"
+		"${NBL_ROOT_PATH_BINARY}/NablaConfigVersion.cmake"
+	)
+
+	install(EXPORT NablaNSCExportTargets
+		NAMESPACE Nabla::
+		DESTINATION cmake
+		COMPONENT NSC
+	)
+
+	install(FILES
+		${_nbl_nsc_config_files}
+		DESTINATION cmake
+		COMPONENT NSC
+	)
+endfunction()
+
 if(NBL_NSC_MODE STREQUAL "PACKAGE")
 	if(NOT COMMAND nam_materialize_channel_now)
 		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE requires NAM to be available. Ensure cmake/nam is initialized and included from common.cmake.")
@@ -56,6 +103,8 @@ if(NBL_NSC_MODE STREQUAL "PACKAGE")
 	else()
 		nbl_nsc_get_default_host_channel(_nbl_nsc_channel)
 	endif()
+
+	nbl_nsc_register_manifest_dependencies("${_nbl_nsc_manifest_root}" "${_nbl_nsc_channel}")
 
 	if(NBL_NSC_REPO)
 		set(_nbl_nsc_repo "${NBL_NSC_REPO}")
@@ -93,10 +142,13 @@ if(NBL_NSC_MODE STREQUAL "PACKAGE")
 		nam_materialize_channel_now(${_nbl_nsc_materialize_args})
 	endif()
 
+	set(_nbl_nsc_package_config_dir "${_nbl_nsc_package_root}/cmake")
+	set(Nabla_DIR "${_nbl_nsc_package_config_dir}" CACHE PATH "Resolved Nabla package config directory for NBL_NSC_MODE=PACKAGE" FORCE)
+
 	find_package(Nabla CONFIG REQUIRED COMPONENTS NSC
 		PATHS
 			"${_nbl_nsc_package_root}"
-			"${_nbl_nsc_package_root}/cmake"
+			"${_nbl_nsc_package_config_dir}"
 		NO_DEFAULT_PATH
 	)
 
@@ -112,6 +164,7 @@ endif()
 nbl_create_executable_project("" "" "" "")
 
 add_executable(Nabla::nsc ALIAS ${EXECUTABLE_NAME})
+nbl_nsc_register_source_package_exports(${EXECUTABLE_NAME})
 
 set_target_properties(${EXECUTABLE_NAME} PROPERTIES
 	INTERFACE_INCLUDE_DIRECTORIES ""
