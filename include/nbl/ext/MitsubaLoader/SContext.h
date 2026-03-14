@@ -95,6 +95,7 @@ struct SContext final
 		{
 			Albedo,
 			Opacity,
+			Weight,
 			MitsubaExtraFactor,
 			Count
 		};

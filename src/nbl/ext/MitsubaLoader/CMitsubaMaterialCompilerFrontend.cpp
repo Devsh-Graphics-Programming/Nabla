@@ -255,16 +255,16 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
     {
         const CElementBSDF* bsdf;
         IRNode* ir_node = nullptr;
-        uint32_t parent_ix = static_cast<uint32_t>(-1);
-        uint32_t child_num = 0u;
-        bool twosided = false;
+        uint32_t parent_ix = static_cast<uint32_t>(-1); // it skips twosided
+        uint32_t child_num = 0u; // which child am I ?
+        bool twosided = false; // any parent above twosided
         bool front = true;
 
         CElementBSDF::Type type() const { return bsdf->type; }
     };
     auto node_parent = [](const SNode& node, core::vector<SNode>& traversal) { return &traversal[node.parent_ix]; };
 
-    core::vector<SNode> bfs;
+    core::vector<SNode> bfs; // skips twosided
     {
         core::queue<SNode> q;
         {
@@ -286,10 +286,13 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
                 {
                     SNode child_node;
                     child_node.bsdf = (parent.bsdf->type == CElementBSDF::COATING) ? parent.bsdf->coating.bsdf[i] : parent.bsdf->meta_common.bsdf[i];
+                    // all of this is to traverse as-if twosided doesn't exist
                     child_node.parent_ix = parent.type() == CElementBSDF::TWO_SIDED ? parent.parent_ix : bfs.size();
                     child_node.twosided = (child_node.type() == CElementBSDF::TWO_SIDED) || parent.twosided;
                     child_node.child_num = (parent.type() == CElementBSDF::TWO_SIDED) ? parent.child_num : i;
+                    // inherit frontsidedness from parent
                     child_node.front = parent.front;
+                    // second child of twosided is not frontsided
                     if (parent.type() == CElementBSDF::TWO_SIDED && i == 1u)
                         child_node.front = false;
                     q.push(child_node);
@@ -300,43 +303,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         }
     }
 
-    auto createBackfaceNodeFromFrontface = [&ir](const IRNode* front) -> IRNode*
-    {
-        switch (front->symbol)
-        {
-        case IRNode::ES_BSDF_COMBINER: [[fallthrough]];
-        case IRNode::ES_OPACITY: [[fallthrough]];
-        case IRNode::ES_GEOM_MODIFIER: [[fallthrough]];
-        case IRNode::ES_EMITTER:
-        case IRNode::ES_ROOT:
-            return ir->copyNode(front);
-        case IRNode::ES_BSDF:
-        {
-            auto* bsdf = static_cast<const IR::CBSDFNode*>(front);
-            if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIELECTRIC)
-            {
-                auto* dielectric = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(bsdf);
-                auto* copy = static_cast<IR::CMicrofacetDielectricBSDFNode*>(ir->copyNode(front));
-                if (!copy->thin) //we're always outside in case of thin dielectric
-                    copy->eta = IRNode::color_t(1.f) / copy->eta;
-
-                return copy;
-            }
-            else if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIFFTRANS)
-                return ir->copyNode(front);
-        }
-        [[fallthrough]]; // intentional
-        default:
-        {
-            // black diffuse otherwise
-            auto* invalid = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
-            invalid->setSmooth();
-            invalid->reflectance = IR::INode::color_t(0.f);
-
-            return invalid;
-        }
-        }
-    };
 
     //create frontface IR
     IRNode* frontroot = nullptr;

@@ -371,6 +371,7 @@ auto SContext::getMaterial(
 	{
 		// only front-face on top layer get changed, Mistuba XML only allows for unobscured/uncoated emission
 		{
+			// TODO replace with utility
 			auto combinerH = frontPool.emplace<frontend_ir_t::CAdd>();
 			auto* const combiner = frontPool.deref(combinerH);
 			combiner->lhs = foundEmitter->second._const_cast();
@@ -624,22 +625,43 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	
 	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& factor, const ECommonDebug debug)->auto
 	{
-		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
-		auto* mul = frontPool.deref(mulH);
 		spectral_var_t::SCreationParams<3> params = {};
 		params.knots.uvTransform = getParameters(params.knots.params,factor);
 		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 		const auto factorH = frontPool.emplace<spectral_var_t>(std::move(params));
 		frontPool.deref(factorH)->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
-		mul->rhs = factorH;
+		return factorH;
+	};
+	// TODO: Move this lambda to CFrontendIR for everyone to use
+	using expr_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode>;
+	auto mul = [&](const expr_t original, const expr_t factor)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CMul>
+	{
+		// if there was no original, attenuating a black colour is useless
+		if (!original)
+			return {};
+		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
+		auto* const mul = frontPool.deref(mulH);
+		mul->lhs = original;
+		mul->rhs = factor;
 		return mulH;
 	};
+	auto add = [&](const expr_t lhs, const expr_t rhs)->expr_t
+	{
+		if (!lhs)
+			return rhs;
+		if (!rhs)
+			return lhs;
+		const auto addH = frontPool.emplace<frontend_ir_t::CAdd>();
+		auto* const add = frontPool.deref(addH);
+		add->lhs = lhs;
+		add->rhs = rhs;
+		return addH;
+	};
+	// end TODO
 	auto createCookTorrance = [&](const CElementBSDF::RoughSpecularBase* base, const frontend_ir_t::typed_pointer_type<frontend_ir_t::CFresnel> fresnelH, const CElementTexture::SpectrumOrTexture& specularReflectance)->auto
 	{
-		const auto handle = createFactorNode(specularReflectance,ECommonDebug::MitsubaExtraFactor);
-		// rhs already filled, waiting for contributor in lhs subtree
 		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
-		frontPool.deref(handle)->lhs = mulH;
+		const auto factorH = createFactorNode(specularReflectance,ECommonDebug::MitsubaExtraFactor);
 		{
 			auto* mul = frontPool.deref(mulH);
 			const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
@@ -675,13 +697,13 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			mul->lhs = ctH;
 			mul->rhs = fresnelH;
 		}
-		return handle;
+		return mul(mulH,factorH);
 	};
 	auto createOrenNayar = [&](const CElementTexture::SpectrumOrTexture& albedo, const CElementTexture::FloatOrTexture& alphaU, const CElementTexture::FloatOrTexture& alphaV)->auto
 	{
-		const auto mulH = createFactorNode(albedo,ECommonDebug::Albedo);
+		const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
+		const auto factorH = createFactorNode(albedo,ECommonDebug::Albedo);
 		{
-			const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
 			auto* orenNayar = frontPool.deref(orenNayarH);
 			// TODO: factor this out between Oren-Nayar and Cook Torrance
 			auto roughness = orenNayar->ndParams.getRougness();
@@ -691,16 +713,16 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				// TODO: check if UV transform is the same and warn if not
 				getParameters({roughness.data()+1,1},alphaV);
 			}
-			frontPool.deref(mulH)->lhs = orenNayarH;
 		}
-		return mulH;
+		return mul(orenNayarH,factorH);
 	};
 
+	using bxdf_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode>;
 	// the layer returned will never have a bottom BRDF
 	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
 	{
 		auto retval = frontPool.emplace<frontend_ir_t::CLayer>();
-		auto* const leaf = frontPool.deref(retval);
+		auto* leaf = frontPool.deref(retval);
 		switch (_bsdf->type)
 		{
 			case CElementBSDF::DIFFUSE: [[fallthrough]];
@@ -782,10 +804,10 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				if (!isConductor)
 				{
 					// want a specularTransmittance instead of SpecularReflectance factor
-					const auto btdfH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					const auto factorH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					bxdf_t btdfH;
 					{
 						const auto* const brdf = frontPool.deref(brdfH);
-						auto* const btdf = frontPool.deref(btdfH);
 						// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
 						if (_bsdf->type==CElementBSDF::THINDIELECTRIC)
 						{
@@ -804,12 +826,12 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 								mul->rhs = thinInfiniteScatterH;
 							}
 							// we're rethreading the fresnel here
-							btdf->lhs = correctedTransmissionH;
+							btdfH = correctedTransmissionH;
 						}
-						else // beautiful thing we can reuse the same nodes for a transmission function without touching Etas or anything!
-							btdf->lhs = brdf->lhs;
+						else // beautiful thing we can reuse the same BxDF nodes for a transmission function without touching Etas or anything!
+							btdfH = brdf->lhs;
 					}
-					leaf->btdf = btdfH;
+					leaf->btdf = mul(btdfH,factorH);
 				}
 				break;
 			}
@@ -821,11 +843,10 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				leaf->brdfTop = dielectricH;
 				const auto transH = frontPool.emplace<frontend_ir_t::CMul>();
 				{
-					auto* const mul = frontPool.deref(transH);
-					mul->lhs = deltaTransmission._const_cast();
-					const auto transmittanceH = createFactorNode(_bsdf->plastic.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
-					frontPool.deref(transmittanceH)->lhs = fresnelH;
-					mul->rhs = transmittanceH;
+					auto* const trans = frontPool.deref(transH);
+					trans->lhs = deltaTransmission._const_cast();
+					const auto factorH = createFactorNode(_bsdf->plastic.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					trans->rhs = mul(fresnelH,factorH);
 				}
 				leaf->btdf = transH;
 				const auto substrateH = frontPool.emplace<frontend_ir_t::CLayer>();
@@ -865,8 +886,11 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			}
 			default:
 				assert(false); // we shouldn't get this case here
-				return errorMaterial._const_cast();
+				retval = errorMaterial._const_cast();
+				break;
 		}
+		leaf = frontPool.deref(retval);
+		assert(leaf->brdfTop);
 		assert(!leaf->brdfBottom);
 		return retval;
 	};
@@ -874,58 +898,160 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	// Post-order Depth First Traversal (create children first, then create parent)
 	struct SStackEntry
 	{
+		enum class ExpectedNodeType : uint64_t
+		{
+			Layer,
+			Count
+		};
 		const CElementBSDF* bsdf;
+		ExpectedNodeType expectedNodeType : 2 = ExpectedNodeType::Layer;
 		uint64_t visited : 1 = false;
-		uint64_t expectedNodeType : 2 = false;
-		uint64_t unused : 61 = false;
+		uint64_t unused : 61 = 0;
 	};
 	core::vector<SStackEntry> stack;
 	stack.reserve(128);
-	stack.emplace_back() = {
-		.bsdf = bsdf
-	};
+	stack.emplace_back() = {.bsdf=bsdf};
 	// for the static casts of handles
 	using block_allocator_t  = frontend_ir_t::obj_pool_type::mem_pool_type::block_allocator_type;
 	using node_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::INode>;
+	using expected_e = SStackEntry::ExpectedNodeType;
+	const node_t errorNodes[size_t(expected_e::Count)] = {errorMaterial}; // TODO: {errorFactor,errorBRDF,errorLayer}
 	core::unordered_map<const CElementBSDF*,node_t> localCache;
-	while (!stack.front().visited)
+	localCache.reserve(16);
+	//
+	while (!stack.empty())
 	{
-		const auto entry = stack.back();
-		assert(entry.bsdf);
-		if (!entry.visited)
+		auto& entry = stack.back();
+		const auto* const _bsdf = entry.bsdf;
+		assert(_bsdf);
+		// we only do post-dfs for non-leafs
+		if (_bsdf->isMeta() && !entry.visited)
 		{
-			node_t newNodeH = {}; // TODO: {errorFactor,errorBRDF,errorLayer}[entry.expectedNodeType];
-			if (entry.bsdf->isMeta())
+			if (_bsdf->isMeta())
 			{
-				return errorMaterial;// temporary
-				switch(entry.bsdf->type)
+				const auto& meta_common = _bsdf->meta_common;
+				assert(meta_common.childCount);
+				switch(_bsdf->type)
 				{
+					case CElementBSDF::COATING: [[fallthrough]];
+					case CElementBSDF::ROUGHCOATING: [[fallthrough]];
 					case CElementBSDF::MASK:
 					{
-						const auto maskH = createFactorNode(entry.bsdf->mask.opacity,ECommonDebug::Opacity);
+						assert(meta_common.childCount==1);
+						stack.emplace_back() = {.bsdf=meta_common.bsdf[0],.expectedNodeType=expected_e::Layer};
+						break;
+					}
+					case CElementBSDF::BUMPMAP:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::NORMALMAP:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::MIXTURE_BSDF:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::BLEND_BSDF:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::TWO_SIDED:
+					{
+						assert(meta_common.childCount<=2);
+						stack.emplace_back() = {.bsdf=meta_common.bsdf[0],.expectedNodeType=expected_e::Layer};
+						assert(false); // unimplemented
+						break;
+					}
+					default:
+						assert(false); // we shouldn't get this case here
+						break;
+				}
+			}
+			entry.visited = true;
+		}
+		else
+		{
+			node_t newNodeH = {};
+			if (_bsdf->isMeta())
+			{
+				switch(_bsdf->type)
+				{
+					case CElementBSDF::COATING: [[fallthrough]];
+					case CElementBSDF::ROUGHCOATING:
+					{
+						const auto coatingH = frontPool.emplace<frontend_ir_t::CLayer>();
+						auto* const coating = frontPool.deref(coatingH);
+						// create BRDF thats cook torrance
+						// TODO
+						// BTDF thats transmission with absorption
+						// TODO
+						// attach leaf as layer
+						coating->coated = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(localCache[_bsdf->mask.bsdf[0]]);
+						newNodeH = coatingH;
+						break;
+					}
+					case CElementBSDF::MASK:
+					{
+						const auto maskH = frontPool.emplace<frontend_ir_t::CLayer>();
 						auto* const mask = frontPool.deref(maskH);
-//						mask->lhs = ;
+						//
+						const auto nestedH = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(localCache[_bsdf->mask.bsdf[0]]);
+						auto* const nested = frontPool.deref(nestedH);
+						assert(nested && nested->brdfTop);
+						const auto opacityH = createFactorNode(_bsdf->mask.opacity,ECommonDebug::Opacity);
+						mask->brdfTop = mul(nested->brdfTop,opacityH);
+						{
+							const auto transparencyH = frontPool.emplace<frontend_ir_t::CComplement>();
+							frontPool.deref(transparencyH)->child = opacityH;
+							mask->btdf = add(mul(deltaTransmission._const_cast(),transparencyH),mul(nested->btdf,opacityH));
+						}
+						mask->brdfBottom = mul(nested->brdfBottom,opacityH);
 						newNodeH = maskH;
 						break;
 					}
-					//case CElementBSDF::TWO_SIDED:
+					case CElementBSDF::BUMPMAP:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::NORMALMAP:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::MIXTURE_BSDF:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::BLEND_BSDF:
+					{
+						assert(false); // unimplemented
+						break;
+					}
+					case CElementBSDF::TWO_SIDED:
+					{
+						// create a copy of the layer, with different settings (don't want to disturb the original)
 						// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
-						//break;
+						assert(false); // unimplemented
+						break;
+					}
 					default:
 						assert(false); // we shouldn't get this case here
 						break;
 				}
 			}
 			else
-			{
-				newNodeH = createMistubaLeaf(entry.bsdf);
-				// have to make it available somehow for parent
-			}
-			localCache[entry.bsdf] = newNodeH;
-			stack.back().visited = true;
-		}
-		else
-		{
+				newNodeH = createMistubaLeaf(_bsdf);
+			if (!newNodeH)
+				newNodeH = errorNodes[size_t(entry.expectedNodeType)];
+			localCache[_bsdf] = newNodeH;
 			stack.pop_back();
 		}
 	}
@@ -1096,6 +1222,7 @@ SContext::SContext(
 		{
 #define ADD_DEBUG_NODE(NAME) commonDebugNames[uint16_t(ECommonDebug::NAME)] = frontPool.emplace<frontend_ir_t::CDebugInfo>(#NAME)
 			ADD_DEBUG_NODE(Albedo);
+			ADD_DEBUG_NODE(Weight);
 			ADD_DEBUG_NODE(Opacity);
 			ADD_DEBUG_NODE(MitsubaExtraFactor);
 #undef ADD_DEBUG_NODE
