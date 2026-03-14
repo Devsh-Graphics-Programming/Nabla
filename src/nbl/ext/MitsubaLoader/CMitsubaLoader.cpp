@@ -839,11 +839,11 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			}
 			case CElementBSDF::PHONG:
 				logger.log("Failed to Create a Phong BxDF for Material for %s, Phong is Unsupported",LoggerError,debugName.c_str());
-				leaf->brdfTop = unsupportedPhong;
+				retval = unsupportedPhong._const_cast();
 				break;
 			case CElementBSDF::WARD:
 				logger.log("Failed to Create a Ward BxDF for Material for %s, Ward is Unsupported",LoggerError,debugName.c_str());
-				leaf->brdfTop = unsupportedWard;
+				retval = unsupportedWard._const_cast();
 				break;
 			case CElementBSDF::DIFFUSE_TRANSMITTER:
 			{
@@ -865,41 +865,85 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			}
 			default:
 				assert(false); // we shouldn't get this case here
-				return {};
+				return errorMaterial._const_cast();
 		}
 		assert(!leaf->brdfBottom);
 		return retval;
 	};
 
 	// Post-order Depth First Traversal (create children first, then create parent)
-	if (bsdf->isMeta()) // TODO: temporary
-		return {};
-	const auto rootH = createMistubaLeaf(bsdf);
+	struct SStackEntry
+	{
+		const CElementBSDF* bsdf;
+		uint64_t visited : 1 = false;
+		uint64_t expectedNodeType : 2 = false;
+		uint64_t unused : 61 = false;
+	};
+	core::vector<SStackEntry> stack;
+	stack.reserve(128);
+	stack.emplace_back() = {
+		.bsdf = bsdf
+	};
+	// for the static casts of handles
+	using block_allocator_t  = frontend_ir_t::obj_pool_type::mem_pool_type::block_allocator_type;
+	using node_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::INode>;
+	core::unordered_map<const CElementBSDF*,node_t> localCache;
+	while (!stack.front().visited)
+	{
+		const auto entry = stack.back();
+		assert(entry.bsdf);
+		if (!entry.visited)
+		{
+			node_t newNodeH = {}; // TODO: {errorFactor,errorBRDF,errorLayer}[entry.expectedNodeType];
+			if (entry.bsdf->isMeta())
+			{
+				return errorMaterial;// temporary
+				switch(entry.bsdf->type)
+				{
+					case CElementBSDF::MASK:
+					{
+						const auto maskH = createFactorNode(entry.bsdf->mask.opacity,ECommonDebug::Opacity);
+						auto* const mask = frontPool.deref(maskH);
+//						mask->lhs = ;
+						newNodeH = maskH;
+						break;
+					}
+					//case CElementBSDF::TWO_SIDED:
+						// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
+						//break;
+					default:
+						assert(false); // we shouldn't get this case here
+						break;
+				}
+			}
+			else
+			{
+				newNodeH = createMistubaLeaf(entry.bsdf);
+				// have to make it available somehow for parent
+			}
+			localCache[entry.bsdf] = newNodeH;
+			stack.back().visited = true;
+		}
+		else
+		{
+			stack.pop_back();
+		}
+	}
+
+	const auto found = localCache.find(bsdf);
+	if (found!=localCache.end())
+		return errorMaterial;
+	const auto rootH = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(found->second);
 	if (!rootH)
-		return {};
-	// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
-
-#if 0
-	core::stack<const CElementBSDF*> stack;
-	stack.push(bsdf);
-	while (!stack.empty())
-	{
-		auto* bsdf = stack.top();
-		stack.pop();
-		//
-	}
-#endif
-
-	{
-		auto* const root = frontPool.deref(rootH);
-		root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
-	}
+		return errorMaterial;
+	auto* const root = frontPool.deref(rootH);
+	root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
 
 	const bool success = frontIR->addMaterial(rootH,inner.params.logger);
 	if (!success)
 	{
 		logger.log("Failed to add Material for %s",LoggerError,debugName.c_str());
-		return {};
+		return errorMaterial;
 	}
 	else if (debugFileWriter)
 	{
@@ -1043,6 +1087,7 @@ SContext::SContext(
 				root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
 				return rootH;
 			};
+			errorMaterial = constructUnsupported("ERROR Layer");
 			unsupportedPhong = constructUnsupported("UNSUPPORTED Phong");
 			unsupportedWard = constructUnsupported("UNSUPPORTED Ward");
 
@@ -1051,6 +1096,7 @@ SContext::SContext(
 		{
 #define ADD_DEBUG_NODE(NAME) commonDebugNames[uint16_t(ECommonDebug::NAME)] = frontPool.emplace<frontend_ir_t::CDebugInfo>(#NAME)
 			ADD_DEBUG_NODE(Albedo);
+			ADD_DEBUG_NODE(Opacity);
 			ADD_DEBUG_NODE(MitsubaExtraFactor);
 #undef ADD_DEBUG_NODE
 		}
