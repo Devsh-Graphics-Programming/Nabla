@@ -94,15 +94,20 @@ jobs:
           $nscChannel = "nsc-windows-x64-release"
           $nscArtifactName = "${nscChannel}-payload"
           $nscManifestArtifactName = "${nscChannel}-manifests"
+          $shouldPrepareNsc = (
+            "${{ matrix.vendor }}" -eq "msvc" -and
+            "${{ matrix.config }}" -eq "Release"
+          )
 
           $shouldPushImage = (
             "${{ github.ref }}" -eq "refs/heads/master" -and
             "${{ matrix.vendor }}" -eq "msvc" -and
             "${{ matrix.config }}" -eq "Release"
           )
-          $shouldPublishNsc = $shouldPushImage
+          $shouldPublishNscRelease = $shouldPushImage
 
           Write-Host "::notice::Should push image? $shouldPushImage"
+          Write-Host "::notice::Should prepare NSC artifacts? $shouldPrepareNsc"
           
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
@@ -110,8 +115,9 @@ jobs:
           "nscChannel=$nscChannel" >> $env:GITHUB_OUTPUT
           "nscArtifactName=$nscArtifactName" >> $env:GITHUB_OUTPUT
           "nscManifestArtifactName=$nscManifestArtifactName" >> $env:GITHUB_OUTPUT
+          "shouldPrepareNsc=$shouldPrepareNsc" >> $env:GITHUB_OUTPUT
           "shouldPushImage=$shouldPushImage" >> $env:GITHUB_OUTPUT
-          "shouldPublishNsc=$shouldPublishNsc" >> $env:GITHUB_OUTPUT
+          "shouldPublishNscRelease=$shouldPublishNscRelease" >> $env:GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -236,7 +242,7 @@ jobs:
               save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
 
       - name: Container – Install NSC runtime bundle
-        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path C:\mount\nabla\build-ct\nsc-package | Out-Null
@@ -253,7 +259,7 @@ jobs:
               & 'C:/mount/nabla/build-ct/nsc-package/exe/nsc.exe' --dump-build-info --file 'C:/mount/nabla/build-ct/nsc-package/exe/build-info.json'
 
       - name: Prepare NSC runtime channel layout
-        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         run: |
           cmake `
             -D SOURCE_ROOT=C:/mount/nabla/build-ct/nsc-package `
@@ -277,14 +283,14 @@ jobs:
           compression-level: 0
 
       - name: Upload NSC runtime bundle artifact
-        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.set-prefix.outputs.nscArtifactName }}
           path: build-ct/nsc-release/payload
 
       - name: Upload NSC manifest zip artifact
-        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.set-prefix.outputs.nscManifestArtifactName }}
