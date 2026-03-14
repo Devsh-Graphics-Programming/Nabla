@@ -255,7 +255,7 @@ jobs:
               --component NSC
 
           docker exec -w C:\mount\nabla\build-ct orphan `
-            cmd.exe /S /C "shell.cmd C:\mount\nabla\build-ct\nsc-package\exe\nsc.exe --dump-build-info --file nsc-package\exe\build-info.json"
+            ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' 'C:\mount\nabla\build-ct\nsc-package\exe\nsc.exe' '--dump-build-info' '--file' 'nsc-package\exe\build-info.json'"
 
       - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
