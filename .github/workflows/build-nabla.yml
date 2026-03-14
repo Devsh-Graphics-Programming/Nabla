@@ -259,15 +259,16 @@ jobs:
 
       - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
+        working-directory: ${{ github.workspace }}
         run: |
           cmake `
-            -D SOURCE_ROOT=C:/mount/nabla/build-ct/nsc-package `
-            -D PAYLOAD_ROOT=C:/mount/nabla/build-ct/nsc-release/payload `
-            -D MANIFEST_ROOT=C:/mount/nabla/build-ct/nsc-release/manifests `
+            -D SOURCE_ROOT=build-ct/nsc-package `
+            -D PAYLOAD_ROOT=build-ct/nsc-release/payload `
+            -D MANIFEST_ROOT=build-ct/nsc-release/manifests `
             -D CHANNEL=${{ steps.set-prefix.outputs.nscChannel }} `
-            -D MANIFESTS_ZIP=C:/mount/nabla/build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip `
+            -D MANIFESTS_ZIP=build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip `
             -D PRUNE=ON `
-            -P C:/mount/nabla/cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
+            -P cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
 
       - name: Package left workflow artifacts
         run: |
