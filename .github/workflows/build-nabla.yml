@@ -91,19 +91,27 @@ jobs:
           $tag = "build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
           $nscTargetTaggedImage = "ghcr.io/${owner}/${package}:${tag}".ToLower()
           $nscTargetTaggedImageLatest = "ghcr.io/${owner}/${package}:latest".ToLower()
+          $nscChannel = "nsc-windows-x64-release"
+          $nscArtifactName = "${nscChannel}-payload"
+          $nscManifestArtifactName = "${nscChannel}-manifests"
 
           $shouldPushImage = (
             "${{ github.ref }}" -eq "refs/heads/master" -and
             "${{ matrix.vendor }}" -eq "msvc" -and
             "${{ matrix.config }}" -eq "Release"
           )
+          $shouldPublishNsc = $shouldPushImage
 
           Write-Host "::notice::Should push image? $shouldPushImage"
           
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImageLatest=$nscTargetTaggedImageLatest" >> $env:GITHUB_OUTPUT
+          "nscChannel=$nscChannel" >> $env:GITHUB_OUTPUT
+          "nscArtifactName=$nscArtifactName" >> $env:GITHUB_OUTPUT
+          "nscManifestArtifactName=$nscManifestArtifactName" >> $env:GITHUB_OUTPUT
           "shouldPushImage=$shouldPushImage" >> $env:GITHUB_OUTPUT
+          "shouldPublishNsc=$shouldPublishNsc" >> $env:GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -227,6 +235,35 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command docker `
               save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
 
+      - name: Container – Install NSC runtime bundle
+        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path C:\mount\nabla\build-ct\nsc-package | Out-Null
+
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} `
+              --config ${{ matrix.config }} `
+              --prefix C:/mount/nabla/build-ct/nsc-package `
+              --component NSC
+
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command `
+              & 'C:/mount/nabla/build-ct/nsc-package/exe/nsc.exe' --dump-build-info --file 'C:/mount/nabla/build-ct/nsc-package/exe/build-info.json'
+
+      - name: Package NSC runtime channel layout
+        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        run: |
+          python tools/nsc/ci/package_nsc_toolchain.py `
+            --package-root build-ct/nsc-package `
+            --payload-root build-ct/nsc-release/payload `
+            --manifest-root build-ct/nsc-release/manifests `
+            --channel ${{ steps.set-prefix.outputs.nscChannel }} `
+            --manifests-zip build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip `
+            --metadata-json build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-payload.json `
+            --clean
+
       - name: Package left workflow artifacts
         run: |
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
@@ -238,6 +275,27 @@ jobs:
           name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
           path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
           compression-level: 0
+
+      - name: Upload NSC runtime bundle artifact
+        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.nscArtifactName }}
+          path: build-ct/nsc-release/payload
+
+      - name: Upload NSC manifest zip artifact
+        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.nscManifestArtifactName }}
+          path: build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip
+
+      - name: Upload NSC payload metadata artifact
+        if: steps.set-prefix.outputs.shouldPublishNsc == 'True'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.nscChannel }}-payload-metadata
+          path: build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-payload.json
 
       - name: Upload profiling artifacts
         uses: actions/upload-artifact@v4

@@ -1,0 +1,5 @@
+outs:
+- md5: 71cfbe6a607347ee263150b99dbe18f8
+  size: 33146
+  hash: md5
+  path: NablaConfig.cmake

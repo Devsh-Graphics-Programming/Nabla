@@ -20,7 +20,7 @@ else()
 	set(CPACK_PACKAGE_NAME "nabla-${NBL_SYSTEM_PROCESSOR}-md-d")
 endif()
 
-list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
+list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes NSC)
 set(CPACK_PACKAGE_VENDOR "DevshGraphicsProgramming.org")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Nabla")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
@@ -56,10 +56,12 @@ endif() # TODO: Linux, Android, MacOS. Android and MacOS will have non-archive g
 set(CPACK_COMPONENT_HEADERS_DISPLAY_NAME "Headers")
 set(CPACK_COMPONENT_LIBRARIES_DISPLAY_NAME "Libraries")
 set(CPACK_COMPONENT_RUNTIMES_DISPLAY_NAME "Runtimes")
+set(CPACK_COMPONENT_NSC_DISPLAY_NAME "NSC Toolchain")
 
 set(CPACK_COMPONENT_HEADERS_GROUP "development")
 set(CPACK_COMPONENT_LIBRARIES_GROUP "development")
 set(CPACK_COMPONENT_RUNTIMES_GROUP "development")
+set(CPACK_COMPONENT_NSC_GROUP "development")
 
 list(APPEND CPACK_COMPONENTS_ALL Media Executables)
 
@@ -82,6 +84,8 @@ if(NBL_STATIC_BUILD)
 else()
 	set(CPACK_COMPONENT_RUNTIMES_DESCRIPTION "PDB files for use with Nabla library and extensions")
 endif()
+
+set(CPACK_COMPONENT_NSC_DESCRIPTION "Self-contained Nabla shader compiler toolchain package exposing COMPONENTS NSC with target Nabla::nsc")
 
 set(CPACK_COMPONENT_HEADERS_DEPENDS Libraries Runtimes)
 

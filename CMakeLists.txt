@@ -268,12 +268,12 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
+add_subdirectory(tools)
 if(NBL_BUILD_EXAMPLES)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
 	add_subdirectory(examples_tests EXCLUDE_FROM_ALL)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 endif()
-add_subdirectory(tools)
 
 if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
@@ -285,6 +285,9 @@ option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
 include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
+if(TARGET nsc)
+	export(TARGETS nsc NAMESPACE Nabla:: FILE ${NBL_ROOT_PATH_BINARY}/NablaNSCExport.cmake)
+endif()
 
 option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
 
@@ -311,16 +314,65 @@ if(NBL_ENABLE_CONFIG_INSTALL)
 			INSTALL_DESTINATION cmake
 		)
 
+		set(_NBL_NABLA_CONFIG_FILES
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+		)
+
 		install(EXPORT NablaExportTargets
 			NAMESPACE Nabla::
 			DESTINATION cmake
+			COMPONENT Libraries
 		)
 
 		install(FILES
-			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
-			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			${_NBL_NABLA_CONFIG_FILES}
 			DESTINATION cmake
+			COMPONENT Libraries
 		)
+
+		if(TARGET nsc)
+			install(TARGETS nsc
+				EXPORT NablaNSCExportTargets
+				RUNTIME DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe
+				COMPONENT NSC
+			)
+
+			foreach(_NBL_NSC_CONFIGURATION IN LISTS CMAKE_CONFIGURATION_TYPES)
+				if(_NBL_NSC_CONFIGURATION STREQUAL "Debug")
+					set(_NBL_NSC_DXC_RUNTIME_DLL "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/dxc/build/Debug/bin/dxcompiler.dll")
+				else()
+					set(_NBL_NSC_DXC_RUNTIME_DLL "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/dxc/build/Release/bin/dxcompiler.dll")
+				endif()
+
+				if(_NBL_NSC_CONFIGURATION STREQUAL "Release")
+					set(_NBL_NSC_RUNTIME_EXE_DIR "./exe")
+				else()
+					string(TOLOWER "${_NBL_NSC_CONFIGURATION}" _NBL_NSC_CONFIGURATION_LOWER)
+					set(_NBL_NSC_RUNTIME_EXE_DIR "./${_NBL_NSC_CONFIGURATION_LOWER}/exe")
+				endif()
+
+				install(PROGRAMS
+					$<TARGET_FILE:Nabla>
+					"${_NBL_NSC_DXC_RUNTIME_DLL}"
+					DESTINATION "${_NBL_NSC_RUNTIME_EXE_DIR}"
+					CONFIGURATIONS ${_NBL_NSC_CONFIGURATION}
+					COMPONENT NSC
+				)
+			endforeach()
+
+			install(EXPORT NablaNSCExportTargets
+				NAMESPACE Nabla::
+				DESTINATION cmake
+				COMPONENT NSC
+			)
+
+			install(FILES
+				${_NBL_NABLA_CONFIG_FILES}
+				DESTINATION cmake
+				COMPONENT NSC
+			)
+		endif()
 	endif()
 endif()
 

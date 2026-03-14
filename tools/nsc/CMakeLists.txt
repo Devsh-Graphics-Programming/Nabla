@@ -1,4 +1,123 @@
+set(NBL_NSC_MODE "SOURCE" CACHE STRING "How to provide the nsc build tool. Valid values: SOURCE and PACKAGE")
+set_property(CACHE NBL_NSC_MODE PROPERTY STRINGS SOURCE PACKAGE)
+set(NBL_NSC_PACKAGE_ROOT "" CACHE PATH "Path to an unpacked Nabla package root that exposes COMPONENTS NSC")
+set(NBL_NSC_MANIFEST_ROOT "" CACHE PATH "Path to the local nsc manifest root. Defaults to tools/nsc/manifests.")
+set(NBL_NSC_REPO "" CACHE STRING "GitHub repository used to resolve nsc package payload assets.")
+set(NBL_NSC_TAG "" CACHE STRING "GitHub release tag used to resolve nsc package payload assets.")
+set(NBL_NSC_CHANNEL "" CACHE STRING "Manifest channel used to resolve the host nsc package payload.")
+set(NBL_NSC_CACHE_ROOT "" CACHE PATH "Shared NAM cache root override for nsc package payloads.")
+set(NBL_NSC_TOOLCHAIN_ROOT "" CACHE PATH "Directory used to materialize the fetched nsc package payload.")
+set(NBL_NSC_EXTRA_ARGS "" CACHE STRING "Semicolon-separated extra arguments appended to every nsc invocation")
+
+if(NOT NBL_NSC_MODE MATCHES "^(SOURCE|PACKAGE)$")
+	message(FATAL_ERROR "Invalid NBL_NSC_MODE=\"${NBL_NSC_MODE}\". Valid values are SOURCE and PACKAGE.")
+endif()
+
+function(nbl_nsc_get_default_host_channel OUT_VAR)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		set(_os windows)
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		set(_os linux)
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		set(_os macos)
+	else()
+		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE is not configured for host OS \"${CMAKE_SYSTEM_NAME}\".")
+	endif()
+
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64|X64)$")
+		set(_arch x64)
+	elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+		set(_arch arm64)
+	else()
+		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE is not configured for host architecture \"${CMAKE_SYSTEM_PROCESSOR}\".")
+	endif()
+
+	set(${OUT_VAR} "nsc-${_os}-${_arch}-release" PARENT_SCOPE)
+endfunction()
+
+function(nbl_nsc_get_default_toolchain_root OUT_VAR)
+	file(TO_CMAKE_PATH "${NBL_ROOT_PATH_BINARY}/toolchains" _toolchain_root)
+	set(${OUT_VAR} "${_toolchain_root}" PARENT_SCOPE)
+endfunction()
+
+if(NBL_NSC_MODE STREQUAL "PACKAGE")
+	if(NOT COMMAND nam_materialize_channel_now)
+		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE requires NAM to be available. Ensure cmake/nam is initialized and included from common.cmake.")
+	endif()
+
+	if(NBL_NSC_MANIFEST_ROOT)
+		file(TO_CMAKE_PATH "${NBL_NSC_MANIFEST_ROOT}" _nbl_nsc_manifest_root)
+	else()
+		file(TO_CMAKE_PATH "${CMAKE_CURRENT_LIST_DIR}/manifests" _nbl_nsc_manifest_root)
+	endif()
+
+	if(NBL_NSC_CHANNEL)
+		set(_nbl_nsc_channel "${NBL_NSC_CHANNEL}")
+	else()
+		nbl_nsc_get_default_host_channel(_nbl_nsc_channel)
+	endif()
+
+	if(NBL_NSC_REPO)
+		set(_nbl_nsc_repo "${NBL_NSC_REPO}")
+	else()
+		set(_nbl_nsc_repo "Devsh-Graphics-Programming/Nabla")
+	endif()
+
+	if(NBL_NSC_TAG)
+		set(_nbl_nsc_tag "${NBL_NSC_TAG}")
+	else()
+		set(_nbl_nsc_tag "${_nbl_nsc_channel}")
+	endif()
+
+	if(NBL_NSC_TOOLCHAIN_ROOT)
+		file(TO_CMAKE_PATH "${NBL_NSC_TOOLCHAIN_ROOT}" _nbl_nsc_toolchain_root)
+	else()
+		nbl_nsc_get_default_toolchain_root(_nbl_nsc_toolchain_root)
+	endif()
+
+	if(IS_DIRECTORY "${NBL_NSC_PACKAGE_ROOT}")
+		file(TO_CMAKE_PATH "${NBL_NSC_PACKAGE_ROOT}" _nbl_nsc_package_root)
+	else()
+		set(_nbl_nsc_materialize_args
+			CHANNEL "${_nbl_nsc_channel}"
+			MANIFEST_ROOT "${_nbl_nsc_manifest_root}"
+			REPO "${_nbl_nsc_repo}"
+			TAG "${_nbl_nsc_tag}"
+			DESTINATION_ROOT "${_nbl_nsc_toolchain_root}"
+			OUT_CHANNEL_ROOT _nbl_nsc_package_root
+			FLAT_RELEASE_ASSET_NAMES
+		)
+		if(NBL_NSC_CACHE_ROOT)
+			list(APPEND _nbl_nsc_materialize_args CACHE_ROOT "${NBL_NSC_CACHE_ROOT}")
+		endif()
+		nam_materialize_channel_now(${_nbl_nsc_materialize_args})
+	endif()
+
+	find_package(Nabla CONFIG REQUIRED COMPONENTS NSC
+		PATHS
+			"${_nbl_nsc_package_root}"
+			"${_nbl_nsc_package_root}/cmake"
+		NO_DEFAULT_PATH
+	)
+
+	if(NOT TARGET Nabla::nsc)
+		message(FATAL_ERROR "Nabla package at \"${_nbl_nsc_package_root}\" does not expose component NSC with target Nabla::nsc.")
+	endif()
+
+	set_property(TARGET Nabla::nsc PROPERTY IMPORTED_GLOBAL TRUE)
+
+	return()
+endif()
+
 nbl_create_executable_project("" "" "" "")
+
+add_executable(Nabla::nsc ALIAS ${EXECUTABLE_NAME})
+
+set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+	INTERFACE_INCLUDE_DIRECTORIES ""
+	INTERFACE_LINK_LIBRARIES ""
+	INTERFACE_SOURCES ""
+)
 
 enable_testing()
 

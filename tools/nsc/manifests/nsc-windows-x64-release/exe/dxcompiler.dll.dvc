@@ -1,0 +1,5 @@
+outs:
+- md5: e37c4c5e05b32ccf248d10286774914c
+  size: 27950080
+  hash: md5
+  path: dxcompiler.dll

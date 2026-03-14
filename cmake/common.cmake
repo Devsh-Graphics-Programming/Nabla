@@ -14,6 +14,8 @@
 
 include_guard(GLOBAL)
 
+include("${CMAKE_CURRENT_LIST_DIR}/nam/nam.cmake")
+
 include(ProcessorCount)
 
 # tmp for external projects, to be removed later when I get rid of them (dxc + jpeg currently)
@@ -1535,7 +1537,8 @@ namespace @IMPL_NAMESPACE@ {
 				endif()
 
 				set(NBL_NSC_COMPILE_COMMAND
-					"$<TARGET_FILE:nsc>"
+					"$<TARGET_FILE:Nabla::nsc>"
+					${NBL_NSC_EXTRA_ARGS}
 					-Fc "${TARGET_OUTPUT}"
 					${COMPILE_OPTIONS} ${REQUIRED_OPTIONS} ${IMPL_COMMON_OPTIONS}
 					${NBL_NSC_DEPFILE_ARGS}
@@ -1553,7 +1556,7 @@ namespace @IMPL_NAMESPACE@ {
 					OUTPUT "${TARGET_OUTPUT}"
 					BYPRODUCTS ${NBL_NSC_BYPRODUCTS}
 					COMMAND ${NBL_NSC_COMPILE_COMMAND}
-					DEPENDS ${DEPENDS_ON}
+					DEPENDS ${DEPENDS_ON} Nabla::nsc
 					COMMENT "${NBL_NSC_CONFIG_NAME} (${NBL_NSC_INPUT_NAME})"
 					VERBATIM
 					COMMAND_EXPAND_LISTS
