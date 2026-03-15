@@ -1,4 +1,4 @@
-set(NBL_NSC_MODE "SOURCE" CACHE STRING "How to provide the nsc build tool. Valid values: SOURCE and PACKAGE")
+set(NBL_NSC_MODE "PACKAGE" CACHE STRING "How to provide the nsc build tool. Valid values: SOURCE and PACKAGE")
 set_property(CACHE NBL_NSC_MODE PROPERTY STRINGS SOURCE PACKAGE)
 set(NBL_NSC_PACKAGE_ROOT "" CACHE PATH "Path to an unpacked Nabla package root that exposes COMPONENTS NSC")
 set(NBL_NSC_MANIFEST_ROOT "" CACHE PATH "Path to the local nsc manifest root. Defaults to tools/nsc/manifests.")
