@@ -65,8 +65,16 @@ Inputs:
 
 - `run_id`
   - workflow run that produced the source artifacts
+- `source_repo`
+  - repo that owns the source workflow run
+- `source_branch`
+  - expected branch for the source workflow run
+- `target_repo`
+  - repo that should receive the manifest update PR
 - `target_branch`
   - Nabla branch that should receive the manifest update PR
+- `asset_repo`
+  - repo that stores the promoted channel releases
 - `channel`
   - manifest channel to promote
 
@@ -77,5 +85,12 @@ The workflow does four things:
 3. updates the committed `.dvc` tree and `<channel>.tag`
 4. opens a PR against the requested `target_branch`
 
-For production use the expected target is `master`.
-For smoke tests the same workflow can target a branch such as `nsc-channel`.
+For production use the defaults are:
+
+- `source_repo=Devsh-Graphics-Programming/Nabla`
+- `source_branch=master`
+- `target_repo=Devsh-Graphics-Programming/Nabla`
+- `target_branch=master`
+- `asset_repo=Devsh-Graphics-Programming/Nabla-Asset-Manifests`
+
+For fork-hosted smoke tests the same workflow can run from a fork repository, read artifacts from an official branch such as `nsc-channel`, publish the release to `Nabla-Asset-Manifests`, and open a PR from the fork back to the requested upstream branch.

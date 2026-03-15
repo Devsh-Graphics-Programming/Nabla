@@ -6,10 +6,26 @@ on:
       run_id:
         description: "Workflow run id that produced the NSC payload and manifests artifacts"
         required: true
+      source_repo:
+        description: "Repository that owns the source workflow run"
+        required: true
+        default: "Devsh-Graphics-Programming/Nabla"
+      source_branch:
+        description: "Expected source branch for the workflow run"
+        required: true
+        default: "master"
+      target_repo:
+        description: "Repository that should receive the manifest update PR"
+        required: true
+        default: "Devsh-Graphics-Programming/Nabla"
       target_branch:
         description: "Nabla branch that should receive the manifest update PR"
         required: true
         default: "master"
+      asset_repo:
+        description: "Repository that stores the promoted NSC channel releases"
+        required: true
+        default: "Devsh-Graphics-Programming/Nabla-Asset-Manifests"
       channel:
         description: "NSC manifest channel to promote"
         required: true
@@ -23,8 +39,12 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     env:
-      SOURCE_REPO: ${{ github.repository }}
-      ASSET_REPO: Devsh-Graphics-Programming/Nabla-Asset-Manifests
+      SOURCE_REPO: ${{ inputs.source_repo }}
+      SOURCE_BRANCH: ${{ inputs.source_branch }}
+      TARGET_REPO: ${{ inputs.target_repo }}
+      ASSET_REPO: ${{ inputs.asset_repo }}
+      HEAD_REPO: ${{ github.repository }}
+      HEAD_OWNER: ${{ github.repository_owner }}
       CHANNEL: ${{ inputs.channel }}
       TARGET_BRANCH: ${{ inputs.target_branch }}
       RUN_ID: ${{ inputs.run_id }}
@@ -33,8 +53,10 @@ jobs:
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
+          repository: ${{ inputs.target_repo }}
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve source run metadata
         id: source-run
@@ -53,6 +75,10 @@ jobs:
 
           if [[ "${status}" != "completed" || "${conclusion}" != "success" ]]; then
             echo "Run ${RUN_ID} is not promotable: status=${status} conclusion=${conclusion}" >&2
+            exit 1
+          fi
+          if [[ "${head_branch}" != "${SOURCE_BRANCH}" ]]; then
+            echo "Run ${RUN_ID} head branch ${head_branch} does not match expected ${SOURCE_BRANCH}" >&2
             exit 1
           fi
 
@@ -76,7 +102,7 @@ jobs:
           name: ${{ inputs.channel }}-payload
           path: ${{ runner.temp }}/nsc-payload
           github-token: ${{ secrets.READ_PAT }}
-          repository: ${{ github.repository }}
+          repository: ${{ inputs.source_repo }}
 
       - name: Download NSC manifests artifact
         uses: actions/download-artifact@v4
@@ -85,7 +111,7 @@ jobs:
           name: ${{ inputs.channel }}-manifests
           path: ${{ runner.temp }}/nsc-manifests
           github-token: ${{ secrets.READ_PAT }}
-          repository: ${{ github.repository }}
+          repository: ${{ inputs.source_repo }}
 
       - name: Publish release to manifest backend
         env:
@@ -178,6 +204,8 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote rename origin upstream
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${HEAD_REPO}.git"
           git checkout -B "${PR_BRANCH}"
           git add tools/nsc/manifests
           git commit -m "Promote NSC channel ${SOURCE_SHA}"
@@ -187,7 +215,8 @@ jobs:
         if: steps.manifest-diff.outputs.has_changes == 'true'
         id: pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_BUILTIN_TOKEN: ${{ github.token }}
+          PR_PAT: ${{ secrets.PR_PAT }}
           PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
           RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
           SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
@@ -195,10 +224,22 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ "${TARGET_REPO}" == "${HEAD_REPO}" ]]; then
+            export GH_TOKEN="${GH_BUILTIN_TOKEN}"
+            pr_head="${PR_BRANCH}"
+          else
+            if [[ -z "${PR_PAT}" ]]; then
+              echo "PR_PAT secret is required when opening a PR from ${HEAD_REPO} to ${TARGET_REPO}" >&2
+              exit 1
+            fi
+            export GH_TOKEN="${PR_PAT}"
+            pr_head="${HEAD_OWNER}:${PR_BRANCH}"
+          fi
+
           existing_pr="$(gh pr list \
-            --repo "${SOURCE_REPO}" \
+            --repo "${TARGET_REPO}" \
             --base "${TARGET_BRANCH}" \
-            --head "${PR_BRANCH}" \
+            --head "${pr_head}" \
             --json url \
             --jq '.[0].url')"
 
@@ -217,9 +258,9 @@ jobs:
           EOF
 
           pr_url="$(gh pr create \
-            --repo "${SOURCE_REPO}" \
+            --repo "${TARGET_REPO}" \
             --base "${TARGET_BRANCH}" \
-            --head "${PR_BRANCH}" \
+            --head "${pr_head}" \
             --title "Promote NSC channel to ${SOURCE_SHA}" \
             --body-file "${body_file}")"
 
@@ -231,9 +272,11 @@ jobs:
             echo "## NSC promotion summary"
             echo
             echo "- channel: \`${CHANNEL}\`"
+            echo "- source repo: \`${SOURCE_REPO}\`"
             echo "- source run: \`${RUN_ID}\`"
             echo "- source commit: \`${{ steps.source-run.outputs.source_sha }}\`"
             echo "- release tag: \`${{ steps.source-run.outputs.release_tag }}\`"
+            echo "- target repo: \`${TARGET_REPO}\`"
             echo "- target branch: \`${TARGET_BRANCH}\`"
             if [[ "${{ steps.manifest-diff.outputs.has_changes }}" == "true" ]]; then
               echo "- PR: ${{ steps.pr.outputs.url }}"
