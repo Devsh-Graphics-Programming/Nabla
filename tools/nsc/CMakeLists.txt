@@ -62,7 +62,19 @@ function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
 		return()
 	endif()
 
-	set(_nbl_nsc_package_exe_dir "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe")
+	get_target_property(_nbl_nsc_package_exe_dir "${EXECUTABLE_TARGET}" NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
+	get_target_property(_nbl_nabla_package_runtime_dir Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
+	get_property(_nbl_dxc_package_runtime_dir GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
+
+	if(NOT _nbl_nsc_package_exe_dir OR _nbl_nsc_package_exe_dir STREQUAL "NOTFOUND")
+		message(FATAL_ERROR "Failed to resolve canonical package executable directory for target \"${EXECUTABLE_TARGET}\".")
+	endif()
+	if(NOT _nbl_nabla_package_runtime_dir OR _nbl_nabla_package_runtime_dir STREQUAL "NOTFOUND")
+		message(FATAL_ERROR "Failed to resolve canonical Nabla runtime directory for NSC package exports.")
+	endif()
+	if(NOT _nbl_dxc_package_runtime_dir OR _nbl_dxc_package_runtime_dir STREQUAL "NOTFOUND")
+		message(FATAL_ERROR "Failed to resolve canonical DXC runtime directory for NSC package exports.")
+	endif()
 
 	install(TARGETS ${EXECUTABLE_TARGET}
 		EXPORT NablaNSCExportTargets
@@ -72,8 +84,13 @@ function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
 
 	install(PROGRAMS
 		$<TARGET_FILE:Nabla>
+		DESTINATION "${_nbl_nabla_package_runtime_dir}"
+		COMPONENT NSC
+	)
+
+	install(PROGRAMS
 		"${DXC_DLL}"
-		DESTINATION "${_nbl_nsc_package_exe_dir}"
+		DESTINATION "${_nbl_dxc_package_runtime_dir}"
 		COMPONENT NSC
 	)
 

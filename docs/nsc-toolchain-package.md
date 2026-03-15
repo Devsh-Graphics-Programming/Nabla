@@ -25,16 +25,18 @@ find_package(Nabla CONFIG REQUIRED COMPONENTS NSC)
 
 This loads only `Nabla::nsc`.
 
-The `NSC` component packages a fixed runtime layout for the tool itself:
+The `NSC` component preserves the canonical Nabla package layout.
+It only selects the required install rules for the shader compiler toolchain:
 
-- `exe/nsc.exe`
-- `exe/Nabla*.dll`
-- `exe/dxcompiler.dll`
+- `exe/tools/nsc/bin/nsc.exe`
+- `runtime/nbl/Nabla.dll`
+- `runtime/nbl/3rdparty/dxc/dxcompiler.dll`
 - `cmake/NablaConfig.cmake`
+- `cmake/NablaNSCHelpers.cmake`
 - `cmake/NablaNSCExportTargets*.cmake`
 
 The package does not rely on `RUNTIME_DEPENDENCY_SET` scanning.
-It installs the known Nabla and DXC runtime DLLs explicitly.
+It installs the known Nabla and DXC runtime DLLs explicitly into their normal package locations.
 
 ## Release-only consumption
 
