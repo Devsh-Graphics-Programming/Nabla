@@ -1643,7 +1643,11 @@ namespace @IMPL_NAMESPACE@ {
 		endfunction()
 
        	GENERATE_KEYS("" 0 "")
-    endforeach()
+	endforeach()
+
+	if(NBL_NSC_MODE STREQUAL "PACKAGE" AND TARGET nsc)
+		add_dependencies(${IMPL_TARGET} nsc)
+	endif()
 
 	unset(KEYS)
 	get_target_property(SPIRVs ${IMPL_TARGET} NBL_SPIRV_OUTPUTS)
