@@ -245,7 +245,7 @@ jobs:
           git checkout -B "${PR_BRANCH}"
           git add tools/nsc/manifests
           git commit -m "Promote NSC channel ${SOURCE_SHA}"
-          git push --force-with-lease origin "${PR_BRANCH}"
+          git push --force origin "${PR_BRANCH}"
 
       - name: Create or update promotion PR
         if: steps.manifest-diff.outputs.has_changes == 'true'
