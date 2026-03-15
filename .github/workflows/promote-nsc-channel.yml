@@ -55,7 +55,8 @@ jobs:
         with:
           repository: ${{ inputs.target_repo }}
           ref: ${{ inputs.target_branch }}
-          fetch-depth: 0
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
           sparse-checkout: |
             tools/nsc/manifests
@@ -143,21 +144,28 @@ jobs:
           - source run: ${RUN_URL}
           EOF
 
-          if ! gh release view "${RELEASE_TAG}" --repo "${ASSET_REPO}" >/dev/null 2>&1; then
+          release_exists=false
+          if gh release view "${RELEASE_TAG}" --repo "${ASSET_REPO}" >/dev/null 2>&1; then
+            release_exists=true
+          fi
+
+          if [[ "${release_exists}" == "false" ]]; then
             gh release create "${RELEASE_TAG}" \
               --repo "${ASSET_REPO}" \
               --title "${RELEASE_TAG}" \
               --notes-file "${notes_file}"
-          fi
 
-          mapfile -d '' payload_assets < <(find "${RUNNER_TEMP}/nsc-payload" -maxdepth 1 -type f -print0)
-          if [[ "${#payload_assets[@]}" -eq 0 ]]; then
-            echo "No payload assets found in ${RUNNER_TEMP}/nsc-payload" >&2
-            exit 1
-          fi
+            mapfile -d '' payload_assets < <(find "${RUNNER_TEMP}/nsc-payload" -maxdepth 1 -type f -print0)
+            if [[ "${#payload_assets[@]}" -eq 0 ]]; then
+              echo "No payload assets found in ${RUNNER_TEMP}/nsc-payload" >&2
+              exit 1
+            fi
 
-          payload_assets+=("${manifests_zip}")
-          gh release upload "${RELEASE_TAG}" "${payload_assets[@]}" --repo "${ASSET_REPO}" --clobber
+            payload_assets+=("${manifests_zip}")
+            gh release upload "${RELEASE_TAG}" "${payload_assets[@]}" --repo "${ASSET_REPO}"
+          else
+            echo "Release ${RELEASE_TAG} already exists in ${ASSET_REPO}. Reusing immutable release."
+          fi
 
       - name: Update manifests and tag pin
         id: manifest-diff
