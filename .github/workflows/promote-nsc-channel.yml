@@ -206,16 +206,34 @@ jobs:
       - name: Commit and push promotion branch
         if: steps.manifest-diff.outputs.has_changes == 'true'
         env:
-          PUSH_TOKEN: ${{ github.token }}
+          PUSH_BUILTIN_TOKEN: ${{ github.token }}
+          PR_PAT: ${{ secrets.PR_PAT }}
+          READ_PAT: ${{ secrets.READ_PAT }}
+          CR_PAT: ${{ secrets.CR_PAT }}
           PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
           SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
         run: |
           set -euo pipefail
 
+          push_token="${PUSH_BUILTIN_TOKEN}"
+          if [[ "${TARGET_REPO}" != "${HEAD_REPO}" ]]; then
+            push_token="${PR_PAT}"
+            if [[ -z "${push_token}" ]]; then
+              push_token="${READ_PAT}"
+            fi
+            if [[ -z "${push_token}" ]]; then
+              push_token="${CR_PAT}"
+            fi
+            if [[ -z "${push_token}" ]]; then
+              echo "A token with contents and workflows write access is required when pushing a cross-repo promotion branch to ${HEAD_REPO}" >&2
+              exit 1
+            fi
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote rename origin upstream
-          git remote add origin "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_REPO}.git"
+          git remote add origin "https://x-access-token:${push_token}@github.com/${HEAD_REPO}.git"
           git checkout -B "${PR_BRANCH}"
           git add tools/nsc/manifests
           git commit -m "Promote NSC channel ${SOURCE_SHA}"
