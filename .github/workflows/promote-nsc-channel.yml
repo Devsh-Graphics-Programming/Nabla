@@ -167,12 +167,13 @@ jobs:
             gh release upload "${RELEASE_TAG}" "${payload_assets[@]}" --repo "${ASSET_REPO}"
           else
             echo "Release ${RELEASE_TAG} already exists in ${ASSET_REPO}. Reusing immutable release."
+            if ! gh release edit "${RELEASE_TAG}" \
+              --repo "${ASSET_REPO}" \
+              --title "${RELEASE_TAG}" \
+              --notes-file "${notes_file}"; then
+              echo "Skipping release note refresh for existing ${RELEASE_TAG}." >&2
+            fi
           fi
-
-          gh release edit "${RELEASE_TAG}" \
-            --repo "${ASSET_REPO}" \
-            --title "${RELEASE_TAG}" \
-            --notes-file "${notes_file}"
 
       - name: Update manifests and tag pin
         id: manifest-diff
