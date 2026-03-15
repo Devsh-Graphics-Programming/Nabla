@@ -151,4 +151,4 @@ Consumers read the unpacked `.dvc` files committed to this repository.
 
 ## Promotion flow
 
-Repository-specific promotion details are described in [nsc-channel-promotion.md](nsc-channel-promotion.md).
+Repository-specific promotion details are described in [nsc-promotion.md](nsc-promotion.md).

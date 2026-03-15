@@ -1,4 +1,4 @@
-# NSC Channel Promotion
+# NSC Promotion
 
 This document describes the Nabla-specific promotion flow for the prebuilt `NSC` toolchain channel.
 

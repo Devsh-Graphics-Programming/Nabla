@@ -273,32 +273,40 @@ jobs:
             pr_head="${HEAD_OWNER}:${PR_BRANCH}"
           fi
 
-          existing_pr="$(gh pr list \
+          pr_title="CI: Promote NSC channel to ${SOURCE_SHA}"
+          release_url="https://github.com/${ASSET_REPO}/releases/tag/${RELEASE_TAG}"
+          commit_url="https://github.com/${SOURCE_REPO}/commit/${SOURCE_SHA}"
+          body_file="${RUNNER_TEMP}/nsc-promote-pr.md"
+          cat > "${body_file}" <<EOF
+          Promote \`${CHANNEL}\` to [\`${RELEASE_TAG}\`](${release_url}).
+
+          - source commit: [\`${SOURCE_SHA}\`](${commit_url})
+          - source run: [\`${RUN_ID}\`](${RUN_URL})
+          - manifest repo release: [\`${RELEASE_TAG}\`](${release_url})
+          EOF
+
+          existing_pr_number="$(gh pr list \
             --repo "${TARGET_REPO}" \
             --base "${TARGET_BRANCH}" \
             --head "${pr_head}" \
-            --json url \
-            --jq '.[0].url')"
+            --json number \
+            --jq '.[0].number')"
 
-          if [[ -n "${existing_pr}" && "${existing_pr}" != "null" ]]; then
-            echo "url=${existing_pr}" >> "${GITHUB_OUTPUT}"
+          if [[ -n "${existing_pr_number}" && "${existing_pr_number}" != "null" ]]; then
+            gh pr edit "${existing_pr_number}" \
+              --repo "${TARGET_REPO}" \
+              --title "${pr_title}" \
+              --body-file "${body_file}"
+            existing_pr_url="$(gh pr view "${existing_pr_number}" --repo "${TARGET_REPO}" --json url --jq '.url')"
+            echo "url=${existing_pr_url}" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
-
-          body_file="${RUNNER_TEMP}/nsc-promote-pr.md"
-          cat > "${body_file}" <<EOF
-          Promote \`${CHANNEL}\` to \`${RELEASE_TAG}\`.
-
-          - source commit: \`${SOURCE_SHA}\`
-          - source run: ${RUN_URL}
-          - manifest repo release: https://github.com/${ASSET_REPO}/releases/tag/${RELEASE_TAG}
-          EOF
 
           pr_url="$(gh pr create \
             --repo "${TARGET_REPO}" \
             --base "${TARGET_BRANCH}" \
             --head "${pr_head}" \
-            --title "Promote NSC channel to ${SOURCE_SHA}" \
+            --title "${pr_title}" \
             --body-file "${body_file}")"
 
           echo "url=${pr_url}" >> "${GITHUB_OUTPUT}"
