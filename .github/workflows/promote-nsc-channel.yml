@@ -1,0 +1,243 @@
+name: Promote NSC Channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Workflow run id that produced the NSC payload and manifests artifacts"
+        required: true
+      target_branch:
+        description: "Nabla branch that should receive the manifest update PR"
+        required: true
+        default: "master"
+      channel:
+        description: "NSC manifest channel to promote"
+        required: true
+        default: "nsc-windows-x64-release"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_REPO: ${{ github.repository }}
+      ASSET_REPO: Devsh-Graphics-Programming/Nabla-Asset-Manifests
+      CHANNEL: ${{ inputs.channel }}
+      TARGET_BRANCH: ${{ inputs.target_branch }}
+      RUN_ID: ${{ inputs.run_id }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
+
+      - name: Resolve source run metadata
+        id: source-run
+        env:
+          GH_TOKEN: ${{ secrets.READ_PAT }}
+        run: |
+          set -euo pipefail
+
+          run_json="$(gh api "repos/${SOURCE_REPO}/actions/runs/${RUN_ID}")"
+          status="$(jq -r '.status' <<<"${run_json}")"
+          conclusion="$(jq -r '.conclusion' <<<"${run_json}")"
+          event="$(jq -r '.event' <<<"${run_json}")"
+          head_sha="$(jq -r '.head_sha' <<<"${run_json}")"
+          head_branch="$(jq -r '.head_branch' <<<"${run_json}")"
+          html_url="$(jq -r '.html_url' <<<"${run_json}")"
+
+          if [[ "${status}" != "completed" || "${conclusion}" != "success" ]]; then
+            echo "Run ${RUN_ID} is not promotable: status=${status} conclusion=${conclusion}" >&2
+            exit 1
+          fi
+
+          release_tag="${CHANNEL}-${head_sha}"
+          target_branch_slug="$(printf '%s' "${TARGET_BRANCH}" | tr '/._' '-' | tr -cd '[:alnum:]-')"
+          pr_branch="ci/nsc-promote-${CHANNEL}-${target_branch_slug}"
+
+          {
+            echo "source_sha=${head_sha}"
+            echo "source_branch=${head_branch}"
+            echo "source_event=${event}"
+            echo "run_url=${html_url}"
+            echo "release_tag=${release_tag}"
+            echo "pr_branch=${pr_branch}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Download NSC payload artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          name: ${{ inputs.channel }}-payload
+          path: ${{ runner.temp }}/nsc-payload
+          github-token: ${{ secrets.READ_PAT }}
+          repository: ${{ github.repository }}
+
+      - name: Download NSC manifests artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          name: ${{ inputs.channel }}-manifests
+          path: ${{ runner.temp }}/nsc-manifests
+          github-token: ${{ secrets.READ_PAT }}
+          repository: ${{ github.repository }}
+
+      - name: Publish release to manifest backend
+        env:
+          GH_TOKEN: ${{ secrets.CR_PAT }}
+          RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
+          SOURCE_BRANCH: ${{ steps.source-run.outputs.source_branch }}
+          SOURCE_EVENT: ${{ steps.source-run.outputs.source_event }}
+          RUN_URL: ${{ steps.source-run.outputs.run_url }}
+        run: |
+          set -euo pipefail
+
+          manifests_zip="$(find "${RUNNER_TEMP}/nsc-manifests" -maxdepth 1 -type f -name '*-manifests.zip' | head -n 1)"
+          if [[ -z "${manifests_zip}" ]]; then
+            echo "Failed to locate manifests zip in ${RUNNER_TEMP}/nsc-manifests" >&2
+            exit 1
+          fi
+
+          notes_file="${RUNNER_TEMP}/nsc-release-notes.md"
+          cat > "${notes_file}" <<EOF
+          Promoted NSC payload from \`${SOURCE_REPO}\`.
+
+          - source commit: \`${SOURCE_SHA}\`
+          - source branch: \`${SOURCE_BRANCH}\`
+          - source event: \`${SOURCE_EVENT}\`
+          - source run: ${RUN_URL}
+          EOF
+
+          if gh release view "${RELEASE_TAG}" --repo "${ASSET_REPO}" >/dev/null 2>&1; then
+            gh release delete "${RELEASE_TAG}" --repo "${ASSET_REPO}" --cleanup-tag --yes
+          fi
+
+          gh release create "${RELEASE_TAG}" \
+            --repo "${ASSET_REPO}" \
+            --title "${RELEASE_TAG}" \
+            --notes-file "${notes_file}"
+
+          mapfile -d '' payload_assets < <(find "${RUNNER_TEMP}/nsc-payload" -maxdepth 1 -type f -print0)
+          if [[ "${#payload_assets[@]}" -eq 0 ]]; then
+            echo "No payload assets found in ${RUNNER_TEMP}/nsc-payload" >&2
+            exit 1
+          fi
+
+          payload_assets+=("${manifests_zip}")
+          gh release upload "${RELEASE_TAG}" "${payload_assets[@]}" --repo "${ASSET_REPO}" --clobber
+
+      - name: Update manifests and tag pin
+        id: manifest-diff
+        env:
+          RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          manifests_zip="$(find "${RUNNER_TEMP}/nsc-manifests" -maxdepth 1 -type f -name '*-manifests.zip' | head -n 1)"
+          if [[ -z "${manifests_zip}" ]]; then
+            echo "Failed to locate manifests zip in ${RUNNER_TEMP}/nsc-manifests" >&2
+            exit 1
+          fi
+
+          extract_root="${RUNNER_TEMP}/nsc-manifests-extracted"
+          rm -rf "${extract_root}"
+          mkdir -p "${extract_root}"
+          unzip -q "${manifests_zip}" -d "${extract_root}"
+
+          channel_root="${extract_root}/${CHANNEL}"
+          if [[ ! -d "${channel_root}" ]]; then
+            echo "Expected extracted channel root ${channel_root} does not exist" >&2
+            exit 1
+          fi
+
+          repo_manifest_root="tools/nsc/manifests"
+          rm -rf "${repo_manifest_root:?}/${CHANNEL}"
+          mkdir -p "${repo_manifest_root}"
+          cp -R "${channel_root}" "${repo_manifest_root}/"
+          printf '%s\n' "${RELEASE_TAG}" > "${repo_manifest_root}/${CHANNEL}.tag"
+
+          if git diff --quiet -- "${repo_manifest_root}"; then
+            echo "has_changes=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Commit and push promotion branch
+        if: steps.manifest-diff.outputs.has_changes == 'true'
+        env:
+          PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
+          SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${PR_BRANCH}"
+          git add tools/nsc/manifests
+          git commit -m "Promote NSC channel ${SOURCE_SHA}"
+          git push --force-with-lease origin "${PR_BRANCH}"
+
+      - name: Create or update promotion PR
+        if: steps.manifest-diff.outputs.has_changes == 'true'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
+          RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
+          RUN_URL: ${{ steps.source-run.outputs.run_url }}
+        run: |
+          set -euo pipefail
+
+          existing_pr="$(gh pr list \
+            --repo "${SOURCE_REPO}" \
+            --base "${TARGET_BRANCH}" \
+            --head "${PR_BRANCH}" \
+            --json url \
+            --jq '.[0].url')"
+
+          if [[ -n "${existing_pr}" && "${existing_pr}" != "null" ]]; then
+            echo "url=${existing_pr}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          body_file="${RUNNER_TEMP}/nsc-promote-pr.md"
+          cat > "${body_file}" <<EOF
+          Promote \`${CHANNEL}\` to \`${RELEASE_TAG}\`.
+
+          - source commit: \`${SOURCE_SHA}\`
+          - source run: ${RUN_URL}
+          - manifest repo release: https://github.com/${ASSET_REPO}/releases/tag/${RELEASE_TAG}
+          EOF
+
+          pr_url="$(gh pr create \
+            --repo "${SOURCE_REPO}" \
+            --base "${TARGET_BRANCH}" \
+            --head "${PR_BRANCH}" \
+            --title "Promote NSC channel to ${SOURCE_SHA}" \
+            --body-file "${body_file}")"
+
+          echo "url=${pr_url}" >> "${GITHUB_OUTPUT}"
+
+      - name: Promotion summary
+        run: |
+          {
+            echo "## NSC promotion summary"
+            echo
+            echo "- channel: \`${CHANNEL}\`"
+            echo "- source run: \`${RUN_ID}\`"
+            echo "- source commit: \`${{ steps.source-run.outputs.source_sha }}\`"
+            echo "- release tag: \`${{ steps.source-run.outputs.release_tag }}\`"
+            echo "- target branch: \`${TARGET_BRANCH}\`"
+            if [[ "${{ steps.manifest-diff.outputs.has_changes }}" == "true" ]]; then
+              echo "- PR: ${{ steps.pr.outputs.url }}"
+            else
+              echo "- PR: no manifest changes"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

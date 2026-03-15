@@ -72,8 +72,9 @@ If `NBL_NSC_PACKAGE_ROOT` is empty, the build system uses NAM to materialize the
 The current package-consumption path uses:
 
 - manifests committed under `tools/nsc/manifests`
+- a committed tag pin file named `<channel>.tag`
 - a host-specific channel such as `nsc-windows-x64-release`
-- flattened GitHub release assets
+- flattened GitHub release assets published from `Devsh-Graphics-Programming/Nabla-Asset-Manifests`
 - package reconstruction in the build directory through hardlinks when the host supports them
 
 The flattened release asset naming is driven by NAM and uses:
@@ -81,6 +82,15 @@ The flattened release asset naming is driven by NAM and uses:
 - `<hex(relative-path)>__<basename>`
 
 This lets the backend stay flat while the materialized result preserves the real Nabla package layout required by `find_package(Nabla COMPONENTS NSC)`.
+
+By default the build system resolves the backend release tag from:
+
+```text
+tools/nsc/manifests/<channel>.tag
+```
+
+That file pins the immutable release tag currently selected by the branch.
+If the file is missing, the build keeps the legacy fallback and uses the channel name itself as the release tag.
 
 ## Release channel notes
 
@@ -138,3 +148,7 @@ The intended release layout is:
 
 The manifests zip is for maintainers.
 Consumers read the unpacked `.dvc` files committed to this repository.
+
+## Promotion flow
+
+Repository-specific promotion details are described in [nsc-channel-promotion.md](nsc-channel-promotion.md).

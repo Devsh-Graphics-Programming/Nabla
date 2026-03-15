@@ -6,6 +6,7 @@ include_guard(GLOBAL)
 #   [PACKAGE_ROOT <path>]
 #   [MANIFEST_ROOT <path>]
 #   [CHANNEL <name>]
+#   [TAG_FILE <path>]
 # )
 #
 # Creates a lightweight IDE-only target that exposes the consumed NSC package
@@ -13,7 +14,7 @@ include_guard(GLOBAL)
 # rules. It only adds a local target for IDE UX.
 #
 function(nabla_add_nsc_ide_target)
-  cmake_parse_arguments(PARSE_ARGV 0 _NBL_NSC_IDE "" "TARGET;PACKAGE_ROOT;MANIFEST_ROOT;CHANNEL" "")
+  cmake_parse_arguments(PARSE_ARGV 0 _NBL_NSC_IDE "" "TARGET;PACKAGE_ROOT;MANIFEST_ROOT;CHANNEL;TAG_FILE" "")
 
   if(_NBL_NSC_IDE_UNPARSED_ARGUMENTS)
     message(FATAL_ERROR "Nabla: unexpected arguments for nabla_add_nsc_ide_target: ${_NBL_NSC_IDE_UNPARSED_ARGUMENTS}")
@@ -65,6 +66,17 @@ function(nabla_add_nsc_ide_target)
       set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_nbl_nsc_manifest_files})
       list(APPEND _nbl_nsc_ide_sources ${_nbl_nsc_manifest_files})
     endif()
+
+    if(_NBL_NSC_IDE_TAG_FILE)
+      cmake_path(ABSOLUTE_PATH _NBL_NSC_IDE_TAG_FILE BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" OUTPUT_VARIABLE _nbl_nsc_tag_file)
+    elseif(_NBL_NSC_IDE_CHANNEL)
+      set(_nbl_nsc_tag_file "${_nbl_nsc_manifest_root}/${_NBL_NSC_IDE_CHANNEL}.tag")
+    endif()
+
+    if(DEFINED _nbl_nsc_tag_file AND EXISTS "${_nbl_nsc_tag_file}")
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_nbl_nsc_tag_file}")
+      list(APPEND _nbl_nsc_ide_sources "${_nbl_nsc_tag_file}")
+    endif()
   endif()
 
   add_library(${_nbl_nsc_ide_target} INTERFACE ${_nbl_nsc_ide_sources})
@@ -79,5 +91,8 @@ function(nabla_add_nsc_ide_target)
   source_group(TREE "${_nbl_nsc_package_root}" PREFIX "package" FILES ${_nbl_nsc_package_files})
   if(DEFINED _nbl_nsc_manifest_root AND _nbl_nsc_manifest_files)
     source_group(TREE "${_nbl_nsc_manifest_root}" PREFIX "manifests" FILES ${_nbl_nsc_manifest_files})
+  endif()
+  if(DEFINED _nbl_nsc_manifest_root AND DEFINED _nbl_nsc_tag_file AND EXISTS "${_nbl_nsc_tag_file}")
+    source_group(TREE "${_nbl_nsc_manifest_root}" PREFIX "manifests" FILES "${_nbl_nsc_tag_file}")
   endif()
 endfunction()
