@@ -285,7 +285,7 @@ jobs:
           commit_url="https://github.com/${SOURCE_REPO}/commit/${SOURCE_SHA}"
           body_file="${RUNNER_TEMP}/nsc-promote-pr.md"
           cat > "${body_file}" <<EOF
-          Promote \`${CHANNEL}\` to [\`${RELEASE_TAG}\`](${release_url}).
+          Promote \`${CHANNEL}\`.
 
           - source commit: [\`${SOURCE_SHA}\`](${commit_url})
           - source run: [\`${RUN_ID}\`](${RUN_URL})
