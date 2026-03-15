@@ -217,6 +217,8 @@ jobs:
         env:
           GH_BUILTIN_TOKEN: ${{ github.token }}
           PR_PAT: ${{ secrets.PR_PAT }}
+          READ_PAT: ${{ secrets.READ_PAT }}
+          CR_PAT: ${{ secrets.CR_PAT }}
           PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
           RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
           SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
@@ -228,11 +230,18 @@ jobs:
             export GH_TOKEN="${GH_BUILTIN_TOKEN}"
             pr_head="${PR_BRANCH}"
           else
-            if [[ -z "${PR_PAT}" ]]; then
-              echo "PR_PAT secret is required when opening a PR from ${HEAD_REPO} to ${TARGET_REPO}" >&2
+            pr_token="${PR_PAT}"
+            if [[ -z "${pr_token}" ]]; then
+              pr_token="${READ_PAT}"
+            fi
+            if [[ -z "${pr_token}" ]]; then
+              pr_token="${CR_PAT}"
+            fi
+            if [[ -z "${pr_token}" ]]; then
+              echo "A token with pull request write access is required when opening a PR from ${HEAD_REPO} to ${TARGET_REPO}" >&2
               exit 1
             fi
-            export GH_TOKEN="${PR_PAT}"
+            export GH_TOKEN="${pr_token}"
             pr_head="${HEAD_OWNER}:${PR_BRANCH}"
           fi
 
