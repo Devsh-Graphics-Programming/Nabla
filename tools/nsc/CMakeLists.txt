@@ -62,42 +62,7 @@ function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
 		return()
 	endif()
 
-	get_target_property(_nbl_nsc_package_exe_dir "${EXECUTABLE_TARGET}" NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
-	get_target_property(_nbl_nabla_package_runtime_dir Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
-	get_property(_nbl_dxc_package_runtime_dir GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
-
-	if(NOT _nbl_nsc_package_exe_dir OR _nbl_nsc_package_exe_dir STREQUAL "NOTFOUND")
-		message(FATAL_ERROR "Failed to resolve canonical package executable directory for target \"${EXECUTABLE_TARGET}\".")
-	endif()
-	if(NOT _nbl_nabla_package_runtime_dir OR _nbl_nabla_package_runtime_dir STREQUAL "NOTFOUND")
-		message(FATAL_ERROR "Failed to resolve canonical Nabla runtime directory for NSC package exports.")
-	endif()
-	if(NOT _nbl_dxc_package_runtime_dir OR _nbl_dxc_package_runtime_dir STREQUAL "NOTFOUND")
-		message(FATAL_ERROR "Failed to resolve canonical DXC runtime directory for NSC package exports.")
-	endif()
-
-	install(TARGETS ${EXECUTABLE_TARGET}
-		EXPORT NablaNSCExportTargets
-		RUNTIME DESTINATION "${_nbl_nsc_package_exe_dir}"
-		COMPONENT NSC
-	)
-
-	install(PROGRAMS
-		$<TARGET_FILE:Nabla>
-		DESTINATION "${_nbl_nabla_package_runtime_dir}"
-		COMPONENT NSC
-	)
-
-	install(PROGRAMS
-		"${DXC_DLL}"
-		DESTINATION "${_nbl_dxc_package_runtime_dir}"
-		COMPONENT NSC
-	)
-
-	set(_nbl_nsc_config_files
-		"${NBL_ROOT_PATH_BINARY}/NablaConfig.cmake"
-		"${NBL_ROOT_PATH_BINARY}/NablaConfigVersion.cmake"
-	)
+	set(_nbl_nsc_config_files)
 	if(EXISTS "${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake")
 		list(APPEND _nbl_nsc_config_files "${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake")
 	endif()
@@ -105,14 +70,16 @@ function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
 	install(EXPORT NablaNSCExportTargets
 		NAMESPACE Nabla::
 		DESTINATION cmake
-		COMPONENT NSC
+		COMPONENT NSCConfig
 	)
 
-	install(FILES
-		${_nbl_nsc_config_files}
-		DESTINATION cmake
-		COMPONENT NSC
-	)
+	if(_nbl_nsc_config_files)
+		install(FILES
+			${_nbl_nsc_config_files}
+			DESTINATION cmake
+			COMPONENT NSCConfig
+		)
+	endif()
 endfunction()
 
 if(NBL_NSC_MODE STREQUAL "PACKAGE")
@@ -198,7 +165,11 @@ if(NBL_NSC_MODE STREQUAL "PACKAGE")
 	return()
 endif()
 
+set(NBL_EXECUTABLE_INSTALL_COMPONENT NSCExecutables)
+set(NBL_EXECUTABLE_INSTALL_EXPORT_SET NablaNSCExportTargets)
 nbl_create_executable_project("" "" "" "")
+unset(NBL_EXECUTABLE_INSTALL_COMPONENT)
+unset(NBL_EXECUTABLE_INSTALL_EXPORT_SET)
 
 add_executable(Nabla::nsc ALIAS ${EXECUTABLE_NAME})
 nbl_nsc_register_source_package_exports(${EXECUTABLE_NAME})
@@ -234,7 +205,7 @@ add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
 )
 
 add_test(NAME NBL_NSC_INSTALL_EXECUTABLES_TEST
-	COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_CURRENT_BINARY_DIR}" --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
+	COMMAND "${CMAKE_COMMAND}" --install "${NBL_ROOT_PATH_BINARY}" --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component NSCExecutables
 	COMMAND_EXPAND_LISTS
 )
 

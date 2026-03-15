@@ -252,7 +252,28 @@ jobs:
               ${{ env.binary }} `
               --config ${{ matrix.config }} `
               --prefix C:/mount/nabla/build-ct/nsc-package `
-              --component NSC
+              --component PackageConfig
+
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} `
+              --config ${{ matrix.config }} `
+              --prefix C:/mount/nabla/build-ct/nsc-package `
+              --component Runtimes
+
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} `
+              --config ${{ matrix.config }} `
+              --prefix C:/mount/nabla/build-ct/nsc-package `
+              --component NSCExecutables
+
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} `
+              --config ${{ matrix.config }} `
+              --prefix C:/mount/nabla/build-ct/nsc-package `
+              --component NSCConfig
 
           docker exec -w C:\mount\nabla\build-ct orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' 'C:\mount\nabla\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' 'C:\mount\nabla\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'"

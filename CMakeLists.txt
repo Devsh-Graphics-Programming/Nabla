@@ -324,7 +324,7 @@ if(NBL_ENABLE_CONFIG_INSTALL)
 		install(FILES
 			${_NBL_NABLA_CONFIG_FILES}
 			DESTINATION cmake
-			COMPONENT Libraries
+			COMPONENT PackageConfig
 		)
 	endif()
 endif()

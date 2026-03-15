@@ -69,6 +69,13 @@ function(nabla_add_nsc_ide_target)
 
   add_library(${_nbl_nsc_ide_target} INTERFACE ${_nbl_nsc_ide_sources})
 
+  if(_nbl_nsc_ide_sources)
+    set_source_files_properties(${_nbl_nsc_ide_sources} PROPERTIES
+      HEADER_FILE_ONLY ON
+      VS_TOOL_OVERRIDE None
+    )
+  endif()
+
   source_group(TREE "${_nbl_nsc_package_root}" PREFIX "package" FILES ${_nbl_nsc_package_files})
   if(DEFINED _nbl_nsc_manifest_root AND _nbl_nsc_manifest_files)
     source_group(TREE "${_nbl_nsc_manifest_root}" PREFIX "manifests" FILES ${_nbl_nsc_manifest_files})
