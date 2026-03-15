@@ -134,14 +134,16 @@ jobs:
             exit 1
           fi
 
+          source_repo_url="https://github.com/${SOURCE_REPO}"
+          source_commit_url="${source_repo_url}/commit/${SOURCE_SHA}"
           notes_file="${RUNNER_TEMP}/nsc-release-notes.md"
           cat > "${notes_file}" <<EOF
-          Promoted NSC payload from \`${SOURCE_REPO}\`.
+          Promoted NSC payload from [\`${SOURCE_REPO}\`](${source_repo_url}).
 
-          - source commit: \`${SOURCE_SHA}\`
+          - source commit: [\`${SOURCE_SHA}\`](${source_commit_url})
           - source branch: \`${SOURCE_BRANCH}\`
           - source event: \`${SOURCE_EVENT}\`
-          - source run: ${RUN_URL}
+          - source run: [\`${RUN_ID}\`](${RUN_URL})
           EOF
 
           release_exists=false
@@ -166,6 +168,11 @@ jobs:
           else
             echo "Release ${RELEASE_TAG} already exists in ${ASSET_REPO}. Reusing immutable release."
           fi
+
+          gh release edit "${RELEASE_TAG}" \
+            --repo "${ASSET_REPO}" \
+            --title "${RELEASE_TAG}" \
+            --notes-file "${notes_file}"
 
       - name: Update manifests and tag pin
         id: manifest-diff
