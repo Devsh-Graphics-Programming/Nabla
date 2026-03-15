@@ -206,6 +206,7 @@ jobs:
       - name: Commit and push promotion branch
         if: steps.manifest-diff.outputs.has_changes == 'true'
         env:
+          PUSH_TOKEN: ${{ github.token }}
           PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
           SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
         run: |
@@ -214,7 +215,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote rename origin upstream
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${HEAD_REPO}.git"
+          git remote add origin "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_REPO}.git"
           git checkout -B "${PR_BRANCH}"
           git add tools/nsc/manifests
           git commit -m "Promote NSC channel ${SOURCE_SHA}"
