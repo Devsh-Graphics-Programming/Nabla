@@ -93,4 +93,4 @@ For production use the defaults are:
 - `target_branch=master`
 - `asset_repo=Devsh-Graphics-Programming/Nabla-Asset-Manifests`
 
-For fork-hosted smoke tests the same workflow can run from a fork repository, read artifacts from an official branch such as `nsc-channel`, publish the release to `Nabla-Asset-Manifests`, and open a PR from the fork back to the requested upstream branch.
+For fork-hosted smoke tests the same workflow can run from a fork repository, read artifacts from a selected official branch, publish the release to `Nabla-Asset-Manifests`, and open a PR from the fork back to the requested upstream branch.
