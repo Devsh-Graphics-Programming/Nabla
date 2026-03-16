@@ -584,24 +584,23 @@ class CFrontendIR final : public CNodePool
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
-				inline uint8_t getChildCount() const override {return 1;}
+				inline uint8_t getChildCount() const override {return 2;}
 
 				// you can set the members later
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransmittance)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*inversesqrt(1.f+(LdotX-1)*rcpEta))
-				// Absorption and thickness of the interface combined into a single variable, eta and `LdotX` is taken from the leaf BTDF node.
-				// With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
+				// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
+				// Eta and `LdotX` is taken from the leaf BTDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
 				typed_pointer_type<CSpectralVariable> perpTransmittance = {};
-				
+				typed_pointer_type<CSpectralVariable> thickness = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransmittance;}
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? perpTransmittance:thickness;}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override
 				{
-					perpTransmittance = block_allocator_type::_static_cast<CSpectralVariable>(newChild);
+					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariable>(newChild);
 				}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
@@ -645,20 +644,40 @@ class CFrontendIR final : public CNodePool
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
-		// It's a specialization of what would be a layer of two identical smooth BRDF and BTDF with arbitrary Fresnel function and beer's
-		// extinction on the BRDFs (not BTDFs), all applied on a per micro-facet basis (layering per microfacet, not whole surface).
 		// 
-		// We actually allow you to use different reflectance nodes R_u and R_b, the NDFs of both layers remain the same but Reflectance Functions to differ.
+		// It's a specialization of what would be a layer of two identical smooth BRDF and BTDF with arbitrary Fresnel function and beer's
+		// extinction, all applied on a per micro-facet basis (layering per microfacet, not whole surface) so the NDFs of two layers would be correlated.
+		// 
+		// We actually allow you to use different reflectance nodes R_u and R_b, the NDFs of both layers remain the same but Reflectance Functions differ.
 		// Note that e.g. using different Etas for the Fresnel used for the top and bottom reflectance will result in a compound Fresnel!=1.0 
 		// meaning that in such case you can no longer optimize the BTDF contributor into a DeltaTransmission but need a CookTorrance with
 		// an Eta equal to the ratio of the first Eta over the second Eta (note that when they're equal the ratio is 1 which turns into Delta Trans).
-		//
-		// Because we split BRDF and BTDF into separate expressions, what this node computes differs depending on where it gets used:
-		// BRDF: R_u + (1-R_u)^2 E^2 R_b Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = R_u + (1-R_u)^2 E^2 R_b / (1 - R_u R_b E^2) = R_u + (1-R_u)^2 R_b / (E^-2 - R_u R_b)
-		// BTDF: (1-R_u) E (1-R_b) Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = (1-R_u) E^2 (1-R_b) / (1 - R_u R_b E^2) = (1-R_u) (1-R_b) / (E^-2 - R_u R_b)
-		// Note the transformation at the end just makes the prevention of 0/0 or 0*INF same as for a non-extinctive equation, just check `R_u*R_b < Threshold`
+		// This will require you to make an AST that "seems wrong" that is where neither of the Etas of the CFresnel nodes match the Cook Torrance one.
 		// 
-		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the extinction.
+		// Because we split BRDF and BTDF into separate expressions, what this node computes differs depending on where it gets used:
+		// Note the transformation in the equations at the end just makes the prevention of 0/0 or 0*INF same as for a non-extinctive equation, just check `R_u*R_b < Threshold`
+		// 
+		// BRDF: R_u + (1-R_u)^2 E^2 R_b Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = R_u + (1-R_u)^2 E^2 R_b / (1 - R_u R_b E^2) = R_u + (1-R_u)^2 R_b / (E^-2 - R_u R_b)
+		// --------------------
+		// Top BRDF as multiplied with CThinInfiniteScatterCorrection node with `reflectanceTop`
+		// BTDF matching the BRDF above
+		// Bottom BRDF matching Top (but corellated so you always hit the same microfacet going back)
+		// Null BRDF
+		// Delta Transmission Beer extinction
+		// Null BRDF
+		// Top Smooth BRDF with `reflectanceBottom` applied to a Delta Reflection
+		// ------------------
+		// 
+		// BTDF: (1-R_u) E (1-R_b) Sum_{i=0}^{\Inf}{(R_b R_u E^2)^i} = (1-R_u) E^2 (1-R_b) / (1 - R_u R_b E^2) = (1-R_u) (1-R_b) / (E^-2 - R_u R_b)
+		// --------------------
+		// Bottom BRDF as multiplied with CThinInfiniteScatterCorrection node with `reflectanceTop`
+		// Null BRDF
+		// Delta Transmission Beer extinction
+		// Null BRDF
+		// Top BRDF as multiplied with CThinInfiniteScatterCorrection node but with `reflectanceBottom` (but corellated so you always hit the same microfacet leading to no refraction)
+		// ------------------
+		// 
+		// The obvious downside of using this node for transmission is that its impossible to get "milky" glass because a spread of refractions is needed
 		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IExprNode
 		{
 			protected:
@@ -736,7 +755,7 @@ class CFrontendIR final : public CNodePool
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
 		// - Smooth Conductor -> above multiplied with Conductor-Fresnel
 		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
-		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel .... TODO description ....
+		// - Thindielectric Correlated -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel, then Delta Transmission as BTDF with fresnels
 		// - Plastic -> Similar to layering the above over Diffuse BRDF, its of uttmost importance that the BTDF is Delta Transmission.
 		class CDeltaTransmission final : public IBxDF
 		{
