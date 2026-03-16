@@ -1,4 +1,231 @@
+set(NBL_NSC_MODE "PACKAGE" CACHE STRING "How to provide the nsc build tool. Valid values: SOURCE and PACKAGE")
+set_property(CACHE NBL_NSC_MODE PROPERTY STRINGS SOURCE PACKAGE)
+set(NBL_NSC_PACKAGE_ROOT "" CACHE PATH "Path to an unpacked Nabla package root that exposes COMPONENTS NSC.")
+set(NBL_NSC_MANIFEST_ROOT "" CACHE PATH "Path to the local nsc manifest root.")
+set(NBL_NSC_REPO "" CACHE STRING "GitHub repository used to resolve nsc package payload assets.")
+set(NBL_NSC_TAG "" CACHE STRING "Explicit GitHub release tag override for the nsc package payload.")
+set(NBL_NSC_TAG_FILE "" CACHE FILEPATH "Path to the text file that pins the GitHub release tag for the nsc package payload.")
+set(NBL_NSC_CHANNEL "" CACHE STRING "Manifest channel used to resolve the host nsc package payload.")
+set(NBL_NSC_CACHE_ROOT "" CACHE PATH "Shared NAM cache root used for nsc package payloads.")
+set(NBL_NSC_TOOLCHAIN_ROOT "" CACHE PATH "Directory used to materialize the fetched nsc package payload.")
+set(NBL_NSC_EXTRA_ARGS "" CACHE STRING "Semicolon-separated extra arguments appended to every nsc invocation")
+
+if(NOT NBL_NSC_MODE MATCHES "^(SOURCE|PACKAGE)$")
+	message(FATAL_ERROR "Invalid NBL_NSC_MODE=\"${NBL_NSC_MODE}\". Valid values are SOURCE and PACKAGE.")
+endif()
+
+if(NBL_ENABLE_CONFIG_INSTALL)
+	configure_file(
+		"${NBL_ROOT_PATH}/cmake/NablaNSCHelpers.cmake"
+		"${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake"
+		COPYONLY
+	)
+endif()
+
+function(nbl_nsc_get_default_host_channel OUT_VAR)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		set(_os windows)
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		set(_os linux)
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		set(_os macos)
+	else()
+		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE is not configured for host OS \"${CMAKE_SYSTEM_NAME}\".")
+	endif()
+
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64|X64)$")
+		set(_arch x64)
+	elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+		set(_arch arm64)
+	else()
+		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE is not configured for host architecture \"${CMAKE_SYSTEM_PROCESSOR}\".")
+	endif()
+
+	set(${OUT_VAR} "nsc-${_os}-${_arch}-release" PARENT_SCOPE)
+endfunction()
+
+function(nbl_nsc_get_default_toolchain_root OUT_VAR)
+	file(TO_CMAKE_PATH "${NBL_ROOT_PATH_BINARY}/toolchains" _toolchain_root)
+	set(${OUT_VAR} "${_toolchain_root}" PARENT_SCOPE)
+endfunction()
+
+nbl_nsc_get_default_host_channel(_nbl_nsc_default_channel)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_LIST_DIR}/manifests" _nbl_nsc_default_manifest_root)
+set(_nbl_nsc_default_repo "Devsh-Graphics-Programming/Nabla-Asset-Manifests")
+set(_nbl_nsc_default_tag_file "${_nbl_nsc_default_manifest_root}/${_nbl_nsc_default_channel}.tag")
+nbl_nsc_get_default_toolchain_root(_nbl_nsc_default_toolchain_root)
+nam_get_default_cache_root(_nbl_nsc_default_cache_root)
+
+if(NOT NBL_NSC_MANIFEST_ROOT)
+	set(NBL_NSC_MANIFEST_ROOT "${_nbl_nsc_default_manifest_root}" CACHE PATH "Path to the local nsc manifest root." FORCE)
+endif()
+if(NOT NBL_NSC_REPO)
+	set(NBL_NSC_REPO "${_nbl_nsc_default_repo}" CACHE STRING "GitHub repository used to resolve nsc package payload assets." FORCE)
+endif()
+if(NOT NBL_NSC_TAG_FILE)
+	set(NBL_NSC_TAG_FILE "${_nbl_nsc_default_tag_file}" CACHE FILEPATH "Path to the text file that pins the GitHub release tag for the nsc package payload." FORCE)
+endif()
+if(NOT NBL_NSC_CHANNEL)
+	set(NBL_NSC_CHANNEL "${_nbl_nsc_default_channel}" CACHE STRING "Manifest channel used to resolve the host nsc package payload." FORCE)
+endif()
+if(NOT NBL_NSC_CACHE_ROOT)
+	set(NBL_NSC_CACHE_ROOT "${_nbl_nsc_default_cache_root}" CACHE PATH "Shared NAM cache root used for nsc package payloads." FORCE)
+endif()
+if(NOT NBL_NSC_TOOLCHAIN_ROOT)
+	set(NBL_NSC_TOOLCHAIN_ROOT "${_nbl_nsc_default_toolchain_root}" CACHE PATH "Directory used to materialize the fetched nsc package payload." FORCE)
+endif()
+
+function(nbl_nsc_register_manifest_dependencies MANIFEST_ROOT CHANNEL)
+	file(GLOB_RECURSE _nbl_nsc_manifest_files CONFIGURE_DEPENDS LIST_DIRECTORIES false "${MANIFEST_ROOT}/${CHANNEL}/*.dvc")
+	if(_nbl_nsc_manifest_files)
+		set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_nbl_nsc_manifest_files})
+	endif()
+endfunction()
+
+function(nbl_nsc_register_tag_dependency TAG_FILE)
+	if(EXISTS "${TAG_FILE}")
+		set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${TAG_FILE}")
+	endif()
+endfunction()
+
+function(nbl_nsc_register_source_package_exports EXECUTABLE_TARGET)
+	export(TARGETS ${EXECUTABLE_TARGET} NAMESPACE Nabla:: FILE "${NBL_ROOT_PATH_BINARY}/NablaNSCExport.cmake")
+
+	if(NOT NBL_ENABLE_CONFIG_INSTALL OR NBL_STATIC_BUILD)
+		return()
+	endif()
+
+	set(_nbl_nsc_config_files)
+	if(EXISTS "${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake")
+		list(APPEND _nbl_nsc_config_files "${NBL_ROOT_PATH_BINARY}/NablaNSCHelpers.cmake")
+	endif()
+
+	install(EXPORT NablaNSCExportTargets
+		NAMESPACE Nabla::
+		DESTINATION cmake
+		COMPONENT NSCConfig
+	)
+
+	if(_nbl_nsc_config_files)
+		install(FILES
+			${_nbl_nsc_config_files}
+			DESTINATION cmake
+			COMPONENT NSCConfig
+		)
+	endif()
+endfunction()
+
+if(NBL_NSC_MODE STREQUAL "PACKAGE")
+	if(NOT COMMAND nam_materialize_channel_now)
+		message(FATAL_ERROR "NBL_NSC_MODE=PACKAGE requires NAM to be available. Ensure cmake/nam is initialized and included from common.cmake.")
+	endif()
+
+	if(NBL_NSC_MANIFEST_ROOT)
+		file(TO_CMAKE_PATH "${NBL_NSC_MANIFEST_ROOT}" _nbl_nsc_manifest_root)
+	else()
+		file(TO_CMAKE_PATH "${CMAKE_CURRENT_LIST_DIR}/manifests" _nbl_nsc_manifest_root)
+	endif()
+
+	if(NBL_NSC_CHANNEL)
+		set(_nbl_nsc_channel "${NBL_NSC_CHANNEL}")
+	else()
+		nbl_nsc_get_default_host_channel(_nbl_nsc_channel)
+	endif()
+
+	nbl_nsc_register_manifest_dependencies("${_nbl_nsc_manifest_root}" "${_nbl_nsc_channel}")
+
+	if(NBL_NSC_TAG_FILE)
+		file(TO_CMAKE_PATH "${NBL_NSC_TAG_FILE}" _nbl_nsc_tag_file)
+	else()
+		set(_nbl_nsc_tag_file "${_nbl_nsc_manifest_root}/${_nbl_nsc_channel}.tag")
+	endif()
+
+	nbl_nsc_register_tag_dependency("${_nbl_nsc_tag_file}")
+
+	if(NBL_NSC_REPO)
+		set(_nbl_nsc_repo "${NBL_NSC_REPO}")
+	else()
+		set(_nbl_nsc_repo "Devsh-Graphics-Programming/Nabla-Asset-Manifests")
+	endif()
+
+	if(NBL_NSC_TAG)
+		set(_nbl_nsc_tag "${NBL_NSC_TAG}")
+	elseif(EXISTS "${_nbl_nsc_tag_file}")
+		file(READ "${_nbl_nsc_tag_file}" _nbl_nsc_tag)
+		string(STRIP "${_nbl_nsc_tag}" _nbl_nsc_tag)
+		if(NOT _nbl_nsc_tag)
+			message(FATAL_ERROR "NSC tag pin file \"${_nbl_nsc_tag_file}\" is empty.")
+		endif()
+	else()
+		set(_nbl_nsc_tag "${_nbl_nsc_channel}")
+	endif()
+
+	if(NBL_NSC_TOOLCHAIN_ROOT)
+		file(TO_CMAKE_PATH "${NBL_NSC_TOOLCHAIN_ROOT}" _nbl_nsc_toolchain_root)
+	else()
+		nbl_nsc_get_default_toolchain_root(_nbl_nsc_toolchain_root)
+	endif()
+
+	if(IS_DIRECTORY "${NBL_NSC_PACKAGE_ROOT}")
+		file(TO_CMAKE_PATH "${NBL_NSC_PACKAGE_ROOT}" _nbl_nsc_package_root)
+	else()
+		set(_nbl_nsc_materialize_args
+			CHANNEL "${_nbl_nsc_channel}"
+			MANIFEST_ROOT "${_nbl_nsc_manifest_root}"
+			REPO "${_nbl_nsc_repo}"
+			TAG "${_nbl_nsc_tag}"
+			DESTINATION_ROOT "${_nbl_nsc_toolchain_root}"
+			OUT_CHANNEL_ROOT _nbl_nsc_package_root
+			FLAT_RELEASE_ASSET_NAMES
+		)
+		if(NBL_NSC_CACHE_ROOT)
+			list(APPEND _nbl_nsc_materialize_args CACHE_ROOT "${NBL_NSC_CACHE_ROOT}")
+		endif()
+		nam_materialize_channel_now(${_nbl_nsc_materialize_args})
+	endif()
+
+	set(_nbl_nsc_package_config_dir "${_nbl_nsc_package_root}/cmake")
+	set(Nabla_DIR "${_nbl_nsc_package_config_dir}" CACHE PATH "Resolved Nabla package config directory for NBL_NSC_MODE=PACKAGE" FORCE)
+
+	find_package(Nabla CONFIG REQUIRED COMPONENTS NSC
+		PATHS
+			"${_nbl_nsc_package_root}"
+			"${_nbl_nsc_package_config_dir}"
+		NO_DEFAULT_PATH
+	)
+
+	if(NOT TARGET Nabla::nsc)
+		message(FATAL_ERROR "Nabla package at \"${_nbl_nsc_package_root}\" does not expose component NSC with target Nabla::nsc.")
+	endif()
+
+	set_property(TARGET Nabla::nsc PROPERTY IMPORTED_GLOBAL TRUE)
+	nabla_add_nsc_ide_target(
+		TARGET nsc
+		MANIFEST_ROOT "${_nbl_nsc_manifest_root}"
+		CHANNEL "${_nbl_nsc_channel}"
+	)
+	set_target_properties(nsc PROPERTIES
+		EXCLUDE_FROM_ALL TRUE
+		PROJECT_LABEL "nsc (package)"
+	)
+
+	return()
+endif()
+
+set(NBL_EXECUTABLE_INSTALL_COMPONENT NSCExecutables)
+set(NBL_EXECUTABLE_INSTALL_EXPORT_SET NablaNSCExportTargets)
 nbl_create_executable_project("" "" "" "")
+unset(NBL_EXECUTABLE_INSTALL_COMPONENT)
+unset(NBL_EXECUTABLE_INSTALL_EXPORT_SET)
+
+add_executable(Nabla::nsc ALIAS ${EXECUTABLE_NAME})
+nbl_nsc_register_source_package_exports(${EXECUTABLE_NAME})
+
+set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+	INTERFACE_INCLUDE_DIRECTORIES ""
+	INTERFACE_LINK_LIBRARIES ""
+	INTERFACE_SOURCES ""
+)
 
 enable_testing()
 
@@ -25,7 +252,7 @@ add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
 )
 
 add_test(NAME NBL_NSC_INSTALL_EXECUTABLES_TEST
-	COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_CURRENT_BINARY_DIR}" --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
+	COMMAND "${CMAKE_COMMAND}" --install "${NBL_ROOT_PATH_BINARY}" --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component NSCExecutables
 	COMMAND_EXPAND_LISTS
 )
 
