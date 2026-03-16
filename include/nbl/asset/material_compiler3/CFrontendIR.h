@@ -737,7 +737,7 @@ class CFrontendIR final : public CNodePool
 						// if roughness inputs are not equal (same scale, same texture) then NDF can be anisotropic in places
 						if (getRougness()[0]!=getRougness()[1])
 							return false;
-						// if a reference stretch is used, stretched triangles can turn the distribution isotropic
+						// if a reference stretch is used, stretched triangles can turn the distribution anisotropic
 						return stretchInvariant();
 					}
 					// whether the derivative map and roughness is constant regardless of UV-space texture stretching

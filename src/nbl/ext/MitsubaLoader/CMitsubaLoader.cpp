@@ -466,7 +466,7 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
 			// TODO: embed the gamma in the material compiler Frontend
 			// or adjust gamma on pixels (painful and long process)
-			assert(std::isnan(bitmap.gamma));
+			//assert(std::isnan(bitmap.gamma));
 			auto& transform = *outUvTransform;
 			transform[0][0] = bitmap.uscale;
 			transform[0][2] = bitmap.uoffset;
@@ -617,6 +617,7 @@ auto SContext::genProfile(const CElementEmissionProfile* profile) -> frontend_ir
 	return retval;
 }
 
+// TODO: include source debug information / location, e.g. XML path, line and column in the nodes
 auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter) -> frontend_material_t
 {
 	auto& frontPool = frontIR->getObjectPool();
@@ -632,6 +633,12 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 		frontPool.deref(factorH)->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
 		return factorH;
 	};
+
+	struct SDerivativeMap
+	{
+		// TODO: derivative map SParameter[2]
+	};
+	// TODO: take `SParameter[2]` for the derivative maps
 	auto createCookTorrance = [&](const CElementBSDF::RoughSpecularBase* base, const frontend_ir_t::typed_pointer_type<frontend_ir_t::CFresnel> fresnelH, const CElementTexture::SpectrumOrTexture& specularReflectance)->auto
 	{
 		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
@@ -660,6 +667,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						// TODO: check if UV transform is the same and warn if not
 						getParameters({roughness.data()+1,1},base->alphaV);
 					}
+					// TODO: derivative maps
 				}
 				else
 					roughness[0].scale = roughness[1].scale = 0.f;
@@ -687,6 +695,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				// TODO: check if UV transform is the same and warn if not
 				getParameters({roughness.data()+1,1},alphaV);
 			}
+			// TODO: derivative maps
 		}
 		return frontIR->createMul(orenNayarH,factorH);
 	};
@@ -699,7 +708,10 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 		const auto transH = frontPool.emplace<frontend_ir_t::CMul>();
 		{
 			auto* const trans = frontPool.deref(transH);
-			trans->lhs = frontIR->createMul(deltaTransmission._const_cast(),extinctionH);
+			if (extinctionH)
+				trans->lhs = frontIR->createMul(deltaTransmission._const_cast(),extinctionH);
+			else
+				trans->lhs = deltaTransmission._const_cast();
 			const auto factorH = createFactorNode(element.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
 			trans->rhs = frontIR->createMul(fresnelH,factorH);
 		}
@@ -708,10 +720,23 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 		layer->brdfBottom = dielectricH;
 	};
 
-	using bxdf_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode>;
-	// the layer returned will never have a bottom BRDF
-	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
+	struct SEntry
 	{
+		inline bool operator==(const SEntry& other) const {return bsdf==other.bsdf;}
+
+		const CElementBSDF* bsdf;
+		// SDerivativeMap derivMap;
+	};
+	struct HashEntry
+	{
+		inline size_t operator()(const SEntry& entry) const {return std::hash<const void*>()(entry.bsdf);}
+	};
+	core::unordered_map<SEntry,material_t,HashEntry> localCache;
+	localCache.reserve(16);
+	// the layer returned will never have a bottom BRDF
+	auto createMistubaLeaf = [&](const SEntry& entry)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
+	{
+		const CElementBSDF* _bsdf = entry.bsdf;
 		auto retval = frontPool.emplace<frontend_ir_t::CLayer>();
 		auto* leaf = frontPool.deref(retval);
 		switch (_bsdf->type)
@@ -796,7 +821,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				{
 					// want a specularTransmittance instead of SpecularReflectance factor
 					const auto factorH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
-					bxdf_t btdfH;
+					frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> btdfH;
 					{
 						const auto* const brdf = frontPool.deref(brdfH);
 						// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
@@ -886,21 +911,18 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	// Post-order Depth First Traversal (create children first, then create parent)
 	struct SStackEntry
 	{
-		const CElementBSDF* bsdf;
-		uint64_t visited : 1 = false;
-		uint64_t unused : 63 = 0;
+		SEntry immutable;
+		bool visited = false;
 	};
 	core::vector<SStackEntry> stack;
 	stack.reserve(128);
-	stack.emplace_back() = {.bsdf=bsdf};
-	// for the static casts of handles
-	core::unordered_map<const CElementBSDF*,material_t> localCache;
-	localCache.reserve(16);
+	stack.emplace_back() = {.immutable={.bsdf=bsdf}};
 	//
+	frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer> rootH = {};
 	while (!stack.empty())
 	{
 		auto& entry = stack.back();
-		const auto* const _bsdf = entry.bsdf;
+		const auto* const _bsdf = entry.immutable.bsdf;
 		assert(_bsdf);
 		// we only do post-dfs for non-leafs
 		if (_bsdf->isMeta() && !entry.visited)
@@ -912,9 +934,14 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				switch(_bsdf->type)
 				{
 					case CElementBSDF::COATING: [[fallthrough]];
-					case CElementBSDF::ROUGHCOATING: [[fallthrough]];
+					case CElementBSDF::ROUGHCOATING:
+						assert(meta_common.childCount==1);
+						break;
 					case CElementBSDF::BUMPMAP: [[fallthrough]];
-					case CElementBSDF::NORMALMAP: [[fallthrough]];
+					case CElementBSDF::NORMALMAP:
+						assert(meta_common.childCount==1);
+						// TODO : create the derivative map and cache it
+						break;
 					case CElementBSDF::MASK:
 						assert(meta_common.childCount==1);
 						break;
@@ -930,9 +957,9 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						assert(false); // we shouldn't get this case here
 						break;
 				}
-				stack.emplace_back() = {.bsdf=meta_common.bsdf[0]};
-				for (decltype(meta_common.childCount) i=1; i<meta_common.childCount; i++)
-					stack.emplace_back() = {.bsdf=meta_common.bsdf[i]};
+				// TODO : make sure child gets pushed with derivative map info
+				for (decltype(meta_common.childCount) i=0; i<meta_common.childCount; i++)
+					stack.emplace_back() = {.immutable={.bsdf=meta_common.bsdf[i]}};
 			}
 			entry.visited = true;
 		}
@@ -942,6 +969,10 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			if (_bsdf->isMeta())
 			{
 				const auto childCount = _bsdf->meta_common.childCount;
+				auto getChildFromCache = [&](const CElementBSDF* child)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
+				{
+					return localCache[{.bsdf=child/*, TODO: copy the current normalmap stuff from entry or self if self is bump map*/}]._const_cast();
+				};
 				switch(_bsdf->type)
 				{
 					case CElementBSDF::COATING: [[fallthrough]];
@@ -962,7 +993,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						}
 						fillCoatingLayer(coating,_bsdf->coating,_bsdf->type==CElementBSDF::ROUGHCOATING,beerH);
 						// attach the nested as layer
-						coating->coated = localCache[_bsdf->mask.bsdf[0]]._const_cast();
+						coating->coated = getChildFromCache(_bsdf->mask.bsdf[0]);
 						newMaterialH = coatingH;
 						break;
 					}
@@ -971,7 +1002,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						const auto maskH = frontPool.emplace<frontend_ir_t::CLayer>();
 						auto* const mask = frontPool.deref(maskH);
 						//
-						const auto nestedH = localCache[_bsdf->mask.bsdf[0]];
+						const auto nestedH = getChildFromCache(_bsdf->mask.bsdf[0]);
 						const auto* const nested = frontPool.deref(nestedH);
 						assert(nested && nested->brdfTop);
 						const auto opacityH = createFactorNode(_bsdf->mask.opacity,ECommonDebug::Opacity);
@@ -985,15 +1016,12 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						mask->brdfBottom = frontIR->createMul(nested->brdfBottom,opacityH);
 						newMaterialH = maskH;
 						break;
-					}
-					case CElementBSDF::BUMPMAP:
-					{
-						assert(false); // unimplemented
-						break;
-					}
+					} 
+					case CElementBSDF::BUMPMAP: [[fallthrough]];
 					case CElementBSDF::NORMALMAP:
 					{
-						assert(false); // unimplemented
+						// we basically ignore and skip because derivative map already applied
+						newMaterialH = getChildFromCache(_bsdf->mask.bsdf[0]);
 						break;
 					}
 					case CElementBSDF::MIXTURE_BSDF:
@@ -1008,8 +1036,8 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					}
 					case CElementBSDF::TWO_SIDED:
 					{
-						const auto origFrontH = localCache[_bsdf->twosided.bsdf[0]];
-						const auto chosenBackH = childCount!=1 ? localCache[_bsdf->twosided.bsdf[1]]:origFrontH;
+						const auto origFrontH = getChildFromCache(_bsdf->twosided.bsdf[0]);
+						const auto chosenBackH = childCount!=1 ? getChildFromCache(_bsdf->twosided.bsdf[1]):origFrontH;
 						// Mitsuba does a mad thing where it will pick the BSDF to use based on NdotV which would normally break the required reciprocity of a BxDF
 						// but then it saves the day by disallowing transmission on the combination two BxDFs it layers together. Lets do the same.
 						if (const bool firstIsTransmissive=frontIR->transmissive(origFrontH); firstIsTransmissive && (childCount==1 || frontIR->transmissive(chosenBackH)))
@@ -1043,20 +1071,19 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				}
 			}
 			else
-				newMaterialH = createMistubaLeaf(_bsdf);
+				newMaterialH = createMistubaLeaf(entry.immutable);
 			if (!newMaterialH)
 				newMaterialH = errorMaterial;
-			localCache[_bsdf] = newMaterialH;
+			localCache[entry.immutable] = newMaterialH;
 			stack.pop_back();
+			if (stack.empty())
+				rootH = newMaterialH._const_cast();
 		}
 	}
-
-	const auto found = localCache.find(bsdf);
-	if (found!=localCache.end())
-		return errorMaterial;
-	const auto rootH = found->second._const_cast();
 	if (!rootH)
 		return errorMaterial;
+
+	// add debug info
 	auto* const root = frontPool.deref(rootH);
 	root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
 
