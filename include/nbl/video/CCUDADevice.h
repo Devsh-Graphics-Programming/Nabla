@@ -183,7 +183,7 @@ class CCUDADevice : public core::IReferenceCounted
 	protected:
 		friend class CCUDAHandler;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _device, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
-		~CCUDADevice() = default;
+		~CCUDADevice();
 		
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;

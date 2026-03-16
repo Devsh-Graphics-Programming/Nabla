@@ -143,6 +143,11 @@ CUresult CCUDAHandler::acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* 
 }
 #endif
 
+CCUDADevice::~CCUDADevice()
+{
+	m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context);
+}
+
 }
 
 #endif // _NBL_COMPILE_WITH_CUDA_
