@@ -197,6 +197,7 @@ option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" OFF)
 option(NBL_ENABLE_DOCKER_INTEGRATION "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
+option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
 
 if (NBL_ENABLE_DOCKER_INTEGRATION)
 	if (NOT CMAKE_HOST_WIN32)
@@ -268,12 +269,12 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
+add_subdirectory(tools)
 if(NBL_BUILD_EXAMPLES)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
 	add_subdirectory(examples_tests EXCLUDE_FROM_ALL)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 endif()
-add_subdirectory(tools)
 
 if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
@@ -285,8 +286,6 @@ option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
 include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
-
-option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
 
 if(NBL_ENABLE_CONFIG_INSTALL)
 	if(NBL_STATIC_BUILD)
@@ -311,15 +310,21 @@ if(NBL_ENABLE_CONFIG_INSTALL)
 			INSTALL_DESTINATION cmake
 		)
 
+		set(_NBL_NABLA_CONFIG_FILES
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+		)
+
 		install(EXPORT NablaExportTargets
 			NAMESPACE Nabla::
 			DESTINATION cmake
+			COMPONENT Libraries
 		)
 
 		install(FILES
-			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
-			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			${_NBL_NABLA_CONFIG_FILES}
 			DESTINATION cmake
+			COMPONENT PackageConfig
 		)
 	endif()
 endif()

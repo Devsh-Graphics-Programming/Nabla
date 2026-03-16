@@ -14,6 +14,8 @@
 
 include_guard(GLOBAL)
 
+include("${CMAKE_CURRENT_LIST_DIR}/nam/nam.cmake")
+
 include(ProcessorCount)
 
 # tmp for external projects, to be removed later when I get rid of them (dxc + jpeg currently)
@@ -172,7 +174,14 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	file(RELATIVE_PATH _REL_DIR_ "${NBL_ROOT_PATH}" "${_EX_SOURCE_DIR_}")
 	
 	if(NOT "${EXECUTABLE_NAME}" STREQUAL commonpch)
-		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
+		set(_nbl_install_exe_args)
+		if(DEFINED NBL_EXECUTABLE_INSTALL_COMPONENT AND NOT NBL_EXECUTABLE_INSTALL_COMPONENT STREQUAL "")
+			list(APPEND _nbl_install_exe_args COMPONENT "${NBL_EXECUTABLE_INSTALL_COMPONENT}")
+		endif()
+		if(DEFINED NBL_EXECUTABLE_INSTALL_EXPORT_SET AND NOT NBL_EXECUTABLE_INSTALL_EXPORT_SET STREQUAL "")
+			list(APPEND _nbl_install_exe_args EXPORT "${NBL_EXECUTABLE_INSTALL_EXPORT_SET}")
+		endif()
+		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin" ${_nbl_install_exe_args})
 		
 		get_target_property(_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_ ${EXECUTABLE_NAME} NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
 		get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
@@ -339,12 +348,19 @@ function(nbl_install_program _TRGT)
 endfunction()
 
 function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
+	cmake_parse_arguments(_NBL_INSTALL_EXE "" "COMPONENT;EXPORT" "" ${ARGN})
 	set(_TARGETS ${_TARGETS})
 	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe/${_RELATIVE_DESTINATION}")
+	set(_COMPONENT Executables)
+	if(_NBL_INSTALL_EXE_COMPONENT)
+		set(_COMPONENT "${_NBL_INSTALL_EXE_COMPONENT}")
+	endif()
+	set(_EXPORT_ARGS)
+	if(_NBL_INSTALL_EXE_EXPORT)
+		set(_EXPORT_ARGS EXPORT "${_NBL_INSTALL_EXE_EXPORT}")
+	endif()
 	
-	foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
-		install(TARGETS ${_TARGETS} RUNTIME DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Executables)
-	endforeach()
+	install(TARGETS ${_TARGETS} ${_EXPORT_ARGS} RUNTIME DESTINATION ${_DEST_GE_} COMPONENT ${_COMPONENT})
 	
 	foreach(_TRGT IN LISTS _TARGETS)
 		get_property(_DEFINED_PROPERTY_
@@ -1535,7 +1551,8 @@ namespace @IMPL_NAMESPACE@ {
 				endif()
 
 				set(NBL_NSC_COMPILE_COMMAND
-					"$<TARGET_FILE:nsc>"
+					"$<TARGET_FILE:Nabla::nsc>"
+					${NBL_NSC_EXTRA_ARGS}
 					-Fc "${TARGET_OUTPUT}"
 					${COMPILE_OPTIONS} ${REQUIRED_OPTIONS} ${IMPL_COMMON_OPTIONS}
 					${NBL_NSC_DEPFILE_ARGS}
@@ -1549,11 +1566,18 @@ namespace @IMPL_NAMESPACE@ {
 					list(APPEND NBL_NSC_BYPRODUCTS "${DEPFILE_PATH}")
 				endif()
 
+				set(NBL_NSC_CUSTOM_DEPENDS
+					${DEPENDS_ON}
+					Nabla::nsc
+					$<TARGET_NAME_IF_EXISTS:DeviceHeaders>
+				)
+				list(REMOVE_DUPLICATES NBL_NSC_CUSTOM_DEPENDS)
+
 				set(NBL_NSC_CUSTOM_COMMAND_ARGS
 					OUTPUT "${TARGET_OUTPUT}"
 					BYPRODUCTS ${NBL_NSC_BYPRODUCTS}
 					COMMAND ${NBL_NSC_COMPILE_COMMAND}
-					DEPENDS ${DEPENDS_ON}
+					DEPENDS ${NBL_NSC_CUSTOM_DEPENDS}
 					COMMENT "${NBL_NSC_CONFIG_NAME} (${NBL_NSC_INPUT_NAME})"
 					VERBATIM
 					COMMAND_EXPAND_LISTS
@@ -1619,7 +1643,11 @@ namespace @IMPL_NAMESPACE@ {
 		endfunction()
 
        	GENERATE_KEYS("" 0 "")
-    endforeach()
+	endforeach()
+
+	if(NBL_NSC_MODE STREQUAL "PACKAGE" AND TARGET nsc)
+		add_dependencies(${IMPL_TARGET} nsc)
+	endif()
 
 	unset(KEYS)
 	get_target_property(SPIRVs ${IMPL_TARGET} NBL_SPIRV_OUTPUTS)
