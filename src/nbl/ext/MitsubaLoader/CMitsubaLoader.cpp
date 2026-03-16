@@ -337,7 +337,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		}
 
 		ctx.transferMetadata();
-		return asset::SAssetBundle(std::move(result.metadata),{std::move(ctx.scene)});
+		return SAssetBundle(std::move(result.metadata),{std::move(ctx.scene)});
 	}
 }
 
@@ -503,8 +503,10 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 		const auto param = getTexture(src.texture,&retval);
 		for (auto c=0; c<out.size(); c++)
 		{
-			out[c] = param;
+			out[c].scale = param.scale;
 			out[c].viewChannel = param.viewChannel+c;
+			out[c].view = param.view;
+			out[c].sampler = param.sampler;
 		}
 	}
 	else
@@ -528,7 +530,16 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, con
 {
 	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
     if (src.texture)
-		std::fill(out.begin(),out.end(),getTexture(src.texture,&retval));
+	{
+		const auto param = getTexture(src.texture,&retval);
+		for (auto c=0; c<out.size(); c++)
+		{
+			out[c].scale = param.scale;
+			out[c].viewChannel = param.viewChannel+c;
+			out[c].view = param.view;
+			out[c].sampler = param.sampler;
+		}
+	}
     else
 		MitsubaLoader::getParameters(out,src.value);
 	return retval;

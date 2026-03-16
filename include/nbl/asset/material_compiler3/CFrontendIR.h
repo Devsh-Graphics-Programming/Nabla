@@ -131,7 +131,7 @@ class CFrontendIR final : public CNodePool
 			float scale = std::numeric_limits<float>::infinity();
 			// rest are ignored if the view is null
 			uint8_t viewChannel : 2 = 0;
-			uint8_t padding[3] = {0,0,0};
+			uint8_t padding[3] = {0,0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
 			// shadow comparison functions are ignored
 			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
@@ -189,13 +189,13 @@ class CFrontendIR final : public CNodePool
 					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin),uvRequired);
 				}
 
-				SParameter params[Count] = {};
 				// identity transform by default, ignored if no UVs
 				// NOTE: a transform could be applied per-param, whats important that the UV slot remains the smae across all of them.
 				hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
 					1,0,0,
 					0,1,0
 				);
+				SParameter params[Count] = {};
 
 				// to make sure there will be no padding inbetween
 				static_assert(alignof(SParameter)>=alignof(hlsl::float32_t2x3));
