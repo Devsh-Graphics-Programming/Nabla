@@ -2461,7 +2461,7 @@ class MetaDeviceMemoryAllocator final
 					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
 					IDeviceMemoryAllocator::SAllocateInfo info;
 					info.allocationSize = 0xdeadbeefBADC0FFEull; // set later
-          info.allocateFlags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT : allocate_flags_t::EMAF_NONE;
+					info.allocateFlags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT : allocate_flags_t::EMAF_NONE;
 					info.memoryTypeIndex = memTypeIx;
 					info.dedication = nullptr;
 					// allocate in progression of combined allocations, while trying allocate as much as possible in a single allocation
