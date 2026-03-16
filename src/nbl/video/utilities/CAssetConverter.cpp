@@ -2459,12 +2459,11 @@ class MetaDeviceMemoryAllocator final
 					failures.reserve(binItemCount);
 					// ...
 					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
-					IDeviceMemoryAllocator::SAllocateInfo info = {
-						.size = 0xdeadbeefBADC0FFEull, // set later
-						.flags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT:allocate_flags_t::EMAF_NONE,
-						.memoryTypeIndex = memTypeIx,
-						.dedication = nullptr
-					};
+					IDeviceMemoryAllocator::SAllocateInfo info;
+					info.allocationSize = 0xdeadbeefBADC0FFEull; // set later
+          info.allocateFlags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT : allocate_flags_t::EMAF_NONE;
+					info.memoryTypeIndex = memTypeIx;
+					info.dedication = nullptr;
 					// allocate in progression of combined allocations, while trying allocate as much as possible in a single allocation
 					auto binItemsIt = binItems.begin();
 					for (auto firstOffsetIt=offsetsTmp.begin(); firstOffsetIt!=offsetsTmp.end(); )
@@ -2473,7 +2472,7 @@ class MetaDeviceMemoryAllocator final
 						const size_t combinedCount = std::distance(firstOffsetIt,nextOffsetIt);
 						const size_t lastIx = combinedCount-1;
 						// if we take `combinedCount` starting at `firstItem` their allocation would need this size
-						info.size = (firstOffsetIt[lastIx]-*firstOffsetIt)+getAsBase(binItemsIt[lastIx])->getMemoryReqs().size;
+						info.allocationSize = (firstOffsetIt[lastIx]-*firstOffsetIt)+getAsBase(binItemsIt[lastIx])->getMemoryReqs().size;
 						auto allocation = m_allocator->allocate(info);
 						if (allocation.isValid())
 						{

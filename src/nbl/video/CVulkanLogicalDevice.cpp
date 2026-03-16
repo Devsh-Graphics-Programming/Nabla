@@ -136,26 +136,85 @@ core::smart_refctd_ptr<IDeferredOperation> CVulkanLogicalDevice::createDeferredO
     return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
 }
 
+ExternalHandleType DupeHandle(uint64_t pid, ExternalHandleType handle)
+{
+#ifdef _WIN32
+    HANDLE re = 0;
+
+    HANDLE cur = GetCurrentProcess();
+    HANDLE src = pid ? OpenProcess(GENERIC_ALL, false, pid) : cur;
+
+    if (!DuplicateHandle(src, handle, cur, &re, GENERIC_ALL, 0, DUPLICATE_SAME_ACCESS))
+        return 0;
+
+    CloseHandle(src);
+    return re;
+#endif
+    return handle;
+}
 
 IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDeviceMemoryAllocator::SAllocation ret = {};
     if (info.memoryTypeIndex>=m_physicalDevice->getMemoryProperties().memoryTypeCount)
-        return ret;
+        return {};
 
-    const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     {
-        if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        if (info.allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
             vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+
+#ifdef _WIN32
+    VkImportMemoryWin32HandleInfoKHR importInfo = { 
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        .handle = info.externalHandle
+    };
+
+    VkExportMemoryWin32HandleInfoKHR handleInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .dwAccess = GENERIC_ALL,
+    };
+#else
+    VkImportMemoryFdInfoKHR importInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        .fd = (int)info.externalHandle,
+    };
+#endif
+
+    VkExportMemoryAllocateInfo exportInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#ifdef _WIN32
+        .pNext = &handleInfo,
+#endif
+        .handleTypes = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleType),
+    };
+    
+    const void** pNext = &vk_allocateFlagsInfo.pNext;
+
+    if (info.externalHandleType)
+    {
+        if (info.externalHandle) //importing
+        {
+            auto duped = DupeHandle(0, info.externalHandle);
+            const_cast<void*&>(info.externalHandle) = duped;
+            *pNext = &importInfo;
+        }
+        else // exporting
+            *pNext = &exportInfo;
+        pNext = (const void**)&((VkBaseInStructure*)*pNext)->pNext;
+    }
+
     if(info.dedication)
     {
         // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0,1,1,0));
-        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
+        *pNext = &vk_dedicatedInfo;
+        pNext = &vk_dedicatedInfo.pNext;
+
         switch (info.dedication->getObjectType())
         {
             case IDeviceMemoryBacked::EOT_BUFFER:
@@ -166,22 +225,65 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
                 break;
             default:
                 assert(false);
-                return ret;
+                return {};
                 break;
         }
     }
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
-    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.allocationSize = info.allocationSize;
     vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
     VkDeviceMemory vk_deviceMemory;
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
     if (vk_res!=VK_SUCCESS)
-        return ret;
+        return {};
+
+    const bool exported = info.externalHandleType && !info.externalHandle;
+
+    if (exported)
+    {
+#ifdef _WIN32
+        VkMemoryGetWin32HandleInfoKHR 
+#else
+        VkMemoryGetFdInfoKHR
+#endif
+        handleInfo = { .sType = 
+#ifdef _WIN32
+            VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+#else 
+            VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+#endif
+            .memory = vk_deviceMemory,
+            .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        };
+
+        /*
+            For handle types defined as NT handles, 
+            the handles returned by vkGetMemoryWin32HandleKHR are owned by the application 
+            and hold a reference to their payload. To avoid leaking resources, 
+            the application must release ownership of them 
+            using the CloseHandle system call when they are no longer needed.
+        */
+
+        if (VK_SUCCESS != m_devf.vk.
+#ifdef _WIN32
+            vkGetMemoryWin32HandleKHR
+#else
+            vkGetMemoryFdKHR
+#endif
+            (m_vkdev, &handleInfo, const_cast<ExternalHandleType*>(&info.externalHandle)))
+        {
+            m_devf.vk.vkFreeMemory(m_vkdev, vk_deviceMemory, 0);
+            return {};
+        }
+
+    }
 
     // automatically allocation goes out of scope and frees itself if no success later on
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
-    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,info.size,allocateFlags,memoryPropertyFlags,info.dedication,vk_deviceMemory);
+    CVulkanMemoryAllocation::SCreationParams params = { info, memoryPropertyFlags, !!info.dedication };
+    IDeviceMemoryAllocator::SAllocation ret = {};
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory, std::move(params));
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
     {
@@ -554,7 +656,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
         vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
         vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers and binding.count)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER || binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && binding.immutableSamplers && binding.count)
         {
             // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
             // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
