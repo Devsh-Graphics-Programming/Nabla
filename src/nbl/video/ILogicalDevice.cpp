@@ -826,7 +826,11 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
             retval = false;
         }
         else
+        {
             output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
+            if (params[i].flags.hasFlags(IGPUComputePipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS) && output[i]->getExecutableInfo().empty())
+                NBL_LOG(system::ILogger::ELL_WARNING, "Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation. (params[%u])", i);
+        }
     }
     return retval;
 }
@@ -994,7 +998,9 @@ bool ILogicalDevice::createGraphicsPipelines(
         }
         else
         {
-// TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+            // TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+            if (params[i].flags.hasFlags(IGPUGraphicsPipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS) && output[i]->getExecutableInfo().empty())
+                NBL_LOG(system::ILogger::ELL_WARNING, "Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation. (params[%u])", i);
         }
     }
     return true;
@@ -1144,6 +1150,8 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             NBL_LOG_ERROR("RayTracingPipeline was not created (params[%u])", i);
             return false;
         }
+        else if (params[i].getFlags().hasFlags(IGPURayTracingPipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS) && output[i]->getExecutableInfo().empty())
+            NBL_LOG(system::ILogger::ELL_WARNING, "Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation. (params[%u])", i);
     }
     return retval;
 }
