@@ -615,10 +615,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             LIMIT_INIT_MESH(maxPreferredTaskWorkGroupInvocations);
             LIMIT_INIT_MESH(maxPreferredMeshWorkGroupInvocations);
 
-            properties.limits.mesh_prefersLocalInvocationVertexOutput = meshShaderProperties.prefersLocalInvocationVertexOutput;
-            properties.limits.mesh_prefersLocalInvocationPrimitiveOutput = meshShaderProperties.prefersLocalInvocationPrimitiveOutput;
-            properties.limits.mesh_prefersCompactVertexOutput = meshShaderProperties.prefersCompactVertexOutput;
-            properties.limits.mesh_prefersCompactPrimitiveOutput = meshShaderProperties.prefersCompactPrimitiveOutput;
+            properties.limits.meshPrefersLocalInvocationVertexOutput = meshShaderProperties.prefersLocalInvocationVertexOutput;
+            properties.limits.meshPrefersLocalInvocationPrimitiveOutput = meshShaderProperties.prefersLocalInvocationPrimitiveOutput;
+            properties.limits.meshPrefersCompactVertexOutput = meshShaderProperties.prefersCompactVertexOutput;
+            properties.limits.meshPrefersCompactPrimitiveOutput = meshShaderProperties.prefersCompactPrimitiveOutput;
 
             for (uint8_t i = 0; i < 3; i++) {
                 LIMIT_INIT_MESH(maxTaskWorkGroupCount[i]);
