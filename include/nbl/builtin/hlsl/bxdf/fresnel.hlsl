@@ -508,10 +508,8 @@ struct iridescent_helper
     using vector_type = T;
 
     // returns phi, the phase shift for each plane of polarization (p,s)
-    static void phase_shift(const vector_type ior1, const vector_type ior2, const vector_type iork2, const vector_type cosTheta, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
+    static void phase_shift(const vector_type ior1, const vector_type ior2, const vector_type iork2, const vector_type cosTheta, const vector_type cosTheta2, const vector_type sinTheta2, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
     {
-        const vector_type cosTheta2 = cosTheta * cosTheta;
-        const vector_type sinTheta2 = hlsl::promote<vector_type>(1.0) - cosTheta2;
         const vector_type ior1_2 = ior1*ior1;
         const vector_type ior2_2 = ior2*ior2;
         const vector_type iork2_2 = iork2*iork2;
@@ -523,6 +521,7 @@ struct iridescent_helper
         const vector_type a = hlsl::sqrt(a2);
         const vector_type b = hlsl::sqrt(b2);
 
+        // TODO: very optimizable, especially atan2 usage
         phiS = hlsl::atan2(scalar_type(2.0) * ior1 * b * cosTheta, a2 + b2 - ior1_2*cosTheta2);
         const vector_type k2_plus_one = hlsl::promote<vector_type>(1.0) + iork2_2;
         phiP = hlsl::atan2(scalar_type(2.0) * ior1 * ior2_2 * cosTheta * (scalar_type(2.0) * iork2 * a - (hlsl::promote<vector_type>(1.0) - iork2_2) * b),
@@ -549,36 +548,49 @@ struct iridescent_helper
     {
         const scalar_type cosTheta_1 = clampedCosTheta;
         vector_type R12p, R23p, R12s, R23s;
-        vector_type cosTheta_2;
+        vector_type cosTheta_2, cosTheta2_2;
         vector<bool,vector_traits<vector_type>::Dimension> notTIR;
         {
             const vector_type scale = scalar_type(1.0)/eta12;
-            const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(scalar_type(1.0)-cosTheta_1*cosTheta_1) * scale * scale;
+            cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(scalar_type(1.0)-cosTheta_1*cosTheta_1) * scale * scale;
             notTIR = cosTheta2_2 > hlsl::promote<vector_type>(0.0);
-            cosTheta_2 = hlsl::sqrt(hlsl::max(cosTheta2_2, hlsl::promote<vector_type>(0.0)));
+            cosTheta_2 = hlsl::mix(hlsl::promote<vector_type>(0.0), hlsl::sqrt(cosTheta2_2), notTIR);
         }
 
-        if (hlsl::any(notTIR))
+        NBL_UNROLL for (uint32_t i = 0; i < vector_traits<vector_type>::Dimension; i++)
         {
-            Dielectric<vector_type>::__polarized(eta12 * eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
+            // Check for total internal reflection
+            if (notTIR[i])
+            {
+                using monochrome_type = vector<scalar_type, 1>;
+                monochrome_type p12, s12, p23, s23;
+                Dielectric<monochrome_type>::__polarized(hlsl::promote<monochrome_type>(eta12[i] * eta12[i]), hlsl::promote<monochrome_type>(cosTheta_1), p12, s12);
 
-            // Reflected part by the base
-            // if kappa==0, base material is dielectric
-            NBL_IF_CONSTEXPR(SupportsTransmission)
-                Dielectric<vector_type>::__polarized(eta23 * eta23, cosTheta_2, R23p, R23s);
+                const monochrome_type eta23_2 = hlsl::promote<monochrome_type>(eta23[i] * eta23[i]);
+
+                // Reflected part by the base
+                // if kappa==0, base material is dielectric
+                NBL_IF_CONSTEXPR(SupportsTransmission)
+                    Dielectric<monochrome_type>::__polarized(eta23_2, hlsl::promote<monochrome_type>(cosTheta_2[i]), p23, s23);
+                else
+                {
+                    const monochrome_type etaLen2 = eta23_2 + hlsl::promote<monochrome_type>(etak23[i] * etak23[i]);
+                    Conductor<monochrome_type>::__polarized(hlsl::promote<monochrome_type>(eta23[i]), etaLen2, hlsl::promote<monochrome_type>(cosTheta_2[i]), p23, s23);
+                }
+
+                R12p[i] = p12[0];
+                R12s[i] = s12[0];
+                R23p[i] = p23[0];
+                R23s[i] = s23[0];
+            }
             else
             {
-                vector_type etaLen2 = eta23 * eta23 + etak23 * etak23;
-                Conductor<vector_type>::__polarized(eta23, etaLen2, cosTheta_2, R23p, R23s);
+                R12s[i] = scalar_type(0.0);
+                R12p[i] = scalar_type(0.0);
+                R23s[i] = scalar_type(0.0);
+                R23p[i] = scalar_type(0.0);
             }
         }
-
-        // Check for total internal reflection
-        const vector_type notTIRFactor = vector_type(notTIR); // 0 when TIR, 1 otherwise
-        R12s = R12s * notTIRFactor;
-        R12p = R12p * notTIRFactor;
-        R23s = R23s * notTIRFactor;
-        R23p = R23p * notTIRFactor;
 
         // Compute the transmission coefficients
         vector_type T121p = hlsl::promote<vector_type>(1.0) - R12p;
@@ -591,8 +603,18 @@ struct iridescent_helper
         vector_type I = hlsl::promote<vector_type>(0.0);
 
         // Evaluate the phase shift
-        phase_shift(ior1, ior2, hlsl::promote<vector_type>(0.0), hlsl::promote<vector_type>(cosTheta_1), phi21s, phi21p);
-        phase_shift(ior2, ior3, iork3, cosTheta_2, phi23s, phi23p);
+        {
+            const vector_type ct = hlsl::promote<vector_type>(cosTheta_1);
+            const vector_type ct2 = ct * ct;
+            const vector_type st2 = hlsl::promote<vector_type>(1.0) - ct2;
+            phase_shift(ior1, ior2, hlsl::promote<vector_type>(0.0), ct, ct2, st2, phi21s, phi21p);
+        }
+        {
+            const vector_type ct = hlsl::promote<vector_type>(cosTheta_2);
+            const vector_type ct2 = cosTheta2_2;
+            const vector_type st2 = hlsl::promote<vector_type>(1.0) - ct2;
+            phase_shift(ior2, ior3, iork3, ct, ct2, st2, phi23s, phi23p);
+        }
         phi21p = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21p;
         phi21s = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21s;
 
@@ -613,6 +635,7 @@ struct iridescent_helper
         NBL_UNROLL for (int m=1; m<=2; ++m)
         {
             Cm *= r123p;
+            // TODO: common subexpression, maybe we can hoist it out somehow?
             Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(scalar_type(m))*D, hlsl::promote<vector_type>(scalar_type(m))*(phi23p+phi21p));
             I  += Cm*Sm;
         }
@@ -641,6 +664,13 @@ struct iridescent_base
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
+    template<bool SupportsTransmission, typename Colorspace>
+    T __call(const vector_type iork3, const vector_type etak23, const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
+    {
+        return impl::iridescent_helper<T,false>::template __call<Colorspace>(D, ior1, ior2, ior3, iork3,
+                                                            eta12, eta23, etak23, clampedCosTheta);
+    }
+
     vector_type D;
     vector_type ior1;
     vector_type ior2;
@@ -650,6 +680,14 @@ struct iridescent_base
     vector_type eta23;      // thin-film -> base material IOR
     vector_type eta13;
 };
+
+
+// workaround due to DXC bug: github.com/microsoft/DirectXShaderCompiler/issues/5966
+template<typename T, bool SupportsTransmission, typename Colorspace>
+T __iridescent_base__call_const(NBL_CONST_REF_ARG(iridescent_base<T>) _this, const T iork3, const T etak23, const typename vector_traits<T>::scalar_type clampedCosTheta)
+{
+    return _this.template __call<SupportsTransmission, Colorspace>(iork3, etak23, clampedCosTheta);
+}
 }
 
 template<typename T, typename Colorspace>
@@ -691,8 +729,7 @@ struct Iridescent<T, false, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
 
     T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
-        return impl::iridescent_helper<T,false>::template __call<Colorspace>(base_type::D, base_type::ior1, base_type::ior2, base_type::ior3, base_type::iork3,
-                                                            base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
+        return impl::__iridescent_base__call_const<T, false, Colorspace>(NBL_DEREF_THIS, base_type::iork3, getEtak23(), clampedCosTheta);
     }
 
     vector_type getEtak23() NBL_CONST_MEMBER_FUNC
@@ -739,8 +776,7 @@ struct Iridescent<T, true, Colorspace NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
 
     T operator()(const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
-        return impl::iridescent_helper<T,true>::template __call<Colorspace>(base_type::D, base_type::ior1, base_type::ior2, base_type::ior3, getEtak23(),
-                                                            base_type::eta12, base_type::eta23, getEtak23(), clampedCosTheta);
+        return impl::__iridescent_base__call_const<T, true, Colorspace>(NBL_DEREF_THIS, getEtak23(), getEtak23(), clampedCosTheta);
     }
 
     scalar_type getRefractionOrientedEta() NBL_CONST_MEMBER_FUNC { return base_type::eta13[0]; }

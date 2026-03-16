@@ -11,6 +11,7 @@
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
+#include "nbl/builtin/hlsl/colorspace/EOTF.hlsl"
 #include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
 #include "nbl/builtin/hlsl/math/quaternions.hlsl"
 #include "glm/gtc/matrix_transform.hpp"
@@ -111,6 +112,8 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 						return {};
 					}
 				}
+				// TODO: make this compile in C++ and replace the for loop below
+				//result.vvalue.xyz = hlsl::colorspace::eotf::sRGB(result.vvalue.xyz);
 				for (auto i=0; i<3u; i++)
 					result.vvalue[i] = core::srgb2lin(result.vvalue[i]);
 				result.type = SPropertyElementData::Type::RGB; // now its an RGB value

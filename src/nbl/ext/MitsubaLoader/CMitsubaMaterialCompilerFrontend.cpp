@@ -1,53 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include "nbl/asset/utils/CIESProfile.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-#include "nbl/ext/MitsubaLoader/SContext.h"
 
-namespace nbl::ext::MitsubaLoader
-{
-    
-std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwindTextureScale(const CElementTexture* _element) const
-{
-    float scale = 1.f;
-    while (_element && _element->type==CElementTexture::SCALE)
-    {
-        scale *= _element->scale.scale;
-        _element = _element->scale.texture;
-    }
-    _NBL_DEBUG_BREAK_IF(_element && _element->type!=CElementTexture::BITMAP);
-
-    return {_element,scale};
-}
-
-auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
-{
-    tex_ass_type retval = {};
-
-    float& scale = std::get<float>(retval);
-    std::tie(_element,scale) = unwindTextureScale(_element);
-    if (!_element)
-    {
-        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 64x64 Magenta or Flat Error Texture.", ELL_ERROR);
-        return getErrorTexture(semantic);
-    }
-
-    // get sampler (this can't really fail)
-    std::get<core::smart_refctd_ptr<asset::ICPUSampler>>(retval) = m_loaderContext->getSampler(SContext::computeSamplerParameters(_element->bitmap));
-
-    {
-        const asset::IAsset::E_TYPE types[2] = { asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-        const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
-        auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
-        if (viewBundle.getContents().empty())
-        {
-            os::Printer::log("[ERROR] Could Not Load Texture from path \""+std::string(_element->bitmap.filename.svalue)+"\", substituting 64x64 Magenta or Flat Error Texture.",ELL_ERROR);
-            std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(getErrorTexture(semantic));
-        }
-        else
-        {
+#if 0 // bump map handling in CTrueIR
             auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
             auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
@@ -58,46 +14,12 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
             }
 
             std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::move(view);
-        }
-    }
+#endif
 
-    return retval;
-}
-
-
-auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) -> emission_profile_type
-{
-    constexpr static asset::IAsset::E_TYPE types[] = {asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO};
-    
-    std::string filename = _element->filename;
-    m_loaderContext->override_->getLoadFilename(filename, m_loaderContext->inner, 0u);
-
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(filename, types, m_loaderContext->inner, 0u);
-    if (viewBundle.getMetadata())
-    {
-        const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
-        return { m_loaderContext->getSampler(m_loaderContext->emissionProfileSamplerParams(_element,meta)), &meta};
-    }
-    return { nullptr, nullptr };
-}
-
-CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform)
-{
-    assert(_emitter->type == CElementEmitter::AREA);
-
-    auto* res = ir->allocNode<asset::material_compiler::IR::CEmitterNode>();
-    res->intensity = _emitter->area.radiance;
-
-    const auto inProfile = _emitter->area.emissionProfile;
-    if (inProfile)
-    {
-        auto [sampler, meta] = getEmissionProfile(inProfile);
         
-        auto fillProfile = [&]() -> bool
-        {
-            asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
 
-            // do cheap checks first
+#if 0 /// TODO when going CFrontendIR -> CTrueIR
+                asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
             {
                 auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
 
@@ -118,71 +40,8 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                 profile.up = core::normalize(worldSpaceIESTransform[1]);
                 profile.view = core::normalize(worldSpaceIESTransform[2]);
             }
-
-            core::smart_refctd_ptr<asset::ICPUImageView> iesTexture = nullptr;
-            {
-                const auto cacheName = inProfile->filename + "?ies";
-
-                // try cache
-                {
-                    const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-                    asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(cacheName,types,m_loaderContext->inner,0u);
-                    auto contents = bundle.getContents();
-                    if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
-                        iesTexture = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
-                }
-
-                // failed to find, have to create
-                if (!iesTexture)
-                {
-                    const auto optimalResolution = meta->profile.getOptimalIESResolution();
-                    iesTexture = meta->profile.createIESTexture(optimalResolution);
-                }
-                
-                // now must be loaded to proceed
-                if (!iesTexture)
-                    return false;
-                
-                // insert into cache
-                asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
-                asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(iesTexture) });
-                m_loaderContext->override_->insertAssetIntoCache(bundle, cacheName, m_loaderContext->inner, 0u);
-            }
-            profile.texture = { iesTexture, sampler, 1.f };
     
-            // success
-            res->emissionProfile = profile;
 
-            // note that IES texel intensity value is already divided by max intensity
-            const auto maxIntesity = meta->profile.getMaxCandelaValue();
-            switch (inProfile->normalization)
-            {
-                case CElementEmissionProfile::EN_UNIT_MAX:
-                {
-                    // already normalized to max
-                } break;
-                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
-                {
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(false);
-                } break;
-                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
-                {
-                    // flatten does not affect the average over the full domain
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(true);
-                } break;
-                default:
-                {
-                    res->intensity *= maxIntesity;
-                } break;
-            }
-            return true;
-        };
-
-        if (meta && !fillProfile())
-            os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
-    }
-    return res;
-}
 
 CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend::getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const
 {
@@ -288,46 +147,14 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 
     return retval;
 }
+#endif
 
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger) -> IRNode*
     {
         using namespace asset;
         using namespace material_compiler;
 
-        auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
-        {
-            if (src.value.type == SPropertyElementData::INVALID)
-            {
-                IR::INode::STextureSource tex;
-                std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-                dst = std::move(tex);
-            }
-            else
-                dst = src.value.fvalue;
-        };
-        auto getSpectrumOrTexture = [this](
-            const CElementTexture::SpectrumOrTexture& src,
-            IR::INode::SParameter<IR::INode::color_t>& dst,
-            const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY
-        ) -> void
-        {
-            if (src.value.type == SPropertyElementData::INVALID)
-            {
-                IR::INode::STextureSource tex;
-                std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
-                assert(!core::isnan(tex.scale));
-                dst = std::move(tex);
-            }
-            else
-                dst = src.value.vvalue;
-        };
 
-        constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
-            IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN,
-            IR::CMicrofacetSpecularBSDFNode::ENDF_GGX,
-            IR::CMicrofacetSpecularBSDFNode::ENDF_PHONG,
-            IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY
-        };
 
         const auto type = _bsdf->type;
         IRNode* ir_node = nullptr;
@@ -341,117 +168,14 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
             ir_node->children.count = 1u;
             getSpectrumOrTexture(_bsdf->mask.opacity,static_cast<IR::COpacityNode*>(ir_node)->opacity,EIVS_BLEND_WEIGHT);
             break;
-        case CElementBSDF::DIFFUSE:
-        case CElementBSDF::ROUGHDIFFUSE:
-            ir_node = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
-            getSpectrumOrTexture(_bsdf->diffuse.reflectance, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->reflectance);
-            if (type == CElementBSDF::ROUGHDIFFUSE)
-            {
-                getFloatOrTexture(_bsdf->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->alpha_u);
-                static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->alpha_v = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->alpha_u;
-            }
-            else
-            {
-                static_cast<IR::CMicrofacetDiffuseBSDFNode*>(ir_node)->setSmooth();
-            }
-            break;
-        case CElementBSDF::CONDUCTOR:
-        case CElementBSDF::ROUGHCONDUCTOR:
-        {
-            ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
-            auto* node = static_cast<IR::CMicrofacetSpecularBSDFNode*>(ir_node);
-            node->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            const float extEta = _bsdf->conductor.extEta;
-            node->eta = _bsdf->conductor.eta.vvalue/extEta;
-            node->etaK = _bsdf->conductor.k.vvalue/extEta;
 
-            if (type == CElementBSDF::ROUGHCONDUCTOR)
-            {
-                node->ndf = ndfMap[_bsdf->conductor.distribution];
-                getFloatOrTexture(_bsdf->conductor.alphaU, node->alpha_u);
-                if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdf->conductor.alphaV, node->alpha_v);
-                else
-                    node->alpha_v = node->alpha_u;
-            }
-            else
-            {
-                node->setSmooth();
-            }
-        }
-        break;
-        case CElementBSDF::DIFFUSE_TRANSMITTER:
-        {
-            ir_node = ir->allocNode<IR::CMicrofacetDifftransBSDFNode>();
-            auto* node = static_cast<IR::CMicrofacetDifftransBSDFNode*>(ir_node);
-            node->setSmooth();
 
-            getSpectrumOrTexture(_bsdf->difftrans.transmittance, node->transmittance);
-        }
-        break;
-        case CElementBSDF::PLASTIC:
-        case CElementBSDF::ROUGHPLASTIC:
-        {
-            ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>();
-            auto* coat = static_cast<IR::CMicrofacetCoatingBSDFNode*>(ir_node);
-            coat->children.count = 1u;
 
-            auto& coated = ir_node->children[0];
-            coated = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
 
-            const float eta = _bsdf->plastic.intIOR/_bsdf->plastic.extIOR;
 
-            coat->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            coat->eta = IR::INode::color_t(eta);
-            if (type == CElementBSDF::ROUGHPLASTIC)
-            {
-                coat->ndf = ndfMap[_bsdf->plastic.distribution];
-                getFloatOrTexture(_bsdf->plastic.alphaU, coat->alpha_u);
-                if (coat->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdf->plastic.alphaV, coat->alpha_v);
-                else
-                    coat->alpha_v = coat->alpha_u;
-            }
-            else coat->setSmooth();
 
-            auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
-            getSpectrumOrTexture(_bsdf->plastic.diffuseReflectance, node_diffuse->reflectance);
-            node_diffuse->alpha_u = coat->alpha_u;
-            node_diffuse->alpha_v = coat->alpha_v;
-            node_diffuse->eta = coat->eta;
-        }
-        break;
-        case CElementBSDF::DIELECTRIC:
-        case CElementBSDF::THINDIELECTRIC:
-        case CElementBSDF::ROUGHDIELECTRIC:
-        {
-            auto* dielectric = ir->allocNode<IR::CMicrofacetDielectricBSDFNode>();
-            ir_node = dielectric;
 
-            const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
-            _NBL_DEBUG_BREAK_IF(eta==1.f);
-            if (eta == 1.f)
-		        _logger.log("WARNING: Dielectric with IoR=1.0!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 
-            dielectric->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            dielectric->eta = IR::INode::color_t(eta);
-            if (type == CElementBSDF::ROUGHDIELECTRIC)
-            {
-                dielectric->ndf = ndfMap[_bsdf->dielectric.distribution];
-                getFloatOrTexture(_bsdf->dielectric.alphaU, dielectric->alpha_u);
-                if (dielectric->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdf->dielectric.alphaV, dielectric->alpha_v);
-                else
-                    dielectric->alpha_v = dielectric->alpha_u;
-            }
-            else
-            {
-                dielectric->setSmooth();
-            }
-
-            dielectric->thin = (type == CElementBSDF::THINDIELECTRIC);
-        }
-        break;
         case CElementBSDF::BUMPMAP:
         {
             ir_node = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_DERIVATIVE);

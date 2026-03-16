@@ -1,20 +1,21 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_NEW_DELETE_H_INCLUDED_
+#define _NBL_CORE_NEW_DELETE_H_INCLUDED_
 
-#ifndef __NBL_CORE_NEW_DELETE_H_INCLUDED__
-#define __NBL_CORE_NEW_DELETE_H_INCLUDED__
 
-#include <memory>
 
 #include "nbl/macros.h"
 #include "nbl/core/alloc/aligned_allocator.h"
 
+#include <memory>
 
 
 //! Allocator MUST provide a function with signature `pointer allocate(size_type n, size_type alignment, const_void_pointer hint=nullptr) noexcept`
 #define _NBL_DEFAULT_ALLOCATOR_METATYPE                                 nbl::core::aligned_allocator
 
+// TODO: deprecate and replace usages with `refctd_memory_resource` default
 namespace nbl
 {
 namespace core
@@ -120,9 +121,7 @@ struct AlignedWithAllocator
                                                                     _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(std::remove_reference_t<std::remove_pointer_t<decltype(_obj)>>,decltype(_allocator))
 
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 /**
 //Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
@@ -149,7 +148,5 @@ struct alligned_delete
 };
 
 }
-}
-
 #endif
 

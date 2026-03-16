@@ -249,14 +249,14 @@ class CElementShape final : public IElement
 			return local;
 		}
 
-		inline CElementEmitter obtainEmitter() const
+		inline const CElementEmitter* obtainEmitter() const
 		{
 			if (emitter)
-				return *emitter;
+				return emitter;
 			if (type==CElementShape::INSTANCE && instance.parent && instance.parent->emitter)
-				return *instance.parent->emitter;
+				return instance.parent->emitter;
 
-			return CElementEmitter("");
+			return nullptr;
 		}
 
 

@@ -1,19 +1,17 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_POOL_ADDRESS_ALLOCATOR_H_INCLUDED_
+#define _NBL_CORE_POOL_ADDRESS_ALLOCATOR_H_INCLUDED_
 
-#ifndef __NBL_CORE_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __NBL_CORE_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
 
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace nbl
-{
-namespace core
-{
 
+namespace nbl::core
+{
 
 //! Can only allocate up to a size of a single block, no support for allocations larger than blocksize
 template<typename _size_type>
@@ -22,7 +20,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
     private:
         using base_t = AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type>;
 
-        void copyState(const PoolAddressAllocator& other, _size_type newBuffSz)
+        inline void copyState(const PoolAddressAllocator& other, _size_type newBuffSz)
         {
             if (blockCount>other.blockCount)
                 freeStackCtr = blockCount-other.blockCount;
@@ -64,38 +62,35 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
+        static constexpr inline bool supportsNullBuffer = true;
 
-        PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
-
+        inline PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
         virtual ~PoolAddressAllocator() {}
 
-        PoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
-					base_t(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment),
-						blockCount((bufSz-alignOffsetNeeded)/blockSz), blockSize(blockSz), freeStackCtr(0u)
+        using extra_ctor_param_types = type_list<size_type/*Block Size*/>;
+        inline PoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
+			base_t(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), blockCount((bufSz-alignOffsetNeeded)/blockSz), blockSize(blockSz), freeStackCtr(0u)
         {
             reset();
         }
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
-        PoolAddressAllocator(_size_type newBuffSz, PoolAddressAllocator&& other, Args&&... args) noexcept :
-					base_t(other,std::forward<Args>(args)...),
-						blockCount((newBuffSz-base_t::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
+        inline PoolAddressAllocator(_size_type newBuffSz, PoolAddressAllocator&& other, Args&&... args) noexcept :
+			base_t(other,std::forward<Args>(args)...), blockCount((newBuffSz-base_t::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
             copyState(other, newBuffSz);
 
             other.invalidate();
         }
         template<typename... Args>
-        PoolAddressAllocator(_size_type newBuffSz, const PoolAddressAllocator& other, Args&&... args) noexcept :
-            base_t(other, std::forward<Args>(args)...),
-            blockCount((newBuffSz-base_t::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
+        inline PoolAddressAllocator(_size_type newBuffSz, const PoolAddressAllocator& other, Args&&... args) noexcept :
+            base_t(other, std::forward<Args>(args)...), blockCount((newBuffSz-base_t::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
             copyState(other, newBuffSz);
         }
 
-        PoolAddressAllocator& operator=(PoolAddressAllocator&& other)
+        inline PoolAddressAllocator& operator=(PoolAddressAllocator&& other)
         {
             base_t::operator=(std::move(other));
             blockCount = other.blockCount;
@@ -205,8 +200,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         {
             return (addr-base_t::combinedOffset)/blockSize;
         }
-    protected:
 
+    protected:
         /**
         * @brief Invalidates only fields from this class extension
         */
@@ -238,26 +233,18 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         inline const size_type& getFreeStack(size_type i) const {return reinterpret_cast<const size_type*>(base_t::reservedSpace)[i];} 
 };
 
-
-}
 }
 
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
-namespace nbl
+namespace nbl::core
 {
-namespace core
-{
-
 // aliases
 template<typename size_type>
 using PoolAddressAllocatorST = PoolAddressAllocator<size_type>;
 
 template<typename size_type, class RecursiveLockable>
 using PoolAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<PoolAddressAllocator<size_type>,RecursiveLockable>;
-
 }
-}
-
 #endif
 
