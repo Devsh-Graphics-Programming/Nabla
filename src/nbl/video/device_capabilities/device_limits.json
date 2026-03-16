@@ -344,22 +344,22 @@
             "entries":[
                 {
                     "type": "bool",
-                    "name": "mesh_prefersLocalInvocationVertexOutput",
+                    "name": "meshPrefersLocalInvocationVertexOutput",
                     "value": "false"
                 },
                 {
                     "type": "bool",
-                    "name": "mesh_prefersLocalInvocationPrimitiveOutput",
+                    "name": "meshPrefersLocalInvocationPrimitiveOutput",
                     "value": "false"
                 },
                 {
                     "type": "bool",
-                    "name": "mesh_prefersCompactVertexOutput",
+                    "name": "meshPrefersCompactVertexOutput",
                     "value": "false"
                 },
                 {
                     "type": "bool",
-                    "name": "mesh_prefersCompactPrimitiveOutput",
+                    "name": "meshPrefersCompactPrimitiveOutput",
                     "value": "false"
                 }
             ]
