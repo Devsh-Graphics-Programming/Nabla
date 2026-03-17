@@ -1042,7 +1042,19 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					}
 					case CElementBSDF::BLEND_BSDF:
 					{
-						assert(false); // unimplemented
+						const auto blendH = frontPool.emplace<frontend_ir_t::CLayer>();
+						auto* const blend = frontPool.deref(blendH);
+						const auto tH = createFactorNode(_bsdf->blendbsdf.weight,ECommonDebug::Weight);
+						const auto tComplementH = frontIR->createComplement(tH);
+						const auto loH = getChildFromCache(_bsdf->blendbsdf.bsdf[0]);
+						const auto hiH = getChildFromCache(_bsdf->blendbsdf.bsdf[1]);
+						const auto* const lo = frontPool.deref(loH);
+						const auto* const hi = frontPool.deref(hiH);
+						// I don't actually need to check if the child Expressions are non-empty, the CFrontendIR utilities nicely carry through NOOPs
+						blend->brdfTop = frontIR->createAdd(frontIR->createMul(lo->brdfTop,tComplementH),frontIR->createMul(hi->brdfTop,tH));
+						blend->btdf = frontIR->createAdd(frontIR->createMul(lo->btdf,tComplementH),frontIR->createMul(hi->btdf,tH));
+						blend->brdfBottom = frontIR->createAdd(frontIR->createMul(lo->brdfBottom,tComplementH),frontIR->createMul(hi->brdfBottom,tH));
+						newMaterialH = blendH;
 						break;
 					}
 					case CElementBSDF::TWO_SIDED:
