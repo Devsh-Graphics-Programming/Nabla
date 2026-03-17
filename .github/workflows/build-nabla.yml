@@ -50,7 +50,7 @@ jobs:
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
-            $maxAttempts = 12
+            $maxAttempts = 24
             $delaySeconds = 5
             $dockerReady = $false
 
@@ -299,13 +299,24 @@ jobs:
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
           $sourceTar = "${{ steps.set-prefix.outputs.prefix }}-source.tar"
           $sourceList = "${{ steps.set-prefix.outputs.prefix }}-source-files.txt"
-          $sourceFiles = @(
-            rg --files -uu . `
-              -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' `
-              -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' `
-              -g '*.inc' -g '*.inl' -g '*.ipp' -g '*.tpp' -g '*.ixx' `
-              -g '!examples_tests/media/**' -g '!.git/**'
-          )
+          if (Get-Command rg -ErrorAction SilentlyContinue) {
+            $sourceFiles = @(
+              rg --files -uu . `
+                -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' `
+                -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' `
+                -g '*.inc' -g '*.inl' -g '*.ipp' -g '*.tpp' -g '*.ixx' `
+                -g '!examples_tests/media/**' -g '!.git/**'
+            )
+          }
+          else {
+            $sourceFiles = @(
+              git ls-files --cached --recurse-submodules |
+                Where-Object {
+                  $_ -match '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inc|inl|ipp|tpp|ixx)$' -and
+                  $_ -notlike 'examples_tests/media/*'
+                }
+            )
+          }
 
           if ($sourceFiles.Count -eq 0) {
             throw "No source-like files found for source artifact packaging."
