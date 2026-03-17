@@ -1573,9 +1573,6 @@ namespace @IMPL_NAMESPACE@ {
 
 				set(NBL_NSC_DEPFILE_ARGS "")
 				set(NBL_NSC_RULE_USE_DEPFILE ${NSC_USE_DEPFILE})
-				if(RULE_MODE STREQUAL "preprocess")
-					set(NBL_NSC_RULE_USE_DEPFILE OFF)
-				endif()
 				if(NBL_NSC_RULE_USE_DEPFILE)
 					set(NBL_NSC_DEPFILE_ARGS -MD -MF "${DEPFILE_PATH}")
 				endif()
