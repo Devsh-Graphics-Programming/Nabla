@@ -166,6 +166,7 @@ public:
 
         argparse::ArgumentParser program("nsc");
         program.add_argument("--dump-build-info").default_value(false).implicit_value(true);
+        program.add_argument("--self-test-unmount-builtins").default_value(false).implicit_value(true);
         program.add_argument("--file").default_value(std::string{});
         program.add_argument("-P").default_value(false).implicit_value(true);
         program.add_argument("-no-nbl-builtins").default_value(false).implicit_value(true);
@@ -205,6 +206,26 @@ public:
         m_system = system ? std::move(system) : IApplicationFramework::createSystem();
         if (!m_system)
             return false;
+
+        if (program.get<bool>("--self-test-unmount-builtins"))
+        {
+            const auto mountedArchiveCount = m_system->getMountedArchiveCount();
+            if (!mountedArchiveCount)
+            {
+                std::cerr << "Builtins were not mounted at startup.\n";
+                return false;
+            }
+
+            m_system->unmountBuiltins();
+
+            if (const auto remainingArchiveCount = m_system->getMountedArchiveCount(); remainingArchiveCount != 0ull)
+            {
+                std::cerr << "Builtins unmount self-test failed. Remaining mounted archives: " << remainingArchiveCount << "\n";
+                return false;
+            }
+
+            return true;
+        }
 
         if (rawArgs.size() < 2)
         {

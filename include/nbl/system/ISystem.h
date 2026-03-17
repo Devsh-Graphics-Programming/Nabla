@@ -143,6 +143,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 
         void unmountBuiltins();
 		bool areBuiltinsMounted() const;
+        inline size_t getMountedArchiveCount() const { return m_cachedArchiveFiles.getSize(); }
 
         //
         struct SystemInfo
