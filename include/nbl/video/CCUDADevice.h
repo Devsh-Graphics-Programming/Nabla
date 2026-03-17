@@ -25,7 +25,7 @@ namespace nbl::video
 {
 class CCUDAHandler;
 
-class CCUDADevice : public core::IReferenceCounted
+class NBL_API2 CCUDADevice : public core::IReferenceCounted
 {
   public:
 #ifdef _WIN32
