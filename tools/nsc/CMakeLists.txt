@@ -510,7 +510,7 @@ execute_process(COMMAND "@DOCKER_EXE@"
 
 message(STATUS "Executing CTests")
 execute_process(COMMAND "@CTEST_EXE@" 
-  -C "$<CONFIG>" --stop-on-failure 
+  -C "$<CONFIG>" --stop-on-failure --output-on-failure
   WORKING_DIRECTORY "@CMAKE_CURRENT_BINARY_DIR@"
   COMMAND_ERROR_IS_FATAL ANY
 )

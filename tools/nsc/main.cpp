@@ -209,18 +209,19 @@ public:
 
         if (program.get<bool>("--self-test-unmount-builtins"))
         {
-            const auto mountedArchiveCount = m_system->getMountedArchiveCount();
-            if (!mountedArchiveCount)
+            const auto mountedBuiltinArchiveCount = m_system->getMountedBuiltinArchiveCount();
+            if (!mountedBuiltinArchiveCount)
             {
-                std::cerr << "Builtins were not mounted at startup.\n";
+                std::cerr << "Builtins were not mounted at startup. builtin_mount_count=0 total_mount_count=" << m_system->getMountedArchiveCount() << "\n";
                 return false;
             }
 
             m_system->unmountBuiltins();
 
-            if (const auto remainingArchiveCount = m_system->getMountedArchiveCount(); remainingArchiveCount != 0ull)
+            if (const auto remainingBuiltinArchiveCount = m_system->getMountedBuiltinArchiveCount(); remainingBuiltinArchiveCount != 0ull)
             {
-                std::cerr << "Builtins unmount self-test failed. Remaining mounted archives: " << remainingArchiveCount << "\n";
+                std::cerr << "Builtins unmount self-test failed. remaining_builtin_mount_count=" << remainingBuiltinArchiveCount
+                          << " total_mount_count=" << m_system->getMountedArchiveCount() << "\n";
                 return false;
             }
 
