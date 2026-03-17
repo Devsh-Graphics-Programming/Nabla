@@ -38,11 +38,84 @@
 */
 
 #include "nabla.h"
+#include <boost/exception/diagnostic_information.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
 
 #include "nbl/asset/utils/waveContext.h"
+
+namespace
+{
+std::string getLineSnippet(std::string_view text, const int lineNo)
+{
+    if (lineNo <= 0)
+        return {};
+
+    int currentLine = 1;
+    size_t lineStart = 0ull;
+    while (lineStart <= text.size())
+    {
+        const auto lineEnd = text.find('\n', lineStart);
+        if (currentLine == lineNo)
+        {
+            const auto count = lineEnd == std::string_view::npos ? text.size() - lineStart : lineEnd - lineStart;
+            auto line = std::string(text.substr(lineStart, count));
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            return line;
+        }
+
+        if (lineEnd == std::string_view::npos)
+            break;
+        lineStart = lineEnd + 1ull;
+        currentLine++;
+    }
+
+    return {};
+}
+
+std::string makeCaretLine(const int columnNo)
+{
+    if (columnNo <= 0)
+        return {};
+
+    return std::string(static_cast<size_t>(columnNo - 1), ' ') + '^';
+}
+
+std::string makeWaveFailureContext(
+    const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions,
+    const std::string_view code,
+    const char* const phase,
+    const std::string_view activeMacroDefinition,
+    const char* const fileName,
+    const int lineNo,
+    const int columnNo)
+{
+    std::ostringstream stream;
+    stream << "Wave preprocessing context:";
+    if (!preprocessOptions.sourceIdentifier.empty())
+        stream << "\n  source: " << preprocessOptions.sourceIdentifier;
+    stream << "\n  phase: " << phase;
+    stream << "\n  extra_define_count: " << preprocessOptions.extraDefines.size();
+    stream << "\n  source_has_trailing_newline: " << ((!code.empty() && code.back() == '\n') ? "yes" : "no");
+    if (!activeMacroDefinition.empty())
+        stream << "\n  active_macro_definition: " << activeMacroDefinition;
+    if (fileName && fileName[0] != '\0')
+        stream << "\n  location: " << fileName << ':' << lineNo << ':' << columnNo;
+
+    const auto snippet = getLineSnippet(code, lineNo);
+    if (!snippet.empty() && fileName && preprocessOptions.sourceIdentifier == fileName)
+    {
+        stream << "\n  snippet: " << snippet;
+        const auto caret = makeCaretLine(columnNo);
+        if (!caret.empty())
+            stream << "\n           " << caret;
+    }
+
+    return stream.str();
+}
+}
 
 namespace nbl::wave
 {
@@ -61,16 +134,21 @@ namespace nbl::wave
 
         // preprocess
         core::string resolvedString;
+        const char* phase = "registering built-in macros";
+        std::string activeMacroDefinition;
         try
         {
+            phase = "registering extra macro definitions";
             for (const auto& define : preprocessOptions.extraDefines)
             {
-                std::string macroDefinition(define.identifier);
-                macroDefinition.push_back('=');
-                macroDefinition.append(define.definition);
-                context.add_macro_definition(macroDefinition);
+                activeMacroDefinition = define.identifier;
+                activeMacroDefinition.push_back('=');
+                activeMacroDefinition.append(define.definition);
+                context.add_macro_definition(activeMacroDefinition);
             }
+            activeMacroDefinition.clear();
 
+            phase = "expanding translation unit";
             auto stream = std::stringstream();
             for (auto i = context.begin(); i != context.end(); i++)
                 stream << i->get_value();
@@ -78,12 +156,29 @@ namespace nbl::wave
         }
         catch (boost::wave::preprocess_exception& e)
         {
-            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
+            const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, e.file_name(), e.line_no(), e.column_no());
+            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]\n%s", system::ILogger::ELL_ERROR, e.what(), e.description(), e.file_name(), e.line_no(), e.column_no(), failureContext.c_str());
+            preprocessOptions.logger.log("Boost diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::diagnostic_information(e).c_str());
+            return {};
+        }
+        catch (const boost::exception& e)
+        {
+            const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, preprocessOptions.sourceIdentifier.data(), 0, 0);
+            preprocessOptions.logger.log("Boost exception caught during Wave preprocessing.\n%s", system::ILogger::ELL_ERROR, failureContext.c_str());
+            preprocessOptions.logger.log("Boost diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::diagnostic_information(e).c_str());
+            return {};
+        }
+        catch (const std::exception& e)
+        {
+            const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, preprocessOptions.sourceIdentifier.data(), 0, 0);
+            preprocessOptions.logger.log("std::exception caught during Wave preprocessing. %s\n%s", system::ILogger::ELL_ERROR, e.what(), failureContext.c_str());
             return {};
         }
         catch (...)
         {
-            preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
+            const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, preprocessOptions.sourceIdentifier.data(), 0, 0);
+            preprocessOptions.logger.log("Unknown exception caught during Wave preprocessing.\n%s", system::ILogger::ELL_ERROR, failureContext.c_str());
+            preprocessOptions.logger.log("Current exception diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::current_exception_diagnostic_information().c_str());
             return {};
         }
 
