@@ -6,6 +6,7 @@
 
 
 #include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/CCUDASharedMemory.h"
 
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -26,7 +27,22 @@ class CCUDAHandler;
 
 class CCUDADevice : public core::IReferenceCounted
 {
-    public:
+  public:
+#ifdef _WIN32
+		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
+		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_WIN32;
+#else
+		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_FD;
+		static constexpr CUmemAllocationHandleType ALLOCATION_TYPE = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+#endif
+
+		struct SCUDACleaner : video::ICleanup
+		{
+			core::smart_refctd_ptr<const core::IReferenceCounted> resource;
+			SCUDACleaner(core::smart_refctd_ptr<const core::IReferenceCounted> resource)
+				: resource(std::move(resource))
+			{}
+		};
 		enum E_VIRTUAL_ARCHITECTURE
 		{
 			EVA_30,
@@ -180,6 +196,11 @@ class CCUDADevice : public core::IReferenceCounted
 		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
 #endif
 
+		CUdevice getInternalObject() const { return m_handle; }
+		const CCUDAHandler* getHandler() const { return m_handler.get();  }
+		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
+		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
+		CUresult createSharedMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, struct CCUDASharedMemory::SCreationParams&& inParams);
 	protected:
 		friend class CCUDAHandler;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _device, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
@@ -193,6 +214,7 @@ class CCUDADevice : public core::IReferenceCounted
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;
 		CUdevice m_handle;
 		CUcontext m_context;
+		size_t m_allocationGranularity[4];
 };
 
 }

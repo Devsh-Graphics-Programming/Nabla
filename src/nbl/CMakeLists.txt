@@ -294,6 +294,7 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	video/CCUDAHandler.cpp
 	video/CCUDADevice.cpp
+	video/CCUDASharedMemory.cpp
 )
 
 set(NBL_SCENE_SOURCES
