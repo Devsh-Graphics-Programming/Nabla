@@ -7,8 +7,13 @@ namespace nbl::video
 
 CVulkanSemaphore::~CVulkanSemaphore()
 {
-	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-	vulkanDevice->getFunctionTable()->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
+	m_creationParams.preDestroyCleanup = nullptr;
+	if (!m_creationParams.skipHandleDestroy)
+	{
+		const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+		auto* vk = vulkanDevice->getFunctionTable();
+		vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
+	}
 }
 
 uint64_t CVulkanSemaphore::getCounterValue() const

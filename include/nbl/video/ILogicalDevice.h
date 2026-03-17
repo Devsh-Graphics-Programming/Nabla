@@ -162,7 +162,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         IQueue::RESULT waitIdle();
 
         //! Semaphore Stuff
-        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue, SCreationParams&& creationParams) = 0;
         // Waits for max timeout amout of time for the semaphores to reach a specific counter value
         // DOES NOT implicitly trigger Queue-refcount-resource release because of two reasons:
         // - the events may trigger loads of resource releases causing extra processing, whereas our `timeout` could be quite small

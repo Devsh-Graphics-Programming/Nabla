@@ -56,10 +56,24 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
 }
 
 
-core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue)
+core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue, ISemaphore::SCreationParams&& creationParams)
 {
+
+    // TODO(kevin) : Handle importing external semaphore into Vulkan
+    // VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
+
+    VkExportSemaphoreWin32HandleInfoKHR handleInfo = {
+      .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR, 
+      .dwAccess = /*DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE*/0x80000000L | 1
+    };
+    VkExportSemaphoreCreateInfo  exportInfo = {
+      VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, 
+      &handleInfo, 
+      static_cast<VkExternalSemaphoreHandleTypeFlags>(creationParams.externalHandleTypes.value)
+    };
+
     VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
-    type.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR
+    type.pNext = creationParams.externalHandleTypes.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
     type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
     type.initialValue = initialValue;
 
@@ -67,11 +81,27 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
 
     VkSemaphore semaphore;
-    if (m_devf.vk.vkCreateSemaphore(m_vkdev,&createInfo,nullptr,&semaphore)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),semaphore);
-    else
+    if (!m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         return nullptr;
+
+    if (creationParams.externalHandleTypes.value)
+    {
+        VkSemaphoreGetWin32HandleInfoKHR props = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
+            .semaphore = semaphore,
+            .handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes.value),
+        };
+        if (VK_SUCCESS != m_devf.vk.vkGetSemaphoreWin32HandleKHR(m_vkdev, &props, &creationParams.externalHandle))
+        {
+            m_devf.vk.vkDestroySemaphore(m_vkdev, semaphore, 0);
+            return nullptr;
+        }
+    }
+
+    return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams), semaphore);
+
 }
+
 ISemaphore::WAIT_RESULT CVulkanLogicalDevice::waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout)
 {
     using retval_t = ISemaphore::WAIT_RESULT;

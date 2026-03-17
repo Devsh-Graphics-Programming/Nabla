@@ -7,6 +7,7 @@
 
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/CCUDASharedMemory.h"
+#include "nbl/video/CCUDASharedSemaphore.h"
 
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -201,7 +202,12 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
 		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
 		CUresult createSharedMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, struct CCUDASharedMemory::SCreationParams&& inParams);
+
+		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, ISemaphore* sem);
+
 	protected:
+		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);
+
 		friend class CCUDAHandler;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _device, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
 		~CCUDADevice();

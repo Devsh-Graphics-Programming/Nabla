@@ -243,6 +243,32 @@ CUresult CCUDADevice::createSharedMemory(
 
 	return CUDA_SUCCESS;
 }
+
+CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, ISemaphore* sema)
+{
+	if (!sema || !outPtr)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	auto& cu = m_handler->getCUDAFunctionTable();
+	auto handleType = sema->getCreationParams().externalHandleTypes.value;
+	auto handle = sema->getCreationParams().externalHandle;
+
+	if (!handleType || !handle)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
+		.type = static_cast<CUexternalSemaphoreHandleType>(handleType),
+		.handle = {.win32 = {.handle = handle }},
+	};
+
+	CUexternalSemaphore cusema;
+	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
+		return err;
+	
+	*outPtr = core::smart_refctd_ptr<CCUDASharedSemaphore>(new CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema, handle), core::dont_grab);
+	return CUDA_SUCCESS;
+}
+
 CCUDADevice::~CCUDADevice()
 {
 	m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context);
