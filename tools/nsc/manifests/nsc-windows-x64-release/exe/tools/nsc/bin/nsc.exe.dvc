@@ -1,0 +1,5 @@
+outs:
+- md5: 328f7d55a32cd79c72d5db8e07d237e9
+  size: 262656
+  hash: md5
+  path: nsc.exe
