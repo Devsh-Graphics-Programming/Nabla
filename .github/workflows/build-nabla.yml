@@ -174,7 +174,7 @@ jobs:
               --target install `
               --config ${{ matrix.config }}
 
-      - name: Container – Install and self-test NSC runtime bundle
+      - name: Container – Install and verify NSC runtime bundle
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command ctest `

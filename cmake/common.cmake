@@ -1521,8 +1521,6 @@ namespace @IMPL_NAMESPACE@ {
         set(MODE_ARGS "")
         if(RULE_MODE STREQUAL "preprocess")
             set(OUTPUT_EXT ".preprocessed.hlsl")
-            set(OUTPUT_PREFIX "")
-            set(OUTPUT_GROUP_BY_CONFIG FALSE)
             list(APPEND MODE_ARGS -P)
         endif()
 
