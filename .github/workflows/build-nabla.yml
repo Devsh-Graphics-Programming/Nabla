@@ -14,8 +14,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  prepare-host-rg:
+    name: Prepare host ripgrep
+    runs-on: windows-2022
+
+    steps:
+      - name: Restore ripgrep host tool
+        id: cache-rg
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\ripgrep-14.1.1-x86_64-pc-windows-msvc
+          key: ripgrep-14.1.1-x86_64-pc-windows-msvc
+
+      - name: Install ripgrep host tool
+        if: steps.cache-rg.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $rgVersion = '14.1.1'
+          $archive = Join-Path $env:RUNNER_TEMP "ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
+          $extractRoot = $env:RUNNER_TEMP
+          Invoke-WebRequest `
+            -Uri "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $extractRoot -Force
+
+      - name: Verify ripgrep host tool
+        shell: pwsh
+        run: |
+          $rgExe = Join-Path $env:RUNNER_TEMP 'ripgrep-14.1.1-x86_64-pc-windows-msvc\rg.exe'
+          if (-not (Test-Path $rgExe)) {
+            throw "ripgrep was not installed on host."
+          }
+          & $rgExe --version
+
   build-windows:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
+    needs: prepare-host-rg
     runs-on: ${{ matrix.os }}
 
     env:
@@ -50,7 +84,7 @@ jobs:
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
-            $maxAttempts = 24
+            $maxAttempts = 12
             $delaySeconds = 5
             $dockerReady = $false
 
@@ -123,6 +157,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
+
+      - name: Restore ripgrep host tool
+        id: cache-rg
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\ripgrep-14.1.1-x86_64-pc-windows-msvc
+          key: ripgrep-14.1.1-x86_64-pc-windows-msvc
+
+      - name: Add ripgrep to PATH
+        shell: pwsh
+        run: |
+          $rgDir = Join-Path $env:RUNNER_TEMP 'ripgrep-14.1.1-x86_64-pc-windows-msvc'
+          $rgExe = Join-Path $rgDir 'rg.exe'
+          if (-not (Test-Path $rgExe)) {
+            throw "ripgrep was not installed on host."
+          }
+          $rgDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $rgExe --version
 
       - name: Pull Image
         run: |
@@ -299,24 +351,13 @@ jobs:
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
           $sourceTar = "${{ steps.set-prefix.outputs.prefix }}-source.tar"
           $sourceList = "${{ steps.set-prefix.outputs.prefix }}-source-files.txt"
-          if (Get-Command rg -ErrorAction SilentlyContinue) {
-            $sourceFiles = @(
-              rg --files -uu . `
-                -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' `
-                -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' `
-                -g '*.inc' -g '*.inl' -g '*.ipp' -g '*.tpp' -g '*.ixx' `
-                -g '!examples_tests/media/**' -g '!.git/**'
-            )
-          }
-          else {
-            $sourceFiles = @(
-              git ls-files --cached --recurse-submodules |
-                Where-Object {
-                  $_ -match '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inc|inl|ipp|tpp|ixx)$' -and
-                  $_ -notlike 'examples_tests/media/*'
-                }
-            )
-          }
+          $sourceFiles = @(
+            rg --files -uu . `
+              -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' `
+              -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' `
+              -g '*.inc' -g '*.inl' -g '*.ipp' -g '*.tpp' -g '*.ixx' `
+              -g '!examples_tests/media/**' -g '!.git/**'
+          )
 
           if ($sourceFiles.Count -eq 0) {
             throw "No source-like files found for source artifact packaging."
