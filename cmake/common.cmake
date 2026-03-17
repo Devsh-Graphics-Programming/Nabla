@@ -1395,6 +1395,24 @@ namespace @IMPL_NAMESPACE@ {
 			list(APPEND DEPENDS_ON ${IMPL_DEPENDS})
 		endif()
 
+		function(ERROR_WHILE_PARSING_ITEM)
+			string(JSON ITEM GET "${IMPL_INPUTS}" ${INDEX})
+			message(FATAL_ERROR 
+				"While parsing ${IMPL_TARGET}'s NSC compile rule\n${ITEM}\n"
+				${ARGV}
+			)
+		endfunction()
+
+        set(RULE_MODE compile)
+        string(JSON MODE_TYPE ERROR_VARIABLE MODE_ERROR TYPE "${IMPL_INPUTS}" ${INDEX} MODE)
+        if(NOT MODE_ERROR)
+            if(NOT MODE_TYPE STREQUAL "STRING")
+                ERROR_WHILE_PARSING_ITEM("MODE must be a string when present")
+            endif()
+            string(JSON RULE_MODE GET "${IMPL_INPUTS}" ${INDEX} MODE)
+            string(TOLOWER "${RULE_MODE}" RULE_MODE)
+        endif()
+
         set(HAS_CAPS FALSE)
         set(CAPS_LENGTH 0)
         string(JSON CAPS_TYPE ERROR_VARIABLE ERROR_VAR TYPE "${IMPL_INPUTS}" ${INDEX} CAPS)
@@ -1405,13 +1423,12 @@ namespace @IMPL_NAMESPACE@ {
             endif()
         endif()
 
-		function(ERROR_WHILE_PARSING_ITEM)
-			string(JSON ITEM GET "${IMPL_INPUTS}" ${INDEX})
-			message(FATAL_ERROR 
-				"While parsing ${IMPL_TARGET}'s NSC compile rule\n${ITEM}\n"
-				${ARGV}
-			)
-		endfunction()
+        if(NOT RULE_MODE MATCHES "^(compile|preprocess)$")
+            ERROR_WHILE_PARSING_ITEM(
+                "Invalid MODE \"${RULE_MODE}\"\n"
+                "Allowed modes are: compile, preprocess"
+            )
+        endif()
 
         set(CAP_NAMES "")
         set(CAP_TYPES "")
@@ -1498,6 +1515,17 @@ namespace @IMPL_NAMESPACE@ {
 
 		set_property(TARGET ${IMPL_TARGET} APPEND PROPERTY NBL_CANONICAL_IDENTIFIERS "${NEW_CANONICAL_IDENTIFIER}")
 
+        set(OUTPUT_EXT ".spv")
+        set(OUTPUT_PREFIX "$<CONFIG>/")
+        set(OUTPUT_GROUP_BY_CONFIG TRUE)
+        set(MODE_ARGS "")
+        if(RULE_MODE STREQUAL "preprocess")
+            set(OUTPUT_EXT ".preprocessed.hlsl")
+            set(OUTPUT_PREFIX "")
+            set(OUTPUT_GROUP_BY_CONFIG FALSE)
+            list(APPEND MODE_ARGS -P)
+        endif()
+
 		set(HEADER_ITEM_VIEW [=[
 namespace @IMPL_NAMESPACE@ {
 	template<>
@@ -1506,8 +1534,8 @@ namespace @IMPL_NAMESPACE@ {
 	{
 		nbl::core::string retval = "@BASE_KEY@";
 @RETVAL_EVAL@
-		retval += ".spv";
-		return "$<CONFIG>/" + retval;
+		retval += "@OUTPUT_EXT@";
+		return "@OUTPUT_PREFIX@" + retval;
 	}
 }
 
@@ -1532,7 +1560,7 @@ namespace @IMPL_NAMESPACE@ {
 		function(GENERATE_KEYS PREFIX CAP_INDEX CAPS_EVAL_PART)
 			if(NUM_CAPS EQUAL 0 OR CAP_INDEX EQUAL ${NUM_CAPS})
 			# generate .config file
-				set(FINAL_KEY "${BASE_KEY}${PREFIX}.spv") # always add ext even if its already there to make sure asset loader always is able to load as IShader
+				set(FINAL_KEY "${BASE_KEY}${PREFIX}${OUTPUT_EXT}")
 				set(CONFIG_FILE_TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY}")
 				set(CONFIG_FILE "${CONFIG_FILE_TARGET_OUTPUT}.config")
 				set(CAPS_EVAL "${CAPS_EVAL_PART}")
@@ -1540,7 +1568,7 @@ namespace @IMPL_NAMESPACE@ {
 				file(WRITE "${CONFIG_FILE}" "${CONFIG_CONTENT}")
 
 				# generate keys and commands for compiling shaders
-				set(FINAL_KEY_REL_PATH "$<CONFIG>/${FINAL_KEY}")
+				set(FINAL_KEY_REL_PATH "${OUTPUT_PREFIX}${FINAL_KEY}")
 				set(TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY_REL_PATH}")
 				set(DEPFILE_PATH "${TARGET_OUTPUT}.d")
 				set(NBL_NSC_LOG_PATH "${TARGET_OUTPUT}.log")
@@ -1553,6 +1581,7 @@ namespace @IMPL_NAMESPACE@ {
 				set(NBL_NSC_COMPILE_COMMAND
 					"$<TARGET_FILE:Nabla::nsc>"
 					${NBL_NSC_EXTRA_ARGS}
+					${MODE_ARGS}
 					-Fc "${TARGET_OUTPUT}"
 					${COMPILE_OPTIONS} ${REQUIRED_OPTIONS} ${IMPL_COMMON_OPTIONS}
 					${NBL_NSC_DEPFILE_ARGS}
@@ -1600,7 +1629,7 @@ namespace @IMPL_NAMESPACE@ {
 					HEADER_FILE_ONLY ON
 					VS_TOOL_OVERRIDE None
 				)
-				if(CMAKE_CONFIGURATION_TYPES)
+				if(CMAKE_CONFIGURATION_TYPES AND OUTPUT_GROUP_BY_CONFIG)
 					foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
 						set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${FINAL_KEY}")
 						set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
