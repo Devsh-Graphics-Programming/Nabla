@@ -1574,7 +1574,11 @@ namespace @IMPL_NAMESPACE@ {
 				set(NBL_NSC_LOG_PATH "${TARGET_OUTPUT}.log")
 
 				set(NBL_NSC_DEPFILE_ARGS "")
-				if(NSC_USE_DEPFILE)
+				set(NBL_NSC_RULE_USE_DEPFILE ${NSC_USE_DEPFILE})
+				if(RULE_MODE STREQUAL "preprocess")
+					set(NBL_NSC_RULE_USE_DEPFILE OFF)
+				endif()
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					set(NBL_NSC_DEPFILE_ARGS -MD -MF "${DEPFILE_PATH}")
 				endif()
 
@@ -1591,7 +1595,7 @@ namespace @IMPL_NAMESPACE@ {
 				get_filename_component(NBL_NSC_INPUT_NAME "${TARGET_INPUT}" NAME)
 				get_filename_component(NBL_NSC_CONFIG_NAME "${CONFIG_FILE}" NAME)
 				set(NBL_NSC_BYPRODUCTS "${NBL_NSC_LOG_PATH}")
-				if(NSC_USE_DEPFILE)
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					list(APPEND NBL_NSC_BYPRODUCTS "${DEPFILE_PATH}")
 				endif()
 
@@ -1611,12 +1615,12 @@ namespace @IMPL_NAMESPACE@ {
 					VERBATIM
 					COMMAND_EXPAND_LISTS
 				)
-				if(NSC_USE_DEPFILE)
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS DEPFILE "${DEPFILE_PATH}")
 				endif()
 				add_custom_command(${NBL_NSC_CUSTOM_COMMAND_ARGS})
 				set(NBL_NSC_OUT_FILES "${TARGET_OUTPUT}" "${NBL_NSC_LOG_PATH}")
-				if(NSC_USE_DEPFILE)
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					list(APPEND NBL_NSC_OUT_FILES "${DEPFILE_PATH}")
 				endif()
 
@@ -1633,7 +1637,7 @@ namespace @IMPL_NAMESPACE@ {
 					foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
 						set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${FINAL_KEY}")
 						set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
-						if(NSC_USE_DEPFILE)
+						if(NBL_NSC_RULE_USE_DEPFILE)
 							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.d")
 						endif()
 						source_group("${OUT}/${_CFG}" FILES ${NBL_NSC_OUT_FILES_IDE})
@@ -1641,7 +1645,7 @@ namespace @IMPL_NAMESPACE@ {
 				else()
 					set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${FINAL_KEY}")
 					set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
-					if(NSC_USE_DEPFILE)
+					if(NBL_NSC_RULE_USE_DEPFILE)
 						list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.d")
 					endif()
 					source_group("${OUT}" FILES ${NBL_NSC_OUT_FILES_IDE})
