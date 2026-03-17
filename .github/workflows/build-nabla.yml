@@ -174,6 +174,15 @@ jobs:
               --target install `
               --config ${{ matrix.config }}
 
+      - name: Container – Test NSC builtin unmounting
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command ctest `
+              --test-dir ${{ env.binary }}\tools\nsc `
+              -C ${{ matrix.config }} `
+              --output-on-failure `
+              -R "^(NBL_NSC_INSTALL_RUNTIMES_TEST|NBL_NSC_INSTALL_EXECUTABLES_TEST|NBL_NSC_SELF_TEST_UNMOUNT_BUILTINS)$"
+
       - name: API / Examples / Check Run (Create)
         id: check-run-create
         uses: actions/github-script@v6
