@@ -363,7 +363,13 @@ namespace nbl::wave
     extern nbl::core::string preprocess(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
 }
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+static std::string preprocessShaderImpl(
+    std::string&& code,
+    IShader::E_SHADER_STAGE& stage,
+    const CHLSLCompiler::SPreprocessorOptions& preprocessOptions,
+    std::vector<std::string>& dxc_compile_flags_override,
+    std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>* dependencies,
+    system::ISystem* system)
 {
     const bool depfileEnabled = preprocessOptions.depfile;
     if (depfileEnabled)
@@ -375,7 +381,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
-    std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
+    std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> localDependencies;
     auto* dependenciesOut = dependencies;
     if (depfileEnabled && !dependenciesOut)
         dependenciesOut = &localDependencies;
@@ -409,19 +415,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     );
     
-    // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
-    if constexpr (false)
-    {
-        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
-        if (auto file=future.acquire(); file&&bool(*file))
-        {
-            system::IFile::success_t succ;
-            (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
-            succ.getBytesProcessed(true);
-        }
-    }
-
     if (resolvedString.empty())
         return resolvedString;
 
@@ -433,12 +426,17 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         params.sourceIdentifier = preprocessOptions.sourceIdentifier;
         if (!params.sourceIdentifier.empty())
             params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
-        params.system = m_system.get();
+        params.system = system;
         if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
             return {};
     }
 
     return resolvedString;
+}
+
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+{
+    return preprocessShaderImpl(std::move(code), stage, preprocessOptions, dxc_compile_flags_override, dependencies, m_system.get());
 }
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
