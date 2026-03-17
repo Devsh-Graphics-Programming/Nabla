@@ -297,6 +297,7 @@ jobs:
         run: |
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-source.tar" --exclude=.git --exclude=build-ct --exclude=examples_tests/media .
 
       - name: Upload NSC Godbolt Image artifact
         uses: actions/upload-artifact@v4
@@ -330,6 +331,12 @@ jobs:
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-install
           path: ${{ steps.set-prefix.outputs.prefix }}-install.tar
+
+      - name: Upload source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-source
+          path: ${{ steps.set-prefix.outputs.prefix }}-source.tar
 
       - name: Login to GHCR
         if: steps.set-prefix.outputs.shouldPushImage == 'True'
