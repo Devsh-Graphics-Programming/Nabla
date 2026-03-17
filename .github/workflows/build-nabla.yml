@@ -297,7 +297,27 @@ jobs:
         run: |
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
-          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-source.tar" --exclude=.git --exclude=build-ct --exclude=examples_tests/media .
+          $sourceTar = "${{ steps.set-prefix.outputs.prefix }}-source.tar"
+          $sourceList = "${{ steps.set-prefix.outputs.prefix }}-source-files.txt"
+          $sourcePatterns = @('*.c', '*.cc', '*.cpp', '*.cxx', '*.h', '*.hh', '*.hpp', '*.hxx', '*.inc', '*.inl', '*.ipp', '*.tpp', '*.ixx')
+          $trackedSourceFiles = @(
+            git ls-files --recurse-submodules -- $sourcePatterns |
+            Where-Object { $_ -and $_ -notlike 'examples_tests/media/*' }
+          )
+          $generatedSourceFiles = @(
+            rg --files build-ct `
+              -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' `
+              -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' `
+              -g '*.inc' -g '*.inl' -g '*.ipp' -g '*.tpp' -g '*.ixx'
+          )
+          $sourceFiles = @($trackedSourceFiles + $generatedSourceFiles | Sort-Object -Unique)
+
+          if ($sourceFiles.Count -eq 0) {
+            throw "No source-like files found for source artifact packaging."
+          }
+
+          $sourceFiles | Set-Content -Path $sourceList -Encoding utf8
+          tar -cvf $sourceTar -T $sourceList
 
       - name: Upload NSC Godbolt Image artifact
         uses: actions/upload-artifact@v4
