@@ -220,68 +220,28 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_point
 	return frH;
 }
 
-void CFrontendIR::printDotGraph(std::ostringstream& str) const
+void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 {
 	str << "digraph {\n";
-	
-	core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
-	// should probably size it better, if I knew total node count allocated or live
-	visitedNodes.reserve(m_rootNodes.size()<<3);
-	// TODO: track layering depth and indent accordingly?
-	// assign in reverse because we want materials to print in order
-	core::vector<typed_pointer_type<const CLayer>> layerStack(m_rootNodes.rbegin(),m_rootNodes.rend());
-	core::stack<typed_pointer_type<const IExprNode>> exprStack;
-	while (!layerStack.empty())
-	{
-		const auto layerHandle = layerStack.back();
-		layerStack.pop_back();
-		// don't print layer nodes multiple times
-		const auto visited = visitedNodes.find(layerHandle);
-		if (visited!=visitedNodes.end())
-			continue;
-		visitedNodes.insert(layerHandle);
-		const auto* layerNode = getObjectPool().deref(layerHandle);
-		//
-		const auto layerID = getNodeID(layerHandle);
-		str << "\n\t" << getLabelledNodeID(layerHandle);
-		//
-		if (layerNode->coated)
-		{
-			str << "\n\t" << layerID << " -> " << getNodeID(layerNode->coated) << "[label=\"coats\"]\n";
-			layerStack.push_back(layerNode->coated);
-		}
-		auto pushExprRoot = [&](const typed_pointer_type<const IExprNode> root, const std::string_view edgeLabel)->void
-		{
-			if (!root)
-				return;
-			// print the link from the layer to the expression
-			str << "\n\t" << layerID << " -> " << getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
-			// but not the expression again
-			const auto visited = visitedNodes.find(root);
-			if (visited!=visitedNodes.end())
-				return;
-			exprStack.push(root);
-			visitedNodes.insert(root);
-		};
-		pushExprRoot(layerNode->brdfTop,"Top BRDF");
-		pushExprRoot(layerNode->btdf,"BTDF");
-		pushExprRoot(layerNode->brdfBottom,"Bottom BRDF");
+
+	auto drainExprStack = [&]()->void
+	{			
 		while (!exprStack.empty())
 		{
 			const auto entry = exprStack.top();
 			exprStack.pop();
-			const auto nodeID = getNodeID(entry);
-			str << "\n\t" << getLabelledNodeID(entry);
-			const auto* node = getObjectPool().deref(entry);
+			const auto nodeID = m_ir->getNodeID(entry);
+			str << "\n\t" << m_ir->getLabelledNodeID(entry);
+			const auto* node = m_ir->getObjectPool().deref(entry);
 			const auto childCount = node->getChildCount();
 			if (childCount)
 			{
 				for (auto childIx=0; childIx<childCount; childIx++)
 				{
 					const auto childHandle = node->getChildHandle(childIx);
-					if (const auto child=getObjectPool().deref(childHandle); child)
+					if (const auto child=m_ir->getObjectPool().deref(childHandle); child)
 					{
-						str << "\n\t" << nodeID << " -> " << getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
+						str << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
 						const auto visited = visitedNodes.find(childHandle);
 						if (visited!=visitedNodes.end())
 							continue;
@@ -293,6 +253,45 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 			// special printing
 			node->printDot(str,nodeID);
 		}
+	};
+	drainExprStack();
+	
+	while (!layerStack.empty())
+	{
+		const auto layerHandle = layerStack.back();
+		layerStack.pop_back();
+		// don't print layer nodes multiple times
+		const auto visited = visitedNodes.find(layerHandle);
+		if (visited!=visitedNodes.end())
+			continue;
+		visitedNodes.insert(layerHandle);
+		const auto* layerNode = m_ir->getObjectPool().deref(layerHandle);
+		//
+		const auto layerID = m_ir->getNodeID(layerHandle);
+		str << "\n\t" << m_ir->getLabelledNodeID(layerHandle);
+		//
+		if (layerNode->coated)
+		{
+			str << "\n\t" << layerID << " -> " << m_ir->getNodeID(layerNode->coated) << "[label=\"coats\"]\n";
+			layerStack.push_back(layerNode->coated);
+		}
+		auto pushExprRoot = [&](const typed_pointer_type<const IExprNode> root, const std::string_view edgeLabel)->void
+		{
+			if (!root)
+				return;
+			// print the link from the layer to the expression
+			str << "\n\t" << layerID << " -> " << m_ir->getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
+			// but not the expression again
+			const auto visited = visitedNodes.find(root);
+			if (visited!=visitedNodes.end())
+				return;
+			exprStack.push(root);
+			visitedNodes.insert(root);
+		};
+		pushExprRoot(layerNode->brdfTop,"Top BRDF");
+		pushExprRoot(layerNode->btdf,"BTDF");
+		pushExprRoot(layerNode->brdfBottom,"Bottom BRDF");
+		drainExprStack();
 	}
 
 	// TODO: print image views

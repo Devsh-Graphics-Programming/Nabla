@@ -1,0 +1,5 @@
+outs:
+- md5: 86cf2b52ee892891e5cc9b2efa7cf883
+  size: 3354
+  hash: md5
+  path: NablaNSCHelpers.cmake

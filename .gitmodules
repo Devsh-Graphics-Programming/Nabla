@@ -129,3 +129,6 @@
 [submodule "3rdparty/Vulkan-Tools"]
 	path = 3rdparty/Vulkan-Tools
 	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Tools.git
+[submodule "cmake/nam"]
+	path = cmake/nam
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Asset-Module.git

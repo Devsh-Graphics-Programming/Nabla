@@ -3,6 +3,7 @@
 #include "nbl/video/CVulkanRayTracingPipeline.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/IGPURayTracingPipeline.h"
+#include "nbl/video/CVulkanPipelineExecutableInfo.h"
 
 #include <span>
 
@@ -64,11 +65,14 @@ namespace nbl::video
     for (size_t shaderGroupIx = 0; shaderGroupIx < params.shaderGroups.callables.size(); shaderGroupIx++)
     {
       m_callableStackSizes->operator[](shaderGroupIx) = getVkShaderGroupStackSize(
-        getCallableBaseIndex(), 
-        shaderGroupIx, 
+        getCallableBaseIndex(),
+        shaderGroupIx,
         params.shaderGroups.callables[shaderGroupIx].shader,
         VK_SHADER_GROUP_SHADER_GENERAL_KHR);
     }
+
+    if (params.cached.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_STATISTICS))
+      populateExecutableInfo(params.cached.flags.hasFlags(SCreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS));
   }
 
   CVulkanRayTracingPipeline::~CVulkanRayTracingPipeline()
@@ -76,6 +80,12 @@ namespace nbl::video
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
     vk->vk.vkDestroyPipeline(vulkanDevice->getInternalObject(), m_vkPipeline, nullptr);
+  }
+
+  void CVulkanRayTracingPipeline::populateExecutableInfo(bool includeInternalRepresentations)
+  {
+	  const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	  populateExecutableInfoFromVulkan(m_executableInfo, vulkanDevice->getFunctionTable(), vulkanDevice->getInternalObject(), m_vkPipeline, includeInternalRepresentations);
   }
 
   const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getRaygen() const

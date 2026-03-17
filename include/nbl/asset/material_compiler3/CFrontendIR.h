@@ -574,7 +574,7 @@ class CFrontendIR final : public CNodePool
 			protected:
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Real":"Imaginary";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Imaginary":"Real";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
@@ -743,20 +743,48 @@ class CFrontendIR final : public CNodePool
 		// To quickly make a matching backface material from a frontface or vice versa
 		NBL_API2 typed_pointer_type<IExprNode> reciprocate(const typed_pointer_type<const IExprNode> other);
 		NBL_API2 typed_pointer_type<CFresnel> createNamedFresnel(const std::string_view name);
+		inline typed_pointer_type<CFresnel> createConstantMonochromeRealFresnel(const hlsl::float32_t orientedRealEta)
+		{
+			const auto fresnelH = getObjectPool().emplace<CFresnel>();
+			CSpectralVariable::SCreationParams<1> params = {};
+			params.knots.params[0].scale = orientedRealEta;
+			if (auto* const fresnel=getObjectPool().deref(fresnelH); fresnel)
+				fresnel->orientedRealEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
+			return fresnelH;
+		}
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,typed_pointer_type<const INode>)`)
-		NBL_API2 void printDotGraph(std::ostringstream& str) const;
-		inline core::string printDotGraph() const
+		// For Debug Visualization
+		struct SDotPrinter final
 		{
-			std::ostringstream tmp;
-			printDotGraph(tmp);
-			return tmp.str();
-		}
+			public:
+				inline SDotPrinter(const CFrontendIR* ir) : m_ir(ir) {}
+				// assign in reverse because we want materials to print in order
+				inline SDotPrinter(const CFrontendIR* ir, std::span<const typed_pointer_type<const CLayer>> roots) : m_ir(ir), layerStack(roots.rbegin(),roots.rend())
+				{
+					// should probably size it better, if I knew total node count allocated or live
+					visitedNodes.reserve(roots.size()<<3);
+				}
+
+				NBL_API2 void operator()(std::ostringstream& output);
+				inline core::string operator()()
+				{
+					std::ostringstream tmp;
+					operator()(tmp);
+					return tmp.str();
+				}
+			
+				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
+				// TODO: track layering depth and indent  accordingly?
+				core::vector<typed_pointer_type<const CLayer>> layerStack;
+				core::stack<typed_pointer_type<const IExprNode>> exprStack;
+			private:
+				const CFrontendIR* m_ir;
+		};
 
 	protected:
 		using CNodePool::CNodePool;

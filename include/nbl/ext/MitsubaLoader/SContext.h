@@ -32,6 +32,16 @@ struct SContext final
 		// the `shape` will have to be `Type::SHAPEGROUP`
 		shape_ass_type loadShapeGroup(const CElementShape* shape);
 
+		// Mitsuba XML Materials do not support emission from a BSDF node (i.e. emitter behind a coating or glass screen), its purely additive and cannot be backface emitting
+		using material_t = asset::material_compiler3::CFrontendIR::typed_pointer_type<const asset::material_compiler3::CFrontendIR::CLayer>; // TODO: change to true IR
+		material_t getMaterial(const CElementBSDF* bsdf, const CElementEmitter* frontFaceEmitter, const core::string& debugName, system::ISystem* debugFileWriter=nullptr);
+
+		inline void writeFrontendForestDot3(system::ISystem* system, const system::path& filepath)
+		{
+			asset::material_compiler3::CFrontendIR::SDotPrinter printer = {frontIR.get(),frontIR->getMaterials()};
+			writeDot3File(system,filepath,printer);
+		}
+
 		inline void transferMetadata()
 		{
 			meta->setGeometryCollectionMeta(std::move(shapeCache));
@@ -41,93 +51,54 @@ struct SContext final
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		std::function<interm_getAssetInHierarchy_t> interm_getAssetInHierarchy;
+		std::function<interm_getAssetInHierarchy_t> interm_getImageViewInHierarchy;
 		CMitsubaMetadata* meta;
 		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
 	private:
+		using frontend_ir_t = asset::material_compiler3::CFrontendIR;
+		using frontend_material_t = frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer>;
+		// not `frontend_ir_t::CEmitter` because the color factor gets multiplied in
+		using frontend_emitter_t = frontend_ir_t::typed_pointer_type<const frontend_ir_t::CMul>;
+		frontend_material_t genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter);
+		frontend_emitter_t genEmitter(const CElementEmitter* emitter, system::ISystem* debugFileWriter);
+		//
+		void writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer);
+		//
+		hlsl::float32_t2x3 getParameters(const std::span<frontend_ir_t::SParameter> out, const CElementTexture::FloatOrTexture& src);
+		hlsl::float32_t2x3 getParameters(const std::span<frontend_ir_t::SParameter,3> out, const CElementTexture::SpectrumOrTexture& src);
+		frontend_ir_t::SParameter getTexture(const CElementTexture* tex, hlsl::float32_t2x3* outUvTransform);
+		frontend_ir_t::SParameter genProfile(const CElementEmissionProfile* profile);
+
 		//
 		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryCollectionMetaPair> shapeCache;
 		//
 		core::unordered_map<const CElementShape::ShapeGroup*,CMitsubaMetadata::SGeometryCollectionMetaPair> groupCache;
+		//
+		core::unordered_map<const CElementEmitter*,frontend_emitter_t> emitterCache;
+		core::unordered_map<const CElementBSDF*,frontend_material_t> bsdfCache;
+		core::unordered_map<const CElementEmissionProfile*,frontend_ir_t::SParameter> profileCache;
 
 #if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
 		//image, scale 
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
-
-		static asset::ISampler::SParams emissionProfileSamplerParams(const CElementEmissionProfile* profile, const asset::CIESProfileMetadata& meta)
-		{
-			return {
-				asset::ISampler::ETC_REPEAT,
-				asset::ISampler::ETC_REPEAT,
-				asset::ISampler::ETC_REPEAT,
-				asset::ISampler::ETBC_INT_OPAQUE_BLACK,
-				asset::ISampler::ETF_LINEAR,
-				asset::ISampler::ETF_LINEAR,
-				asset::ISampler::ETF_LINEAR,
-				0u, false, asset::ECO_ALWAYS
-			};
-		}
-
-		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)
-		{
-			asset::ICPUSampler::SParams params;
-			auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
-			{
-				switch (mode)
-				{
-					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-						return asset::ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-						return asset::ISampler::E_TEXTURE_CLAMP::ETC_MIRROR;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ONE:
-						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
-						break;
-					default:
-						break;
-				}
-				return asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
-			};
-			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
-			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
-			params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
-			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-			switch (bitmap.filterType)
-			{
-				case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-					[[fallthrough]]; // we dont support this fancy stuff
-				case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-					params.MinFilter = asset::ISampler::ETF_LINEAR;
-					params.MaxFilter = asset::ISampler::ETF_LINEAR;
-					params.MipmapMode = asset::ISampler::ESMM_LINEAR;
-					break;
-				default:
-					params.MinFilter = asset::ISampler::ETF_NEAREST;
-					params.MaxFilter = asset::ISampler::ETF_NEAREST;
-					params.MipmapMode = asset::ISampler::ESMM_NEAREST;
-					break;
-			}
-			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
-			params.CompareEnable = false;
-			params.CompareFunc = asset::ISampler::ECO_NEVER;
-			params.LodBias = 0.f;
-			params.MaxLod = 10000.f;
-			params.MinLod = 0.f;
-			return params;
-		}
-
-		//index of root node in IR
-		using bsdf_type = const CMitsubaMaterialCompilerFrontend::front_and_back_t;
-		//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
-		core::unordered_map<const CElementBSDF*, bsdf_type> instrStreamCache;
 #endif
-		core::smart_refctd_ptr<asset::material_compiler3::CFrontendIR> frontIR;
+		core::smart_refctd_ptr<frontend_ir_t> frontIR;
+		// common frontend nodes
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::IExprNode> errorBRDF;
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> errorMaterial, unsupportedPhong, unsupportedWard;
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CDeltaTransmission> deltaTransmission;
+		// Common Debug Names
+		enum class ECommonDebug : uint16_t
+		{
+			Albedo,
+			Opacity,
+			MitsubaExtraFactor,
+			Count
+		};
+		frontend_ir_t::obj_pool_type::typed_pointer_type<const frontend_ir_t::CDebugInfo> commonDebugNames[uint16_t(ECommonDebug::Count)];
 };
 
 }
