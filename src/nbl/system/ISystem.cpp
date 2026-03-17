@@ -12,8 +12,15 @@
 #include "nbl/system/CArchiveLoaderTar.h"
 #include "nbl/system/CMountDirectoryArchive.h"
 
+#include <array>
+
 using namespace nbl;
 using namespace nbl::system;
+
+namespace
+{
+constexpr std::array<const char*, 4> builtinMountPoints = { "nbl/builtin", "nbl/video", "spirv", "boost" };
+}
 
 ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatcher(std::move(caller))
 {
@@ -336,16 +343,14 @@ void ISystem::unmountBuiltins() {
         }
     };
 
-    removeByKey("nbl");
-    removeByKey("spirv");
-    removeByKey("boost");
+    for (const auto* mountPoint : builtinMountPoints)
+        removeByKey(mountPoint);
 }
 
 bool ISystem::areBuiltinsMounted() const
 {
-    // TODO: we need to span our keys and reuse accross this cpp to not DRY
-    for (const auto& it : { "nbl/builtin", "nbl/video", "spirv", "boost" })
-		if (!isDirectory(path(it)))
+    for (const auto* mountPoint : builtinMountPoints)
+		if (!isDirectory(path(mountPoint)))
 			return false;
 
     return true;
