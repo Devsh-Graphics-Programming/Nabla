@@ -419,59 +419,69 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 		SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename,/*ICPUScene::MATERIAL_IMAGES_HIERARCHY_LEVELS_BELOW*/1);
 		if (auto contents=viewBundle.getContents(); !contents.empty())
 		{
-			retval.view = IAsset::castDown<const ICPUImageView>(*contents.begin());
+			auto view = IAsset::castDown<const ICPUImageView>(*contents.begin());
+			const auto format = view->getCreationParameters().format;
 			if (bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
 				retval.viewChannel = bitmap.channel-CElementTexture::Bitmap::CHANNEL::R;
-			// get sampler parameters
-			using tex_clamp_e = asset::ISampler::E_TEXTURE_CLAMP;
-			auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
+			if (retval.viewChannel<asset::getFormatChannelCount(format))
 			{
-				switch (mode)
+				retval.view = std::move(view);
+				// get sampler parameters
+				using tex_clamp_e = asset::ISampler::E_TEXTURE_CLAMP;
+				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
 				{
-					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-						return tex_clamp_e::ETC_CLAMP_TO_EDGE;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-						return tex_clamp_e::ETC_MIRROR;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ONE:
-						assert(false); // TODO : replace whole texture?
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-						assert(false); // TODO : replace whole texture?
+					switch (mode)
+					{
+						case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
+							return tex_clamp_e::ETC_CLAMP_TO_EDGE;
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
+							return tex_clamp_e::ETC_MIRROR;
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::ONE:
+							assert(false); // TODO : replace whole texture?
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::ZERO:
+							assert(false); // TODO : replace whole texture?
+							break;
+						default:
+							break;
+					}
+					return tex_clamp_e::ETC_REPEAT;
+				};
+				auto& params = retval.sampler;
+				params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
+				params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
+				switch (bitmap.filterType)
+				{
+					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
+						[[fallthrough]]; // we dont support this fancy stuff
+					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
+						params.MinFilter = ISampler::ETF_LINEAR;
+						params.MaxFilter = ISampler::ETF_LINEAR;
+						params.MipmapMode = ISampler::ESMM_LINEAR;
 						break;
 					default:
+						params.MinFilter = ISampler::ETF_NEAREST;
+						params.MaxFilter = ISampler::ETF_NEAREST;
+						params.MipmapMode = ISampler::ESMM_NEAREST;
 						break;
 				}
-				return tex_clamp_e::ETC_REPEAT;
-			};
-			auto& params = retval.sampler;
-			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
-			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
-			switch (bitmap.filterType)
-			{
-				case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-					[[fallthrough]]; // we dont support this fancy stuff
-				case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-					params.MinFilter = ISampler::ETF_LINEAR;
-					params.MaxFilter = ISampler::ETF_LINEAR;
-					params.MipmapMode = ISampler::ESMM_LINEAR;
-					break;
-				default:
-					params.MinFilter = ISampler::ETF_NEAREST;
-					params.MaxFilter = ISampler::ETF_NEAREST;
-					params.MipmapMode = ISampler::ESMM_NEAREST;
-					break;
+				params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
+				// TODO: embed the gamma in the material compiler Frontend
+				// or adjust gamma on pixels (painful and long process)
+				//assert(std::isnan(bitmap.gamma));
+				auto& transform = *outUvTransform;
+				transform[0][0] = bitmap.uscale;
+				transform[0][2] = bitmap.uoffset;
+				transform[1][1] = bitmap.vscale;
+				transform[1][2] = bitmap.voffset;
 			}
-			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
-			// TODO: embed the gamma in the material compiler Frontend
-			// or adjust gamma on pixels (painful and long process)
-			//assert(std::isnan(bitmap.gamma));
-			auto& transform = *outUvTransform;
-			transform[0][0] = bitmap.uscale;
-			transform[0][2] = bitmap.uoffset;
-			transform[1][1] = bitmap.vscale;
-			transform[1][2] = bitmap.voffset;
+			else
+				inner.params.logger.log(
+					"Failed to parse CElementTexture bitmap for %p with id %s from path \"%s\", channel swizzle %s requested out of range of format %s",
+					LoggerError,tex,tex ? tex->id.c_str():"",tex->bitmap.filename,system::to_string(bitmap.channel),system::to_string(format)
+				);
 		}
 		else
 			inner.params.logger.log("Failed to load bitmap texture for %p with id %s from path \"%s\"",LoggerError,tex,tex ? tex->id.c_str():"",tex->bitmap.filename);
@@ -501,10 +511,19 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 	if (src.texture)
 	{
 		const auto param = getTexture(src.texture,&retval);
+		const auto formatChannelCount = getFormatChannelCount(param.view ? param.view->getCreationParameters().format:E_FORMAT::EF_UNKNOWN);
+		if (src.texture->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID && formatChannelCount>1 && out.size()>formatChannelCount)
+		{
+			for (auto c=0; c<out.size(); c++)
+				out[c].scale = std::numeric_limits<decltype(out[c].scale)>::signaling_NaN();
+			return hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);;
+		}
 		for (auto c=0; c<out.size(); c++)
 		{
 			out[c].scale = param.scale;
-			out[c].viewChannel = param.viewChannel+c;
+			out[c].viewChannel = param.viewChannel;
+			if (formatChannelCount>1 && src.texture->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID)
+				out[c].viewChannel += c;
 			out[c].view = param.view;
 			out[c].sampler = param.sampler;
 		}
@@ -535,7 +554,8 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, con
 		for (auto c=0; c<out.size(); c++)
 		{
 			out[c].scale = param.scale;
-			out[c].viewChannel = param.viewChannel+c;
+			// assign same channel to everything because the `src` is monochrome
+			out[c].viewChannel = param.viewChannel;
 			out[c].view = param.view;
 			out[c].sampler = param.sampler;
 		}
