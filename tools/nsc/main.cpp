@@ -436,39 +436,6 @@ private:
         return out;
     }
 
-    static std::string stripStandalonePragmaOnceLines(std::string_view text)
-    {
-        std::string out;
-        out.reserve(text.size());
-
-        size_t lineStart = 0u;
-        while (lineStart < text.size())
-        {
-            const auto lineEnd = text.find('\n', lineStart);
-            const auto lineSize = lineEnd == std::string_view::npos ? text.size() - lineStart : lineEnd - lineStart;
-            const auto line = text.substr(lineStart, lineSize);
-
-            auto trimmed = line;
-            while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t'))
-                trimmed.remove_prefix(1u);
-            while (!trimmed.empty() && trimmed.back() == '\r')
-                trimmed.remove_suffix(1u);
-
-            const auto isStandalonePragmaOnce = trimmed == "#pragma once";
-            if (!isStandalonePragmaOnce)
-                out.append(line.data(), line.size());
-
-            if (lineEnd != std::string_view::npos)
-                out.push_back('\n');
-
-            if (lineEnd == std::string_view::npos)
-                break;
-            lineStart = lineEnd + 1u;
-        }
-
-        return out;
-    }
-
     static void dumpBuildInfo(const argparse::ArgumentParser& program)
     {
         ::json j;
@@ -582,8 +549,6 @@ private:
             std::string_view code(codePtr, std::strlen(codePtr));
 
             r.text = hlslcompiler->preprocessShader(std::string(code), shaderStage, opt, nullptr);
-            if (!r.text.empty())
-                r.text = stripStandalonePragmaOnceLines(r.text);
             r.ok = !r.text.empty();
             r.view = r.text;
             return r;

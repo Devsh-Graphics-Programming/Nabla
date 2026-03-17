@@ -8,6 +8,7 @@
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+#include <unordered_set>
 
 #include "nbl/asset/utils/IShaderCompiler.h"
 
@@ -191,6 +192,7 @@ class context : private boost::noncopyable
         context(target_iterator_type const& first_, target_iterator_type const& last_, char const* fname, preprocessing_hooks const& hooks_)
             : first(first_), last(last_), filename(fname)
             , has_been_initialized(false)
+            , current_filename(fname)
             , current_relative_filename(fname)
             , macros(*this_())
             , language(language_support(
@@ -440,6 +442,32 @@ class context : private boost::noncopyable
         }
 
     public:
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        void set_current_filename(char const* real_name)
+        {
+            current_filename = real_name;
+        }
+        std::string const& get_current_filename() const
+        {
+            return current_filename;
+        }
+
+        bool has_pragma_once(std::string const& filename_) const
+        {
+            return pragma_once_headers.contains(filename_);
+        }
+        bool add_pragma_once_header(std::string const& filename_, std::string const& guard_name)
+        {
+            get_hooks().detected_include_guard(derived(), filename_, guard_name);
+            return pragma_once_headers.emplace(filename_).second;
+        }
+        bool add_pragma_once_header(token_type const& pragma_, std::string const& filename_)
+        {
+            get_hooks().detected_pragma_once(derived(), pragma_, filename_);
+            return pragma_once_headers.emplace(filename_).second;
+        }
+#endif
+
         void set_current_relative_filename(char const* real_name)
         {
             current_relative_filename = real_name;
@@ -464,12 +492,16 @@ class context : private boost::noncopyable
         const std::string filename;               // associated main filename
         bool has_been_initialized;          // set cwd once
 
+        std::string current_filename;              // real name of current preprocessed file
         std::string current_relative_filename;        // real relative name of current preprocessed file
 
         // Nabla Additions Start
         // these are temporaries!
         system::path current_dir;
         core::string located_include_content;
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        std::unordered_set<std::string> pragma_once_headers;
+#endif
         // Cache Additions 
         bool cachingRequested = false;
         std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
@@ -525,6 +557,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         return false;
     }
 
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    if (ctx.has_pragma_once(result.absolutePath.string()))
+        return true;
+#endif
+
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {
         ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, standardInclude, std::move(result.hash));
@@ -559,6 +596,9 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         must_emit_line_directive = true;
 
         act_pos.set_file(iter_ctx->filename);  // initialize file position
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        ctx.set_current_filename(result.absolutePath.string().c_str());
+#endif
 
         ctx.set_current_relative_filename(file_path.c_str());
         iter_ctx->real_relative_filename = file_path.c_str();
