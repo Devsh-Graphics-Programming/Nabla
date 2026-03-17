@@ -474,7 +474,7 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 			transform[1][2] = bitmap.voffset;
 		}
 		else
-			inner.params.logger.log("Failed to load bitmap texture for %p with id %s",LoggerError,tex,tex ? tex->id.c_str():"");
+			inner.params.logger.log("Failed to load bitmap texture for %p with id %s from path \"%s\"",LoggerError,tex,tex ? tex->id.c_str():"",tex->bitmap.filename);
 	}
 	else
 		inner.params.logger.log("Failed to unroll texture scale for %p with id %s",LoggerError,rootTex,rootTex ? rootTex->id.c_str():"");
@@ -730,6 +730,31 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 		// identical BRDF on the bottom, to have correct multiscatter
 		layer->brdfBottom = dielectricH;
 	};
+	
+	using expr_handle_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode>;
+	auto createWeightedSum = [&](frontend_ir_t::CLayer* out, material_t A, const expr_handle_t w0, material_t B, const expr_handle_t w1)->void
+	{
+		while (true)
+		{
+			auto* const a = frontPool.deref(A);
+			auto* const b = frontPool.deref(B);
+			// I don't actually need to check if the child Expressions are non-empty, the CFrontendIR utilities nicely carry through NOOPs
+			out->brdfTop = frontIR->createWeightedSum(a ? a->brdfTop:expr_handle_t{},w0,b ? b->brdfTop:expr_handle_t{},w1);
+			out->btdf = frontIR->createWeightedSum(a ? a->btdf :expr_handle_t{},w0,b ? b->btdf:expr_handle_t{},w1);
+			out->brdfBottom = frontIR->createWeightedSum(a ? a->brdfBottom:expr_handle_t{},w0,b ? b->brdfBottom:expr_handle_t{},w1);
+			if (a && a->coated || b && b->coated)
+			{
+				out = frontPool.deref(out->coated = frontPool.emplace<frontend_ir_t::CLayer>());
+				A = a ? a->coated:material_t{};
+				B = b ? b->coated:material_t{};
+			}
+			else
+			{
+				out->coated = {};
+				break;
+			}
+		}
+	};
 
 	struct SEntry
 	{
@@ -832,7 +857,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				{
 					// want a specularTransmittance instead of SpecularReflectance factor
 					const auto factorH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
-					frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode> btdfH;
+					expr_handle_t btdfH;
 					{
 						const auto* const brdf = frontPool.deref(brdfH);
 						// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
@@ -1037,23 +1062,35 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					}
 					case CElementBSDF::MIXTURE_BSDF:
 					{
-						assert(false); // unimplemented
+						const auto mixH = frontPool.emplace<frontend_ir_t::CLayer>();
+						auto* const mix = frontPool.deref(mixH);
+						const uint8_t realChildCount = hlsl::min<uint8_t>(childCount,_bsdf->mixturebsdf.weightCount);
+						const auto firstH = realChildCount>=1 ? getChildFromCache(_bsdf->mixturebsdf.bsdf[0]):frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>{};
+						spectral_var_t::SCreationParams<1> firstParams = {};
+						firstParams.knots.params[0].scale = _bsdf->mixturebsdf.weights[0];
+						const auto firstWeightH = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(firstParams));
+						if (realChildCount<2)
+							createWeightedSum(mix,firstH,firstWeightH,{},{});
+						else
+						for (uint8_t c=1; c<realChildCount; c++)
+						{
+							const auto otherH = getChildFromCache(_bsdf->mixturebsdf.bsdf[c]);
+							spectral_var_t::SCreationParams<1> params = {};
+							params.knots.params[0].scale = _bsdf->mixturebsdf.weights[c];
+							// don't feel like spending time on this, since its never used, trust CTrueIR optimizer to remove this during canonicalization
+							createWeightedSum(mix,mixH,unityFactor._const_cast(),otherH,frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params)));
+						}
+						newMaterialH = mixH;
 						break;
 					}
 					case CElementBSDF::BLEND_BSDF:
 					{
 						const auto blendH = frontPool.emplace<frontend_ir_t::CLayer>();
-						auto* const blend = frontPool.deref(blendH);
 						const auto tH = createFactorNode(_bsdf->blendbsdf.weight,ECommonDebug::Weight);
 						const auto tComplementH = frontIR->createComplement(tH);
 						const auto loH = getChildFromCache(_bsdf->blendbsdf.bsdf[0]);
 						const auto hiH = getChildFromCache(_bsdf->blendbsdf.bsdf[1]);
-						const auto* const lo = frontPool.deref(loH);
-						const auto* const hi = frontPool.deref(hiH);
-						// I don't actually need to check if the child Expressions are non-empty, the CFrontendIR utilities nicely carry through NOOPs
-						blend->brdfTop = frontIR->createAdd(frontIR->createMul(lo->brdfTop,tComplementH),frontIR->createMul(hi->brdfTop,tH));
-						blend->btdf = frontIR->createAdd(frontIR->createMul(lo->btdf,tComplementH),frontIR->createMul(hi->btdf,tH));
-						blend->brdfBottom = frontIR->createAdd(frontIR->createMul(lo->brdfBottom,tComplementH),frontIR->createMul(hi->brdfBottom,tH));
+						createWeightedSum(frontPool.deref(blendH),loH,tComplementH,hiH,tH);
 						newMaterialH = blendH;
 						break;
 					}
@@ -1239,6 +1276,11 @@ SContext::SContext(
 		}
 		//
 		{
+			{
+				spectral_var_t::SCreationParams<1> params = {};
+				params.knots.params[0].scale = 1.f;
+				unityFactor = frontPool.emplace<spectral_var_t>(std::move(params));
+			}
 			deltaTransmission = frontPool.emplace<frontend_ir_t::CDeltaTransmission>();
 			const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
 			{

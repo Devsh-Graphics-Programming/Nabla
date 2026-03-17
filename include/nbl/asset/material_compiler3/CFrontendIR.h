@@ -856,6 +856,14 @@ class CFrontendIR final : public CNodePool
 			add->rhs = rhs;
 			return addH;
 		}
+		inline typed_pointer_type<IExprNode> createFMA(const typed_pointer_type<IExprNode> a, const typed_pointer_type<IExprNode> b, const typed_pointer_type<IExprNode> c)
+		{
+			return createAdd(createMul(a,b),c);
+		}
+		inline typed_pointer_type<IExprNode> createWeightedSum(const typed_pointer_type<IExprNode> x0, const typed_pointer_type<IExprNode> w0, const typed_pointer_type<IExprNode> x1, const typed_pointer_type<IExprNode> w1)
+		{
+			return createAdd(createMul(x0,w0),createMul(x1,w1));
+		}
 		inline typed_pointer_type<CComplement> createComplement(const typed_pointer_type<IExprNode> child)
 		{
 			if (!child)

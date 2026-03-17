@@ -149,31 +149,6 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 }
 #endif
 
-    auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger) -> IRNode*
-    {
-        using namespace asset;
-        using namespace material_compiler;
-
-
-
-        const auto type = _bsdf->type;
-        IRNode* ir_node = nullptr;
-        switch (type)
-        {
-        case CElementBSDF::TWO_SIDED:
-            //TWO_SIDED is not translated into IR node directly
-            break;
-        case CElementBSDF::MASK:
-            ir_node = ir->allocNode<IR::COpacityNode>();
-            ir_node->children.count = 1u;
-            getSpectrumOrTexture(_bsdf->mask.opacity,static_cast<IR::COpacityNode*>(ir_node)->opacity,EIVS_BLEND_WEIGHT);
-            break;
-
-
-
-
-
-
 
 
         case CElementBSDF::BUMPMAP:
@@ -223,13 +198,8 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
             }
         }
         break;
-        case CElementBSDF::BLEND_BSDF:
-        {
-            ir_node = ir->allocNode<IR::CBSDFBlendNode>();
-            ir_node->children.count = 2u;
-            getSpectrumOrTexture(_bsdf->blendbsdf.weight,static_cast<IR::CBSDFBlendNode*>(ir_node)->weight,EIVS_BLEND_WEIGHT);
-        }
-        break;
+
+
         case CElementBSDF::MIXTURE_BSDF:
         {
             ir_node = ir->allocNode<IR::CBSDFMixNode>();
