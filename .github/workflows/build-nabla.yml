@@ -464,6 +464,30 @@ jobs:
           name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
           path: examples-status
 
+      - name: Show Examples build log
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          log_file="examples-status/build-examples.log"
+          if [[ ! -f "$log_file" ]]; then
+            echo "Missing build log"
+            exit 1
+          fi
+
+          cat "$log_file"
+
+      - name: Show Examples install log
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          log_file="examples-status/install-examples.log"
+          if [[ ! -f "$log_file" ]]; then
+            echo "Missing install log"
+            exit 1
+          fi
+
+          cat "$log_file"
+
       - name: Fail if Examples did not succeed
         shell: bash
         run: |
@@ -476,18 +500,12 @@ jobs:
           result="$(tr -d '\r\n' < "$status_file")"
           echo "Examples result: $result"
 
+          if [[ -f "examples-status/details.txt" ]]; then
+            echo "Details:"
+            cat "examples-status/details.txt"
+          fi
+
           if [[ "$result" != "success" ]]; then
-            if [[ -f "examples-status/details.txt" ]]; then
-              echo "Details:"
-              cat "examples-status/details.txt"
-            fi
-            for file in "examples-status/build-examples.log" "examples-status/install-examples.log"; do
-              if [[ -f "$file" ]]; then
-                echo "::group::$(basename "$file")"
-                cat "$file"
-                echo "::endgroup::"
-              fi
-            done
             exit 1
           fi
 
