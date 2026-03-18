@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Restore ripgrep host tool
         id: cache-rg
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}\ripgrep-14.1.1-x86_64-pc-windows-msvc
           key: ripgrep-14.1.1-x86_64-pc-windows-msvc
@@ -154,13 +154,13 @@ jobs:
           "shouldPublishNscRelease=$shouldPublishNscRelease" >> $env:GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
       - name: Restore ripgrep host tool
         id: cache-rg
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}\ripgrep-14.1.1-x86_64-pc-windows-msvc
           key: ripgrep-14.1.1-x86_64-pc-windows-msvc
@@ -289,7 +289,7 @@ jobs:
 
       - name: Upload Examples result
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
           path: ${{ runner.temp }}/examples-status
@@ -392,7 +392,7 @@ jobs:
           }
 
       - name: Upload NSC Godbolt Image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
           path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
@@ -400,32 +400,32 @@ jobs:
 
       - name: Upload NSC runtime bundle artifact
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.set-prefix.outputs.nscArtifactName }}
           path: build-ct/nsc-release/payload
 
       - name: Upload NSC manifest zip artifact
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.set-prefix.outputs.nscManifestArtifactName }}
           path: build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip
 
       - name: Upload profiling artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-profiling
           path: ${{ steps.set-prefix.outputs.prefix }}-profiling.tar
 
       - name: Upload install artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-install
           path: ${{ steps.set-prefix.outputs.prefix }}-install.tar
 
       - name: Upload source artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-source
           path: ${{ steps.set-prefix.outputs.prefix }}-source.tar
@@ -459,7 +459,7 @@ jobs:
 
     steps:
       - name: Download Examples result
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
           path: examples-status
@@ -519,7 +519,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create Build Badge
         run: |
@@ -569,7 +569,7 @@ jobs:
           $imageBadge | Set-Content -Path "$imagePath/image-badge.json" -Encoding utf8
 
       - name: Deploy Badges
-        uses: peaceiris/actions-gh-pages@v3
+        uses: Devsh-Graphics-Programming/actions-gh-pages@v4.0.0-devsh.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: badges
@@ -624,25 +624,23 @@ jobs:
         vendor: [msvc]
     steps:
       - name: Checkout smoke
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           sparse-checkout: |
             smoke
 
       - name: Download VulkanSDK
-        uses: jakoch/install-vulkan-sdk-action@v1
+        uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
         with:
             install_runtime: true
-            cache: false
+            cache: true
             stripdown: true
             install_lavapipe: true
-
-      - name: Add lavapipe driver
-        run: reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\Vulkan\Drivers" /v "C:\lavapipe\share\vulkan\icd.d\lvp_icd.x86_64.json" /t REG_DWORD /d 0 /f
+            github_token: ${{ github.token }}
 
       - name: Download Nabla install artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: run-windows-17.13.6-msvc-${{ matrix.config }}-install
           path: smoke
