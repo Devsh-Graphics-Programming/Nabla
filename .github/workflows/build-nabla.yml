@@ -228,6 +228,7 @@ jobs:
 
       - name: API / Examples / Check Run (Create)
         id: check-run-create
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -270,6 +271,7 @@ jobs:
           "completed_at=$completedAt" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: API / Examples / Check Run (Update)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
