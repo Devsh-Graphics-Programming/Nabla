@@ -29,6 +29,8 @@ struct load_to_string final
             static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
             {
                 iter_ctx.instring = iter_ctx.ctx.get_located_include_content();
+                if (!iter_ctx.instring.empty() && iter_ctx.instring.back() != '\n' && iter_ctx.instring.back() != '\r')
+                    iter_ctx.instring.push_back('\n');
 
                 using iterator_type = IterContextT::iterator_type;
                 iter_ctx.first = iterator_type(iter_ctx.instring.begin(),iter_ctx.instring.end(),PositionT(iter_ctx.filename),language);
@@ -72,7 +74,6 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         typename ContextT::token_type const& act_token
     )
     {
-        hash_token_occurences++;
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr,"shader_stage")==0) 
         {
@@ -118,12 +119,13 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
                 std::string compiler_option_s = std::string(valueIter->get_value().c_str());
                 // the compiler_option_s is a token thus can be only part of the actual argument, i.e. "-spirv" will be split into tokens [ "-", "spirv" ]
                 // for dxc_compile_flags just join the strings until it finds a whitespace or end of args
-
-                if (compiler_option_s == " ") 
+                if (IS_CATEGORY(*valueIter, WhiteSpaceTokenType))
                 {
-                    // push argument and reset
-                    m_dxc_compile_flags_override.push_back(arg);
-                    arg.clear();
+                    if (!arg.empty())
+                    {
+                        m_dxc_compile_flags_override.push_back(arg);
+                        arg.clear();
+                    }
                 }
                 else 
                 {
@@ -196,12 +198,13 @@ class context : private boost::noncopyable
             , current_relative_filename(fname)
             , macros(*this_())
             , language(language_support(
-                support_cpp20
-                | support_option_preserve_comments
-                | support_option_emit_line_directives
-                | support_option_emit_pragma_directives
-//                | support_option_emit_contnewlines
-//                | support_option_insert_whitespace
+                support_cpp20 // C++20 lexer mode. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L56-L59
+                | support_option_prefer_pp_numbers // Prefer pp-number lexing before retokenization. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L71
+                | support_option_preserve_comments // Keep comments in the token stream. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L67
+                | support_option_emit_line_directives // Emit #line directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L72
+                | support_option_emit_pragma_directives // Keep pragma directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L74
+//                | support_option_emit_contnewlines // Emit escaped line continuations. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L65
+//                | support_option_insert_whitespace // Let Wave inject separator whitespace. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L66
             ))
             , hooks(hooks_)
         {

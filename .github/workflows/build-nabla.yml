@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  checks: write
+  actions: read
 
 concurrency:
   group: push-lock-${{ github.ref }}
@@ -219,6 +219,7 @@ jobs:
               --profiling-format=google-trace
 
       - name: Container – Build & Install Nabla
+        id: build-nabla
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
@@ -226,66 +227,73 @@ jobs:
               --target install `
               --config ${{ matrix.config }}
 
-      - name: API / Examples / Check Run (Create)
-        id: check-run-create
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          result-encoding: string
-          script: |
-            const headSha = context.payload.pull_request ? context.payload.pull_request.head.sha : context.sha;
-            const response = await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: `Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})`,
-              head_sha: headSha,
-              status: 'in_progress'
-            });
-            return response.data.id;
-
       - name: Container – Build & Install Examples
         id: build-examples
         continue-on-error: true
+        shell: pwsh
         run: |
-          docker exec orphan `
+          $statusDir = Join-Path $env:RUNNER_TEMP "examples-status"
+          New-Item -ItemType Directory -Force -Path $statusDir | Out-Null
+
+          $buildLog = Join-Path $statusDir "build-examples.log"
+          $installLog = Join-Path $statusDir "install-examples.log"
+
+          & docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
               -t examples_tests\all --config ${{ matrix.config }} `
-              -- -k 0
+              -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
+          $buildExitCode = $LASTEXITCODE
 
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
-              --prefix ${{ env.install }}
-
-      - name: API / Examples / Check Run (Conclusion)
-        id: outcome-examples
-        run: |
-          $completedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-          if ("${{ steps.build-examples.outcome }}" -eq "success") {
-            "conclusion=success" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          if ($buildExitCode -eq 0) {
+            & docker exec orphan `
+              ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+                ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
+                --prefix ${{ env.install }} 2>&1 | Tee-Object -FilePath $installLog
+            $installExitCode = $LASTEXITCODE
           } else {
-            "conclusion=failure" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "Skipped because the Examples build failed." | Set-Content -Path $installLog -Encoding ascii
+            $installExitCode = 1
           }
-          "completed_at=$completedAt" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: API / Examples / Check Run (Update)
-        uses: actions/github-script@v6
+          if ($buildExitCode -ne 0) {
+            exit $buildExitCode
+          }
+
+          if ($installExitCode -ne 0) {
+            exit $installExitCode
+          }
+
+      - name: Record Examples result
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $examplesResult = if (
+            "${{ steps.build-nabla.outcome }}" -eq "success" -and
+            "${{ steps.build-examples.outcome }}" -eq "success"
+          ) {
+            "success"
+          } else {
+            "failure"
+          }
+          $statusDir = Join-Path $env:RUNNER_TEMP "examples-status"
+          New-Item -ItemType Directory -Force -Path $statusDir | Out-Null
+          $statusFile = Join-Path $statusDir "status.txt"
+          $detailsFile = Join-Path $statusDir "details.txt"
+          $examplesResult | Set-Content -Path $statusFile -Encoding ascii -NoNewline
+          @(
+            "build-nabla=${{ steps.build-nabla.outcome }}"
+            "build-examples=${{ steps.build-examples.outcome }}"
+            "result=$examplesResult"
+          ) | Set-Content -Path $detailsFile -Encoding ascii
+
+      - name: Upload Examples result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: ${{ steps.check-run-create.outputs.result }},
-              status: 'completed',
-              conclusion: '${{ steps.outcome-examples.outputs.conclusion }}',
-              completed_at: '${{ steps.outcome-examples.outputs.completed_at }}',
-              output: {
-                title: '',
-                summary: '[View logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) to see details.'
-              }
-            });
+          name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
+          path: ${{ runner.temp }}/examples-status
+          if-no-files-found: error
 
       - name: Container – Save NSC Image
         run: |
@@ -435,6 +443,53 @@ jobs:
         if: steps.set-prefix.outputs.shouldPushImage == 'True'
         run: |
           docker push ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
+
+  examples-status:
+    name: Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
+    needs: build-windows
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vendor: [msvc]
+        config: [Release, Debug, RelWithDebInfo]
+        tag: ['17.13.6']
+        os: [windows-2022]
+
+    steps:
+      - name: Download Examples result
+        uses: actions/download-artifact@v4
+        with:
+          name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
+          path: examples-status
+
+      - name: Fail if Examples did not succeed
+        shell: bash
+        run: |
+          status_file="examples-status/status.txt"
+          if [[ ! -f "$status_file" ]]; then
+            echo "Missing Examples status artifact"
+            exit 1
+          fi
+
+          result="$(tr -d '\r\n' < "$status_file")"
+          echo "Examples result: $result"
+
+          if [[ "$result" != "success" ]]; then
+            if [[ -f "examples-status/details.txt" ]]; then
+              echo "Details:"
+              cat "examples-status/details.txt"
+            fi
+            for file in "examples-status/build-examples.log" "examples-status/install-examples.log"; do
+              if [[ -f "$file" ]]; then
+                echo "::group::$(basename "$file")"
+                cat "$file"
+                echo "::endgroup::"
+              fi
+            done
+            exit 1
+          fi
 
   update-badges:
     name: Update Build & Image Badges
