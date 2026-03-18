@@ -897,9 +897,14 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 								mul->lhs = deltaTransmission._const_cast();
 								mul->rhs = thinInfiniteScatterH;
 							}
+#ifdef UNCORRELLATED
 							// We need to attach the other glass interface as another layer because the Etas need to be reciprocated because the interactions are flipped
 							leaf->coated = frontIR->reverse(retval);
+							frontPool.deref(leaf->coated)->btdf = deltaTransmission._const_cast();
 							// we're rethreading the fresnel here, but needed to be careful to not apply thindielectric scatter correction and volumetric absorption / Mitsuba extra factor twice
+#else
+							leaf->brdfBottom = frontIR->reciprocate(brdfH)._const_cast();
+#endif
 							btdfH = correctedTransmissionH;
 						}
 						else

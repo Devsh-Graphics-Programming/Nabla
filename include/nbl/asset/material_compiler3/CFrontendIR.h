@@ -650,7 +650,7 @@ class CFrontendIR final : public CNodePool
 		// 
 		// We actually allow you to use different reflectance nodes R_u and R_b, the NDFs of both layers remain the same but Reflectance Functions differ.
 		// Note that e.g. using different Etas for the Fresnel used for the top and bottom reflectance will result in a compound Fresnel!=1.0 
-		// meaning that in such case you can no longer optimize the BTDF contributor into a DeltaTransmission but need a CookTorrance with
+		// meaning that in such case you can no longer optimize the BTDF contributor into a DeltaTransmission but need a zero-roughness CookTorrance with
 		// an Eta equal to the ratio of the first Eta over the second Eta (note that when they're equal the ratio is 1 which turns into Delta Trans).
 		// This will require you to make an AST that "seems wrong" that is where neither of the Etas of the CFresnel nodes match the Cook Torrance one.
 		// 
@@ -755,7 +755,16 @@ class CFrontendIR final : public CNodePool
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
 		// - Smooth Conductor -> above multiplied with Conductor-Fresnel
 		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
-		// - Thindielectric Correlated -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel, then Delta Transmission as BTDF with fresnels
+		// - Thindielectric Correlated -> Cook Torrance BxDF multiplied with Dielectric-Fresnel as top BRDF and its reciprocal as the bottom, then Delta Transmission as BTDF with fresnels of similar Eta
+		// - Thindielectric Uncorrelated -> BRDF and BTDF same as above, no bottom BRDF, then another layer with delta transmission BTDF
+		//		For Smooth dielectrics it makes sense because fresnel of the interface is the same (microfacet equals macro surface normal, no confusion)
+		//		For Rough its a little more complicated, but using the same BTDF still makes sense.
+		//		Why? Because you enter all microfacets at once with a ray packet, and because their backfaces are correlated you don't refract.
+		//		If we then assume that they're quite big in relation to the thickness, most of the Total Internal Reflection stays within the same microfacet slab.
+		//		So for a single microfacet we have the thindielectric infinite TIR equation with `R_u = (1-Fresnel(VdotH))` and `R_b = (1-Fresnel(-LdotH))`,
+		//		which when convolved with the VNDF (integral of complete TIR equation over all H) can be approximated by substitution of `...dotH` with `...dotN`.
+		//		It also wouldn't matter if we dictate each slab have uniform perpendicular or geometric normal thickness, as the VNDF keeps projected surface area proportional to microfacet angle.
+		//		So the average VdotH or LdotH are equal to NdotV and NdotL respectively, which doesn't guarantee average `inversesqrt(1-VdotH*VdotH)` equals `inversesqrt(1-NdotV*NdotV)` but difference is small.
 		// - Plastic -> Similar to layering the above over Diffuse BRDF, its of uttmost importance that the BTDF is Delta Transmission.
 		class CDeltaTransmission final : public IBxDF
 		{
@@ -912,9 +921,10 @@ class CFrontendIR final : public CNodePool
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		NBL_API2 bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
-		// TODO: shall we copy and hand out a new handle?
 		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() {return m_rootNodes;}
+
+		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
+		// TODO: shall we copy and hand out a new handle? Allow RootNode from a foreign const pool
 		inline bool addMaterial(const typed_pointer_type<const CLayer> rootNode, system::logger_opt_ptr logger)
 		{
 			if (valid(rootNode,logger))

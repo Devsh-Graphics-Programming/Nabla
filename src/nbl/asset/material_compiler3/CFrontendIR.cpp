@@ -32,7 +32,7 @@ bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 		args.logger.log("Perpendicular Transparency node of correct type must be attached, but is %u of type %s",ELL_ERROR,perpTransmittance,args.pool->getTypeName(perpTransmittance).data());
 		return true;
 	}
-	if (const auto* const thick=args.pool->getObjectPool().deref(thickness); !thick || thick->getKnotCount()!=0)
+	if (const auto* const thick=args.pool->getObjectPool().deref(thickness); !thick || thick->getKnotCount()!=1)
 	{
 		args.logger.log("Monochromatic Thickness node must be attached, but is %u of type %s",ELL_ERROR,thickness,args.pool->getTypeName(thickness).data());
 		return true;
