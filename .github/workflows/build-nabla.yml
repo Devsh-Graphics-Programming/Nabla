@@ -230,17 +230,39 @@ jobs:
       - name: Container – Build & Install Examples
         id: build-examples
         continue-on-error: true
+        shell: pwsh
         run: |
-          docker exec orphan `
+          $statusDir = Join-Path $env:RUNNER_TEMP "examples-status"
+          New-Item -ItemType Directory -Force -Path $statusDir | Out-Null
+
+          $buildLog = Join-Path $statusDir "build-examples.log"
+          $installLog = Join-Path $statusDir "install-examples.log"
+
+          & docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
               -t examples_tests\all --config ${{ matrix.config }} `
-              -- -k 0
+              -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
+          $buildExitCode = $LASTEXITCODE
 
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
-              --prefix ${{ env.install }}
+          if ($buildExitCode -eq 0) {
+            & docker exec orphan `
+              ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+                ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
+                --prefix ${{ env.install }} 2>&1 | Tee-Object -FilePath $installLog
+            $installExitCode = $LASTEXITCODE
+          } else {
+            "Skipped because the Examples build failed." | Set-Content -Path $installLog -Encoding ascii
+            $installExitCode = 1
+          }
+
+          if ($buildExitCode -ne 0) {
+            exit $buildExitCode
+          }
+
+          if ($installExitCode -ne 0) {
+            exit $installExitCode
+          }
 
       - name: Record Examples result
         if: ${{ always() }}
@@ -459,6 +481,13 @@ jobs:
               echo "Details:"
               cat "examples-status/details.txt"
             fi
+            for file in "examples-status/build-examples.log" "examples-status/install-examples.log"; do
+              if [[ -f "$file" ]]; then
+                echo "::group::$(basename "$file")"
+                cat "$file"
+                echo "::endgroup::"
+              fi
+            done
             exit 1
           fi
 
