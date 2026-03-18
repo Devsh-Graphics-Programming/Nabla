@@ -440,6 +440,12 @@ static void normalizeLegacyShaderStagePragmas(std::string& code)
     code = std::move(normalized);
 }
 
+static void ensureTrailingNewline(std::string& code)
+{
+    if (!code.empty() && code.back() != '\n' && code.back() != '\r')
+        code.push_back('\n');
+}
+
 static std::string preprocessShaderImpl(
     std::string&& code,
     IShader::E_SHADER_STAGE& stage,
@@ -464,6 +470,7 @@ static std::string preprocessShaderImpl(
         dependenciesOut = &localDependencies;
 
     normalizeLegacyShaderStagePragmas(code);
+    ensureTrailingNewline(code);
 
     // preprocess
     core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),

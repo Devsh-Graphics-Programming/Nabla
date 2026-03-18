@@ -29,6 +29,8 @@ struct load_to_string final
             static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
             {
                 iter_ctx.instring = iter_ctx.ctx.get_located_include_content();
+                if (!iter_ctx.instring.empty() && iter_ctx.instring.back() != '\n' && iter_ctx.instring.back() != '\r')
+                    iter_ctx.instring.push_back('\n');
 
                 using iterator_type = IterContextT::iterator_type;
                 iter_ctx.first = iterator_type(iter_ctx.instring.begin(),iter_ctx.instring.end(),PositionT(iter_ctx.filename),language);
