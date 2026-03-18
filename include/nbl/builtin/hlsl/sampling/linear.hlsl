@@ -59,9 +59,8 @@ struct Linear
         return x;
     }
 
-    domain_type generateInverse(const codomain_type x, NBL_REF_ARG(cache_type) cache)
+    domain_type generateInverse(const codomain_type x)
     {
-        cache.pdf = __pdf(x);
         return x * (scalar_type(2.0) * linearCoeffStart + linearCoeffDiff * x) * rcpCoeffSum;
     }
 

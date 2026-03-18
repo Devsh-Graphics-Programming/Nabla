@@ -61,17 +61,14 @@ struct Bilinear
         return p;
     }
 
-    domain_type generateInverse(const codomain_type p, NBL_REF_ARG(cache_type) cache)
+    domain_type generateInverse(const codomain_type p)
     {
-        typename Linear<scalar_type>::cache_type linearCache;
-
         vector2_type u;
         const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
         Linear<scalar_type> linearx = Linear<scalar_type>::create(ySliceEndPoints);
-        u.x = linearx.generateInverse(p.x, linearCache);
-        u.y = lineary.generateInverse(p.y, linearCache);
+        u.x = linearx.generateInverse(p.x);
+        u.y = lineary.generateInverse(p.y);
 
-        cache.pdf = backwardPdf(p);
         return u;
     }
 

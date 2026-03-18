@@ -30,10 +30,7 @@ struct UniformHemisphere
 	using density_type = T;
 	using weight_type = density_type;
 
-	struct cache_type
-	{
-		density_type pdf;
-	};
+	struct cache_type {};
 
 	static codomain_type __generate(const domain_type _sample)
 	{
@@ -43,9 +40,13 @@ struct UniformHemisphere
 		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
 	}
 
+	static codomain_type generate(const domain_type _sample)
+	{
+		return __generate(_sample);
+	}
+
 	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
-		cache.pdf = __pdf();
 		return __generate(_sample);
 	}
 
@@ -57,9 +58,8 @@ struct UniformHemisphere
 		return vector_t2(_sample.z, phi / twopi);
 	}
 
-	static domain_type generateInverse(const codomain_type _sample, NBL_REF_ARG(cache_type) cache)
+	static domain_type generateInverse(const codomain_type _sample)
 	{
-		cache.pdf = __pdf();
 		return __generateInverse(_sample);
 	}
 
@@ -70,12 +70,12 @@ struct UniformHemisphere
 
 	static density_type forwardPdf(const cache_type cache)
 	{
-		return cache.pdf;
+		return __pdf();
 	}
 
 	static weight_type forwardWeight(const cache_type cache)
 	{
-		return forwardPdf(cache);
+		return __pdf();
 	}
 
 	static density_type backwardPdf(const vector_t3 _sample)
@@ -108,10 +108,7 @@ struct UniformSphere
 	using density_type = T;
 	using weight_type = density_type;
 
-	struct cache_type
-	{
-		density_type pdf;
-	};
+	struct cache_type {};
 
 	static codomain_type __generate(const domain_type _sample)
 	{
@@ -121,9 +118,13 @@ struct UniformSphere
 		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
 	}
 
+	static codomain_type generate(const domain_type _sample)
+	{
+		return __generate(_sample);
+	}
+
 	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
-		cache.pdf = __pdf();
 		return __generate(_sample);
 	}
 
@@ -135,9 +136,8 @@ struct UniformSphere
 		return vector_t2((T(1.0) - _sample.z) * T(0.5), phi / twopi);
 	}
 
-	static domain_type generateInverse(const codomain_type _sample, NBL_REF_ARG(cache_type) cache)
+	static domain_type generateInverse(const codomain_type _sample)
 	{
-		cache.pdf = __pdf();
 		return __generateInverse(_sample);
 	}
 
@@ -148,12 +148,12 @@ struct UniformSphere
 
 	static density_type forwardPdf(const cache_type cache)
 	{
-		return cache.pdf;
+		return __pdf();
 	}
 
 	static weight_type forwardWeight(const cache_type cache)
 	{
-		return forwardPdf(cache);
+		return __pdf();
 	}
 
 	static density_type backwardPdf(const vector_t3 _sample)

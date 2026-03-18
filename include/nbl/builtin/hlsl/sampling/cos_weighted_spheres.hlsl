@@ -53,9 +53,8 @@ struct ProjectedHemisphere
 		return ConcentricMapping<T>::generateInverse(L.xy);
 	}
 
-	static domain_type generateInverse(const codomain_type L, NBL_REF_ARG(cache_type) cache)
+	static domain_type generateInverse(const codomain_type L)
 	{
-		cache.pdf = __pdf(L.z);
 		return __generateInverse(L);
 	}
 
@@ -146,9 +145,8 @@ struct ProjectedSphere
 		return vector_t3(hemisphere_t::__generateInverse(L), hlsl::mix(T(1.0), T(0.0), L.z > T(0.0)));
 	}
 
-	static domain_type generateInverse(const codomain_type L, NBL_REF_ARG(cache_type) cache)
+	static domain_type generateInverse(const codomain_type L)
 	{
-		cache.pdf = __pdf(L.z);
 		return __generateInverse(L);
 	}
 

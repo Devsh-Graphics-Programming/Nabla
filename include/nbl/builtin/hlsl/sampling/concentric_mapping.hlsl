@@ -73,7 +73,7 @@ struct ConcentricMapping
 		return generate(_u, dummy);
 	}
 
-	static domain_type generateInverse(const codomain_type p, NBL_REF_ARG(cache_type) cache)
+	static domain_type generateInverse(const codomain_type p)
 	{
 		T theta = hlsl::atan2(p.y, p.x); // -pi -> pi
 		T r = hlsl::sqrt(p.x * p.x + p.y * p.y);
@@ -116,12 +116,6 @@ struct ConcentricMapping
 		}
 
 		return (u + hlsl::promote<vector<T, 2> >(1.0)) * T(0.5);
-	}
-
-	static domain_type generateInverse(const codomain_type p)
-	{
-		cache_type dummy;
-		return generateInverse(p, dummy);
 	}
 
 	// The PDF of Shirley mapping is constant (1/PI on the unit disk)

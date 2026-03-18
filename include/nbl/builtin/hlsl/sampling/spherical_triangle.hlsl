@@ -119,9 +119,8 @@ struct SphericalTriangle
 		return vector2_type(u, v);
 	}
 
-	domain_type generateInverse(const codomain_type L, NBL_REF_ARG(cache_type) cache)
+	domain_type generateInverse(const codomain_type L)
 	{
-		cache.pdf = scalar_type(1.0) / solidAngle;
 		return _generateInverse(L);
 	}
 

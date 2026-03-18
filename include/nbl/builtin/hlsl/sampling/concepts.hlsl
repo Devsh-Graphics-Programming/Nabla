@@ -13,67 +13,6 @@ namespace concepts
 {
 
 // ============================================================================
-// SampleWithPDF
-//
-// Checks that a sample type bundles a value with its PDF.
-//
-// Required methods:
-//   value()  - the sampled value
-//   pdf()    - the probability density
-//
-// Satisfied by: codomain_and_pdf, domain_and_pdf, quotient_and_pdf
-// ============================================================================
-
-// clang-format off
-#define NBL_CONCEPT_NAME SampleWithPDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (s, T)
-NBL_CONCEPT_BEGIN(1)
-#define s NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_EXPR)(s.pdf()))
-    ((NBL_CONCEPT_REQ_EXPR)(s.value())));
-#undef s
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-// clang-format on
-
-// ============================================================================
-// SampleWithRcpPDF
-//
-// Checks that a sample type bundles a value with its reciprocal PDF.
-//
-// Required methods:
-//   value()   - the sampled value
-//   rcpPdf()  - the reciprocal probability density
-//
-// Satisfied by: codomain_and_rcpPdf, domain_and_rcpPdf
-// ============================================================================
-
-// clang-format off
-#define NBL_CONCEPT_NAME SampleWithRcpPDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (s, T)
-NBL_CONCEPT_BEGIN(1)
-#define s NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_EXPR)(s.rcpPdf()))
-    ((NBL_CONCEPT_REQ_EXPR)(s.value())));
-#undef s
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-// clang-format on
-
-// ============================================================================
-// SampleWithDensity
-//
-// A sample type that bundles a value with either its PDF or reciprocal PDF.
-// This is the disjunction of SampleWithPDF and SampleWithRcpPDF.
-// ============================================================================
-template<typename T>
-NBL_BOOL_CONCEPT SampleWithDensity = SampleWithPDF<T> || SampleWithRcpPDF<T>;
-
-// ============================================================================
 // BasicSampler
 //
 // The simplest sampler: maps domain -> codomain.
@@ -111,15 +50,15 @@ NBL_CONCEPT_END(
 // (sampling) direction. generate returns a codomain_type value and writes
 // intermediates to a cache_type out-param for later pdf evaluation.
 //
-// The cache_type out-param stores intermediates computed during generate
-// (e.g. DG1 in Cook-Torrance, or simply the pdf for simple samplers) for
-// reuse by forwardPdf without redundant recomputation.
+// The cache_type out-param stores the input domain_type and/or values
+// derived from it during generate, for reuse by forwardPdf without
+// redundant recomputation. If there is no common computation between
+// generate and backwardPdf, the cache simply stores the codomain value.
 //
 // For constant-pdf samplers, forwardPdf(cache) == __pdf() (cache ignored).
-// For variable-pdf samplers (e.g. Linear), forwardPdf(cache) returns the
-// pre-computed pdf rather than re-evaluating __pdf(x) from the sample value.
-// For complex samplers (e.g. Cook-Torrance), cache carries DG1/Fresnel and
-// forwardPdf computes the pdf from those stored intermediates.
+// For complex samplers (e.g. Cook-Torrance), cache carries intermediate
+// values derived from the domain input (e.g. DG1/Fresnel) and forwardPdf
+// computes the pdf from those stored intermediates.
 //
 // Required types:
 //   domain_type, codomain_type, density_type, cache_type
@@ -162,9 +101,6 @@ NBL_CONCEPT_END(
 // Note: resampling does not require tractability - the weights need not be
 // normalized probability densities, so this concept is satisfied by
 // intractable samplers as well.
-//
-// Unlike TractableSampler, generate returns bare codomain_type (not sample_type)
-// and writes a cache_type out-param for later reuse by forwardWeight.
 //
 // Required types:
 //   domain_type  - the input space
@@ -211,12 +147,12 @@ NBL_CONCEPT_END(
 //
 // Extends TractableSampler with the ability to evaluate the PDF given
 // a codomain value (i.e. without knowing the original domain input).
-// The reverse mapping could be implemented via bisection search and is
-// not necessarily bijective - input/output pairs need not match.
+// The mapping need not be injective — multiple domain elements may map
+// to the same codomain output, and backwardPdf accounts for this
+// correctly (e.g. by summing contributions).
 //
-// Also exposes forward and backward importance weights for use in MIS and RIS.
-// For an invertible sampler these are just the forward and backward PDFs,
-// but the names signal the intended use at call sites.
+// Also exposes forward and backward importance weights for use in MIS
+// and RIS.
 //
 // Required types (in addition to TractableSampler):
 //   weight_type  - the type of the importance weight
@@ -263,10 +199,10 @@ NBL_CONCEPT_END(
 // of the Jacobian matrix of the inverse equals the reciprocal of the
 // absolute value of the determinant of the Jacobian matrix of the forward
 // mapping (the Jacobian is an NxM matrix, not a scalar):
-//   backwardPdf(v) == 1.0 / forwardPdf(cache)  (where v == generate(u, cache).value())
+//   backwardPdf(v) == 1.0 / forwardPdf(cache)  (where v == generate(u, cache))
 //
 // Required methods (in addition to InvertibleSampler):
-//   domain_type generateInverse(codomain_type v, out cache_type cache)
+//   domain_type generateInverse(codomain_type v)
 // ============================================================================
 
 // clang-format off
@@ -275,15 +211,12 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (_sampler, T)
 #define NBL_CONCEPT_PARAM_1 (v, typename T::codomain_type)
-#define NBL_CONCEPT_PARAM_2 (cache, typename T::cache_type)
-NBL_CONCEPT_BEGIN(3)
+NBL_CONCEPT_BEGIN(2)
 #define _sampler NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define v NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
 	((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(InvertibleSampler, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.generateInverse(v, cache)), ::nbl::hlsl::is_same_v, typename T::domain_type)));
-#undef cache
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.generateInverse(v)), ::nbl::hlsl::is_same_v, typename T::domain_type)));
 #undef v
 #undef _sampler
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>

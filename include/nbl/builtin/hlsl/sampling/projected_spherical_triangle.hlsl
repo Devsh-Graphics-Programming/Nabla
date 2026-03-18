@@ -75,8 +75,7 @@ struct ProjectedSphericalTriangle
     density_type backwardPdf(const vector3_type L)
     {
         const density_type pdf = sphtri.backwardPdf(L);
-        typename SphericalTriangle<scalar_type>::cache_type dummyCache;
-        const vector2_type u = sphtri.generateInverse(L, dummyCache);
+        const vector2_type u = sphtri.generateInverse(L);
         Bilinear<scalar_type> bilinear = computeBilinearPatch();
         return pdf * bilinear.backwardPdf(u);
     }
