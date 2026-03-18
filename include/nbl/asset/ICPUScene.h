@@ -276,7 +276,7 @@ class ICPUScene final : public IAsset, public IScene
                         instances.emplace_back().instance = std::move(inst);
                     }
                     // TODO: adjust BLAS geometry flags according to materials set opaqueness and NO_DUPLICATE_ANY_HIT_INVOCATION_BIT
-                    SResult retval = {.instances=core::make_refctd_dynamic_array<decltype(SResult::instances)>(instanceCount),.allInstancesValid=allInstancesValid};
+                    SResult retval = {.instances=core::make_refctd_dynamic_array<decltype(SResult::instances)>(instances.size()),.allInstancesValid=allInstancesValid};
                     std::move(instances.begin(),instances.end(),retval.instances->begin());
                     return retval;
                 }

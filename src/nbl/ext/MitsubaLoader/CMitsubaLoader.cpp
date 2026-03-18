@@ -164,7 +164,7 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 
 
 // TODO: make configurable
-constexpr bool PrintMaterialDot3 = true;
+constexpr bool PrintMaterialDot3 = false;
 system::path DebugDir("D:\\work\\Nabla-master\\examples_tests\\15_MitsubaLoader\\bin");
 //
 void SContext::writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer)
