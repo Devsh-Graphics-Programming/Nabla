@@ -20,8 +20,6 @@
 #include <combaseapi.h>
 #include <sstream>
 #include <dxc/dxcapi.h>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -363,6 +361,91 @@ namespace nbl::wave
     extern nbl::core::string preprocess(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
 }
 
+static bool isHorizontalWhitespace(const char c)
+{
+    return c == ' ' || c == '\t' || c == '\r' || c == '\v' || c == '\f';
+}
+
+static bool consumeIdentifier(std::string_view line, size_t& pos, const std::string_view identifier)
+{
+    if (line.substr(pos, identifier.size()) != identifier)
+        return false;
+
+    const size_t end = pos + identifier.size();
+    if (end < line.size())
+    {
+        const char next = line[end];
+        if ((next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z') || (next >= '0' && next <= '9') || next == '_')
+            return false;
+    }
+
+    pos = end;
+    return true;
+}
+
+static void normalizeLegacyShaderStagePragmas(std::string& code)
+{
+    std::string normalized;
+    normalized.reserve(code.size());
+
+    size_t lineStart = 0u;
+    while (lineStart < code.size())
+    {
+        const size_t lineEnd = code.find('\n', lineStart);
+        const bool hasNewline = lineEnd != std::string::npos;
+        const size_t lineSize = hasNewline ? (lineEnd - lineStart) : (code.size() - lineStart);
+        const std::string_view line(code.data() + lineStart, lineSize);
+
+        size_t pos = 0u;
+        while (pos < line.size() && isHorizontalWhitespace(line[pos]))
+            ++pos;
+
+        bool normalizedLegacyPragma = false;
+        if (pos < line.size() && line[pos] == '#')
+        {
+            ++pos;
+            while (pos < line.size() && isHorizontalWhitespace(line[pos]))
+                ++pos;
+
+            if (consumeIdentifier(line, pos, "pragma"))
+            {
+                while (pos < line.size() && isHorizontalWhitespace(line[pos]))
+                    ++pos;
+
+                const size_t pragmaArgumentPos = pos;
+                if (consumeIdentifier(line, pos, "shader_stage"))
+                    normalizedLegacyPragma = true;
+                else
+                    pos = pragmaArgumentPos;
+            }
+        }
+
+        if (normalizedLegacyPragma)
+        {
+            normalized.append(line.substr(0u, pos - std::string_view("shader_stage").size()));
+            normalized += "wave ";
+            normalized.append(line.substr(pos - std::string_view("shader_stage").size()));
+        }
+        else
+        {
+            normalized.append(line);
+        }
+
+        if (hasNewline)
+            normalized.push_back('\n');
+
+        lineStart = hasNewline ? (lineEnd + 1u) : code.size();
+    }
+
+    code = std::move(normalized);
+}
+
+static void ensureTrailingNewline(std::string& code)
+{
+    if (!code.empty() && code.back() != '\n' && code.back() != '\r')
+        code.push_back('\n');
+}
+
 static std::string preprocessShaderImpl(
     std::string&& code,
     IShader::E_SHADER_STAGE& stage,
@@ -386,18 +469,8 @@ static std::string preprocessShaderImpl(
     if (depfileEnabled && !dependenciesOut)
         dependenciesOut = &localDependencies;
 
-    // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
-    // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
-    size_t line_index = 0;
-    for (size_t i = 0; i < code.size(); i++) {
-        if (code[i] == '\n') {
-            auto line = code.substr(line_index, i - line_index);
-            boost::trim(line);
-            if (boost::starts_with(line, "#pragma"))
-                code.insert(i++, 1, '\n');
-            line_index = i;
-        }
-    }
+    normalizeLegacyShaderStagePragmas(code);
+    ensureTrailingNewline(code);
 
     // preprocess
     core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
