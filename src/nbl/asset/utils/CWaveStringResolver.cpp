@@ -134,48 +134,6 @@ std::string tokenValueToString(const TokenT& token)
     return std::string(value.data(), value.size());
 }
 
-bool isBinaryLiteralTail(const std::string_view value)
-{
-    if (value.size() < 2u)
-        return false;
-
-    if (value.front() != 'b' && value.front() != 'B')
-        return false;
-
-    bool hasBinaryDigit = false;
-    size_t i = 1u;
-    for (; i < value.size(); ++i)
-    {
-        const char c = value[i];
-        if (c == '0' || c == '1')
-        {
-            hasBinaryDigit = true;
-            continue;
-        }
-        if (c == '\'')
-            continue;
-        break;
-    }
-
-    if (!hasBinaryDigit)
-        return false;
-
-    for (; i < value.size(); ++i)
-    {
-        const char c = value[i];
-        const bool isIntegerSuffix = c == 'u' || c == 'U' || c == 'l' || c == 'L' || c == 'z' || c == 'Z';
-        if (!isIntegerSuffix)
-            return false;
-    }
-
-    return true;
-}
-
-bool shouldConcatenateWithoutWhitespace(const std::string_view previousValue, const std::string_view currentValue)
-{
-    return previousValue == "0" && isBinaryLiteralTail(currentValue);
-}
-
 core::string renderPreprocessedOutput(nbl::wave::context& context)
 {
     using namespace boost::wave;
@@ -184,7 +142,6 @@ core::string renderPreprocessedOutput(nbl::wave::context& context)
     util::insert_whitespace_detection whitespace(true);
     std::optional<nbl::wave::context::position_type> previousPosition = std::nullopt;
     bool previousWasExplicitWhitespace = false;
-    std::string previousTokenValue;
 
     for (auto it = context.begin(); it != context.end(); ++it)
     {
@@ -211,7 +168,7 @@ core::string renderPreprocessedOutput(nbl::wave::context& context)
                     whitespace.shift_tokens(T_NEWLINE);
                 }
             }
-            else if (!previousWasExplicitWhitespace && !shouldConcatenateWithoutWhitespace(previousTokenValue, value) && whitespace.must_insert(id, value))
+            else if (!previousWasExplicitWhitespace && whitespace.must_insert(id, value))
             {
                 if (output.empty() || (output.back() != ' ' && output.back() != '\n' && output.back() != '\r' && output.back() != '\t'))
                 {
@@ -225,8 +182,6 @@ core::string renderPreprocessedOutput(nbl::wave::context& context)
         whitespace.shift_tokens(id);
         previousPosition = position;
         previousWasExplicitWhitespace = explicitWhitespace;
-        if (!explicitWhitespace)
-            previousTokenValue = value;
     }
 
     return output;
