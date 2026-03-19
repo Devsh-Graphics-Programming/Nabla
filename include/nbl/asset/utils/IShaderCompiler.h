@@ -16,6 +16,8 @@
 
 #include "nbl/builtin/hlsl/enums.hlsl"
 
+#include <functional>
+
 namespace nbl::asset
 {
 
@@ -136,7 +138,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
 			system::path depfilePath = {};
-			std::string* partialOutputOnFailure = nullptr;
+			std::function<void(std::string_view)> onPartialOutputOnFailure = {};
 		};
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
