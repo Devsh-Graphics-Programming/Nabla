@@ -167,6 +167,7 @@ public:
         argparse::ArgumentParser program("nsc");
         program.add_argument("--dump-build-info").default_value(false).implicit_value(true);
         program.add_argument("--self-test-unmount-builtins").default_value(false).implicit_value(true);
+        program.add_argument("--dump-preprocessed-on-failure").default_value(false).implicit_value(true);
         program.add_argument("--file").default_value(std::string{});
         program.add_argument("-P").default_value(false).implicit_value(true);
         program.add_argument("-no-nbl-builtins").default_value(false).implicit_value(true);
@@ -242,6 +243,7 @@ public:
         }
 
         const bool preprocessOnly = program.get<bool>("-P");
+        const bool dumpPreprocessedOnFailure = program.get<bool>("--dump-preprocessed-on-failure");
         const bool hasFc = program.is_used("-Fc");
         const bool hasFo = program.is_used("-Fo");
 
@@ -251,6 +253,11 @@ public:
                 std::cerr << "Invalid arguments. Passed both -Fo and -Fc.\n";
             else
                 std::cerr << "Missing arguments. Expecting `-Fc {filename}` or `-Fo {filename}`.\n";
+            return false;
+        }
+        if (dumpPreprocessedOnFailure && !preprocessOnly)
+        {
+            std::cerr << "Invalid arguments. --dump-preprocessed-on-failure requires -P.\n";
             return false;
         }
 
@@ -329,6 +336,8 @@ public:
         const char* const outType = preprocessOnly ? "Preprocessed" : "Compiled";
         m_logger->log("%s %s", ILogger::ELL_INFO, action, fileToCompile.c_str());
         m_logger->log("%s shader code will be saved to %s", ILogger::ELL_INFO, outType, outputFilepath.c_str());
+        if (dumpPreprocessedOnFailure)
+            m_logger->log("Partial preprocessed output will be written to %s if preprocessing fails.", ILogger::ELL_INFO, outputFilepath.c_str());
 
         auto [shader, shaderStage] = open_shader_file(fileToCompile);
         if (!shader || shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
@@ -338,12 +347,22 @@ public:
         }
 
         const auto start = std::chrono::high_resolution_clock::now();
-        const auto job = runShaderJob(shader.get(), shaderStage, fileToCompile, dep, preprocessOnly);
+        const auto job = runShaderJob(shader.get(), shaderStage, fileToCompile, dep, preprocessOnly, dumpPreprocessedOnFailure);
         const auto end = std::chrono::high_resolution_clock::now();
 
         const char* const op = preprocessOnly ? "preprocessing" : "compilation";
         if (!job.ok)
         {
+            if (job.writeOutputOnFailure)
+            {
+                if (!writeOutputFile(outputFilepath, job.view, "partial preprocess dump"))
+                    return false;
+
+                if (job.view.empty())
+                    m_logger->log("Shader preprocessing failed before emitting any output. Empty dump written to %s.", ILogger::ELL_WARNING, outputFilepath.c_str());
+                else
+                    m_logger->log("Shader preprocessing failed after emitting %zu bytes. Partial dump written to %s.", ILogger::ELL_WARNING, job.view.size(), outputFilepath.c_str());
+            }
             m_logger->log("Shader %s failed.", ILogger::ELL_ERROR, op);
             return false;
         }
@@ -352,37 +371,8 @@ public:
         m_logger->log("Shader %s successful.", ILogger::ELL_INFO, op);
         m_logger->log("Took %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
 
-        const auto outParent = std::filesystem::path(outputFilepath).parent_path();
-        if (!outParent.empty() && !std::filesystem::exists(outParent))
-        {
-            if (!std::filesystem::create_directories(outParent))
-            {
-                m_logger->log("Failed to create parent directory for output %s.", ILogger::ELL_ERROR, outputFilepath.c_str());
-                return false;
-            }
-        }
-
-        std::fstream out(outputFilepath, std::ios::out | std::ios::binary);
-        if (!out.is_open())
-        {
-            m_logger->log("Failed to open output file: %s", ILogger::ELL_ERROR, outputFilepath.c_str());
+        if (!writeOutputFile(outputFilepath, job.view, "output"))
             return false;
-        }
-
-        out.write(job.view.data(), job.view.size());
-        if (out.fail())
-        {
-            m_logger->log("Failed to write to output file: %s", ILogger::ELL_ERROR, outputFilepath.c_str());
-            out.close();
-            return false;
-        }
-
-        out.close();
-        if (out.fail())
-        {
-            m_logger->log("Failed to close output file: %s", ILogger::ELL_ERROR, outputFilepath.c_str());
-            return false;
-        }
 
         if (dep.enabled)
             m_logger->log("Dependency file written to %s", ILogger::ELL_INFO, dep.path.c_str());
@@ -403,6 +393,7 @@ private:
     struct RunResult
     {
         bool ok = false;
+        bool writeOutputOnFailure = false;
         std::string text;
         smart_refctd_ptr<IShader> compiled;
         std::string_view view;
@@ -484,7 +475,45 @@ private:
         std::printf("Saved \"%s\"\n", oPath.string().c_str());
     }
 
-    RunResult runShaderJob(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& dep, const bool preprocessOnly)
+    bool writeOutputFile(const std::string& outputFilepath, const std::string_view content, const char* const description)
+    {
+        const auto outParent = std::filesystem::path(outputFilepath).parent_path();
+        if (!outParent.empty() && !std::filesystem::exists(outParent))
+        {
+            if (!std::filesystem::create_directories(outParent))
+            {
+                m_logger->log("Failed to create parent directory for %s %s.", ILogger::ELL_ERROR, description, outputFilepath.c_str());
+                return false;
+            }
+        }
+
+        std::fstream out(outputFilepath, std::ios::out | std::ios::binary | std::ios::trunc);
+        if (!out.is_open())
+        {
+            m_logger->log("Failed to open %s file: %s", ILogger::ELL_ERROR, description, outputFilepath.c_str());
+            return false;
+        }
+
+        if (!content.empty())
+            out.write(content.data(), content.size());
+        if (out.fail())
+        {
+            m_logger->log("Failed to write %s file: %s", ILogger::ELL_ERROR, description, outputFilepath.c_str());
+            out.close();
+            return false;
+        }
+
+        out.close();
+        if (out.fail())
+        {
+            m_logger->log("Failed to close %s file: %s", ILogger::ELL_ERROR, description, outputFilepath.c_str());
+            return false;
+        }
+
+        return true;
+    }
+
+    RunResult runShaderJob(const IShader* shader, hlsl::ShaderStage shaderStage, std::string_view sourceIdentifier, const DepfileConfig& dep, const bool preprocessOnly, const bool dumpPreprocessedOnFailure)
     {
         RunResult r;
         auto hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
@@ -547,9 +576,17 @@ private:
 
             const char* codePtr = (const char*)shader->getContent()->getPointer();
             std::string_view code(codePtr, std::strlen(codePtr));
+            std::string partialOutputOnFailure;
+            if (dumpPreprocessedOnFailure)
+                opt.partialOutputOnFailure = &partialOutputOnFailure;
 
             r.text = hlslcompiler->preprocessShader(std::string(code), shaderStage, opt, nullptr);
             r.ok = !r.text.empty();
+            if (!r.ok && dumpPreprocessedOnFailure)
+            {
+                r.text = std::move(partialOutputOnFailure);
+                r.writeOutputOnFailure = true;
+            }
             r.view = r.text;
             return r;
         }

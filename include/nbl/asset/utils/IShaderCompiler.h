@@ -136,6 +136,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
 			system::path depfilePath = {};
+			std::string* partialOutputOnFailure = nullptr;
 		};
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging

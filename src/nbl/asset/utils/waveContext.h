@@ -18,6 +18,58 @@ using namespace boost;
 using namespace boost::wave;
 using namespace boost::wave::util;
 
+namespace detail
+{
+inline std::string escape_control_chars(std::string_view text)
+{
+    static constexpr char hex[] = "0123456789ABCDEF";
+
+    std::string out;
+    out.reserve(text.size());
+
+    for (const auto ch : text)
+    {
+        switch (ch)
+        {
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
+            case '\0':
+                out += "\\0";
+                break;
+            default:
+            {
+                const auto uch = static_cast<unsigned char>(ch);
+                if (uch < 0x20u || uch == 0x7Fu)
+                {
+                    out += "\\x";
+                    out.push_back(hex[uch >> 4u]);
+                    out.push_back(hex[uch & 0x0Fu]);
+                }
+                else
+                    out.push_back(ch);
+                break;
+            }
+        }
+    }
+
+    return out;
+}
+
+inline std::string escape_control_chars(const char* text)
+{
+    if (!text)
+        return {};
+    return escape_control_chars(std::string_view(text));
+}
+}
+
 // for including builtins 
 struct load_to_string final
 {
@@ -531,7 +583,6 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     // call the 'found_include_directive' hook function
     if (ctx.get_hooks().found_include_directive(ctx.derived(),f,false))
         return true;    // client returned false: skip file to include
-    file_path = util::impl::unescape_lit(file_path);
 
     IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
@@ -549,13 +600,17 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         }
     }
     else {
-        ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
+        const auto escapedPath = nbl::wave::detail::escape_control_chars(file_path);
+        ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file %s", nbl::system::ILogger::ELL_ERROR, escapedPath.c_str());
         return false;
     }
 
     if (!result)
     {
-        ctx.get_hooks().m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
+        const auto escapedPath = nbl::wave::detail::escape_control_chars(file_path);
+        const auto escapedSource = nbl::wave::detail::escape_control_chars(ctx.get_current_relative_filename());
+        const auto escapedDirectory = nbl::wave::detail::escape_control_chars(ctx.get_current_directory().string());
+        ctx.get_hooks().m_logger.log("Pre-processor error: Bad include file.\n  requested_include: %s\n  requesting_source: %s\n  requesting_directory: %s", nbl::system::ILogger::ELL_ERROR, escapedPath.c_str(), escapedSource.c_str(), escapedDirectory.c_str());
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file, file_path.c_str(), act_pos);
         return false;
     }
