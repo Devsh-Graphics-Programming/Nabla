@@ -1,5 +1,5 @@
 outs:
-- md5: cff274e861ff4a11e3778df40c872f71
-  size: 1391
+- md5: 3422c063e9f0078b4efae5aa374e12c6
+  size: 1286
   hash: md5
   path: build-info.json
