@@ -29,7 +29,7 @@ namespace sampling
 //     must have `value_type` typedef and `operator[](uint32_t)` for upper_bound
 // - PdfAccessor: returns scalar_type weight[i] / totalWeight
 //
-// Satisfies TractableSampler and ResamplableSampler (not InvertibleSampler:
+// Satisfies TractableSampler and ResamplableSampler (not BackwardTractableSampler:
 // the mapping is discrete).
 template<typename T, typename CumulativeProbabilityAccessor, typename PdfAccessor>
 struct CumulativeProbabilitySampler

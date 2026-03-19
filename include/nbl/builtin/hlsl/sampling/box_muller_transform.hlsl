@@ -22,7 +22,7 @@ struct BoxMullerTransform
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
 
-    // InvertibleSampler concept types
+    // BackwardTractableSampler concept types
     using domain_type = vector2_type;
     using codomain_type = vector2_type;
     using density_type = scalar_type;

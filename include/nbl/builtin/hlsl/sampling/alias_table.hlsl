@@ -27,7 +27,7 @@ namespace sampling
 // - AliasIndexAccessor:  returns uint32_t redirect index for bin i
 // - PdfAccessor:         returns scalar_type weight[i] / totalWeight
 //
-// Satisfies TractableSampler (not InvertibleSampler: the mapping is discrete).
+// Satisfies TractableSampler (not BackwardTractableSampler: the mapping is discrete).
 // The cache stores the sampled index so forwardPdf can look up the PDF.
 template<typename T, typename ProbabilityAccessor, typename AliasIndexAccessor, typename PdfAccessor>
 struct AliasTable
