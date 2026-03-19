@@ -20,17 +20,19 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(nullptr));
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(nullptr));
     
+    // Builtins still live in the main archive cache for normal path resolution.
+    // This separate bootstrap tracking is only for exact unmounting and regression tests.
     #ifdef NBL_EMBED_BUILTIN_RESOURCES
-    mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
-    mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
-    mount(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
-    mount(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr));
+    mountBuiltin(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
+    mountBuiltin(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
+    mountBuiltin(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
+    mountBuiltin(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr));
     #else
     // TODO: absolute default entry paths? we should do something with it
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/video");
+    mountBuiltin(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
+    mountBuiltin(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
+    mountBuiltin(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
+    mountBuiltin(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/video");
 #endif
 }
 
@@ -321,34 +323,41 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
 }
 
 void ISystem::unmountBuiltins() {
-
-    auto removeByKey = [&, this](const char* s) {
-        auto range = m_cachedArchiveFiles.findRange(s);
-
-        std::vector<core::smart_refctd_ptr<IFileArchive>> items_to_remove = {}; //is it always just 1 item?
-        for (auto it = range.begin(); it != range.end(); ++it)
-        {
-            items_to_remove.push_back(it->second);
-        }
-        for (size_t i = 0; i < items_to_remove.size(); i++)
-        {
-            m_cachedArchiveFiles.removeObject(items_to_remove[i], s);
-        }
-    };
-
-    removeByKey("nbl");
-    removeByKey("spirv");
-    removeByKey("boost");
+    for (auto& mount : m_builtinMounts)
+        unmount(mount.archive.get(), mount.pathAlias);
+    m_builtinMounts.clear();
 }
 
 bool ISystem::areBuiltinsMounted() const
 {
-    // TODO: we need to span our keys and reuse accross this cpp to not DRY
-    for (const auto& it : { "nbl/builtin", "nbl/video", "spirv", "boost" })
-		if (!isDirectory(path(it)))
-			return false;
+    return !m_builtinMounts.empty() && getMountedBuiltinArchiveCount() == m_builtinMounts.size();
+}
 
-    return true;
+size_t ISystem::getMountedBuiltinArchiveCount() const
+{
+    size_t retval = 0ull;
+    for (const auto& mount : m_builtinMounts)
+        retval += size_t(isBuiltinMounted(mount));
+    return retval;
+}
+
+void ISystem::mountBuiltin(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias)
+{
+    auto tracked = archive;
+    mount(std::move(archive), pathAlias);
+    m_builtinMounts.push_back({ std::move(tracked), pathAlias });
+}
+
+bool ISystem::isBuiltinMounted(const SBuiltinMount& mount) const
+{
+    const auto lookupKey = mount.pathAlias.empty() ? mount.archive->getDefaultAbsolutePath() : mount.pathAlias;
+    const auto range = m_cachedArchiveFiles.findRange(lookupKey);
+    for (auto it = range.begin(); it != range.end(); ++it)
+    {
+        if (it->second.get() == mount.archive.get())
+            return true;
+    }
+    return false;
 }
 
 #ifdef _NBL_PLATFORM_WINDOWS_

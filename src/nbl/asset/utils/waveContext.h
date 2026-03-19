@@ -8,6 +8,7 @@
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+#include <unordered_set>
 
 #include "nbl/asset/utils/IShaderCompiler.h"
 
@@ -28,6 +29,8 @@ struct load_to_string final
             static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
             {
                 iter_ctx.instring = iter_ctx.ctx.get_located_include_content();
+                if (!iter_ctx.instring.empty() && iter_ctx.instring.back() != '\n' && iter_ctx.instring.back() != '\r')
+                    iter_ctx.instring.push_back('\n');
 
                 using iterator_type = IterContextT::iterator_type;
                 iter_ctx.first = iterator_type(iter_ctx.instring.begin(),iter_ctx.instring.end(),PositionT(iter_ctx.filename),language);
@@ -71,7 +74,6 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         typename ContextT::token_type const& act_token
     )
     {
-        hash_token_occurences++;
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr,"shader_stage")==0) 
         {
@@ -117,12 +119,13 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
                 std::string compiler_option_s = std::string(valueIter->get_value().c_str());
                 // the compiler_option_s is a token thus can be only part of the actual argument, i.e. "-spirv" will be split into tokens [ "-", "spirv" ]
                 // for dxc_compile_flags just join the strings until it finds a whitespace or end of args
-
-                if (compiler_option_s == " ") 
+                if (IS_CATEGORY(*valueIter, WhiteSpaceTokenType))
                 {
-                    // push argument and reset
-                    m_dxc_compile_flags_override.push_back(arg);
-                    arg.clear();
+                    if (!arg.empty())
+                    {
+                        m_dxc_compile_flags_override.push_back(arg);
+                        arg.clear();
+                    }
                 }
                 else 
                 {
@@ -191,15 +194,17 @@ class context : private boost::noncopyable
         context(target_iterator_type const& first_, target_iterator_type const& last_, char const* fname, preprocessing_hooks const& hooks_)
             : first(first_), last(last_), filename(fname)
             , has_been_initialized(false)
+            , current_filename(fname)
             , current_relative_filename(fname)
             , macros(*this_())
             , language(language_support(
-                support_cpp20
-                | support_option_preserve_comments
-                | support_option_emit_line_directives
-                | support_option_emit_pragma_directives
-//                | support_option_emit_contnewlines
-//                | support_option_insert_whitespace
+                support_cpp20 // C++20 lexer mode. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L56-L59
+                | support_option_prefer_pp_numbers // Prefer pp-number lexing before retokenization. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L71
+                | support_option_preserve_comments // Keep comments in the token stream. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L67
+                | support_option_emit_line_directives // Emit #line directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L72
+                | support_option_emit_pragma_directives // Keep pragma directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L74
+//                | support_option_emit_contnewlines // Emit escaped line continuations. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L65
+//                | support_option_insert_whitespace // Let Wave inject separator whitespace. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L66
             ))
             , hooks(hooks_)
         {
@@ -440,6 +445,32 @@ class context : private boost::noncopyable
         }
 
     public:
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        void set_current_filename(char const* real_name)
+        {
+            current_filename = real_name;
+        }
+        std::string const& get_current_filename() const
+        {
+            return current_filename;
+        }
+
+        bool has_pragma_once(std::string const& filename_) const
+        {
+            return pragma_once_headers.contains(filename_);
+        }
+        bool add_pragma_once_header(std::string const& filename_, std::string const& guard_name)
+        {
+            get_hooks().detected_include_guard(derived(), filename_, guard_name);
+            return pragma_once_headers.emplace(filename_).second;
+        }
+        bool add_pragma_once_header(token_type const& pragma_, std::string const& filename_)
+        {
+            get_hooks().detected_pragma_once(derived(), pragma_, filename_);
+            return pragma_once_headers.emplace(filename_).second;
+        }
+#endif
+
         void set_current_relative_filename(char const* real_name)
         {
             current_relative_filename = real_name;
@@ -464,12 +495,16 @@ class context : private boost::noncopyable
         const std::string filename;               // associated main filename
         bool has_been_initialized;          // set cwd once
 
+        std::string current_filename;              // real name of current preprocessed file
         std::string current_relative_filename;        // real relative name of current preprocessed file
 
         // Nabla Additions Start
         // these are temporaries!
         system::path current_dir;
         core::string located_include_content;
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        std::unordered_set<std::string> pragma_once_headers;
+#endif
         // Cache Additions 
         bool cachingRequested = false;
         std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
@@ -525,6 +560,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         return false;
     }
 
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    if (ctx.has_pragma_once(result.absolutePath.string()))
+        return true;
+#endif
+
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {
         ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, standardInclude, std::move(result.hash));
@@ -559,6 +599,9 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         must_emit_line_directive = true;
 
         act_pos.set_file(iter_ctx->filename);  // initialize file position
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        ctx.set_current_filename(result.absolutePath.string().c_str());
+#endif
 
         ctx.set_current_relative_filename(file_path.c_str());
         iter_ctx->real_relative_filename = file_path.c_str();

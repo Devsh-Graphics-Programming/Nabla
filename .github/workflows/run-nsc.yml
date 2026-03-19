@@ -123,7 +123,7 @@ jobs:
           & "nginx/nginx-1.24.0/nginx.exe" -t -p "nginx/nginx-1.24.0" -c "conf/nginx.conf"
 
       - name: Download NSC Godbolt artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           run-id: ${{ inputs.run_id }}
           pattern: run-windows-*-msvc-${{ inputs.build_config }}-nsc-godbolt-image
