@@ -627,6 +627,25 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     return { f->getFileName(),std::move(contents) };
 }
 
+namespace
+{
+std::string normalizeIncludeLookupName(const std::string& includeName)
+{
+    if (includeName.size() <= 1ull)
+        return includeName;
+
+    const auto first = includeName.front();
+    const auto second = includeName[1ull];
+    const bool hasSingleLeadingSeparator =
+        (first == '/' || first == '\\') &&
+        second != '/' && second != '\\';
+    if (!hasSingleLeadingSeparator)
+        return includeName;
+
+    return includeName.substr(1ull);
+}
+}
+
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 {
@@ -639,12 +658,13 @@ IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::I
 // @param 
 auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
+    const auto lookupName = normalizeIncludeLookupName(includeName);
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (auto contents = tryIncludeGenerators(includeName))
+    if (auto contents = tryIncludeGenerators(lookupName))
         retVal = std::move(contents);
-    else if (auto contents = trySearchPaths(includeName))
+    else if (auto contents = trySearchPaths(lookupName))
         retVal = std::move(contents);
-    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
+    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName);
 
 
     core::blake3_hasher hasher;
@@ -658,10 +678,11 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 // @param includeName: the string within "" of the include preprocessing directive
 auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
+    const auto lookupName = normalizeIncludeLookupName(includeName);
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
+    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName))
         retVal = std::move(contents);
-    else retVal = std::move(trySearchPaths(includeName));
+    else retVal = std::move(trySearchPaths(lookupName));
 
     core::blake3_hasher hasher;
     hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
