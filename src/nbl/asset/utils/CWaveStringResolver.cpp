@@ -316,10 +316,6 @@ std::string preprocessImpl(
     std::function<void(nbl::wave::context&)> post)
 {
     nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
-    context.set_caching(withCaching);
-    context.add_macro_definition("__HLSL_VERSION");
-    context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
-    context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
 
     WaveRenderProgress renderProgress;
     const char* phase = "registering built-in macros";
@@ -335,6 +331,11 @@ std::string preprocessImpl(
     };
     try
     {
+        context.set_caching(withCaching);
+        context.add_macro_definition("__HLSL_VERSION");
+        context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
+        context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
+
         phase = "registering extra macro definitions";
         for (const auto& define : preprocessOptions.extraDefines)
         {

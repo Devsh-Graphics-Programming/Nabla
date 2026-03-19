@@ -8,6 +8,7 @@
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+#include <string_view>
 #include <unordered_set>
 
 #include "nbl/asset/utils/IShaderCompiler.h"
