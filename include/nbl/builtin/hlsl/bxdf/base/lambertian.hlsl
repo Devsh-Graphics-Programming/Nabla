@@ -28,7 +28,7 @@ struct SLambertianBase
     quotient_pdf_type eval_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         const spectral_type quo = hlsl::promote<spectral_type>(_sample.getNdotL(_clamp) * numbers::inv_pi<scalar_type> * hlsl::mix(1.0, 0.5, IsBSDF));
-        return quotient_pdf_type::create(quo, pdf(_sample, interaction));
+        return quotient_pdf_type::create(quo, denominator(_sample, interaction));
     }
     quotient_pdf_type eval_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
@@ -63,16 +63,17 @@ struct SLambertianBase
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    // pdf function, because this BxDF has a tractable pdf, indicates that eval weight is also pdf
+    scalar_type denominator(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         NBL_IF_CONSTEXPR (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
         else
             return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type denominator(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return pdf(_sample, interaction.isotropic);
+        return denominator(_sample, interaction.isotropic);
     }
 
     quotient_pdf_type quotient_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC

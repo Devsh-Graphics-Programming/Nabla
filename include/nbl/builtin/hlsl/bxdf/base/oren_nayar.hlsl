@@ -62,7 +62,7 @@ struct SOrenNayarBase
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
-        return quotient_pdf_type::create(__eval<SQuery>(query, _sample, interaction), pdf(_sample, interaction));
+        return quotient_pdf_type::create(__eval<SQuery>(query, _sample, interaction), denominator(_sample, interaction));
     }
     quotient_pdf_type eval_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
@@ -97,22 +97,23 @@ struct SOrenNayarBase
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    // pdf function, because this BxDF has a tractable pdf
+    scalar_type denominator(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         if (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
         else
             return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type denominator(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return pdf(_sample, interaction.isotropic);
+        return denominator(_sample, interaction.isotropic);
     }
 
     template<typename Query>
     quotient_pdf_type __quotient_and_weight(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type _pdf = pdf(_sample, interaction);
+        scalar_type _pdf = denominator(_sample, interaction);
         scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
         return quotient_pdf_type::create(q, _pdf);
     }
