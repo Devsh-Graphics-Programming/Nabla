@@ -1192,9 +1192,10 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
+            auto pipeline = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
                 info,vk_pipeline
             );
+            output[i] = std::move(pipeline);
             debugNameBuilder.str("");
             const auto& specInfo = createInfos[i].shader;
             debugNameBuilder << specInfo.shader->getFilepathHint() << "(" << specInfo.entryPoint << "," << hlsl::ShaderStage::ESS_COMPUTE << ")\n";
@@ -1448,7 +1449,8 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i],vk_pipeline);
+            auto pipeline = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i],vk_pipeline);
+            output[i] = std::move(pipeline);
             debugNameBuilder.str("");
             auto buildDebugName = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage stage)
             {
@@ -1653,11 +1655,13 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             const auto success = m_devf.vk.vkGetRayTracingShaderGroupHandlesKHR(m_vkdev, vk_pipeline, 0, handleCount, dataSize, shaderGroupHandles->data()) == VK_SUCCESS;
             assert(success);
 
-            output[i] = core::make_smart_refctd_ptr<CVulkanRayTracingPipeline>(
+            auto pipeline = core::make_smart_refctd_ptr<CVulkanRayTracingPipeline>(
               createInfos[i],
               vk_pipeline,
               std::move(shaderGroupHandles)
             );
+
+            output[i] = std::move(pipeline);
         }
     }
     else

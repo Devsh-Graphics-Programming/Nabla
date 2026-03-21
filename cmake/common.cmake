@@ -14,6 +14,8 @@
 
 include_guard(GLOBAL)
 
+include("${CMAKE_CURRENT_LIST_DIR}/nam/nam.cmake")
+
 include(ProcessorCount)
 
 # tmp for external projects, to be removed later when I get rid of them (dxc + jpeg currently)
@@ -172,7 +174,14 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	file(RELATIVE_PATH _REL_DIR_ "${NBL_ROOT_PATH}" "${_EX_SOURCE_DIR_}")
 	
 	if(NOT "${EXECUTABLE_NAME}" STREQUAL commonpch)
-		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
+		set(_nbl_install_exe_args)
+		if(DEFINED NBL_EXECUTABLE_INSTALL_COMPONENT AND NOT NBL_EXECUTABLE_INSTALL_COMPONENT STREQUAL "")
+			list(APPEND _nbl_install_exe_args COMPONENT "${NBL_EXECUTABLE_INSTALL_COMPONENT}")
+		endif()
+		if(DEFINED NBL_EXECUTABLE_INSTALL_EXPORT_SET AND NOT NBL_EXECUTABLE_INSTALL_EXPORT_SET STREQUAL "")
+			list(APPEND _nbl_install_exe_args EXPORT "${NBL_EXECUTABLE_INSTALL_EXPORT_SET}")
+		endif()
+		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin" ${_nbl_install_exe_args})
 		
 		get_target_property(_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_ ${EXECUTABLE_NAME} NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
 		get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
@@ -339,11 +348,22 @@ function(nbl_install_program _TRGT)
 endfunction()
 
 function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
+	cmake_parse_arguments(_NBL_INSTALL_EXE "" "COMPONENT;EXPORT" "" ${ARGN})
 	set(_TARGETS ${_TARGETS})
 	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe/${_RELATIVE_DESTINATION}")
+	set(_COMPONENT Executables)
+	if(_NBL_INSTALL_EXE_COMPONENT)
+		set(_COMPONENT "${_NBL_INSTALL_EXE_COMPONENT}")
+	endif()
+	set(_EXPORT_ARGS)
+	if(_NBL_INSTALL_EXE_EXPORT)
+		set(_EXPORT_ARGS EXPORT "${_NBL_INSTALL_EXE_EXPORT}")
+	endif()
 	
-	foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
-		install(TARGETS ${_TARGETS} RUNTIME DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Executables)
+	install(TARGETS ${_TARGETS} ${_EXPORT_ARGS} RUNTIME DESTINATION ${_DEST_GE_} COMPONENT ${_COMPONENT})
+
+	foreach(_TRGT IN LISTS _TARGETS)
+		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT ${_COMPONENT})
 	endforeach()
 	
 	foreach(_TRGT IN LISTS _TARGETS)
@@ -1379,6 +1399,24 @@ namespace @IMPL_NAMESPACE@ {
 			list(APPEND DEPENDS_ON ${IMPL_DEPENDS})
 		endif()
 
+		function(ERROR_WHILE_PARSING_ITEM)
+			string(JSON ITEM GET "${IMPL_INPUTS}" ${INDEX})
+			message(FATAL_ERROR 
+				"While parsing ${IMPL_TARGET}'s NSC compile rule\n${ITEM}\n"
+				${ARGV}
+			)
+		endfunction()
+
+        set(RULE_MODE compile)
+        string(JSON MODE_TYPE ERROR_VARIABLE MODE_ERROR TYPE "${IMPL_INPUTS}" ${INDEX} MODE)
+        if(NOT MODE_ERROR)
+            if(NOT MODE_TYPE STREQUAL "STRING")
+                ERROR_WHILE_PARSING_ITEM("MODE must be a string when present")
+            endif()
+            string(JSON RULE_MODE GET "${IMPL_INPUTS}" ${INDEX} MODE)
+            string(TOLOWER "${RULE_MODE}" RULE_MODE)
+        endif()
+
         set(HAS_CAPS FALSE)
         set(CAPS_LENGTH 0)
         string(JSON CAPS_TYPE ERROR_VARIABLE ERROR_VAR TYPE "${IMPL_INPUTS}" ${INDEX} CAPS)
@@ -1389,13 +1427,12 @@ namespace @IMPL_NAMESPACE@ {
             endif()
         endif()
 
-		function(ERROR_WHILE_PARSING_ITEM)
-			string(JSON ITEM GET "${IMPL_INPUTS}" ${INDEX})
-			message(FATAL_ERROR 
-				"While parsing ${IMPL_TARGET}'s NSC compile rule\n${ITEM}\n"
-				${ARGV}
-			)
-		endfunction()
+        if(NOT RULE_MODE MATCHES "^(compile|preprocess)$")
+            ERROR_WHILE_PARSING_ITEM(
+                "Invalid MODE \"${RULE_MODE}\"\n"
+                "Allowed modes are: compile, preprocess"
+            )
+        endif()
 
         set(CAP_NAMES "")
         set(CAP_TYPES "")
@@ -1482,6 +1519,15 @@ namespace @IMPL_NAMESPACE@ {
 
 		set_property(TARGET ${IMPL_TARGET} APPEND PROPERTY NBL_CANONICAL_IDENTIFIERS "${NEW_CANONICAL_IDENTIFIER}")
 
+        set(OUTPUT_EXT ".spv")
+        set(OUTPUT_PREFIX "$<CONFIG>/")
+        set(OUTPUT_GROUP_BY_CONFIG TRUE)
+        set(MODE_ARGS "")
+        if(RULE_MODE STREQUAL "preprocess")
+            set(OUTPUT_EXT ".preprocessed.hlsl")
+            list(APPEND MODE_ARGS -P)
+        endif()
+
 		set(HEADER_ITEM_VIEW [=[
 namespace @IMPL_NAMESPACE@ {
 	template<>
@@ -1490,8 +1536,8 @@ namespace @IMPL_NAMESPACE@ {
 	{
 		nbl::core::string retval = "@BASE_KEY@";
 @RETVAL_EVAL@
-		retval += ".spv";
-		return "$<CONFIG>/" + retval;
+		retval += "@OUTPUT_EXT@";
+		return "@OUTPUT_PREFIX@" + retval;
 	}
 }
 
@@ -1516,7 +1562,7 @@ namespace @IMPL_NAMESPACE@ {
 		function(GENERATE_KEYS PREFIX CAP_INDEX CAPS_EVAL_PART)
 			if(NUM_CAPS EQUAL 0 OR CAP_INDEX EQUAL ${NUM_CAPS})
 			# generate .config file
-				set(FINAL_KEY "${BASE_KEY}${PREFIX}.spv") # always add ext even if its already there to make sure asset loader always is able to load as IShader
+				set(FINAL_KEY "${BASE_KEY}${PREFIX}${OUTPUT_EXT}")
 				set(CONFIG_FILE_TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY}")
 				set(CONFIG_FILE "${CONFIG_FILE_TARGET_OUTPUT}.config")
 				set(CAPS_EVAL "${CAPS_EVAL_PART}")
@@ -1524,18 +1570,21 @@ namespace @IMPL_NAMESPACE@ {
 				file(WRITE "${CONFIG_FILE}" "${CONFIG_CONTENT}")
 
 				# generate keys and commands for compiling shaders
-				set(FINAL_KEY_REL_PATH "$<CONFIG>/${FINAL_KEY}")
+				set(FINAL_KEY_REL_PATH "${OUTPUT_PREFIX}${FINAL_KEY}")
 				set(TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY_REL_PATH}")
 				set(DEPFILE_PATH "${TARGET_OUTPUT}.d")
 				set(NBL_NSC_LOG_PATH "${TARGET_OUTPUT}.log")
 
 				set(NBL_NSC_DEPFILE_ARGS "")
-				if(NSC_USE_DEPFILE)
+				set(NBL_NSC_RULE_USE_DEPFILE ${NSC_USE_DEPFILE})
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					set(NBL_NSC_DEPFILE_ARGS -MD -MF "${DEPFILE_PATH}")
 				endif()
 
 				set(NBL_NSC_COMPILE_COMMAND
-					"$<TARGET_FILE:nsc>"
+					"$<TARGET_FILE:Nabla::nsc>"
+					${NBL_NSC_EXTRA_ARGS}
+					${MODE_ARGS}
 					-Fc "${TARGET_OUTPUT}"
 					${COMPILE_OPTIONS} ${REQUIRED_OPTIONS} ${IMPL_COMMON_OPTIONS}
 					${NBL_NSC_DEPFILE_ARGS}
@@ -1545,25 +1594,32 @@ namespace @IMPL_NAMESPACE@ {
 				get_filename_component(NBL_NSC_INPUT_NAME "${TARGET_INPUT}" NAME)
 				get_filename_component(NBL_NSC_CONFIG_NAME "${CONFIG_FILE}" NAME)
 				set(NBL_NSC_BYPRODUCTS "${NBL_NSC_LOG_PATH}")
-				if(NSC_USE_DEPFILE)
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					list(APPEND NBL_NSC_BYPRODUCTS "${DEPFILE_PATH}")
 				endif()
+
+				set(NBL_NSC_CUSTOM_DEPENDS
+					${DEPENDS_ON}
+					Nabla::nsc
+					$<TARGET_NAME_IF_EXISTS:DeviceHeaders>
+				)
+				list(REMOVE_DUPLICATES NBL_NSC_CUSTOM_DEPENDS)
 
 				set(NBL_NSC_CUSTOM_COMMAND_ARGS
 					OUTPUT "${TARGET_OUTPUT}"
 					BYPRODUCTS ${NBL_NSC_BYPRODUCTS}
 					COMMAND ${NBL_NSC_COMPILE_COMMAND}
-					DEPENDS ${DEPENDS_ON}
+					DEPENDS ${NBL_NSC_CUSTOM_DEPENDS}
 					COMMENT "${NBL_NSC_CONFIG_NAME} (${NBL_NSC_INPUT_NAME})"
 					VERBATIM
 					COMMAND_EXPAND_LISTS
 				)
-				if(NSC_USE_DEPFILE)
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					list(APPEND NBL_NSC_CUSTOM_COMMAND_ARGS DEPFILE "${DEPFILE_PATH}")
 				endif()
 				add_custom_command(${NBL_NSC_CUSTOM_COMMAND_ARGS})
 				set(NBL_NSC_OUT_FILES "${TARGET_OUTPUT}" "${NBL_NSC_LOG_PATH}")
-				if(NSC_USE_DEPFILE)
+				if(NBL_NSC_RULE_USE_DEPFILE)
 					list(APPEND NBL_NSC_OUT_FILES "${DEPFILE_PATH}")
 				endif()
 
@@ -1576,11 +1632,11 @@ namespace @IMPL_NAMESPACE@ {
 					HEADER_FILE_ONLY ON
 					VS_TOOL_OVERRIDE None
 				)
-				if(CMAKE_CONFIGURATION_TYPES)
+				if(CMAKE_CONFIGURATION_TYPES AND OUTPUT_GROUP_BY_CONFIG)
 					foreach(_CFG IN LISTS CMAKE_CONFIGURATION_TYPES)
 						set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${_CFG}/${FINAL_KEY}")
 						set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
-						if(NSC_USE_DEPFILE)
+						if(NBL_NSC_RULE_USE_DEPFILE)
 							list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.d")
 						endif()
 						source_group("${OUT}/${_CFG}" FILES ${NBL_NSC_OUT_FILES_IDE})
@@ -1588,7 +1644,7 @@ namespace @IMPL_NAMESPACE@ {
 				else()
 					set(TARGET_OUTPUT_IDE "${IMPL_BINARY_DIR}/${FINAL_KEY}")
 					set(NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}" "${TARGET_OUTPUT_IDE}.log")
-					if(NSC_USE_DEPFILE)
+					if(NBL_NSC_RULE_USE_DEPFILE)
 						list(APPEND NBL_NSC_OUT_FILES_IDE "${TARGET_OUTPUT_IDE}.d")
 					endif()
 					source_group("${OUT}" FILES ${NBL_NSC_OUT_FILES_IDE})
@@ -1619,7 +1675,11 @@ namespace @IMPL_NAMESPACE@ {
 		endfunction()
 
        	GENERATE_KEYS("" 0 "")
-    endforeach()
+	endforeach()
+
+	if(NBL_NSC_MODE STREQUAL "PACKAGE" AND TARGET nsc)
+		add_dependencies(${IMPL_TARGET} nsc)
+	endif()
 
 	unset(KEYS)
 	get_target_property(SPIRVs ${IMPL_TARGET} NBL_SPIRV_OUTPUTS)
