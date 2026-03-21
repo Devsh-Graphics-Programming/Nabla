@@ -64,7 +64,7 @@ struct SphericalTriangle
         return solidAngle(dummy0,dummy1);
     }
 
-    scalar_type projectedSolidAngle(const vector3_type receiverNormal, NBL_REF_ARG(vector3_type) cos_sides, NBL_REF_ARG(vector3_type) csc_sides, NBL_REF_ARG(vector3_type) cos_vertices)
+    scalar_type projectedSolidAngle(const vector3_type receiverNormal, NBL_REF_ARG(vector3_type) cos_vertices)
     {
         if (pyramidAngles())
             return 0.f;

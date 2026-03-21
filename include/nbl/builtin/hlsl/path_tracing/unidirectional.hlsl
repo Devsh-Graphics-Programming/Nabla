@@ -54,7 +54,7 @@ struct Unidirectional
         return hlsl::dot(spectralTypeToLumaCoeffs, col);
     }
 
-    bool closestHitProgram(uint16_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(closest_hit_type) intersectData)
+    bool closestHitProgram(const bool lastBounce, uint16_t depth, uint32_t _sample, NBL_REF_ARG(ray_type) ray, NBL_CONST_REF_ARG(closest_hit_type) intersectData)
     {
         anisotropic_interaction_type interaction = intersectData.getInteraction();
 
@@ -76,7 +76,7 @@ struct Unidirectional
             ray.addPayloadContribution(emissive);
         }
 
-        if (!matLightID.canContinuePath())
+        if (lastBounce || !matLightID.canContinuePath())
             return false;
 
         bxdfnode_type bxdf = materialSystem.getBxDFNode(matID, interaction);
@@ -192,9 +192,9 @@ struct Unidirectional
 
             continuePath = intersection.foundHit();
             if (continuePath)
-                continuePath = closestHitProgram(d, sampleIndex, ray, intersection);
+                continuePath = closestHitProgram(d==maxDepth, d, sampleIndex, ray, intersection);
         }
-        if (!continuePath)
+        if (continuePath)
             missProgram(ray);
 
         const uint32_t sampleCount = sampleIndex + 1;
