@@ -17,6 +17,9 @@
 #include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <functional>
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace nbl::asset
 {
@@ -39,7 +42,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
-				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const = 0;
 		};
 
 		class NBL_API2 IIncludeGenerator : public core::IReferenceCounted
@@ -65,10 +68,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			public:
 				CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
 
-				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
+				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const override;
 
 			protected:
 				core::smart_refctd_ptr<system::ISystem> m_system;
+				mutable std::mutex m_cacheMutex;
+				mutable std::unordered_map<std::string, IIncludeLoader::found_t> m_cache;
+				mutable std::unordered_set<std::string> m_missingCache;
 		};
 
 		class NBL_API2 CIncludeFinder : public core::IReferenceCounted
@@ -79,12 +85,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// ! includes within <>
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within <> of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
+				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true) const;
 
 				// ! includes within ""
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within "" of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
+				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true) const;
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
@@ -93,7 +99,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator);
 
 			protected:
-				IIncludeLoader::found_t trySearchPaths(const std::string& includeName) const;
+				IIncludeLoader::found_t trySearchPaths(const std::string& includeName, bool needHash) const;
 
 				IIncludeLoader::found_t tryIncludeGenerators(const std::string& includeName) const;
 
@@ -137,6 +143,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::span<const SMacroDefinition> extraDefines = {};
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
+			bool preserveComments = false;
 			system::path depfilePath = {};
 			std::function<void(std::string_view)> onPartialOutputOnFailure = {};
 		};

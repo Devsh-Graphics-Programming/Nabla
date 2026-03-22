@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
+#include "includeResolutionCommon.h"
 #include "nbl/asset/utils/shadercUtils.h"
 
 #include <sstream>
@@ -600,22 +601,53 @@ core::vector<std::string> IShaderCompiler::IIncludeGenerator::parseArgumentsFrom
 IShaderCompiler::CFileSystemIncludeLoader::CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
 {}
 
-auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const -> found_t
+auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName, bool needHash) const -> found_t
 {
-    system::path path = searchPath / includeName;
-    if (std::filesystem::exists(path))
-        path = std::filesystem::canonical(path);
+    system::path path = (searchPath / includeName).lexically_normal();
+
+    const auto cacheKey = path.generic_string();
+    if (!cacheKey.empty())
+    {
+        std::lock_guard<std::mutex> lock(m_cacheMutex);
+        const auto found = m_cache.find(cacheKey);
+        if (found != m_cache.end())
+        {
+            if (needHash && found->second.hash == core::blake3_hash_t{})
+            {
+                core::blake3_hasher hasher;
+                hasher.update(reinterpret_cast<uint8_t*>(found->second.contents.data()), found->second.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+                found->second.hash = static_cast<core::blake3_hash_t>(hasher);
+            }
+            return found->second;
+        }
+        if (m_missingCache.contains(cacheKey))
+            return {};
+    }
 
     core::smart_refctd_ptr<system::IFile> f;
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_system->createFile(future, path.c_str(), system::IFile::ECF_READ);
         if (!future.wait())
+        {
+            if (!cacheKey.empty())
+            {
+                std::lock_guard<std::mutex> lock(m_cacheMutex);
+                m_missingCache.insert(cacheKey);
+            }
             return {};
+        }
         future.acquire().move_into(f);
     }
     if (!f)
+    {
+        if (!cacheKey.empty())
+        {
+            std::lock_guard<std::mutex> lock(m_cacheMutex);
+            m_missingCache.insert(cacheKey);
+        }
         return {};
+    }
     const size_t size = f->getSize();
 
     std::string contents(size, '\0');
@@ -624,7 +656,22 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    return { f->getFileName(),std::move(contents) };
+    found_t retVal = { f->getFileName(),std::move(contents) };
+    if (needHash)
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    }
+
+    if (!cacheKey.empty())
+    {
+        std::lock_guard<std::mutex> lock(m_cacheMutex);
+        m_missingCache.erase(cacheKey);
+        m_cache.insert_or_assign(cacheKey, retVal);
+    }
+
+    return retVal;
 }
 
 namespace
@@ -644,49 +691,68 @@ std::string normalizeIncludeLookupName(const std::string& includeName)
 
     return includeName.substr(1ull);
 }
+
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 {
-    addSearchPath("", m_defaultFileSystemLoader);
 }
 
 // ! includes within <>
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within <> of the include preprocessing directive
 // @param 
-auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash) const -> IIncludeLoader::found_t
 {
     const auto lookupName = normalizeIncludeLookupName(includeName);
     IShaderCompiler::IIncludeLoader::found_t retVal;
     if (auto contents = tryIncludeGenerators(lookupName))
         retVal = std::move(contents);
-    else if (auto contents = trySearchPaths(lookupName))
+    else if (auto contents = trySearchPaths(lookupName, needHash))
         retVal = std::move(contents);
-    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName);
+    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash);
 
 
-    core::blake3_hasher hasher;
-    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    }
     return retVal;
 }
 
 // ! includes within ""
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within "" of the include preprocessing directive
-auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash) const -> IIncludeLoader::found_t
 {
     const auto lookupName = normalizeIncludeLookupName(includeName);
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName))
-        retVal = std::move(contents);
-    else retVal = std::move(trySearchPaths(lookupName));
+    if (asset::detail::isGloballyResolvedIncludeName(lookupName))
+    {
+        if (auto contents = tryIncludeGenerators(lookupName))
+            retVal = std::move(contents);
+        else if (auto contents = trySearchPaths(lookupName, needHash))
+            retVal = std::move(contents);
+        else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash);
+    }
+    else
+    {
+        if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash))
+            retVal = std::move(contents);
+        else if (auto contents = tryIncludeGenerators(lookupName))
+            retVal = std::move(contents);
+        else retVal = std::move(trySearchPaths(lookupName, needHash));
+    }
 
-    core::blake3_hasher hasher;
-    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    }
     return retVal;
 }
 
@@ -713,10 +779,10 @@ void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<
     m_generators.insert(found, generatorToAdd);
 }
 
-auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName, bool needHash) const -> IIncludeLoader::found_t
 {
     for (const auto& itr : m_loaders)
-        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName))
+        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName, needHash))
             return contents;
     return {};
 }

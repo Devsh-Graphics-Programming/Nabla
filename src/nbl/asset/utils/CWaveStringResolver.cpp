@@ -57,13 +57,11 @@ constexpr size_t kWaveFailureLogTokenPreviewMaxChars = 160ull;
 struct WaveRenderProgress
 {
     core::string output;
-    std::optional<nbl::wave::context::position_type> previousPosition = std::nullopt;
+    std::string previousFile;
+    int previousLine = 0;
+    bool hasPreviousToken = false;
     bool previousWasExplicitWhitespace = false;
     size_t emittedTokenCount = 0ull;
-    std::string lastTokenFile;
-    int lastTokenLine = 0;
-    int lastTokenColumn = 0;
-    std::string lastTokenValue;
 };
 
 std::string getLineSnippet(std::string_view text, const int lineNo)
@@ -218,11 +216,6 @@ std::string makeWaveFailureContext(
     stream << "\n  emitted_output_bytes: " << renderProgress.output.size();
     stream << "\n  emitted_output_lines: " << countLogicalLines(renderProgress.output);
     stream << "\n  emitted_token_count: " << renderProgress.emittedTokenCount;
-    if (!renderProgress.lastTokenFile.empty())
-        stream << "\n  last_emitted_token_location: " << nbl::wave::detail::escape_control_chars(renderProgress.lastTokenFile) << ':' << renderProgress.lastTokenLine << ':' << renderProgress.lastTokenColumn;
-    if (!renderProgress.lastTokenValue.empty())
-        stream << "\n  last_emitted_token_value: " << truncateEscapedPreview(nbl::wave::detail::escape_control_chars(renderProgress.lastTokenValue), kWaveFailureLogTokenPreviewMaxChars);
-
     const auto snippet = getLineSnippet(code, lineNo);
     if (!snippet.empty() && fileName && preprocessOptions.sourceIdentifier == fileName)
     {
@@ -248,64 +241,90 @@ bool isWhitespaceLikeToken(const TokenT& token)
     return id == T_NEWLINE || id == T_GENERATEDNEWLINE || id == T_CONTLINE || IS_CATEGORY(token, WhiteSpaceTokenType);
 }
 
-template<typename TokenT>
-std::string tokenValueToString(const TokenT& token)
-{
-    const auto& value = token.get_value();
-    return std::string(value.data(), value.size());
-}
-
 void renderPreprocessedOutput(nbl::wave::context& context, WaveRenderProgress& renderProgress)
 {
     using namespace boost::wave;
 
     util::insert_whitespace_detection whitespace(true);
-
-    for (auto it = context.begin(); it != context.end(); ++it)
+    auto& perfStats = nbl::wave::detail::perf_stats();
+    auto it = context.begin();
+    const auto end = context.end();
+    while (it != end)
     {
+        std::optional<nbl::wave::detail::ScopedPerfTimer> loopBodyTimer;
+        if (perfStats.enabled)
+            loopBodyTimer.emplace(perfStats.loopBodyTime);
+
         const auto& token = *it;
         const auto id = token_id(token);
-        if (id == T_EOF || id == T_EOI)
-            continue;
-
-        const auto explicitWhitespace = isWhitespaceLikeToken(token);
-        const auto& position = token.get_position();
-        const auto value = tokenValueToString(token);
-
-        if (renderProgress.previousPosition.has_value() && !explicitWhitespace)
+        if (id != T_EOF && id != T_EOI)
         {
-            const auto movedToNewLogicalLine =
-                position.get_file() != renderProgress.previousPosition->get_file() ||
-                position.get_line() > renderProgress.previousPosition->get_line();
+            std::optional<nbl::wave::detail::ScopedPerfTimer> tokenTimer;
+            if (perfStats.enabled)
+                tokenTimer.emplace(perfStats.tokenHandlingTime);
 
-            if (movedToNewLogicalLine)
+            const auto explicitWhitespace = isWhitespaceLikeToken(token);
+            const auto& position = token.get_position();
+            const auto& value = token.get_value();
+
+            const auto currentLine = position.get_line();
+            const auto& currentFile = position.get_file();
+
+            if (renderProgress.hasPreviousToken && !explicitWhitespace)
             {
-                if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
+                bool movedToNewLogicalLine = currentLine > renderProgress.previousLine;
+                if (!movedToNewLogicalLine)
                 {
-                    renderProgress.output.push_back('\n');
-                    whitespace.shift_tokens(T_NEWLINE);
+                    movedToNewLogicalLine =
+                        renderProgress.previousFile.size() != currentFile.size() ||
+                        !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin());
+                }
+
+                if (movedToNewLogicalLine)
+                {
+                    if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
+                    {
+                        renderProgress.output.push_back('\n');
+                        whitespace.shift_tokens(T_NEWLINE);
+                    }
+                }
+                else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
+                {
+                    if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
+                    {
+                        renderProgress.output.push_back(' ');
+                        whitespace.shift_tokens(T_SPACE);
+                    }
                 }
             }
-            else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
+
+            renderProgress.output.append(value.data(), value.size());
+            whitespace.shift_tokens(id);
+            if (!renderProgress.hasPreviousToken ||
+                renderProgress.previousFile.size() != currentFile.size() ||
+                !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin()))
             {
-                if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
-                {
-                    renderProgress.output.push_back(' ');
-                    whitespace.shift_tokens(T_SPACE);
-                }
+                renderProgress.previousFile.assign(currentFile.c_str(), currentFile.size());
             }
+            renderProgress.previousLine = currentLine;
+            renderProgress.hasPreviousToken = true;
+            renderProgress.previousWasExplicitWhitespace = explicitWhitespace;
+            ++renderProgress.emittedTokenCount;
+
+            if (tokenTimer.has_value())
+                tokenTimer.reset();
         }
 
-        renderProgress.output += value;
-        whitespace.shift_tokens(id);
-        renderProgress.previousPosition = position;
-        renderProgress.previousWasExplicitWhitespace = explicitWhitespace;
-        const auto& file = position.get_file();
-        renderProgress.lastTokenFile.assign(file.c_str(), file.size());
-        renderProgress.lastTokenLine = position.get_line();
-        renderProgress.lastTokenColumn = position.get_column();
-        renderProgress.lastTokenValue = value;
-        ++renderProgress.emittedTokenCount;
+        if (loopBodyTimer.has_value())
+            loopBodyTimer.reset();
+
+        if (perfStats.enabled)
+        {
+            nbl::wave::detail::ScopedPerfTimer iteratorAdvanceTimer(perfStats.iteratorAdvanceTime);
+            ++it;
+        }
+        else
+            ++it;
     }
 }
 
@@ -331,6 +350,8 @@ std::string preprocessImpl(
     };
     try
     {
+        const auto totalBegin = std::chrono::steady_clock::now();
+        nbl::wave::detail::reset_perf_stats();
         context.set_caching(withCaching);
         context.add_macro_definition("__HLSL_VERSION");
         context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
@@ -347,7 +368,14 @@ std::string preprocessImpl(
         activeMacroDefinition.clear();
 
         phase = "expanding translation unit";
-        renderPreprocessedOutput(context, renderProgress);
+        {
+            nbl::wave::detail::ScopedPerfTimer renderTimer(nbl::wave::detail::perf_stats().renderTime);
+            renderPreprocessedOutput(context, renderProgress);
+        }
+        auto& perfStats = nbl::wave::detail::perf_stats();
+        perfStats.outputBytes = renderProgress.output.size();
+        perfStats.emittedTokenCount = renderProgress.emittedTokenCount;
+        perfStats.totalPreprocessTime = std::chrono::steady_clock::now() - totalBegin;
     }
     catch (boost::wave::preprocess_exception& e)
     {
@@ -384,6 +412,7 @@ std::string preprocessImpl(
     }
 
     post(context);
+    nbl::wave::detail::dump_perf_stats();
 
     return std::move(renderProgress.output);
 }
