@@ -268,8 +268,8 @@ jobs:
 
       - name: Container – Configure Project with CMake
         run: |
-          mkdir profiling
-          mkdir profiling\ccache
+          $statsDir = Join-Path $env:GITHUB_WORKSPACE 'profiling\ccache'
+          New-Item -ItemType Directory -Force -Path $statsDir | Out-Null
           $ccacheStatsLog = Join-Path $env:GITHUB_WORKSPACE "profiling\ccache\stats-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}.log"
           if (Test-Path $ccacheStatsLog) {
             Remove-Item -Force $ccacheStatsLog
@@ -335,6 +335,7 @@ jobs:
         shell: pwsh
         run: |
           $statsDir = Join-Path $env:GITHUB_WORKSPACE 'profiling\ccache'
+          New-Item -ItemType Directory -Force -Path $statsDir | Out-Null
           $suffix = "${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
           $skipNote = Join-Path $statsDir "ccache-stats-$suffix-skipped.txt"
 
