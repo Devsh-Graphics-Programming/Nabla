@@ -59,6 +59,10 @@ jobs:
       mount: C:\mount\nabla
       binary: C:\mount\nabla\build-ct
       install: build-ct\install
+      ccacheVersion: 4.13.2
+      ccacheToolMount: C:\host-tools\ccache
+      ccacheDataMount: C:\host-cache\ccache
+      ccacheMaxSize: 3GiB
 
     strategy:
       fail-fast: false
@@ -176,12 +180,60 @@ jobs:
           $rgDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & $rgExe --version
 
+      - name: Restore ccache host tool
+        id: cache-ccache-tool
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}\ccache-${{ env.ccacheVersion }}-windows-x86_64
+          key: ccache-tool-${{ env.ccacheVersion }}-windows-x86_64
+
+      - name: Install ccache host tool
+        if: steps.cache-ccache-tool.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ccacheVersion = '${{ env.ccacheVersion }}'
+          $archive = Join-Path $env:RUNNER_TEMP "ccache-$ccacheVersion-windows-x86_64.zip"
+          Invoke-WebRequest `
+            -Uri "https://github.com/ccache/ccache/releases/download/v$ccacheVersion/ccache-$ccacheVersion-windows-x86_64.zip" `
+            -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP -Force
+
+      - name: Verify ccache host tool
+        shell: pwsh
+        run: |
+          $ccacheExe = Join-Path $env:RUNNER_TEMP "ccache-${{ env.ccacheVersion }}-windows-x86_64\ccache.exe"
+          if (-not (Test-Path $ccacheExe)) {
+            throw "ccache was not installed on host."
+          }
+          & $ccacheExe --version
+
+      - name: Restore ccache data
+        id: cache-ccache-data
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}\ccache-data-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
+          key: ccache-v1-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}-${{ hashFiles('.github/workflows/build-nabla.yml', 'CMakePresets.json', 'docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake', 'docker/msvc-winsdk/cmake/winsdk-clangcl-toolchain.cmake', 'docker/msvc-winsdk/cmake/impl/pre.cmake') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-v1-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}-${{ hashFiles('.github/workflows/build-nabla.yml', 'CMakePresets.json', 'docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake', 'docker/msvc-winsdk/cmake/winsdk-clangcl-toolchain.cmake', 'docker/msvc-winsdk/cmake/impl/pre.cmake') }}-
+            ccache-v1-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}-
+
+      - name: Prepare ccache directories
+        shell: pwsh
+        run: |
+          $ccacheDataDir = Join-Path $env:RUNNER_TEMP "ccache-data-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
+          $statsDir = Join-Path $env:GITHUB_WORKSPACE 'profiling\ccache'
+          New-Item -ItemType Directory -Force -Path $ccacheDataDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $statsDir | Out-Null
+
       - name: Pull Image
         run: |
           docker pull "${{ env.image }}:${{ matrix.tag }}"
 
       - name: Run Container
         run: |
+          $ccacheToolHost = Join-Path $env:RUNNER_TEMP "ccache-${{ env.ccacheVersion }}-windows-x86_64"
+          $ccacheDataHost = Join-Path $env:RUNNER_TEMP "ccache-data-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
+          $ccacheStatsLog = "${{ env.mount }}\\profiling\\ccache\\stats-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}.log"
           $ctx = docker context show
           $dockerHost = (docker context inspect $ctx | ConvertFrom-Json).Endpoints.docker.Host
           $pipeName = [regex]::Match($dockerHost, '/pipe/(?<n>.+)$').Groups['n'].Value
@@ -192,8 +244,14 @@ jobs:
             --env-file .\docker\ci-windows.env `
             --env-file .\docker\ninja.env `
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
+            --env "CCACHE_DIR=${{ env.ccacheDataMount }}" `
+            --env "CCACHE_BASEDIR=${{ env.mount }}" `
+            --env "CCACHE_MAXSIZE=${{ env.ccacheMaxSize }}" `
+            --env "CCACHE_STATSLOG=$ccacheStatsLog" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
+            -v "${ccacheToolHost}:${{ env.ccacheToolMount }}" `
+            -v "${ccacheDataHost}:${{ env.ccacheDataMount }}" `
             -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
             -w "${{ env.mount }}" `
             "${{ env.image }}:${{ matrix.tag }}" `
@@ -211,10 +269,19 @@ jobs:
       - name: Container – Configure Project with CMake
         run: |
           mkdir profiling
+          mkdir profiling\ccache
+          $ccacheStatsLog = Join-Path $env:GITHUB_WORKSPACE "profiling\ccache\stats-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}.log"
+          if (Test-Path $ccacheStatsLog) {
+            Remove-Item -Force $ccacheStatsLog
+          }
+          New-Item -ItemType File -Force -Path $ccacheStatsLog | Out-Null
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
+              -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=C:/host-tools/ccache/ccache.exe `
+              -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=C:/host-tools/ccache/ccache.exe `
+              -DUSE_CCACHE:BOOL=OFF `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
@@ -263,6 +330,49 @@ jobs:
           if ($installExitCode -ne 0) {
             exit $installExitCode
           }
+
+      - name: Container – Show ccache stats
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $statsDir = Join-Path $env:GITHUB_WORKSPACE 'profiling\ccache'
+          $suffix = "${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
+
+          & docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --show-log-stats -v" `
+            2>&1 | Tee-Object -FilePath (Join-Path $statsDir "ccache-log-stats-$suffix.txt")
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to print ccache log stats."
+          }
+
+          & docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --print-log-stats --format=json" `
+            2>&1 | Set-Content -Path (Join-Path $statsDir "ccache-log-stats-$suffix.json") -Encoding utf8
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to export ccache log stats as JSON."
+          }
+
+          & docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --show-stats -v" `
+            2>&1 | Tee-Object -FilePath (Join-Path $statsDir "ccache-total-stats-$suffix.txt")
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to print total ccache stats."
+          }
+
+          & docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --print-stats --format=json" `
+            2>&1 | Set-Content -Path (Join-Path $statsDir "ccache-total-stats-$suffix.json") -Encoding utf8
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to export total ccache stats as JSON."
+          }
+
+      - name: Upload ccache stats
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccache-stats-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
+          path: profiling/ccache
+          if-no-files-found: error
 
       - name: Record Examples result
         if: ${{ always() }}
