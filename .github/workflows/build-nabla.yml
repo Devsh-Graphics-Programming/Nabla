@@ -245,7 +245,6 @@ jobs:
             --env-file .\docker\ninja.env `
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
             --env "CCACHE_DIR=${{ env.ccacheDataMount }}" `
-            --env "CCACHE_BASEDIR=${{ env.mount }}" `
             --env "CCACHE_MAXSIZE=${{ env.ccacheMaxSize }}" `
             --env "CCACHE_STATSLOG=$ccacheStatsLog" `
             --name orphan --network docker_default `
