@@ -60,7 +60,7 @@ jobs:
       binary: C:\mount\nabla\build-ct
       install: build-ct\install
       ccacheVersion: 4.13.2
-      ccacheToolMount: C:\host-tools\ccache
+      ccacheToolMount: C:\cc
       ccacheDataMount: C:\host-cache\ccache
       ccacheMaxSize: 3GiB
 
@@ -247,6 +247,8 @@ jobs:
             --env "CCACHE_DIR=${{ env.ccacheDataMount }}" `
             --env "CCACHE_MAXSIZE=${{ env.ccacheMaxSize }}" `
             --env "CCACHE_STATSLOG=$ccacheStatsLog" `
+            --env "CCACHE_PREFIX=${{ env.mount }}\\build-ct\\shell.cmd" `
+            --env "CCACHE_PREFIX_CPP=${{ env.mount }}\\build-ct\\shell.cmd" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
             -v "${ccacheToolHost}:${{ env.ccacheToolMount }}" `
@@ -278,8 +280,8 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
-              -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=C:/host-tools/ccache/ccache.exe `
-              -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=C:/host-tools/ccache/ccache.exe `
+              -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=C:/cc/ccache.exe `
+              -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=C:/cc/ccache.exe `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
@@ -344,28 +346,28 @@ jobs:
           }
 
           & docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --show-log-stats -v" `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\cc\ccache.exe --show-log-stats -v" `
             2>&1 | Tee-Object -FilePath (Join-Path $statsDir "ccache-log-stats-$suffix.txt")
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to print ccache log stats."
           }
 
           & docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --print-log-stats --format=json" `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\cc\ccache.exe --print-log-stats --format=json" `
             2>&1 | Set-Content -Path (Join-Path $statsDir "ccache-log-stats-$suffix.json") -Encoding utf8
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to export ccache log stats as JSON."
           }
 
           & docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --show-stats -v" `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\cc\ccache.exe --show-stats -v" `
             2>&1 | Tee-Object -FilePath (Join-Path $statsDir "ccache-total-stats-$suffix.txt")
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to print total ccache stats."
           }
 
           & docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\host-tools\ccache\ccache.exe --print-stats --format=json" `
+            ${{ env.entry }} ${{ env.cmd }} -Command "& C:\cc\ccache.exe --print-stats --format=json" `
             2>&1 | Set-Content -Path (Join-Path $statsDir "ccache-total-stats-$suffix.json") -Encoding utf8
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to export total ccache stats as JSON."
