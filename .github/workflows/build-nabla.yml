@@ -281,7 +281,6 @@ jobs:
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
               -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=C:/host-tools/ccache/ccache.exe `
               -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=C:/host-tools/ccache/ccache.exe `
-              -DUSE_CCACHE:BOOL=OFF `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
