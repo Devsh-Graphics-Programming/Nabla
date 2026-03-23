@@ -100,9 +100,9 @@ struct SOrenNayarBase
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         if (IsBSDF)
-            return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
+            return sampling::ProjectedSphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
         else
-            return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
+            return sampling::ProjectedHemisphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
     }
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {

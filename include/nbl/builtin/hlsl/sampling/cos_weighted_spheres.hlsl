@@ -7,7 +7,6 @@
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
-#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -31,7 +30,7 @@ struct ProjectedHemisphere
 
 	struct cache_type
 	{
-		density_type pdf;
+		scalar_type L_z;
 	};
 
 	static codomain_type __generate(const domain_type _sample)
@@ -44,33 +43,18 @@ struct ProjectedHemisphere
 	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
 		const codomain_type L = __generate(_sample);
-		cache.pdf = __pdf(L.z);
+		cache.L_z = L.z;
 		return L;
-	}
-
-	static domain_type __generateInverse(const codomain_type L)
-	{
-		return ConcentricMapping<T>::generateInverse(L.xy);
 	}
 
 	static domain_type generateInverse(const codomain_type L)
 	{
-		return __generateInverse(L);
-	}
-
-	static T __pdf(const T L_z)
-	{
-		return L_z * numbers::inv_pi<T>;
-	}
-
-	static scalar_type pdf(const T L_z)
-	{
-		return __pdf(L_z);
+		return ConcentricMapping<T>::generateInverse(L.xy);
 	}
 
 	static density_type forwardPdf(const cache_type cache)
 	{
-		return cache.pdf;
+		return cache.L_z * numbers::inv_pi<T>;
 	}
 
 	static weight_type forwardWeight(const cache_type cache)
@@ -80,24 +64,14 @@ struct ProjectedHemisphere
 
 	static density_type backwardPdf(const codomain_type L)
 	{
-		return __pdf(L.z);
+		cache_type c;
+		c.L_z = L.z;
+		return forwardPdf(c);
 	}
 
 	static weight_type backwardWeight(const codomain_type L)
 	{
 		return backwardPdf(L);
-	}
-
-	template<typename U = vector<T, 1> >
-	static quotient_and_pdf<U, T> quotientAndPdf(const T L)
-	{
-		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), __pdf(L));
-	}
-
-	template<typename U = vector<T, 1> >
-	static quotient_and_pdf<U, T> quotientAndPdf(const vector_t3 L)
-	{
-		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), __pdf(L.z));
 	}
 };
 
@@ -115,10 +89,7 @@ struct ProjectedSphere
 	using density_type = T;
 	using weight_type = density_type;
 
-	struct cache_type
-	{
-		density_type pdf;
-	};
+	using cache_type = typename hemisphere_t::cache_type;
 
 	static codomain_type __generate(NBL_REF_ARG(domain_type) _sample)
 	{
@@ -134,35 +105,22 @@ struct ProjectedSphere
 	static codomain_type generate(NBL_REF_ARG(domain_type) _sample, NBL_REF_ARG(cache_type) cache)
 	{
 		const codomain_type L = __generate(_sample);
-		cache.pdf = __pdf(L.z);
+		cache.L_z = L.z;
 		return L;
-	}
-
-	static domain_type __generateInverse(const codomain_type L)
-	{
-		// NOTE: incomplete information to recover exact z component; we only know which hemisphere L came from,
-		// so we return a canonical value (0.0 for upper, 1.0 for lower) that round-trips correctly through __generate
-		return vector_t3(hemisphere_t::__generateInverse(L), hlsl::mix(T(1.0), T(0.0), L.z > T(0.0)));
 	}
 
 	static domain_type generateInverse(const codomain_type L)
 	{
-		return __generateInverse(L);
-	}
-
-	static T __pdf(T L_z)
-	{
-		return T(0.5) * hemisphere_t::__pdf(hlsl::abs(L_z));
-	}
-
-	static scalar_type pdf(T L_z)
-	{
-		return __pdf(L_z);
+		// NOTE: incomplete information to recover exact z component; we only know which hemisphere L came from,
+		// so we return a canonical value (0.0 for upper, 1.0 for lower) that round-trips correctly through __generate
+		return vector_t3(hemisphere_t::generateInverse(L), hlsl::mix(T(1.0), T(0.0), L.z > T(0.0)));
 	}
 
 	static density_type forwardPdf(const cache_type cache)
 	{
-		return cache.pdf;
+		cache_type hc;
+		hc.L_z = hlsl::abs(cache.L_z);
+		return T(0.5) * hemisphere_t::forwardPdf(hc);
 	}
 
 	static weight_type forwardWeight(const cache_type cache)
@@ -172,24 +130,14 @@ struct ProjectedSphere
 
 	static density_type backwardPdf(const codomain_type L)
 	{
-		return __pdf(L.z);
+		cache_type c;
+		c.L_z = L.z;
+		return forwardPdf(c);
 	}
 
 	static weight_type backwardWeight(const codomain_type L)
 	{
 		return backwardPdf(L);
-	}
-
-	template<typename U = vector<T, 1> >
-	static quotient_and_pdf<U, T> quotientAndPdf(T L)
-	{
-		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), __pdf(L));
-	}
-
-	template<typename U = vector<T, 1> >
-	static quotient_and_pdf<U, T> quotientAndPdf(const vector_t3 L)
-	{
-		return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), __pdf(L.z));
 	}
 };
 

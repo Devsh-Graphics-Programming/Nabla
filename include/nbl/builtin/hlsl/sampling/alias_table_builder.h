@@ -2,14 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_CORE_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
-#define _NBL_CORE_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
 
 #include <cstdint>
 
 namespace nbl
 {
-namespace core
+namespace hlsl
 {
 namespace sampling
 {
@@ -86,7 +86,7 @@ struct AliasTableBuilder
 };
 
 } // namespace sampling
-} // namespace core
+} // namespace hlsl
 } // namespace nbl
 
 #endif

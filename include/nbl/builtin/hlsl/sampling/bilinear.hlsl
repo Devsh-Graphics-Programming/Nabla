@@ -57,7 +57,7 @@ struct Bilinear
         Linear<scalar_type> linearx = Linear<scalar_type>::create(ySliceEndPoints);
         p.x = linearx.generate(u.x, linearCache);
 
-        cache.pdf = backwardPdf(p);
+        cache.pdf = nbl::hlsl::mix(ySliceEndPoints[0], ySliceEndPoints[1], p.x) * fourOverTwiceAreasUnderXCurveSum;
         return p;
     }
 

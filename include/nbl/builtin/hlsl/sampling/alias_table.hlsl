@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
+#include <nbl/builtin/hlsl/concepts/accessors/generic_shared_data.hlsl>
 
 namespace nbl
 {
@@ -20,31 +21,36 @@ namespace sampling
 // Samples a discrete index in [0, N) with probability proportional to
 // precomputed weights in O(1) time per sample, using a prebuilt alias table.
 //
-// Template parameters are ReadOnly accessors, each with:
-//   value_type get(uint32_t i) const;
+// Accessor template parameters must satisfy GenericReadAccessor:
+//   accessor.template get<V, I>(index, outVal)  // void, writes to outVal
 //
-// - ProbabilityAccessor: returns scalar_type threshold in [0, 1] for bin i
-// - AliasIndexAccessor:  returns uint32_t redirect index for bin i
-// - PdfAccessor:         returns scalar_type weight[i] / totalWeight
+// - ProbabilityAccessor: reads scalar_type threshold in [0, 1] for bin i
+// - AliasIndexAccessor:  reads uint32_t redirect index for bin i
+// - PdfAccessor:         reads scalar_type weight[i] / totalWeight
 //
 // Satisfies TractableSampler (not BackwardTractableSampler: the mapping is discrete).
-// The cache stores the sampled index so forwardPdf can look up the PDF.
-template<typename T, typename ProbabilityAccessor, typename AliasIndexAccessor, typename PdfAccessor>
+// The cache stores the PDF value looked up during generate, avoiding redundant
+// storage of the codomain (sampled index) which is already the return value.
+template<typename T, typename Domain, typename Codomain, typename ProbabilityAccessor, typename AliasIndexAccessor, typename PdfAccessor
+	NBL_PRIMARY_REQUIRES(
+		concepts::accessors::GenericReadAccessor<ProbabilityAccessor, T, Codomain> &&
+		concepts::accessors::GenericReadAccessor<AliasIndexAccessor, Codomain, Codomain> &&
+		concepts::accessors::GenericReadAccessor<PdfAccessor, T, Codomain>)
 struct AliasTable
 {
 	using scalar_type = T;
 
-	using domain_type = scalar_type;
-	using codomain_type = uint32_t;
+	using domain_type = Domain;
+	using codomain_type = Codomain;
 	using density_type = scalar_type;
 	using weight_type = density_type;
 
 	struct cache_type
 	{
-		codomain_type sampledIndex;
+		density_type pdf;
 	};
 
-	static AliasTable create(NBL_CONST_REF_ARG(ProbabilityAccessor) _probAccessor, NBL_CONST_REF_ARG(AliasIndexAccessor) _aliasAccessor, NBL_CONST_REF_ARG(PdfAccessor) _pdfAccessor, uint32_t _size)
+	static AliasTable create(NBL_CONST_REF_ARG(ProbabilityAccessor) _probAccessor, NBL_CONST_REF_ARG(AliasIndexAccessor) _aliasAccessor, NBL_CONST_REF_ARG(PdfAccessor) _pdfAccessor, codomain_type _size)
 	{
 		AliasTable retval;
 		retval.probAccessor = _probAccessor;
@@ -60,15 +66,24 @@ struct AliasTable
 	codomain_type generate(const domain_type u)
 	{
 		const scalar_type scaled = u * tableSizeMinusUlp;
-		const uint32_t bin = uint32_t(scaled);
+		const codomain_type bin = codomain_type(scaled);
 		const scalar_type remainder = scaled - scalar_type(bin);
+
+		scalar_type prob;
+		probAccessor.template get<scalar_type, codomain_type>(bin, prob);
 
 		// Use if-statement to avoid select: aliasIndex is a dependent read
 		codomain_type result;
-		if (remainder < probAccessor.get(bin))
+		if (remainder < prob)
+		{
 			result = bin;
+		}
 		else
-			result = aliasAccessor.get(bin);
+		{
+			codomain_type alias;
+			aliasAccessor.template get<codomain_type, codomain_type>(bin, alias);
+			result = alias;
+		}
 
 		return result;
 	}
@@ -77,23 +92,25 @@ struct AliasTable
 	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
 		const codomain_type result = generate(u);
-		cache.sampledIndex = result;
+		pdfAccessor.template get<scalar_type, codomain_type>(result, cache.pdf);
 		return result;
 	}
 
 	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache)
 	{
-		return pdfAccessor.get(cache.sampledIndex);
+		return cache.pdf;
 	}
 
 	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache)
 	{
-		return forwardPdf(cache);
+		return cache.pdf;
 	}
 
 	density_type backwardPdf(const codomain_type v)
 	{
-		return pdfAccessor.get(v);
+		scalar_type pdf;
+		pdfAccessor.template get<scalar_type, codomain_type>(v, pdf);
+		return pdf;
 	}
 
 	weight_type backwardWeight(const codomain_type v)

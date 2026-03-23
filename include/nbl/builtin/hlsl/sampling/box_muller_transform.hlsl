@@ -30,21 +30,29 @@ struct BoxMullerTransform
 
     struct cache_type
     {
-        density_type pdf;
+        scalar_type u_x;
     };
+
+    static BoxMullerTransform<T> create(const scalar_type _stddev)
+    {
+        BoxMullerTransform<T> retval;
+        retval.stddev = _stddev;
+        retval.halfRcpStddev2 = scalar_type(0.5) / (_stddev * _stddev);
+        return retval;
+    }
 
     codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
     {
         scalar_type sinPhi, cosPhi;
         math::sincos<scalar_type>(scalar_type(2.0) * numbers::pi<scalar_type> * u.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
         const codomain_type outPos = vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
-        cache.pdf = backwardPdf(outPos);
+        cache.u_x = u.x;
         return outPos;
     }
 
     density_type forwardPdf(const cache_type cache)
     {
-        return cache.pdf;
+        return halfRcpStddev2 * numbers::inv_pi<scalar_type> * cache.u_x;
     }
 
     vector2_type separateForwardPdf(const cache_type cache, const codomain_type outPos)
@@ -59,18 +67,17 @@ struct BoxMullerTransform
 
     density_type backwardPdf(const codomain_type outPos)
     {
-        const vector2_type marginals = separateBackwardPdf(outPos);
-        return marginals.x * marginals.y;
+        const scalar_type normalization = halfRcpStddev2 * numbers::inv_pi<scalar_type>;
+        return normalization * nbl::hlsl::exp(-halfRcpStddev2 * nbl::hlsl::dot(outPos, outPos));
     }
 
     vector2_type separateBackwardPdf(const codomain_type outPos)
     {
-        const scalar_type stddev2 = stddev * stddev;
-        const scalar_type normalization = scalar_type(1.0) / (stddev * nbl::hlsl::sqrt(scalar_type(2.0) * numbers::pi<scalar_type>));
+        const scalar_type normalization = nbl::hlsl::sqrt(halfRcpStddev2 * numbers::inv_pi<scalar_type>);
         const vector2_type outPos2 = outPos * outPos;
         return vector2_type(
-            normalization * nbl::hlsl::exp(scalar_type(-0.5) * outPos2.x / stddev2),
-            normalization * nbl::hlsl::exp(scalar_type(-0.5) * outPos2.y / stddev2)
+            normalization * nbl::hlsl::exp(-halfRcpStddev2 * outPos2.x),
+            normalization * nbl::hlsl::exp(-halfRcpStddev2 * outPos2.y)
         );
     }
 
@@ -80,6 +87,7 @@ struct BoxMullerTransform
     }
 
     T stddev;
+    T halfRcpStddev2;
 };
 
 } // namespace sampling

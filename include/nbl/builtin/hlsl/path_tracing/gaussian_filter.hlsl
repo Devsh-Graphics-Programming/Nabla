@@ -22,7 +22,7 @@ struct GaussianFilter
     {
         this_t retval;
         retval.truncation = hlsl::exp(-0.5 * gaussianFilterCutoff * gaussianFilterCutoff);
-        retval.boxMuller.stddev = stddev;
+        retval.boxMuller = sampling::BoxMullerTransform<scalar_type>::create(stddev);
         return retval;
     }
 

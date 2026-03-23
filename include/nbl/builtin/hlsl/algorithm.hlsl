@@ -163,21 +163,22 @@ struct lower_to_upper_comparator_transform_t
 
 
 template<class Accessor, class Comparator>
-uint32_t lower_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, const Comparator comp)
+uint32_t lower_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, NBL_REF_ARG(Comparator) comp)
 {
     impl::bound_t<Accessor,Comparator> implementation = impl::bound_t<Accessor,Comparator>::setup(begin,end,value,comp);
-    return implementation(accessor);
+    const uint32_t retval = implementation(accessor);
+    comp = implementation.comp;
+    return retval;
 }
 
 template<class Accessor, class Comparator>
-uint32_t upper_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, const Comparator comp)
+uint32_t upper_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, NBL_REF_ARG(Comparator) comp)
 {
-    //using TransformedComparator = impl::lower_to_upper_comparator_transform_t<Accessor,Comparator>;
-    //TransformedComparator transformedComparator;
-    
     impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> transformedComparator;
     transformedComparator.comp = comp;
-    return lower_bound<Accessor,impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> >(accessor,begin,end,value,transformedComparator);
+    const uint32_t retval = lower_bound<Accessor,impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> >(accessor,begin,end,value,transformedComparator);
+    comp = transformedComparator.comp;
+    return retval;
 }
 
 

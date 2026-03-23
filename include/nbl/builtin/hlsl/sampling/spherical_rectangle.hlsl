@@ -31,10 +31,7 @@ struct SphericalRectangle
     using density_type = scalar_type;
     using weight_type = density_type;
 
-    struct cache_type
-    {
-        density_type pdf;
-    };
+    struct cache_type {};
 
     NBL_CONSTEXPR_STATIC_INLINE scalar_type ClampEps = 1e-5;
 
@@ -63,7 +60,7 @@ struct SphericalRectangle
         retval.solidAngle = p + q - scalar_type(2.0) * numbers::pi<scalar_type>;
 
         // flip z axis if r0.z > 0
-        retval.r0 = hlsl::promote<vector3_type>(-hlsl::abs(retval.r0.z));
+        retval.r0.z = -hlsl::abs(retval.r0.z);
         retval.r1 = retval.r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
 
         retval.b0 = n_z[0];
@@ -94,14 +91,12 @@ struct SphericalRectangle
         const scalar_type hv2 = hv * hv;
         const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - ClampEps);
 
-        cache.pdf = scalar_type(1.0) / solidAngle;
-
         return vector2_type((xu - r0.x), (yv - r0.y));
     }
 
     density_type forwardPdf(const cache_type cache)
     {
-        return cache.pdf;
+        return scalar_type(1.0) / solidAngle;
     }
 
     weight_type forwardWeight(const cache_type cache)

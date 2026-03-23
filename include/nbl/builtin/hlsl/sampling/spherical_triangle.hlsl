@@ -32,19 +32,14 @@ struct SphericalTriangle
 	using density_type = scalar_type;
 	using weight_type = density_type;
 
-	struct cache_type
-	{
-		density_type pdf;
-	};
+	struct cache_type {};
 
 	static SphericalTriangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalTriangle<T>) tri)
 	{
 		SphericalTriangle<T> retval;
-		vector3_type cos_vertices, sin_vertices;
-		shapes::SphericalTriangle<T> tri_mut = tri;
-		retval.solidAngle = tri_mut.solidAngle(cos_vertices, sin_vertices);
-		retval.cosA = cos_vertices[0];
-		retval.sinA = sin_vertices[0];
+		retval.rcpSolidAngle = scalar_type(1.0) / tri.solid_angle;
+		retval.cosA = tri.cos_vertices[0];
+		retval.sinA = tri.sin_vertices[0];
 		retval.tri_vertices[0] = tri.vertices[0];
 		retval.tri_vertices[1] = tri.vertices[1];
 		retval.tri_vertices[2] = tri.vertices[2];
@@ -57,6 +52,7 @@ struct SphericalTriangle
 	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
 		scalar_type negSinSubSolidAngle, negCosSubSolidAngle;
+		const scalar_type solidAngle = scalar_type(1.0) / rcpSolidAngle;
 		math::sincos(solidAngle * u.x - numbers::pi<scalar_type>, negSinSubSolidAngle, negCosSubSolidAngle);
 
 		const scalar_type p = negCosSubSolidAngle * sinA - negSinSubSolidAngle * cosA;
@@ -80,17 +76,15 @@ struct SphericalTriangle
 		const scalar_type csc_b_s = 1.0 / nbl::hlsl::sqrt(1.0 - cosBC_s * cosBC_s);
 		if (csc_b_s < numeric_limits<scalar_type>::max)
 		{
-			const scalar_type cosAngleAlongBC_s = nbl::hlsl::clamp(scalar_type(1.0) + cosBC_s * u.y - u.y, scalar_type(-1.0), scalar_type(1.0));
+			const scalar_type cosAngleAlongBC_s = scalar_type(1.0) + cosBC_s * u.y - u.y;
 			if (nbl::hlsl::abs(cosAngleAlongBC_s) < scalar_type(1.0))
 				retval += math::quaternion<scalar_type>::slerp_delta(tri_vertices[1], C_s * csc_b_s, cosAngleAlongBC_s);
 		}
 
-		cache.pdf = scalar_type(1.0) / solidAngle;
-		
 		return retval;
 	}
 
-	domain_type _generateInverse(const codomain_type L)
+	domain_type generateInverse(const codomain_type L)
 	{
 		const scalar_type cosAngleAlongBC_s = nbl::hlsl::dot(L, tri_vertices[1]);
 		const scalar_type csc_a_ = 1.0 / nbl::hlsl::sqrt(1.0 - cosAngleAlongBC_s * cosAngleAlongBC_s);
@@ -105,13 +99,12 @@ struct SphericalTriangle
 		math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosA, sinA);
 		angle_adder.addAngle(cosB_, sinB_);
 		angle_adder.addAngle(cosC_, sinC_);
-		const scalar_type subTriSolidAngleRatio = (angle_adder.getSumofArccos() - numbers::pi<scalar_type>) * (scalar_type(1.0) / solidAngle);
+		const scalar_type subTriSolidAngleRatio = (angle_adder.getSumofArccos() - numbers::pi<scalar_type>) * rcpSolidAngle;
 		const scalar_type u = subTriSolidAngleRatio > numeric_limits<scalar_type>::min ? subTriSolidAngleRatio : 0.0;
 
 		const scalar_type sinBC_s_product = sinB_ * sinC_;
 
-		// 1 ULP below 1.0, ensures (1.0 - cosBC_s) is strictly positive in float
-		const scalar_type one_below_one = bit_cast<scalar_type>(bit_cast<uint_type>(scalar_type(1)) - uint_type(1));
+		const scalar_type one_below_one = ieee754::nextTowardZero(scalar_type(1.0));
 		const scalar_type cosBC_s = sinBC_s_product > numeric_limits<scalar_type>::min ? (cosA + cosB_ * cosC_) / sinBC_s_product : triCosC;
 		const scalar_type v_denom = scalar_type(1.0) - (cosBC_s < one_below_one ? cosBC_s : triCosC);
 		const scalar_type v = (scalar_type(1.0) - cosAngleAlongBC_s) / v_denom;
@@ -119,14 +112,9 @@ struct SphericalTriangle
 		return vector2_type(u, v);
 	}
 
-	domain_type generateInverse(const codomain_type L)
-	{
-		return _generateInverse(L);
-	}
-
 	density_type forwardPdf(const cache_type cache)
 	{
-		return cache.pdf;
+		return rcpSolidAngle;
 	}
 
 	weight_type forwardWeight(const cache_type cache)
@@ -136,7 +124,7 @@ struct SphericalTriangle
 
 	density_type backwardPdf(const codomain_type L)
 	{
-		return scalar_type(1.0) / solidAngle;
+		return rcpSolidAngle;
 	}
 
 	weight_type backwardWeight(const codomain_type L)
@@ -144,7 +132,7 @@ struct SphericalTriangle
 		return backwardPdf(L);
 	}
 
-	scalar_type solidAngle;
+	scalar_type rcpSolidAngle;
 	scalar_type cosA;
 	scalar_type sinA;
 

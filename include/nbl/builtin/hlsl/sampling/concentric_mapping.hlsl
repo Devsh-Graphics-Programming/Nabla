@@ -32,13 +32,11 @@ struct ConcentricMapping
 
 	struct cache_type
 	{
-		density_type pdf;
 		// TODO: should we cache `r`?
 	};
 
 	static codomain_type generate(const domain_type _u, NBL_REF_ARG(cache_type) cache)
 	{
-		cache.pdf = numbers::inv_pi<T>;
 		//map [0;1]^2 to [-1;1]^2
 		domain_type u = 2.0f * _u - hlsl::promote<vector<T, 2> >(1.0);
 
@@ -75,44 +73,27 @@ struct ConcentricMapping
 
 	static domain_type generateInverse(const codomain_type p)
 	{
-		T theta = hlsl::atan2(p.y, p.x); // -pi -> pi
-		T r = hlsl::sqrt(p.x * p.x + p.y * p.y);
+		const T theta = hlsl::atan2(p.y, p.x); // -pi -> pi
+		const T r = hlsl::sqrt(p.x * p.x + p.y * p.y);
 		const T PiOver4 = T(0.25) * numbers::pi<T>;
+		const T rDivPi4 = r / PiOver4;
 
 		vector<T, 2> u;
 		// TODO: should reduce branching somehow?
-		if (hlsl::abs(theta) < PiOver4 || hlsl::abs(theta) > 3 * PiOver4)
+		if (hlsl::abs(theta) < PiOver4 || hlsl::abs(theta) > T(3) * PiOver4)
 		{
-			r = ieee754::copySign(r, p.x);
-			u.x = r;
-			if (p.x < 0)
-			{
-				if (p.y < 0)
-				{
-					u.y = (numbers::pi<T> + theta) * r / PiOver4;
-				}
-				else
-				{
-					u.y = (theta - numbers::pi<T>)*r / PiOver4;
-				}
-			}
+			const T A = ieee754::copySign(rDivPi4, p.x);
+			u.x = ieee754::copySign(r, p.x);
+			if (p.x < T(0))
+				u.y = theta * A + ieee754::copySign(numbers::pi<T>, -p.y) * A;
 			else
-			{
-				u.y = (theta * r) / PiOver4;
-			}
+				u.y = theta * A;
 		}
 		else
 		{
-			r = ieee754::copySign(r, p.y);
-			u.y = r;
-			if (p.y < 0)
-			{
-				u.x = -(T(0.5) * numbers::pi<T> + theta) * r / PiOver4;
-			}
-			else
-			{
-				u.x = (T(0.5) * numbers::pi<T> - theta) * r / PiOver4;
-			}
+			const T A = ieee754::copySign(rDivPi4, p.y);
+			u.y = ieee754::copySign(r, p.y);
+			u.x = ieee754::copySign(T(0.5) * numbers::pi<T>, p.y) * A - theta * A;
 		}
 
 		return (u + hlsl::promote<vector<T, 2> >(1.0)) * T(0.5);

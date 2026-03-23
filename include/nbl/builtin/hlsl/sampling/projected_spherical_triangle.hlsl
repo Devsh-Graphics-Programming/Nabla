@@ -34,60 +34,67 @@ struct ProjectedSphericalTriangle
 
     struct cache_type
     {
-        density_type pdf;
+        scalar_type abs_cos_theta;
+        typename Bilinear<scalar_type>::cache_type bilinearCache;
     };
 
     // NOTE: produces a degenerate (all-zero) bilinear patch when the receiver normal faces away
     // from all three triangle vertices, resulting in NaN PDFs (0 * inf). Callers must ensure
     // at least one vertex has positive projection onto the receiver normal.
-    Bilinear<scalar_type> computeBilinearPatch()
+    static ProjectedSphericalTriangle<T> create(NBL_REF_ARG(shapes::SphericalTriangle<T>) shape, const vector3_type receiverNormal, const bool receiverWasBSDF)
     {
+        ProjectedSphericalTriangle<T> retval;
+        retval.sphtri = SphericalTriangle<T>::create(shape);
+
         const scalar_type minimumProjSolidAngle = 0.0;
-
-        matrix<T, 3, 3> m = matrix<T, 3, 3>(sphtri.tri_vertices[0], sphtri.tri_vertices[1], sphtri.tri_vertices[2]);
+        matrix<T, 3, 3> m = matrix<T, 3, 3>(shape.vertices[0], shape.vertices[1], shape.vertices[2]);
         const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::mul(m, receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
+        retval.bilinearPatch = Bilinear<scalar_type>::create(bxdfPdfAtVertex.yyxz);
 
-        return Bilinear<scalar_type>::create(bxdfPdfAtVertex.yyxz);
+        const scalar_type projSA = shape.projectedSolidAngle(receiverNormal);
+        retval.rcpProjSolidAngle = projSA > scalar_type(0.0) ? scalar_type(1.0) / projSA : scalar_type(0.0);
+        return retval;
     }
 
     codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
     {
-        Bilinear<scalar_type> bilinear = computeBilinearPatch();
-        typename Bilinear<scalar_type>::cache_type bilinearCache;
-        const vector2_type warped = bilinear.generate(u, bilinearCache);
+        Bilinear<scalar_type> bilinear = bilinearPatch;
+        const vector2_type warped = bilinear.generate(u, cache.bilinearCache);
         typename SphericalTriangle<scalar_type>::cache_type sphtriCache;
         const vector3_type L = sphtri.generate(warped, sphtriCache);
-        // combined weight: sphtri pdf (1/solidAngle) * bilinear pdf at u
-        cache.pdf = sphtri.forwardPdf(sphtriCache) * bilinear.forwardPdf(bilinearCache);
+        cache.abs_cos_theta = bilinear.forwardWeight(cache.bilinearCache);
         return L;
     }
 
     density_type forwardPdf(const cache_type cache)
     {
-        return cache.pdf;
+        return sphtri.rcpSolidAngle * bilinearPatch.forwardPdf(cache.bilinearCache);
     }
 
     weight_type forwardWeight(const cache_type cache)
     {
-        return forwardPdf(cache);
+        return cache.abs_cos_theta * rcpProjSolidAngle;
     }
 
     density_type backwardPdf(const vector3_type L)
     {
-        const density_type pdf = sphtri.backwardPdf(L);
         const vector2_type u = sphtri.generateInverse(L);
-        Bilinear<scalar_type> bilinear = computeBilinearPatch();
-        return pdf * bilinear.backwardPdf(u);
+        return sphtri.rcpSolidAngle * bilinearPatch.backwardPdf(u);
     }
 
     weight_type backwardWeight(const vector3_type L)
     {
-        return backwardPdf(L);
+        cache_type cache;
+        // cache.bilinearCache; // unused
+        // approximate abs(cos_theta) via bilinear interpolation at the inverse-mapped point
+        const vector2_type u = sphtri.generateInverse(L);
+        cache.abs_cos_theta = bilinearPatch.backwardWeight(u);
+        return forwardWeight(cache);
     }
 
     sampling::SphericalTriangle<T> sphtri;
-    vector3_type receiverNormal;
-    bool receiverWasBSDF;
+    Bilinear<scalar_type> bilinearPatch;
+    scalar_type rcpProjSolidAngle;
 };
 
 } // namespace sampling

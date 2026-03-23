@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/tgmath.hlsl>
 
 namespace nbl
 {
@@ -29,7 +30,7 @@ struct Linear
 
     struct cache_type
     {
-        density_type pdf;
+        domain_type u;
     };
 
     static Linear<T> create(const vector2_type linearCoeffs)   // start and end importance values (start, end), assumed to be at x=0 and x=1
@@ -38,7 +39,7 @@ struct Linear
         retval.linearCoeffStart = linearCoeffs[0];
         retval.linearCoeffDiff = linearCoeffs[1] - linearCoeffs[0];
         retval.rcpCoeffSum = scalar_type(1.0) / (linearCoeffs[0] + linearCoeffs[1]);
-        retval.rcpDiff = -scalar_type(1.0) / retval.linearCoeffDiff;
+        retval.negRcpDiff = -scalar_type(1.0) / retval.linearCoeffDiff;
         vector2_type squaredCoeffs = linearCoeffs * linearCoeffs;
         retval.squaredCoeffStart = squaredCoeffs[0];
         retval.squaredCoeffDiff = squaredCoeffs[1] - squaredCoeffs[0];
@@ -47,16 +48,14 @@ struct Linear
 
     density_type __pdf(const codomain_type x)
     {
-        if (x < scalar_type(0.0) || x > scalar_type(1.0))
-            return scalar_type(0.0);
+        assert(x >= scalar_type(0.0) && x <= scalar_type(1.0));
         return scalar_type(2.0) * (linearCoeffStart + x * linearCoeffDiff) * rcpCoeffSum;
     }
 
     codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
     {
-        const codomain_type x = hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * rcpDiff, abs(rcpDiff) < hlsl::numeric_limits<scalar_type>::max);
-        cache.pdf = __pdf(x);
-        return x;
+        cache.u = u;
+        return hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * negRcpDiff, abs(negRcpDiff) < hlsl::numeric_limits<scalar_type>::max);
     }
 
     domain_type generateInverse(const codomain_type x)
@@ -66,7 +65,7 @@ struct Linear
 
     density_type forwardPdf(const cache_type cache)
     {
-        return cache.pdf;
+        return scalar_type(2.0) * nbl::hlsl::sqrt(squaredCoeffStart + cache.u * squaredCoeffDiff) * rcpCoeffSum;
     }
 
     weight_type forwardWeight(const cache_type cache)
@@ -87,7 +86,7 @@ struct Linear
     scalar_type linearCoeffStart;
     scalar_type linearCoeffDiff;
     scalar_type rcpCoeffSum;
-    scalar_type rcpDiff;
+    scalar_type negRcpDiff;
     scalar_type squaredCoeffStart;
     scalar_type squaredCoeffDiff;
 };
