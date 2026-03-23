@@ -10,7 +10,7 @@
 namespace nbl::asset
 {
 
-class ISPIRVEntryPointTrimmer final : public core::IReferenceCounted
+class NBL_API2 ISPIRVEntryPointTrimmer final : public core::IReferenceCounted
 {
     public:
         ISPIRVEntryPointTrimmer();
