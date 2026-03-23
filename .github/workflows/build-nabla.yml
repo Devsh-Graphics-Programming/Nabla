@@ -63,6 +63,7 @@ jobs:
       ccacheToolMount: C:\cc
       ccacheDataMount: C:\host-cache\ccache
       ccacheMaxSize: 3GiB
+      ccacheDebugLevel: 1
 
     strategy:
       fail-fast: false
@@ -222,8 +223,14 @@ jobs:
         run: |
           $ccacheDataDir = Join-Path $env:RUNNER_TEMP "ccache-data-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
           $statsDir = Join-Path $env:GITHUB_WORKSPACE 'profiling\ccache'
+          $suffix = "${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
+          $debugDir = Join-Path $statsDir "debug\$suffix"
           New-Item -ItemType Directory -Force -Path $ccacheDataDir | Out-Null
           New-Item -ItemType Directory -Force -Path $statsDir | Out-Null
+          if (Test-Path $debugDir) {
+            Remove-Item -Recurse -Force $debugDir
+          }
+          New-Item -ItemType Directory -Force -Path $debugDir | Out-Null
 
       - name: Pull Image
         run: |
@@ -234,6 +241,7 @@ jobs:
           $ccacheToolHost = Join-Path $env:RUNNER_TEMP "ccache-${{ env.ccacheVersion }}-windows-x86_64"
           $ccacheDataHost = Join-Path $env:RUNNER_TEMP "ccache-data-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
           $ccacheStatsLog = "${{ env.mount }}\\profiling\\ccache\\stats-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}.log"
+          $ccacheDebugDir = "${{ env.mount }}\\profiling\\ccache\\debug\\${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
           $ctx = docker context show
           $dockerHost = (docker context inspect $ctx | ConvertFrom-Json).Endpoints.docker.Host
           $pipeName = [regex]::Match($dockerHost, '/pipe/(?<n>.+)$').Groups['n'].Value
@@ -246,6 +254,9 @@ jobs:
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
             --env "CCACHE_DIR=${{ env.ccacheDataMount }}" `
             --env "CCACHE_MAXSIZE=${{ env.ccacheMaxSize }}" `
+            --env "CCACHE_DEBUG=1" `
+            --env "CCACHE_DEBUGLEVEL=${{ env.ccacheDebugLevel }}" `
+            --env "CCACHE_DEBUGDIR=$ccacheDebugDir" `
             --env "CCACHE_SLOPPINESS=time_macros" `
             --env "CCACHE_STATSLOG=$ccacheStatsLog" `
             --name orphan --network docker_default `
@@ -373,6 +384,57 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to export total ccache stats as JSON."
           }
+
+      - name: Show ccache debug summary
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $statsDir = Join-Path $env:GITHUB_WORKSPACE 'profiling\ccache'
+          $suffix = "${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
+          $debugDir = Join-Path $statsDir "debug\$suffix"
+          $summaryFile = Join-Path $statsDir "ccache-debug-summary-$suffix.txt"
+
+          if (-not (Test-Path $debugDir)) {
+            "ccache debug directory was not created: $debugDir" | Set-Content -Path $summaryFile -Encoding utf8
+            Get-Content -Path $summaryFile
+            return
+          }
+
+          $debugLogs = Get-ChildItem -Path $debugDir -Recurse -Filter '*.ccache-log' -File
+          if ($debugLogs.Count -eq 0) {
+            "No ccache debug logs were produced in $debugDir" | Set-Content -Path $summaryFile -Encoding utf8
+            Get-Content -Path $summaryFile
+            return
+          }
+
+          $unsupportedMatches = Select-String -Path $debugLogs.FullName -Pattern 'Unsupported source encoding' -Context 8,8
+          @(
+            "ccache debug directory: $debugDir"
+            "ccache debug logs: $($debugLogs.Count)"
+            "unsupported source encoding matches: $($unsupportedMatches.Count)"
+            ""
+          ) | Set-Content -Path $summaryFile -Encoding utf8
+
+          if ($unsupportedMatches.Count -eq 0) {
+            "No unsupported source encoding entries were found in ccache debug logs." | Add-Content -Path $summaryFile -Encoding utf8
+          } else {
+            "=== Unsupported source encoding matches ===" | Add-Content -Path $summaryFile -Encoding utf8
+            "" | Add-Content -Path $summaryFile -Encoding utf8
+
+            foreach ($match in $unsupportedMatches) {
+              "--- $($match.Path)" | Add-Content -Path $summaryFile -Encoding utf8
+              foreach ($line in $match.Context.PreContext) {
+                $line | Add-Content -Path $summaryFile -Encoding utf8
+              }
+              $match.Line | Add-Content -Path $summaryFile -Encoding utf8
+              foreach ($line in $match.Context.PostContext) {
+                $line | Add-Content -Path $summaryFile -Encoding utf8
+              }
+              "" | Add-Content -Path $summaryFile -Encoding utf8
+            }
+          }
+
+          Get-Content -Path $summaryFile
 
       - name: Upload ccache stats
         if: ${{ always() }}
