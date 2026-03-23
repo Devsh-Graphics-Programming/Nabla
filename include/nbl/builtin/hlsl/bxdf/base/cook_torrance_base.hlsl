@@ -156,11 +156,15 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
         if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
-            return hlsl::promote<spectral_type>(0.0);
+            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
+
+        bool isInfinity;
+        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
+        _pdf = hlsl::mix(_pdf, scalar_type(0.0), isInfinity);
 
         using quant_query_type = typename ndf_type::quant_query_type;
         quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
@@ -168,7 +172,6 @@ struct SCookTorrance
         using g2g1_query_type = typename ndf_type::g2g1_query_type;
         g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
 
-        bool isInfinity;
         quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache, isInfinity);
         scalar_type DG = D.projectedLightMeasure;
         if (!isInfinity)
@@ -179,19 +182,22 @@ struct SCookTorrance
         // immediately return only after all calls setting DG
         // allows compiler to throw away calls to ndf.D if using __overwriteDG, before that we only avoid computation for G2(correlated)
         if (isInfinity)
-            return hlsl::promote<spectral_type>(0.0);
+            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
 
         scalar_type clampedVdotH = cache.getVdotH();
         NBL_IF_CONSTEXPR(IsBSDF)
             clampedVdotH = hlsl::abs(clampedVdotH);
         
+        spectral_type quo;
         NBL_IF_CONSTEXPR(IsBSDF)
         {
             const spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
-            return hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
+            quo = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
         }
         else
-            return impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
+            quo = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
+
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
@@ -380,7 +386,7 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         if (!_sample.isValid())
             return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));   // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
