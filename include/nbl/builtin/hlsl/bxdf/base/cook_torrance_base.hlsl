@@ -442,6 +442,7 @@ struct traits<SCookTorrance<Config,N,F> >
     NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = !__type::IsBSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = !__type::IsBSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool TractablePdf = true;
 };
 
 }
