@@ -24,7 +24,8 @@ struct ProtoPipeline final
 			const video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
 			asset::SBlendParams blendParams = {},
-			const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform=hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT
+			const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform=hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT,
+			video::IGPUPipelineCache* pipelineCache = nullptr
 		);
 
 		core::smart_refctd_ptr<asset::IShader> m_vxShader;
