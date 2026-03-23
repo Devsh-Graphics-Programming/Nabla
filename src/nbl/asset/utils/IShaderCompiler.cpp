@@ -697,6 +697,7 @@ std::string normalizeIncludeLookupName(const std::string& includeName)
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 {
+    addSearchPath("", m_defaultFileSystemLoader);
 }
 
 // ! includes within <>
