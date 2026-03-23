@@ -277,6 +277,8 @@ jobs:
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
+              '-DCMAKE_POLICY_DEFAULT_CMP0141:STRING=NEW' `
+              '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT:STRING=$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>' `
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
               -DCMAKE_C_COMPILER_LAUNCHER:FILEPATH=C:/cc/ccache.exe `
               -DCMAKE_CXX_COMPILER_LAUNCHER:FILEPATH=C:/cc/ccache.exe `
