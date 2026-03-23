@@ -163,7 +163,7 @@ struct SCookTorrance
             return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
 
         bool isInfinity;
-        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
+        scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
         _pdf = hlsl::mix(_pdf, scalar_type(0.0), isInfinity);
 
         using quant_query_type = typename ndf_type::quant_query_type;
@@ -347,7 +347,7 @@ struct SCookTorrance
     }
 
     template<class Interaction, class MicrofacetCache>
-    scalar_type __pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
+    scalar_type __forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
     {
         using quant_query_type = typename ndf_type::quant_query_type;
         using dg1_query_type = typename ndf_type::dg1_query_type;
@@ -372,14 +372,14 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
         if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
             return scalar_type(0.0);
 
         bool isInfinity;
-        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
+        scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
         return hlsl::mix(_pdf, scalar_type(0.0), isInfinity);
     }
 
@@ -392,7 +392,7 @@ struct SCookTorrance
             return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));   // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
 
         bool isInfinity;
-        scalar_type _pdf = __pdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
+        scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
         fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
 
         const bool valid = __checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
