@@ -185,16 +185,17 @@ struct Unidirectional
         // bounces
         // note do 1-based indexing because we expect first dimension was consumed to generate the ray
         bool continuePath = true;
+        bool notMissed = true;
         for (uint16_t d = 1; (d <= maxDepth) && continuePath; d++)
         {
             ray.setT(numeric_limits<scalar_type>::max);
             closest_hit_type intersection = intersector_type::traceClosestHit(scene, ray);
 
-            continuePath = intersection.foundHit();
-            if (continuePath)
+            notMissed = intersection.foundHit();
+            if (notMissed)
                 continuePath = closestHitProgram(d==maxDepth, d, sampleIndex, ray, intersection);
         }
-        if (continuePath)
+        if (!notMissed)
             missProgram(ray);
 
         const uint32_t sampleCount = sampleIndex + 1;
