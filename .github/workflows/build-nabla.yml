@@ -246,7 +246,7 @@ jobs:
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
             --env "CCACHE_DIR=${{ env.ccacheDataMount }}" `
             --env "CCACHE_MAXSIZE=${{ env.ccacheMaxSize }}" `
-            --env "CCACHE_SLOPPINESS=pch_defines,time_macros" `
+            --env "CCACHE_SLOPPINESS=time_macros" `
             --env "CCACHE_STATSLOG=$ccacheStatsLog" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
