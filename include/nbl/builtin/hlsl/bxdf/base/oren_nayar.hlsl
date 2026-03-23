@@ -58,15 +58,15 @@ struct SOrenNayarBase
         return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * hlsl::mix(1.0, 0.5, IsBSDF) * __rec_pi_factored_out_wo_clamps(query.getVdotL(), NdotL, interaction.getNdotV(_clamp)));
     }
 
-    quotient_pdf_type eval_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
-        return quotient_pdf_type::create(__eval<SQuery>(query, _sample, interaction), denominator(_sample, interaction));
+        return quotient_pdf_type::create(__eval<SQuery>(query, _sample, interaction), pdf(_sample, interaction));
     }
-    quotient_pdf_type eval_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return eval_and_weight(_sample, interaction.isotropic); 
+        return evalAndWeight(_sample, interaction.isotropic); 
     }
 
     template<typename C=bool_constant<!IsBSDF> >
@@ -97,35 +97,34 @@ struct SOrenNayarBase
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    // pdf function, because this BxDF has a tractable pdf
-    scalar_type denominator(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         if (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
         else
             return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
-    scalar_type denominator(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return denominator(_sample, interaction.isotropic);
+        return pdf(_sample, interaction.isotropic);
     }
 
     template<typename Query>
-    quotient_pdf_type __quotient_and_weight(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type __quotientAndWeight(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type _pdf = denominator(_sample, interaction);
+        scalar_type _pdf = pdf(_sample, interaction);
         scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
         return quotient_pdf_type::create(q, _pdf);
     }
-    quotient_pdf_type quotient_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
-        return __quotient_and_weight<SQuery>(query, _sample, interaction);
+        return __quotientAndWeight<SQuery>(query, _sample, interaction);
     }
-    quotient_pdf_type quotient_and_weight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return quotient_and_weight(_sample, interaction.isotropic);
+        return quotientAndWeight(_sample, interaction.isotropic);
     }
 
     scalar_type A2;

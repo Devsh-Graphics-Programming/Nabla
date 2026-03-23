@@ -918,9 +918,8 @@ NBL_CONCEPT_BEGIN(3)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common_typdefs, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval_and_weight(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.denominator(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_weight(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
@@ -969,9 +968,8 @@ NBL_CONCEPT_BEGIN(3)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common, T))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval_and_weight(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.denominator(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_weight(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
 );
