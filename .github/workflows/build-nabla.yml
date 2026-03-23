@@ -393,6 +393,10 @@ jobs:
           $suffix = "${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}"
           $debugDir = Join-Path $statsDir "debug\$suffix"
           $summaryFile = Join-Path $statsDir "ccache-debug-summary-$suffix.txt"
+          $reasonPatterns = @(
+            'Unsupported source encoding',
+            'Non-UTF-8 source code unsupported in preprocessor mode'
+          )
 
           if (-not (Test-Path $debugDir)) {
             "ccache debug directory was not created: $debugDir" | Set-Content -Path $summaryFile -Encoding utf8
@@ -407,29 +411,46 @@ jobs:
             return
           }
 
-          $unsupportedMatches = Select-String -Path $debugLogs.FullName -Pattern 'Unsupported source encoding' -Context 8,8
+          $unsupportedMatches = Select-String -Path $debugLogs.FullName -Pattern $reasonPatterns
+          $offendingEntries = foreach ($logPath in ($unsupportedMatches.Path | Sort-Object -Unique)) {
+            $sourceLine = Select-String -Path $logPath -Pattern 'Source file:' | Select-Object -First 1
+            $detectedLine = Select-String -Path $logPath -Pattern 'Detected input file:' | Select-Object -First 1
+            $reasonLine = Select-String -Path $logPath -Pattern $reasonPatterns | Select-Object -First 1
+
+            $sourceFile = if ($sourceLine) {
+              $sourceLine.Line -replace '^.*Source file:\s*', ''
+            } elseif ($detectedLine) {
+              $detectedLine.Line -replace '^.*Detected input file:\s*', ''
+            } else {
+              '<missing source file>'
+            }
+
+            [PSCustomObject]@{
+              SourceFile = $sourceFile
+              Reason = if ($reasonLine) { $reasonLine.Line } else { '<missing reason>' }
+              LogPath = $logPath
+            }
+          }
+
           @(
             "ccache debug directory: $debugDir"
             "ccache debug logs: $($debugLogs.Count)"
-            "unsupported source encoding matches: $($unsupportedMatches.Count)"
+            "unsupported source encoding log hits: $($unsupportedMatches.Count)"
+            "unsupported source encoding compile calls: $($offendingEntries.Count)"
+            "unsupported source encoding source files: $(($offendingEntries.SourceFile | Sort-Object -Unique).Count)"
             ""
           ) | Set-Content -Path $summaryFile -Encoding utf8
 
-          if ($unsupportedMatches.Count -eq 0) {
+          if ($offendingEntries.Count -eq 0) {
             "No unsupported source encoding entries were found in ccache debug logs." | Add-Content -Path $summaryFile -Encoding utf8
           } else {
-            "=== Unsupported source encoding matches ===" | Add-Content -Path $summaryFile -Encoding utf8
+            "=== Unsupported source encoding files ===" | Add-Content -Path $summaryFile -Encoding utf8
             "" | Add-Content -Path $summaryFile -Encoding utf8
 
-            foreach ($match in $unsupportedMatches) {
-              "--- $($match.Path)" | Add-Content -Path $summaryFile -Encoding utf8
-              foreach ($line in $match.Context.PreContext) {
-                $line | Add-Content -Path $summaryFile -Encoding utf8
-              }
-              $match.Line | Add-Content -Path $summaryFile -Encoding utf8
-              foreach ($line in $match.Context.PostContext) {
-                $line | Add-Content -Path $summaryFile -Encoding utf8
-              }
+            foreach ($entry in $offendingEntries | Sort-Object SourceFile) {
+              "Source file: $($entry.SourceFile)" | Add-Content -Path $summaryFile -Encoding utf8
+              "Reason: $($entry.Reason)" | Add-Content -Path $summaryFile -Encoding utf8
+              "Debug log: $($entry.LogPath)" | Add-Content -Path $summaryFile -Encoding utf8
               "" | Add-Content -Path $summaryFile -Encoding utf8
             }
           }
