@@ -1,4 +1,4 @@
-// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/material_compiler3/CFrontendIR.h"
@@ -30,6 +30,11 @@ bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 	if (!args.pool->getObjectPool().deref(perpTransmittance))
 	{
 		args.logger.log("Perpendicular Transparency node of correct type must be attached, but is %u of type %s",ELL_ERROR,perpTransmittance,args.pool->getTypeName(perpTransmittance).data());
+		return true;
+	}
+	if (const auto* const thick=args.pool->getObjectPool().deref(thickness); !thick || thick->getKnotCount()!=1)
+	{
+		args.logger.log("Monochromatic Thickness node must be attached, but is %u of type %s",ELL_ERROR,thickness,args.pool->getTypeName(thickness).data());
 		return true;
 	}
 	return false;
@@ -111,18 +116,127 @@ bool CFrontendIR::CCookTorrance::invalid(const SInvalidCheckArgs& args) const
 }
 
 
-auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> other) -> typed_pointer_type<IExprNode>
+auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig) -> typed_pointer_type<const IExprNode>
 {
-	if (const auto* in=getObjectPool().deref(block_allocator_type::_static_cast<const CFresnel>(other)); in)
+	auto& pool = getObjectPool();
+	struct SEntry
 	{
-		auto fresnelH = getObjectPool().emplace<CFresnel>();
-		auto* fresnel = getObjectPool().deref(fresnelH);
-		*fresnel = *in;
-		fresnel->reciprocateEtas = ~in->reciprocateEtas;
-		return fresnelH;
+		typed_pointer_type<const IExprNode> handle;
+		bool visited = false;
+	};
+	core::vector<SEntry> stack;
+	stack.reserve(32);
+	stack.push_back({.handle=orig});
+	// use a hashmap because of holes in child arrays
+	core::unordered_map<typed_pointer_type<const IExprNode>,typed_pointer_type<IExprNode>> substitutions;
+	while (!stack.empty())
+	{
+		auto& entry = stack.back();
+		const auto* const node = pool.deref(entry.handle);
+		if (!node) // this is an error
+			return {};
+		const auto childCount = node->getChildCount();
+		if (entry.visited)
+		{
+			entry.visited = true;
+			for (uint8_t c=0; c<childCount; c++)
+			{
+				const auto childH = node->getChildHandle(c);
+				if (auto child=pool.deref(childH); !child)
+					continue; // this is not an error
+				stack.push_back({.handle=childH});
+			}
+		}
+		else
+		{
+			const bool needToReciprocate = node->reciprocatable();
+			bool needToCopy = needToReciprocate;
+			// if one descendant has changed then we need to copy node
+			if (!needToCopy)
+			{
+				uint8_t c = 0;
+				for (; c<childCount; c++)
+				{
+					if (auto found=substitutions.find(node->getChildHandle(c)); found!=substitutions.end())
+						break;
+				}
+				needToCopy = c!=childCount;
+			}
+			if (needToCopy)
+			{
+				const auto copyH = node->copy(this);
+				// copy copies everything including children
+				auto* const copy = pool.deref(copyH);
+				if (!copy)
+					return {};
+				if (needToReciprocate)
+					node->reciprocate(copy);
+				// only changed children need to be set
+				for (uint8_t c=0; c<childCount; c++)
+				{
+					const auto childH = node->getChildHandle(c);
+					if (!childH)
+						continue;
+					if (auto found=substitutions.find(childH); found!=substitutions.end())
+						copy->setChild(c,found->second);
+				}
+				substitutions.insert({entry.handle,copyH});
+			}
+			stack.pop_back();
+		}
 	}
-	assert(false); // unimplemented
-	return {};
+	// there was nothing to reciprocate in the expression stack
+	if (substitutions.empty())
+		return orig;
+	return substitutions[orig];
+}
+
+auto CFrontendIR::copyLayers(const typed_pointer_type<const CLayer> orig) -> typed_pointer_type<CLayer>
+{
+	auto& pool = getObjectPool();
+	auto copyH = pool.emplace<CLayer>();
+	{
+		auto* outLayer = pool.deref(copyH);
+		for (const auto* layer=pool.deref(orig); true; layer=pool.deref(layer->coated))
+		{
+			*outLayer = *layer;
+			if (!layer->coated)
+			{
+				// terminate the new stack
+				outLayer->coated = {};
+				break;
+			}
+			// continue the new stack
+			outLayer->coated = pool.emplace<CLayer>();
+			outLayer = pool.deref(outLayer->coated);
+		}
+	}
+	return copyH;
+}
+
+auto CFrontendIR::reverse(const typed_pointer_type<const CLayer> orig) -> typed_pointer_type<CLayer>
+{
+	auto& pool = getObjectPool();
+	// we build the new linked list from the tail
+	auto copyH = pool.emplace<CLayer>();
+	{
+		auto* outLayer = pool.deref(copyH);
+		typed_pointer_type<CLayer> underLayerH={};
+		for (const auto* layer=pool.deref(orig); true; layer=pool.deref(layer->coated))
+		{
+			outLayer->coated = underLayerH;
+			// we reciprocate everything because numerator and denominator switch (top and bottom of layer stack)
+			outLayer->brdfBottom = reciprocate(layer->brdfTop)._const_cast();
+			outLayer->btdf = reciprocate(layer->btdf)._const_cast();
+			outLayer->brdfTop = reciprocate(layer->brdfBottom)._const_cast();
+			if (!layer->coated)
+				break;
+			underLayerH = copyH;
+			copyH = pool.emplace<CLayer>();
+			outLayer = pool.deref(copyH);
+		}
+	}
+	return copyH;
 }
 
 auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_pointer_type<CFresnel>
