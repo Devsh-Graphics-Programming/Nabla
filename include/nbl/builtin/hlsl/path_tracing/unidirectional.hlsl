@@ -69,7 +69,7 @@ struct Unidirectional
             if (ray.shouldDoMIS() && matLightID.isLight())
             {
                 emissive *= ray.getPayloadThroughput();
-                const scalar_type pdf = nee.deferred_pdf(scene, lightID, ray);
+                const scalar_type pdf = nee.deferredPdf(scene, lightID, ray);
                 assert(!hlsl::isinf(pdf));
                 emissive *= ray.foundEmissiveMIS(pdf * pdf);
             }
@@ -94,7 +94,7 @@ struct Unidirectional
         assert(neeProbability >= 0.0 && neeProbability <= 1.0);
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
-            typename nee_type::sample_quotient_return_type ret = nee.template generate_and_quotient_and_pdf<material_system_type>(
+            typename nee_type::sample_quotient_return_type ret = nee.template generateAndQuotientAndWeight<material_system_type>(
                 scene, materialSystem, intersectP, interaction,
                 eps0, depth
             );
@@ -108,12 +108,11 @@ struct Unidirectional
             // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
             if (neeContrib.pdf() > scalar_type(0.0))
             {
-                // TODO: we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
-                const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction);
-                neeContrib._quotient *= materialSystem.eval(matID, nee_sample, interaction) * rcpChoiceProb;
+                quotient_pdf_type bsdfContrib = materialSystem.evalAndWeight(matID, nee_sample, interaction);
+                neeContrib._quotient *= bsdfContrib.quotient() * rcpChoiceProb;
                 if (neeContrib.pdf() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
                 {
-                    const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf();
+                    const scalar_type otherGenOverLightAndChoice = bsdfContrib.pdf() * rcpChoiceProb / neeContrib.pdf();
                     neeContrib._quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
                 }
 
@@ -141,9 +140,9 @@ struct Unidirectional
                 return false;
 
             // the value of the bsdf divided by the probability of the sample being generated
-            quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, interaction, _cache);
-            throughput *= bsdf_quotient_pdf.quotient();
-            bxdfPdf = bsdf_quotient_pdf.pdf();
+            quotient_pdf_type bsdf_quotient_weight = materialSystem.quotientAndWeight(matID, bsdf_sample, interaction, _cache);
+            throughput *= bsdf_quotient_weight.quotient();
+            bxdfPdf = bsdf_quotient_weight.pdf();
             bxdfSample = bsdf_sample.getL().getDirection();
         }
 
@@ -170,9 +169,9 @@ struct Unidirectional
 
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
-        measure_type finalContribution = nee.get_environment_radiance(ray);
-        typename nee_type::light_id_type env_light_id = nee.get_env_light_id();
-        const scalar_type pdf = nee.deferred_pdf(scene, env_light_id, ray);
+        measure_type finalContribution = nee.getEnvRadiance(ray);
+        typename nee_type::light_id_type env_light_id = nee.getEnvLightId();
+        const scalar_type pdf = nee.deferredPdf(scene, env_light_id, ray);
         finalContribution *= ray.getPayloadThroughput();
         if (pdf > scalar_type(0.0))
             finalContribution *= ray.foundEmissiveMIS(pdf * pdf);

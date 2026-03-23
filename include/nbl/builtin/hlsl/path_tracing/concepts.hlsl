@@ -182,10 +182,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::create_params_t))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BxdfNode, typename T::bxdfnode_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.eval(matid, _sample, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::measure_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.evalAndWeight(matid, _sample, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.generate(matid, aniso_inter, u, cache_)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.pdf(matid, _sample, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotient_and_pdf(matid, _sample, aniso_inter, cache_)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.quotientAndWeight(matid, _sample, aniso_inter, cache_)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.getBxDFNode(matid, aniso_inter)), ::nbl::hlsl::is_same_v, typename T::bxdfnode_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.hasEmission(matid)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matsys.setMonochromeEta(matid, cie_y)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
@@ -261,10 +260,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::tolerance_method_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NextEventEstimatorSampleQuotientReturn, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferred_pdf(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generate_and_quotient_and_pdf<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, v/*xi*/, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_env_light_id()), ::nbl::hlsl::is_same_v, typename T::light_id_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.get_environment_radiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferredPdf(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generateAndQuotientAndWeight<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, v/*xi*/, depth)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.getEnvLightId()), ::nbl::hlsl::is_same_v, typename T::light_id_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.getEnvRadiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
 );
 #undef scene
 #undef depth
