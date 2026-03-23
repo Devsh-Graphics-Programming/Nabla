@@ -23,6 +23,8 @@ struct SDeltaDistribution
     using this_t = SDeltaDistribution<Config>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
+    using random_type = vector2_type;
+
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
     quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
@@ -34,7 +36,7 @@ struct SDeltaDistribution
         return quotient_pdf_type::create(0.0, 0.0);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
     {
         ray_dir_info_type L = interaction.getV().transmit();
         sample_type s = sample_type::create(L, interaction.getN());
@@ -44,7 +46,7 @@ struct SDeltaDistribution
         s.NdotL2 = interaction.getNdotV2();
         return s;
     }
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
     {
         return generate(anisotropic_interaction_type::create(interaction), u);
     }

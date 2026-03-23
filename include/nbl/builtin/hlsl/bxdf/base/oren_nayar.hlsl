@@ -23,6 +23,8 @@ struct SOrenNayarBase
     using this_t = SOrenNayarBase<Config, IsBSDF>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
+    using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
+
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
 
     struct SCreationParams
@@ -70,7 +72,7 @@ struct SOrenNayarBase
     }
 
     template<typename C=bool_constant<!IsBSDF> >
-    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
     {
         typename sampling::ProjectedHemisphere<scalar_type>::cache_type cache;
         ray_dir_info_type L;
@@ -78,7 +80,7 @@ struct SOrenNayarBase
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
     template<typename C=bool_constant<IsBSDF> >
-    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u) NBL_CONST_MEMBER_FUNC
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
     {
         typename sampling::ProjectedSphere<scalar_type>::cache_type cache;
         vector3_type _u = u;
@@ -86,13 +88,7 @@ struct SOrenNayarBase
         L.setDirection(sampling::ProjectedSphere<scalar_type>::generate(_u, cache));
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
-    template<typename C=bool_constant<!IsBSDF> >
-    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
-    {
-        return generate(anisotropic_interaction_type::create(interaction), u);
-    }
-    template<typename C=bool_constant<IsBSDF> >
-    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
     {
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
