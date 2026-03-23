@@ -247,8 +247,6 @@ jobs:
             --env "CCACHE_DIR=${{ env.ccacheDataMount }}" `
             --env "CCACHE_MAXSIZE=${{ env.ccacheMaxSize }}" `
             --env "CCACHE_STATSLOG=$ccacheStatsLog" `
-            --env "CCACHE_PREFIX=${{ env.mount }}\\build-ct\\shell.cmd" `
-            --env "CCACHE_PREFIX_CPP=${{ env.mount }}\\build-ct\\shell.cmd" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
             -v "${ccacheToolHost}:${{ env.ccacheToolMount }}" `
