@@ -258,7 +258,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::tolerance_method_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(NextEventEstimatorSampleQuotientReturn, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferredPdf(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.deferredWeight(scene, id, ray)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.template generateAndQuotientAndWeight<impl::DummyMaterialSystem>(scene, matSys, v/*origin*/, interaction, v/*xi*/, ray)), ::nbl::hlsl::is_same_v, typename T::sample_quotient_return_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.getEnvLightId()), ::nbl::hlsl::is_same_v, typename T::light_id_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((nee.getEnvRadiance(ray)), ::nbl::hlsl::is_same_v, typename T::spectral_type))

@@ -69,7 +69,7 @@ struct Unidirectional
             if (ray.shouldDoMIS() && matLightID.isLight())
             {
                 emissive *= ray.getPayloadThroughput();
-                const scalar_type weight = nee.deferredPdf(scene, lightID, ray);
+                const scalar_type weight = nee.deferredWeight(scene, lightID, ray);
                 assert(!hlsl::isinf(weight));
                 emissive *= ray.foundEmissiveMIS(weight * weight);
             }
@@ -171,7 +171,7 @@ struct Unidirectional
     {
         measure_type finalContribution = nee.getEnvRadiance(ray);
         typename nee_type::light_id_type env_light_id = nee.getEnvLightId();
-        const scalar_type weight = nee.deferredPdf(scene, env_light_id, ray);
+        const scalar_type weight = nee.deferredWeight(scene, env_light_id, ray);
         finalContribution *= ray.getPayloadThroughput();
         if (weight > scalar_type(0.0))
             finalContribution *= ray.foundEmissiveMIS(weight * weight);
