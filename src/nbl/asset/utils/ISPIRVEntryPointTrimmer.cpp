@@ -78,7 +78,7 @@ bool ISPIRVEntryPointTrimmer::ensureValidated(const ICPUBuffer* spirvBuffer, sys
     }
 
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
-    const auto spirvDwordCount = spirvBuffer->getSize() / 4u;
+    const auto spirvDwordCount = spirvBuffer->getSize() / sizeof(uint32_t);
     if (!validate(spirv, spirvDwordCount, logger))
         return false;
 
@@ -93,7 +93,7 @@ bool ISPIRVEntryPointTrimmer::ensureValidated(const ICPUBuffer* spirvBuffer, sys
 ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger) const
 {
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
-    const auto spirvDwordCount = spirvBuffer->getSize() / 4;
+    const auto spirvDwordCount = spirvBuffer->getSize() / sizeof(uint32_t);
 
     if (entryPoints.empty())
     {
