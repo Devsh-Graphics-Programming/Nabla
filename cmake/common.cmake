@@ -1308,7 +1308,6 @@ struct DeviceConfigCaps
 
 		target_sources(${IMPL_TARGET} PUBLIC ${INCLUDE_FILE})
 		set_source_files_properties(${INCLUDE_FILE} PROPERTIES 
-			GENERATED ON
 			HEADER_FILE_ONLY ON
 			VS_TOOL_OVERRIDE None
 		)
