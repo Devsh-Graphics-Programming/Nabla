@@ -69,9 +69,9 @@ struct Unidirectional
             if (ray.shouldDoMIS() && matLightID.isLight())
             {
                 emissive *= ray.getPayloadThroughput();
-                const scalar_type pdf = nee.deferredPdf(scene, lightID, ray);
-                assert(!hlsl::isinf(pdf));
-                emissive *= ray.foundEmissiveMIS(pdf * pdf);
+                const scalar_type weight = nee.deferredPdf(scene, lightID, ray);
+                assert(!hlsl::isinf(weight));
+                emissive *= ray.foundEmissiveMIS(weight * weight);
             }
             ray.addPayloadContribution(emissive);
         }
@@ -95,8 +95,8 @@ struct Unidirectional
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
             typename nee_type::sample_quotient_return_type ret = nee.template generateAndQuotientAndWeight<material_system_type>(
-                scene, materialSystem, intersectP, interaction,
-                eps0, depth
+                scene, materialSystem, intersectP,
+                interaction, eps0, ray
             );
             scalar_type t = ret.getT();
             sample_type nee_sample = ret.getSample();
@@ -171,10 +171,10 @@ struct Unidirectional
     {
         measure_type finalContribution = nee.getEnvRadiance(ray);
         typename nee_type::light_id_type env_light_id = nee.getEnvLightId();
-        const scalar_type pdf = nee.deferredPdf(scene, env_light_id, ray);
+        const scalar_type weight = nee.deferredPdf(scene, env_light_id, ray);
         finalContribution *= ray.getPayloadThroughput();
-        if (pdf > scalar_type(0.0))
-            finalContribution *= ray.foundEmissiveMIS(pdf * pdf);
+        if (weight > scalar_type(0.0))
+            finalContribution *= ray.foundEmissiveMIS(weight * weight);
         ray.addPayloadContribution(finalContribution);
     }
 
@@ -188,6 +188,7 @@ struct Unidirectional
         for (uint16_t d = 1; (d <= maxDepth) && continuePath; d++)
         {
             ray.setT(numeric_limits<scalar_type>::max);
+            ray.setDepth(d);
             closest_hit_type intersection = intersector_type::traceClosestHit(scene, ray);
 
             notMissed = intersection.foundHit();
