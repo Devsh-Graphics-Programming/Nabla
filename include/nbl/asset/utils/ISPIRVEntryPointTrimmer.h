@@ -7,6 +7,8 @@
 
 #include "nbl/system/ILogger.h"
 
+#include <mutex>
+
 namespace nbl::asset
 {
 
@@ -46,6 +48,7 @@ class NBL_API2 ISPIRVEntryPointTrimmer final : public core::IReferenceCounted
         };
 
         Result trim(const ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const;
+        bool ensureValidated(const ICPUBuffer* spirvBuffer, system::logger_opt_ptr logger = nullptr) const;
 
         inline core::smart_refctd_ptr<const IShader> trim(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
         {
@@ -72,6 +75,8 @@ class NBL_API2 ISPIRVEntryPointTrimmer final : public core::IReferenceCounted
 
     private:
         core::smart_refctd_ptr<ISPIRVOptimizer> m_optimizer;
+        mutable std::mutex m_validationCacheMutex;
+        mutable core::unordered_set<core::blake3_hash_t> m_validatedSpirvHashes;
 };
 
 }
