@@ -62,13 +62,9 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     // TODO(kevin) : Handle importing external semaphore into Vulkan
     // VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
 
-    VkExportSemaphoreWin32HandleInfoKHR handleInfo = {
-      .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR, 
-      .dwAccess = /*DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE*/0x80000000L | 1
-    };
     VkExportSemaphoreCreateInfo  exportInfo = {
       VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, 
-      &handleInfo, 
+      nullptr, 
       static_cast<VkExternalSemaphoreHandleTypeFlags>(creationParams.externalHandleTypes.value)
     };
 

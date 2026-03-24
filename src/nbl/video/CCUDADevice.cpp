@@ -256,8 +256,14 @@ CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemap
 	if (!handleType || !handle)
 		return CUDA_ERROR_INVALID_VALUE;
 
+#ifdef _WIN32
+	static constexpr auto EXTERNAL_SEMAPHORE_HANDLE_TYPE = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32;
+#else
+	static constexpr auto EXTERNAL_SEMAPHORE_HANDLE_TYPE = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD;
+#endif
+
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
-		.type = static_cast<CUexternalSemaphoreHandleType>(handleType),
+		.type = EXTERNAL_SEMAPHORE_HANDLE_TYPE,
 		.handle = {.win32 = {.handle = handle }},
 	};
 
