@@ -335,21 +335,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
         core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt);
         // Creates an Image (@see ICPUImage)
-        inline core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams)
-        {
-            if (!IGPUImage::validateCreationParameters(creationParams))
-            {
-                m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
-                return nullptr;
-            }
-            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
-            {
-                m_logger.log("Failed to create Image, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
-                return nullptr;
-            }
-            // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
-            return createImage_impl(std::move(creationParams));
-        }
+        core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams);
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {

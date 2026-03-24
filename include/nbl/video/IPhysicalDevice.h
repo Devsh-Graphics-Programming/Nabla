@@ -676,6 +676,21 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             return getExternalMemoryProperties_impl(usages, handleType);
         }
 
+        struct SImageFormatInfo
+        {
+            asset::E_FORMAT format;
+            IGPUImage::E_TYPE type;
+            IGPUImage::TILING tiling;
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> usage;
+            core::bitflag<IGPUImage::E_CREATE_FLAGS> flags;
+        };
+        SExternalMemoryProperties getExternalImageProperties(
+            const SImageFormatInfo& info,
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+        {
+            return getExternalMemoryProperties_impl(info, handleType);
+        }
+
         struct SBufferFormatPromotionRequest {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
             SFormatBufferUsages::SUsage usages = SFormatBufferUsages::SUsage();
@@ -722,6 +737,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         // External memory properties query
         virtual SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+        virtual SExternalMemoryProperties getExternalMemoryProperties_impl(const SImageFormatInfo& imageFormatInfo, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
 
         // ILogicalDevice creation
         bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;

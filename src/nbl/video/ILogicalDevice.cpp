@@ -356,6 +356,50 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
     return createBufferView_impl(underlying, _fmt);
 }
 
+core::smart_refctd_ptr<IGPUImage> ILogicalDevice::createImage(IGPUImage::SCreationParams&& creationParams)
+{
+    if (!IGPUImage::validateCreationParameters(creationParams))
+    {
+        m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
+        return nullptr;
+    }
+    if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
+    {
+        m_logger.log("Failed to create Image, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
+        return nullptr;
+    }
+
+    bool dedicatedOnly = false;
+    if (creationParams.externalHandleTypes.value)
+    {
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
+
+        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) != -1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << idx);
+            requestedTypes ^= handleType;
+
+            auto props = m_physicalDevice->getExternalImageProperties(IPhysicalDevice::SImageFormatInfo{
+              .format = creationParams.format,
+              .type = creationParams.type,
+              .tiling = creationParams.tiling,
+              .usage = creationParams.usage,
+              .flags = creationParams.flags
+            }, handleType);
+
+            if (!core::bitflag(props.compatibleTypes).hasFlags(creationParams.externalHandleTypes))
+            {
+              m_logger.log("Failed to create Buffer, Incompatible external handle type", system::ILogger::ELL_ERROR);
+              return nullptr;
+            }
+
+            dedicatedOnly |= (props.features & IPhysicalDevice::EEMF_DEDICATED_ONLY_BIT);
+        }
+    }
+
+    // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
+    return createImage_impl(std::move(creationParams), dedicatedOnly);
+}
 
 core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShaderCreationParameters& creationParams)
 {

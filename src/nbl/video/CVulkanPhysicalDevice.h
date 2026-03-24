@@ -109,7 +109,9 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             // [NOOP] If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
         }
 
-        SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const;
+        SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override;
+
+        SExternalMemoryProperties getExternalMemoryProperties_impl(const SImageFormatInfo& imageFormatInfo, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override;
 

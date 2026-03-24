@@ -1,5 +1,6 @@
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
+#include "nbl/video/IGPUImage.h"
 
 namespace nbl::video
 {
@@ -1381,6 +1382,44 @@ IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMem
     };
     VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
     vkGetPhysicalDeviceExternalBufferProperties(m_vkPhysicalDevice, &info, &externalProps);
+
+    const auto& externalMemProps = externalProps.externalMemoryProperties;
+    return SExternalMemoryProperties{
+      .exportableTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.exportFromImportedHandleTypes),
+      .compatibleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.compatibleHandleTypes),
+      .features = static_cast<E_EXTERNAL_MEMORY_FEATURE_FLAGS>(externalMemProps.externalMemoryFeatures)
+    };
+}
+
+IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMemoryProperties_impl(
+  const SImageFormatInfo& info, 
+  IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+{
+    VkPhysicalDeviceExternalImageFormatInfo externalImageFormatInfo = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType),
+    };
+
+    VkPhysicalDeviceImageFormatInfo2 formatInfo = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+        .pNext = &externalImageFormatInfo,
+        .format = getVkFormatFromFormat(info.format),
+        .type = static_cast<VkImageType>(info.type),
+        .tiling = static_cast<VkImageTiling>(info.tiling),
+        .usage = getVkImageUsageFlagsFromImageUsageFlags(info.usage.value, asset::isDepthOrStencilFormat(info.format)),
+        .flags = static_cast<VkImageCreateFlags>(info.flags.value),
+    };
+
+    VkExternalImageFormatProperties externalProps = { 
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES,
+    };
+    VkImageFormatProperties2 props = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+        .pNext = &externalProps,
+    };
+    
+    auto re = vkGetPhysicalDeviceImageFormatProperties2(m_vkPhysicalDevice, &formatInfo, &props);
+    assert(VK_SUCCESS == re);
 
     const auto& externalMemProps = externalProps.externalMemoryProperties;
     return SExternalMemoryProperties{
