@@ -39,7 +39,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		//
 		using LibLoader = system::DefaultFuncPtrLoader;
 		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA,LibLoader
-			,cuCtxCreate_v2
+			,cuCtxCreate_v4
 			,cuDevicePrimaryCtxRetain
 			,cuDevicePrimaryCtxRelease
 			,cuDevicePrimaryCtxSetFlags
@@ -62,7 +62,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 			,cuDeviceGet
 			,cuDeviceGetAttribute
 			,cuDeviceGetLuid
-			,cuDeviceGetUuid
+			,cuDeviceGetUuid_v2
 			,cuDeviceTotalMem_v2
 			,cuDeviceGetName
 			,cuDriverGetVersion

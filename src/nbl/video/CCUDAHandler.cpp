@@ -42,7 +42,7 @@ CCUDAHandler::CCUDAHandler(
 			continue;
 
 		CUuuid uuid = {};
-		if (m_cuda.pcuDeviceGetUuid(&uuid, handle) != CUDA_SUCCESS)
+		if (m_cuda.pcuDeviceGetUuid_v2(&uuid, handle) != CUDA_SUCCESS)
 			continue;
 
 		m_availableDevices.emplace_back(handle, uuid);

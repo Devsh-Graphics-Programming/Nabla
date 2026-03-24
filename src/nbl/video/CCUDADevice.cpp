@@ -28,7 +28,7 @@ CCUDADevice::CCUDADevice(
 
   auto& cu = m_handler->getCUDAFunctionTable();
 	
-	CUresult re = cu.pcuCtxCreate_v2(&m_context, 0, m_handle);
+	CUresult re = cu.pcuCtxCreate_v4(&m_context, nullptr, 0, m_handle);
 	assert(CUDA_SUCCESS == re);
 	re = cu.pcuCtxSetCurrent(m_context);
 	assert(CUDA_SUCCESS == re);
