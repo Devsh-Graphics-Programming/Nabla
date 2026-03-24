@@ -85,6 +85,7 @@ struct SCookTorrance
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::SupportedPaths != ndf::MTT_REFLECT;
     using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
     NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);
+    using evalcache_type = conditional_t<IsAnisotropic,anisocache_type,isocache_type>;
 
     // utility functions
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
