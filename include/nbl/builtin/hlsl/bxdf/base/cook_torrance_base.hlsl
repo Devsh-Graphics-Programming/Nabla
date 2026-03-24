@@ -165,7 +165,6 @@ struct SCookTorrance
 
         bool isInfinity;
         scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
-        _pdf = hlsl::mix(_pdf, scalar_type(0.0), isInfinity);
 
         using quant_query_type = typename ndf_type::quant_query_type;
         quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);

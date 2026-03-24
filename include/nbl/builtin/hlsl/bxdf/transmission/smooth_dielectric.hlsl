@@ -25,20 +25,23 @@ struct SSmoothDielectric
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using random_type = vector3_type;
+    struct Cache {};
+    using isocache_type = Cache;
+    using anisocache_type = Cache;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
     // eval and weight return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction
-    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotient_pdf_type::create(0.0, 0.0);
     }
-    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotient_pdf_type::create(0.0, 0.0);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(random_type) u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(random_type) u, NBL_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, interaction.getNdotV(_clamp))[0];
 
@@ -54,9 +57,9 @@ struct SSmoothDielectric
         ray_dir_info_type L = V.reflectRefract(rr, transmitted, orientedEta.rcp[0]);
         return sample_type::create(L, interaction.getT(), interaction.getB(), interaction.getN());
     }
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(random_type) u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(random_type) u, NBL_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return generate(anisotropic_interaction_type::create(interaction), u);
+        return generate(anisotropic_interaction_type::create(interaction), u, _cache);
     }
 
     scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
@@ -69,13 +72,13 @@ struct SSmoothDielectric
     }
 
     // smooth BxDFs are isotropic by definition
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotient_pdf_type::create(1.0, bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity));
     }
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return quotientAndWeight(_sample, interaction.isotropic);
+        return quotientAndWeight(_sample, interaction.isotropic, _cache);
     }
 
     fresnel::OrientedEtas<monochrome_type> orientedEta;
@@ -88,6 +91,9 @@ struct SThinSmoothDielectric
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
     using random_type = vector3_type;
+    struct Cache {};
+    using isocache_type = Cache;
+    using anisocache_type = Cache;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
@@ -100,11 +106,11 @@ struct SThinSmoothDielectric
         return retval;
     }
 
-    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotient_pdf_type::create(0.0, 0.0);
     }
-    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotient_pdf_type::create(0.0, 0.0);
     }
@@ -135,14 +141,14 @@ struct SThinSmoothDielectric
         return sample_type::create(L, interaction.getT(), interaction.getB(), N);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         vector3_type dummy;
         return generate(interaction, u, dummy);
     }
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const random_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return generate(anisotropic_interaction_type::create(interaction), u);
+        return generate(anisotropic_interaction_type::create(interaction), u, _cache);
     }
 
     scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
@@ -155,7 +161,7 @@ struct SThinSmoothDielectric
     }
 
     // smooth BxDFs are isotropic by definition
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
@@ -166,9 +172,9 @@ struct SThinSmoothDielectric
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         return quotient_pdf_type::create(sampleValue / sampleProb, _pdf);
     }
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return quotientAndWeight(_sample, interaction.isotropic);
+        return quotientAndWeight(_sample, interaction.isotropic, _cache);
     }
 
     fresnel::Dielectric<spectral_type> fresnel;
