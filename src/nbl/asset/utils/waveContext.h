@@ -403,7 +403,12 @@ class context : private boost::noncopyable
             , current_filename(fname)
             , current_relative_filename(fname)
             , macros(*this_())
-            , language(detail::make_language_flags(detail::LanguageFlagConfig{.preserveComments = hooks_.m_preserveComments}))
+            , language([&hooks_]
+                {
+                    auto config = detail::LanguageFlagConfig{};
+                    config.preserveComments = hooks_.m_preserveComments;
+                    return detail::make_language_flags(config);
+                }())
             , hooks(hooks_)
         {
             macros.init_predefined_macros(fname);

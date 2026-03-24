@@ -80,21 +80,6 @@ NBL_CONCEPT_END(
 #undef ray
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME RaySetInteraction
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (RayT)(Interaction)
-#define NBL_CONCEPT_PARAM_0 (ray, RayT)
-#define NBL_CONCEPT_PARAM_1 (interaction, Interaction)
-NBL_CONCEPT_BEGIN(2)
-#define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.setInteraction(interaction)), ::nbl::hlsl::is_same_v, void))
-);
-#undef interaction
-#undef ray
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
 #define NBL_CONCEPT_NAME RayGenerator
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
