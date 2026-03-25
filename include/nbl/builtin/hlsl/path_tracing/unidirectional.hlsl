@@ -46,7 +46,8 @@ struct Unidirectional
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
     using anisotropic_interaction_type = typename MaterialSystem::anisotropic_interaction_type;
     using cache_type = typename MaterialSystem::cache_type;
-    using quotient_pdf_type = typename NextEventEstimator::quotient_pdf_type;
+    using quotient_pdf_type = typename MaterialSystem::quotient_pdf_type;
+    using value_weight_type = typename MaterialSystem::value_weight_type;
     using tolerance_method_type = typename NextEventEstimator::tolerance_method_type;
 
     scalar_type getLuma(NBL_CONST_REF_ARG(vector3_type) col)
@@ -108,11 +109,11 @@ struct Unidirectional
             // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
             if (neeContrib.pdf() > scalar_type(0.0))
             {
-                quotient_pdf_type bsdfContrib = materialSystem.evalAndWeight(matID, nee_sample, interaction);
-                neeContrib._quotient *= bsdfContrib.quotient() * rcpChoiceProb;
+                value_weight_type bsdfContrib = materialSystem.evalAndWeight(matID, nee_sample, interaction);
+                neeContrib._quotient *= bsdfContrib.value() * rcpChoiceProb;
                 if (neeContrib.pdf() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
                 {
-                    const scalar_type otherGenOverLightAndChoice = bsdfContrib.pdf() * rcpChoiceProb / neeContrib.pdf();
+                    const scalar_type otherGenOverLightAndChoice = bsdfContrib.weight() * rcpChoiceProb / neeContrib.pdf();
                     neeContrib._quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
                 }
 

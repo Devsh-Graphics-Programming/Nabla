@@ -32,6 +32,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::value_weight_type))
 );
 #undef conf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -76,6 +77,7 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ISO) >
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using value_weight_type = sampling::value_and_weight<spectral_type, scalar_type>;
 };
 
 #define CONF_ANISO LightSample<LS> && surface_interactions::Anisotropic<Interaction> && concepts::FloatingPointLikeVectorial<Spectrum>
@@ -98,6 +100,7 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ANISO) >
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using value_weight_type = sampling::value_and_weight<spectral_type, scalar_type>;
 };
 
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum NBL_STRUCT_CONSTRAINABLE>
@@ -150,6 +153,7 @@ NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);\
 NBL_BXDF_CONFIG_ALIAS(sample_type, Config);\
 NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);\
 NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);\
+NBL_BXDF_CONFIG_ALIAS(value_weight_type, Config);\
 
 #define MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config) BXDF_CONFIG_TYPE_ALIASES(Config);\
 NBL_BXDF_CONFIG_ALIAS(matrix3x3_type, Config);\

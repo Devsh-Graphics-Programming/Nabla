@@ -158,11 +158,11 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quotient_pdf_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
         if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
-            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
+            return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         bool isInfinity;
         scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
@@ -183,22 +183,22 @@ struct SCookTorrance
         // immediately return only after all calls setting DG
         // allows compiler to throw away calls to ndf.D if using __overwriteDG, before that we only avoid computation for G2(correlated)
         if (isInfinity)
-            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
+            return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         scalar_type clampedVdotH = cache.getVdotH();
         NBL_IF_CONSTEXPR(IsBSDF)
             clampedVdotH = hlsl::abs(clampedVdotH);
         
-        spectral_type quo;
+        spectral_type eval;
         NBL_IF_CONSTEXPR(IsBSDF)
         {
             const spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
-            quo = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
+            eval = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
         }
         else
-            quo = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
+            eval = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
 
-        return quotient_pdf_type::create(quo, _pdf);
+        return value_weight_type::create(eval, _pdf);
     }
 
     sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
