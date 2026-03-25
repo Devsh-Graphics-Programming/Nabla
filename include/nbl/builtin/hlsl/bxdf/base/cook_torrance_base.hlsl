@@ -87,6 +87,16 @@ struct SCookTorrance
     NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);
     using evalcache_type = conditional_t<IsAnisotropic,anisocache_type,isocache_type>;
 
+    struct PdfQuery
+    {
+        scalar_type pdf;
+        fresnel_type orientedFresnel;
+        typename ndf_type::quant_query_type quantQuery;
+        
+        spectral_type reflectance;
+        scalar_type scaled_reflectance;
+    };
+
     // utility functions
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
@@ -160,19 +170,20 @@ struct SCookTorrance
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
-        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
-        if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
+        PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, false>(_sample, interaction, cache);
+        scalar_type _pdf = pdfQuery.pdf;
+        if (_pdf == scalar_type(0.0))
             return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
-        bool isInfinity;
-        scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
+        fresnel_type _f = pdfQuery.orientedFresnel;
 
         using quant_query_type = typename ndf_type::quant_query_type;
-        quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
+        quant_query_type qq = pdfQuery.quantQuery;
 
         using g2g1_query_type = typename ndf_type::g2g1_query_type;
         g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
 
+        bool isInfinity;
         quant_type D = ndf.template D<sample_type, Interaction, MicrofacetCache>(qq, _sample, interaction, cache, isInfinity);
         scalar_type DG = D.projectedLightMeasure;
         if (!isInfinity)
@@ -347,41 +358,48 @@ struct SCookTorrance
         return s;
     }
 
-    template<class Interaction, class MicrofacetCache>
-    scalar_type __forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache, NBL_REF_ARG(bool) isInfinity) NBL_CONST_MEMBER_FUNC
+    template<class Interaction, class MicrofacetCache, bool FromGenerator>
+    PdfQuery __forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
-        using quant_query_type = typename ndf_type::quant_query_type;
-        using dg1_query_type = typename ndf_type::dg1_query_type;
+        PdfQuery query;
+        query.pdf = scalar_type(0.0);
+        query.orientedFresnel = __getOrientedFresnel(fresnel, interaction.getNdotV());
+        const bool cacheIsValid = __checkValid<Interaction, MicrofacetCache>(query.orientedFresnel, _sample, interaction, cache);
+        assert(!FromGenerator || cacheIsValid);
+        const bool isValid = FromGenerator ? _sample.isValid() : cacheIsValid; // when from generator, expect the generated sample to always be valid, different checks for brdf and btdf
 
-        dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
-
-        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
-        quant_query_type qq = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, _f, interaction, cache);
-        quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, qq, _sample, interaction, isInfinity);
-
-        NBL_IF_CONSTEXPR(IsBSDF)
+        if (isValid)
         {
-            spectral_type dummy;
-            const scalar_type reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()), cache.isTransmission(), dummy);    
-            return reflectance * DG1.projectedLightMeasure;
+            using dg1_query_type = typename ndf_type::dg1_query_type;
+            dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
+
+            bool isInfinity;
+            query.quantQuery = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, query.orientedFresnel, interaction, cache);
+            quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, query.quantQuery, _sample, interaction, isInfinity);
+
+            if (isInfinity)
+                return query;
+
+            NBL_IF_CONSTEXPR(IsBSDF)
+            {
+                query.scaled_reflectance = __getScaledReflectance(query.orientedFresnel, interaction, hlsl::abs(cache.getVdotH()), cache.isTransmission(), query.reflectance);
+                query.pdf = query.scaled_reflectance * DG1.projectedLightMeasure;
+            }
+            else
+            {
+                query.pdf = DG1.projectedLightMeasure;
+            }
         }
-        else
-        {
-            return DG1.projectedLightMeasure;
-        }
+
+        return query;
     }
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
-        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
-        if (!__checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache))
-            return scalar_type(0.0);
-
-        bool isInfinity;
-        scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
-        return hlsl::mix(_pdf, scalar_type(0.0), isInfinity);
+        PdfQuery query = __forwardPdf<Interaction, MicrofacetCache, false>(_sample, interaction, cache);
+        return query.pdf;
     }
 
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
@@ -389,23 +407,16 @@ struct SCookTorrance
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
     quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
-        if (!_sample.isValid())
-            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));   // set pdf=0 when quo=0 because we don't want to give high weight to sampling strategy that yields 0 contribution
+        PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, true>(_sample, interaction, cache);
+        scalar_type _pdf = pdfQuery.pdf;
+        if (_pdf == scalar_type(0.0))
+            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
 
-        bool isInfinity;
-        scalar_type _pdf = __forwardPdf<Interaction, MicrofacetCache>(_sample, interaction, cache, isInfinity);
-        fresnel_type _f = __getOrientedFresnel(fresnel, interaction.getNdotV());
+        fresnel_type _f = pdfQuery.orientedFresnel;
 
-        const bool valid = __checkValid<Interaction, MicrofacetCache>(_f, _sample, interaction, cache);
-        assert(valid);  // expect the generated sample to always be valid, different checks for brdf and btdf
-
-        scalar_type G2_over_G1 = scalar_type(1.0);
-        if (!isInfinity)
-        {
-            using g2g1_query_type = typename N::g2g1_query_type;
-            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
-            G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
-        }
+        using g2g1_query_type = typename N::g2g1_query_type;
+        g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+        scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
 
         spectral_type quo;
         NBL_IF_CONSTEXPR(IsBSDF)
@@ -413,11 +424,7 @@ struct SCookTorrance
             NBL_IF_CONSTEXPR(fresnel_type::ReturnsMonochrome)
                 quo = hlsl::promote<spectral_type>(G2_over_G1);
             else
-            {
-                spectral_type reflectance;
-                const scalar_type scaled_reflectance = __getScaledReflectance(_f, interaction, hlsl::abs(cache.getVdotH()), cache.isTransmission(), reflectance);
-                quo = reflectance / scaled_reflectance * G2_over_G1;
-            }
+                quo = pdfQuery.reflectance / pdfQuery.scaled_reflectance * G2_over_G1;
         }
         else
         {
