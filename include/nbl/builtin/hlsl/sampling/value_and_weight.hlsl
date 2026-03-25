@@ -5,8 +5,6 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_VALUE_AND_WEIGHT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_VALUE_AND_WEIGHT_INCLUDED_
 
-#include "nbl/builtin/hlsl/sampling/value_and_pdf.hlsl"
-
 namespace nbl
 {
 namespace hlsl
