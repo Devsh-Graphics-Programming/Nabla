@@ -82,7 +82,7 @@ struct SLambertianBase
             qp = sampling::ProjectedSphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
         else
             qp = sampling::ProjectedHemisphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
-        return quotient_pdf_type::create(qp.quotient(), qp.pdf());
+        return quotient_pdf_type::create(qp.quotient()[0], qp.pdf());
     }
     quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
