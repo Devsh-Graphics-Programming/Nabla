@@ -155,7 +155,9 @@ struct SCookTorrance
     static scalar_type __getScaledReflectance(NBL_CONST_REF_ARG(fresnel_type) orientedFresnel, NBL_CONST_REF_ARG(Interaction) interaction, scalar_type clampedVdotH, bool transmitted, NBL_REF_ARG(spectral_type) outFresnelVal)
     {
         scalar_type reflectance = orientedFresnel(clampedVdotH)[0];
-        return hlsl::mix(reflectance, scalar_type(1.0)-reflectance, transmitted);
+        reflectance = hlsl::mix(reflectance, scalar_type(1.0)-reflectance, transmitted);
+        outFresnelVal = hlsl::promote<spectral_type>(reflectance);
+        return reflectance;
     }
 
     bool __dotIsValue(const vector3_type a, const vector3_type b, const scalar_type value) NBL_CONST_MEMBER_FUNC
@@ -202,12 +204,10 @@ struct SCookTorrance
         
         spectral_type eval;
         NBL_IF_CONSTEXPR(IsBSDF)
-        {
-            const spectral_type reflectance = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
-            eval = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, cache.isTransmission()) * DG;
-        }
+            eval = pdfQuery.reflectance;
         else
-            eval = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH)) * DG;
+            eval = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
+        eval *= DG;
 
         return value_weight_type::create(eval, _pdf);
     }
@@ -378,7 +378,10 @@ struct SCookTorrance
             quant_type DG1 = ndf.template DG1<sample_type, Interaction>(dq, query.quantQuery, _sample, interaction, isInfinity);
 
             if (isInfinity)
+            {
+                query.pdf = bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity);
                 return query;
+            }
 
             NBL_IF_CONSTEXPR(IsBSDF)
             {
