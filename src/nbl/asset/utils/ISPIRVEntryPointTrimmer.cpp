@@ -65,11 +65,17 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
     return core.Validate(binary, binarySize, validatorOptions);
 }
 
-bool ISPIRVEntryPointTrimmer::ensureValidated(const ICPUBuffer* spirvBuffer, system::logger_opt_ptr logger) const
+static nbl::core::blake3_hash_t getContentHash(const ICPUBuffer* spirvBuffer)
 {
     auto contentHash = spirvBuffer->getContentHash();
     if (contentHash == ICPUBuffer::INVALID_HASH)
         contentHash = spirvBuffer->computeContentHash();
+    return contentHash;
+}
+
+bool ISPIRVEntryPointTrimmer::ensureValidated(const ICPUBuffer* spirvBuffer, system::logger_opt_ptr logger) const
+{
+    const auto contentHash = getContentHash(spirvBuffer);
 
     {
         std::lock_guard lock(m_validationCacheMutex);
@@ -84,10 +90,16 @@ bool ISPIRVEntryPointTrimmer::ensureValidated(const ICPUBuffer* spirvBuffer, sys
 
     {
         std::lock_guard lock(m_validationCacheMutex);
-        m_validatedSpirvHashes.insert(contentHash);
+        m_validatedSpirvHashes.emplace(contentHash);
     }
 
     return true;
+}
+
+void ISPIRVEntryPointTrimmer::markValidated(const ICPUBuffer* spirvBuffer) const
+{
+    std::lock_guard lock(m_validationCacheMutex);
+    m_validatedSpirvHashes.emplace(getContentHash(spirvBuffer));
 }
 
 ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger) const
@@ -142,6 +154,15 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
         const auto opcode = instruction & 0x0ffffu;
         return { length, opcode };
     };
+
+    if (!ensureValidated(spirvBuffer, logger))
+    {
+        logger.log("SPIR-V is not valid", system::ILogger::ELL_ERROR);
+        return Result{
+            .spirv = nullptr,
+            .isSuccess = false,
+        };
+    }
 
     {
         auto probeOffset = HEADER_SIZE;
@@ -200,15 +221,6 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
                 .isSuccess = true,
             };
         }
-    }
-
-    if (!ensureValidated(spirvBuffer, logger))
-    {
-        logger.log("SPIR-V is not valid", system::ILogger::ELL_ERROR);
-        return Result{
-            .spirv = nullptr,
-            .isSuccess = false,
-        };
     }
 
     auto foundEntryPoint = 0;

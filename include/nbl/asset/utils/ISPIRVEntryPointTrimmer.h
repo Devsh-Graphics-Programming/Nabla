@@ -49,6 +49,7 @@ class NBL_API2 ISPIRVEntryPointTrimmer final : public core::IReferenceCounted
 
         Result trim(const ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const;
         bool ensureValidated(const ICPUBuffer* spirvBuffer, system::logger_opt_ptr logger = nullptr) const;
+        void markValidated(const ICPUBuffer* spirvBuffer) const;
 
         inline core::smart_refctd_ptr<const IShader> trim(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
         {
