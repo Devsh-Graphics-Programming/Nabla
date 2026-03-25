@@ -35,10 +35,15 @@ NBL_CONSTEXPR_FORCED_INLINE_FUNC Integer roundDownToPoT(Integer value)
 }
 
 template<typename Integer NBL_FUNC_REQUIRES(is_integral_v<Integer>)
+    NBL_CONSTEXPR_FORCED_INLINE_FUNC Integer ceilDiv(Integer dividend, Integer divisor)
+{
+    return (dividend + divisor - 1) / divisor;
+}
+
+template<typename Integer NBL_FUNC_REQUIRES(is_integral_v<Integer>)
 NBL_CONSTEXPR_FORCED_INLINE_FUNC Integer roundUp(Integer value, Integer multiple)
 {
-    Integer tmp = (value + multiple - 1u) / multiple;
-    return tmp * multiple;
+    return ceilDiv(value, multiple) * multiple;
 }
 
 template<typename Integer NBL_FUNC_REQUIRES(is_integral_v<Integer>)
