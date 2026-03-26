@@ -454,12 +454,17 @@ static std::string preprocessShaderImpl(
     std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>* dependencies,
     system::ISystem* system)
 {
-    const bool depfileEnabled = preprocessOptions.depfile;
+    auto effectiveOptions = preprocessOptions;
+    IShaderCompiler::CIncludeFinder::SSessionCache localIncludeSessionCache;
+    if (effectiveOptions.includeFinder && !effectiveOptions.includeSessionCache)
+        effectiveOptions.includeSessionCache = &localIncludeSessionCache;
+
+    const bool depfileEnabled = effectiveOptions.depfile;
     if (depfileEnabled)
     {
-        if (preprocessOptions.depfilePath.empty())
+        if (effectiveOptions.depfilePath.empty())
         {
-            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+            effectiveOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
             return {};
         }
     }
@@ -473,7 +478,7 @@ static std::string preprocessShaderImpl(
     ensureTrailingNewline(code);
 
     // preprocess
-    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
+    core::string resolvedString = nbl::wave::preprocess(code, effectiveOptions, bool(dependenciesOut),
         [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
@@ -494,13 +499,13 @@ static std::string preprocessShaderImpl(
     if (depfileEnabled)
     {
         IShaderCompiler::DepfileWriteParams params = {};
-        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
+        const std::string depfilePathString = effectiveOptions.depfilePath.generic_string();
         params.depfilePath = depfilePathString;
-        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        params.sourceIdentifier = effectiveOptions.sourceIdentifier;
         if (!params.sourceIdentifier.empty())
             params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
         params.system = system;
-        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
+        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, effectiveOptions.includeFinder, effectiveOptions.logger))
             return {};
     }
 

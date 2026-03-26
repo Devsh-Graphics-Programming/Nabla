@@ -17,6 +17,8 @@
 #include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <functional>
+#include <mutex>
+#include <unordered_set>
 
 namespace nbl::asset
 {
@@ -74,17 +76,39 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class NBL_API2 CIncludeFinder : public core::IReferenceCounted
 		{
 			public:
+				struct SSessionCache
+				{
+					enum class E_LOOKUP_RESULT : uint8_t
+					{
+						Miss,
+						Missing,
+						Found
+					};
+
+					explicit SSessionCache(const bool threadSafe = false) : threadSafe(threadSafe) {}
+
+					void clear();
+					E_LOOKUP_RESULT lookup(const std::string& key, IIncludeLoader::found_t& result) const;
+					void store(const std::string& key, IIncludeLoader::found_t result);
+
+					bool threadSafe = false;
+
+					mutable std::mutex mutex;
+					core::unordered_map<std::string, IIncludeLoader::found_t> found;
+					core::unordered_set<std::string> missing;
+				};
+
 				CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system);
 
 				// ! includes within <>
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within <> of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true) const;
+				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* sessionCache = nullptr) const;
 
 				// ! includes within ""
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within "" of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true) const;
+				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* sessionCache = nullptr) const;
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
@@ -134,6 +158,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
+			mutable CIncludeFinder::SSessionCache* includeSessionCache = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;

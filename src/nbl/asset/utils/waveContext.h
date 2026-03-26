@@ -275,7 +275,7 @@ struct load_to_string final
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const nbl::asset::IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_preserveComments(_preprocessOptions.preserveComments), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
+        : m_includeFinder(_preprocessOptions.includeFinder), m_includeSessionCache(_preprocessOptions.includeSessionCache), m_logger(_preprocessOptions.logger), m_preserveComments(_preprocessOptions.preserveComments), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
     {
         hash_token_occurences = 0;
     }
@@ -382,6 +382,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     }
 
     const asset::IShaderCompiler::CIncludeFinder* m_includeFinder;
+    asset::IShaderCompiler::CIncludeFinder::SSessionCache* m_includeSessionCache;
     system::logger_opt_ptr m_logger;
     bool m_preserveComments;
     asset::IShader::E_SHADER_STAGE m_pragmaStage;
@@ -832,11 +833,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         if (perfStats.enabled)
             ++perfStats.includeLookupCount;
         if (is_system) {
-            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path, needHash);
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_includeSessionCache);
             standardInclude = true;
         }
         else {
-            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path, needHash);
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_includeSessionCache);
             standardInclude = false;
         }
     }
