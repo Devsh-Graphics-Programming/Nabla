@@ -23,7 +23,7 @@ struct LuminanceAccessor
 
 };
 
-[numthreads(GEN_WARP_WORKGROUP_DIM, GEN_WARP_WORKGROUP_DIM, 1)]
+[numthreads(GenWarpWorkgroupDim, GenWarpWorkgroupDim, 1)]
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {

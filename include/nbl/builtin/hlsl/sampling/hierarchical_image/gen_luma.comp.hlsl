@@ -10,7 +10,7 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 [[vk::binding(0, 0)]] Texture2D<float32_t4> envMap;
 [[vk::binding(1, 0)]] RWTexture2D<float32_t> outImage;
 
-[numthreads(GEN_LUMA_WORKGROUP_DIM, GEN_LUMA_WORKGROUP_DIM, 1)]
+[numthreads(GenLumaWorkgroupDim, GenLumaWorkgroupDim, 1)]
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {	
