@@ -903,7 +903,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::evalcache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_weight_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::value_weight_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::random_type))
 );
@@ -932,7 +932,7 @@ NBL_CONCEPT_BEGIN(5)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common_typdefs, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso, evalcache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::quotient_weight_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
@@ -963,7 +963,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso, evalcache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_weight_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
 );
 #undef evalcache

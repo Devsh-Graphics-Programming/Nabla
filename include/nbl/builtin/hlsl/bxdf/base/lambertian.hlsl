@@ -75,16 +75,16 @@ struct SLambertianBase
         return forwardPdf(_sample, interaction.isotropic);
     }
 
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         sampling::quotient_and_pdf<monochrome_type, scalar_type> qp;
         NBL_IF_CONSTEXPR (IsBSDF)
             qp = sampling::ProjectedSphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
         else
             qp = sampling::ProjectedHemisphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
-        return quotient_pdf_type::create(qp.quotient()[0], qp.pdf());
+        return quotient_weight_type::create(qp.quotient()[0], qp.pdf());
     }
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotientAndWeight(_sample, interaction.isotropic, _cache);
     }

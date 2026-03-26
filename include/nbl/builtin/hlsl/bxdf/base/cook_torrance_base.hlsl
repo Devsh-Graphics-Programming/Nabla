@@ -408,12 +408,12 @@ struct SCookTorrance
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, true>(_sample, interaction, cache);
         scalar_type _pdf = pdfQuery.pdf;
         if (_pdf == scalar_type(0.0))
-            return quotient_pdf_type::create(scalar_type(0.0), scalar_type(0.0));
+            return quotient_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         fresnel_type _f = pdfQuery.orientedFresnel;
 
@@ -436,7 +436,7 @@ struct SCookTorrance
             quo = _f(VdotH) * G2_over_G1;
         }
 
-        return quotient_pdf_type::create(quo, _pdf);
+        return quotient_weight_type::create(quo, _pdf);
     }
 
     ndf_type ndf;

@@ -73,11 +73,11 @@ struct SSmoothDielectric
     }
 
     // smooth BxDFs are isotropic by definition
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return quotient_pdf_type::create(1.0, bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity));
+        return quotient_weight_type::create(1.0, bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity));
     }
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotientAndWeight(_sample, interaction.isotropic, _cache);
     }
@@ -163,7 +163,7 @@ struct SThinSmoothDielectric
     }
 
     // smooth BxDFs are isotropic by definition
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
@@ -172,9 +172,9 @@ struct SThinSmoothDielectric
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,interaction.getLuminosityContributionHint());
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        return quotient_pdf_type::create(sampleValue / sampleProb, _pdf);
+        return quotient_weight_type::create(sampleValue / sampleProb, _pdf);
     }
-    quotient_pdf_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return quotientAndWeight(_sample, interaction.isotropic, _cache);
     }

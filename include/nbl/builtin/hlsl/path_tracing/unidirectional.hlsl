@@ -46,7 +46,7 @@ struct Unidirectional
     using bxdfnode_type = typename MaterialSystem::bxdfnode_type;
     using anisotropic_interaction_type = typename MaterialSystem::anisotropic_interaction_type;
     using cache_type = typename MaterialSystem::cache_type;
-    using quotient_pdf_type = typename MaterialSystem::quotient_pdf_type;
+    using quotient_weight_type = typename MaterialSystem::quotient_weight_type;
     using value_weight_type = typename MaterialSystem::value_weight_type;
     using tolerance_method_type = typename NextEventEstimator::tolerance_method_type;
 
@@ -101,7 +101,7 @@ struct Unidirectional
             );
             scalar_type t = ret.getT();
             sample_type nee_sample = ret.getSample();
-            quotient_pdf_type neeContrib = ret.getQuotientPdf();
+            quotient_weight_type neeContrib = ret.getQuotientPdf();
 
             // While NEE or other generators are not supposed to pick up Delta lobes by accident, we need the MIS weights to add up to 1 for the non-delta lobes.
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
@@ -141,7 +141,7 @@ struct Unidirectional
                 return false;
 
             // the value of the bsdf divided by the probability of the sample being generated
-            quotient_pdf_type bsdf_quotient_weight = materialSystem.quotientAndWeight(matID, bsdf_sample, interaction, _cache);
+            quotient_weight_type bsdf_quotient_weight = materialSystem.quotientAndWeight(matID, bsdf_sample, interaction, _cache);
             throughput *= bsdf_quotient_weight.quotient();
             bxdfPdf = bsdf_quotient_weight.pdf();
             bxdfSample = bsdf_sample.getL().getDirection();
