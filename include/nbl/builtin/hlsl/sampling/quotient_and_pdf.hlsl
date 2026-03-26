@@ -38,10 +38,10 @@ struct quotient_and_pdf
         return retval;
     }
 
-    Q quotient() { return _quotient; }
-    P pdf() { return _pdf; }
+    Q quotient() NBL_CONST_MEMBER_FUNC { return _quotient; }
+    P pdf() NBL_CONST_MEMBER_FUNC { return _pdf; }
 
-    Q value()
+    Q value() NBL_CONST_MEMBER_FUNC
     {
         return _quotient * _pdf;
     }

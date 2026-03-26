@@ -18,7 +18,12 @@ namespace hlsl
 namespace sampling
 {
 
-template<typename T>
+// Template parameter `UsePdfAsWeight`: when true (default), forwardWeight/backwardWeight
+// return the PDF instead of the projected-solid-angle MIS weight.
+// TODO: the projected-solid-angle MIS weight (UsePdfAsWeight=false) has been shown to be
+// poor in practice. Once confirmed by testing, remove the false path and stop storing
+// receiverNormal, receiverWasBSDF, and rcpProjSolidAngle as members.
+template<typename T, bool UsePdfAsWeight = true>
 struct ProjectedSphericalTriangle
 {
     using scalar_type = T;
@@ -41,22 +46,24 @@ struct ProjectedSphericalTriangle
     // NOTE: produces a degenerate (all-zero) bilinear patch when the receiver normal faces away
     // from all three triangle vertices, resulting in NaN PDFs (0 * inf). Callers must ensure
     // at least one vertex has positive projection onto the receiver normal.
-    static ProjectedSphericalTriangle<T> create(NBL_REF_ARG(shapes::SphericalTriangle<T>) shape, const vector3_type receiverNormal, const bool receiverWasBSDF)
+    static ProjectedSphericalTriangle<T,UsePdfAsWeight> create(NBL_REF_ARG(shapes::SphericalTriangle<T>) shape, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
     {
-        ProjectedSphericalTriangle<T> retval;
+        ProjectedSphericalTriangle<T,UsePdfAsWeight> retval;
         retval.sphtri = SphericalTriangle<T>::create(shape);
+        retval.receiverNormal = _receiverNormal;
+        retval.receiverWasBSDF = _receiverWasBSDF;
 
         const scalar_type minimumProjSolidAngle = 0.0;
         matrix<T, 3, 3> m = matrix<T, 3, 3>(shape.vertices[0], shape.vertices[1], shape.vertices[2]);
-        const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::mul(m, receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
+        const vector3_type bxdfPdfAtVertex = math::conditionalAbsOrMax(_receiverWasBSDF, hlsl::mul(m, _receiverNormal), hlsl::promote<vector3_type>(minimumProjSolidAngle));
         retval.bilinearPatch = Bilinear<scalar_type>::create(bxdfPdfAtVertex.yyxz);
 
-        const scalar_type projSA = shape.projectedSolidAngle(receiverNormal);
+        const scalar_type projSA = shape.projectedSolidAngle(_receiverNormal);
         retval.rcpProjSolidAngle = projSA > scalar_type(0.0) ? scalar_type(1.0) / projSA : scalar_type(0.0);
         return retval;
     }
 
-    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         Bilinear<scalar_type> bilinear = bilinearPatch;
         const vector2_type warped = bilinear.generate(u, cache.bilinearCache);
@@ -66,35 +73,38 @@ struct ProjectedSphericalTriangle
         return L;
     }
 
-    density_type forwardPdf(const cache_type cache)
+    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return sphtri.rcpSolidAngle * bilinearPatch.forwardPdf(cache.bilinearCache);
     }
 
-    weight_type forwardWeight(const cache_type cache)
+    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
+        if (UsePdfAsWeight)
+            return forwardPdf(cache);
         return cache.abs_cos_theta * rcpProjSolidAngle;
     }
 
-    density_type backwardPdf(const vector3_type L)
+    density_type backwardPdf(const vector3_type L) NBL_CONST_MEMBER_FUNC
     {
         const vector2_type u = sphtri.generateInverse(L);
         return sphtri.rcpSolidAngle * bilinearPatch.backwardPdf(u);
     }
 
-    weight_type backwardWeight(const vector3_type L)
+    weight_type backwardWeight(const vector3_type L) NBL_CONST_MEMBER_FUNC
     {
-        cache_type cache;
-        // cache.bilinearCache; // unused
-        // approximate abs(cos_theta) via bilinear interpolation at the inverse-mapped point
-        const vector2_type u = sphtri.generateInverse(L);
-        cache.abs_cos_theta = bilinearPatch.backwardWeight(u);
-        return forwardWeight(cache);
+        if (UsePdfAsWeight)
+            return backwardPdf(L);
+        const scalar_type minimumProjSolidAngle = 0.0;
+        const scalar_type abs_cos_theta = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::dot(receiverNormal, L), minimumProjSolidAngle);
+        return abs_cos_theta * rcpProjSolidAngle;
     }
 
     sampling::SphericalTriangle<T> sphtri;
     Bilinear<scalar_type> bilinearPatch;
     scalar_type rcpProjSolidAngle;
+    vector3_type receiverNormal;
+    bool receiverWasBSDF;
 };
 
 } // namespace sampling

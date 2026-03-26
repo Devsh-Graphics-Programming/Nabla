@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/concepts/accessors/generic_shared_data.hlsl>
 
 namespace nbl
@@ -33,6 +34,7 @@ namespace sampling
 // storage of the codomain (sampled index) which is already the return value.
 template<typename T, typename Domain, typename Codomain, typename ProbabilityAccessor, typename AliasIndexAccessor, typename PdfAccessor
 	NBL_PRIMARY_REQUIRES(
+		concepts::UnsignedIntegralScalar<Codomain> &&
 		concepts::accessors::GenericReadAccessor<ProbabilityAccessor, T, Codomain> &&
 		concepts::accessors::GenericReadAccessor<AliasIndexAccessor, Codomain, Codomain> &&
 		concepts::accessors::GenericReadAccessor<PdfAccessor, T, Codomain>)
@@ -63,7 +65,7 @@ struct AliasTable
 	}
 
 	// BasicSampler interface
-	codomain_type generate(const domain_type u)
+	codomain_type generate(const domain_type u) NBL_CONST_MEMBER_FUNC
 	{
 		const scalar_type scaled = u * tableSizeMinusUlp;
 		const codomain_type bin = codomain_type(scaled);
@@ -89,31 +91,31 @@ struct AliasTable
 	}
 
 	// TractableSampler interface
-	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		const codomain_type result = generate(u);
 		pdfAccessor.template get<scalar_type, codomain_type>(result, cache.pdf);
 		return result;
 	}
 
-	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache)
+	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return cache.pdf;
 	}
 
-	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache)
+	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return cache.pdf;
 	}
 
-	density_type backwardPdf(const codomain_type v)
+	density_type backwardPdf(const codomain_type v) NBL_CONST_MEMBER_FUNC
 	{
 		scalar_type pdf;
 		pdfAccessor.template get<scalar_type, codomain_type>(v, pdf);
 		return pdf;
 	}
 
-	weight_type backwardWeight(const codomain_type v)
+	weight_type backwardWeight(const codomain_type v) NBL_CONST_MEMBER_FUNC
 	{
 		return backwardPdf(v);
 	}

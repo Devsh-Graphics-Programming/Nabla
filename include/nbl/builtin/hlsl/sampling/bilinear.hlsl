@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/sampling/linear.hlsl>
 
 namespace nbl
@@ -32,7 +33,8 @@ struct Bilinear
 
     struct cache_type
     {
-        density_type pdf;
+        scalar_type normalizedStart;
+        typename Linear<T>::cache_type linearXCache;
     };
 
     static Bilinear<T> create(const vector4_type bilinearCoeffs)
@@ -46,49 +48,40 @@ struct Bilinear
         return retval;
     }
 
-    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
-        typename Linear<scalar_type>::cache_type linearCache;
+        typename Linear<scalar_type>::cache_type linearYCache;
 
         vector2_type p;
-        p.y = lineary.generate(u.y, linearCache);
+        p.y = lineary.generate(u.y, linearYCache);
 
         const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
         Linear<scalar_type> linearx = Linear<scalar_type>::create(ySliceEndPoints);
-        p.x = linearx.generate(u.x, linearCache);
+        p.x = linearx.generate(u.x, cache.linearXCache);
 
-        cache.pdf = nbl::hlsl::mix(ySliceEndPoints[0], ySliceEndPoints[1], p.x) * fourOverTwiceAreasUnderXCurveSum;
+        // pre-multiply by normalization so forwardPdf is just addition
+        cache.normalizedStart = ySliceEndPoints[0] * fourOverTwiceAreasUnderXCurveSum;
+        cache.linearXCache.diffTimesX *= fourOverTwiceAreasUnderXCurveSum;
         return p;
     }
 
-    domain_type generateInverse(const codomain_type p)
+    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        vector2_type u;
-        const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
-        Linear<scalar_type> linearx = Linear<scalar_type>::create(ySliceEndPoints);
-        u.x = linearx.generateInverse(p.x);
-        u.y = lineary.generateInverse(p.y);
-
-        return u;
+        return cache.normalizedStart + cache.linearXCache.diffTimesX;
     }
 
-    density_type forwardPdf(const cache_type cache)
-    {
-        return cache.pdf;
-    }
-
-    weight_type forwardWeight(const cache_type cache)
+    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return forwardPdf(cache);
     }
 
-    density_type backwardPdf(const codomain_type p)
+    density_type backwardPdf(const codomain_type p) NBL_CONST_MEMBER_FUNC
     {
         const vector2_type ySliceEndPoints = vector2_type(bilinearCoeffs[0] + p.y * bilinearCoeffDiffs[0], bilinearCoeffs[1] + p.y * bilinearCoeffDiffs[1]);
         return nbl::hlsl::mix(ySliceEndPoints[0], ySliceEndPoints[1], p.x) * fourOverTwiceAreasUnderXCurveSum;
     }
 
-    weight_type backwardWeight(const codomain_type p)
+    weight_type backwardWeight(const codomain_type p) NBL_CONST_MEMBER_FUNC
     {
         return backwardPdf(p);
     }

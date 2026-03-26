@@ -7,7 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/algorithm.hlsl>
-#include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/concepts/accessors/generic_shared_data.hlsl>
 
 namespace nbl
 {
@@ -15,28 +15,6 @@ namespace hlsl
 {
 namespace sampling
 {
-
-namespace concepts
-{
-
-// clang-format off
-#define NBL_CONCEPT_NAME CumulativeProbabilityAccessor
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(Scalar)
-#define NBL_CONCEPT_PARAM_0 (accessor, T)
-#define NBL_CONCEPT_PARAM_1 (index, uint32_t)
-NBL_CONCEPT_BEGIN(2)
-#define accessor NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define index NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-NBL_CONCEPT_END(
-	((NBL_CONCEPT_REQ_TYPE)(T::value_type))
-	((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor[index]), ::nbl::hlsl::is_same_v, Scalar)));
-#undef index
-#undef accessor
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-// clang-format on
-
-} // namespace concepts
 
 // Discrete sampler using cumulative probability lookup via upper_bound.
 //
@@ -49,37 +27,19 @@ NBL_CONCEPT_END(
 //
 // Satisfies TractableSampler and ResamplableSampler (not BackwardTractableSampler:
 // the mapping is discrete).
-template<typename T, typename CumProbAccessor NBL_FUNC_REQUIRES(concepts::CumulativeProbabilityAccessor<CumProbAccessor, T>)
+template<typename T, typename Domain, typename Codomain, typename CumProbAccessor
+	NBL_PRIMARY_REQUIRES(concepts::accessors::GenericReadAccessor<CumProbAccessor, T, Codomain>)
 struct CumulativeProbabilitySampler
 {
 	using scalar_type = T;
 
-	using domain_type = scalar_type;
-	using codomain_type = uint32_t;
+	using domain_type = Domain;
+	using codomain_type = Codomain;
 	using density_type = scalar_type;
 	using weight_type = density_type;
 
 	struct cache_type
 	{
-		density_type oneBefore;
-		density_type upperBound;
-	};
-
-	// Stateful comparator that tracks the CDF values seen during binary search.
-	// upper_bound uses lower_to_upper_comparator_transform_t which calls !comp(rhs, lhs),
-	// so our operator() receives (value=u, rhs=cumProb[testPoint]).
-	struct CdfComparator
-	{
-		bool operator()(const density_type value, const density_type rhs)
-		{
-			const bool retval = value < rhs;
-			if (retval)
-				upperBound = rhs;
-			else
-				oneBefore = rhs;
-			return retval;
-		}
-
 		density_type oneBefore;
 		density_type upperBound;
 	};
@@ -93,16 +53,31 @@ struct CumulativeProbabilitySampler
 	}
 
 	// BasicSampler interface
-	codomain_type generate(const domain_type u)
+	codomain_type generate(const domain_type u) NBL_CONST_MEMBER_FUNC
 	{
 		// upper_bound returns first index where cumProb > u
 		return hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u);
 	}
 
 	// TractableSampler interface
-	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		CdfComparator comp;
+		// Stateful comparator that tracks the CDF values seen during binary search.
+		struct CdfComparator
+		{
+			bool operator()(const density_type value, const density_type rhs)
+			{
+				const bool retval = value < rhs;
+				if (retval)
+					upperBound = rhs;
+				else
+					oneBefore = rhs;
+				return retval;
+			}
+
+			density_type oneBefore;
+			density_type upperBound;
+		} comp;
 		comp.oneBefore = density_type(0.0);
 		comp.upperBound = density_type(1.0);
 		const codomain_type result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u, comp);
@@ -111,24 +86,31 @@ struct CumulativeProbabilitySampler
 		return result;
 	}
 
-	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache)
+	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return cache.upperBound - cache.oneBefore;
 	}
 
-	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache)
+	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return forwardPdf(cache);
 	}
 
-	density_type backwardPdf(const codomain_type v)
+	density_type backwardPdf(const codomain_type v) NBL_CONST_MEMBER_FUNC
 	{
-		const density_type cur = (v < storedCount) ? cumProbAccessor[v] : density_type(1.0);
-		const density_type prev = (v > 0u) ? cumProbAccessor[v - 1u] : density_type(0.0);
-		return cur - prev;
+		density_type retval = density_type(1.0);
+		if (v < storedCount)
+			cumProbAccessor.template get<density_type, codomain_type>(v, retval);
+		if (v)
+		{
+			density_type prev;
+			cumProbAccessor.template get<density_type, codomain_type>(v - 1u, prev);
+			retval -= prev;
+		}
+		return retval;
 	}
 
-	weight_type backwardWeight(const codomain_type v)
+	weight_type backwardWeight(const codomain_type v) NBL_CONST_MEMBER_FUNC
 	{
 		return backwardPdf(v);
 	}

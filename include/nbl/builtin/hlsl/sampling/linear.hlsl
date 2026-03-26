@@ -22,7 +22,7 @@ struct Linear
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
 
-    // BijectiveSampler concept types
+    // BackwardTractableSampler concept types
     using domain_type = scalar_type;
     using codomain_type = scalar_type;
     using density_type = scalar_type;
@@ -30,7 +30,7 @@ struct Linear
 
     struct cache_type
     {
-        domain_type u;
+        scalar_type diffTimesX;
     };
 
     static Linear<T> create(const vector2_type linearCoeffs)   // start and end importance values (start, end), assumed to be at x=0 and x=1
@@ -46,39 +46,35 @@ struct Linear
         return retval;
     }
 
-    density_type __pdf(const codomain_type x)
+    density_type __pdf(const codomain_type x) NBL_CONST_MEMBER_FUNC
     {
         assert(x >= scalar_type(0.0) && x <= scalar_type(1.0));
         return scalar_type(2.0) * (linearCoeffStart + x * linearCoeffDiff) * rcpCoeffSum;
     }
 
-    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
-        cache.u = u;
-        return hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * negRcpDiff, abs(negRcpDiff) < hlsl::numeric_limits<scalar_type>::max);
+        const codomain_type x = hlsl::mix(u, (linearCoeffStart - sqrt(squaredCoeffStart + u * squaredCoeffDiff)) * negRcpDiff, abs(negRcpDiff) < hlsl::numeric_limits<scalar_type>::max);
+        cache.diffTimesX = linearCoeffDiff * x;
+        return x;
     }
 
-    domain_type generateInverse(const codomain_type x)
+    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return x * (scalar_type(2.0) * linearCoeffStart + linearCoeffDiff * x) * rcpCoeffSum;
+        return scalar_type(2.0) * (linearCoeffStart + cache.diffTimesX) * rcpCoeffSum;
     }
 
-    density_type forwardPdf(const cache_type cache)
-    {
-        return scalar_type(2.0) * nbl::hlsl::sqrt(squaredCoeffStart + cache.u * squaredCoeffDiff) * rcpCoeffSum;
-    }
-
-    weight_type forwardWeight(const cache_type cache)
+    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return forwardPdf(cache);
     }
 
-    density_type backwardPdf(const codomain_type x)
+    density_type backwardPdf(const codomain_type x) NBL_CONST_MEMBER_FUNC
     {
         return __pdf(x);
     }
 
-    weight_type backwardWeight(const codomain_type x)
+    weight_type backwardWeight(const codomain_type x) NBL_CONST_MEMBER_FUNC
     {
         return backwardPdf(x);
     }

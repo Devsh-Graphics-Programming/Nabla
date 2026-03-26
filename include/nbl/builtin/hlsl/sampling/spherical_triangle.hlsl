@@ -49,7 +49,7 @@ struct SphericalTriangle
 		return retval;
 	}
 
-	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		scalar_type negSinSubSolidAngle, negCosSubSolidAngle;
 		const scalar_type solidAngle = scalar_type(1.0) / rcpSolidAngle;
@@ -84,7 +84,7 @@ struct SphericalTriangle
 		return retval;
 	}
 
-	domain_type generateInverse(const codomain_type L)
+	domain_type generateInverse(const codomain_type L) NBL_CONST_MEMBER_FUNC
 	{
 		const scalar_type cosAngleAlongBC_s = nbl::hlsl::dot(L, tri_vertices[1]);
 		const scalar_type csc_a_ = 1.0 / nbl::hlsl::sqrt(1.0 - cosAngleAlongBC_s * cosAngleAlongBC_s);
@@ -112,22 +112,22 @@ struct SphericalTriangle
 		return vector2_type(u, v);
 	}
 
-	density_type forwardPdf(const cache_type cache)
+	density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
 	{
 		return rcpSolidAngle;
 	}
 
-	weight_type forwardWeight(const cache_type cache)
+	weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
 	{
 		return forwardPdf(cache);
 	}
 
-	density_type backwardPdf(const codomain_type L)
+	density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
 	{
 		return rcpSolidAngle;
 	}
 
-	weight_type backwardWeight(const codomain_type L)
+	weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
 	{
 		return backwardPdf(L);
 	}

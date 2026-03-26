@@ -68,7 +68,7 @@ struct SphericalRectangle
         return retval;
     }
 
-    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
         angle_adder.addCosine(cosGamma[3]);
@@ -94,22 +94,22 @@ struct SphericalRectangle
         return vector2_type((xu - r0.x), (yv - r0.y));
     }
 
-    density_type forwardPdf(const cache_type cache)
+    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return scalar_type(1.0) / solidAngle;
     }
 
-    weight_type forwardWeight(const cache_type cache)
+    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return forwardPdf(cache);
     }
 
-    density_type backwardPdf(const codomain_type L)
+    density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
     {
         return scalar_type(1.0) / solidAngle;
     }
 
-    weight_type backwardWeight(const codomain_type L)
+    weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
     {
         return backwardPdf(L);
     }

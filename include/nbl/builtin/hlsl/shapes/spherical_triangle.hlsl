@@ -32,10 +32,10 @@ struct SphericalTriangle
             nbl::hlsl::normalize(vertices[1] - origin),
             nbl::hlsl::normalize(vertices[2] - origin)
         };
-        return create(normalizedVerts);
+        return createFromUnitSphereVertices(normalizedVerts);
     }
 
-    static SphericalTriangle<T> create(const vector3_type normalizedVertices[3])
+    static SphericalTriangle<T> createFromUnitSphereVertices(const vector3_type normalizedVertices[3])
     {
         SphericalTriangle<T> retval;
         retval.vertices[0] = normalizedVertices[0];

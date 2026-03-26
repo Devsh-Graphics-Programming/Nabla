@@ -7,6 +7,7 @@
 
 #include <numeric>
 #include <algorithm>
+#include <span>
 #include <cstdint>
 
 namespace nbl
@@ -19,9 +20,12 @@ namespace sampling
 // Builds a normalized cumulative histogram from an array of non-negative weights.
 // Output has N-1 entries (last bucket implicitly 1.0).
 template<typename T>
-void computeNormalizedCumulativeHistogram(const T* weights, uint32_t N, T* outCumProb)
+void computeNormalizedCumulativeHistogram(std::span<const T> weights, T* outCumProb)
 {
-	std::inclusive_scan(weights, weights + N - 1, outCumProb);
+	const auto N = weights.size();
+	if (N < 2)
+		return;
+	std::inclusive_scan(weights.begin(), weights.end() - 1, outCumProb);
 	const T normalizationFactor = T(1) / (outCumProb[N - 2] + weights[N - 1]);
 	std::for_each(outCumProb, outCumProb + N - 1, [normalizationFactor](T& v) { v *= normalizationFactor; });
 }

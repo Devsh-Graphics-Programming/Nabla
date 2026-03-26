@@ -17,6 +17,27 @@ namespace hlsl
 namespace sampling
 {
 
+namespace impl
+{
+template<typename T>
+vector<T, 3> directionFromZandPhi(const T z, const T phiSample)
+{
+	const T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
+	const T phi = T(2.0) * numbers::pi<T> * phiSample;
+	return vector<T, 3>(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
+}
+
+template<typename T>
+T phiSampleFromDirection(const T x, const T y)
+{
+	T phi = hlsl::atan2(y, x);
+	const T twopi = T(2.0) * numbers::pi<T>;
+	phi /= twopi;
+	phi += hlsl::select(phi < T(0.0), T(1.0), T(0.0));
+	return phi;
+}
+}
+
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct UniformHemisphere
 {
@@ -34,10 +55,7 @@ struct UniformHemisphere
 
 	static codomain_type __generate(const domain_type _sample)
 	{
-		T z = _sample.x;
-		T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
-		T phi = T(2.0) * numbers::pi<T> * _sample.y;
-		return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
+		return impl::directionFromZandPhi(_sample.x, _sample.y);
 	}
 
 	static codomain_type generate(const domain_type _sample)
@@ -52,10 +70,7 @@ struct UniformHemisphere
 
 	static domain_type __generateInverse(const codomain_type _sample)
 	{
-		T phi = hlsl::atan2(_sample.y, _sample.x);
-		const T twopi = T(2.0) * numbers::pi<T>;
-		phi += hlsl::mix(T(0.0), twopi, phi < T(0.0));
-		return vector_t2(_sample.z, phi / twopi);
+		return vector_t2(_sample.z, impl::phiSampleFromDirection(_sample.x, _sample.y));
 	}
 
 	static domain_type generateInverse(const codomain_type _sample)
@@ -75,11 +90,13 @@ struct UniformHemisphere
 
 	static density_type backwardPdf(const vector_t3 _sample)
 	{
+		assert(_sample.z > 0);
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
-	static weight_type backwardWeight(const codomain_type sample)
+	static weight_type backwardWeight(const codomain_type _sample)
 	{
+		assert(_sample.z > 0);
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
@@ -103,13 +120,7 @@ struct UniformSphere
 
 	static codomain_type __generate(const domain_type _sample)
 	{
-		// Map _sample.x from [0,1] into hemisphere sample + sign flip:
-		// upper hemisphere when _sample.x < 0.5, lower when >= 0.5
-		const bool chooseLower = _sample.x >= T(0.5);
-		const T hemiX = chooseLower ? (T(2.0) * _sample.x - T(1.0)) : (T(2.0) * _sample.x);
-		vector_t3 retval = hemisphere_t::__generate(vector_t2(hemiX, _sample.y));
-		retval.z = chooseLower ? (-retval.z) : retval.z;
-		return retval;
+		return impl::directionFromZandPhi(T(1.0) - T(2.0) * _sample.x, _sample.y);
 	}
 
 	static codomain_type generate(const domain_type _sample)
@@ -124,12 +135,8 @@ struct UniformSphere
 
 	static domain_type __generateInverse(const codomain_type _sample)
 	{
-		const bool isLower = _sample.z < T(0.0);
-		const vector_t3 hemiSample = vector_t3(_sample.x, _sample.y, hlsl::abs(_sample.z));
-		vector_t2 hemiUV = hemisphere_t::__generateInverse(hemiSample);
-		// Recover _sample.x: upper hemisphere maps [0,0.5], lower maps [0.5,1]
-		hemiUV.x = isLower ? (hemiUV.x * T(0.5) + T(0.5)) : (hemiUV.x * T(0.5));
-		return hemiUV;
+		// Inverse of z = 1 - 2*x => x = (1 - z) / 2
+		return vector_t2((T(1.0) - _sample.z) * T(0.5), impl::phiSampleFromDirection(_sample.x, _sample.y));
 	}
 
 	static domain_type generateInverse(const codomain_type _sample)
@@ -152,9 +159,9 @@ struct UniformSphere
 		return T(0.5) * hemisphere_t::backwardPdf(_sample);
 	}
 
-	static weight_type backwardWeight(const codomain_type sample)
+	static weight_type backwardWeight(const codomain_type _sample)
 	{
-		return T(0.5) * hemisphere_t::backwardWeight(sample);
+		return T(0.5) * hemisphere_t::backwardWeight(_sample);
 	}
 
 };

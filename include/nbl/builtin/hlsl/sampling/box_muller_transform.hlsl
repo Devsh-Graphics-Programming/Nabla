@@ -30,6 +30,7 @@ struct BoxMullerTransform
 
     struct cache_type
     {
+        vector2_type direction; // (cosPhi, sinPhi)
         scalar_type u_x;
     };
 
@@ -41,37 +42,42 @@ struct BoxMullerTransform
         return retval;
     }
 
-    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         scalar_type sinPhi, cosPhi;
         math::sincos<scalar_type>(scalar_type(2.0) * numbers::pi<scalar_type> * u.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
-        const codomain_type outPos = vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
+        cache.direction = vector2_type(cosPhi, sinPhi);
         cache.u_x = u.x;
-        return outPos;
+        return cache.direction * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
     }
 
-    density_type forwardPdf(const cache_type cache)
+    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return halfRcpStddev2 * numbers::inv_pi<scalar_type> * cache.u_x;
     }
 
-    vector2_type separateForwardPdf(const cache_type cache, const codomain_type outPos)
+    vector2_type separateForwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return separateBackwardPdf(outPos);
+        const scalar_type normalization = nbl::hlsl::sqrt(halfRcpStddev2 * numbers::inv_pi<scalar_type>);
+        const vector2_type dir2 = cache.direction * cache.direction;
+        return normalization * vector2_type(
+            nbl::hlsl::pow(cache.u_x, dir2.x),
+            nbl::hlsl::pow(cache.u_x, dir2.y)
+        );
     }
 
-    weight_type forwardWeight(const cache_type cache)
+    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return forwardPdf(cache);
     }
 
-    density_type backwardPdf(const codomain_type outPos)
+    density_type backwardPdf(const codomain_type outPos) NBL_CONST_MEMBER_FUNC
     {
         const scalar_type normalization = halfRcpStddev2 * numbers::inv_pi<scalar_type>;
         return normalization * nbl::hlsl::exp(-halfRcpStddev2 * nbl::hlsl::dot(outPos, outPos));
     }
 
-    vector2_type separateBackwardPdf(const codomain_type outPos)
+    vector2_type separateBackwardPdf(const codomain_type outPos) NBL_CONST_MEMBER_FUNC
     {
         const scalar_type normalization = nbl::hlsl::sqrt(halfRcpStddev2 * numbers::inv_pi<scalar_type>);
         const vector2_type outPos2 = outPos * outPos;
@@ -81,7 +87,7 @@ struct BoxMullerTransform
         );
     }
 
-    weight_type backwardWeight(const codomain_type outPos)
+    weight_type backwardWeight(const codomain_type outPos) NBL_CONST_MEMBER_FUNC
     {
         return backwardPdf(outPos);
     }

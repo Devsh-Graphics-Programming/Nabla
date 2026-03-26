@@ -64,6 +64,8 @@ struct ProjectedHemisphere
 
 	static density_type backwardPdf(const codomain_type L)
 	{
+		assert(L.z > 0);
+		
 		cache_type c;
 		c.L_z = L.z;
 		return forwardPdf(c);
@@ -82,7 +84,7 @@ struct ProjectedSphere
 	using vector_t3 = vector<T, 3>;
 	using hemisphere_t = ProjectedHemisphere<T>;
 
-	// BijectiveSampler concept types
+	// BackwardTractableSampler concept types (not bijective: z input is consumed for hemisphere selection)
 	using scalar_type = T;
 	using domain_type = vector_t3;
 	using codomain_type = vector_t3;
@@ -107,13 +109,6 @@ struct ProjectedSphere
 		const codomain_type L = __generate(_sample);
 		cache.L_z = L.z;
 		return L;
-	}
-
-	static domain_type generateInverse(const codomain_type L)
-	{
-		// NOTE: incomplete information to recover exact z component; we only know which hemisphere L came from,
-		// so we return a canonical value (0.0 for upper, 1.0 for lower) that round-trips correctly through __generate
-		return vector_t3(hemisphere_t::generateInverse(L), hlsl::mix(T(1.0), T(0.0), L.z > T(0.0)));
 	}
 
 	static density_type forwardPdf(const cache_type cache)
