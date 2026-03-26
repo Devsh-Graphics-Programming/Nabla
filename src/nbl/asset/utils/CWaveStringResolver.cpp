@@ -40,6 +40,7 @@
 #include "nabla.h"
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/wave/util/insert_whitespace_detection.hpp>
+#include <algorithm>
 #include <optional>
 
 using namespace nbl;
@@ -49,6 +50,22 @@ using namespace nbl::asset;
 
 namespace
 {
+constexpr size_t kWaveFailureLogOutputTailMaxChars = 4096ull;
+constexpr size_t kWaveFailureLogOutputTailMaxLines = 16ull;
+constexpr size_t kWaveFailureLogTokenPreviewMaxChars = 160ull;
+
+struct WaveRenderProgress
+{
+    core::string output;
+    std::optional<nbl::wave::context::position_type> previousPosition = std::nullopt;
+    bool previousWasExplicitWhitespace = false;
+    size_t emittedTokenCount = 0ull;
+    std::string lastTokenFile;
+    int lastTokenLine = 0;
+    int lastTokenColumn = 0;
+    std::string lastTokenValue;
+};
+
 std::string getLineSnippet(std::string_view text, const int lineNo)
 {
     if (lineNo <= 0)
@@ -85,8 +102,94 @@ std::string makeCaretLine(const int columnNo)
     return std::string(static_cast<size_t>(columnNo - 1), ' ') + '^';
 }
 
+size_t countLogicalLines(const std::string_view text)
+{
+    if (text.empty())
+        return 0ull;
+
+    size_t lines = static_cast<size_t>(std::count(text.begin(), text.end(), '\n'));
+    if (text.back() != '\n')
+        ++lines;
+    return lines;
+}
+
+std::string truncateEscapedPreview(std::string value, const size_t maxChars)
+{
+    if (value.size() <= maxChars)
+        return value;
+
+    if (maxChars <= 3ull)
+        return value.substr(0ull, maxChars);
+
+    value.resize(maxChars - 3ull);
+    value += "...";
+    return value;
+}
+
+std::string indentMultiline(std::string_view text, std::string_view indent)
+{
+    if (text.empty())
+        return {};
+
+    std::string out;
+    out.reserve(text.size() + indent.size() * 4ull);
+
+    size_t lineStart = 0ull;
+    while (lineStart < text.size())
+    {
+        out.append(indent.data(), indent.size());
+
+        const auto lineEnd = text.find('\n', lineStart);
+        if (lineEnd == std::string_view::npos)
+        {
+            out.append(text.data() + lineStart, text.size() - lineStart);
+            break;
+        }
+
+        out.append(text.data() + lineStart, lineEnd - lineStart + 1ull);
+        lineStart = lineEnd + 1ull;
+    }
+
+    return out;
+}
+
+std::string makeFailureLogOutputTail(std::string_view text)
+{
+    if (text.empty())
+        return {};
+
+    size_t start = text.size();
+    size_t chars = 0ull;
+    size_t newlines = 0ull;
+    while (start > 0ull)
+    {
+        --start;
+        ++chars;
+        if (text[start] == '\n')
+        {
+            ++newlines;
+            if (newlines > kWaveFailureLogOutputTailMaxLines)
+            {
+                ++start;
+                break;
+            }
+        }
+
+        if (chars >= kWaveFailureLogOutputTailMaxChars)
+            break;
+    }
+
+    std::string tail;
+    if (start > 0ull)
+        tail = "[truncated]\n";
+    tail.append(text.data() + start, text.size() - start);
+    return tail;
+}
+
 std::string makeWaveFailureContext(
     const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions,
+    const nbl::wave::context& context,
+    const WaveRenderProgress& renderProgress,
     const std::string_view code,
     const char* const phase,
     const std::string_view activeMacroDefinition,
@@ -97,14 +200,28 @@ std::string makeWaveFailureContext(
     std::ostringstream stream;
     stream << "Wave preprocessing context:";
     if (!preprocessOptions.sourceIdentifier.empty())
-        stream << "\n  source: " << preprocessOptions.sourceIdentifier;
+        stream << "\n  source: " << nbl::wave::detail::escape_control_chars(preprocessOptions.sourceIdentifier);
     stream << "\n  phase: " << phase;
     stream << "\n  extra_define_count: " << preprocessOptions.extraDefines.size();
+    stream << "\n  source_length_bytes: " << code.size();
     stream << "\n  source_has_trailing_newline: " << ((!code.empty() && code.back() == '\n') ? "yes" : "no");
+    stream << "\n  include_depth: " << context.get_iteration_depth();
+    stream << "\n  current_include_spelling: " << nbl::wave::detail::escape_control_chars(context.get_current_relative_filename());
+    stream << "\n  current_directory: " << nbl::wave::detail::escape_control_chars(context.get_current_directory().string());
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    stream << "\n  current_include_absolute_path: " << nbl::wave::detail::escape_control_chars(context.get_current_filename());
+#endif
     if (!activeMacroDefinition.empty())
-        stream << "\n  active_macro_definition: " << activeMacroDefinition;
+        stream << "\n  active_macro_definition: " << nbl::wave::detail::escape_control_chars(activeMacroDefinition);
     if (fileName && fileName[0] != '\0')
-        stream << "\n  location: " << fileName << ':' << lineNo << ':' << columnNo;
+        stream << "\n  location: " << nbl::wave::detail::escape_control_chars(fileName) << ':' << lineNo << ':' << columnNo;
+    stream << "\n  emitted_output_bytes: " << renderProgress.output.size();
+    stream << "\n  emitted_output_lines: " << countLogicalLines(renderProgress.output);
+    stream << "\n  emitted_token_count: " << renderProgress.emittedTokenCount;
+    if (!renderProgress.lastTokenFile.empty())
+        stream << "\n  last_emitted_token_location: " << nbl::wave::detail::escape_control_chars(renderProgress.lastTokenFile) << ':' << renderProgress.lastTokenLine << ':' << renderProgress.lastTokenColumn;
+    if (!renderProgress.lastTokenValue.empty())
+        stream << "\n  last_emitted_token_value: " << truncateEscapedPreview(nbl::wave::detail::escape_control_chars(renderProgress.lastTokenValue), kWaveFailureLogTokenPreviewMaxChars);
 
     const auto snippet = getLineSnippet(code, lineNo);
     if (!snippet.empty() && fileName && preprocessOptions.sourceIdentifier == fileName)
@@ -114,6 +231,10 @@ std::string makeWaveFailureContext(
         if (!caret.empty())
             stream << "\n           " << caret;
     }
+
+    const auto outputTail = makeFailureLogOutputTail(renderProgress.output);
+    if (!outputTail.empty())
+        stream << "\n  partial_output_tail:\n" << indentMultiline(outputTail, "    ");
 
     return stream.str();
 }
@@ -134,14 +255,11 @@ std::string tokenValueToString(const TokenT& token)
     return std::string(value.data(), value.size());
 }
 
-core::string renderPreprocessedOutput(nbl::wave::context& context)
+void renderPreprocessedOutput(nbl::wave::context& context, WaveRenderProgress& renderProgress)
 {
     using namespace boost::wave;
 
-    core::string output;
     util::insert_whitespace_detection whitespace(true);
-    std::optional<nbl::wave::context::position_type> previousPosition = std::nullopt;
-    bool previousWasExplicitWhitespace = false;
 
     for (auto it = context.begin(); it != context.end(); ++it)
     {
@@ -154,37 +272,41 @@ core::string renderPreprocessedOutput(nbl::wave::context& context)
         const auto& position = token.get_position();
         const auto value = tokenValueToString(token);
 
-        if (previousPosition.has_value() && !explicitWhitespace)
+        if (renderProgress.previousPosition.has_value() && !explicitWhitespace)
         {
             const auto movedToNewLogicalLine =
-                position.get_file() != previousPosition->get_file() ||
-                position.get_line() > previousPosition->get_line();
+                position.get_file() != renderProgress.previousPosition->get_file() ||
+                position.get_line() > renderProgress.previousPosition->get_line();
 
             if (movedToNewLogicalLine)
             {
-                if (output.empty() || output.back() != '\n')
+                if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
                 {
-                    output.push_back('\n');
+                    renderProgress.output.push_back('\n');
                     whitespace.shift_tokens(T_NEWLINE);
                 }
             }
-            else if (!previousWasExplicitWhitespace && whitespace.must_insert(id, value))
+            else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
             {
-                if (output.empty() || (output.back() != ' ' && output.back() != '\n' && output.back() != '\r' && output.back() != '\t'))
+                if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
                 {
-                    output.push_back(' ');
+                    renderProgress.output.push_back(' ');
                     whitespace.shift_tokens(T_SPACE);
                 }
             }
         }
 
-        output += value;
+        renderProgress.output += value;
         whitespace.shift_tokens(id);
-        previousPosition = position;
-        previousWasExplicitWhitespace = explicitWhitespace;
+        renderProgress.previousPosition = position;
+        renderProgress.previousWasExplicitWhitespace = explicitWhitespace;
+        const auto& file = position.get_file();
+        renderProgress.lastTokenFile.assign(file.c_str(), file.size());
+        renderProgress.lastTokenLine = position.get_line();
+        renderProgress.lastTokenColumn = position.get_column();
+        renderProgress.lastTokenValue = value;
+        ++renderProgress.emittedTokenCount;
     }
-
-    return output;
 }
 
 std::string preprocessImpl(
@@ -194,16 +316,26 @@ std::string preprocessImpl(
     std::function<void(nbl::wave::context&)> post)
 {
     nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
-    context.set_caching(withCaching);
-    context.add_macro_definition("__HLSL_VERSION");
-    context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
-    context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
 
-    core::string resolvedString;
+    WaveRenderProgress renderProgress;
     const char* phase = "registering built-in macros";
     std::string activeMacroDefinition;
+    const auto reportPartialOutputOnFailure = [&]()
+    {
+        if (preprocessOptions.onPartialOutputOnFailure)
+            preprocessOptions.onPartialOutputOnFailure(renderProgress.output);
+    };
+    const auto makeFailureContext = [&](const char* const fileName, const int lineNo, const int columnNo)
+    {
+        return makeWaveFailureContext(preprocessOptions, context, renderProgress, code, phase, activeMacroDefinition, fileName, lineNo, columnNo);
+    };
     try
     {
+        context.set_caching(withCaching);
+        context.add_macro_definition("__HLSL_VERSION");
+        context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
+        context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
+
         phase = "registering extra macro definitions";
         for (const auto& define : preprocessOptions.extraDefines)
         {
@@ -215,31 +347,37 @@ std::string preprocessImpl(
         activeMacroDefinition.clear();
 
         phase = "expanding translation unit";
-        resolvedString = renderPreprocessedOutput(context);
+        renderPreprocessedOutput(context, renderProgress);
     }
     catch (boost::wave::preprocess_exception& e)
     {
-        const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, e.file_name(), e.line_no(), e.column_no());
-        preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]\n%s", system::ILogger::ELL_ERROR, e.what(), e.description(), e.file_name(), e.line_no(), e.column_no(), failureContext.c_str());
+        reportPartialOutputOnFailure();
+        const auto escapedDescription = nbl::wave::detail::escape_control_chars(e.description());
+        const auto escapedFileName = nbl::wave::detail::escape_control_chars(e.file_name());
+        const auto failureContext = makeFailureContext(e.file_name(), e.line_no(), e.column_no());
+        preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]\n%s", system::ILogger::ELL_ERROR, e.what(), escapedDescription.c_str(), escapedFileName.c_str(), e.line_no(), e.column_no(), failureContext.c_str());
         preprocessOptions.logger.log("Boost diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::diagnostic_information(e).c_str());
         return {};
     }
     catch (const boost::exception& e)
     {
-        const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, preprocessOptions.sourceIdentifier.data(), 0, 0);
+        reportPartialOutputOnFailure();
+        const auto failureContext = makeFailureContext(preprocessOptions.sourceIdentifier.data(), 0, 0);
         preprocessOptions.logger.log("Boost exception caught during Wave preprocessing.\n%s", system::ILogger::ELL_ERROR, failureContext.c_str());
         preprocessOptions.logger.log("Boost diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::diagnostic_information(e).c_str());
         return {};
     }
     catch (const std::exception& e)
     {
-        const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, preprocessOptions.sourceIdentifier.data(), 0, 0);
+        reportPartialOutputOnFailure();
+        const auto failureContext = makeFailureContext(preprocessOptions.sourceIdentifier.data(), 0, 0);
         preprocessOptions.logger.log("std::exception caught during Wave preprocessing. %s\n%s", system::ILogger::ELL_ERROR, e.what(), failureContext.c_str());
         return {};
     }
     catch (...)
     {
-        const auto failureContext = makeWaveFailureContext(preprocessOptions, code, phase, activeMacroDefinition, preprocessOptions.sourceIdentifier.data(), 0, 0);
+        reportPartialOutputOnFailure();
+        const auto failureContext = makeFailureContext(preprocessOptions.sourceIdentifier.data(), 0, 0);
         preprocessOptions.logger.log("Unknown exception caught during Wave preprocessing.\n%s", system::ILogger::ELL_ERROR, failureContext.c_str());
         preprocessOptions.logger.log("Current exception diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::current_exception_diagnostic_information().c_str());
         return {};
@@ -247,7 +385,7 @@ std::string preprocessImpl(
 
     post(context);
 
-    return resolvedString;
+    return std::move(renderProgress.output);
 }
 }
 

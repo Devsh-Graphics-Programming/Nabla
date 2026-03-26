@@ -164,7 +164,7 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 
 
 // TODO: make configurable
-constexpr bool PrintMaterialDot3 = true;
+constexpr bool PrintMaterialDot3 = false;
 system::path DebugDir("D:\\work\\Nabla-master\\examples_tests\\15_MitsubaLoader\\bin");
 //
 void SContext::writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer)
@@ -337,7 +337,7 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 		}
 
 		ctx.transferMetadata();
-		return asset::SAssetBundle(std::move(result.metadata),{std::move(ctx.scene)});
+		return SAssetBundle(std::move(result.metadata),{std::move(ctx.scene)});
 	}
 }
 
@@ -371,6 +371,7 @@ auto SContext::getMaterial(
 	{
 		// only front-face on top layer get changed, Mistuba XML only allows for unobscured/uncoated emission
 		{
+			// TODO replace with utility
 			auto combinerH = frontPool.emplace<frontend_ir_t::CAdd>();
 			auto* const combiner = frontPool.deref(combinerH);
 			combiner->lhs = foundEmitter->second._const_cast();
@@ -418,62 +419,72 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 		SAssetBundle viewBundle = interm_getImageViewInHierarchy(tex->bitmap.filename,/*ICPUScene::MATERIAL_IMAGES_HIERARCHY_LEVELS_BELOW*/1);
 		if (auto contents=viewBundle.getContents(); !contents.empty())
 		{
-			retval.view = IAsset::castDown<const ICPUImageView>(*contents.begin());
+			auto view = IAsset::castDown<const ICPUImageView>(*contents.begin());
+			const auto format = view->getCreationParameters().format;
 			if (bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
 				retval.viewChannel = bitmap.channel-CElementTexture::Bitmap::CHANNEL::R;
-			// get sampler parameters
-			using tex_clamp_e = asset::ISampler::E_TEXTURE_CLAMP;
-			auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
+			if (retval.viewChannel<asset::getFormatChannelCount(format))
 			{
-				switch (mode)
+				retval.view = std::move(view);
+				// get sampler parameters
+				using tex_clamp_e = asset::ISampler::E_TEXTURE_CLAMP;
+				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
 				{
-					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-						return tex_clamp_e::ETC_CLAMP_TO_EDGE;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-						return tex_clamp_e::ETC_MIRROR;
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ONE:
-						assert(false); // TODO : replace whole texture?
-						break;
-					case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-						assert(false); // TODO : replace whole texture?
+					switch (mode)
+					{
+						case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
+							return tex_clamp_e::ETC_CLAMP_TO_EDGE;
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
+							return tex_clamp_e::ETC_MIRROR;
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::ONE:
+							assert(false); // TODO : replace whole texture?
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::ZERO:
+							assert(false); // TODO : replace whole texture?
+							break;
+						default:
+							break;
+					}
+					return tex_clamp_e::ETC_REPEAT;
+				};
+				auto& params = retval.sampler;
+				params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
+				params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
+				switch (bitmap.filterType)
+				{
+					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
+						[[fallthrough]]; // we dont support this fancy stuff
+					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
+						params.MinFilter = ISampler::ETF_LINEAR;
+						params.MaxFilter = ISampler::ETF_LINEAR;
+						params.MipmapMode = ISampler::ESMM_LINEAR;
 						break;
 					default:
+						params.MinFilter = ISampler::ETF_NEAREST;
+						params.MaxFilter = ISampler::ETF_NEAREST;
+						params.MipmapMode = ISampler::ESMM_NEAREST;
 						break;
 				}
-				return tex_clamp_e::ETC_REPEAT;
-			};
-			auto& params = retval.sampler;
-			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
-			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
-			switch (bitmap.filterType)
-			{
-				case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-					[[fallthrough]]; // we dont support this fancy stuff
-				case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-					params.MinFilter = ISampler::ETF_LINEAR;
-					params.MaxFilter = ISampler::ETF_LINEAR;
-					params.MipmapMode = ISampler::ESMM_LINEAR;
-					break;
-				default:
-					params.MinFilter = ISampler::ETF_NEAREST;
-					params.MaxFilter = ISampler::ETF_NEAREST;
-					params.MipmapMode = ISampler::ESMM_NEAREST;
-					break;
+				params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
+				// TODO: embed the gamma in the material compiler Frontend
+				// or adjust gamma on pixels (painful and long process)
+				//assert(std::isnan(bitmap.gamma));
+				auto& transform = *outUvTransform;
+				transform[0][0] = bitmap.uscale;
+				transform[0][2] = bitmap.uoffset;
+				transform[1][1] = bitmap.vscale;
+				transform[1][2] = bitmap.voffset;
 			}
-			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
-			// TODO: embed the gamma in the material compiler Frontend
-			// or adjust gamma on pixels (painful and long process)
-			assert(std::isnan(bitmap.gamma));
-			auto& transform = *outUvTransform;
-			transform[0][0] = bitmap.uscale;
-			transform[0][2] = bitmap.uoffset;
-			transform[1][1] = bitmap.vscale;
-			transform[1][2] = bitmap.voffset;
+			else
+				inner.params.logger.log(
+					"Failed to parse CElementTexture bitmap for %p with id %s from path \"%s\", channel swizzle %s requested out of range of format %s",
+					LoggerError,tex,tex ? tex->id.c_str():"",tex->bitmap.filename,system::to_string(bitmap.channel),system::to_string(format)
+				);
 		}
 		else
-			inner.params.logger.log("Failed to load bitmap texture for %p with id %s",LoggerError,tex,tex ? tex->id.c_str():"");
+			inner.params.logger.log("Failed to load bitmap texture for %p with id %s from path \"%s\"",LoggerError,tex,tex ? tex->id.c_str():"",tex->bitmap.filename);
 	}
 	else
 		inner.params.logger.log("Failed to unroll texture scale for %p with id %s",LoggerError,rootTex,rootTex ? rootTex->id.c_str():"");
@@ -500,10 +511,21 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 	if (src.texture)
 	{
 		const auto param = getTexture(src.texture,&retval);
+		const auto formatChannelCount = getFormatChannelCount(param.view ? param.view->getCreationParameters().format:E_FORMAT::EF_UNKNOWN);
+		if (src.texture->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID && formatChannelCount>1 && out.size()>formatChannelCount)
+		{
+			for (auto c=0; c<out.size(); c++)
+				out[c].scale = std::numeric_limits<decltype(out[c].scale)>::signaling_NaN();
+			return hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);;
+		}
 		for (auto c=0; c<out.size(); c++)
 		{
-			out[c] = param;
-			out[c].viewChannel = param.viewChannel+c;
+			out[c].scale = param.scale;
+			out[c].viewChannel = param.viewChannel;
+			if (formatChannelCount>1 && src.texture->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID)
+				out[c].viewChannel += c;
+			out[c].view = param.view;
+			out[c].sampler = param.sampler;
 		}
 	}
 	else
@@ -527,7 +549,17 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, con
 {
 	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
     if (src.texture)
-		std::fill(out.begin(),out.end(),getTexture(src.texture,&retval));
+	{
+		const auto param = getTexture(src.texture,&retval);
+		for (auto c=0; c<out.size(); c++)
+		{
+			out[c].scale = param.scale;
+			// assign same channel to everything because the `src` is monochrome
+			out[c].viewChannel = param.viewChannel;
+			out[c].view = param.view;
+			out[c].sampler = param.sampler;
+		}
+	}
     else
 		MitsubaLoader::getParameters(out,src.value);
 	return retval;
@@ -616,6 +648,7 @@ auto SContext::genProfile(const CElementEmissionProfile* profile) -> frontend_ir
 	return retval;
 }
 
+// TODO: include source debug information / location, e.g. XML path, line and column in the nodes
 auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileWriter) -> frontend_material_t
 {
 	auto& frontPool = frontIR->getObjectPool();
@@ -624,22 +657,23 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	
 	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& factor, const ECommonDebug debug)->auto
 	{
-		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
-		auto* mul = frontPool.deref(mulH);
 		spectral_var_t::SCreationParams<3> params = {};
 		params.knots.uvTransform = getParameters(params.knots.params,factor);
 		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
 		const auto factorH = frontPool.emplace<spectral_var_t>(std::move(params));
 		frontPool.deref(factorH)->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
-		mul->rhs = factorH;
-		return mulH;
+		return factorH;
 	};
+
+	struct SDerivativeMap
+	{
+		// TODO: derivative map SParameter[2]
+	};
+	// TODO: take `SParameter[2]` for the derivative maps
 	auto createCookTorrance = [&](const CElementBSDF::RoughSpecularBase* base, const frontend_ir_t::typed_pointer_type<frontend_ir_t::CFresnel> fresnelH, const CElementTexture::SpectrumOrTexture& specularReflectance)->auto
 	{
-		const auto handle = createFactorNode(specularReflectance,ECommonDebug::MitsubaExtraFactor);
-		// rhs already filled, waiting for contributor in lhs subtree
 		const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
-		frontPool.deref(handle)->lhs = mulH;
+		const auto factorH = createFactorNode(specularReflectance,ECommonDebug::MitsubaExtraFactor);
 		{
 			auto* mul = frontPool.deref(mulH);
 			const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
@@ -664,6 +698,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						// TODO: check if UV transform is the same and warn if not
 						getParameters({roughness.data()+1,1},base->alphaV);
 					}
+					// TODO: derivative maps
 				}
 				else
 					roughness[0].scale = roughness[1].scale = 0.f;
@@ -675,13 +710,13 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			mul->lhs = ctH;
 			mul->rhs = fresnelH;
 		}
-		return handle;
+		return frontIR->createMul(mulH,factorH);
 	};
 	auto createOrenNayar = [&](const CElementTexture::SpectrumOrTexture& albedo, const CElementTexture::FloatOrTexture& alphaU, const CElementTexture::FloatOrTexture& alphaV)->auto
 	{
-		const auto mulH = createFactorNode(albedo,ECommonDebug::Albedo);
+		const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
+		const auto factorH = createFactorNode(albedo,ECommonDebug::Albedo);
 		{
-			const auto orenNayarH = frontPool.emplace<frontend_ir_t::COrenNayar>();
 			auto* orenNayar = frontPool.deref(orenNayarH);
 			// TODO: factor this out between Oren-Nayar and Cook Torrance
 			auto roughness = orenNayar->ndParams.getRougness();
@@ -691,16 +726,75 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				// TODO: check if UV transform is the same and warn if not
 				getParameters({roughness.data()+1,1},alphaV);
 			}
-			frontPool.deref(mulH)->lhs = orenNayarH;
+			// TODO: derivative maps
 		}
-		return mulH;
+		return frontIR->createMul(orenNayarH,factorH);
 	};
 
-	// the layer returned will never have a bottom BRDF
-	auto createMistubaLeaf = [&](const CElementBSDF* _bsdf/*TODO: debug source information*/)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
+	auto fillCoatingLayer = [&]<typename T>(frontend_ir_t::CLayer* layer, const T& element, const bool rough, const frontend_ir_t::typed_pointer_type<frontend_ir_t::CBeer> extinctionH={})->void
 	{
+		const auto fresnelH = frontIR->createConstantMonochromeRealFresnel(element.intIOR/element.extIOR);
+		const auto dielectricH = createCookTorrance(rough ? &element:nullptr,fresnelH,element.specularReflectance);
+		layer->brdfTop = dielectricH;
+		const auto transH = frontPool.emplace<frontend_ir_t::CMul>();
+		{
+			auto* const trans = frontPool.deref(transH);
+			if (extinctionH)
+				trans->lhs = frontIR->createMul(deltaTransmission._const_cast(),extinctionH);
+			else
+				trans->lhs = deltaTransmission._const_cast();
+			const auto factorH = createFactorNode(element.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+			trans->rhs = frontIR->createMul(fresnelH,factorH);
+		}
+		layer->btdf = transH;
+		// identical BRDF on the bottom, to have correct multiscatter
+		layer->brdfBottom = dielectricH;
+	};
+	
+	using expr_handle_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::IExprNode>;
+	auto createWeightedSum = [&](frontend_ir_t::CLayer* out, material_t A, const expr_handle_t w0, material_t B, const expr_handle_t w1)->void
+	{
+		while (true)
+		{
+			auto* const a = frontPool.deref(A);
+			auto* const b = frontPool.deref(B);
+			// I don't actually need to check if the child Expressions are non-empty, the CFrontendIR utilities nicely carry through NOOPs
+			out->brdfTop = frontIR->createWeightedSum(a ? a->brdfTop:expr_handle_t{},w0,b ? b->brdfTop:expr_handle_t{},w1);
+			out->btdf = frontIR->createWeightedSum(a ? a->btdf :expr_handle_t{},w0,b ? b->btdf:expr_handle_t{},w1);
+			out->brdfBottom = frontIR->createWeightedSum(a ? a->brdfBottom:expr_handle_t{},w0,b ? b->brdfBottom:expr_handle_t{},w1);
+			if (a && a->coated || b && b->coated)
+			{
+				out = frontPool.deref(out->coated = frontPool.emplace<frontend_ir_t::CLayer>());
+				A = a ? a->coated:material_t{};
+				B = b ? b->coated:material_t{};
+			}
+			else
+			{
+				out->coated = {};
+				break;
+			}
+		}
+	};
+
+	struct SEntry
+	{
+		inline bool operator==(const SEntry& other) const {return bsdf==other.bsdf;}
+
+		const CElementBSDF* bsdf;
+		// SDerivativeMap derivMap;
+	};
+	struct HashEntry
+	{
+		inline size_t operator()(const SEntry& entry) const {return std::hash<const void*>()(entry.bsdf);}
+	};
+	core::unordered_map<SEntry,material_t,HashEntry> localCache;
+	localCache.reserve(16);
+	// the layer returned will never have a bottom BRDF
+	auto createMistubaLeaf = [&](const SEntry& entry)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
+	{
+		const CElementBSDF* _bsdf = entry.bsdf;
 		auto retval = frontPool.emplace<frontend_ir_t::CLayer>();
-		auto* const leaf = frontPool.deref(retval);
+		auto* leaf = frontPool.deref(retval);
 		switch (_bsdf->type)
 		{
 			case CElementBSDF::DIFFUSE: [[fallthrough]];
@@ -782,10 +876,10 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				if (!isConductor)
 				{
 					// want a specularTransmittance instead of SpecularReflectance factor
-					const auto btdfH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					const auto factorH = createFactorNode(_bsdf->dielectric.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
+					expr_handle_t btdfH;
 					{
 						const auto* const brdf = frontPool.deref(brdfH);
-						auto* const btdf = frontPool.deref(btdfH);
 						// make the trans node refraction-less for thin dielectric and apply thin scattering correction to the transmissive fresnel
 						if (_bsdf->type==CElementBSDF::THINDIELECTRIC)
 						{
@@ -803,34 +897,34 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 								mul->lhs = deltaTransmission._const_cast();
 								mul->rhs = thinInfiniteScatterH;
 							}
-							// we're rethreading the fresnel here
-							btdf->lhs = correctedTransmissionH;
+#ifdef UNCORRELLATED
+							// We need to attach the other glass interface as another layer because the Etas need to be reciprocated because the interactions are flipped
+							leaf->coated = frontIR->reverse(retval);
+							frontPool.deref(leaf->coated)->btdf = deltaTransmission._const_cast();
+							// we're rethreading the fresnel here, but needed to be careful to not apply thindielectric scatter correction and volumetric absorption / Mitsuba extra factor twice
+#else
+							leaf->brdfBottom = frontIR->reciprocate(brdfH)._const_cast();
+#endif
+							btdfH = correctedTransmissionH;
 						}
-						else // beautiful thing we can reuse the same nodes for a transmission function without touching Etas or anything!
-							btdf->lhs = brdf->lhs;
+						else
+						{
+							// beautiful thing we can reuse the same BxDF nodes for a transmission function without touching Etas or anything!
+							btdfH = brdf->lhs;
+							leaf->brdfBottom = brdfH;
+						}
 					}
-					leaf->btdf = btdfH;
+					leaf->btdf = frontIR->createMul(btdfH,factorH);
 				}
 				break;
 			}
 			case CElementBSDF::PLASTIC: [[fallthrough]];
 			case CElementBSDF::ROUGHPLASTIC:
 			{
-				const auto fresnelH = frontIR->createConstantMonochromeRealFresnel(_bsdf->plastic.intIOR/_bsdf->plastic.extIOR);
-				const auto dielectricH = createCookTorrance(_bsdf->type==CElementBSDF::ROUGHPLASTIC ? &_bsdf->plastic:nullptr,fresnelH,_bsdf->plastic.specularReflectance);
-				leaf->brdfTop = dielectricH;
-				const auto transH = frontPool.emplace<frontend_ir_t::CMul>();
-				{
-					auto* const mul = frontPool.deref(transH);
-					mul->lhs = deltaTransmission._const_cast();
-					const auto transmittanceH = createFactorNode(_bsdf->plastic.specularTransmittance,ECommonDebug::MitsubaExtraFactor);
-					frontPool.deref(transmittanceH)->lhs = fresnelH;
-					mul->rhs = transmittanceH;
-				}
-				leaf->btdf = transH;
+				fillCoatingLayer(leaf,_bsdf->plastic,_bsdf->type==CElementBSDF::ROUGHPLASTIC); // shall we plug albedo back inside as an extinction factor !?
 				const auto substrateH = frontPool.emplace<frontend_ir_t::CLayer>();
 				{
-					// TODO: `_bsdf->plastic.nonlinear` , do we use beer?
+					// TODO: `_bsdf->plastic.nonlinear` to let the backend know the multiscatter should match provided albedo? Basically provided albedo is not the color at every bounce but after all bounces
 					auto* const substrate = frontPool.deref(substrateH);
 					substrate->brdfTop = createOrenNayar(_bsdf->plastic.diffuseReflectance,_bsdf->plastic.alphaU,_bsdf->plastic.alphaV);
 				}
@@ -861,81 +955,220 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				}
 				leaf->brdfTop = diffTransH;
 				leaf->btdf = diffTransH;
+				// By default, all non-transmissive scattering models in Mitsuba are one-sided => all transmissive are two sided
+				leaf->brdfBottom = diffTransH;
 				break;
 			}
 			default:
 				assert(false); // we shouldn't get this case here
-				return errorMaterial._const_cast();
+				retval = errorMaterial._const_cast();
+				break;
 		}
-		assert(!leaf->brdfBottom);
+		leaf = frontPool.deref(retval);
+		assert(leaf->brdfTop);
 		return retval;
 	};
 
 	// Post-order Depth First Traversal (create children first, then create parent)
 	struct SStackEntry
 	{
-		const CElementBSDF* bsdf;
-		uint64_t visited : 1 = false;
-		uint64_t expectedNodeType : 2 = false;
-		uint64_t unused : 61 = false;
+		SEntry immutable;
+		bool visited = false;
 	};
 	core::vector<SStackEntry> stack;
 	stack.reserve(128);
-	stack.emplace_back() = {
-		.bsdf = bsdf
-	};
-	// for the static casts of handles
-	using block_allocator_t  = frontend_ir_t::obj_pool_type::mem_pool_type::block_allocator_type;
-	using node_t = frontend_ir_t::typed_pointer_type<frontend_ir_t::INode>;
-	core::unordered_map<const CElementBSDF*,node_t> localCache;
-	while (!stack.front().visited)
+	stack.emplace_back() = {.immutable={.bsdf=bsdf}};
+	//
+	frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer> rootH = {};
+	while (!stack.empty())
 	{
-		const auto entry = stack.back();
-		assert(entry.bsdf);
-		if (!entry.visited)
+		auto& entry = stack.back();
+		const auto* const _bsdf = entry.immutable.bsdf;
+		assert(_bsdf);
+		// we only do post-dfs for non-leafs
+		if (_bsdf->isMeta() && !entry.visited)
 		{
-			node_t newNodeH = {}; // TODO: {errorFactor,errorBRDF,errorLayer}[entry.expectedNodeType];
-			if (entry.bsdf->isMeta())
+			if (_bsdf->isMeta())
 			{
-				return errorMaterial;// temporary
-				switch(entry.bsdf->type)
+				const auto& meta_common = _bsdf->meta_common;
+				assert(meta_common.childCount);
+				switch(_bsdf->type)
 				{
+					case CElementBSDF::COATING: [[fallthrough]];
+					case CElementBSDF::ROUGHCOATING:
+						assert(meta_common.childCount==1);
+						break;
+					case CElementBSDF::BUMPMAP: [[fallthrough]];
+					case CElementBSDF::NORMALMAP:
+						assert(meta_common.childCount==1);
+						// TODO : create the derivative map and cache it
+						break;
 					case CElementBSDF::MASK:
+						assert(meta_common.childCount==1);
+						break;
+					case CElementBSDF::MIXTURE_BSDF:
+						break;
+					case CElementBSDF::BLEND_BSDF:
+						assert(meta_common.childCount==2);
+						break;
+					case CElementBSDF::TWO_SIDED:
+						assert(meta_common.childCount<=2);
+						break;
+					default:
+						assert(false); // we shouldn't get this case here
+						break;
+				}
+				// TODO : make sure child gets pushed with derivative map info
+				for (decltype(meta_common.childCount) i=0; i<meta_common.childCount; i++)
+					stack.emplace_back() = {.immutable={.bsdf=meta_common.bsdf[i]}};
+			}
+			entry.visited = true;
+		}
+		else
+		{
+			material_t newMaterialH = {};
+			if (_bsdf->isMeta())
+			{
+				const auto childCount = _bsdf->meta_common.childCount;
+				auto getChildFromCache = [&](const CElementBSDF* child)->frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>
+				{
+					return localCache[{.bsdf=child/*, TODO: copy the current normalmap stuff from entry or self if self is bump map*/}]._const_cast();
+				};
+				switch(_bsdf->type)
+				{
+					case CElementBSDF::COATING: [[fallthrough]];
+					case CElementBSDF::ROUGHCOATING:
 					{
-						const auto maskH = createFactorNode(entry.bsdf->mask.opacity,ECommonDebug::Opacity);
-						auto* const mask = frontPool.deref(maskH);
-//						mask->lhs = ;
-						newNodeH = maskH;
+						const auto coatingH = frontPool.emplace<frontend_ir_t::CLayer>();
+						auto* const coating = frontPool.deref(coatingH);
+						// the top layer
+						const auto& sigmaA = _bsdf->coating.sigmaA;
+						const bool hasExtinction = sigmaA.texture||sigmaA.value.type==SPropertyElementData::FLOAT&&sigmaA.value.fvalue!=0.f;
+						const auto beerH = hasExtinction ? frontPool.emplace<frontend_ir_t::CBeer>():frontend_ir_t::typed_pointer_type<frontend_ir_t::CBeer>{};
+						if (auto* const beer=frontPool.deref(beerH); beer)
+						{
+							spectral_var_t::SCreationParams<3> params = {};
+							params.knots.uvTransform = getParameters(params.knots.params,sigmaA);
+							params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
+							beer->perpTransmittance = frontPool.emplace<spectral_var_t>(std::move(params));
+						}
+						fillCoatingLayer(coating,_bsdf->coating,_bsdf->type==CElementBSDF::ROUGHCOATING,beerH);
+						// attach the nested as layer
+						coating->coated = getChildFromCache(_bsdf->mask.bsdf[0]);
+						newMaterialH = coatingH;
 						break;
 					}
-					//case CElementBSDF::TWO_SIDED:
-						// material compiler is designed so that we don't need to reciprocate the BRDFs as we go through layers as long as observer is still on the same side
-						//break;
+					case CElementBSDF::MASK:
+					{
+						const auto maskH = frontPool.emplace<frontend_ir_t::CLayer>();
+						auto* const mask = frontPool.deref(maskH);
+						//
+						const auto nestedH = getChildFromCache(_bsdf->mask.bsdf[0]);
+						const auto* const nested = frontPool.deref(nestedH);
+						assert(nested && nested->brdfTop);
+						const auto opacityH = createFactorNode(_bsdf->mask.opacity,ECommonDebug::Opacity);
+						mask->brdfTop = frontIR->createMul(nested->brdfTop,opacityH);
+						{
+							mask->btdf = frontIR->createAdd(
+								frontIR->createMul(deltaTransmission._const_cast(),frontIR->createComplement(opacityH)),
+								frontIR->createMul(nested->btdf,opacityH)
+							);
+						}
+						mask->brdfBottom = frontIR->createMul(nested->brdfBottom,opacityH);
+						newMaterialH = maskH;
+						break;
+					} 
+					case CElementBSDF::BUMPMAP: [[fallthrough]];
+					case CElementBSDF::NORMALMAP:
+					{
+						// we basically ignore and skip because derivative map already applied
+						newMaterialH = getChildFromCache(_bsdf->mask.bsdf[0]);
+						break;
+					}
+					case CElementBSDF::MIXTURE_BSDF:
+					{
+						const auto mixH = frontPool.emplace<frontend_ir_t::CLayer>();
+						auto* const mix = frontPool.deref(mixH);
+						const uint8_t realChildCount = hlsl::min<uint8_t>(childCount,_bsdf->mixturebsdf.weightCount);
+						const auto firstH = realChildCount>=1 ? getChildFromCache(_bsdf->mixturebsdf.bsdf[0]):frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>{};
+						spectral_var_t::SCreationParams<1> firstParams = {};
+						firstParams.knots.params[0].scale = _bsdf->mixturebsdf.weights[0];
+						const auto firstWeightH = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(firstParams));
+						if (realChildCount<2)
+							createWeightedSum(mix,firstH,firstWeightH,{},{});
+						else
+						for (uint8_t c=1; c<realChildCount; c++)
+						{
+							const auto otherH = getChildFromCache(_bsdf->mixturebsdf.bsdf[c]);
+							spectral_var_t::SCreationParams<1> params = {};
+							params.knots.params[0].scale = _bsdf->mixturebsdf.weights[c];
+							// don't feel like spending time on this, since its never used, trust CTrueIR optimizer to remove this during canonicalization
+							createWeightedSum(mix,mixH,unityFactor._const_cast(),otherH,frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params)));
+						}
+						newMaterialH = mixH;
+						break;
+					}
+					case CElementBSDF::BLEND_BSDF:
+					{
+						const auto blendH = frontPool.emplace<frontend_ir_t::CLayer>();
+						const auto tH = createFactorNode(_bsdf->blendbsdf.weight,ECommonDebug::Weight);
+						const auto tComplementH = frontIR->createComplement(tH);
+						const auto loH = getChildFromCache(_bsdf->blendbsdf.bsdf[0]);
+						const auto hiH = getChildFromCache(_bsdf->blendbsdf.bsdf[1]);
+						createWeightedSum(frontPool.deref(blendH),loH,tComplementH,hiH,tH);
+						newMaterialH = blendH;
+						break;
+					}
+					case CElementBSDF::TWO_SIDED:
+					{
+						const auto origFrontH = getChildFromCache(_bsdf->twosided.bsdf[0]);
+						const auto chosenBackH = childCount!=1 ? getChildFromCache(_bsdf->twosided.bsdf[1]):origFrontH;
+						// Mitsuba does a mad thing where it will pick the BSDF to use based on NdotV which would normally break the required reciprocity of a BxDF
+						// but then it saves the day by disallowing transmission on the combination two BxDFs it layers together. Lets do the same.
+						if (const bool firstIsTransmissive=frontIR->transmissive(origFrontH); firstIsTransmissive && (childCount==1 || frontIR->transmissive(chosenBackH)))
+						{
+							logger.log("Mitsuba <twosided> cannot be used to glue two transmissive BxDF Layer Stacks together!",LoggerError,debugName.c_str());
+							break;
+						}
+						// this is the stack we attach to the back, but we need to reverse it
+						const auto backH = frontIR->reverse(chosenBackH);
+						if (!backH)
+						{
+							logger.log("Failed to reverse and reciprocate the BxDF Layer Stack!",LoggerError,debugName.c_str());
+							break;
+						}
+						// we need to make a copy because we'll be changing the last layer
+						const auto combinedH = frontIR->copyLayers(origFrontH);
+						{
+							auto* lastInFront = frontPool.deref(combinedH);
+							// scroll to the end
+							while (lastInFront->coated)
+								lastInFront = frontPool.deref(lastInFront->coated);
+							// attach the back stack
+							lastInFront->coated = backH;
+						}
+						newMaterialH = combinedH;
+						break;
+					}
 					default:
 						assert(false); // we shouldn't get this case here
 						break;
 				}
 			}
 			else
-			{
-				newNodeH = createMistubaLeaf(entry.bsdf);
-				// have to make it available somehow for parent
-			}
-			localCache[entry.bsdf] = newNodeH;
-			stack.back().visited = true;
-		}
-		else
-		{
+				newMaterialH = createMistubaLeaf(entry.immutable);
+			if (!newMaterialH)
+				newMaterialH = errorMaterial;
+			localCache[entry.immutable] = newMaterialH;
 			stack.pop_back();
+			if (stack.empty())
+				rootH = newMaterialH._const_cast();
 		}
 	}
-
-	const auto found = localCache.find(bsdf);
-	if (found!=localCache.end())
-		return errorMaterial;
-	const auto rootH = block_allocator_t::_static_cast<frontend_ir_t::CLayer>(found->second);
 	if (!rootH)
 		return errorMaterial;
+
+	// add debug info
 	auto* const root = frontPool.deref(rootH);
 	root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
 
@@ -1068,6 +1301,11 @@ SContext::SContext(
 		}
 		//
 		{
+			{
+				spectral_var_t::SCreationParams<1> params = {};
+				params.knots.params[0].scale = 1.f;
+				unityFactor = frontPool.emplace<spectral_var_t>(std::move(params));
+			}
 			deltaTransmission = frontPool.emplace<frontend_ir_t::CDeltaTransmission>();
 			const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
 			{
@@ -1096,6 +1334,7 @@ SContext::SContext(
 		{
 #define ADD_DEBUG_NODE(NAME) commonDebugNames[uint16_t(ECommonDebug::NAME)] = frontPool.emplace<frontend_ir_t::CDebugInfo>(#NAME)
 			ADD_DEBUG_NODE(Albedo);
+			ADD_DEBUG_NODE(Weight);
 			ADD_DEBUG_NODE(Opacity);
 			ADD_DEBUG_NODE(MitsubaExtraFactor);
 #undef ADD_DEBUG_NODE

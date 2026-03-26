@@ -87,6 +87,7 @@ struct SContext final
 #endif
 		core::smart_refctd_ptr<frontend_ir_t> frontIR;
 		// common frontend nodes
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CSpectralVariable> unityFactor;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::IExprNode> errorBRDF;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> errorMaterial, unsupportedPhong, unsupportedWard;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CDeltaTransmission> deltaTransmission;
@@ -95,6 +96,7 @@ struct SContext final
 		{
 			Albedo,
 			Opacity,
+			Weight,
 			MitsubaExtraFactor,
 			Count
 		};
