@@ -28,6 +28,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	public:
 		IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
+		enum class IncludeRootOrigin : uint8_t
+		{
+			User,
+			Builtin,
+			Generated
+		};
+
+		enum class HeaderClass : uint8_t
+		{
+			User,
+			System
+		};
+
+		struct IncludeClassification
+		{
+			IncludeRootOrigin origin = IncludeRootOrigin::User;
+			HeaderClass headerClass = HeaderClass::User;
+		};
+
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
 			public:
@@ -36,6 +55,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					system::path absolutePath = {};
 					std::string contents = {};
 					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					IncludeClassification classification = {};
 					// Could be used in the future for early rejection of cache hit
 					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
@@ -78,7 +98,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			public:
 				struct SSessionCache
 				{
-					enum class E_LOOKUP_RESULT : uint8_t
+					enum class LookupResult : uint8_t
 					{
 						Miss,
 						Missing,
@@ -88,7 +108,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					explicit SSessionCache(const bool threadSafe = false) : threadSafe(threadSafe) {}
 
 					void clear();
-					E_LOOKUP_RESULT lookup(const std::string& key, IIncludeLoader::found_t& result) const;
+					LookupResult lookup(const std::string& key, IIncludeLoader::found_t& result) const;
 					void store(const std::string& key, IIncludeLoader::found_t result);
 
 					bool threadSafe = false;
@@ -112,23 +132,41 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
-				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader);
+				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification = {});
 
-				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator);
+				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator, IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System});
+
+				bool isKnownGlobalInclude(std::string_view includeName) const;
+				IIncludeLoader::found_t classifyFound(IIncludeLoader::found_t found) const;
 
 			protected:
 				IIncludeLoader::found_t trySearchPaths(const std::string& includeName, bool needHash) const;
 
 				IIncludeLoader::found_t tryIncludeGenerators(const std::string& includeName) const;
+				void registerHeaderRoot(std::string rootPath, IncludeClassification classification);
 
 				struct LoaderSearchPath
 				{
 					core::smart_refctd_ptr<IIncludeLoader> loader = nullptr;
 					std::string searchPath = {};
+					IncludeClassification classification = {};
+				};
+
+				struct GeneratorEntry
+				{
+					core::smart_refctd_ptr<IIncludeGenerator> generator = nullptr;
+					IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System};
+				};
+
+				struct HeaderRoot
+				{
+					std::string path = {};
+					IncludeClassification classification = {};
 				};
 
 				std::vector<LoaderSearchPath> m_loaders;
-				std::vector<core::smart_refctd_ptr<IIncludeGenerator>> m_generators;
+				std::vector<GeneratorEntry> m_generators;
+				std::vector<HeaderRoot> m_headerRoots;
 				core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 

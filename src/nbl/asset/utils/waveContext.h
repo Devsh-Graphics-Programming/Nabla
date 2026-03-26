@@ -26,30 +26,6 @@ using namespace boost::wave::util;
 
 namespace detail
 {
-inline bool is_globally_resolved_include_name(std::string_view includeName)
-{
-    constexpr std::string_view globalPrefixes[] = {
-        "nbl/",
-        "nbl\\",
-        "boost/",
-        "boost\\",
-        "glm/",
-        "glm\\",
-        "spirv/",
-        "spirv\\",
-        "Imath/",
-        "Imath\\"
-    };
-
-    for (const auto prefix : globalPrefixes)
-    {
-        if (includeName.rfind(prefix, 0ull) == 0ull)
-            return true;
-    }
-
-    return false;
-}
-
 struct PerfStats
 {
     bool enabled = false;
@@ -764,7 +740,7 @@ class context : private boost::noncopyable
         std::string make_include_resolution_key(std::string_view includeName, bool is_system) const
         {
             std::string key;
-            const bool globallyResolved = is_system || detail::is_globally_resolved_include_name(includeName);
+            const bool globallyResolved = is_system || (hooks.m_includeFinder && hooks.m_includeFinder->isKnownGlobalInclude(includeName));
             if (!globallyResolved)
             {
                 const auto currentDirString = current_dir.generic_string();
@@ -822,7 +798,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
             nbl::wave::detail::ScopedPerfTimer lookupTimer(perfStats.includeLookupTime);
             if (perfStats.enabled)
                 ++perfStats.includeLookupCount;
-            result = includeFinder->getDefaultFileSystemLoader()->getInclude(nbl::system::path{}, cachedAbsolutePath, needHash);
+            result = includeFinder->classifyFound(includeFinder->getDefaultFileSystemLoader()->getInclude(nbl::system::path{}, cachedAbsolutePath, needHash));
             standardInclude = is_system;
         }
     }
@@ -871,6 +847,8 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     if (perfStats.enabled && perfStats.includeDetailsEnabled)
         ++perfStats.resolvedIncludePathCounts[result.absolutePath.generic_string()];
 
+    const bool systemHeader = result.classification.headerClass == IShaderCompiler::HeaderClass::System;
+
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {
         ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, standardInclude, std::move(result.hash));
@@ -885,7 +863,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
             new iteration_context_type(ctx,result.absolutePath.string().c_str(),act_pos,
                 boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
-                is_system ? base_iteration_context_type::system_header :
+                systemHeader ? base_iteration_context_type::system_header :
                 base_iteration_context_type::user_header));
 
         // call the include policy trace function

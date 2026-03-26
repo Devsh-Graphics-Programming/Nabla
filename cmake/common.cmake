@@ -1259,10 +1259,10 @@ struct DeviceConfigCaps
 	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
 		list(APPEND REQUIRED_OPTIONS
 			-no-nbl-builtins
-			-I "${NBL_ROOT_PATH}/include"
-			-I "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
-			-I "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
-			-I "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
+			-isystem "${NBL_ROOT_PATH}/include"
+			-isystem "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
+			-isystem "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
+			-isystem "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
 		)
 	endif()
 
@@ -1307,7 +1307,8 @@ struct DeviceConfigCaps
 		)
 
 		target_sources(${IMPL_TARGET} PUBLIC ${INCLUDE_FILE})
-		set_source_files_properties(${INCLUDE_FILE} PROPERTIES 
+		set_source_files_properties(${INCLUDE_FILE} PROPERTIES
+			GENERATED TRUE
 			HEADER_FILE_ONLY ON
 			VS_TOOL_OVERRIDE None
 		)

@@ -651,6 +651,23 @@ std::string normalizeIncludeLookupName(const std::string& includeName)
     return includeName.substr(1ull);
 }
 
+std::string normalizeClassifiedRootPath(std::string value)
+{
+    std::replace(value.begin(), value.end(), '\\', '/');
+    while (value.size() > 1ull && value.back() == '/')
+        value.pop_back();
+    if (value.size() > 2ull && value.front() == '/' && value[1ull] != '/')
+        value.erase(value.begin());
+    return value;
+}
+
+bool pathHasRegisteredRoot(std::string_view path, std::string_view root)
+{
+    if (root.empty() || path.size() < root.size() || path.substr(0ull, root.size()) != root)
+        return false;
+    return path.size() == root.size() || path[root.size()] == '/';
+}
+
 template<typename Func>
 auto withSessionCacheLock(IShaderCompiler::CIncludeFinder::SSessionCache* cache, Func&& func) -> decltype(func())
 {
@@ -688,18 +705,18 @@ void IShaderCompiler::CIncludeFinder::SSessionCache::clear()
     });
 }
 
-auto IShaderCompiler::CIncludeFinder::SSessionCache::lookup(const std::string& key, IIncludeLoader::found_t& result) const -> E_LOOKUP_RESULT
+auto IShaderCompiler::CIncludeFinder::SSessionCache::lookup(const std::string& key, IIncludeLoader::found_t& result) const -> LookupResult
 {
-    return withSessionCacheLock(const_cast<SSessionCache*>(this), [&]() -> E_LOOKUP_RESULT
+    return withSessionCacheLock(const_cast<SSessionCache*>(this), [&]() -> LookupResult
     {
         if (const auto foundIt = found.find(key); foundIt != found.end())
         {
             result = foundIt->second;
-            return E_LOOKUP_RESULT::Found;
+            return LookupResult::Found;
         }
         if (missing.contains(key))
-            return E_LOOKUP_RESULT::Missing;
-        return E_LOOKUP_RESULT::Miss;
+            return LookupResult::Missing;
+        return LookupResult::Miss;
     });
 }
 
@@ -716,9 +733,11 @@ void IShaderCompiler::CIncludeFinder::SSessionCache::store(const std::string& ke
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
-    : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
+    : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(core::smart_refctd_ptr(system)))
 {
     addSearchPath("", m_defaultFileSystemLoader);
+    for (const auto& builtinRoot : system->getBuiltinMountAliases())
+        registerHeaderRoot(builtinRoot.generic_string(), {IncludeRootOrigin::Builtin,HeaderClass::System});
 }
 
 // ! includes within <>
@@ -730,13 +749,13 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
     const auto lookupName = normalizeIncludeLookupName(includeName);
     const auto cacheKey = makeIncludeSessionCacheKey(requestingSourceDir, lookupName, needHash, 'S');
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    switch (sessionCache ? sessionCache->lookup(cacheKey, retVal) : SSessionCache::E_LOOKUP_RESULT::Miss)
+    switch (sessionCache ? sessionCache->lookup(cacheKey, retVal) : SSessionCache::LookupResult::Miss)
     {
-        case SSessionCache::E_LOOKUP_RESULT::Found:
+        case SSessionCache::LookupResult::Found:
             return retVal;
-        case SSessionCache::E_LOOKUP_RESULT::Missing:
+        case SSessionCache::LookupResult::Missing:
             return {};
-        case SSessionCache::E_LOOKUP_RESULT::Miss:
+        case SSessionCache::LookupResult::Miss:
             break;
     }
 
@@ -746,6 +765,8 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         retVal = std::move(contents);
     else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash);
 
+
+    retVal = classifyFound(std::move(retVal));
 
     if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
     {
@@ -766,19 +787,21 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
     const auto lookupName = normalizeIncludeLookupName(includeName);
     const auto cacheKey = makeIncludeSessionCacheKey(requestingSourceDir, lookupName, needHash, 'R');
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    switch (sessionCache ? sessionCache->lookup(cacheKey, retVal) : SSessionCache::E_LOOKUP_RESULT::Miss)
+    switch (sessionCache ? sessionCache->lookup(cacheKey, retVal) : SSessionCache::LookupResult::Miss)
     {
-        case SSessionCache::E_LOOKUP_RESULT::Found:
+        case SSessionCache::LookupResult::Found:
             return retVal;
-        case SSessionCache::E_LOOKUP_RESULT::Missing:
+        case SSessionCache::LookupResult::Missing:
             return {};
-        case SSessionCache::E_LOOKUP_RESULT::Miss:
+        case SSessionCache::LookupResult::Miss:
             break;
     }
 
     if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash))
         retVal = std::move(contents);
     else retVal = std::move(trySearchPaths(lookupName, needHash));
+
+    retVal = classifyFound(std::move(retVal));
 
     if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
     {
@@ -791,27 +814,32 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
     return retVal;
 }
 
-void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader)
+void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification)
 {
     if (!loader)
         return;
-    m_loaders.emplace_back(LoaderSearchPath{ loader, searchPath });
+    auto normalizedSearchPath = normalizeClassifiedRootPath(searchPath);
+    if (!normalizedSearchPath.empty())
+        registerHeaderRoot(normalizedSearchPath, classification);
+    m_loaders.emplace_back(LoaderSearchPath{ loader, std::move(normalizedSearchPath), classification });
 }
 
-void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd)
+void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd, IncludeClassification classification)
 {
     if (!generatorToAdd)
         return;
 
+    registerHeaderRoot(std::string(generatorToAdd->getPrefix()), classification);
+
     // this will find the place of first generator with prefix <= generatorToAdd or end
     auto found = std::lower_bound(m_generators.begin(), m_generators.end(), generatorToAdd->getPrefix(),
-        [](const core::smart_refctd_ptr<IIncludeGenerator>& generator, const std::string_view& value)
+        [](const GeneratorEntry& generator, const std::string_view& value)
         {
-            auto element = generator->getPrefix();
+            auto element = generator.generator->getPrefix();
             return element.compare(value) > 0; // first to return false is lower_bound -> first element that is <= value
         });
 
-    m_generators.insert(found, generatorToAdd);
+    m_generators.insert(found, GeneratorEntry{ generatorToAdd, classification });
 }
 
 auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName, bool needHash) const -> IIncludeLoader::found_t
@@ -848,23 +876,23 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     while (!path.empty() && path.root_name().empty() && end != m_generators.end())
     {
         auto begin = std::lower_bound(end, m_generators.end(), path.string(),
-            [&standardizePrefix](const core::smart_refctd_ptr<IIncludeGenerator>& generator, const std::string& value)
+            [&standardizePrefix](const GeneratorEntry& generator, const std::string& value)
             {
-                const auto element = standardizePrefix(generator->getPrefix());
+                const auto element = standardizePrefix(generator.generator->getPrefix());
                 return element.compare(value) > 0; // first to return false is lower_bound -> first element that is <= value
             });
 
         // search from new beginning to real end
         end = std::upper_bound(begin, m_generators.end(), path.string(),
-            [&standardizePrefix](const std::string& value, const core::smart_refctd_ptr<IIncludeGenerator>& generator)
+            [&standardizePrefix](const std::string& value, const GeneratorEntry& generator)
             {
-                const auto element = standardizePrefix(generator->getPrefix());
+                const auto element = standardizePrefix(generator.generator->getPrefix());
                 return value.compare(element) > 0; // first to return true is upper_bound -> first element that is < value
             });
 
         for (auto generatorIt = begin; generatorIt != end; generatorIt++)
         {
-            if (auto contents = (*generatorIt)->getInclude(includeName))
+            if (auto contents = generatorIt->generator->getInclude(includeName))
                 return contents;
         }
 
@@ -872,6 +900,53 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     }
 
     return {};
+}
+
+bool IShaderCompiler::CIncludeFinder::isKnownGlobalInclude(std::string_view includeName) const
+{
+    const auto normalizedIncludeName = normalizeClassifiedRootPath(std::string(includeName));
+    return std::any_of(m_headerRoots.begin(), m_headerRoots.end(), [&](const HeaderRoot& root)
+    {
+        return root.classification.headerClass == HeaderClass::System && pathHasRegisteredRoot(normalizedIncludeName, root.path);
+    });
+}
+
+auto IShaderCompiler::CIncludeFinder::classifyFound(IIncludeLoader::found_t found) const -> IIncludeLoader::found_t
+{
+    if (!found)
+        return found;
+
+    const auto normalizedPath = normalizeClassifiedRootPath(found.absolutePath.generic_string());
+    size_t bestMatchLength = 0ull;
+    for (const auto& root : m_headerRoots)
+    {
+        if (root.path.size() <= bestMatchLength)
+            continue;
+        if (!pathHasRegisteredRoot(normalizedPath, root.path))
+            continue;
+        found.classification = root.classification;
+        bestMatchLength = root.path.size();
+    }
+    return found;
+}
+
+void IShaderCompiler::CIncludeFinder::registerHeaderRoot(std::string rootPath, IncludeClassification classification)
+{
+    rootPath = normalizeClassifiedRootPath(std::move(rootPath));
+    if (rootPath.empty())
+        return;
+
+    const auto found = std::find_if(m_headerRoots.begin(), m_headerRoots.end(), [&](const HeaderRoot& entry)
+    {
+        return entry.path == rootPath;
+    });
+    if (found != m_headerRoots.end())
+    {
+        found->classification = classification;
+        return;
+    }
+
+    m_headerRoots.push_back({ std::move(rootPath),classification });
 }
 
 core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
