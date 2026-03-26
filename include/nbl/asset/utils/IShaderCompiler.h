@@ -17,9 +17,6 @@
 #include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <functional>
-#include <mutex>
-#include <unordered_map>
-#include <unordered_set>
 
 namespace nbl::asset
 {
@@ -72,9 +69,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			protected:
 				core::smart_refctd_ptr<system::ISystem> m_system;
-				mutable std::mutex m_cacheMutex;
-				mutable std::unordered_map<std::string, IIncludeLoader::found_t> m_cache;
-				mutable std::unordered_set<std::string> m_missingCache;
 		};
 
 		class NBL_API2 CIncludeFinder : public core::IReferenceCounted

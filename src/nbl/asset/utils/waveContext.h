@@ -17,7 +17,6 @@
 #include <unordered_set>
 
 #include "nbl/asset/utils/IShaderCompiler.h"
-#include "includeResolutionCommon.h"
 
 namespace nbl::wave
 {
@@ -27,6 +26,30 @@ using namespace boost::wave::util;
 
 namespace detail
 {
+inline bool is_globally_resolved_include_name(std::string_view includeName)
+{
+    constexpr std::string_view globalPrefixes[] = {
+        "nbl/",
+        "nbl\\",
+        "boost/",
+        "boost\\",
+        "glm/",
+        "glm\\",
+        "spirv/",
+        "spirv\\",
+        "Imath/",
+        "Imath\\"
+    };
+
+    for (const auto prefix : globalPrefixes)
+    {
+        if (includeName.rfind(prefix, 0ull) == 0ull)
+            return true;
+    }
+
+    return false;
+}
+
 struct PerfStats
 {
     bool enabled = false;
@@ -740,7 +763,7 @@ class context : private boost::noncopyable
         std::string make_include_resolution_key(std::string_view includeName, bool is_system) const
         {
             std::string key;
-            const bool globallyResolved = is_system || asset::detail::isGloballyResolvedIncludeName(includeName);
+            const bool globallyResolved = is_system || detail::is_globally_resolved_include_name(includeName);
             if (!globallyResolved)
             {
                 const auto currentDirString = current_dir.generic_string();

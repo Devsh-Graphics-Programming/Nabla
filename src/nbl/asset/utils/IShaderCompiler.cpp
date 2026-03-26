@@ -2,7 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
-#include "includeResolutionCommon.h"
 #include "nbl/asset/utils/shadercUtils.h"
 
 #include <sstream>
@@ -605,49 +604,16 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
 {
     system::path path = (searchPath / includeName).lexically_normal();
 
-    const auto cacheKey = path.generic_string();
-    if (!cacheKey.empty())
-    {
-        std::lock_guard<std::mutex> lock(m_cacheMutex);
-        const auto found = m_cache.find(cacheKey);
-        if (found != m_cache.end())
-        {
-            if (needHash && found->second.hash == core::blake3_hash_t{})
-            {
-                core::blake3_hasher hasher;
-                hasher.update(reinterpret_cast<uint8_t*>(found->second.contents.data()), found->second.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-                found->second.hash = static_cast<core::blake3_hash_t>(hasher);
-            }
-            return found->second;
-        }
-        if (m_missingCache.contains(cacheKey))
-            return {};
-    }
-
     core::smart_refctd_ptr<system::IFile> f;
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_system->createFile(future, path.c_str(), system::IFile::ECF_READ);
         if (!future.wait())
-        {
-            if (!cacheKey.empty())
-            {
-                std::lock_guard<std::mutex> lock(m_cacheMutex);
-                m_missingCache.insert(cacheKey);
-            }
             return {};
-        }
         future.acquire().move_into(f);
     }
     if (!f)
-    {
-        if (!cacheKey.empty())
-        {
-            std::lock_guard<std::mutex> lock(m_cacheMutex);
-            m_missingCache.insert(cacheKey);
-        }
         return {};
-    }
     const size_t size = f->getSize();
 
     std::string contents(size, '\0');
@@ -662,13 +628,6 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
         core::blake3_hasher hasher;
         hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
         retVal.hash = static_cast<core::blake3_hash_t>(hasher);
-    }
-
-    if (!cacheKey.empty())
-    {
-        std::lock_guard<std::mutex> lock(m_cacheMutex);
-        m_missingCache.erase(cacheKey);
-        m_cache.insert_or_assign(cacheKey, retVal);
     }
 
     return retVal;
@@ -731,22 +690,9 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
 {
     const auto lookupName = normalizeIncludeLookupName(includeName);
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (asset::detail::isGloballyResolvedIncludeName(lookupName))
-    {
-        if (auto contents = tryIncludeGenerators(lookupName))
-            retVal = std::move(contents);
-        else if (auto contents = trySearchPaths(lookupName, needHash))
-            retVal = std::move(contents);
-        else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash);
-    }
-    else
-    {
-        if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash))
-            retVal = std::move(contents);
-        else if (auto contents = tryIncludeGenerators(lookupName))
-            retVal = std::move(contents);
-        else retVal = std::move(trySearchPaths(lookupName, needHash));
-    }
+    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash))
+        retVal = std::move(contents);
+    else retVal = std::move(trySearchPaths(lookupName, needHash));
 
     if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
     {
