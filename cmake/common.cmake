@@ -1306,13 +1306,6 @@ struct DeviceConfigCaps
 			TARGET ${IMPL_TARGET}
 		)
 
-		target_sources(${IMPL_TARGET} PUBLIC ${INCLUDE_FILE})
-		set_source_files_properties(${INCLUDE_FILE} PROPERTIES
-			GENERATED TRUE
-			HEADER_FILE_ONLY ON
-			VS_TOOL_OVERRIDE None
-		)
-
 		target_compile_definitions(${IMPL_TARGET} INTERFACE $<TARGET_PROPERTY:${IMPL_TARGET},NBL_MOUNT_POINT_DEFINES>)
 		target_include_directories(${IMPL_TARGET} INTERFACE ${INCLUDE_DIR})
 		set_target_properties(${IMPL_TARGET} PROPERTIES NBL_HEADER_GENERATED_RULE ON)
