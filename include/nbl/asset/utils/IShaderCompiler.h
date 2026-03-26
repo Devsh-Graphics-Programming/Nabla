@@ -98,6 +98,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			public:
 				struct SSessionCache
 				{
+					struct Stats
+					{
+						uint64_t lookupFound = 0ull;
+						uint64_t lookupMissing = 0ull;
+						uint64_t lookupMiss = 0ull;
+						uint64_t storeFound = 0ull;
+						uint64_t storeMissing = 0ull;
+					};
+
 					enum class LookupResult : uint8_t
 					{
 						Miss,
@@ -110,10 +119,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					void clear();
 					LookupResult lookup(const std::string& key, IIncludeLoader::found_t& result) const;
 					void store(const std::string& key, IIncludeLoader::found_t result);
+					Stats snapshotStats() const;
 
 					bool threadSafe = false;
 
 					mutable std::mutex mutex;
+					mutable Stats stats;
 					core::unordered_map<std::string, IIncludeLoader::found_t> found;
 					core::unordered_set<std::string> missing;
 				};
@@ -123,12 +134,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// ! includes within <>
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within <> of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* sessionCache = nullptr) const;
+				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* readSessionCache = nullptr, SSessionCache* writeSessionCache = nullptr) const;
 
 				// ! includes within ""
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within "" of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* sessionCache = nullptr) const;
+				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* readSessionCache = nullptr, SSessionCache* writeSessionCache = nullptr) const;
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
@@ -196,7 +207,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
-			mutable CIncludeFinder::SSessionCache* includeSessionCache = nullptr;
+			CIncludeFinder::SSessionCache* readIncludeSessionCache = nullptr;
+			CIncludeFinder::SSessionCache* writeIncludeSessionCache = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;

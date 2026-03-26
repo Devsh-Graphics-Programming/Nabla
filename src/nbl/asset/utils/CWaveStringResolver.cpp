@@ -25,6 +25,19 @@ constexpr size_t kWaveFailureLogOutputTailMaxChars = 4096ull;
 constexpr size_t kWaveFailureLogOutputTailMaxLines = 16ull;
 constexpr size_t kWaveFailureLogTokenPreviewMaxChars = 160ull;
 
+auto subtractSessionCacheStats(
+    const IShaderCompiler::CIncludeFinder::SSessionCache::Stats& end,
+    const IShaderCompiler::CIncludeFinder::SSessionCache::Stats& begin) -> IShaderCompiler::CIncludeFinder::SSessionCache::Stats
+{
+    IShaderCompiler::CIncludeFinder::SSessionCache::Stats result;
+    result.lookupFound = end.lookupFound - begin.lookupFound;
+    result.lookupMissing = end.lookupMissing - begin.lookupMissing;
+    result.lookupMiss = end.lookupMiss - begin.lookupMiss;
+    result.storeFound = end.storeFound - begin.storeFound;
+    result.storeMissing = end.storeMissing - begin.storeMissing;
+    return result;
+}
+
 struct WaveRenderProgress
 {
     core::string output;
@@ -305,6 +318,10 @@ std::string preprocessImpl(
     const bool withCaching,
     std::function<void(nbl::wave::context&)> post)
 {
+    const auto emptySessionCacheStats = IShaderCompiler::CIncludeFinder::SSessionCache::Stats{};
+    const auto readSessionCacheStatsBegin = preprocessOptions.readIncludeSessionCache ? preprocessOptions.readIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    const auto writeSessionCacheStatsBegin = preprocessOptions.writeIncludeSessionCache ? preprocessOptions.writeIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+
     nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
 
     WaveRenderProgress renderProgress;
@@ -383,6 +400,11 @@ std::string preprocessImpl(
     }
 
     post(context);
+    const auto readSessionCacheStatsEnd = preprocessOptions.readIncludeSessionCache ? preprocessOptions.readIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    const auto writeSessionCacheStatsEnd = preprocessOptions.writeIncludeSessionCache ? preprocessOptions.writeIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    nbl::wave::detail::set_session_cache_perf_stats(
+        subtractSessionCacheStats(readSessionCacheStatsEnd, readSessionCacheStatsBegin),
+        subtractSessionCacheStats(writeSessionCacheStatsEnd, writeSessionCacheStatsBegin));
     nbl::wave::detail::dump_perf_stats();
 
     return std::move(renderProgress.output);

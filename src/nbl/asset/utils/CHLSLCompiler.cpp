@@ -456,8 +456,16 @@ static std::string preprocessShaderImpl(
 {
     auto effectiveOptions = preprocessOptions;
     IShaderCompiler::CIncludeFinder::SSessionCache localIncludeSessionCache;
-    if (effectiveOptions.includeFinder && !effectiveOptions.includeSessionCache)
-        effectiveOptions.includeSessionCache = &localIncludeSessionCache;
+    if (effectiveOptions.includeFinder)
+    {
+        if (!effectiveOptions.readIncludeSessionCache && !effectiveOptions.writeIncludeSessionCache)
+        {
+            effectiveOptions.readIncludeSessionCache = &localIncludeSessionCache;
+            effectiveOptions.writeIncludeSessionCache = &localIncludeSessionCache;
+        }
+        else if (!effectiveOptions.readIncludeSessionCache && effectiveOptions.writeIncludeSessionCache)
+            effectiveOptions.readIncludeSessionCache = effectiveOptions.writeIncludeSessionCache;
+    }
 
     const bool depfileEnabled = effectiveOptions.depfile;
     if (depfileEnabled)

@@ -34,6 +34,11 @@ struct PerfStats
     uint64_t includeLookupCount = 0ull;
     uint64_t includeResolutionCacheSkips = 0ull;
     uint64_t postLoadPragmaSkips = 0ull;
+    uint64_t sessionLookupFound = 0ull;
+    uint64_t sessionLookupMissing = 0ull;
+    uint64_t sessionLookupMiss = 0ull;
+    uint64_t sessionStoreFound = 0ull;
+    uint64_t sessionStoreMissing = 0ull;
     std::chrono::nanoseconds includeLookupTime = std::chrono::nanoseconds::zero();
     std::chrono::nanoseconds tokenHandlingTime = std::chrono::nanoseconds::zero();
     std::chrono::nanoseconds iteratorAdvanceTime = std::chrono::nanoseconds::zero();
@@ -95,7 +100,7 @@ inline void dump_perf_stats()
 
     std::fprintf(
         stderr,
-        "[wave-profile] total_ms=%.3f include_lookup_ms=%.3f token_handling_ms=%.3f iterator_advance_ms=%.3f loop_body_ms=%.3f render_ms=%.3f include_requests=%llu include_lookups=%llu resolution_cache_skips=%llu postload_pragma_skips=%llu emitted_tokens=%llu output_bytes=%zu\n",
+        "[wave-profile] total_ms=%.3f include_lookup_ms=%.3f token_handling_ms=%.3f iterator_advance_ms=%.3f loop_body_ms=%.3f render_ms=%.3f include_requests=%llu include_lookups=%llu resolution_cache_skips=%llu postload_pragma_skips=%llu session_lookup_found=%llu session_lookup_missing=%llu session_lookup_miss=%llu session_store_found=%llu session_store_missing=%llu emitted_tokens=%llu output_bytes=%zu\n",
         to_ms(stats.totalPreprocessTime),
         to_ms(stats.includeLookupTime),
         to_ms(stats.tokenHandlingTime),
@@ -106,6 +111,11 @@ inline void dump_perf_stats()
         static_cast<unsigned long long>(stats.includeLookupCount),
         static_cast<unsigned long long>(stats.includeResolutionCacheSkips),
         static_cast<unsigned long long>(stats.postLoadPragmaSkips),
+        static_cast<unsigned long long>(stats.sessionLookupFound),
+        static_cast<unsigned long long>(stats.sessionLookupMissing),
+        static_cast<unsigned long long>(stats.sessionLookupMiss),
+        static_cast<unsigned long long>(stats.sessionStoreFound),
+        static_cast<unsigned long long>(stats.sessionStoreMissing),
         static_cast<unsigned long long>(stats.emittedTokenCount),
         stats.outputBytes
     );
@@ -171,6 +181,18 @@ inline boost::wave::language_support make_language_flags(const LanguageFlagConfi
     // support_option_emit_contnewlines // Emit escaped line continuations. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L65
     // support_option_insert_whitespace // Let Wave inject separator whitespace. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L66
     return flags;
+}
+
+inline void set_session_cache_perf_stats(
+    const asset::IShaderCompiler::CIncludeFinder::SSessionCache::Stats& readDelta,
+    const asset::IShaderCompiler::CIncludeFinder::SSessionCache::Stats& writeDelta)
+{
+    auto& stats = perf_stats();
+    stats.sessionLookupFound = readDelta.lookupFound;
+    stats.sessionLookupMissing = readDelta.lookupMissing;
+    stats.sessionLookupMiss = readDelta.lookupMiss;
+    stats.sessionStoreFound = writeDelta.storeFound;
+    stats.sessionStoreMissing = writeDelta.storeMissing;
 }
 
 inline std::string escape_control_chars(std::string_view text)
@@ -251,7 +273,7 @@ struct load_to_string final
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const nbl::asset::IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
-        : m_includeFinder(_preprocessOptions.includeFinder), m_includeSessionCache(_preprocessOptions.includeSessionCache), m_logger(_preprocessOptions.logger), m_preserveComments(_preprocessOptions.preserveComments), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
+        : m_includeFinder(_preprocessOptions.includeFinder), m_readIncludeSessionCache(_preprocessOptions.readIncludeSessionCache), m_writeIncludeSessionCache(_preprocessOptions.writeIncludeSessionCache), m_logger(_preprocessOptions.logger), m_preserveComments(_preprocessOptions.preserveComments), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
     {
         hash_token_occurences = 0;
     }
@@ -358,7 +380,8 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     }
 
     const asset::IShaderCompiler::CIncludeFinder* m_includeFinder;
-    asset::IShaderCompiler::CIncludeFinder::SSessionCache* m_includeSessionCache;
+    asset::IShaderCompiler::CIncludeFinder::SSessionCache* m_readIncludeSessionCache;
+    asset::IShaderCompiler::CIncludeFinder::SSessionCache* m_writeIncludeSessionCache;
     system::logger_opt_ptr m_logger;
     bool m_preserveComments;
     asset::IShader::E_SHADER_STAGE m_pragmaStage;
@@ -809,11 +832,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         if (perfStats.enabled)
             ++perfStats.includeLookupCount;
         if (is_system) {
-            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_includeSessionCache);
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_readIncludeSessionCache, ctx.get_hooks().m_writeIncludeSessionCache);
             standardInclude = true;
         }
         else {
-            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_includeSessionCache);
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_readIncludeSessionCache, ctx.get_hooks().m_writeIncludeSessionCache);
             standardInclude = false;
         }
     }

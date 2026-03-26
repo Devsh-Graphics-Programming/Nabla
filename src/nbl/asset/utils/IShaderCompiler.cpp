@@ -694,6 +694,33 @@ std::string makeIncludeSessionCacheKey(const system::path& requestingSourceDir, 
     return key;
 }
 
+auto lookupIncludeSessionCache(IShaderCompiler::CIncludeFinder::SSessionCache* readCache, IShaderCompiler::CIncludeFinder::SSessionCache* writeCache, const std::string& key, IShaderCompiler::IIncludeLoader::found_t& result) -> IShaderCompiler::CIncludeFinder::SSessionCache::LookupResult
+{
+    using LookupResult = IShaderCompiler::CIncludeFinder::SSessionCache::LookupResult;
+    const auto lookupResult = readCache ? readCache->lookup(key, result) : LookupResult::Miss;
+    if (readCache && writeCache && readCache != writeCache)
+    {
+        switch (lookupResult)
+        {
+            case LookupResult::Found:
+                writeCache->store(key, result);
+                break;
+            case LookupResult::Missing:
+                writeCache->store(key, {});
+                break;
+            case LookupResult::Miss:
+                break;
+        }
+    }
+    return lookupResult;
+}
+
+void writeIncludeSessionCache(IShaderCompiler::CIncludeFinder::SSessionCache* writeCache, const std::string& key, const IShaderCompiler::IIncludeLoader::found_t& result)
+{
+    if (writeCache)
+        writeCache->store(key, result);
+}
+
 }
 
 void IShaderCompiler::CIncludeFinder::SSessionCache::clear()
@@ -711,11 +738,16 @@ auto IShaderCompiler::CIncludeFinder::SSessionCache::lookup(const std::string& k
     {
         if (const auto foundIt = found.find(key); foundIt != found.end())
         {
+            ++stats.lookupFound;
             result = foundIt->second;
             return LookupResult::Found;
         }
         if (missing.contains(key))
+        {
+            ++stats.lookupMissing;
             return LookupResult::Missing;
+        }
+        ++stats.lookupMiss;
         return LookupResult::Miss;
     });
 }
@@ -726,9 +758,23 @@ void IShaderCompiler::CIncludeFinder::SSessionCache::store(const std::string& ke
     {
         missing.erase(key);
         if (result)
+        {
+            ++stats.storeFound;
             found.insert_or_assign(key, std::move(result));
+        }
         else
+        {
+            ++stats.storeMissing;
             missing.insert(key);
+        }
+    });
+}
+
+auto IShaderCompiler::CIncludeFinder::SSessionCache::snapshotStats() const -> Stats
+{
+    return withSessionCacheLock(const_cast<SSessionCache*>(this), [&]() -> Stats
+    {
+        return stats;
     });
 }
 
@@ -744,12 +790,12 @@ IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::I
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within <> of the include preprocessing directive
 // @param 
-auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash, SSessionCache* sessionCache) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash, SSessionCache* readSessionCache, SSessionCache* writeSessionCache) const -> IIncludeLoader::found_t
 {
     const auto lookupName = normalizeIncludeLookupName(includeName);
     const auto cacheKey = makeIncludeSessionCacheKey(requestingSourceDir, lookupName, needHash, 'S');
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    switch (sessionCache ? sessionCache->lookup(cacheKey, retVal) : SSessionCache::LookupResult::Miss)
+    switch (lookupIncludeSessionCache(readSessionCache, writeSessionCache, cacheKey, retVal))
     {
         case SSessionCache::LookupResult::Found:
             return retVal;
@@ -774,20 +820,19 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
         retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     }
-    if (sessionCache)
-        sessionCache->store(cacheKey, retVal);
+    writeIncludeSessionCache(writeSessionCache, cacheKey, retVal);
     return retVal;
 }
 
 // ! includes within ""
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within "" of the include preprocessing directive
-auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash, SSessionCache* sessionCache) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash, SSessionCache* readSessionCache, SSessionCache* writeSessionCache) const -> IIncludeLoader::found_t
 {
     const auto lookupName = normalizeIncludeLookupName(includeName);
     const auto cacheKey = makeIncludeSessionCacheKey(requestingSourceDir, lookupName, needHash, 'R');
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    switch (sessionCache ? sessionCache->lookup(cacheKey, retVal) : SSessionCache::LookupResult::Miss)
+    switch (lookupIncludeSessionCache(readSessionCache, writeSessionCache, cacheKey, retVal))
     {
         case SSessionCache::LookupResult::Found:
             return retVal;
@@ -809,8 +854,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
         hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
         retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     }
-    if (sessionCache)
-        sessionCache->store(cacheKey, retVal);
+    writeIncludeSessionCache(writeSessionCache, cacheKey, retVal);
     return retVal;
 }
 
