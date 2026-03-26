@@ -27,7 +27,6 @@ struct SOrenNayarBase
     struct Cache {};
     using isocache_type = Cache;
     using anisocache_type = Cache;
-    using evalcache_type = Cache;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
 
@@ -64,13 +63,13 @@ struct SOrenNayarBase
         return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * hlsl::mix(1.0, 0.5, IsBSDF) * __rec_pi_factored_out_wo_clamps(query.getVdotL(), NdotL, interaction.getNdotV(_clamp)));
     }
 
-    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(evalcache_type) _cache) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
         return value_weight_type::create(__eval<SQuery>(query, _sample, interaction), forwardPdf(_sample, interaction));
     }
-    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(evalcache_type) _cache) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return evalAndWeight(_sample, interaction.isotropic, _cache); 
     }
