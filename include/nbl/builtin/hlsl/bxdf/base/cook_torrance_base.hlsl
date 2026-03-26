@@ -20,27 +20,6 @@ namespace bxdf
 
 namespace impl
 {
-template<typename T, typename U>
-struct __implicit_promote;
-
-template<typename T>
-struct __implicit_promote<T,T>
-{
-    static T __call(const T v)
-    {
-        return v;
-    }
-};
-
-template<typename T>
-struct __implicit_promote<T,vector<typename vector_traits<T>::scalar_type, 1> >
-{
-    static T __call(const vector<typename vector_traits<T>::scalar_type, 1> v)
-    {
-        return hlsl::promote<T>(v[0]);
-    }
-};
-
 template<class N, class F, bool IsBSDF>
 struct quant_query_helper;
 
@@ -197,16 +176,12 @@ struct SCookTorrance
         // allows compiler to throw away calls to ndf.D if using __overwriteDG, before that we only avoid computation for G2(correlated)
         if (isInfinity)
             return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
-
-        scalar_type clampedVdotH = cache.getVdotH();
-        NBL_IF_CONSTEXPR(IsBSDF)
-            clampedVdotH = hlsl::abs(clampedVdotH);
         
         spectral_type eval;
         NBL_IF_CONSTEXPR(IsBSDF)
             eval = pdfQuery.reflectance;
         else
-            eval = impl::__implicit_promote<spectral_type, typename fresnel_type::vector_type>::__call(_f(clampedVdotH));
+            eval = _f(cache.getVdotH());
         eval *= DG;
 
         return value_weight_type::create(eval, _pdf);
@@ -383,14 +358,11 @@ struct SCookTorrance
                 return query;
             }
 
+            query.pdf = DG1.projectedLightMeasure;
             NBL_IF_CONSTEXPR(IsBSDF)
             {
                 query.scaled_reflectance = __getScaledReflectance(query.orientedFresnel, interaction, hlsl::abs(cache.getVdotH()), cache.isTransmission(), query.reflectance);
-                query.pdf = query.scaled_reflectance * DG1.projectedLightMeasure;
-            }
-            else
-            {
-                query.pdf = DG1.projectedLightMeasure;
+                query.pdf *= query.scaled_reflectance;
             }
         }
 
