@@ -78,7 +78,7 @@ struct HierarchicalWarpGenerator
   LuminanceAccessorT _map;
   uint16_t2 _mapSize;
   uint16_t _layerIndex;
-  uint16_t _mip2x1 : 15;
+  uint16_t _lastMipLevel : 15;
   uint16_t _aspect2x1 : 1;
 
   static HierarchicalWarpGenerator<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint16_t2 mapSize, uint16_t layerIndex)
@@ -88,7 +88,7 @@ struct HierarchicalWarpGenerator
     result._mapSize = mapSize;
     result._layerIndex = layerIndex;
     // Note: We use mapSize.y here because the currently the map aspect ratio can only be 1x1 or 2x1
-    result._mip2x1 = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(mapSize.x)));
+    result._lastMipLevel = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(mapSize.y)));
     result._aspect2x1 = mapSize.x != mapSize.y;
     return result;
   }
@@ -124,12 +124,12 @@ struct HierarchicalWarpGenerator
     if (_aspect2x1) {
       vector<scalar_type, 1> p0, p1;
       // do one split in the X axis first cause penultimate full mip would have been 2x1
-      _map.get(p0, uint16_t2(0, 0), _layerIndex, _mip2x1);
-      _map.get(p1, uint16_t2(1, 0), _layerIndex, _mip2x1);
+      _map.get(p0, uint16_t2(0, 0), _layerIndex, _lastMipLevel);
+      _map.get(p1, uint16_t2(1, 0), _layerIndex, _lastMipLevel);
       p.x = __choseSecond(p0.x, p1, xi.x, rcpPmf) ? 1 : 0;
     }
 
-    for (int i = _mip2x1 - 1; i >= 0; i--)
+    for (int i = _lastMipLevel - 1; i >= 0; i--)
     {
       p <<= 1;
       const vector4_type values = __texelGather(p, i);
