@@ -409,14 +409,18 @@ struct SCookTorrance
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, true>(_sample, interaction, cache);
         scalar_type _pdf = pdfQuery.pdf;
-        if (_pdf == scalar_type(0.0) || hlsl::isinf(_pdf))
+        if (_pdf == scalar_type(0.0))
             return quotient_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         fresnel_type _f = pdfQuery.orientedFresnel;
 
-        using g2g1_query_type = typename N::g2g1_query_type;
-        g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
-        scalar_type G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
+        scalar_type G2_over_G1 = scalar_type(1.0);
+        if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        {
+            using g2g1_query_type = typename N::g2g1_query_type;
+            g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
+            G2_over_G1 = ndf.template G2_over_G1<sample_type, Interaction, MicrofacetCache>(gq, _sample, interaction, cache);
+        }
 
         spectral_type quo;
         NBL_IF_CONSTEXPR(IsBSDF)

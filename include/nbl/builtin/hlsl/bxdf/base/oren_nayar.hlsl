@@ -71,7 +71,17 @@ struct SOrenNayarBase
     }
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return evalAndWeight(_sample, interaction.isotropic, _cache); 
+        return evalAndWeight(_sample, interaction.isotropic, _cache);
+    }
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    {
+        Cache dummy;
+        return evalAndWeight(_sample, interaction.isotropic, dummy);
+    }
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    {
+        Cache dummy;
+        return evalAndWeight(_sample, interaction.isotropic, dummy);
     }
 
     template<typename C=bool_constant<!IsBSDF> >
