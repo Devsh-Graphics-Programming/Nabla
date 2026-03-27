@@ -75,8 +75,6 @@ struct HierarchicalWarpGenerator
   using density_type = scalar_type;
 
   LuminanceAccessorT _map;
-  float32_t _rcpAvgLuma;
-  float32_t2 _rcpWarpSize;
   uint16_t2 _mapSize;
   uint16_t _mip2x1 : 15;
   uint16_t _aspect2x1 : 1;
