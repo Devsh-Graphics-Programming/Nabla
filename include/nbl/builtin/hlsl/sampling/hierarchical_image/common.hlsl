@@ -17,6 +17,7 @@ struct SLumaGenPushConstants
   float32_t3 lumaRGBCoefficients;
   uint32_t lumaMapWidth : 16;
   uint32_t lumaMapHeight : 16;
+  uint16_t lumaMapLayer;
 };
 
 struct SWarpGenPushConstants

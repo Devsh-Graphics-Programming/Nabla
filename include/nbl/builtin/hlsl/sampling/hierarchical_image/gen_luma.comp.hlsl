@@ -6,19 +6,17 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 [[vk::push_constant]] SLumaGenPushConstants pc;
 
-// TODO: Use layer texture, to implement envmap importance sampling for cube map
-[[vk::binding(0, 0)]] Texture2D<float32_t4> envMap;
-[[vk::binding(1, 0)]] RWTexture2D<float32_t> outImage;
+[[vk::binding(0, 0)]] Texture2DArray<float32_t4> envMap;
+[[vk::binding(1, 0)]] RWTexture2DArray<float32_t> outImage;
 
 [numthreads(GenLumaWorkgroupDim, GenLumaWorkgroupDim, 1)]
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {	
-	if (all(threadID.xy < uint32_t2(pc.lumaMapWidth, pc.lumaMapHeight)))
+	if (all(threadID.xyz < uint32_t3(pc.lumaMapWidth, pc.lumaMapHeight, pc.lumaMapLayer)))
 	{
-
 		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapHeight;
-		const float32_t3 envMapSample = envMap.Load(float32_t3(threadID.xy, 0));
+		const float32_t3 envMapSample = envMap.Load(int4(threadID.xyz, 0));
 		float32_t luma = hlsl::dot(envMapSample, pc.lumaRGBCoefficients) * sin(numbers::pi<float32_t> * uv_y);
 
 		// We reduce the luma of the corner texel since we want to do "corner sampling" when generating warp map.
@@ -27,6 +25,6 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 		if (threadID.y == 0 || threadID.y == (pc.lumaMapHeight - 1))
 			luma *= 0.5f;
 
-		outImage[threadID.xy] = luma;
+		outImage[threadID.xyz] = luma;
 	}
 }
