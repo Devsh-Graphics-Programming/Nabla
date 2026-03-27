@@ -11,27 +11,6 @@ namespace sampling
 {
 namespace hierarchical_image
 {
-// declare concept
-#define NBL_CONCEPT_NAME LuminanceReadAccessor
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(ScalarT)
-// not the greatest syntax but works
-#define NBL_CONCEPT_PARAM_0 (a,U)
-#define NBL_CONCEPT_PARAM_1 (coord,uint32_t2)
-#define NBL_CONCEPT_PARAM_2 (level,uint32_t)
-// start concept
-NBL_CONCEPT_BEGIN(3)
-// need to be defined AFTER the concept begins
-#define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define coord NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define level NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.template load(coord,level)) , ::nbl::hlsl::is_same_v, ScalarT))
-);
-#undef level
-#undef coord
-#undef a
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 // gatherUvs return 4 UVs in a square for manual bilinear interpolation with differentiability
 // declare concept

@@ -5,6 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_HIERARCHICAL_IMAGE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_HIERARCHICAL_IMAGE_INCLUDED_
 
+#include <nbl/builtin/hlsl/concepts/accessors/loadable_image.hlsl>
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
 #include <nbl/builtin/hlsl/sampling/warp.hlsl>
 #include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
@@ -62,7 +63,7 @@ struct value_and_pdf
 template <typename ScalarT, typename LuminanceAccessorT 
   NBL_PRIMARY_REQUIRES(
     is_scalar_v<ScalarT> && 
-    hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, ScalarT>
+    concepts::accessors::MipmappedLoadableImage<LuminanceAccessorT, ScalarT, 2, 1>
   )
 struct HierarchicalWarpGenerator
 {
@@ -76,17 +77,19 @@ struct HierarchicalWarpGenerator
 
   LuminanceAccessorT _map;
   uint16_t2 _mapSize;
+  uint16_t _layerIndex;
   uint16_t _mip2x1 : 15;
   uint16_t _aspect2x1 : 1;
 
-  static HierarchicalWarpGenerator<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint32_t2 mapSize, bool aspect2x1)
+  static HierarchicalWarpGenerator<ScalarT, LuminanceAccessorT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, uint16_t2 mapSize, uint16_t layerIndex)
   {
     HierarchicalWarpGenerator<ScalarT, LuminanceAccessorT> result;
     result._map = lumaMap;
     result._mapSize = mapSize;
+    result._layerIndex = layerIndex;
     // Note: We use mapSize.y here because the currently the map aspect ratio can only be 1x1 or 2x1
-    result._mip2x1 = _static_cast<uint16_t>(findMSB(mapSize.y));
-    result._aspect2x1 = aspect2x1;
+    result._mip2x1 = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(mapSize.x)));
+    result._aspect2x1 = mapSize.x != mapSize.y;
     return result;
   }
 
@@ -102,27 +105,28 @@ struct HierarchicalWarpGenerator
   }
 
   // Cannot use textureGather since we need to pass the mipLevel
-  vector4_type __texelGather(uint32_t2 coord, uint32_t level) NBL_CONST_MEMBER_FUNC
+  vector4_type __texelGather(uint16_t2 coord, uint16_t level) NBL_CONST_MEMBER_FUNC
   {
     assert(coord.x < _mapSize.x - 1 && coord.y < _mapSize.y - 1);
-    const scalar_type v0, v1, v2, v3;
-
-    return float32_t4(
-        _map.load(uint32_t3(coord, level), uint32_t2(0, 1)),
-        _map.load(uint32_t3(coord, level), uint32_t2(1, 1)),
-        _map.load(uint32_t3(coord, level), uint32_t2(1, 0)),
-        _map.load(uint32_t3(coord, level), uint32_t2(0, 0))
-    );
+    vector<scalar_type, 1> p0, p1, p2, p3;
+    _map.get(p0, coord + uint16_t2(0, 1), _layerIndex, level);
+    _map.get(p1, coord + uint16_t2(1, 1), _layerIndex, level);
+    _map.get(p2, coord + uint16_t2(1, 0), _layerIndex, level);
+    _map.get(p3, coord + uint16_t2(0, 0), _layerIndex, level);
+    return vector4_type(p0, p1, p2, p3);
   }
 
   sample_type generate(vector2_type xi) NBL_CONST_MEMBER_FUNC
   {
-    uint32_t2 p = uint32_t2(0, 0);
+    uint16_t2 p = uint16_t2(0, 0);
 
     scalar_type rcpPmf = 1;
     if (_aspect2x1) {
+      vector<scalar_type, 1> p0, p1;
       // do one split in the X axis first cause penultimate full mip would have been 2x1
-      p.x = __choseSecond(_map.load(uint32_t2(0, 0), _mip2x1), _map.load(uint32_t2(1, 0), _mip2x1), xi.x, rcpPmf) ? 1 : 0;
+      _map.get(p0, uint16_t2(0, 0), _layerIndex, _mip2x1);
+      _map.get(p1, uint16_t2(1, 0), _layerIndex, _mip2x1);
+      p.x = __choseSecond(p0.x, p1, xi.x, rcpPmf) ? 1 : 0;
     }
 
     for (int i = _mip2x1 - 1; i >= 0; i--)
@@ -181,7 +185,7 @@ struct HierarchicalWarpGenerator
 template <typename ScalarT, typename LuminanceAccessorT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     is_scalar_v<ScalarT> && 
-    hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, ScalarT> &&
+    concepts::accessors::MipmappedLoadableImage<LuminanceAccessorT, ScalarT, 2, 1> &&
     concepts::Warp<PostWarpT>
   )
 struct HierarchicalWarpSampler
@@ -200,10 +204,10 @@ struct HierarchicalWarpSampler
   warp_generator_type _warpGenerator;
   scalar_type _rcpAvgLuma;
 
-  static HierarchicalWarpSampler<ScalarT, LuminanceAccessorT, PostWarpT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, scalar_type avgLuma, uint32_t2 mapSize, bool aspect2x1)
+  static HierarchicalWarpSampler<ScalarT, LuminanceAccessorT, PostWarpT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, scalar_type avgLuma, uint16_t2 mapSize, uint16_t layerIndex)
   {
     HierarchicalWarpSampler result;
-    result._warpGenerator = warp_generator_type::create(lumaMap, mapSize, aspect2x1);
+    result._warpGenerator = warp_generator_type::create(lumaMap, mapSize, layerIndex);
     result._rcpAvgLuma = scalar_type(1.0) / avgLuma;
     return result;
   }
@@ -250,7 +254,7 @@ struct WarpmapSampler
   uint32_t _effectiveWarpArea;
   scalar_type _rcpAvgLuma;
 
-  static WarpmapSampler create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint32_t2 warpSize, scalar_type avgLuma) 
+  static WarpmapSampler create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint16_t2 warpSize, scalar_type avgLuma) 
   {
     WarpmapSampler<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
     result._lumaMap = lumaMap;

@@ -8,17 +8,18 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 [[vk::push_constant]] SWarpGenPushConstants pc;
 
-[[vk::binding(0, 0)]] Texture2D<float32_t> lumaMap;
-
-[[vk::binding(1, 0)]] RWTexture2D<float32_t2> outImage;
+[[vk::binding(0, 0)]] Texture2DArray<float32_t> lumaMap;
+[[vk::binding(1, 0)]] RWTexture2DArray<float32_t2> outImage;
 
 
 struct LuminanceAccessor
 {
-    float32_t load(uint32_t2 coord, uint32_t level) NBL_CONST_MEMBER_FUNC
+    template <typename T, int32_t Dims
+      NBL_FUNC_REQUIRES(concepts::same_as<T, float32_t> && Dims == 2)
+    void get(NBL_REF_ARG(vector<T, 1>) outVal, vector<uint16_t, Dims> pixelCoord, uint16_t layer, uint16_t level) NBL_CONST_MEMBER_FUNC
     {
-        assert(coord.x < pc.warpMapWidth && coord.y < pc.warpMapHeight);
-        return lumaMap.Load(uint32_t3(coord, level));
+        assert(pixelCoord.x < pc.warpMapWidth && pixelCoord.y < pc.warpMapHeight);
+        outVal = lumaMap.Load(int4(pixelCoord, layer, level));
     }
 
 };
@@ -27,7 +28,7 @@ struct LuminanceAccessor
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
-  if (threadID.x < pc.warpMapWidth && threadID.y < pc.warpMapHeight)
+  if (all(threadID.xyz < uint32_t3(pc.warpMapHeight, pc.warpMapWidth, pc.lumaMapLayer)))
   {
     using WarpGenerator = HierarchicalWarpGenerator<float32_t, LuminanceAccessor>;
 
@@ -39,7 +40,7 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 
     const float32_t2 xi = float32_t2(pixelCoord) / float32_t2(pc.warpMapWidth - 1, pc.warpMapHeight - 1);
 
-    outImage[pixelCoord] = warpGenerator.generate(xi).value();
+    outImage[threadID.xyz] = warpGenerator.generate(xi).value();
   }
 
 

@@ -26,6 +26,8 @@ struct SWarpGenPushConstants
   uint32_t lumaMapHeight : 16;
   uint32_t warpMapWidth : 16;
   uint32_t warpMapHeight : 16;
+  // Both warpMap and lumaMap should have the same layer count
+  uint16_t lumaMapLayer;
 };
 
 NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint32_t GenWarpWorkgroupDim = 16;
