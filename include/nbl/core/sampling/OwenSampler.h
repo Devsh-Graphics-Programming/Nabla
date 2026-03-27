@@ -1,22 +1,19 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_CORE_OWEN_SAMPLER_H_
-#define __NBL_CORE_CORE_OWEN_SAMPLER_H_
+#ifndef _NBL_CORE_CORE_OWEN_SAMPLER_H_
+#define _NBL_CORE_CORE_OWEN_SAMPLER_H_
 
 #include "nbl/core/sampling/RandomSampler.h"
 #include "nbl/core/sampling/SobolSampler.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
-	//! TODO: make the tree sampler/generator configurable and let RandomSampler be default
-	template<class SequenceSampler=SobolSampler>
-	class OwenSampler : protected SequenceSampler
-	{
+//! TODO: make the tree sampler/generator configurable and let RandomSampler be default
+template<class SequenceSampler=SobolSampler>
+class OwenSampler : protected SequenceSampler
+{
 	public:
 		OwenSampler(uint32_t _dimensions, uint32_t _seed) : SequenceSampler(_dimensions)
 		{
@@ -104,6 +101,4 @@ namespace core
 
 
 }
-}
-
 #endif
