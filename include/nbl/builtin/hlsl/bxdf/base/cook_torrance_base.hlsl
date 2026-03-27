@@ -167,7 +167,7 @@ struct SCookTorrance
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, false>(_sample, interaction, cache);
         scalar_type _pdf = pdfQuery.pdf;
-        if (_pdf == scalar_type(0.0))
+        if (_pdf == scalar_type(0.0) || hlsl::isinf(_pdf))
             return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         fresnel_type _f = pdfQuery.orientedFresnel;
@@ -409,7 +409,7 @@ struct SCookTorrance
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, true>(_sample, interaction, cache);
         scalar_type _pdf = pdfQuery.pdf;
-        if (_pdf == scalar_type(0.0))
+        if (_pdf == scalar_type(0.0) || hlsl::isinf(_pdf))
             return quotient_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         fresnel_type _f = pdfQuery.orientedFresnel;
