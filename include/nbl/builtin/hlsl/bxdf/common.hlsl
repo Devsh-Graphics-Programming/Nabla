@@ -972,19 +972,20 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_2 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_3 (evalcache, typename T::evalcache_type)
+#define NBL_CONCEPT_PARAM_3 (microfacetCache, typename T::cache_type)
 NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define evalcache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define microfacetCache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::evalcache_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::cache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso, evalcache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso, microfacetCache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
 );
-#undef evalcache
+#undef microfacetCache
 #undef aniso
 #undef _sample
 #undef bxdf
@@ -996,20 +997,21 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_2 (iso, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_3 (evalcache, typename T::evalcache_type)
+#define NBL_CONCEPT_PARAM_3 (microfacetCache, typename T::cache_type)
 NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define evalcache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define microfacetCache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::evalcache_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::cache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(iso_bxdf_common, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso, evalcache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso, microfacetCache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
 );
-#undef evalcache
+#undef microfacetCache
 #undef iso
 #undef _sample
 #undef bxdf

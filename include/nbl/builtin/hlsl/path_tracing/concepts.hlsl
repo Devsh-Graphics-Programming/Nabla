@@ -219,7 +219,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_weight_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getSample()), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getQuotientPdf()), ::nbl::hlsl::is_same_v, typename T::quotient_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getQuotientWeight()), ::nbl::hlsl::is_same_v, typename T::quotient_weight_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getT()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((sqr.getLightObjectID()), ::nbl::hlsl::is_same_v, typename T::object_handle_type))
 );

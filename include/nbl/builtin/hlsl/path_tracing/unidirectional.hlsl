@@ -101,7 +101,7 @@ struct Unidirectional
             );
             scalar_type t = ret.getT();
             sample_type nee_sample = ret.getSample();
-            quotient_weight_type neeContrib = ret.getQuotientPdf();
+            quotient_weight_type neeContrib = ret.getQuotientWeight();
 
             // While NEE or other generators are not supposed to pick up Delta lobes by accident, we need the MIS weights to add up to 1 for the non-delta lobes.
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.

@@ -64,7 +64,7 @@ struct SCookTorrance
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = ndf_type::SupportedPaths != ndf::MTT_REFLECT;
     using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
     NBL_HLSL_BXDF_ANISOTROPIC_COND_DECLS(IsAnisotropic);
-    using evalcache_type = conditional_t<IsAnisotropic,anisocache_type,isocache_type>;
+    using cache_type = conditional_t<IsAnisotropic,anisocache_type,isocache_type>;
 
     struct PdfQuery
     {
@@ -145,6 +145,20 @@ struct SCookTorrance
         return hlsl::max(ab, value / ab) <= scalar_type(value + 1e-3);
     }
 
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
+            typename C=bool_constant<!fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && !fresnel_type::ReturnsMonochrome)
+    static scalar_type __getMonochromeEta(NBL_CONST_REF_ARG(fresnel_type) fresnel, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        spectral_type throughputWeights = interaction.getLuminosityContributionHint();
+        return hlsl::dot<spectral_type>(fresnel.eta, throughputWeights) / (throughputWeights.r + throughputWeights.g + throughputWeights.b);
+    }
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>,
+            typename C=bool_constant<fresnel_type::ReturnsMonochrome> NBL_FUNC_REQUIRES(C::value && fresnel_type::ReturnsMonochrome)
+    static scalar_type __getMonochromeEta(NBL_CONST_REF_ARG(fresnel_type) fresnel, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        return fresnel.getRefractionOrientedEta();
+    }
+
     // bxdf stuff
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
             class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
@@ -185,6 +199,17 @@ struct SCookTorrance
         eval *= DG;
 
         return value_weight_type::create(eval, _pdf);
+    }
+
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
+            NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache>)
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction) NBL_CONST_MEMBER_FUNC
+    {
+        const scalar_type eta = __getMonochromeEta(fresnel, interaction);
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(eta));
+        MicrofacetCache cache = MicrofacetCache::template create<anisotropic_interaction_type, sample_type>(interaction, _sample, orientedEta);
+        return evalAndWeight(_sample, interaction, cache);
     }
 
     sample_type __generate_common(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type localH,
