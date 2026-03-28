@@ -11,8 +11,6 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 	public:
 
 		static constexpr uint32_t MaxMipCountLuminance = 13u;
-		static constexpr uint32_t DefaultLumaMipMapGenWorkgroupDimension = 16u;
-		static constexpr uint32_t DefaultWarpMapGenWorkgroupDimension = 16u;
 
 		struct SCachedCreationParameters
 		{
