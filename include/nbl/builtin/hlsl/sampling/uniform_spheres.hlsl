@@ -78,12 +78,12 @@ struct UniformHemisphere
 		return __generateInverse(_sample);
 	}
 
-	static density_type forwardPdf(const cache_type cache)
+	static density_type forwardPdf(const codomain_type v, const cache_type cache)
 	{
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
-	static weight_type forwardWeight(const cache_type cache)
+	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
 	{
 		return T(0.5) * numbers::inv_pi<T>;
 	}
@@ -144,14 +144,14 @@ struct UniformSphere
 		return __generateInverse(_sample);
 	}
 
-	static density_type forwardPdf(const cache_type cache)
+	static density_type forwardPdf(const codomain_type v, const cache_type cache)
 	{
-		return T(0.5) * hemisphere_t::forwardPdf(cache);
+		return T(0.5) * hemisphere_t::forwardPdf(v, cache);
 	}
 
-	static weight_type forwardWeight(const cache_type cache)
+	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
 	{
-		return T(0.5) * hemisphere_t::forwardWeight(cache);
+		return T(0.5) * hemisphere_t::forwardWeight(v, cache);
 	}
 
 	static density_type backwardPdf(const vector_t3 _sample)

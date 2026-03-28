@@ -76,13 +76,14 @@ struct SLambertianBase
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
+        // only z component matters: ProjectedHemisphere::forwardPdf reads v.z
+        const vector3_type L = vector3_type(0, 0, _sample.getNdotL(_clamp));
         typename sampling::ProjectedHemisphere<scalar_type>::cache_type cache;
-        cache.L_z = _sample.getNdotL(_clamp);
         scalar_type p;
         NBL_IF_CONSTEXPR (IsBSDF)
-            p = sampling::ProjectedSphere<scalar_type>::forwardPdf(cache);
+            p = sampling::ProjectedSphere<scalar_type>::forwardPdf(L, cache);
         else
-            p = sampling::ProjectedHemisphere<scalar_type>::forwardPdf(cache);
+            p = sampling::ProjectedHemisphere<scalar_type>::forwardPdf(L, cache);
         return quotient_pdf_type::create(scalar_type(1.0), p);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC

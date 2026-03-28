@@ -98,12 +98,12 @@ struct AliasTable
 		return result;
 	}
 
-	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	density_type forwardPdf(const codomain_type v, NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return cache.pdf;
 	}
 
-	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	weight_type forwardWeight(const codomain_type v, NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return cache.pdf;
 	}

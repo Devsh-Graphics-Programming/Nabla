@@ -30,7 +30,6 @@ struct ProjectedHemisphere
 
 	struct cache_type
 	{
-		scalar_type L_z;
 	};
 
 	static codomain_type __generate(const domain_type _sample)
@@ -42,9 +41,7 @@ struct ProjectedHemisphere
 
 	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
 	{
-		const codomain_type L = __generate(_sample);
-		cache.L_z = L.z;
-		return L;
+		return __generate(_sample);
 	}
 
 	static domain_type generateInverse(const codomain_type L)
@@ -52,23 +49,21 @@ struct ProjectedHemisphere
 		return ConcentricMapping<T>::generateInverse(L.xy);
 	}
 
-	static density_type forwardPdf(const cache_type cache)
+	static density_type forwardPdf(const codomain_type v, const cache_type cache)
 	{
-		return cache.L_z * numbers::inv_pi<T>;
+		return v.z * numbers::inv_pi<T>;
 	}
 
-	static weight_type forwardWeight(const cache_type cache)
+	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
 	{
-		return forwardPdf(cache);
+		return forwardPdf(v, cache);
 	}
 
 	static density_type backwardPdf(const codomain_type L)
 	{
 		assert(L.z > 0);
-		
 		cache_type c;
-		c.L_z = L.z;
-		return forwardPdf(c);
+		return forwardPdf(L, c);
 	}
 
 	static weight_type backwardWeight(const codomain_type L)
@@ -106,28 +101,26 @@ struct ProjectedSphere
 
 	static codomain_type generate(NBL_REF_ARG(domain_type) _sample, NBL_REF_ARG(cache_type) cache)
 	{
-		const codomain_type L = __generate(_sample);
-		cache.L_z = L.z;
-		return L;
+		return __generate(_sample);
 	}
 
-	static density_type forwardPdf(const cache_type cache)
+	static density_type forwardPdf(const codomain_type v, const cache_type cache)
 	{
+		codomain_type absV = v;
+		absV.z = hlsl::abs(v.z);
 		cache_type hc;
-		hc.L_z = hlsl::abs(cache.L_z);
-		return T(0.5) * hemisphere_t::forwardPdf(hc);
+		return T(0.5) * hemisphere_t::forwardPdf(absV, hc);
 	}
 
-	static weight_type forwardWeight(const cache_type cache)
+	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
 	{
-		return forwardPdf(cache);
+		return forwardPdf(v, cache);
 	}
 
 	static density_type backwardPdf(const codomain_type L)
 	{
 		cache_type c;
-		c.L_z = L.z;
-		return forwardPdf(c);
+		return forwardPdf(L, c);
 	}
 
 	static weight_type backwardWeight(const codomain_type L)

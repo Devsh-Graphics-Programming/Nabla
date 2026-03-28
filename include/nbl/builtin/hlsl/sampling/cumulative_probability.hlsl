@@ -86,14 +86,14 @@ struct CumulativeProbabilitySampler
 		return result;
 	}
 
-	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	density_type forwardPdf(const codomain_type v, NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		return cache.upperBound - cache.oneBefore;
 	}
 
-	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	weight_type forwardWeight(const codomain_type v, NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		return forwardPdf(cache);
+		return forwardPdf(v, cache);
 	}
 
 	density_type backwardPdf(const codomain_type v) NBL_CONST_MEMBER_FUNC

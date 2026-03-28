@@ -51,7 +51,7 @@ struct BoxMullerTransform
         return cache.direction * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
     }
 
-    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
+    density_type forwardPdf(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return halfRcpStddev2 * numbers::inv_pi<scalar_type> * cache.u_x;
     }
@@ -66,9 +66,9 @@ struct BoxMullerTransform
         );
     }
 
-    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
+    weight_type forwardWeight(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return forwardPdf(cache);
+        return forwardPdf(v, cache);
     }
 
     density_type backwardPdf(const codomain_type outPos) NBL_CONST_MEMBER_FUNC

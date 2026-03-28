@@ -94,14 +94,14 @@ struct SphericalRectangle
         return vector2_type((xu - r0.x), (yv - r0.y));
     }
 
-    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
+    density_type forwardPdf(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return scalar_type(1.0) / solidAngle;
     }
 
-    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
+    weight_type forwardWeight(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return forwardPdf(cache);
+        return forwardPdf(v, cache);
     }
 
     density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC

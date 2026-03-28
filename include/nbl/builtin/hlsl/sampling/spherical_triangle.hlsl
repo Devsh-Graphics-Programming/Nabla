@@ -112,14 +112,14 @@ struct SphericalTriangle
 		return vector2_type(u, v);
 	}
 
-	density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
+	density_type forwardPdf(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
 	{
 		return rcpSolidAngle;
 	}
 
-	weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
+	weight_type forwardWeight(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
 	{
-		return forwardPdf(cache);
+		return forwardPdf(v, cache);
 	}
 
 	density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC

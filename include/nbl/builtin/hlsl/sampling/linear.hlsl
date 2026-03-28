@@ -59,14 +59,14 @@ struct Linear
         return x;
     }
 
-    density_type forwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC
+    density_type forwardPdf(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         return scalar_type(2.0) * (linearCoeffStart + cache.diffTimesX) * rcpCoeffSum;
     }
 
-    weight_type forwardWeight(const cache_type cache) NBL_CONST_MEMBER_FUNC
+    weight_type forwardWeight(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return forwardPdf(cache);
+        return forwardPdf(v, cache);
     }
 
     density_type backwardPdf(const codomain_type x) NBL_CONST_MEMBER_FUNC
