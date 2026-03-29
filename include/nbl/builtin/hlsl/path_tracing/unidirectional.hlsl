@@ -5,11 +5,8 @@
 #define _NBL_BUILTIN_HLSL_PATH_TRACING_UNIDIRECTIONAL_INCLUDED_
 
 #include <nbl/builtin/hlsl/colorspace/EOTF.hlsl>
-#include <nbl/builtin/hlsl/colorspace/encodeCIEXYZ.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
-#include <nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl>
-#include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/path_tracing/concepts.hlsl>
 
 namespace nbl
@@ -22,6 +19,7 @@ namespace path_tracing
 template<class RandGen, class Ray, class Intersector, class MaterialSystem, /* class PathGuider, */ class NextEventEstimator, class Accumulator, class Scene
 NBL_PRIMARY_REQUIRES(concepts::RandGenerator<RandGen> && concepts::Ray<Ray> &&
     concepts::Intersector<Intersector> && concepts::MaterialSystem<MaterialSystem> &&
+    concepts::UnidirectionalInteractionContract<Ray, Intersector, MaterialSystem> &&
     concepts::NextEventEstimator<NextEventEstimator> && concepts::Accumulator<Accumulator> &&
     concepts::Scene<Scene>)
 struct Unidirectional
