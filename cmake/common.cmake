@@ -1231,9 +1231,9 @@ struct DeviceConfigCaps
 		-Wshadow 
 		-Wconversion 
 		-Wno-local-type-template-args 
-		$<$<CONFIG:Debug>:-O1experimental> 
+		$<$<CONFIG:Debug>:-O0> 
 		$<$<CONFIG:Release>:-O3> 
-		$<$<CONFIG:RelWithDebInfo>:-O1experimental>
+		$<$<CONFIG:RelWithDebInfo>:-O3>
 	)
 
 	if(NSC_DEBUG_EDIF_FILE_BIT)
