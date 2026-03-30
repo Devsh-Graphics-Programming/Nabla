@@ -40,7 +40,8 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 
     const float32_t2 xi = float32_t2(pixelCoord) / float32_t2(pc.warpMapWidth - 1, pc.warpMapHeight - 1);
 
-    outImage[threadID.xyz] = warpGenerator.generate(xi).value();
+    typename WarpGenerator::cache_type dummyCache;
+    outImage[threadID.xyz] = warpGenerator.generate(xi, dummyCache);
   }
 
 

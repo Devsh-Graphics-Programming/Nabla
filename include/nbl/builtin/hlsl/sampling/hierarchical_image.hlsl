@@ -7,7 +7,6 @@
 
 #include <nbl/builtin/hlsl/concepts/accessors/loadable_image.hlsl>
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
-#include <nbl/builtin/hlsl/sampling/warp.hlsl>
 #include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 
@@ -17,47 +16,6 @@ namespace hlsl
 {
 namespace sampling
 {
-
-// TODO(kevinyu): Temporary struct before PR #1001 merged to master
-template<typename V, typename P>
-struct value_and_rcpPdf
-{
-  using this_t = value_and_rcpPdf<V, P>;
-
-  static this_t create(const V _value, const P _rcpPdf)
-  {
-    this_t retval;
-    retval._value = _value;
-    retval._rcpPdf = _rcpPdf;
-    return retval;
-  }
-
-  V value() { return _value; }
-  P rcpPdf() { return _rcpPdf; }
-
-  V _value;
-  P _rcpPdf;
-};
-
-template<typename V, typename P>
-struct value_and_pdf
-{
-  using this_t = value_and_pdf<V, P>;
-
-  static this_t create(const V _value, const P _pdf)
-  {
-    this_t retval;
-    retval._value = _value;
-    retval._pdf = _pdf;
-    return retval;
-  }
-
-  V value() { return _value; }
-  P pdf() { return _pdf; }
-
-  V _value;
-  P _pdf;
-};
 
 // TODO: Implement corner sampling or centered sampling based on the type of LuminanceAccessor
 template <typename ScalarT, typename LuminanceAccessorT 
@@ -72,11 +30,15 @@ struct HierarchicalWarpGenerator
   using vector4_type = vector<scalar_type, 4>;
   using domain_type = vector2_type;
   using codomain_type = vector2_type;
-  using sample_type = value_and_pdf<codomain_type, scalar_type>;
+  using weight_type = scalar_type;
   using density_type = scalar_type;
+  struct cache_type
+  {
+    scalar_type rcpPmf;
+  };
 
   LuminanceAccessorT _map;
-  uint16_t2 _mapSize;
+  uint16_t2 _lastTexel;
   uint16_t _layerIndex;
   uint16_t _lastMipLevel : 15;
   uint16_t _aspect2x1 : 1;
@@ -85,7 +47,7 @@ struct HierarchicalWarpGenerator
   {
     HierarchicalWarpGenerator<ScalarT, LuminanceAccessorT> result;
     result._map = lumaMap;
-    result._mapSize = mapSize;
+    result._lastTexel = mapSize - uint16_t2(1, 1);
     result._layerIndex = layerIndex;
     // Note: We use mapSize.y here because the currently the map aspect ratio can only be 1x1 or 2x1
     result._lastMipLevel = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(mapSize.y)));
@@ -93,7 +55,7 @@ struct HierarchicalWarpGenerator
     return result;
   }
 
-  static bool __choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi, NBL_REF_ARG(scalar_type) rcpPmf) NBL_CONST_MEMBER_FUNC
+  static bool __choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi, NBL_REF_ARG(scalar_type) rcpPmf)
   {
     // numerical resilience against IEEE754
     scalar_type rcpChoiceProb = scalar_type(0);
@@ -107,7 +69,7 @@ struct HierarchicalWarpGenerator
   // Cannot use textureGather since we need to pass the mipLevel
   vector4_type __texelGather(uint16_t2 coord, uint16_t level) NBL_CONST_MEMBER_FUNC
   {
-    assert(coord.x < _mapSize.x - 1 && coord.y < _mapSize.y - 1);
+    assert(coord.x < _lastTexel.x && coord.y < _lastTexel.y);
     vector<scalar_type, 1> p0, p1, p2, p3;
     _map.get(p0, coord + uint16_t2(0, 1), _layerIndex, level);
     _map.get(p1, coord + uint16_t2(1, 1), _layerIndex, level);
@@ -116,7 +78,7 @@ struct HierarchicalWarpGenerator
     return vector4_type(p0, p1, p2, p3);
   }
 
-  sample_type generate(vector2_type xi) NBL_CONST_MEMBER_FUNC
+  codomain_type generate(domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
     uint16_t2 p = uint16_t2(0, 0);
 
@@ -160,18 +122,26 @@ struct HierarchicalWarpGenerator
       xi.x = xi.x * scalar_type(0.5) + scalar_type(0.5);
     if (p.y == 0)
       xi.y = xi.y * scalar_type(0.5) + scalar_type(0.5);
-    if (p.x == _mapSize.x - 1)
+    if (p.x == _lastTexel.x)
       xi.x = xi.x * scalar_type(0.5);
-    if (p.y == _mapSize.y - 1)
+    if (p.y == _lastTexel.y)
       xi.y = xi.y * scalar_type(0.5);
 
-    const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) / _mapSize;
-    return sample_type::create(directionUV, (_mapSize.x * _mapSize.y) / rcpPmf);
+    const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) / _lastTexel;
+
+    cache.rcpPmf = rcpPmf;
+
+    return directionUV;
   }
 
-  density_type forwardPdf(domain_type xi) NBL_CONST_MEMBER_FUNC
+  density_type forwardPdf(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
-    return generate(xi).pdf();
+    return (_lastTexel.x * _lastTexel.y) / cache.rcpPmf;
+  }
+
+  weight_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
+  {
+    return forwardPdf(xi, cache);
   }
 
   // Doesn't comply with sampler concept. This class is extracted so can be used on warpmap generation without passing in unnecessary information like avgLuma. So, need to pass in avgLuma when calculating backwardPdf.
@@ -182,16 +152,14 @@ struct HierarchicalWarpGenerator
 
 };
 
+// TODO(kevinyu): Add constraint for PostWarpT
 template <typename ScalarT, typename LuminanceAccessorT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     is_scalar_v<ScalarT> && 
-    concepts::accessors::MipmappedLoadableImage<LuminanceAccessorT, ScalarT, 2, 1> &&
-    concepts::Warp<PostWarpT>
-  )
+    concepts::accessors::MipmappedLoadableImage<LuminanceAccessorT, ScalarT, 2, 1>  )
 struct HierarchicalWarpSampler
 {
   using warp_generator_type = HierarchicalWarpGenerator<ScalarT, LuminanceAccessorT>;
-  using warp_sample_type = typename warp_generator_type::sample_type;
   using scalar_type = ScalarT;
   using density_type = scalar_type;
   using vector2_type = vector<scalar_type, 2>;
@@ -199,10 +167,16 @@ struct HierarchicalWarpSampler
   using vector4_type = vector<scalar_type, 4>;
   using domain_type = vector2_type;
   using codomain_type = vector3_type;
-  using sample_type = value_and_pdf<codomain_type, density_type>;
-  
+
+  struct cache_type
+  {
+    typename warp_generator_type::cache_type warpGeneratorCache;
+    typename PostWarpT::density_type postWarpPdf;
+  };
+
   warp_generator_type _warpGenerator;
   scalar_type _rcpAvgLuma;
+  PostWarpT _postWarp;
 
   static HierarchicalWarpSampler<ScalarT, LuminanceAccessorT, PostWarpT> create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, scalar_type avgLuma, uint16_t2 mapSize, uint16_t layerIndex)
   {
@@ -212,32 +186,45 @@ struct HierarchicalWarpSampler
     return result;
   }
 
-  sample_type generate(domain_type xi) NBL_CONST_MEMBER_FUNC
+  codomain_type generate(const domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
-    const warp_sample_type warpSample = _warpGenerator.generate(xi);
-    const WarpResult<codomain_type> postWarpResult = PostWarpT::warp(warpSample.value());
-    return sample_type::create(postWarpResult.dst, postWarpResult.density * warpSample.pdf());
+    const typename warp_generator_type::codomain_type warpSample = _warpGenerator.generate(xi, cache.warpGeneratorCache);
+    typename PostWarpT::cache_type postWarpCache;
+    const codomain_type postWarpSample = _postWarp.generate(warpSample, postWarpCache);
+
+    // I have to store the postWarpDensity here, so I don't have to call generate on warpGenerator again just to feed it to PostWarpT, even though for spherical it is unused.
+    cache.postWarpPdf = _postWarp.forwardPdf(warpSample, postWarpCache);
+    
+    return postWarpSample;
   }
 
-  density_type forwardPdf(domain_type xi) NBL_CONST_MEMBER_FUNC
+  density_type forwardPdf(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
-    const warp_sample_type warpSample = _warpGenerator.generate(xi);
-    return PostWarpT::forwardDensity(warpSample.value()) * warpSample.pdf();
+    return _warpGenerator.forwardPdf(xi, cache.warpGeneratorCache) * cache.postWarpPdf;
+  }
+
+  density_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
+  {
+    return forwardPdf(xi, cache);
   }
 
   density_type backwardPdf(codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
-    return PostWarpT::backwardPdf(codomainVal, _rcpAvgLuma) * _warpGenerator.backwardPdf(codomainVal);
+    return _postWarp.backwardPdf(codomainVal, _rcpAvgLuma) * _warpGenerator.backwardPdf(codomainVal);
   }
 
+  density_type backwardWeight(codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
+  {
+    return backwardPdf(codomainVal);
+  }
 };
 
 
+// TODO: Add some constraint into PostWarpT
 template <typename ScalarT, typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(is_scalar_v<ScalarT> &&
     concepts::accessors::GenericReadAccessor<LuminanceAccessorT, ScalarT, float32_t2> &&
-    hierarchical_image::WarpAccessor<HierarchicalSamplerT, ScalarT> &&
-    concepts::Warp<PostWarpT>)
+    hierarchical_image::WarpAccessor<HierarchicalSamplerT, ScalarT>)
 struct WarpmapSampler 
 {
   using scalar_type = ScalarT;
@@ -247,16 +234,26 @@ struct WarpmapSampler
   using domain_type = vector2_type;
   using codomain_type = vector3_type;
   using weight_type = scalar_type;
-  using sample_type = value_and_pdf<codomain_type, weight_type>;
+  using density_type = scalar_type;
+  using this_type = WarpmapSampler<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT>;
+  struct cache_type
+  {
+    vector2_type xDiffs[2];
+    vector2_type yDiff;
+    scalar_type interpolantY;
+    scalar_type postWarpPdf;
+
+  };
 
   LuminanceAccessorT _lumaMap;
   HierarchicalSamplerT _warpMap;
   uint32_t _effectiveWarpArea;
   scalar_type _rcpAvgLuma;
+  PostWarpT _postWarp;
 
   static WarpmapSampler create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint16_t2 warpSize, scalar_type avgLuma) 
   {
-    WarpmapSampler<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT> result;
+    this_type result;
     result._lumaMap = lumaMap;
     result._warpMap = warpMap;
     result._effectiveWarpArea = (warpSize.x - 1) * (warpSize.y - 1);
@@ -264,20 +261,8 @@ struct WarpmapSampler
     return result;
   }
 
-  weight_type forwardWeight(domain_type xi) NBL_CONST_MEMBER_FUNC
-  {
-    return generate(xi).value();
-  }
 
-  weight_type backwardWeight(codomain_type direction) NBL_CONST_MEMBER_FUNC
-  {
-    vector2_type envmapUv = PostWarpT::inverseWarp(direction);
-    scalar_type luma;
-    _lumaMap.get(envmapUv, luma);
-    return luma * _rcpAvgLuma * PostWarpT::backwardDensity(direction);
-  }
-
-  sample_type generate(vector2_type xi) NBL_CONST_MEMBER_FUNC
+  codomain_type generate(const domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
     const vector2_type interpolant;
     matrix<scalar_type, 4, 2> uvs; 
@@ -294,16 +279,39 @@ struct WarpmapSampler
     const vector2_type yDiff = yVals[1] - yVals[0];
     vector2_type uv = yDiff * interpolant.y + yVals[0];
 
-    const WarpResult<vector3_type> warpResult = PostWarpT::warp(uv);
+    cache.xDiffs[0] = xDiffs[0];
+    cache.xDiffs[1] = xDiffs[1];
+    cache.yDiff = yDiff;
+    cache.interpolantY = interpolant.y;
 
+    typename PostWarpT::cache_type postWarpCache;
+    const codomain_type result = _postWarp.generate(uv, postWarpCache);
+    cache.postWarpPdf = _postWarp.forwardPdf(uv, postWarpCache);
+
+    return result;
+  }
+
+  density_type forwardPdf(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
+  {
     const scalar_type detInterpolJacobian = determinant(matrix<scalar_type, 2, 2>(
-      lerp(xDiffs[0], xDiffs[1], interpolant.y), // first column dFdx
-      yDiff // second column dFdy
+      lerp(cache.xDiffs[0], cache.xDiffs[1], cache.interpolantY), // first column dFdx
+      cache.yDiff // second column dFdy
     )) * _effectiveWarpArea;
+    const scalar_type pdf = abs(cache.postWarpPdf / detInterpolJacobian);
+    return pdf;
+  }
 
-    const scalar_type pdf = abs(warpResult.density / detInterpolJacobian);
+  weight_type forwardWeight(const domain_type xi, const cache_type cache)
+  {
+    return forwardPdf(xi, cache);
+  }
 
-    return sample_type::create(warpResult.dst, pdf);
+  weight_type backwardWeight(codomain_type direction) NBL_CONST_MEMBER_FUNC
+  {
+    vector2_type envmapUv = _postWarp.generateInverse(direction);
+    scalar_type luma;
+    _lumaMap.get(envmapUv, luma);
+    return luma * _rcpAvgLuma * _postWarp.backwardWeight(direction);
   }
 };
 

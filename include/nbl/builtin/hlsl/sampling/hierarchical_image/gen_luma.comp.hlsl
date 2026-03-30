@@ -1,4 +1,5 @@
 #include "common.hlsl"
+#include "nbl/builtin/hlsl/limits.hlsl"
 
 using namespace nbl;
 using namespace nbl::hlsl;
@@ -24,6 +25,8 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 			luma *= 0.5f;
 		if (threadID.y == 0 || threadID.y == (pc.lumaMapHeight - 1))
 			luma *= 0.5f;
+
+		luma = max(luma, nbl::hlsl::numeric_limits<float32_t>::min);
 
 		outImage[threadID.xyz] = luma;
 	}
