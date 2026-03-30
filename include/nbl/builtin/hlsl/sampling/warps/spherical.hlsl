@@ -1,6 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_WARPS_SPHERICAL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_WARPS_SPHERICAL_INCLUDED_
 
+#include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/sampling/warp.hlsl>
@@ -30,8 +31,8 @@ struct Spherical
     if (uv.x > density_type(0.5))
 			dir.z = -dir.z;
 		const density_type theta = uv.y * numbers::pi<density_type>;
-		const density_type cosTheta = cos(theta);
-		const density_type sinTheta = sqrt(density_type(1) - (cosTheta * cosTheta));
+		density_type sinTheta, cosTheta;
+		nbl::hlsl::math::sincos<float>(theta, sinTheta, cosTheta);
 		dir.xz *= sinTheta;
 		dir.y = cosTheta;
 
