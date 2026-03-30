@@ -1,5 +1,5 @@
 outs:
-- md5: bcdd137482f6fd4a3b55da0884978d58
-  size: 21367296
+- md5: 862b11b94cb23c8bac2a20a215eb6597
+  size: 21601280
   hash: md5
   path: dxcompiler.dll

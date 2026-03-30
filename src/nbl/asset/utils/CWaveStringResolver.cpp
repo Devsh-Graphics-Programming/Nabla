@@ -8,35 +8,6 @@
     options remain and there is no mismatch, we force agressive inlining and optimizations mostly regardless build configuration by default
 */
 
-/*
-    Arek leaving thoughts, TODO:
-    
-    in NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION mode enabled -> here in this TU do
-
-    #define _ITERATOR_DEBUG_LEVEL 0
-    #define _HAS_ITERATOR_DEBUGGING 0
-
-    and allow Nabla to mismatch debug iterator *on purpose* by
-
-    #define _ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH 
-
-    in Debug/RWDI
-
-    then make preprocess full C API with raw in/out pointers and bytes out pointer,
-    with mismtach we must be very careful about memory ownership as STL stuff will have
-    different struct layouts and its easy to make a crash, we will have extra memcpy and
-    deallocation but as a trade each config will have almost the same preprocessing perf
-    which matters for our NSC integration
-
-    then we can think to make use of existing shader cache and maybe consider HLSL PCH
-    which NSC would inject into each input
-
-    NOTE: this approach allows to do all in single Nabla module, no extra proxy/fake shared DLL needed!
-    NOTE: yep I know I have currently a callback for which context size will differ accross TUs afterwards but will think about it
-
-    or ignore it and take care of NSC special target creating global HLSL PCH injected into each registered input
-*/
-
 #include "nabla.h"
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/wave/util/insert_whitespace_detection.hpp>
@@ -54,16 +25,27 @@ constexpr size_t kWaveFailureLogOutputTailMaxChars = 4096ull;
 constexpr size_t kWaveFailureLogOutputTailMaxLines = 16ull;
 constexpr size_t kWaveFailureLogTokenPreviewMaxChars = 160ull;
 
+auto subtractSessionCacheStats(
+    const IShaderCompiler::CIncludeFinder::SSessionCache::Stats& end,
+    const IShaderCompiler::CIncludeFinder::SSessionCache::Stats& begin) -> IShaderCompiler::CIncludeFinder::SSessionCache::Stats
+{
+    IShaderCompiler::CIncludeFinder::SSessionCache::Stats result;
+    result.lookupFound = end.lookupFound - begin.lookupFound;
+    result.lookupMissing = end.lookupMissing - begin.lookupMissing;
+    result.lookupMiss = end.lookupMiss - begin.lookupMiss;
+    result.storeFound = end.storeFound - begin.storeFound;
+    result.storeMissing = end.storeMissing - begin.storeMissing;
+    return result;
+}
+
 struct WaveRenderProgress
 {
     core::string output;
-    std::optional<nbl::wave::context::position_type> previousPosition = std::nullopt;
+    std::string previousFile;
+    int previousLine = 0;
+    bool hasPreviousToken = false;
     bool previousWasExplicitWhitespace = false;
     size_t emittedTokenCount = 0ull;
-    std::string lastTokenFile;
-    int lastTokenLine = 0;
-    int lastTokenColumn = 0;
-    std::string lastTokenValue;
 };
 
 std::string getLineSnippet(std::string_view text, const int lineNo)
@@ -218,11 +200,6 @@ std::string makeWaveFailureContext(
     stream << "\n  emitted_output_bytes: " << renderProgress.output.size();
     stream << "\n  emitted_output_lines: " << countLogicalLines(renderProgress.output);
     stream << "\n  emitted_token_count: " << renderProgress.emittedTokenCount;
-    if (!renderProgress.lastTokenFile.empty())
-        stream << "\n  last_emitted_token_location: " << nbl::wave::detail::escape_control_chars(renderProgress.lastTokenFile) << ':' << renderProgress.lastTokenLine << ':' << renderProgress.lastTokenColumn;
-    if (!renderProgress.lastTokenValue.empty())
-        stream << "\n  last_emitted_token_value: " << truncateEscapedPreview(nbl::wave::detail::escape_control_chars(renderProgress.lastTokenValue), kWaveFailureLogTokenPreviewMaxChars);
-
     const auto snippet = getLineSnippet(code, lineNo);
     if (!snippet.empty() && fileName && preprocessOptions.sourceIdentifier == fileName)
     {
@@ -248,64 +225,90 @@ bool isWhitespaceLikeToken(const TokenT& token)
     return id == T_NEWLINE || id == T_GENERATEDNEWLINE || id == T_CONTLINE || IS_CATEGORY(token, WhiteSpaceTokenType);
 }
 
-template<typename TokenT>
-std::string tokenValueToString(const TokenT& token)
-{
-    const auto& value = token.get_value();
-    return std::string(value.data(), value.size());
-}
-
 void renderPreprocessedOutput(nbl::wave::context& context, WaveRenderProgress& renderProgress)
 {
     using namespace boost::wave;
 
     util::insert_whitespace_detection whitespace(true);
-
-    for (auto it = context.begin(); it != context.end(); ++it)
+    auto& perfStats = nbl::wave::detail::perf_stats();
+    auto it = context.begin();
+    const auto end = context.end();
+    while (it != end)
     {
+        std::optional<nbl::wave::detail::ScopedPerfTimer> loopBodyTimer;
+        if (perfStats.enabled)
+            loopBodyTimer.emplace(perfStats.loopBodyTime);
+
         const auto& token = *it;
         const auto id = token_id(token);
-        if (id == T_EOF || id == T_EOI)
-            continue;
-
-        const auto explicitWhitespace = isWhitespaceLikeToken(token);
-        const auto& position = token.get_position();
-        const auto value = tokenValueToString(token);
-
-        if (renderProgress.previousPosition.has_value() && !explicitWhitespace)
+        if (id != T_EOF && id != T_EOI)
         {
-            const auto movedToNewLogicalLine =
-                position.get_file() != renderProgress.previousPosition->get_file() ||
-                position.get_line() > renderProgress.previousPosition->get_line();
+            std::optional<nbl::wave::detail::ScopedPerfTimer> tokenTimer;
+            if (perfStats.enabled)
+                tokenTimer.emplace(perfStats.tokenHandlingTime);
 
-            if (movedToNewLogicalLine)
+            const auto explicitWhitespace = isWhitespaceLikeToken(token);
+            const auto& position = token.get_position();
+            const auto& value = token.get_value();
+
+            const auto currentLine = position.get_line();
+            const auto& currentFile = position.get_file();
+
+            if (renderProgress.hasPreviousToken && !explicitWhitespace)
             {
-                if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
+                bool movedToNewLogicalLine = currentLine > renderProgress.previousLine;
+                if (!movedToNewLogicalLine)
                 {
-                    renderProgress.output.push_back('\n');
-                    whitespace.shift_tokens(T_NEWLINE);
+                    movedToNewLogicalLine =
+                        renderProgress.previousFile.size() != currentFile.size() ||
+                        !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin());
+                }
+
+                if (movedToNewLogicalLine)
+                {
+                    if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
+                    {
+                        renderProgress.output.push_back('\n');
+                        whitespace.shift_tokens(T_NEWLINE);
+                    }
+                }
+                else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
+                {
+                    if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
+                    {
+                        renderProgress.output.push_back(' ');
+                        whitespace.shift_tokens(T_SPACE);
+                    }
                 }
             }
-            else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
+
+            renderProgress.output.append(value.data(), value.size());
+            whitespace.shift_tokens(id);
+            if (!renderProgress.hasPreviousToken ||
+                renderProgress.previousFile.size() != currentFile.size() ||
+                !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin()))
             {
-                if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
-                {
-                    renderProgress.output.push_back(' ');
-                    whitespace.shift_tokens(T_SPACE);
-                }
+                renderProgress.previousFile.assign(currentFile.c_str(), currentFile.size());
             }
+            renderProgress.previousLine = currentLine;
+            renderProgress.hasPreviousToken = true;
+            renderProgress.previousWasExplicitWhitespace = explicitWhitespace;
+            ++renderProgress.emittedTokenCount;
+
+            if (tokenTimer.has_value())
+                tokenTimer.reset();
         }
 
-        renderProgress.output += value;
-        whitespace.shift_tokens(id);
-        renderProgress.previousPosition = position;
-        renderProgress.previousWasExplicitWhitespace = explicitWhitespace;
-        const auto& file = position.get_file();
-        renderProgress.lastTokenFile.assign(file.c_str(), file.size());
-        renderProgress.lastTokenLine = position.get_line();
-        renderProgress.lastTokenColumn = position.get_column();
-        renderProgress.lastTokenValue = value;
-        ++renderProgress.emittedTokenCount;
+        if (loopBodyTimer.has_value())
+            loopBodyTimer.reset();
+
+        if (perfStats.enabled)
+        {
+            nbl::wave::detail::ScopedPerfTimer iteratorAdvanceTimer(perfStats.iteratorAdvanceTime);
+            ++it;
+        }
+        else
+            ++it;
     }
 }
 
@@ -315,6 +318,10 @@ std::string preprocessImpl(
     const bool withCaching,
     std::function<void(nbl::wave::context&)> post)
 {
+    const auto emptySessionCacheStats = IShaderCompiler::CIncludeFinder::SSessionCache::Stats{};
+    const auto readSessionCacheStatsBegin = preprocessOptions.readIncludeSessionCache ? preprocessOptions.readIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    const auto writeSessionCacheStatsBegin = preprocessOptions.writeIncludeSessionCache ? preprocessOptions.writeIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+
     nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
 
     WaveRenderProgress renderProgress;
@@ -331,6 +338,8 @@ std::string preprocessImpl(
     };
     try
     {
+        const auto totalBegin = std::chrono::steady_clock::now();
+        nbl::wave::detail::reset_perf_stats();
         context.set_caching(withCaching);
         context.add_macro_definition("__HLSL_VERSION");
         context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
@@ -347,7 +356,14 @@ std::string preprocessImpl(
         activeMacroDefinition.clear();
 
         phase = "expanding translation unit";
-        renderPreprocessedOutput(context, renderProgress);
+        {
+            nbl::wave::detail::ScopedPerfTimer renderTimer(nbl::wave::detail::perf_stats().renderTime);
+            renderPreprocessedOutput(context, renderProgress);
+        }
+        auto& perfStats = nbl::wave::detail::perf_stats();
+        perfStats.outputBytes = renderProgress.output.size();
+        perfStats.emittedTokenCount = renderProgress.emittedTokenCount;
+        perfStats.totalPreprocessTime = std::chrono::steady_clock::now() - totalBegin;
     }
     catch (boost::wave::preprocess_exception& e)
     {
@@ -384,6 +400,12 @@ std::string preprocessImpl(
     }
 
     post(context);
+    const auto readSessionCacheStatsEnd = preprocessOptions.readIncludeSessionCache ? preprocessOptions.readIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    const auto writeSessionCacheStatsEnd = preprocessOptions.writeIncludeSessionCache ? preprocessOptions.writeIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    nbl::wave::detail::set_session_cache_perf_stats(
+        subtractSessionCacheStats(readSessionCacheStatsEnd, readSessionCacheStatsBegin),
+        subtractSessionCacheStats(writeSessionCacheStatsEnd, writeSessionCacheStatsBegin));
+    nbl::wave::detail::dump_perf_stats();
 
     return std::move(renderProgress.output);
 }

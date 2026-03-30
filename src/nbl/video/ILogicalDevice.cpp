@@ -159,7 +159,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
     }
 
     if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL) : nullptr)
-        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_enabledFeatures));
+        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_enabledFeatures), {asset::IShaderCompiler::IncludeRootOrigin::Generated,asset::IShaderCompiler::HeaderClass::System});
 }
 
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
