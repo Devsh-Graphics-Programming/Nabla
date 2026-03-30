@@ -30,18 +30,21 @@ struct ProjectedHemisphere
 
 	struct cache_type
 	{
+		scalar_type z;
 	};
 
-	static codomain_type __generate(const domain_type _sample)
+	static codomain_type __generate(const domain_type u)
 	{
-		vector_t2 p = ConcentricMapping<T>::generate(_sample * T(0.99999) + T(0.000005));
+		vector_t2 p = ConcentricMapping<T>::generate(u * T(0.99999) + T(0.000005));
 		T z = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - p.x * p.x - p.y * p.y));
 		return vector_t3(p.x, p.y, z);
 	}
 
-	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
+	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
-		return __generate(_sample);
+		const codomain_type retval = __generate(u);
+		cache.z = retval.z;
+		return retval;
 	}
 
 	static domain_type generateInverse(const codomain_type L)
@@ -49,21 +52,20 @@ struct ProjectedHemisphere
 		return ConcentricMapping<T>::generateInverse(L.xy);
 	}
 
-	static density_type forwardPdf(const codomain_type v, const cache_type cache)
+	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		return v.z * numbers::inv_pi<T>;
+		return cache.z * numbers::inv_pi<T>;
 	}
 
-	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
+	static weight_type forwardWeight(const domain_type u, const cache_type cache)
 	{
-		return forwardPdf(v, cache);
+		return forwardPdf(u, cache);
 	}
 
 	static density_type backwardPdf(const codomain_type L)
 	{
 		assert(L.z > 0);
-		cache_type c;
-		return forwardPdf(L, c);
+		return L.z * numbers::inv_pi<T>;
 	}
 
 	static weight_type backwardWeight(const codomain_type L)
@@ -88,39 +90,37 @@ struct ProjectedSphere
 
 	using cache_type = typename hemisphere_t::cache_type;
 
-	static codomain_type __generate(NBL_REF_ARG(domain_type) _sample)
+	static codomain_type __generate(NBL_REF_ARG(domain_type) u)
 	{
-		vector_t3 retval = hemisphere_t::__generate(_sample.xy);
-		const bool chooseLower = _sample.z > T(0.5);
+		vector_t3 retval = hemisphere_t::__generate(u.xy);
+		const bool chooseLower = u.z > T(0.5);
 		retval.z = chooseLower ? (-retval.z) : retval.z;
 		if (chooseLower)
-			_sample.z -= T(0.5);
-		_sample.z *= T(2.0);
+			u.z -= T(0.5);
+		u.z *= T(2.0);
 		return retval;
 	}
 
-	static codomain_type generate(NBL_REF_ARG(domain_type) _sample, NBL_REF_ARG(cache_type) cache)
+	static codomain_type generate(NBL_REF_ARG(domain_type) u, NBL_REF_ARG(cache_type) cache)
 	{
-		return __generate(_sample);
+		const codomain_type retval = __generate(u);
+		cache.z = hlsl::abs(retval.z);
+		return retval;
 	}
 
-	static density_type forwardPdf(const codomain_type v, const cache_type cache)
+	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		codomain_type absV = v;
-		absV.z = hlsl::abs(v.z);
-		cache_type hc;
-		return T(0.5) * hemisphere_t::forwardPdf(absV, hc);
+		return T(0.5) * cache.z * numbers::inv_pi<T>;
 	}
 
-	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
+	static weight_type forwardWeight(const domain_type u, const cache_type cache)
 	{
-		return forwardPdf(v, cache);
+		return forwardPdf(u, cache);
 	}
 
 	static density_type backwardPdf(const codomain_type L)
 	{
-		cache_type c;
-		return forwardPdf(L, c);
+		return T(0.5) * hlsl::abs(L.z) * numbers::inv_pi<T>;
 	}
 
 	static weight_type backwardWeight(const codomain_type L)

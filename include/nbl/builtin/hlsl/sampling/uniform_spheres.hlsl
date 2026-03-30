@@ -53,50 +53,50 @@ struct UniformHemisphere
 
 	struct cache_type {};
 
-	static codomain_type __generate(const domain_type _sample)
+	static codomain_type __generate(const domain_type u)
 	{
-		return impl::directionFromZandPhi(_sample.x, _sample.y);
+		return impl::directionFromZandPhi(u.x, u.y);
 	}
 
-	static codomain_type generate(const domain_type _sample)
+	static codomain_type generate(const domain_type u)
 	{
-		return __generate(_sample);
+		return __generate(u);
 	}
 
-	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
+	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
-		return __generate(_sample);
+		return __generate(u);
 	}
 
-	static domain_type __generateInverse(const codomain_type _sample)
+	static domain_type __generateInverse(const codomain_type v)
 	{
-		return vector_t2(_sample.z, impl::phiSampleFromDirection(_sample.x, _sample.y));
+		return vector_t2(v.z, impl::phiSampleFromDirection(v.x, v.y));
 	}
 
-	static domain_type generateInverse(const codomain_type _sample)
+	static domain_type generateInverse(const codomain_type v)
 	{
-		return __generateInverse(_sample);
+		return __generateInverse(v);
 	}
 
-	static density_type forwardPdf(const codomain_type v, const cache_type cache)
+	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
-	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
+	static weight_type forwardWeight(const domain_type u, const cache_type cache)
 	{
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
-	static density_type backwardPdf(const vector_t3 _sample)
+	static density_type backwardPdf(const codomain_type v)
 	{
-		assert(_sample.z > 0);
+		assert(v.z > 0);
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
-	static weight_type backwardWeight(const codomain_type _sample)
+	static weight_type backwardWeight(const codomain_type v)
 	{
-		assert(_sample.z > 0);
+		assert(v.z > 0);
 		return T(0.5) * numbers::inv_pi<T>;
 	}
 
@@ -118,50 +118,50 @@ struct UniformSphere
 
 	using cache_type = typename hemisphere_t::cache_type;
 
-	static codomain_type __generate(const domain_type _sample)
+	static codomain_type __generate(const domain_type u)
 	{
-		return impl::directionFromZandPhi(T(1.0) - T(2.0) * _sample.x, _sample.y);
+		return impl::directionFromZandPhi(T(1.0) - T(2.0) * u.x, u.y);
 	}
 
-	static codomain_type generate(const domain_type _sample)
+	static codomain_type generate(const domain_type u)
 	{
-		return __generate(_sample);
+		return __generate(u);
 	}
 
-	static codomain_type generate(const domain_type _sample, NBL_REF_ARG(cache_type) cache)
+	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
-		return __generate(_sample);
+		return __generate(u);
 	}
 
-	static domain_type __generateInverse(const codomain_type _sample)
+	static domain_type __generateInverse(const codomain_type v)
 	{
 		// Inverse of z = 1 - 2*x => x = (1 - z) / 2
-		return vector_t2((T(1.0) - _sample.z) * T(0.5), impl::phiSampleFromDirection(_sample.x, _sample.y));
+		return vector_t2((T(1.0) - v.z) * T(0.5), impl::phiSampleFromDirection(v.x, v.y));
 	}
 
-	static domain_type generateInverse(const codomain_type _sample)
+	static domain_type generateInverse(const codomain_type v)
 	{
-		return __generateInverse(_sample);
+		return __generateInverse(v);
 	}
 
-	static density_type forwardPdf(const codomain_type v, const cache_type cache)
+	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * hemisphere_t::forwardPdf(v, cache);
+		return T(0.5) * hemisphere_t::forwardPdf(u, cache);
 	}
 
-	static weight_type forwardWeight(const codomain_type v, const cache_type cache)
+	static weight_type forwardWeight(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * hemisphere_t::forwardWeight(v, cache);
+		return T(0.5) * hemisphere_t::forwardWeight(u, cache);
 	}
 
-	static density_type backwardPdf(const vector_t3 _sample)
+	static density_type backwardPdf(const codomain_type v)
 	{
-		return T(0.5) * hemisphere_t::backwardPdf(_sample);
+		return T(0.5) * hemisphere_t::backwardPdf(v);
 	}
 
-	static weight_type backwardWeight(const codomain_type _sample)
+	static weight_type backwardWeight(const codomain_type v)
 	{
-		return T(0.5) * hemisphere_t::backwardWeight(_sample);
+		return T(0.5) * hemisphere_t::backwardWeight(v);
 	}
 
 };

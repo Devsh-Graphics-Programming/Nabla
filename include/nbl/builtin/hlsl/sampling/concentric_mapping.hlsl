@@ -38,13 +38,13 @@ struct ConcentricMapping
       // TODO: should we cache `r`?
    };
 
-   static codomain_type generate(const domain_type _u, NBL_REF_ARG(cache_type) cache)
+   static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
    {
       // map [0,1]^2 to [-1,1]^2
-      const vector2_type u = scalar_type(2) * _u - hlsl::promote<vector2_type>(scalar_type(1));
+      const vector2_type centered = scalar_type(2) * u - hlsl::promote<vector2_type>(scalar_type(1));
 
-      const scalar_type a = u.x;
-      const scalar_type b = u.y;
+      const scalar_type a = centered.x;
+      const scalar_type b = centered.y;
 
       // dominant axis selection
       const bool cond = a * a > b * b;
@@ -66,10 +66,10 @@ struct ConcentricMapping
    }
 
    // Overload for BasicSampler
-   static codomain_type generate(domain_type _u)
+   static codomain_type generate(domain_type u)
    {
       cache_type dummy;
-      return generate(_u, dummy);
+      return generate(u, dummy);
    }
 
    static domain_type generateInverse(const codomain_type p)
@@ -102,10 +102,10 @@ struct ConcentricMapping
    }
 
    // The PDF of Shirley mapping is constant (1/PI on the unit disk)
-   static density_type forwardPdf(const codomain_type v, cache_type cache) { return numbers::inv_pi<scalar_type>; }
+   static density_type forwardPdf(const domain_type u, cache_type cache) { return numbers::inv_pi<scalar_type>; }
    static density_type backwardPdf(codomain_type v) { return numbers::inv_pi<scalar_type>; }
 
-   static weight_type forwardWeight(const codomain_type v, cache_type cache) { return forwardPdf(v, cache); }
+   static weight_type forwardWeight(const domain_type u, cache_type cache) { return forwardPdf(u, cache); }
    static weight_type backwardWeight(codomain_type v) { return backwardPdf(v); }
 };
 

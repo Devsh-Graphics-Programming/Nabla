@@ -99,26 +99,19 @@ NBL_CONCEPT_END(
 // (sampling) direction. generate returns a codomain_type value and writes
 // intermediates to a cache_type out-param for later pdf evaluation.
 //
-// The cache_type out-param stores the input domain_type and/or values
-// derived from it during generate, for reuse by forwardPdf without
-// redundant recomputation. If there is no common computation between
-// generate and backwardPdf, the cache simply stores the codomain value.
+// The cache_type out-param stores values derived during generate for
+// reuse by forwardPdf without redundant recomputation.
 //
-// For constant-pdf samplers, forwardPdf(sample, cache) == __pdf() (both args ignored).
-// For complex samplers, cache carries intermediate values derived from
-// the domain input and forwardPdf computes the pdf from those.
-//
-// The codomain_type sample parameter is passed alongside the cache to help
-// the GPU compiler with dead code elimination: if generate's return value
-// and a copy inside the cache would otherwise occupy separate registers,
-// passing the sample explicitly makes the identity visible to the compiler.
+// For constant-pdf samplers, forwardPdf ignores both arguments.
+// For complex samplers, cache carries intermediate values computed
+// during generate and forwardPdf evaluates the pdf from those.
 //
 // Required types:
 //   domain_type, codomain_type, density_type, cache_type
 //
 // Required methods:
 //   codomain_type generate(domain_type u, out cache_type cache)
-//   density_type  forwardPdf(codomain_type sample, cache_type cache)
+//   density_type  forwardPdf(domain_type u, cache_type cache)
 // ============================================================================
 
 // clang-format off
@@ -140,7 +133,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::density_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::cache_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE) ((_sampler.generate(u, cache)), ::nbl::hlsl::is_same_v, typename T::codomain_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE) ((_sampler.forwardPdf(v, cache)), ::nbl::hlsl::is_same_v, typename T::density_type)));
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE) ((_sampler.forwardPdf(u, cache)), ::nbl::hlsl::is_same_v, typename T::density_type)));
 #undef cache
 #undef v
 #undef u
@@ -166,7 +159,7 @@ NBL_CONCEPT_END(
 //
 // Required methods:
 //   codomain_type generate(domain_type u, out cache_type cache)
-//   weight_type   forwardWeight(codomain_type v, cache_type cache)  - forward weight for MIS
+//   weight_type   forwardWeight(domain_type u, cache_type cache)  - forward weight for MIS
 //   weight_type   backwardWeight(codomain_type v)  - backward weight for RIS
 // ============================================================================
 
@@ -189,7 +182,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::cache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::weight_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.generate(u, cache)), ::nbl::hlsl::is_same_v, typename T::codomain_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.forwardWeight(v, cache)), ::nbl::hlsl::is_same_v, typename T::weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.forwardWeight(u, cache)), ::nbl::hlsl::is_same_v, typename T::weight_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardWeight(v)), ::nbl::hlsl::is_same_v, typename T::weight_type)));
 #undef cache
 #undef v
@@ -215,7 +208,7 @@ NBL_CONCEPT_END(
 //
 // Required methods (in addition to TractableSampler):
 //   density_type backwardPdf(codomain_type v)   - evaluate pdf at codomain value v
-//   weight_type  forwardWeight(codomain_type v, cache_type cache) - weight for MIS, reuses generate cache
+//   weight_type  forwardWeight(domain_type u, cache_type cache) - weight for MIS, reuses generate cache
 //   weight_type  backwardWeight(codomain_type v) - weight for RIS, evaluated at v
 // ============================================================================
 
@@ -236,7 +229,7 @@ NBL_CONCEPT_END(
 	((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(TractableSampler, T))
     ((NBL_CONCEPT_REQ_TYPE)(T::weight_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardPdf(v)), ::nbl::hlsl::is_same_v, typename T::density_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.forwardWeight(v, cache)), ::nbl::hlsl::is_same_v, typename T::weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.forwardWeight(u, cache)), ::nbl::hlsl::is_same_v, typename T::weight_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sampler.backwardWeight(v)), ::nbl::hlsl::is_same_v, typename T::weight_type)));
 #undef cache
 #undef v
@@ -255,7 +248,7 @@ NBL_CONCEPT_END(
 // of the Jacobian matrix of the inverse equals the reciprocal of the
 // absolute value of the determinant of the Jacobian matrix of the forward
 // mapping (the Jacobian is an NxM matrix, not a scalar):
-//   backwardPdf(v) == 1.0 / forwardPdf(v, cache)  (where v == generate(u, cache))
+//   backwardPdf(v) == 1.0 / forwardPdf(u, cache)  (where v == generate(u, cache))
 //
 // Required methods (in addition to BackwardTractableSampler):
 //   domain_type generateInverse(codomain_type v)

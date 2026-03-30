@@ -50,10 +50,10 @@ struct PolarMapping
 		return vector2_type(r2, phi * (scalar_type(0.5) * numbers::inv_pi<scalar_type>));
 	}
 
-	static density_type forwardPdf(const codomain_type v, cache_type cache) { return numbers::inv_pi<scalar_type>; }
+	static density_type forwardPdf(const domain_type u, cache_type cache) { return numbers::inv_pi<scalar_type>; }
 	static density_type backwardPdf(codomain_type v) { return numbers::inv_pi<scalar_type>; }
 
-	static weight_type forwardWeight(const codomain_type v, cache_type cache) { return forwardPdf(v, cache); }
+	static weight_type forwardWeight(const domain_type u, cache_type cache) { return forwardPdf(u, cache); }
 	static weight_type backwardWeight(codomain_type v) { return backwardPdf(v); }
 };
 

@@ -70,29 +70,29 @@ struct ProjectedSphericalTriangle
         cache.warped = bilinear.generate(u, cache.bilinearCache);
         typename SphericalTriangle<scalar_type>::cache_type sphtriCache;
         const vector3_type L = sphtri.generate(cache.warped, sphtriCache);
-        cache.abs_cos_theta = bilinear.forwardWeight(cache.warped, cache.bilinearCache);
+        cache.abs_cos_theta = bilinear.forwardWeight(u, cache.bilinearCache);
         return L;
     }
 
-    density_type forwardPdf(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
+    density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return sphtri.rcpSolidAngle * bilinearPatch.forwardPdf(cache.warped, cache.bilinearCache);
+        return sphtri.rcpSolidAngle * bilinearPatch.forwardPdf(u, cache.bilinearCache);
     }
 
-    weight_type forwardWeight(const codomain_type v, const cache_type cache) NBL_CONST_MEMBER_FUNC
+    weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
         if (UsePdfAsWeight)
-            return forwardPdf(v, cache);
+            return forwardPdf(u, cache);
         return cache.abs_cos_theta * rcpProjSolidAngle;
     }
 
-    density_type backwardPdf(const vector3_type L) NBL_CONST_MEMBER_FUNC
+    density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
     {
         const vector2_type u = sphtri.generateInverse(L);
         return sphtri.rcpSolidAngle * bilinearPatch.backwardPdf(u);
     }
 
-    weight_type backwardWeight(const vector3_type L) NBL_CONST_MEMBER_FUNC
+    weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
     {
         if (UsePdfAsWeight)
             return backwardPdf(L);
