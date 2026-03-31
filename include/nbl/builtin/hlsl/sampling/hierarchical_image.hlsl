@@ -210,12 +210,13 @@ struct HierarchicalWarpSampler
     return forwardPdf(xi, cache);
   }
 
-  density_type backwardPdf(codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
+  density_type backwardPdf(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
-    return _postWarp.backwardPdf(codomainVal, _rcpAvgLuma) * _warpGenerator.backwardPdf(codomainVal);
+    typename PostWarpT::domain_type postWarpDomain = _postWarp.generateInverse(codomainVal);
+    return _postWarp.backwardPdf(codomainVal) * _warpGenerator.backwardPdf(postWarpDomain, _rcpAvgLuma);
   }
 
-  density_type backwardWeight(codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
+  density_type backwardWeight(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
     return backwardPdf(codomainVal);
   }
