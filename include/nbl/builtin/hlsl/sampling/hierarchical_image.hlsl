@@ -78,10 +78,11 @@ struct HierarchicalWarpGenerator
     return vector4_type(p0, p1, p2, p3);
   }
 
-  codomain_type generate(domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+  codomain_type generate(const domain_type v, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
     uint16_t2 p = uint16_t2(0, 0);
 
+    domain_type xi = v;
     scalar_type rcpPmf = 1;
     if (_aspect2x1) {
       vector<scalar_type, 1> p0, p1;
@@ -127,7 +128,8 @@ struct HierarchicalWarpGenerator
     if (p.y == _lastTexel.y)
       xi.y = xi.y * scalar_type(0.5);
 
-    const vector2_type directionUV = (vector2_type(p.x, p.y) + xi) / _lastTexel;
+    // We reduce by 0.5 and divide with _lastTexel instead of map size to normalize the cornered sampling coordinate
+    const vector2_type directionUV = (vector2_type(p.x, p.y) + xi - domain_type(0.5, 0.5)) / _lastTexel;
 
     cache.rcpPmf = rcpPmf;
 
