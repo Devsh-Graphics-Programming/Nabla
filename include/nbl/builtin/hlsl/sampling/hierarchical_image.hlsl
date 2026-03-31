@@ -221,10 +221,11 @@ struct HierarchicalWarpSampler
 
 
 // TODO: Add some constraint into PostWarpT
+// Ask(kevin): Should we add constraint so the WarpAccessor::scalar_type is the same as LuminanceAccessorT::value_type. One is a uv and the other is luminance. Technically, they can have different type. 
 template <typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT> &&
-    hierarchical_image::WarpAccessor<HierarchicalSamplerT, typename LuminanceAccessorT::value_type>)
+    hierarchical_image::WarpAccessor<HierarchicalSamplerT>)
 struct WarpmapSampler 
 {
   using scalar_type = typename LuminanceAccessorT::value_type;
@@ -266,7 +267,7 @@ struct WarpmapSampler
     vector2_type interpolant = hlsl::fract(texelCoord);
     uint32_t2 warpmapUv = texelCoord / float32_t2(_warpMap.resolution());
 
-    matrix<scalar_type, 4, 2> uvs;
+    matrix<typename HierarchicalSamplerT::scalar_type, 4, 2> uvs;
     _warpMap.gatherUv(warpmapUv, uvs);
 
     const vector2_type xDiffs[] = {

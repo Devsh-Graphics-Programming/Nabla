@@ -63,13 +63,13 @@ NBL_CONCEPT_END(
 // gatherUvs return 4 UVs in a square for manual bilinear interpolation with differentiability
 // declare concept
 #define NBL_CONCEPT_NAME WarpAccessor
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (WarpAccessorT)(ScalarT)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (WarpAccessorT)
 // not the greatest syntax but works
 #define NBL_CONCEPT_PARAM_0 (accessor,WarpAccessorT)
 #define NBL_CONCEPT_PARAM_1 (coord,vector<float32_t, 2>)
-#define NBL_CONCEPT_PARAM_2 (val, matrix<ScalarT, 4, 2>)
-#define NBL_CONCEPT_PARAM_3 (interpolant, vector<ScalarT, 2>)
+#define NBL_CONCEPT_PARAM_2 (val, matrix<typename WarpAccessorT::scalar_type, 4, 2>)
+#define NBL_CONCEPT_PARAM_3 (interpolant, vector<typename WarpAccessorT::scalar_type, 2>)
 // start concept
 NBL_CONCEPT_BEGIN(4)
 // need to be defined AFTER the concept begins
@@ -78,6 +78,7 @@ NBL_CONCEPT_BEGIN(4)
 #define val NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define interpolant NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(WarpAccessorT::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.gatherUv(coord, val)), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.resolution()), ::nbl::hlsl::is_same_v, uint16_t2))
 );
