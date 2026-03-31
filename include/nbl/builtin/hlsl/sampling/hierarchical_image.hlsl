@@ -221,21 +221,21 @@ struct HierarchicalWarpSampler
 
 
 // TODO: Add some constraint into PostWarpT
-template <typename ScalarT, typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
-  NBL_PRIMARY_REQUIRES(is_scalar_v<ScalarT> &&
-    hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, ScalarT> &&
-    hierarchical_image::WarpAccessor<HierarchicalSamplerT, ScalarT>)
+template <typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
+  NBL_PRIMARY_REQUIRES(
+    hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT> &&
+    hierarchical_image::WarpAccessor<HierarchicalSamplerT, typename LuminanceAccessorT::value_type>)
 struct WarpmapSampler 
 {
-  using scalar_type = ScalarT;
-  using vector2_type = vector<ScalarT, 2>;
-  using vector3_type = vector<ScalarT, 3>;
-  using vector4_type = vector<ScalarT, 4>;
+  using scalar_type = typename LuminanceAccessorT::value_type;
+  using vector2_type = vector<scalar_type, 2>;
+  using vector3_type = vector<scalar_type, 3>;
+  using vector4_type = vector<scalar_type, 4>;
   using domain_type = vector2_type;
   using codomain_type = vector3_type;
   using weight_type = scalar_type;
   using density_type = scalar_type;
-  using this_type = WarpmapSampler<ScalarT, LuminanceAccessorT, HierarchicalSamplerT, PostWarpT>;
+  using this_type = WarpmapSampler<LuminanceAccessorT, HierarchicalSamplerT, PostWarpT>;
   struct cache_type
   {
     vector2_type xDiffs[2];

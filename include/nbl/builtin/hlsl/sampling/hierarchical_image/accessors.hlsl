@@ -44,17 +44,18 @@ NBL_CONCEPT_END(
 
 // declare concept
 #define NBL_CONCEPT_NAME LuminanceReadAccessor
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (LuminanceReadAccessorT)(ValT)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (AccessorT)
 // not the greatest syntax but works
-#define NBL_CONCEPT_PARAM_0 (accessor,LuminanceReadAccessorT)
+#define NBL_CONCEPT_PARAM_0 (accessor, AccessorT)
 // start concept
 NBL_CONCEPT_BEGIN(1)
 // need to be defined AFTER the concept begins
 #define accessor NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::accessors::GenericReadAccessor, LuminanceReadAccessorT, ValT, float32_t2))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.getAvgLuma()), ::nbl::hlsl::is_same_v, ValT))
+    ((NBL_CONCEPT_REQ_TYPE)(AccessorT::value_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::accessors::GenericReadAccessor, AccessorT, typename AccessorT::value_type, float32_t2))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.getAvgLuma()), ::nbl::hlsl::is_same_v, typename AccessorT::value_type))
 );
 #undef accessor
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
