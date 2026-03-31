@@ -14,12 +14,38 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 struct LuminanceAccessor
 {
-    template <typename T, int32_t Dims
-      NBL_FUNC_REQUIRES(concepts::same_as<T, float32_t> && Dims == 2)
-    void get(NBL_REF_ARG(vector<T, 1>) outVal, vector<uint16_t, Dims> pixelCoord, uint16_t layer, uint16_t level) NBL_CONST_MEMBER_FUNC
+    using value_type = float32_t;
+
+    uint16_t _layerIndex;
+
+    static LuminanceAccessor create(uint16_t layerIndex)
+    {
+        LuminanceAccessor result;
+        result._layerIndex = layerIndex;
+        return result;
+    }
+
+    void get(NBL_REF_ARG(value_type) outVal, uint16_t2 pixelCoord, uint16_t level) NBL_CONST_MEMBER_FUNC
     {
         assert(pixelCoord.x < pc.warpMapWidth && pixelCoord.y < pc.warpMapHeight);
-        outVal = lumaMap.Load(int4(pixelCoord, layer, level));
+        outVal = lumaMap.Load(int4(pixelCoord, _layerIndex, level));
+    }
+
+    uint16_t2 resolution() NBL_CONST_MEMBER_FUNC
+    {
+        return uint16_t2(pc.lumaMapWidth, pc.lumaMapHeight);
+    }
+
+    value_type getAvgLuma() NBL_CONST_MEMBER_FUNC
+    {
+        const uint16_t lastMipLevel = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(pc.warpMapHeight)));
+        if (pc.warpMapHeight == pc.warpMapWidth)
+        {
+            return lumaMap.Load(int4(0, 0, _layerIndex, lastMipLevel));
+        } else
+        {
+            return value_type(0.5) * (lumaMap.Load(int4(0, 0, _layerIndex, lastMipLevel)) + lumaMap.Load(int4(1, 0, _layerIndex, lastMipLevel)));
+        }
     }
 
 };
@@ -30,11 +56,12 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
   if (all(threadID.xyz < uint32_t3(pc.warpMapHeight, pc.warpMapWidth, pc.lumaMapLayer)))
   {
-    using WarpGenerator = HierarchicalWarpGenerator<float32_t, LuminanceAccessor>;
+    using WarpGenerator = HierarchicalWarpGenerator<LuminanceAccessor>;
 
-    const LuminanceAccessor luminanceAccessor;
+    const uint16_t layerIndex = threadID.z;
+    const LuminanceAccessor luminanceAccessor = LuminanceAccessor::create(layerIndex);
 
-    const WarpGenerator warpGenerator = WarpGenerator::create(luminanceAccessor, uint32_t2(pc.lumaMapWidth, pc.lumaMapHeight), pc.lumaMapWidth != pc.lumaMapHeight);
+    const WarpGenerator warpGenerator = WarpGenerator::create(luminanceAccessor);
 
     const uint32_t2 pixelCoord = threadID.xy;
 
