@@ -226,7 +226,7 @@ struct HierarchicalWarpSampler
 // TODO: Add some constraint into PostWarpT
 template <typename ScalarT, typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(is_scalar_v<ScalarT> &&
-    concepts::accessors::GenericReadAccessor<LuminanceAccessorT, ScalarT, float32_t2> &&
+    hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT, ScalarT> &&
     hierarchical_image::WarpAccessor<HierarchicalSamplerT, ScalarT>)
 struct WarpmapSampler 
 {
@@ -250,26 +250,27 @@ struct WarpmapSampler
 
   LuminanceAccessorT _lumaMap;
   HierarchicalSamplerT _warpMap;
-  uint32_t _effectiveWarpArea;
-  scalar_type _rcpAvgLuma;
+  uint16_t2 _lastTexel;
   PostWarpT _postWarp;
 
-  static WarpmapSampler create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap, uint16_t2 warpSize, scalar_type avgLuma) 
+  static WarpmapSampler create(NBL_CONST_REF_ARG(LuminanceAccessorT) lumaMap, NBL_CONST_REF_ARG(HierarchicalSamplerT) warpMap) 
   {
     this_type result;
     result._lumaMap = lumaMap;
     result._warpMap = warpMap;
-    result._effectiveWarpArea = (warpSize.x - 1) * (warpSize.y - 1);
-    result._rcpAvgLuma = ScalarT(1.0) / avgLuma;
+    result._lastTexel = warpMap.resolution() - uint16_t2(1, 1);
     return result;
   }
 
 
   codomain_type generate(const domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
-    const vector2_type interpolant;
-    matrix<scalar_type, 4, 2> uvs; 
-    _warpMap.gatherUv(xi, uvs, interpolant);
+    float32_t2 texelCoord = xi * float32_t2(_lastTexel.x, _lastTexel.y);
+    vector2_type interpolant = hlsl::fract(texelCoord);
+    uint32_t2 warpmapUv = texelCoord / float32_t2(_warpMap.resolution());
+
+    matrix<scalar_type, 4, 2> uvs;
+    _warpMap.gatherUv(warpmapUv, uvs);
 
     const vector2_type xDiffs[] = {
       uvs[2] - uvs[3],
@@ -299,7 +300,7 @@ struct WarpmapSampler
     const scalar_type detInterpolJacobian = determinant(matrix<scalar_type, 2, 2>(
       lerp(cache.xDiffs[0], cache.xDiffs[1], cache.interpolantY), // first column dFdx
       cache.yDiff // second column dFdy
-    )) * _effectiveWarpArea;
+    )) * scalar_type(_lastTexel.x) * scalar_type(_lastTexel.y);
     const scalar_type pdf = abs(cache.postWarpPdf / detInterpolJacobian);
     return pdf;
   }
@@ -314,7 +315,7 @@ struct WarpmapSampler
     vector2_type envmapUv = _postWarp.generateInverse(direction);
     scalar_type luma;
     _lumaMap.get(envmapUv, luma);
-    return luma * _rcpAvgLuma * _postWarp.backwardWeight(direction);
+    return (luma * _postWarp.backwardWeight(direction)) / _lumaMap.getAvgLuma();
   }
 };
 
