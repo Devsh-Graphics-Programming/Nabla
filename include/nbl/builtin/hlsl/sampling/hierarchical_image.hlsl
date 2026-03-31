@@ -241,9 +241,9 @@ struct WarpmapSampler
   {
     vector2_type xDiffs[2];
     vector2_type yDiff;
+    vector2_type warpedUv;
     scalar_type interpolantY;
-    scalar_type postWarpPdf;
-
+    typename PostWarpT::cache_type postWarpCache;
   };
 
   LuminanceAccessorT _lumaMap;
@@ -284,11 +284,10 @@ struct WarpmapSampler
     cache.xDiffs[0] = xDiffs[0];
     cache.xDiffs[1] = xDiffs[1];
     cache.yDiff = yDiff;
+    cache.warpedUv = uv;
     cache.interpolantY = interpolant.y;
 
-    typename PostWarpT::cache_type postWarpCache;
-    const codomain_type result = _postWarp.generate(uv, postWarpCache);
-    cache.postWarpPdf = _postWarp.forwardPdf(uv, postWarpCache);
+    const codomain_type result = _postWarp.generate(uv, cache.postWarpCache);
 
     return result;
   }
@@ -299,13 +298,15 @@ struct WarpmapSampler
       lerp(cache.xDiffs[0], cache.xDiffs[1], cache.interpolantY), // first column dFdx
       cache.yDiff // second column dFdy
     )) * scalar_type(_lastTexel.x) * scalar_type(_lastTexel.y);
-    const scalar_type pdf = abs(cache.postWarpPdf / detInterpolJacobian);
+    const scalar_type pdf = abs(_postWarp.forwardPdf(cache.warpedUv, cache.postWarpCache) / detInterpolJacobian);
     return pdf;
   }
 
   weight_type forwardWeight(const domain_type xi, const cache_type cache)
   {
-    return forwardPdf(xi, cache);
+    scalar_type luma;
+    _lumaMap.get(cache.warpedUv, luma);
+    return (luma * _postWarp.forwardWeight(cache.warpedUv, cache.postWarpCache)) / _lumaMap.getAvgLuma();
   }
 
   weight_type backwardWeight(codomain_type direction) NBL_CONST_MEMBER_FUNC
