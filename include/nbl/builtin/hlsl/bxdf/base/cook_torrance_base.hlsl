@@ -415,7 +415,7 @@ struct SCookTorrance
         fresnel_type _f = pdfQuery.orientedFresnel;
 
         scalar_type G2_over_G1 = scalar_type(1.0);
-        if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        if (!hlsl::isinf(_pdf))
         {
             using g2g1_query_type = typename N::g2g1_query_type;
             g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
