@@ -151,6 +151,11 @@ struct HierarchicalWarpGenerator
     return _map.load(codomainVal) * _map.getAvgLuma();
   }
 
+  weight_type backwardWeight(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
+  {
+    return backwardPdf(codomainVal);
+  }
+
 };
 
 // TODO(kevinyu): Add constraint for PostWarpT
