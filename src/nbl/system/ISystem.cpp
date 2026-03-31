@@ -341,6 +341,15 @@ size_t ISystem::getMountedBuiltinArchiveCount() const
     return retval;
 }
 
+core::vector<system::path> ISystem::getBuiltinMountAliases() const
+{
+    core::vector<system::path> retval;
+    retval.reserve(m_builtinMounts.size());
+    for (const auto& mount : m_builtinMounts)
+        retval.push_back(mount.pathAlias.empty() ? mount.archive->getDefaultAbsolutePath() : mount.pathAlias);
+    return retval;
+}
+
 void ISystem::mountBuiltin(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias)
 {
     auto tracked = archive;

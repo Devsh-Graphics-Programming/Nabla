@@ -72,7 +72,7 @@
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
-	branch = devshFixes
+	branch = unroll-devshFixes
 [submodule "3rdparty/imgui"]
 	path = 3rdparty/imgui
 	url = git@github.com:Devsh-Graphics-Programming/imgui.git

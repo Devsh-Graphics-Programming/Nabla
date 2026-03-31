@@ -144,6 +144,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         void unmountBuiltins();
 		bool areBuiltinsMounted() const;
         size_t getMountedBuiltinArchiveCount() const;
+        core::vector<system::path> getBuiltinMountAliases() const;
         inline size_t getMountedArchiveCount() const { return m_cachedArchiveFiles.getSize(); }
 
         //
