@@ -8,8 +8,8 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 [[vk::push_constant]] SWarpGenPushConstants pc;
 
-[[vk::binding(0, 0)]] Texture2DArray<float32_t> lumaMap;
-[[vk::binding(1, 0)]] RWTexture2DArray<float32_t2> outImage;
+[[vk::binding(2, 0)]] Texture2DArray<float32_t> lumaMap;
+[[vk::binding(3, 0)]] RWTexture2DArray<float32_t2> outImage;
 
 
 struct LuminanceAccessor

@@ -153,15 +153,13 @@ core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&
 	constructorParams.warpWorkgroupCount = calcWorkgroupSize(WarpMapExtent, GenWarpWorkgroupDim);
 	constructorParams.warpMap = createWarpMap(device, WarpMapExtent);
 
-	const auto genLumaPipelineLayout = createGenLumaPipelineLayout(device);
-	constructorParams.genLumaPipeline = createGenLumaPipeline(params, genLumaPipelineLayout.get());
-	const auto genLumaDescriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, genLumaPipelineLayout->getDescriptorSetLayouts());
-	const auto genLumaDescriptorSet = genLumaDescriptorPool->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(genLumaPipelineLayout->getDescriptorSetLayouts()[0]));
+	const auto pipelineLayout = createPipelineLayout(device);
 
-	const auto genWarpPipelineLayout = createGenWarpPipelineLayout(device);
-	constructorParams.genWarpPipeline = createGenWarpPipeline(params, genWarpPipelineLayout.get());
-	const auto genWarpDescriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, genWarpPipelineLayout->getDescriptorSetLayouts());
-	const auto genWarpDescriptorSet = genWarpDescriptorPool->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(genWarpPipelineLayout->getDescriptorSetLayouts()[0]));
+	constructorParams.genLumaPipeline = createGenLumaPipeline(params, pipelineLayout.get());
+	constructorParams.genWarpPipeline = createGenWarpPipeline(params, pipelineLayout.get());
+
+	const auto descriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, pipelineLayout->getDescriptorSetLayouts());
+	const auto descriptorSet = descriptorPool->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(pipelineLayout->getDescriptorSetLayouts()[0]));
 
 	IGPUDescriptorSet::SDescriptorInfo envMapDescriptorInfo; 
 	envMapDescriptorInfo.desc = params.envMap;
@@ -181,24 +179,22 @@ core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&
 
 	const IGPUDescriptorSet::SWriteDescriptorSet writes[] = {
 		{
-			.dstSet = genLumaDescriptorSet.get(), .binding = 0, .count = 1, .info = &envMapDescriptorInfo
+			.dstSet = descriptorSet.get(), .binding = 0, .count = 1, .info = &envMapDescriptorInfo
 		},
 		{
-			.dstSet = genLumaDescriptorSet.get(), .binding = 1, .count = 1, .info = &lumaMapGeneralDescriptorInfo
+			.dstSet = descriptorSet.get(), .binding = 1, .count = 1, .info = &lumaMapGeneralDescriptorInfo
 		},
 		{
-			.dstSet = genWarpDescriptorSet.get(), .binding = 0, .count = 1, .info = &lumaMapReadDescriptorInfo
+			.dstSet = descriptorSet.get(), .binding = 2, .count = 1, .info = &lumaMapReadDescriptorInfo
 		},
 		{
-			.dstSet = genWarpDescriptorSet.get(), .binding = 1, .count = 1, .info = &warpMapDescriptorInfo
+			.dstSet = descriptorSet.get(), .binding = 3, .count = 1, .info = &warpMapDescriptorInfo
 		},
 	};
 
 	device->updateDescriptorSets(writes, {});
 
-	constructorParams.genLumaDescriptorSet = genLumaDescriptorSet;
-	constructorParams.genWarpDescriptorSet = genWarpDescriptorSet;
-
+	constructorParams.descriptorSet = descriptorSet;
 	constructorParams.creationParams = std::move(params);
 
 	return core::smart_refctd_ptr<EnvmapSampler>(new EnvmapSampler(std::move(constructorParams)));
@@ -323,15 +319,10 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenWarpP
 	return pipeline;
 }
 
-core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapSampler::createGenLumaPipelineLayout(video::ILogicalDevice* device)
+core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> EnvmapSampler::createDescriptorSetLayout(video::ILogicalDevice* device)
 {
-	asset::SPushConstantRange pcRange = {
-		.stageFlags = hlsl::ESS_COMPUTE,
-		.offset = 0,
-		.size = sizeof(SLumaGenPushConstants)
-	};
-
 	const IGPUDescriptorSetLayout::SBinding bindings[] = {
+		// Gen luma input
 		{
 			.binding = 0u,
 			.type = nbl::asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
@@ -339,47 +330,43 @@ core::smart_refctd_ptr < video::IGPUPipelineLayout> EnvmapSampler::createGenLuma
 			.stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			.count = 1u
 		},
+		// Gen luma output
 		{
 			.binding = 1u,
 			.type = nbl::asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
 			.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
 			.stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			.count = 1u
-		}
-	};
-
-	const auto setLayout = device->createDescriptorSetLayout(bindings);
-	return device->createPipelineLayout({ &pcRange, 1 }, setLayout);
-
-}
-
-core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createGenWarpPipelineLayout(video::ILogicalDevice* device)
-{
-	asset::SPushConstantRange pcRange = {
-		.stageFlags = hlsl::ESS_COMPUTE,
-		.offset = 0,
-		.size = sizeof(SLumaGenPushConstants)
-	};
-
-	const IGPUDescriptorSetLayout::SBinding bindings[] = {
+		},
+		// Gen warp input
 		{
-			.binding = 0u,
+			.binding = 2u,
 			.type = nbl::asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
 			.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
 			.stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			.count = 1u,
 		},
+		// Gen warp output
 		{
-			.binding = 1u,
+			.binding = 3u,
 			.type = nbl::asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
 			.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
 			.stageFlags = IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			.count = 1u
 		}
 	};
+	return device->createDescriptorSetLayout(bindings);
+}
 
-	const auto setLayout = device->createDescriptorSetLayout(bindings);
-	return device->createPipelineLayout({&pcRange, 1}, setLayout);
+core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createPipelineLayout(video::ILogicalDevice* device)
+{
+	const auto dsLayout = createDescriptorSetLayout(device);
+	asset::SPushConstantRange pcRange = {
+	  .stageFlags = hlsl::ESS_COMPUTE, 
+		.offset = 0,
+		.size = std::max<uint32_t>(sizeof(SLumaGenPushConstants), sizeof(SWarpGenPushConstants))
+	};
+	return device->createPipelineLayout({ &pcRange, 1 }, dsLayout);
 }
 
 void EnvmapSampler::computeWarpMap(video::IQueue* queue)
@@ -456,7 +443,7 @@ void EnvmapSampler::computeWarpMap(video::IQueue* queue)
 		cmdBuf->pushConstants(m_genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			0, sizeof(SLumaGenPushConstants), &pcData);
 		cmdBuf->bindDescriptorSets(EPBP_COMPUTE, m_genLumaPipeline->getLayout(),
-			0, 1, &m_genLumaDescriptorSet.get());
+			0, 1, &m_descriptorSet.get());
 		cmdBuf->dispatch(m_lumaWorkgroupCount.x, m_lumaWorkgroupCount.y, 1);
 	}
 
@@ -641,7 +628,7 @@ void EnvmapSampler::computeWarpMap(video::IQueue* queue)
 		};
 		cmdBuf->bindComputePipeline(m_genWarpPipeline.get());
 		cmdBuf->bindDescriptorSets(EPBP_COMPUTE, m_genWarpPipeline->getLayout(),
-			0, 1, &m_genWarpDescriptorSet.get());
+			0, 1, &m_descriptorSet.get());
 		cmdBuf->pushConstants(m_genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			0, sizeof(SLumaGenPushConstants), &pcData);
 		cmdBuf->dispatch(m_warpWorkgroupCount.x, m_warpWorkgroupCount.y, 1);

@@ -49,9 +49,8 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 
 		static core::smart_refctd_ptr<EnvmapSampler> create(SCreationParameters&& params);
 
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createGenLumaPipelineLayout(video::ILogicalDevice* device);
-
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createGenWarpPipelineLayout(video::ILogicalDevice* device);
+		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device);
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createPipelineLayout(video::ILogicalDevice* device);
 
 		//! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
 		static core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias = "");
@@ -101,10 +100,9 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 			hlsl::uint32_t2 warpWorkgroupCount;
 			core::smart_refctd_ptr<video::IGPUImageView> lumaMap;
 			core::smart_refctd_ptr<video::IGPUImageView> warpMap;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSet;
 			core::smart_refctd_ptr<video::IGPUComputePipeline> genLumaPipeline;
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> genLumaDescriptorSet;
 			core::smart_refctd_ptr<video::IGPUComputePipeline> genWarpPipeline;
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> genWarpDescriptorSet;
 		};
 
 		explicit EnvmapSampler(ConstructorParams&& params) : 
@@ -113,10 +111,9 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 			m_warpWorkgroupCount(params.warpWorkgroupCount),
 			m_lumaMap(std::move(params.lumaMap)),
 			m_warpMap(std::move(params.warpMap)),
+			m_descriptorSet(std::move(params.descriptorSet)),
 			m_genLumaPipeline(std::move(params.genLumaPipeline)), 
-			m_genLumaDescriptorSet(std::move(params.genLumaDescriptorSet)),
-			m_genWarpPipeline(std::move(params.genWarpPipeline)), 
-			m_genWarpDescriptorSet(std::move(params.genWarpDescriptorSet))
+			m_genWarpPipeline(std::move(params.genWarpPipeline))
 		{}
 
 		~EnvmapSampler() override {}
@@ -133,11 +130,10 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUImageView> m_lumaMap;
 		core::smart_refctd_ptr<video::IGPUImageView> m_warpMap;
 
-		core::smart_refctd_ptr<video::IGPUComputePipeline> m_genLumaPipeline;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_genLumaDescriptorSet;
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
 
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_genLumaPipeline;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_genWarpPipeline;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_genWarpDescriptorSet;
 	
 };
 
