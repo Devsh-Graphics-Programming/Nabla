@@ -17,7 +17,7 @@ class EnvmapSampler;
 
 namespace
 {
-	constexpr std::string_view NBL_EXT_MOUNT_ENTRY = "nbl/core/builtin";
+	constexpr std::string_view NBL_WORKING_DIRECTORY = "nbl/builtin/hlsl/sampling/hierarchical_image/";
 
 	// image must have the first mip layout set to transfer src, and the rest to dst
 	void generateMipmap(video::IGPUCommandBuffer* cmdBuf, IGPUImage* image)
@@ -106,7 +106,7 @@ namespace
 	{
 		IAssetLoader::SAssetLoadParams lparams = {};
 		lparams.logger = logger;
-		lparams.workingDirectory = NBL_EXT_MOUNT_ENTRY;
+		lparams.workingDirectory = NBL_WORKING_DIRECTORY;
 		auto bundle = assetManager->getAsset(filePath, lparams);
 		if (bundle.getContents().empty() || bundle.getAssetType()!=IAsset::ET_SHADER)
 		{
@@ -210,25 +210,11 @@ core::smart_refctd_ptr<video::IGPUImageView> EnvmapSampler::createWarpMap(video:
 	return createTexture(device, extent, EF_R32G32_SFLOAT);
 }
 
-smart_refctd_ptr<IFileArchive> EnvmapSampler::mount(core::smart_refctd_ptr<ILogger> logger, ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias)
-{
-	assert(system);
-
-	if (!system)
-		return nullptr;
-
-	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::string_view("nbl/builtin/hlsl/sampling/hierarchical_image"), smart_refctd_ptr(logger), system);
-
-	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
-	return smart_refctd_ptr(archive);
-}
-
 core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenLumaPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout)
 {
 	system::logger_opt_ptr logger = params.utilities->getLogger();
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
 	auto* device = params.utilities->getLogicalDevice();
-	mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), params.utilities->getLogicalDevice(), NBL_EXT_MOUNT_ENTRY);
 
 	const auto shaderSource = getShaderSource(params.assetManager.get(), "gen_luma.comp.hlsl", logger.get());
 	auto compiler = make_smart_refctd_ptr<asset::CHLSLCompiler>(smart_refctd_ptr(system));
@@ -276,7 +262,6 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenWarpP
 	system::logger_opt_ptr logger = params.utilities->getLogger();
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
 	auto* device = params.utilities->getLogicalDevice();
-	mount(smart_refctd_ptr<ILogger>(params.utilities->getLogger()), system.get(), params.utilities->getLogicalDevice(), NBL_EXT_MOUNT_ENTRY);
 
 	const auto shaderSource = getShaderSource(params.assetManager.get(), "gen_warp.comp.hlsl", logger.get());
 	auto compiler = make_smart_refctd_ptr<asset::CHLSLCompiler>(smart_refctd_ptr(system));

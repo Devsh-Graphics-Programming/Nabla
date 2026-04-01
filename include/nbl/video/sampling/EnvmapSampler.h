@@ -52,9 +52,6 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device);
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createPipelineLayout(video::ILogicalDevice* device);
 
-		//! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
-		static core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, video::ILogicalDevice* device, const std::string_view archiveAlias = "");
-
 		static core::smart_refctd_ptr<video::IGPUComputePipeline> createGenLumaPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
 
 		static core::smart_refctd_ptr<video::IGPUComputePipeline> createGenWarpPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
