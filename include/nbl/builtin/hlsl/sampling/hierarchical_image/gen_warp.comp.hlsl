@@ -56,7 +56,7 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
   if (all(threadID.xyz < uint32_t3(pc.warpMapHeight, pc.warpMapWidth, pc.lumaMapLayer)))
   {
-    using WarpGenerator = HierarchicalWarpGenerator<LuminanceAccessor>;
+    using WarpGenerator = HierarchicalLuminanceSampler<LuminanceAccessor>;
 
     const uint16_t layerIndex = threadID.z;
     const LuminanceAccessor luminanceAccessor = LuminanceAccessor::create(layerIndex);

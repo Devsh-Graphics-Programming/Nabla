@@ -22,9 +22,9 @@ template <typename LuminanceAccessorT
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT>
   )
-struct HierarchicalWarpGenerator
+struct HierarchicalLuminanceSampler
 {
-  using this_type = HierarchicalWarpGenerator<LuminanceAccessorT>;
+  using this_type = HierarchicalLuminanceSampler<LuminanceAccessorT>;
   using scalar_type = typename LuminanceAccessorT::value_type;
   using vector2_type = vector<scalar_type, 2>;
   using vector4_type = vector<scalar_type, 4>;
@@ -165,7 +165,7 @@ template <typename LuminanceAccessorT, typename PostWarpT
 struct HierarchicalWarpSampler
 {
   using this_type = HierarchicalWarpSampler<LuminanceAccessorT, PostWarpT>;
-  using warp_generator_type = HierarchicalWarpGenerator<LuminanceAccessorT>;
+  using warp_generator_type = HierarchicalLuminanceSampler<LuminanceAccessorT>;
   using scalar_type = typename LuminanceAccessorT::value_type;
   using density_type = scalar_type;
   using vector2_type = vector<scalar_type, 2>;
