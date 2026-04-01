@@ -76,7 +76,7 @@ struct SphericalTriangle
 		const scalar_type csc_b_s = 1.0 / nbl::hlsl::sqrt(1.0 - cosBC_s * cosBC_s);
 		if (csc_b_s < numeric_limits<scalar_type>::max)
 		{
-			const scalar_type cosAngleAlongBC_s = scalar_type(1.0) + cosBC_s * u.y - u.y;
+			const scalar_type cosAngleAlongBC_s = nbl::hlsl::clamp(scalar_type(1.0) + cosBC_s * u.y - u.y, scalar_type(-1.0), scalar_type(1.0));
 			if (nbl::hlsl::abs(cosAngleAlongBC_s) < scalar_type(1.0))
 				retval += math::quaternion<scalar_type>::slerp_delta(tri_vertices[1], C_s * csc_b_s, cosAngleAlongBC_s);
 		}
