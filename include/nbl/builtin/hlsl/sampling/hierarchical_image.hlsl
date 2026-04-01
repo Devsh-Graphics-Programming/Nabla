@@ -161,18 +161,22 @@ struct HierarchicalLuminanceSampler
 // TODO(kevinyu): Add constraint for PostWarpT
 template <typename LuminanceAccessorT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
-    hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT> )
+    hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT> 
+  )
 struct ComposedHierarchicalSampler
 {
   using this_type = ComposedHierarchicalSampler<LuminanceAccessorT, PostWarpT>;
   using warp_generator_type = HierarchicalLuminanceSampler<LuminanceAccessorT>;
   using scalar_type = typename LuminanceAccessorT::value_type;
   using density_type = scalar_type;
+  using weight_type = scalar_type;
   using vector2_type = vector<scalar_type, 2>;
   using vector3_type = vector<scalar_type, 3>;
   using vector4_type = vector<scalar_type, 4>;
-  using domain_type = vector2_type;
-  using codomain_type = vector3_type;
+  using domain_type = typename warp_generator_type::domain_type;
+  using codomain_type = typename PostWarpT::codomain_type;
+
+  static_assert(is_same_v<typename PostWarpT::domain_type, typename warp_generator_type::codomain_type> && is_same_v<typename PostWarpT::density_type, density_type> && is_same_v<typename PostWarpT::weight_type, weight_type>);
 
   struct cache_type
   {
@@ -207,7 +211,7 @@ struct ComposedHierarchicalSampler
     return _warpGenerator.forwardPdf(xi, cache.warpGeneratorCache) * cache.postWarpPdf;
   }
 
-  density_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
+  weight_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
     return forwardPdf(xi, cache);
   }
@@ -218,7 +222,7 @@ struct ComposedHierarchicalSampler
     return _postWarp.backwardPdf(codomainVal) * _warpGenerator.backwardPdf(postWarpDomain, _warpGenerator._map.getAvgLuma());
   }
 
-  density_type backwardWeight(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
+  weight_type backwardWeight(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
     return backwardPdf(codomainVal);
   }
