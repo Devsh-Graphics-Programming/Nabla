@@ -162,9 +162,9 @@ struct HierarchicalLuminanceSampler
 template <typename LuminanceAccessorT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT> )
-struct HierarchicalWarpSampler
+struct ComposedHierarchicalSampler
 {
-  using this_type = HierarchicalWarpSampler<LuminanceAccessorT, PostWarpT>;
+  using this_type = ComposedHierarchicalSampler<LuminanceAccessorT, PostWarpT>;
   using warp_generator_type = HierarchicalLuminanceSampler<LuminanceAccessorT>;
   using scalar_type = typename LuminanceAccessorT::value_type;
   using density_type = scalar_type;
