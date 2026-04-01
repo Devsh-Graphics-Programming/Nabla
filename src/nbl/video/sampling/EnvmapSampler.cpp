@@ -102,16 +102,17 @@ namespace
 		return device->createImageView(std::move(viewparams));
 	}
 
-	core::smart_refctd_ptr<IShader> getShaderSource( asset::IAssetManager* assetManager, const char* filePath, system::ILogger* logger)
+	core::smart_refctd_ptr<IShader> getShaderSource( asset::IAssetManager* assetManager, std::string_view filePath, system::ILogger* logger)
 	{
 		IAssetLoader::SAssetLoadParams lparams = {};
 		lparams.logger = logger;
 		lparams.workingDirectory = NBL_WORKING_DIRECTORY;
-		auto bundle = assetManager->getAsset(filePath, lparams);
+		const auto filePathStr = std::string(filePath);
+		auto bundle = assetManager->getAsset(filePathStr, lparams);
 		if (bundle.getContents().empty() || bundle.getAssetType()!=IAsset::ET_SHADER)
 		{
 			const auto assetType = bundle.getAssetType();
-			logger->log("Shader %s not found!", ILogger::ELL_ERROR, filePath);
+			logger->log("Shader %s not found!", ILogger::ELL_ERROR, filePathStr);
 			exit(-1);
 		}
 		auto firstAssetInBundle = bundle.getContents()[0];
@@ -155,8 +156,8 @@ core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&
 
 	const auto pipelineLayout = createPipelineLayout(device);
 
-	constructorParams.genLumaPipeline = createGenLumaPipeline(params, pipelineLayout.get());
-	constructorParams.genWarpPipeline = createGenWarpPipeline(params, pipelineLayout.get());
+	constructorParams.genLumaPipeline = createPipeline(params, pipelineLayout.get(), "gen_luma.comp.hlsl");
+	constructorParams.genWarpPipeline = createPipeline(params, pipelineLayout.get(), "gen_warp.comp.hlsl");
 
 	const auto descriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, pipelineLayout->getDescriptorSetLayouts());
 	const auto descriptorSet = descriptorPool->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(pipelineLayout->getDescriptorSetLayouts()[0]));
@@ -210,100 +211,6 @@ core::smart_refctd_ptr<video::IGPUImageView> EnvmapSampler::createWarpMap(video:
 	return createTexture(device, extent, EF_R32G32_SFLOAT);
 }
 
-core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenLumaPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout)
-{
-	system::logger_opt_ptr logger = params.utilities->getLogger();
-	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
-	auto* device = params.utilities->getLogicalDevice();
-
-	const auto shaderSource = getShaderSource(params.assetManager.get(), "gen_luma.comp.hlsl", logger.get());
-	auto compiler = make_smart_refctd_ptr<asset::CHLSLCompiler>(smart_refctd_ptr(system));
-	CHLSLCompiler::SOptions options = {};
-	options.stage = IShader::E_SHADER_STAGE::ESS_COMPUTE;
-	options.preprocessorOptions.targetSpirvVersion = device->getPhysicalDevice()->getLimits().spirvVersion;
-	options.spirvOptimizer = nullptr;
-
-#ifndef _NBL_DEBUG
-		ISPIRVOptimizer::E_OPTIMIZER_PASS optPasses = ISPIRVOptimizer::EOP_STRIP_DEBUG_INFO;
-		auto opt = make_smart_refctd_ptr<ISPIRVOptimizer>(std::span<ISPIRVOptimizer::E_OPTIMIZER_PASS>(&optPasses, 1));
-		options.spirvOptimizer = opt.get();
-#else
-		options.debugInfoFlags |= IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
-#endif
-	options.preprocessorOptions.sourceIdentifier = shaderSource->getFilepathHint();
-	options.preprocessorOptions.logger = logger.get();
-	options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
-
-	const auto overridenUnspecialized = compiler->compileToSPIRV((const char*)shaderSource->getContent()->getPointer(), options);
-	const auto shader = device->compileShader({ overridenUnspecialized.get() });
-	if (!shader)
-	{
-		logger.log("Could not compile shaders!", ILogger::ELL_ERROR);
-		return nullptr;
-	}
-
-	video::IGPUComputePipeline::SCreationParams pipelineParams[1] = {};
-	pipelineParams[0].layout = pipelineLayout;
-	pipelineParams[0].shader = { .shader = shader.get(), .entryPoint = "main" };
-
-	smart_refctd_ptr<IGPUComputePipeline> pipeline;
-	params.utilities->getLogicalDevice()->createComputePipelines(nullptr, pipelineParams, &pipeline);
-	if (!pipeline)
-	{
-		logger.log("Could not create pipeline!", ILogger::ELL_ERROR);
-		return nullptr;
-	}
-
-	return pipeline;
-}
-
-core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createGenWarpPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout)
-{
-	system::logger_opt_ptr logger = params.utilities->getLogger();
-	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
-	auto* device = params.utilities->getLogicalDevice();
-
-	const auto shaderSource = getShaderSource(params.assetManager.get(), "gen_warp.comp.hlsl", logger.get());
-	auto compiler = make_smart_refctd_ptr<asset::CHLSLCompiler>(smart_refctd_ptr(system));
-	CHLSLCompiler::SOptions options = {};
-	options.stage = IShader::E_SHADER_STAGE::ESS_COMPUTE;
-	options.preprocessorOptions.targetSpirvVersion = device->getPhysicalDevice()->getLimits().spirvVersion;
-	options.spirvOptimizer = nullptr;
-
-#ifndef _NBL_DEBUG
-		ISPIRVOptimizer::E_OPTIMIZER_PASS optPasses = ISPIRVOptimizer::EOP_STRIP_DEBUG_INFO;
-		auto opt = make_smart_refctd_ptr<ISPIRVOptimizer>(std::span<ISPIRVOptimizer::E_OPTIMIZER_PASS>(&optPasses, 1));
-		options.spirvOptimizer = opt.get();
-#else
-		options.debugInfoFlags |= IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
-#endif
-	options.preprocessorOptions.sourceIdentifier = shaderSource->getFilepathHint();
-	options.preprocessorOptions.logger = logger.get();
-	options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
-
-	const auto overridenUnspecialized = compiler->compileToSPIRV((const char*)shaderSource->getContent()->getPointer(), options);
-	const auto shader = device->compileShader({ overridenUnspecialized.get() });
-	if (!shader)
-	{
-		logger.log("Could not compile shaders!", ILogger::ELL_ERROR);
-		return nullptr;
-	}
-
-	video::IGPUComputePipeline::SCreationParams pipelineParams[1] = {};
-	pipelineParams[0].layout = pipelineLayout;
-	pipelineParams[0].shader = { .shader = shader.get(), .entryPoint = "main" };
-
-	smart_refctd_ptr<IGPUComputePipeline> pipeline;
-	params.utilities->getLogicalDevice()->createComputePipelines(nullptr, pipelineParams, &pipeline);
-	if (!pipeline)
-	{
-		logger.log("Could not create pipeline!", ILogger::ELL_ERROR);
-		return nullptr;
-	}
-
-	return pipeline;
-}
-
 core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> EnvmapSampler::createDescriptorSetLayout(video::ILogicalDevice* device)
 {
 	const IGPUDescriptorSetLayout::SBinding bindings[] = {
@@ -352,6 +259,53 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createPipelineL
 		.size = std::max<uint32_t>(sizeof(SLumaGenPushConstants), sizeof(SWarpGenPushConstants))
 	};
 	return device->createPipelineLayout({ &pcRange, 1 }, dsLayout);
+}
+
+core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* layout, std::string_view shaderPath)
+{
+	system::logger_opt_ptr logger = params.utilities->getLogger();
+	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
+	auto* device = params.utilities->getLogicalDevice();
+
+	const auto shaderSource = getShaderSource(params.assetManager.get(), shaderPath, logger.get());
+	auto compiler = make_smart_refctd_ptr<asset::CHLSLCompiler>(smart_refctd_ptr(system));
+	CHLSLCompiler::SOptions options = {};
+	options.stage = IShader::E_SHADER_STAGE::ESS_COMPUTE;
+	options.preprocessorOptions.targetSpirvVersion = device->getPhysicalDevice()->getLimits().spirvVersion;
+	options.spirvOptimizer = nullptr;
+
+#ifndef _NBL_DEBUG
+		ISPIRVOptimizer::E_OPTIMIZER_PASS optPasses = ISPIRVOptimizer::EOP_STRIP_DEBUG_INFO;
+		auto opt = make_smart_refctd_ptr<ISPIRVOptimizer>(std::span<ISPIRVOptimizer::E_OPTIMIZER_PASS>(&optPasses, 1));
+		options.spirvOptimizer = opt.get();
+#else
+		options.debugInfoFlags |= IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
+#endif
+	options.preprocessorOptions.sourceIdentifier = shaderSource->getFilepathHint();
+	options.preprocessorOptions.logger = logger.get();
+	options.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder();
+
+	const auto overridenUnspecialized = compiler->compileToSPIRV(static_cast<const char*>(shaderSource->getContent()->getPointer()), options);
+	const auto shader = device->compileShader({ overridenUnspecialized.get() });
+	if (!shader)
+	{
+		logger.log("Could not compile shaders!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	video::IGPUComputePipeline::SCreationParams pipelineParams[1] = {};
+	pipelineParams[0].layout = layout;
+	pipelineParams[0].shader = { .shader = shader.get(), .entryPoint = "main" };
+
+	smart_refctd_ptr<IGPUComputePipeline> pipeline;
+	params.utilities->getLogicalDevice()->createComputePipelines(nullptr, pipelineParams, &pipeline);
+	if (!pipeline)
+	{
+		logger.log("Could not create pipeline!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	return pipeline;
 }
 
 void EnvmapSampler::computeWarpMap(video::IQueue* queue)

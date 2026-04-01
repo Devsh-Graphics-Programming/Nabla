@@ -52,9 +52,7 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device);
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createPipelineLayout(video::ILogicalDevice* device);
 
-		static core::smart_refctd_ptr<video::IGPUComputePipeline> createGenLumaPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
-
-		static core::smart_refctd_ptr<video::IGPUComputePipeline> createGenWarpPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout);
+		static core::smart_refctd_ptr<video::IGPUComputePipeline> createPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, std::string_view shaderPath);
 
 		static core::smart_refctd_ptr<video::IGPUImageView> createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, std::string_view debugName = "");
 
