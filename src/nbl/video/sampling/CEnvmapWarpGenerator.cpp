@@ -427,7 +427,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 				.barrier = {
 					.dep = {
 						.srcStageMask = PIPELINE_STAGE_FLAGS::BLIT_BIT,
-						.srcAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT,
+						.srcAccessMask = ACCESS_FLAGS::NONE,
 						.dstStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
 						.dstAccessMask = ACCESS_FLAGS::SHADER_READ_BITS
 					}
@@ -529,7 +529,7 @@ CEnvmapWarpGenerator::SSession::image_barrier_t CEnvmapWarpGenerator::SSession::
 		.barrier = {
       .dep = {
         .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
-        .srcAccessMask = ACCESS_FLAGS::SHADER_READ_BITS,
+        .srcAccessMask = ACCESS_FLAGS::NONE,
         .dstStageMask = dstStageMask,
         .dstAccessMask = dstAccessMask      }
 		},
@@ -553,9 +553,10 @@ std::array<CEnvmapWarpGenerator::SSession::image_barrier_t, 2> CEnvmapWarpGenera
       .barrier = {
         .dep = {
           .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
-          .srcAccessMask = ACCESS_FLAGS::SHADER_READ_BITS,
+          .srcAccessMask = ACCESS_FLAGS::NONE,
           .dstStageMask = dstStageMask,
-          .dstAccessMask = dstAccessMask      }
+          .dstAccessMask = dstAccessMask      
+        }
       },
       .image = m_params.lumaMap->getCreationParameters().image.get(),
       .subresourceRange = {
