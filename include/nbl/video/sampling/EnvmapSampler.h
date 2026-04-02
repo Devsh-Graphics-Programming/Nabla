@@ -20,8 +20,6 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		struct SCreationParameters : public SCachedCreationParameters
 		{
 				core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;
-				core::smart_refctd_ptr<video::IGPUImageView> envMap = nullptr;
-				uint8_t upscaleLog2 = 0;
 
 				inline bool validate() const
 				{
@@ -29,7 +27,6 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 						({
 								std::make_pair(bool(assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
 								std::make_pair(bool(utilities), "Invalid `creationParams.utilities` is nullptr!"),
-								std::make_pair(bool(envMap), "Invalid `creationParams.envMap` is nullptr!"),
 						});
 
 						system::logger_opt_ptr logger = utilities->getLogger();
@@ -47,6 +44,7 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 
 		};
 
+
 		static core::smart_refctd_ptr<EnvmapSampler> create(SCreationParameters&& params);
 
 		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device);
@@ -54,59 +52,76 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 
 		static core::smart_refctd_ptr<video::IGPUComputePipeline> createPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, std::string_view shaderPath);
 
+		
 		static core::smart_refctd_ptr<video::IGPUImageView> createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, std::string_view debugName = "");
 
 		static core::smart_refctd_ptr<video::IGPUImageView> createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, std::string_view debugName = "");
 
-		void computeWarpMap(video::IQueue* queue);
+    inline video::IGPUComputePipeline* getGenLumaPipeline() const
+    {
+			return m_genLumaPipeline.get();
+    } 
 
-		// use this to synchronize warp map after computeWarpMap call
-		nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t getWarpMapBarrier(
-			core::bitflag<nbl::asset::PIPELINE_STAGE_FLAGS> dstStageMask,
-			core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
-			nbl::video::IGPUImage::LAYOUT oldLayout);
+    inline video::IGPUComputePipeline* getGenWarpPipeline() const
+    {
+			return m_genWarpPipeline.get();
+    } 
 
-		// use this to synchronize luma map after computeWarpMap call
-		nbl::video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t getLumaMapBarrier(
-			core::bitflag<nbl::asset::PIPELINE_STAGE_FLAGS> dstStageMask,
-			core::bitflag<nbl::asset::ACCESS_FLAGS> dstAccessMask,
-			nbl::video::IGPUImage::LAYOUT oldLayout);
+    class NBL_API2 SSession : public core::IReferenceCounted
+    {
+        public:
 
-		inline core::smart_refctd_ptr<video::IGPUImageView> getLumaMapView() const
-		{
-			return m_lumaMap;
-		}
+					  // ASK(kevin): Should this and constructor be private and we use friend class?
+            struct SCachedCreationParams
+            {
+								core::smart_refctd_ptr<video::IGPUImageView> envMap;
+                core::smart_refctd_ptr<video::IGPUImageView> lumaMap;
+                core::smart_refctd_ptr<video::IGPUImageView> warpMap;
+                core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSet;
+                core::smart_refctd_ptr<EnvmapSampler> generator;
+                hlsl::uint32_t2 genLumaWorkgroupCount;
+                hlsl::uint32_t2 genWarpWorkgroupCount;
+            };
 
-		inline core::smart_refctd_ptr<video::IGPUImageView> getWarpMapView() const
-		{
-			return m_warpMap;
-		}
+						explicit SSession(SCachedCreationParams&& params) : m_params(std::move(params)) {}
 
-		inline hlsl::float32_t getAvgLuma() const
-		{
-			return m_avgLuma;
-		}
+            void computeWarpMap(video::IGPUCommandBuffer* cmdBuf);
+
+            inline core::smart_refctd_ptr<video::IGPUImageView> getLumaMapView() const
+            {
+              return m_params.lumaMap;
+            }
+
+            inline core::smart_refctd_ptr<video::IGPUImageView> getWarpMapView() const
+            {
+              return m_params.warpMap;
+            }
+
+            using image_barrier_t = IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t;
+            // barrier against previous uses of the envmap. Don't access luma map and warp map before calling computeWarpMap
+            image_barrier_t getEnvMapPrevBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::ACCESS_FLAGS> srcAccessMask, IGPUImage::LAYOUT oldLayout);
+
+						image_barrier_t getEnvMapNextBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask, core::bitflag<asset::ACCESS_FLAGS> dstAccessMask, IGPUImage::LAYOUT newLayout);
+
+            // barrier against future uses for luma map and warp map.
+            std::array<image_barrier_t, 2> getOutputMapNextBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask, core::bitflag<asset::ACCESS_FLAGS> dstAccessMask, IGPUImage::LAYOUT newLayout);
+
+        private:
+					SCachedCreationParams m_params;
+    };
+
+		core::smart_refctd_ptr<SSession> createSession(core::smart_refctd_ptr<IGPUImageView>&& envMap, uint16_t upscaleLog2 = 0);
 
 	protected:
 		struct ConstructorParams
 		{
 			SCachedCreationParameters creationParams;
-			hlsl::uint32_t2 lumaWorkgroupCount;
-			hlsl::uint32_t2 warpWorkgroupCount;
-			core::smart_refctd_ptr<video::IGPUImageView> lumaMap;
-			core::smart_refctd_ptr<video::IGPUImageView> warpMap;
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSet;
 			core::smart_refctd_ptr<video::IGPUComputePipeline> genLumaPipeline;
 			core::smart_refctd_ptr<video::IGPUComputePipeline> genWarpPipeline;
 		};
 
 		explicit EnvmapSampler(ConstructorParams&& params) : 
-			m_cachedCreationParams(std::move(params.creationParams)),
-			m_lumaWorkgroupCount(params.lumaWorkgroupCount),
-			m_warpWorkgroupCount(params.warpWorkgroupCount),
-			m_lumaMap(std::move(params.lumaMap)),
-			m_warpMap(std::move(params.warpMap)),
-			m_descriptorSet(std::move(params.descriptorSet)),
+			m_params(std::move(params.creationParams)),
 			m_genLumaPipeline(std::move(params.genLumaPipeline)), 
 			m_genWarpPipeline(std::move(params.genWarpPipeline))
 		{}
@@ -115,17 +130,7 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 
 	private:
 
-		SCachedCreationParameters m_cachedCreationParams;
-
-		hlsl::uint32_t2 m_lumaWorkgroupCount;
-		hlsl::uint32_t2 m_warpWorkgroupCount;
-
-		hlsl::float32_t m_avgLuma;
-
-		core::smart_refctd_ptr<video::IGPUImageView> m_lumaMap;
-		core::smart_refctd_ptr<video::IGPUImageView> m_warpMap;
-
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
+		SCachedCreationParameters m_params;
 
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_genLumaPipeline;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_genWarpPipeline;
