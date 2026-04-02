@@ -315,7 +315,6 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 		};
 
 		SLumaGenPushConstants pcData = {};
-		pcData.lumaRGBCoefficients = { 0.2126729f, 0.7151522f, 0.0721750f };
 		pcData.lumaMapWidth = lumaMapExtent.width;
 		pcData.lumaMapHeight = lumaMapExtent.height;
 
