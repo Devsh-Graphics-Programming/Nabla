@@ -21,11 +21,11 @@ namespace
 
 	core::smart_refctd_ptr<IGPUImageView> createTexture(video::ILogicalDevice* device, const asset::VkExtent3D extent, E_FORMAT format, uint32_t mipLevels = 1u, uint32_t layers = 0u)
 	{
-		const auto real_layers = layers ? layers:1u;
+		const auto realLayers = layers ? layers:1u;
 
 		IGPUImage::SCreationParams imgParams;
 		imgParams.extent = extent;
-		imgParams.arrayLayers = real_layers;
+		imgParams.arrayLayers = realLayers;
 		imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 		imgParams.format = format;
 		imgParams.mipLevels = mipLevels;
@@ -45,7 +45,7 @@ namespace
 		viewparams.viewType = layers ? IGPUImageView::ET_2D_ARRAY:IGPUImageView::ET_2D;
 		viewparams.subresourceRange.aspectMask = IImage::EAF_COLOR_BIT;
 		viewparams.subresourceRange.baseArrayLayer = 0u;
-		viewparams.subresourceRange.layerCount = real_layers;
+		viewparams.subresourceRange.layerCount = realLayers;
 		viewparams.subresourceRange.baseMipLevel = 0u;
 		viewparams.subresourceRange.levelCount = mipLevels;
 
@@ -97,14 +97,14 @@ core::smart_refctd_ptr<CEnvmapWarpGenerator> CEnvmapWarpGenerator::create(SCreat
 	return core::smart_refctd_ptr<CEnvmapWarpGenerator>(new CEnvmapWarpGenerator(std::move(constructorParams)));
 }
 
-core::smart_refctd_ptr<video::IGPUImageView> CEnvmapWarpGenerator::createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, const std::string_view debugName)
+core::smart_refctd_ptr<video::IGPUImageView> CEnvmapWarpGenerator::createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, uint32_t layerCount, const std::string_view debugName)
 {
-	return createTexture(device, extent, EF_R32_SFLOAT, mipCount);
+	return createTexture(device, extent, EF_R32_SFLOAT, mipCount, layerCount);
 }
 
-core::smart_refctd_ptr<video::IGPUImageView> CEnvmapWarpGenerator::createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, const std::string_view debugName)
+core::smart_refctd_ptr<video::IGPUImageView> CEnvmapWarpGenerator::createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t layerCount, const std::string_view debugName)
 {
-	return createTexture(device, extent, EF_R32G32_SFLOAT);
+	return createTexture(device, extent, EF_R32G32_SFLOAT, 1u, layerCount);
 }
 
 core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> CEnvmapWarpGenerator::createDescriptorSetLayout(video::ILogicalDevice* device)
@@ -213,26 +213,28 @@ core::smart_refctd_ptr<CEnvmapWarpGenerator::SSession> CEnvmapWarpGenerator::cre
 	sessionParams.generator = core::smart_refctd_ptr<CEnvmapWarpGenerator>(this);
 	sessionParams.envMap = std::move(envMap);
 
-	const auto envmapExtent = sessionParams.envMap->getCreationParameters().image->getCreationParameters().extent;
+	const auto& envmapParams = sessionParams.envMap->getCreationParameters().image->getCreationParameters();
+	const auto envmapExtent = envmapParams.extent;
+	const auto envmapLayers = envmapParams.arrayLayers;
 
 	// we don't need the 1x1 mip for anything
 	const uint32_t mipCountLuminance = IImage::calculateFullMipPyramidLevelCount(envmapExtent,IImage::ET_2D) - 1;
-	const auto envmapPotExtent = [mipCountLuminance]() -> asset::VkExtent3D
+	const auto envmapPotExtent = [mipCountLuminance, envmapLayers]() -> asset::VkExtent3D
 	{
 		const uint32_t width = 0x1u << mipCountLuminance;
-		return { width, width >> 1u, 1u };
+		return { width, width >> 1u, envmapLayers };
 	}();
-	auto calcWorkgroupSize = [](const asset::VkExtent3D extent, const uint32_t workgroupDimension) -> uint32_t2
+	auto calcWorkgroupSize = [envmapLayers](const asset::VkExtent3D extent, const uint32_t workgroupDimension) -> uint32_t2
 	{
-		return uint32_t2(extent.width - 1, extent.height - 1) / workgroupDimension + uint32_t2(1);
+		return uint32_t2(extent.width - 1, extent.height - 1) / workgroupDimension + uint32_t2(envmapLayers);
 	};
 
 	sessionParams.genLumaWorkgroupCount = calcWorkgroupSize(envmapPotExtent, GenLumaWorkgroupDim);
-	sessionParams.lumaMap = createLumaMap(device, envmapPotExtent, mipCountLuminance);
+	sessionParams.lumaMap = createLumaMap(device, envmapPotExtent, mipCountLuminance, envmapLayers);
 
 	const asset::VkExtent3D warpMapExtent = {envmapPotExtent.width << upscaleLog2, envmapPotExtent.height << upscaleLog2, envmapPotExtent.depth };
 	sessionParams.genWarpWorkgroupCount = calcWorkgroupSize(warpMapExtent, GenWarpWorkgroupDim);
-  sessionParams.warpMap = createWarpMap(device, warpMapExtent);
+  sessionParams.warpMap = createWarpMap(device, warpMapExtent, envmapLayers);
 
 	const auto dsLayouts = m_genLumaPipeline->getLayout()->getDescriptorSetLayouts();
 	const auto descriptorPool = device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, dsLayouts);
@@ -271,6 +273,8 @@ core::smart_refctd_ptr<CEnvmapWarpGenerator::SSession> CEnvmapWarpGenerator::cre
 	};
 	device->updateDescriptorSets(writes, {});
 
+	sessionParams.layerCount = envmapLayers;
+
 	return make_smart_refctd_ptr<SSession>(std::move(sessionParams));
 }
 
@@ -307,7 +311,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = 0u,
 					.levelCount = 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers
 				},
 				.oldLayout = IImage::LAYOUT::UNDEFINED,
 				.newLayout = IImage::LAYOUT::GENERAL,
@@ -321,7 +325,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 		cmdBuf->bindComputePipeline(genLumaPipeline);
 		cmdBuf->pushConstants(genLumaPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			0, sizeof(SLumaGenPushConstants), &pcData);
-		cmdBuf->dispatch(m_params.genLumaWorkgroupCount.x, m_params.genLumaWorkgroupCount.y, 1);
+		cmdBuf->dispatch(m_params.genLumaWorkgroupCount.x, m_params.genLumaWorkgroupCount.y, m_params.layerCount);
 	}
 
   // Generate luminance mip map
@@ -342,7 +346,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = 0u,
 					.levelCount = 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers,
 				},
 				.oldLayout = IImage::LAYOUT::GENERAL,
 				.newLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
@@ -362,7 +366,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = 1u,
 					.levelCount = lumaMapMipLevels - 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers
 				},
 				.oldLayout = IImage::LAYOUT::UNDEFINED,
 				.newLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
@@ -374,13 +378,12 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 		auto* image = lumaMapImage;
 		for (uint32_t srcMip_i = 0; srcMip_i < mipLevels-1; srcMip_i++)
 		{
-			
 			const IGPUCommandBuffer::SImageBlit blit = {
 				.srcMinCoord = {0, 0, 0},
 				.srcMaxCoord = {extent.width >> (srcMip_i), extent.height >> (srcMip_i), 1},
 				.dstMinCoord = {0, 0, 0},
 				.dstMaxCoord = {extent.width >> srcMip_i + 1, extent.height >> (srcMip_i + 1), 1},
-				.layerCount = 1,
+				.layerCount = IGPUImageView::remaining_array_layers,
 				.srcBaseLayer = 0,
 				.dstBaseLayer = 0,
 				.srcMipLevel = srcMip_i,
@@ -407,7 +410,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = srcMip_i + 1,
 					.levelCount = 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers
 				},
 				.oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
 				.newLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
@@ -435,7 +438,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = 0u,
 					.levelCount = lumaMapMipLevels - 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers,
 				},
 				.oldLayout = IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,
 				.newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
@@ -455,7 +458,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = lumaMapMipLevels - 1,
 					.levelCount = 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers
 				},
 				.oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
 				.newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
@@ -475,7 +478,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 					.baseMipLevel = 0,
 					.levelCount = 1,
 					.baseArrayLayer = 0u,
-					.layerCount = 1u
+					.layerCount = IGPUImageView::remaining_array_layers
 				},
 				.oldLayout = IImage::LAYOUT::UNDEFINED,
 				.newLayout = IImage::LAYOUT::GENERAL,
@@ -492,7 +495,7 @@ void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cm
 		cmdBuf->bindComputePipeline(genWarpPipeline);
 		cmdBuf->pushConstants(genWarpPipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			0, sizeof(SWarpGenPushConstants), &pcData);
-		cmdBuf->dispatch(m_params.genWarpWorkgroupCount.x, m_params.genWarpWorkgroupCount.y, 1);
+		cmdBuf->dispatch(m_params.genWarpWorkgroupCount.x, m_params.genWarpWorkgroupCount.y, m_params.layerCount);
 	}
 }
 
