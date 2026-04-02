@@ -1,12 +1,12 @@
-#ifndef _NBL_VIDEO_ENVMAP_SAMPLER_INCLUDED_
-#define _NBL_VIDEO_ENVMAP_SAMPLER_INCLUDED_
+#ifndef _NBL_VIDEO_ENVMAP_WARP_GENERATOR_INCLUDED_
+#define _NBL_VIDEO_ENVMAP_WARP_GENERATOR_INCLUDED_
 
 #include "nbl/video/declarations.h"
 
 namespace nbl::video
 {
 
-class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
+class NBL_API2 CEnvmapWarpGenerator final : public core::IReferenceCounted
 {
 	public:
 
@@ -45,7 +45,7 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 		};
 
 
-		static core::smart_refctd_ptr<EnvmapSampler> create(SCreationParameters&& params);
+		static core::smart_refctd_ptr<CEnvmapWarpGenerator> create(SCreationParameters&& params);
 
 		static core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device);
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createPipelineLayout(video::ILogicalDevice* device);
@@ -78,7 +78,7 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
                 core::smart_refctd_ptr<video::IGPUImageView> lumaMap;
                 core::smart_refctd_ptr<video::IGPUImageView> warpMap;
                 core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSet;
-                core::smart_refctd_ptr<EnvmapSampler> generator;
+                core::smart_refctd_ptr<CEnvmapWarpGenerator> generator;
                 hlsl::uint32_t2 genLumaWorkgroupCount;
                 hlsl::uint32_t2 genWarpWorkgroupCount;
             };
@@ -120,13 +120,13 @@ class NBL_API2 EnvmapSampler final : public core::IReferenceCounted
 			core::smart_refctd_ptr<video::IGPUComputePipeline> genWarpPipeline;
 		};
 
-		explicit EnvmapSampler(ConstructorParams&& params) : 
+		explicit CEnvmapWarpGenerator(ConstructorParams&& params) : 
 			m_params(std::move(params.creationParams)),
 			m_genLumaPipeline(std::move(params.genLumaPipeline)), 
 			m_genWarpPipeline(std::move(params.genWarpPipeline))
 		{}
 
-		~EnvmapSampler() override {}
+		~CEnvmapWarpGenerator() override {}
 
 	private:
 

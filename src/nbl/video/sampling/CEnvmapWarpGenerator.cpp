@@ -1,4 +1,4 @@
-#include "nbl/video/sampling/EnvmapSampler.h"
+#include "nbl/video/sampling/CEnvmapWarpGenerator.h"
 #include "nbl/builtin/hlsl/sampling/hierarchical_image/common.hlsl"
 #include "nlohmann/detail/input/parser.hpp"
 
@@ -13,7 +13,7 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 namespace nbl::video
 {
 
-class EnvmapSampler;
+class CEnvmapWarpGenerator;
 
 namespace
 {
@@ -70,7 +70,7 @@ namespace
 	}
 }
 
-core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&& params)
+core::smart_refctd_ptr<CEnvmapWarpGenerator> CEnvmapWarpGenerator::create(SCreationParameters&& params)
 {
 	auto* const logger = params.utilities->getLogger();
 
@@ -94,20 +94,20 @@ core::smart_refctd_ptr<EnvmapSampler> EnvmapSampler::create(SCreationParameters&
 
 	constructorParams.creationParams = std::move(params);
 
-	return core::smart_refctd_ptr<EnvmapSampler>(new EnvmapSampler(std::move(constructorParams)));
+	return core::smart_refctd_ptr<CEnvmapWarpGenerator>(new CEnvmapWarpGenerator(std::move(constructorParams)));
 }
 
-core::smart_refctd_ptr<video::IGPUImageView> EnvmapSampler::createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, const std::string_view debugName)
+core::smart_refctd_ptr<video::IGPUImageView> CEnvmapWarpGenerator::createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, const std::string_view debugName)
 {
 	return createTexture(device, extent, EF_R32_SFLOAT, mipCount);
 }
 
-core::smart_refctd_ptr<video::IGPUImageView> EnvmapSampler::createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, const std::string_view debugName)
+core::smart_refctd_ptr<video::IGPUImageView> CEnvmapWarpGenerator::createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, const std::string_view debugName)
 {
 	return createTexture(device, extent, EF_R32G32_SFLOAT);
 }
 
-core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> EnvmapSampler::createDescriptorSetLayout(video::ILogicalDevice* device)
+core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> CEnvmapWarpGenerator::createDescriptorSetLayout(video::ILogicalDevice* device)
 {
 	const IGPUDescriptorSetLayout::SBinding bindings[] = {
 		// Gen luma input
@@ -146,7 +146,7 @@ core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> EnvmapSampler::createDesc
 	return device->createDescriptorSetLayout(bindings);
 }
 
-core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createPipelineLayout(video::ILogicalDevice* device)
+core::smart_refctd_ptr<video::IGPUPipelineLayout> CEnvmapWarpGenerator::createPipelineLayout(video::ILogicalDevice* device)
 {
 	const auto dsLayout = createDescriptorSetLayout(device);
 	asset::SPushConstantRange pcRange = {
@@ -157,7 +157,7 @@ core::smart_refctd_ptr<video::IGPUPipelineLayout> EnvmapSampler::createPipelineL
 	return device->createPipelineLayout({ &pcRange, 1 }, dsLayout);
 }
 
-core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* layout, std::string_view shaderPath)
+core::smart_refctd_ptr<video::IGPUComputePipeline> CEnvmapWarpGenerator::createPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* layout, std::string_view shaderPath)
 {
 	system::logger_opt_ptr logger = params.utilities->getLogger();
 	auto system = smart_refctd_ptr<ISystem>(params.assetManager->getSystem());
@@ -204,13 +204,13 @@ core::smart_refctd_ptr<video::IGPUComputePipeline> EnvmapSampler::createPipeline
 	return pipeline;
 }
 
-core::smart_refctd_ptr<EnvmapSampler::SSession> EnvmapSampler::createSession(core::smart_refctd_ptr<IGPUImageView>&& envMap, uint16_t upscaleLog2)
+core::smart_refctd_ptr<CEnvmapWarpGenerator::SSession> CEnvmapWarpGenerator::createSession(core::smart_refctd_ptr<IGPUImageView>&& envMap, uint16_t upscaleLog2)
 {
 
 	const auto device = m_params.utilities->getLogicalDevice();
 
 	SSession::SCachedCreationParams sessionParams;
-	sessionParams.generator = core::smart_refctd_ptr<EnvmapSampler>(this);
+	sessionParams.generator = core::smart_refctd_ptr<CEnvmapWarpGenerator>(this);
 	sessionParams.envMap = std::move(envMap);
 
 	const auto envmapExtent = sessionParams.envMap->getCreationParameters().image->getCreationParameters().extent;
@@ -274,7 +274,7 @@ core::smart_refctd_ptr<EnvmapSampler::SSession> EnvmapSampler::createSession(cor
 	return make_smart_refctd_ptr<SSession>(std::move(sessionParams));
 }
 
-void EnvmapSampler::SSession::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
+void CEnvmapWarpGenerator::SSession::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
 {
 	const auto lumaMapImage = m_params.lumaMap->getCreationParameters().image.get();
 	const auto lumaMapMipLevels = lumaMapImage->getCreationParameters().mipLevels;
@@ -380,7 +380,7 @@ void EnvmapSampler::SSession::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
 				.srcMinCoord = {0, 0, 0},
 				.srcMaxCoord = {extent.width >> (srcMip_i), extent.height >> (srcMip_i), 1},
 				.dstMinCoord = {0, 0, 0},
-				.dstMaxCoord = {extent.width >> srcMip_i + 1, extent.height >> srcMip_i + 1, 1},
+				.dstMaxCoord = {extent.width >> srcMip_i + 1, extent.height >> (srcMip_i + 1), 1},
 				.layerCount = 1,
 				.srcBaseLayer = 0,
 				.dstBaseLayer = 0,
@@ -497,7 +497,7 @@ void EnvmapSampler::SSession::computeWarpMap(video::IGPUCommandBuffer* cmdBuf)
 	}
 }
 
-EnvmapSampler::SSession::image_barrier_t EnvmapSampler::SSession::getEnvMapPrevBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::ACCESS_FLAGS> srcAccessMask, IGPUImage::LAYOUT oldLayout)
+CEnvmapWarpGenerator::SSession::image_barrier_t CEnvmapWarpGenerator::SSession::getEnvMapPrevBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::ACCESS_FLAGS> srcAccessMask, IGPUImage::LAYOUT oldLayout)
 {
 	return image_barrier_t{
     .barrier = {
@@ -521,7 +521,7 @@ EnvmapSampler::SSession::image_barrier_t EnvmapSampler::SSession::getEnvMapPrevB
 	};
 }
 
-EnvmapSampler::SSession::image_barrier_t EnvmapSampler::SSession::getEnvMapNextBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask, core::bitflag<asset::ACCESS_FLAGS> dstAccessMask, IGPUImage::LAYOUT newLayout)
+CEnvmapWarpGenerator::SSession::image_barrier_t CEnvmapWarpGenerator::SSession::getEnvMapNextBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask, core::bitflag<asset::ACCESS_FLAGS> dstAccessMask, IGPUImage::LAYOUT newLayout)
 {
 	return image_barrier_t{
 		.barrier = {
@@ -544,7 +544,7 @@ EnvmapSampler::SSession::image_barrier_t EnvmapSampler::SSession::getEnvMapNextB
 	};
 }
 
-std::array<EnvmapSampler::SSession::image_barrier_t, 2> EnvmapSampler::SSession::getOutputMapNextBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask, core::bitflag<asset::ACCESS_FLAGS> dstAccessMask, IGPUImage::LAYOUT newLayout)
+std::array<CEnvmapWarpGenerator::SSession::image_barrier_t, 2> CEnvmapWarpGenerator::SSession::getOutputMapNextBarrier(core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask, core::bitflag<asset::ACCESS_FLAGS> dstAccessMask, IGPUImage::LAYOUT newLayout)
 {
 	return {
 		image_barrier_t {

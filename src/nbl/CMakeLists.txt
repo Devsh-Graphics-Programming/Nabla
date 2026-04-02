@@ -297,7 +297,7 @@ set(NBL_VIDEO_SOURCES
 	video/CCUDADevice.cpp
 
 # Sampling
-	video/sampling/EnvmapSampler.cpp
+	video/sampling/CEnvmapWarpGenerator.cpp
 )
 
 set(NBL_SCENE_SOURCES
