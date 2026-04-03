@@ -167,7 +167,7 @@ struct SCookTorrance
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, false>(_sample, interaction, cache);
         scalar_type _pdf = pdfQuery.pdf;
-        if (_pdf == scalar_type(0.0) || _pdf >= bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        if (_pdf == scalar_type(0.0) || hlsl::isinf(_pdf))
             return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
         fresnel_type _f = pdfQuery.orientedFresnel;
@@ -417,7 +417,7 @@ struct SCookTorrance
         fresnel_type _f = pdfQuery.orientedFresnel;
 
         scalar_type G2_over_G1 = scalar_type(1.0);
-        if (_pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+        if (!hlsl::isinf(_pdf))
         {
             using g2g1_query_type = typename N::g2g1_query_type;
             g2g1_query_type gq = ndf.template createG2G1Query<sample_type, Interaction>(_sample, interaction);
