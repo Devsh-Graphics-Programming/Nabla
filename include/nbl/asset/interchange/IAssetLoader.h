@@ -327,6 +327,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 
 	protected:
 		// accessors for loaders
+		// TODO: deprecate
 		SAssetBundle interm_getAssetInHierarchy(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 		SAssetBundle interm_getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 		// only the overload we use for now
@@ -359,7 +360,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			else if (origType!=IAsset::E_TYPE::ET_IMAGE)
 			{
 				_params.logger.log(
-					"IAssetLoader::interm_getImageViewInHierarchy loaded assed with key \"%s\" with was of type %s not IMAGE",
+					"IAssetLoader::interm_getImageViewInHierarchy loaded asset with key \"%s\" with was of type %s not IMAGE",
 					system::ILogger::ELL_ERROR,bundle.getCacheKey().c_str(),system::to_string(origType).c_str()
 				);
 				return {};

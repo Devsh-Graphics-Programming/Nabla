@@ -12,11 +12,13 @@
 
 #include "nbl/asset/IShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-
-// Less leakage than "nlohmann/json.hpp" only forward declarations
-#include "nlohmann/json_fwd.hpp"
+#include "nbl/system/json.h"
 
 #include "nbl/builtin/hlsl/enums.hlsl"
+
+#include <functional>
+#include <mutex>
+#include <unordered_set>
 
 namespace nbl::asset
 {
@@ -26,6 +28,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	public:
 		IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
+		enum class IncludeRootOrigin : uint8_t
+		{
+			User,
+			Builtin,
+			Generated
+		};
+
+		enum class HeaderClass : uint8_t
+		{
+			User,
+			System
+		};
+
+		struct IncludeClassification
+		{
+			IncludeRootOrigin origin = IncludeRootOrigin::User;
+			HeaderClass headerClass = HeaderClass::User;
+		};
+
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
 			public:
@@ -34,12 +55,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					system::path absolutePath = {};
 					std::string contents = {};
 					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					IncludeClassification classification = {};
 					// Could be used in the future for early rejection of cache hit
 					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
-				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const = 0;
 		};
 
 		class NBL_API2 IIncludeGenerator : public core::IReferenceCounted
@@ -65,7 +87,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			public:
 				CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
 
-				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
+				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const override;
 
 			protected:
 				core::smart_refctd_ptr<system::ISystem> m_system;
@@ -74,48 +96,98 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class NBL_API2 CIncludeFinder : public core::IReferenceCounted
 		{
 			public:
+				struct SSessionCache
+				{
+					struct Stats
+					{
+						uint64_t lookupFound = 0ull;
+						uint64_t lookupMissing = 0ull;
+						uint64_t lookupMiss = 0ull;
+						uint64_t storeFound = 0ull;
+						uint64_t storeMissing = 0ull;
+					};
+
+					enum class LookupResult : uint8_t
+					{
+						Miss,
+						Missing,
+						Found
+					};
+
+					explicit SSessionCache(const bool threadSafe = false) : threadSafe(threadSafe) {}
+
+					void clear();
+					LookupResult lookup(const std::string& key, IIncludeLoader::found_t& result) const;
+					void store(const std::string& key, IIncludeLoader::found_t result);
+					Stats snapshotStats() const;
+
+					bool threadSafe = false;
+
+					mutable std::mutex mutex;
+					mutable Stats stats;
+					core::unordered_map<std::string, IIncludeLoader::found_t> found;
+					core::unordered_set<std::string> missing;
+				};
+
 				CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system);
 
 				// ! includes within <>
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within <> of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
+				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* readSessionCache = nullptr, SSessionCache* writeSessionCache = nullptr) const;
 
 				// ! includes within ""
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within "" of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
+				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* readSessionCache = nullptr, SSessionCache* writeSessionCache = nullptr) const;
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
-				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader);
+				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification = {});
 
-				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator);
+				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator, IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System});
+
+				bool isKnownGlobalInclude(std::string_view includeName) const;
+				IIncludeLoader::found_t classifyFound(IIncludeLoader::found_t found) const;
 
 			protected:
-				IIncludeLoader::found_t trySearchPaths(const std::string& includeName) const;
+				IIncludeLoader::found_t trySearchPaths(const std::string& includeName, bool needHash) const;
 
 				IIncludeLoader::found_t tryIncludeGenerators(const std::string& includeName) const;
+				void registerHeaderRoot(std::string rootPath, IncludeClassification classification);
 
 				struct LoaderSearchPath
 				{
 					core::smart_refctd_ptr<IIncludeLoader> loader = nullptr;
 					std::string searchPath = {};
+					IncludeClassification classification = {};
+				};
+
+				struct GeneratorEntry
+				{
+					core::smart_refctd_ptr<IIncludeGenerator> generator = nullptr;
+					IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System};
+				};
+
+				struct HeaderRoot
+				{
+					std::string path = {};
+					IncludeClassification classification = {};
 				};
 
 				std::vector<LoaderSearchPath> m_loaders;
-				std::vector<core::smart_refctd_ptr<IIncludeGenerator>> m_generators;
+				std::vector<GeneratorEntry> m_generators;
+				std::vector<HeaderRoot> m_headerRoots;
 				core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 
 		//
 		struct SMacroDefinition
 		{
-			friend void to_json(nlohmann::json&, const SMacroDefinition&);
-			friend void from_json(const nlohmann::json&, SMacroDefinition&);
-
 			std::string_view identifier;
 			std::string_view definition;
+
+			friend struct system::json::adl_serializer<SMacroDefinition>;
 		};
 
 		//
@@ -135,10 +207,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
+			CIncludeFinder::SSessionCache* readIncludeSessionCache = nullptr;
+			CIncludeFinder::SSessionCache* writeIncludeSessionCache = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
+			bool preserveComments = false;
 			system::path depfilePath = {};
+			std::function<void(std::string_view)> onPartialOutputOnFailure = {};
 		};
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
@@ -222,9 +298,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							inline bool isStandardInclude() const { return standardInclude; }
 
 						private:
-							friend void to_json(nlohmann::json& j, const SEntry::SPreprocessingDependency& dependency);
-							friend void from_json(const nlohmann::json& j, SEntry::SPreprocessingDependency& dependency);
 							friend class CCache;
+							friend struct system::json::adl_serializer<SEntry::SPreprocessingDependency>;
 
 							// path or identifier
 							system::path requestingSourceDir = "";
@@ -258,8 +333,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							friend class SCompilerArgs;
 							friend class SEntry;
 							friend class CCache;
-							friend void to_json(nlohmann::json&, const SPreprocessorArgs&);
-							friend void from_json(const nlohmann::json&, SPreprocessorArgs&);
+							friend struct system::json::adl_serializer<SPreprocessorArgs>;
 
 							// Default constructor needed for json serialization of SCompilerArgs
 							SPreprocessorArgs() {};
@@ -301,8 +375,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						private:
 							friend class SEntry;
 							friend class CCache;
-							friend void to_json(nlohmann::json&, const SCompilerArgs&);
-							friend void from_json(const nlohmann::json&, SCompilerArgs&);
+							friend struct system::json::adl_serializer<SCompilerArgs>;
 
 							// Default constructor needed for json serialization of SEntry
 							SCompilerArgs() {}

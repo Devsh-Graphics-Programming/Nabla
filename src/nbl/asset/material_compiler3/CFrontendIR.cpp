@@ -1,4 +1,4 @@
-// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/material_compiler3/CFrontendIR.h"
@@ -27,9 +27,14 @@ bool CFrontendIR::CEmitter::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(perpTransmittance))
+	if (!args.pool->getObjectPool().deref(perpTransmittance))
 	{
 		args.logger.log("Perpendicular Transparency node of correct type must be attached, but is %u of type %s",ELL_ERROR,perpTransmittance,args.pool->getTypeName(perpTransmittance).data());
+		return true;
+	}
+	if (const auto* const thick=args.pool->getObjectPool().deref(thickness); !thick || thick->getKnotCount()!=1)
+	{
+		args.logger.log("Monochromatic Thickness node must be attached, but is %u of type %s",ELL_ERROR,thickness,args.pool->getTypeName(thickness).data());
 		return true;
 	}
 	return false;
@@ -37,12 +42,12 @@ bool CFrontendIR::CBeer::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(orientedRealEta))
+	if (!args.pool->getObjectPool().deref(orientedRealEta))
 	{
 		args.logger.log("Oriented Real Eta node of correct type must be attached, but is %u of type %s",ELL_ERROR,orientedRealEta,args.pool->getTypeName(orientedRealEta).data());
 		return true;
 	}
-	if (const auto imagEta=args.pool->deref(orientedImagEta); imagEta)
+	if (const auto imagEta=args.pool->getObjectPool().deref(orientedImagEta); imagEta)
 	{
 		if (args.isBTDF)
 		{
@@ -67,17 +72,17 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 
 bool CFrontendIR::CThinInfiniteScatterCorrection::invalid(const SInvalidCheckArgs& args) const
 {
-	if (!args.pool->deref(reflectanceTop))
+	if (!args.pool->getObjectPool().deref(reflectanceTop))
 	{
 		args.logger.log("Top reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectanceTop,args.pool->getTypeName(reflectanceTop).data());
 		return true;
 	}
-	if (extinction && !args.pool->deref(extinction))
+	if (extinction && !args.pool->getObjectPool().deref(extinction))
 	{
 		args.logger.log("Extinction node of incorrect type attached, but is %u of type %s",ELL_ERROR,extinction,args.pool->getTypeName(extinction).data());
 		return true;
 	}
-	if (!args.pool->deref(reflectanceBottom))
+	if (!args.pool->getObjectPool().deref(reflectanceBottom))
 	{
 		args.logger.log("Top reflectance node of correct type must be attached, but is %u of type %s",ELL_ERROR,reflectanceBottom,args.pool->getTypeName(reflectanceBottom).data());
 		return true;
@@ -102,7 +107,7 @@ bool CFrontendIR::CCookTorrance::invalid(const SInvalidCheckArgs& args) const
 		args.logger.log("Normal Distribution Parameters are invalid",ELL_ERROR);
 		return true;
 	}
-	if (args.isBTDF && !args.pool->deref(orientedRealEta))
+	if (args.isBTDF && !args.pool->getObjectPool().deref(orientedRealEta))
 	{
 		args.logger.log("Cook Torrance BTDF requires the Index of Refraction to compute the refraction direction, but is %u of type %s",ELL_ERROR,orientedRealEta,args.pool->getTypeName(orientedRealEta).data());
 		return true;
@@ -111,21 +116,130 @@ bool CFrontendIR::CCookTorrance::invalid(const SInvalidCheckArgs& args) const
 }
 
 
-auto CFrontendIR::reciprocate(const TypedHandle<const IExprNode> other) -> TypedHandle<IExprNode>
+auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig) -> typed_pointer_type<const IExprNode>
 {
-	if (const auto* in=deref<CFresnel>({.untyped=other.untyped}); in)
+	auto& pool = getObjectPool();
+	struct SEntry
 	{
-		auto fresnelH = _new<CFresnel>();
-		auto* fresnel = deref(fresnelH);
-		*fresnel = *in;
-		fresnel->reciprocateEtas = ~in->reciprocateEtas;
-		return fresnelH;
+		typed_pointer_type<const IExprNode> handle;
+		bool visited = false;
+	};
+	core::vector<SEntry> stack;
+	stack.reserve(32);
+	stack.push_back({.handle=orig});
+	// use a hashmap because of holes in child arrays
+	core::unordered_map<typed_pointer_type<const IExprNode>,typed_pointer_type<IExprNode>> substitutions;
+	while (!stack.empty())
+	{
+		auto& entry = stack.back();
+		const auto* const node = pool.deref(entry.handle);
+		if (!node) // this is an error
+			return {};
+		const auto childCount = node->getChildCount();
+		if (entry.visited)
+		{
+			entry.visited = true;
+			for (uint8_t c=0; c<childCount; c++)
+			{
+				const auto childH = node->getChildHandle(c);
+				if (auto child=pool.deref(childH); !child)
+					continue; // this is not an error
+				stack.push_back({.handle=childH});
+			}
+		}
+		else
+		{
+			const bool needToReciprocate = node->reciprocatable();
+			bool needToCopy = needToReciprocate;
+			// if one descendant has changed then we need to copy node
+			if (!needToCopy)
+			{
+				uint8_t c = 0;
+				for (; c<childCount; c++)
+				{
+					if (auto found=substitutions.find(node->getChildHandle(c)); found!=substitutions.end())
+						break;
+				}
+				needToCopy = c!=childCount;
+			}
+			if (needToCopy)
+			{
+				const auto copyH = node->copy(this);
+				// copy copies everything including children
+				auto* const copy = pool.deref(copyH);
+				if (!copy)
+					return {};
+				if (needToReciprocate)
+					node->reciprocate(copy);
+				// only changed children need to be set
+				for (uint8_t c=0; c<childCount; c++)
+				{
+					const auto childH = node->getChildHandle(c);
+					if (!childH)
+						continue;
+					if (auto found=substitutions.find(childH); found!=substitutions.end())
+						copy->setChild(c,found->second);
+				}
+				substitutions.insert({entry.handle,copyH});
+			}
+			stack.pop_back();
+		}
 	}
-	assert(false); // unimplemented
-	return {};
+	// there was nothing to reciprocate in the expression stack
+	if (substitutions.empty())
+		return orig;
+	return substitutions[orig];
 }
 
-auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle<CFresnel>
+auto CFrontendIR::copyLayers(const typed_pointer_type<const CLayer> orig) -> typed_pointer_type<CLayer>
+{
+	auto& pool = getObjectPool();
+	auto copyH = pool.emplace<CLayer>();
+	{
+		auto* outLayer = pool.deref(copyH);
+		for (const auto* layer=pool.deref(orig); true; layer=pool.deref(layer->coated))
+		{
+			*outLayer = *layer;
+			if (!layer->coated)
+			{
+				// terminate the new stack
+				outLayer->coated = {};
+				break;
+			}
+			// continue the new stack
+			outLayer->coated = pool.emplace<CLayer>();
+			outLayer = pool.deref(outLayer->coated);
+		}
+	}
+	return copyH;
+}
+
+auto CFrontendIR::reverse(const typed_pointer_type<const CLayer> orig) -> typed_pointer_type<CLayer>
+{
+	auto& pool = getObjectPool();
+	// we build the new linked list from the tail
+	auto copyH = pool.emplace<CLayer>();
+	{
+		auto* outLayer = pool.deref(copyH);
+		typed_pointer_type<CLayer> underLayerH={};
+		for (const auto* layer=pool.deref(orig); true; layer=pool.deref(layer->coated))
+		{
+			outLayer->coated = underLayerH;
+			// we reciprocate everything because numerator and denominator switch (top and bottom of layer stack)
+			outLayer->brdfBottom = reciprocate(layer->brdfTop)._const_cast();
+			outLayer->btdf = reciprocate(layer->btdf)._const_cast();
+			outLayer->brdfTop = reciprocate(layer->brdfBottom)._const_cast();
+			if (!layer->coated)
+				break;
+			underLayerH = copyH;
+			copyH = pool.emplace<CLayer>();
+			outLayer = pool.deref(copyH);
+		}
+	}
+	return copyH;
+}
+
+auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_pointer_type<CFresnel>
 {
 	using complex32_t = hlsl::complex_t<float>;
 	using spectral_complex_t = hlsl::portable_vector_t<complex32_t,3>;
@@ -198,16 +312,16 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle
 	if (found==creationLambdas.end())
 		return {};
 	//
-	const auto frH = _new<CFrontendIR::CFresnel>();
-	auto* fr = deref(frH);
-	fr->debugInfo = _new<CNodePool::CDebugInfo>(found->first);
+	const auto frH = getObjectPool().emplace<CFrontendIR::CFresnel>();
+	auto* fr = getObjectPool().deref(frH);
+	fr->debugInfo = getObjectPool().emplace<CNodePool::CDebugInfo>(found->first);
 	{
 		CSpectralVariable::SCreationParams<3> params = {};
 		params.getSemantics() = CSpectralVariable::Semantics::Fixed3_SRGB;
 		params.knots.params[0].scale = found->second.x.real();
 		params.knots.params[1].scale = found->second.y.real();
 		params.knots.params[2].scale = found->second.z.real();
-		fr->orientedRealEta = _new<CSpectralVariable>(std::move(params));
+		fr->orientedRealEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
 	}
 	{
 		CSpectralVariable::SCreationParams<3> params = {};
@@ -215,73 +329,33 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> TypedHandle
 		params.knots.params[0].scale = found->second.x.imag();
 		params.knots.params[1].scale = found->second.y.imag();
 		params.knots.params[2].scale = found->second.z.imag();
-		fr->orientedImagEta = _new<CSpectralVariable>(std::move(params));
+		fr->orientedImagEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
 	}
 	return frH;
 }
 
-void CFrontendIR::printDotGraph(std::ostringstream& str) const
+void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 {
 	str << "digraph {\n";
-	
-	core::unordered_set<TypedHandle<const INode>,HandleHash> visitedNodes;
-	// should probably size it better, if I knew total node count allocated or live
-	visitedNodes.reserve(m_rootNodes.size()<<3);
-	// TODO: track layering depth and indent accordingly?
-	// assign in reverse because we want materials to print in order
-	core::vector<TypedHandle<const CLayer>> layerStack(m_rootNodes.rbegin(),m_rootNodes.rend());
-	core::stack<TypedHandle<const IExprNode>> exprStack;
-	while (!layerStack.empty())
-	{
-		const auto layerHandle = layerStack.back();
-		layerStack.pop_back();
-		// don't print layer nodes multiple times
-		const auto visited = visitedNodes.find(layerHandle);
-		if (visited!=visitedNodes.end())
-			continue;
-		visitedNodes.insert(layerHandle);
-		const auto* layerNode = deref(layerHandle);
-		//
-		const auto layerID = getNodeID(layerHandle);
-		str << "\n\t" << getLabelledNodeID(layerHandle);
-		//
-		if (layerNode->coated)
-		{
-			str << "\n\t" << layerID << " -> " << getNodeID(layerNode->coated) << "[label=\"coats\"]\n";
-			layerStack.push_back(layerNode->coated);
-		}
-		auto pushExprRoot = [&](const TypedHandle<const IExprNode> root, const std::string_view edgeLabel)->void
-		{
-			if (!root)
-				return;
-			// print the link from the layer to the expression
-			str << "\n\t" << layerID << " -> " << getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
-			// but not the expression again
-			const auto visited = visitedNodes.find(root);
-			if (visited!=visitedNodes.end())
-				return;
-			exprStack.push(root);
-			visitedNodes.insert(root);
-		};
-		pushExprRoot(layerNode->brdfTop,"Top BRDF");
-		pushExprRoot(layerNode->btdf,"BTDF");
-		pushExprRoot(layerNode->brdfBottom,"Bottom BRDF");
+
+	auto drainExprStack = [&]()->void
+	{			
 		while (!exprStack.empty())
 		{
 			const auto entry = exprStack.top();
 			exprStack.pop();
-			const auto nodeID = getNodeID(entry);
-			str << "\n\t" << getLabelledNodeID(entry);
-			const auto* node = deref(entry);
+			const auto nodeID = m_ir->getNodeID(entry);
+			str << "\n\t" << m_ir->getLabelledNodeID(entry);
+			const auto* node = m_ir->getObjectPool().deref(entry);
 			const auto childCount = node->getChildCount();
 			if (childCount)
 			{
 				for (auto childIx=0; childIx<childCount; childIx++)
 				{
 					const auto childHandle = node->getChildHandle(childIx);
-					if (const auto child=deref(childHandle); child)
+					if (const auto child=m_ir->getObjectPool().deref(childHandle); child)
 					{
-						str << "\n\t" << nodeID << " -> " << getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
+						str << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
 						const auto visited = visitedNodes.find(childHandle);
 						if (visited!=visitedNodes.end())
 							continue;
@@ -293,6 +367,45 @@ void CFrontendIR::printDotGraph(std::ostringstream& str) const
 			// special printing
 			node->printDot(str,nodeID);
 		}
+	};
+	drainExprStack();
+	
+	while (!layerStack.empty())
+	{
+		const auto layerHandle = layerStack.back();
+		layerStack.pop_back();
+		// don't print layer nodes multiple times
+		const auto visited = visitedNodes.find(layerHandle);
+		if (visited!=visitedNodes.end())
+			continue;
+		visitedNodes.insert(layerHandle);
+		const auto* layerNode = m_ir->getObjectPool().deref(layerHandle);
+		//
+		const auto layerID = m_ir->getNodeID(layerHandle);
+		str << "\n\t" << m_ir->getLabelledNodeID(layerHandle);
+		//
+		if (layerNode->coated)
+		{
+			str << "\n\t" << layerID << " -> " << m_ir->getNodeID(layerNode->coated) << "[label=\"coats\"]\n";
+			layerStack.push_back(layerNode->coated);
+		}
+		auto pushExprRoot = [&](const typed_pointer_type<const IExprNode> root, const std::string_view edgeLabel)->void
+		{
+			if (!root)
+				return;
+			// print the link from the layer to the expression
+			str << "\n\t" << layerID << " -> " << m_ir->getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
+			// but not the expression again
+			const auto visited = visitedNodes.find(root);
+			if (visited!=visitedNodes.end())
+				return;
+			exprStack.push(root);
+			visitedNodes.insert(root);
+		};
+		pushExprRoot(layerNode->brdfTop,"Top BRDF");
+		pushExprRoot(layerNode->btdf,"BTDF");
+		pushExprRoot(layerNode->brdfBottom,"Bottom BRDF");
+		drainExprStack();
 	}
 
 	// TODO: print image views

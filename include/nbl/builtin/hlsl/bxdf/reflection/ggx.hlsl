@@ -4,9 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_REFLECTION_GGX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_GGX_INCLUDED_
 
-#include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
-#include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf/ggx.hlsl"
 #include "nbl/builtin/hlsl/bxdf/base/cook_torrance_base.hlsl"
 

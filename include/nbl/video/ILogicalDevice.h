@@ -14,6 +14,7 @@
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/CJITIncludeLoader.h"
+#include "nbl/system/to_string.h"
 
 #include "git_info.h"
 #define NBL_LOG_FUNCTION m_logger.log
@@ -410,7 +411,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         struct AccelerationStructureBuildSizes
         {
-            inline operator bool() const { return accelerationStructureSize!=(~0ull); }
+            explicit inline operator bool() const { return accelerationStructureSize!=(~0ull); }
 
             size_t accelerationStructureSize = ~0ull;
             size_t updateScratchSize = ~0ull;
@@ -831,6 +832,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IShaderCompiler::CCache* writeCache = nullptr;
             std::span<const asset::IShaderCompiler::SMacroDefinition> extraDefines = {};
             hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
+            core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS> debugInfoFlags = asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE;
         };
         core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
@@ -1269,6 +1271,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 if (!requiredSubgroupSizeStages.hasFlags(ci.getRequiredSubgroupStages()))
                 {
                     NBL_LOG_ERROR("Shader stage is not a valid bit specified in requiredSubgroupSizeStages");
+                    return {};
+                }
+
+                // CAPTURE_STATISTICS and CAPTURE_INTERNAL_REPRESENTATIONS require pipelineExecutableInfo feature
+                constexpr auto CaptureStatsFlag = CreationParams::FLAGS::CAPTURE_STATISTICS;
+                constexpr auto CaptureIRFlag = CreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS;
+                if (ci.getFlags().hasFlags(CaptureStatsFlag) && !getEnabledFeatures().pipelineExecutableInfo)
+                {
+                    NBL_LOG_ERROR("CAPTURE_STATISTICS flag requires `pipelineExecutableInfo` feature (params[%d])", i);
+                    return {};
+                }
+                if (ci.getFlags().hasFlags(CaptureIRFlag) && !getEnabledFeatures().pipelineExecutableInfo)
+                {
+                    NBL_LOG_ERROR("CAPTURE_INTERNAL_REPRESENTATIONS flag requires `pipelineExecutableInfo` feature (params[%d])", i);
                     return {};
                 }
 

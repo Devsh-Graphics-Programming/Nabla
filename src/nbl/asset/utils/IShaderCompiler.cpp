@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#include "nbl/asset/utils/shaderCompiler_serialization.h"
 
 #include <sstream>
 #include <regex>
@@ -13,9 +12,257 @@
 
 #include <lzma/C/LzmaEnc.h>
 #include <lzma/C/LzmaDec.h>
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
 
 using namespace nbl;
 using namespace nbl::asset;
+
+// -> serialization
+// SMacroData, simple container used in SPreprocessorArgs
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<IShaderCompiler::SMacroDefinition>
+    {
+        using value_t = IShaderCompiler::SMacroDefinition;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "identifier", p.identifier },
+                { "definition", p.definition },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("identifier").get_to(p.identifier);
+            j.at("definition").get_to(p.definition);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<IShaderCompiler::SMacroDefinition>)
+
+// SPreprocessorData, holds serialized info for Preprocessor options used during compilation
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SPreprocessorArgs>
+    {
+        using value_t = SEntry::SPreprocessorArgs;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "sourceIdentifier", p.sourceIdentifier },
+                { "extraDefines", p.extraDefines},
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("sourceIdentifier").get_to(p.sourceIdentifier);
+            j.at("extraDefines").get_to(p.extraDefines);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SPreprocessorArgs>)
+
+// Optimizer pass has its own method for easier vector serialization
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<ISPIRVOptimizer::E_OPTIMIZER_PASS>
+    {
+        using value_t = ISPIRVOptimizer::E_OPTIMIZER_PASS;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t value = static_cast<uint32_t>(p);
+            j = ::json{
+                { "optPass", value },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t aux;
+            j.at("optPass").get_to(aux);
+            p = static_cast<ISPIRVOptimizer::E_OPTIMIZER_PASS>(aux);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<ISPIRVOptimizer::E_OPTIMIZER_PASS>)
+
+// SCompilerArgs, holds serialized info for all Compilation options
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SCompilerArgs>
+    {
+        using value_t = SEntry::SCompilerArgs;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t shaderStage = static_cast<uint32_t>(p.stage);
+            uint32_t spirvVersion = static_cast<uint32_t>(p.targetSpirvVersion);
+            uint32_t debugFlags = static_cast<uint32_t>(p.debugInfoFlags.value);
+
+            j = ::json{
+                { "shaderStage", shaderStage },
+                { "spirvVersion", spirvVersion },
+                { "optimizerPasses", p.optimizerPasses },
+                { "debugFlags", debugFlags },
+                { "preprocessorArgs", p.preprocessorArgs },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t shaderStage, spirvVersion, debugFlags;
+            j.at("shaderStage").get_to(shaderStage);
+            j.at("spirvVersion").get_to(spirvVersion);
+            j.at("optimizerPasses").get_to(p.optimizerPasses);
+            j.at("debugFlags").get_to(debugFlags);
+            j.at("preprocessorArgs").get_to(p.preprocessorArgs);
+            p.stage = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
+            p.targetSpirvVersion = static_cast<IShaderCompiler::E_SPIRV_VERSION>(spirvVersion);
+            p.debugInfoFlags = core::bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(debugFlags);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SCompilerArgs>)
+
+// Serialize clock's time point
+using time_point_t = nbl::system::IFileBase::time_point_t;
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<time_point_t>
+    {
+        using value_t = time_point_t;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            auto ticks = p.time_since_epoch().count();
+            j = ::json{
+                { "ticks", ticks },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint64_t ticks;
+            j.at("ticks").get_to(ticks);
+            p = time_point_t(time_point_t::clock::duration(ticks));
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<time_point_t>)
+
+// SDependency serialization. Dependencies will be saved in a vector for easier vectorization
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry::SPreprocessingDependency>
+    {
+        using value_t = SEntry::SPreprocessingDependency;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "requestingSourceDir", p.requestingSourceDir },
+                { "identifier", p.identifier },
+                { "hash", p.hash.data },
+                { "standardInclude", p.standardInclude },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("requestingSourceDir").get_to(p.requestingSourceDir);
+            j.at("identifier").get_to(p.identifier);
+            j.at("hash").get_to(p.hash.data);
+            j.at("standardInclude").get_to(p.standardInclude);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry::SPreprocessingDependency>)
+
+// We serialize shader creation parameters into a json, along with indexing info into the .bin buffer where the cache is serialized
+struct CPUShaderCreationParams {
+    IShader::E_SHADER_STAGE stage;
+    std::string filepathHint;
+    uint64_t codeByteSize = 0;
+    uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
+
+    CPUShaderCreationParams(IShader::E_SHADER_STAGE _stage, std::string_view _filepathHint, uint64_t _codeByteSize, uint64_t _offset)
+        : stage(_stage), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset) {}
+    CPUShaderCreationParams() {};
+};
+
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<CPUShaderCreationParams>
+    {
+        using value_t = CPUShaderCreationParams;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            uint32_t stage = static_cast<uint32_t>(p.stage);
+            j = ::json{
+                { "stage", stage },
+                { "filepathHint", p.filepathHint },
+                { "codeByteSize", p.codeByteSize },
+                { "offset", p.offset },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            uint32_t stage;
+            j.at("stage").get_to(stage);
+            j.at("filepathHint").get_to(p.filepathHint);
+            j.at("codeByteSize").get_to(p.codeByteSize);
+            j.at("offset").get_to(p.offset);
+            p.stage = static_cast<IShader::E_SHADER_STAGE>(stage);
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<CPUShaderCreationParams>)
+
+// Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
+namespace nbl::system::json {
+    template<>
+    struct adl_serializer<SEntry>
+    {
+        using value_t = SEntry;
+
+        static inline void to_json(::json& j, const value_t& p)
+        {
+            j = ::json{
+                { "mainFileContents", p.mainFileContents },
+                { "compilerArgs", p.compilerArgs },
+                { "hash", p.hash.data },
+                { "lookupHash", p.lookupHash },
+                { "dependencies", p.dependencies },
+                { "uncompressedContentHash", p.uncompressedContentHash.data },
+                { "uncompressedSize", p.uncompressedSize },
+            };
+        }
+
+        static inline void from_json(const ::json& j, value_t& p)
+        {
+            j.at("mainFileContents").get_to(p.mainFileContents);
+            j.at("compilerArgs").get_to(p.compilerArgs);
+            j.at("hash").get_to(p.hash.data);
+            j.at("lookupHash").get_to(p.lookupHash);
+            j.at("dependencies").get_to(p.dependencies);
+            j.at("uncompressedContentHash").get_to(p.uncompressedContentHash.data);
+            j.at("uncompressedSize").get_to(p.uncompressedSize);
+            p.spirv = nullptr;
+        }
+    };
+}
+NBL_JSON_IMPL_BIND_ADL_SERIALIZER(::nbl::system::json::adl_serializer<SEntry>)
+// <- serialization
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
@@ -353,11 +600,9 @@ core::vector<std::string> IShaderCompiler::IIncludeGenerator::parseArgumentsFrom
 IShaderCompiler::CFileSystemIncludeLoader::CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
 {}
 
-auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const -> found_t
+auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName, bool needHash) const -> found_t
 {
-    system::path path = searchPath / includeName;
-    if (std::filesystem::exists(path))
-        path = std::filesystem::canonical(path);
+    system::path path = (searchPath / includeName).lexically_normal();
 
     core::smart_refctd_ptr<system::IFile> f;
     {
@@ -377,78 +622,274 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    return { f->getFileName(),std::move(contents) };
+    found_t retVal = { f->getFileName(),std::move(contents) };
+    if (needHash)
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    }
+
+    return retVal;
+}
+
+namespace
+{
+std::string normalizeIncludeLookupName(const std::string& includeName)
+{
+    if (includeName.size() <= 1ull)
+        return includeName;
+
+    const auto first = includeName.front();
+    const auto second = includeName[1ull];
+    const bool hasSingleLeadingSeparator =
+        (first == '/' || first == '\\') &&
+        second != '/' && second != '\\';
+    if (!hasSingleLeadingSeparator)
+        return includeName;
+
+    return includeName.substr(1ull);
+}
+
+std::string normalizeClassifiedRootPath(std::string value)
+{
+    std::replace(value.begin(), value.end(), '\\', '/');
+    while (value.size() > 1ull && value.back() == '/')
+        value.pop_back();
+    if (value.size() > 2ull && value.front() == '/' && value[1ull] != '/')
+        value.erase(value.begin());
+    return value;
+}
+
+bool pathHasRegisteredRoot(std::string_view path, std::string_view root)
+{
+    if (root.empty() || path.size() < root.size() || path.substr(0ull, root.size()) != root)
+        return false;
+    return path.size() == root.size() || path[root.size()] == '/';
+}
+
+template<typename Func>
+auto withSessionCacheLock(IShaderCompiler::CIncludeFinder::SSessionCache* cache, Func&& func) -> decltype(func())
+{
+    if (cache && cache->threadSafe)
+    {
+        std::lock_guard lock(cache->mutex);
+        return func();
+    }
+    return func();
+}
+
+std::string makeIncludeSessionCacheKey(const system::path& requestingSourceDir, std::string_view includeName, const bool needHash, const char mode)
+{
+    const auto requestingDir = requestingSourceDir.generic_string();
+    std::string key;
+    key.reserve(requestingDir.size() + includeName.size() + 4ull);
+    key.push_back(mode);
+    key.push_back('\n');
+    key.push_back(needHash ? 'H' : 'N');
+    key.push_back('\n');
+    key.append(requestingDir);
+    key.push_back('\n');
+    key.append(includeName.data(), includeName.size());
+    return key;
+}
+
+auto lookupIncludeSessionCache(IShaderCompiler::CIncludeFinder::SSessionCache* readCache, IShaderCompiler::CIncludeFinder::SSessionCache* writeCache, const std::string& key, IShaderCompiler::IIncludeLoader::found_t& result) -> IShaderCompiler::CIncludeFinder::SSessionCache::LookupResult
+{
+    using LookupResult = IShaderCompiler::CIncludeFinder::SSessionCache::LookupResult;
+    const auto lookupResult = readCache ? readCache->lookup(key, result) : LookupResult::Miss;
+    if (readCache && writeCache && readCache != writeCache)
+    {
+        switch (lookupResult)
+        {
+            case LookupResult::Found:
+                writeCache->store(key, result);
+                break;
+            case LookupResult::Missing:
+                writeCache->store(key, {});
+                break;
+            case LookupResult::Miss:
+                break;
+        }
+    }
+    return lookupResult;
+}
+
+void writeIncludeSessionCache(IShaderCompiler::CIncludeFinder::SSessionCache* writeCache, const std::string& key, const IShaderCompiler::IIncludeLoader::found_t& result)
+{
+    if (writeCache)
+        writeCache->store(key, result);
+}
+
+}
+
+void IShaderCompiler::CIncludeFinder::SSessionCache::clear()
+{
+    withSessionCacheLock(this, [&]()
+    {
+        found.clear();
+        missing.clear();
+    });
+}
+
+auto IShaderCompiler::CIncludeFinder::SSessionCache::lookup(const std::string& key, IIncludeLoader::found_t& result) const -> LookupResult
+{
+    return withSessionCacheLock(const_cast<SSessionCache*>(this), [&]() -> LookupResult
+    {
+        if (const auto foundIt = found.find(key); foundIt != found.end())
+        {
+            ++stats.lookupFound;
+            result = foundIt->second;
+            return LookupResult::Found;
+        }
+        if (missing.contains(key))
+        {
+            ++stats.lookupMissing;
+            return LookupResult::Missing;
+        }
+        ++stats.lookupMiss;
+        return LookupResult::Miss;
+    });
+}
+
+void IShaderCompiler::CIncludeFinder::SSessionCache::store(const std::string& key, IIncludeLoader::found_t result)
+{
+    withSessionCacheLock(this, [&]()
+    {
+        missing.erase(key);
+        if (result)
+        {
+            ++stats.storeFound;
+            found.insert_or_assign(key, std::move(result));
+        }
+        else
+        {
+            ++stats.storeMissing;
+            missing.insert(key);
+        }
+    });
+}
+
+auto IShaderCompiler::CIncludeFinder::SSessionCache::snapshotStats() const -> Stats
+{
+    return withSessionCacheLock(const_cast<SSessionCache*>(this), [&]() -> Stats
+    {
+        return stats;
+    });
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
-    : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
+    : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(core::smart_refctd_ptr(system)))
 {
     addSearchPath("", m_defaultFileSystemLoader);
+    for (const auto& builtinRoot : system->getBuiltinMountAliases())
+        registerHeaderRoot(builtinRoot.generic_string(), {IncludeRootOrigin::Builtin,HeaderClass::System});
 }
 
 // ! includes within <>
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within <> of the include preprocessing directive
 // @param 
-auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash, SSessionCache* readSessionCache, SSessionCache* writeSessionCache) const -> IIncludeLoader::found_t
 {
+    const auto lookupName = normalizeIncludeLookupName(includeName);
+    const auto cacheKey = makeIncludeSessionCacheKey(requestingSourceDir, lookupName, needHash, 'S');
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (auto contents = tryIncludeGenerators(includeName))
+    switch (lookupIncludeSessionCache(readSessionCache, writeSessionCache, cacheKey, retVal))
+    {
+        case SSessionCache::LookupResult::Found:
+            return retVal;
+        case SSessionCache::LookupResult::Missing:
+            return {};
+        case SSessionCache::LookupResult::Miss:
+            break;
+    }
+
+    if (auto contents = tryIncludeGenerators(lookupName))
         retVal = std::move(contents);
-    else if (auto contents = trySearchPaths(includeName))
+    else if (auto contents = trySearchPaths(lookupName, needHash))
         retVal = std::move(contents);
-    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
+    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash);
 
 
-    core::blake3_hasher hasher;
-    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    retVal = classifyFound(std::move(retVal));
+
+    if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    }
+    writeIncludeSessionCache(writeSessionCache, cacheKey, retVal);
     return retVal;
 }
 
 // ! includes within ""
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within "" of the include preprocessing directive
-auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash, SSessionCache* readSessionCache, SSessionCache* writeSessionCache) const -> IIncludeLoader::found_t
 {
+    const auto lookupName = normalizeIncludeLookupName(includeName);
+    const auto cacheKey = makeIncludeSessionCacheKey(requestingSourceDir, lookupName, needHash, 'R');
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
-        retVal = std::move(contents);
-    else retVal = std::move(trySearchPaths(includeName));
+    switch (lookupIncludeSessionCache(readSessionCache, writeSessionCache, cacheKey, retVal))
+    {
+        case SSessionCache::LookupResult::Found:
+            return retVal;
+        case SSessionCache::LookupResult::Missing:
+            return {};
+        case SSessionCache::LookupResult::Miss:
+            break;
+    }
 
-    core::blake3_hasher hasher;
-    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), lookupName, needHash))
+        retVal = std::move(contents);
+    else retVal = std::move(trySearchPaths(lookupName, needHash));
+
+    retVal = classifyFound(std::move(retVal));
+
+    if (needHash && retVal && retVal.hash == core::blake3_hash_t{})
+    {
+        core::blake3_hasher hasher;
+        hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        retVal.hash = static_cast<core::blake3_hash_t>(hasher);
+    }
+    writeIncludeSessionCache(writeSessionCache, cacheKey, retVal);
     return retVal;
 }
 
-void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader)
+void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification)
 {
     if (!loader)
         return;
-    m_loaders.emplace_back(LoaderSearchPath{ loader, searchPath });
+    auto normalizedSearchPath = normalizeClassifiedRootPath(searchPath);
+    if (!normalizedSearchPath.empty())
+        registerHeaderRoot(normalizedSearchPath, classification);
+    m_loaders.emplace_back(LoaderSearchPath{ loader, std::move(normalizedSearchPath), classification });
 }
 
-void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd)
+void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd, IncludeClassification classification)
 {
     if (!generatorToAdd)
         return;
 
+    registerHeaderRoot(std::string(generatorToAdd->getPrefix()), classification);
+
     // this will find the place of first generator with prefix <= generatorToAdd or end
     auto found = std::lower_bound(m_generators.begin(), m_generators.end(), generatorToAdd->getPrefix(),
-        [](const core::smart_refctd_ptr<IIncludeGenerator>& generator, const std::string_view& value)
+        [](const GeneratorEntry& generator, const std::string_view& value)
         {
-            auto element = generator->getPrefix();
+            auto element = generator.generator->getPrefix();
             return element.compare(value) > 0; // first to return false is lower_bound -> first element that is <= value
         });
 
-    m_generators.insert(found, generatorToAdd);
+    m_generators.insert(found, GeneratorEntry{ generatorToAdd, classification });
 }
 
-auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const -> IIncludeLoader::found_t
+auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName, bool needHash) const -> IIncludeLoader::found_t
 {
     for (const auto& itr : m_loaders)
-        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName))
+        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName, needHash))
             return contents;
     return {};
 }
@@ -479,23 +920,23 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     while (!path.empty() && path.root_name().empty() && end != m_generators.end())
     {
         auto begin = std::lower_bound(end, m_generators.end(), path.string(),
-            [&standardizePrefix](const core::smart_refctd_ptr<IIncludeGenerator>& generator, const std::string& value)
+            [&standardizePrefix](const GeneratorEntry& generator, const std::string& value)
             {
-                const auto element = standardizePrefix(generator->getPrefix());
+                const auto element = standardizePrefix(generator.generator->getPrefix());
                 return element.compare(value) > 0; // first to return false is lower_bound -> first element that is <= value
             });
 
         // search from new beginning to real end
         end = std::upper_bound(begin, m_generators.end(), path.string(),
-            [&standardizePrefix](const std::string& value, const core::smart_refctd_ptr<IIncludeGenerator>& generator)
+            [&standardizePrefix](const std::string& value, const GeneratorEntry& generator)
             {
-                const auto element = standardizePrefix(generator->getPrefix());
+                const auto element = standardizePrefix(generator.generator->getPrefix());
                 return value.compare(element) > 0; // first to return true is upper_bound -> first element that is < value
             });
 
         for (auto generatorIt = begin; generatorIt != end; generatorIt++)
         {
-            if (auto contents = (*generatorIt)->getInclude(includeName))
+            if (auto contents = generatorIt->generator->getInclude(includeName))
                 return contents;
         }
 
@@ -503,6 +944,53 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     }
 
     return {};
+}
+
+bool IShaderCompiler::CIncludeFinder::isKnownGlobalInclude(std::string_view includeName) const
+{
+    const auto normalizedIncludeName = normalizeClassifiedRootPath(std::string(includeName));
+    return std::any_of(m_headerRoots.begin(), m_headerRoots.end(), [&](const HeaderRoot& root)
+    {
+        return root.classification.headerClass == HeaderClass::System && pathHasRegisteredRoot(normalizedIncludeName, root.path);
+    });
+}
+
+auto IShaderCompiler::CIncludeFinder::classifyFound(IIncludeLoader::found_t found) const -> IIncludeLoader::found_t
+{
+    if (!found)
+        return found;
+
+    const auto normalizedPath = normalizeClassifiedRootPath(found.absolutePath.generic_string());
+    size_t bestMatchLength = 0ull;
+    for (const auto& root : m_headerRoots)
+    {
+        if (root.path.size() <= bestMatchLength)
+            continue;
+        if (!pathHasRegisteredRoot(normalizedPath, root.path))
+            continue;
+        found.classification = root.classification;
+        bestMatchLength = root.path.size();
+    }
+    return found;
+}
+
+void IShaderCompiler::CIncludeFinder::registerHeaderRoot(std::string rootPath, IncludeClassification classification)
+{
+    rootPath = normalizeClassifiedRootPath(std::move(rootPath));
+    if (rootPath.empty())
+        return;
+
+    const auto found = std::find_if(m_headerRoots.begin(), m_headerRoots.end(), [&](const HeaderRoot& entry)
+    {
+        return entry.path == rootPath;
+    });
+    if (found != m_headerRoots.end())
+    {
+        found->classification = classification;
+        return;
+    }
+
+    m_headerRoots.push_back({ std::move(rootPath),classification });
 }
 
 core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const

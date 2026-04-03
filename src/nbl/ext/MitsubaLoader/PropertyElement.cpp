@@ -11,6 +11,7 @@
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
+#include "nbl/builtin/hlsl/colorspace/EOTF.hlsl"
 #include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
 #include "nbl/builtin/hlsl/math/quaternions.hlsl"
 #include "glm/gtc/matrix_transform.hpp"
@@ -111,6 +112,8 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 						return {};
 					}
 				}
+				// TODO: make this compile in C++ and replace the for loop below
+				//result.vvalue.xyz = hlsl::colorspace::eotf::sRGB(result.vvalue.xyz);
 				for (auto i=0; i<3u; i++)
 					result.vvalue[i] = core::srgb2lin(result.vvalue[i]);
 				result.type = SPropertyElementData::Type::RGB; // now its an RGB value
@@ -257,11 +260,12 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 					}
 					up[index] = 1.f;
 				}
-				// TODO: after the rm-core matrix PR we need to get rid of the tranpose (I transpose only because of GLM and HLSL mixup)
-				const auto lookAtGLM = reinterpret_cast<const hlsl::float32_t4x4&>(glm::lookAtLH<float>(origin,target,up));
-				const auto lookAt = hlsl::transpose(lookAtGLM);
+				const auto lookAt = hlsl::math::linalg::rhLookAt(origin, target, up);
 				// mitsuba understands look-at and right-handed camera little bit differently than I do
 				const auto rotation = hlsl::inverse(hlsl::float32_t3x3(lookAt));
+				for (auto i = 0; i < 3; i++)
+					for (auto j = 0; j < 3; j++)
+						result.mvalue[i][j] = rotation[i][j];
 				// set the origin to avoid numerical issues
 				for (auto r=0; r<3; r++)
 				{
