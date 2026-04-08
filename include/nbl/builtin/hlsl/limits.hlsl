@@ -209,7 +209,7 @@ struct num_traits<float16_t> : num_base<float16_t>
 {
     // since float16_t has no constexpr ctor we have to use float32_t constants on cpp side which is only needed for testing
     using type = 
-#ifdef __cplusplus
+#ifndef __HLSL_VERSION
     float32_t
 #else
     float16_t
