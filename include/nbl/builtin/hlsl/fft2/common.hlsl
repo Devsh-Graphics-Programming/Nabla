@@ -1,5 +1,5 @@
-#ifndef _NBL_BUILTIN_HLSL_FFT_COMMON_INCLUDED_
-#define _NBL_BUILTIN_HLSL_FFT_COMMON_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_FFT2_COMMON_INCLUDED_
+#define _NBL_BUILTIN_HLSL_FFT2_COMMON_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/complex.hlsl>
@@ -15,7 +15,21 @@ namespace hlsl
 namespace fft2
 {
 
-template <uint16_t SubgroupSize, uint16_t N NBL_FUNC_REQUIRES(N > 0 && N <= 4 && mpl::is_pot_v<SubgroupSize>)
+uint32_t padDimension(uint32_t dimension, uint16_t subgroupSize)
+{
+    const uint16_t subgroupFFTSize = subgroupSize << 1;
+    uint32_t padded = hlsl::roundUpToPoT(dimension);
+    if (padded <= subgroupFFTSize)
+        return subgroupFFTSize;
+    // Consider a factor of 3
+    padded = hlsl::min(padded, 3 * hlsl::roundUpToPoT(hlsl::ceilDiv<uint32_t>(dimension, 3)));
+    // Do the same for a factor of 5
+    padded = hlsl::min(padded, 5 * hlsl::roundUpToPoT(hlsl::ceilDiv<uint32_t>(dimension, 5)));
+    // TODO: Consider if factor of 7 is viable
+    return padded;
+}
+
+template <uint16_t N NBL_FUNC_REQUIRES(N > 0 && N <= 4)
 /**
 * @brief Returns the size of the full FFT computed, in terms of number of complex elements. If the signal is real, you MUST provide a valid value for `firstAxis` (this is to run two real FFTs as one complex).
          If the signal is complex, you must NOT pass any value to `firstAxis`.
@@ -27,21 +41,11 @@ template <uint16_t SubgroupSize, uint16_t N NBL_FUNC_REQUIRES(N > 0 && N <= 4 &&
 * @param [in] dimensions Size of the signal.
 * @param [in] firstAxis Indicates which axis the FFT is performed on first. Only relevant for real-valued signals.
 */
-inline vector<uint64_t, N> padDimensions(vector<uint32_t, N> dimensions, uint16_t firstAxis = N)
+inline vector<uint32_t, N> padDimensions(vector<uint32_t, N> dimensions, uint16_t subgroupSize, uint16_t firstAxis = N)
 {
-    const subgroupFFTSize = SubgroupSize << 1;
     vector<uint32_t, N> newDimensions;
     for (uint16_t i = 0u; i < N; i++)
-    {
-        newDimensions[i] = hlsl::roundUpToPoT(dimensions[i]);
-        if (dimensions[i] <= subgroupFFTSize)
-            continue;
-        // Consider a factor of 3
-        newDimensions[i] = hlsl::min(newDimensions[i], 3 * hlsl::roundUpToPoT(hlsl::ceilDiv(dimensions[i], 3)));
-        // Do the same for a factor of 5
-        newDimensions[i] = hlsl::min(newDimensions[i], 5 * hlsl::roundUpToPoT(hlsl::ceilDiv(dimensions[i], 5)));
-        // TODO: Consider if factor of 7 is viable
-    }
+        newDimensions[i] = padDimension(dimensions[i], subgroupSize);
     // If real, first axis gets halved since we run two real FFTs at once
     if (firstAxis < N)
         newDimensions[firstAxis] /= 2;
@@ -65,12 +69,13 @@ inline uint64_t getOutputBufferSize(
     uint32_t numChannels,
     vector<uint32_t, N> inputDimensions,
     uint16_t passIx,
+    uint16_t subgroupSize,
     vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
     bool realFFT = false,
     bool halfFloats = false
 )
 {
-    const vector<uint32_t, N> paddedDimensions = padDimensions<N>(inputDimensions, realFFT ? axisPassOrder[0] : N);
+    const vector<uint32_t, N> paddedDimensions = padDimensions<N>(inputDimensions, subgroupSize, realFFT ? axisPassOrder[0] : N);
     vector<bool, N> axesDone = promote<vector<bool, N>, bool>(false);
     for (uint16_t i = 0; i <= passIx; i++)
         axesDone[axisPassOrder[i]] = true;
@@ -100,13 +105,13 @@ inline uint64_t getOutputBufferSizeConvolution(
     vector<uint32_t, N> inputDimensions,
     vector<uint32_t, N> kernelDimensions,
     uint16_t passIx,
+    uint16_t subgroupSize,
     vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
     bool realFFT = false,
-
     bool halfFloats = false
 )
 {
-    const vector<uint32_t, N> paddedDimensions = padDimensions<N>(inputDimensions + kernelDimensions, realFFT ? axisPassOrder[0] : N);
+    const vector<uint32_t, N> paddedDimensions = padDimensions<N>(inputDimensions + kernelDimensions, subgroupSize, realFFT ? axisPassOrder[0] : N);
     vector<bool, N> axesDone = promote<vector<bool, N>, bool>(false);
     for (uint16_t i = 0; i <= passIx; i++)
         axesDone[axisPassOrder[i]] = true;
