@@ -1,6 +1,9 @@
 #ifndef _NBL_UI_KEYCODES_H_INCLUDED_
 #define _NBL_UI_KEYCODES_H_INCLUDED_
 
+#include <array>
+#include <string_view>
+
 namespace nbl::ui
 {
 
@@ -266,136 +269,6 @@ constexpr char keyCodeToChar(E_KEY_CODE code, bool shiftPressed)
 	return result;
 }
 
-constexpr E_KEY_CODE stringToKeyCode(std::string_view str)
-{
-	if (str == "BACKSPACE") return EKC_BACKSPACE;
-	if (str == "TAB") return EKC_TAB;
-	if (str == "CLEAR") return EKC_CLEAR;
-	if (str == "ENTER") return EKC_ENTER;
-	if (str == "LEFT_SHIFT") return EKC_LEFT_SHIFT;
-	if (str == "RIGHT_SHIFT") return EKC_RIGHT_SHIFT;
-	if (str == "LEFT_CONTROL") return EKC_LEFT_CONTROL;
-	if (str == "RIGHT_CONTROL") return EKC_RIGHT_CONTROL;
-	if (str == "LEFT_ALT") return EKC_LEFT_ALT;
-	if (str == "RIGHT_ALT") return EKC_RIGHT_ALT;
-	if (str == "PAUSE") return EKC_PAUSE;
-	if (str == "CAPS_LOCK") return EKC_CAPS_LOCK;
-	if (str == "ESCAPE") return EKC_ESCAPE;
-	if (str == "SPACE") return EKC_SPACE;
-	if (str == "PAGE_UP") return EKC_PAGE_UP;
-	if (str == "PAGE_DOWN") return EKC_PAGE_DOWN;
-	if (str == "END") return EKC_END;
-	if (str == "HOME") return EKC_HOME;
-	if (str == "LEFT_ARROW") return EKC_LEFT_ARROW;
-	if (str == "RIGHT_ARROW") return EKC_RIGHT_ARROW;
-	if (str == "DOWN_ARROW") return EKC_DOWN_ARROW;
-	if (str == "UP_ARROW") return EKC_UP_ARROW;
-	if (str == "SELECT") return EKC_SELECT;
-	if (str == "PRINT") return EKC_PRINT;
-	if (str == "EXECUTE") return EKC_EXECUTE;
-	if (str == "PRINT_SCREEN") return EKC_PRINT_SCREEN;
-	if (str == "INSERT") return EKC_INSERT;
-	if (str == "DELETE") return EKC_DELETE;
-	if (str == "HELP") return EKC_HELP;
-	if (str == "LEFT_WIN") return EKC_LEFT_WIN;
-	if (str == "RIGHT_WIN") return EKC_RIGHT_WIN;
-	if (str == "APPS") return EKC_APPS;
-	if (str == "COMMA") return EKC_COMMA;
-	if (str == "PERIOD") return EKC_PERIOD;
-	if (str == "SEMICOLON") return EKC_SEMICOLON;
-	if (str == "OPEN_BRACKET") return EKC_OPEN_BRACKET;
-	if (str == "CLOSE_BRACKET") return EKC_CLOSE_BRACKET;
-	if (str == "BACKSLASH") return EKC_BACKSLASH;
-	if (str == "APOSTROPHE") return EKC_APOSTROPHE;
-	if (str == "ADD") return EKC_ADD;
-	if (str == "SUBTRACT") return EKC_SUBTRACT;
-	if (str == "MULTIPLY") return EKC_MULTIPLY;
-	if (str == "DIVIDE") return EKC_DIVIDE;
-
-	if (str == "A" || str == "a") return EKC_A;
-	if (str == "B" || str == "b") return EKC_B;
-	if (str == "C" || str == "c") return EKC_C;
-	if (str == "D" || str == "d") return EKC_D;
-	if (str == "E" || str == "e") return EKC_E;
-	if (str == "F" || str == "f") return EKC_F;
-	if (str == "G" || str == "g") return EKC_G;
-	if (str == "H" || str == "h") return EKC_H;
-	if (str == "I" || str == "i") return EKC_I;
-	if (str == "J" || str == "j") return EKC_J;
-	if (str == "K" || str == "k") return EKC_K;
-	if (str == "L" || str == "l") return EKC_L;
-	if (str == "M" || str == "m") return EKC_M;
-	if (str == "N" || str == "n") return EKC_N;
-	if (str == "O" || str == "o") return EKC_O;
-	if (str == "P" || str == "p") return EKC_P;
-	if (str == "Q" || str == "q") return EKC_Q;
-	if (str == "R" || str == "r") return EKC_R;
-	if (str == "S" || str == "s") return EKC_S;
-	if (str == "T" || str == "t") return EKC_T;
-	if (str == "U" || str == "u") return EKC_U;
-	if (str == "V" || str == "v") return EKC_V;
-	if (str == "W" || str == "w") return EKC_W;
-	if (str == "X" || str == "x") return EKC_X;
-	if (str == "Y" || str == "y") return EKC_Y;
-	if (str == "Z" || str == "z") return EKC_Z;
-
-	if (str == "0") return EKC_0;
-	if (str == "1") return EKC_1;
-	if (str == "2") return EKC_2;
-	if (str == "3") return EKC_3;
-	if (str == "4") return EKC_4;
-	if (str == "5") return EKC_5;
-	if (str == "6") return EKC_6;
-	if (str == "7") return EKC_7;
-	if (str == "8") return EKC_8;
-	if (str == "9") return EKC_9;
-
-	if (str == "F1") return EKC_F1;
-	if (str == "F2") return EKC_F2;
-	if (str == "F3") return EKC_F3;
-	if (str == "F4") return EKC_F4;
-	if (str == "F5") return EKC_F5;
-	if (str == "F6") return EKC_F6;
-	if (str == "F7") return EKC_F7;
-	if (str == "F8") return EKC_F8;
-	if (str == "F9") return EKC_F9;
-	if (str == "F10") return EKC_F10;
-	if (str == "F11") return EKC_F11;
-	if (str == "F12") return EKC_F12;
-	if (str == "F13") return EKC_F13;
-	if (str == "F14") return EKC_F14;
-	if (str == "F15") return EKC_F15;
-	if (str == "F16") return EKC_F16;
-	if (str == "F17") return EKC_F17;
-	if (str == "F18") return EKC_F18;
-	if (str == "F19") return EKC_F19;
-	if (str == "F20") return EKC_F20;
-	if (str == "F21") return EKC_F21;
-	if (str == "F22") return EKC_F22;
-	if (str == "F23") return EKC_F23;
-	if (str == "F24") return EKC_F24;
-
-	if (str == "NUMPAD_0") return EKC_NUMPAD_0;
-	if (str == "NUMPAD_1") return EKC_NUMPAD_1;
-	if (str == "NUMPAD_2") return EKC_NUMPAD_2;
-	if (str == "NUMPAD_3") return EKC_NUMPAD_3;
-	if (str == "NUMPAD_4") return EKC_NUMPAD_4;
-	if (str == "NUMPAD_5") return EKC_NUMPAD_5;
-	if (str == "NUMPAD_6") return EKC_NUMPAD_6;
-	if (str == "NUMPAD_7") return EKC_NUMPAD_7;
-	if (str == "NUMPAD_8") return EKC_NUMPAD_8;
-	if (str == "NUMPAD_9") return EKC_NUMPAD_9;
-
-	if (str == "NUM_LOCK") return EKC_NUM_LOCK;
-	if (str == "SCROLL_LOCK") return EKC_SCROLL_LOCK;
-
-	if (str == "VOLUME_MUTE") return EKC_VOLUME_MUTE;
-	if (str == "VOLUME_UP") return EKC_VOLUME_UP;
-	if (str == "VOLUME_DOWN") return EKC_VOLUME_DOWN;
-
-	return EKC_NONE;
-}
-
 enum E_MOUSE_BUTTON : uint8_t
 {
 	EMB_LEFT_BUTTON,
@@ -433,6 +306,150 @@ enum E_MOUSE_CODE : uint8_t
 	EMC_COUNT,
 };
 
+namespace impl
+{
+
+template<typename Code>
+struct SNamedCode final
+{
+	std::string_view name;
+	Code code;
+};
+
+template<typename Code, size_t N>
+constexpr Code lookupNamedCode(std::string_view str, const std::array<SNamedCode<Code>, N>& table, const Code fallback)
+{
+	for (const auto& entry : table)
+	{
+		if (str == entry.name)
+			return entry.code;
+	}
+
+	return fallback;
+}
+
+constexpr char asciiToUpper(const char c)
+{
+	return (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+}
+
+static constexpr auto NamedKeyCodes = std::to_array<SNamedCode<E_KEY_CODE>>({
+	{ "BACKSPACE", E_KEY_CODE::EKC_BACKSPACE },
+	{ "TAB", E_KEY_CODE::EKC_TAB },
+	{ "CLEAR", E_KEY_CODE::EKC_CLEAR },
+	{ "ENTER", E_KEY_CODE::EKC_ENTER },
+	{ "LEFT_SHIFT", E_KEY_CODE::EKC_LEFT_SHIFT },
+	{ "RIGHT_SHIFT", E_KEY_CODE::EKC_RIGHT_SHIFT },
+	{ "LEFT_CONTROL", E_KEY_CODE::EKC_LEFT_CONTROL },
+	{ "RIGHT_CONTROL", E_KEY_CODE::EKC_RIGHT_CONTROL },
+	{ "LEFT_ALT", E_KEY_CODE::EKC_LEFT_ALT },
+	{ "RIGHT_ALT", E_KEY_CODE::EKC_RIGHT_ALT },
+	{ "PAUSE", E_KEY_CODE::EKC_PAUSE },
+	{ "CAPS_LOCK", E_KEY_CODE::EKC_CAPS_LOCK },
+	{ "ESCAPE", E_KEY_CODE::EKC_ESCAPE },
+	{ "SPACE", E_KEY_CODE::EKC_SPACE },
+	{ "PAGE_UP", E_KEY_CODE::EKC_PAGE_UP },
+	{ "PAGE_DOWN", E_KEY_CODE::EKC_PAGE_DOWN },
+	{ "END", E_KEY_CODE::EKC_END },
+	{ "HOME", E_KEY_CODE::EKC_HOME },
+	{ "LEFT_ARROW", E_KEY_CODE::EKC_LEFT_ARROW },
+	{ "RIGHT_ARROW", E_KEY_CODE::EKC_RIGHT_ARROW },
+	{ "DOWN_ARROW", E_KEY_CODE::EKC_DOWN_ARROW },
+	{ "UP_ARROW", E_KEY_CODE::EKC_UP_ARROW },
+	{ "SELECT", E_KEY_CODE::EKC_SELECT },
+	{ "PRINT", E_KEY_CODE::EKC_PRINT },
+	{ "EXECUTE", E_KEY_CODE::EKC_EXECUTE },
+	{ "PRINT_SCREEN", E_KEY_CODE::EKC_PRINT_SCREEN },
+	{ "INSERT", E_KEY_CODE::EKC_INSERT },
+	{ "DELETE", E_KEY_CODE::EKC_DELETE },
+	{ "HELP", E_KEY_CODE::EKC_HELP },
+	{ "LEFT_WIN", E_KEY_CODE::EKC_LEFT_WIN },
+	{ "RIGHT_WIN", E_KEY_CODE::EKC_RIGHT_WIN },
+	{ "APPS", E_KEY_CODE::EKC_APPS },
+	{ "COMMA", E_KEY_CODE::EKC_COMMA },
+	{ "PERIOD", E_KEY_CODE::EKC_PERIOD },
+	{ "SEMICOLON", E_KEY_CODE::EKC_SEMICOLON },
+	{ "OPEN_BRACKET", E_KEY_CODE::EKC_OPEN_BRACKET },
+	{ "CLOSE_BRACKET", E_KEY_CODE::EKC_CLOSE_BRACKET },
+	{ "BACKSLASH", E_KEY_CODE::EKC_BACKSLASH },
+	{ "APOSTROPHE", E_KEY_CODE::EKC_APOSTROPHE },
+	{ "ADD", E_KEY_CODE::EKC_ADD },
+	{ "SUBTRACT", E_KEY_CODE::EKC_SUBTRACT },
+	{ "MULTIPLY", E_KEY_CODE::EKC_MULTIPLY },
+	{ "DIVIDE", E_KEY_CODE::EKC_DIVIDE },
+	{ "F1", E_KEY_CODE::EKC_F1 },
+	{ "F2", E_KEY_CODE::EKC_F2 },
+	{ "F3", E_KEY_CODE::EKC_F3 },
+	{ "F4", E_KEY_CODE::EKC_F4 },
+	{ "F5", E_KEY_CODE::EKC_F5 },
+	{ "F6", E_KEY_CODE::EKC_F6 },
+	{ "F7", E_KEY_CODE::EKC_F7 },
+	{ "F8", E_KEY_CODE::EKC_F8 },
+	{ "F9", E_KEY_CODE::EKC_F9 },
+	{ "F10", E_KEY_CODE::EKC_F10 },
+	{ "F11", E_KEY_CODE::EKC_F11 },
+	{ "F12", E_KEY_CODE::EKC_F12 },
+	{ "F13", E_KEY_CODE::EKC_F13 },
+	{ "F14", E_KEY_CODE::EKC_F14 },
+	{ "F15", E_KEY_CODE::EKC_F15 },
+	{ "F16", E_KEY_CODE::EKC_F16 },
+	{ "F17", E_KEY_CODE::EKC_F17 },
+	{ "F18", E_KEY_CODE::EKC_F18 },
+	{ "F19", E_KEY_CODE::EKC_F19 },
+	{ "F20", E_KEY_CODE::EKC_F20 },
+	{ "F21", E_KEY_CODE::EKC_F21 },
+	{ "F22", E_KEY_CODE::EKC_F22 },
+	{ "F23", E_KEY_CODE::EKC_F23 },
+	{ "F24", E_KEY_CODE::EKC_F24 },
+	{ "NUMPAD_0", E_KEY_CODE::EKC_NUMPAD_0 },
+	{ "NUMPAD_1", E_KEY_CODE::EKC_NUMPAD_1 },
+	{ "NUMPAD_2", E_KEY_CODE::EKC_NUMPAD_2 },
+	{ "NUMPAD_3", E_KEY_CODE::EKC_NUMPAD_3 },
+	{ "NUMPAD_4", E_KEY_CODE::EKC_NUMPAD_4 },
+	{ "NUMPAD_5", E_KEY_CODE::EKC_NUMPAD_5 },
+	{ "NUMPAD_6", E_KEY_CODE::EKC_NUMPAD_6 },
+	{ "NUMPAD_7", E_KEY_CODE::EKC_NUMPAD_7 },
+	{ "NUMPAD_8", E_KEY_CODE::EKC_NUMPAD_8 },
+	{ "NUMPAD_9", E_KEY_CODE::EKC_NUMPAD_9 },
+	{ "NUM_LOCK", E_KEY_CODE::EKC_NUM_LOCK },
+	{ "SCROLL_LOCK", E_KEY_CODE::EKC_SCROLL_LOCK },
+	{ "VOLUME_MUTE", E_KEY_CODE::EKC_VOLUME_MUTE },
+	{ "VOLUME_UP", E_KEY_CODE::EKC_VOLUME_UP },
+	{ "VOLUME_DOWN", E_KEY_CODE::EKC_VOLUME_DOWN }
+});
+
+static constexpr auto NamedMouseCodes = std::to_array<SNamedCode<E_MOUSE_CODE>>({
+	{ "LEFT_BUTTON", E_MOUSE_CODE::EMC_LEFT_BUTTON },
+	{ "RIGHT_BUTTON", E_MOUSE_CODE::EMC_RIGHT_BUTTON },
+	{ "MIDDLE_BUTTON", E_MOUSE_CODE::EMC_MIDDLE_BUTTON },
+	{ "BUTTON_4", E_MOUSE_CODE::EMC_BUTTON_4 },
+	{ "BUTTON_5", E_MOUSE_CODE::EMC_BUTTON_5 },
+	{ "VERTICAL_POSITIVE_SCROLL", E_MOUSE_CODE::EMC_VERTICAL_POSITIVE_SCROLL },
+	{ "VERTICAL_NEGATIVE_SCROLL", E_MOUSE_CODE::EMC_VERTICAL_NEGATIVE_SCROLL },
+	{ "HORIZONTAL_POSITIVE_SCROLL", E_MOUSE_CODE::EMC_HORIZONTAL_POSITIVE_SCROLL },
+	{ "HORIZONTAL_NEGATIVE_SCROLL", E_MOUSE_CODE::EMC_HORIZONTAL_NEGATIVE_SCROLL },
+	{ "RELATIVE_POSITIVE_MOVEMENT_X", E_MOUSE_CODE::EMC_RELATIVE_POSITIVE_MOVEMENT_X },
+	{ "RELATIVE_POSITIVE_MOVEMENT_Y", E_MOUSE_CODE::EMC_RELATIVE_POSITIVE_MOVEMENT_Y },
+	{ "RELATIVE_NEGATIVE_MOVEMENT_X", E_MOUSE_CODE::EMC_RELATIVE_NEGATIVE_MOVEMENT_X },
+	{ "RELATIVE_NEGATIVE_MOVEMENT_Y", E_MOUSE_CODE::EMC_RELATIVE_NEGATIVE_MOVEMENT_Y }
+});
+
+} // namespace impl
+
+constexpr E_KEY_CODE stringToKeyCode(std::string_view str)
+{
+	if (str.size() == 1u)
+	{
+		const char upper = impl::asciiToUpper(str.front());
+		if (upper >= 'A' && upper <= 'Z')
+			return static_cast<E_KEY_CODE>(upper);
+		if (upper >= '0' && upper <= '9')
+			return static_cast<E_KEY_CODE>(upper);
+	}
+
+	return impl::lookupNamedCode(str, impl::NamedKeyCodes, E_KEY_CODE::EKC_NONE);
+}
+
 constexpr std::string_view mouseCodeToString(E_MOUSE_CODE code)
 {
 	switch (code)
@@ -459,21 +476,7 @@ constexpr std::string_view mouseCodeToString(E_MOUSE_CODE code)
 
 constexpr E_MOUSE_CODE stringToMouseCode(std::string_view str)
 {
-	if (str == "LEFT_BUTTON") return EMC_LEFT_BUTTON;
-	if (str == "RIGHT_BUTTON") return EMC_RIGHT_BUTTON;
-	if (str == "MIDDLE_BUTTON") return EMC_MIDDLE_BUTTON;
-	if (str == "BUTTON_4") return EMC_BUTTON_4;
-	if (str == "BUTTON_5") return EMC_BUTTON_5;
-	if (str == "VERTICAL_POSITIVE_SCROLL") return EMC_VERTICAL_POSITIVE_SCROLL;
-	if (str == "VERTICAL_NEGATIVE_SCROLL") return EMC_VERTICAL_NEGATIVE_SCROLL;
-	if (str == "HORIZONTAL_POSITIVE_SCROLL") return EMC_HORIZONTAL_POSITIVE_SCROLL;
-	if (str == "HORIZONTAL_NEGATIVE_SCROLL") return EMC_HORIZONTAL_NEGATIVE_SCROLL;
-	if (str == "RELATIVE_POSITIVE_MOVEMENT_X") return EMC_RELATIVE_POSITIVE_MOVEMENT_X;
-	if (str == "RELATIVE_POSITIVE_MOVEMENT_Y") return EMC_RELATIVE_POSITIVE_MOVEMENT_Y;
-	if (str == "RELATIVE_NEGATIVE_MOVEMENT_X") return EMC_RELATIVE_NEGATIVE_MOVEMENT_X;
-	if (str == "RELATIVE_NEGATIVE_MOVEMENT_Y") return EMC_RELATIVE_NEGATIVE_MOVEMENT_Y;
-
-	return EMC_NONE;
+	return impl::lookupNamedCode(str, impl::NamedMouseCodes, E_MOUSE_CODE::EMC_NONE);
 }
 
 }
