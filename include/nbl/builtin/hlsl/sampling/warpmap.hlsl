@@ -59,9 +59,9 @@ struct WarpmapSampler
 
   codomain_type generate(const domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
-    float32_t2 texelCoord = xi * float32_t2(_lastTexel.x, _lastTexel.y);
+    vector2_type texelCoord = xi * vector2_type(_lastTexel.x, _lastTexel.y);
     vector2_type interpolant = hlsl::fract(texelCoord);
-    uint32_t2 warpmapUv = texelCoord / float32_t2(_warpMap.resolution());
+    float32_t2 warpmapUv = (texelCoord + float32_t2(0.5, 0.5)) / vector2_type(_warpMap.resolution());
 
     matrix<typename HierarchicalSamplerT::scalar_type, 4, 2> uvs;
     _warpMap.gatherUv(warpmapUv, uvs);
@@ -98,9 +98,11 @@ struct WarpmapSampler
     return pdf;
   }
 
-  weight_type forwardWeight(const domain_type xi, const cache_type cache)
+  weight_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
-    scalar_type luma;
+    vector2_type texelCoord = cache.warpedUv * vector2_type(_lastTexel.x, _lastTexel.y);
+    float32_t2 lumaMapUv = (texelCoord + float32_t2(0.5, 0.5)) / vector2_type(_lastTexel.x + 1, _lastTexel.y + 1);
+    weight_type luma;
     _lumaMap.get(cache.warpedUv, luma);
     return (luma * _postWarp.forwardWeight(cache.warpedUv, cache.postWarpCache)) / _lumaMap.getAvgLuma();
   }
@@ -108,6 +110,8 @@ struct WarpmapSampler
   weight_type backwardWeight(codomain_type direction) NBL_CONST_MEMBER_FUNC
   {
     vector2_type envmapUv = _postWarp.generateInverse(direction);
+    vector2_type texelCoord = envmapUv * vector2_type(_lastTexel.x, _lastTexel.y);
+    float32_t2 lumaMapUv = (texelCoord + float32_t2(0.5, 0.5)) / vector2_type(_lastTexel.x + 1, _lastTexel.y + 1);
     scalar_type luma;
     _lumaMap.get(envmapUv, luma);
     return (luma * _postWarp.backwardWeight(direction)) / _lumaMap.getAvgLuma();
