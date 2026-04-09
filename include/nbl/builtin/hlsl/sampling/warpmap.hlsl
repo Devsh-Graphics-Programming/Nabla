@@ -18,7 +18,6 @@ namespace sampling
 {
 
 // TODO: Add some constraint into PostWarpT
-// Ask(kevin): Should we add constraint so the WarpAccessor::scalar_type is the same as LuminanceAccessorT::value_type. One is a uv and the other is luminance. Technically, they can have different type. 
 template <typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT> &&
