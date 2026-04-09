@@ -54,7 +54,7 @@ struct LuminanceAccessor
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
 {
-  if (all(threadID.xyz < uint32_t3(pc.warpMapHeight, pc.warpMapWidth, pc.lumaMapLayer)))
+  if (all(threadID.xyz < uint32_t3(pc.warpMapWidth, pc.warpMapHeight, pc.lumaMapLayer)))
   {
     using WarpGenerator = HierarchicalLuminanceSampler<LuminanceAccessor>;
 
