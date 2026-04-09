@@ -28,20 +28,20 @@ struct DefaultCascades
         data[cascadeIx] = promote<CascadeLayerType, float32_t>(0.0f);
     }
 
-    void addSampleIntoCascadeEntry(CascadeLayerType _sample, uint16_t lowerCascadeIndex, SSplattingParameters::scalar_t lowerCascadeLevelWeight, SSplattingParameters::scalar_t higherCascadeLevelWeight, uint32_t sampleCount)
+    void addSampleIntoCascadeEntry(layer_type _sample, uint16_t lowerCascadeIndex, SSplattingParameters::scalar_t lowerCascadeLevelWeight, SSplattingParameters::scalar_t higherCascadeLevelWeight, sample_count_type sampleCount)
     {
         const SSplattingParameters::scalar_t reciprocalSampleCount = SSplattingParameters::scalar_t(1.0f) / SSplattingParameters::scalar_t(sampleCount);
 
         sample_count_type lowerCascadeSampleCount = cascadeSampleCounter[lowerCascadeIndex];
         data[lowerCascadeIndex] += (_sample * lowerCascadeLevelWeight - (sampleCount - lowerCascadeSampleCount) * data[lowerCascadeIndex]) * reciprocalSampleCount;
-        cascadeSampleCounter[lowerCascadeIndex] = sample_count_type(sampleCount);
+        cascadeSampleCounter[lowerCascadeIndex] = sampleCount;
 
         uint16_t higherCascadeIndex = lowerCascadeIndex + uint16_t(1u);
         if (higherCascadeIndex < CascadeCount)
         {
             sample_count_type higherCascadeSampleCount = cascadeSampleCounter[higherCascadeIndex];
             data[higherCascadeIndex] += (_sample * higherCascadeLevelWeight - (sampleCount - higherCascadeSampleCount) * data[higherCascadeIndex]) * reciprocalSampleCount;
-            cascadeSampleCounter[higherCascadeIndex] = sample_count_type(sampleCount);
+            cascadeSampleCounter[higherCascadeIndex] = sampleCount;
         }
     }
 };
@@ -51,9 +51,10 @@ struct CascadeAccumulator
 {
     using scalar_t = typename SSplattingParameters::scalar_t;
     using input_sample_type = typename CascadesType::layer_type;
+    using sample_count_type = typename CascadesType::sample_count_type;
     using this_t = CascadeAccumulator<CascadesType>;
     using cascades_type = CascadesType;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CascadeCount = cascades_type::CascadeCount;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t CascadeCount = cascades_type::CascadeCount;
     NBL_CONSTEXPR_STATIC_INLINE scalar_t LastCascade = scalar_t(CascadeCount - 1u);
     cascades_type accumulation;
     
@@ -62,7 +63,7 @@ struct CascadeAccumulator
     static this_t create(NBL_CONST_REF_ARG(SPackedSplattingParameters) settings)
     {
         this_t retval;
-        for (uint32_t i = 0u; i < CascadeCount; ++i)
+        for (uint16_t i = 0u; i < CascadeCount; ++i)
             retval.accumulation.clear(i);
         retval.splattingParameters = settings.unpack();
 
@@ -70,7 +71,7 @@ struct CascadeAccumulator
     }
 
     // most of this code is stolen from https://cg.ivd.kit.edu/publications/2018/rwmc/tool/split.cpp
-    void addSample(uint32_t sampleCount, input_sample_type _sample)
+    void addSample(const sample_count_type sampleCount, input_sample_type _sample)
     {
         const scalar_t luma = splattingParameters.calcLuma<input_sample_type>(_sample);
         const scalar_t log2Luma = log2<scalar_t>(luma);
