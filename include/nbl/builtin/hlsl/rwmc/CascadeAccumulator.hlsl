@@ -12,38 +12,45 @@ namespace hlsl
 namespace rwmc
 {
 
-template<typename CascadeLayerType, uint32_t CascadeCountValue, typename SampleCountType = uint16_t NBL_PRIMARY_REQUIRES(concepts::Vector<CascadeLayerType> && concepts::UnsignedIntegralScalar<SampleCountType>)
+template<typename CascadeLayerType, uint16_t CascadeCount, typename SampleCountType = uint16_t NBL_PRIMARY_REQUIRES(concepts::Vector<CascadeLayerType> && concepts::UnsignedIntegralScalar<SampleCountType>)
 struct DefaultCascades
 {
+    // required public interfaces (TODO: a concept for it)
     using layer_type = CascadeLayerType;
     using sample_count_type = SampleCountType;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t CascadeCount = CascadeCountValue;
+    using weight_t = typename SSplattingParameters::scalar_t;
 
-    sample_count_type cascadeSampleCounter[CascadeCount];
-    CascadeLayerType data[CascadeCount];
+    inline uint16_t getLastCascade() {return CascadeCount-uint16_t(1);}
 
-    void clear(uint32_t cascadeIx)
+    void clear()
     {
-        cascadeSampleCounter[cascadeIx] = sample_count_type(0u);
-        data[cascadeIx] = promote<CascadeLayerType, float32_t>(0.0f);
+        for (uint16_t i=0u; i<CascadeCount; ++i)
+        {
+            __cascadeSampleCounter[i] = sample_count_type(0u);
+            __data[i] = promote<CascadeLayerType,float32_t>(0.0f);
+        }
     }
 
-    void addSampleIntoCascadeEntry(layer_type _sample, uint16_t lowerCascadeIndex, SSplattingParameters::scalar_t lowerCascadeLevelWeight, SSplattingParameters::scalar_t higherCascadeLevelWeight, sample_count_type sampleCount)
+    void addSampleIntoCascadeEntry(const layer_type _sample, const uint16_t lowerCascadeIndex, const weight_t lowerCascadeLevelWeight, const weight_t higherCascadeLevelWeight, const sample_count_type sampleCount)
     {
-        const SSplattingParameters::scalar_t reciprocalSampleCount = SSplattingParameters::scalar_t(1.0f) / SSplattingParameters::scalar_t(sampleCount);
+        const weight_t reciprocalSampleCount = _static_cast<weight_t>(1)/_static_cast<weight_t>(sampleCount);
 
-        sample_count_type lowerCascadeSampleCount = cascadeSampleCounter[lowerCascadeIndex];
-        data[lowerCascadeIndex] += (_sample * lowerCascadeLevelWeight - (sampleCount - lowerCascadeSampleCount) * data[lowerCascadeIndex]) * reciprocalSampleCount;
-        cascadeSampleCounter[lowerCascadeIndex] = sampleCount;
+        sample_count_type lowerCascadeSampleCount = __cascadeSampleCounter[lowerCascadeIndex];
+        __data[lowerCascadeIndex] += (_sample * lowerCascadeLevelWeight - (sampleCount - lowerCascadeSampleCount) * __data[lowerCascadeIndex]) * reciprocalSampleCount;
+        __cascadeSampleCounter[lowerCascadeIndex] = sampleCount;
 
         uint16_t higherCascadeIndex = lowerCascadeIndex + uint16_t(1u);
         if (higherCascadeIndex < CascadeCount)
         {
-            sample_count_type higherCascadeSampleCount = cascadeSampleCounter[higherCascadeIndex];
-            data[higherCascadeIndex] += (_sample * higherCascadeLevelWeight - (sampleCount - higherCascadeSampleCount) * data[higherCascadeIndex]) * reciprocalSampleCount;
-            cascadeSampleCounter[higherCascadeIndex] = sampleCount;
+            sample_count_type higherCascadeSampleCount = __cascadeSampleCounter[higherCascadeIndex];
+            __data[higherCascadeIndex] += (_sample * higherCascadeLevelWeight - (sampleCount - higherCascadeSampleCount) * __data[higherCascadeIndex]) * reciprocalSampleCount;
+            __cascadeSampleCounter[higherCascadeIndex] = sampleCount;
         }
     }
+    
+    // private
+    sample_count_type __cascadeSampleCounter[CascadeCount];
+    CascadeLayerType __data[CascadeCount];
 };
 
 template<typename CascadesType>
@@ -52,19 +59,18 @@ struct CascadeAccumulator
     using scalar_t = typename SSplattingParameters::scalar_t;
     using input_sample_type = typename CascadesType::layer_type;
     using sample_count_type = typename CascadesType::sample_count_type;
+    using weight_t = typename CascadesType::weight_t;
     using this_t = CascadeAccumulator<CascadesType>;
     using cascades_type = CascadesType;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t CascadeCount = cascades_type::CascadeCount;
-    NBL_CONSTEXPR_STATIC_INLINE scalar_t LastCascade = scalar_t(CascadeCount - 1u);
+
     cascades_type accumulation;
-    
     SSplattingParameters splattingParameters;
 
-    static this_t create(NBL_CONST_REF_ARG(SPackedSplattingParameters) settings)
+    static this_t create(NBL_CONST_REF_ARG(SPackedSplattingParameters) settings, const bool clear=true)
     {
         this_t retval;
-        for (uint16_t i = 0u; i < CascadeCount; ++i)
-            retval.accumulation.clear(i);
+        if (clear)
+            retval.accumulation.clear();
         retval.splattingParameters = settings.unpack();
 
         return retval;
@@ -73,25 +79,27 @@ struct CascadeAccumulator
     // most of this code is stolen from https://cg.ivd.kit.edu/publications/2018/rwmc/tool/split.cpp
     void addSample(const sample_count_type sampleCount, input_sample_type _sample)
     {
-        const scalar_t luma = splattingParameters.calcLuma<input_sample_type>(_sample);
-        const scalar_t log2Luma = log2<scalar_t>(luma);
+        const uint16_t lastCascade = accumulation.getLastCascade();
+
+        const weight_t luma = splattingParameters.calcLuma<input_sample_type>(_sample);
+        const weight_t log2Luma = hlsl::log2<weight_t>(luma);
         const scalar_t cascade = log2Luma * splattingParameters.RcpLog2Base - splattingParameters.Log2BaseRootOfStart;
-        const scalar_t clampedCascade = clamp(cascade, scalar_t(0), LastCascade);
-        const scalar_t clampedCascadeFloor = floor<scalar_t>(clampedCascade);
+        const scalar_t clampedCascade = hlsl::clamp<scalar_t>(cascade, scalar_t(0), lastCascade);
+        const scalar_t clampedCascadeFloor = hlsl::floor(clampedCascade);
         // c<=0 -> 0, c>=Count-1 -> Count-1 
-        uint16_t lowerCascadeIndex = uint16_t(clampedCascadeFloor);
+        const uint16_t lowerCascadeIndex = _static_cast<uint16_t>(clampedCascadeFloor);
         // 0 whenever clamped or `cascade` is integer (when `clampedCascade` is integer)
-        scalar_t higherCascadeWeight = clampedCascade - clampedCascadeFloor;
+        const weight_t higherCascadeWeight = _static_cast<weight_t>(clampedCascade - clampedCascadeFloor);
         // never 0 thanks to magic of `1-fract(x)`
-        scalar_t lowerCascadeWeight = scalar_t(1) - higherCascadeWeight;
+        weight_t lowerCascadeWeight = weight_t(1) - higherCascadeWeight;
 
         // handle super bright sample case
-        if (cascade > LastCascade)
-            lowerCascadeWeight = exp2(splattingParameters.BrightSampleLumaBias - log2Luma);
+        if (cascade > lastCascade)
+            lowerCascadeWeight = hlsl::exp2(_static_cast<weight_t>(splattingParameters.BrightSampleLumaBias - log2Luma));
 
         accumulation.addSampleIntoCascadeEntry(_sample, lowerCascadeIndex, lowerCascadeWeight, higherCascadeWeight, sampleCount);
     }
-
+     
     
 };
 
