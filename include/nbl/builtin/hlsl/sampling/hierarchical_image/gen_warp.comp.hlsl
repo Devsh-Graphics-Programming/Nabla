@@ -38,8 +38,8 @@ struct LuminanceAccessor
 
     value_type getAvgLuma() NBL_CONST_MEMBER_FUNC
     {
-        const uint16_t lastMipLevel = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(pc.warpMapHeight)));
-        if (pc.warpMapHeight == pc.warpMapWidth)
+        const uint16_t lastMipLevel = _static_cast<uint16_t>(findMSB(_static_cast<uint32_t>(pc.lumaMapHeight)));
+        if (pc.lumaMapHeight == pc.lumaMapWidth)
         {
             return lumaMap.Load(int4(0, 0, _layerIndex, lastMipLevel));
         } else
