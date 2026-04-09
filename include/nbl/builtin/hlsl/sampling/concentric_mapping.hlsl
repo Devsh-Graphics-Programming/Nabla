@@ -35,7 +35,7 @@ struct ConcentricMapping
 
    struct cache_type
    {
-      // TODO: should we cache `r`?
+      scalar_type r2;
    };
 
    static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
@@ -50,10 +50,10 @@ struct ConcentricMapping
       const bool cond = a * a > b * b;
       const scalar_type dominant = hlsl::select(cond, a, b);
       const scalar_type minor = hlsl::select(cond, b, a);
-	  
+
       const scalar_type safe_dominant = dominant != scalar_type(0) ? dominant : scalar_type(0);
       const scalar_type ratio = minor / safe_dominant;
-	  
+
       const scalar_type angle = scalar_type(0.25) * numbers::pi<scalar_type> * ratio;
       const scalar_type c = hlsl::cos<scalar_type>(angle);
       const scalar_type s = hlsl::sin<scalar_type>(angle);
@@ -62,6 +62,7 @@ struct ConcentricMapping
       const scalar_type x = hlsl::select(cond, c, s);
       const scalar_type y = hlsl::select(cond, s, c);
 
+      cache.r2 = dominant * dominant;
       return dominant * vector2_type(x, y);
    }
 

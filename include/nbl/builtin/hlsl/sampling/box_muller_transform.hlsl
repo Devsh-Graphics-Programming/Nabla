@@ -31,7 +31,6 @@ struct BoxMullerTransform
     struct cache_type
     {
         vector2_type direction; // (cosPhi, sinPhi)
-        scalar_type u_x;
     };
 
     static BoxMullerTransform<T> create(const scalar_type _stddev)
@@ -47,13 +46,12 @@ struct BoxMullerTransform
         scalar_type sinPhi, cosPhi;
         math::sincos<scalar_type>(scalar_type(2.0) * numbers::pi<scalar_type> * u.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
         cache.direction = vector2_type(cosPhi, sinPhi);
-        cache.u_x = u.x;
         return cache.direction * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
     }
 
     density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return halfRcpStddev2 * numbers::inv_pi<scalar_type> * cache.u_x;
+        return halfRcpStddev2 * numbers::inv_pi<scalar_type> * u.x;
     }
 
     vector2_type separateForwardPdf(const cache_type cache) NBL_CONST_MEMBER_FUNC

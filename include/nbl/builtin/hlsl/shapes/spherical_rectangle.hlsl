@@ -9,6 +9,7 @@
 #include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/math/angle_adding.hlsl>
+#include <nbl/builtin/hlsl/math/fast_acos.hlsl>
 
 namespace nbl
 {
@@ -82,7 +83,16 @@ struct SphericalRectangle
     using scalar_type = Scalar;
     using vector2_type = vector<Scalar, 2>;
     using vector3_type = vector<Scalar, 3>;
+    using vector4_type = vector<Scalar, 4>;
     using matrix3x3_type = matrix<Scalar, 3, 3>;
+
+    struct solid_angle_type
+    {
+        scalar_type value;
+        vector3_type r0;
+        vector4_type n_z;
+        vector4_type cosGamma;
+    };
 
     static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(CompressedSphericalRectangle<Scalar>) compressed)
     {
@@ -91,29 +101,30 @@ struct SphericalRectangle
         retval.extents = vector2_type(hlsl::length(compressed.right), hlsl::length(compressed.up));
         retval.basis[0] = compressed.right / retval.extents[0];
         retval.basis[1] = compressed.up / retval.extents[1];
-        assert(hlsl::dot(retval.basis[0], retval.basis[1]) > scalar_type(0.0));
+        assert(hlsl::abs(hlsl::dot(retval.basis[0], retval.basis[1])) < scalar_type(1e-5));
         retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
         return retval;
     }
 
-    scalar_type solidAngle(const vector3_type observer)
+    solid_angle_type solidAngle(const vector3_type observer) NBL_CONST_MEMBER_FUNC
     {
-        const vector3_type r0 = hlsl::mul(basis, origin - observer);
+        solid_angle_type result;
+        result.r0 = hlsl::mul(basis, origin - observer);
 
-        using vector4_type = vector<Scalar, 4>;
-        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + extents.x, r0.y + extents.y, -r0.x);
-        const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(r0.z * r0.z) + denorm_n_z * denorm_n_z);
-        const vector4_type cosGamma = vector4_type(
-            -n_z[0] * n_z[1],
-            -n_z[1] * n_z[2],
-            -n_z[2] * n_z[3],
-            -n_z[3] * n_z[0]
+        const vector4_type denorm_n_z = vector4_type(-result.r0.y, result.r0.x + extents.x, result.r0.y + extents.y, -result.r0.x);
+        result.n_z = denorm_n_z / nbl::hlsl::sqrt(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
+        result.cosGamma = vector4_type(
+            -result.n_z[0] * result.n_z[1],
+            -result.n_z[1] * result.n_z[2],
+            -result.n_z[2] * result.n_z[3],
+            -result.n_z[3] * result.n_z[0]
         );
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
-        angle_adder.addCosine(cosGamma[1]);
-        angle_adder.addCosine(cosGamma[2]);
-        angle_adder.addCosine(cosGamma[3]);
-        return angle_adder.getSumofArccos() - scalar_type(2.0) * numbers::pi<float>;
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(result.cosGamma[0]);
+        angle_adder.addCosine(result.cosGamma[1]);
+        angle_adder.addCosine(result.cosGamma[2]);
+        angle_adder.addCosine(result.cosGamma[3]);
+        result.value = angle_adder.getSumOfArccos() - scalar_type(2.0) * numbers::pi<scalar_type>;
+        return result;
     }
 
     vector3_type origin;

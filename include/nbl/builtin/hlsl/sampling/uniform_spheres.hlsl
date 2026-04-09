@@ -9,6 +9,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
+#include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
 
 namespace nbl
 {
@@ -16,27 +17,6 @@ namespace hlsl
 {
 namespace sampling
 {
-
-namespace impl
-{
-template<typename T>
-vector<T, 3> directionFromZandPhi(const T z, const T phiSample)
-{
-	const T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
-	const T phi = T(2.0) * numbers::pi<T> * phiSample;
-	return vector<T, 3>(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
-}
-
-template<typename T>
-T phiSampleFromDirection(const T x, const T y)
-{
-	T phi = hlsl::atan2(y, x);
-	const T twopi = T(2.0) * numbers::pi<T>;
-	phi /= twopi;
-	phi += hlsl::select(phi < T(0.0), T(1.0), T(0.0));
-	return phi;
-}
-}
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct UniformHemisphere
@@ -53,29 +33,25 @@ struct UniformHemisphere
 
 	struct cache_type {};
 
-	static codomain_type __generate(const domain_type u)
-	{
-		return impl::directionFromZandPhi(u.x, u.y);
-	}
-
 	static codomain_type generate(const domain_type u)
 	{
-		return __generate(u);
+		typename ConcentricMapping<T>::cache_type cmCache;
+		const vector_t2 p = ConcentricMapping<T>::generate(u, cmCache);
+		const T z = T(1.0) - cmCache.r2;
+		const T xyScale = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(2.0) - cmCache.r2));
+		return vector_t3(p.x * xyScale, p.y * xyScale, z);
 	}
 
 	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
-		return __generate(u);
-	}
-
-	static domain_type __generateInverse(const codomain_type v)
-	{
-		return vector_t2(v.z, impl::phiSampleFromDirection(v.x, v.y));
+		return generate(u);
 	}
 
 	static domain_type generateInverse(const codomain_type v)
 	{
-		return __generateInverse(v);
+		// r_disk / r_xy = sqrt(1-z) / sqrt(1-z^2) = 1/sqrt(1+z)
+		const T scale = T(1.0) / hlsl::sqrt<T>(T(1.0) + v.z);
+		return ConcentricMapping<T>::generateInverse(vector_t2(v.x * scale, v.y * scale));
 	}
 
 	static density_type forwardPdf(const domain_type u, const cache_type cache)
@@ -118,30 +94,23 @@ struct UniformSphere
 
 	using cache_type = typename hemisphere_t::cache_type;
 
-	static codomain_type __generate(const domain_type u)
-	{
-		return impl::directionFromZandPhi(T(1.0) - T(2.0) * u.x, u.y);
-	}
-
 	static codomain_type generate(const domain_type u)
 	{
-		return __generate(u);
+		const T tmp = u.x * T(2.0) - T(1.0);
+		const codomain_type L = hemisphere_t::generate(vector_t2(hlsl::abs<T>(tmp), u.y));
+		return vector_t3(L.x, L.y, L.z * hlsl::sign(tmp));
 	}
 
 	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
-		return __generate(u);
-	}
-
-	static domain_type __generateInverse(const codomain_type v)
-	{
-		// Inverse of z = 1 - 2*x => x = (1 - z) / 2
-		return vector_t2((T(1.0) - v.z) * T(0.5), impl::phiSampleFromDirection(v.x, v.y));
+		return generate(u);
 	}
 
 	static domain_type generateInverse(const codomain_type v)
 	{
-		return __generateInverse(v);
+		const T dir = hlsl::sign(v.z) * T(0.5);
+		const domain_type hemiU = hemisphere_t::generateInverse(vector_t3(v.x, v.y, hlsl::abs<T>(v.z)));
+		return vector_t2(hemiU.x * dir + T(0.5), hemiU.y);
 	}
 
 	static density_type forwardPdf(const domain_type u, const cache_type cache)
@@ -156,12 +125,12 @@ struct UniformSphere
 
 	static density_type backwardPdf(const codomain_type v)
 	{
-		return T(0.5) * hemisphere_t::backwardPdf(v);
+		return T(0.25) * numbers::inv_pi<T>;
 	}
 
 	static weight_type backwardWeight(const codomain_type v)
 	{
-		return T(0.5) * hemisphere_t::backwardWeight(v);
+		return T(0.25) * numbers::inv_pi<T>;
 	}
 
 };

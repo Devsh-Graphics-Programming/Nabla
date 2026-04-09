@@ -8,6 +8,8 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
+#include <nbl/builtin/hlsl/math/fast_acos.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/shapes/spherical_rectangle.hlsl>
 
 namespace nbl
@@ -39,54 +41,43 @@ struct SphericalRectangle
     {
         SphericalRectangle<T> retval;
 
-        retval.r0 = hlsl::mul(rect.basis, rect.origin - observer);
-        const vector4_type denorm_n_z = vector4_type(-retval.r0.y, retval.r0.x + rect.extents.x, retval.r0.y + rect.extents.y, -retval.r0.x);
-        const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>(hlsl::promote<vector4_type>(retval.r0.z * retval.r0.z) + denorm_n_z * denorm_n_z);
-        retval.cosGamma = vector4_type(
-            -n_z[0] * n_z[1],
-            -n_z[1] * n_z[2],
-            -n_z[2] * n_z[3],
-            -n_z[3] * n_z[0]
-        );
+        const typename shapes::SphericalRectangle<T>::solid_angle_type sa = rect.solidAngle(observer);
+        retval.r0 = sa.r0;
 
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(retval.cosGamma[0]);
-        angle_adder.addCosine(retval.cosGamma[1]);
-        scalar_type p = angle_adder.getSumofArccos();
-        angle_adder = math::sincos_accumulator<scalar_type>::create(retval.cosGamma[2]);
-        angle_adder.addCosine(retval.cosGamma[3]);
-        scalar_type q = angle_adder.getSumofArccos();
+        retval.solidAngle = sa.value;
+        retval.b0 = sa.n_z[0];
+        retval.b0sq = retval.b0 * retval.b0;
+        retval.b1 = sa.n_z[2];
 
-        const scalar_type k = scalar_type(2.0) * numbers::pi<scalar_type> - q;
-        retval.solidAngle = p + q - scalar_type(2.0) * numbers::pi<scalar_type>;
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[2]);
+        angle_adder.addCosine(sa.cosGamma[3]);
+        retval.k = scalar_type(2.0) * numbers::pi<scalar_type> - angle_adder.getSumOfArccos();
 
         // flip z axis if r0.z > 0
         retval.r0.z = -hlsl::abs(retval.r0.z);
-        retval.r1 = retval.r0 + vector3_type(rect.extents.x, rect.extents.y, 0);
+        retval.r0zSq = retval.r0.z * retval.r0.z;
+        retval.r1 = vector2_type(retval.r0.x + rect.extents.x, retval.r0.y + rect.extents.y);
+        retval.rySq = vector2_type(retval.r0.y * retval.r0.y, retval.r1.y * retval.r1.y);
 
-        retval.b0 = n_z[0];
-        retval.b1 = n_z[2];
         return retval;
     }
 
     codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[2]);
-        angle_adder.addCosine(cosGamma[3]);
-        scalar_type q = angle_adder.getSumofArccos();
-        const scalar_type k = scalar_type(2.0) * numbers::pi<scalar_type> - q;
-
         const scalar_type au = u.x * solidAngle + k;
-        const scalar_type fu = (hlsl::cos<scalar_type>(au) * b0 - b1) / hlsl::sin<scalar_type>(au);
-        const scalar_type cu_2 = hlsl::max<scalar_type>(fu * fu + b0 * b0, 1.f); // forces `cu` to be in [-1,1]
-        const scalar_type cu = ieee754::flipSignIfRHSNegative<scalar_type>(scalar_type(1.0) / hlsl::sqrt<scalar_type>(cu_2), fu);
-
-        scalar_type xu = -(cu * r0.z) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - cu * cu);
+        const scalar_type cos_au = hlsl::cos<scalar_type>(au);
+        const scalar_type numerator = b1 - cos_au * b0;
+        const scalar_type absNegFu = hlsl::abs(numerator) * hlsl::rsqrt<scalar_type>(scalar_type(1.0) - cos_au * cos_au);
+        const scalar_type rcpCu_2 = hlsl::max<scalar_type>(absNegFu * absNegFu + b0sq, scalar_type(1.0));
+        // sign(negFu) = sign(numerator) * sign(sin(au)); sin(au) < 0 iff au > PI
+        const scalar_type negFuSign = hlsl::select((au > numbers::pi<scalar_type>) != (numerator < scalar_type(0.0)), scalar_type(-1.0), scalar_type(1.0));
+        scalar_type xu = r0.z * negFuSign * hlsl::rsqrt<scalar_type>(rcpCu_2 - scalar_type(1.0));
         xu = hlsl::clamp<scalar_type>(xu, r0.x, r1.x); // avoid Infs
-        const scalar_type d_2 = xu * xu + r0.z * r0.z;
+        const scalar_type d_2 = xu * xu + r0zSq;
         const scalar_type d = hlsl::sqrt<scalar_type>(d_2);
 
-        const scalar_type h0 = r0.y / hlsl::sqrt<scalar_type>(d_2 + r0.y * r0.y);
-        const scalar_type h1 = r1.y / hlsl::sqrt<scalar_type>(d_2 + r1.y * r1.y);
+        const scalar_type h0 = r0.y * hlsl::rsqrt<scalar_type>(d_2 + rySq[0]);
+        const scalar_type h1 = r1.y * hlsl::rsqrt<scalar_type>(d_2 + rySq[1]);
         const scalar_type hv = h0 + u.y * (h1 - h0);
         const scalar_type hv2 = hv * hv;
         const scalar_type yv = hlsl::mix(r1.y, (hv * d) / hlsl::sqrt<scalar_type>(scalar_type(1.0) - hv2), hv2 < scalar_type(1.0) - ClampEps);
@@ -115,11 +106,14 @@ struct SphericalRectangle
     }
 
     scalar_type solidAngle;
-    vector4_type cosGamma;
+    scalar_type k;
     scalar_type b0;
+    scalar_type b0sq;
     scalar_type b1;
+    scalar_type r0zSq;
     vector3_type r0;
-    vector3_type r1;
+    vector2_type r1;
+    vector2_type rySq;
 };
 
 } // namespace sampling

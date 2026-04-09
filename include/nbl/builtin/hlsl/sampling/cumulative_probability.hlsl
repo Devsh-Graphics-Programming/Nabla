@@ -62,7 +62,19 @@ struct CumulativeProbabilitySampler
 	// TractableSampler interface
 	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		// Stateful comparator that tracks the CDF values seen during binary search.
+		// #define NBL_CUMPROB_YOLO_READS
+#ifdef NBL_CUMPROB_YOLO_READS
+		// YOLO approach: re-read the array after binary search.
+		// The accessed elements are adjacent to the found index so the cache is warm.
+		const codomain_type result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u);
+		cache.oneBefore = density_type(0.0);
+		if (result)
+			cumProbAccessor.template get<density_type, codomain_type>(result - 1u, cache.oneBefore);
+		cache.upperBound = density_type(1.0);
+		if (result < storedCount)
+			cumProbAccessor.template get<density_type, codomain_type>(result, cache.upperBound);
+#else
+		// Tracking reads approach: stateful comparator captures CDF values during binary search.
 		struct CdfComparator
 		{
 			bool operator()(const density_type value, const density_type rhs)
@@ -83,6 +95,7 @@ struct CumulativeProbabilitySampler
 		const codomain_type result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u, comp);
 		cache.oneBefore = comp.oneBefore;
 		cache.upperBound = comp.upperBound;
+#endif
 		return result;
 	}
 

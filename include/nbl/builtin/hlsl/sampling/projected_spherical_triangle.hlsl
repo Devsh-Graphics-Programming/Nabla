@@ -50,7 +50,7 @@ struct ProjectedSphericalTriangle
     static ProjectedSphericalTriangle<T,UsePdfAsWeight> create(NBL_REF_ARG(shapes::SphericalTriangle<T>) shape, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
     {
         ProjectedSphericalTriangle<T,UsePdfAsWeight> retval;
-        retval.sphtri = SphericalTriangle<T>::create(shape);
+       retval.sphtri = SphericalTriangle<T, UsePdfAsWeight>::create(shape);
         retval.receiverNormal = _receiverNormal;
         retval.receiverWasBSDF = _receiverWasBSDF;
 
@@ -94,14 +94,14 @@ struct ProjectedSphericalTriangle
 
     weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
     {
-        if (UsePdfAsWeight)
+        NBL_IF_CONSTEXPR(UsePdfAsWeight)
             return backwardPdf(L);
         const scalar_type minimumProjSolidAngle = 0.0;
         const scalar_type abs_cos_theta = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::dot(receiverNormal, L), minimumProjSolidAngle);
         return abs_cos_theta * rcpProjSolidAngle;
     }
 
-    sampling::SphericalTriangle<T> sphtri;
+    sampling::SphericalTriangle<T, UsePdfAsWeight> sphtri;
     Bilinear<scalar_type> bilinearPatch;
     scalar_type rcpProjSolidAngle;
     vector3_type receiverNormal;
