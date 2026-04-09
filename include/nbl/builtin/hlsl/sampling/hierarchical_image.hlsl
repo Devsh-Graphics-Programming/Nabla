@@ -56,9 +56,9 @@ struct HierarchicalLuminanceSampler
 
   static bool __choseSecond(scalar_type first, scalar_type second, NBL_REF_ARG(scalar_type) xi, NBL_REF_ARG(scalar_type) rcpPmf)
   {
-    // numerical resilience against IEEE754
     scalar_type rcpChoiceProb = scalar_type(0);
     PartitionRandVariable<scalar_type> partition;
+    // Why not simply first / (first + second)? Because `(1 / (1 + second / first))` is equivalent and more numerical resilient against IEEE754. if both first and second are very large then first + second overflows to inf. By computing second/ first, we get a finite ratio and 1 + ratio stays representable.
     partition.leftProb = scalar_type(1) / (scalar_type(1) + (second / first));
     bool choseSecond = partition(xi, rcpChoiceProb);
     rcpPmf *= rcpChoiceProb;
