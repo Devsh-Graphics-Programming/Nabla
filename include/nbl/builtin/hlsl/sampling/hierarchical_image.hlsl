@@ -82,7 +82,7 @@ struct HierarchicalLuminanceSampler
     uint16_t2 p = uint16_t2(0, 0);
 
     domain_type xi = v;
-    scalar_type rcpPmf = 1;
+    scalar_type rcpPmf = 1.0;
     if (_aspect2x1) {
       scalar_type p0, p1;
       // do one split in the X axis first cause penultimate full mip would have been 2x1
@@ -117,7 +117,7 @@ struct HierarchicalLuminanceSampler
 
 
     // If we don`t add xi, the sample will clump to the lowest corner of environment map texel. Each time we call PartitionRandVariable(), the output xi is the new xi that determines how left and right(or top and bottom for y axis) to choose the child partition. It means that if for some input xi, the output xi = 0, then the input xi is the edge of choosing this partition and the previous partition, and vice versa, if output xi = 1, then the input xi is the edge of choosing this partition and the next partition. Hence, by adding xi to the lower corner of the texel, we create a gradual transition from one pixel to another. Without adding output xi, the calculation of jacobian using the difference of sample value would not work.
-    // Since we want to do corner sampling. We have to handle edge texels as corner cases. Remember, in corner sampling we map uv [0,1] to [center of first texel, center of last texel]. So when p is an edge texel, we have to remap xi. [0.5, 1] when p == 0, and [0.5, 1] when p == length - 1.
+    // Since we want to do corner sampling. We have to handle edge texels as corner cases. Remember, in corner sampling we map uv [0,1] to [center of first texel, center of last texel]. So when p is an edge texel, we have to remap xi. [0.0, 0.5] when p == 0, and [0.5, 1] when p == length - 1.
     if (p.x == 0)
       xi.x = xi.x * scalar_type(0.5) + scalar_type(0.5);
     if (p.y == 0)
@@ -137,7 +137,7 @@ struct HierarchicalLuminanceSampler
 
   density_type forwardPdf(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
-    return (_lastTexel.x * _lastTexel.y) / cache.rcpPmf;
+    return density_type(_lastTexel.x) * density_type(_lastTexel.y) / cache.rcpPmf;
   }
 
   weight_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
@@ -145,10 +145,13 @@ struct HierarchicalLuminanceSampler
     return forwardPdf(xi, cache);
   }
 
-  // Doesn't comply with sampler concept. This class is extracted so can be used on warpmap generation without passing in unnecessary information like avgLuma. So, need to pass in avgLuma when calculating backwardPdf.
-  density_type backwardPdf(codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
+  density_type backwardPdf(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
-    return _map.load(codomainVal) * _map.getAvgLuma();
+    vector2_type texelCoord = codomainVal * vector2_type(_lastTexel.x, _lastTexel.y);
+    float32_t2 lumaMapUv = (texelCoord + float32_t2(0.5, 0.5)) / vector2_type(_lastTexel.x + 1, _lastTexel.y + 1);
+    weight_type luma;
+    _map.get(lumaMapUv, luma);
+    return luma / _map.getAvgLuma();
   }
 
   weight_type backwardWeight(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
@@ -181,7 +184,8 @@ struct ComposedHierarchicalSampler
   struct cache_type
   {
     typename warp_generator_type::cache_type warpGeneratorCache;
-    typename PostWarpT::density_type postWarpPdf;
+    typename PostWarpT::cache_type postWarpCache;
+    typename PostWarpT::domain_type warpSample;
   };
 
   warp_generator_type _warpGenerator;
@@ -197,35 +201,34 @@ struct ComposedHierarchicalSampler
   codomain_type generate(const domain_type xi, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
   {
     const typename warp_generator_type::codomain_type warpSample = _warpGenerator.generate(xi, cache.warpGeneratorCache);
-    typename PostWarpT::cache_type postWarpCache;
-    const codomain_type postWarpSample = _postWarp.generate(warpSample, postWarpCache);
-
-    // I have to store the postWarpDensity here, so I don't have to call generate on warpGenerator again just to feed it to PostWarpT, even though for spherical it is unused.
-    cache.postWarpPdf = _postWarp.forwardPdf(warpSample, postWarpCache);
+    const codomain_type postWarpSample = _postWarp.generate(warpSample, cache.postWarpCache);
+    cache.warpSample = warpSample;
     
     return postWarpSample;
   }
 
   density_type forwardPdf(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
-    return _warpGenerator.forwardPdf(xi, cache.warpGeneratorCache) * cache.postWarpPdf;
+    return _warpGenerator.forwardPdf(xi, cache.warpGeneratorCache) * _postWarp.forwardPdf(cache.warpSample, cache.postWarpCache);
   }
 
   weight_type forwardWeight(const domain_type xi, const cache_type cache) NBL_CONST_MEMBER_FUNC
   {
-    return forwardPdf(xi, cache);
+    return  _warpGenerator.forwardWeight(xi, cache.warpGeneratorCache) * _postWarp.forwardWeight(cache.warpSample, cache.postWarpCache);
   }
 
   density_type backwardPdf(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
     typename PostWarpT::domain_type postWarpDomain = _postWarp.generateInverse(codomainVal);
-    return _postWarp.backwardPdf(codomainVal) * _warpGenerator.backwardPdf(postWarpDomain, _warpGenerator._map.getAvgLuma());
+    return _warpGenerator.backwardPdf(postWarpDomain) * _postWarp.backwardPdf(codomainVal);
   }
 
   weight_type backwardWeight(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
-    return backwardPdf(codomainVal);
+    typename PostWarpT::domain_type postWarpDomain = _postWarp.generateInverse(codomainVal);
+    return _warpGenerator.backwardWeight(postWarpDomain) * _postWarp.backwardWeight(codomainVal);
   }
+
 };
 
 
