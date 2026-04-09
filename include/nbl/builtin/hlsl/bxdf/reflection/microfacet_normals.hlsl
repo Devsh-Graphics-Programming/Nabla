@@ -72,7 +72,7 @@ struct SMicrofacetNormals
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
         const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
 
-        const vector3_type V = interaction.getV();
+        const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
             typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
@@ -81,10 +81,10 @@ struct SMicrofacetNormals
             return nested_brdf.evalAndWeight(sample_N, interaction_N);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(vector3_type(-local_Np.xy, 0.0));
+        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
         const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
         const scalar_type NpdotV = interaction.getNdotV();
-        const scalar_type NtdotV = hlsl::dot(Nt, V);
+        const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
         spectral_type eval = hlsl::promote<spectral_type>(0.0);
         
         const vector3_type L = _sample.getL().getDirection();
@@ -92,7 +92,7 @@ struct SMicrofacetNormals
         const scalar_type NtdotL = hlsl::dot(Nt, L);
         const scalar_type lambda_p = lambdaP(NdotNp, NpdotV, NtdotV);
         const scalar_type shadowing = G1(_sample.getNdotL(BxDFClampMode::BCM_MAX), NdotNp,
-                                        hlsl::max(0.0, NpdotL), hlsl::max(0.0, NtdotL));
+                                        hlsl::max(scalar_type(0.0), NpdotL), hlsl::max(scalar_type(0.0), NtdotL));
 
         typename bxdf_type::isotropic_interaction_type iso_Np = typename bxdf_type::isotropic_interaction_type::create(V, Np);
         typename bxdf_type::anisotropic_interaction_type interaction_Np = typename bxdf_type::anisotropic_interaction_type::create(iso_Np);
@@ -109,13 +109,13 @@ struct SMicrofacetNormals
         // i -> p -> t -> o
         if (NtdotL > scalar_type(0.0))
         {
-            fresnel::Reflect<scalar_type> reflectL = fresnel::Reflect<scalar_type>::create(L, Nt);
+            Reflect<scalar_type> reflectL = Reflect<scalar_type>::create(L, Nt);
             ray_dir_info_type L_reflected;
             L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
             sample_type sample_double_p = sample_type::create(L_reflected, Np); // Nt?
 
             const scalar_type notShadowedNpMirror = scalar_type(1.0) - G1(sample_double_p.getNdotL(BxDFClampMode::BCM_MAX), NdotNp,
-                                        hlsl::max(0.0, NpdotL), hlsl::max(0.0, NtdotL));
+                                        hlsl::max(scalar_type(0.0), NpdotL), hlsl::max(scalar_type(0.0), NtdotL));
 
             value_weight_type eval_double_p = nested_brdf.evalAndWeight(sample_double_p, interaction_Np);
             eval += eval_double_p.value() * (lambda_p * notShadowedNpMirror * shadowing);
@@ -124,12 +124,12 @@ struct SMicrofacetNormals
         // i -> t -> p -> o
         if (NtdotV > scalar_type(0.0))
         {
-            fresnel::Reflect<scalar_type> reflectV = fresnel::Reflect<scalar_type>::create(V, Nt);
+            Reflect<scalar_type> reflectV = Reflect<scalar_type>::create(V.getDirection(), Nt);
             ray_dir_info_type V_reflected;
             V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
             sample_type sample_double_t = sample_type::create(V_reflected, Np); // Nt?
 
-            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected.getDirection(), Np);
+            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = typename bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
             value_weight_type eval_double_t = nested_brdf.evalAndWeight(sample_double_t, interaction_reflected);
@@ -145,7 +145,7 @@ struct SMicrofacetNormals
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
         const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
 
-        const vector3_type V = interaction.getV();
+        const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
             typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
@@ -153,10 +153,10 @@ struct SMicrofacetNormals
             return nested_brdf.generate(interaction_N, u, _cache);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(vector3_type(-local_Np.xy, 0.0));
+        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
         const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
         const scalar_type NpdotV = interaction.getNdotV();
-        const scalar_type NtdotV = hlsl::dot(Nt, V);
+        const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
         sample_type s;
         if (u.x < lambdaP(NdotNp, NpdotV, NtdotV))
@@ -169,29 +169,32 @@ struct SMicrofacetNormals
             if (!s.isValid())
                 return s;
 
+            const vector3_type L = s.getL().getDirection();
             const scalar_type shadowed = G1(s.getNdotL(), NdotNp,
-                                        hlsl::max(0.0, hlsl::dot(Np, L)), hlsl::max(0.0, hlsl::dot(Nt, L)));
+                                        hlsl::max(scalar_type(0.0), hlsl::dot(Np, L)), hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
 
             if (u.y > shadowed)
             {
                 // if sample dir shadowed, reflect on Nt
-                fresnel::Reflect<scalar_type> reflect_s = fresnel::Reflect<scalar_type>::create(s.getL().getDirection(), Nt);
+                Reflect<scalar_type> reflect_s = Reflect<scalar_type>::create(L, Nt);
                 ray_dir_info_type s_reflected;
                 s_reflected.setDirection(hlsl::normalize(reflect_s()));
                 s = sample_type::create(s_reflected, Np);
-                cache = anisocache_type::createForReflection(interaction_Np.getTangentSpaceV(), s.getTangentSpaceL(), hlsl::dot(V, s_reflected.getDirection()));
+                // _cache = anisocache_type::createForReflection(interaction_Np.getTangentSpaceV(), s.getTangentSpaceL(), hlsl::dot(V, s_reflected.getDirection()));    // TODO: remove
             }
         }
         else
         {
             // do one reflection if we start at wt
-            fresnel::Reflect<scalar_type> reflect_V = fresnel::Reflect<scalar_type>::create(V, Nt);
+            Reflect<scalar_type> reflect_V = Reflect<scalar_type>::create(V.getDirection(), Nt);
             const vector3_type V_negreflected = -hlsl::normalize(reflect_V());
 
             // sample on wp
-            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_negreflected, Np);
-            typename bxdf_type::anisotropic_interaction_type interaction_Np = typename bxdf_type::anisotropic_interaction_type::create(iso_Np);
-            s = nested_brdf.generate(interaction_Np, u, _cache);
+            ray_dir_info_type Vnr;
+            Vnr.setDirection(V_negreflected);
+            typename bxdf_type::isotropic_interaction_type iso_negreflected = typename bxdf_type::isotropic_interaction_type::create(Vnr, Np);
+            typename bxdf_type::anisotropic_interaction_type interaction_negreflected = typename bxdf_type::anisotropic_interaction_type::create(iso_negreflected);
+            s = nested_brdf.generate(interaction_negreflected, u, _cache);
             if (!s.isValid())
                 return s;
         }
@@ -203,7 +206,7 @@ struct SMicrofacetNormals
     {
         anisocache_type aniso_cache;
         sample_type s = generate(anisotropic_interaction_type::create(interaction), u, aniso_cache);
-        cache = aniso_cache.iso_cache;
+        // _cache = aniso_cache.iso_cache;  // TODO: remove
         return s;
     }
 
@@ -217,7 +220,7 @@ struct SMicrofacetNormals
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
         const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
 
-        const vector3_type V = interaction.getV();
+        const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
             typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
@@ -226,10 +229,10 @@ struct SMicrofacetNormals
             return nested_brdf.forwardPdf(sample_N, interaction_N);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(vector3_type(-local_Np.xy, 0.0));
+        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
         const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
         const scalar_type NpdotV = interaction.getNdotV();
-        const scalar_type NtdotV = hlsl::dot(Nt, V);
+        const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
         scalar_type pdf = scalar_type(0.0);
         const scalar_type lambda_p = lambdaP(NdotNp, NpdotV, NtdotV);
@@ -245,28 +248,28 @@ struct SMicrofacetNormals
             const scalar_type NpdotL = hlsl::dot(Np, L);
             const scalar_type NtdotL = hlsl::dot(Nt, L);
             pdf += lambda_p * nested_brdf.forwardPdf(sample_p, interaction_Np) * G1(sample_p.getNdotL(BxDFClampMode::BCM_MAX), NdotNp,
-                                        hlsl::max(0.0, NpdotL), hlsl::max(0.0, NtdotL));
+                                        hlsl::max(scalar_type(0.0), NpdotL), hlsl::max(scalar_type(0.0), NtdotL));
 
             if (NtdotL > numeric_limits<scalar_type>::min)
             {
-                fresnel::Reflect<scalar_type> reflectL = fresnel::Reflect<scalar_type>::create(L, Nt);
+                Reflect<scalar_type> reflectL = Reflect<scalar_type>::create(L, Nt);
                 ray_dir_info_type L_reflected;
                 L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
                 sample_type sample_reflected = sample_type::create(L_reflected, Np);
 
                 pdf += lambda_p * nested_brdf.forwardPdf(sample_reflected, interaction_Np) * 
-                        (scalar_type(1.0) - G1(sample_reflected.getNdotL(BxDFClampMode::BCM_MAX), NdotNp, hlsl::max(0.0, NpdotL), hlsl::max(0.0, NtdotL)));
+                        (scalar_type(1.0) - G1(sample_reflected.getNdotL(BxDFClampMode::BCM_MAX), NdotNp, hlsl::max(scalar_type(0.0), NpdotL), hlsl::max(scalar_type(0.0), NtdotL)));
             }
         }
 
         if (lambda_p < scalar_type(1.0) && NtdotV > numeric_limits<scalar_type>::min)
         {
-            fresnel::Reflect<scalar_type> reflectV = fresnel::Reflect<scalar_type>::create(V, Nt);
+            Reflect<scalar_type> reflectV = Reflect<scalar_type>::create(V.getDirection(), Nt);
             ray_dir_info_type V_reflected;
-            V_reflected.setDirection(hlsl::normalize(reflectL(NtdotV)));
+            V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
             // sample_type sample_p = sample_type::create(L, Np);    // Nt?
 
-            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected.getDirection(), Np);
+            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = typename bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
             pdf += (scalar_type(1.0) - lambda_p) * nested_brdf.forwardPdf(sample_p, interaction_reflected);
@@ -279,7 +282,7 @@ struct SMicrofacetNormals
     {
         anisocache_type aniso_cache;
         quotient_weight_type quo_weight = quotientAndWeight(_sample, anisotropic_interaction_type::create(interaction), aniso_cache);
-        _cache = aniso_cache.iso_cache;
+        // _cache = aniso_cache.iso_cache;  // TODO: remove
         return quo_weight;
     }
     quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
@@ -288,17 +291,17 @@ struct SMicrofacetNormals
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
         const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
 
-        const vector3_type V = interaction.getV();
+        const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
             typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
-            anisocache_type cache_N = anisocache_type::template createForReflection<anisocache_type, sample_type>(interaction_N, sample_N);
+            anisocache_type cache_N;// = anisocache_type::template createForReflection<anisocache_type, sample_type>(interaction_N, sample_N);  // TODO: remove
             return nested_brdf.quotientAndWeight(sample_N, interaction_N, cache_N);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(vector3_type(-local_Np.xy, 0.0));
+        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
         const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
 
         spectral_type quo = hlsl::promote<spectral_type>(1.0);
@@ -312,7 +315,7 @@ struct SMicrofacetNormals
         quo *= qw.quotient();
 
         const vector3_type L = _sample.getL().getDirection();
-        quo *= G1(_sample.getNdotL(), NdotNp, hlsl::max(0.0, hlsl::dot(Np, L)), hlsl::max(0.0, hlsl::dot(Nt, L)));
+        quo *= G1(_sample.getNdotL(), NdotNp, hlsl::max(scalar_type(0.0), hlsl::dot(Np, L)), hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
 
         return quotient_weight_type::create(quo, forwardPdf(_sample, interaction));
     }

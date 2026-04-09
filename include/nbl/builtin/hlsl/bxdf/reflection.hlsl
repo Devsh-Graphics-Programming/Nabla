@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/bxdf/reflection/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection/ggx.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection/iridescent.hlsl"
+#include "nbl/builtin/hlsl/bxdf/reflection/microfacet_normals.hlsl"
 
 namespace nbl
 {
