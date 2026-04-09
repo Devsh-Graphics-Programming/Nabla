@@ -49,7 +49,7 @@ struct SMicrofacetNormals
 
     static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
     {
-        const scalar_type sinThetaNp = hlsl::sqrt(1.0 - NdotNp * NdotNp);
+        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
         return hlsl::min(scalar_type(1.0),
             clampedNdotL * hlsl::max(scalar_type(0.0), NdotNp)
             / (clampedNpdotL + clampedNtdotL * sinThetaNp)
@@ -58,7 +58,7 @@ struct SMicrofacetNormals
 
     static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type NpdotV, const scalar_type NtdotV)
     {
-        const scalar_type sinThetaNp = hlsl::sqrt(1.0 - NdotNp * NdotNp);
+        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
         return NpdotV / (NpdotV + NtdotV * sinThetaNp);
     }
 
