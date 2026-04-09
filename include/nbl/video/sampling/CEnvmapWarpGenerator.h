@@ -53,9 +53,9 @@ class NBL_API2 CEnvmapWarpGenerator final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUComputePipeline> createPipeline(const SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, std::string_view shaderPath);
 
 		
-		static core::smart_refctd_ptr<video::IGPUImageView> createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, uint32_t layerCount, std::string_view debugName = "");
+		static core::smart_refctd_ptr<video::IGPUImageView> createLumaMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t mipCount, uint32_t layerCount, const char* debugName = "");
 
-		static core::smart_refctd_ptr<video::IGPUImageView> createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t layerCount, std::string_view debugName = "");
+		static core::smart_refctd_ptr<video::IGPUImageView> createWarpMap(video::ILogicalDevice* device, asset::VkExtent3D extent, uint32_t layerCount, const char* debugName = "");
 
     inline video::IGPUComputePipeline* getGenLumaPipeline() const
     {
