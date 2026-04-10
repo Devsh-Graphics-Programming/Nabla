@@ -331,103 +331,12 @@ struct CCameraMathUtilities final
 
         canonicalRight = safeNormalizeVec3(cross(canonicalUp, canonicalForward), canonicalRight);
         canonicalUp = safeNormalizeVec3(cross(canonicalForward, canonicalRight), canonicalUp);
-        const camera_matrix_t<T, 3, 3> basis { canonicalRight, canonicalUp, canonicalForward };
-        const auto desiredRight = canonicalRight;
-        const auto desiredUp = canonicalUp;
-        const auto desiredForward = canonicalForward;
+        static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>, "Camera basis conversion is only implemented for float and double.");
 
-        const auto scoreCandidate = [&](const camera_quaternion_t<T>& candidate)
-        {
-            if (!isFiniteQuaternion(candidate))
-                return std::numeric_limits<T>::infinity();
-
-            const auto normalizedCandidate = normalizeQuaternion(candidate);
-            const auto rebuiltRight = normalizedCandidate.transformVector(camera_vector_t<T, 3>(T(1), T(0), T(0)), true);
-            const auto rebuiltUp = normalizedCandidate.transformVector(camera_vector_t<T, 3>(T(0), T(1), T(0)), true);
-            const auto rebuiltForward = normalizedCandidate.transformVector(camera_vector_t<T, 3>(T(0), T(0), T(1)), true);
-
-            const T rightError = length(rebuiltRight - desiredRight);
-            const T upError = length(rebuiltUp - desiredUp);
-            const T forwardError = length(rebuiltForward - desiredForward);
-            return rightError + upError + forwardError;
-        };
-
-        const auto quaternionFromMatrixFallback = [&](const camera_matrix_t<T, 3, 3>& m)
-        {
-            const T m00 = m[0][0];
-            const T m11 = m[1][1];
-            const T m22 = m[2][2];
-            const T trace = m00 + m11 + m22;
-
-            camera_quaternion_t<T> output = makeIdentityQuaternion<T>();
-            if (trace > T(0))
-            {
-                const T scale = hlsl::sqrt(trace + T(1));
-                const T invScale = T(0.5) / scale;
-                output.data.x = (m[2][1] - m[1][2]) * invScale;
-                output.data.y = (m[0][2] - m[2][0]) * invScale;
-                output.data.z = (m[1][0] - m[0][1]) * invScale;
-                output.data.w = scale * T(0.5);
-            }
-            else if (m00 >= m11 && m00 >= m22)
-            {
-                const T scale = hlsl::sqrt(T(1) + m00 - m11 - m22);
-                const T invScale = T(0.5) / scale;
-                output.data.x = scale * T(0.5);
-                output.data.y = (m[0][1] + m[1][0]) * invScale;
-                output.data.z = (m[2][0] + m[0][2]) * invScale;
-                output.data.w = (m[2][1] - m[1][2]) * invScale;
-            }
-            else if (m11 >= m22)
-            {
-                const T scale = hlsl::sqrt(T(1) + m11 - m00 - m22);
-                const T invScale = T(0.5) / scale;
-                output.data.x = (m[0][1] + m[1][0]) * invScale;
-                output.data.y = scale * T(0.5);
-                output.data.z = (m[1][2] + m[2][1]) * invScale;
-                output.data.w = (m[0][2] - m[2][0]) * invScale;
-            }
-            else
-            {
-                const T scale = hlsl::sqrt(T(1) + m22 - m00 - m11);
-                const T invScale = T(0.5) / scale;
-                output.data.x = (m[2][0] + m[0][2]) * invScale;
-                output.data.y = (m[1][2] + m[2][1]) * invScale;
-                output.data.z = scale * T(0.5);
-                output.data.w = (m[1][0] - m[0][1]) * invScale;
-            }
-            return normalizeQuaternion(output);
-        };
-
-        const camera_matrix_t<T, 3, 3> transposedBasis = hlsl::transpose(basis);
-        const camera_quaternion_t<T> candidates[] = {
-            camera_quaternion_t<T>::create(basis, true),
-            camera_quaternion_t<T>::create(transposedBasis, true),
-            quaternionFromMatrixFallback(basis),
-            quaternionFromMatrixFallback(transposedBasis)
-        };
-
-        camera_quaternion_t<T> bestCandidate = makeIdentityQuaternion<T>();
-        T bestScore = std::numeric_limits<T>::infinity();
-        bool foundFiniteCandidate = false;
-        const auto considerCandidate = [&](const camera_quaternion_t<T>& candidate)
-        {
-            const T score = scoreCandidate(candidate);
-            if (score < bestScore)
-            {
-                bestScore = score;
-                bestCandidate = candidate;
-                foundFiniteCandidate = true;
-            }
-        };
-
-        for (const auto& candidate : candidates)
-            considerCandidate(candidate);
-
-        if (!foundFiniteCandidate || !isFiniteQuaternion(bestCandidate))
-            return makeIdentityQuaternion<T>();
-
-        return normalizeQuaternion(bestCandidate);
+        if constexpr (std::is_same_v<T, float>)
+            return makeQuaternionFromBasisImpl(canonicalRight, canonicalUp, canonicalForward);
+        else
+            return makeQuaternionFromBasisImpl(canonicalRight, canonicalUp, canonicalForward);
     }
 
     template<typename T>
@@ -991,6 +900,16 @@ struct CCameraMathUtilities final
         outRotationEulerDegrees = getCameraOrientationEulerDegrees(components.orientation);
         return isFiniteVec3(outRotationEulerDegrees);
     }
+
+    static camera_quaternion_t<float> makeQuaternionFromBasisImpl(
+        const camera_vector_t<float, 3>& right,
+        const camera_vector_t<float, 3>& up,
+        const camera_vector_t<float, 3>& forward);
+
+    static camera_quaternion_t<double> makeQuaternionFromBasisImpl(
+        const camera_vector_t<double, 3>& right,
+        const camera_vector_t<double, 3>& up,
+        const camera_vector_t<double, 3>& forward);
 };
 
 } // namespace nbl::hlsl
