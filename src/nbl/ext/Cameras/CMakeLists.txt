@@ -4,20 +4,22 @@ file(GLOB NBL_EXT_CAMERAS_HEADERS CONFIGURE_DEPENDS
     "${NBL_ROOT_PATH}/include/nbl/ext/Cameras/*.hpp"
 )
 
-file(GLOB NBL_EXT_CAMERAS_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+set(NBL_EXT_CAMERAS_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/CCameraPersistence.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/CCameraSequenceScriptPersistence.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/CCameraJsonPersistenceUtilities.hpp"
 )
 
-file(GLOB NBL_EXT_CAMERAS_LOCAL_HEADERS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
+set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/CCameraJsonPersistenceUtilities.hpp"
+    PROPERTIES
+    HEADER_FILE_ONLY ON
 )
-
-set_source_files_properties(${NBL_EXT_CAMERAS_LOCAL_HEADERS} PROPERTIES HEADER_FILE_ONLY ON)
 
 nbl_create_ext_library_project(
     Cameras
     "${NBL_EXT_CAMERAS_HEADERS}"
-    "${NBL_EXT_CAMERAS_SOURCES};${NBL_EXT_CAMERAS_LOCAL_HEADERS}"
+    "${NBL_EXT_CAMERAS_SOURCES}"
     ""
     ""
     ""
