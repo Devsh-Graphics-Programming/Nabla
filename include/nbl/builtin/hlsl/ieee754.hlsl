@@ -16,8 +16,8 @@ template<typename Float>
 struct traits_base
 {
 	static_assert(is_same<Float, float16_t>::value || is_same<Float, float32_t>::value || is_same<Float, float64_t>::value);
-	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = int16_t(0xbeef);
-	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = int16_t(0xbeef);
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = (int16_t)0xbeef;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = (int16_t)0xbeef;
 };
 
 template<>
@@ -73,7 +73,7 @@ template<>
 inline uint32_t extractBiasedExponent(uint64_t x)
 {
 	uint64_t output = (x >> traits<float64_t>::mantissaBitCnt) & (traits<float64_t>::exponentMask >> traits<float64_t>::mantissaBitCnt);
-	return uint32_t(output);
+	return _static_cast<uint32_t>(output);
 }
 
 template<>
@@ -100,7 +100,7 @@ NBL_CONSTEXPR_FUNC T replaceBiasedExponent(T x, typename unsigned_integer_of_siz
 template <typename T>
 NBL_CONSTEXPR_FUNC T fastMulExp2(T x, int n)
 {
-	return replaceBiasedExponent(x, extractBiasedExponent(x) + uint32_t(n));
+	return replaceBiasedExponent(x, extractBiasedExponent(x) + _static_cast<uint32_t>(n));
 }
 
 template <typename T>

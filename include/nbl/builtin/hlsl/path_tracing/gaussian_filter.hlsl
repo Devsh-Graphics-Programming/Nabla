@@ -21,7 +21,7 @@ struct GaussianFilter
     static this_t create(const scalar_type gaussianFilterCutoff, const scalar_type stddev)
     {
         this_t retval;
-        retval.truncation = hlsl::exp(-0.5 * gaussianFilterCutoff * gaussianFilterCutoff);
+        retval.truncation = hlsl::exp(-scalar_type(0.5) * gaussianFilterCutoff * gaussianFilterCutoff);
         retval.boxMuller.stddev = stddev;
         return retval;
     }
@@ -29,7 +29,7 @@ struct GaussianFilter
     vector2_type sample(const vector2_type randVec)
     {
         vector2_type remappedRand = randVec;
-        remappedRand.x *= 1.0 - truncation;
+        remappedRand.x *= scalar_type(1) - truncation;
         remappedRand.x += truncation;
         return boxMuller(remappedRand);
     }
