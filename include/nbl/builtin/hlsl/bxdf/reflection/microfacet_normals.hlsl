@@ -28,6 +28,7 @@ struct SMicrofacetNormals
     using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
     using isocache_type = typename BRDF::isocache_type;
     using anisocache_type = typename BRDF::anisocache_type;
+    using matrix3x3_type = matrix<scalar_type, 3, 3>;
     using bxdf_type = BRDF;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
@@ -62,6 +63,18 @@ struct SMicrofacetNormals
         return clampedNpdotV / (clampedNpdotV + clampedNtdotV * sinThetaNp);
     }
 
+    // static scalar_type lambdaP_alt(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV, bool t)
+    // {
+    //     const scalar_type ap = clampedNpdotV / NdotNp;
+    //     const scalar_type at = clampedNtdotV * hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0)) / NdotNp;
+    //     return t ? at / (ap + at) : ap / (ap + at);
+    // }
+
+    static vector3_type __reflect(const vector3_type N, const vector3_type I)
+    {
+        return hlsl::normalize(I - scalar_type(2.0) * hlsl::dot(I, N) * N);
+    }
+
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         return evalAndWeight(_sample, anisotropic_interaction_type::create(interaction));
@@ -70,7 +83,7 @@ struct SMicrofacetNormals
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
+        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
@@ -82,7 +95,7 @@ struct SMicrofacetNormals
         }
 
         const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
+        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
         spectral_type eval = hlsl::promote<spectral_type>(0.0);
@@ -105,9 +118,10 @@ struct SMicrofacetNormals
         // i -> p -> t -> o
         if (NtdotL > scalar_type(0.0))
         {
-            Reflect<scalar_type> reflectL = Reflect<scalar_type>::create(L, Nt);
+            // Reflect<scalar_type> reflectL = Reflect<scalar_type>::create(L, Nt);
             ray_dir_info_type L_reflected;
-            L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
+            // L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
+            L_reflected.setDirection(__reflect(Nt, L));
             sample_type sample_double_p = sample_type::create(L_reflected, Np); // Nt?
 
             const scalar_type notShadowedNpMirror = scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), shadingNormal)), NdotNp,
@@ -120,26 +134,26 @@ struct SMicrofacetNormals
         // i -> t -> p -> o
         if (NtdotV > scalar_type(0.0))
         {
-            Reflect<scalar_type> reflectV = Reflect<scalar_type>::create(V.getDirection(), Nt);
+            // Reflect<scalar_type> reflectV = Reflect<scalar_type>::create(V.getDirection(), Nt);
             ray_dir_info_type V_reflected;
-            V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
-            sample_type sample_double_t = sample_type::create(V_reflected, Np); // Nt?
+            // V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
+            V_reflected.setDirection(__reflect(Nt, V.getDirection()));
 
             typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = typename bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
-            value_weight_type eval_double_t = nested_brdf.evalAndWeight(sample_double_t, interaction_reflected);
+            value_weight_type eval_double_t = nested_brdf.evalAndWeight(_sample, interaction_reflected);
             eval += eval_double_t.value() * (scalar_type(1.0) - lambda_p) * shadowing;
         }
 
-        return value_weight_type::create(eval * NpdotL, forwardPdf(_sample, interaction));
+        return value_weight_type::create(eval, forwardPdf(_sample, interaction));
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
+        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
@@ -150,7 +164,7 @@ struct SMicrofacetNormals
         }
 
         const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
+        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
@@ -170,9 +184,10 @@ struct SMicrofacetNormals
             if (u.y > shadowed)
             {
                 // if sample dir shadowed, reflect on Nt
-                Reflect<scalar_type> reflect_s = Reflect<scalar_type>::create(L, Nt);
+                // Reflect<scalar_type> reflect_s = Reflect<scalar_type>::create(L, Nt);
                 ray_dir_info_type s_reflected;
-                s_reflected.setDirection(hlsl::normalize(reflect_s()));
+                // s_reflected.setDirection(hlsl::normalize(reflect_s()));
+                s_reflected.setDirection(hlsl::normalize(L + scalar_type(2.0) * hlsl::dot(-L, Nt) * Nt));
                 s = sample_type::create(s_reflected, Np);
                 // _cache = anisocache_type::createForReflection(interaction_Np.getTangentSpaceV(), s.getTangentSpaceL(), hlsl::dot(V, s_reflected.getDirection()));    // TODO: remove
             }
@@ -180,8 +195,9 @@ struct SMicrofacetNormals
         else
         {
             // do one reflection if we start at wt
-            Reflect<scalar_type> reflect_V = Reflect<scalar_type>::create(V.getDirection(), Nt);
-            const vector3_type V_negreflected = -hlsl::normalize(reflect_V());
+            // Reflect<scalar_type> reflect_V = Reflect<scalar_type>::create(V.getDirection(), Nt);
+            // const vector3_type V_negreflected = -hlsl::normalize(reflect_V());
+            const vector3_type V_negreflected = hlsl::normalize(V.getDirection() + scalar_type(2.0) * hlsl::dot(-V.getDirection(), Nt) * Nt);
 
             // sample on wp
             ray_dir_info_type Vnr;
@@ -212,7 +228,7 @@ struct SMicrofacetNormals
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
+        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
@@ -224,7 +240,7 @@ struct SMicrofacetNormals
         }
 
         const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
+        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
@@ -243,9 +259,10 @@ struct SMicrofacetNormals
 
             if (NtdotL > numeric_limits<scalar_type>::min)
             {
-                Reflect<scalar_type> reflectL = Reflect<scalar_type>::create(L, Nt);
+                // Reflect<scalar_type> reflectL = Reflect<scalar_type>::create(L, Nt);
                 ray_dir_info_type L_reflected;
-                L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
+                // L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
+                L_reflected.setDirection(__reflect(Nt, L));
                 sample_type sample_reflected = sample_type::create(L_reflected, Np);
 
                 pdf += lambda_p * nested_brdf.forwardPdf(sample_reflected, interaction) * 
@@ -255,9 +272,10 @@ struct SMicrofacetNormals
 
         if (lambda_p < scalar_type(1.0) && NtdotV > numeric_limits<scalar_type>::min)
         {
-            Reflect<scalar_type> reflectV = Reflect<scalar_type>::create(V.getDirection(), Nt);
+            // Reflect<scalar_type> reflectV = Reflect<scalar_type>::create(V.getDirection(), Nt);
             ray_dir_info_type V_reflected;
-            V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
+            // V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
+            V_reflected.setDirection(__reflect(Nt, V.getDirection()));
             // sample_type sample_p = sample_type::create(L, Np);    // Nt?
 
             typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
@@ -280,7 +298,7 @@ struct SMicrofacetNormals
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(interaction.getToTangentSpace(), Np);
+        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
@@ -293,7 +311,7 @@ struct SMicrofacetNormals
         }
 
         const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(interaction.getFromTangentSpace(), local_Nt);
+        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
 
         spectral_type quo = hlsl::promote<spectral_type>(1.0);
 
@@ -312,6 +330,7 @@ struct SMicrofacetNormals
 
     bxdf_type nested_brdf;
     vector3_type shadingNormal;
+    matrix3x3_type shadingBasis;
 };
 
 }
