@@ -29,91 +29,25 @@ public:
         uint32_t mouseCount = 0u;
         uint32_t imguizmoCount = 0u;
 
-        inline uint32_t totalCount() const
-        {
-            return keyboardCount + mouseCount + imguizmoCount;
-        }
+        uint32_t totalCount() const;
     };
 
     /// @brief Translate one frame of external keyboard, mouse, and ImGuizmo input into virtual events.
-    inline void clearActiveBindings()
-    {
-        updateKeyboardMapping([](auto& map) { map.clear(); });
-        updateMouseMapping([](auto& map) { map.clear(); });
-        updateImguizmoMapping([](auto& map) { map.clear(); });
-    }
+    void clearActiveBindings();
 
-    inline void clearBindingLayout()
-    {
-        clearActiveBindings();
-    }
+    void clearBindingLayout();
 
-    inline void copyActiveBindingsFromLayout(const IGimbalBindingLayout& layout)
-    {
-        updateKeyboardMapping([&](auto& map) { map = sanitizeMapping(layout.getKeyboardVirtualEventMap()); });
-        updateMouseMapping([&](auto& map) { map = sanitizeMapping(layout.getMouseVirtualEventMap()); });
-        updateImguizmoMapping([&](auto& map) { map = sanitizeMapping(layout.getImguizmoVirtualEventMap()); });
-    }
+    void copyActiveBindingsFromLayout(const IGimbalBindingLayout& layout);
 
-    inline void copyBindingLayoutFrom(const IGimbalBindingLayout& layout)
-    {
-        copyActiveBindingsFromLayout(layout);
-    }
+    void copyBindingLayoutFrom(const IGimbalBindingLayout& layout);
 
-    inline void copyActiveBindingsToLayout(IGimbalBindingLayout& layout) const
-    {
-        layout.updateKeyboardMapping([&](auto& map) { map = sanitizeMapping(getKeyboardVirtualEventMap()); });
-        layout.updateMouseMapping([&](auto& map) { map = sanitizeMapping(getMouseVirtualEventMap()); });
-        layout.updateImguizmoMapping([&](auto& map) { map = sanitizeMapping(getImguizmoVirtualEventMap()); });
-    }
+    void copyActiveBindingsToLayout(IGimbalBindingLayout& layout) const;
 
-    inline void copyBindingLayoutTo(IGimbalBindingLayout& layout) const
-    {
-        copyActiveBindingsToLayout(layout);
-    }
+    void copyBindingLayoutTo(IGimbalBindingLayout& layout) const;
 
-    inline SCollectedVirtualEvents collectVirtualEvents(
+    SCollectedVirtualEvents collectVirtualEvents(
         const std::chrono::microseconds nextPresentationTimeStamp,
-        const SUpdateParameters parameters = {})
-    {
-        beginInputProcessing(nextPresentationTimeStamp);
-
-        SCollectedVirtualEvents output;
-        uint32_t keyboardPotentialCount = 0u;
-        uint32_t mousePotentialCount = 0u;
-        uint32_t imguizmoPotentialCount = 0u;
-
-        processKeyboard(nullptr, keyboardPotentialCount, {});
-        processMouse(nullptr, mousePotentialCount, {});
-        processImguizmo(nullptr, imguizmoPotentialCount, {});
-
-        output.events.resize(keyboardPotentialCount + mousePotentialCount + imguizmoPotentialCount);
-        auto* dst = output.events.data();
-
-        if (keyboardPotentialCount)
-        {
-            output.keyboardCount = keyboardPotentialCount;
-            processKeyboard(dst, output.keyboardCount, parameters.keyboardEvents);
-            dst += output.keyboardCount;
-        }
-
-        if (mousePotentialCount)
-        {
-            output.mouseCount = mousePotentialCount;
-            processMouse(dst, output.mouseCount, parameters.mouseEvents);
-            dst += output.mouseCount;
-        }
-
-        if (imguizmoPotentialCount)
-        {
-            output.imguizmoCount = imguizmoPotentialCount;
-            processImguizmo(dst, output.imguizmoCount, parameters.imguizmoEvents);
-        }
-
-        endInputProcessing();
-        output.events.resize(output.totalCount());
-        return output;
-    }
+        const SUpdateParameters parameters = {});
 
 private:
     template<typename Map>
