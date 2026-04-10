@@ -739,15 +739,9 @@ Defined by [`CPathCamera.hpp`](CPathCamera.hpp), [`CCameraPathUtilities.hpp`](CC
 
 Its runtime and typed tooling are driven by `SCameraPathModel`, which defines how path state is resolved, updated, and converted back into camera pose.
 
-At the API boundary, you can think of `Path Rig` as:
+At the API boundary, you can think of `Path Rig` as one parametric camera map that turns typed path state into pose.
 
-$$
-\text{choose any parametric camera function } f
-\text{ that maps typed path state to pose.}
-$$
-
-In other words, the reusable seam is not "one built-in rail camera".
-It is:
+In other words, the reusable seam is not "one built-in rail camera". It is:
 
 $$
 f : (t, q, L) \mapsto (p, o)
@@ -822,7 +816,7 @@ $$
 with orientation built from the basis
 
 $$
-\bigl(R(s), U(s), F(s)\bigr)
+(R(s), U(s), F(s))
 $$
 
 and then rotated by authored roll $\rho$ around the current forward axis.
@@ -858,8 +852,8 @@ For the built-in model, `resolveState(...)` from one world-space position can be
 $$
 \begin{aligned}
 \Delta &= p - t \\
-s &= \operatorname{wrap}\!\left(\operatorname{atan2}(\Delta_z, \Delta_x)\right) \\
-u &= \max\!\left(u_{\min}, \sqrt{\Delta_x^2 + \Delta_z^2}\right) \\
+s &= \mathrm{wrap}(\mathrm{atan2}(\Delta_z, \Delta_x)) \\
+u &= \max(u_{\min}, \sqrt{\Delta_x^2 + \Delta_z^2}) \\
 v &= \Delta_y
 \end{aligned}
 $$
@@ -867,16 +861,16 @@ $$
 The default model also derives one radial camera distance from `(u, v)`:
 
 $$
-d = \lVert (u, v) \rVert_2 = \sqrt{u^2 + v^2}
+d = \sqrt{u^2 + v^2}
 $$
 
 and sanitizes state as:
 
 $$
 \begin{aligned}
-s &\leftarrow \operatorname{wrap}(s) \\
+s &\leftarrow \mathrm{wrap}(s) \\
 u &\leftarrow \max(u_{\min}, u) \\
-\rho &\leftarrow \operatorname{wrap}(\rho)
+\rho &\leftarrow \mathrm{wrap}(\rho)
 \end{aligned}
 $$
 
@@ -894,9 +888,9 @@ $$
 \end{bmatrix}
 =
 \begin{bmatrix}
-\Delta z_{\text{local}} \\
-\Delta x_{\text{local}} \\
-\Delta y_{\text{local}} \\
+\Delta z_{\mathrm{local}} \\
+\Delta x_{\mathrm{local}} \\
+\Delta y_{\mathrm{local}} \\
 \Delta \mathrm{roll}
 \end{bmatrix}
 $$
@@ -904,7 +898,7 @@ $$
 and integrates it as:
 
 $$
-q_{n+1} = \operatorname{sanitize}(q_n + \Delta q)
+q_{n+1} = \mathrm{sanitize}(q_n + \Delta q)
 $$
 
 Equivalent pseudocode for the built-in model is:
