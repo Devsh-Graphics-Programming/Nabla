@@ -5377,12 +5377,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 										uint32_t bytesWritten = 0;
 										while (instanceIndex<instances.size())
 										{
-											const auto& instance = instances[instanceIndex++];
+											const auto& instance = instances[instanceIndex];
 											const auto type = instance.getType();
 											const auto size = ITopLevelAccelerationStructure::getInstanceSize(type);
 											const auto newWritten = bytesWritten+size;
 											if (newWritten>blockSize)
 												break;
+											instanceIndex++;
 											auto found = instanceMap->find(instance.getBase().blas.get());
 											auto blas = found->second.get();
 											if (auto found=compactedBLASMap->find(blas); found!=compactedBLASMap->end())
