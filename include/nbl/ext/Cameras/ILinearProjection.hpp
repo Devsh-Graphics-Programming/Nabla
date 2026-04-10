@@ -39,8 +39,8 @@ public:
         using projection_matrix_t = concatenated_matrix_t;
         using inv_projection_matrix_t = inv_concatenated_matrix_t;
 
-        CProjection() : CProjection(projection_matrix_t(1)) {}
-        CProjection(const projection_matrix_t& matrix) { setProjectionMatrix(matrix); }
+        CProjection();
+        explicit CProjection(const projection_matrix_t& matrix);
 
         /// @brief Returns P (Projection matrix)
         inline const projection_matrix_t& getProjectionMatrix() const { return m_projectionMatrix; }
@@ -69,26 +69,7 @@ public:
 
     protected:
         /// @brief Replace the projection matrix and rebuild cached handedness and inverse information.
-        inline void setProjectionMatrix(const projection_matrix_t& matrix)
-        {
-            m_projectionMatrix = matrix;
-            const auto det = hlsl::determinant(m_projectionMatrix);
-
-            // we will allow you to lose a dimension since such a projection itself *may* 
-            // be valid, however then you cannot un-project because the inverse doesn't exist!
-            m_isProjectionSingular = not det;
-
-            if (m_isProjectionSingular)
-            {
-                m_isProjectionLeftHanded = std::nullopt;
-                m_invProjectionMatrix = std::nullopt;
-            }
-            else
-            {
-                m_isProjectionLeftHanded = det < 0.0;
-                m_invProjectionMatrix = hlsl::inverse(m_projectionMatrix);
-            }
-        }
+        void setProjectionMatrix(const projection_matrix_t& matrix);
 
     private:
         projection_matrix_t m_projectionMatrix;
@@ -103,81 +84,43 @@ public:
     virtual const CProjection& getLinearProjection(uint32_t index) const = 0;
     
     /// @brief Replace the camera referenced by this projection wrapper.
-    inline bool setCamera(core::smart_refctd_ptr<ICamera>&& camera)
-    {
-        if (camera)
-        {
-            m_camera = camera;
-            return true;
-        }
-
-        return false;
-    }
+    bool setCamera(core::smart_refctd_ptr<ICamera>&& camera);
 
     /// @brief Return the camera referenced by this projection wrapper.
-    inline ICamera* getCamera()
-    {
-        return m_camera.get();
-    }
+    ICamera* getCamera();
 
     /// @brief Compute the model-view matrix.
     ///
     /// @param model World TRS matrix.
     /// @return The model-view matrix.
-    inline concatenated_matrix_t getMV(const model_matrix_t& model) const
-    {
-        const auto& v = m_camera->getGimbal().getViewMatrix();
-        return hlsl::mul(hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(v), hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(model));
-    }
+    concatenated_matrix_t getMV(const model_matrix_t& model) const;
 
     /// @brief Compute the model-view-projection matrix from a model matrix.
     ///
     /// @param projection Linear projection.
     /// @param model World TRS matrix.
     /// @return The model-view-projection matrix.
-    inline concatenated_matrix_t getMVP(const CProjection& projection, const model_matrix_t& model) const
-    {
-        const auto& v = m_camera->getGimbal().getViewMatrix();
-        const auto& p = projection.getProjectionMatrix();
-        auto mv = hlsl::mul(hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(v), hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(model));
-        return hlsl::mul(p, mv);
-    }
+    concatenated_matrix_t getMVP(const CProjection& projection, const model_matrix_t& model) const;
 
     /// @brief Compute the model-view-projection matrix from a model-view matrix.
     ///
     /// @param projection Linear projection.
     /// @param mv Model-view matrix.
     /// @return The model-view-projection matrix.
-    inline concatenated_matrix_t getMVP(const CProjection& projection, const concatenated_matrix_t& mv) const
-    {
-        const auto& p = projection.getProjectionMatrix();
-        return hlsl::mul(p, mv);
-    }
+    concatenated_matrix_t getMVP(const CProjection& projection, const concatenated_matrix_t& mv) const;
 
     /// @brief Compute the inverse model-view matrix.
     ///
     /// @param model World TRS matrix.
     /// @return The inverse model-view matrix when it exists, otherwise `std::nullopt`.
-    inline inv_concatenated_matrix_t getMVInverse(const model_matrix_t& model) const
-    {
-        const auto mv = getMV(model);
-        if (auto det = hlsl::determinant(mv); det)
-            return hlsl::inverse(mv);
-        return std::nullopt;
-    }
+    inv_concatenated_matrix_t getMVInverse(const model_matrix_t& model) const;
 
     /// @brief Compute the inverse model-view-projection matrix.
     ///
     /// @param projection Linear projection.
     /// @param model World TRS matrix.
     /// @return The inverse model-view-projection matrix when it exists, otherwise `std::nullopt`.
-    inline inv_concatenated_matrix_t getMVPInverse(const CProjection& projection, const model_matrix_t& model) const
-    {
-        const auto mvp = getMVP(projection, model);
-        if (auto det = hlsl::determinant(mvp); det)
-            return hlsl::inverse(mvp);
-        return std::nullopt;
-    }
+    inv_concatenated_matrix_t getMVPInverse(const CProjection& projection, const model_matrix_t& model) const;
 };
 
 } // namespace nbl::core

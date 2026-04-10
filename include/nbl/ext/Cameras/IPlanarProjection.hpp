@@ -72,50 +72,13 @@ public:
         };
 
         /// @brief Rebuild the concrete projection matrix from the stored parameters.
-        inline void update(bool leftHanded, float aspectRatio)
-        {
-            switch (m_parameters.m_type)
-            {
-                case Perspective:
-                {
-                    const auto& fov = m_parameters.m_planar.perspective.fov;
-
-                    if (leftHanded)
-                        base_t::setProjectionMatrix(hlsl::buildProjectionMatrixPerspectiveFovLH<hlsl::float64_t>(hlsl::radians(fov), aspectRatio, m_parameters.m_zNear, m_parameters.m_zFar));
-                    else
-                        base_t::setProjectionMatrix(hlsl::buildProjectionMatrixPerspectiveFovRH<hlsl::float64_t>(hlsl::radians(fov), aspectRatio, m_parameters.m_zNear, m_parameters.m_zFar));
-                } break;
-
-                case Orthographic:
-                {
-                    const auto& orthoW = m_parameters.m_planar.orthographic.orthoWidth;
-                    const auto viewHeight = orthoW / aspectRatio;
-
-                    if (leftHanded)
-                        base_t::setProjectionMatrix(hlsl::buildProjectionMatrixOrthoLH<hlsl::float64_t>(orthoW, viewHeight, m_parameters.m_zNear, m_parameters.m_zFar));
-                    else
-                        base_t::setProjectionMatrix(hlsl::buildProjectionMatrixOrthoRH<hlsl::float64_t>(orthoW, viewHeight, m_parameters.m_zNear, m_parameters.m_zFar));
-                } break;
-            }
-        }
+        void update(bool leftHanded, float aspectRatio);
 
         /// @brief Switch the entry to perspective mode and store its authored parameters.
-        inline void setPerspective(float zNear = 0.1f, float zFar = 100.f, float fov = 60.f)
-        {
-            m_parameters.m_type = Perspective;
-            m_parameters.m_planar.perspective.fov = fov;
-            m_parameters.m_zNear = zNear;
-            m_parameters.m_zFar = zFar;
-        }
+        void setPerspective(float zNear = 0.1f, float zFar = 100.f, float fov = 60.f);
 
         /// @brief Switch the entry to orthographic mode and store its authored parameters.
-        inline void setOrthographic(float zNear = 0.1f, float zFar = 100.f, float orthoWidth = 10.f)
-        {
-            m_parameters.m_type = Orthographic;
-            m_parameters.m_planar.orthographic.orthoWidth = orthoWidth;
-            m_parameters.m_zNear = zNear;
-            m_parameters.m_zFar = zFar;
-        }
+        void setOrthographic(float zNear = 0.1f, float zFar = 100.f, float orthoWidth = 10.f);
 
         /// @brief Return the authored planar projection parameters.
         inline const ProjectionParameters& getParameters() const { return m_parameters; }

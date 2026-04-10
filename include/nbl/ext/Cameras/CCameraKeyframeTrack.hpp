@@ -25,149 +25,32 @@ struct CCameraKeyframeTrackUtilities final
 {
 public:
     /// @brief Compare two keyframes by authored time and shared preset state.
-    static inline bool compareKeyframes(const CCameraKeyframe& lhs, const CCameraKeyframe& rhs,
-        const double timeEps, const double posEps, const double rotEpsDeg, const double scalarEps)
-    {
-        return hlsl::abs(static_cast<double>(lhs.time - rhs.time)) <= timeEps &&
-            CCameraPresetUtilities::comparePresets(lhs.preset, rhs.preset, posEps, rotEpsDeg, scalarEps);
-    }
+    static bool compareKeyframes(const CCameraKeyframe& lhs, const CCameraKeyframe& rhs,
+        double timeEps, double posEps, double rotEpsDeg, double scalarEps);
 
     /// @brief Compare two authored keyframe tracks with optional selection-state checking.
-    static inline bool compareKeyframeTracks(const CCameraKeyframeTrack& lhs, const CCameraKeyframeTrack& rhs,
-        const double timeEps, const double posEps, const double rotEpsDeg, const double scalarEps, const bool compareSelection = true)
-    {
-        if ((compareSelection && lhs.selectedKeyframeIx != rhs.selectedKeyframeIx) || lhs.keyframes.size() != rhs.keyframes.size())
-            return false;
-
-        for (size_t i = 0u; i < lhs.keyframes.size(); ++i)
-        {
-            if (!compareKeyframes(lhs.keyframes[i], rhs.keyframes[i], timeEps, posEps, rotEpsDeg, scalarEps))
-                return false;
-        }
-
-        return true;
-    }
+    static bool compareKeyframeTracks(const CCameraKeyframeTrack& lhs, const CCameraKeyframeTrack& rhs,
+        double timeEps, double posEps, double rotEpsDeg, double scalarEps, bool compareSelection = true);
 
     /// @brief Compare only the serialized/authored content of two tracks and ignore transient UI selection state.
-    static inline bool compareKeyframeTrackContent(const CCameraKeyframeTrack& lhs, const CCameraKeyframeTrack& rhs,
-        const double timeEps, const double posEps, const double rotEpsDeg, const double scalarEps)
-    {
-        return compareKeyframeTracks(lhs, rhs, timeEps, posEps, rotEpsDeg, scalarEps, false);
-    }
+    static bool compareKeyframeTrackContent(const CCameraKeyframeTrack& lhs, const CCameraKeyframeTrack& rhs,
+        double timeEps, double posEps, double rotEpsDeg, double scalarEps);
 
-    static inline bool tryBuildKeyframeTrackPresetAtTime(const CCameraKeyframeTrack& track, const float time, CCameraPreset& preset)
-    {
-        if (track.keyframes.empty())
-            return false;
+    static bool tryBuildKeyframeTrackPresetAtTime(const CCameraKeyframeTrack& track, float time, CCameraPreset& preset);
 
-        if (track.keyframes.size() == 1u)
-        {
-            preset = track.keyframes.front().preset;
-            return true;
-        }
+    static void sortKeyframeTrackByTime(CCameraKeyframeTrack& track);
 
-        const auto clampedTime = std::clamp(time, 0.f, track.keyframes.back().time);
-        size_t idx = 0u;
-        while (idx + 1u < track.keyframes.size() && track.keyframes[idx + 1u].time < clampedTime)
-            ++idx;
+    static void clampTrackTimeToKeyframes(const CCameraKeyframeTrack& track, float& time);
 
-        const auto& a = track.keyframes[idx];
-        const auto& b = track.keyframes[std::min(idx + 1u, track.keyframes.size() - 1u)];
-        if (b.time <= a.time)
-        {
-            preset = a.preset;
-            return true;
-        }
+    static int selectKeyframeTrackNearestTime(CCameraKeyframeTrack& track, float time);
 
-        const double alpha = static_cast<double>(clampedTime - a.time) / static_cast<double>(b.time - a.time);
-        preset = a.preset;
-        CCameraPresetUtilities::assignGoalToPreset(
-            preset,
-            CCameraGoalUtilities::blendGoals(
-                CCameraPresetUtilities::makeGoalFromPreset(a.preset),
-                CCameraPresetUtilities::makeGoalFromPreset(b.preset),
-                alpha));
-        return true;
-    }
+    static void normalizeSelectedKeyframeTrack(CCameraKeyframeTrack& track);
 
-    static inline void sortKeyframeTrackByTime(CCameraKeyframeTrack& track)
-    {
-        std::sort(track.keyframes.begin(), track.keyframes.end(), [](const auto& a, const auto& b) { return a.time < b.time; });
-    }
+    static CCameraKeyframe* getSelectedKeyframe(CCameraKeyframeTrack& track);
 
-    static inline void clampTrackTimeToKeyframes(const CCameraKeyframeTrack& track, float& time)
-    {
-        if (track.keyframes.empty())
-        {
-            time = 0.f;
-            return;
-        }
+    static const CCameraKeyframe* getSelectedKeyframe(const CCameraKeyframeTrack& track);
 
-        time = std::clamp(time, 0.f, track.keyframes.back().time);
-    }
-
-    static inline int selectKeyframeTrackNearestTime(CCameraKeyframeTrack& track, const float time)
-    {
-        if (track.keyframes.empty())
-        {
-            track.selectedKeyframeIx = -1;
-            return track.selectedKeyframeIx;
-        }
-
-        size_t bestIx = 0u;
-        float bestDelta = hlsl::abs(track.keyframes.front().time - time);
-        for (size_t i = 1u; i < track.keyframes.size(); ++i)
-        {
-            const float delta = hlsl::abs(track.keyframes[i].time - time);
-            if (delta < bestDelta)
-            {
-                bestDelta = delta;
-                bestIx = i;
-            }
-        }
-
-        track.selectedKeyframeIx = static_cast<int>(bestIx);
-        return track.selectedKeyframeIx;
-    }
-
-    static inline void normalizeSelectedKeyframeTrack(CCameraKeyframeTrack& track)
-    {
-        if (track.keyframes.empty())
-        {
-            track.selectedKeyframeIx = -1;
-            return;
-        }
-
-        if (track.selectedKeyframeIx < 0)
-            track.selectedKeyframeIx = 0;
-        else if (track.selectedKeyframeIx >= static_cast<int>(track.keyframes.size()))
-            track.selectedKeyframeIx = static_cast<int>(track.keyframes.size()) - 1;
-    }
-
-    static inline CCameraKeyframe* getSelectedKeyframe(CCameraKeyframeTrack& track)
-    {
-        normalizeSelectedKeyframeTrack(track);
-        if (track.selectedKeyframeIx < 0)
-            return nullptr;
-        return &track.keyframes[static_cast<size_t>(track.selectedKeyframeIx)];
-    }
-
-    static inline const CCameraKeyframe* getSelectedKeyframe(const CCameraKeyframeTrack& track)
-    {
-        if (track.selectedKeyframeIx < 0 || track.selectedKeyframeIx >= static_cast<int>(track.keyframes.size()))
-            return nullptr;
-        return &track.keyframes[static_cast<size_t>(track.selectedKeyframeIx)];
-    }
-
-    static inline bool replaceSelectedKeyframePreset(CCameraKeyframeTrack& track, CCameraPreset preset)
-    {
-        auto* selected = getSelectedKeyframe(track);
-        if (!selected)
-            return false;
-
-        selected->preset = std::move(preset);
-        return true;
-    }
+    static bool replaceSelectedKeyframePreset(CCameraKeyframeTrack& track, CCameraPreset preset);
 };
 
 } // namespace nbl::core
