@@ -5,6 +5,7 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
+#include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
