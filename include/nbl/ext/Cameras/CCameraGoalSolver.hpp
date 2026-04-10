@@ -64,11 +64,11 @@ public:
         enum class EIssue : uint32_t
         {
             NoIssue = 0u,
-            UsedAbsolutePoseFallback = 1u << 0,
-            MissingSphericalTargetState = 1u << 1,
-            MissingPathState = 1u << 2,
-            MissingDynamicPerspectiveState = 1u << 3,
-            VirtualEventReplayFailed = 1u << 4
+            UsedAbsolutePoseFallback = core::createBitmask({ 0 }),
+            MissingSphericalTargetState = core::createBitmask({ 1 }),
+            MissingPathState = core::createBitmask({ 2 }),
+            MissingDynamicPerspectiveState = core::createBitmask({ 3 }),
+            VirtualEventReplayFailed = core::createBitmask({ 4 })
         };
 
         EStatus status = EStatus::Unsupported;
