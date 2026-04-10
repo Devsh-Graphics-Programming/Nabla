@@ -879,20 +879,8 @@ The base orientation is then built from the camera looking from the resolved pos
 The built-in control law maps runtime local motion into path-state delta as:
 
 $$
-\Delta q =
-\begin{bmatrix}
-\Delta s \\
-\Delta u \\
-\Delta v \\
-\Delta \rho
-\end{bmatrix}
-=
-\begin{bmatrix}
-\Delta z_{\mathrm{local}} \\
-\Delta x_{\mathrm{local}} \\
-\Delta y_{\mathrm{local}} \\
-\Delta \mathrm{roll}
-\end{bmatrix}
+\Delta q = (\Delta s, \Delta u, \Delta v, \Delta \rho)^{\mathsf{T}}
+= (\Delta z_{\mathrm{local}}, \Delta x_{\mathrm{local}}, \Delta y_{\mathrm{local}}, \Delta \mathrm{roll})^{\mathsf{T}}
 $$
 
 and integrates it as:
