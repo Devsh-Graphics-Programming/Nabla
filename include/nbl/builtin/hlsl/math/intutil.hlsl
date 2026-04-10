@@ -80,9 +80,9 @@ enable_if_t<(1 < H) && (H <= N) && (N <= 32), uint32_t> circularBitShiftRightHig
     // Highest H bits are numbered N-1 through N - H
     // N - H is then the middle bit
     // Lowest bits numbered from 0 through N - H - 1
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t lowMask = (1 << (N - H)) - 1;
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t midMask = 1 << (N - H);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t highMask = ~(lowMask | midMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
@@ -101,9 +101,9 @@ enable_if_t<(1 < H) && (H <= N) && (N < 32), uint32_t> circularBitShiftLeftHighe
     // Highest H bits are numbered N-1 through N - H
     // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
     // Lowest bits numbered from 0 through N - H - 1
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t lowMask = (1 << (N - H)) - 1;
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t highMask = 1 << (N - 1);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t midMask = ~(lowMask | highMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
@@ -121,9 +121,9 @@ enable_if_t<(1 < L), uint32_t> circularBitShiftRightLower(uint32_t i)
     // Lowest bit is indexed 0
     // Middle bits numbered 1 to L-1
     // Highest bits numbered from L through N-1
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ((1 << L) - 1) ^ 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t lowMask = 1;
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t midMask = ((1 << L) - 1) ^ 1;
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t highMask = ~(lowMask | midMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
@@ -142,9 +142,9 @@ enable_if_t<(1 < L), uint32_t> circularBitShiftLeftLower(uint32_t i)
     // Lowest L - 1 bits numbered 0 through L - 2
     // L - 1 is then the middle bit
     // L through N-1 the higher bits
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (L - 1)) - 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (L - 1);
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t lowMask = (1 << (L - 1)) - 1;
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t midMask = 1 << (L - 1);
+    NBL_CONSTEXPR_FUNC_SCOPE_VAR uint32_t highMask = ~(lowMask | midMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;

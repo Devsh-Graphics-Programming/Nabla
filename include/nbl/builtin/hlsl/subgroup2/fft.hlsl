@@ -264,8 +264,8 @@ struct FFT<SubgroupSize, true, Scalar, device_capabilities>
 };
 
 
-}
-}
-}
+} //namespace subgroup2
+} //namespace hlsl
+} //namespace nbl
 
 #endif

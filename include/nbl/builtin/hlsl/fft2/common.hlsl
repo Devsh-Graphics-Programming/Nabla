@@ -176,8 +176,8 @@ void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi
     lo = x;
 }
 
-}
-}
-}
+} //namespace fft2
+} //namespace hlsl
+} //namespace nbl
 
 #endif
