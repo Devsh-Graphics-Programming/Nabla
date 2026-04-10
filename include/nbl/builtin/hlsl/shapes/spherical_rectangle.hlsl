@@ -127,6 +127,68 @@ struct SphericalRectangle
         return result;
     }
 
+    // Kelvin-Stokes theorem: signed projected solid angle = integral_{rect} (n . omega) d_omega
+    scalar_type projectedSolidAngle(const vector3_type observer, const vector3_type receiverNormal) NBL_CONST_MEMBER_FUNC
+    {
+        return projectedSolidAngleFromLocal(hlsl::mul(basis, origin - observer), hlsl::mul(basis, receiverNormal));
+    }
+
+    // Overload for when r0 and localNormal are already computed (avoids redundant mul(basis, ...)).
+    // Exploits rectangle structure: all 4 corners share the same z, so cross products
+    // have only 2 nonzero components each, and externalProducts can be computed without
+    // normalizing the corner directions.
+    scalar_type projectedSolidAngleFromLocal(const vector3_type r0, const vector3_type n) NBL_CONST_MEMBER_FUNC
+    {
+        const scalar_type x0 = r0.x, y0 = r0.y, z = r0.z;
+        const scalar_type x1 = x0 + extents.x;
+        const scalar_type y1 = y0 + extents.y;
+        const scalar_type ex = extents.x, ey = extents.y;
+        const scalar_type zSq = z * z;
+
+        // Unnormalized cross products of adjacent corners (each has one zero component):
+        //   cross(r0,r1) = ex*(0, z, -y0),  cross(r1,r2) = ey*(-z, 0, x1)
+        //   cross(r2,r3) = ex*(0, -z, y1),  cross(r3,r0) = ey*(z, 0, -x0)
+        // |cross|^2: the ex/ey factors cancel in externalProducts (dot/|cross|)
+        const vector4_type crossLenSq = vector4_type(
+            zSq + y0 * y0,
+            zSq + x1 * x1,
+            zSq + y1 * y1,
+            zSq + x0 * x0
+        );
+
+        // dot(cross(ri,rj), n) / |cross(ri,rj)| the ex/ey scale factors cancel
+        const vector4_type crossDotN = vector4_type(
+            z * n.y - y0 * n.z,
+            -z * n.x + x1 * n.z,
+            -z * n.y + y1 * n.z,
+            z * n.x - x0 * n.z
+        );
+        // The ABS makes the computation correct for abs(cos(theta)) (BSDF projected solid angle).
+        const vector4_type externalProducts = hlsl::abs(crossDotN) * hlsl::rsqrt<vector4_type>(crossLenSq);
+
+        // cos(arc length) between adjacent corners: dot(ri,rj) / (|ri|*|rj|)
+        const vector4_type lenSq = vector4_type(
+            x0 * x0 + y0 * y0,
+            x1 * x1 + y0 * y0,
+            x1 * x1 + y1 * y1,
+            x0 * x0 + y1 * y1
+        ) + hlsl::promote<vector4_type>(zSq);
+        const vector4_type rcpLen = hlsl::rsqrt<vector4_type>(lenSq);
+
+        const vector4_type unnormDots = vector4_type(
+            x0 * x1 + y0 * y0 + zSq,
+            x1 * x1 + y0 * y1 + zSq,
+            x0 * x1 + y1 * y1 + zSq,
+            x0 * x0 + y0 * y1 + zSq
+        );
+        // rcpLen[i]*rcpLen[j] for adjacent pairs: (0,1), (1,2), (2,3), (3,0)
+        const vector4_type cos_sides = unnormDots * rcpLen * rcpLen.yzwx;
+
+        const vector4_type pyramidAngles = hlsl::acos<vector4_type>(cos_sides);
+
+        return hlsl::dot(pyramidAngles, externalProducts) * scalar_type(0.5);
+    }
+
     vector3_type origin;
     vector2_type extents;
     matrix3x3_type basis;

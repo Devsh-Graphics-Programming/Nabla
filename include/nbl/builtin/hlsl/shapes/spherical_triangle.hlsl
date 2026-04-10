@@ -90,14 +90,10 @@ struct SphericalTriangle
         awayFromEdgePlane[0] = hlsl::cross(vertices[1], vertices[2]) * csc_sides[0];
         awayFromEdgePlane[1] = hlsl::cross(vertices[2], vertices[0]) * csc_sides[1];
         awayFromEdgePlane[2] = hlsl::cross(vertices[0], vertices[1]) * csc_sides[2];
-        // Kelvin-Stokes theorem: signed projected solid angle = integral_{triangle} (n . omega) d_omega
-        // This is the SIGNED projected solid angle. For one-sided (BRDF) or abs (BSDF) projected solid angle
-        // of triangles straddling the horizon, the triangle must be clipped to the hemisphere first.
-        const vector3_type externalProducts = hlsl::mul(/* transposed already */awayFromEdgePlane, receiverNormal);
-
-        // The edge normals from cross(v_i, v_j) point outward only for CCW winding.
-        // Correct for arbitrary winding by checking the triple product sign.
-        const scalar_type windingSign = hlsl::dot(vertices[0], awayFromEdgePlane[0]) >= scalar_type(0) ? scalar_type(0.5) : scalar_type(-0.5);
+        // The ABS makes it so that the computation is correct for an `abs(cos(theta))` factor which is the projected solid angle used for a BSDF.
+        // Proof: Kelvin-Stokes theorem, if you split the set into two along the horizon with constant CCW winding, the `cross` along the shared edge
+        // goes in different directions and cancels out, while `acos` of the clipped great arcs corresponding to polygon edges add up to the original sides again.
+        const vector3_type externalProducts = hlsl::abs(hlsl::mul(/* transposed already */awayFromEdgePlane, receiverNormal));
 
         // Far TODO: `cross(A,B)*acos(dot(A,B))/sin(1-dot^2)` can be done with `cross*acos_csc_approx(dot(A,B))`
         // We could skip the `csc_sides` factor, and computing `pyramidAngles` and replace them with this approximation weighting before the dot product with the receiver notmal
@@ -109,7 +105,7 @@ struct SphericalTriangle
         // Furthermore we could clip the polynomial calc to `Cu+D or `(Bu+C)u+D` for small arguments
         const vector3_type pyramidAngles = hlsl::acos<vector3_type>(cos_sides);
         // So that triangle covering almost whole hemisphere sums to PI
-        return hlsl::dot(pyramidAngles, externalProducts) * windingSign;
+        return hlsl::dot(pyramidAngles, externalProducts) * scalar_type(0.5);
     }
 
     vector3_type vertices[3];

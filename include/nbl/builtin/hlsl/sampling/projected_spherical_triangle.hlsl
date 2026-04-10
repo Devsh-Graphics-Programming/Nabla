@@ -18,6 +18,14 @@ namespace hlsl
 namespace sampling
 {
 
+// "Practical Warps" projected solid angle sampler for spherical triangles.
+//
+// How it works:
+//   1. Build a bilinear patch from NdotL at each vertex direction
+//   2. Warp uniform [0,1]^2 through the bilinear to importance-sample NdotL
+//   3. Feed the warped UV into the solid angle sampler to get a direction
+//   4. PDF = (1/SolidAngle) * bilinearPdf
+//
 // Template parameter `UsePdfAsWeight`: when true (default), forwardWeight/backwardWeight
 // return the PDF instead of the projected-solid-angle MIS weight.
 // TODO: the projected-solid-angle MIS weight (UsePdfAsWeight=false) has been shown to be

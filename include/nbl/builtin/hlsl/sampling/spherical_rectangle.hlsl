@@ -39,9 +39,12 @@ struct SphericalRectangle
 
     static SphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect, const vector3_type observer)
     {
-        SphericalRectangle<T> retval;
+        return create(rect.solidAngle(observer), rect.extents);
+    }
 
-        const typename shapes::SphericalRectangle<T>::solid_angle_type sa = rect.solidAngle(observer);
+    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(typename shapes::SphericalRectangle<T>::solid_angle_type) sa, const vector2_type extents)
+    {
+        SphericalRectangle<T> retval;
         retval.r0 = sa.r0;
 
         retval.solidAngle = sa.value;
@@ -56,7 +59,7 @@ struct SphericalRectangle
         // flip z axis if r0.z > 0
         retval.r0.z = -hlsl::abs(retval.r0.z);
         retval.r0zSq = retval.r0.z * retval.r0.z;
-        retval.r1 = vector2_type(retval.r0.x + rect.extents.x, retval.r0.y + rect.extents.y);
+        retval.r1 = vector2_type(retval.r0.x + extents.x, retval.r0.y + extents.y);
         retval.rySq = vector2_type(retval.r0.y * retval.r0.y, retval.r1.y * retval.r1.y);
 
         return retval;
