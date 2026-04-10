@@ -16,11 +16,12 @@ If you want to know which type to touch first, use this table.
 
 | I want to... | Use |
 |---|---|
+| move a camera from live input this frame | `ICamera::manipulate(...)` |
+| convert keyboard or mouse input into camera commands | `IGimbalInputProcessor` or `CGimbalInputBinder` |
+| pair one camera with one or more projection entries | `CPlanarProjection` and `IPlanarProjection::CProjection` |
 | apply one absolute rigid pose request at runtime | `camera->manipulate({}, &referenceFrame)` |
 | set exact position or exact orientation on `Free` and `FPS` | `referenceFrame` built from `camera->getGimbal()` |
 | set one absolute typed state that can be reused later | `CCameraGoal` + `CCameraGoalSolver` |
-| move a camera from live input this frame | `ICamera::manipulate(...)` |
-| convert keyboard or mouse input into camera commands | `IGimbalInputProcessor` or `CGimbalInputBinder` |
 | capture current camera state | `CCameraGoalSolver::capture...` |
 | restore a camera from typed state | `CCameraGoalSolver::apply...` |
 | save a named camera state | `CCameraPreset` |
@@ -35,7 +36,189 @@ If you want to know which type to touch first, use this table.
 
 This section shows the common entry points before any deeper explanation.
 
-### 1. Apply one absolute rigid pose request
+### 1. Live runtime camera control
+
+Use this when keyboard, mouse, or ImGuizmo should move the camera right now.
+
+```cpp
+auto camera = core::make_smart_refctd_ptr<COrbitCamera>(eye, target);
+
+ui::CGimbalInputBinder binder;
+ui::CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(binder, *camera);
+
+auto collected = binder.collectVirtualEvents(timestamp, {
+    .keyboardEvents = { keyEvents.data(), keyEvents.size() },
+    .mouseEvents = { mouseEvents.data(), mouseEvents.size() },
+    // .imguizmoEvents = { gizmoDeltaTransforms.data(), gizmoDeltaTransforms.size() },
+});
+
+camera->manipulate(collected.events);
+```
+
+The update payload currently accepts:
+
+- `keyboardEvents`
+- `mouseEvents`
+- `imguizmoEvents`
+
+What happens here:
+
+1. device input is converted into semantic camera commands
+2. the camera consumes those commands through `manipulate(...)`
+3. the camera updates its gimbal pose
+
+The controller-side stack is:
+
+- `IGimbalBindingLayout` for the static mapping from device inputs to virtual events
+- `IGimbalInputProcessor` for converting one frame of raw input into event magnitudes
+- `CGimbalInputBinder` for the common runtime object that owns a layout and collects one frame of events
+- `CCameraInputBindingUtilities` for shared preset layouts such as default `FPS`, `Orbit`, or `Path Rig` bindings
+
+The two common ways to start are:
+
+- apply one shared preset for a camera family
+- write one binding layout explicitly
+
+**Question: How do I bind `FPS` to `WASD`?**
+
+Use the shared default binding preset for the active camera kind.
+
+```cpp
+auto camera = core::make_smart_refctd_ptr<CFPSCamera>(position, orientation);
+
+ui::CGimbalInputBinder binder;
+ui::CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(binder, *camera);
+```
+
+For `FPS`, the default preset gives you:
+
+- keyboard `W/S/A/D` -> forward, backward, left, right
+- keyboard `I/K/J/L` -> tilt up, tilt down, pan left, pan right
+- mouse relative movement -> look yaw and pitch
+
+For `Free`, the default preset adds `Q/E` for roll.
+
+For target-relative families and `Path Rig`, the default preset keeps the same physical inputs but maps them to the legal state space of that family.
+
+**Question: How do I define custom bindings?**
+
+Use one `IGimbalBindingLayout` implementation such as `CGimbalInputBinder` and write the mapping you want.
+
+```cpp
+ui::CGimbalInputBinder binder;
+const double customMoveGain = /* choose a sensitivity for this binding */;
+
+binder.updateKeyboardMapping([customMoveGain](auto& map)
+{
+    map.clear();
+    map.emplace(ui::E_KEY_CODE::EKC_W, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveForward, customMoveGain));
+    map.emplace(ui::E_KEY_CODE::EKC_S, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveBackward, customMoveGain));
+    map.emplace(ui::E_KEY_CODE::EKC_A, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveLeft, customMoveGain));
+    map.emplace(ui::E_KEY_CODE::EKC_D, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveRight, customMoveGain));
+});
+```
+
+The same pattern works for:
+
+- mouse bindings through `updateMouseMapping(...)`
+- ImGuizmo bindings through `updateImguizmoMapping(...)`
+
+**Question: How are `magnitude` values generated?**
+
+`CVirtualGimbalEvent::magnitude` is one non-negative scalar attached to one semantic command.
+
+It is not a raw device unit and it is not, by itself, the final world-space or angular motion applied by a camera.
+
+What stays stable at the API level is the meaning by event family:
+
+- translation events carry one controller-side translation amount
+- rotation events carry one controller-side angular amount
+- scale events carry one controller-side scale amount
+
+The binding layer maps raw producer values onto those amounts. Different sources may start from:
+
+- elapsed time for held input
+- cursor deltas for relative mouse input
+- scroll steps for wheel input
+- world-space translation or angular deltas for gizmo-driven input
+
+That means exact numeric gains are binding policy, not API contract. The binding layer owns sensitivity and repeat-rate tuning.
+
+After the controller side emits virtual magnitudes, the camera runtime applies its own motion scales and legalizes the result to the concrete camera family.
+
+The motion pipeline is therefore:
+
+1. raw device input
+2. binding-local gain
+3. `CVirtualGimbalEvent { type, magnitude }`
+4. camera-local motion scale
+5. family-specific legalization and state update
+
+### 2. Projection is separate from camera state
+
+**Question: Where is `setProjectionMatrix(...)`?**
+
+There is no `camera->setProjectionMatrix(...)`.
+
+That is intentional.
+
+The camera API keeps runtime camera state and projection state separate:
+
+- `ICamera` owns pose and motion state
+- `IProjection` and its derived types own projection state
+- one projection wrapper references one camera when it needs `view`, `MV`, or `MVP`
+
+This keeps the pairing flexible:
+
+- one camera can be reused with different projection entries
+- one viewport can switch projection preset without replacing the camera
+- projection parameters such as FOV, orthographic width, near, and far do not have to live inside every camera kind
+
+The split looks like this:
+
+```cpp
+auto camera = core::make_smart_refctd_ptr<COrbitCamera>(eye, target);
+
+using projections_t = std::vector<core::IPlanarProjection::CProjection>;
+auto planar = core::CPlanarProjection<projections_t>::create(core::smart_refctd_ptr(camera));
+
+planar->getPlanarProjections().push_back(
+    core::IPlanarProjection::CProjection::create<
+        core::IPlanarProjection::CProjection::Perspective>(0.1f, 100.0f, 60.0f));
+
+planar->getPlanarProjections().push_back(
+    core::IPlanarProjection::CProjection::create<
+        core::IPlanarProjection::CProjection::Orthographic>(0.1f, 100.0f, 10.0f));
+
+auto& projection = planar->getPlanarProjections()[0];
+projection.update(leftHanded, aspectRatio);
+
+const auto& view = camera->getGimbal().getViewMatrix();
+const auto& proj = projection.getProjectionMatrix();
+```
+
+So the camera does not own projection parameters.
+
+Instead:
+
+- the camera owns `view`
+- the projection entry owns `projection`
+- the wrapper combines both when code needs `MV`, `MVP`, or viewport-local binding state
+
+When you want to change projection state, touch the projection layer:
+
+- `IPlanarProjection::CProjection::setPerspective(...)`
+- `IPlanarProjection::CProjection::setOrthographic(...)`
+- `IPlanarProjection::CProjection::update(...)`
+
+When you want to change pose or camera-family state, touch the camera layer:
+
+- `ICamera::manipulate(...)`
+- `referenceFrame`
+- `CCameraGoal`
+- family-specific typed hooks such as `trySetSphericalTarget(...)` or `trySetPathState(...)`
+
+### 3. Apply one absolute rigid pose request
 
 Use this when you already have one rigid transform and want the camera to consume it through the normal runtime entry point.
 
@@ -43,10 +226,21 @@ Use this when you already have one rigid transform and want the camera to consum
 const auto referenceFrame =
     hlsl::CCameraMathUtilities::composeTransformMatrix(desiredPosition, desiredOrientation);
 
-camera->manipulate({}, &referenceFrame);
+if (camera->manipulate({}, &referenceFrame))
+{
+    // reference frame was accepted and applied
+}
 ```
 
-#### Why not just expose `setPosition(...)` and `setOrientation(...)` everywhere?
+`manipulate(...)` can return `false`.
+
+Common reasons are:
+
+- there were no virtual events and no `referenceFrame`
+- the supplied `referenceFrame` was not a valid rigid orthonormal transform
+- the concrete camera kind could not legalize the request into its own runtime state
+
+**Question: Why not just expose `setPosition(...)` and `setOrientation(...)` everywhere?**
 
 Because not every camera kind stores arbitrary rigid pose as its native state.
 
@@ -88,6 +282,8 @@ For `FPS` that means:
 - reject arbitrary roll
 - write back one upright `FPS` pose
 
+For `FPS`, that rejection applies to `referenceFrame`, not to stray roll virtual events. `CFPSCamera` advertises only translation plus pitch/yaw runtime control, so `RollLeft` and `RollRight` events are ignored by the `FPS` accumulator instead of causing failure.
+
 The same pattern applies to every camera family:
 
 - `Free` keeps the rigid pose directly
@@ -95,17 +291,13 @@ The same pattern applies to every camera family:
 - target-relative cameras legalize to `target + orbitUv + distance`
 - `Path Rig` legalizes to `PathState`
 
-That is why `camera->manipulate({}, &referenceFrame)` is the shared absolute runtime path.
-
-It accepts one rigid pose request at the API boundary and lets each camera family legalize it according to its own runtime model.
-
 Use this path for:
 
 - one-shot runtime pose application
 - ImGuizmo
 - world-space or local-space pose anchoring
 
-### 2. Set exact position or exact orientation on `Free` and `FPS`
+### 4. Set exact position or exact orientation on `Free` and `FPS`
 
 Use this when the target camera is `Free` or `FPS` and you want to replace only one rigid-pose component.
 
@@ -137,9 +329,9 @@ camera->manipulate({}, &referenceFrame);
 
 `FPS` keeps the exact position but legalizes orientation to its upright `pitch/yaw` state.
 
-Do not describe this path as exact position-only or exact orientation-only for constrained target-relative or path cameras. Those cameras legalize the rigid pose request into their own family state.
+For constrained target-relative and path cameras, prefer family-specific typed state or `CCameraGoal` instead of describing this as an exact component setter.
 
-### 3. Set one absolute typed state
+### 5. Set one absolute typed state
 
 Use this when the state should survive beyond one frame or should be reused by presets, follow, playback, persistence, or scripts.
 
@@ -150,14 +342,70 @@ goal.orientation = desiredOrientation;
 
 core::CCameraGoalSolver solver;
 auto apply = solver.applyDetailed(camera.get(), goal);
+
+if (apply.succeeded() && apply.changed())
+{
+    // camera was updated during applyDetailed(...)
+}
 ```
+
+`applyDetailed(...)` does not build a deferred command object.
+It immediately tries to apply `goal` to the runtime camera.
+
+The returned `apply` value is a report describing what happened:
+
+- whether the apply succeeded
+- whether the camera actually changed
+- whether the result was exact or approximate
+- whether typed state was applied directly, virtual events were replayed, or both
+
+So the control flow is:
+
+1. build one `CCameraGoal`
+2. call `applyDetailed(...)`
+3. the solver immediately updates the camera if it can
+4. inspect `apply` if you need status, exactness, or diagnostics
+
+Use `applyDetailed(...)` when you want that report.
+Use `apply(...)` when you only need a plain success/failure boolean.
+
+**Question: How is this different from `composeTransformMatrix(...)` plus `camera->manipulate({}, &referenceFrame)`?**
+
+`referenceFrame` carries one rigid pose request:
+
+- position
+- orientation
+
+That is enough when the job is "try to place the runtime camera at this pose now".
+
+`CCameraGoal` can carry more than one rigid pose:
+
+- pose
+- target-relative state
+- path state
+- dynamic perspective state
+- source metadata used by tooling
+
+So the two paths are different:
+
+- `referenceFrame` asks the runtime camera to legalize one rigid pose request
+- `CCameraGoal` asks the solver to apply one typed camera state, using direct typed hooks when available and virtual-event replay when needed
+
+For `Free` and often `FPS`, both paths may end up close to the same result.
+
+For constrained families they are not equivalent, because one rigid pose does not fully describe family-specific state such as:
+
+- target position
+- orbit angles plus distance
+- `PathState`
+- dynamic perspective parameters
 
 Rule of thumb:
 
 - use `referenceFrame` for one runtime rigid pose request now
 - use `CCameraGoal` for one typed camera state that should be stored, compared, serialized, replayed, or applied later
 
-### 4. Set one absolute camera-family state
+### 6. Set one absolute camera-family state
 
 Use this when you do not want a generic rigid pose and instead want to write the native state of one camera family.
 
@@ -187,122 +435,7 @@ Use this path when you already have:
 - path-rig state
 - one other family-specific typed fragment exposed by `ICamera`
 
-### 5. Live runtime camera control
-
-Use this when keyboard, mouse, or ImGuizmo should move the camera right now.
-
-```cpp
-auto camera = core::make_smart_refctd_ptr<COrbitCamera>(eye, target);
-
-ui::CGimbalInputBinder binder;
-ui::CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(binder, *camera);
-
-auto collected = binder.collectVirtualEvents(timestamp, {
-    .mouseEvents = { mouseEvents.data(), mouseEvents.size() },
-    .keyboardEvents = { keyEvents.data(), keyEvents.size() }
-});
-
-camera->manipulate(collected.events);
-```
-
-What happens here:
-
-1. device input is converted into semantic camera commands
-2. the camera consumes those commands through `manipulate(...)`
-3. the camera updates its gimbal pose
-
-Main types involved:
-
-- [`CVirtualGimbalEvent.hpp`](CVirtualGimbalEvent.hpp)
-- [`IGimbalBindingLayout.hpp`](IGimbalBindingLayout.hpp)
-- [`IGimbalInputProcessor.hpp`](IGimbalInputProcessor.hpp)
-- [`CGimbalInputBinder.hpp`](CGimbalInputBinder.hpp)
-- [`CCameraInputBindingUtilities.hpp`](CCameraInputBindingUtilities.hpp)
-- [`ICamera.hpp`](ICamera.hpp)
-
-The controller-side stack is:
-
-- `IGimbalBindingLayout` for the static mapping from device inputs to virtual events
-- `IGimbalInputProcessor` for converting one frame of raw input into event magnitudes
-- `CGimbalInputBinder` for the common runtime object that owns a layout and collects one frame of events
-- `CCameraInputBindingUtilities` for shared preset layouts such as default `FPS`, `Orbit`, or `Path Rig` bindings
-
-#### How do I bind `FPS` to `WASD`?
-
-Use the shared default binding preset for the active camera kind.
-
-```cpp
-auto camera = core::make_smart_refctd_ptr<CFPSCamera>(position, orientation);
-
-ui::CGimbalInputBinder binder;
-ui::CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(binder, *camera);
-```
-
-For `FPS`, the default preset gives you:
-
-- keyboard `W/S/A/D` -> forward, backward, left, right
-- keyboard `I/K/J/L` -> tilt up, tilt down, pan left, pan right
-- mouse relative movement -> look yaw and pitch
-
-For `Free`, the default preset adds `Q/E` for roll.
-
-For target-relative families and `Path Rig`, the default preset keeps the same physical inputs but maps them to the legal state space of that family.
-
-#### How do I make my own bindings?
-
-Use one `IGimbalBindingLayout` implementation such as `CGimbalInputBinder` and write the mapping you want.
-
-```cpp
-ui::CGimbalInputBinder binder;
-const double customMoveGain = /* choose a sensitivity for this binding */;
-
-binder.updateKeyboardMapping([customMoveGain](auto& map)
-{
-    map.clear();
-    map.emplace(ui::E_KEY_CODE::EKC_W, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveForward, customMoveGain));
-    map.emplace(ui::E_KEY_CODE::EKC_S, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveBackward, customMoveGain));
-    map.emplace(ui::E_KEY_CODE::EKC_A, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveLeft, customMoveGain));
-    map.emplace(ui::E_KEY_CODE::EKC_D, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveRight, customMoveGain));
-});
-```
-
-The same pattern works for:
-
-- mouse bindings through `updateMouseMapping(...)`
-- ImGuizmo bindings through `updateImguizmoMapping(...)`
-
-#### How are `magnitude` values generated?
-
-`CVirtualGimbalEvent::magnitude` is one non-negative scalar attached to one semantic command.
-
-It is not a raw device unit and it is not, by itself, the final world-space or angular motion applied by a camera.
-
-What stays stable at the API level is the meaning by event family:
-
-- translation events carry one controller-side translation amount
-- rotation events carry one controller-side angular amount
-- scale events carry one controller-side scale amount
-
-The binding layer maps raw producer values onto those amounts. Different sources may start from:
-
-- elapsed time for held input
-- cursor deltas for relative mouse input
-- scroll steps for wheel input
-- world-space translation or angular deltas for gizmo-driven input
-
-That means exact numeric gains are binding policy, not API contract. The binding layer owns sensitivity and repeat-rate tuning.
-
-After the controller side emits virtual magnitudes, the camera runtime applies its own motion scales and legalizes the result to the concrete camera family.
-
-The motion pipeline is therefore:
-
-1. raw device input
-2. binding-local gain
-3. `CVirtualGimbalEvent { type, magnitude }`
-4. camera-local motion scale
-5. family-specific legalization and state update
-
-### 6. Capture a camera and restore it later
+### 7. Capture a camera and restore it later
 
 Use this when you want explicit camera state instead of one-frame runtime input.
 
@@ -322,12 +455,7 @@ What happens here:
 2. the solver writes that state into one `CCameraGoal`
 3. the solver later applies that goal back to a camera
 
-Main types involved:
-
-- [`CCameraGoal.hpp`](CCameraGoal.hpp)
-- [`CCameraGoalSolver.hpp`](CCameraGoalSolver.hpp)
-
-### 7. Save a named camera state
+### 8. Save a named camera state
 
 Use this when one camera state needs a user-facing name or identifier.
 
@@ -344,12 +472,7 @@ if (capture.canUseGoal())
 }
 ```
 
-Main types involved:
-
-- [`CCameraPreset.hpp`](CCameraPreset.hpp)
-- [`CCameraPresetFlow.hpp`](CCameraPresetFlow.hpp)
-
-### 8. Make a camera follow a moving target
+### 9. Make a camera follow a moving target
 
 Use this when one tracked subject should drive camera behavior.
 
@@ -364,34 +487,20 @@ core::CCameraGoalSolver solver;
 core::CCameraFollowUtilities::applyFollowToCamera(solver, camera.get(), trackedTarget, follow);
 ```
 
-Main types involved:
-
-- [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp)
-- [`CCameraFollowRegressionUtilities.hpp`](CCameraFollowRegressionUtilities.hpp)
-
-### 9. Build and evaluate scripted runtime payloads
+### 10. Build and evaluate scripted runtime payloads
 
 Use this when camera playback is authored as compact camera-domain data and then evaluated through generic per-frame runtime payloads and checks.
 
 ```cpp
-system::CCameraScriptedTimeline timeline;
-system::CCameraScriptedRuntimeUtilities::finalizeScriptedTimeline(timeline);
+core::CCameraScriptedTimeline timeline;
+core::CCameraScriptedRuntimeUtilities::finalizeScriptedTimeline(timeline);
 ```
-
-Main types involved:
-
-- [`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp)
-- [`CCameraSequenceScriptPersistence.hpp`](CCameraSequenceScriptPersistence.hpp)
-- [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp)
-- [`CCameraScriptedCheckRunner.hpp`](CCameraScriptedCheckRunner.hpp)
 
 ## Core concepts
 
 ### `CVirtualGimbalEvent`
 
-File:
-
-- [`CVirtualGimbalEvent.hpp`](CVirtualGimbalEvent.hpp)
+Defined in [`CVirtualGimbalEvent.hpp`](CVirtualGimbalEvent.hpp).
 
 `CVirtualGimbalEvent` is one semantic camera command plus one scalar magnitude.
 
@@ -414,10 +523,7 @@ The same event type can come from keyboard input, mouse input, ImGuizmo, scripte
 
 ### `IGimbal`
 
-Files:
-
-- [`IGimbal.hpp`](IGimbal.hpp)
-- [`ICamera.hpp`](ICamera.hpp)
+Defined in [`IGimbal.hpp`](IGimbal.hpp) and used by [`ICamera.hpp`](ICamera.hpp).
 
 The gimbal stores runtime pose:
 
@@ -434,9 +540,7 @@ Every runtime camera owns one `CGimbal`.
 
 ### `ICamera`
 
-File:
-
-- [`ICamera.hpp`](ICamera.hpp)
+Defined in [`ICamera.hpp`](ICamera.hpp).
 
 `ICamera` is the shared runtime interface implemented by every camera kind.
 
@@ -461,10 +565,7 @@ Those scales are applied after the binding layer emits virtual magnitudes.
 
 ### `referenceFrame`
 
-Files:
-
-- [`ICamera.hpp`](ICamera.hpp)
-- [`IGimbal.hpp`](IGimbal.hpp)
+Defined by [`ICamera.hpp`](ICamera.hpp) and [`IGimbal.hpp`](IGimbal.hpp).
 
 `referenceFrame` is the optional rigid transform passed to `ICamera::manipulate(...)`.
 
@@ -477,9 +578,7 @@ Typical producers:
 - replay helpers
 - code that wants world-space or local-space manipulation anchored to a specific rigid transform
 
-When you already have one absolute rigid pose, `referenceFrame` is the direct runtime entry point for requesting that pose through the runtime camera path.
-
-See Quick start sections 1 and 2 for the concrete absolute-pose usage patterns.
+See Quick start sections 1 to 4 for the concrete runtime usage patterns.
 
 Shared runtime pattern:
 
@@ -494,9 +593,7 @@ referenceFrame
 
 ### `SCameraRigPose`
 
-File:
-
-- [`SCameraRigPose.hpp`](SCameraRigPose.hpp)
+Defined in [`SCameraRigPose.hpp`](SCameraRigPose.hpp).
 
 `SCameraRigPose` stores only:
 
@@ -507,9 +604,7 @@ It is the smallest typed pose object reused across the stack.
 
 ### `CCameraGoal`
 
-File:
-
-- [`CCameraGoal.hpp`](CCameraGoal.hpp)
+Defined in [`CCameraGoal.hpp`](CCameraGoal.hpp).
 
 `CCameraGoal` is the canonical typed transport for camera state.
 
@@ -536,8 +631,6 @@ It is used by:
 - follow
 - scripted checks
 
-When you want to set a camera absolutely in a reusable, serializable, or comparable way, `CCameraGoal` is the main public state object for that job.
-
 It is not:
 
 - a live input object
@@ -548,9 +641,7 @@ For constrained cameras, the solver may project the goal onto legal camera-famil
 
 ### `CCameraGoalSolver`
 
-File:
-
-- [`CCameraGoalSolver.hpp`](CCameraGoalSolver.hpp)
+Defined in [`CCameraGoalSolver.hpp`](CCameraGoalSolver.hpp).
 
 `CCameraGoalSolver` converts between typed camera state and runtime cameras.
 
@@ -560,9 +651,7 @@ If you want to restore one absolute camera state and you are not sure which fami
 
 ### `CCameraPreset`
 
-File:
-
-- [`CCameraPreset.hpp`](CCameraPreset.hpp)
+Defined in [`CCameraPreset.hpp`](CCameraPreset.hpp).
 
 `CCameraPreset` is a named saved `CCameraGoal`.
 
@@ -574,9 +663,7 @@ It contains:
 
 ### `CCameraKeyframeTrack`
 
-File:
-
-- [`CCameraKeyframeTrack.hpp`](CCameraKeyframeTrack.hpp)
+Defined in [`CCameraKeyframeTrack.hpp`](CCameraKeyframeTrack.hpp).
 
 `CCameraKeyframeTrack` is a sequence of time-stamped presets.
 
@@ -587,9 +674,7 @@ Each keyframe contains:
 
 ### `CCameraPlaybackTimeline`
 
-File:
-
-- [`CCameraPlaybackTimeline.hpp`](CCameraPlaybackTimeline.hpp)
+Defined in [`CCameraPlaybackTimeline.hpp`](CCameraPlaybackTimeline.hpp).
 
 `CCameraPlaybackTimeline` stores playback cursor state over time-based camera data.
 
@@ -602,9 +687,7 @@ It tracks things such as:
 
 ### `CTrackedTarget`
 
-File:
-
-- [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp)
+Defined in [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp).
 
 `CTrackedTarget` is the reusable tracked subject used by follow.
 
@@ -613,9 +696,7 @@ It is not a mesh id and not a scene-node handle.
 
 ### `CCameraSequenceScript`
 
-File:
-
-- [`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp)
+Defined in [`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp).
 
 `CCameraSequenceScript` is the compact authored format for camera sequences.
 
@@ -632,9 +713,7 @@ It does not store frame-by-frame low-level input.
 
 ### `CCameraScriptedRuntime`
 
-File:
-
-- [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp)
+Defined in [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp).
 
 `CCameraScriptedRuntime` is the expanded executable form used during scripted playback and validation.
 
@@ -649,11 +728,7 @@ Consumer-specific UI actions stay outside this shared runtime payload.
 
 ### `Path Rig`
 
-Files:
-
-- [`CPathCamera.hpp`](CPathCamera.hpp)
-- [`CCameraPathUtilities.hpp`](CCameraPathUtilities.hpp)
-- [`CCameraPathMetadata.hpp`](CCameraPathMetadata.hpp)
+Defined by [`CPathCamera.hpp`](CPathCamera.hpp), [`CCameraPathUtilities.hpp`](CCameraPathUtilities.hpp), and [`CCameraPathMetadata.hpp`](CCameraPathMetadata.hpp).
 
 `Path Rig` is the camera family with typed state:
 
@@ -664,144 +739,265 @@ Files:
 
 Its runtime and typed tooling are driven by `SCameraPathModel`, which defines how path state is resolved, updated, and converted back into camera pose.
 
+At the API boundary, you can think of `Path Rig` as:
+
+$$
+\text{choose any parametric camera function } f
+\text{ that maps typed path state to pose.}
+$$
+
+In other words, the reusable seam is not "one built-in rail camera".
+It is:
+
+$$
+f : (t, q, L) \mapsto (p, o)
+$$
+
+with:
+
+- $t \in \mathbb{R}^3$:
+  world-space target or anchor position used by the model
+- $q \in \mathcal{Q}$:
+  typed path state
+- $L \in \mathcal{L}$:
+  path-state limits
+- $p \in \mathbb{R}^3$:
+  evaluated world-space camera position
+- $o \in \mathrm{SO}(3)$:
+  evaluated camera orientation
+
+In the shared built-in state representation,
+
+$$
+\mathcal{Q} = S^1 \times \mathbb{R} \times \mathbb{R} \times S^1
+$$
+
+with
+
+$$
+q = (s, u, v, \rho),
+$$
+
+where:
+
+- $s \in S^1$ is one wrapped angular parameter
+- $u \in \mathbb{R}$ is one lateral or radial parameter
+- $v \in \mathbb{R}$ is one second shape or height parameter
+- $\rho \in S^1$ is authored roll around the model forward axis
+
+and the limit bundle is
+
+$$
+\mathcal{L} = \{(u_{\min}, d_{\min}, d_{\max})\},
+$$
+
+where:
+
+- $u_{\min} \in \mathbb{R}_{\ge 0}$ is the minimal legal `u`
+- $d_{\min} \in \mathbb{R}_{\ge 0}$ is the minimal legal radial distance
+- $d_{\max} \in \mathbb{R}_{\ge 0} \cup \{\infty\}$ is the maximal legal radial distance
+
+The important part is that one caller-provided model decides how typed state becomes final camera pose.
+
+This is why the same API seam can model many constrained motions: circles, cylinders, orbits, guide curves, splines with offsets, crane-style rigs, banking on-rails cameras, and other custom parametric camera laws.
+
+If you already have one path curve
+
+$$
+C(s) \in \mathbb{R}^3
+$$
+
+and one moving local frame
+
+$$
+R(s), U(s), F(s) \in \mathbb{R}^3,
+$$
+
+then one representative evaluator has the shape
+
+$$
+p(s,u,v) = C(s) + u\,R(s) + v\,U(s),
+$$
+
+with orientation built from the basis
+
+$$
+\bigl(R(s), U(s), F(s)\bigr)
+$$
+
+and then rotated by authored roll $\rho$ around the current forward axis.
+
+The built-in model below is just one concrete default implementation of that seam.
+It happens to have one simple closed-form `resolveState(...)` from world-space position, but custom models only need to provide a legal state-resolution callback. They do not need one strict analytical inverse of the evaluator.
+
+**Default built-in model**
+
+If you do not supply your own `SCameraPathModel`, `CPathCamera` uses the built-in cylindrical model.
+
+That default model uses a cylindrical parameterization around the current target position
+$t = (t_x, t_y, t_z)$ with typed state
+$q = (s, u, v, \rho)$:
+
+$$
+\begin{aligned}
+x &= t_x + u \cos s \\
+y &= t_y + v \\
+z &= t_z + u \sin s
+\end{aligned}
+$$
+
+That means:
+
+- `s` is the authored angle around the target in the world `XZ` plane
+- `u` is the planar `XZ` radius
+- `v` is the vertical offset on world `Y`
+- `roll` is an extra rotation applied around the resulting forward axis
+
+For the built-in model, `resolveState(...)` from one world-space position can be written as:
+
+$$
+\begin{aligned}
+\Delta &= p - t \\
+s &= \operatorname{wrap}\!\left(\operatorname{atan2}(\Delta_z, \Delta_x)\right) \\
+u &= \max\!\left(u_{\min}, \sqrt{\Delta_x^2 + \Delta_z^2}\right) \\
+v &= \Delta_y
+\end{aligned}
+$$
+
+The default model also derives one radial camera distance from `(u, v)`:
+
+$$
+d = \lVert (u, v) \rVert_2 = \sqrt{u^2 + v^2}
+$$
+
+and sanitizes state as:
+
+$$
+\begin{aligned}
+s &\leftarrow \operatorname{wrap}(s) \\
+u &\leftarrow \max(u_{\min}, u) \\
+\rho &\leftarrow \operatorname{wrap}(\rho)
+\end{aligned}
+$$
+
+The base orientation is then built from the camera looking from the resolved position back at the target, and the authored roll is applied around that resulting forward axis.
+
+The built-in control law maps runtime local motion into path-state delta as:
+
+$$
+\Delta q =
+\begin{bmatrix}
+\Delta s \\
+\Delta u \\
+\Delta v \\
+\Delta \rho
+\end{bmatrix}
+=
+\begin{bmatrix}
+\Delta z_{\text{local}} \\
+\Delta x_{\text{local}} \\
+\Delta y_{\text{local}} \\
+\Delta \mathrm{roll}
+\end{bmatrix}
+$$
+
+and integrates it as:
+
+$$
+q_{n+1} = \operatorname{sanitize}(q_n + \Delta q)
+$$
+
+Equivalent pseudocode for the built-in model is:
+
+```cpp
+PathState state = sanitize(inputState, limits);
+
+const double appliedU = max(limits.minU, state.u);
+const dvec3 offset = {
+    cos(state.s) * appliedU,
+    state.v,
+    sin(state.s) * appliedU
+};
+
+const dvec3 requestedPosition = target + offset;
+const auto [orbitUv, distance] =
+    buildOrbitFromPosition(target, requestedPosition, limits.minDistance, limits.maxDistance);
+
+auto [position, orientation] =
+    buildSphericalPoseFromOrbit(target, orbitUv, distance, limits.minDistance, limits.maxDistance);
+
+if (state.roll != 0.0)
+    orientation = applyRollAroundCurrentForward(orientation, state.roll);
+
+PathDelta delta = {
+    .s = localTranslation.z,
+    .u = localTranslation.x,
+    .v = localTranslation.y,
+    .roll = localRotation.z
+};
+
+state = sanitize(state + delta, limits);
+```
+
+This is intentionally more general than one hardcoded "rail camera".
+
+The built-in model shown above is only one concrete parameterization.
+The reusable part is `SCameraPathModel`, which lets the runtime reinterpret the same typed `PathState` seam through custom:
+
+- state resolution
+- control law
+- integration
+- pose evaluation
+- distance update
+
+In practice that means the same `Path Rig` family can be used for many constrained camera designs, for example:
+
+- cylindrical and orbital rigs around one subject
+- dolly or crane-style motion with authored lateral and vertical offsets
+- cameras constrained to one spline or guide path with side/up offsets
+- banked path cameras where `roll` becomes authored banking around the current forward axis
+- on-rails gameplay or cinematic cameras with one path parameter plus local offsets
+- custom path-following rigs that keep the runtime API and typed tooling unchanged while replacing only the path model
+
+So the important boundary is:
+
+- the built-in model is one cylindrical target-relative parameterization
+- the `Path Rig` API surface is the extensible typed seam for path-driven camera families
+
+It can represent a large class of practical constrained camera motions, but it is still not "arbitrary free pose".
+If a camera must store completely unconstrained 6DOF pose as its native state, use `Free`.
+
 ## Camera families
 
-### Free cameras
-
-Files:
-
-- [`CFPSCamera.hpp`](CFPSCamera.hpp)
-- [`CFreeLockCamera.hpp`](CFreeLockCamera.hpp)
-
-State:
-
-- world-space position
-- orientation or FPS-constrained yaw/pitch orientation
-
-Typical use:
-
-- free-fly navigation
-- direct pose-driven manipulation
-
-### Target-relative cameras
-
-Base:
-
-- [`CSphericalTargetCamera.hpp`](CSphericalTargetCamera.hpp)
-
-Derived:
-
-- [`COrbitCamera.hpp`](COrbitCamera.hpp)
-- [`CArcballCamera.hpp`](CArcballCamera.hpp)
-- [`CTurntableCamera.hpp`](CTurntableCamera.hpp)
-- [`CTopDownCamera.hpp`](CTopDownCamera.hpp)
-- [`CIsometricCamera.hpp`](CIsometricCamera.hpp)
-- [`CChaseCamera.hpp`](CChaseCamera.hpp)
-- [`CDollyCamera.hpp`](CDollyCamera.hpp)
-- [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp)
-
-Shared state:
-
-- target position
-- `orbitUv`
-- distance
-
-These cameras resolve pose through target-relative state instead of arbitrary free pose.
-
-### DollyZoom
-
-File:
-
-- [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp)
-
-This camera adds dynamic perspective state on top of target-relative state.
-
-Typed dynamic perspective state:
-
-- `baseFov`
-- `referenceDistance`
-
-### Path Rig
-
-Files:
-
-- [`CPathCamera.hpp`](CPathCamera.hpp)
-- [`CCameraPathUtilities.hpp`](CCameraPathUtilities.hpp)
-- [`CCameraPathMetadata.hpp`](CCameraPathMetadata.hpp)
-
-Typed path state:
-
-- `s`
-- `u`
-- `v`
-- `roll`
-
-Typed path limits:
-
-- `minU`
-- `minDistance`
-- `maxDistance`
+- `Free` cameras in [`CFPSCamera.hpp`](CFPSCamera.hpp) and [`CFreeLockCamera.hpp`](CFreeLockCamera.hpp) store world-space position plus free or FPS-constrained orientation.
+- Target-relative cameras are built on [`CSphericalTargetCamera.hpp`](CSphericalTargetCamera.hpp) and include [`COrbitCamera.hpp`](COrbitCamera.hpp), [`CArcballCamera.hpp`](CArcballCamera.hpp), [`CTurntableCamera.hpp`](CTurntableCamera.hpp), [`CTopDownCamera.hpp`](CTopDownCamera.hpp), [`CIsometricCamera.hpp`](CIsometricCamera.hpp), [`CChaseCamera.hpp`](CChaseCamera.hpp), [`CDollyCamera.hpp`](CDollyCamera.hpp), and [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp). They store target position, `orbitUv`, and distance instead of arbitrary free pose.
+- [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp) extends the target-relative family with dynamic perspective state `baseFov` and `referenceDistance`.
+- [`CPathCamera.hpp`](CPathCamera.hpp) uses the parametric path-state seam described above together with limits `minU`, `minDistance`, and `maxDistance`.
 
 ## Typed tooling
 
-The key typed types are introduced in the `Core concepts` section above.
-
-This section focuses on how they fit together in one workflow:
+Use the typed layer when camera state must outlive the current frame or be exchanged between tools:
 
 1. `SCameraRigPose` is the smallest typed pose fragment.
-2. `CCameraGoal` is the canonical typed state transport built on top of pose and optional family-specific fragments.
+2. `CCameraGoal` is the canonical typed transport for camera state.
 3. `CCameraGoalSolver` captures runtime cameras into goals and applies goals back to runtime cameras.
 4. `CCameraPreset` gives one goal a stable user-facing identity.
 5. `CCameraKeyframeTrack` stores presets over authored time.
 6. `CCameraPlaybackTimeline` stores playback cursor state while a track is being evaluated.
 
-Use this layer when camera state must outlive the current frame or be exchanged between tools.
-
 ## Follow
 
-Files:
-
-- [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp)
-- [`CCameraFollowRegressionUtilities.hpp`](CCameraFollowRegressionUtilities.hpp)
-
-Follow is built from:
-
-- one tracked target
-- one follow mode
-- one follow configuration
-
-Tracked target type:
-
-- `CTrackedTarget`
-
-Follow modes:
-
-- `OrbitTarget`
-- `LookAtTarget`
-- `KeepWorldOffset`
-- `KeepLocalOffset`
-
-`CCameraFollowUtilities` reads tracked-target pose, builds resulting camera goal state, and applies it through the shared goal solver.
+Follow lives in [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp) and [`CCameraFollowRegressionUtilities.hpp`](CCameraFollowRegressionUtilities.hpp). It combines one `CTrackedTarget`, one follow mode, and one follow configuration, then builds the resulting camera goal and applies it through the shared goal solver. Available modes are `OrbitTarget`, `LookAtTarget`, `KeepWorldOffset`, and `KeepLocalOffset`.
 
 ## Scripting
 
 ### Compact authored format
 
-Files:
-
-- [`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp)
-- [`CCameraSequenceScriptPersistence.hpp`](CCameraSequenceScriptPersistence.hpp)
-
-This layer stores authored camera-domain data.
+[`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp) and [`CCameraSequenceScriptPersistence.hpp`](CCameraSequenceScriptPersistence.hpp) store authored camera-domain data.
 
 ### Expanded runtime format
 
-Files:
-
-- [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp)
-- [`CCameraScriptedCheckRunner.hpp`](CCameraScriptedCheckRunner.hpp)
-
-This layer stores executable per-frame runtime payloads and validation checks.
+[`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp) and [`CCameraScriptedCheckRunner.hpp`](CCameraScriptedCheckRunner.hpp) store executable per-frame runtime payloads and validation checks.
 
 Common flow:
 
@@ -814,21 +1010,6 @@ compact authored sequence
 
 ## Projection and presentation helpers
 
-Projection layer:
+Projection types live in [`IProjection.hpp`](IProjection.hpp), [`ILinearProjection.hpp`](ILinearProjection.hpp), [`IPerspectiveProjection.hpp`](IPerspectiveProjection.hpp), [`IPlanarProjection.hpp`](IPlanarProjection.hpp), [`CLinearProjection.hpp`](CLinearProjection.hpp), [`CPlanarProjection.hpp`](CPlanarProjection.hpp), and [`CCubeProjection.hpp`](CCubeProjection.hpp).
 
-- [`IProjection.hpp`](IProjection.hpp)
-- [`ILinearProjection.hpp`](ILinearProjection.hpp)
-- [`IPerspectiveProjection.hpp`](IPerspectiveProjection.hpp)
-- [`IPlanarProjection.hpp`](IPlanarProjection.hpp)
-- [`CLinearProjection.hpp`](CLinearProjection.hpp)
-- [`CPlanarProjection.hpp`](CPlanarProjection.hpp)
-- [`CCubeProjection.hpp`](CCubeProjection.hpp)
-
-Camera-facing presentation helpers:
-
-- [`CCameraPresentationUtilities.hpp`](CCameraPresentationUtilities.hpp)
-- [`CCameraProjectionUtilities.hpp`](CCameraProjectionUtilities.hpp)
-- [`CCameraTextUtilities.hpp`](CCameraTextUtilities.hpp)
-- [`CCameraViewportOverlayUtilities.hpp`](CCameraViewportOverlayUtilities.hpp)
-- [`CCameraControlPanelUiUtilities.hpp`](CCameraControlPanelUiUtilities.hpp)
-- [`CCameraScriptVisualDebugOverlayUtilities.hpp`](CCameraScriptVisualDebugOverlayUtilities.hpp)
+Camera-facing presentation helpers live in [`CCameraPresentationUtilities.hpp`](CCameraPresentationUtilities.hpp), [`CCameraProjectionUtilities.hpp`](CCameraProjectionUtilities.hpp), [`CCameraTextUtilities.hpp`](CCameraTextUtilities.hpp), [`CCameraViewportOverlayUtilities.hpp`](CCameraViewportOverlayUtilities.hpp), [`CCameraControlPanelUiUtilities.hpp`](CCameraControlPanelUiUtilities.hpp), and [`CCameraScriptVisualDebugOverlayUtilities.hpp`](CCameraScriptVisualDebugOverlayUtilities.hpp).
