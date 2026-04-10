@@ -5383,7 +5383,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 											const auto newWritten = bytesWritten+size;
 											if (newWritten>blockSize)
 												break;
-											instanceIndex++;
 											auto found = instanceMap->find(instance.getBase().blas.get());
 											auto blas = found->second.get();
 											if (auto found=compactedBLASMap->find(blas); found!=compactedBLASMap->end())
@@ -5391,6 +5390,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 											trackedBLASes->emplace_back(blas);
 											dst = IGPUTopLevelAccelerationStructure::writeInstance(dst,instance,blas->getReferenceForDeviceOperations());
 											bytesWritten = newWritten;
+											instanceIndex++;
 										}
 										return bytesWritten;
 									}
