@@ -72,15 +72,15 @@ public:
 	}
 
 	/// @brief Describe the typed goal-state mask in a stable human-readable format.
-	static inline std::string describeGoalStateMask(const uint32_t mask)
+	static inline std::string describeGoalStateMask(const core::ICamera::goal_state_flags_t mask)
 	{
 		if (mask == core::ICamera::GoalStateNone)
 			return "Pose only";
 
 		std::string out;
-		auto append = [&](const char* label, const uint32_t bit) -> void
+		auto append = [&](const char* label, const core::ICamera::GoalStateMask bit) -> void
 		{
-			if ((mask & bit) != bit)
+			if (!mask.hasFlags(bit))
 				return;
 			if (!out.empty())
 				out += ", ";
@@ -110,7 +110,7 @@ public:
 		oss << " exact=" << (result.exact ? "true" : "false")
 			<< " events=" << result.eventCount;
 
-		if (result.issues != core::CCameraGoalSolver::SApplyResult::NoIssue)
+		if (result.issues != core::CCameraGoalSolver::SApplyResult::EIssue::NoIssue)
 		{
 			oss << " issues=";
 			bool first = true;
@@ -124,11 +124,11 @@ public:
 				first = false;
 			};
 
-			appendIssue("absolute_pose_fallback", core::CCameraGoalSolver::SApplyResult::UsedAbsolutePoseFallback);
-			appendIssue("missing_spherical_state", core::CCameraGoalSolver::SApplyResult::MissingSphericalTargetState);
-			appendIssue("missing_path_state", core::CCameraGoalSolver::SApplyResult::MissingPathState);
-			appendIssue("missing_dynamic_perspective_state", core::CCameraGoalSolver::SApplyResult::MissingDynamicPerspectiveState);
-			appendIssue("virtual_event_replay_failed", core::CCameraGoalSolver::SApplyResult::VirtualEventReplayFailed);
+			appendIssue("absolute_pose_fallback", core::CCameraGoalSolver::SApplyResult::EIssue::UsedAbsolutePoseFallback);
+			appendIssue("missing_spherical_state", core::CCameraGoalSolver::SApplyResult::EIssue::MissingSphericalTargetState);
+			appendIssue("missing_path_state", core::CCameraGoalSolver::SApplyResult::EIssue::MissingPathState);
+			appendIssue("missing_dynamic_perspective_state", core::CCameraGoalSolver::SApplyResult::EIssue::MissingDynamicPerspectiveState);
+			appendIssue("virtual_event_replay_failed", core::CCameraGoalSolver::SApplyResult::EIssue::VirtualEventReplayFailed);
 		}
 
 		return oss.str();

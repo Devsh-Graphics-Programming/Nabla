@@ -10,6 +10,7 @@
 #include "CCameraGoal.hpp"
 #include "CCameraTargetRelativeUtilities.hpp"
 #include "CCameraVirtualEventUtilities.hpp"
+#include "nbl/core/util/bitflag.h"
 
 namespace nbl::core
 {
@@ -42,9 +43,9 @@ public:
     {
         bool sameKind = false;
         bool exact = false;
-        uint32_t requiredGoalStateMask = ICamera::GoalStateNone;
-        uint32_t supportedGoalStateMask = ICamera::GoalStateNone;
-        uint32_t missingGoalStateMask = ICamera::GoalStateNone;
+        ICamera::goal_state_flags_t requiredGoalStateMask = ICamera::GoalStateNone;
+        ICamera::goal_state_flags_t supportedGoalStateMask = ICamera::GoalStateNone;
+        ICamera::goal_state_flags_t missingGoalStateMask = ICamera::GoalStateNone;
     };
 
     /// @brief Outcome of one goal-application attempt.
@@ -60,7 +61,7 @@ public:
             AppliedAbsoluteAndVirtualEvents
         };
 
-        enum EIssue : uint32_t
+        enum class EIssue : uint32_t
         {
             NoIssue = 0u,
             UsedAbsolutePoseFallback = 1u << 0,
@@ -73,7 +74,7 @@ public:
         EStatus status = EStatus::Unsupported;
         bool exact = false;
         uint32_t eventCount = 0u;
-        uint32_t issues = NoIssue;
+        core::bitflag<EIssue> issues = EIssue::NoIssue;
 
         inline bool succeeded() const
         {
@@ -94,7 +95,7 @@ public:
 
         inline bool hasIssue(EIssue issue) const
         {
-            return (issues & issue) == issue;
+            return issues.hasFlags(issue);
         }
     };
 
@@ -122,8 +123,8 @@ public:
         out.position = hlsl::float64_t3(gimbal.getPosition());
         out.orientation = gimbal.getOrientation();
         out.sourceKind = camera->getKind();
-        out.sourceCapabilities = camera->getCapabilities();
-        out.sourceGoalStateMask = camera->getGoalStateMask();
+        out.sourceCapabilities = ICamera::capability_flags_t(camera->getCapabilities());
+        out.sourceGoalStateMask = ICamera::goal_state_flags_t(camera->getGoalStateMask());
 
         ICamera::SphericalTargetState sphericalState;
         if (camera->tryGetSphericalTargetState(sphericalState))
@@ -175,7 +176,7 @@ public:
 
         const auto canonicalTarget = CCameraGoalUtilities::canonicalizeGoal(target);
         result.sameKind = canonicalTarget.sourceKind == ICamera::CameraKind::Unknown || canonicalTarget.sourceKind == camera->getKind();
-        result.supportedGoalStateMask = camera->getGoalStateMask();
+        result.supportedGoalStateMask = ICamera::goal_state_flags_t(camera->getGoalStateMask());
         result.requiredGoalStateMask = CCameraGoalUtilities::getRequiredGoalStateMask(canonicalTarget);
         result.missingGoalStateMask = result.requiredGoalStateMask & ~result.supportedGoalStateMask;
         result.exact = result.missingGoalStateMask == ICamera::GoalStateNone;
@@ -199,7 +200,7 @@ public:
             bool poseExact = false;
             if (tryApplyAbsoluteReferencePose(camera, canonicalTarget, poseChanged, poseExact))
             {
-                result.issues |= SApplyResult::UsedAbsolutePoseFallback;
+                result.issues |= SApplyResult::EIssue::UsedAbsolutePoseFallback;
                 absoluteChanged = absoluteChanged || poseChanged;
                 if (poseExact && !canonicalTarget.hasDynamicPerspectiveState)
                 {
@@ -217,7 +218,7 @@ public:
             ICamera::SphericalTargetState beforeState;
             if (!camera->tryGetSphericalTargetState(beforeState))
             {
-                result.issues |= SApplyResult::MissingSphericalTargetState;
+                result.issues |= SApplyResult::EIssue::MissingSphericalTargetState;
                 exact = false;
             }
             else
@@ -225,7 +226,7 @@ public:
                 const auto beforeTarget = beforeState.target;
                 if (!camera->trySetSphericalTarget(canonicalTarget.targetPosition))
                 {
-                    result.issues |= SApplyResult::MissingSphericalTargetState;
+                    result.issues |= SApplyResult::EIssue::MissingSphericalTargetState;
                     exact = false;
                 }
                 else
@@ -233,7 +234,7 @@ public:
                     ICamera::SphericalTargetState afterState;
                     if (!camera->tryGetSphericalTargetState(afterState))
                     {
-                        result.issues |= SApplyResult::MissingSphericalTargetState;
+                        result.issues |= SApplyResult::EIssue::MissingSphericalTargetState;
                         exact = false;
                     }
                     else
@@ -250,7 +251,7 @@ public:
             ICamera::SphericalTargetState beforeState;
             if (!camera->tryGetSphericalTargetState(beforeState))
             {
-                result.issues |= SApplyResult::MissingSphericalTargetState;
+                result.issues |= SApplyResult::EIssue::MissingSphericalTargetState;
                 exact = false;
             }
             else
@@ -259,7 +260,7 @@ public:
                 const float beforeDistance = beforeState.distance;
                 if (!camera->trySetSphericalDistance(desiredDistance))
                 {
-                    result.issues |= SApplyResult::MissingSphericalTargetState;
+                    result.issues |= SApplyResult::EIssue::MissingSphericalTargetState;
                     exact = false;
                 }
                 else
@@ -267,7 +268,7 @@ public:
                     ICamera::SphericalTargetState afterState;
                     if (!camera->tryGetSphericalTargetState(afterState))
                     {
-                        result.issues |= SApplyResult::MissingSphericalTargetState;
+                        result.issues |= SApplyResult::EIssue::MissingSphericalTargetState;
                         exact = false;
                     }
                     else
@@ -284,12 +285,12 @@ public:
             ICamera::PathState beforeState;
             if (!camera->tryGetPathState(beforeState))
             {
-                result.issues |= SApplyResult::MissingPathState;
+                result.issues |= SApplyResult::EIssue::MissingPathState;
                 exact = false;
             }
             else if (!camera->trySetPathState(canonicalTarget.pathState))
             {
-                result.issues |= SApplyResult::MissingPathState;
+                result.issues |= SApplyResult::EIssue::MissingPathState;
                 exact = false;
             }
             else
@@ -297,7 +298,7 @@ public:
                 ICamera::PathState afterState;
                 if (!camera->tryGetPathState(afterState))
                 {
-                    result.issues |= SApplyResult::MissingPathState;
+                    result.issues |= SApplyResult::EIssue::MissingPathState;
                     exact = false;
                 }
                 else
@@ -317,12 +318,12 @@ public:
             ICamera::DynamicPerspectiveState beforeState;
             if (!camera->tryGetDynamicPerspectiveState(beforeState))
             {
-                result.issues |= SApplyResult::MissingDynamicPerspectiveState;
+                result.issues |= SApplyResult::EIssue::MissingDynamicPerspectiveState;
                 exact = false;
             }
             else if (!camera->trySetDynamicPerspectiveState(canonicalTarget.dynamicPerspectiveState))
             {
-                result.issues |= SApplyResult::MissingDynamicPerspectiveState;
+                result.issues |= SApplyResult::EIssue::MissingDynamicPerspectiveState;
                 exact = false;
             }
             else
@@ -330,7 +331,7 @@ public:
                 ICamera::DynamicPerspectiveState afterState;
                 if (!camera->tryGetDynamicPerspectiveState(afterState))
                 {
-                    result.issues |= SApplyResult::MissingDynamicPerspectiveState;
+                    result.issues |= SApplyResult::EIssue::MissingDynamicPerspectiveState;
                     exact = false;
                 }
                 else
@@ -375,7 +376,7 @@ public:
             return result;
         }
 
-        result.issues |= SApplyResult::VirtualEventReplayFailed;
+        result.issues |= SApplyResult::EIssue::VirtualEventReplayFailed;
         result.status = SApplyResult::EStatus::Failed;
         result.exact = false;
         return result;

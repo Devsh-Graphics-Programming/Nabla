@@ -1,6 +1,6 @@
 # Shared Camera API
 
-This directory contains the reusable camera stack used by [`61_UI`](../../../../examples_tests/61_UI/README.md).
+This directory contains the reusable Nabla camera stack.
 
 The stack has two public faces:
 
@@ -369,26 +369,19 @@ Main types involved:
 - [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp)
 - [`CCameraFollowRegressionUtilities.hpp`](CCameraFollowRegressionUtilities.hpp)
 
-### 9. Build scripted runtime payloads from compact authored data
+### 9. Build and evaluate scripted runtime payloads
 
-Use this when camera playback is authored as sequence data and then expanded into per-frame runtime actions and checks.
+Use this when camera playback is authored as compact camera-domain data and then evaluated through generic per-frame runtime payloads and checks.
 
 ```cpp
 system::CCameraScriptedTimeline timeline;
-
-system::CCameraSequenceScriptedBuilderUtilities::appendCompiledSequenceSegmentToScriptedTimeline(
-    timeline,
-    baseFrame,
-    compiledSegment,
-    buildInfo);
-
 system::CCameraScriptedRuntimeUtilities::finalizeScriptedTimeline(timeline);
 ```
 
 Main types involved:
 
 - [`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp)
-- [`CCameraSequenceScriptedBuilder.hpp`](CCameraSequenceScriptedBuilder.hpp)
+- [`CCameraSequenceScriptPersistence.hpp`](CCameraSequenceScriptPersistence.hpp)
 - [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp)
 - [`CCameraScriptedCheckRunner.hpp`](CCameraScriptedCheckRunner.hpp)
 
@@ -648,9 +641,11 @@ File:
 It stores runtime payloads such as:
 
 - low-level input events
-- action events
+- goal and tracked-target events
 - per-frame checks
 - capture scheduling
+
+Consumer-specific UI actions stay outside this shared runtime payload.
 
 ### `Path Rig`
 
@@ -804,8 +799,6 @@ This layer stores authored camera-domain data.
 Files:
 
 - [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp)
-- [`CCameraScriptedRuntimePersistence.hpp`](CCameraScriptedRuntimePersistence.hpp)
-- [`CCameraSequenceScriptedBuilder.hpp`](CCameraSequenceScriptedBuilder.hpp)
 - [`CCameraScriptedCheckRunner.hpp`](CCameraScriptedCheckRunner.hpp)
 
 This layer stores executable per-frame runtime payloads and validation checks.

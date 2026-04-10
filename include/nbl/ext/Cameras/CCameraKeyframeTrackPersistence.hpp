@@ -5,7 +5,8 @@
 #ifndef _C_CAMERA_KEYFRAME_TRACK_PERSISTENCE_HPP_
 #define _C_CAMERA_KEYFRAME_TRACK_PERSISTENCE_HPP_
 
-#include <iosfwd>
+#include <string>
+#include <string_view>
 
 #include "CCameraKeyframeTrack.hpp"
 #include "nbl/system/path.h"
@@ -15,15 +16,18 @@ namespace nbl::system
 
 class ISystem;
 
-/// @brief Serialize one camera keyframe track into an existing stream.
-bool writeKeyframeTrack(std::ostream& out, const core::CCameraKeyframeTrack& track, int indent = 2);
-/// @brief Deserialize one camera keyframe track from an existing stream.
-bool readKeyframeTrack(std::istream& in, core::CCameraKeyframeTrack& track);
+struct CCameraKeyframeTrackPersistenceUtilities final
+{
+    /// @brief Serialize one camera keyframe track to JSON text.
+    static std::string serializeKeyframeTrack(const core::CCameraKeyframeTrack& track, int indent = 2);
+    /// @brief Deserialize one camera keyframe track from JSON text.
+    static bool deserializeKeyframeTrack(std::string_view text, core::CCameraKeyframeTrack& track, std::string* error = nullptr);
 
-/// @brief Save one camera keyframe track to a file.
-bool saveKeyframeTrackToFile(ISystem& system, const path& path, const core::CCameraKeyframeTrack& track, int indent = 2);
-/// @brief Load one camera keyframe track from a file.
-bool loadKeyframeTrackFromFile(ISystem& system, const path& path, core::CCameraKeyframeTrack& track);
+    /// @brief Save one camera keyframe track to a file.
+    static bool saveKeyframeTrackToFile(ISystem& system, const path& path, const core::CCameraKeyframeTrack& track, int indent = 2);
+    /// @brief Load one camera keyframe track from a file.
+    static bool loadKeyframeTrackFromFile(ISystem& system, const path& path, core::CCameraKeyframeTrack& track, std::string* error = nullptr);
+};
 
 } // namespace nbl::system
 

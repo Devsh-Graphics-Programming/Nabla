@@ -5,7 +5,8 @@
 #ifndef _C_CAMERA_PERSISTENCE_HPP_
 #define _C_CAMERA_PERSISTENCE_HPP_
 
-#include <iosfwd>
+#include <string>
+#include <string_view>
 #include <span>
 #include <vector>
 
@@ -18,15 +19,18 @@ namespace nbl::system
 
 class ISystem;
 
-/// @brief Serialize a preset collection to JSON.
-bool writePresetCollection(std::ostream& out, std::span<const core::CCameraPreset> presets, int indent = 2);
-/// @brief Parse a preset collection from JSON.
-bool readPresetCollection(std::istream& in, std::vector<core::CCameraPreset>& presets);
+struct CCameraPersistenceUtilities final
+{
+    /// @brief Serialize a preset collection to JSON text.
+    static std::string serializePresetCollection(std::span<const core::CCameraPreset> presets, int indent = 2);
+    /// @brief Parse a preset collection from JSON text.
+    static bool deserializePresetCollection(std::string_view text, std::vector<core::CCameraPreset>& presets, std::string* error = nullptr);
 
-/// @brief Save a preset collection to disk as JSON.
-bool savePresetCollectionToFile(ISystem& system, const path& path, std::span<const core::CCameraPreset> presets, int indent = 2);
-/// @brief Load a preset collection from disk.
-bool loadPresetCollectionFromFile(ISystem& system, const path& path, std::vector<core::CCameraPreset>& presets);
+    /// @brief Save a preset collection to disk as JSON.
+    static bool savePresetCollectionToFile(ISystem& system, const path& path, std::span<const core::CCameraPreset> presets, int indent = 2);
+    /// @brief Load a preset collection from disk.
+    static bool loadPresetCollectionFromFile(ISystem& system, const path& path, std::vector<core::CCameraPreset>& presets, std::string* error = nullptr);
+};
 
 } // namespace nbl::system
 

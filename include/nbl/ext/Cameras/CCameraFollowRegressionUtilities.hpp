@@ -113,7 +113,7 @@ public:
         const float clipWEpsilon = SCameraFollowRegressionThresholds::DefaultClipWEpsilon)
     {
         outMetrics = {};
-        const hlsl::float32_t3 target = hlsl::getCastedVector<hlsl::float32_t>(trackedTarget.getGimbal().getPosition());
+        const hlsl::float32_t3 target = hlsl::CCameraMathUtilities::castVector<hlsl::float32_t>(trackedTarget.getGimbal().getPosition());
         const auto viewSpace = hlsl::mul(projectionContext.viewMatrix, hlsl::float32_t4(target.x, target.y, target.z, 1.0f));
         const auto clipProjection = hlsl::transpose(projectionContext.projectionMatrix);
         const auto clip = hlsl::mul(clipProjection, viewSpace);

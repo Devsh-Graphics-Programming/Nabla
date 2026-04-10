@@ -67,7 +67,7 @@ struct SCameraTargetRelativeRigDefaults final
     static constexpr double DollyPitchLimitRad = hlsl::SCameraViewRigDefaults::DollyPitchLimitRad;
     static constexpr double TopDownPitchRad = hlsl::SCameraViewRigDefaults::TopDownPitchRad;
     static constexpr double IsometricYawRad = hlsl::SCameraViewRigDefaults::IsometricYawRad;
-    static constexpr double IsometricPitchRad = hlsl::SCameraViewRigDefaults::IsometricPitchRad;
+    static inline const double IsometricPitchRad = hlsl::SCameraViewRigDefaults::IsometricPitchRad;
 
     static inline constexpr SCameraTargetRelativeEventPolicy OrbitTranslatePolicy = {
         .translateOrbit = true

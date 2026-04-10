@@ -24,9 +24,9 @@ struct CCameraGoal : SCameraRigPose
     /// @brief Camera kind that originally produced this goal.
     ICamera::CameraKind sourceKind = ICamera::CameraKind::Unknown;
     /// @brief Capability mask captured from the source camera.
-    uint32_t sourceCapabilities = ICamera::None;
+    ICamera::capability_flags_t sourceCapabilities = ICamera::None;
     /// @brief Goal-state fragments that were valid on the source camera.
-    uint32_t sourceGoalStateMask = ICamera::GoalStateNone;
+    ICamera::goal_state_flags_t sourceGoalStateMask = ICamera::GoalStateNone;
     /// @brief Whether `targetPosition` is present in this goal.
     bool hasTargetPosition = false;
     /// @brief Tracked target position in world space.
@@ -56,9 +56,9 @@ struct CCameraGoalUtilities final
 {
 public:
     /// @brief Compute which typed goal-state fragments are required by the current goal payload.
-    static inline uint32_t getRequiredGoalStateMask(const CCameraGoal& target)
+    static inline ICamera::goal_state_flags_t getRequiredGoalStateMask(const CCameraGoal& target)
     {
-        uint32_t mask = ICamera::GoalStateNone;
+        ICamera::goal_state_flags_t mask = ICamera::GoalStateNone;
         if (target.hasTargetPosition || target.hasDistance || target.hasOrbitState)
             mask |= ICamera::GoalStateSphericalTarget;
         if (target.hasDynamicPerspectiveState)

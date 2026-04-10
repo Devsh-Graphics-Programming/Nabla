@@ -18,7 +18,9 @@ namespace nbl::core
 struct SCameraTargetRelativeTraits final
 {
     /// @brief Smallest valid target-relative distance shared by spherical and path-style rigs.
-    static inline constexpr float MinDistance = 0.1f;
+    /// This is a semantic lower bound used to avoid zero-distance degeneracy, not
+    /// the minimum representable `float` value.
+    static inline constexpr float MinDistance = 1e-1f;
     /// @brief Default upper bound for target-relative distance when no camera-specific cap is requested.
     static inline constexpr float DefaultMaxDistance = std::numeric_limits<float>::infinity();
 };
@@ -33,7 +35,7 @@ struct SCameraToolingThresholds final
     /// @brief Default world-space position tolerance used by pose comparisons.
     static inline constexpr double DefaultPositionTolerance = 2.0 * ScalarTolerance;
     /// @brief Default angular tolerance in degrees used by pose and state comparisons.
-    static inline constexpr double DefaultAngularToleranceDeg = 0.1;
+    static inline constexpr double DefaultAngularToleranceDeg = 1e-1;
 };
 
 } // namespace nbl::core

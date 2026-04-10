@@ -127,7 +127,7 @@ public:
     inline concatenated_matrix_t getMV(const model_matrix_t& model) const
     {
         const auto& v = m_camera->getGimbal().getViewMatrix();
-        return hlsl::mul(hlsl::getMatrix3x4As4x4(v), hlsl::getMatrix3x4As4x4(model));
+        return hlsl::mul(hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(v), hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(model));
     }
 
     /// @brief Compute the model-view-projection matrix from a model matrix.
@@ -139,7 +139,7 @@ public:
     {
         const auto& v = m_camera->getGimbal().getViewMatrix();
         const auto& p = projection.getProjectionMatrix();
-        auto mv = hlsl::mul(hlsl::getMatrix3x4As4x4(v), hlsl::getMatrix3x4As4x4(model));
+        auto mv = hlsl::mul(hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(v), hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(model));
         return hlsl::mul(p, mv);
     }
 

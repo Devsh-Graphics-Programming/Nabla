@@ -52,18 +52,18 @@ struct CCameraScriptedUiInputUtilities final
                     authoredMouse.action == system::CCameraScriptedInputEvent::MouseData::ClickAction::Pressed ?
                     SMouseEvent::SClickEvent::EA_PRESSED :
                     SMouseEvent::SClickEvent::EA_RELEASED;
-                outEvent.clickEvent.clickPosX = authoredMouse.x;
-                outEvent.clickEvent.clickPosY = authoredMouse.y;
+                outEvent.clickEvent.clickPosX = authoredMouse.position.x;
+                outEvent.clickEvent.clickPosY = authoredMouse.position.y;
                 return true;
             case system::CCameraScriptedInputEvent::MouseData::Type::Scroll:
                 outEvent.type = SMouseEvent::EET_SCROLL;
-                outEvent.scrollEvent.verticalScroll = authoredMouse.v;
-                outEvent.scrollEvent.horizontalScroll = authoredMouse.h;
+                outEvent.scrollEvent.verticalScroll = authoredMouse.scroll.x;
+                outEvent.scrollEvent.horizontalScroll = authoredMouse.scroll.y;
                 return true;
             case system::CCameraScriptedInputEvent::MouseData::Type::Movement:
                 outEvent.type = SMouseEvent::EET_MOVEMENT;
-                outEvent.movementEvent.relativeMovementX = authoredMouse.dx;
-                outEvent.movementEvent.relativeMovementY = authoredMouse.dy;
+                outEvent.movementEvent.relativeMovementX = authoredMouse.delta.x;
+                outEvent.movementEvent.relativeMovementY = authoredMouse.delta.y;
                 return true;
             default:
                 return false;

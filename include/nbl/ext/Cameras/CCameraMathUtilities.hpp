@@ -6,9 +6,10 @@
 #include <limits>
 #include <type_traits>
 
+#include "nbl/builtin/hlsl/cpp_compat/matrix.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
+#include "nbl/builtin/hlsl/math/quaternions.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
-#include "nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl"
 
 namespace nbl::hlsl
 {
@@ -41,15 +42,28 @@ struct SCameraPoseDelta
 struct SCameraViewRigDefaults final
 {
     static constexpr double DegreesToRadians = numbers::pi<double> / 180.0;
-    static constexpr double ArcballPitchLimitDeg = 89.0;
+    static constexpr double FullTurnDeg = 360.0;
+    static constexpr double RightAngleDeg = FullTurnDeg / 4.0;
+    static constexpr double ArcballPitchMarginDeg = 1.0;
+    static constexpr double DollyPitchMarginDeg = 5.0;
+    static constexpr double FpsVerticalPitchMarginDeg = 2.0;
+    // Arcball and turntable pitch stop short of +-90 deg to avoid a singular up axis.
+    static constexpr double ArcballPitchLimitDeg = RightAngleDeg - ArcballPitchMarginDeg;
     static constexpr double TurntablePitchLimitDeg = ArcballPitchLimitDeg;
+    // Chase rigs keep a narrower pitch envelope so the followed subject stays readable.
     static constexpr double ChaseMaxPitchDeg = 70.0;
     static constexpr double ChaseMinPitchDeg = -60.0;
-    static constexpr double DollyPitchLimitDeg = 85.0;
-    static constexpr double FpsVerticalPitchLimitDeg = 88.0;
-    static constexpr double TopDownPitchDeg = -90.0;
-    static constexpr double IsometricYawDeg = 45.0;
-    static constexpr double IsometricPitchDeg = 35.264389682754654;
+    // Dolly and FPS rigs also stop short of straight up/down.
+    static constexpr double DollyPitchLimitDeg = RightAngleDeg - DollyPitchMarginDeg;
+    static constexpr double FpsVerticalPitchLimitDeg = RightAngleDeg - FpsVerticalPitchMarginDeg;
+    static constexpr double TopDownPitchDeg = -RightAngleDeg;
+    // Half of a right angle is the canonical isometric azimuth.
+    static constexpr double IsometricYawDeg = RightAngleDeg / 2.0;
+    // tan(theta) = 1 / sqrt(2) for the canonical isometric pitch.
+    static constexpr double IsometricPitchTangent = 1.0 / numbers::sqrt2<double>;
+    // atan(1 / sqrt(2)) is the canonical isometric pitch used by the fixed rig.
+    static inline const double IsometricPitchRad = std::atan(IsometricPitchTangent);
+    static inline const double IsometricPitchDeg = IsometricPitchRad / DegreesToRadians;
 
     static inline constexpr double ArcballPitchLimitRad = ArcballPitchLimitDeg * DegreesToRadians;
     static inline constexpr double TurntablePitchLimitRad = TurntablePitchLimitDeg * DegreesToRadians;
@@ -59,16 +73,53 @@ struct SCameraViewRigDefaults final
     static inline constexpr double FpsVerticalPitchLimitRad = FpsVerticalPitchLimitDeg * DegreesToRadians;
     static inline constexpr double TopDownPitchRad = TopDownPitchDeg * DegreesToRadians;
     static inline constexpr double IsometricYawRad = IsometricYawDeg * DegreesToRadians;
-    static inline constexpr double IsometricPitchRad = IsometricPitchDeg * DegreesToRadians;
 };
 
 struct SCameraRigidMathDefaults final
 {
-    static constexpr double LookAtParallelThreshold = 0.99;
+    // Treat vectors as effectively parallel once the normalized dot product stays within 1e-2 of 1.
+    static constexpr double LookAtParallelThreshold = 1.0 - 1e-2;
 };
 
 struct CCameraMathUtilities final
 {
+    template<typename Tout, typename Tin, uint32_t N>
+    static inline vector<Tout, N> castVector(const vector<Tin, N>& input)
+    {
+        vector<Tout, N> output;
+        for (uint32_t i = 0u; i < N; ++i)
+            output[i] = static_cast<Tout>(input[i]);
+        return output;
+    }
+
+    template<typename T>
+    static inline matrix<T, 4, 4> promoteAffine3x4To4x4(const matrix<T, 3, 4>& input)
+    {
+        matrix<T, 4, 4> output;
+        output[0] = input[0];
+        output[1] = input[1];
+        output[2] = input[2];
+        output[3] = vector<T, 4>(T(0), T(0), T(0), T(1));
+        return output;
+    }
+
+    template<typename Vec, typename E = double>
+    static inline bool isOrthoBase(const Vec& x, const Vec& y, const Vec& z, const E epsilon = 1e-6)
+    {
+        const auto isNormalized = [&](const auto& v) -> bool
+        {
+            return hlsl::abs(hlsl::length(v) - static_cast<E>(1.0)) <= epsilon;
+        };
+
+        const auto isOrthogonal = [&](const auto& a, const auto& b) -> bool
+        {
+            return hlsl::abs(hlsl::dot(a, b)) <= epsilon;
+        };
+
+        return isNormalized(x) && isNormalized(y) && isNormalized(z) &&
+            isOrthogonal(x, y) && isOrthogonal(x, z) && isOrthogonal(y, z);
+    }
+
     template<typename T>
     static inline T wrapAngleRad(T angle)
     {
@@ -280,7 +331,6 @@ struct CCameraMathUtilities final
 
         canonicalRight = safeNormalizeVec3(cross(canonicalUp, canonicalForward), canonicalRight);
         canonicalUp = safeNormalizeVec3(cross(canonicalForward, canonicalRight), canonicalUp);
-
         const camera_matrix_t<T, 3, 3> basis { canonicalRight, canonicalUp, canonicalForward };
         const auto desiredRight = canonicalRight;
         const auto desiredUp = canonicalUp;
@@ -683,10 +733,8 @@ struct CCameraMathUtilities final
         const camera_vector_t<T, 3>& up,
         const camera_vector_t<T, 3>& forward)
     {
-        return camera_vector_t<T, 3>(
-            dot(worldVector, right),
-            dot(worldVector, up),
-            dot(worldVector, forward));
+        const camera_matrix_t<T, 3, 3> basis { right, up, forward };
+        return hlsl::mul(hlsl::transpose(basis), worldVector);
     }
 
     template<typename T>
@@ -696,7 +744,8 @@ struct CCameraMathUtilities final
         const camera_vector_t<T, 3>& up,
         const camera_vector_t<T, 3>& forward)
     {
-        return right * localVector.x + up * localVector.y + forward * localVector.z;
+        const camera_matrix_t<T, 3, 3> basis { right, up, forward };
+        return hlsl::mul(basis, localVector);
     }
 
     template<typename T>
@@ -796,11 +845,11 @@ struct CCameraMathUtilities final
     template<typename T>
     static inline camera_matrix_t<T, 3, 3> getQuaternionBasisMatrix(const camera_quaternion_t<T>& orientation)
     {
-        const auto q = normalizeQuaternion(orientation);
+        const auto normalizedOrientation = normalizeQuaternion(orientation);
         return camera_matrix_t<T, 3, 3>(
-            q.transformVector(camera_vector_t<T, 3>(T(1), T(0), T(0)), true),
-            q.transformVector(camera_vector_t<T, 3>(T(0), T(1), T(0)), true),
-            q.transformVector(camera_vector_t<T, 3>(T(0), T(0), T(1)), true));
+            normalizedOrientation.transformVector(getCameraWorldRight<T>(), true),
+            normalizedOrientation.transformVector(getCameraWorldUp<T>(), true),
+            normalizedOrientation.transformVector(getCameraWorldForward<T>(), true));
     }
 
     template<typename T>

@@ -69,7 +69,7 @@ public:
 private:
     static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate;
     static inline constexpr double IsoYaw = SCameraTargetRelativeRigDefaults::IsometricYawRad;
-    static inline constexpr double IsoPitch = SCameraTargetRelativeRigDefaults::IsometricPitchRad;
+    static inline const double IsoPitch = SCameraTargetRelativeRigDefaults::IsometricPitchRad;
 };
 
 }

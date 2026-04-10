@@ -6,6 +6,7 @@
 #include <span>
 #include <type_traits>
 
+#include "nbl/type_traits.h"
 #include "CCameraMathUtilities.hpp"
 #include "CVirtualGimbalEvent.hpp"
 

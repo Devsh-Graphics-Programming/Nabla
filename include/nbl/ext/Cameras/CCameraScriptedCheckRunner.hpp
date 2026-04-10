@@ -151,7 +151,7 @@ struct CCameraScriptedCheckRunnerUtilities final
             const auto& gimbal = context.camera->getGimbal();
             const auto pos = gimbal.getPosition();
             const auto orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(gimbal.getOrientation());
-            const auto eulerDeg = hlsl::getCastedVector<hlsl::float32_t>(hlsl::CCameraMathUtilities::getCameraOrientationEulerDegrees(orientation));
+            const auto eulerDeg = hlsl::CCameraMathUtilities::castVector<hlsl::float32_t>(hlsl::CCameraMathUtilities::getCameraOrientationEulerDegrees(orientation));
 
             if (!hlsl::CCameraMathUtilities::isFiniteVec3(pos) || !hlsl::CCameraMathUtilities::isFiniteQuaternion(orientation) || !hlsl::CCameraMathUtilities::isFiniteVec3(eulerDeg))
             {
@@ -243,7 +243,7 @@ struct CCameraScriptedCheckRunnerUtilities final
                 bool ok = true;
                 if (check.hasExpectedPos)
                 {
-                    const double distance = hlsl::length(pos - hlsl::getCastedVector<hlsl::float64_t>(check.expectedPos));
+                    const double distance = hlsl::length(pos - hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(check.expectedPos));
                     if (distance > check.posTolerance)
                     {
                         ok = false;
@@ -262,7 +262,7 @@ struct CCameraScriptedCheckRunnerUtilities final
                 if (check.hasExpectedEuler)
                 {
                     const auto expectedOrientation = hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
-                        hlsl::getCastedVector<hlsl::float64_t>(check.expectedEulerDeg));
+                        hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(check.expectedEulerDeg));
                     hlsl::SCameraPoseDelta<hlsl::float64_t> poseDelta = {};
                     if (!scriptedCheckComputePoseDelta(pos, orientation, pos, expectedOrientation, poseDelta))
                         poseDelta.rotationDeg = std::numeric_limits<hlsl::float64_t>::infinity();

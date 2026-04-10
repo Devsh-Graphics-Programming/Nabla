@@ -402,7 +402,7 @@ struct CCameraSequenceScriptUtilities final
 
         if (delta.hasRotationEulerDegOffset)
         {
-            goal.orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(goal.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(hlsl::getCastedVector<hlsl::float64_t>(delta.rotationEulerDegOffset)));
+            goal.orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(goal.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(delta.rotationEulerDegOffset)));
         }
 
         if (delta.hasTargetOffset)
@@ -532,14 +532,14 @@ struct CCameraSequenceScriptUtilities final
     if (authored.hasAbsolutePosition)
         outPose.position = authored.absolutePosition;
     if (authored.hasAbsoluteRotationEulerDeg)
-        outPose.orientation = hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(hlsl::getCastedVector<hlsl::float64_t>(authored.absoluteRotationEulerDeg));
+        outPose.orientation = hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(authored.absoluteRotationEulerDeg));
 
     if (authored.hasDelta)
     {
         if (authored.delta.hasPositionOffset)
             outPose.position += authored.delta.positionOffset;
         if (authored.delta.hasRotationEulerDegOffset)
-            outPose.orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(outPose.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(hlsl::getCastedVector<hlsl::float64_t>(authored.delta.rotationEulerDegOffset)));
+            outPose.orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(outPose.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(authored.delta.rotationEulerDegOffset)));
     }
 
     if (!isSequenceTrackedTargetPoseFinite(outPose))

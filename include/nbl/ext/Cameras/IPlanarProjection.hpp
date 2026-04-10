@@ -1,6 +1,8 @@
 #ifndef _NBL_I_PLANAR_PROJECTION_HPP_
 #define _NBL_I_PLANAR_PROJECTION_HPP_
 
+#include "nbl/builtin/hlsl/math/thin_lens_projection.hlsl"
+
 #include "IGimbalBindingLayout.hpp"
 #include "ILinearProjection.hpp"
 

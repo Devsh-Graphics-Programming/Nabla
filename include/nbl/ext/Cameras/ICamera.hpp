@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/util/bitflag.h"
 #include "CCameraTraits.hpp"
 #include "IGimbal.hpp"
 
@@ -82,6 +83,9 @@ public:
         GoalStateDynamicPerspective = core::createBitmask({ 1 }),
         GoalStatePath = core::createBitmask({ 2 })
     };
+
+    using capability_flags_t = core::bitflag<CameraCapability>;
+    using goal_state_flags_t = core::bitflag<GoalStateMask>;
 
     /// @brief Canonical target-relative state reported by spherical camera families.
     ///
@@ -234,7 +238,7 @@ public:
             const auto& gUp = this->getYAxis();
             const auto& gForward = this->getZAxis();
 
-            assert(hlsl::isOrthoBase(gRight, gUp, gForward));
+            assert(hlsl::CCameraMathUtilities::isOrthoBase(gRight, gUp, gForward));
 
             const auto& position = this->getPosition();
 
@@ -334,12 +338,12 @@ public:
     /// @brief Return the typed goal-state fragments that helper layers may safely use with this camera.
     virtual uint32_t getGoalStateMask() const
     {
-        uint32_t mask = GoalStateNone;
+        goal_state_flags_t mask = GoalStateNone;
         if (hasCapability(SphericalTarget))
             mask |= GoalStateSphericalTarget;
         if (hasCapability(DynamicPerspectiveFov))
             mask |= GoalStateDynamicPerspective;
-        return mask;
+        return static_cast<uint32_t>(mask.value);
     }
 
     /// @brief Return the stable human-readable identifier for this concrete camera instance.
@@ -348,13 +352,13 @@ public:
     /// @brief Check whether the camera exposes the requested optional capability.
     inline bool hasCapability(CameraCapability capability) const
     {
-        return (getCapabilities() & capability) == capability;
+        return capability_flags_t(getCapabilities()).hasFlags(capability);
     }
 
     /// @brief Check whether the camera can exchange the requested typed goal-state fragment.
     inline bool supportsGoalState(GoalStateMask goalState) const
     {
-        return (getGoalStateMask() & goalState) == goalState;
+        return goal_state_flags_t(getGoalStateMask()).hasFlags(goalState);
     }
 
     /// @brief Query the current spherical-target state when the camera exposes it.

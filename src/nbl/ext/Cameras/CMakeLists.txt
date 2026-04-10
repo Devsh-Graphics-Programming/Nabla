@@ -6,7 +6,7 @@ file(GLOB NBL_EXT_CAMERAS_HEADERS CONFIGURE_DEPENDS
 
 set(NBL_EXT_CAMERAS_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/CCameraPersistence.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/CCameraScriptedRuntimePersistence.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/CCameraSequenceScriptPersistence.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/CCameraJsonPersistenceUtilities.hpp"
 )
 

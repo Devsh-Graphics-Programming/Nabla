@@ -29,7 +29,6 @@ struct CCameraScriptedInputEvent
         Keyboard,
         Mouse,
         Imguizmo,
-        Action,
         Goal,
         TrackedTargetTransform,
         SegmentLabel
@@ -68,29 +67,9 @@ struct CCameraScriptedInputEvent
         Type type = Type::Uninitialized;
         ui::E_MOUSE_BUTTON button = ui::EMB_LEFT_BUTTON;
         ClickAction action = ClickAction::Uninitialized;
-        int16_t x = 0;
-        int16_t y = 0;
-        int16_t dx = 0;
-        int16_t dy = 0;
-        int16_t v = 0;
-        int16_t h = 0;
-    };
-
-    struct ActionData
-    {
-        enum class Kind : uint8_t
-        {
-            SetActiveRenderWindow,
-            SetActivePlanar,
-            SetProjectionType,
-            SetProjectionIndex,
-            SetUseWindow,
-            SetLeftHanded,
-            ResetActiveCamera
-        };
-
-        Kind kind = Kind::SetActiveRenderWindow;
-        int32_t value = 0;
+        hlsl::int16_t2 position = hlsl::int16_t2(0);
+        hlsl::int16_t2 delta = hlsl::int16_t2(0);
+        hlsl::int16_t2 scroll = hlsl::int16_t2(0);
     };
 
     struct GoalData
@@ -114,7 +93,6 @@ struct CCameraScriptedInputEvent
     KeyboardData keyboard;
     MouseData mouse;
     hlsl::float32_t4x4 imguizmo = hlsl::float32_t4x4(1.f);
-    ActionData action;
     GoalData goal;
     TrackedTargetTransformData trackedTargetTransform;
     SegmentLabelData segmentLabel;
@@ -207,20 +185,6 @@ struct CCameraScriptedRuntimeUtilities final
     static inline void finalizeScriptedTimeline(CCameraScriptedTimeline& timeline, const bool disableCaptureFrames = false)
     {
         finalizeScriptedTimeline(timeline.events, timeline.checks, timeline.captureFrames, disableCaptureFrames);
-    }
-
-    static inline void appendScriptedActionEvent(
-        CCameraScriptedTimeline& timeline,
-        const uint64_t frame,
-        const CCameraScriptedInputEvent::ActionData::Kind kind,
-        const int32_t value)
-    {
-        CCameraScriptedInputEvent entry;
-        entry.frame = frame;
-        entry.type = CCameraScriptedInputEvent::Type::Action;
-        entry.action.kind = kind;
-        entry.action.value = value;
-        timeline.events.emplace_back(std::move(entry));
     }
 
     static inline void appendScriptedGoalEvent(
@@ -321,7 +285,6 @@ struct CCameraScriptedFrameEvents
     std::vector<CCameraScriptedInputEvent::KeyboardData> keyboard;
     std::vector<CCameraScriptedInputEvent::MouseData> mouse;
     std::vector<hlsl::float32_t4x4> imguizmo;
-    std::vector<CCameraScriptedInputEvent::ActionData> actions;
     std::vector<CCameraScriptedInputEvent::GoalData> goals;
     std::vector<CCameraScriptedInputEvent::TrackedTargetTransformData> trackedTargetTransforms;
     std::vector<std::string> segmentLabels;
@@ -331,7 +294,6 @@ struct CCameraScriptedFrameEvents
         keyboard.clear();
         mouse.clear();
         imguizmo.clear();
-        actions.clear();
         goals.clear();
         trackedTargetTransforms.clear();
         segmentLabels.clear();
@@ -339,7 +301,7 @@ struct CCameraScriptedFrameEvents
 
     inline bool empty() const
     {
-        return keyboard.empty() && mouse.empty() && imguizmo.empty() && actions.empty() &&
+        return keyboard.empty() && mouse.empty() && imguizmo.empty() &&
             goals.empty() && trackedTargetTransforms.empty() && segmentLabels.empty();
     }
 };
@@ -367,9 +329,6 @@ struct CCameraScriptedFrameEventUtilities final
                     break;
                 case CCameraScriptedInputEvent::Type::Imguizmo:
                     out.imguizmo.emplace_back(ev.imguizmo);
-                    break;
-                case CCameraScriptedInputEvent::Type::Action:
-                    out.actions.emplace_back(ev.action);
                     break;
                 case CCameraScriptedInputEvent::Type::Goal:
                     out.goals.emplace_back(ev.goal);
