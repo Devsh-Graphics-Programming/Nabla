@@ -1,7 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_THIN_LENS_PROJECTION_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_THIN_LENS_PROJECTION_INCLUDED_
 
-#include <nbl/core/math/glslFunctions.h>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 
@@ -17,7 +16,7 @@ namespace thin_lens
 template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
 inline matrix<FloatingPoint, 4, 4> rhPerspectiveFovMatrix(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
 {
-	const FloatingPoint h = ::nbl::core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
+	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
 	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 
@@ -34,7 +33,7 @@ inline matrix<FloatingPoint, 4, 4> rhPerspectiveFovMatrix(FloatingPoint fieldOfV
 template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPoint<FloatingPoint>)
 inline matrix<FloatingPoint, 4, 4> lhPerspectiveFovMatrix(FloatingPoint fieldOfViewRadians, FloatingPoint aspectRatio, FloatingPoint zNear, FloatingPoint zFar)
 {
-	const FloatingPoint h = ::nbl::core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
+	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
 	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 

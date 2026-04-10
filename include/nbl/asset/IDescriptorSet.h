@@ -69,7 +69,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 					SCombinedImageSamplerInfo combinedImageSampler;
 				} info;
 
-				SDescriptorInfo() : desc(), info() {}
+				SDescriptorInfo() {}
 
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferBinding<BufferType>& binding) : desc()

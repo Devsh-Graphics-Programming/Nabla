@@ -2,7 +2,6 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_IMPL_INTRINSICS_IMPL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
-#include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
@@ -12,6 +11,7 @@
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/concepts/matrix.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
+#include <nbl/builtin/hlsl/numbers.hlsl>
 #include <boost/preprocessor/comparison/not_equal.hpp>
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/seq/for_each_i.hpp>
@@ -509,8 +509,7 @@ struct radians_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T degrees)
 	{
-		constexpr T Pi = ::nbl::hlsl::numbers::template pi<T>;
-		return degrees * (Pi / static_cast<T>(180.0));
+		return degrees * (bit_cast<T>(numbers::pi<T>) / static_cast<T>(180.0));
 	}
 };
 
@@ -521,8 +520,7 @@ struct degrees_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T radians)
 	{
-		constexpr T Pi = ::nbl::hlsl::numbers::template pi<T>;
-		return radians * (static_cast<T>(180.0) / Pi);
+		return radians * (static_cast<T>(180.0) / bit_cast<T>(numbers::pi<T>));
 	}
 };
 

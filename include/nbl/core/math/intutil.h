@@ -6,10 +6,6 @@
 #ifndef __NBL_CORE_MATH_INTUTIL_H_INCLUDED__
 #define __NBL_CORE_MATH_INTUTIL_H_INCLUDED__
 
-#include <cstdint>
-#include <initializer_list>
-
-#include "nbl/macros.h"
 #include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 

@@ -1,7 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_NUMBERS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_NUMBERS_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat/basic.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 
 namespace nbl 
 {
