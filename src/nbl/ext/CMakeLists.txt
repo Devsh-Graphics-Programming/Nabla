@@ -86,6 +86,16 @@ set(NBL_EXT_FULL_SCREEN_TRIANGLE_LIB
     PARENT_SCOPE
 )
 
+add_subdirectory(Cameras)
+set(NBL_EXT_CAMERAS_INCLUDE_DIRS
+    ${NBL_EXT_Cameras_INCLUDE_DIRS}
+    PARENT_SCOPE
+)
+set(NBL_EXT_CAMERAS_LIB
+    ${NBL_EXT_Cameras_LIB}
+    PARENT_SCOPE
+)
+
 propagate_changed_variables_to_parent_scope()
 
 NBL_ADJUST_FOLDERS(ext)
