@@ -328,7 +328,9 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLo
         const complex_t<scalar_t> twiddle = hlsl::fft::twiddle<false, scalar_t>(threadID & (stride - 1), stride);
 
         bool pingPong = false;
-        [unroll]
+        // Unrolling this loop increases register pressure. Why? Who knows. 
+        // It's not like it can't reuse the registers, and calls to exchangeValues are inlined anyway.
+        //[unroll]
         for (uint32_t round = 0; round < ShuffleRounds; round++)
         {
             if (round)
@@ -371,6 +373,7 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLo
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             uint32_t ownedSmemIndex = threadID;
+            // NOT unrolling this loop increases register pressure????
             [unroll]
             for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
             {
@@ -401,7 +404,7 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog
         const complex_t<scalar_t> twiddle = hlsl::fft::twiddle<true, scalar_t>(threadID & ((stride << 1) - 1), stride << 1);
 
         bool pingPong = false;
-        [unroll]
+        //[unroll]
         for (uint32_t round = 0; round < ShuffleRounds; round++)
         {
             if (round)
@@ -449,7 +452,7 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog
 
             uint32_t ownedSmemIndex = threadID;
             [unroll]
-                for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
+            for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
             {
                 FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
             }
