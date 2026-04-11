@@ -66,7 +66,12 @@ public:
             return;
         }
 
-        CCameraVirtualEventUtilities::appendWorldTranslationAsLocalEvents(filtered, camera->getGimbal().getOrientation(), worldDelta);
+        const auto scaledTranslationMagnitude = camera->getScaledVirtualTranslationMagnitude();
+        CCameraVirtualEventUtilities::appendWorldTranslationAsLocalEvents(
+            filtered,
+            camera->getGimbal().getOrientation(),
+            worldDelta,
+            hlsl::float64_t3(scaledTranslationMagnitude));
 
         events = std::move(filtered);
         count = static_cast<uint32_t>(events.size());

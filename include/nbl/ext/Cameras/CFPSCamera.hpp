@@ -77,13 +77,14 @@ public:
 
         m_gimbal.begin();
         {
+            const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
             const auto pitchYaw = hlsl::CCameraMathUtilities::getPitchYawFromForwardVector(hlsl::float64_t3(reference.frame[2]));
             const float newPitch = std::clamp<float>(static_cast<float>(pitchYaw.x + scaleVirtualRotation(impulse.dVirtualRotation.x)), MinVerticalAngle, MaxVerticalAngle);
             const float newYaw = static_cast<float>(pitchYaw.y + scaleVirtualRotation(impulse.dVirtualRotation.y));
 
             if (validateReference())
                 m_gimbal.setOrientation(hlsl::CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0f)));
-            m_gimbal.setPosition(hlsl::float64_t3(reference.frame[3]) + hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(impulse.dVirtualTranslate)));
+            m_gimbal.setPosition(hlsl::float64_t3(reference.frame[3]) + hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(deltaTranslation)));
         }
         m_gimbal.end();
 

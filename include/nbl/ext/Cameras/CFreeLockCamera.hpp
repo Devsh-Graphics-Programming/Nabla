@@ -40,12 +40,14 @@ public:
 
         m_gimbal.begin();
         {
-            const auto pitch = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[0])), impulse.dVirtualRotation.x);
-            const auto yaw = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[1])), impulse.dVirtualRotation.y);
-            const auto roll = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[2])), impulse.dVirtualRotation.z);
+            const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
+            const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
+            const auto pitch = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[0])), deltaRotation.x);
+            const auto yaw = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[1])), deltaRotation.y);
+            const auto roll = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[2])), deltaRotation.z);
 
             m_gimbal.setOrientation(hlsl::CCameraMathUtilities::normalizeQuaternion(yaw * pitch * roll * reference.orientation));
-            m_gimbal.setPosition(hlsl::float64_t3(reference.frame[3]) + hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(impulse.dVirtualTranslate)));
+            m_gimbal.setPosition(hlsl::float64_t3(reference.frame[3]) + hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(deltaTranslation)));
         }
         m_gimbal.end();
 

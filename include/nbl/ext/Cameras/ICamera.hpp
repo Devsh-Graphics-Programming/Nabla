@@ -231,7 +231,7 @@ public:
             return base_t::template accumulate<AllowedEvents>(virtualEvents);
         }
 
-        /// @brief Rebuild the cached world-to-view matrix from the current gimbal pose.
+        /// @brief Rebuild the cached left-handed world-to-view matrix from the current gimbal pose.
         inline void updateView()
         {            
             const auto& gRight = this->getXAxis();
@@ -247,8 +247,19 @@ public:
             m_viewMatrix[2u] = hlsl::float64_t4(gForward, -hlsl::dot(gForward, position));
         }
 
-        /// @brief Return the cached world-to-view matrix derived from the current pose.
-        inline const hlsl::float64_t3x4& getViewMatrix() const { return m_viewMatrix; }
+        /// @brief Return the cached left-handed world-to-view matrix derived from the current pose.
+        inline const hlsl::float64_t3x4& getViewMatrix() const { return getViewMatrixLH(); }
+
+        /// @brief Return the cached left-handed world-to-view matrix derived from the current pose.
+        inline const hlsl::float64_t3x4& getViewMatrixLH() const { return m_viewMatrix; }
+
+        /// @brief Return the right-handed world-to-view matrix derived from the current pose.
+        inline hlsl::float64_t3x4 getViewMatrixRH() const
+        {
+            auto rhViewMatrix = m_viewMatrix;
+            rhViewMatrix[2u] *= -1.0;
+            return rhViewMatrix;
+        }
 
     private:
         hlsl::float64_t3x4 m_viewMatrix;
