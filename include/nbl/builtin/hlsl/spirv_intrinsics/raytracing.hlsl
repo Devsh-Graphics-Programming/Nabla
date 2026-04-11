@@ -77,6 +77,8 @@ float2 rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQueryKHR 
 float2 rayQueryGetIntersectionFrontFaceKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 // position fetch for ray tracing uses gl_HitTriangleVertexPositionsEXT -> HitTriangleVertexPositionsKHR decorated OpVariable
+[[vk::ext_capability(spv::CapabilityRayTracingPositionFetchKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing_position_fetch")]]
 [[vk::ext_builtin_input(spv::BuiltInHitTriangleVertexPositionsKHR)]]
 static const float32_t3 HitTriangleVertexPositionsKHR[3];
 

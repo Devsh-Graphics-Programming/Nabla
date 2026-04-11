@@ -261,8 +261,8 @@ struct flipSignIfRHSNegative_helper<Vectorial, FloatingPoint NBL_PARTIAL_REQ_BOT
 };
 }
 
-template <typename T, typename U>
-NBL_CONSTEXPR_FUNC T flipSign(T val, U flip)
+template <typename T, typename U = bool>
+NBL_CONSTEXPR_FUNC T flipSign(T val, U flip = true)
 {
 	return impl::flipSign_helper<T, U>::__call(val, flip);
 }
@@ -289,6 +289,41 @@ NBL_CONSTEXPR_FUNC bool isZero(T val)
 
 	const AsUint exponentAndMantissaMask = ~traits_t::signMask;
 	return !(ieee754::impl::bitCastToUintType(val) & exponentAndMantissaMask);
+}
+
+// Returns the largest representable value less than `val`.
+// For positive values this decrements the bit representation; for negative values it increments.
+// Caller must guarantee val is finite and non-zero.
+template <bool CanBeNeg = true, typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC T nextDown(T val)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using traits_t = traits<T>;
+
+	const AsUint bits = ieee754::impl::bitCastToUintType(val);
+
+	// positive: decrement; negative: increment
+	AsUint result;
+	if (CanBeNeg)
+	{
+		const bool isNegative = (bits & traits_t::signMask) != AsUint(0);
+		result = isNegative ? (bits + AsUint(1)) : (bits - AsUint(1));
+	}
+	else
+		result = bits - AsUint(1);
+	return impl::castBackToFloatType<T>(result);
+}
+
+// Returns the representable value nearest to `val` in the direction of zero.
+// For positive values this decrements the bit representation; for negative values it decrements (moving toward zero).
+// Caller must guarantee val is finite and non-zero.
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC T nextTowardZero(T val)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+
+	const AsUint bits = ieee754::impl::bitCastToUintType(val);
+	return impl::castBackToFloatType<T>(bits - AsUint(1));
 }
 
 }

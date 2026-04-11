@@ -2922,7 +2922,6 @@
             "name": "pipelineExecutableInfo",
             "value": false,
             "comment": [
-                "[TODO] need impl",
                 "PipelineExecutablePropertiesFeaturesKHR",
                 "VK_KHR_pipeline_executable_properties"
             ]

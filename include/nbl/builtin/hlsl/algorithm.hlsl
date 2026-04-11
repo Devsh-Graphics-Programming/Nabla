@@ -92,12 +92,12 @@ NBL_CONSTEXPR_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
 namespace impl
 {
 
-template<class Accessor, class Comparator>
+template<class Accessor, class Comparator, bool IsUpper = false>
 struct bound_t
 {
-    static bound_t<Accessor,Comparator> setup(uint32_t begin, const uint32_t end, const typename Accessor::value_type _value, const Comparator _comp)
+    static bound_t<Accessor,Comparator,IsUpper> setup(uint32_t begin, const uint32_t end, const typename Accessor::value_type _value, const Comparator _comp)
     {
-        bound_t<Accessor,Comparator> retval;
+        bound_t<Accessor,Comparator,IsUpper> retval;
         retval.comp = _comp;
         retval.value = _value;
         retval.it = begin;
@@ -110,7 +110,7 @@ struct bound_t
     {
         if (isNPoT(len))
         {
-            const uint32_t newLen = 0x1u<<nbl::hlsl::findMSB(len);
+            const uint32_t newLen = 0x1u<<uint32_t(nbl::hlsl::findMSB(len));
             const uint32_t testPoint = it+(len-newLen);
             len = newLen;
             comp_step(accessor,testPoint);
@@ -132,9 +132,17 @@ struct bound_t
         comp_step(accessor,mid);
     }
 
+    bool compare(const typename Accessor::value_type lhs, const typename Accessor::value_type rhs)
+    {
+        if (IsUpper)
+            return !comp(rhs,lhs);
+        else
+            return comp(lhs,rhs);
+    }
+
     void comp_step(NBL_REF_ARG(Accessor) accessor, const uint32_t testPoint, const uint32_t rightBegin)
     {
-        if (comp(accessor[testPoint],value))
+        if (compare(accessor[testPoint],value))
             it = rightBegin;
     }
     void comp_step(NBL_REF_ARG(Accessor) accessor, const uint32_t testPoint)
@@ -148,36 +156,25 @@ struct bound_t
     uint32_t len;
 };
 
-template<class Accessor, class Comparator>
-struct lower_to_upper_comparator_transform_t
-{
-    bool operator()(const typename Accessor::value_type lhs, const typename Accessor::value_type rhs)
-    {
-        return !comp(rhs,lhs);
-    }
-
-    Comparator comp;
-};
-
 }
 
 
 template<class Accessor, class Comparator>
-uint32_t lower_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, const Comparator comp)
+uint32_t lower_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, NBL_REF_ARG(Comparator) comp)
 {
-    impl::bound_t<Accessor,Comparator> implementation = impl::bound_t<Accessor,Comparator>::setup(begin,end,value,comp);
-    return implementation(accessor);
+    impl::bound_t<Accessor,Comparator,false> implementation = impl::bound_t<Accessor,Comparator,false>::setup(begin,end,value,comp);
+    const uint32_t retval = implementation(accessor);
+    comp = implementation.comp;
+    return retval;
 }
 
 template<class Accessor, class Comparator>
-uint32_t upper_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, const Comparator comp)
+uint32_t upper_bound(NBL_REF_ARG(Accessor) accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, NBL_REF_ARG(Comparator) comp)
 {
-    //using TransformedComparator = impl::lower_to_upper_comparator_transform_t<Accessor,Comparator>;
-    //TransformedComparator transformedComparator;
-    
-    impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> transformedComparator;
-    transformedComparator.comp = comp;
-    return lower_bound<Accessor,impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> >(accessor,begin,end,value,transformedComparator);
+    impl::bound_t<Accessor,Comparator,true> implementation = impl::bound_t<Accessor,Comparator,true>::setup(begin,end,value,comp);
+    const uint32_t retval = implementation(accessor);
+    comp = implementation.comp;
+    return retval;
 }
 
 

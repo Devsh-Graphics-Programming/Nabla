@@ -1,18 +1,16 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED_
+#define _NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED_
 
-#ifndef __NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
 
 #include "nbl/core/alloc/LinearAddressAllocator.h"
 
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template<typename _size_type>
@@ -20,22 +18,25 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
 {
         typedef LinearAddressAllocator<_size_type>  Base;
     public:
+        using def_ctor_param_types = type_list<void*,_size_type,_size_type,_size_type,_size_type,_size_type>;
         static constexpr bool supportsArbitraryOrderFrees = false;
 
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
+        // TODO: get rid of this
         #define DUMMY_DEFAULT_CONSTRUCTOR StackAddressAllocator() : minimumAllocSize(invalid_address), allocStackPtr(invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~StackAddressAllocator() {}
-
-        StackAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type minAllocSize) noexcept :
+        
+        using extra_ctor_param_types = type_list<size_type/*Minimum Allocation Size*/>;
+        inline StackAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type minAllocSize) noexcept :
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz), minimumAllocSize(minAllocSize), allocStackPtr(0u) {}
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
-        StackAddressAllocator(size_type newBuffSz, StackAddressAllocator&& other, Args&&... args) :
+        inline StackAddressAllocator(size_type newBuffSz, StackAddressAllocator&& other, Args&&... args) :
                     Base(newBuffSz,std::move(other),std::forward<Args>(args)...),  minimumAllocSize(invalid_address), allocStackPtr(invalid_address)
         {
             std::swap(minimumAllocSize,other.minimumAllocSize);
@@ -43,13 +44,11 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
         }
 
         template<typename... Args>
-        StackAddressAllocator(size_type newBuffSz, const StackAddressAllocator& other, Args&&... args) :
+        inline StackAddressAllocator(size_type newBuffSz, const StackAddressAllocator& other, Args&&... args) :
             Base(newBuffSz, other, std::forward<Args>(args)...),
-            minimumAllocSize(other.minimumAllocSize), allocStackPtr(other.allocStackPtr)
-        {
-        }
+            minimumAllocSize(other.minimumAllocSize), allocStackPtr(other.allocStackPtr) {}
 
-        StackAddressAllocator& operator=(StackAddressAllocator&& other)
+        inline StackAddressAllocator& operator=(StackAddressAllocator&& other)
         {
             static_cast<Base&>(*this) = std::move(other);
             std::swap(minimumAllocSize,other.minimumAllocSize);
@@ -121,6 +120,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
         {
             return Base::get_total_size();
         }
+
     protected:
         size_type minimumAllocSize;
         size_type allocStackPtr;
@@ -132,7 +132,5 @@ template<typename size_type>
 using StackAddressAllocatorST = StackAddressAllocator<size_type>;
 
 }
-}
-
 #endif
 

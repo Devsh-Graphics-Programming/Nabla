@@ -8,87 +8,413 @@
     options remain and there is no mismatch, we force agressive inlining and optimizations mostly regardless build configuration by default
 */
 
-/*
-    Arek leaving thoughts, TODO:
-    
-    in NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION mode enabled -> here in this TU do
-
-    #define _ITERATOR_DEBUG_LEVEL 0
-    #define _HAS_ITERATOR_DEBUGGING 0
-
-    and allow Nabla to mismatch debug iterator *on purpose* by
-
-    #define _ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH 
-
-    in Debug/RWDI
-
-    then make preprocess full C API with raw in/out pointers and bytes out pointer,
-    with mismtach we must be very careful about memory ownership as STL stuff will have
-    different struct layouts and its easy to make a crash, we will have extra memcpy and
-    deallocation but as a trade each config will have almost the same preprocessing perf
-    which matters for our NSC integration
-
-    then we can think to make use of existing shader cache and maybe consider HLSL PCH
-    which NSC would inject into each input
-
-    NOTE: this approach allows to do all in single Nabla module, no extra proxy/fake shared DLL needed!
-    NOTE: yep I know I have currently a callback for which context size will differ accross TUs afterwards but will think about it
-
-    or ignore it and take care of NSC special target creating global HLSL PCH injected into each registered input
-*/
-
 #include "nabla.h"
+#include <boost/exception/diagnostic_information.hpp>
+#include <boost/wave/util/insert_whitespace_detection.hpp>
+#include <algorithm>
+#include <optional>
 
 using namespace nbl;
 using namespace nbl::asset;
 
 #include "nbl/asset/utils/waveContext.h"
 
-namespace nbl::wave
+namespace
 {
-    std::string preprocess(std::string& code, const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post)
+constexpr size_t kWaveFailureLogOutputTailMaxChars = 4096ull;
+constexpr size_t kWaveFailureLogOutputTailMaxLines = 16ull;
+constexpr size_t kWaveFailureLogTokenPreviewMaxChars = 160ull;
+
+auto subtractSessionCacheStats(
+    const IShaderCompiler::CIncludeFinder::SSessionCache::Stats& end,
+    const IShaderCompiler::CIncludeFinder::SSessionCache::Stats& begin) -> IShaderCompiler::CIncludeFinder::SSessionCache::Stats
+{
+    IShaderCompiler::CIncludeFinder::SSessionCache::Stats result;
+    result.lookupFound = end.lookupFound - begin.lookupFound;
+    result.lookupMissing = end.lookupMissing - begin.lookupMissing;
+    result.lookupMiss = end.lookupMiss - begin.lookupMiss;
+    result.storeFound = end.storeFound - begin.storeFound;
+    result.storeMissing = end.storeMissing - begin.storeMissing;
+    return result;
+}
+
+struct WaveRenderProgress
+{
+    core::string output;
+    std::string previousFile;
+    int previousLine = 0;
+    bool hasPreviousToken = false;
+    bool previousWasExplicitWhitespace = false;
+    size_t emittedTokenCount = 0ull;
+};
+
+std::string getLineSnippet(std::string_view text, const int lineNo)
+{
+    if (lineNo <= 0)
+        return {};
+
+    int currentLine = 1;
+    size_t lineStart = 0ull;
+    while (lineStart <= text.size())
     {
-        nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
+        const auto lineEnd = text.find('\n', lineStart);
+        if (currentLine == lineNo)
+        {
+            const auto count = lineEnd == std::string_view::npos ? text.size() - lineStart : lineEnd - lineStart;
+            auto line = std::string(text.substr(lineStart, count));
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            return line;
+        }
+
+        if (lineEnd == std::string_view::npos)
+            break;
+        lineStart = lineEnd + 1ull;
+        currentLine++;
+    }
+
+    return {};
+}
+
+std::string makeCaretLine(const int columnNo)
+{
+    if (columnNo <= 0)
+        return {};
+
+    return std::string(static_cast<size_t>(columnNo - 1), ' ') + '^';
+}
+
+size_t countLogicalLines(const std::string_view text)
+{
+    if (text.empty())
+        return 0ull;
+
+    size_t lines = static_cast<size_t>(std::count(text.begin(), text.end(), '\n'));
+    if (text.back() != '\n')
+        ++lines;
+    return lines;
+}
+
+std::string truncateEscapedPreview(std::string value, const size_t maxChars)
+{
+    if (value.size() <= maxChars)
+        return value;
+
+    if (maxChars <= 3ull)
+        return value.substr(0ull, maxChars);
+
+    value.resize(maxChars - 3ull);
+    value += "...";
+    return value;
+}
+
+std::string indentMultiline(std::string_view text, std::string_view indent)
+{
+    if (text.empty())
+        return {};
+
+    std::string out;
+    out.reserve(text.size() + indent.size() * 4ull);
+
+    size_t lineStart = 0ull;
+    while (lineStart < text.size())
+    {
+        out.append(indent.data(), indent.size());
+
+        const auto lineEnd = text.find('\n', lineStart);
+        if (lineEnd == std::string_view::npos)
+        {
+            out.append(text.data() + lineStart, text.size() - lineStart);
+            break;
+        }
+
+        out.append(text.data() + lineStart, lineEnd - lineStart + 1ull);
+        lineStart = lineEnd + 1ull;
+    }
+
+    return out;
+}
+
+std::string makeFailureLogOutputTail(std::string_view text)
+{
+    if (text.empty())
+        return {};
+
+    size_t start = text.size();
+    size_t chars = 0ull;
+    size_t newlines = 0ull;
+    while (start > 0ull)
+    {
+        --start;
+        ++chars;
+        if (text[start] == '\n')
+        {
+            ++newlines;
+            if (newlines > kWaveFailureLogOutputTailMaxLines)
+            {
+                ++start;
+                break;
+            }
+        }
+
+        if (chars >= kWaveFailureLogOutputTailMaxChars)
+            break;
+    }
+
+    std::string tail;
+    if (start > 0ull)
+        tail = "[truncated]\n";
+    tail.append(text.data() + start, text.size() - start);
+    return tail;
+}
+
+std::string makeWaveFailureContext(
+    const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions,
+    const nbl::wave::context& context,
+    const WaveRenderProgress& renderProgress,
+    const std::string_view code,
+    const char* const phase,
+    const std::string_view activeMacroDefinition,
+    const char* const fileName,
+    const int lineNo,
+    const int columnNo)
+{
+    std::ostringstream stream;
+    stream << "Wave preprocessing context:";
+    if (!preprocessOptions.sourceIdentifier.empty())
+        stream << "\n  source: " << nbl::wave::detail::escape_control_chars(preprocessOptions.sourceIdentifier);
+    stream << "\n  phase: " << phase;
+    stream << "\n  extra_define_count: " << preprocessOptions.extraDefines.size();
+    stream << "\n  source_length_bytes: " << code.size();
+    stream << "\n  source_has_trailing_newline: " << ((!code.empty() && code.back() == '\n') ? "yes" : "no");
+    stream << "\n  include_depth: " << context.get_iteration_depth();
+    stream << "\n  current_include_spelling: " << nbl::wave::detail::escape_control_chars(context.get_current_relative_filename());
+    stream << "\n  current_directory: " << nbl::wave::detail::escape_control_chars(context.get_current_directory().string());
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    stream << "\n  current_include_absolute_path: " << nbl::wave::detail::escape_control_chars(context.get_current_filename());
+#endif
+    if (!activeMacroDefinition.empty())
+        stream << "\n  active_macro_definition: " << nbl::wave::detail::escape_control_chars(activeMacroDefinition);
+    if (fileName && fileName[0] != '\0')
+        stream << "\n  location: " << nbl::wave::detail::escape_control_chars(fileName) << ':' << lineNo << ':' << columnNo;
+    stream << "\n  emitted_output_bytes: " << renderProgress.output.size();
+    stream << "\n  emitted_output_lines: " << countLogicalLines(renderProgress.output);
+    stream << "\n  emitted_token_count: " << renderProgress.emittedTokenCount;
+    const auto snippet = getLineSnippet(code, lineNo);
+    if (!snippet.empty() && fileName && preprocessOptions.sourceIdentifier == fileName)
+    {
+        stream << "\n  snippet: " << snippet;
+        const auto caret = makeCaretLine(columnNo);
+        if (!caret.empty())
+            stream << "\n           " << caret;
+    }
+
+    const auto outputTail = makeFailureLogOutputTail(renderProgress.output);
+    if (!outputTail.empty())
+        stream << "\n  partial_output_tail:\n" << indentMultiline(outputTail, "    ");
+
+    return stream.str();
+}
+
+template<typename TokenT>
+bool isWhitespaceLikeToken(const TokenT& token)
+{
+    using namespace boost::wave;
+
+    const auto id = token_id(token);
+    return id == T_NEWLINE || id == T_GENERATEDNEWLINE || id == T_CONTLINE || IS_CATEGORY(token, WhiteSpaceTokenType);
+}
+
+void renderPreprocessedOutput(nbl::wave::context& context, WaveRenderProgress& renderProgress)
+{
+    using namespace boost::wave;
+
+    util::insert_whitespace_detection whitespace(true);
+    auto& perfStats = nbl::wave::detail::perf_stats();
+    auto it = context.begin();
+    const auto end = context.end();
+    while (it != end)
+    {
+        std::optional<nbl::wave::detail::ScopedPerfTimer> loopBodyTimer;
+        if (perfStats.enabled)
+            loopBodyTimer.emplace(perfStats.loopBodyTime);
+
+        const auto& token = *it;
+        const auto id = token_id(token);
+        if (id != T_EOF && id != T_EOI)
+        {
+            std::optional<nbl::wave::detail::ScopedPerfTimer> tokenTimer;
+            if (perfStats.enabled)
+                tokenTimer.emplace(perfStats.tokenHandlingTime);
+
+            const auto explicitWhitespace = isWhitespaceLikeToken(token);
+            const auto& position = token.get_position();
+            const auto& value = token.get_value();
+
+            const auto currentLine = position.get_line();
+            const auto& currentFile = position.get_file();
+
+            if (renderProgress.hasPreviousToken && !explicitWhitespace)
+            {
+                bool movedToNewLogicalLine = currentLine > renderProgress.previousLine;
+                if (!movedToNewLogicalLine)
+                {
+                    movedToNewLogicalLine =
+                        renderProgress.previousFile.size() != currentFile.size() ||
+                        !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin());
+                }
+
+                if (movedToNewLogicalLine)
+                {
+                    if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
+                    {
+                        renderProgress.output.push_back('\n');
+                        whitespace.shift_tokens(T_NEWLINE);
+                    }
+                }
+                else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
+                {
+                    if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
+                    {
+                        renderProgress.output.push_back(' ');
+                        whitespace.shift_tokens(T_SPACE);
+                    }
+                }
+            }
+
+            renderProgress.output.append(value.data(), value.size());
+            whitespace.shift_tokens(id);
+            if (!renderProgress.hasPreviousToken ||
+                renderProgress.previousFile.size() != currentFile.size() ||
+                !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin()))
+            {
+                renderProgress.previousFile.assign(currentFile.c_str(), currentFile.size());
+            }
+            renderProgress.previousLine = currentLine;
+            renderProgress.hasPreviousToken = true;
+            renderProgress.previousWasExplicitWhitespace = explicitWhitespace;
+            ++renderProgress.emittedTokenCount;
+
+            if (tokenTimer.has_value())
+                tokenTimer.reset();
+        }
+
+        if (loopBodyTimer.has_value())
+            loopBodyTimer.reset();
+
+        if (perfStats.enabled)
+        {
+            nbl::wave::detail::ScopedPerfTimer iteratorAdvanceTimer(perfStats.iteratorAdvanceTime);
+            ++it;
+        }
+        else
+            ++it;
+    }
+}
+
+std::string preprocessImpl(
+    std::string& code,
+    const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions,
+    const bool withCaching,
+    std::function<void(nbl::wave::context&)> post)
+{
+    const auto emptySessionCacheStats = IShaderCompiler::CIncludeFinder::SSessionCache::Stats{};
+    const auto readSessionCacheStatsBegin = preprocessOptions.readIncludeSessionCache ? preprocessOptions.readIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    const auto writeSessionCacheStatsBegin = preprocessOptions.writeIncludeSessionCache ? preprocessOptions.writeIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+
+    nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
+
+    WaveRenderProgress renderProgress;
+    const char* phase = "registering built-in macros";
+    std::string activeMacroDefinition;
+    const auto reportPartialOutputOnFailure = [&]()
+    {
+        if (preprocessOptions.onPartialOutputOnFailure)
+            preprocessOptions.onPartialOutputOnFailure(renderProgress.output);
+    };
+    const auto makeFailureContext = [&](const char* const fileName, const int lineNo, const int columnNo)
+    {
+        return makeWaveFailureContext(preprocessOptions, context, renderProgress, code, phase, activeMacroDefinition, fileName, lineNo, columnNo);
+    };
+    try
+    {
+        const auto totalBegin = std::chrono::steady_clock::now();
+        nbl::wave::detail::reset_perf_stats();
         context.set_caching(withCaching);
         context.add_macro_definition("__HLSL_VERSION");
         context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
         context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
 
-        // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
-        // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
-        // to match boost wave syntax
-        // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
-
-        // preprocess
-        core::string resolvedString;
-        try
+        phase = "registering extra macro definitions";
+        for (const auto& define : preprocessOptions.extraDefines)
         {
-            for (const auto& define : preprocessOptions.extraDefines)
-            {
-                std::string macroDefinition(define.identifier);
-                macroDefinition.push_back('=');
-                macroDefinition.append(define.definition);
-                context.add_macro_definition(macroDefinition);
-            }
-
-            auto stream = std::stringstream();
-            for (auto i = context.begin(); i != context.end(); i++)
-                stream << i->get_value();
-            resolvedString = stream.str();
+            activeMacroDefinition = define.identifier;
+            activeMacroDefinition.push_back('=');
+            activeMacroDefinition.append(define.definition);
+            context.add_macro_definition(activeMacroDefinition);
         }
-        catch (boost::wave::preprocess_exception& e)
+        activeMacroDefinition.clear();
+
+        phase = "expanding translation unit";
         {
-            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
-            return {};
+            nbl::wave::detail::ScopedPerfTimer renderTimer(nbl::wave::detail::perf_stats().renderTime);
+            renderPreprocessedOutput(context, renderProgress);
         }
-        catch (...)
-        {
-            preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
-            return {};
-        }
+        auto& perfStats = nbl::wave::detail::perf_stats();
+        perfStats.outputBytes = renderProgress.output.size();
+        perfStats.emittedTokenCount = renderProgress.emittedTokenCount;
+        perfStats.totalPreprocessTime = std::chrono::steady_clock::now() - totalBegin;
+    }
+    catch (boost::wave::preprocess_exception& e)
+    {
+        reportPartialOutputOnFailure();
+        const auto escapedDescription = nbl::wave::detail::escape_control_chars(e.description());
+        const auto escapedFileName = nbl::wave::detail::escape_control_chars(e.file_name());
+        const auto failureContext = makeFailureContext(e.file_name(), e.line_no(), e.column_no());
+        preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]\n%s", system::ILogger::ELL_ERROR, e.what(), escapedDescription.c_str(), escapedFileName.c_str(), e.line_no(), e.column_no(), failureContext.c_str());
+        preprocessOptions.logger.log("Boost diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::diagnostic_information(e).c_str());
+        return {};
+    }
+    catch (const boost::exception& e)
+    {
+        reportPartialOutputOnFailure();
+        const auto failureContext = makeFailureContext(preprocessOptions.sourceIdentifier.data(), 0, 0);
+        preprocessOptions.logger.log("Boost exception caught during Wave preprocessing.\n%s", system::ILogger::ELL_ERROR, failureContext.c_str());
+        preprocessOptions.logger.log("Boost diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::diagnostic_information(e).c_str());
+        return {};
+    }
+    catch (const std::exception& e)
+    {
+        reportPartialOutputOnFailure();
+        const auto failureContext = makeFailureContext(preprocessOptions.sourceIdentifier.data(), 0, 0);
+        preprocessOptions.logger.log("std::exception caught during Wave preprocessing. %s\n%s", system::ILogger::ELL_ERROR, e.what(), failureContext.c_str());
+        return {};
+    }
+    catch (...)
+    {
+        reportPartialOutputOnFailure();
+        const auto failureContext = makeFailureContext(preprocessOptions.sourceIdentifier.data(), 0, 0);
+        preprocessOptions.logger.log("Unknown exception caught during Wave preprocessing.\n%s", system::ILogger::ELL_ERROR, failureContext.c_str());
+        preprocessOptions.logger.log("Current exception diagnostic information:\n%s", system::ILogger::ELL_ERROR, boost::current_exception_diagnostic_information().c_str());
+        return {};
+    }
 
-        post(context);
+    post(context);
+    const auto readSessionCacheStatsEnd = preprocessOptions.readIncludeSessionCache ? preprocessOptions.readIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    const auto writeSessionCacheStatsEnd = preprocessOptions.writeIncludeSessionCache ? preprocessOptions.writeIncludeSessionCache->snapshotStats() : emptySessionCacheStats;
+    nbl::wave::detail::set_session_cache_perf_stats(
+        subtractSessionCacheStats(readSessionCacheStatsEnd, readSessionCacheStatsBegin),
+        subtractSessionCacheStats(writeSessionCacheStatsEnd, writeSessionCacheStatsBegin));
+    nbl::wave::detail::dump_perf_stats();
 
-        return resolvedString;
+    return std::move(renderProgress.output);
+}
+}
+
+namespace nbl::wave
+{
+    std::string preprocess(std::string& code, const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post)
+    {
+        return preprocessImpl(code, preprocessOptions, withCaching, std::move(post));
     }
 }

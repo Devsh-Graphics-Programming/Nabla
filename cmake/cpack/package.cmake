@@ -20,7 +20,7 @@ else()
 	set(CPACK_PACKAGE_NAME "nabla-${NBL_SYSTEM_PROCESSOR}-md-d")
 endif()
 
-list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
+list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes PackageConfig NSCExecutables NSCConfig)
 set(CPACK_PACKAGE_VENDOR "DevshGraphicsProgramming.org")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Nabla")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
@@ -56,10 +56,16 @@ endif() # TODO: Linux, Android, MacOS. Android and MacOS will have non-archive g
 set(CPACK_COMPONENT_HEADERS_DISPLAY_NAME "Headers")
 set(CPACK_COMPONENT_LIBRARIES_DISPLAY_NAME "Libraries")
 set(CPACK_COMPONENT_RUNTIMES_DISPLAY_NAME "Runtimes")
+set(CPACK_COMPONENT_PACKAGECONFIG_DISPLAY_NAME "Package Config")
+set(CPACK_COMPONENT_NSCEXECUTABLES_DISPLAY_NAME "NSC Executable")
+set(CPACK_COMPONENT_NSCCONFIG_DISPLAY_NAME "NSC Config")
 
 set(CPACK_COMPONENT_HEADERS_GROUP "development")
 set(CPACK_COMPONENT_LIBRARIES_GROUP "development")
 set(CPACK_COMPONENT_RUNTIMES_GROUP "development")
+set(CPACK_COMPONENT_PACKAGECONFIG_GROUP "development")
+set(CPACK_COMPONENT_NSCEXECUTABLES_GROUP "development")
+set(CPACK_COMPONENT_NSCCONFIG_GROUP "development")
 
 list(APPEND CPACK_COMPONENTS_ALL Media Executables)
 
@@ -83,7 +89,14 @@ else()
 	set(CPACK_COMPONENT_RUNTIMES_DESCRIPTION "PDB files for use with Nabla library and extensions")
 endif()
 
+set(CPACK_COMPONENT_PACKAGECONFIG_DESCRIPTION "Package bootstrap config files shared by all Nabla package capability subsets")
+set(CPACK_COMPONENT_NSCEXECUTABLES_DESCRIPTION "Nabla shader compiler executable installed into the canonical package layout")
+set(CPACK_COMPONENT_NSCCONFIG_DESCRIPTION "NSC capability config and export files exposing target Nabla::nsc")
+
+set(CPACK_COMPONENT_LIBRARIES_DEPENDS PackageConfig)
 set(CPACK_COMPONENT_HEADERS_DEPENDS Libraries Runtimes)
+set(CPACK_COMPONENT_NSCEXECUTABLES_DEPENDS Runtimes)
+set(CPACK_COMPONENT_NSCCONFIG_DEPENDS PackageConfig)
 
 set(CPACK_THREADS 0) # try to use all threads for compression
 

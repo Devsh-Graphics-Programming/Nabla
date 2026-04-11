@@ -22,7 +22,7 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
             inline index_t() = default;
             explicit inline index_t(uint32_t _value) : value(_value) {}
 
-            inline operator bool() const {return value!=(~0u);}
+            explicit inline operator bool() const {return value!=(~0u);}
 
             uint32_t value = ~0u;
         };
@@ -68,7 +68,7 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
 
         struct STarget
         {
-            inline operator bool() const
+            explicit inline operator bool() const
             {
                 if (!geoCollection)
                     return false;
