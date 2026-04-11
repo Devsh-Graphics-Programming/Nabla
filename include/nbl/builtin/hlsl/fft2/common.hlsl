@@ -130,11 +130,13 @@ complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
 {
     complex_t<Scalar> retVal;
     const Scalar kthRootAngleRadians = numbers::pi<Scalar> *Scalar(k) / Scalar(halfN);
-    retVal.real(cos(kthRootAngleRadians));
+    Scalar cosine = nbl::hlsl::cos<Scalar>(kthRootAngleRadians);
+    Scalar sine   = nbl::hlsl::sin<Scalar>(kthRootAngleRadians);
+    retVal.real(cosine);
     if (!inverse)
-        retVal.imag(sin(-kthRootAngleRadians));
+        retVal.imag(-sine);
     else
-        retVal.imag(sin(kthRootAngleRadians));
+        retVal.imag(sine);
     return retVal;
 }
 
@@ -155,6 +157,122 @@ struct DIX
             complex_t<Scalar> diff = lo - hi;
             plusAss(lo, hi);
             hi = twiddle * diff;
+        }
+    }
+
+    static void radix3(
+        complex_t<Scalar> twiddle1, 
+        complex_t<Scalar> twiddle2, 
+        NBL_REF_ARG(complex_t<Scalar>) lo, 
+        NBL_REF_ARG(complex_t<Scalar>) mid, 
+        NBL_REF_ARG(complex_t<Scalar>) hi)
+    {
+        plus_assign< complex_t<Scalar> > plusAss;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar SQRT3_OVER_2 = Scalar(0.8660254037844386);
+
+        // Decimation in time - inverse
+        if (inverse) {
+            // Apply twiddles first, then butterfly
+            complex_t<Scalar> w1 = twiddle1 * mid;
+            complex_t<Scalar> w2 = twiddle2 * hi;
+
+            complex_t<Scalar> s = w1 + w2;
+            complex_t<Scalar> d = w1 - w2;
+
+            // u = i * sqrt(3)/2 * d 
+            complex_t<Scalar> u = complex_t<Scalar>(d.imag() * (-SQRT3_OVER_2), d.real() * SQRT3_OVER_2);
+
+            complex_t<Scalar> t = lo - s * Scalar(0.5);
+            plusAss(lo, s);     // lo = lo + s
+            mid = t + u;        // inverse: swapped signs vs forward
+            hi = t - u;
+        }
+        // Decimation in frequency - forward
+        else {
+            // Butterfly first, then apply twiddles
+            complex_t<Scalar> s = mid + hi;
+            complex_t<Scalar> d = mid - hi;
+
+            // u = i * sqrt(3)/2 * d 
+            complex_t<Scalar> u = complex_t<Scalar>(d.imag() * (-SQRT3_OVER_2), d.real() * SQRT3_OVER_2);
+
+            complex_t<Scalar> t = lo - s * Scalar(0.5);
+            plusAss(lo, s);     // lo = lo + s
+            mid = twiddle1 * (t - u);
+            hi = twiddle2 * (t + u);
+        }
+    }
+
+    static void radix5(
+        complex_t<Scalar> twiddle1,
+        complex_t<Scalar> twiddle2,
+        complex_t<Scalar> twiddle3,
+        complex_t<Scalar> twiddle4,
+        NBL_REF_ARG(complex_t<Scalar>) x0,
+        NBL_REF_ARG(complex_t<Scalar>) x1,
+        NBL_REF_ARG(complex_t<Scalar>) x2,
+        NBL_REF_ARG(complex_t<Scalar>) x3,
+        NBL_REF_ARG(complex_t<Scalar>) x4)
+    {
+        plus_assign< complex_t<Scalar> > plusAss;
+
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar COS_2PI_5 = Scalar(0.30901699437494742);  // (sqrt(5) - 1)/4
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar COS_4PI_5 = Scalar(-0.80901699437494742);  // -(sqrt(5) + 1)/4
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar SIN_2PI_5 = Scalar(0.95105651629515357);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar SIN_4PI_5 = Scalar(0.58778525229247312);
+
+        //Decimation in time - inverse
+        if (inverse) {
+            // Apply twiddles first
+            complex_t<Scalar> w1 = twiddle1 * x1;
+            complex_t<Scalar> w2 = twiddle2 * x2;
+            complex_t<Scalar> w3 = twiddle3 * x3;
+            complex_t<Scalar> w4 = twiddle4 * x4;
+
+            // 5-point inverse DFT: exploit W_5 conjugate symmetry via sum/diff pairs
+            complex_t<Scalar> s1 = w1 + w4;
+            complex_t<Scalar> d1 = w1 - w4;
+            complex_t<Scalar> s2 = w2 + w3;
+            complex_t<Scalar> d2 = w2 - w3;
+
+            complex_t<Scalar> tA = x0 + COS_2PI_5 * s1 + COS_4PI_5 * s2;
+            complex_t<Scalar> tB = x0 + COS_4PI_5 * s1 + COS_2PI_5 * s2;
+
+            // uA = i * (sA * d1 + sB * d2),   uB = i * (sB * d1 - sA * d2)
+            complex_t<Scalar> vA = SIN_2PI_5 * d1 + SIN_4PI_5 * d2;
+            complex_t<Scalar> vB = SIN_4PI_5 * d1 - SIN_2PI_5 * d2;
+            complex_t<Scalar> uA = rotateLeft(vA);
+            complex_t<Scalar> uB = rotateLeft(vB);
+
+            plusAss(x0, s1 + s2); // x0 = x0 + s1 + s2
+            // inverse flips the sign on u compared to forward
+            x1 = tA + uA;
+            x4 = tA - uA;
+            x2 = tB + uB;
+            x3 = tB - uB;
+        }
+        //Decimation in frequency - forward
+        else {
+            // 5-point DFT first
+            complex_t<Scalar> s1 = x1 + x4;
+            complex_t<Scalar> d1 = x1 - x4;
+            complex_t<Scalar> s2 = x2 + x3;
+            complex_t<Scalar> d2 = x2 - x3;
+
+            complex_t<Scalar> tA = x0 + COS_2PI_5 * s1 + COS_4PI_5 * s2;
+            complex_t<Scalar> tB = x0 + COS_4PI_5 * s1 + COS_2PI_5 * s2;
+
+            complex_t<Scalar> vA = SIN_2PI_5 * d1 + SIN_4PI_5 * d2;
+            complex_t<Scalar> vB = SIN_4PI_5 * d1 - SIN_2PI_5 * d2;
+            complex_t<Scalar> uA = rotateLeft(vA);
+            complex_t<Scalar> uB = rotateLeft(vB);
+
+            plusAss(x0, s1 + s2); // x0 = x0 + s1 + s2
+            // Apply twiddles to the DFT outputs
+            x1 = twiddle1 * (tA - uA);
+            x4 = twiddle4 * (tA + uA);
+            x2 = twiddle2 * (tB - uB);
+            x3 = twiddle3 * (tB + uB);
         }
     }
 };

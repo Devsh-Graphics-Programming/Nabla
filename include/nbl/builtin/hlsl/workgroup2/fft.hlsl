@@ -54,6 +54,7 @@ struct DivisionPolicy
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivByFullSizeByParts = DivByFullSizeAtEnd + 1;
 };
 
+// TODO: Separate parallelFFTs from Channels as two different concepts (dictates FFTSize)
 template<uint16_t _ElementsPerInvocation, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledChannelsPerRound, bool _Interleaved, uint16_t _DivisionPolicy, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
 struct ConstevalParameters
 {
@@ -72,7 +73,6 @@ struct ConstevalParameters
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = ShuffledChannelsPerRound * ((sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << (WorkgroupSizeLog2 + (_Interleaved ? 1 : 0)));
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivisionPolicy = _DivisionPolicy;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t 
 };
 } //namespace fft
 
