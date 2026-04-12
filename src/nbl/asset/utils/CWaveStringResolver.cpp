@@ -254,31 +254,12 @@ void renderPreprocessedOutput(nbl::wave::context& context, WaveRenderProgress& r
             const auto currentLine = position.get_line();
             const auto& currentFile = position.get_file();
 
-            if (renderProgress.hasPreviousToken && !explicitWhitespace)
+            if (renderProgress.hasPreviousToken && !explicitWhitespace && !renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
             {
-                bool movedToNewLogicalLine = currentLine > renderProgress.previousLine;
-                if (!movedToNewLogicalLine)
+                if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
                 {
-                    movedToNewLogicalLine =
-                        renderProgress.previousFile.size() != currentFile.size() ||
-                        !std::equal(currentFile.begin(), currentFile.end(), renderProgress.previousFile.begin());
-                }
-
-                if (movedToNewLogicalLine)
-                {
-                    if (renderProgress.output.empty() || renderProgress.output.back() != '\n')
-                    {
-                        renderProgress.output.push_back('\n');
-                        whitespace.shift_tokens(T_NEWLINE);
-                    }
-                }
-                else if (!renderProgress.previousWasExplicitWhitespace && whitespace.must_insert(id, value))
-                {
-                    if (renderProgress.output.empty() || (renderProgress.output.back() != ' ' && renderProgress.output.back() != '\n' && renderProgress.output.back() != '\r' && renderProgress.output.back() != '\t'))
-                    {
-                        renderProgress.output.push_back(' ');
-                        whitespace.shift_tokens(T_SPACE);
-                    }
+                    renderProgress.output.push_back(' ');
+                    whitespace.shift_tokens(T_SPACE);
                 }
             }
 

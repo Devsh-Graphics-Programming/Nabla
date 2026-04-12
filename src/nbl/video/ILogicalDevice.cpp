@@ -1032,12 +1032,6 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         const bool skipAABBs = bool(param.getFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
         const bool skipBuiltin = bool(param.getFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
 
-        if (!features.rayTracingPipeline)
-        {
-            NBL_LOG_ERROR("Raytracing Pipeline feature not enabled!");
-            return {};
-        }
-
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
         if (skipAABBs && skipBuiltin)
         {

@@ -12,6 +12,7 @@ namespace hlsl
 namespace rwmc
 {
 
+// TODO: template both on the ScalarType
 struct SSplattingParameters
 {
     using scalar_t = float32_t;
@@ -20,9 +21,9 @@ struct SSplattingParameters
     scalar_t BrightSampleLumaBias;
 
     template<typename CascadeLayerType, typename Colorspace = colorspace::scRGB>
-    scalar_t calcLuma(NBL_CONST_REF_ARG(CascadeLayerType) col)
+    typename vector_traits<CascadeLayerType>::scalar_type calcLuma(NBL_CONST_REF_ARG(CascadeLayerType) col)
     {
-        return hlsl::dot<CascadeLayerType>(hlsl::transpose(Colorspace::ToXYZ())[1], col);
+        return hlsl::dot(_static_cast<CascadeLayerType>(hlsl::transpose(Colorspace::ToXYZ())[1]), col);
     }
 };
 

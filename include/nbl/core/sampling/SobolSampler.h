@@ -77,7 +77,7 @@ class SobolSampler
 		}
 		
 		// Idea for optimization, do PoT samples per pass, then can precompute most of the `retval`
-		inline uint32_t sample(uint32_t dim, uint32_t sampleNum)
+		inline uint32_t sample(uint32_t dim, uint32_t sampleNum) const
 		{
 			#ifdef _DEBUG
 				assert(dim<dimensions);
