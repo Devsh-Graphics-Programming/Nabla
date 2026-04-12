@@ -253,7 +253,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
         .pNext = nullptr,
         .semaphore = m_acquireAdaptorSemaphores[getAcquireCount()%getMaxAcquiresInFlight()],
         .value = 0, // value is ignored because the adaptors are binary
-        .stageMask = VK_PIPELINE_STAGE_2_NONE,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/12066
         .deviceIndex = 0u // TODO: later obtain device index from swapchain
     };
 
