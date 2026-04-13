@@ -25,17 +25,17 @@ struct SMicrofacetNormals
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = false;    // TODO: temp, should account for bsdfs at some point
+    using bxdf_type = BRDF;
     using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
     struct Cache
     {
-        typename BRDF::isocache_type iso_cache;
-        typename BRDF::anisocache_type aniso_cache;
+        typename bxdf_type::isocache_type iso_cache;
+        typename bxdf_type::anisocache_type aniso_cache;
         bool sampleIsShadowed;
     };
     using isocache_type = Cache;
     using anisocache_type = Cache;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
-    using bxdf_type = BRDF;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
 
@@ -67,6 +67,18 @@ struct SMicrofacetNormals
     {
         const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
         return clampedNpdotV / (clampedNpdotV + clampedNtdotV * sinThetaNp);
+    }
+
+    template<typename C=bool_constant<!traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && !traits<bxdf_type>::IsMicrofacet)
+    static typename bxdf_type::anisocache_type __createChildCache(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        typename bxdf_type::anisocache_type cache;
+        return cache;
+    }
+    template<typename C=bool_constant<traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && traits<bxdf_type>::IsMicrofacet)
+    static typename bxdf_type::anisocache_type __createChildCache(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return typename bxdf_type::anisocache_type::template createForReflection<anisotropic_interaction_type, sample_type>(interaction, _sample);
     }
 
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
@@ -181,7 +193,7 @@ struct SMicrofacetNormals
                 s_reflected.setDirection(hlsl::normalize(reflect_s()));
                 s = sample_type::create(s_reflected, Np);
                 _cache.sampleIsShadowed = true;
-                // _cache = anisocache_type::createForReflection(interaction_Np.getTangentSpaceV(), s.getTangentSpaceL(), hlsl::dot(V, s_reflected.getDirection()));    // TODO: remove
+                _cache.aniso_cache = __createChildCache(s, interaction);
             }
         }
         else
@@ -289,7 +301,7 @@ struct SMicrofacetNormals
             typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
-            typename BRDF::anisocache_type cache_N;// = anisocache_type::template createForReflection<anisocache_type, sample_type>(interaction_N, sample_N);  // TODO: remove
+            typename bxdf_type::anisocache_type cache_N = __createChildCache(sample_N, interaction_N);
             return nested_brdf.quotientAndWeight(sample_N, interaction_N, cache_N);
         }
 
@@ -321,7 +333,7 @@ template<typename C, typename B>
 struct traits<bxdf::reflection::SMicrofacetNormals<C,B> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
-    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;   // should be microfacet?
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
     NBL_CONSTEXPR_STATIC_INLINE bool TractablePdf = true;
