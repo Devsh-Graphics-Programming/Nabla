@@ -46,7 +46,7 @@ struct OrientedEtaRcps
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
-    static OrientedEtaRcps<T> create(scalar_type NdotI, T eta)
+    static OrientedEtaRcps<T> create(const scalar_type NdotI, const T eta)
     {
         OrientedEtaRcps<T> retval;
         const bool backside = NdotI < scalar_type(0.0);
@@ -73,7 +73,7 @@ struct OrientedEtas
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
-    static OrientedEtas<T> create(scalar_type NdotI, T eta)
+    static OrientedEtas<T> create(const scalar_type NdotI, const T eta)
     {
         OrientedEtas<T> retval;
         const bool backside = NdotI < scalar_type(0.0);
@@ -117,8 +117,8 @@ struct ComputeMicrofacetNormal
         ComputeMicrofacetNormal<T> retval;
         retval.V = V;
         retval.L = L;
-        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(VdotH, eta);
-        retval.orientedEta = orientedEtas.value;
+        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(VdotH, hlsl::promote<monochrome_type>(eta));
+        retval.orientedEta = orientedEtas.value[0];
         return retval;
     }
 
@@ -138,7 +138,7 @@ struct ComputeMicrofacetNormal
     // VdotH <= 1-orientedEta2 for orientedEta<1 -> VdotH<0
     // VdotH <= 0 for orientedEta>1
     // so for transmission VdotH<=0, H needs to be flipped to be consistent with oriented eta
-    vector_type unnormalized(const bool _refract)
+    vector_type unnormalized(const bool _refract) NBL_CONST_MEMBER_FUNC
     {
         assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
         const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta, _refract);
@@ -148,7 +148,7 @@ struct ComputeMicrofacetNormal
     }
 
     // returns normalized vector, but NaN when result is length 0
-    vector_type normalized(const bool _refract)
+    vector_type normalized(const bool _refract) NBL_CONST_MEMBER_FUNC
     {
         const vector_type H = unnormalized(_refract);
         return hlsl::normalize<vector_type>(H);

@@ -78,7 +78,18 @@ struct SMicrofacetNormals
     template<typename C=bool_constant<traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && traits<bxdf_type>::IsMicrofacet)
     static typename bxdf_type::anisocache_type __createChildCache(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
-        return typename bxdf_type::anisocache_type::template createForReflection<anisotropic_interaction_type, sample_type>(interaction, _sample);
+        return bxdf_type::anisocache_type::template createForReflection<anisotropic_interaction_type, sample_type>(interaction, _sample);
+    }
+
+    template<typename C=bool_constant<!traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && !traits<bxdf_type>::IsMicrofacet)
+    scalar_type __childForwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    {
+        return nested_brdf.forwardPdf(_sample, interaction);
+    }
+    template<typename C=bool_constant<traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && traits<bxdf_type>::IsMicrofacet)
+    scalar_type __childForwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    {
+        return nested_brdf.forwardPdf(_sample, interaction, __createChildCache(_sample, interaction));
     }
 
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
@@ -238,7 +249,7 @@ struct SMicrofacetNormals
             typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
-            return nested_brdf.forwardPdf(sample_N, interaction_N);
+            return __childForwardPdf(sample_N, interaction_N);
         }
 
         const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
@@ -255,7 +266,7 @@ struct SMicrofacetNormals
             const scalar_type NdotL = hlsl::dot(shadingNormal, L);
             const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
             const scalar_type NtdotL = hlsl::dot(Nt, L);
-            pdf += lambda_p * nested_brdf.forwardPdf(_sample, interaction) * G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
+            pdf += lambda_p * __childForwardPdf(_sample, interaction) * G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
                 NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
 
             if (NtdotL > numeric_limits<scalar_type>::min)
@@ -265,7 +276,7 @@ struct SMicrofacetNormals
                 L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
                 sample_type sample_reflected = sample_type::create(L_reflected, Np);
 
-                pdf += lambda_p * nested_brdf.forwardPdf(sample_reflected, interaction) * 
+                pdf += lambda_p * __childForwardPdf(sample_reflected, interaction) * 
                         (scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp, sample_reflected.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), NtdotL)));
             }
         }
@@ -279,7 +290,7 @@ struct SMicrofacetNormals
             typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = typename bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
-            pdf += (scalar_type(1.0) - lambda_p) * nested_brdf.forwardPdf(_sample, interaction_reflected);
+            pdf += (scalar_type(1.0) - lambda_p) * __childForwardPdf(_sample, interaction_reflected);
         }
 
         return pdf;
