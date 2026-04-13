@@ -68,7 +68,7 @@ struct AliasTable
 	codomain_type generate(const domain_type u) NBL_CONST_MEMBER_FUNC
 	{
 		const scalar_type scaled = u * tableSizeMinusUlp;
-		const codomain_type bin = codomain_type(scaled);
+		const codomain_type bin = _static_cast<codomain_type>(scaled);
 		const scalar_type remainder = scaled - scalar_type(bin);
 
 		scalar_type prob;
