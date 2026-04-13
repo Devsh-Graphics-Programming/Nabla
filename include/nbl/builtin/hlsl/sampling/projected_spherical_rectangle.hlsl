@@ -41,7 +41,7 @@ struct ProjectedSphericalRectangle
 
 	// BackwardTractableSampler concept types
 	using domain_type = vector2_type;
-	using codomain_type = vector2_type;
+	using codomain_type = vector3_type;
 	using density_type = scalar_type;
 	using weight_type = density_type;
 
@@ -105,12 +105,24 @@ struct ProjectedSphericalRectangle
 		return retval;
 	}
 
+	// returns a normalized 3D direction in the local frame
 	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
 		Bilinear<scalar_type> bilinear = bilinearPatch;
 		cache.warped = bilinear.generate(u, cache.bilinearCache);
 		typename SphericalRectangle<scalar_type>::cache_type sphrectCache;
-		const vector2_type sampleOffset = sphrect.generate(cache.warped, sphrectCache);
+		const vector3_type dir = sphrect.generate(cache.warped, sphrectCache);
+		cache.abs_cos_theta = bilinear.forwardWeight(u, cache.bilinearCache);
+		return dir;
+	}
+
+	// returns a 2D offset on the rectangle surface from the r0 corner
+	vector2_type generateSurfaceOffset(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	{
+		Bilinear<scalar_type> bilinear = bilinearPatch;
+		cache.warped = bilinear.generate(u, cache.bilinearCache);
+		typename SphericalRectangle<scalar_type>::cache_type sphrectCache;
+		const vector2_type sampleOffset = sphrect.generateSurfaceOffset(cache.warped, sphrectCache);
 		cache.abs_cos_theta = bilinear.forwardWeight(u, cache.bilinearCache);
 		return sampleOffset;
 	}
@@ -140,8 +152,8 @@ struct ProjectedSphericalRectangle
 		const scalar_type minimumProjSolidAngle = 0.0;
 		// Reconstruct local direction from normalized rect position
 		const vector3_type localDir = hlsl::normalize(sphrect.r0 + vector3_type(
-			p.x * (sphrect.r1.x - sphrect.r0.x),
-			p.y * (sphrect.r1.y - sphrect.r0.y),
+			p.x * sphrect.extents.x,
+			p.y * sphrect.extents.y,
 			scalar_type(0)
 		));
 		const scalar_type abs_cos_theta = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::dot(localReceiverNormal, localDir), minimumProjSolidAngle);

@@ -110,7 +110,7 @@ struct bound_t
     {
         if (isNPoT(len))
         {
-            const uint32_t newLen = 0x1u<<uint32_t(nbl::hlsl::findMSB(len));
+            const uint32_t newLen = 0x1u<<_static_cast<uint32_t>(nbl::hlsl::findMSB(len));
             const uint32_t testPoint = it+(len-newLen);
             len = newLen;
             comp_step(accessor,testPoint);
