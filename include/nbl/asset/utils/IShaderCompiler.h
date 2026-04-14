@@ -261,6 +261,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			SPreprocessorOptions preprocessorOptions = {};
 			CCache* readCache = nullptr;
 			CCache* writeCache = nullptr;
+			bool optimizerIsExtraPasses = false; // Instead of disabling the default opt passes, run the provided optimization passes at the end
 		};
 
 		class CCache final : public IReferenceCounted

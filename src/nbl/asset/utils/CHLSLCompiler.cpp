@@ -584,13 +584,13 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
                 // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
                 arguments.push_back(L"main");
             }
-            // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+            // If a custom SPIR-V optimizer is specified and set to replace default optimization passes, use that instead of DXC's spirv-opt.
             // This is how we can get more optimizer options.
             // 
             // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
             // optimization levels greater than zero; they will all invoke the same optimization recipe. 
             // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-            if (hlslOptions.spirvOptimizer)
+            if (hlslOptions.spirvOptimizer && !hlslOptions.optimizerIsExtraPasses)
                 arguments.push_back(L"-O0");
         }
         //

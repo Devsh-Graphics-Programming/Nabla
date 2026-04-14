@@ -362,6 +362,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         commonCompileOptions.stage = creationParams.stage;
         commonCompileOptions.debugInfoFlags = creationParams.debugInfoFlags;
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
+        commonCompileOptions.optimizerIsExtraPasses = creationParams.optimizerIsExtraPasses;
         commonCompileOptions.preprocessorOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
         commonCompileOptions.readCache = creationParams.readCache;
