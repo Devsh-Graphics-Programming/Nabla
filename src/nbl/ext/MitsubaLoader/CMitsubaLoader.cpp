@@ -1412,7 +1412,8 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 	};
 
 
-	auto loadModel = [&](const char* filename, int64_t index=-1, bool flip_x_axis = true) -> void
+	// we used to load with the IAssetLoader::ELPF_RIGHT_HANDED_MESHES flag, this means flipping the mesh x-axis, that's why we use it as default 
+	auto loadModel = [&](const char* filename, int64_t index=-1, bool flipXAxis = true) -> void
 	{
 		auto retval = interm_getAssetInHierarchy(filename,/*ICPUScene::GEOMETRY_COLLECTION_HIERARCHY_LEVELS_BELOW*/1);
 		auto contentRange = retval.getContents();
@@ -1423,7 +1424,7 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 		}
 		
 		auto transform = math::linalg::diagonal<float32_t3x4>(1.f);
-		if (flip_x_axis) transform[0][0] = -1.f;
+		if (flipXAxis) transform[0][0] = -1.f;
 
 		//
 		auto addCollectionGeometries = [&](const ICPUGeometryCollection* col)->void
@@ -1598,6 +1599,7 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 			}
 			break;
 		case CElementShape::Type::SERIALIZED:
+			// Data is serialized as is, in unflipped state, so we need to load the model as is
 			loadModel(shape->serialized.filename,shape->serialized.shapeIndex, false);
 			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
