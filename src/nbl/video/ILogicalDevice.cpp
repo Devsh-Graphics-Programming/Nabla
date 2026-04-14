@@ -368,6 +368,9 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         commonCompileOptions.readCache = creationParams.readCache;
         commonCompileOptions.writeCache = creationParams.writeCache;
 
+        commonCompileOptions.preprocessedOutputPath = creationParams.preprocessedOutputPath;
+        commonCompileOptions.spvOutputPath = creationParams.spvOutputPath;
+
         if (sourceContent==asset::IShader::E_CONTENT_TYPE::ECT_HLSL)
         {
             // TODO: add specific HLSLCompiler::SOption params

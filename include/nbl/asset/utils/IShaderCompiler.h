@@ -262,6 +262,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			CCache* readCache = nullptr;
 			CCache* writeCache = nullptr;
 			bool optimizerIsExtraPasses = false; // Instead of disabling the default opt passes, run the provided optimization passes at the end
+			std::string preprocessedOutputPath = "";
+			std::string spvOutputPath = "";
 		};
 
 		class CCache final : public IReferenceCounted

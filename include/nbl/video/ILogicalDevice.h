@@ -834,6 +834,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
             core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS> debugInfoFlags = asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE;
             bool optimizerIsExtraPasses = false; // Instead of disabling the default opt passes, run the provided optimization passes at the end
+            std::string preprocessedOutputPath = "";
+            std::string spvOutputPath = "";
         };
         core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
