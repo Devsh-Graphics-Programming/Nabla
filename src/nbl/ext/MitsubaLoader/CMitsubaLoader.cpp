@@ -1412,7 +1412,7 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 	};
 
 
-	auto loadModel = [&](const char* filename, int64_t index=-1) -> void
+	auto loadModel = [&](const char* filename, int64_t index=-1, bool flip_x_axis = true) -> void
 	{
 		auto retval = interm_getAssetInHierarchy(filename,/*ICPUScene::GEOMETRY_COLLECTION_HIERARCHY_LEVELS_BELOW*/1);
 		auto contentRange = retval.getContents();
@@ -1422,9 +1422,8 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 			return;
 		}
 		
-		// we used to load with the IAssetLoader::ELPF_RIGHT_HANDED_MESHES flag, this means flipping the mesh x-axis
 		auto transform = math::linalg::diagonal<float32_t3x4>(1.f);
-		transform[0][0] = -1.f;
+		if (flip_x_axis) transform[0][0] = -1.f;
 
 		//
 		auto addCollectionGeometries = [&](const ICPUGeometryCollection* col)->void
@@ -1599,7 +1598,7 @@ auto SContext::loadBasicShape(const CElementShape* shape) -> SContext::shape_ass
 			}
 			break;
 		case CElementShape::Type::SERIALIZED:
-			loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
+			loadModel(shape->serialized.filename,shape->serialized.shapeIndex, false);
 			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
