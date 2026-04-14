@@ -76,12 +76,12 @@ struct SLambertianBase
 
     quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        sampling::quotient_and_pdf<monochrome_type, scalar_type> qp;
+        sampling::quotient_and_pdf<spectral_type, scalar_type> qp;
         NBL_IF_CONSTEXPR (IsBSDF)
-            qp = sampling::ProjectedSphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
+            qp = sampling::ProjectedSphere<scalar_type>::template quotientAndPdf<spectral_type>(_sample.getNdotL(_clamp));
         else
-            qp = sampling::ProjectedHemisphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
-        return quotient_weight_type::create(qp.quotient()[0], qp.pdf());
+            qp = sampling::ProjectedHemisphere<scalar_type>::template quotientAndPdf<spectral_type>(_sample.getNdotL(_clamp));
+        return quotient_weight_type::create(qp.quotient(), qp.pdf());
     }
     quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {

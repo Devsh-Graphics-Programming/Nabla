@@ -43,13 +43,13 @@ struct SMicrofacetNormals
     // shading normal N (geometric normal in paper) stored in bxdf
     // tangent normal Nt derived as needed
     template<class NormalsTexAccessor> // TODO: concept for accessor
-    anisotropic_interaction_type buildInteraction(NBL_CONST_REF_ARG(NormalsTexAccessor) normalMap, const vector2_type uv, const matrix<scalar_type,3,3> object_to_world, const vector3_type V) NBL_CONST_MEMBER_FUNC
+    anisotropic_interaction_type buildInteraction(NBL_CONST_REF_ARG(NormalsTexAccessor) normalMap, const vector2_type uv, const matrix<scalar_type,3,3> object_to_world, const ray_dir_info_type V) NBL_CONST_MEMBER_FUNC
     {
         vector3_type localN;
-        normalMap.template get<scalar_type, 2>(localN, uv, 0);
-        localN = hlsl::normalize(hlsl::promote<vector3_type>(2.0) * localN - hlsl::promote<vector3_type>(1.0));
+        normalMap.get(localN, uv);
+        localN = hlsl::promote<vector3_type>(2.0) * localN - hlsl::promote<vector3_type>(1.0);
 
-        const vector3_type N = hlsl::mul(object_to_world, localN);
+        const vector3_type N = hlsl::normalize(hlsl::mul(object_to_world, localN));
         isotropic_interaction_type interaction = isotropic_interaction_type::create(V, N);
         return anisotropic_interaction_type::create(interaction);
     }
@@ -105,8 +105,8 @@ struct SMicrofacetNormals
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
-            typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
-            typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
+            typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
             return nested_brdf.evalAndWeight(sample_N, interaction_N);
         }
@@ -153,8 +153,8 @@ struct SMicrofacetNormals
             ray_dir_info_type V_reflected;
             V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
 
-            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
-            typename bxdf_type::anisotropic_interaction_type interaction_reflected = typename bxdf_type::anisotropic_interaction_type::create(iso_reflected);
+            typename bxdf_type::isotropic_interaction_type iso_reflected = bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
+            typename bxdf_type::anisotropic_interaction_type interaction_reflected = bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
             value_weight_type eval_double_t = nested_brdf.evalAndWeight(_sample, interaction_reflected);
             eval += eval_double_t.value() * (scalar_type(1.0) - lambda_p) * shadowing;
@@ -173,8 +173,8 @@ struct SMicrofacetNormals
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
-            typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
-            typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
+            typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             return nested_brdf.generate(interaction_N, u, _cache.aniso_cache);
         }
 
@@ -216,13 +216,13 @@ struct SMicrofacetNormals
             // sample on wp
             ray_dir_info_type Vnr;
             Vnr.setDirection(V_negreflected);
-            typename bxdf_type::isotropic_interaction_type iso_negreflected = typename bxdf_type::isotropic_interaction_type::create(Vnr, Np);
-            typename bxdf_type::anisotropic_interaction_type interaction_negreflected = typename bxdf_type::anisotropic_interaction_type::create(iso_negreflected);
+            typename bxdf_type::isotropic_interaction_type iso_negreflected = bxdf_type::isotropic_interaction_type::create(Vnr, Np);
+            typename bxdf_type::anisotropic_interaction_type interaction_negreflected = bxdf_type::anisotropic_interaction_type::create(iso_negreflected);
             s = nested_brdf.generate(interaction_negreflected, u, _cache.aniso_cache);
             if (!s.isValid())
                 return s;
         }
-        if (s.getNdotL() < scalar_type(0.0))
+        if (hlsl::dot(shadingNormal, s.getL().getDirection()) < scalar_type(0.0))
             return sample_type::createInvalid();    // for reflection
         return s;
     }
@@ -246,8 +246,8 @@ struct SMicrofacetNormals
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
-            typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
-            typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
+            typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
             return __childForwardPdf(sample_N, interaction_N);
         }
@@ -287,8 +287,8 @@ struct SMicrofacetNormals
             ray_dir_info_type V_reflected;
             V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
 
-            typename bxdf_type::isotropic_interaction_type iso_reflected = typename bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
-            typename bxdf_type::anisotropic_interaction_type interaction_reflected = typename bxdf_type::anisotropic_interaction_type::create(iso_reflected);
+            typename bxdf_type::isotropic_interaction_type iso_reflected = bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
+            typename bxdf_type::anisotropic_interaction_type interaction_reflected = bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
             pdf += (scalar_type(1.0) - lambda_p) * __childForwardPdf(_sample, interaction_reflected);
         }
@@ -309,8 +309,8 @@ struct SMicrofacetNormals
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
         {
-            typename bxdf_type::isotropic_interaction_type iso = typename bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
-            typename bxdf_type::anisotropic_interaction_type interaction_N = typename bxdf_type::anisotropic_interaction_type::create(iso);
+            typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
             typename bxdf_type::anisocache_type cache_N = __createChildCache(sample_N, interaction_N);
             return nested_brdf.quotientAndWeight(sample_N, interaction_N, cache_N);
