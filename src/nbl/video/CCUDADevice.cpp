@@ -3,6 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/video/CCUDADevice.h"
 
+#include <winternl.h>
+
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
@@ -95,13 +97,14 @@ CUresult CCUDADevice::createSharedMemory(
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 
-	uint32_t metaData[16] = { 48 };
+	OBJECT_ATTRIBUTES metadata = {};
+	metadata.Length = sizeof(OBJECT_ATTRIBUTES);
 
 	CUmemAllocationProp prop = {
 		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
 		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
 		.location = { .type = params.location, .id = m_handle },
-		.win32HandleMetaData = metaData,
+		.win32HandleMetaData = &metadata,
 	};
 	
 	params.granularSize = roundToGranularity(params.location, params.size);
