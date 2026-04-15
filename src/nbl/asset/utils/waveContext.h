@@ -8,7 +8,12 @@
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <algorithm>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "nbl/asset/utils/IShaderCompiler.h"
@@ -21,6 +26,175 @@ using namespace boost::wave::util;
 
 namespace detail
 {
+struct PerfStats
+{
+    bool enabled = false;
+    bool includeDetailsEnabled = false;
+    uint64_t includeRequests = 0ull;
+    uint64_t includeLookupCount = 0ull;
+    uint64_t includeResolutionCacheSkips = 0ull;
+    uint64_t postLoadPragmaSkips = 0ull;
+    uint64_t sessionLookupFound = 0ull;
+    uint64_t sessionLookupMissing = 0ull;
+    uint64_t sessionLookupMiss = 0ull;
+    uint64_t sessionStoreFound = 0ull;
+    uint64_t sessionStoreMissing = 0ull;
+    std::chrono::nanoseconds includeLookupTime = std::chrono::nanoseconds::zero();
+    std::chrono::nanoseconds tokenHandlingTime = std::chrono::nanoseconds::zero();
+    std::chrono::nanoseconds iteratorAdvanceTime = std::chrono::nanoseconds::zero();
+    std::chrono::nanoseconds loopBodyTime = std::chrono::nanoseconds::zero();
+    std::chrono::nanoseconds renderTime = std::chrono::nanoseconds::zero();
+    std::chrono::nanoseconds totalPreprocessTime = std::chrono::nanoseconds::zero();
+    size_t outputBytes = 0ull;
+    uint64_t emittedTokenCount = 0ull;
+    std::unordered_map<std::string, uint64_t> requestedIncludeSpellingCounts;
+    std::unordered_map<std::string, uint64_t> resolvedIncludePathCounts;
+};
+
+inline PerfStats& perf_stats()
+{
+    static PerfStats stats = []()
+    {
+        PerfStats value;
+        value.enabled = std::getenv("NBL_WAVE_PROFILE") != nullptr;
+        value.includeDetailsEnabled = std::getenv("NBL_WAVE_PROFILE_INCLUDES") != nullptr;
+        return value;
+    }();
+    return stats;
+}
+
+inline void reset_perf_stats()
+{
+    auto& stats = perf_stats();
+    const bool enabled = stats.enabled;
+    const bool includeDetailsEnabled = stats.includeDetailsEnabled;
+    stats = {};
+    stats.enabled = enabled;
+    stats.includeDetailsEnabled = includeDetailsEnabled;
+}
+
+class ScopedPerfTimer
+{
+    public:
+        explicit ScopedPerfTimer(std::chrono::nanoseconds& target) : m_target(target), m_begin(std::chrono::steady_clock::now()) {}
+        ~ScopedPerfTimer()
+        {
+            m_target += std::chrono::steady_clock::now() - m_begin;
+        }
+
+    private:
+        std::chrono::nanoseconds& m_target;
+        std::chrono::steady_clock::time_point m_begin;
+};
+
+inline void dump_perf_stats()
+{
+    const auto& stats = perf_stats();
+    if (!stats.enabled)
+        return;
+
+    const auto to_ms = [](const std::chrono::nanoseconds value) -> double
+    {
+        return std::chrono::duration<double, std::milli>(value).count();
+    };
+
+    std::fprintf(
+        stderr,
+        "[wave-profile] total_ms=%.3f include_lookup_ms=%.3f token_handling_ms=%.3f iterator_advance_ms=%.3f loop_body_ms=%.3f render_ms=%.3f include_requests=%llu include_lookups=%llu resolution_cache_skips=%llu postload_pragma_skips=%llu session_lookup_found=%llu session_lookup_missing=%llu session_lookup_miss=%llu session_store_found=%llu session_store_missing=%llu emitted_tokens=%llu output_bytes=%zu\n",
+        to_ms(stats.totalPreprocessTime),
+        to_ms(stats.includeLookupTime),
+        to_ms(stats.tokenHandlingTime),
+        to_ms(stats.iteratorAdvanceTime),
+        to_ms(stats.loopBodyTime),
+        to_ms(stats.renderTime),
+        static_cast<unsigned long long>(stats.includeRequests),
+        static_cast<unsigned long long>(stats.includeLookupCount),
+        static_cast<unsigned long long>(stats.includeResolutionCacheSkips),
+        static_cast<unsigned long long>(stats.postLoadPragmaSkips),
+        static_cast<unsigned long long>(stats.sessionLookupFound),
+        static_cast<unsigned long long>(stats.sessionLookupMissing),
+        static_cast<unsigned long long>(stats.sessionLookupMiss),
+        static_cast<unsigned long long>(stats.sessionStoreFound),
+        static_cast<unsigned long long>(stats.sessionStoreMissing),
+        static_cast<unsigned long long>(stats.emittedTokenCount),
+        stats.outputBytes
+    );
+
+    if (!stats.includeDetailsEnabled)
+        return;
+
+    auto dumpTopCounts = [](const char* const label, const std::unordered_map<std::string, uint64_t>& counts)
+    {
+        if (counts.empty())
+            return;
+
+        std::vector<std::pair<std::string, uint64_t>> entries;
+        entries.reserve(counts.size());
+        for (const auto& [name, count] : counts)
+            entries.emplace_back(name, count);
+
+        std::sort(entries.begin(), entries.end(), [](const auto& lhs, const auto& rhs)
+        {
+            if (lhs.second != rhs.second)
+                return lhs.second > rhs.second;
+            return lhs.first < rhs.first;
+        });
+
+        constexpr size_t kMaxEntries = 24ull;
+        const auto limit = std::min(entries.size(), kMaxEntries);
+        for (size_t i = 0ull; i < limit; ++i)
+        {
+            const auto& entry = entries[i];
+            std::fprintf(stderr, "[wave-profile] %s[%zu]=%llu %s\n", label, i, static_cast<unsigned long long>(entry.second), entry.first.c_str());
+        }
+    };
+
+    dumpTopCounts("requested_include", stats.requestedIncludeSpellingCounts);
+    dumpTopCounts("resolved_include", stats.resolvedIncludePathCounts);
+}
+
+struct LanguageFlagConfig
+{
+    bool preserveComments = false;
+    bool enableCpp20 = true;
+    bool preferPpNumbers = true;
+    bool emitLineDirectives = true;
+    bool includeGuardDetection = true;
+    bool emitPragmaDirectives = true;
+};
+
+inline boost::wave::language_support make_language_flags(const LanguageFlagConfig& config)
+{
+    auto flags = boost::wave::language_support();
+    if (config.enableCpp20)
+        flags = boost::wave::language_support(flags | support_cpp20); // C++20 lexer mode. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L56-L59
+    if (config.preferPpNumbers)
+        flags = boost::wave::language_support(flags | support_option_prefer_pp_numbers); // Prefer pp-number lexing before retokenization. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L71
+    if (config.preserveComments)
+        flags = boost::wave::language_support(flags | support_option_preserve_comments); // Keep comments in the token stream. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L67
+    if (config.emitLineDirectives)
+        flags = boost::wave::language_support(flags | support_option_emit_line_directives); // Emit #line directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L72
+    if (config.includeGuardDetection)
+        flags = boost::wave::language_support(flags | support_option_include_guard_detection); // Let Wave short-circuit classic include guards. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/libs/wave/include/boost/wave/language_support.hpp#L239
+    if (config.emitPragmaDirectives)
+        flags = boost::wave::language_support(flags | support_option_emit_pragma_directives); // Keep pragma directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L74
+    // support_option_emit_contnewlines // Emit escaped line continuations. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L65
+    // support_option_insert_whitespace // Let Wave inject separator whitespace. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L66
+    return flags;
+}
+
+inline void set_session_cache_perf_stats(
+    const asset::IShaderCompiler::CIncludeFinder::SSessionCache::Stats& readDelta,
+    const asset::IShaderCompiler::CIncludeFinder::SSessionCache::Stats& writeDelta)
+{
+    auto& stats = perf_stats();
+    stats.sessionLookupFound = readDelta.lookupFound;
+    stats.sessionLookupMissing = readDelta.lookupMissing;
+    stats.sessionLookupMiss = readDelta.lookupMiss;
+    stats.sessionStoreFound = writeDelta.storeFound;
+    stats.sessionStoreMissing = writeDelta.storeMissing;
+}
+
 inline std::string escape_control_chars(std::string_view text)
 {
     static constexpr char hex[] = "0123456789ABCDEF";
@@ -81,7 +255,7 @@ struct load_to_string final
             template <typename PositionT>
             static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
             {
-                iter_ctx.instring = iter_ctx.ctx.get_located_include_content();
+                iter_ctx.instring = iter_ctx.ctx.take_located_include_content();
                 if (!iter_ctx.instring.empty() && iter_ctx.instring.back() != '\n' && iter_ctx.instring.back() != '\r')
                     iter_ctx.instring.push_back('\n');
 
@@ -99,7 +273,7 @@ struct load_to_string final
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const nbl::asset::IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
+        : m_includeFinder(_preprocessOptions.includeFinder), m_readIncludeSessionCache(_preprocessOptions.readIncludeSessionCache), m_writeIncludeSessionCache(_preprocessOptions.writeIncludeSessionCache), m_logger(_preprocessOptions.logger), m_preserveComments(_preprocessOptions.preserveComments), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
     {
         hash_token_occurences = 0;
     }
@@ -205,9 +379,11 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         return false;
     }
 
-
     const asset::IShaderCompiler::CIncludeFinder* m_includeFinder;
+    asset::IShaderCompiler::CIncludeFinder::SSessionCache* m_readIncludeSessionCache;
+    asset::IShaderCompiler::CIncludeFinder::SSessionCache* m_writeIncludeSessionCache;
     system::logger_opt_ptr m_logger;
+    bool m_preserveComments;
     asset::IShader::E_SHADER_STAGE m_pragmaStage;
     int hash_token_occurences;
     std::vector<std::string> m_dxc_compile_flags_override;
@@ -250,15 +426,12 @@ class context : private boost::noncopyable
             , current_filename(fname)
             , current_relative_filename(fname)
             , macros(*this_())
-            , language(language_support(
-                support_cpp20 // C++20 lexer mode. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L56-L59
-                | support_option_prefer_pp_numbers // Prefer pp-number lexing before retokenization. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L71
-                | support_option_preserve_comments // Keep comments in the token stream. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L67
-                | support_option_emit_line_directives // Emit #line directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L72
-                | support_option_emit_pragma_directives // Keep pragma directives in the output. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L74
-//                | support_option_emit_contnewlines // Emit escaped line continuations. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L65
-//                | support_option_insert_whitespace // Let Wave inject separator whitespace. https://github.com/Devsh-Graphics-Programming/wave/blob/e02cda69e4d070fd9b16a39282d6b5c717cb3da4/include/boost/wave/language_support.hpp#L66
-            ))
+            , language([&hooks_]
+                {
+                    auto config = detail::LanguageFlagConfig{};
+                    config.preserveComments = hooks_.m_preserveComments;
+                    return detail::make_language_flags(config);
+                }())
             , hooks(hooks_)
         {
             macros.init_predefined_macros(fname);
@@ -414,6 +587,10 @@ class context : private boost::noncopyable
         {
             return located_include_content;
         }
+        core::string take_located_include_content()
+        {
+            return std::move(located_include_content);
+        }
         // Nabla Additions End
 
 #if !defined(BOOST_NO_MEMBER_TEMPLATE_FRIENDS)
@@ -512,6 +689,19 @@ class context : private boost::noncopyable
         {
             return pragma_once_headers.contains(filename_);
         }
+        bool has_cached_include_resolution(std::string_view includeName, bool is_system, std::string& absolutePath) const
+        {
+            const auto found = include_resolution_cache.find(make_include_resolution_key(includeName, is_system));
+            if (found == include_resolution_cache.end())
+                return false;
+
+            absolutePath = found->second;
+            return true;
+        }
+        void cache_include_resolution(std::string_view includeName, bool is_system, const std::string& absolutePath)
+        {
+            include_resolution_cache.insert_or_assign(make_include_resolution_key(includeName, is_system), absolutePath);
+        }
         bool add_pragma_once_header(std::string const& filename_, std::string const& guard_name)
         {
             get_hooks().detected_include_guard(derived(), filename_, guard_name);
@@ -558,6 +748,7 @@ class context : private boost::noncopyable
 #if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
         std::unordered_set<std::string> pragma_once_headers;
 #endif
+        std::unordered_map<std::string, std::string> include_resolution_cache;
         // Cache Additions 
         bool cachingRequested = false;
         std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
@@ -568,6 +759,25 @@ class context : private boost::noncopyable
         macromap_type macros;                         // map of defined macros
         const boost::wave::language_support language;       // supported language/extensions
         preprocessing_hooks hooks;                    // hook policy instance
+
+        std::string make_include_resolution_key(std::string_view includeName, bool is_system) const
+        {
+            std::string key;
+            const bool globallyResolved = is_system || (hooks.m_includeFinder && hooks.m_includeFinder->isKnownGlobalInclude(includeName));
+            if (!globallyResolved)
+            {
+                const auto currentDirString = current_dir.generic_string();
+                key.reserve(currentDirString.size() + includeName.size() + 3ull);
+                key.append(currentDirString);
+                key.push_back('\n');
+            }
+            else
+                key.reserve(includeName.size() + 2ull);
+            key.push_back(globallyResolved ? 'G' : 'R');
+            key.push_back('\n');
+            key.append(includeName.data(), includeName.size());
+            return key;
+        }
 };
 
 }
@@ -588,19 +798,49 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
     bool standardInclude;
-
-    if (includeFinder)
+    std::string cachedAbsolutePath;
+    const bool needHash = ctx.cachingRequested;
+    auto& perfStats = nbl::wave::detail::perf_stats();
+    if (perfStats.enabled)
     {
+        ++perfStats.includeRequests;
+        if (perfStats.includeDetailsEnabled)
+            ++perfStats.requestedIncludeSpellingCounts[file_path];
+    }
+    if (ctx.has_cached_include_resolution(file_path, is_system, cachedAbsolutePath))
+    {
+        if (ctx.has_pragma_once(cachedAbsolutePath))
+        {
+            if (perfStats.enabled)
+                ++perfStats.includeResolutionCacheSkips;
+            return true;
+        }
+
+        if (includeFinder && nbl::system::path(cachedAbsolutePath).is_absolute())
+        {
+            nbl::wave::detail::ScopedPerfTimer lookupTimer(perfStats.includeLookupTime);
+            if (perfStats.enabled)
+                ++perfStats.includeLookupCount;
+            result = includeFinder->classifyFound(includeFinder->getDefaultFileSystemLoader()->getInclude(nbl::system::path{}, cachedAbsolutePath, needHash));
+            standardInclude = is_system;
+        }
+    }
+
+    if (!result && includeFinder)
+    {
+        nbl::wave::detail::ScopedPerfTimer lookupTimer(perfStats.includeLookupTime);
+        if (perfStats.enabled)
+            ++perfStats.includeLookupCount;
         if (is_system) {
-            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path);
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_readIncludeSessionCache, ctx.get_hooks().m_writeIncludeSessionCache);
             standardInclude = true;
         }
         else {
-            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path);
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path, needHash, ctx.get_hooks().m_readIncludeSessionCache, ctx.get_hooks().m_writeIncludeSessionCache);
             standardInclude = false;
         }
     }
-    else {
+    else if (!result) {
         const auto escapedPath = nbl::wave::detail::escape_control_chars(file_path);
         ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file %s", nbl::system::ILogger::ELL_ERROR, escapedPath.c_str());
         return false;
@@ -618,8 +858,19 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
 #if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
     if (ctx.has_pragma_once(result.absolutePath.string()))
+    {
+        ctx.cache_include_resolution(file_path, is_system, result.absolutePath.string());
+        if (perfStats.enabled)
+            ++perfStats.postLoadPragmaSkips;
         return true;
+    }
 #endif
+
+    ctx.cache_include_resolution(file_path, is_system, result.absolutePath.string());
+    if (perfStats.enabled && perfStats.includeDetailsEnabled)
+        ++perfStats.resolvedIncludePathCounts[result.absolutePath.generic_string()];
+
+    const bool systemHeader = result.classification.headerClass == IShaderCompiler::HeaderClass::System;
 
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {
@@ -635,7 +886,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
             new iteration_context_type(ctx,result.absolutePath.string().c_str(),act_pos,
                 boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
-                is_system ? base_iteration_context_type::system_header :
+                systemHeader ? base_iteration_context_type::system_header :
                 base_iteration_context_type::user_header));
 
         // call the include policy trace function

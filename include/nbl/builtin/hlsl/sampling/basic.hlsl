@@ -21,6 +21,8 @@ struct PartitionRandVariable
     using floating_point_type = T;
     using uint_type = unsigned_integer_of_size_t<sizeof(floating_point_type)>;
 
+    // TODO: create method to apply `*NextULPAfterUnity`
+
     bool operator()(NBL_REF_ARG(floating_point_type) xi, NBL_REF_ARG(floating_point_type) rcpChoiceProb)
     {
         const floating_point_type NextULPAfterUnity = bit_cast<floating_point_type>(bit_cast<uint_type>(floating_point_type(1.0)) + uint_type(1u));
@@ -35,6 +37,7 @@ struct PartitionRandVariable
         return pickRight;
     }
 
+    // store with `* NextULPAfterUnity` already applied
     floating_point_type leftProb;
 };
 

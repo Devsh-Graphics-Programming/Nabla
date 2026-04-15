@@ -454,12 +454,25 @@ static std::string preprocessShaderImpl(
     std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>* dependencies,
     system::ISystem* system)
 {
-    const bool depfileEnabled = preprocessOptions.depfile;
+    auto effectiveOptions = preprocessOptions;
+    IShaderCompiler::CIncludeFinder::SSessionCache localIncludeSessionCache;
+    if (effectiveOptions.includeFinder)
+    {
+        if (!effectiveOptions.readIncludeSessionCache && !effectiveOptions.writeIncludeSessionCache)
+        {
+            effectiveOptions.readIncludeSessionCache = &localIncludeSessionCache;
+            effectiveOptions.writeIncludeSessionCache = &localIncludeSessionCache;
+        }
+        else if (!effectiveOptions.readIncludeSessionCache && effectiveOptions.writeIncludeSessionCache)
+            effectiveOptions.readIncludeSessionCache = effectiveOptions.writeIncludeSessionCache;
+    }
+
+    const bool depfileEnabled = effectiveOptions.depfile;
     if (depfileEnabled)
     {
-        if (preprocessOptions.depfilePath.empty())
+        if (effectiveOptions.depfilePath.empty())
         {
-            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+            effectiveOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
             return {};
         }
     }
@@ -473,7 +486,7 @@ static std::string preprocessShaderImpl(
     ensureTrailingNewline(code);
 
     // preprocess
-    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
+    core::string resolvedString = nbl::wave::preprocess(code, effectiveOptions, bool(dependenciesOut),
         [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
@@ -494,13 +507,13 @@ static std::string preprocessShaderImpl(
     if (depfileEnabled)
     {
         IShaderCompiler::DepfileWriteParams params = {};
-        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
+        const std::string depfilePathString = effectiveOptions.depfilePath.generic_string();
         params.depfilePath = depfilePathString;
-        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        params.sourceIdentifier = effectiveOptions.sourceIdentifier;
         if (!params.sourceIdentifier.empty())
             params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
         params.system = system;
-        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
+        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, effectiveOptions.includeFinder, effectiveOptions.logger))
             return {};
     }
 
@@ -532,6 +545,30 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
 
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
     if (newCode.empty()) return nullptr;
+
+    if (!options.preprocessedOutputPath.empty())
+    {
+        core::smart_refctd_ptr<system::IFile> preprocessedFile;
+        
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_system->deleteFile(options.preprocessedOutputPath);
+        m_system->createFile(future, options.preprocessedOutputPath, system::IFile::ECF_WRITE);
+        if (future.wait())
+        {
+            future.acquire().move_into(preprocessedFile);
+            if (preprocessedFile)
+            {
+                system::IFile::success_t succ;
+                preprocessedFile->write(succ, newCode.data(), 0, newCode.size());
+                if (!succ)
+                    logger.log("Failed Writing To Preprocessed Output File.", nbl::system::ILogger::ELL_ERROR);
+            }
+            else
+                logger.log("Failed Creating Preprocessed Output File.", nbl::system::ILogger::ELL_ERROR);
+        }
+        else
+            logger.log("Failed Creating Preprocessed Output File.", nbl::system::ILogger::ELL_ERROR);
+    }
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
@@ -571,13 +608,13 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
                 // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
                 arguments.push_back(L"main");
             }
-            // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+            // If a custom SPIR-V optimizer is specified and set to replace default optimization passes, use that instead of DXC's spirv-opt.
             // This is how we can get more optimizer options.
             // 
             // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
             // optimization levels greater than zero; they will all invoke the same optimization recipe. 
             // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-            if (hlslOptions.spirvOptimizer)
+            if (hlslOptions.spirvOptimizer && !hlslOptions.optimizerIsExtraPasses)
                 arguments.push_back(L"-O0");
         }
         //
@@ -637,6 +674,30 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     // Optimizer step (TODO: improve by working on `compileResult.objectBlob->GetBufferPointer()` directly)
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
+
+    if (!options.spvOutputPath.empty())
+    {
+        core::smart_refctd_ptr<system::IFile> spvFile;
+
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_system->deleteFile(options.spvOutputPath);
+        m_system->createFile(future, options.spvOutputPath, system::IFile::ECF_WRITE);
+        if (future.wait())
+        {
+            future.acquire().move_into(spvFile);
+            if (spvFile)
+            {
+                system::IFile::success_t succ;
+                spvFile->write(succ, outSpirv->getPointer(), 0, outSpirv->getSize());
+                if (!succ)
+                    logger.log("Failed Writing To SPIR-V Output File.", nbl::system::ILogger::ELL_ERROR);
+            }
+            else
+                logger.log("Failed Creating SPIR-V Output File.", nbl::system::ILogger::ELL_ERROR);
+        }
+        else
+            logger.log("Failed Creating SPIR-V Output File.", nbl::system::ILogger::ELL_ERROR);
+    }
 
     return core::make_smart_refctd_ptr<asset::IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }

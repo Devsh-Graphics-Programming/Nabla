@@ -24,8 +24,8 @@ struct BoxMullerTransform
     vector2_type operator()(const vector2_type xi)
     {
         scalar_type sinPhi, cosPhi;
-        math::sincos<scalar_type>(2.0 * numbers::pi<scalar_type> * xi.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
-        return vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(-2.0 * nbl::hlsl::log(xi.x)) * stddev;
+        math::sincos<scalar_type>(scalar_type(2) * numbers::pi<scalar_type> * xi.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
+        return vector2_type(cosPhi, sinPhi) * nbl::hlsl::sqrt(scalar_type(-2) * nbl::hlsl::log(xi.x)) * stddev;
     }
 
     vector2_type backwardPdf(const vector2_type outPos)

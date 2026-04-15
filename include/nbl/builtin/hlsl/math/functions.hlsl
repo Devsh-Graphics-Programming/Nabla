@@ -51,7 +51,7 @@ struct lp_norm<T,1,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial
         array_get<T, scalar_type> getter;
 
         scalar_type retval = abs<scalar_type>(getter(v, 0));
-        for (int i = 1; i < vector_traits<T>::Dimension; i++)
+        for (uint32_t i = 1; i < vector_traits<T>::Dimension; i++)
             retval += abs<scalar_type>(getter(v, i));
         return retval;
     }
