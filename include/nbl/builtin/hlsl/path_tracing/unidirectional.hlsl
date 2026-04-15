@@ -104,15 +104,15 @@ struct Unidirectional
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
             // Meaning that eval's pdf should equal quotient's pdf , this way even the diffuse contributions coming from within a specular lobe get a MIS weight near 0 for NEE.
             // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
-            if (neeContrib.pdf > scalar_type(0.0))
+            if (neeContrib.pdf() > scalar_type(0.0))
             {
                 // TODO: we'll need an `eval_and_mis_weight` and `quotient_and_mis_weight`
                 const scalar_type bsdf_pdf = materialSystem.pdf(matID, nee_sample, interaction);
-                neeContrib.quotient *= materialSystem.eval(matID, nee_sample, interaction) * rcpChoiceProb;
-                if (neeContrib.pdf < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+                neeContrib._quotient *= materialSystem.eval(matID, nee_sample, interaction) * rcpChoiceProb;
+                if (neeContrib.pdf() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
                 {
-                    const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf;
-                    neeContrib.quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
+                    const scalar_type otherGenOverLightAndChoice = bsdf_pdf * rcpChoiceProb / neeContrib.pdf();
+                    neeContrib._quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
                 }
 
                 const vector3_type origin = intersectP;
@@ -122,8 +122,8 @@ struct Unidirectional
                 nee_ray.template setInteraction<anisotropic_interaction_type>(interaction);
                 nee_ray.setT(t);
                 tolerance_method_type::template adjust<ray_type>(nee_ray, intersectData.getGeometricNormal(), depth);
-                if (getLuma(neeContrib.quotient) > lumaContributionThreshold)
-                    ray.addPayloadContribution(neeContrib.quotient * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
+                if (getLuma(neeContrib.quotient()) > lumaContributionThreshold)
+                    ray.addPayloadContribution(neeContrib.quotient() * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
             }
         }
 
@@ -140,8 +140,8 @@ struct Unidirectional
 
             // the value of the bsdf divided by the probability of the sample being generated
             quotient_pdf_type bsdf_quotient_pdf = materialSystem.quotient_and_pdf(matID, bsdf_sample, interaction, _cache);
-            throughput *= bsdf_quotient_pdf.quotient;
-            bxdfPdf = bsdf_quotient_pdf.pdf;
+            throughput *= bsdf_quotient_pdf.quotient();
+            bxdfPdf = bsdf_quotient_pdf.pdf();
             bxdfSample = bsdf_sample.getL().getDirection();
         }
 
