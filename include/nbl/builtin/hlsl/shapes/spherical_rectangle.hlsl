@@ -112,7 +112,7 @@ struct SphericalRectangle
         result.r0 = hlsl::mul(basis, origin - observer);
 
         const vector4_type denorm_n_z = vector4_type(-result.r0.y, result.r0.x + extents.x, result.r0.y + extents.y, -result.r0.x);
-        result.n_z = denorm_n_z / nbl::hlsl::sqrt(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
+        result.n_z = denorm_n_z * hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
         result.cosGamma = vector4_type(
             -result.n_z[0] * result.n_z[1],
             -result.n_z[1] * result.n_z[2],
