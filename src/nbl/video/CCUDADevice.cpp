@@ -141,18 +141,18 @@ CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemap
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = sema->getCreationParams().externalHandleTypes.value;
-	auto handle = sema->getCreationParams().externalHandle;
 
-	if (!handleType || !handle)
+	if (!handleType)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32,
-		.handle = {.win32 = {.handle = handle }},
+		// TODO(kevinyu): Fix this later. Make it compile first.
+		.handle = {.win32 = {.handle = sema->getExternalHandle() }},
 #else
     .type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD,
-		.handle = {.fd = handle}
+		.handle = {.fd = sema->getExternalHandle()}
 #endif
 	};
 
@@ -161,7 +161,8 @@ CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemap
 	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
 		return err;
 	
-	*outPtr = core::smart_refctd_ptr<CCUDASharedSemaphore>(new CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema, handle), core::dont_grab);
+	// TODO(kevinyu): Fix the handle parameter later. Make it compile first.
+	*outPtr = core::smart_refctd_ptr<CCUDASharedSemaphore>(new CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema, {}), core::dont_grab);
 	return CUDA_SUCCESS;
 }
 

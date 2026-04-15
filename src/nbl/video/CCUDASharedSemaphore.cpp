@@ -11,8 +11,8 @@ namespace nbl::video
 CCUDASharedSemaphore::~CCUDASharedSemaphore()
 {
 	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
-	cu.pcuDestroyExternalSemaphore(m_handle);
-	CloseHandle(m_osHandle);
+	if (cu.pcuDestroyExternalSemaphore(m_handle) != CUDA_SUCCESS)
+    assert(!"Invalid code path.");
 }
 }
 

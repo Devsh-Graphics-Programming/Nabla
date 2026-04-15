@@ -7,12 +7,18 @@ namespace nbl::video
 
 CVulkanSemaphore::~CVulkanSemaphore()
 {
-	m_creationParams.preDestroyCleanup = nullptr;
-	if (!m_creationParams.skipHandleDestroy)
+  const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+  auto* vk = vulkanDevice->getFunctionTable();
+  vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
+	if (m_creationParams.externalHandleTypes != EHT_NONE)
 	{
-		const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-		auto* vk = vulkanDevice->getFunctionTable();
-		vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
+#ifdef _WIN32
+    if (!CloseHandle(m_externalHandle))
+      assert(!"Invalid code path.");
+#else
+    if (close(m_externalHandle) != 0)
+      assert(!"Invalid code path.");
+#endif
 	}
 }
 
