@@ -69,7 +69,7 @@ uint32_t rayQueryGetIntersectionPrimitiveIndexKHR([[vk::ext_reference]] RayQuery
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionBarycentricsKHR)]]
-float32_t rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+float32_t2 rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
