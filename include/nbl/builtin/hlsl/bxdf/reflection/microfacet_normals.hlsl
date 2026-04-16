@@ -103,7 +103,7 @@ struct SMicrofacetNormals
         const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
-        if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
+        if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
@@ -116,7 +116,7 @@ struct SMicrofacetNormals
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
         spectral_type eval = hlsl::promote<spectral_type>(0.0);
-        
+
         const vector3_type L = _sample.getL().getDirection();
         const scalar_type NdotL = hlsl::dot(shadingNormal, L);
         const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
@@ -171,7 +171,7 @@ struct SMicrofacetNormals
         _cache.sampleIsShadowed = false;
 
         const ray_dir_info_type V = interaction.getV();
-        if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
+        if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
@@ -190,7 +190,7 @@ struct SMicrofacetNormals
             s = nested_brdf.generate(interaction, u, _cache.aniso_cache);
 
             if (!s.isValid())
-                return s;
+                return sample_type::createInvalid();
 
             const vector3_type L = s.getL().getDirection();
             const scalar_type shadowed = G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp,
@@ -244,7 +244,7 @@ struct SMicrofacetNormals
         const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
-        if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
+        if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
@@ -307,7 +307,7 @@ struct SMicrofacetNormals
         const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
-        if (NdotNp <= scalar_type(0.0) || (hlsl::abs(local_Np.x) < numeric_limits<scalar_type>::min && hlsl::abs(local_Np.y) < numeric_limits<scalar_type>::min))
+        if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
