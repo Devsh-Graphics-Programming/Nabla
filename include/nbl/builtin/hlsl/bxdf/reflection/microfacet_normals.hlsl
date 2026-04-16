@@ -45,8 +45,9 @@ struct SMicrofacetNormals
     template<class NormalsTexAccessor> // TODO: concept for accessor
     anisotropic_interaction_type buildInteraction(NBL_CONST_REF_ARG(NormalsTexAccessor) normalMap, const vector2_type uv, const matrix<scalar_type,3,3> object_to_world, const ray_dir_info_type V) NBL_CONST_MEMBER_FUNC
     {
+        const matrix<scalar_type,3,3> TBN = hlsl::transpose(object_to_world);
         vector3_type localN;
-        normalMap.get(localN, uv);
+        normalMap.get(localN, TBN[2], TBN[0], TBN[1]);
         localN = hlsl::promote<vector3_type>(2.0) * localN - hlsl::promote<vector3_type>(1.0);
 
         const vector3_type N = hlsl::normalize(hlsl::mul(object_to_world, localN));
