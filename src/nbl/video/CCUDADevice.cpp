@@ -113,7 +113,7 @@ CUresult CCUDADevice::createSharedMemory(
 	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
 		return err;
 	
-	if (auto err = cu.pcuMemExportToShareableHandle(&params.osHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
+	if (auto err = cu.pcuMemExportToShareableHandle(&params.externalHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
 	{
 		cu.pcuMemRelease(mem);
 		return err;
@@ -121,14 +121,14 @@ CUresult CCUDADevice::createSharedMemory(
 
 	if (auto err = reserveAdrressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
 	{
-		CloseHandle(params.osHandle);
+		CloseHandle(params.externalHandle);
 		cu.pcuMemRelease(mem);
 		return err;
 	}
 
 	if (auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
 	{
-		CloseHandle(params.osHandle);
+		CloseHandle(params.externalHandle);
 		return err;
 	}
 	

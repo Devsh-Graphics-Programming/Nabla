@@ -35,7 +35,7 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDASharedMemory::exportAsMemor
 		dedication, 
 		IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE, 
 		CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE, 
-		m_params.osHandle, 
+		m_params.externalHandle, 
 		std::make_unique<CCUDADevice::SCUDACleaner>(core::smart_refctd_ptr<const CCUDASharedMemory>(this))).memory;
 }
 
@@ -97,7 +97,7 @@ CCUDASharedMemory::~CCUDASharedMemory()
 	CUresult re[] = {
 		cu.pcuMemUnmap(m_params.ptr, m_params.granularSize),
 	};
-	CloseHandle(m_params.osHandle);
+	CloseHandle(m_params.externalHandle);
 
 }
 }

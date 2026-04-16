@@ -42,11 +42,7 @@ public:
     {
         size_t granularSize;
         CUdeviceptr ptr;
-        union
-        {
-            void* osHandle;
-            int fd;
-        };
+        ExternalHandleType externalHandle;
     };
 
     const SCreationParams& getCreationParams() const { return m_params; }
