@@ -255,7 +255,7 @@ struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_t
 {
     static T __call( T base, T insert, uint32_t offset, uint32_t bits )
     {
-        const T mask = (T(1u) << bits) - T(1u);
+        const T mask = (_static_cast<T>(1u) << bits) - _static_cast<T>(1u);
         const T shifted_mask = mask << offset;
         return (base & ~shifted_mask) | ((insert & mask) << T(offset));
     }
