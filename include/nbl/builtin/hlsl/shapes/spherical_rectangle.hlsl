@@ -102,7 +102,8 @@ struct SphericalRectangle
         retval.basis[0] = compressed.right / retval.extents[0];
         retval.basis[1] = compressed.up / retval.extents[1];
         assert(hlsl::abs(hlsl::dot(retval.basis[0], retval.basis[1])) < scalar_type(1e-5));
-        retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
+        // don't normalize, the `right` and `up` vectors are orthogonal and the two bases are normalized already!
+        retval.basis[2] = hlsl::cross(retval.basis[0], retval.basis[1]);
         return retval;
     }
 
@@ -184,6 +185,8 @@ struct SphericalRectangle
         // rcpLen[i]*rcpLen[j] for adjacent pairs: (0,1), (1,2), (2,3), (3,0)
         const vector4_type cos_sides = unnormDots * rcpLen * rcpLen.yzwx;
 
+        // TODO: there's the same opportunity for optimization of this as the Spherical Triangle
+        // https://www.linkedin.com/posts/matt-kielan-9b054a165_untitled-graph-activity-7442910005671923712-jHz6?utm_source=share&utm_medium=member_desktop&rcm=ACoAACdp2RQBqq2bJfC2zxpsme-vRv2zh9oP-8E
         const vector4_type pyramidAngles = hlsl::acos<vector4_type>(cos_sides);
 
         return hlsl::dot(pyramidAngles, externalProducts) * scalar_type(0.5);
