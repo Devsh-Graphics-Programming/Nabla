@@ -94,6 +94,8 @@ struct SphericalRectangle
         vector4_type cosGamma;
     };
 
+    // TODO: take an observer already, this way we can precompute and store the `r0`, `denorm_n_z` and `rcpLen_denorm_n_z`
+    // we need all of the above for solid angle and projected solid angle computation
     static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(CompressedSphericalRectangle<Scalar>) compressed)
     {
         SphericalRectangle<scalar_type> retval;
@@ -113,7 +115,8 @@ struct SphericalRectangle
         result.r0 = hlsl::mul(basis, origin - observer);
 
         const vector4_type denorm_n_z = vector4_type(-result.r0.y, result.r0.x + extents.x, result.r0.y + extents.y, -result.r0.x);
-        result.n_z = denorm_n_z * hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
+        const vector4_type rcpLen_denorm_n_z = hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
+        result.n_z = denorm_n_z * rcpLen_denorm_n_z;
         result.cosGamma = vector4_type(
             -result.n_z[0] * result.n_z[1],
             -result.n_z[1] * result.n_z[2],
@@ -129,17 +132,17 @@ struct SphericalRectangle
     }
 
     // Kelvin-Stokes theorem: signed projected solid angle = integral_{rect} (n . omega) d_omega
+    // TODO: don't take the observer, observer should be taken at creation
     scalar_type projectedSolidAngle(const vector3_type observer, const vector3_type receiverNormal) NBL_CONST_MEMBER_FUNC
     {
         return projectedSolidAngleFromLocal(hlsl::mul(basis, origin - observer), hlsl::mul(basis, receiverNormal));
     }
 
-    // Overload for when r0 and localNormal are already computed (avoids redundant mul(basis, ...)).
-    // Exploits rectangle structure: all 4 corners share the same z, so cross products
-    // have only 2 nonzero components each, and externalProducts can be computed without
-    // normalizing the corner directions.
+    // TODO: only take a `localN`
     scalar_type projectedSolidAngleFromLocal(const vector3_type r0, const vector3_type n) NBL_CONST_MEMBER_FUNC
     {
+        // FUN FACT: `n_z` already holds Z coordinate the NORMALIZED `awayFromEdgePlane`, the non-zero coordinate absolute value is equal to `r0.z * rcpLen_denorm_n_z`
+// TODO: skip all this code until  just call `acos` on the `unnormDots`
         const scalar_type x0 = r0.x, y0 = r0.y, z = r0.z;
         const scalar_type x1 = x0 + extents.x;
         const scalar_type y1 = y0 + extents.y;
@@ -155,8 +158,9 @@ struct SphericalRectangle
             zSq + x1 * x1,
             zSq + y1 * y1,
             zSq + x0 * x0
-        );
+        ); // TODO: this is already computed as `rcpLen_denorm_n_z`
 
+// TODO: this can be computed from `denorm_n_z`, `z` and `rcpLen_denorm_n_z` instead
         // dot(cross(ri,rj), n) / |cross(ri,rj)| the ex/ey scale factors cancel
         const vector4_type crossDotN = vector4_type(
             z * n.y - y0 * n.z,
@@ -165,8 +169,12 @@ struct SphericalRectangle
             z * n.x - x0 * n.z
         );
         // The ABS makes the computation correct for abs(cos(theta)) (BSDF projected solid angle).
-        const vector4_type externalProducts = hlsl::abs(crossDotN) * hlsl::rsqrt<vector4_type>(crossLenSq);
+        const vector4_type externalProducts = crossDotN * hlsl::rsqrt<vector4_type>(crossLenSq);
 
+// TODO: isn't `rcpLen_denorm_n_z` related to the sin^-1() of arclengths ? Wouldn't `ACOS_CSC` apply instead  of `acos*rsqrt(1-cos^2)`
+// wouldn't then `hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z` be the sin^2 ?
+// it would probably have to be a different, here's the `acos(sqrt(1-x*x))/x` curve fit again revealed to me in a dream
+//  https://www.desmos.com/calculator/sbdrulot5a = exp2(-1.6*sqrt(1-x*x))*A+B
         // cos(arc length) between adjacent corners: dot(ri,rj) / (|ri|*|rj|)
         const vector4_type lenSq = vector4_type(
             x0 * x0 + y0 * y0,
@@ -189,7 +197,7 @@ struct SphericalRectangle
         // https://www.linkedin.com/posts/matt-kielan-9b054a165_untitled-graph-activity-7442910005671923712-jHz6?utm_source=share&utm_medium=member_desktop&rcm=ACoAACdp2RQBqq2bJfC2zxpsme-vRv2zh9oP-8E
         const vector4_type pyramidAngles = hlsl::acos<vector4_type>(cos_sides);
 
-        return hlsl::dot(pyramidAngles, externalProducts) * scalar_type(0.5);
+        return hlsl::abs(hlsl::dot(pyramidAngles, externalProducts)) * scalar_type(0.5);
     }
 
     vector3_type origin;
