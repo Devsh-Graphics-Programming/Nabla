@@ -25,12 +25,6 @@ namespace sampling
 //   2. Warp uniform [0,1]^2 through the bilinear to importance-sample NdotL
 //   3. Feed the warped UV into the solid angle sampler to get a rect offset
 //   4. PDF = (1/SolidAngle) * bilinearPdf
-//
-// Template parameter `UsePdfAsWeight`: when true (default), forwardWeight/backwardWeight
-// return the PDF instead of the projected-solid-angle MIS weight.
-// TODO: the projected-solid-angle MIS weight (UsePdfAsWeight=false) has been shown to be
-// poor in practice. Once confirmed by testing, remove the false path and stop storing
-// receiverNormal, receiverWasBSDF, and rcpProjSolidAngle as members.
 template<typename T, bool UsePdfAsWeight = true>
 struct ProjectedSphericalRectangle
 {
@@ -47,24 +41,32 @@ struct ProjectedSphericalRectangle
 
 	struct cache_type
 	{
-		scalar_type abs_cos_theta;
-		vector2_type warped;
 		typename Bilinear<scalar_type>::cache_type bilinearCache;
+		vector3_type L; // TODO: same as projected triangle w.r.t. UsePdfAsWeight==false
 	};
 
-	// NOTE: produces a degenerate (all-zero) bilinear patch when the receiver normal faces away
-	// from all four rectangle vertices, resulting in NaN PDFs (0 * inf). Callers must ensure
-	// at least one vertex has positive projection onto the receiver normal.
-	static ProjectedSphericalRectangle<T,UsePdfAsWeight> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) shape, const vector3_type observer, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
+	// Shouldn't produce NAN if all corners have 0 proj solid angle due to min density adds/clamps in the linear sampler
+	static ProjectedSphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::CompressedSphericalRectangle<T>) shape, const vector3_type observer, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
 	{
-		ProjectedSphericalRectangle<T,UsePdfAsWeight> retval;
+		ProjectedSphericalRectangle<T> retval;
+// TODO:https://github.com/Devsh-Graphics-Programming/Nabla/pull/1001#discussion_r3088570145
+		return retval;
+	}
+
+	// Shouldn't produce NAN if all corners have 0 proj solid angle due to min density adds/clamps in the linear sampler
+	static ProjectedSphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) shape, const vector3_type observer, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
+	{
+		ProjectedSphericalRectangle<T> retval;
 		const vector3_type n = hlsl::mul(shape.basis, _receiverNormal);
-		retval.localReceiverNormal = n;
-		retval.receiverWasBSDF = _receiverWasBSDF;
 
 		// Compute solid angle and get r0 in local frame (before z-flip)
 		const typename shapes::SphericalRectangle<T>::solid_angle_type sa = shape.solidAngle(observer);
 		const vector3_type r0 = sa.r0;
+		NBL_IF_CONSTEXPR(!UsePdfAsWeight)
+		{
+			retval.receiverNormal = _receiverNormal;
+			retval.projSolidAngle = shape.projectedSolidAngleFromLocal(r0,n);
+		}
 
 		// All 4 corners share r0.z; x is r0.x or r0.x+ex, y is r0.y or r0.y+ey
 		const scalar_type r1x = r0.x + shape.extents.x;
@@ -94,78 +96,74 @@ struct ProjectedSphericalRectangle
 		retval.bilinearPatch = Bilinear<scalar_type>::create(bxdfPdfAtVertex);
 
 		// Reuse the already-computed solid_angle_type to avoid recomputing mul(basis, origin - observer)
-		retval.sphrect = SphericalRectangle<T>::create(sa, shape.extents);
-		retval.rcpSolidAngle = retval.sphrect.solidAngle > scalar_type(0.0) ? scalar_type(1.0) / retval.sphrect.solidAngle : scalar_type(0.0);
-
-		NBL_IF_CONSTEXPR(!UsePdfAsWeight)
-		{
-			const scalar_type projSA = shape.projectedSolidAngleFromLocal(r0, n);
-			retval.rcpProjSolidAngle = projSA > scalar_type(0.0) ? scalar_type(1.0) / projSA : scalar_type(0.0);
-		}
+		retval.sphrect = SphericalRectangle<T>::create(shape.basis, sa, shape.extents);
 		return retval;
 	}
 
 	// returns a normalized 3D direction in the local frame
-	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	codomain_type generateNormalizedLocal(const domain_type u, NBL_REF_ARG(cache_type) cache, NBL_REF_ARG(scalar_type) hitDist) NBL_CONST_MEMBER_FUNC
 	{
-		Bilinear<scalar_type> bilinear = bilinearPatch;
-		cache.warped = bilinear.generate(u, cache.bilinearCache);
-		typename SphericalRectangle<scalar_type>::cache_type sphrectCache;
-		const vector3_type dir = sphrect.generate(cache.warped, sphrectCache);
-		cache.abs_cos_theta = bilinear.forwardWeight(u, cache.bilinearCache);
+		const vector2_type warped = bilinearPatch.generate(u, cache.bilinearCache);
+		typename SphericalRectangle<scalar_type>::cache_type sphrectCache; // there's nothing in the cache
+		const vector3_type dir = sphrect.generateNormalizedLocal(warped,sphrectCache,hitDist);
+		NBL_IF_CONSTEXPR(!UsePdfAsWeight)
+			cache.L = hlsl::mul(hlsl::transpose(sphrect.basis),dir);
 		return dir;
 	}
 
-	// returns a 2D offset on the rectangle surface from the r0 corner
-	vector2_type generateSurfaceOffset(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	// returns a unnormalized 3D direction in the global frame
+	codomain_type generateUnnormalized(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		Bilinear<scalar_type> bilinear = bilinearPatch;
-		cache.warped = bilinear.generate(u, cache.bilinearCache);
-		typename SphericalRectangle<scalar_type>::cache_type sphrectCache;
-		const vector2_type sampleOffset = sphrect.generateSurfaceOffset(cache.warped, sphrectCache);
-		cache.abs_cos_theta = bilinear.forwardWeight(u, cache.bilinearCache);
-		return sampleOffset;
+		const vector2_type warped = bilinearPatch.generate(u, cache.bilinearCache);
+		typename SphericalRectangle<scalar_type>::cache_type sphrectCache; // there's nothing in the cache
+		const vector3_type dir = sphrect.generateUnnormalized(warped,sphrectCache);
+		NBL_IF_CONSTEXPR(!UsePdfAsWeight)
+			cache.L = dir * hlsl::rsqrt(hlsl::dot(dir,dir));
+		return dir;
+	}
+
+	// returns a normalized 3D direction in the global frame
+	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	{
+		const vector2_type warped = bilinearPatch.generate(u, cache.bilinearCache);
+		typename SphericalRectangle<scalar_type>::cache_type sphrectCache; // there's nothing in the cache
+		const vector3_type dir = sphrect.generate(warped, sphrectCache);
+		NBL_IF_CONSTEXPR(!UsePdfAsWeight)
+			cache.L = dir;
+		return dir;
 	}
 
 	density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
 	{
-		return rcpSolidAngle * bilinearPatch.forwardPdf(u, cache.bilinearCache);
+		return bilinearPatch.forwardPdf(u,cache.bilinearCache) / sphrect.solidAngle;
 	}
 
 	weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
 	{
-		if (UsePdfAsWeight)
-			return forwardPdf(u, cache);
-		return cache.abs_cos_theta * rcpProjSolidAngle;
+        NBL_IF_CONSTEXPR (UsePdfAsWeight)
+            return forwardPdf(u,cache);
+        return backwardWeight(cache.L);
 	}
 
-	// `p` is the normalized [0,1]^2 position on the rectangle
-	density_type backwardPdf(const vector2_type p) NBL_CONST_MEMBER_FUNC
-	{
-		return rcpSolidAngle * bilinearPatch.backwardPdf(p);
-	}
-
-	weight_type backwardWeight(const vector2_type p) NBL_CONST_MEMBER_FUNC
+	weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
 	{
 		NBL_IF_CONSTEXPR(UsePdfAsWeight)
-			return backwardPdf(p);
-		const scalar_type minimumProjSolidAngle = 0.0;
-		// Reconstruct local direction from normalized rect position
-		const vector3_type localDir = hlsl::normalize(sphrect.r0 + vector3_type(
-			p.x * sphrect.extents.x,
-			p.y * sphrect.extents.y,
-			scalar_type(0)
-		));
-		const scalar_type abs_cos_theta = math::conditionalAbsOrMax(receiverWasBSDF, hlsl::dot(localReceiverNormal, localDir), minimumProjSolidAngle);
-		return abs_cos_theta * rcpProjSolidAngle;
+		{
+#if 0
+			const vector2_type warped = sphrect.generateInvese(L); // TODO: implement `generateInverse`
+			return bilinearPatch.backwardPdf(warped) / sphrect.solidAngle;
+#endif
+			return 0.f/0.f;
+		}
+        // make the MIS weight always abs because even when receiver is a BRDF, the samples in lower hemisphere will get killed and MIS weight never used
+        return hlsl::abs(hlsl::dot(L,receiverNormal))/projSolidAngle;
 	}
 
 	sampling::SphericalRectangle<T> sphrect;
 	Bilinear<scalar_type> bilinearPatch;
-	scalar_type rcpSolidAngle;
-	scalar_type rcpProjSolidAngle;
-	vector3_type localReceiverNormal;
-	bool receiverWasBSDF;
+	// TODO: same as projected triangle w.r.t. UsePdfAsWeight==false
+	vector3_type receiverNormal;
+	vector3_type projSolidAngle;
 };
 
 } // namespace sampling

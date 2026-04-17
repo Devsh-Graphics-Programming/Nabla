@@ -172,6 +172,8 @@ struct SphericalTriangle<T, false, Algorithm>
       return backwardPdf(L);
    }
 
+   scalar_type getRcpSolidAngle() NBL_CONST_MEMBER_FUNC {return rcpSolidAngle;}
+
    scalar_type rcpSolidAngle;
    scalar_type cosA;
    scalar_type sinA;
@@ -203,7 +205,6 @@ struct SphericalTriangle<T, true, Algorithm>
    {
       SphericalTriangle retval;
       retval.base = base_type::create(tri);
-      retval.rcpSolidAngle = retval.base.rcpSolidAngle;
       retval.vertexC = tri.vertices[2];
       // precompute great circle normal of arc AC (needed for generateInverse)
       const scalar_type cscB = tri.csc_sides[1];
@@ -277,7 +278,7 @@ struct SphericalTriangle<T, true, Algorithm>
       const scalar_type cosCpB = nbl::hlsl::dot(base.tri_vertices[1], cp);
       const scalar_type den = scalar_type(1.0) + base.triCosC + cosCpB + cosBp_inv;
       const scalar_type subSolidAngle = scalar_type(2.0) * nbl::hlsl::atan2(nbl::hlsl::abs(num), den);
-      const scalar_type u = nbl::hlsl::clamp(subSolidAngle * rcpSolidAngle, scalar_type(0.0), scalar_type(1.0));
+      const scalar_type u = nbl::hlsl::clamp(subSolidAngle * base.rcpSolidAngle, scalar_type(0.0), scalar_type(1.0));
 
       // Step 3: u.y = |L-B|^2 / |C'-B|^2
       // Squared Euclidean distance avoids catastrophic cancellation vs (1-dot)/(1-dot)
@@ -295,7 +296,7 @@ struct SphericalTriangle<T, true, Algorithm>
 
    density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
    {
-      return rcpSolidAngle;
+      return base.rcpSolidAngle;
    }
 
    weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
@@ -305,16 +306,15 @@ struct SphericalTriangle<T, true, Algorithm>
 
    density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
    {
-      return rcpSolidAngle;
+      return base.rcpSolidAngle;
    }
 
    weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
    {
       return backwardPdf(L);
    }
-
-   // mirrored from base for uniform access across both specializations
-   scalar_type rcpSolidAngle;
+   
+   scalar_type getRcpSolidAngle() NBL_CONST_MEMBER_FUNC {return base.rcpSolidAngle;}
 
    base_type base;
    vector3_type vertexC;
