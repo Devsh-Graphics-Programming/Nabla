@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/algorithm.hlsl>
+#include <nbl/builtin/hlsl/concepts/accessors/generic_shared_data.hlsl>
 
 namespace nbl
 {
@@ -24,77 +25,111 @@ namespace sampling
 // is always 1.0 and need not be stored). Entry i holds the sum of
 // probabilities for indices [0, i].
 //
-// Template parameters are ReadOnly accessors:
-// - CumulativeProbabilityAccessor: returns scalar_type cumProb for index i,
-//     must have `value_type` typedef and `operator[](uint32_t)` for upper_bound
-// - PdfAccessor: returns scalar_type weight[i] / totalWeight
-//
-// Satisfies TractableSampler and ResamplableSampler (not InvertibleSampler:
+// Satisfies TractableSampler and ResamplableSampler (not BackwardTractableSampler:
 // the mapping is discrete).
-template<typename T, typename CumulativeProbabilityAccessor, typename PdfAccessor>
+template<typename T, typename Domain, typename Codomain, typename CumProbAccessor
+	NBL_PRIMARY_REQUIRES(concepts::accessors::GenericReadAccessor<CumProbAccessor, T, Codomain>)
 struct CumulativeProbabilitySampler
 {
 	using scalar_type = T;
 
-	using domain_type = scalar_type;
-	using codomain_type = uint32_t;
+	using domain_type = Domain;
+	using codomain_type = Codomain;
 	using density_type = scalar_type;
 	using weight_type = density_type;
 
 	struct cache_type
 	{
-		codomain_type sampledIndex;
+		density_type oneBefore;
+		density_type upperBound;
 	};
 
-	static CumulativeProbabilitySampler create(NBL_CONST_REF_ARG(CumulativeProbabilityAccessor) _cumProbAccessor, NBL_CONST_REF_ARG(PdfAccessor) _pdfAccessor, uint32_t _size)
+	static CumulativeProbabilitySampler create(NBL_CONST_REF_ARG(CumProbAccessor) _cumProbAccessor, uint32_t _size)
 	{
 		CumulativeProbabilitySampler retval;
 		retval.cumProbAccessor = _cumProbAccessor;
-		retval.pdfAccessor = _pdfAccessor;
-		retval.size = _size;
+		retval.storedCount = _size - 1u;
 		return retval;
 	}
 
 	// BasicSampler interface
-	codomain_type generate(const domain_type u)
+	codomain_type generate(const domain_type u) NBL_CONST_MEMBER_FUNC
 	{
-		// upper_bound on N-1 stored entries; if u >= all stored values, returns N-1 (the last bucket)
-		const uint32_t storedCount = size - 1u;
 		// upper_bound returns first index where cumProb > u
 		return hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u);
 	}
 
 	// TractableSampler interface
-	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		const codomain_type result = generate(u);
-		cache.sampledIndex = result;
+		// #define NBL_CUMPROB_YOLO_READS
+#ifdef NBL_CUMPROB_YOLO_READS
+		// YOLO approach: re-read the array after binary search.
+		// The accessed elements are adjacent to the found index so the cache is warm.
+		const codomain_type result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u);
+		cache.oneBefore = density_type(0.0);
+		if (result)
+			cumProbAccessor.template get<density_type, codomain_type>(result - 1u, cache.oneBefore);
+		cache.upperBound = density_type(1.0);
+		if (result < storedCount)
+			cumProbAccessor.template get<density_type, codomain_type>(result, cache.upperBound);
+#else
+		// Tracking reads approach: stateful comparator captures CDF values during binary search.
+		struct CdfComparator
+		{
+			bool operator()(const density_type value, const density_type rhs)
+			{
+				const bool retval = value < rhs;
+				if (retval)
+					upperBound = rhs;
+				else
+					oneBefore = rhs;
+				return retval;
+			}
+
+			density_type oneBefore;
+			density_type upperBound;
+		} comp;
+		comp.oneBefore = density_type(0.0);
+		comp.upperBound = density_type(1.0);
+		const codomain_type result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u, comp);
+		cache.oneBefore = comp.oneBefore;
+		cache.upperBound = comp.upperBound;
+#endif
 		return result;
 	}
 
-	density_type forwardPdf(NBL_CONST_REF_ARG(cache_type) cache)
+	density_type forwardPdf(const domain_type u, NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		return pdfAccessor.get(cache.sampledIndex);
+		return cache.upperBound - cache.oneBefore;
 	}
 
-	weight_type forwardWeight(NBL_CONST_REF_ARG(cache_type) cache)
+	weight_type forwardWeight(const domain_type u, NBL_CONST_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
 	{
-		return forwardPdf(cache);
+		return forwardPdf(u, cache);
 	}
 
-	density_type backwardPdf(const codomain_type v)
+	density_type backwardPdf(const codomain_type v) NBL_CONST_MEMBER_FUNC
 	{
-		return pdfAccessor.get(v);
+		density_type retval = density_type(1.0);
+		if (v < storedCount)
+			cumProbAccessor.template get<density_type, codomain_type>(v, retval);
+		if (v)
+		{
+			density_type prev;
+			cumProbAccessor.template get<density_type, codomain_type>(v - 1u, prev);
+			retval -= prev;
+		}
+		return retval;
 	}
 
-	weight_type backwardWeight(const codomain_type v)
+	weight_type backwardWeight(const codomain_type v) NBL_CONST_MEMBER_FUNC
 	{
 		return backwardPdf(v);
 	}
 
-	CumulativeProbabilityAccessor cumProbAccessor;
-	PdfAccessor pdfAccessor;
-	uint32_t size;
+	CumProbAccessor cumProbAccessor;
+	uint32_t storedCount;
 };
 
 } // namespace sampling

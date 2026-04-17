@@ -4,10 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_TRANSMISSION_BECKMANN_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_TRANSMISSION_BECKMANN_INCLUDED_
 
-#include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
-#include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
-#include "nbl/builtin/hlsl/bxdf/reflection.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/base/cook_torrance_base.hlsl"
 
 namespace nbl

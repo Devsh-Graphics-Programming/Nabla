@@ -10,6 +10,7 @@
 #include "nbl/ext/ImGui/ImGui.h"
 #include "nbl/ext/ImGui/builtin/hlsl/common.hlsl"
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
@@ -948,14 +949,20 @@ UI::UI(SCreationParameters&& creationParams, core::smart_refctd_ptr<video::IGPUG
 UI::~UI()
 {
 	// I assume somebody has not killed ImGUI context & atlas but if so then we do nothing
+	auto* const context = reinterpret_cast<ImGuiContext*>(m_imContextBackPointer);
+	ImGuiContext* const previousContext = ImGui::GetCurrentContext();
+	if (context && previousContext != context)
+		ImGui::SetCurrentContext(context);
 
 	// we must call it to unlock atlas from potential "render" state before we kill it (obvsly if its ours!)
-	if(m_imFontAtlasBackPointer)
+	if (m_imFontAtlasBackPointer && context && context->WithinFrameScope)
 		ImGui::EndFrame();
 
 	// context belongs to the instance, we must free it
-	if(m_imContextBackPointer)
-		ImGui::DestroyContext(reinterpret_cast<ImGuiContext*>(m_imContextBackPointer));
+	if (context)
+		ImGui::DestroyContext(context);
+	if (previousContext && previousContext != context)
+		ImGui::SetCurrentContext(previousContext);
 
 	// and if we own the atlas we must free it as well, if user passed its own at creation time then its "shared" - at this point m_imFontAtlasBackPointer is nullptr and we don't free anything
 	if (m_imFontAtlasBackPointer)

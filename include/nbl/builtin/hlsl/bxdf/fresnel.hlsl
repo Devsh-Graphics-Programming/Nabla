@@ -665,7 +665,7 @@ struct iridescent_base
     using vector_type = T;
 
     template<bool SupportsTransmission, typename Colorspace>
-    T __call(const vector_type iork3, const vector_type etak23, const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
+    T __call(const vector_type _iork3, const vector_type etak23, const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
         return impl::iridescent_helper<T,SupportsTransmission>::template __call<Colorspace>(D, ior1, ior2, ior3, iork3,
                                                             eta12, eta23, etak23, clampedCosTheta);
@@ -684,9 +684,9 @@ struct iridescent_base
 
 // workaround due to DXC bug: github.com/microsoft/DirectXShaderCompiler/issues/5966
 template<typename T, bool SupportsTransmission, typename Colorspace>
-T __iridescent_base__call_const(NBL_CONST_REF_ARG(iridescent_base<T>) _this, const T iork3, const T etak23, const typename vector_traits<T>::scalar_type clampedCosTheta)
+T __iridescent_base__call_const(NBL_CONST_REF_ARG(iridescent_base<T>) _this, const T _iork3, const T etak23, const typename vector_traits<T>::scalar_type clampedCosTheta)
 {
-    return _this.template __call<SupportsTransmission, Colorspace>(iork3, etak23, clampedCosTheta);
+    return _this.template __call<SupportsTransmission, Colorspace>(_iork3, etak23, clampedCosTheta);
 }
 }
 

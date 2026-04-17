@@ -65,9 +65,9 @@ struct SLambertianBase
     scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         NBL_IF_CONSTEXPR (IsBSDF)
-            return sampling::ProjectedSphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
+            return sampling::ProjectedSphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
         else
-            return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
+            return sampling::ProjectedHemisphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
     }
     scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
@@ -76,12 +76,15 @@ struct SLambertianBase
 
     quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        sampling::quotient_and_pdf<monochrome_type, scalar_type> qp;
+        // only z component matters: ProjectedHemisphere::forwardPdf reads v.z
+        const vector3_type L = vector3_type(0, 0, _sample.getNdotL(_clamp));
+        typename sampling::ProjectedHemisphere<scalar_type>::cache_type cache;
+        scalar_type p;
         NBL_IF_CONSTEXPR (IsBSDF)
-            qp = sampling::ProjectedSphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
+            p = sampling::ProjectedSphere<scalar_type>::forwardPdf(L, cache);
         else
-            qp = sampling::ProjectedHemisphere<scalar_type>::template quotientAndPdf(_sample.getNdotL(_clamp));
-        return quotient_weight_type::create(qp.quotient()[0], qp.pdf());
+            p = sampling::ProjectedHemisphere<scalar_type>::forwardPdf(L, cache);
+        return quotient_pdf_type::create(scalar_type(1.0), p);
     }
     quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {

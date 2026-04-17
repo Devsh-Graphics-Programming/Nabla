@@ -861,6 +861,25 @@ using float_of_size_t = typename float_of_size<bytesize>::type;
 // deal with typetraits, for now we rely on Clang/DXC internal __decltype(), if it breaks we revert to commit e4ab38ca227b15b2c79641c39161f1f922b779a3
 #ifdef __HLSL_VERSION
 
+// This partial spec is to stop a pile of warnings from DXC about precision of conversions
+namespace nbl
+{
+namespace hlsl
+{
+namespace impl
+{
+template<typename To, typename From>
+struct static_cast_helper<To,From,enable_if_t<is_fundamental_v<To>&&is_fundamental_v<From>,void> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE To cast(From u)
+    {
+        return (To)u;
+    }
+};
+}
+}
+}
+
 #define alignof(expr) ::nbl::hlsl::alignment_of_v<__decltype(expr)>
 
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
