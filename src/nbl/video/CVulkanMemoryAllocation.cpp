@@ -13,7 +13,7 @@ CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
     if (m_params.externalHandle != ExternalHandleNull)
     {
-        bool re = CloseHandle(getCreationParams().externalHandle);
+        bool re = CloseExternalHandle(getCreationParams().externalHandle);
         assert(re);
     }
     m_vulkanDevice->getFunctionTable()->vk.vkFreeMemory(m_vulkanDevice->getInternalObject(),m_deviceMemoryHandle,nullptr);
