@@ -83,7 +83,7 @@ struct ProjectedSphericalTriangle
 
     density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return sphtri.rcpSolidAngle * bilinearPatch.forwardPdf(u,cache.bilinearCache);
+        return sphtri.getRcpSolidAngle() * bilinearPatch.forwardPdf(u,cache.bilinearCache);
     }
 
     weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
@@ -98,7 +98,7 @@ struct ProjectedSphericalTriangle
         NBL_IF_CONSTEXPR (UsePdfAsWeight)
         {
             const vector2_type u = sphtri.generateInverse(L);
-            return sphtri.rcpSolidAngle * bilinearPatch.backwardPdf(u);
+            return sphtri.getRcpSolidAngle() * bilinearPatch.backwardPdf(u);
         }
         // make the MIS weight always abs because even when receiver is a BRDF, the samples in lower hemisphere will get killed and MIS weight never used
         return hlsl::abs(hlsl::dot(L,receiverNormal))/projSolidAngle;
