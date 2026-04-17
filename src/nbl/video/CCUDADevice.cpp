@@ -121,14 +121,14 @@ CUresult CCUDADevice::createSharedMemory(
 
 	if (auto err = reserveAdrressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
 	{
-		CloseHandle(params.externalHandle);
+		CloseExternalHandle(params.externalHandle);
 		cu.pcuMemRelease(mem);
 		return err;
 	}
 
 	if (auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
 	{
-		CloseHandle(params.externalHandle);
+		CloseExternalHandle(params.externalHandle);
 		return err;
 	}
 	

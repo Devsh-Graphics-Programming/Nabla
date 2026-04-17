@@ -97,7 +97,7 @@ CCUDASharedMemory::~CCUDASharedMemory()
 	CUresult re[] = {
 		cu.pcuMemUnmap(m_params.ptr, m_params.granularSize),
 	};
-	CloseHandle(m_params.externalHandle);
+	CloseExternalHandle(m_params.externalHandle);
 
 }
 }

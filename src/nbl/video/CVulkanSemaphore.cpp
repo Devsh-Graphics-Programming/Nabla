@@ -12,13 +12,7 @@ CVulkanSemaphore::~CVulkanSemaphore()
   vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
 	if (m_creationParams.externalHandleTypes != EHT_NONE)
 	{
-#ifdef _WIN32
-    if (!CloseHandle(m_externalHandle))
-      assert(!"Invalid code path.");
-#else
-    if (close(m_externalHandle) != 0)
-      assert(!"Invalid code path.");
-#endif
+		CloseExternalHandle(m_externalHandle);
 	}
 }
 

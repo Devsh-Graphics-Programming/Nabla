@@ -167,7 +167,7 @@ class ISemaphore : public IBackendObject
         // Vulkan: const VkSemaphore*
         virtual const void* getNativeHandle() const = 0;
 
-        virtual ExternalHandleType getExternalHandle() const = 0;
+        virtual external_handle_t getExternalHandle() const = 0;
 
         const SCachedCreationParams& getCreationParams() const { return m_creationParams; }
 

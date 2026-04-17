@@ -46,7 +46,7 @@ class NBL_API2 IDeviceMemoryAllocator
 				IMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
 					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
 					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
-					ExternalHandleType handle) : 
+					external_handle_t handle) : 
           m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), 
           m_reqs(reqs), 
           m_handleType(handleType),
@@ -83,7 +83,7 @@ class NBL_API2 IDeviceMemoryAllocator
 				IDeviceMemoryBacked::SDeviceMemoryRequirements m_reqs;
 				uint32_t m_allocateFlags;
 				IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE m_handleType;
-				ExternalHandleType m_handle;
+				external_handle_t m_handle;
 		};
 
 		//! DefaultMemoryTypeIterator will iterate through set bits of memoryTypeBits from LSB to MSB
@@ -94,7 +94,7 @@ class NBL_API2 IDeviceMemoryAllocator
 					const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
 					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
 					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
-					ExternalHandleType handle
+					external_handle_t handle
 				) : 
         IMemoryTypeIterator(reqs, allocateFlags, handleType, handle)
 				{
@@ -125,7 +125,7 @@ class NBL_API2 IDeviceMemoryAllocator
 			IDeviceMemoryBacked* dedication = nullptr,
 			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
 			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE,
-			ExternalHandleType externalHandle = {},
+			external_handle_t externalHandle = {},
       std::unique_ptr<struct ICleanup>&& postDestroyCleanup = nullptr)
 		{
 			for (memory_type_iterator_t memTypeIt(reqs, allocateFlags, externalHandleType, externalHandle); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)

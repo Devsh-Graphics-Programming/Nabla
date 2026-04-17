@@ -15,7 +15,7 @@ class ILogicalDevice;
 class CVulkanSemaphore final : public ISemaphore
 {
     public:
-        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, SCreationParams&& creationParams, const VkSemaphore semaphore, const ExternalHandleType externalHandle)
+        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, SCreationParams&& creationParams, const VkSemaphore semaphore, const external_handle_t externalHandle)
             : ISemaphore(std::move(_vkdev), std::move(creationParams)), m_semaphore(semaphore), m_externalHandle(externalHandle) {}
         ~CVulkanSemaphore();
 
@@ -24,13 +24,13 @@ class CVulkanSemaphore final : public ISemaphore
     
 	    inline const void* getNativeHandle() const override {return &m_semaphore;}
         VkSemaphore getInternalObject() const {return m_semaphore;}
-        ExternalHandleType getExternalHandle() const override { return m_externalHandle; }
+        external_handle_t getExternalHandle() const override { return m_externalHandle; }
 
         void setObjectDebugName(const char* label) const override;
 
     private:
         const VkSemaphore m_semaphore;
-        const ExternalHandleType m_externalHandle;
+        const external_handle_t m_externalHandle;
 };
 
 }

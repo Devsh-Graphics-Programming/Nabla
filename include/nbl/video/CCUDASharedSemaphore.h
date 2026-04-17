@@ -31,7 +31,7 @@ protected:
     CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, 
       core::smart_refctd_ptr<ISemaphore> src, 
       CUexternalSemaphore semaphore, 
-      ExternalHandleType osHandle)
+      external_handle_t osHandle)
         : m_device(std::move(device))
         , m_src(std::move(m_src))
         , m_handle(semaphore)

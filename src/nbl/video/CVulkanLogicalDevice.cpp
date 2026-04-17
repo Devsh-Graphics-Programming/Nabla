@@ -80,7 +80,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     if (!m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         return nullptr;
 
-    ExternalHandleType externalHandle = ExternalHandleType{};
+    external_handle_t externalHandle = external_handle_t{};
     const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes.value);
     if (handleType != 0)
     {
@@ -177,23 +177,6 @@ core::smart_refctd_ptr<IDeferredOperation> CVulkanLogicalDevice::createDeferredO
     return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
 }
 
-ExternalHandleType DupeHandle(uint64_t pid, ExternalHandleType handle)
-{
-#ifdef _WIN32
-    HANDLE re = 0;
-
-    HANDLE cur = GetCurrentProcess();
-    HANDLE src = pid ? OpenProcess(GENERIC_ALL, false, pid) : cur;
-
-    if (!DuplicateHandle(src, handle, cur, &re, GENERIC_ALL, 0, DUPLICATE_SAME_ACCESS))
-        return 0;
-
-    CloseHandle(src);
-    return re;
-#endif
-    return handle;
-}
-
 IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
     if (info.memoryTypeIndex>=m_physicalDevice->getMemoryProperties().memoryTypeCount)
@@ -240,8 +223,8 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     {
         if (info.externalHandle) //importing
         {
-            auto duped = DupeHandle(0, info.externalHandle);
-            const_cast<void*&>(info.externalHandle) = duped;
+            auto duped = DuplicateExternalHandle(info.externalHandle);
+            const_cast<external_handle_t&>(info.externalHandle) = duped;
             *pNext = &importInfo;
         }
         else // exporting
@@ -312,7 +295,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
 #else
             vkGetMemoryFdKHR
 #endif
-            (m_vkdev, &handleInfo, const_cast<ExternalHandleType*>(&info.externalHandle)))
+            (m_vkdev, &handleInfo, const_cast<external_handle_t*>(&info.externalHandle)))
         {
             m_devf.vk.vkFreeMemory(m_vkdev, vk_deviceMemory, 0);
             return {};

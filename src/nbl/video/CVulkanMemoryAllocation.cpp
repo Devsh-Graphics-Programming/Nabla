@@ -11,7 +11,7 @@ CVulkanMemoryAllocation::CVulkanMemoryAllocation(
 
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
-    if (m_params.externalHandle)
+    if (m_params.externalHandle != ExternalHandleNull)
     {
         bool re = CloseHandle(getCreationParams().externalHandle);
         assert(re);

@@ -176,7 +176,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
             //! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
             //! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
-            ExternalHandleType externalHandle = 0;
+            external_handle_t externalHandle = 0;
         };
 
         struct SCreationParams: SInfo
