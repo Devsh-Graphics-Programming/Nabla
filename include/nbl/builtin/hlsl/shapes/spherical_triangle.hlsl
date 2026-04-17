@@ -74,6 +74,7 @@ struct SphericalTriangle
         // degenerate triangle: any side has near-zero sin, so csc blows up
         if (hlsl::any<vector<bool, 3> >(retval.csc_sides >= hlsl::promote<vector3_type>(numeric_limits<scalar_type>::max)))
         {
+            // TODO: can't do this, still need to be able to sample thin triangle like a line light, so need to know all the angles which are still valid
             retval.cos_vertices = hlsl::promote<vector3_type>(0.0);
             retval.sin_vertices = hlsl::promote<vector3_type>(0.0);
             retval.solid_angle = 0;
@@ -106,22 +107,20 @@ struct SphericalTriangle
         if (solid_angle <= numeric_limits<scalar_type>::epsilon)
             return 0;
 
-        matrix<scalar_type, 3, 3> awayFromEdgePlane;
         // `cross(A,B)*acos(dot(A,B))/sin(1-dot^2)` can be done with `cross(A,B)*acos_csc_approx(dot(A,B))`
 #define ACOS_CSC(I) acos_csc_approx(cos_sides[I])
 //#define ACOS_CSC(I) hlsl::acos(cos_sides[I])*csc_sides[I]
-        awayFromEdgePlane[0] = hlsl::cross(vertices[1], vertices[2]) * ACOS_CSC(0);
-        awayFromEdgePlane[1] = hlsl::cross(vertices[2], vertices[0]) * ACOS_CSC(1);
-        awayFromEdgePlane[2] = hlsl::cross(vertices[0], vertices[1]) * ACOS_CSC(2);
+        scalar_type externalProductsWeightedByPyramidAngles = hlsl::dot(hlsl::cross(vertices[1], vertices[2]),receiverNormal) * ACOS_CSC(0);
+        externalProductsWeightedByPyramidAngles += hlsl::dot(hlsl::cross(vertices[2], vertices[0]),receiverNormal) * ACOS_CSC(1);
+        externalProductsWeightedByPyramidAngles += hlsl::dot(hlsl::cross(vertices[0], vertices[1]),receiverNormal) * ACOS_CSC(2);
 #undef ACOS_CSC
-        const vector3_type externalProductsWeightedByPyramidAngles = hlsl::mul(/* transposed already */awayFromEdgePlane, receiverNormal);
 
         // The ABS makes it so that the computation is correct for an `abs(cos(theta))` factor which is the projected solid angle used for a BSDF.
         // It also makes the computation insensitive to the CW or CCW winding of the vertices in the triangle.
         // Proof: Kelvin-Stokes theorem, if you split the set into two along the horizon with constant CCW winding, the `cross` along the shared edge
         // goes in different directions and cancels out, while `acos` of the clipped great arcs corresponding to polygon edges add up to the original sides again.
         // The 0.5 is so that triangle covering almost whole hemisphere sums to PI
-        return hlsl::abs(externalProductsWeightedByPyramidAngles[0]+externalProductsWeightedByPyramidAngles[1]+externalProductsWeightedByPyramidAngles[2]) * scalar_type(0.5);
+        return externalProductsWeightedByPyramidAngles * scalar_type(0.5);
     }
 
     vector3_type vertices[3];
