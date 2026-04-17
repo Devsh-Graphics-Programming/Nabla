@@ -546,29 +546,44 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
     if (newCode.empty()) return nullptr;
 
-    if (!options.preprocessedOutputPath.empty())
+    auto saveToFile = [&](const std::string& filePath, const void* buffer, size_t size, const char* loggerName)
     {
-        core::smart_refctd_ptr<system::IFile> preprocessedFile;
-        
+        core::smart_refctd_ptr<system::IFile> saveFile;
+
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_system->deleteFile(options.preprocessedOutputPath);
-        m_system->createFile(future, options.preprocessedOutputPath, system::IFile::ECF_WRITE);
+        // Ensure it doesn't exist
+        m_system->deleteFile(filePath + "_temp");
+        m_system->createFile(future, filePath + "_temp", system::IFile::ECF_WRITE);
         if (future.wait())
         {
-            future.acquire().move_into(preprocessedFile);
-            if (preprocessedFile)
+            future.acquire().move_into(saveFile);
+            if (saveFile)
             {
                 system::IFile::success_t succ;
-                preprocessedFile->write(succ, newCode.data(), 0, newCode.size());
+                saveFile->write(succ, buffer, 0, size);
                 if (!succ)
-                    logger.log("Failed Writing To Preprocessed Output File.", nbl::system::ILogger::ELL_ERROR);
+                {
+                    logger.log(std::string("Failed Writing To Temp ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+                    return;
+                }
+                m_system->deleteFile(filePath);
+                auto renameResult = m_system->moveFileOrDirectory(filePath + "_temp", filePath);
+                if (renameResult)
+                {
+                    logger.log(std::string("Failed Saving ") + loggerName + " File. Check it's not open.", nbl::system::ILogger::ELL_ERROR);
+                    // Clean up
+                    m_system->deleteFile(filePath + "_temp");
+                }
             }
             else
-                logger.log("Failed Creating Preprocessed Output File.", nbl::system::ILogger::ELL_ERROR);
+                logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
         }
         else
-            logger.log("Failed Creating Preprocessed Output File.", nbl::system::ILogger::ELL_ERROR);
-    }
+            logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+    };
+
+    if (!options.preprocessedOutputPath.empty())
+        saveToFile(options.preprocessedOutputPath, newCode.data(), newCode.size(), "Preprocessed Output");
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
@@ -675,29 +690,8 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
 
-    if (!options.spvOutputPath.empty())
-    {
-        core::smart_refctd_ptr<system::IFile> spvFile;
-
-        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_system->deleteFile(options.spvOutputPath);
-        m_system->createFile(future, options.spvOutputPath, system::IFile::ECF_WRITE);
-        if (future.wait())
-        {
-            future.acquire().move_into(spvFile);
-            if (spvFile)
-            {
-                system::IFile::success_t succ;
-                spvFile->write(succ, outSpirv->getPointer(), 0, outSpirv->getSize());
-                if (!succ)
-                    logger.log("Failed Writing To SPIR-V Output File.", nbl::system::ILogger::ELL_ERROR);
-            }
-            else
-                logger.log("Failed Creating SPIR-V Output File.", nbl::system::ILogger::ELL_ERROR);
-        }
-        else
-            logger.log("Failed Creating SPIR-V Output File.", nbl::system::ILogger::ELL_ERROR);
-    }
+    if (outSpirv && !options.spvOutputPath.empty())
+        saveToFile(options.spvOutputPath, outSpirv->getPointer(), outSpirv->getSize(), "SPIR-V Output");
 
     return core::make_smart_refctd_ptr<asset::IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }

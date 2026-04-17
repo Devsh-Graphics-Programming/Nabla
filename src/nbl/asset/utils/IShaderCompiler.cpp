@@ -111,6 +111,7 @@ namespace nbl::system::json {
                 { "shaderStage", shaderStage },
                 { "spirvVersion", spirvVersion },
                 { "optimizerPasses", p.optimizerPasses },
+				{  "optimizerIsExtraPasses", p.optimizerIsExtraPasses },
                 { "debugFlags", debugFlags },
                 { "preprocessorArgs", p.preprocessorArgs },
             };
@@ -122,6 +123,7 @@ namespace nbl::system::json {
             j.at("shaderStage").get_to(shaderStage);
             j.at("spirvVersion").get_to(spirvVersion);
             j.at("optimizerPasses").get_to(p.optimizerPasses);
+			j.at("optimizerIsExtraPasses").get_to(p.optimizerIsExtraPasses);
             j.at("debugFlags").get_to(debugFlags);
             j.at("preprocessorArgs").get_to(p.preprocessorArgs);
             p.stage = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
@@ -502,6 +504,42 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 		return IShaderCompiler::writeDepfile(params, dependencies, options.preprocessorOptions.includeFinder, options.preprocessorOptions.logger);
 	};
 
+    auto saveToFile = [&](const std::string& filePath, const void* buffer, size_t size, const char* loggerName)
+        {
+            core::smart_refctd_ptr<system::IFile> saveFile;
+
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            // Ensure it doesn't exist
+            m_system->deleteFile(filePath + "_temp");
+            m_system->createFile(future, filePath + "_temp", system::IFile::ECF_WRITE);
+            if (future.wait())
+            {
+                future.acquire().move_into(saveFile);
+                if (saveFile)
+                {
+                    system::IFile::success_t succ;
+                    saveFile->write(succ, buffer, 0, size);
+                    if (!succ)
+                    {
+                        options.preprocessorOptions.logger.log(std::string("Failed Writing To Temp ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+                        return;
+                    }
+                    m_system->deleteFile(filePath);
+                    auto renameResult = m_system->moveFileOrDirectory(filePath + "_temp", filePath);
+                    if (renameResult)
+                    {
+                        options.preprocessorOptions.logger.log(std::string("Failed Saving ") + loggerName + " File. Check it's not open.", nbl::system::ILogger::ELL_ERROR);
+                        // Clean up
+                        m_system->deleteFile(filePath + "_temp");
+                    }
+                }
+                else
+                    options.preprocessorOptions.logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+            }
+            else
+                options.preprocessorOptions.logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+        };
+
 	CCache::SEntry entry;
 	if (options.readCache || options.writeCache)
 		entry = CCache::SEntry(code, options);
@@ -519,6 +557,22 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 			auto shader = found->decompressShader();
 			if (depfileEnabled && !writeDepfileFromDependencies(found->dependencies))
 				return nullptr;
+            if (!options.spvOutputPath.empty())
+                saveToFile(options.spvOutputPath, shader->getContent()->getPointer(), shader->getContent()->getSize(), "SPIR-V");
+            // Entry doesn't store preprocessed shader, so preprocess it
+			if (!options.preprocessedOutputPath.empty())
+            {
+                // copy shader contents 
+                std::string shaderContents = found->mainFileContents;
+                auto stage = options.stage;
+                // Create a copy, cache hit means dependencies haven't changed but there is no function that takes a const pointer. This is meant for debug anyway.
+                auto deps = found->dependencies;
+                auto preprocessedShader = preprocessShader(std::move(shaderContents), stage, options.preprocessorOptions, &deps);
+                if (preprocessedShader.empty())
+                    options.preprocessorOptions.logger.log("Failed to preprocess shader for output.", nbl::system::ILogger::ELL_ERROR);
+                else
+                    saveToFile(options.preprocessedOutputPath, preprocessedShader.data(), preprocessedShader.size(), "Preprocessed Shader");
+            }
 			return shader;
 		}
 	}

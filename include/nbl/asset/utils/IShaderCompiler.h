@@ -245,6 +245,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				@includeFinder Optional parameter; if not nullptr, it will resolve the includes in the code
 				@maxSelfInclusionCount used only when includeFinder is not nullptr
 				@extraDefines adds extra defines to the shader before compilation
+			@optimizerIsExtraPasses Instead of entirely replacing the default optimization passes, run the provided passes after the default ones
+			@preprocessedOutputPath If not empty, the preprocessed shader will be saved to this path
+			@spvOutputPath If not empty, the compiled SPIR-V binary will be saved to this path
 		*/
 		struct SCompilerOptions
 		{
@@ -364,7 +367,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						public:
 							inline bool operator==(const SCompilerArgs& other) const {
 								bool retVal = true;
-								if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs) retVal = false;
+								if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs || optimizerIsExtraPasses != other.optimizerIsExtraPasses) retVal = false;
 								if (optimizerPasses.size() != other.optimizerPasses.size()) retVal = false;
 								for (auto passesIt = optimizerPasses.begin(), otherPassesIt = other.optimizerPasses.begin(); passesIt != optimizerPasses.end(); passesIt++, otherPassesIt++) {
 									if (*passesIt != *otherPassesIt) {
@@ -392,6 +395,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							// Only SEntry should instantiate this struct
 							SCompilerArgs(const SCompilerOptions& options)
 								: stage(options.stage), targetSpirvVersion(options.preprocessorOptions.targetSpirvVersion), debugInfoFlags(options.debugInfoFlags), preprocessorArgs(options.preprocessorOptions)
+								, optimizerIsExtraPasses(options.optimizerIsExtraPasses)
 							{
 								if (options.spirvOptimizer) {
 									for (auto pass : options.spirvOptimizer->getPasses())
@@ -402,6 +406,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							IShader::E_SHADER_STAGE stage;
 							E_SPIRV_VERSION targetSpirvVersion;
 							std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
+							bool optimizerIsExtraPasses;
 							core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
 							SPreprocessorArgs preprocessorArgs;
 					};
@@ -460,6 +465,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					inline SEntry& operator=(SEntry&& other) = default;
 
 					bool setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer);
+
+					IShader::E_SHADER_STAGE getShaderStage() const { return compilerArgs.stage; }
+					SPreprocessorArgs getPreprocessorArgs() const { return compilerArgs.preprocessorArgs; }
 
 					core::smart_refctd_ptr<IShader> decompressShader() const;
 
