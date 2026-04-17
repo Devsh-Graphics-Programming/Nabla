@@ -2,14 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_CORE_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
-#define _NBL_CORE_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SAMPLING_ALIAS_TABLE_BUILDER_H_INCLUDED_
 
 #include <cstdint>
 
 namespace nbl
 {
-namespace core
+namespace hlsl
 {
 namespace sampling
 {
@@ -27,21 +27,21 @@ namespace sampling
 template<typename T>
 struct AliasTableBuilder
 {
-	static void build(const T* weights, uint32_t N, T* outProbability, uint32_t* outAlias, T* outPdf, uint32_t* workspace)
+	static void build(std::span<const T> weights, T* outProbability, uint32_t* outAlias, T* outPdf, uint32_t* workspace)
 	{
 		T totalWeight = T(0);
-		for (uint32_t i = 0; i < N; i++)
+      for (uint32_t i = 0; i < weights.size(); i++)
 			totalWeight += weights[i];
 
 		const T rcpTotalWeight = T(1) / totalWeight;
 
 		// Compute PDFs, scaled probabilities, and partition into small/large in one pass
 		uint32_t smallEnd = 0;
-		uint32_t largeBegin = N;
-		for (uint32_t i = 0; i < N; i++)
+      uint32_t largeBegin = weights.size();
+      for (uint32_t i = 0; i < weights.size(); i++)
 		{
 			outPdf[i] = weights[i] * rcpTotalWeight;
-			outProbability[i] = outPdf[i] * T(N);
+         outProbability[i] = outPdf[i] * T(weights.size());
 
 			if (outProbability[i] < T(1))
 				workspace[smallEnd++] = i;
@@ -50,7 +50,7 @@ struct AliasTableBuilder
 		}
 
 		// Pair small and large entries
-		while (smallEnd > 0 && largeBegin < N)
+      while (smallEnd > 0 && largeBegin < weights.size())
 		{
 			const uint32_t s = workspace[--smallEnd];
 			const uint32_t l = workspace[largeBegin];
@@ -76,7 +76,7 @@ struct AliasTableBuilder
 			outProbability[s] = T(1);
 			outAlias[s] = s;
 		}
-		while (largeBegin < N)
+      while (largeBegin < weights.size())
 		{
 			const uint32_t l = workspace[largeBegin++];
 			outProbability[l] = T(1);
@@ -86,7 +86,7 @@ struct AliasTableBuilder
 };
 
 } // namespace sampling
-} // namespace core
+} // namespace hlsl
 } // namespace nbl
 
 #endif

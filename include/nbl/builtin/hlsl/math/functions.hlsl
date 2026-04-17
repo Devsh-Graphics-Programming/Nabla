@@ -51,7 +51,7 @@ struct lp_norm<T,1,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial
         array_get<T, scalar_type> getter;
 
         scalar_type retval = abs<scalar_type>(getter(v, 0));
-        for (int i = 1; i < vector_traits<T>::Dimension; i++)
+        for (uint32_t i = 1; i < vector_traits<T>::Dimension; i++)
             retval += abs<scalar_type>(getter(v, i));
         return retval;
     }
@@ -96,9 +96,10 @@ scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
 template <typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 {
+    s = sin<T>(theta);
     c = cos<T>(theta);
-    s = sqrt<T>(T(NBL_FP64_LITERAL(1.0))-c*c);
-    s = ieee754::flipSign(s, theta < T(NBL_FP64_LITERAL(0.0)));
+    // s = sqrt<T>(T(NBL_FP64_LITERAL(1.0))-c*c);
+    // s = ieee754::flipSign(s, theta < T(NBL_FP64_LITERAL(0.0)));
 }
 
 template <typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)

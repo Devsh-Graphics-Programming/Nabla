@@ -1,6 +1,7 @@
 #ifndef _NBL_SYSTEM_TO_STRING_INCLUDED_
 #define _NBL_SYSTEM_TO_STRING_INCLUDED_
 
+#include <format>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/emulated/int64_t.hlsl>
 #include <nbl/builtin/hlsl/morton.hlsl>
@@ -18,6 +19,15 @@ struct to_string_helper
     static std::string __call(const T& value)
     {
         return std::to_string(value);
+    }
+};
+
+template<std::floating_point T>
+struct to_string_helper<T>
+{
+    static std::string __call(const T& value)
+    {
+        return std::format("{}", value);
     }
 };
 

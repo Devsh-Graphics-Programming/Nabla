@@ -5,7 +5,10 @@
 #define _NBL_BUILTIN_HLSL_MEMBER_TEST_MACROS_INCLUDED_
 
 #include <nbl/builtin/hlsl/utility.hlsl>
-#include <boost/preprocessor.hpp>
+#include <boost/preprocessor/arithmetic/inc.hpp>
+#include <boost/preprocessor/comparison/not_equal.hpp>
+#include <boost/preprocessor/punctuation/comma_if.hpp>
+#include <boost/preprocessor/repetition/repeat.hpp>
 
 #ifdef __HLSL_VERSION
 

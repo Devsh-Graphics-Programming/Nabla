@@ -5,7 +5,6 @@
 #define _NBL_BUILTIN_HLSL_PATH_TRACING_CONCEPTS_INCLUDED_
 
 #include <nbl/builtin/hlsl/concepts.hlsl>
-#include <nbl/builtin/hlsl/bxdf/common.hlsl>
 
 namespace nbl
 {
@@ -15,6 +14,17 @@ namespace path_tracing
 {
 namespace concepts
 {
+namespace impl
+{
+template<typename Vector3>
+struct DummyRayInteraction
+{
+    using vector3_type = Vector3;
+
+    vector3_type getN() NBL_CONST_MEMBER_FUNC;
+    bool isMaterialBSDF() NBL_CONST_MEMBER_FUNC;
+};
+}
 
 #define NBL_CONCEPT_NAME RandGenerator
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
@@ -38,7 +48,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (ray, T)
 #define NBL_CONCEPT_PARAM_1 (v, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_2 (interaction, bxdf::surface_interactions::SIsotropic<bxdf::ray_dir_info::SBasic<float>, typename T::spectral_type>)
+#define NBL_CONCEPT_PARAM_2 (interaction, impl::DummyRayInteraction<typename T::vector3_type>)
 #define NBL_CONCEPT_PARAM_3 (scalar, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_4 (color, typename T::spectral_type)
 NBL_CONCEPT_BEGIN(5)
@@ -52,7 +62,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.init(v/*origin*/, v/*direction*/)), ::nbl::hlsl::is_same_v, void))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.template setInteraction<bxdf::surface_interactions::SIsotropic<bxdf::ray_dir_info::SBasic<float>, typename T::spectral_type> >(interaction)), ::nbl::hlsl::is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.setInteraction(interaction)), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.initPayload()), ::nbl::hlsl::is_same_v, void))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.shouldDoMIS()), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.foundEmissiveMIS(scalar)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
@@ -124,6 +134,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scene_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::object_handle_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IntersectorClosestHit, typename T::closest_hit_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Ray, typename T::ray_type))
@@ -134,6 +145,26 @@ NBL_CONCEPT_END(
 #undef scene
 #undef ray
 #undef intersect
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+#define NBL_CONCEPT_NAME UnidirectionalInteractionContract
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (RayT)(IntersectorT)(MaterialSystemT)
+#define NBL_CONCEPT_PARAM_0 (ray, RayT)
+#define NBL_CONCEPT_PARAM_1 (hit, typename IntersectorT::closest_hit_type)
+#define NBL_CONCEPT_PARAM_2 (interaction, typename MaterialSystemT::anisotropic_interaction_type)
+NBL_CONCEPT_BEGIN(3)
+#define ray NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define hit NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((hit.getInteraction()), ::nbl::hlsl::is_same_v, typename IntersectorT::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((hit.getInteraction()), ::nbl::hlsl::is_same_v, typename MaterialSystemT::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ray.setInteraction(interaction)), ::nbl::hlsl::is_same_v, void))
+);
+#undef interaction
+#undef hit
+#undef ray
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 #define NBL_CONCEPT_NAME BxdfNode

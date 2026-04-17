@@ -4,6 +4,7 @@
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/glslFunctions.h>
 #include "vectorSIMD.h"
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 #endif
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
@@ -140,7 +141,7 @@ namespace impl
 		{
 			To retval;
 
-			NBL_UNROLL for (int i = 0; i < N; ++i)
+			NBL_UNROLL for (uint16_t i = 0; i < N; ++i)
 			{
 				retval[i] = hlsl::_static_cast<ScalarTo>(vec[i]);
 			}

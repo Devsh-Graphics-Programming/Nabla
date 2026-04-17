@@ -378,11 +378,25 @@ public:
             m_arguments.push_back("main");
         }
 
-        for (size_t i = 0; i + 1 < m_arguments.size(); ++i)
+        std::vector<std::string> normalizedArguments;
+        normalizedArguments.reserve(m_arguments.size());
+        for (size_t i = 0; i < m_arguments.size(); ++i)
         {
-            if (m_arguments[i] == "-I")
-                m_include_search_paths.emplace_back(m_arguments[i + 1]);
+            const auto& argument = m_arguments[i];
+            if ((argument == "-I" || argument == "-isystem") && i + 1 < m_arguments.size())
+            {
+                const auto classification = IShaderCompiler::IncludeClassification{
+                    IShaderCompiler::IncludeRootOrigin::User,
+                    argument == "-isystem" ? IShaderCompiler::HeaderClass::System : IShaderCompiler::HeaderClass::User
+                };
+                m_include_search_paths.push_back({ m_arguments[i + 1],classification });
+                ++i;
+                continue;
+            }
+
+            normalizedArguments.emplace_back(argument);
         }
+        m_arguments = std::move(normalizedArguments);
 
         const char* const action = preprocessOnly ? "Preprocessing" : "Compiling";
         const char* const outType = preprocessOnly ? "Preprocessed" : "Compiled";
@@ -470,6 +484,8 @@ private:
 
         for (const auto& a : args)
         {
+            if (split(a, "-isystem")) continue;
+            if (split(a, "-I")) continue;
             if (split(a, "-MF")) continue;
             if (split(a, "-Fo")) continue;
             if (split(a, "-Fc")) continue;
@@ -544,8 +560,8 @@ private:
 
         auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
         auto includeLoader = includeFinder->getDefaultFileSystemLoader();
-        for (const auto& p : m_include_search_paths)
-            includeFinder->addSearchPath(p, includeLoader);
+        for (const auto& searchPath : m_include_search_paths)
+            includeFinder->addSearchPath(searchPath.path, includeLoader, searchPath.classification);
 
         // need this struct becuase fields of IShaderCompiler::SMacroDefinition are string views
         struct SMacroDefinitionBuffer
@@ -678,7 +694,14 @@ private:
 
     smart_refctd_ptr<ISystem> m_system;
     smart_refctd_ptr<ILogger> m_logger;
-    std::vector<std::string> m_arguments, m_include_search_paths;
+    struct SearchPathArgument
+    {
+        std::string path;
+        IShaderCompiler::IncludeClassification classification = {};
+    };
+
+    std::vector<std::string> m_arguments;
+    std::vector<SearchPathArgument> m_include_search_paths;
     smart_refctd_ptr<IAssetManager> m_assetMgr;
 };
 

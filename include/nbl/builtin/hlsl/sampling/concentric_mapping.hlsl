@@ -16,114 +16,98 @@ namespace hlsl
 namespace sampling
 {
 
+// Based on: Shirley & Chiu, "A Low Distortion Map Between Disk and Square", 1997
+// See also: Clarberg, "Fast Equal-Area Mapping of the (Hemi)Sphere using SIMD", 2008
+// http://fileadmin.cs.lth.se/graphics/research/papers/2008/simdmapping/clarberg_simdmapping08_preprint.pdf
 template<typename T>
 struct ConcentricMapping
 {
-	using scalar_type = T;
-	using vector2_type = vector<T, 2>;
-	using vector3_type = vector<T, 3>;
-	using vector4_type = vector<T, 4>;
+   using scalar_type = T;
+   using vector2_type = vector<T, 2>;
+   using vector3_type = vector<T, 3>;
+   using vector4_type = vector<T, 4>;
 
-	// BijectiveSampler concept types
-	using domain_type = vector2_type;
-	using codomain_type = vector2_type;
-	using density_type = scalar_type;
-	using weight_type = density_type;
+   // BijectiveSampler concept types
+   using domain_type = vector2_type;
+   using codomain_type = vector2_type;
+   using density_type = scalar_type;
+   using weight_type = density_type;
 
-	struct cache_type
-	{
-		density_type pdf;
-		// TODO: should we cache `r`?
-	};
+   struct cache_type
+   {
+      scalar_type r2;
+   };
 
-	static codomain_type generate(const domain_type _u, NBL_REF_ARG(cache_type) cache)
-	{
-		cache.pdf = numbers::inv_pi<T>;
-		//map [0;1]^2 to [-1;1]^2
-		domain_type u = 2.0f * _u - hlsl::promote<vector<T, 2> >(1.0);
+   static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+   {
+      // map [0,1]^2 to [-1,1]^2
+      const vector2_type centered = scalar_type(2) * u - hlsl::promote<vector2_type>(scalar_type(1));
 
-		vector<T, 2> p;
-		if (hlsl::all<vector<bool, 2> >(glsl::equal(u, hlsl::promote<vector<T, 2> >(0.0))))
-			p = hlsl::promote<vector<T, 2> >(0.0);
-		else
-		{
-			T r;
-			T theta;
-			if (hlsl::abs<T>(u.x) > hlsl::abs<T>(u.y))
-			{
-				r = u.x;
-				theta = 0.25 * numbers::pi<T> * (u.y / u.x);
-			}
-			else
-			{
-				r = u.y;
-				theta = 0.5 * numbers::pi<T> - 0.25 * numbers::pi<T> * (u.x / u.y);
-			}
+      const scalar_type a = centered.x;
+      const scalar_type b = centered.y;
 
-			p = r * vector<T, 2>(hlsl::cos<T>(theta), hlsl::sin<T>(theta));
-		}
+      // dominant axis selection
+      const bool cond = a * a > b * b;
+      const scalar_type dominant = hlsl::select(cond, a, b);
+      const scalar_type minor = hlsl::select(cond, b, a);
 
-		return p;
-	}
+      const scalar_type safe_dominant = dominant != scalar_type(0) ? dominant : scalar_type(0);
+      const scalar_type ratio = minor / safe_dominant;
 
-	// Overload for BasicSampler
-	static codomain_type generate(domain_type _u)
-	{
-		cache_type dummy;
-		return generate(_u, dummy);
-	}
+      const scalar_type angle = scalar_type(0.25) * numbers::pi<scalar_type> * ratio;
+      const scalar_type c = hlsl::cos<scalar_type>(angle);
+      const scalar_type s = hlsl::sin<scalar_type>(angle);
 
-	static domain_type generateInverse(const codomain_type p)
-	{
-		T theta = hlsl::atan2(p.y, p.x); // -pi -> pi
-		T r = hlsl::sqrt(p.x * p.x + p.y * p.y);
-		const T PiOver4 = T(0.25) * numbers::pi<T>;
+      // final selection without branching
+      const scalar_type x = hlsl::select(cond, c, s);
+      const scalar_type y = hlsl::select(cond, s, c);
 
-		vector<T, 2> u;
-		// TODO: should reduce branching somehow?
-		if (hlsl::abs(theta) < PiOver4 || hlsl::abs(theta) > 3 * PiOver4)
-		{
-			r = ieee754::copySign(r, p.x);
-			u.x = r;
-			if (p.x < 0)
-			{
-				if (p.y < 0)
-				{
-					u.y = (numbers::pi<T> + theta) * r / PiOver4;
-				}
-				else
-				{
-					u.y = (theta - numbers::pi<T>)*r / PiOver4;
-				}
-			}
-			else
-			{
-				u.y = (theta * r) / PiOver4;
-			}
-		}
-		else
-		{
-			r = ieee754::copySign(r, p.y);
-			u.y = r;
-			if (p.y < 0)
-			{
-				u.x = -(T(0.5) * numbers::pi<T> + theta) * r / PiOver4;
-			}
-			else
-			{
-				u.x = (T(0.5) * numbers::pi<T> - theta) * r / PiOver4;
-			}
-		}
+      cache.r2 = dominant * dominant;
+      return dominant * vector2_type(x, y);
+   }
 
-		return (u + hlsl::promote<vector<T, 2> >(1.0)) * T(0.5);
-	}
+   // Overload for BasicSampler
+   static codomain_type generate(domain_type u)
+   {
+      cache_type dummy;
+      return generate(u, dummy);
+   }
 
-	// The PDF of Shirley mapping is constant (1/PI on the unit disk)
-	static density_type forwardPdf(cache_type cache) { return numbers::inv_pi<T>; }
-	static density_type backwardPdf(codomain_type v) { return numbers::inv_pi<T>; }
+   static domain_type generateInverse(const codomain_type p)
+   {
+      const scalar_type r = hlsl::sqrt(p.x * p.x + p.y * p.y);
 
-	static weight_type forwardWeight(cache_type cache) { return forwardPdf(cache); }
-	static weight_type backwardWeight(codomain_type v) { return backwardPdf(v); }
+      const scalar_type ax = hlsl::abs<scalar_type>(p.x);
+      const scalar_type ay = hlsl::abs<scalar_type>(p.y);
+
+      // swapped = ay > ax
+      const bool swapped = ay > ax;
+
+      // branchless selection
+      const scalar_type num = hlsl::select(swapped, ax, ay);
+      const scalar_type denom = hlsl::select(swapped, ay, ax);
+
+      // angle in [0, pi/4]
+      const scalar_type phi = hlsl::atan2(num, denom);
+
+      const scalar_type minor_val = r * phi / (scalar_type(0.25) * numbers::pi<scalar_type>);
+
+      // reconstruct a,b using select instead of branching
+      const scalar_type a_base = hlsl::select(swapped, minor_val, r);
+      const scalar_type b_base = hlsl::select(swapped, r, minor_val);
+
+      const scalar_type a = ieee754::copySign(a_base, p.x);
+      const scalar_type b = ieee754::copySign(b_base, p.y);
+
+      return (vector2_type(a, b) + hlsl::promote<vector2_type>(scalar_type(1))) * scalar_type(0.5);
+   }
+
+   // The PDF of Shirley mapping is constant (1/PI on the unit disk)
+   static density_type forwardPdf(const domain_type u, cache_type cache) { return numbers::inv_pi<scalar_type>; }
+   static density_type backwardPdf(codomain_type v) { return numbers::inv_pi<scalar_type>; }
+
+   static weight_type forwardWeight(const domain_type u, cache_type cache) { return forwardPdf(u, cache); }
+   static weight_type backwardWeight(codomain_type v) { return backwardPdf(v); }
 };
 
 } // namespace sampling

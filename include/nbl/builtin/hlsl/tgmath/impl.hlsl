@@ -393,10 +393,10 @@ struct erf_helper<float16_t>
 	static float16_t __call(float16_t _x)
 	{
 		// A&S approximation to 2.5x10-5
-		const float16_t a1 = float16_t(0.3480242f);
-		const float16_t a2 = float16_t(-0.0958798f);
-		const float16_t a3 = float16_t(0.7478556f);
-		const float16_t p = float16_t(0.47047f);
+		const float16_t a1 = _static_cast<float16_t>(0.3480242f);
+		const float16_t a2 = _static_cast<float16_t>(-0.0958798f);
+		const float16_t a3 = _static_cast<float16_t>(0.7478556f);
+		const float16_t p = _static_cast<float16_t>(0.47047f);
 
 		float16_t _sign = float16_t(sign<float16_t>(_x));
 		float16_t x = abs_helper<float16_t>::__call(_x);
@@ -414,6 +414,7 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
+		// TODO: maybe need to replace `FloatingPoint(NBL_FP64_LITERAL` with `_static_cast<FloatingPoint>(NBL_FP64_LITERAL` to make DXC shut up
 		FloatingPoint x = clamp<FloatingPoint>(_x, FloatingPoint(NBL_FP64_LITERAL(-0.99999)), FloatingPoint(NBL_FP64_LITERAL(0.99999)));
 
 		FloatingPoint w = -log_helper<FloatingPoint>::__call((FloatingPoint(NBL_FP64_LITERAL(1.0)) - x) * (FloatingPoint(NBL_FP64_LITERAL(1.0)) + x));
