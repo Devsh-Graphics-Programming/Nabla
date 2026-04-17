@@ -23,18 +23,23 @@ struct SDeltaDistribution
     using this_t = SDeltaDistribution<Config>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
+    using random_type = vector2_type;
+    struct Cache {};
+    using isocache_type = Cache;
+    using anisocache_type = Cache;
+
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return hlsl::promote<spectral_type>(0);
+        return value_weight_type::create(0.0, 0.0);
     }
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return hlsl::promote<spectral_type>(0);
+        return value_weight_type::create(0.0, 0.0);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         ray_dir_info_type L = interaction.getV().transmit();
         sample_type s = sample_type::create(L, interaction.getN());
@@ -44,28 +49,28 @@ struct SDeltaDistribution
         s.NdotL2 = interaction.getNdotV2();
         return s;
     }
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return generate(anisotropic_interaction_type::create(interaction), u);
+        return generate(anisotropic_interaction_type::create(interaction), u, _cache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         return 0;
     }
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         return 0;
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        return quotient_pdf_type::create(1.0, _pdf);
+        return quotient_weight_type::create(1.0, _pdf);
     }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return quotient_and_pdf(_sample, interaction.isotropic);
+        return quotientAndWeight(_sample, interaction.isotropic);
     }
 };
 
@@ -78,6 +83,7 @@ struct traits<bxdf::transmission::SDeltaDistribution<C> >
     NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool TractablePdf = true;
 };
 
 }

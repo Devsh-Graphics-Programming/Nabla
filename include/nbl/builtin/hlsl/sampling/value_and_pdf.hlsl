@@ -5,6 +5,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_VALUE_AND_PDF_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_VALUE_AND_PDF_INCLUDED_
 
+#include "nbl/builtin/hlsl/sampling/value_and_weight.hlsl"
+
 namespace nbl
 {
 namespace hlsl
@@ -16,40 +18,40 @@ template<typename V, typename P>
 struct value_and_rcpPdf
 {
 	using this_t = value_and_rcpPdf<V, P>;
+	using base_t = value_and_rcpWeight<V, P>;
 
 	static this_t create(const V _value, const P _rcpPdf)
 	{
 		this_t retval;
-		retval._value = _value;
-		retval._rcpPdf = _rcpPdf;
+		retval._base._value = _value;
+		retval._base._rcpWeight = _rcpPdf;
 		return retval;
 	}
 
-	V value() NBL_CONST_MEMBER_FUNC { return _value; }
-	P rcpPdf() NBL_CONST_MEMBER_FUNC { return _rcpPdf; }
+	V value() { return _base._value; }
+	P rcpPdf() { return _base._rcpWeight; }
 
-	V _value;
-	P _rcpPdf;
+	base_t _base;
 };
 
 template<typename V, typename P>
 struct value_and_pdf
 {
 	using this_t = value_and_pdf<V, P>;
+	using base_t = value_and_weight<V, P>;
 
 	static this_t create(const V _value, const P _pdf)
 	{
 		this_t retval;
-		retval._value = _value;
-		retval._pdf = _pdf;
+		retval._base._value = _value;
+		retval._base._weight = _pdf;
 		return retval;
 	}
 
-	V value() NBL_CONST_MEMBER_FUNC { return _value; }
-	P pdf() NBL_CONST_MEMBER_FUNC { return _pdf; }
+	V value() { return _base._value; }
+	P pdf() { return _base._weight; }
 
-	V _value;
-	P _pdf;
+	base_t _base;
 };
 
 // Returned by TractableSampler::generate, codomain sample bundled with its rcpPdf
