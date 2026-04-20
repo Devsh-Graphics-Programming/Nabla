@@ -37,6 +37,7 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 	auto gpuImage = fetchedImageViewParmas.image;
 	auto fetchedGpuImageParams = gpuImage->getCreationParameters();
+	const auto viewFormat = fetchedImageViewParmas.format;
 
 	if(!fetchedGpuImageParams.usage.hasFlags(IImage::EUF_TRANSFER_SRC_BIT))
 	{
@@ -45,12 +46,25 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		return nullptr;
 	}
 
-	if (isBlockCompressionFormat(fetchedGpuImageParams.format))
+	if (isBlockCompressionFormat(fetchedGpuImageParams.format) || isBlockCompressionFormat(viewFormat))
 	{
 		if (auto* logger = logicalDevice->getLogger())
 			logger->log("ScreenShot: block-compressed formats are not supported.", system::ILogger::ELL_ERROR);
 		return nullptr;
 	}
+	const auto sourceTexelSize = getTexelOrBlockBytesize(fetchedGpuImageParams.format);
+	const auto viewTexelSize = getTexelOrBlockBytesize(viewFormat);
+	if (sourceTexelSize!=viewTexelSize)
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: source image format and image view format have different texel sizes.", system::ILogger::ELL_ERROR);
+		return nullptr;
+	}
+	const uint32_t mipLevelToScreenshot = fetchedImageViewParmas.subresourceRange.baseMipLevel;
+	const auto extent = gpuImage->getMipSize(mipLevelToScreenshot);
+	auto layerCountToScreenshot = fetchedImageViewParmas.subresourceRange.layerCount;
+	if (layerCountToScreenshot==IImageViewBase::remaining_array_layers)
+		layerCountToScreenshot = fetchedGpuImageParams.arrayLayers-fetchedImageViewParmas.subresourceRange.baseArrayLayer;
 
 	core::smart_refctd_ptr<IGPUBuffer> gpuTexelBuffer;
 	
@@ -81,19 +95,17 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		return nullptr;
 	}
 	{
-		auto extent = gpuImage->getMipSize();
-
-		const uint32_t mipLevelToScreenshot = fetchedImageViewParmas.subresourceRange.baseMipLevel;
-
 		IGPUImage::SBufferCopy region = {};
 		region.imageSubresource.aspectMask = fetchedImageViewParmas.subresourceRange.aspectMask; 
 		region.imageSubresource.mipLevel = mipLevelToScreenshot;
 		region.imageSubresource.baseArrayLayer = fetchedImageViewParmas.subresourceRange.baseArrayLayer;
-		region.imageSubresource.layerCount = fetchedImageViewParmas.subresourceRange.layerCount;
+		region.imageSubresource.layerCount = layerCountToScreenshot;
 		region.imageExtent = { extent.x, extent.y, extent.z };
+		region.bufferRowLength = extent.x;
+		region.bufferImageHeight = extent.y;
 
 		IGPUBuffer::SCreationParams bufferCreationParams = {};
-		bufferCreationParams.size = extent.x*extent.y*extent.z*getTexelOrBlockBytesize(fetchedGpuImageParams.format);
+		bufferCreationParams.size = extent.x*extent.y*extent.z*layerCountToScreenshot*sourceTexelSize;
 		bufferCreationParams.usage = IBuffer::EUF_TRANSFER_DST_BIT;
 		gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));
 		if (!gpuTexelBuffer)
@@ -223,7 +235,12 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 			logicalDevice->invalidateMappedMemoryRanges(1u,&mappedMemoryRange);
 		}
 
-		auto cpuNewImage = ICPUImage::create(std::move(fetchedGpuImageParams));
+		auto cpuImageParams = fetchedGpuImageParams;
+		cpuImageParams.format = viewFormat;
+		cpuImageParams.extent = {extent.x,extent.y,extent.z};
+		cpuImageParams.mipLevels = 1u;
+		cpuImageParams.arrayLayers = layerCountToScreenshot;
+		auto cpuNewImage = ICPUImage::create(std::move(cpuImageParams));
 		if (!cpuNewImage)
 		{
 			if (auto* logger = logicalDevice->getLogger())
@@ -239,10 +256,10 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		region.imageSubresource.aspectMask = IImage::EAF_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0u;
 		region.imageSubresource.baseArrayLayer = 0u;
-		region.imageSubresource.layerCount = 1u;
+		region.imageSubresource.layerCount = layerCountToScreenshot;
 		region.bufferOffset = 0u;
-		region.bufferRowLength = fetchedGpuImageParams.extent.width;
-		region.bufferImageHeight = 0u;
+		region.bufferRowLength = extent.x;
+		region.bufferImageHeight = extent.y;
 		region.imageOffset = { 0u, 0u, 0u };
 		region.imageExtent = cpuNewImage->getCreationParameters().extent;
 
@@ -270,11 +287,11 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 			viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
 			viewParams.image = cpuNewImage;
 			viewParams.format = newCreationParams.format;
-			viewParams.viewType = ICPUImageView::ET_2D;
+			viewParams.viewType = fetchedImageViewParmas.viewType;
 			viewParams.subresourceRange.baseArrayLayer = 0u;
 			viewParams.subresourceRange.layerCount = newCreationParams.arrayLayers;
 			viewParams.subresourceRange.baseMipLevel = 0u;
-			viewParams.subresourceRange.levelCount = newCreationParams.mipLevels;
+			viewParams.subresourceRange.levelCount = 1u;
 
 			cpuImageView = ICPUImageView::create(std::move(viewParams));
 		}

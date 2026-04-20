@@ -326,7 +326,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     VkPhysicalDeviceShaderCoreProperties2AMD                    shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
     VkPhysicalDeviceMaintenance5PropertiesKHR                   maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
     VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT        graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
-    VkPhysicalDeviceRayTracingInvocationReorderPropertiesEXT    rayTracingInvocationReorderProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_EXT };
+    VkPhysicalDeviceRayTracingInvocationReorderPropertiesEXT    rayTracingInvocationReorderPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_EXT };
+    VkPhysicalDeviceRayTracingInvocationReorderPropertiesNV     rayTracingInvocationReorderPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_NV };
 
      {
         //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
@@ -362,7 +363,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
             addToPNextChain(&graphicsPipelineLibraryProperties);
         if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
-            addToPNextChain(&rayTracingInvocationReorderProperties);
+            addToPNextChain(&rayTracingInvocationReorderPropertiesEXT);
+        else if (isExtensionSupported(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            addToPNextChain(&rayTracingInvocationReorderPropertiesNV);
         // call
         finalizePNextChain();
         vkGetPhysicalDeviceProperties2(vk_physicalDevice,&deviceProperties2);
@@ -639,8 +642,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
         {
-            properties.limits.maxHitObjectReplacementSBTIndex = rayTracingInvocationReorderProperties.maxShaderBindingTableRecordIndex;
-            properties.limits.actuallyReordersRayTracingInvocations = rayTracingInvocationReorderProperties.rayTracingInvocationReorderReorderingHint==VK_RAY_TRACING_INVOCATION_REORDER_MODE_REORDER_EXT;
+            properties.limits.maxHitObjectReplacementSBTIndex = rayTracingInvocationReorderPropertiesEXT.maxShaderBindingTableRecordIndex;
+            properties.limits.actuallyReordersRayTracingInvocations = rayTracingInvocationReorderPropertiesEXT.rayTracingInvocationReorderReorderingHint==VK_RAY_TRACING_INVOCATION_REORDER_MODE_REORDER_EXT;
+        }
+        else if (isExtensionSupported(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+        {
+            properties.limits.actuallyReordersRayTracingInvocations = rayTracingInvocationReorderPropertiesNV.rayTracingInvocationReorderReorderingHint==VK_RAY_TRACING_INVOCATION_REORDER_MODE_REORDER_NV;
         }
 
 
@@ -740,7 +747,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                    cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
         VkPhysicalDeviceMaintenance5FeaturesKHR                         maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT              graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT };
-        VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT          rayTracingInvocationReorderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT };
+        VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT          rayTracingInvocationReorderFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT };
+        VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV           rayTracingInvocationReorderFeaturesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV };
 
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
@@ -810,7 +818,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
             addToPNextChain(&graphicsPipelineLibraryFeatures);
         if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
-            addToPNextChain(&rayTracingInvocationReorderFeatures);
+            addToPNextChain(&rayTracingInvocationReorderFeaturesEXT);
+        else if (isExtensionSupported(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            addToPNextChain(&rayTracingInvocationReorderFeaturesNV);
         // call
         finalizePNextChain();
         vkGetPhysicalDeviceFeatures2(vk_physicalDevice,&deviceFeatures);
@@ -1251,8 +1261,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrix = cooperativeMatrixFeatures.cooperativeMatrix;
 
-        if (isExtensionSupported(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
-            properties.limits.rayTracingInvocationReorder = rayTracingInvocationReorderFeatures.rayTracingInvocationReorder;
+        if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            properties.limits.rayTracingInvocationReorder = rayTracingInvocationReorderFeaturesEXT.rayTracingInvocationReorder;
+        else if (isExtensionSupported(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            properties.limits.rayTracingInvocationReorder = rayTracingInvocationReorderFeaturesNV.rayTracingInvocationReorder;
     }
 
     // we compare all limits against the defaults easily!
@@ -1651,8 +1663,14 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = true;
         }
         
-        VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT rayTracingInvocationReorderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT,nullptr };
-        REQUIRE_EXTENSION_IF(enabledFeatures.rayTracingPipeline && limits.rayTracingInvocationReorder,VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,&rayTracingInvocationReorderFeatures);
+        VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT rayTracingInvocationReorderFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT,nullptr };
+        VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV rayTracingInvocationReorderFeaturesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV,nullptr };
+        if (enabledFeatures.rayTracingPipeline && limits.rayTracingInvocationReorder)
+        {
+            if (!enableExtensionIfAvailable(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,&rayTracingInvocationReorderFeaturesEXT) &&
+                !enableExtensionIfAvailable(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,&rayTracingInvocationReorderFeaturesNV))
+                return nullptr;
+        }
 
         #undef REQUIRE_EXTENSION_IF
 
@@ -1904,7 +1922,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess = enabledFeatures.cooperativeMatrixRobustBufferAccess;
         }
 
-        rayTracingInvocationReorderFeatures.rayTracingInvocationReorder = limits.rayTracingInvocationReorder;
+        rayTracingInvocationReorderFeaturesEXT.rayTracingInvocationReorder = limits.rayTracingInvocationReorder;
+        rayTracingInvocationReorderFeaturesNV.rayTracingInvocationReorder = limits.rayTracingInvocationReorder;
 
         // convert a set into a vector
         core::vector<const char*> extensionStrings(extensionsToEnable.size());
