@@ -48,6 +48,7 @@ struct SMicrofacetNormals
         const matrix<scalar_type,3,3> TBN = hlsl::transpose(object_to_world);
         vector3_type localN;
         normalMap.get(localN, TBN[2], TBN[0], TBN[1]);
+        // normalMap.get(localN, uv);
         localN = hlsl::promote<vector3_type>(2.0) * localN - hlsl::promote<vector3_type>(1.0);
 
         const vector3_type N = hlsl::normalize(hlsl::mul(object_to_world, localN));
@@ -55,13 +56,34 @@ struct SMicrofacetNormals
         return anisotropic_interaction_type::create(interaction);
     }
 
-    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
+    // schussler (original)
+    // static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
+    // {
+    //     const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
+    //     return hlsl::min(scalar_type(1.0),
+    //         clampedNdotL * hlsl::max(scalar_type(0.0), NdotNp)
+    //         / (clampedNpdotL + clampedNtdotL * sinThetaNp)
+    //     );
+    // }
+
+    // estevez
+    // static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp)
+    // {
+    //     const scalar_type tan2_d = scalar_type(1.0) / (NdotNp * NdotNp) - scalar_type(1.0);
+    //     const scalar_type bump_alpha2 = hlsl::clamp<scalar_type>(scalar_type(0.125) * tan2_d, scalar_type(0.0), scalar_type(1.0));
+
+    //     const scalar_type devsh_v = hlsl::sqrt(bump_alpha2 + (scalar_type(1.0) - bump_alpha2) * (clampedNdotL * clampedNdotL));
+    //     return scalar_type(2.0) * clampedNdotL / (devsh_v + clampedNdotL);
+    // }
+
+    // yining
+    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL)
     {
-        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
-        return hlsl::min(scalar_type(1.0),
-            clampedNdotL * hlsl::max(scalar_type(0.0), NdotNp)
-            / (clampedNpdotL + clampedNtdotL * sinThetaNp)
+        const scalar_type g = hlsl::min(scalar_type(1.0),
+            clampedNpdotL / (clampedNdotL * NdotNp)
         );
+        const scalar_type g2 = g * g;
+        return -g2 * g + g2 + g;
     }
 
     static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
@@ -82,15 +104,19 @@ struct SMicrofacetNormals
         return bxdf_type::anisocache_type::template createForReflection<anisotropic_interaction_type, sample_type>(interaction, _sample);
     }
 
-    template<typename C=bool_constant<!traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && !traits<bxdf_type>::IsMicrofacet)
-    scalar_type __childForwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    // schussler (original)
+    // vector3_type __computeNt(const vector3_type Np)
+    // {
+    //     const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
+    //     const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
+    //     return hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+    // }
+
+    // yining
+    vector3_type __computeNt(const vector3_type Np)
     {
-        return nested_brdf.forwardPdf(_sample, interaction);
-    }
-    template<typename C=bool_constant<traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && traits<bxdf_type>::IsMicrofacet)
-    scalar_type __childForwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
-    {
-        return nested_brdf.forwardPdf(_sample, interaction, __createChildCache(_sample, interaction));
+        const vector3_type w = hlsl::normalize(hlsl::cross(shadingNormal, Np));
+        return hlsl::normalize(hlsl::cross(Np, w));
     }
 
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
@@ -101,7 +127,6 @@ struct SMicrofacetNormals
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp > scalar_type(1.0 - 1e-5))
@@ -112,8 +137,7 @@ struct SMicrofacetNormals
             return nested_brdf.evalAndWeight(sample_N, interaction_N);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+        const vector3_type Nt = __computeNt(Np);
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
         spectral_type eval = hlsl::promote<spectral_type>(0.0);
@@ -123,8 +147,10 @@ struct SMicrofacetNormals
         const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
         const scalar_type NtdotL = hlsl::dot(Nt, L);
         const scalar_type lambda_p = lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV));
-        const scalar_type shadowing = G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
-                                        NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
+        // const scalar_type shadowing = G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
+        //                                 NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
+        // const scalar_type shadowing = G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp);
+        const scalar_type shadowing = G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp, NpdotL);
 
         // i -> p -> o
         {
@@ -140,8 +166,12 @@ struct SMicrofacetNormals
             L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
             sample_type sample_double_p = sample_type::create(L_reflected, Np);
 
-            const scalar_type notShadowedNpMirror = scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), shadingNormal)), NdotNp,
-                sample_double_p.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), Nt)));
+            // const scalar_type notShadowedNpMirror = scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), shadingNormal)), NdotNp,
+            //     sample_double_p.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), Nt)));
+
+            // const scalar_type notShadowedNpMirror = scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), shadingNormal)), NdotNp);
+
+            const scalar_type notShadowedNpMirror = scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), shadingNormal)), NdotNp, sample_double_p.getNdotL(BxDFClampMode::BCM_MAX));
 
             value_weight_type eval_double_p = nested_brdf.evalAndWeight(sample_double_p, interaction);
             eval += eval_double_p.value() * (lambda_p * notShadowedNpMirror * shadowing);
@@ -161,14 +191,15 @@ struct SMicrofacetNormals
             eval += eval_double_t.value() * (scalar_type(1.0) - lambda_p) * shadowing;
         }
 
-        return value_weight_type::create(eval, forwardPdf(_sample, interaction));
+        anisocache_type _cache;
+        _cache.aniso_cache = __createChildCache(_sample, interaction);
+        return value_weight_type::create(eval, forwardPdf(_sample, interaction, _cache));
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
         _cache.sampleIsShadowed = false;
 
         const ray_dir_info_type V = interaction.getV();
@@ -179,8 +210,7 @@ struct SMicrofacetNormals
             return nested_brdf.generate(interaction_N, u, _cache.aniso_cache);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+        const vector3_type Nt = __computeNt(Np);
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
@@ -194,8 +224,10 @@ struct SMicrofacetNormals
                 return sample_type::createInvalid();
 
             const vector3_type L = s.getL().getDirection();
-            const scalar_type shadowed = G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp,
-                s.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
+            // const scalar_type shadowed = G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp,
+            //     s.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
+            // const scalar_type shadowed = G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp);
+            const scalar_type shadowed = G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp, s.getNdotL(BxDFClampMode::BCM_MAX));
 
             if (u.y > shadowed)
             {
@@ -234,15 +266,14 @@ struct SMicrofacetNormals
         return s;
     }
 
-    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return forwardPdf(_sample, anisotropic_interaction_type::create(interaction));
+        return forwardPdf(_sample, anisotropic_interaction_type::create(interaction), _cache);
     }
-    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp > scalar_type(1.0 - 1e-5))
@@ -250,11 +281,10 @@ struct SMicrofacetNormals
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
-            return __childForwardPdf(sample_N, interaction_N);
+            return nested_brdf.forwardPdf(sample_N, interaction_N, __createChildCache(sample_N, interaction_N));
         }
 
-        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+        const vector3_type Nt = __computeNt(Np);
         const scalar_type NpdotV = interaction.getNdotV();
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
@@ -267,8 +297,10 @@ struct SMicrofacetNormals
             const scalar_type NdotL = hlsl::dot(shadingNormal, L);
             const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
             const scalar_type NtdotL = hlsl::dot(Nt, L);
-            pdf += lambda_p * __childForwardPdf(_sample, interaction) * G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
-                NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
+            // pdf += lambda_p * nested_brdf.forwardPdf(_sample, interaction, __createChildCache(_sample, interaction)) * G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
+            //     NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
+            // pdf += lambda_p * __childForwardPdf(_sample, interaction) * G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp);
+            pdf += lambda_p * nested_brdf.forwardPdf(_sample, interaction, __createChildCache(_sample, interaction)) * G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp, NpdotL);
 
             if (NtdotL > numeric_limits<scalar_type>::min)
             {
@@ -277,8 +309,12 @@ struct SMicrofacetNormals
                 L_reflected.setDirection(hlsl::normalize(reflectL(NtdotL)));
                 sample_type sample_reflected = sample_type::create(L_reflected, Np);
 
-                pdf += lambda_p * __childForwardPdf(sample_reflected, interaction) * 
-                        (scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp, sample_reflected.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), NtdotL)));
+                // pdf += lambda_p * nested_brdf.forwardPdf(sample_reflected, interaction, __createChildCache(sample_reflected, interaction)) * 
+                //         (scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L_reflected.getDirection())), NdotNp, sample_reflected.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), NtdotL)));
+                // pdf += lambda_p * __childForwardPdf(sample_reflected, interaction) * 
+                //         (scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L_reflected.getDirection())), NdotNp));
+                pdf += lambda_p * nested_brdf.forwardPdf(sample_reflected, interaction, __createChildCache(sample_reflected, interaction)) * 
+                        (scalar_type(1.0) - G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L_reflected.getDirection())), NdotNp, sample_reflected.getNdotL(BxDFClampMode::BCM_MAX)));
             }
         }
 
@@ -291,7 +327,7 @@ struct SMicrofacetNormals
             typename bxdf_type::isotropic_interaction_type iso_reflected = bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
-            pdf += (scalar_type(1.0) - lambda_p) * __childForwardPdf(_sample, interaction_reflected);
+            pdf += (scalar_type(1.0) - lambda_p) * nested_brdf.forwardPdf(_sample, interaction_reflected, __createChildCache(_sample, interaction_reflected));
         }
 
         return pdf;
@@ -305,7 +341,6 @@ struct SMicrofacetNormals
     {
         const vector3_type Np = interaction.getN();
         const scalar_type NdotNp = hlsl::dot(shadingNormal, Np);
-        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
 
         const ray_dir_info_type V = interaction.getV();
         if (NdotNp > scalar_type(1.0 - 1e-5))
@@ -317,8 +352,7 @@ struct SMicrofacetNormals
             return nested_brdf.quotientAndWeight(sample_N, interaction_N, cache_N);
         }
 
-        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        const vector3_type Nt = hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+        const vector3_type Nt = __computeNt(Np);
         spectral_type quo = hlsl::promote<spectral_type>(1.0);
 
         const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
@@ -328,10 +362,12 @@ struct SMicrofacetNormals
         if (_cache.sampleIsShadowed)
         {
             const vector3_type L = _sample.getL().getDirection();
-            quo *= G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp, NpdotL, hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
+            // quo *= G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp, NpdotL, hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
+            // quo *= G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp);
+            quo *= G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), NdotNp, NpdotL);
         }
 
-        return quotient_weight_type::create(quo, forwardPdf(_sample, interaction));
+        return quotient_weight_type::create(quo, forwardPdf(_sample, interaction, _cache));
     }
 
     bxdf_type nested_brdf;
