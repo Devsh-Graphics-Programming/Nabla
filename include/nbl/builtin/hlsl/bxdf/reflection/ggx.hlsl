@@ -18,10 +18,10 @@ namespace reflection
 {
 
 template<class Config>
-using SGGXIsotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
+using SGGXIsotropic = SCookTorrance<Config, ndf::GGX<typename Config::sample_type::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
 template<class Config>
-using SGGXAnisotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
+using SGGXAnisotropic = SCookTorrance<Config, ndf::GGX<typename Config::sample_type::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
 }
 

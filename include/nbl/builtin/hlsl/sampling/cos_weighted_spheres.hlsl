@@ -7,7 +7,6 @@
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
-#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -19,72 +18,119 @@ namespace sampling
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct ProjectedHemisphere
 {
-    using vector_t2 = vector<T, 2>;
-    using vector_t3 = vector<T, 3>;
-    
-    static vector_t3 generate(const vector_t2 _sample)
-    {
-        vector_t2 p = concentricMapping<T>(_sample * T(0.99999) + T(0.000005));
-        T z = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - p.x * p.x - p.y * p.y));
-        return vector_t3(p.x, p.y, z);
-    }
+	using vector_t2 = vector<T, 2>;
+	using vector_t3 = vector<T, 3>;
 
-    static T pdf(const T L_z)
-    {
-        return L_z * numbers::inv_pi<float>;
-    }
+	// BijectiveSampler concept types
+	using scalar_type = T;
+	using domain_type = vector_t2;
+	using codomain_type = vector_t3;
+	using density_type = T;
+	using weight_type = density_type;
 
-    template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(const T L)
-    {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
-    }
+	struct cache_type
+	{
+		scalar_type z;
+	};
 
-    template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(const vector_t3 L)
-    {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
-    }
+	static codomain_type __generate(const domain_type u)
+	{
+		vector_t2 p = ConcentricMapping<T>::generate(u * T(0.99999) + T(0.000005));
+		T z = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - p.x * p.x - p.y * p.y));
+		return vector_t3(p.x, p.y, z);
+	}
+
+	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
+	{
+		const codomain_type retval = __generate(u);
+		cache.z = retval.z;
+		return retval;
+	}
+
+	static domain_type generateInverse(const codomain_type L)
+	{
+		return ConcentricMapping<T>::generateInverse(L.xy);
+	}
+
+	static density_type forwardPdf(const domain_type u, const cache_type cache)
+	{
+		return cache.z * numbers::inv_pi<T>;
+	}
+
+	static weight_type forwardWeight(const domain_type u, const cache_type cache)
+	{
+		return forwardPdf(u, cache);
+	}
+
+	static density_type backwardPdf(const codomain_type L)
+	{
+		assert(L.z >= 0);
+		return L.z * numbers::inv_pi<T>;
+	}
+
+	static weight_type backwardWeight(const codomain_type L)
+	{
+		return backwardPdf(L);
+	}
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct ProjectedSphere
 {
-    using vector_t2 = vector<T, 2>;
-    using vector_t3 = vector<T, 3>;
-    using hemisphere_t = ProjectedHemisphere<T>;
+	using vector_t2 = vector<T, 2>;
+	using vector_t3 = vector<T, 3>;
+	using hemisphere_t = ProjectedHemisphere<T>;
 
-    static vector_t3 generate(NBL_REF_ARG(vector_t3) _sample)
-    {
-        vector_t3 retval = hemisphere_t::generate(_sample.xy);
-        const bool chooseLower = _sample.z > T(0.5);
-        retval.z = chooseLower ? (-retval.z) : retval.z;
-        if (chooseLower)
-            _sample.z -= T(0.5);
-        _sample.z *= T(2.0);
-        return retval;
-    }
+	// BackwardTractableSampler concept types (not bijective: z input is consumed for hemisphere selection)
+	using scalar_type = T;
+	using domain_type = vector_t3;
+	using codomain_type = vector_t3;
+	using density_type = T;
+	using weight_type = density_type;
 
-    static T pdf(T L_z)
-    {
-        return T(0.5) * hemisphere_t::pdf(L_z);
-    }
+	using cache_type = typename hemisphere_t::cache_type;
 
-    template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
-    {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
-    }
+	static codomain_type __generate(NBL_REF_ARG(domain_type) u)
+	{
+		vector_t3 retval = hemisphere_t::__generate(u.xy);
+		const bool chooseLower = u.z > T(0.5);
+		retval.z = chooseLower ? (-retval.z) : retval.z;
+		if (chooseLower)
+			u.z -= T(0.5);
+		u.z *= T(2.0);
+		return retval;
+	}
 
-    template<typename U=vector<T,1> >
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(const vector_t3 L)
-    {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
-    }
+	static codomain_type generate(NBL_REF_ARG(domain_type) u, NBL_REF_ARG(cache_type) cache)
+	{
+		const codomain_type retval = __generate(u);
+		cache.z = hlsl::abs(retval.z);
+		return retval;
+	}
+
+	static density_type forwardPdf(const domain_type u, const cache_type cache)
+	{
+		return T(0.5) * cache.z * numbers::inv_pi<T>;
+	}
+
+	static weight_type forwardWeight(const domain_type u, const cache_type cache)
+	{
+		return forwardPdf(u, cache);
+	}
+
+	static density_type backwardPdf(const codomain_type L)
+	{
+		return T(0.5) * hlsl::abs(L.z) * numbers::inv_pi<T>;
+	}
+
+	static weight_type backwardWeight(const codomain_type L)
+	{
+		return backwardPdf(L);
+	}
 };
 
-}
-}
-}
+} // namespace sampling
+} // namespace hlsl
+} // namespace nbl
 
 #endif

@@ -15,6 +15,7 @@
 #include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
 #include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
 #include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
+#include "nbl/builtin/hlsl/sampling/value_and_weight.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -889,6 +890,10 @@ namespace bxdf_concepts
 {
 namespace impl
 {
+template<typename T>
+NBL_BOOL_CONCEPT VecDim2OrMore = vector_traits<T>::Dimension >= 2;
+template<typename T>
+NBL_BOOL_CONCEPT VecDim3OrMore = vector_traits<T>::Dimension >= 3;
 
 #define NBL_CONCEPT_NAME bxdf_common_typdefs
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
@@ -900,145 +905,73 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_weight_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::value_weight_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::random_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointScalar, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointVectorial, typename T::spectral_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::VecDim2OrMore, typename T::random_type))
 );
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+// TODO: check ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.forwardPdf(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+// but only when the bxdf_traits tell us we have a tractable PDF BxDF
 #define NBL_CONCEPT_NAME bxdf_common
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_2 (aniso, typename T::anisotropic_interaction_type)
-NBL_CONCEPT_BEGIN(3)
+#define NBL_CONCEPT_PARAM_3 (anisocache, typename T::anisocache_type)
+NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common_typdefs, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::quotient_weight_type))
 );
+#undef anisocache
 #undef aniso
 #undef _sample
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+// TODO: check ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.forwardPdf(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+// but only when the bxdf_traits tell us we have a tractable PDF BxDF
 #define NBL_CONCEPT_NAME iso_bxdf_common
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_2 (iso, typename T::isotropic_interaction_type)
-NBL_CONCEPT_BEGIN(3)
+#define NBL_CONCEPT_PARAM_3 (isocache, typename T::isocache_type)
+NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common, T))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotientAndWeight(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_weight_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
 );
+#undef isocache
 #undef iso
 #undef _sample
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-}
 
-#define NBL_CONCEPT_NAME BRDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (bxdf, T)
-#define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 2>)
-NBL_CONCEPT_BEGIN(3)
-#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::bxdf_common, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-);
-#undef u
-#undef aniso
-#undef bxdf
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-#define NBL_CONCEPT_NAME BSDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (bxdf, T)
-#define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 3>)
-NBL_CONCEPT_BEGIN(3)
-#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::bxdf_common, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-);
-#undef u
-#undef aniso
-#undef bxdf
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-#define NBL_CONCEPT_NAME IsotropicBRDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (bxdf, T)
-#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 2>)
-NBL_CONCEPT_BEGIN(3)
-#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::iso_bxdf_common, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-);
-#undef u
-#undef iso
-#undef bxdf
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-#define NBL_CONCEPT_NAME IsotropicBSDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (bxdf, T)
-#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 3>)
-NBL_CONCEPT_BEGIN(3)
-#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::iso_bxdf_common, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-);
-#undef u
-#undef iso
-#undef bxdf
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-template<typename T>
-NBL_BOOL_CONCEPT BxDF = BRDF<T> || BSDF<T>;
-template<typename T>
-NBL_BOOL_CONCEPT IsotropicBxDF = IsotropicBRDF<T> || IsotropicBSDF<T>;
-
-
-namespace impl
-{
 #define NBL_CONCEPT_NAME microfacet_bxdf_common
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -1052,15 +985,9 @@ NBL_CONCEPT_BEGIN(4)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common_typdefs, T))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(bxdf_common, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, aniso, anisocache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
 );
 #undef anisocache
 #undef aniso
@@ -1068,7 +995,7 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME iso_microfacet_bxdf_common
+#define NBL_CONCEPT_NAME microfacet_iso_bxdf_common
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
@@ -1081,14 +1008,10 @@ NBL_CONCEPT_BEGIN(4)
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(iso_bxdf_common, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(microfacet_bxdf_common, T))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.pdf(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.evalAndWeight(_sample, iso, isocache)), ::nbl::hlsl::is_same_v, typename T::value_weight_type))
 );
 #undef isocache
 #undef iso
@@ -1097,12 +1020,12 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 }
 
-#define NBL_CONCEPT_NAME MicrofacetBRDF
+#define NBL_CONCEPT_NAME BRDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 2>)
+#define NBL_CONCEPT_PARAM_2 (u, typename T::random_type)
 #define NBL_CONCEPT_PARAM_3 (anisocache, typename T::anisocache_type)
 NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
@@ -1110,7 +1033,7 @@ NBL_CONCEPT_BEGIN(4)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::microfacet_bxdf_common, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::bxdf_common, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
 );
 #undef anisocache
@@ -1119,12 +1042,12 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME MicrofacetBSDF
+#define NBL_CONCEPT_NAME BSDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 3>)
+#define NBL_CONCEPT_PARAM_2 (u, typename T::random_type)
 #define NBL_CONCEPT_PARAM_3 (anisocache, typename T::anisocache_type)
 NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
@@ -1132,7 +1055,8 @@ NBL_CONCEPT_BEGIN(4)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::microfacet_bxdf_common, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::bxdf_common, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::VecDim3OrMore, typename T::random_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
 );
 #undef anisocache
@@ -1141,12 +1065,12 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME IsotropicMicrofacetBRDF
+#define NBL_CONCEPT_NAME IsotropicBRDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 2>)
+#define NBL_CONCEPT_PARAM_2 (u, typename T::random_type)
 #define NBL_CONCEPT_PARAM_3 (isocache, typename T::isocache_type)
 NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
@@ -1154,7 +1078,7 @@ NBL_CONCEPT_BEGIN(4)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::iso_microfacet_bxdf_common, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::iso_bxdf_common, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u,isocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
 );
 #undef isocache
@@ -1163,12 +1087,12 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME IsotropicMicrofacetBSDF
+#define NBL_CONCEPT_NAME IsotropicBSDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (bxdf, T)
 #define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 3>)
+#define NBL_CONCEPT_PARAM_2 (u, typename T::random_type)
 #define NBL_CONCEPT_PARAM_3 (isocache, typename T::isocache_type)
 NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
@@ -1176,7 +1100,7 @@ NBL_CONCEPT_BEGIN(4)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::iso_microfacet_bxdf_common, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BSDF, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u,isocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
 );
 #undef isocache
@@ -1184,6 +1108,21 @@ NBL_CONCEPT_END(
 #undef iso
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+template<typename T>
+NBL_BOOL_CONCEPT BxDF = BRDF<T> || BSDF<T>;
+template<typename T>
+NBL_BOOL_CONCEPT IsotropicBxDF = IsotropicBRDF<T> || IsotropicBSDF<T>;
+
+//
+template<typename T>
+NBL_BOOL_CONCEPT MicrofacetBRDF = impl::microfacet_bxdf_common<T> || BRDF<T>;
+template<typename T>
+NBL_BOOL_CONCEPT MicrofacetBSDF = impl::microfacet_bxdf_common<T> || BSDF<T>;
+template<typename T>
+NBL_BOOL_CONCEPT IsotropicMicrofacetBRDF = impl::microfacet_bxdf_common<T> || IsotropicBRDF<T>;
+template<typename T>
+NBL_BOOL_CONCEPT IsotropicMicrofacetBSDF = impl::microfacet_bxdf_common<T> || IsotropicBSDF<T>;
 
 template<typename T>
 NBL_BOOL_CONCEPT MicrofacetBxDF = MicrofacetBRDF<T> || MicrofacetBSDF<T>;
@@ -1191,11 +1130,6 @@ template<typename T>
 NBL_BOOL_CONCEPT IsotropicMicrofacetBxDF = IsotropicMicrofacetBRDF<T> || IsotropicMicrofacetBSDF<T>;
 }
 
-
-template<typename T, typename P=T>
-using quotient_and_pdf_scalar = sampling::quotient_and_pdf<vector<T, 1>, P>;
-template<typename T, typename P=T>
-using quotient_and_pdf_rgb = sampling::quotient_and_pdf<vector<T, 3>, P>;
 
 namespace impl
 {
