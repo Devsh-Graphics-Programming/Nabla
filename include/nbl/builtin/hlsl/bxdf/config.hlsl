@@ -16,6 +16,7 @@ namespace bxdf
 // TODO should just check `is_base_of` (but not possible right now cause of DXC limitations)
 namespace config_concepts
 {
+// TODO: need to require either anisotropic_interaction_type or isotropic_interaction_type
 #define NBL_CONCEPT_NAME BasicConfiguration
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -26,10 +27,14 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::anisotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::FloatingPointLikeVectorial, typename T::spectral_type))
 );
 #undef conf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+// TODO: need to require either anisocache_type or isocache_type, but require anisocache_type if anisotropic_interaction_type was provided
 #define NBL_CONCEPT_NAME MicrofacetConfiguration
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -39,6 +44,7 @@ NBL_CONCEPT_BEGIN(1)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BasicConfiguration, T))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ReadableIsotropicMicrofacetCache, typename T::anisocache_type))
 );
 #undef conf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -49,8 +55,8 @@ struct SConfiguration;
 
 #define CONF_ISO LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && concepts::FloatingPointLikeVectorial<Spectrum>
 
-template<class LS, class Interaction, class Spectrum>
-NBL_PARTIAL_REQ_TOP(CONF_ISO)
+// TODO: remove the `IsAnisotropic` and deduce it from whether `anisotropic_interaction_type` was provided
+template<class LS, class Interaction, class Spectrum> NBL_PARTIAL_REQ_TOP(CONF_ISO)
 struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ISO) >
 #undef CONF_ISO
 {
@@ -63,8 +69,7 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ISO) >
 
 #define CONF_ANISO LightSample<LS> && surface_interactions::Anisotropic<Interaction> && concepts::FloatingPointLikeVectorial<Spectrum>
 
-template<class LS, class Interaction, class Spectrum>
-NBL_PARTIAL_REQ_TOP(CONF_ANISO)
+template<class LS, class Interaction, class Spectrum> NBL_PARTIAL_REQ_TOP(CONF_ANISO)
 struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ANISO) >
 #undef CONF_ANISO
 {
@@ -81,8 +86,7 @@ struct SMicrofacetConfiguration;
 
 #define MICROFACET_CONF_ISO LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>
 
-template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
-NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ISO)
+template<class LS, class Interaction, class MicrofacetCache, class Spectrum> NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ISO)
 struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ISO) > : SConfiguration<LS, Interaction, Spectrum>
 #undef MICROFACET_CONF_ISO
 {
@@ -95,8 +99,7 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
 
 #define MICROFACET_CONF_ANISO LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>
 
-template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
-NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ANISO)
+template<class LS, class Interaction, class MicrofacetCache, class Spectrum> NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ANISO)
 struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ANISO) > : SConfiguration<LS, Interaction, Spectrum>
 #undef MICROFACET_CONF_ANISO
 {
@@ -109,7 +112,7 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
 
 #define NBL_BXDF_CONFIG_ALIAS(TYPE,CONFIG) using TYPE = typename CONFIG::TYPE
 
-
+// TODO: make the `monochrome_type` take `scalar_type` of spectral_type
 #define BXDF_CONFIG_TYPE_ALIASES(Config) NBL_BXDF_CONFIG_ALIAS(sample_type, Config);\
 using scalar_type = typename sample_type::scalar_type;\
 using vector2_type = vector<scalar_type,2>;\
