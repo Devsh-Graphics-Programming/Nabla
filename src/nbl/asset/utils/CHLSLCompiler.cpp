@@ -566,7 +566,8 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
                     logger.log(std::string("Failed Writing To Temp ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
                     return;
                 }
-                m_system->deleteFile(filePath);
+                saveFile = nullptr; // drop handle first
+                m_system->deleteFile(filePath); // safe to delete + rename
                 auto renameResult = m_system->moveFileOrDirectory(filePath + "_temp", filePath);
                 if (renameResult)
                 {
