@@ -192,11 +192,12 @@ struct SCookTorrance
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache> && !IsBSDF)
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction) NBL_CONST_MEMBER_FUNC
     {
-        const MicrofacetCache cache = MicrofacetCache::template createForReflection<isotropic_interaction_type, sample_type>(interaction, _sample);
+        const MicrofacetCache cache = MicrofacetCache::template createForReflection<Interaction, sample_type>(interaction, _sample);
         return evalAndWeight(_sample, interaction, cache);
     }
             
-    template<class Interaction=isotropic_interaction_type, class MicrofacetCache=isocache_type
+    template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
+            class MicrofacetCache=conditional_t<IsAnisotropic,anisocache_type,isocache_type>
             NBL_FUNC_REQUIRES(RequiredInteraction<Interaction> && RequiredMicrofacetCache<MicrofacetCache> && IsBSDF)
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction) NBL_CONST_MEMBER_FUNC
     {
