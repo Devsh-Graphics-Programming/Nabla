@@ -23,7 +23,6 @@ namespace config_concepts
 NBL_CONCEPT_BEGIN(1)
 #define conf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
@@ -57,8 +56,6 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ISO) >
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = false;
 
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
-
     using anisotropic_interaction_type = surface_interactions::SAnisotropic<Interaction>;
     using sample_type = LS;
     using spectral_type = Spectrum;
@@ -73,7 +70,6 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ANISO) >
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = true;
 
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
 
     using anisotropic_interaction_type = Interaction;
     using sample_type = LS;
@@ -121,7 +117,7 @@ using vector3_type = vector<scalar_type,3>;\
 using monochrome_type = vector<scalar_type,1>;\
 NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config); \
 using isotropic_interaction_type = typename anisotropic_interaction_type::isotropic_interaction_type;\
-NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);\
+using ray_dir_info_type = typename sample_type::ray_dir_info_type;\
 NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);\
 using quotient_weight_type = sampling::quotient_and_weight<spectral_type,scalar_type>;\
 using value_weight_type = sampling::value_and_weight<spectral_type,scalar_type>;
