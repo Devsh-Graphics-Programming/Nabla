@@ -33,7 +33,8 @@ struct SLambertianBase
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         const spectral_type quo = hlsl::promote<spectral_type>(_sample.getNdotL(_clamp) * numbers::inv_pi<scalar_type> * hlsl::mix(1.0, 0.5, IsBSDF));
-        return value_weight_type::create(quo, forwardPdf(_sample, interaction));
+        Cache dummy;
+        return value_weight_type::create(quo, forwardPdf(_sample, interaction, dummy));
     }
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
@@ -62,14 +63,14 @@ struct SLambertianBase
         return generate(anisotropic_interaction_type::create(interaction), u, _cache);
     }
 
-    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         NBL_IF_CONSTEXPR (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
         else
             return sampling::ProjectedHemisphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
     }
-    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         return forwardPdf(_sample, interaction.isotropic);
     }

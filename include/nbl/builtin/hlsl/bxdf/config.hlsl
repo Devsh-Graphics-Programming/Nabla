@@ -23,16 +23,10 @@ namespace config_concepts
 NBL_CONCEPT_BEGIN(1)
 #define conf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::vector2_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::quotient_weight_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::value_weight_type))
 );
 #undef conf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -45,9 +39,6 @@ NBL_CONCEPT_BEGIN(1)
 #define conf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(BasicConfiguration, T))
-    ((NBL_CONCEPT_REQ_TYPE)(T::monochrome_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::matrix3x3_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
 );
 #undef conf
@@ -66,18 +57,11 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ISO) >
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = false;
 
-    using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using monochrome_type = vector<scalar_type, 1>;
 
-    using isotropic_interaction_type = Interaction;
-    using anisotropic_interaction_type = surface_interactions::SAnisotropic<isotropic_interaction_type>;
+    using anisotropic_interaction_type = surface_interactions::SAnisotropic<Interaction>;
     using sample_type = LS;
     using spectral_type = Spectrum;
-    using quotient_weight_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using value_weight_type = sampling::value_and_weight<spectral_type, scalar_type>;
 };
 
 #define CONF_ANISO LightSample<LS> && surface_interactions::Anisotropic<Interaction> && concepts::FloatingPointLikeVectorial<Spectrum>
@@ -89,18 +73,11 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(CONF_ANISO) >
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = true;
 
-    using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using monochrome_type = vector<scalar_type, 1>;
 
-    using isotropic_interaction_type = typename Interaction::isotropic_interaction_type;
     using anisotropic_interaction_type = Interaction;
     using sample_type = LS;
     using spectral_type = Spectrum;
-    using quotient_weight_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using value_weight_type = sampling::value_and_weight<spectral_type, scalar_type>;
 };
 
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum NBL_STRUCT_CONSTRAINABLE>
@@ -117,9 +94,6 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
 
     using base_type = SConfiguration<LS, Interaction, Spectrum>;
 
-    using matrix3x3_type = matrix<typename base_type::scalar_type,3,3>;
-
-    using isocache_type = MicrofacetCache;
     using anisocache_type = SAnisotropicMicrofacetCache<MicrofacetCache>;
 };
 
@@ -134,31 +108,28 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
 
     using base_type = SConfiguration<LS, Interaction, Spectrum>;
 
-    using matrix3x3_type = matrix<typename base_type::scalar_type,3,3>;
-
-    using isocache_type = typename MicrofacetCache::isocache_type;
     using anisocache_type = MicrofacetCache;
 };
 
 #define NBL_BXDF_CONFIG_ALIAS(TYPE,CONFIG) using TYPE = typename CONFIG::TYPE
 
 
-#define BXDF_CONFIG_TYPE_ALIASES(Config) NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);\
+#define BXDF_CONFIG_TYPE_ALIASES(Config) NBL_BXDF_CONFIG_ALIAS(sample_type, Config);\
+using scalar_type = typename sample_type::scalar_type;\
+using vector2_type = vector<scalar_type,2>;\
+using vector3_type = vector<scalar_type,3>;\
+using monochrome_type = vector<scalar_type,1>;\
+NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config); \
+using isotropic_interaction_type = typename anisotropic_interaction_type::isotropic_interaction_type;\
 NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(sample_type, Config);\
 NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(quotient_weight_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(value_weight_type, Config);\
+using quotient_weight_type = sampling::quotient_and_weight<spectral_type,scalar_type>;\
+using value_weight_type = sampling::value_and_weight<spectral_type,scalar_type>;
 
 #define MICROFACET_BXDF_CONFIG_TYPE_ALIASES(Config) BXDF_CONFIG_TYPE_ALIASES(Config);\
-NBL_BXDF_CONFIG_ALIAS(matrix3x3_type, Config);\
-NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);\
+using matrix3x3_type = matrix<scalar_type,3,3>;\
 NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);\
+using isocache_type = typename anisocache_type::isocache_type;
 
 }
 }
