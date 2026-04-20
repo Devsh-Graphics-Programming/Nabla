@@ -68,7 +68,7 @@ struct Unidirectional
             if (ray.shouldDoMIS() && matLightID.isLight())
             {
                 emissive *= ray.getPayloadThroughput();
-                const scalar_type weight = nee.deferredWeight(scene, lightID, ray);
+                const scalar_type weight = nee.backwardWeight(scene, lightID, ray);
                 assert(!hlsl::isinf(weight));
                 emissive *= ray.foundEmissiveMIS(weight * weight);
             }
@@ -93,26 +93,28 @@ struct Unidirectional
         assert(neeProbability >= 0.0 && neeProbability <= 1.0);
         if (!partitionRandVariable(eps0.z, rcpChoiceProb))
         {
-            typename nee_type::sample_quotient_return_type ret = nee.template generateAndQuotientAndWeight<material_system_type>(
+            const typename nee_type::sample_quotient_return_type ret = nee.template generateAndQuotientAndWeight<material_system_type>(
                 scene, materialSystem, intersectP,
                 interaction, eps0, ray
             );
-            scalar_type t = ret.getT();
-            sample_type nee_sample = ret.getSample();
-            quotient_weight_type neeContrib = ret.getQuotientWeight();
+            const quotient_weight_type neeContrib = ret.getQuotientWeight();
 
             // While NEE or other generators are not supposed to pick up Delta lobes by accident, we need the MIS weights to add up to 1 for the non-delta lobes.
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
-            // Meaning that eval's pdf should equal quotient's pdf , this way even the diffuse contributions coming from within a specular lobe get a MIS weight near 0 for NEE.
+            // Meaning that eval's weight should equal quotient's weight, this way even the diffuse contributions coming from within a specular lobe get a MIS weight near 0 for NEE.
             // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
-            if (neeContrib.pdf() > scalar_type(0.0))
+            const scalar_type neeWeight = neeContrib.weight();
+            if (neeWeight > scalar_type(0.0))
             {
+                const sample_type nee_sample = ret.getSample();
                 value_weight_type bsdfContrib = materialSystem.evalAndWeight(matID, nee_sample, interaction);
-                neeContrib._quotient *= bsdfContrib.value() * rcpChoiceProb;
-                if (neeContrib.pdf() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+
+                spectral_type neeQuotient = neeContrib.quotient();
+                neeQuotient *= bsdfContrib.value() * rcpChoiceProb;
+                if (neeWeight < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
                 {
-                    const scalar_type otherGenOverLightAndChoice = bsdfContrib.weight() * rcpChoiceProb / neeContrib.pdf();
-                    neeContrib._quotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
+                    const scalar_type otherGenOverLightAndChoice = bsdfContrib.weight() * rcpChoiceProb / neeWeight;
+                    neeQuotient /= 1.f + otherGenOverLightAndChoice * otherGenOverLightAndChoice;   // balance heuristic
                 }
 
                 const vector3_type origin = intersectP;
@@ -120,15 +122,15 @@ struct Unidirectional
                 ray_type nee_ray;
                 nee_ray.init(origin, direction);
                 nee_ray.template setInteraction<anisotropic_interaction_type>(interaction);
-                nee_ray.setT(t);
+                nee_ray.setT(ret.getT()-0.00001f); // avoid self-intersect
                 tolerance_method_type::template adjust<ray_type>(nee_ray, intersectData.getGeometricNormal(), depth);
-                if (getLuma(neeContrib.quotient()) > lumaContributionThreshold)
-                    ray.addPayloadContribution(neeContrib.quotient() * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
+                if (getLuma(neeQuotient) > lumaContributionThreshold)
+                    ray.addPayloadContribution(neeQuotient * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
             }
         }
 
         // sample BSDF
-        scalar_type bxdfPdf;
+        scalar_type bxdfWeight;
         vector3_type bxdfSample;
         vector3_type throughput = ray.getPayloadThroughput();
         {
@@ -141,15 +143,15 @@ struct Unidirectional
             // the value of the bsdf divided by the probability of the sample being generated
             quotient_weight_type bsdf_quotient_weight = materialSystem.quotientAndWeight(matID, bsdf_sample, interaction, _cache);
             throughput *= bsdf_quotient_weight.quotient();
-            bxdfPdf = bsdf_quotient_weight.pdf();
+            bxdfWeight = bsdf_quotient_weight.weight();
             bxdfSample = bsdf_sample.getL().getDirection();
         }
 
         // additional threshold
         const float lumaThroughputThreshold = lumaContributionThreshold;
-        if (bxdfPdf > bxdfPdfThreshold && getLuma(throughput) > lumaThroughputThreshold)
+        if (bxdfWeight > bxdfWeightThreshold && getLuma(throughput) > lumaThroughputThreshold)
         {
-            scalar_type otherTechniqueHeuristic = neeProbability / bxdfPdf; // numerically stable, don't touch
+            scalar_type otherTechniqueHeuristic = neeProbability / bxdfWeight; // numerically stable, don't touch
             assert(!hlsl::isinf(otherTechniqueHeuristic));
             ray.updateThroughputAndMISWeights(throughput, otherTechniqueHeuristic * otherTechniqueHeuristic);
 
@@ -170,7 +172,7 @@ struct Unidirectional
     {
         measure_type finalContribution = nee.getEnvRadiance(ray);
         typename nee_type::light_id_type env_light_id = nee.getEnvLightId();
-        const scalar_type weight = nee.deferredWeight(scene, env_light_id, ray);
+        const scalar_type weight = nee.backwardWeight(scene, env_light_id, ray);
         finalContribution *= ray.getPayloadThroughput();
         if (weight > scalar_type(0.0))
             finalContribution *= ray.foundEmissiveMIS(weight * weight);
@@ -208,7 +210,7 @@ struct Unidirectional
     nee_type nee;
     scene_type scene;
 
-    scalar_type bxdfPdfThreshold;
+    scalar_type bxdfWeightThreshold;
     scalar_type lumaContributionThreshold; // OETF smallest perceptible value
     spectral_type spectralTypeToLumaCoeffs;
 };

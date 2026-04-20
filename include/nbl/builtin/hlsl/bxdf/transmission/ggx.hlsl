@@ -17,10 +17,14 @@ namespace transmission
 {
 
 template<class Config>
-using SGGXDielectricIsotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, false, ndf::MTT_REFLECT_REFRACT>, fresnel::Dielectric<typename Config::monochrome_type> >;
+using SGGXDielectricIsotropic = SCookTorrance<Config,
+	ndf::GGX<typename Config::sample_type::scalar_type, false, ndf::MTT_REFLECT_REFRACT>, fresnel::Dielectric<vector<typename Config::sample_type::scalar_type,1> >
+>;
 
 template<class Config>
-using SGGXDielectricAnisotropic = SCookTorrance<Config, ndf::GGX<typename Config::scalar_type, true, ndf::MTT_REFLECT_REFRACT>, fresnel::Dielectric<typename Config::monochrome_type> >;
+using SGGXDielectricAnisotropic = SCookTorrance<Config,
+	ndf::GGX<typename Config::sample_type::scalar_type, true, ndf::MTT_REFLECT_REFRACT>, fresnel::Dielectric<vector<typename Config::sample_type::scalar_type,1> >
+>;
 
 }
 

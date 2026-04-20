@@ -67,7 +67,8 @@ struct SOrenNayarBase
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
-        return value_weight_type::create(__eval<SQuery>(query, _sample, interaction), forwardPdf(_sample, interaction));
+        Cache dummy;
+        return value_weight_type::create(__eval<SQuery>(query, _sample, interaction), forwardPdf(_sample, interaction,dummy));
     }
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
@@ -96,22 +97,23 @@ struct SOrenNayarBase
         return generate(anisotropic_interaction_type::create(interaction), u, _cache);
     }
 
-    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         if (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
         else
             return sampling::ProjectedHemisphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
     }
-    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return forwardPdf(_sample, interaction.isotropic);
+        return forwardPdf(_sample, interaction.isotropic, _cache);
     }
 
     template<typename Query>
     quotient_weight_type __quotientAndWeight(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type _pdf = forwardPdf(_sample, interaction);
+        Cache dummy;
+        scalar_type _pdf = forwardPdf(_sample, interaction, dummy);
         scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
         return quotient_weight_type::create(q, _pdf);
     }

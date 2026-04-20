@@ -667,7 +667,7 @@ struct iridescent_base
     template<bool SupportsTransmission, typename Colorspace>
     T __call(const vector_type _iork3, const vector_type etak23, const scalar_type clampedCosTheta) NBL_CONST_MEMBER_FUNC
     {
-        return impl::iridescent_helper<T,SupportsTransmission>::template __call<Colorspace>(D, ior1, ior2, ior3, iork3,
+        return impl::iridescent_helper<T,SupportsTransmission>::template __call<Colorspace>(D, ior1, ior2, ior3, _iork3,
                                                             eta12, eta23, etak23, clampedCosTheta);
     }
 
