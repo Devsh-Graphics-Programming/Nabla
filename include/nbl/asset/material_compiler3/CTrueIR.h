@@ -41,6 +41,32 @@ class CTrueIR : public CNodePool
 		//
 		template<typename T> requires std::is_base_of_v<INode,std::remove_const_t<T>>
 		using typed_pointer_type = _typed_pointer_type<T>;
+		// To use a bump map, the Material needs to be provided UVs (which can or can not have associated tangents and smooth normals), but that's the responsibility of backend.
+		// The bump map just needs to be provided a TBN basis thats orthogonal so that normals or derivatives can be transformed.
+		// Normal maps will use Olano so won't be assumed to be normalized (they wouldn't be anyway due to interpolation), and derivative maps are never normalized and have huge range.
+		// Depending on the mode (deformation stretch enabled or not) the TB of the matrix will be normalized before the multiplication so that TBN is orthonormal and does not impart a UV stretch.
+		// After multiplication the normal will be normalized again, which is when we should apply Schussler or Yining.
+		//  
+		// Schussler and Yining require we define a tangential microfacet from the perturbed normal `P` but differently:
+		// - Schussler wants normalize({-P.x,-P.y,0}) which is totally tangential and orthogonal to the geometric normal
+		// - Yining wants normalize({-P.xy*P.z,1-P.z*P.z}) which is orthogonal to the perturbed normal
+		// Both give an NDF with average normal projected onto the geometric normal being colinear to the geometric normal.
+		// Each microfacet has different pros and cons:
+		// - Tangential microfacet can use 100% perfect mirror material because its impossible to get 1-order scattering from it (camera and light can't see it at the same time)
+		// - Mirror Tangential microfacet makes 2-nd order scattering tractable, just evaluate the BRDF 3 times with original L and V, then once with reflected L and reflected V
+		// - for Lambertian BRDF this is only 2 evaluations because reflected V doesn't change anything
+		// - the dot products with reflected L or V can be computed quickly from the regular ones, but `H` always changes in this case
+		// - Orthogonal microfacet makes sure zero masking is achieved when LdotP=1 and appearance is 100% preserved in this case
+		// - Orthogonal microfacet can be seen directly and therefore it needs to have the same BxDF as the perturbed microfacet
+		// - The above requirements makes 2-nd order scattering intractable for orthogonal microfacets without random walks in the surface profile
+		// - We only need to evaluate the BxDF twice with Yinning and all products with perturbed normal can be obtained via permutation and scaling
+		// Both approaches are imperfect and in the limit will cause "fresnel lens" like appearance with Cook Torrance low roughness materials, you'll see a blend between classical bump mapped appearance and:
+		// - for 2nd-order Schussler a reflection of the objects by a flipped normal {-P.xy,P.z} due to mirror microfacet making a "virtual normal" behind the mirror 
+		// - for 1st-order Yinning a reflection of the objects by an orthogonal normal which approaches the geometric normal as the perturbed normal gets more extreme
+		// This means that a tangential microfacet will show no blend/retroreflection if both L and V are behind the tangential microfacet.
+		// Whereas an orthogonal microfacet will show no blend/retroreflection if both L and V are below the orthogonal microfacet, so tangential ensures this property for half the hemisphere.
+		// But with extreme normal perturbation, the appearance of Schussler will match that of a very deep V-groove losing a lot of energy, but Yining will look like a flat surface of the same material.
+		// This is because Schussler has no bound on the ratio of the projected microsurface area on the geometric surface, whereas Yining bounds it to be <= 2.0 
 
 
 		// Each material comes down to this
@@ -68,7 +94,7 @@ class CTrueIR : public CNodePool
 		// - multiscatter compensation
 		// - compilation failure to unsupported complex layering
 		// - compilation failure to unsupported complex layering
-		bool addMaterials(const CFrontendIR* forest);
+		NBL_API2 bool addMaterials(const CFrontendIR* forest);
 
 	protected:
 		using CNodePool::CNodePool;
