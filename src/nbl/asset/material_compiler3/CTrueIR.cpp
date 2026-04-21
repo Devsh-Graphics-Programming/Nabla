@@ -40,6 +40,12 @@ using namespace nbl::system;
 // I can see some optimizations for TBN calc where we only recompute the tangent space .xy of L and V for each TBN since N stays constant and NdotX2 can be known.
 // Since we must have full TBN for anisotropic BxDF, tangent space V can be computed quicker than fetching it. 
 // 
+// Pertubed normal can be spilled or refetched. If it gets refetched some coefficients need to be recomputed which allow for taking dot products of V and L with it.
+// If the BRDF is anisotropic, a small nested TBN needs construction so perturbed normal is 3 coefficients.
+// Spilling as a float16_t3 or float16_t4 is identical memory traffic to a bilinear derivative map tap assuming UNORM8 storage.
+// Tangents consistent with unperturbed TBN can be worked out as `B_p = normalize(cross(N_p,T))` and `T_p = cross(B_p,N_p)`, unless `N_p==T` then cross N_p with B instead.
+// If tangents want to be rotated/explicitly controlled, then the spilled normal plus a rotation are still 3 coefficients if encoded as a quaternion (painful to decode) or 4 coeffs.
+// 
 // Already computed shading normals and other BRDF parameters will be computed on demand but also cached (statically or dynamically) in registers.
 // Register leftovers can be passed between command streams to not re-fetch or recompute BxDF parameters.
 // Register allocation should spill whole quantities (all of RGB of a color or XYZ of a normal) not singular channels.
@@ -55,7 +61,7 @@ bool CTrueIR::addMaterials(const CFrontendIR* forest)
 	//
 	struct StackEntry
 	{
-		const IExprNode* node;
+		const CFrontendIR::IExprNode* node;
 		// using post-order like stack but with a pre-order DFS
 		uint8_t visited = false;
 	};

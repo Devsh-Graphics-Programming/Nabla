@@ -921,7 +921,7 @@ class CFrontendIR final : public CNodePool
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		NBL_API2 bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() {return m_rootNodes;}
+		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() const {return m_rootNodes;}
 
 		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
 		// TODO: shall we copy and hand out a new handle? Allow RootNode from a foreign const pool
