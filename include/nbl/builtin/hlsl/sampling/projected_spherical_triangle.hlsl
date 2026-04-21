@@ -55,7 +55,7 @@ struct ProjectedSphericalTriangle
     static ProjectedSphericalTriangle<T,UsePdfAsWeight> create(NBL_REF_ARG(shapes::SphericalTriangle<T>) shape, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
     {
         ProjectedSphericalTriangle<T,UsePdfAsWeight> retval;
-        retval.sphtri = SphericalTriangle<T, UsePdfAsWeight>::create(shape);
+        retval.sphtri = SphericalTriangle<T>::create(shape);
 
         const scalar_type minimumProjSolidAngle = 0.0;
         matrix<T, 3, 3> m = matrix<T, 3, 3>(shape.vertices[0], shape.vertices[1], shape.vertices[2]);
@@ -83,7 +83,7 @@ struct ProjectedSphericalTriangle
 
     density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
     {
-        return sphtri.getRcpSolidAngle() * bilinearPatch.forwardPdf(u,cache.bilinearCache);
+        return sphtri.rcpSolidAngle * bilinearPatch.forwardPdf(u,cache.bilinearCache);
     }
 
     weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
@@ -98,17 +98,17 @@ struct ProjectedSphericalTriangle
         NBL_IF_CONSTEXPR (UsePdfAsWeight)
         {
             const vector2_type u = sphtri.generateInverse(L);
-            return sphtri.getRcpSolidAngle() * bilinearPatch.backwardPdf(u);
+            return sphtri.rcpSolidAngle * bilinearPatch.backwardPdf(u);
         }
         // make the MIS weight always abs because even when receiver is a BRDF, the samples in lower hemisphere will get killed and MIS weight never used
         return hlsl::abs(hlsl::dot(L,receiverNormal))/projSolidAngle;
     }
 
-    sampling::SphericalTriangle<T, UsePdfAsWeight> sphtri;
+    sampling::SphericalTriangle<T> sphtri;
     Bilinear<scalar_type> bilinearPatch;
     // TODO: erase when UsePdfAsWeight==false
     vector3_type receiverNormal;
-    vector3_type projSolidAngle;
+    scalar_type projSolidAngle;
 };
 
 } // namespace sampling

@@ -19,202 +19,212 @@ namespace hlsl
 namespace sampling
 {
 
-template<typename T>
+// UseRealSinCos=true  (default): math::sincos uses real sin+cos; full precision near au=n*pi, Jacobian test passes.
+// UseRealSinCos=false          : math::sincos uses cos + sqrt(1-c*c); saves one special-function op but loses mantissa as |cos_au| -> 1.
+template<typename T, bool UseRealSinCos = true>
 struct SphericalRectangle
 {
-    using scalar_type = T;
-    using vector2_type = vector<T, 2>;
-    using vector3_type = vector<T, 3>;
-    using vector4_type = vector<T, 4>;
-    using matrix3x3_type = matrix<T, 3, 3>;
+   using scalar_type    = T;
+   using vector2_type   = vector<T, 2>;
+   using vector3_type   = vector<T, 3>;
+   using vector4_type   = vector<T, 4>;
+   using matrix3x3_type = matrix<T, 3, 3>;
 
-    // BackwardTractableSampler concept types
-    using domain_type = vector2_type;
-    using codomain_type = vector3_type;
-    using density_type = scalar_type;
-    using weight_type = density_type;
+   // BackwardTractableSampler concept types
+   using domain_type   = vector2_type;
+   using codomain_type = vector3_type;
+   using density_type  = scalar_type;
+   using weight_type   = density_type;
 
-    struct cache_type {};
+   struct cache_type
+   {
+   };
 
-    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect, const vector3_type observer)
-    {
-        return create(rect.basis,rect.solidAngle(observer),rect.extents);
-    }
+   static SphericalRectangle<T, UseRealSinCos> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect, const vector3_type observer)
+   {
+      return create(rect.basis, rect.solidAngle(observer), rect.extents);
+   }
 
-    static SphericalRectangle<T> create(const matrix3x3_type _basis, NBL_CONST_REF_ARG(typename shapes::SphericalRectangle<T>::solid_angle_type) sa, const vector2_type _extents)
-    {
-        SphericalRectangle<T> retval;
-        retval.basis = _basis;
-        retval.r0 = sa.r0;
-        retval.extents = _extents;
+   static SphericalRectangle<T, UseRealSinCos> create(const matrix3x3_type _basis, NBL_CONST_REF_ARG(typename shapes::SphericalRectangle<T>::solid_angle_type) sa, const vector2_type _extents)
+   {
+      SphericalRectangle<T, UseRealSinCos> retval;
+      retval.basis   = _basis;
+      retval.r0      = sa.r0;
+      retval.extents = _extents;
 
-        retval.solidAngle = sa.value;
-        retval.b0 = sa.n_z[0];
-        retval.b1 = sa.n_z[2];
+      retval.solidAngle = sa.value;
+      retval.b0         = sa.n_z[0];
+      retval.b1         = sa.n_z[2];
 
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[2]);
-        angle_adder.addCosine(sa.cosGamma[3]);
-        retval.k = scalar_type(2.0) * numbers::pi<scalar_type> - angle_adder.getSumOfArccos();
+      math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[2]);
+      angle_adder.addCosine(sa.cosGamma[3]);
+      retval.k = scalar_type(2.0) * numbers::pi<scalar_type> - angle_adder.getSumOfArccos();
 
-        return retval;
-    }
+      return retval;
+   }
 
-    // Create directly from a local-frame corner position and rectangle extents.
-    // Use when you already know r0 (e.g. from a gnomonic projection) and don't
-    // need the shapes::SphericalRectangle + solidAngle(observer) roundtrip.
-    static SphericalRectangle<T> create(const matrix3x3_type _basis, const vector3_type _r0, const vector2_type _extents)
-    {
-        // Same math as shapes::SphericalRectangle::solidAngle() but without
-        // the mul(basis, origin - observer) step since we already have r0.
-        typename shapes::SphericalRectangle<T>::solid_angle_type sa;
-        sa.r0 = _r0;
+   // Create directly from a local-frame corner position and rectangle extents.
+   // Use when you already know r0 (e.g. from a gnomonic projection) and don't
+   // need the shapes::SphericalRectangle + solidAngle(observer) roundtrip.
+   static SphericalRectangle<T, UseRealSinCos> create(const matrix3x3_type _basis, const vector3_type _r0, const vector2_type _extents)
+   {
+      // Same math as shapes::SphericalRectangle::solidAngle() but without
+      // the mul(basis, origin - observer) step since we already have r0.
+      typename shapes::SphericalRectangle<T>::solid_angle_type sa;
+      sa.r0 = _r0;
 
-        const scalar_type zSq = _r0.z * _r0.z;
-        const vector4_type denorm_n_z = vector4_type(-_r0.y, _r0.x + _extents.x, _r0.y + _extents.y, -_r0.x);
-        sa.n_z = denorm_n_z * hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(zSq) + denorm_n_z * denorm_n_z);
-        sa.cosGamma = vector4_type(
-            -sa.n_z[0] * sa.n_z[1], -sa.n_z[1] * sa.n_z[2],
-            -sa.n_z[2] * sa.n_z[3], -sa.n_z[3] * sa.n_z[0]);
+      const scalar_type zSq         = _r0.z * _r0.z;
+      const vector4_type denorm_n_z = vector4_type(-_r0.y, _r0.x + _extents.x, _r0.y + _extents.y, -_r0.x);
+      sa.n_z                        = denorm_n_z * hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(zSq) + denorm_n_z * denorm_n_z);
+      sa.cosGamma                   = vector4_type(
+         -sa.n_z[0] * sa.n_z[1], -sa.n_z[1] * sa.n_z[2],
+         -sa.n_z[2] * sa.n_z[3], -sa.n_z[3] * sa.n_z[0]);
 
-        math::sincos_accumulator<scalar_type> acc = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[0]);
-        acc.addCosine(sa.cosGamma[1]);
-        acc.addCosine(sa.cosGamma[2]);
-        acc.addCosine(sa.cosGamma[3]);
-        sa.value = acc.getSumOfArccos() - scalar_type(2.0) * numbers::pi<scalar_type>;
+      math::sincos_accumulator<scalar_type> acc = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[0]);
+      acc.addCosine(sa.cosGamma[1]);
+      acc.addCosine(sa.cosGamma[2]);
+      acc.addCosine(sa.cosGamma[3]);
+      sa.value = acc.getSumOfArccos() - scalar_type(2.0) * numbers::pi<scalar_type>;
 
-        return create(_basis, sa, _extents);
-    }
+      return create(_basis, sa, _extents);
+   }
 
-    // shared core of generate and generateSurfaceOffset
-    // returns (xu, hv, d) packed into a vector3; caller derives either 2D offset or 3D direction
-    struct SCommonGen
-    {
-        scalar_type xu;
-        scalar_type d2;
-        scalar_type hv;
-        scalar_type cosElevation2;
-    };
-    SCommonGen __generate(const domain_type u) NBL_CONST_MEMBER_FUNC
-    {
-        SCommonGen retval;
+   // shared core of generate and generateSurfaceOffset
+   // returns (xu, hv, d) packed into a vector3; caller derives either 2D offset or 3D direction
+   struct SCommonGen
+   {
+      scalar_type xu;
+      scalar_type d2;
+      scalar_type hv;
+      scalar_type cosElevation2;
+   };
+   SCommonGen __generate(const domain_type u) NBL_CONST_MEMBER_FUNC
+   {
+      SCommonGen retval;
 
-        // algorithm needs r0.z < 0; use -abs(r0.z) without storing the flip
-        const scalar_type negAbsR0z = -hlsl::abs(r0.z);
-        const scalar_type r0zSq = r0.z * r0.z;
-        const vector2_type r1 = vector2_type(r0.x + extents.x, r0.y + extents.y);
+      // algorithm needs r0.z < 0; use -abs(r0.z) without storing the flip
+      const scalar_type negAbsR0z = -hlsl::abs(r0.z);
+      const scalar_type r0zSq     = r0.z * r0.z;
+      const vector2_type r1       = vector2_type(r0.x + extents.x, r0.y + extents.y);
 
-        const scalar_type au = u.x * solidAngle + k;
-        const scalar_type cos_au = hlsl::cos<scalar_type>(au);
-        const scalar_type numerator = b1 - cos_au * b0;
-        // (1-cos)*(1+cos) avoids catastrophic cancellation of 1-cos^2 when cos_au is near +/-1
-        const scalar_type sin_au_sq = (scalar_type(1.0) - cos_au) * (scalar_type(1.0) + cos_au);
-        const scalar_type absNegFu = hlsl::abs(numerator) * hlsl::rsqrt<scalar_type>(sin_au_sq);
-        const scalar_type rcpCu_2 = hlsl::max<scalar_type>(absNegFu * absNegFu + b0 * b0, scalar_type(1.0));
-        // sign(negFu) = sign(numerator) * sign(sin(au)); sin(au) < 0 iff au > PI
-        const scalar_type negFuSign = hlsl::select((au > numbers::pi<scalar_type>) != (numerator < scalar_type(0.0)), scalar_type(-1.0), scalar_type(1.0));
-        retval.xu = negAbsR0z * negFuSign * hlsl::rsqrt<scalar_type>(rcpCu_2 - scalar_type(1.0));
-        retval.xu = hlsl::clamp<scalar_type>(retval.xu, r0.x, r1.x); // avoid Infs
-        // TODO: see if we can compute this direct from definition of `d_2` ignoring the clamp on `xu`  and `cosElevation2` and reclamping this result in a different way
-        // with `d2 = r0zSq*(rcpCu_2*rcpCu_2-rcpCu_2)` or `d2 = r0zSq*rcpCu_2*(rcpCu_2-1)`
-        retval.d2 = retval.xu * retval.xu + r0zSq;
+      // au in [0, 4*pi] since u.x in [0,1], solidAngle <= 2*pi, k <= 2*pi.
+      // The sqrt path in math::sincos recovers sin sign via sign(theta), which only holds for theta in [-pi,pi].
+      // Real sin/cos handle any range, so only wrap on the sqrt path (compile-time branch folds away).
+      scalar_type au = u.x * solidAngle + k;
+      NBL_IF_CONSTEXPR(!UseRealSinCos)
+      {
+         // au in [0, 4*pi] -> peel at most two 2*pi periods to land in (-pi, pi].
+         au = hlsl::select(au > numbers::pi<scalar_type>, au - scalar_type(2.0) * numbers::pi<scalar_type>, au);
+         au = hlsl::select(au > numbers::pi<scalar_type>, au - scalar_type(2.0) * numbers::pi<scalar_type>, au);
+      }
+      scalar_type sin_au, cos_au;
+      math::sincos<scalar_type, UseRealSinCos>(au, sin_au, cos_au);
+      const scalar_type numerator = b1 - cos_au * b0;
+      // negFu carries the sign directly (numerator and sin_au both signed), so xu's sign drops
+      // out of a single multiply + hlsl::sign.
+      const scalar_type negFu   = numerator / sin_au;
+      const scalar_type rcpCu_2 = hlsl::max<scalar_type>(negFu * negFu + b0 * b0, scalar_type(1.0));
+      retval.xu                 = negAbsR0z * hlsl::sign(negFu) * hlsl::rsqrt<scalar_type>(rcpCu_2 - scalar_type(1.0));
+      retval.xu = hlsl::clamp<scalar_type>(retval.xu, r0.x, r1.x); // avoid Infs
+      retval.d2 = retval.xu * retval.xu + r0zSq;
 
-        const scalar_type h0 = r0.y * hlsl::rsqrt<scalar_type>(retval.d2 + r0.y * r0.y);
-        const scalar_type h1 = r1.y * hlsl::rsqrt<scalar_type>(retval.d2 + r1.y * r1.y);
-        retval.hv = h0 + u.y * (h1 - h0);
-        retval.cosElevation2 = scalar_type(1.0) - hlsl::min<scalar_type>(retval.hv * retval.hv,1);
+      const scalar_type h0 = r0.y * hlsl::rsqrt<scalar_type>(retval.d2 + r0.y * r0.y);
+      const scalar_type h1 = r1.y * hlsl::rsqrt<scalar_type>(retval.d2 + r1.y * r1.y);
+      retval.hv            = h0 + u.y * (h1 - h0);
+      retval.cosElevation2 = scalar_type(1.0) - hlsl::min<scalar_type>(retval.hv * retval.hv, 1);
 
-        return retval;
-    }
+      return retval;
+   }
 
-    // returns a normalized 3D direction in the local frame with correct r0.z sign
-    vector3_type generateNormalizedLocal(const domain_type u, NBL_REF_ARG(cache_type) cache, NBL_REF_ARG(scalar_type) hitDist) NBL_CONST_MEMBER_FUNC
-    {
-        const SCommonGen core = __generate(u);
-        scalar_type cosElevationOverD = hlsl::rsqrt(core.d2/core.cosElevation2);
-        // TODO: or shall we do some other more sophisticated clamp or correction? Is this even the right one to use?
-        cosElevationOverD = hlsl::select(hlsl::isnan(cosElevationOverD),1.f,cosElevationOverD);
+   // returns a normalized 3D direction in the local frame with correct r0.z sign
+   vector3_type generateNormalizedLocal(const domain_type u, NBL_REF_ARG(cache_type) cache, NBL_REF_ARG(scalar_type) hitDist) NBL_CONST_MEMBER_FUNC
+   {
+      const SCommonGen core         = __generate(u);
+      scalar_type cosElevationOverD = hlsl::rsqrt(core.d2 / core.cosElevation2);
+      // TODO: or shall we do some other more sophisticated clamp or correction? Is this even the right one to use?
+      cosElevationOverD = hlsl::select(hlsl::isnan(cosElevationOverD), 1.f, cosElevationOverD);
 
-        // TODO: investigate if due to precision we need to compute this as a `sqrt` then the quantity being computed is `core.cosElevation2/core.d2`
-        // which what alss `generateLocalBasisXY` needs, in which case `__generate` can already compute it and return it as `hitDist2`
-        hitDist = 1.f/cosElevationOverD;
+      // TODO: investigate if due to precision we need to compute this as a `sqrt` then the quantity being computed is `core.cosElevation2/core.d2`
+      // which what alss `generateLocalBasisXY` needs, in which case `__generate` can already compute it and return it as `hitDist2`
+      hitDist = 1.f / cosElevationOverD;
 
-        const vector3_type retval = vector3_type(core.xu / hitDist, core.hv, r0.z / hitDist);
-        assert(!hlsl::isnan(computeHitT(retval)));
-        return retval;
-    }
+      const vector3_type retval = vector3_type(core.xu / hitDist, core.hv, r0.z / hitDist);
+      assert(!hlsl::isnan(computeHitT(retval)));
+      return retval;
+   }
 
-    codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
-    {
-        scalar_type dummy;
-        const vector3_type localL = generateNormalizedLocal(u,cache,dummy);
-        // could return `hlsl::mul(hlsl::tranpose(basis),localL)` or just this
-        return basis[0]*localL[0]+basis[1]*localL[1]+basis[2]*localL[2];
-    }
+   codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+   {
+      scalar_type dummy;
+      const vector3_type localL = generateNormalizedLocal(u, cache, dummy);
+      // could return `hlsl::mul(hlsl::tranpose(basis),localL)` or just this
+      return basis[0] * localL[0] + basis[1] * localL[1] + basis[2] * localL[2];
+   }
 
-    // utility to determine maxT for a ray from L shot from the origin which we're sure intersects the rectangle
-    scalar_type computeHitT(const vector3_type L)
-    {
-        const scalar_type retval = hlsl::abs(r0.z/hlsl::dot(L,basis[2]));
-        {
-            const vector3_type hitPointRelative = L*retval;
-            const vector2_type uv = mul(basis,L).xy-r0.xy;
-            assert(uv[0]>=0.0 && uv[0]<=rectExtents[0]);
-            assert(uv[1]>=0.0 && uv[1]<=rectExtents[1]);
-        }
-        return retval;
-    }
+   // utility to determine maxT for a ray from L shot from the origin which we're sure intersects the rectangle
+   scalar_type computeHitT(const vector3_type L)
+   {
+      const scalar_type retval = hlsl::abs(r0.z / hlsl::dot(L, basis[2]));
+      {
+         const vector3_type hitPointRelative = L * retval;
+         const vector2_type uv               = mul(basis, L).xy - r0.xy;
+         assert(uv[0] >= 0.0 && uv[0] <= rectExtents[0]);
+         assert(uv[1] >= 0.0 && uv[1] <= rectExtents[1]);
+      }
+      return retval;
+   }
 
-    // returns a 2D offset on the rectangle surface including the r0 corner -useful for generating unnormalized worldspace L
-    vector2_type generateLocalBasisXY(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
-    {
-        const SCommonGen core = __generate(u);
-        const scalar_type r1y = r0.y + extents.y;
-        // TODO: see if we can compute this direct from definition of `d_2` ignoring the clamp on `xu`  and `cosElevation2`
-        const scalar_type yv = core.hv * hlsl::rsqrt(core.cosElevation2/core.d2);
+   // returns a 2D offset on the rectangle surface including the r0 corner -useful for generating unnormalized worldspace L
+   vector2_type generateLocalBasisXY(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+   {
+      const SCommonGen core = __generate(u);
+      const scalar_type r1y = r0.y + extents.y;
+      // TODO: see if we can compute this direct from definition of `d_2` ignoring the clamp on `xu`  and `cosElevation2`
+      const scalar_type yv = core.hv * hlsl::rsqrt(core.cosElevation2 / core.d2);
 
-        // fun fact, when one of the operands to min or max is NaN, the SPIR-V builtin will select the other one
-        // TODO: maybe try just `min(yv,ry1)`
-        const vector2_type retval = vector2_type(core.xu,hlsl::clamp(yv,r0.y,r1y));
-        assert(retval[0] >= r0.x && retval[1] >= r0.y);
-        assert(retval[0] <= r0.x+rectExtents[0] && retval[1] <= r0.y+rectExtents[1]);
-        return retval;
-    }
+      // fun fact, when one of the operands to min or max is NaN, the SPIR-V builtin will select the other one
+      // TODO: maybe try just `min(yv,ry1)`
+      const vector2_type retval = vector2_type(core.xu, hlsl::clamp(yv, r0.y, r1y));
+      assert(retval[0] >= r0.x && retval[1] >= r0.y);
+      assert(retval[0] <= r0.x + rectExtents[0] && retval[1] <= r0.y + rectExtents[1]);
+      return retval;
+   }
 
-    // its basically the hitpoint minus the observer origin
-    codomain_type generateUnnormalized(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
-    {
-        const vector2_type localXY = generateLocalBasisXY(u,cache);
-        // the `localXY` already contains r0.xy
-        return basis[0]*localXY[0]+basis[1]*localXY[1]+basis[2]*r0.z;
-    }
+   // its basically the hitpoint minus the observer origin
+   codomain_type generateUnnormalized(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+   {
+      const vector2_type localXY = generateLocalBasisXY(u, cache);
+      // the `localXY` already contains r0.xy
+      return basis[0] * localXY[0] + basis[1] * localXY[1] + basis[2] * r0.z;
+   }
 
-    density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
-    {
-        return scalar_type(1.0) / solidAngle;
-    }
+   density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
+   {
+      return scalar_type(1.0) / solidAngle;
+   }
 
-    weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
-    {
-        return forwardPdf(u, cache);
-    }
+   weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
+   {
+      return forwardPdf(u, cache);
+   }
 
-    density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
-    {
-        return scalar_type(1.0) / solidAngle;
-    }
+   density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
+   {
+      return scalar_type(1.0) / solidAngle;
+   }
 
-    weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
-    {
-        return backwardPdf(L);
-    }
+   weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
+   {
+      return backwardPdf(L);
+   }
 
-    matrix3x3_type basis;
-    vector3_type r0;
-    vector2_type extents;
-    scalar_type solidAngle;
-    scalar_type k;
-    scalar_type b0;
-    scalar_type b1;
+   matrix3x3_type basis;
+   vector3_type r0;
+   vector2_type extents;
+   scalar_type solidAngle;
+   scalar_type k;
+   scalar_type b0;
+   scalar_type b1;
 };
 
 } // namespace sampling

@@ -93,13 +93,22 @@ scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
 
 
 // valid only for `theta` in [-PI,PI]
-template <typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T>)
+// UseRealSinCos=true  -> back-to-back sin + cos. Saturates the special-function pipeline, enables vendor sincos fusion, full precision near multiples of pi.
+// UseRealSinCos=false -> cos + sqrt(1-c*c) with sign recovered from theta. Saves one special-function op when cos alone is cheaper than sin+cos, but suffers catastrophic cancellation as |c| -> 1.
+template <typename T, bool UseRealSinCos = true NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 {
-    s = sin<T>(theta);
-    c = cos<T>(theta);
-    // s = sqrt<T>(T(NBL_FP64_LITERAL(1.0))-c*c);
-    // s = ieee754::flipSign(s, theta < T(NBL_FP64_LITERAL(0.0)));
+    if (UseRealSinCos)
+    {
+        s = sin<T>(theta);
+        c = cos<T>(theta);
+    }
+    else
+    {
+        c = cos<T>(theta);
+        s = sqrt<T>(T(NBL_FP64_LITERAL(1.0))-c*c);
+        s = ieee754::flipSign(s, theta < T(NBL_FP64_LITERAL(0.0)));
+    }
 }
 
 template <typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)

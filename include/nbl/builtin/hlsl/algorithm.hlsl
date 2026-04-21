@@ -142,7 +142,9 @@ struct bound_t
 
     void comp_step(NBL_REF_ARG(Accessor) accessor, const uint32_t testPoint, const uint32_t rightBegin)
     {
-        if (compare(accessor[testPoint],value))
+        typename Accessor::value_type val;
+        accessor.get(testPoint, val);
+        if (compare(val,value))
             it = rightBegin;
     }
     void comp_step(NBL_REF_ARG(Accessor) accessor, const uint32_t testPoint)

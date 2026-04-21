@@ -35,10 +35,11 @@ struct UniformHemisphere
 
 	static codomain_type generate(const domain_type u)
 	{
-		typename ConcentricMapping<T>::cache_type cmCache;
+		typename ConcentricMapping<scalar_type>::cache_type cmCache;
 		const vector_t2 p = ConcentricMapping<T>::generate(u, cmCache);
+		assert(cmCache.r2 <= scalar_type(1.0));
 		const T z = T(1.0) - cmCache.r2;
-		const T xyScale = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(2.0) - cmCache.r2));
+		const T xyScale = hlsl::sqrt<scalar_type>(scalar_type(2.0) - cmCache.r2);
 		return vector_t3(p.x * xyScale, p.y * xyScale, z);
 	}
 
@@ -50,13 +51,13 @@ struct UniformHemisphere
 	static domain_type generateInverse(const codomain_type v)
 	{
 		// r_disk / r_xy = sqrt(1-z) / sqrt(1-z^2) = 1/sqrt(1+z)
-		const T scale = T(1.0) / hlsl::sqrt<T>(T(1.0) + v.z);
+		const scalar_type scale = hlsl::rsqrt<T>(T(1.0) + v.z);
 		return ConcentricMapping<T>::generateInverse(vector_t2(v.x * scale, v.y * scale));
 	}
 
 	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * numbers::inv_pi<T>;
+		return scalar_type(0.5) * numbers::inv_pi<T>;
 	}
 
 	static weight_type forwardWeight(const domain_type u, const cache_type cache)
