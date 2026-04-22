@@ -8,7 +8,7 @@
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/CCUDASharedMemory.h"
 #include "nbl/video/CCUDAImportedMemory.h"
-#include "nbl/video/CCUDASharedSemaphore.h"
+#include "nbl/video/CCUDAImportedSemaphore.h"
 
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -94,7 +94,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 
 		CUresult importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem);
 
-		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, ISemaphore* sem);
+		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sem);
 
 	protected:
 		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);

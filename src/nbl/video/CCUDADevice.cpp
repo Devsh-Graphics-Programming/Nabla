@@ -168,7 +168,7 @@ CUresult CCUDADevice::importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, ISemaphore* sema)
+CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sema)
 {
 	if (!sema || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -195,7 +195,7 @@ CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemap
 	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
 		return err;
 	
-	*outPtr = core::smart_refctd_ptr<CCUDASharedSemaphore>(new CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema), core::dont_grab);
+	*outPtr = core::smart_refctd_ptr<CCUDAImportedSemaphore>(new CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema), core::dont_grab);
 	return CUDA_SUCCESS;
 }
 

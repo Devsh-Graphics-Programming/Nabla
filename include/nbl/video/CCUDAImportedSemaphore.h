@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_VIDEO_C_CUDA_SHARED_SEMAPHORE_H_
-#define _NBL_VIDEO_C_CUDA_SHARED_SEMAPHORE_H_
+#ifndef _NBL_VIDEO_C_CUDA_IMPORTED_SEMAPHORE_H_
+#define _NBL_VIDEO_C_CUDA_IMPORTED_SEMAPHORE_H_
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
@@ -19,7 +19,7 @@
 namespace nbl::video
 {
 
-class NBL_API2 CCUDASharedSemaphore : public core::IReferenceCounted
+class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
 {
 public:
     friend class CCUDADevice;
@@ -28,14 +28,14 @@ public:
 
 protected:
    
-    CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, 
+    CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, 
       core::smart_refctd_ptr<ISemaphore> src, 
       CUexternalSemaphore semaphore)
         : m_device(std::move(device))
         , m_src(std::move(m_src))
         , m_handle(semaphore)
     {}
-    ~CCUDASharedSemaphore() override;
+    ~CCUDAImportedSemaphore() override;
 
     core::smart_refctd_ptr<CCUDADevice> m_device;
     core::smart_refctd_ptr<ISemaphore> m_src;
