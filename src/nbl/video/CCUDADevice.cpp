@@ -5,6 +5,8 @@
 
 #include <winternl.h>
 
+#include "nbl/video/CCUDAImportedMemory.h"
+
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
@@ -137,6 +139,35 @@ CUresult CCUDADevice::createSharedMemory(
 	return CUDA_SUCCESS;
 }
 
+CUresult CCUDADevice::importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem)
+{
+	if (!mem || !outPtr)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	auto& cu = m_handler->getCUDAFunctionTable();
+	auto handleType = mem->getCreationParams().externalHandleType;
+
+	if (!handleType) return CUDA_ERROR_INVALID_VALUE;
+
+	const auto externalHandle = mem->getExternalHandle();
+
+	CUDA_EXTERNAL_MEMORY_HANDLE_DESC extMemDesc = {};
+#ifdef _WIN32
+	extMemDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32;
+	extMemDesc.handle.win32.handle = externalHandle;
+#else
+	extMemDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
+	extMemDesc.handle.fd = externalHandle;
+#endif
+	extMemDesc.size = mem->getAllocationSize();
+
+	CUexternalMemory cuExtMem;
+	if (auto err = cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc); CUDA_SUCCESS != err)
+		return err;
+	*outPtr = core::smart_refctd_ptr<CCUDAImportedMemory>(new CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<IDeviceMemoryAllocation>(mem), cuExtMem), core::dont_grab);
+	return CUDA_SUCCESS;
+}
+
 CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, ISemaphore* sema)
 {
 	if (!sema || !outPtr)
@@ -164,8 +195,7 @@ CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemap
 	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
 		return err;
 	
-	// TODO(kevinyu): Fix the handle parameter later. Make it compile first.
-	*outPtr = core::smart_refctd_ptr<CCUDASharedSemaphore>(new CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema, {}), core::dont_grab);
+	*outPtr = core::smart_refctd_ptr<CCUDASharedSemaphore>(new CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema), core::dont_grab);
 	return CUDA_SUCCESS;
 }
 

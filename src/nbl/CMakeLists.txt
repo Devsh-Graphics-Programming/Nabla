@@ -296,6 +296,7 @@ set(NBL_VIDEO_SOURCES
 	video/CCUDADevice.cpp
 	video/CCUDASharedSemaphore.cpp
 	video/CCUDASharedMemory.cpp
+	video/CCUDAImportedMemory.cpp
 )
 
 set(NBL_SCENE_SOURCES
