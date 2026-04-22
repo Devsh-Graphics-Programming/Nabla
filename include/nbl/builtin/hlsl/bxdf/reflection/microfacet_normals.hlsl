@@ -134,6 +134,7 @@ struct SMicrofacetNormals
 
         const vector3_type N = hlsl::normalize(hlsl::mul(object_to_world, localN));
         isotropic_interaction_type interaction = isotropic_interaction_type::create(V, N);
+        interaction.luminosityContributionHint = colorspace::scRGBtoXYZ[1];
         return anisotropic_interaction_type::create(interaction);
     }
 
@@ -168,6 +169,7 @@ struct SMicrofacetNormals
         if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            iso.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
             return nested_brdf.evalAndWeight(sample_N, interaction_N);
@@ -215,6 +217,7 @@ struct SMicrofacetNormals
             V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
 
             typename bxdf_type::isotropic_interaction_type iso_reflected = bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
+            iso_reflected.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
             value_weight_type eval_double_t = nested_brdf.evalAndWeight(_sample, interaction_reflected);
@@ -236,6 +239,7 @@ struct SMicrofacetNormals
         if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            iso.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             return nested_brdf.generate(interaction_N, u, _cache.aniso_cache);
         }
@@ -278,6 +282,7 @@ struct SMicrofacetNormals
             ray_dir_info_type Vnr;
             Vnr.setDirection(V_negreflected);
             typename bxdf_type::isotropic_interaction_type iso_negreflected = bxdf_type::isotropic_interaction_type::create(Vnr, Np);
+            iso_negreflected.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_negreflected = bxdf_type::anisotropic_interaction_type::create(iso_negreflected);
             s = nested_brdf.generate(interaction_negreflected, u, _cache.aniso_cache);
             if (!s.isValid())
@@ -307,6 +312,7 @@ struct SMicrofacetNormals
         if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            iso.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
             return nested_brdf.forwardPdf(sample_N, interaction_N, __createChildCache(sample_N, interaction_N));
@@ -347,6 +353,7 @@ struct SMicrofacetNormals
             V_reflected.setDirection(hlsl::normalize(reflectV(NtdotV)));
 
             typename bxdf_type::isotropic_interaction_type iso_reflected = bxdf_type::isotropic_interaction_type::create(V_reflected, Np);
+            iso_reflected.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_reflected = bxdf_type::anisotropic_interaction_type::create(iso_reflected);
 
             pdf += (scalar_type(1.0) - lambda_p) * nested_brdf.forwardPdf(_sample, interaction_reflected, __createChildCache(_sample, interaction_reflected));
@@ -368,6 +375,7 @@ struct SMicrofacetNormals
         if (NdotNp > scalar_type(1.0 - 1e-5))
         {
             typename bxdf_type::isotropic_interaction_type iso = bxdf_type::isotropic_interaction_type::create(V, shadingNormal);
+            iso.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_N = bxdf_type::anisotropic_interaction_type::create(iso);
             const sample_type sample_N = sample_type::create(_sample.getL(), shadingNormal);
             typename bxdf_type::anisocache_type cache_N = __createChildCache(sample_N, interaction_N);
