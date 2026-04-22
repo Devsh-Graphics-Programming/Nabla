@@ -92,9 +92,9 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
 		CUresult createExportableMemory(core::smart_refctd_ptr<CCUDAExportableMemory>* outMem, struct CCUDAExportableMemory::SCreationParams&& inParams);
 
-		CUresult importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem);
+		CUresult importExternalMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem);
 
-		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sem);
+		CUresult importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sem);
 
 	protected:
 		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);

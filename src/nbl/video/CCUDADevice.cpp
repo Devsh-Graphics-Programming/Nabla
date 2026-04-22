@@ -139,10 +139,12 @@ CUresult CCUDADevice::createExportableMemory(
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem)
+CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem)
 {
 	if (!mem || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
+
+	const auto memProperty = mem->getCreationParams().memoryPropertyFlags;
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = mem->getCreationParams().externalHandleType;
@@ -168,7 +170,7 @@ CUresult CCUDADevice::importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sema)
+CUresult CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sema)
 {
 	if (!sema || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
