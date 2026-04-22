@@ -68,6 +68,7 @@ option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+option(_NBL_COMPILE_WITH_CUDA_ "Compile with CUDA" ON)
 set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
 option(NBL_EXPLICIT_MODULE_LOAD_LOG "Enable Runtime logs for external dynamic module loading" OFF)
@@ -95,9 +96,8 @@ configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${
 file(GENERATE OUTPUT "${CONFIG_OUTPUT}" INPUT "${CONFIG_DIRECOTORY}/.int/BuildConfigOptions.h.conf")
 nbl_install_file_spec("${CONFIG_OUTPUT}" nbl/config)
 
-if (NBL_COMPILE_WITH_CUDA)
+if (_NBL_COMPILE_WITH_CUDA_)
 	message(STATUS "Building with CUDA interop")
-	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
 	if (NBL_BUILD_OPTIX)
 		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
 	endif()
@@ -425,7 +425,7 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
-if(NBL_COMPILE_WITH_CUDA)
+if(_NBL_COMPILE_WITH_CUDA_)
 	target_compile_definitions(Nabla PUBLIC _NBL_COMPILE_WITH_CUDA_)
 endif()
 
@@ -665,7 +665,7 @@ target_link_libraries(Nabla PRIVATE volk)
 target_compile_definitions(Nabla PUBLIC $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>)
 
 # CUDA
-if (NBL_COMPILE_WITH_CUDA)
+if (_NBL_COMPILE_WITH_CUDA_)
 	list(APPEND PUBLIC_BUILD_INCLUDE_DIRS "${CUDAToolkit_INCLUDE_DIRS}")
 endif()
 
