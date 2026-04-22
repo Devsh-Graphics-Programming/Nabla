@@ -2,14 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/video/CCUDASharedMemory.h"
+#include "nbl/video/CCUDAExportableMemory.h"
 #include "nbl/video/CCUDADevice.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDASharedMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
+core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
 {
 	auto pd = device->getPhysicalDevice();
 	uint32_t memoryTypeBits = (1 << pd->getMemoryProperties().memoryTypeCount) - 1;
@@ -36,10 +36,10 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDASharedMemory::exportAsMemor
 		IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE, 
 		CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE, 
 		m_params.externalHandle, 
-		std::make_unique<CCUDADevice::SCUDACleaner>(core::smart_refctd_ptr<const CCUDASharedMemory>(this))).memory;
+		std::make_unique<CCUDADevice::SCUDACleaner>(core::smart_refctd_ptr<const CCUDAExportableMemory>(this))).memory;
 }
 
-CCUDASharedMemory::~CCUDASharedMemory()
+CCUDAExportableMemory::~CCUDAExportableMemory()
 {
 	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 

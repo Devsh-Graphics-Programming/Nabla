@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_VIDEO_C_CUDA_SHARED_MEMORY_H_
-#define _NBL_VIDEO_C_CUDA_SHARED_MEMORY_H_
+#ifndef _NBL_VIDEO_C_CUDA_EXPORTABLE_MEMORY_H_
+#define _NBL_VIDEO_C_CUDA_EXPORTABLE_MEMORY_H_
 
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -24,7 +24,7 @@ class CCUDAMemoryMapping: public core::IReferenceCounted
 {
 };
 
-class NBL_API2 CCUDASharedMemory : public core::IReferenceCounted
+class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
 public:
     friend class CCUDADevice;
@@ -51,11 +51,11 @@ public:
 
 protected:
 
-    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
+    CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
         : m_device(std::move(device))
         , m_params(std::move(params))
     {}
-    ~CCUDASharedMemory() override;
+    ~CCUDAExportableMemory() override;
 
     core::smart_refctd_ptr<CCUDADevice> m_device;
     core::smart_refctd_ptr<IDeviceMemoryAllocation> m_allocation;

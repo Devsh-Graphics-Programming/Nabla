@@ -88,14 +88,14 @@ CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::createSharedMemory(
-	core::smart_refctd_ptr<CCUDASharedMemory>* outMem, 
-	CCUDASharedMemory::SCreationParams&& inParams)
+CUresult CCUDADevice::createExportableMemory(
+	core::smart_refctd_ptr<CCUDAExportableMemory>* outMem, 
+	CCUDAExportableMemory::SCreationParams&& inParams)
 {
 	if (!outMem)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	CCUDASharedMemory::SCachedCreationParams params = { inParams };
+	CCUDAExportableMemory::SCachedCreationParams params = { inParams };
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 
@@ -134,7 +134,7 @@ CUresult CCUDADevice::createSharedMemory(
 		return err;
 	}
 	
-	*outMem = core::smart_refctd_ptr<CCUDASharedMemory>(new CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params)), core::dont_grab);
+	*outMem = core::smart_refctd_ptr<CCUDAExportableMemory>(new CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params)), core::dont_grab);
 
 	return CUDA_SUCCESS;
 }

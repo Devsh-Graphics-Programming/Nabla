@@ -6,7 +6,7 @@
 
 
 #include "nbl/video/IPhysicalDevice.h"
-#include "nbl/video/CCUDASharedMemory.h"
+#include "nbl/video/CCUDAExportableMemory.h"
 #include "nbl/video/CCUDAImportedMemory.h"
 #include "nbl/video/CCUDAImportedSemaphore.h"
 
@@ -90,7 +90,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		const CCUDAHandler* getHandler() const { return m_handler.get();  }
 		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
 		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
-		CUresult createSharedMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, struct CCUDASharedMemory::SCreationParams&& inParams);
+		CUresult createExportableMemory(core::smart_refctd_ptr<CCUDAExportableMemory>* outMem, struct CCUDAExportableMemory::SCreationParams&& inParams);
 
 		CUresult importGPUMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem);
 
