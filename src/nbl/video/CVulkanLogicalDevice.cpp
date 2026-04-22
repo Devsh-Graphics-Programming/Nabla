@@ -194,7 +194,6 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     VkImportMemoryWin32HandleInfoKHR importInfo = { 
         .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
         .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
-        .handle = info.externalHandle
     };
 
     VkExportMemoryWin32HandleInfoKHR handleInfo = {
@@ -219,12 +218,13 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     
     const void** pNext = &vk_allocateFlagsInfo.pNext;
 
+    external_handle_t externalHandle = ExternalHandleNull;
     if (info.externalHandleType)
     {
         if (info.externalHandle) //importing
         {
-            auto duped = DuplicateExternalHandle(info.externalHandle);
-            const_cast<external_handle_t&>(info.externalHandle) = duped;
+            externalHandle = DuplicateExternalHandle(info.externalHandle);
+            importInfo.handle = externalHandle;
             *pNext = &importInfo;
         }
         else // exporting
@@ -295,7 +295,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
 #else
             vkGetMemoryFdKHR
 #endif
-            (m_vkdev, &handleInfo, const_cast<external_handle_t*>(&info.externalHandle)))
+            (m_vkdev, &handleInfo, &externalHandle))
         {
             m_devf.vk.vkFreeMemory(m_vkdev, vk_deviceMemory, 0);
             return {};
@@ -307,7 +307,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
     CVulkanMemoryAllocation::SCreationParams params = { info, memoryPropertyFlags, !!info.dedication };
     IDeviceMemoryAllocator::SAllocation ret = {};
-    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory, std::move(params));
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory, externalHandle, std::move(params));
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
     {

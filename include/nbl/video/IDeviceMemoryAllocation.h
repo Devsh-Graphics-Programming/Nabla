@@ -187,6 +187,8 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         inline const SCreationParams& getCreationParams() const { return m_params; }
 
+        virtual external_handle_t getExternalHandle() const = 0;
+
     protected:
         inline void setPostDestroyCleanup(std::unique_ptr<struct ICleanup>&& cleanup)
         {

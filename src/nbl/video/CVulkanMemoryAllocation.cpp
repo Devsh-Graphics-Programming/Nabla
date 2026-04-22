@@ -6,14 +6,15 @@ namespace nbl::video
 CVulkanMemoryAllocation::CVulkanMemoryAllocation(
     const CVulkanLogicalDevice* dev, 
     const VkDeviceMemory deviceMemoryHandle,
+    const external_handle_t externalHandle,
     SCreationParams&& params
-) : IDeviceMemoryAllocation(dev,std::move(params)), m_vulkanDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle) {}
+) : IDeviceMemoryAllocation(dev,std::move(params)), m_vulkanDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle), m_externalHandle(externalHandle) {}
 
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
-    if (m_params.externalHandle != ExternalHandleNull)
+    if (m_externalHandle != ExternalHandleNull)
     {
-        bool re = CloseExternalHandle(getCreationParams().externalHandle);
+        bool re = CloseExternalHandle(m_externalHandle);
         assert(re);
     }
     m_vulkanDevice->getFunctionTable()->vk.vkFreeMemory(m_vulkanDevice->getInternalObject(),m_deviceMemoryHandle,nullptr);
