@@ -63,7 +63,7 @@ struct ConstevalParameters
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = _ElementsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Channels = ElementsPerInvocation >> 1;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = _SubgroupSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = 1 << SubgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(1) << SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1) << WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t NumSubgroupsLog2 = WorkgroupSizeLog2 - SubgroupSizeLog2;
@@ -102,7 +102,7 @@ inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint
     if (subgroupSize < 2 || maxWorkgroupSize < subgroupSize || inputArrayLength <= subgroupSize)
         return invalidParameters;
     // Pad inputarrayLength to size that FFT algo handles
-    const uint32_t FFTLength = hlsl::fft2::padDimension(inputArrayLength, subgroupSize);
+    const uint32_t FFTLength = hlsl::fft2::padDimension(inputArrayLength, uint16_t(subgroupSize));
     // Round maxWorkgroupSize down to PoT
     const uint32_t actualMaxWorkgroupSize = hlsl::roundDownToPoT(maxWorkgroupSize);
     // Max number of threads that can run the FFT
@@ -111,7 +111,7 @@ inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint
     maxThreads /= maxThreads % 3 ? 1 : 3;
     maxThreads /= maxThreads % 5 ? 1 : 5;
     // Both are PoT
-    const uint16_t workgroupSizeLog2 = findMSB(min(maxThreads, actualMaxWorkgroupSize));
+    const uint16_t workgroupSizeLog2 = uint16_t(findMSB(min(maxThreads, actualMaxWorkgroupSize)));
 
     // Parameters are valid if the workgroup size is at most half of the FFT Length and at least as big as the subgroupSize
     if ((FFTLength >> workgroupSizeLog2) <= 1 || subgroupSize > (1u << workgroupSizeLog2))
@@ -119,7 +119,7 @@ inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint
         return invalidParameters;
     }
 
-    const uint16_t elementsPerInvocation = FFTLength >> workgroupSizeLog2;
+    const uint16_t elementsPerInvocation = uint16_t(FFTLength >> workgroupSizeLog2);
     const OptimalFFTParameters retVal = { elementsPerInvocation, workgroupSizeLog2 };
 
     return retVal;
@@ -174,7 +174,7 @@ struct FFTIndexingUtilsHelper
     // log2(ElementsPerInvocation / ExtraPrimeFactor)
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Radix2FFTSizeLog2 = WorkgroupSizeLog2 + Radix2ElementsPerInvocationLog2;
     // Size of the full FFT if no mixed radix used, otherwise size of the sub-FFTs computed after the first radix-3/5 step in the DIF forward FFT
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Radix2FFTSize = uint32_t(1) << (Radix2FFTSizeLog2);
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Radix2FFTSize = uint16_t(1) << (Radix2FFTSizeLog2);
     // Total size of the FFT computed
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTSize = ExtraPrimeFactor * Radix2FFTSize;
 };

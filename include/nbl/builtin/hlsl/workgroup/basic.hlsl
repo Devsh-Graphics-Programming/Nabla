@@ -29,7 +29,7 @@ uint16_t SubgroupContiguousIndex()
     assert(retval<Volume());
     return retval;
 }
-    
+
 bool Elect()
 {
     return glsl::gl_SubgroupID()==0 && glsl::gl_SubgroupInvocationID()==0;

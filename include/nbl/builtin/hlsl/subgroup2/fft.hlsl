@@ -130,8 +130,8 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
         }
 
         // Decimation in Frequency
-        [unroll]
         uint32_t threadStride = SubgroupSize >> 1;
+        [unroll]
         for (uint32_t elementStride = WorkgroupSize >> 1; elementStride > SubgroupSize; elementStride >>= 1)
         {
             FFT_loop<NumSubgroupsLog2>(elementStride, threadStride, lowChannel, highChannel, loAccessor, hiAccessor);
@@ -238,8 +238,8 @@ struct FFT<SubgroupSize, true, Scalar, device_capabilities>
     static void __callInterleaved(uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
     {
         // Decimation in Time
-        [unroll]
         uint32_t threadStride = SubgroupSize >> (NumSubgroupsLog2 - 1);
+        [unroll]
         for (uint32_t elementStride = SubgroupSize << 1; elementStride < WorkgroupSize; elementStride <<= 1)
         {
             FFT_loop<NumSubgroupsLog2>(elementStride, threadStride, lowChannel, highChannel, loAccessor, hiAccessor);
@@ -251,15 +251,15 @@ struct FFT<SubgroupSize, true, Scalar, device_capabilities>
         const uint32_t loLaneIndex = (glsl::gl_SubgroupInvocationID() << NumSubgroupsLog2) + glsl::gl_SubgroupID();
         const complex_t<Scalar> twiddle = fft2::twiddle<true, Scalar>(loLaneIndex, WorkgroupSize);
         [unroll]
-            for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
-            {
-                complex_t<Scalar> lo, hi;
-                loAccessor.get(channel, lo);
-                hiAccessor.get(channel, hi);
-                fft2::DIT<Scalar>::radix2(twiddle, lo, hi);
-                loAccessor.set(channel, lo);
-                hiAccessor.set(channel, hi);
-            }
+        for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
+        {
+            complex_t<Scalar> lo, hi;
+            loAccessor.get(channel, lo);
+            hiAccessor.get(channel, hi);
+            fft2::DIT<Scalar>::radix2(twiddle, lo, hi);
+            loAccessor.set(channel, lo);
+            hiAccessor.set(channel, hi);
+        }
     }
 };
 
