@@ -58,7 +58,6 @@ protected:
     ~CCUDAExportableMemory() override;
 
     core::smart_refctd_ptr<CCUDADevice> m_device;
-    core::smart_refctd_ptr<IDeviceMemoryAllocation> m_allocation;
     SCachedCreationParams m_params;
 };
 
