@@ -8,7 +8,9 @@
 
 using namespace nbl::asset;
 
-static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
+// Why are we validating Universal instead of a Vulkan environment?
+// Trimming works on generic SPIR-V before the Vulkan backend chooses its environment.
+static constexpr spv_target_env SPIRV_VALIDATION_ENV = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
 
 ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
 {
@@ -29,27 +31,6 @@ ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
         ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
     };
     m_optimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>(std::span(optimizationPasses));
-}
-
-// This is for debugging temporarily. will be reworked after finish testing 
-static void printCapabilities(const uint32_t* spirv, uint32_t spirvDwordCount,nbl::system::logger_opt_ptr logger)
-{
-    spvtools::SpirvTools core(SPIRV_VERSION);
-    std::string disassembly;
-    core.Disassemble(spirv, spirvDwordCount, &disassembly, SPV_BINARY_TO_TEXT_OPTION_NO_HEADER);
-    std::stringstream ss(disassembly);
-    std::string to;
-    const auto stringsToFind = std::array{ "OpCapability", "= OpFunction","OpFunctionEnd", "OpSpecConstant", "=OpType"};
-    while(std::getline(ss, to, '\n')){
-      if (to.size() > 1 && to.back() == ',') continue;
-      for (const auto& stringToFind: stringsToFind)
-      {
-        if (to.find(stringToFind) != std::string::npos)
-        {
-          logger.log("%s", nbl::system::ILogger::ELL_DEBUG, to.c_str());
-        }
-      }
-    }
 }
 
 static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::logger_opt_ptr logger)
@@ -76,7 +57,7 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
 
         logger.log(location, lvl, msg);
     };
-    spvtools::SpirvTools core(SPIRV_VERSION);
+    spvtools::SpirvTools core(SPIRV_VALIDATION_ENV);
     core.SetMessageConsumer(msgConsumer);
     spvtools::ValidatorOptions validatorOptions;
     // Nabla use Scalar block layout, we skip this validation to work around this and to save time
@@ -84,10 +65,47 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
     return core.Validate(binary, binarySize, validatorOptions);
 }
 
+static nbl::core::blake3_hash_t getContentHash(const ICPUBuffer* spirvBuffer)
+{
+    auto contentHash = spirvBuffer->getContentHash();
+    if (contentHash == ICPUBuffer::INVALID_HASH)
+        contentHash = spirvBuffer->computeContentHash();
+    return contentHash;
+}
+
+bool ISPIRVEntryPointTrimmer::ensureValidated(const ICPUBuffer* spirvBuffer, system::logger_opt_ptr logger) const
+{
+    const auto contentHash = getContentHash(spirvBuffer);
+
+    {
+        std::lock_guard lock(m_validationCacheMutex);
+        if (m_validatedSpirvHashes.contains(contentHash))
+            return true;
+    }
+
+    const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
+    const auto spirvDwordCount = spirvBuffer->getSize() / sizeof(uint32_t);
+    if (!validate(spirv, spirvDwordCount, logger))
+        return false;
+
+    {
+        std::lock_guard lock(m_validationCacheMutex);
+        m_validatedSpirvHashes.emplace(contentHash);
+    }
+
+    return true;
+}
+
+void ISPIRVEntryPointTrimmer::markValidated(const ICPUBuffer* spirvBuffer) const
+{
+    std::lock_guard lock(m_validationCacheMutex);
+    m_validatedSpirvHashes.emplace(getContentHash(spirvBuffer));
+}
+
 ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger) const
 {
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
-    const auto spirvDwordCount = spirvBuffer->getSize() / 4;
+    const auto spirvDwordCount = spirvBuffer->getSize() / sizeof(uint32_t);
 
     if (entryPoints.empty())
     {
@@ -96,18 +114,6 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
           nullptr,
           false
        };
-    }
-
-    auto foundEntryPoint = 0;
-
-    const bool isInputSpirvValid  = validate(spirv, spirvDwordCount, logger);
-    if (!isInputSpirvValid)
-    {
-        logger.log("SPIR-V is not valid", system::ILogger::ELL_ERROR);
-        return Result{
-            nullptr,
-            false
-        };
     }
 
     auto getHlslShaderStage = [](spv::ExecutionModel executionModel) -> hlsl::ShaderStage
@@ -148,6 +154,76 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
         const auto opcode = instruction & 0x0ffffu;
         return { length, opcode };
     };
+
+    if (!ensureValidated(spirvBuffer, logger))
+    {
+        logger.log("SPIR-V is not valid", system::ILogger::ELL_ERROR);
+        return Result{
+            .spirv = nullptr,
+            .isSuccess = false,
+        };
+    }
+
+    {
+        auto probeOffset = HEADER_SIZE;
+        auto totalEntryPoints = 0u;
+        auto matchingEntryPoints = 0u;
+        auto validFastPath = (spirvDwordCount >= HEADER_SIZE);
+
+        while (validFastPath && probeOffset < spirvDwordCount)
+        {
+            const auto instruction = spirv[probeOffset];
+            const auto [length, opcode] = parse_instruction(instruction);
+            if (length == 0u || (probeOffset + length) > spirvDwordCount)
+            {
+                validFastPath = false;
+                break;
+            }
+            if (opcode == spv::OpEntryPoint)
+                break;
+            probeOffset += length;
+        }
+
+        while (validFastPath && probeOffset < spirvDwordCount)
+        {
+            const auto curOffset = probeOffset;
+            const auto instruction = spirv[curOffset];
+            const auto [length, opcode] = parse_instruction(instruction);
+            if (length == 0u || (probeOffset + length) > spirvDwordCount)
+            {
+                validFastPath = false;
+                break;
+            }
+            if (opcode != spv::OpEntryPoint)
+                break;
+            probeOffset += length;
+            ++totalEntryPoints;
+
+            const auto curExecutionModel = static_cast<spv::ExecutionModel>(spirv[curOffset + 1]);
+            const auto curEntryPointName = std::string_view(reinterpret_cast<const char*>(spirv + curOffset + 3));
+            const auto entryPoint = EntryPoint{
+                .name = curEntryPointName,
+                .stage = getHlslShaderStage(curExecutionModel),
+            };
+            if (entryPoint.stage == hlsl::ESS_UNKNOWN)
+            {
+                validFastPath = false;
+                break;
+            }
+            if (entryPoints.contains(entryPoint))
+                ++matchingEntryPoints;
+        }
+
+        if (validFastPath && totalEntryPoints == entryPoints.size() && matchingEntryPoints == entryPoints.size())
+        {
+            return {
+                .spirv = nullptr,
+                .isSuccess = true,
+            };
+        }
+    }
+
+    auto foundEntryPoint = 0;
 
     // Keep in mind about this layout while reading all the code below: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#LogicalLayout
 
@@ -240,21 +316,25 @@ ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer*
 
     minimizedSpirv.insert(minimizedSpirv.end(), spirv + offset, spirv + spirvDwordCount);
 
-    assert(validate(minimizedSpirv.data(), minimizedSpirv.size(), logger));
-
     auto trimmedSpirv = m_optimizer->optimize(minimizedSpirv.data(), minimizedSpirv.size(), logger);
+    if (!trimmedSpirv)
+    {
+        logger.log("Failed to optimize trimmed SPIR-V", system::ILogger::ELL_ERROR);
+        return {
+            .spirv = nullptr,
+            .isSuccess = false,
+        };
+    }
 
-#ifdef _NBL_DEBUG
-    logger.log("Before stripping capabilities:", nbl::system::ILogger::ELL_DEBUG);
-    printCapabilities(spirv, spirvDwordCount, logger);
-    logger.log("\n", nbl::system::ILogger::ELL_DEBUG);
-
-    const auto* trimmedSpirvBuffer = static_cast<const uint32_t*>(trimmedSpirv->getPointer());
-    const auto trimmedSpirvDwordCount = trimmedSpirv->getSize() / 4;
-    logger.log("After stripping capabilities:", nbl::system::ILogger::ELL_DEBUG);
-    printCapabilities(trimmedSpirvBuffer, trimmedSpirvDwordCount, logger);
-    logger.log("\n", nbl::system::ILogger::ELL_DEBUG);
-#endif
+    trimmedSpirv->setContentHash(trimmedSpirv->computeContentHash());
+    if (!ensureValidated(trimmedSpirv.get(), logger))
+    {
+        logger.log("Trimmed SPIR-V is not valid", system::ILogger::ELL_ERROR);
+        return {
+            .spirv = nullptr,
+            .isSuccess = false,
+        };
+    }
 
     return {
       .spirv = std::move(trimmedSpirv),

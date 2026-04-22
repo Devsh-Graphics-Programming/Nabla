@@ -17,6 +17,8 @@
 #include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <functional>
+#include <mutex>
+#include <unordered_set>
 
 namespace nbl::asset
 {
@@ -26,6 +28,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	public:
 		IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
+		enum class IncludeRootOrigin : uint8_t
+		{
+			User,
+			Builtin,
+			Generated
+		};
+
+		enum class HeaderClass : uint8_t
+		{
+			User,
+			System
+		};
+
+		struct IncludeClassification
+		{
+			IncludeRootOrigin origin = IncludeRootOrigin::User;
+			HeaderClass headerClass = HeaderClass::User;
+		};
+
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
 			public:
@@ -34,12 +55,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					system::path absolutePath = {};
 					std::string contents = {};
 					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					IncludeClassification classification = {};
 					// Could be used in the future for early rejection of cache hit
 					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
-				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const = 0;
 		};
 
 		class NBL_API2 IIncludeGenerator : public core::IReferenceCounted
@@ -65,7 +87,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			public:
 				CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
 
-				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
+				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const override;
 
 			protected:
 				core::smart_refctd_ptr<system::ISystem> m_system;
@@ -74,37 +96,88 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class NBL_API2 CIncludeFinder : public core::IReferenceCounted
 		{
 			public:
+				struct SSessionCache
+				{
+					struct Stats
+					{
+						uint64_t lookupFound = 0ull;
+						uint64_t lookupMissing = 0ull;
+						uint64_t lookupMiss = 0ull;
+						uint64_t storeFound = 0ull;
+						uint64_t storeMissing = 0ull;
+					};
+
+					enum class LookupResult : uint8_t
+					{
+						Miss,
+						Missing,
+						Found
+					};
+
+					explicit SSessionCache(const bool threadSafe = false) : threadSafe(threadSafe) {}
+
+					void clear();
+					LookupResult lookup(const std::string& key, IIncludeLoader::found_t& result) const;
+					void store(const std::string& key, IIncludeLoader::found_t result);
+					Stats snapshotStats() const;
+
+					bool threadSafe = false;
+
+					mutable std::mutex mutex;
+					mutable Stats stats;
+					core::unordered_map<std::string, IIncludeLoader::found_t> found;
+					core::unordered_set<std::string> missing;
+				};
+
 				CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system);
 
 				// ! includes within <>
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within <> of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
+				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* readSessionCache = nullptr, SSessionCache* writeSessionCache = nullptr) const;
 
 				// ! includes within ""
 				// @param requestingSourceDir: the directory where the incude was requested
 				// @param includeName: the string within "" of the include preprocessing directive
-				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
+				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName, bool needHash = true, SSessionCache* readSessionCache = nullptr, SSessionCache* writeSessionCache = nullptr) const;
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
-				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader);
+				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification = {});
 
-				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator);
+				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator, IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System});
+
+				bool isKnownGlobalInclude(std::string_view includeName) const;
+				IIncludeLoader::found_t classifyFound(IIncludeLoader::found_t found) const;
 
 			protected:
-				IIncludeLoader::found_t trySearchPaths(const std::string& includeName) const;
+				IIncludeLoader::found_t trySearchPaths(const std::string& includeName, bool needHash) const;
 
 				IIncludeLoader::found_t tryIncludeGenerators(const std::string& includeName) const;
+				void registerHeaderRoot(std::string rootPath, IncludeClassification classification);
 
 				struct LoaderSearchPath
 				{
 					core::smart_refctd_ptr<IIncludeLoader> loader = nullptr;
 					std::string searchPath = {};
+					IncludeClassification classification = {};
+				};
+
+				struct GeneratorEntry
+				{
+					core::smart_refctd_ptr<IIncludeGenerator> generator = nullptr;
+					IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System};
+				};
+
+				struct HeaderRoot
+				{
+					std::string path = {};
+					IncludeClassification classification = {};
 				};
 
 				std::vector<LoaderSearchPath> m_loaders;
-				std::vector<core::smart_refctd_ptr<IIncludeGenerator>> m_generators;
+				std::vector<GeneratorEntry> m_generators;
+				std::vector<HeaderRoot> m_headerRoots;
 				core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 
@@ -134,9 +207,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
+			CIncludeFinder::SSessionCache* readIncludeSessionCache = nullptr;
+			CIncludeFinder::SSessionCache* writeIncludeSessionCache = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			bool depfile = false;
+			bool preserveComments = false;
 			system::path depfilePath = {};
 			std::function<void(std::string_view)> onPartialOutputOnFailure = {};
 		};
@@ -169,6 +245,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				@includeFinder Optional parameter; if not nullptr, it will resolve the includes in the code
 				@maxSelfInclusionCount used only when includeFinder is not nullptr
 				@extraDefines adds extra defines to the shader before compilation
+			@optimizerIsExtraPasses Instead of entirely replacing the default optimization passes, run the provided passes after the default ones
+			@preprocessedOutputPath If not empty, the preprocessed shader will be saved to this path
+			@spvOutputPath If not empty, the compiled SPIR-V binary will be saved to this path
 		*/
 		struct SCompilerOptions
 		{
@@ -185,6 +264,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			SPreprocessorOptions preprocessorOptions = {};
 			CCache* readCache = nullptr;
 			CCache* writeCache = nullptr;
+			bool optimizerIsExtraPasses = false; // Instead of disabling the default opt passes, run the provided optimization passes at the end
+			std::string preprocessedOutputPath = "";
+			std::string spvOutputPath = "";
 		};
 
 		class CCache final : public IReferenceCounted
@@ -193,7 +275,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			public:
 				// Used to check compatibility of Caches before reading
-				constexpr static inline std::string_view VERSION = "1.1.0";
+				constexpr static inline std::string_view VERSION = "1.1.1";
 
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
@@ -285,7 +367,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						public:
 							inline bool operator==(const SCompilerArgs& other) const {
 								bool retVal = true;
-								if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs) retVal = false;
+								if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs || optimizerIsExtraPasses != other.optimizerIsExtraPasses) retVal = false;
 								if (optimizerPasses.size() != other.optimizerPasses.size()) retVal = false;
 								for (auto passesIt = optimizerPasses.begin(), otherPassesIt = other.optimizerPasses.begin(); passesIt != optimizerPasses.end(); passesIt++, otherPassesIt++) {
 									if (*passesIt != *otherPassesIt) {
@@ -313,6 +395,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							// Only SEntry should instantiate this struct
 							SCompilerArgs(const SCompilerOptions& options)
 								: stage(options.stage), targetSpirvVersion(options.preprocessorOptions.targetSpirvVersion), debugInfoFlags(options.debugInfoFlags), preprocessorArgs(options.preprocessorOptions)
+								, optimizerIsExtraPasses(options.optimizerIsExtraPasses)
 							{
 								if (options.spirvOptimizer) {
 									for (auto pass : options.spirvOptimizer->getPasses())
@@ -323,6 +406,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							IShader::E_SHADER_STAGE stage;
 							E_SPIRV_VERSION targetSpirvVersion;
 							std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
+							bool optimizerIsExtraPasses;
 							core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
 							SPreprocessorArgs preprocessorArgs;
 					};
@@ -381,6 +465,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					inline SEntry& operator=(SEntry&& other) = default;
 
 					bool setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer);
+
+					IShader::E_SHADER_STAGE getShaderStage() const { return compilerArgs.stage; }
+					SPreprocessorArgs getPreprocessorArgs() const { return compilerArgs.preprocessorArgs; }
 
 					core::smart_refctd_ptr<IShader> decompressShader() const;
 

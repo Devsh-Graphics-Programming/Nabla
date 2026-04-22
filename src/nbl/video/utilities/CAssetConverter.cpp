@@ -5376,7 +5376,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 										uint32_t bytesWritten = 0;
 										while (instanceIndex<instances.size())
 										{
-											const auto& instance = instances[instanceIndex++];
+											const auto& instance = instances[instanceIndex];
 											const auto type = instance.getType();
 											const auto size = ITopLevelAccelerationStructure::getInstanceSize(type);
 											const auto newWritten = bytesWritten+size;
@@ -5389,6 +5389,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 											trackedBLASes->emplace_back(blas);
 											dst = IGPUTopLevelAccelerationStructure::writeInstance(dst,instance,blas->getReferenceForDeviceOperations());
 											bytesWritten = newWritten;
+											instanceIndex++;
 										}
 										return bytesWritten;
 									}

@@ -125,7 +125,7 @@ bool ISystem::deleteDirectory(const system::path& p)
 bool nbl::system::ISystem::deleteFile(const system::path& p)
 {
     if (std::filesystem::exists(p) && !std::filesystem::is_directory(p))
-        return std::filesystem::remove(p);
+		return std::filesystem::remove(p);
     else
         return false;
 }
@@ -338,6 +338,15 @@ size_t ISystem::getMountedBuiltinArchiveCount() const
     size_t retval = 0ull;
     for (const auto& mount : m_builtinMounts)
         retval += size_t(isBuiltinMounted(mount));
+    return retval;
+}
+
+core::vector<system::path> ISystem::getBuiltinMountAliases() const
+{
+    core::vector<system::path> retval;
+    retval.reserve(m_builtinMounts.size());
+    for (const auto& mount : m_builtinMounts)
+        retval.push_back(mount.pathAlias.empty() ? mount.archive->getDefaultAbsolutePath() : mount.pathAlias);
     return retval;
 }
 

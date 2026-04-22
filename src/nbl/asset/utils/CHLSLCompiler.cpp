@@ -454,12 +454,25 @@ static std::string preprocessShaderImpl(
     std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>* dependencies,
     system::ISystem* system)
 {
-    const bool depfileEnabled = preprocessOptions.depfile;
+    auto effectiveOptions = preprocessOptions;
+    IShaderCompiler::CIncludeFinder::SSessionCache localIncludeSessionCache;
+    if (effectiveOptions.includeFinder)
+    {
+        if (!effectiveOptions.readIncludeSessionCache && !effectiveOptions.writeIncludeSessionCache)
+        {
+            effectiveOptions.readIncludeSessionCache = &localIncludeSessionCache;
+            effectiveOptions.writeIncludeSessionCache = &localIncludeSessionCache;
+        }
+        else if (!effectiveOptions.readIncludeSessionCache && effectiveOptions.writeIncludeSessionCache)
+            effectiveOptions.readIncludeSessionCache = effectiveOptions.writeIncludeSessionCache;
+    }
+
+    const bool depfileEnabled = effectiveOptions.depfile;
     if (depfileEnabled)
     {
-        if (preprocessOptions.depfilePath.empty())
+        if (effectiveOptions.depfilePath.empty())
         {
-            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+            effectiveOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
             return {};
         }
     }
@@ -473,7 +486,7 @@ static std::string preprocessShaderImpl(
     ensureTrailingNewline(code);
 
     // preprocess
-    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
+    core::string resolvedString = nbl::wave::preprocess(code, effectiveOptions, bool(dependenciesOut),
         [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
@@ -494,13 +507,13 @@ static std::string preprocessShaderImpl(
     if (depfileEnabled)
     {
         IShaderCompiler::DepfileWriteParams params = {};
-        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
+        const std::string depfilePathString = effectiveOptions.depfilePath.generic_string();
         params.depfilePath = depfilePathString;
-        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        params.sourceIdentifier = effectiveOptions.sourceIdentifier;
         if (!params.sourceIdentifier.empty())
             params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
         params.system = system;
-        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
+        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, effectiveOptions.includeFinder, effectiveOptions.logger))
             return {};
     }
 
@@ -532,6 +545,46 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
 
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
     if (newCode.empty()) return nullptr;
+
+    auto saveToFile = [&](const std::string& filePath, const void* buffer, size_t size, const char* loggerName)
+    {
+        core::smart_refctd_ptr<system::IFile> saveFile;
+
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        // Ensure it doesn't exist
+        m_system->deleteFile(filePath + "_temp");
+        m_system->createFile(future, filePath + "_temp", system::IFile::ECF_WRITE);
+        if (future.wait())
+        {
+            future.acquire().move_into(saveFile);
+            if (saveFile)
+            {
+                system::IFile::success_t succ;
+                saveFile->write(succ, buffer, 0, size);
+                if (!succ)
+                {
+                    logger.log(std::string("Failed Writing To Temp ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+                    return;
+                }
+                saveFile = nullptr; // drop handle first
+                m_system->deleteFile(filePath); // safe to delete + rename
+                auto renameResult = m_system->moveFileOrDirectory(filePath + "_temp", filePath);
+                if (renameResult)
+                {
+                    logger.log(std::string("Failed Saving ") + loggerName + " File. Check it's not open.", nbl::system::ILogger::ELL_ERROR);
+                    // Clean up
+                    m_system->deleteFile(filePath + "_temp");
+                }
+            }
+            else
+                logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+        }
+        else
+            logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+    };
+
+    if (!options.preprocessedOutputPath.empty())
+        saveToFile(options.preprocessedOutputPath, newCode.data(), newCode.size(), "Preprocessed Output");
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
@@ -571,13 +624,13 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
                 // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
                 arguments.push_back(L"main");
             }
-            // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+            // If a custom SPIR-V optimizer is specified and set to replace default optimization passes, use that instead of DXC's spirv-opt.
             // This is how we can get more optimizer options.
             // 
             // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
             // optimization levels greater than zero; they will all invoke the same optimization recipe. 
             // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-            if (hlslOptions.spirvOptimizer)
+            if (hlslOptions.spirvOptimizer && !hlslOptions.optimizerIsExtraPasses)
                 arguments.push_back(L"-O0");
         }
         //
@@ -637,6 +690,9 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     // Optimizer step (TODO: improve by working on `compileResult.objectBlob->GetBufferPointer()` directly)
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
+
+    if (outSpirv && !options.spvOutputPath.empty())
+        saveToFile(options.spvOutputPath, outSpirv->getPointer(), outSpirv->getSize(), "SPIR-V Output");
 
     return core::make_smart_refctd_ptr<asset::IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }

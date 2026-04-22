@@ -44,39 +44,41 @@ bool rayQueryProceedKHR([[vk::ext_reference]] RayQueryKHR query);
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTypeKHR)]]
-int rayQueryGetIntersectionTypeKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+uint32_t rayQueryGetIntersectionTypeKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionInstanceCustomIndexKHR)]]
-int rayQueryGetIntersectionInstanceCustomIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+uint32_t rayQueryGetIntersectionInstanceCustomIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionInstanceIdKHR)]]
-int rayQueryGetIntersectionInstanceIdKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+uint32_t rayQueryGetIntersectionInstanceIdKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionGeometryIndexKHR)]]
-int rayQueryGetIntersectionGeometryIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+uint32_t rayQueryGetIntersectionGeometryIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionPrimitiveIndexKHR)]]
-int rayQueryGetIntersectionPrimitiveIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+uint32_t rayQueryGetIntersectionPrimitiveIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionBarycentricsKHR)]]
-float2 rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+float32_t2 rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionFrontFaceKHR)]]
-float2 rayQueryGetIntersectionFrontFaceKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+bool rayQueryGetIntersectionFrontFaceKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 // position fetch for ray tracing uses gl_HitTriangleVertexPositionsEXT -> HitTriangleVertexPositionsKHR decorated OpVariable
+[[vk::ext_capability(spv::CapabilityRayTracingPositionFetchKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing_position_fetch")]]
 [[vk::ext_builtin_input(spv::BuiltInHitTriangleVertexPositionsKHR)]]
 static const float32_t3 HitTriangleVertexPositionsKHR[3];
 
@@ -84,7 +86,7 @@ static const float32_t3 HitTriangleVertexPositionsKHR[3];
 [[vk::ext_capability(spv::CapabilityRayQueryPositionFetchKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_tracing_position_fetch")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTriangleVertexPositionsKHR)]]
-float3 rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed)[3];
+float32_t3 rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed)[3];
 
 [[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_tracing")]]
@@ -131,6 +133,7 @@ static const float32_t3 ObjectRayDirectionKHR;
 [[vk::ext_builtin_input(spv::BuiltInRayTminKHR)]]
 static const float32_t RayTminKHR;
 
+// TODO: OpLoad may need to be volatile from the variable for SER
 [[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInRayTmaxKHR)]]
@@ -162,6 +165,7 @@ template <typename PayloadT>
 [[vk::ext_instruction(spv::OpTraceRayKHR)]]
 void traceRayKHR(AccelerationStructureKHR AS, uint32_t rayFlags, uint32_t cullMask, uint32_t sbtOffset, uint32_t sbtStride, uint32_t missIndex, float32_t3 rayOrigin, float32_t rayTmin, float32_t3 rayDirection, float32_t rayTmax, [[vk::ext_reference]] PayloadT payload);
 
+// TODO: attempt to get rid of this and replace with `AccelerationStructureKHR OpCopyObject/Logical(RaytracingAccelerationStructure)` to call the above 
 template <typename PayloadT>
 [[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_tracing")]]
@@ -190,6 +194,148 @@ template <typename T>
 void executeCallable(uint32_t sbtIndex, [[vk::ext_reference]] T payload);
 
 
+//! Ray Tracing Invocation Reorder
+
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6958
+//[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+//[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+using HitObjectEXT = vk::SpirvOpaqueType<spv::OpTypeHitObjectEXT>;
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T,uint32_t>)
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpReorderThreadWithHintEXT)]]
+void reorderThreadWithHintEXT(T hint, T bits);
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T,uint32_t>)
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpReorderThreadWithHitObjectEXT)]]
+void reorderThreadWithHitObjectEXT([[vk::ext_reference]] HitObjectEXT hitObject, T hint, T bits);
+
+template <typename PayloadT>
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectTraceRayEXT)]]
+void hitObjectTraceRayEXT([[vk::ext_reference]] HitObjectEXT hitObject, AccelerationStructureKHR AS, uint32_t rayFlags, uint32_t cullMask, uint32_t sbtOffset, uint32_t sbtStride, uint32_t missIndex, float32_t3 rayOrigin, float32_t rayTmin, float32_t3 rayDirection, float32_t rayTmax, [[vk::ext_reference]] PayloadT payload);
+
+// same TODO about this as `traceRayKHR`
+template <typename PayloadT>
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectTraceRayEXT)]]
+void hitObjectTraceRayEXT([[vk::ext_reference]] HitObjectEXT hitObject, RaytracingAccelerationStructure AS, uint32_t rayFlags, uint32_t cullMask, uint32_t sbtOffset, uint32_t sbtStride, uint32_t missIndex, float32_t3 rayOrigin, float32_t rayTmin, float32_t3 rayDirection, float32_t rayTmax, [[vk::ext_reference]] PayloadT payload);
+
+// TODO:
+// OpHitObjectTraceRayMotionEXT
+// OpHitObjectRecordFromQueryEXT
+// OpHitObjectRecordMissEXT
+// OpHitObjectRecordMissMotionEXT 
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectRecordEmptyEXT)]]
+void hitObjectRecordEmptyEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+ 
+// TODO:
+// OpHitObjectExecuteShaderEXT
+// OpHitObjectGetCurrentTimeEXT
+
+template<typename HitAttributeT>
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetAttributesEXT)]]
+void hitObjectGetAttributesEXT([[vk::ext_reference]] HitObjectEXT hitObject, [[vk::ext_reference]] HitAttributeT attribs);
+
+// OpHitObjectGetHitKindEXT
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetPrimitiveIndexEXT)]]
+uint32_t hitObjectGetPrimitiveIndexEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetGeometryIndexEXT)]]
+uint32_t hitObjectGetGeometryIndexEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetInstanceIdEXT)]]
+uint32_t hitObjectGetInstanceIdEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetInstanceCustomIndexEXT)]]
+uint32_t hitObjectGetInstanceCustomIndexEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetObjectRayOriginEXT)]]
+float32_t3 hitObjectGetObjectRayOriginEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetObjectRayDirectionEXT)]]
+float32_t3 hitObjectGetObjectRayDirectionEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetWorldRayDirectionEXT)]]
+float32_t3 hitObjectGetWorldRayDirectionEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetWorldRayOriginEXT)]]
+float32_t3 hitObjectGetWorldRayOriginEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetObjectToWorldEXT)]]
+float32_t4x3 hitObjectGetObjectToWorldEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetWorldToObjectEXT)]]
+float32_t4x3 hitObjectGetWorldToObjectEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+// the syntax to declare a function returning an Array in HLSL is insane
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetIntersectionTriangleVertexPositionsEXT)]]
+[[vk::ext_capability(spv::CapabilityRayQueryPositionFetchKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing_position_fetch")]]
+float32_t3 hitObjectGetIntersectionTriangleVertexPositionsEXT([[vk::ext_reference]] HitObjectEXT hitObject)[3];
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetRayTMaxEXT)]]
+float32_t hitObjectGetRayTMaxEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectGetRayTMinEXT)]]
+float32_t hitObjectGetRayTMinEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+// TODO: OpHitObjectGetRayFlagsEXT
+// TODO: OpHitObjectGetShaderBindingTableRecordIndexEXT
+// TODO: OpHitObjectSetShaderBindingTableRecordIndexEXT
+// TODO: OpHitObjectGetShaderRecordBufferHandleEXT
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectIsEmptyEXT)]]
+bool hitObjectIsEmptyEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectIsHitEXT)]]
+bool hitObjectIsHitEXT([[vk::ext_reference]] HitObjectEXT hitObject);
+
+[[vk::ext_capability(spv::CapabilityShaderInvocationReorderEXT)]]
+[[vk::ext_extension("SPV_EXT_shader_invocation_reorder")]]
+[[vk::ext_instruction(spv::OpHitObjectIsMissEXT)]]
+bool hitObjectIsMissEXT([[vk::ext_reference]] HitObjectEXT hitObject);
 }
 }
 }

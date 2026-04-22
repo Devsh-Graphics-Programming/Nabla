@@ -79,7 +79,7 @@ struct decode_before_scramble_helper
     {
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
-            seqVal[i] = val.get(i);
+            seqVal[i] = val.get(i) << Q::DiscardBits; // restore high bits
         seqVal ^= scrambleKey;
         return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(storage_scalar_type)> >(UNormConstant);
     }
@@ -122,6 +122,7 @@ struct QuantizedSequence<T, 1 NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization<T
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = 8u*size_of_v<store_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = uint16_t(0u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = uint16_t(1u);
 
     static this_t create(const store_type value)
@@ -223,6 +224,7 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(impl::SequenceSpecialization
     using store_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsPerComponent = 8u*size_of_v<scalar_type>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DiscardBits = uint16_t(0u);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Dimension = Dim;
 
     static this_t create(const store_type value)
@@ -288,11 +290,11 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint32_t2> && Di
         else if (idx == 1)  // y
         {
             scalar_type y = glsl::bitfieldExtract(data[0], BitsPerComponent, DiscardBits);
-            y |= glsl::bitfieldExtract(data[1], 0u, DiscardBits - 1u) << DiscardBits;
+            y |= glsl::bitfieldExtract(data[1], 0u, BitsPerComponent - DiscardBits) << DiscardBits;
             return y;
         }
         else    // z
-            return glsl::bitfieldExtract(data[1], DiscardBits - 1u, BitsPerComponent);
+            return glsl::bitfieldExtract(data[1], BitsPerComponent - DiscardBits, BitsPerComponent);
     }
 
     void set(const uint16_t idx, const scalar_type value)
@@ -304,10 +306,10 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint32_t2> && Di
         else if (idx == 1)  // y
         {
             data[0] = glsl::bitfieldInsert(data[0], trunc_val, BitsPerComponent, DiscardBits);
-            data[1] = glsl::bitfieldInsert(data[1], trunc_val >> DiscardBits, 0u, DiscardBits - 1u);
+            data[1] = glsl::bitfieldInsert(data[1], trunc_val >> DiscardBits, 0u, BitsPerComponent - DiscardBits);
         }
         else    // z
-            data[1] = glsl::bitfieldInsert(data[1], trunc_val, DiscardBits - 1u, BitsPerComponent);
+            data[1] = glsl::bitfieldInsert(data[1], trunc_val, BitsPerComponent - DiscardBits, BitsPerComponent);
     }
 
     template<typename F, bool FullWidth>
@@ -317,14 +319,14 @@ struct QuantizedSequence<T, Dim NBL_PARTIAL_REQ_BOT(is_same_v<T,uint32_t2> && Di
     }
 
     template<typename F>
-    vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey)
+    vector<F,Dimension> decode(const vector<unsigned_integer_of_size_t<sizeof(F)>,Dimension> scrambleKey) NBL_CONST_MEMBER_FUNC
     {
         impl::decode_before_scramble_helper<this_t,F> helper;
         helper.val.data = data;
         return helper(scrambleKey);
     }
     template<typename F>
-    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey)
+    vector<F,Dimension> decode(NBL_CONST_REF_ARG(this_t) scrambleKey) NBL_CONST_MEMBER_FUNC
     {
         impl::decode_after_scramble_helper<this_t,F> helper;
         helper.val.data = data;

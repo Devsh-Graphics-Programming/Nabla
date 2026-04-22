@@ -84,7 +84,8 @@ smart_refctd_ptr<IGPUGraphicsPipeline> ProtoPipeline::createPipeline(
 	const IGPURenderpass* renderpass,
 	const uint32_t subpassIx,
 	SBlendParams blendParams,
-	const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform)
+	const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform,
+	IGPUPipelineCache* pipelineCache)
 {
 	if (!renderpass || !bool(*this) || hlsl::bitCount(swapchainTransform) != 1)
 		return nullptr;
@@ -116,7 +117,7 @@ smart_refctd_ptr<IGPUGraphicsPipeline> ProtoPipeline::createPipeline(
 		};
 		params[0].renderpass = renderpass;
 
-		if (!device->createGraphicsPipelines(nullptr, params, &m_retval))
+		if (!device->createGraphicsPipelines(pipelineCache, params, &m_retval))
 			return nullptr;
 	}
 	return m_retval;
