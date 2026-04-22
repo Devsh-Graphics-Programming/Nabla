@@ -524,6 +524,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
                         options.preprocessorOptions.logger.log(std::string("Failed Writing To Temp ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
                         return;
                     }
+                    saveFile = nullptr; // drop handle first
                     m_system->deleteFile(filePath);
                     auto renameResult = m_system->moveFileOrDirectory(filePath + "_temp", filePath);
                     if (renameResult)
