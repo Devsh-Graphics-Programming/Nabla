@@ -24,8 +24,8 @@ IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interfa
     memoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
     memoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
     memoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
-    memoryReqs.prefersDedicatedAllocation = dedicatedOnly | vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = dedicatedOnly | vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+    memoryReqs.prefersDedicatedAllocation = dedicatedOnly || vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = dedicatedOnly || vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
     return memoryReqs;
 }
 
