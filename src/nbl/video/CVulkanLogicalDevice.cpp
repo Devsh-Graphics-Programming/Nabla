@@ -204,7 +204,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     VkImportMemoryFdInfoKHR importInfo = {
         .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
         .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
-        .fd = (int)info.externalHandle,
+        .fd = info.externalHandle,
     };
 #endif
 
@@ -224,7 +224,11 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
         if (info.externalHandle) //importing
         {
             externalHandle = DuplicateExternalHandle(info.externalHandle);
+#ifdef _WIN32
             importInfo.handle = externalHandle;
+#else
+            importInfo.fd = externalHandle;
+#endif
             *pNext = &importInfo;
         }
         else // exporting
