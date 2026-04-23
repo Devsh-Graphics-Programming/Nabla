@@ -74,6 +74,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         enum E_EXTERNAL_HANDLE_TYPE : uint32_t
         {
             EHT_NONE = 0,
+            EHT_OPAQUE_FD = 0x00000001,
             EHT_OPAQUE_WIN32 = 0x00000002,
             EHT_OPAQUE_WIN32_KMT = 0x00000004,
             EHT_D3D11_TEXTURE = 0x00000008,
