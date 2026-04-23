@@ -97,7 +97,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		CUresult importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, core::smart_refctd_ptr<ISemaphore>&& sem);
 
 	protected:
-		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);
+		CUresult reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);
 
 		friend class CCUDAHandler;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _device, core::smart_refctd_ptr<CCUDAHandler>&& _handler);

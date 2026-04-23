@@ -57,7 +57,7 @@ size_t CCUDADevice::roundToGranularity(CUmemLocationType location, size_t size) 
 	return ((size - 1) / m_allocationGranularity[location] + 1) * m_allocationGranularity[location];
 }
 
-CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory)
+CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory)
 {
 	auto& cu = m_handler->getCUDAFunctionTable();
 	
@@ -121,7 +121,7 @@ CUresult CCUDADevice::createExportableMemory(
 		return err;
 	}
 
-	if (auto err = reserveAdrressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
+	if (auto err = reserveAddressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
 	{
 		CloseExternalHandle(params.externalHandle);
 		cu.pcuMemRelease(mem);
