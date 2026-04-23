@@ -14,17 +14,17 @@ namespace nbl::video
 {
 
 CCUDADevice::CCUDADevice(
-	core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, 
-	IPhysicalDevice* const _vulkanDevice, 
-	const E_VIRTUAL_ARCHITECTURE _virtualArchitecture,
-	CUdevice _device,
-	core::smart_refctd_ptr<CCUDAHandler>&& _handler) : 
+	core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, 
+	IPhysicalDevice* const vulkanDevice, 
+	const E_VIRTUAL_ARCHITECTURE virtualArchitecture,
+	CUdevice device,
+	core::smart_refctd_ptr<CCUDAHandler>&& handler) : 
   m_defaultCompileOptions(), 
-  m_vulkanConnection(std::move(_vulkanConnection)), 
-  m_vulkanDevice(_vulkanDevice), 
-  m_virtualArchitecture(_virtualArchitecture),
-	m_handle(_device),
-	m_handler(std::move(_handler)),
+  m_vulkanConnection(std::move(vulkanConnection)), 
+  m_vulkanDevice(vulkanDevice), 
+  m_virtualArchitecture(virtualArchitecture),
+	m_handle(device),
+	m_handler(std::move(handler)),
 	m_allocationGranularity{}
 {
 	m_defaultCompileOptions.push_back("--std=c++14");

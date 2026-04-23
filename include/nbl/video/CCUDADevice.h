@@ -81,6 +81,10 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		};
 		inline E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() {return m_virtualArchitecture;}
 
+		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, CUdevice device, core::smart_refctd_ptr<CCUDAHandler>&& handler);
+
+		~CCUDADevice();
+
 		inline core::SRange<const char* const> geDefaultCompileOptions() const
 		{
 			return {m_defaultCompileOptions.data(),m_defaultCompileOptions.data()+m_defaultCompileOptions.size()};
@@ -104,10 +108,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		CUresult reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory) const;
 
 		CUmemAllocationProp getMemAllocationProp(CUmemLocationType locationType) const;
-
-		friend class CCUDAHandler;
-		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _device, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
-		~CCUDADevice();
 		
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
