@@ -32,7 +32,7 @@ protected:
       core::smart_refctd_ptr<ISemaphore> src, 
       CUexternalSemaphore semaphore)
         : m_device(std::move(device))
-        , m_src(std::move(m_src))
+        , m_src(std::move(src))
         , m_handle(semaphore)
     {}
     ~CCUDAImportedSemaphore() override;
