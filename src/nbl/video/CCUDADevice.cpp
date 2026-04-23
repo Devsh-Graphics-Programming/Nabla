@@ -144,8 +144,6 @@ CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedM
 	if (!mem || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
 
-	const auto memProperty = mem->getCreationParams().memoryPropertyFlags;
-
 	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = mem->getCreationParams().externalHandleType;
 
