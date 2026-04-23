@@ -1,0 +1,301 @@
+#ifndef _NBL_BUILTIN_HLSL_FFT2_COMMON_INCLUDED_
+#define _NBL_BUILTIN_HLSL_FFT2_COMMON_INCLUDED_
+
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/complex.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/math/intutil.hlsl>
+#include <nbl/builtin/hlsl/numbers.hlsl>
+#include <nbl/builtin/hlsl/mpl.hlsl>
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace fft2
+{
+
+uint32_t padDimension(uint32_t dimension, uint16_t subgroupSize)
+{
+    const uint16_t subgroupFFTSize = subgroupSize << 1;
+    uint32_t padded = hlsl::roundUpToPoT(dimension);
+    if (padded <= subgroupFFTSize)
+        return subgroupFFTSize;
+    // Consider a factor of 3
+    padded = hlsl::min(padded, 3 * hlsl::roundUpToPoT(hlsl::ceilDiv<uint32_t>(dimension, 3)));
+    // Do the same for a factor of 5
+    padded = hlsl::min(padded, 5 * hlsl::roundUpToPoT(hlsl::ceilDiv<uint32_t>(dimension, 5)));
+    // TODO: Consider if factor of 7 is viable
+    return padded;
+}
+
+template <uint16_t N NBL_FUNC_REQUIRES(N > 0 && N <= 4)
+/**
+* @brief Returns the size of the full FFT computed, in terms of number of complex elements. If the signal is real, you MUST provide a valid value for `firstAxis` (this is to run two real FFTs as one complex).
+         If the signal is complex, you must NOT pass any value to `firstAxis`.
+*        The padding rule is the following: if FFT is subgroup-sized, size is rounded up to PoT. If bigger than that, it's rounded to the smallest number that is either PoT or of the form
+*        3 * 2^n or 5 * 2^n.
+*
+* @tparam N Number of dimensions of the signal to perform FFT on.
+*
+* @param [in] dimensions Size of the signal.
+* @param [in] firstAxis Indicates which axis the FFT is performed on first. Only relevant for real-valued signals.
+*/
+inline vector<uint32_t, N> padDimensions(vector<uint32_t, N> dimensions, uint16_t subgroupSize, uint16_t firstAxis = N)
+{
+    vector<uint32_t, N> newDimensions;
+    for (uint16_t i = 0u; i < N; i++)
+        newDimensions[i] = padDimension(dimensions[i], subgroupSize);
+    // If real, first axis gets halved since we run two real FFTs at once
+    if (firstAxis < N)
+        newDimensions[firstAxis] /= 2;
+    return newDimensions;
+}
+
+template <uint16_t N NBL_FUNC_REQUIRES(N > 0 && N <= 4)
+/**
+* @brief Returns the size required by a buffer to hold the result of the FFT of a signal after a certain pass.
+*
+* @tparam N Number of dimensions of the signal to perform FFT on.
+*
+* @param [in] numChannels Number of channels of the signal.
+* @param [in] inputDimensions Size of the signal.
+* @param [in] passIx Which pass the size is being computed for.
+* @param [in] axisPassOrder Order of the axis in which the FFT is computed in. Default is xyzw.
+* @param [in] realFFT True if the signal is real. False by default.
+* @param [in] halfFloats True if using half-precision floats. False by default.
+*/
+inline uint64_t getOutputBufferSize(
+    uint32_t numChannels,
+    vector<uint32_t, N> inputDimensions,
+    uint16_t passIx,
+    uint16_t subgroupSize,
+    vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
+    bool realFFT = false,
+    bool halfFloats = false
+)
+{
+    const vector<uint32_t, N> paddedDimensions = padDimensions<N>(inputDimensions, subgroupSize, realFFT ? axisPassOrder[0] : N);
+    vector<bool, N> axesDone = promote<vector<bool, N>, bool>(false);
+    for (uint16_t i = 0; i <= passIx; i++)
+        axesDone[axisPassOrder[i]] = true;
+    const vector<uint32_t, N> passOutputDimension = lerp(inputDimensions, paddedDimensions, axesDone);
+    uint64_t numberOfComplexElements = uint64_t(numChannels);
+    for (uint16_t i = 0; i < N; i++)
+        numberOfComplexElements *= uint64_t(passOutputDimension[i]);
+    return numberOfComplexElements * (halfFloats ? sizeof(complex_t<float16_t>) : sizeof(complex_t<float32_t>));
+}
+
+template <uint16_t N NBL_FUNC_REQUIRES(N > 0 && N <= 4)
+/**
+* @brief Returns the size required by a buffer to hold the result of the FFT of a signal after a certain pass, when using the FFT to convolve it against a kernel.
+*
+* @tparam N Number of dimensions of the signal to perform FFT on.
+*
+* @param [in] numChannels Number of channels of the signal.
+* @param [in] inputDimensions Size of the signal.
+* @param [in] kernelDimensions Size of the kernel.
+* @param [in] passIx Which pass the size is being computed for.
+* @param [in] axisPassOrder Order of the axis in which the FFT is computed in. Default is xyzw.
+* @param [in] realFFT True if the signal is real. False by default.
+* @param [in] halfFloats True if using half-precision floats. False by default.
+*/
+inline uint64_t getOutputBufferSizeConvolution(
+    uint32_t numChannels,
+    vector<uint32_t, N> inputDimensions,
+    vector<uint32_t, N> kernelDimensions,
+    uint16_t passIx,
+    uint16_t subgroupSize,
+    vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
+    bool realFFT = false,
+    bool halfFloats = false
+)
+{
+    const vector<uint32_t, N> paddedDimensions = padDimensions<N>(inputDimensions + kernelDimensions, subgroupSize, realFFT ? axisPassOrder[0] : N);
+    vector<bool, N> axesDone = promote<vector<bool, N>, bool>(false);
+    for (uint16_t i = 0; i <= passIx; i++)
+        axesDone[axisPassOrder[i]] = true;
+    const vector<uint32_t, N> passOutputDimension = lerp(inputDimensions, paddedDimensions, axesDone);
+    uint64_t numberOfComplexElements = uint64_t(numChannels);
+    for (uint16_t i = 0; i < N; i++)
+        numberOfComplexElements *= uint64_t(passOutputDimension[i]);
+    return numberOfComplexElements * (halfFloats ? sizeof(complex_t<float16_t>) : sizeof(complex_t<float32_t>));
+}
+
+
+// Computes the kth element in the group of N roots of unity
+// Notice 0 <= k < N/2, rotating counterclockwise in the forward (DIF) transform and clockwise in the inverse (DIT)
+template<bool inverse, typename Scalar>
+complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
+{
+    complex_t<Scalar> retVal;
+    const Scalar kthRootAngleRadians = numbers::pi<Scalar> *Scalar(k) / Scalar(halfN);
+    Scalar cosine = nbl::hlsl::cos<Scalar>(kthRootAngleRadians);
+    Scalar sine   = nbl::hlsl::sin<Scalar>(kthRootAngleRadians);
+    retVal.real(cosine);
+    if (!inverse)
+        retVal.imag(-sine);
+    else
+        retVal.imag(sine);
+    return retVal;
+}
+
+template<bool inverse, typename Scalar>
+struct DIX
+{
+    static void radix2(complex_t<Scalar> twiddle, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
+    {
+        plus_assign< complex_t<Scalar> > plusAss;
+        //Decimation in time - inverse           
+        if (inverse) {
+            complex_t<Scalar> wHi = twiddle * hi;
+            hi = lo - wHi;
+            plusAss(lo, wHi);
+        }
+        //Decimation in frequency - forward   
+        else {
+            complex_t<Scalar> diff = lo - hi;
+            plusAss(lo, hi);
+            hi = twiddle * diff;
+        }
+    }
+
+    static void radix3(
+        complex_t<Scalar> twiddle1, 
+        complex_t<Scalar> twiddle2, 
+        NBL_REF_ARG(complex_t<Scalar>) lo, 
+        NBL_REF_ARG(complex_t<Scalar>) mid, 
+        NBL_REF_ARG(complex_t<Scalar>) hi)
+    {
+        plus_assign< complex_t<Scalar> > plusAss;
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar SQRT3_OVER_2 = Scalar(0.8660254037844386);
+
+        // Decimation in time - inverse
+        if (inverse) {
+            // Apply twiddles first, then butterfly
+            complex_t<Scalar> w1 = twiddle1 * mid;
+            complex_t<Scalar> w2 = twiddle2 * hi;
+
+            complex_t<Scalar> s = w1 + w2;
+            complex_t<Scalar> d = w1 - w2;
+
+            // u = i * sqrt(3)/2 * d 
+            complex_t<Scalar> u = complex_t<Scalar>(d.imag() * (-SQRT3_OVER_2), d.real() * SQRT3_OVER_2);
+
+            complex_t<Scalar> t = lo - s * Scalar(0.5);
+            plusAss(lo, s);     // lo = lo + s
+            mid = t + u;        // inverse: swapped signs vs forward
+            hi = t - u;
+        }
+        // Decimation in frequency - forward
+        else {
+            // Butterfly first, then apply twiddles
+            complex_t<Scalar> s = mid + hi;
+            complex_t<Scalar> d = mid - hi;
+
+            // u = i * sqrt(3)/2 * d 
+            complex_t<Scalar> u = complex_t<Scalar>(d.imag() * (-SQRT3_OVER_2), d.real() * SQRT3_OVER_2);
+
+            complex_t<Scalar> t = lo - s * Scalar(0.5);
+            plusAss(lo, s);     // lo = lo + s
+            mid = twiddle1 * (t - u);
+            hi = twiddle2 * (t + u);
+        }
+    }
+
+    static void radix5(
+        complex_t<Scalar> twiddle1,
+        complex_t<Scalar> twiddle2,
+        complex_t<Scalar> twiddle3,
+        complex_t<Scalar> twiddle4,
+        NBL_REF_ARG(complex_t<Scalar>) x0,
+        NBL_REF_ARG(complex_t<Scalar>) x1,
+        NBL_REF_ARG(complex_t<Scalar>) x2,
+        NBL_REF_ARG(complex_t<Scalar>) x3,
+        NBL_REF_ARG(complex_t<Scalar>) x4)
+    {
+        plus_assign< complex_t<Scalar> > plusAss;
+
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar COS_2PI_5 = Scalar(0.30901699437494742);  // (sqrt(5) - 1)/4
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar COS_4PI_5 = Scalar(-0.80901699437494742);  // -(sqrt(5) + 1)/4
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar SIN_2PI_5 = Scalar(0.95105651629515357);
+        NBL_CONSTEXPR_FUNC_SCOPE_VAR Scalar SIN_4PI_5 = Scalar(0.58778525229247312);
+
+        //Decimation in time - inverse
+        if (inverse) {
+            // Apply twiddles first
+            complex_t<Scalar> w1 = twiddle1 * x1;
+            complex_t<Scalar> w2 = twiddle2 * x2;
+            complex_t<Scalar> w3 = twiddle3 * x3;
+            complex_t<Scalar> w4 = twiddle4 * x4;
+
+            // 5-point inverse DFT: exploit W_5 conjugate symmetry via sum/diff pairs
+            complex_t<Scalar> s1 = w1 + w4;
+            complex_t<Scalar> d1 = w1 - w4;
+            complex_t<Scalar> s2 = w2 + w3;
+            complex_t<Scalar> d2 = w2 - w3;
+
+            complex_t<Scalar> tA = x0 + COS_2PI_5 * s1 + COS_4PI_5 * s2;
+            complex_t<Scalar> tB = x0 + COS_4PI_5 * s1 + COS_2PI_5 * s2;
+
+            // uA = i * (sA * d1 + sB * d2),   uB = i * (sB * d1 - sA * d2)
+            complex_t<Scalar> vA = SIN_2PI_5 * d1 + SIN_4PI_5 * d2;
+            complex_t<Scalar> vB = SIN_4PI_5 * d1 - SIN_2PI_5 * d2;
+            complex_t<Scalar> uA = rotateLeft(vA);
+            complex_t<Scalar> uB = rotateLeft(vB);
+
+            plusAss(x0, s1 + s2); // x0 = x0 + s1 + s2
+            // inverse flips the sign on u compared to forward
+            x1 = tA + uA;
+            x4 = tA - uA;
+            x2 = tB + uB;
+            x3 = tB - uB;
+        }
+        //Decimation in frequency - forward
+        else {
+            // 5-point DFT first
+            complex_t<Scalar> s1 = x1 + x4;
+            complex_t<Scalar> d1 = x1 - x4;
+            complex_t<Scalar> s2 = x2 + x3;
+            complex_t<Scalar> d2 = x2 - x3;
+
+            complex_t<Scalar> tA = x0 + COS_2PI_5 * s1 + COS_4PI_5 * s2;
+            complex_t<Scalar> tB = x0 + COS_4PI_5 * s1 + COS_2PI_5 * s2;
+
+            complex_t<Scalar> vA = SIN_2PI_5 * d1 + SIN_4PI_5 * d2;
+            complex_t<Scalar> vB = SIN_4PI_5 * d1 - SIN_2PI_5 * d2;
+            complex_t<Scalar> uA = rotateLeft(vA);
+            complex_t<Scalar> uB = rotateLeft(vB);
+
+            plusAss(x0, s1 + s2); // x0 = x0 + s1 + s2
+            // Apply twiddles to the DFT outputs
+            x1 = twiddle1 * (tA - uA);
+            x4 = twiddle4 * (tA + uA);
+            x2 = twiddle2 * (tB - uB);
+            x3 = twiddle3 * (tB + uB);
+        }
+    }
+};
+
+template<typename Scalar>
+using DIT = DIX<true, Scalar>;
+
+template<typename Scalar>
+using DIF = DIX<false, Scalar>;
+
+// ------------------------------------------------- Utils ---------------------------------------------------------
+// 
+// Util to unpack two values from the packed FFT X + iY - get outputs in the same input arguments, storing x to lo and y to hi
+template<typename Scalar>
+void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
+{
+    complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
+    hi = rotateRight<Scalar>(lo - conj(hi)) * Scalar(0.5);
+    lo = x;
+}
+
+} //namespace fft2
+} //namespace hlsl
+} //namespace nbl
+
+#endif

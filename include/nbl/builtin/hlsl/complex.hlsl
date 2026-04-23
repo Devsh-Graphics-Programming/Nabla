@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/functional.hlsl>
+#include <nbl/builtin/hlsl/tgmath.hlsl>
 
 using namespace nbl::hlsl;
 
@@ -31,22 +32,6 @@ struct complex_t : public std::complex<Scalar>
         return retVal;
     }
 };
-
-// Fast mul by i
-template<typename Scalar>
-complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
-{
-    complex_t<Scalar> retVal = { -value.imag(), value.real() };
-    return retVal;
-}
-
-// Fast mul by -i
-template<typename Scalar>
-complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
-{
-    complex_t<Scalar> retVal = { value.imag(), -value.real() };
-    return retVal;
-}
 
 }
 }
@@ -414,27 +399,10 @@ complex_t<Scalar> proj(const complex_t<Scalar> c)
 template<typename Scalar>
 complex_t<Scalar> polar(const Scalar r, const Scalar theta) 
 {
-    complex_t<Scalar> retVal = {r * cos(theta), r * sin(theta)};
+    complex_t<Scalar> retVal = {r * nbl::hlsl::cos<Scalar>(theta), r * nbl::hlsl::sin<Scalar>(theta)};
     return retVal;
 }
 
-
-// --------------------------------------------- Some more functions that come in handy --------------------------------------
-// Fast mul by i
-template<typename Scalar>
-complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
-{
-    complex_t<Scalar> retVal = { -value.imag(), value.real() };
-    return retVal;
-}
-
-// Fast mul by -i
-template<typename Scalar>
-complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
-{
-    complex_t<Scalar> retVal = { value.imag(), -value.real() };
-    return retVal;
-}
 
 }
 }
@@ -455,5 +423,41 @@ NBL_REGISTER_OBJ_TYPE(complex_t<float64_t4>,::nbl::hlsl::alignment_of_v<float64_
 
 // -------------------------------------- END HLSL VERSION ---------------------------------------
 #endif
+
+// ---------------------------------------- COMMON ---------------------------------------
+
+namespace nbl
+{
+namespace hlsl
+{
+
+// Fast mul by i
+template<typename Scalar>
+complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { -value.imag(), value.real() };
+    return retVal;
+}
+
+// Fast mul by -i
+template<typename Scalar>
+complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { value.imag(), -value.real() };
+    return retVal;
+}
+
+// Fast square
+template<typename Scalar>
+complex_t<Scalar> square(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    Scalar real = value.real() * value.real() - value.imag() * value.imag();
+    Scalar imag = 2 * value.real() * value.imag();
+    complex_t<Scalar> retVal = { real, imag };
+    return retVal;
+}
+
+}
+}
 
 #endif

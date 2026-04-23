@@ -123,6 +123,12 @@ struct find_lsb
 };
 template<uint64_t X>
 NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint64_t find_lsb_v = find_lsb<X>::value;
+
+template<uint64_t Dividend, uint64_t Divisor>
+struct ceil_div : integral_constant<uint64_t, (Dividend + Divisor - uint64_t(1)) / Divisor > {};
+template<uint64_t Dividend, uint64_t Divisor>
+NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR uint64_t ceil_div_v = ceil_div<Dividend, Divisor>::value;
+
 }
 }
 }

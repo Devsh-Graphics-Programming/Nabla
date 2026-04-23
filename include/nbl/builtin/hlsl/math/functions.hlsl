@@ -91,7 +91,7 @@ scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
     return impl::lp_norm<T,LP>::__call(v);
 }
 
-
+// [Francisco] sqrt hits the SFU the same as a sin call, calling both sin and cos might just be faster and more accurate?
 // valid only for `theta` in [-PI,PI]
 template <typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
