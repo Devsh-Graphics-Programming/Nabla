@@ -9,7 +9,7 @@
 #include "cuda.h"
 #include "nvrtc.h"
 #if CUDA_VERSION < 9000
-	#error "Need CUDA 9.0 SDK or higher."
+  #error "Need CUDA 9.0 SDK or higher."
 #endif
 
 // useful includes in the future
@@ -21,25 +21,22 @@ namespace nbl::video
 
 class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
 {
-public:
-    friend class CCUDADevice;
+    public:
 
-    CUexternalSemaphore getInternalObject() const { return m_handle; }
+      CUexternalSemaphore getInternalObject() const { return m_handle; }
+      CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, 
+        core::smart_refctd_ptr<ISemaphore> src, 
+        CUexternalSemaphore semaphore)
+          : m_device(std::move(device))
+          , m_src(std::move(src))
+          , m_handle(semaphore)
+      {}
+      ~CCUDAImportedSemaphore() override;
 
-protected:
-   
-    CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, 
-      core::smart_refctd_ptr<ISemaphore> src, 
-      CUexternalSemaphore semaphore)
-        : m_device(std::move(device))
-        , m_src(std::move(src))
-        , m_handle(semaphore)
-    {}
-    ~CCUDAImportedSemaphore() override;
-
-    core::smart_refctd_ptr<CCUDADevice> m_device;
-    core::smart_refctd_ptr<ISemaphore> m_src;
-    CUexternalSemaphore m_handle;
+    private:
+      core::smart_refctd_ptr<CCUDADevice> m_device;
+      core::smart_refctd_ptr<ISemaphore> m_src;
+      CUexternalSemaphore m_handle;
 };
 
 }

@@ -134,12 +134,12 @@ CUresult CCUDADevice::createExportableMemory(
 		return err;
 	}
 	
-	*outMem = core::smart_refctd_ptr<CCUDAExportableMemory>(new CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params)), core::dont_grab);
+	*outMem = core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params), mem);
 
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, IDeviceMemoryAllocation* mem)
+CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
 {
 	if (!mem || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -166,11 +166,11 @@ CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedM
 	CUexternalMemory cuExtMem;
 	if (auto err = cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc); CUDA_SUCCESS != err)
 		return err;
-	*outPtr = core::smart_refctd_ptr<CCUDAImportedMemory>(new CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<IDeviceMemoryAllocation>(mem), cuExtMem), core::dont_grab);
+	*outPtr = core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), cuExtMem);
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, ISemaphore* sema)
+CUresult CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, core::smart_refctd_ptr<ISemaphore>&& sema)
 {
 	if (!sema || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -197,7 +197,7 @@ CUresult CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<CCUDAImport
 	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
 		return err;
 	
-	*outPtr = core::smart_refctd_ptr<CCUDAImportedSemaphore>(new CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this), core::smart_refctd_ptr<ISemaphore>(sema), cusema), core::dont_grab);
+	*outPtr = core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), cusema);
 	return CUDA_SUCCESS;
 }
 

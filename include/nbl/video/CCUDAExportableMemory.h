@@ -10,7 +10,7 @@
 #include "cuda.h"
 #include "nvrtc.h"
 #if CUDA_VERSION < 9000
-	#error "Need CUDA 9.0 SDK or higher."
+  #error "Need CUDA 9.0 SDK or higher."
 #endif
 
 // useful includes in the future
@@ -24,41 +24,44 @@ class CCUDAMemoryMapping: public core::IReferenceCounted
 {
 };
 
+class CCUDADevice;
+
 class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
-public:
-    friend class CCUDADevice;
+    public:
 
-    CUdeviceptr getDeviceptr() const { return m_params.ptr;  }
+        struct SCreationParams
+        {
+            size_t            size;
+            uint32_t          alignment;
+            CUmemLocationType location;
+        };
 
-    struct SCreationParams
-    {
-        size_t            size;
-        uint32_t          alignment;
-        CUmemLocationType location;
-    };
+        struct SCachedCreationParams : SCreationParams
+        {
+            size_t granularSize;
+            CUdeviceptr ptr;
+            external_handle_t externalHandle;
+        };
 
-    struct SCachedCreationParams : SCreationParams
-    {
-        size_t granularSize;
-        CUdeviceptr ptr;
-        external_handle_t externalHandle;
-    };
+        CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, CUmemGenericAllocationHandle allocationHandle)
+            : m_device(std::move(device))
+            , m_params(std::move(params))
+            , m_allocationHandle(allocationHandle)
+        {}
+        ~CCUDAExportableMemory() override;
 
-    const SCreationParams& getCreationParams() const { return m_params; }
+        CUdeviceptr getDeviceptr() const { return m_params.ptr;  }
 
-    core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
+        const SCreationParams& getCreationParams() const { return m_params; }
 
-protected:
+        core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
-    CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
-        : m_device(std::move(device))
-        , m_params(std::move(params))
-    {}
-    ~CCUDAExportableMemory() override;
+    private:
 
-    core::smart_refctd_ptr<CCUDADevice> m_device;
-    SCachedCreationParams m_params;
+        core::smart_refctd_ptr<CCUDADevice> m_device;
+        SCachedCreationParams m_params;
+        CUmemGenericAllocationHandle m_allocationHandle;
 };
 
 }

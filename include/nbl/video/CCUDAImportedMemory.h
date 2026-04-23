@@ -16,24 +16,24 @@ namespace nbl::video
 
 class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 {
-  public:
-    friend class CCUDADevice;
+    public:
 
-    CUexternalMemory getInternalObject() const { return m_handle; }
-    CUresult getMappedBuffer(CUdeviceptr* mappedBuffer);
+      CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<nbl::video::IDeviceMemoryAllocation> src,
+        CUexternalMemory cuExtMem) : 
+        m_device(device),
+        m_src(src),
+        m_handle(cuExtMem) {}
 
-  protected:
-    CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<nbl::video::IDeviceMemoryAllocation> src,
-      CUexternalMemory cuExtMem) : 
-      m_device(device),
-      m_src(src),
-      m_handle(cuExtMem) {}
+      ~CCUDAImportedMemory() override;
 
-    ~CCUDAImportedMemory() override;
+      CUexternalMemory getInternalObject() const { return m_handle; }
+      CUresult getMappedBuffer(CUdeviceptr* mappedBuffer);
 
-    core::smart_refctd_ptr<CCUDADevice> m_device;
-    core::smart_refctd_ptr<IDeviceMemoryAllocation> m_src;
-    CUexternalMemory m_handle;
+    private:
+
+      core::smart_refctd_ptr<CCUDADevice> m_device;
+      core::smart_refctd_ptr<IDeviceMemoryAllocation> m_src;
+      CUexternalMemory m_handle;
 
 };
 
