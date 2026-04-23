@@ -20,10 +20,6 @@
 namespace nbl::video
 {
 
-class CCUDAMemoryMapping: public core::IReferenceCounted
-{
-};
-
 class CCUDADevice;
 
 class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
