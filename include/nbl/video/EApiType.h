@@ -13,6 +13,7 @@ enum E_API_TYPE : uint32_t
     //EAT_WEBGPU
 };
 
+// TODO(kevinyu): Should I move this type and functions to its own file?
 using external_handle_t =
 #ifdef _WIN32
 void*
