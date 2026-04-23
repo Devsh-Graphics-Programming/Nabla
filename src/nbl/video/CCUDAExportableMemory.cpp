@@ -35,17 +35,17 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 		dedication, 
 		IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE, 
 		CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE, 
-		m_params.externalHandle, 
-		std::make_unique<CCUDADevice::SCUDACleaner>(core::smart_refctd_ptr<const CCUDAExportableMemory>(this))).memory;
+		m_params.externalHandle).memory;
 }
 
 CCUDAExportableMemory::~CCUDAExportableMemory()
 {
 	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 
-	CUresult re[] = {
-		cu.pcuMemUnmap(m_params.ptr, m_params.granularSize),
-	};
+	cu.pcuMemUnmap(m_params.ptr, m_params.granularSize);
+	cu.pcuMemAddressFree(m_params.ptr, m_params.granularSize);
+	cu.pcuMemRelease(m_allocationHandle);
+
 	CloseExternalHandle(m_params.externalHandle);
 
 }

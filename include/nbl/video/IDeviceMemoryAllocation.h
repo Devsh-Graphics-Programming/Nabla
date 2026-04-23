@@ -191,10 +191,6 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         virtual external_handle_t getExternalHandle() const = 0;
 
     protected:
-        inline void setPostDestroyCleanup(std::unique_ptr<struct ICleanup>&& cleanup)
-        {
-            m_postDestroyCleanup = std::move(cleanup);
-        }
 
         IDeviceMemoryAllocation(
             const ILogicalDevice* originDevice, SCreationParams&& params = {})
@@ -213,7 +209,6 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         uint8_t* m_mappedPtr = nullptr;
         MemoryRange m_mappedRange = {};
         core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> m_currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
-        std::unique_ptr<struct ICleanup> m_postDestroyCleanup = nullptr;
 };
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS)

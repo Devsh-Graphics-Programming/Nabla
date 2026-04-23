@@ -38,13 +38,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 #endif
 
-		struct SCUDACleaner : video::ICleanup
-		{
-			core::smart_refctd_ptr<const core::IReferenceCounted> resource;
-			SCUDACleaner(core::smart_refctd_ptr<const core::IReferenceCounted> resource)
-				: resource(std::move(resource))
-			{}
-		};
 		enum E_VIRTUAL_ARCHITECTURE
 		{
 			EVA_30,

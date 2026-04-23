@@ -125,18 +125,14 @@ class NBL_API2 IDeviceMemoryAllocator
 			IDeviceMemoryBacked* dedication = nullptr,
 			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
 			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE,
-			external_handle_t externalHandle = {},
-      std::unique_ptr<struct ICleanup>&& postDestroyCleanup = nullptr)
+			external_handle_t externalHandle = {})
 		{
 			for (memory_type_iterator_t memTypeIt(reqs, allocateFlags, externalHandleType, externalHandle); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
 			{
 				SAllocateInfo allocateInfo = memTypeIt.operator()(dedication);
 				auto allocation = allocate(allocateInfo);
 				if (allocation.isValid())
-				{
-					allocation.memory->setPostDestroyCleanup(std::move(postDestroyCleanup));
 					return allocation;
-				}
 			}
 			return {};
 		}
