@@ -20,7 +20,6 @@ namespace reflection
 enum PerturbedNormalShadowing : uint16_t
 {
     PNS_SCHUSSLER,
-    PNS_ESTEVEZ,
     PNS_YINING
 };
 
@@ -52,28 +51,6 @@ struct ShadowingMethod<T, PNS_SCHUSSLER>
 };
 
 template<typename T>
-struct ShadowingMethod<T, PNS_ESTEVEZ>
-{
-    using scalar_type = T;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type, 3, 3>;
-
-    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
-    {
-        const scalar_type tan2_d = scalar_type(1.0) / (NdotNp * NdotNp) - scalar_type(1.0);
-        const scalar_type bump_alpha2 = hlsl::clamp(scalar_type(0.125) * tan2_d, scalar_type(0.0), scalar_type(1.0));
-
-        const scalar_type devsh_v = hlsl::sqrt(bump_alpha2 + (scalar_type(1.0) - bump_alpha2) * (clampedNdotL * clampedNdotL));
-        return scalar_type(2.0) * clampedNdotL / (devsh_v + clampedNdotL);
-    }
-
-    static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
-    {
-        return ShadowingMethod<T, PNS_SCHUSSLER>::computeNt(Np, shadingBasis);
-    }
-};
-
-template<typename T>
 struct ShadowingMethod<T, PNS_YINING>
 {
     using scalar_type = T;
@@ -91,8 +68,9 @@ struct ShadowingMethod<T, PNS_YINING>
 
     static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
     {
-        const vector3_type w = hlsl::normalize(hlsl::cross(shadingBasis[2], Np));
-        return hlsl::normalize(hlsl::cross(Np, w));
+        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
+        const vector3_type local_Nt = hlsl::normalize(vector3_type(local_Np.xy * -local_Np.z, 1.0 - local_Np.z*local_Np.z));
+        return hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
     }
 };
 
