@@ -661,7 +661,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, 
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
         {
-            usages &= ~asset::IBuffer::EUF_SYNTHEHIC_FLAGS_MASK; // mask out synthetic flags
+            usages &= ~asset::IBuffer::EUF_SYNTHETIC_FLAGS_MASK; // mask out synthetic flags
 
             // TODO(kevinyu): Should we cached the properties like Atil does. If yes, needs mutex and mutable specifier. Class become not that simple anymore. 
             // {

@@ -43,7 +43,7 @@ class IBuffer : public IDescriptor, public core::IBuffer
 			// whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 			EUF_INLINE_UPDATE_VIA_CMDBUF = 0x80000000u,
 			
-            EUF_SYNTHEHIC_FLAGS_MASK = EUF_INLINE_UPDATE_VIA_CMDBUF | 0 /* fill out as needed if anymore synthethic flags are added*/
+            EUF_SYNTHETIC_FLAGS_MASK = EUF_INLINE_UPDATE_VIA_CMDBUF | 0 /* fill out as needed if anymore synthethic flags are added*/
         };
 
 		//!
