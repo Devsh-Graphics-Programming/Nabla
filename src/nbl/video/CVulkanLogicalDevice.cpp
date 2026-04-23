@@ -279,7 +279,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
 #ifdef _WIN32
             VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
 #else 
-            VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+            VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
 #endif
             .memory = vk_deviceMemory,
             .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
