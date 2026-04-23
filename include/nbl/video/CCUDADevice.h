@@ -87,14 +87,18 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		}
 
 		CUdevice getInternalObject() const { return m_handle; }
+
 		const CCUDAHandler* getHandler() const { return m_handler.get();  }
+
 		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
+
 		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
-		CUresult createExportableMemory(core::smart_refctd_ptr<CCUDAExportableMemory>* outMem, struct CCUDAExportableMemory::SCreationParams&& inParams);
 
-		CUresult importExternalMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
+		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDAExportableMemory::SCreationParams&& inParams);
 
-		CUresult importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, core::smart_refctd_ptr<ISemaphore>&& sem);
+		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
+
+		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);
 
 	private:
 		CUresult reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory) const;

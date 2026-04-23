@@ -102,13 +102,8 @@ CUmemAllocationProp CCUDADevice::getMemAllocationProp(CUmemLocationType location
 	};
 }
 
-CUresult CCUDADevice::createExportableMemory(
-	core::smart_refctd_ptr<CCUDAExportableMemory>* outMem, 
-	CCUDAExportableMemory::SCreationParams&& inParams)
+core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemory(CCUDAExportableMemory::SCreationParams&& inParams)
 {
-	if (!outMem)
-		return CUDA_ERROR_INVALID_VALUE;
-
 	CCUDAExportableMemory::SCachedCreationParams params = { inParams };
 
 	auto& cu = m_handler->getCUDAFunctionTable();
@@ -119,41 +114,37 @@ CUresult CCUDADevice::createExportableMemory(
 
 	CUmemGenericAllocationHandle mem;
 	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
-		return err;
+		return nullptr;
 	
 	if (auto err = cu.pcuMemExportToShareableHandle(&params.externalHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
 	{
 		cu.pcuMemRelease(mem);
-		return err;
+		return nullptr;
 	}
 
 	if (auto err = reserveAddressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
 	{
 		CloseExternalHandle(params.externalHandle);
 		cu.pcuMemRelease(mem);
-		return err;
+		return nullptr;
 	}
 
 	if (auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
 	{
 		CloseExternalHandle(params.externalHandle);
-		return err;
+		return nullptr;
 	}
 	
-	*outMem = core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params), mem);
-
-	return CUDA_SUCCESS;
+	return core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params), mem);
 }
 
-CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedMemory>* outPtr, core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
+core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
 {
-	if (!mem || !outPtr)
-		return CUDA_ERROR_INVALID_VALUE;
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = mem->getCreationParams().externalHandleType;
 
-	if (!handleType) return CUDA_ERROR_INVALID_VALUE;
+	if (!handleType) return nullptr;
 
 	const auto externalHandle = mem->getExternalHandle();
 
@@ -169,21 +160,17 @@ CUresult CCUDADevice::importExternalMemory(core::smart_refctd_ptr<CCUDAImportedM
 
 	CUexternalMemory cuExtMem;
 	if (auto err = cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc); CUDA_SUCCESS != err)
-		return err;
-	*outPtr = core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), cuExtMem);
-	return CUDA_SUCCESS;
+		return nullptr;
+	return core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), cuExtMem);
 }
 
-CUresult CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<CCUDAImportedSemaphore>* outPtr, core::smart_refctd_ptr<ISemaphore>&& sema)
+core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sema)
 {
-	if (!sema || !outPtr)
-		return CUDA_ERROR_INVALID_VALUE;
-
 	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = sema->getCreationParams().externalHandleTypes.value;
 
 	if (!handleType)
-		return CUDA_ERROR_INVALID_VALUE;
+		return nullptr;
 
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
@@ -199,10 +186,9 @@ CUresult CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<CCUDAImport
 
 	CUexternalSemaphore cusema;
 	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
-		return err;
+		return nullptr;
 	
-	*outPtr = core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), cusema);
-	return CUDA_SUCCESS;
+	return core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), cusema);
 }
 
 CCUDADevice::~CCUDADevice()
