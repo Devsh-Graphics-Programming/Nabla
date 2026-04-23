@@ -3,7 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/video/CCUDADevice.h"
 
+#ifdef _WIN32
 #include <winternl.h>
+#endif
 
 #include "nbl/video/CCUDAImportedMemory.h"
 
@@ -39,13 +41,7 @@ CCUDADevice::CCUDADevice(
 
 	for (uint32_t i = 0; i < ARRAYSIZE(m_allocationGranularity); ++i)
 	{
-		uint32_t metaData[16] = { 48 };
-		CUmemAllocationProp prop = {
-			.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-			.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
-			.location = {.type = static_cast<CUmemLocationType>(i), .id = m_handle },
-			.win32HandleMetaData = metaData,
-		};
+		const auto prop = getMemAllocationProp(static_cast<CUmemLocationType>(i));
 		auto re = cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[i], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
 
 		assert(CUDA_SUCCESS == re);
@@ -88,6 +84,24 @@ CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 	return CUDA_SUCCESS;
 }
 
+CUmemAllocationProp CCUDADevice::getMemAllocationProp(CUmemLocationType locationType) const
+{
+	
+#ifdef _WIN32
+	OBJECT_ATTRIBUTES metadata = {};
+	metadata.Length = sizeof(OBJECT_ATTRIBUTES);
+#endif
+
+	 return {
+		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
+		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
+		.location = { .type = locationType, .id = m_handle },
+#ifdef _WIN32
+		.win32HandleMetaData = &metadata,
+#endif
+	};
+}
+
 CUresult CCUDADevice::createExportableMemory(
 	core::smart_refctd_ptr<CCUDAExportableMemory>* outMem, 
 	CCUDAExportableMemory::SCreationParams&& inParams)
@@ -99,15 +113,7 @@ CUresult CCUDADevice::createExportableMemory(
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 
-	OBJECT_ATTRIBUTES metadata = {};
-	metadata.Length = sizeof(OBJECT_ATTRIBUTES);
-
-	CUmemAllocationProp prop = {
-		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
-		.location = { .type = params.location, .id = m_handle },
-		.win32HandleMetaData = &metadata,
-	};
+	const auto prop = getMemAllocationProp(params.location);
 	
 	params.granularSize = roundToGranularity(params.location, params.size);
 
