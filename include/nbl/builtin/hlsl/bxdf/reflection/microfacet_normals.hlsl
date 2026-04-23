@@ -42,6 +42,12 @@ struct ShadowingMethod<T, PNS_SCHUSSLER>
         );
     }
 
+    static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
+    {
+        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
+        return clampedNpdotV / (clampedNpdotV + clampedNtdotV * sinThetaNp);
+    }
+
     static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
     {
         const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
@@ -64,6 +70,20 @@ struct ShadowingMethod<T, PNS_YINING>
         );
         const scalar_type g2 = g * g;
         return -g2 * g + g2 + g;
+    }
+
+    // TODO: verify maths
+    // since Nt is now perpendicular to Np and not N
+    // total area of surface = 1 = hypotenuse of right triangle
+    // area of perturbed facet = cos(Np) = NdotNp
+    // area of tangent facet = cos(Nt) = sin(Np)
+    // projected area of Np onto V = area * NpdotV
+    static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
+    {
+        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
+        const scalar_type ap = clampedNpdotV * NdotNp;
+        const scalar_type at = clampedNtdotV * sinThetaNp;
+        return ap / (ap + at);
     }
 
     static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
@@ -116,12 +136,6 @@ struct SMicrofacetNormals
         return anisotropic_interaction_type::create(interaction);
     }
 
-    static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
-    {
-        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
-        return clampedNpdotV / (clampedNpdotV + clampedNtdotV * sinThetaNp);
-    }
-
     template<typename C=bool_constant<!traits<bxdf_type>::IsMicrofacet> NBL_FUNC_REQUIRES(C::value && !traits<bxdf_type>::IsMicrofacet)
     static typename bxdf_type::anisocache_type __createChildCache(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
@@ -162,7 +176,7 @@ struct SMicrofacetNormals
         const scalar_type NdotL = hlsl::dot(shadingNormal, L);
         const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
         const scalar_type NtdotL = hlsl::dot(Nt, L);
-        const scalar_type lambda_p = lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV));
+        const scalar_type lambda_p = shadowing_method_type::lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV));
         const scalar_type shadowing = shadowing_method_type::G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp,
                                         NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
 
@@ -227,7 +241,7 @@ struct SMicrofacetNormals
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
         sample_type s;
-        if (u.x < lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV)))
+        if (u.x < shadowing_method_type::lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV)))
         {
             // sample on Np
             s = nested_brdf.generate(interaction, u, _cache.aniso_cache);
@@ -301,7 +315,7 @@ struct SMicrofacetNormals
         const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
 
         scalar_type pdf = scalar_type(0.0);
-        const scalar_type lambda_p = lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV));
+        const scalar_type lambda_p = shadowing_method_type::lambdaP(NdotNp, hlsl::max(scalar_type(0.0), NpdotV), hlsl::max(scalar_type(0.0), NtdotV));
         
         if (lambda_p > scalar_type(0.0))
         {
