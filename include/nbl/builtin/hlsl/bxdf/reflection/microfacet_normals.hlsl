@@ -196,9 +196,11 @@ struct SMicrofacetNormals
 
             const scalar_type notShadowedNpMirror = scalar_type(1.0) - shadowing_method_type::G1(hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), shadingNormal)), NdotNp,
                 sample_double_p.getNdotL(BxDFClampMode::BCM_MAX), hlsl::max(scalar_type(0.0), hlsl::dot(L_reflected.getDirection(), Nt)));
+            const scalar_type shadowing_t = shadowing_method_type::G1(hlsl::max(scalar_type(0.0), NdotL), hlsl::dot(shadingNormal, Nt),
+                                        NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
 
             value_weight_type eval_double_p = nested_brdf.evalAndWeight(sample_double_p, interaction);
-            eval += eval_double_p.value() * (lambda_p * notShadowedNpMirror * shadowing);
+            eval += eval_double_p.value() * (lambda_p * notShadowedNpMirror * shadowing_t);
         }
 
         // i -> t -> p -> o
