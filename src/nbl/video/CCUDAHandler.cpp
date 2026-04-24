@@ -526,9 +526,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		));
 	}
 
-
-	CCUDAHandler* handler = new CCUDAHandler(std::move(cuda), std::move(nvrtc),std::move(headers), std::move(_logger), cudaVersion);
-	return core::smart_refctd_ptr<CCUDAHandler>(handler,core::dont_grab);
+	return core::make_smart_refctd_ptr<CCUDAHandler>(std::move(cuda),std::move(nvrtc), std::move(headers), std::move(_logger), cudaVersion);
 }
 
 nvrtcResult CCUDAHandler::createProgram(nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
