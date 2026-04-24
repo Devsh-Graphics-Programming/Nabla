@@ -87,7 +87,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 
 		const CCUDAHandler* getHandler() const { return m_handler.get();  }
 
-		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
+		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_physicalDevice->getProperties().deviceUUID, 16); }
 
 		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
 
@@ -102,15 +102,18 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 
 		CUmemAllocationProp getMemAllocationProp(CUmemLocationType locationType) const;
 		
+		static constexpr auto CudaMemoryLocationCount = 5;
+
+    const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
-		IPhysicalDevice* const m_vulkanDevice;
+		IPhysicalDevice* const m_physicalDevice;
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
 
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;
 		CUdevice m_handle;
 		CUcontext m_context;
-		size_t m_allocationGranularity[4];
+		std::array<size_t, CudaMemoryLocationCount> m_allocationGranularity;
 };
 
 }
