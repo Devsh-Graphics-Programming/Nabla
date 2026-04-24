@@ -127,9 +127,28 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				_typed_pointer_type<const CContributorSum> rest = {};
 		};
 
-		// The oriented layer is a layer with already all the Etas reciprocated, etc.
 		// For codegen, we can compute total uncorrelated layering by convolving every `h_{ij}(w_i,w_o) l_i(w_i,w_o)` term in the layer above with layer below
+		class COrientedLayer;
 		// Corellated layering is a far far far TODO, all it means that certain convolutions don't happen - certain BxDFs don't layer over each other (tricky to express in AST and IR)
+		class CCorellatedTransmission final : public obj_pool_type::INonTrivial, public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
+
+				NBL_API2 core::blake3_hash_t computeHash() const;
+
+				// you can set the children later
+				inline CCorellatedTransmission() = default;
+
+				// to get to the coated layer we must transmit through
+				typed_pointer_type<const CContributorSum> btdf = {};
+				// because the layer is oriented, these last two members must be null when the coating stops
+				typed_pointer_type<const CContributorSum> brdfBottom = {};
+				_typed_pointer_type<const COrientedLayer> coated = {};
+				// optional, indicates a "sibling" transmission thats next to this one
+				_typed_pointer_type<const CCorellatedTransmission> next = {};
+		};
+		// The oriented layer is a layer with already all the Etas reciprocated, etc.
 		class COrientedLayer final : public obj_pool_type::INonTrivial, public INode
 		{
 			public:
@@ -143,11 +162,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// These are same as the frontend's except that all the etas are oriented and reciprocated
 				typed_pointer_type<const CContributorSum> brdfTop = {};
 				// this node must be non-null until the last layer
-				typed_pointer_type<const CContributorSum> btdf = {};
-				// because the layer is oriented, these last two members must be null in the last oriented layer
-				typed_pointer_type<const CContributorSum> brdfBottom = {};
-				typed_pointer_type<const COrientedLayer> coated = {};
+				typed_pointer_type<const CCorellatedTransmission> firstTransmission = {};
 		};
+
+// TODO: Parameter Node
 		
 		// Unit Radiance emitter modulated by an IES profile
 		class CEmitter final : public obj_pool_type::INonTrivial, public IContributor
@@ -222,10 +240,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 
 
-		// Each material comes down to this
+		// Each material comes down to this, this is the only struct we don't de-duplicate
 		struct SMaterial
 		{
-			// Stats needed by a renderer to skip loading parts of a material or remove expensive code alltogether
+			// Stats needed by a renderer to skip loading parts of a material or remove expensive code altogether
 			enum class EMetadataBits : uint16_t
 			{
 				None = 0,
@@ -250,7 +268,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			//
 			struct SOriented
 			{
-				// 
+				// null means no material
 				typed_pointer_type<const COrientedLayer> root = {};
 				//
 				constexpr static inline uint8_t MaxUVSlots = 32;
@@ -258,15 +276,24 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// the tangent frames are a subset of used UV slots, unless there's an anisotropic BRDF involved
 				std::bitset<MaxUVSlots> usedTangentFrames = {};
 				//
-				EMetadataBits metadata = {};
+				core::bitflag<EMetadataBits> metadata = {};
 			};
 			SOriented front = {};
 			SOriented back = {};
-			//
+			// TODO: more detailed debug info
 			CNodePool::typed_pointer_type<CNodePool::CDebugInfo> debugInfo = {};
 		};
 		inline std::span<const SMaterial> getMaterials() const {return m_materials;}
 
+		struct SMaterialHandle
+		{
+			constexpr static inline uint32_t Invalid = ~0u;
+			explicit inline operator bool() const {return value!=Invalid;}
+
+			uint32_t value = Invalid;
+		};
+		constexpr static inline SMaterialHandle BlackholeMaterialHandle = { 0u };
+		// Returns indices into `this->getMaterials()` for every `forest->getMaterials()`
 		// We take the trees from the forest, and canonicalize them into our weird Domain Specific IR with Upside down expression trees.
 		// Process:
 		// 1. Decompression (duplicating nodes, etc.)
@@ -279,7 +306,15 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// - multiscatter compensation
 		// - compilation failure to unsupported complex layering
 		// - compilation failure to unsupported complex layering
-		NBL_API2 bool addMaterials(const CFrontendIR* forest);
+		struct SAddMaterialsArgs
+		{
+			explicit inline operator bool() const {return forest;}
+
+			const CFrontendIR* forest;
+			system::logger_opt_ptr logger;
+
+		};
+		NBL_API2 core::vector<SMaterialHandle> addMaterials(const SAddMaterialsArgs& args);
 		
 
 		// For Debug Visualization
@@ -319,7 +354,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		core::unordered_map<core::blake3_hash_t,typed_pointer_type<INode>> m_uniqueNodes;
 };
 
-//! DAG (baked)
+NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::SMaterial::EMetadataBits)
 
 } // namespace nbl::asset::material_compiler3
 

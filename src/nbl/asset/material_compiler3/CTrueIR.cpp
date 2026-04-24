@@ -11,6 +11,7 @@ namespace nbl::asset::material_compiler3
 {
 
 constexpr auto ELL_ERROR = nbl::system::ILogger::E_LOG_LEVEL::ELL_ERROR;
+constexpr auto ELL_DEBUG = nbl::system::ILogger::E_LOG_LEVEL::ELL_DEBUG;
 using namespace nbl::system;
 
 // TODO: Move these notes, they're for the backend.
@@ -55,9 +56,18 @@ using namespace nbl::system;
 // Spill should be a big circular buffer allocated per-subgroup - hard to control in Pipeline Shaders https://github.com/KhronosGroup/Vulkan-Docs/issues/2717
 // So need to allocate worst case spill for all rays in a dispatch (although can do persistent threads and reduce the dispatch size a little)
 
-bool CTrueIR::addMaterials(const CFrontendIR* forest)
+auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMaterialHandle>
 {
-	auto& forestPool = forest->getObjectPool();
+	const auto logger = args.logger;
+	if (!args)
+	{
+		logger.log("Invalid Arguments to `CTrueIR::addMaterials`",ELL_ERROR);
+		return {};
+	}
+	auto& astPool = args.forest->getObjectPool();
+#
+	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
+	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
 	//
 	struct StackEntry
 	{
@@ -65,14 +75,133 @@ bool CTrueIR::addMaterials(const CFrontendIR* forest)
 		// using post-order like stack but with a pre-order DFS
 		uint8_t visited = false;
 	};
-	core::stack<StackEntry> exprStack;
-	for (const auto& rootH : forest->getMaterials())
+	core::vector<StackEntry> exprStack;
+	//
+	core::vector<typed_pointer_type<const IExprNode>> ancestors;
+	auto findContributors = [&]()->void
 	{
+		// accumulate an ancestor prefix
+		ancestors.clear();
+		while (!exprStack.empty())
+		{
+			auto& entry = exprStack.back();
+			//
+			bool isContributor = true;
+			if (isContributor)
+			{
+				// every contributor node gets its own SORTED ancestor prefix
+				std::sort(ancestors.begin(),ancestors.end()); // TODO: canonicallizing comparator
+			}
+			else if (entry.visited)
+			{
+				// remove self from the ancestor prefix
+//				std::remove(ancestors.begin(),ancestors.end(),self);
+			}
+			else
+			{
+				// spot prefix being null/zero to stop exploring
+				// can make the decision wholly on current factor
+				bool continueExploring = true;
+				if (continueExploring)
+				{
+					// TODO: add self after making self
+//					ancestors.push_back(entry.node);
+					// TODO: push the children nodes onto the stack
+					entry.visited = true;
+					continue;
+				}
+			}
+			exprStack.pop_back();
+		}
+	};
+	//
+	core::vector<const CFrontendIR::CLayer*> layerStack;
+	auto makeOrientedMaterial = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH)->SMaterial::SOriented
+	{
+		SMaterial::SOriented retval = {};
+
+		// go down through layers and create all the dependencies
+		layerStack.clear();
+		for (const auto* layer=astPool.deref(rootH); layer; layer=astPool.deref(layer->coated))
+		{
+			// TODO: actually re-check the expressions for being null after optimization
+			bool noTopReflection = !layer->brdfTop;
+			bool noTransmission = !layer->btdf;
+			// if there's literally nothing on the top level, you can't get to the next layer to retroreflect from it
+			if (noTopReflection && noTransmission)
+			{
+				logger.log("Skipping current layer and farther ones due to no transmission and reflection",ELL_DEBUG);
+				break;
+			}
+			layerStack.push_back(layer);
+			// find out rest of the layers don't matter because they're blocked from being seen, its not a complete check
+			if (noTransmission)
+			{
+				logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
+				break;
+			}
+			// Only if we're not in the last layer do we care about the bottom BRDF (you can't hit it otherwise)
+			// Note that this won't catch the next layer being a blackhole and needs to be undone if it is
+			if (layer->coated && layer->brdfBottom)
+			{
+				// do stuff with brdfBottom
+			}
+		}
+		if (!layerStack.empty())
+			retval.metadata |= SMaterial::EMetadataBits::NotBlackhole;
+		// then go back up and make the layers
+		while (!layerStack.empty())
+		{
+			const auto* const layer = layerStack.back();
+			layerStack.pop_back();
+			// allocate a layer
+			//...
+			// process the BTDF
+			//...
+			// process the top BRDF
+
+			// if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
+			// hmm this would require decorrellation... because don't want rest of BTDF to affect
+			//...
+		}
+		// skip replace delta transmissions by the layer undernearth, if null then keep as delta
+
 		// AST is Sum Expression to the BRDF nodes
 		// We need to keep the Ancestor prefix as an unrolled linked list
+		return retval;
+	};
+
+	const auto inputMaterials = args.forest->getMaterials();
+	core::vector<SMaterialHandle> retval(inputMaterials.size(), {});
+	auto outIt = retval.begin();
+	for (const auto& rootH : inputMaterials)
+	{
+		auto& result = *(outIt++);
+
+		const auto* astRoot = astPool.deref<const CFrontendIR::CLayer>(rootH);
+		// no material
+		if (!astRoot)
+		{
+			result = BlackholeMaterialHandle;
+			continue;
+		}
+		SMaterial material = {
+			.front = makeOrientedMaterial(rootH),
+			.back = makeOrientedMaterial(rootH) // TODO: reversed
+		};
+
+		// TODO: better debug info
+		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
+		{
+			material.debugInfo = getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
+		}
+
+		//
+		result.value = m_materials.size();
+		m_materials.push_back(material);
 	}
-	// 
-	return false;
+
+	return retval;
 }
 
 
