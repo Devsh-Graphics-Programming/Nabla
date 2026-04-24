@@ -24,8 +24,7 @@ CUresult CCUDAImportedMemory::getMappedBuffer(CUdeviceptr* mappedBuffer)
 CCUDAImportedMemory::~CCUDAImportedMemory()
 {
   auto& cu = m_device->getHandler()->getCUDAFunctionTable();
-  if (cu.pcuDestroyExternalMemory(m_handle) != CUDA_SUCCESS)
-    assert(!"Invalid code path");
+  ASSERT_CUDA_SUCCESS(cu.pcuDestroyExternalMemory(m_handle), m_device->getHandler());
 }
 
 }

@@ -16,11 +16,13 @@
 namespace nbl::video
 {
 
+
 class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 {
 		public:
-		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger=nullptr);
-		inline bool defaultHandleResult(CUresult result)
+		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
+
+		inline bool defaultHandleResult(CUresult result) const
 		{
 			core::smart_refctd_ptr<system::ILogger> logger = m_logger.get();
 			return defaultHandleResult(result,logger.get());
@@ -137,6 +139,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 			,cuImportExternalSemaphore
 			,cuSignalExternalSemaphoresAsync
 			,cuWaitExternalSemaphoresAsync
+			,cuLogsRegisterCallback
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
@@ -290,6 +293,14 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		system::logger_opt_smart_ptr m_logger;
 		int m_version;
 };
+
+#define ASSERT_CUDA_SUCCESS(expr, handler) \
+    do { \
+        const auto cudaResult = (expr); \
+        if (!((handler)->defaultHandleResult(cudaResult))) { \
+            assert(false); \
+        } \
+    } while(0)
 
 }
 

@@ -19,9 +19,10 @@ CCUDADevice::CCUDADevice(
 	const E_VIRTUAL_ARCHITECTURE virtualArchitecture,
 	CUdevice device,
 	core::smart_refctd_ptr<CCUDAHandler>&& handler) : 
+	m_logger(vulkanDevice->getDebugCallback()->getLogger()),
   m_defaultCompileOptions(), 
   m_vulkanConnection(std::move(vulkanConnection)), 
-  m_vulkanDevice(vulkanDevice), 
+  m_physicalDevice(vulkanDevice), 
   m_virtualArchitecture(virtualArchitecture),
 	m_handle(device),
 	m_handler(std::move(handler)),
@@ -32,19 +33,15 @@ CCUDADevice::CCUDADevice(
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
 
-  auto& cu = m_handler->getCUDAFunctionTable();
+  const auto& cu = m_handler->getCUDAFunctionTable();
 	
-	CUresult re = cu.pcuCtxCreate_v4(&m_context, nullptr, 0, m_handle);
-	assert(CUDA_SUCCESS == re);
-	re = cu.pcuCtxSetCurrent(m_context);
-	assert(CUDA_SUCCESS == re);
+	ASSERT_CUDA_SUCCESS(cu.pcuCtxCreate_v4(&m_context, nullptr, 0, m_handle), m_handler);
+	ASSERT_CUDA_SUCCESS(cu.pcuCtxSetCurrent(m_context), m_handler);
 
-	for (uint32_t i = 0; i < ARRAYSIZE(m_allocationGranularity); ++i)
+	for (uint32_t locationType = 0; locationType < m_allocationGranularity.size(); ++locationType)
 	{
-		const auto prop = getMemAllocationProp(static_cast<CUmemLocationType>(i));
-		auto re = cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[i], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
-
-		assert(CUDA_SUCCESS == re);
+		const auto prop = getMemAllocationProp(static_cast<CUmemLocationType>(locationType));
+		ASSERT_CUDA_SUCCESS(cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM), m_handler);
 	}
 }
 
@@ -55,15 +52,15 @@ size_t CCUDADevice::roundToGranularity(CUmemLocationType location, size_t size) 
 
 CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory) const
 {
-	auto& cu = m_handler->getCUDAFunctionTable();
+	const auto& cu = m_handler->getCUDAFunctionTable();
 	
 	CUdeviceptr ptr = 0;
-	if (auto err = cu.pcuMemAddressReserve(&ptr, size, alignment, 0, 0); CUDA_SUCCESS != err)
+	if (const auto err = cu.pcuMemAddressReserve(&ptr, size, alignment, 0, 0); CUDA_SUCCESS != err)
 		return err;
 
-	if (auto err = cu.pcuMemMap(ptr, size, 0, memory, 0); CUDA_SUCCESS != err)
+	if (const auto err = cu.pcuMemMap(ptr, size, 0, memory, 0); CUDA_SUCCESS != err)
 	{
-		cu.pcuMemAddressFree(ptr, size);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(ptr, size), m_handler);
 		return err;
 	}
 	
@@ -74,8 +71,8 @@ CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 
 	if (auto err = cu.pcuMemSetAccess(ptr, size, &accessDesc, 1); CUDA_SUCCESS != err)
 	{
-		cu.pcuMemUnmap(ptr, size);
-		cu.pcuMemAddressFree(ptr, size);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemUnmap(ptr, size), m_handler);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(ptr, size), m_handler);
 		return err;
 	}
 
@@ -114,35 +111,44 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 
 	CUmemGenericAllocationHandle mem;
 	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
+	{
+		m_logger.log("Fail to create memory handle!", system::ILogger::ELL_ERROR);
 		return nullptr;
+	}
 	
 	if (auto err = cu.pcuMemExportToShareableHandle(&params.externalHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
 	{
-		cu.pcuMemRelease(mem);
+		m_logger.log("Fail to create externalHandle!", system::ILogger::ELL_ERROR);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemRelease(mem), m_handler);
 		return nullptr;
 	}
 
-	if (auto err = reserveAddressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
+	if (const auto err = reserveAddressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
 	{
-		CloseExternalHandle(params.externalHandle);
-		cu.pcuMemRelease(mem);
+		m_logger.log("Fail to reserve address and map memory!", system::ILogger::ELL_ERROR);
+
+		ASSERT_CUDA_SUCCESS(cu.pcuMemRelease(mem), m_handler);
+
+		bool closeSucceed = CloseExternalHandle(params.externalHandle);
+		assert(closeSucceed);
+
 		return nullptr;
 	}
 
-	if (auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
+	if (const auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
 	{
-		CloseExternalHandle(params.externalHandle);
+		bool closeSucceed = CloseExternalHandle(params.externalHandle);
+		assert(closeSucceed);
 		return nullptr;
 	}
 	
-	return core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params), mem);
+	return core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params));
 }
 
 core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
 {
-
-	auto& cu = m_handler->getCUDAFunctionTable();
-	auto handleType = mem->getCreationParams().externalHandleType;
+	const auto& cu = m_handler->getCUDAFunctionTable();
+	const auto handleType = mem->getCreationParams().externalHandleType;
 
 	if (!handleType) return nullptr;
 
@@ -159,8 +165,11 @@ core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(co
 	extMemDesc.size = mem->getAllocationSize();
 
 	CUexternalMemory cuExtMem;
-	if (auto err = cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc); CUDA_SUCCESS != err)
+	if (const auto err = cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc); CUDA_SUCCESS != err)
+	{
+		m_logger.log("Fail to import external memory into CUDA!", system::ILogger::ELL_ERROR);
 		return nullptr;
+	}
 	return core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), cuExtMem);
 }
 
@@ -185,15 +194,18 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 
 
 	CUexternalSemaphore cusema;
-	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
+	if (const auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
+	{
+		m_logger.log("Fail to import semaphore into CUDA!");
 		return nullptr;
+	}
 	
 	return core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), cusema);
 }
 
 CCUDADevice::~CCUDADevice()
 {
-	m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context);
+	ASSERT_CUDA_SUCCESS(m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context), m_handler);
 }
 
 }

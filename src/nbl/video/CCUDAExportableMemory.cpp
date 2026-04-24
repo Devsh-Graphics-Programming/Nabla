@@ -40,12 +40,14 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 
 CCUDAExportableMemory::~CCUDAExportableMemory()
 {
-	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
+	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 
-	cu.pcuMemUnmap(m_params.ptr, m_params.granularSize);
-	cu.pcuMemAddressFree(m_params.ptr, m_params.granularSize);
+  ASSERT_CUDA_SUCCESS(cu.pcuMemUnmap(m_params.ptr, m_params.granularSize), m_device->getHandler());
 
-	CloseExternalHandle(m_params.externalHandle);
+	ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(m_params.ptr, m_params.granularSize), m_device->getHandler());
+
+  bool closeSucceed = CloseExternalHandle(m_params.externalHandle);
+	assert(closeSucceed);
 
 }
 }
