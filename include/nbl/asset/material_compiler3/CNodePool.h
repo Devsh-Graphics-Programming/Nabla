@@ -94,6 +94,5 @@ class CNodePool : public core::IReferenceCounted
 		obj_pool_type m_composed;
 };
 
-
 } // namespace nbl::asset::material_compiler3
 #endif

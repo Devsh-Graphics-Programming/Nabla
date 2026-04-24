@@ -63,13 +63,27 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class IExprNode : public INode
 		{
 			public:
+				inline core::blake3_hash_t computeHash() const override final
+				{
+					core::blake3_hasher hasher = {};
+					hasher << static_cast<uint8_t>(getType());
+					hasher << lhs;
+					continueHashing(hasher);
+					return hasher.operator core::blake3_hash_t();
+				}
+
 				// Only sane child count allowed
-				virtual uint8_t getChildCount() const = 0;
+				inline uint8_t getChildCount() const {return getExtraChildCount()+1;}
 				inline _typed_pointer_type<IExprNode> getChildHandle(const uint8_t ix)
 				{
-					if (ix<getChildCount())
-						return getChildHandle_impl(ix);
-					return {};
+					if (ix!=0)
+					{
+						if (ix<getChildCount())
+							return getExtraChildHandle(ix);
+						return {};
+					}
+					else
+						return lhs;
 				}
 				inline _typed_pointer_type<const IExprNode> getChildHandle(const uint8_t ix) const
 				{
@@ -81,15 +95,21 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// Contributors are not allowed to be multiplied together, but every additive term in the Expression must contain a contributor factor.
 				enum class Type : uint8_t
 				{
-					Add = 0,
-					Mul = 1,
-					Other = 2
+					Constant = 0,
+					Frensel = 1,
+					Add = 2,
+					Other = 3
 				};
 				virtual inline Type getType() const {return Type::Other;}
 				
+				// optional, when null, it behaves as 1 promoted to the correct dimension
+				_typed_pointer_type<IExprNode> lhs = {};
+
 			protected:
-				// child managment
-				virtual inline _typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const {assert(false); return {};}
+				virtual void continueHashing(core::blake3_hasher& hasher) const = 0;
+				virtual inline uint8_t getExtraChildCount() const {return 0u;}
+				// child managment, only gets called with `ix>0`
+				virtual inline _typed_pointer_type<IExprNode> getExtraChildHandle(const uint8_t ix) const {assert(false); return {};}
 		};
 #define TYPE_NAME_STR(NAME) "nbl::asset::material_compiler3::CTrueIR::"#NAME
 		// Note that this is not a root node, its a flipped leaf!
@@ -98,7 +118,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CWeightedContributor);}
 
-				NBL_API2 core::blake3_hash_t computeHash() const;
+				core::blake3_hash_t computeHash() const
+				{
+					core::blake3_hasher hasher = {};
+					hasher << contributor;
+					hasher << factor;
+					return hasher.operator core::blake3_hash_t();
+				}
 
 
 				typed_pointer_type<const IContributor> contributor = {};
@@ -118,7 +144,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//	+ BxDFs by their type
 				//		* within the same type, by the parameters (with/without bump, then rest
 				// - all things being equal, order by hash
-				NBL_API2 core::blake3_hash_t computeHash() const;
+				core::blake3_hash_t computeHash() const
+				{
+					core::blake3_hasher hasher = {};
+					hasher << product;
+					hasher << rest;
+					return hasher.operator core::blake3_hash_t();
+				}
 
 
 				// the product is ...
@@ -134,8 +166,16 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
-
-				NBL_API2 core::blake3_hash_t computeHash() const;
+				
+				core::blake3_hash_t computeHash() const
+				{
+					core::blake3_hasher hasher = {};
+					hasher << btdf;
+					hasher << brdfBottom;
+					hasher << coated;
+					hasher << next;
+					return hasher.operator core::blake3_hash_t();
+				}
 
 				// you can set the children later
 				inline CCorellatedTransmission() = default;
@@ -154,7 +194,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrientedLayer);}
 
-				NBL_API2 core::blake3_hash_t computeHash() const;
+				inline core::blake3_hash_t computeHash() const
+				{
+					core::blake3_hasher hasher = {};
+					hasher << brdfTop;
+					hasher << firstTransmission;
+					return hasher.operator core::blake3_hash_t();
+				}
 
 				// you can set the children later
 				inline COrientedLayer() = default;
@@ -173,22 +219,27 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CEmitter);}
 
-				NBL_API2 core::blake3_hash_t computeHash() const;
+				inline core::blake3_hash_t computeHash() const
+				{
+					core::blake3_hasher hasher = {};
+//					hasher << parameter;
+					hasher << profileTransform;
+					return hasher.operator core::blake3_hash_t();
+				}
 
 				// you can set the members later
 				inline CEmitter() = default;
 
-#if 0 // TODO: share with AST ? No parameter needs to be a node (so we can dedup and hash)!
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
 				// `profile.scale` can still be used to influence the light strength without influencing NEE light picking probabilities
-				SParameter profile = {};
+// TODO: this IR will have parameters hashed and deduped as actual nodes
+//				SParameter profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
 					0,1,0,
 					0,0,1
 				);
 				// TODO: semantic flags/metadata (symmetries of the profile)
-#endif
 		};
 
 		// To use a bump map, the Material needs to be provided UVs (which can or can not have associated tangents and smooth normals), but that's the responsibility of backend.
@@ -237,6 +288,44 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// - hash NDF Params
 				// - maybe share IBxDF
 				// - and base BxDFs ?
+		};
+
+		//! Basic factor nodes
+		class CConstant final : public obj_pool_type::INonTrivial, public IExprNode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CConstant);}
+				inline Type getType() const override {return Type::Constant;}
+
+				// you can set the children later
+				inline CConstant() = default;
+				
+			protected:
+				inline void continueHashing(core::blake3_hasher& hasher) const override
+				{
+				}
+		};
+
+		// This one doesn't get used during canonicalization
+		class CAdd final : public obj_pool_type::INonTrivial, public IExprNode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CAdd);}
+				inline Type getType() const override {return Type::Add;}
+
+				// you can set the children later
+				inline CAdd() = default;
+
+				typed_pointer_type<IExprNode> rhs = {};
+
+			protected:
+				inline void continueHashing(core::blake3_hasher& hasher) const override
+				{
+					hasher << rhs;
+				}
+				inline uint8_t getExtraChildCount() const override {return 1u;}
+				// child managment, only gets called with `ix>0`
+				inline typed_pointer_type<IExprNode> getExtraChildHandle(const uint8_t ix) const override {return rhs;}
 		};
 
 

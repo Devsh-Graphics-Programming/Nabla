@@ -71,15 +71,21 @@ auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMater
 	//
 	struct StackEntry
 	{
+		inline bool notVisited() const {return !factor;}
+
 		const CFrontendIR::IExprNode* node;
-		// using post-order like stack but with a pre-order DFS
-		uint8_t visited = false;
+		// the counterpart of the ancestors racked up so far
+		typed_pointer_type<const IExprNode> factor = {};
 	};
 	core::vector<StackEntry> exprStack;
+#ifndef DIDNT_MESS_UP
 	//
-	core::vector<typed_pointer_type<const IExprNode>> ancestors;
-	auto findContributors = [&]()->void
+	core::vector<const IExprNode*> ancestors;
+#endif
+	auto getContributors = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH)->auto
 	{
+		typed_pointer_type<const CContributorSum> headH = {};
+		exprStack.push_back({.node=astPool.deref(bxdfRootH)});
 		// accumulate an ancestor prefix
 		ancestors.clear();
 		while (!exprStack.empty())
@@ -89,30 +95,64 @@ auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMater
 			bool isContributor = true;
 			if (isContributor)
 			{
+#ifndef DIDNT_MESS_UP
 				// every contributor node gets its own SORTED ancestor prefix
-				std::sort(ancestors.begin(),ancestors.end()); // TODO: canonicallizing comparator
+				std::sort(ancestors.begin(),ancestors.end(),[](const IExprNode* lhs, const IExprNode* rhs)->bool
+					{
+						// TODO: actually properly order the factors
+						return lhs<rhs;
+					}
+				);
+				// this is correct, because we're using a stack, we visit the rightmost child first, so adding to linked list like this is okay
+				const auto prevH = getObjectPool().emplace<CContributorSum>();
+				auto* const head = getObjectPool().deref(prevH);
+				// actually make the contributor
+				{
+					const auto weightedH = getObjectPool().emplace<CWeightedContributor>();
+					head->product = weightedH;
+					auto* weighted = getObjectPool().deref(weightedH);
+					if (entry.factor)
+						weighted->factor = entry.factor;
+					// actually make the contributor
+					{
+					}
+				}
+				head->rest = headH;
+				headH = prevH;
+#endif
 			}
-			else if (entry.visited)
+			else if (entry.notVisited())
 			{
-				// remove self from the ancestor prefix
-//				std::remove(ancestors.begin(),ancestors.end(),self);
-			}
-			else
-			{
+#ifndef DIDNT_MESS_UP
 				// spot prefix being null/zero to stop exploring
 				// can make the decision wholly on current factor
 				bool continueExploring = true;
 				if (continueExploring)
 				{
-					// TODO: add self after making self
-//					ancestors.push_back(entry.node);
+					// make the actual factor
+					auto derivedFactorH = getObjectPool().emplace<CConstant>();
+					// TODO: find the place where to insert it
+					{
+						// shtuff
+					}
+					entry.factor = derivedFactorH;
+					// add self after making self
+					ancestors.push_back(getObjectPool().deref(entry.factor));
 					// TODO: push the children nodes onto the stack
-					entry.visited = true;
 					continue;
 				}
+#endif
+			}
+			else
+			{
+#ifndef DIDNT_MESS_UP
+				// remove self from the ancestor prefix
+				std::remove(ancestors.begin(),ancestors.end(),getObjectPool().deref(entry.factor));
+#endif
 			}
 			exprStack.pop_back();
 		}
+		return headH;
 	};
 	//
 	core::vector<const CFrontendIR::CLayer*> layerStack;
@@ -152,14 +192,16 @@ auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMater
 		// then go back up and make the layers
 		while (!layerStack.empty())
 		{
-			const auto* const layer = layerStack.back();
+			const auto* const inLayer = layerStack.back();
 			layerStack.pop_back();
 			// allocate a layer
-			//...
+			const auto layerH = getObjectPool().emplace<COrientedLayer>();
+			auto* const outLayer = getObjectPool().deref(layerH);
+			retval.root = layerH;
 			// process the BTDF
 			//...
 			// process the top BRDF
-
+			outLayer->brdfTop = getContributors(inLayer->brdfTop);
 			// if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
 			// hmm this would require decorrellation... because don't want rest of BTDF to affect
 			//...
@@ -187,7 +229,7 @@ auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMater
 		}
 		SMaterial material = {
 			.front = makeOrientedMaterial(rootH),
-			.back = makeOrientedMaterial(rootH) // TODO: reversed
+//			.back = makeOrientedMaterial(rootH) // TODO: reverse AST into another tree
 		};
 
 		// TODO: better debug info
