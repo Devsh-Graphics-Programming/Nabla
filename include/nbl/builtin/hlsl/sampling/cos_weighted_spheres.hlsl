@@ -93,7 +93,7 @@ struct ProjectedSphere
 	static codomain_type __generate(NBL_REF_ARG(domain_type) u)
 	{
 		vector_t3 retval = hemisphere_t::__generate(u.xy);
-		const bool chooseLower = u.z > T(0.5);
+		const bool chooseLower = u.z > scalar_type(0.5);
 		retval.z = chooseLower ? (-retval.z) : retval.z;
 		if (chooseLower)
 			u.z -= T(0.5);
