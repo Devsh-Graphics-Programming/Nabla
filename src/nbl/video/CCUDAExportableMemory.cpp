@@ -44,7 +44,6 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 
 	cu.pcuMemUnmap(m_params.ptr, m_params.granularSize);
 	cu.pcuMemAddressFree(m_params.ptr, m_params.granularSize);
-	cu.pcuMemRelease(m_allocationHandle);
 
 	CloseExternalHandle(m_params.externalHandle);
 

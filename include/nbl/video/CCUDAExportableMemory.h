@@ -40,10 +40,9 @@ class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
             external_handle_t externalHandle;
         };
 
-        CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, CUmemGenericAllocationHandle allocationHandle)
+        CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
             : m_device(std::move(device))
             , m_params(std::move(params))
-            , m_allocationHandle(allocationHandle)
         {}
         ~CCUDAExportableMemory() override;
 
@@ -57,7 +56,6 @@ class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 
         core::smart_refctd_ptr<CCUDADevice> m_device;
         SCachedCreationParams m_params;
-        CUmemGenericAllocationHandle m_allocationHandle;
 };
 
 }
