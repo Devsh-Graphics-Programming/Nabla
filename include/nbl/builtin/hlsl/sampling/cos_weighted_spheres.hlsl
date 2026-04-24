@@ -64,7 +64,7 @@ struct ProjectedHemisphere
 
 	static density_type backwardPdf(const codomain_type L)
 	{
-		assert(L.z > 0);
+		assert(L.z >= 0);
 		return L.z * numbers::inv_pi<T>;
 	}
 
