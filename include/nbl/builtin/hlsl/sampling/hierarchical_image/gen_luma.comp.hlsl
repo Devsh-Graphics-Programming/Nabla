@@ -25,6 +25,7 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 	{
 		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapHeight;
 		const float32_t3 envMapSample = envMap.Load(int4(threadID.xyz, 0));
+		// Ask(kevin): If I want to divide with Spherical::forwardPdf here to replace the sin(numbers::pi<float32_t> * uv_y), I have to call generate first to get the cache, which is a lot of wasted calculation
 		float32_t luma = calcLuma(envMapSample) * sin(numbers::pi<float32_t> * uv_y);
 
 		// We reduce the luma of the corner texel since we want to do "corner sampling" when generating warp map.
