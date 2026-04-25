@@ -265,7 +265,8 @@ class CFrontendIR final : public CNodePool
 					Contributor = 0,
 					Mul = 1,
 					Add = 2,
-					Other = 3
+					Complement = 3,
+					Other = 5
 				};
 				virtual inline Type getType() const {return Type::Other;}
 				
@@ -532,6 +533,7 @@ class CFrontendIR final : public CNodePool
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CComplement);}
+				inline Type getType() const override {return Type::Complement;}
 
 				// you can set the children later
 				inline CComplement() = default;
@@ -1056,7 +1058,8 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 				const auto childHandle = node->getChildHandle(childIx);
 				if (const auto child=getObjectPool().deref(childHandle); child)
 				{
-					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
+					// Only Add nodes can have Contributors in any subtree, Mul and Complement only the first, and others can't have them at all
+					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && !nodeIsAdd || nodeType==IExprNode::Type::Complement || nodeType==IExprNode::Type::Other;
 					StackEntry newEntry = {.node=child,.handle=childHandle};
 					if (noContribBelow)
 					{
