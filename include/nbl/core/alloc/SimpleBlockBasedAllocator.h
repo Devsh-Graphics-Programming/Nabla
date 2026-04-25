@@ -533,6 +533,33 @@ class SimpleBlockBasedAllocatorMT final
 };
 // no aliases
 
+
+// specialize the blake3 hasher
+template<typename HandleValue, HandleValue _Invalid, typename Dummy>
+struct blake3_hasher::update_impl<ConstHandle<HandleValue,_Invalid>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const ConstHandle<HandleValue,_Invalid> input)
+	{
+		update_impl<HandleValue>::__call(hasher,input.value);
+	}
+};
+template<typename HandleValue, HandleValue _Invalid, typename Dummy>
+struct blake3_hasher::update_impl<Handle<ConstHandle<HandleValue,_Invalid> >,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const Handle<ConstHandle<HandleValue,_Invalid> > input)
+	{
+		update_impl<HandleValue>::__call(hasher,input.value);
+	}
+};
+template<typename T, typename HandleValue, HandleValue _Invalid, typename Dummy>
+struct blake3_hasher::update_impl<TypedHandle<T,Handle<ConstHandle<HandleValue,_Invalid> > >,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const TypedHandle<T,Handle<ConstHandle<HandleValue,_Invalid> > > input)
+	{
+		update_impl<HandleValue>::__call(hasher,input.value);
+	}
+};
+
 }
 
 namespace std

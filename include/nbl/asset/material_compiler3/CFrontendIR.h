@@ -35,7 +35,7 @@ namespace nbl::asset::material_compiler3
 // 
 // 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
 // 
-// Where `l(w_i,w_o)` is a Contributor Node BxDF such as Oren Nayar or Cook-Torrance, which is doesn't model absorption and is usually Monochrome.
+// Where `l(w_i,w_o)` is a Contributor Node BxDF such as Oren Nayar or Cook-Torrance, which doesn't model absorption and is usually Monochrome.
 // These are assumed to be 100% valid BxDFs with White Furnace Test <= 1 and obeying Helmholtz Reciprocity. This is why you can't multiply two "Contributor Nodes" together.
 // We make an attempt to implement Energy Normalized versions of `l_i` but not always, so there might be energy loss due to single scattering assumptions.
 // 
@@ -71,9 +71,9 @@ namespace nbl::asset::material_compiler3
 // I've considered expressing the layers using only a BTDF and BRDF (same top and bottom hemisphere) but that would lead to more layers in for materials,
 // requiring the placing of a mirror then vantablack layer for most one-sided materials, and most importantly disallow the expression of certain front-back correlations.
 // 
-// Because we implement Schussler et. al 2017 we also ensure that signs of dot products with shading normals are identical to smooth normals.
+// Because we implement Schussler et. al 2017 or Yining 2019 we also ensure that signs of dot products with shading normals are identical to smooth normals.
 // However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
-// Schussler can't help with disparity of Smooth Normal and Geometric Normal, it turns smooth surfaces into glistening "disco balls" really outlining the
+// Schussler and Yining can't help with disparity of Smooth Normal and Geometric Normal, it turns smooth surfaces into glistening "disco balls" really outlining the
 // polygonization. Using PN-Triangles/displacement would be the optimal solution here. 
 class CFrontendIR final : public CNodePool
 {
@@ -265,7 +265,8 @@ class CFrontendIR final : public CNodePool
 					Contributor = 0,
 					Mul = 1,
 					Add = 2,
-					Other = 3
+					Complement = 3,
+					Other = 5
 				};
 				virtual inline Type getType() const {return Type::Other;}
 				
@@ -532,6 +533,7 @@ class CFrontendIR final : public CNodePool
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CComplement);}
+				inline Type getType() const override {return Type::Complement;}
 
 				// you can set the children later
 				inline CComplement() = default;
@@ -748,8 +750,6 @@ class CFrontendIR final : public CNodePool
 					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
 					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
 				};
-
-				// For Schussler et. al 2017 we'll spawn 2-3 additional BRDF leaf nodes in the proper IR for every normalmap present
 		};
 		// Delta Transmission is the only Special Delta Distribution Node, because of how useful it is for compiling Anyhit shaders, the rest can be done easily with:
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
@@ -921,7 +921,7 @@ class CFrontendIR final : public CNodePool
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		NBL_API2 bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() {return m_rootNodes;}
+		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() const {return m_rootNodes;}
 
 		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
 		// TODO: shall we copy and hand out a new handle? Allow RootNode from a foreign const pool
@@ -1058,7 +1058,8 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 				const auto childHandle = node->getChildHandle(childIx);
 				if (const auto child=getObjectPool().deref(childHandle); child)
 				{
-					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
+					// Only Add nodes can have Contributors in any subtree, Mul and Complement only the first, and others can't have them at all
+					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && !nodeIsAdd || nodeType==IExprNode::Type::Complement || nodeType==IExprNode::Type::Other;
 					StackEntry newEntry = {.node=child,.handle=childHandle};
 					if (noContribBelow)
 					{
