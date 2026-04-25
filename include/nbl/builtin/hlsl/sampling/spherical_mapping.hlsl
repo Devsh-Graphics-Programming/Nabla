@@ -67,7 +67,7 @@ struct SphericalMapping
 
   weight_type forwardWeight(const domain_type v, const cache_type cache)
   {
-    return scalar_type(1) / (scalar_type(2) * cache.sinTheta * numbers::pi<scalar_type> *numbers::pi<scalar_type>);
+    return forwardPdf(v, cache);
   }
 
   density_type backwardPdf(const codomain_type v)
@@ -79,9 +79,7 @@ struct SphericalMapping
 
   weight_type backwardWeight(const codomain_type v)
   {
-    const density_type cosTheta = v.y;
-    const density_type rcpSinTheta = hlsl::rsqrt(density_type(1) - (cosTheta * cosTheta));
-    return rcpSinTheta / (density_type(2) * numbers::pi<density_type> * numbers::pi<density_type>);
+    return backwardPdf(v);
   }
 };
 
