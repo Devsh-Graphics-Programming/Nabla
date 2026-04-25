@@ -44,11 +44,13 @@ namespace nbl::asset::impl
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
         const IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
+        IShaderCompiler::CIncludeFinder::SSessionCache* m_readIncludeSessionCache;
+        IShaderCompiler::CIncludeFinder::SSessionCache* m_writeIncludeSessionCache;
         const system::ISystem* m_system;
         const uint32_t m_maxInclCnt;
 
     public:
-        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_defaultIncludeFinder(_inclFinder), m_system(_fs), m_maxInclCnt{ _maxInclCnt } {}
+        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, IShaderCompiler::CIncludeFinder::SSessionCache* _readIncludeSessionCache, IShaderCompiler::CIncludeFinder::SSessionCache* _writeIncludeSessionCache, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_defaultIncludeFinder(_inclFinder), m_readIncludeSessionCache(_readIncludeSessionCache), m_writeIncludeSessionCache(_writeIncludeSessionCache), m_system(_fs), m_maxInclCnt{ _maxInclCnt } {}
 
         //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
         //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
@@ -81,11 +83,11 @@ namespace nbl::asset::impl
             IShaderCompiler::IIncludeLoader::found_t result;
             if (_type == shaderc_include_type_relative)
             {
-                result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+                result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source, true, m_readIncludeSessionCache, m_writeIncludeSessionCache);
             }
             else //shaderc_include_type_standard
             {
-                result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+                result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source, true, m_readIncludeSessionCache, m_writeIncludeSessionCache);
             }
 
             if (!result)
@@ -136,10 +138,23 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 
 std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    auto effectiveOptions = preprocessOptions;
+    IShaderCompiler::CIncludeFinder::SSessionCache localIncludeSessionCache;
+    if (effectiveOptions.includeFinder)
+    {
+        if (!effectiveOptions.readIncludeSessionCache && !effectiveOptions.writeIncludeSessionCache)
+        {
+            effectiveOptions.readIncludeSessionCache = &localIncludeSessionCache;
+            effectiveOptions.writeIncludeSessionCache = &localIncludeSessionCache;
+        }
+        else if (!effectiveOptions.readIncludeSessionCache && effectiveOptions.writeIncludeSessionCache)
+            effectiveOptions.readIncludeSessionCache = effectiveOptions.writeIncludeSessionCache;
+    }
+
     if (!preprocessOptions.extraDefines.empty())
     {
         std::ostringstream insertion;
-        for (const auto& define : preprocessOptions.extraDefines)
+        for (const auto& define : effectiveOptions.extraDefines)
             insertion << "#define " << define.identifier << " " << define.definition << "\n";
         insertIntoStart(code,std::move(insertion));
     }
@@ -149,15 +164,15 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     shaderc::CompileOptions options;
     options.SetTargetSpirv(shaderc_spirv_version_1_6);
 
-    if (preprocessOptions.includeFinder != nullptr)
+    if (effectiveOptions.includeFinder != nullptr)
     {
-        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), /*maxSelfInclusionCount*/5));//custom #include handler
+        options.SetIncluder(std::make_unique<impl::Includer>(effectiveOptions.includeFinder, effectiveOptions.readIncludeSessionCache, effectiveOptions.writeIncludeSessionCache, m_system.get(), /*maxSelfInclusionCount*/5));//custom #include handler
     }
     const shaderc_shader_kind scstage = stage == IShader::E_SHADER_STAGE::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
-    auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
+    auto res = comp.PreprocessGlsl(code, scstage, effectiveOptions.sourceIdentifier.data(), options);
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        preprocessOptions.logger.log("%s\n", system::ILogger::ELL_ERROR, res.GetErrorMessage().c_str());
+        effectiveOptions.logger.log("%s\n", system::ILogger::ELL_ERROR, res.GetErrorMessage().c_str());
         return nullptr;
     }
 

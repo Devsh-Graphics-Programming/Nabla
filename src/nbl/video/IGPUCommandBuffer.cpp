@@ -812,7 +812,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
     {
         // we still need to clear the BLAS tracking list if the TLAS has nothing to track, so add even if trackedBLASes.empty()
         if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
-            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.srcBegin=oit,.count=static_cast<uint32_t>(info.trackedBLASes.size()),.dst=info.dstAS});
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.srcBegin=info.getBLASTrackingOffset(oit),.count=static_cast<uint32_t>(info.trackedBLASes.size()),.dst=info.dstAS});
         oit = info.fillTracking(oit);
     }
 

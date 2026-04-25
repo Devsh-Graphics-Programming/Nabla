@@ -84,6 +84,13 @@ jobs:
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
+            # workaround for Docker issue in windows runner
+            # see <https://github.com/actions/runner-images/issues/13729#issuecomment-4183956802>
+            $dockerState = Get-Service -Name "docker"
+            if ($dockerState.Status -ne "Running") {
+              Start-Service -Name "docker"
+            }
+
             $maxAttempts = 12
             $delaySeconds = 5
             $dockerReady = $false
