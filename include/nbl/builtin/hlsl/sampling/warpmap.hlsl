@@ -17,7 +17,6 @@ namespace hlsl
 namespace sampling
 {
 
-// TODO: Add some constraint into PostWarpT
 template <typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT> &&
