@@ -70,14 +70,15 @@ else()
 	message(STATUS "Vulkan SDK is not found")
 endif()
 
-option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+# TODO(kevinyu): Turn off this flag after I finish developing the PR.
+option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" ON)
 
 if(NBL_COMPILE_WITH_CUDA)
 	find_package(CUDAToolkit REQUIRED)
-	if(${CUDAToolkit_VERSION} VERSION_GREATER "9.0")
-		message(STATUS "CUDA version 9.0+ found!")
+	if(${CUDAToolkit_VERSION} VERSION_GREATER_EQUAL "13.0")
+		message(STATUS "CUDA version ${CUDAToolkit_VERSION} found!")
 	else()
-		message(FATAL_ERROR "CUDA version 9.0+ needed for C++14 support!")
+		message(FATAL_ERROR "CUDA version 13.0+ needed for C++14 support!")
 	endif()
 endif()
 

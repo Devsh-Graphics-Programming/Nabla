@@ -39,6 +39,8 @@ class IDeviceMemoryBacked : public IBackendObject
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
 
+            core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = IDeviceMemoryAllocation::EHT_NONE;
+
             //! If you specify multiple queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
             {

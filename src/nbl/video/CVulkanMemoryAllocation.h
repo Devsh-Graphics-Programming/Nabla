@@ -15,13 +15,18 @@ class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 {
     public:
         CVulkanMemoryAllocation(
-            const CVulkanLogicalDevice* dev, const size_t size,
-            const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags,
-            const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
-            const bool isDedicated, const VkDeviceMemory deviceMemoryHandle
+            const CVulkanLogicalDevice* dev,
+            const VkDeviceMemory deviceMemoryHandle,
+            const external_handle_t externalHandle,
+            SCreationParams&& params
         );
 
         inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
+
+        inline external_handle_t getExternalHandle() const override
+        {
+          return m_externalHandle;
+        }
 
     private:
         ~CVulkanMemoryAllocation();
@@ -31,6 +36,7 @@ class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 
         core::smart_refctd_ptr<const CVulkanLogicalDevice> m_vulkanDevice;
         const VkDeviceMemory m_deviceMemoryHandle;
+        const external_handle_t m_externalHandle;
 };
 
 }

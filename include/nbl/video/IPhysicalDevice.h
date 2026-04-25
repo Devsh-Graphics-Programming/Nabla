@@ -639,6 +639,58 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             return std::span<const SQueueFamilyProperties>(m_initData.qfamProperties->data(),m_initData.qfamProperties->data()+m_initData.qfamProperties->size());
         }
 
+        enum E_EXTERNAL_MEMORY_FEATURE_FLAGS : uint32_t
+        {
+          EEMF_NONE = 0x0,
+          EEMF_DEDICATED_ONLY_BIT = 0x1,
+          EEMF_EXPORTABLE_BIT = 0x2,
+          EEMF_IMPORTABLE_BIT = 0x4,
+        };
+
+        struct SExternalMemoryProperties
+        {
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE exportableTypes : 7;
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE compatibleTypes : 7;
+            // TODO(kevin): This should actually be core::bitflag to be semantically correct. What should we do? Should we use bool for each flag instead of enum?
+            E_EXTERNAL_MEMORY_FEATURE_FLAGS features : 3;
+            bool operator == (SExternalMemoryProperties const& rhs) const = default;
+        };
+        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint32_t));
+
+        SExternalMemoryProperties getExternalBufferProperties(
+            core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, 
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+        {
+            usages &= ~asset::IBuffer::EUF_SYNTHETIC_FLAGS_MASK; // mask out synthetic flags
+
+            // TODO(kevinyu): Should we cached the properties like Atil does. If yes, needs mutex and mutable specifier. Class become not that simple anymore. 
+            // {
+            //     std::shared_lock lock(m_externalBufferPropertiesMutex);
+            //     auto it = m_externalBufferProperties.find({ usage, handleType });
+            //     if (it != m_externalBufferProperties.end())
+            //         return it->second;
+            // }
+            //
+            // std::unique_lock lock(m_externalBufferPropertiesMutex);
+            // return m_externalBufferProperties[{ usage, handleType }] = getExternalBufferProperties_impl(usage, handleType);
+            return getExternalMemoryProperties_impl(usages, handleType);
+        }
+
+        struct SImageFormatInfo
+        {
+            asset::E_FORMAT format;
+            IGPUImage::E_TYPE type;
+            IGPUImage::TILING tiling;
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> usage;
+            core::bitflag<IGPUImage::E_CREATE_FLAGS> flags;
+        };
+        SExternalMemoryProperties getExternalImageProperties(
+            const SImageFormatInfo& info,
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+        {
+            return getExternalMemoryProperties_impl(info, handleType);
+        }
+
         struct SBufferFormatPromotionRequest {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
             SFormatBufferUsages::SUsage usages = SFormatBufferUsages::SUsage();
@@ -682,6 +734,10 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SFormatBufferUsages bufferUsages = {};
         };
         inline IPhysicalDevice(SInitData&& _initData) : m_initData(std::move(_initData)) {}
+
+        // External memory properties query
+        virtual SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+        virtual SExternalMemoryProperties getExternalMemoryProperties_impl(const SImageFormatInfo& imageFormatInfo, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
 
         // ILogicalDevice creation
         bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;

@@ -15,6 +15,27 @@ namespace nbl::video
 class ISemaphore : public IBackendObject
 {
     public:
+
+        //! Flags for imported/exported allocation
+        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
+        {
+            EHT_NONE = 0x00000000,
+            EHT_OPAQUE_FD = 0x00000001,
+            EHT_OPAQUE_WIN32 = 0x00000002,
+            EHT_OPAQUE_WIN32_KMT = 0x00000004,
+            EHT_D3D12_FENCE = 0x00000008,
+            EHT_SYNC_FD = 0x00000010,
+        };
+
+        //!
+        struct SCachedCreationParams
+        {
+            // Handle Type for external resources
+            core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
+        };
+
+        struct SCreationParams : SCachedCreationParams {}; 
+
         // basically a pool function
         virtual uint64_t getCounterValue() const = 0;
 
@@ -146,9 +167,18 @@ class ISemaphore : public IBackendObject
         // Vulkan: const VkSemaphore*
         virtual const void* getNativeHandle() const = 0;
 
+        virtual external_handle_t getExternalHandle() const = 0;
+
+        const SCachedCreationParams& getCreationParams() const { return m_creationParams; }
+
+        
+
     protected:
-        inline ISemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
+        inline ISemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& creationParams) : 
+          IBackendObject(std::move(dev)), m_creationParams(std::move(creationParams)) {}
         virtual ~ISemaphore() = default;
+
+        SCachedCreationParams m_creationParams;
 };
 
 }

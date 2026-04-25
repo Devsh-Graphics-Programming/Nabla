@@ -53,7 +53,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params);
 
         // sync stuff
-        core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
+        core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue, ISemaphore::SCreationParams&& creationParams = {}) override;
         ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
             
         core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) override;
@@ -110,9 +110,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) override;
 
         // descriptor creation
-        core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) override;
+        core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly) override;
         core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) override;
-        core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) override;
+        core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params, bool dedicatedOnly) override;
         core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override;
         VkAccelerationStructureKHR createAccelerationStructure(const IGPUAccelerationStructure::SCreationParams& params, const VkAccelerationStructureTypeKHR type, const VkAccelerationStructureMotionInfoNV* motionInfo=nullptr);
         inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override

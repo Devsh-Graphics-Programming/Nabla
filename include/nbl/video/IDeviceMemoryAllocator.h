@@ -15,11 +15,9 @@ class NBL_API2 IDeviceMemoryAllocator
 		// right now we only support this interface handing out memory for one device or group
 		virtual ILogicalDevice* getDeviceForAllocations() const = 0;
 
-		struct SAllocateInfo
+		struct SAllocateInfo : IDeviceMemoryAllocation::SInfo
 		{
-			size_t size : 54 = 0ull;
-			size_t flags : 5 = 0u; // IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS
-			size_t memoryTypeIndex : 5 = 0u;
+			size_t memoryTypeIndex = 0u;
 			IDeviceMemoryBacked* dedication = nullptr; // if you make the info have a `dedication` the memory will be bound right away, also it will use VK_KHR_dedicated_allocation on vulkan
 			// size_t opaqueCaptureAddress = 0u; Note that this mechanism is intended only to support capture/replay tools, and is not recommended for use in other applications.
 		};
@@ -45,8 +43,15 @@ class NBL_API2 IDeviceMemoryAllocator
 		class IMemoryTypeIterator
 		{
 			public:
-				IMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
-					: m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), m_reqs(reqs) {}
+				IMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
+					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
+					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
+					external_handle_t handle) : 
+          m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), 
+          m_reqs(reqs), 
+          m_handleType(handleType),
+					m_handle(handle)
+        {}
 
 				static inline uint32_t end() {return 32u;}
 
@@ -59,10 +64,12 @@ class NBL_API2 IDeviceMemoryAllocator
 				inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication)
 				{
 					SAllocateInfo ret;
-					ret.size = m_reqs.size;
-					ret.flags = m_allocateFlags;
+					ret.allocationSize = m_reqs.size;
+					ret.allocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(m_allocateFlags);
 					ret.memoryTypeIndex = dereference();
 					ret.dedication = dedication;
+					ret.externalHandleType = m_handleType;
+					ret.externalHandle = m_handle;
 					return ret;
 				}
 		
@@ -75,13 +82,21 @@ class NBL_API2 IDeviceMemoryAllocator
 		
 				IDeviceMemoryBacked::SDeviceMemoryRequirements m_reqs;
 				uint32_t m_allocateFlags;
+				IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE m_handleType;
+				external_handle_t m_handle;
 		};
 
 		//! DefaultMemoryTypeIterator will iterate through set bits of memoryTypeBits from LSB to MSB
 		class DefaultMemoryTypeIterator : public IMemoryTypeIterator
 		{
 			public:
-				DefaultMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags) : IMemoryTypeIterator(reqs, allocateFlags)
+				DefaultMemoryTypeIterator(
+					const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
+					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
+					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
+					external_handle_t handle
+				) : 
+        IMemoryTypeIterator(reqs, allocateFlags, handleType, handle)
 				{
 					currentIndex = hlsl::findLSB(m_reqs.memoryTypeBits);
 				}
@@ -106,10 +121,13 @@ class NBL_API2 IDeviceMemoryAllocator
 
 		template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
 		inline SAllocation allocate(
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, IDeviceMemoryBacked* dedication=nullptr,
-			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
+			IDeviceMemoryBacked* dedication = nullptr,
+			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
+			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE,
+			external_handle_t externalHandle = {})
 		{
-			for(memory_type_iterator_t memTypeIt(reqs, allocateFlags); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
+			for (memory_type_iterator_t memTypeIt(reqs, allocateFlags, externalHandleType, externalHandle); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
 			{
 				SAllocateInfo allocateInfo = memTypeIt.operator()(dedication);
 				auto allocation = allocate(allocateInfo);

@@ -162,7 +162,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         IQueue::RESULT waitIdle();
 
         //! Semaphore Stuff
-        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue, ISemaphore::SCreationParams&& creationParams = {}) = 0;
         // Waits for max timeout amout of time for the semaphores to reach a specific counter value
         // DOES NOT implicitly trigger Queue-refcount-resource release because of two reasons:
         // - the events may trigger loads of resource releases causing extra processing, whereas our `timeout` could be quite small
@@ -331,39 +331,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Descriptor Creation
         // Buffer (@see ICPUBuffer)
-        inline core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
-        {
-            const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
-            if (creationParams.size>maxSize)
-            {
-                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%u)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
-                return nullptr;
-            }
-            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
-            {
-                m_logger.log("Failed to create Buffer, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
-                return nullptr;
-            }
-            return createBuffer_impl(std::move(creationParams));
-        }
+        core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams);
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
         core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt);
         // Creates an Image (@see ICPUImage)
-        inline core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams)
-        {
-            if (!IGPUImage::validateCreationParameters(creationParams))
-            {
-                m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
-                return nullptr;
-            }
-            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
-            {
-                m_logger.log("Failed to create Image, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
-                return nullptr;
-            }
-            // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
-            return createImage_impl(std::move(creationParams));
-        }
+        core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams);
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
@@ -1132,9 +1104,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) = 0;
         virtual bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) = 0;
+        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly = false) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
-        virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params, bool dedicatedOnly = false) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;

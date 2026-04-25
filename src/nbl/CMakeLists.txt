@@ -294,6 +294,9 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	video/CCUDAHandler.cpp
 	video/CCUDADevice.cpp
+	video/CCUDAImportedSemaphore.cpp
+	video/CCUDAExportableMemory.cpp
+	video/CCUDAImportedMemory.cpp
 )
 
 set(NBL_SCENE_SOURCES
@@ -420,6 +423,10 @@ endif()
 
 if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
+endif()
+
+if(NBL_COMPILE_WITH_CUDA)
+	target_compile_definitions(Nabla PUBLIC _NBL_COMPILE_WITH_CUDA_)
 endif()
 
 set(INTERFACE_BUILD_DEFINITIONS
