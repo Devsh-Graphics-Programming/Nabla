@@ -166,7 +166,7 @@ struct HierarchicalLuminanceSampler
 template <typename LuminanceAccessorT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT> && 
-    concepts::BackwardTractableSampler<PostWarpT>
+    concepts::BijectiveSampler<PostWarpT>
   )
 struct ComposedHierarchicalSampler
 {

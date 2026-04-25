@@ -22,7 +22,7 @@ template <typename LuminanceAccessorT, typename HierarchicalSamplerT, typename P
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT> &&
     hierarchical_image::WarpAccessor<HierarchicalSamplerT> &&
-    concepts::BackwardTractableSampler<PostWarpT>)
+    concepts::BijectiveSampler<PostWarpT>)
 struct WarpmapSampler 
 {
   using scalar_type = typename LuminanceAccessorT::value_type;
@@ -114,7 +114,7 @@ struct WarpmapSampler
     vector2_type texelCoord = envmapUv * vector2_type(_lastTexel.x, _lastTexel.y);
     float32_t2 lumaMapUv = (texelCoord + float32_t2(0.5, 0.5)) / vector2_type(_lastTexel.x + 1, _lastTexel.y + 1);
     scalar_type luma;
-    _lumaMap.get(envmapUv, luma);
+    _lumaMap.get(lumaMapUv, luma);
     return (luma * _postWarp.backwardWeight(direction)) / _lumaMap.getAvgLuma();
   }
 };
