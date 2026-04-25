@@ -12,8 +12,6 @@ namespace sampling
 namespace hierarchical_image
 {
 
-NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR float32_t3 LumaRgbCoefficients = { 0.2126729f, 0.7151522f, 0.0721750f };
-
 struct SLumaGenPushConstants
 {
   uint32_t lumaMapWidth : 16;

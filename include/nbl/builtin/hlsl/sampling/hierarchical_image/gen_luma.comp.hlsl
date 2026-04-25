@@ -1,5 +1,6 @@
 #include "common.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/colorspace.hlsl"
 
 using namespace nbl;
 using namespace nbl::hlsl;
@@ -10,6 +11,12 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 [[vk::binding(0, 0)]] Texture2DArray<float32_t4> envMap;
 [[vk::binding(1, 0)]] RWTexture2DArray<float32_t> outImage;
 
+template<typename Colorspace = colorspace::scRGB>
+float32_t calcLuma(float32_t3 col)
+{
+  return hlsl::dot(Colorspace::ToXYZ()[1], col);
+}
+
 [numthreads(GenLumaWorkgroupDim, GenLumaWorkgroupDim, 1)]
 [shader("compute")]
 void main(uint32_t3 threadID : SV_DispatchThreadID)
@@ -18,7 +25,7 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 	{
 		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapHeight;
 		const float32_t3 envMapSample = envMap.Load(int4(threadID.xyz, 0));
-		float32_t luma = hlsl::dot(envMapSample, LumaRgbCoefficients) * sin(numbers::pi<float32_t> * uv_y);
+		float32_t luma = calcLuma(envMapSample) * sin(numbers::pi<float32_t> * uv_y);
 
 		// We reduce the luma of the corner texel since we want to do "corner sampling" when generating warp map.
 		if (threadID.x == 0 || threadID.x == (pc.lumaMapWidth - 1))
