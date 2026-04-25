@@ -6,9 +6,10 @@
 #define _NBL_BUILTIN_HLSL_SAMPLING_WARPMAP_INCLUDED_
 
 #include <nbl/builtin/hlsl/concepts/accessors/loadable_image.hlsl>
-#include <nbl/builtin/hlsl/sampling/basic.hlsl>
-#include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
+#include <nbl/builtin/hlsl/sampling/basic.hlsl>
+#include <nbl/builtin/hlsl/sampling/concepts.hlsl>
+#include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
 
 namespace nbl
 {
@@ -20,7 +21,8 @@ namespace sampling
 template <typename LuminanceAccessorT, typename HierarchicalSamplerT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::LuminanceReadAccessor<LuminanceAccessorT> &&
-    hierarchical_image::WarpAccessor<HierarchicalSamplerT>)
+    hierarchical_image::WarpAccessor<HierarchicalSamplerT> &&
+    concepts::BackwardTractableSampler<PostWarpT>)
 struct WarpmapSampler 
 {
   using scalar_type = typename LuminanceAccessorT::value_type;

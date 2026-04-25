@@ -6,9 +6,10 @@
 #define _NBL_BUILTIN_HLSL_SAMPLING_HIERARCHICAL_IMAGE_INCLUDED_
 
 #include <nbl/builtin/hlsl/concepts/accessors/loadable_image.hlsl>
-#include <nbl/builtin/hlsl/sampling/basic.hlsl>
-#include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
+#include <nbl/builtin/hlsl/sampling/basic.hlsl>
+#include <nbl/builtin/hlsl/sampling/concepts.hlsl>
+#include <nbl/builtin/hlsl/sampling/hierarchical_image/accessors.hlsl>
 
 namespace nbl
 {
@@ -164,7 +165,8 @@ struct HierarchicalLuminanceSampler
 // TODO(kevinyu): Add constraint for PostWarpT
 template <typename LuminanceAccessorT, typename PostWarpT 
   NBL_PRIMARY_REQUIRES(
-    hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT> 
+    hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT> && 
+    concepts::BackwardTractableSampler<PostWarpT>
   )
 struct ComposedHierarchicalSampler
 {
