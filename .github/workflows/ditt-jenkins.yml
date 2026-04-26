@@ -1,0 +1,224 @@
+name: Run DITT Jenkins
+
+on:
+  push:
+    branches: [ptCLI]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build workflow run id to use as the EX40 package source"
+        required: true
+      build_config:
+        description: "Build configuration that produced the install artifact"
+        required: true
+        default: "RelWithDebInfo"
+        type: choice
+        options:
+          - RelWithDebInfo
+          - Release
+          - Debug
+      scene_set:
+        description: "DITT scene set to run in Jenkins"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - public
+          - private
+      publish:
+        description: "Publish the generated report to store.devsh.eu"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
+concurrency:
+  group: ditt-jenkins-ptCLI
+  cancel-in-progress: true
+
+jobs:
+  trigger-jenkins:
+    name: Trigger Jenkins DITT
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Resolve source build
+        id: source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $eventName = "${{ github.event_name }}"
+          if ($eventName -eq "push") {
+            $branch = "${{ github.ref_name }}"
+            $sha = "${{ github.sha }}"
+            $config = "RelWithDebInfo"
+            $sceneSet = "both"
+            $publish = "true"
+            $headers = @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = "application/vnd.github+json"
+              "X-GitHub-Api-Version" = "2022-11-28"
+            }
+            $deadline = (Get-Date).AddHours(6)
+            $run = $null
+            do {
+              $runs = Invoke-RestMethod -Method Get -Uri "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build-nabla.yml/runs?branch=$branch&event=push&head_sha=$sha&per_page=10" -Headers $headers
+              $run = @($runs.workflow_runs |
+                Where-Object { [string]$_.head_sha -eq $sha -and [string]$_.name -eq "Build" } |
+                Sort-Object run_attempt -Descending |
+                Select-Object -First 1)
+              if ($run -and $run.status -eq "completed") {
+                break
+              }
+              Write-Host "Waiting for Build workflow for $sha to complete..."
+              Start-Sleep -Seconds 60
+            } while ((Get-Date) -lt $deadline)
+            if (-not $run) {
+              throw "Timed out waiting for Build workflow for $sha."
+            }
+            $runId = [string]$run.id
+            $attempt = [string]$run.run_attempt
+            $workflow = [string]$run.name
+            $conclusion = [string]$run.conclusion
+          } else {
+            $runId = "${{ inputs.run_id }}"
+            $config = "${{ inputs.build_config }}"
+            $sceneSet = "${{ inputs.scene_set }}"
+            $publish = "${{ inputs.publish }}"
+            $headers = @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = "application/vnd.github+json"
+              "X-GitHub-Api-Version" = "2022-11-28"
+            }
+            $run = Invoke-RestMethod -Method Get -Uri "https://api.github.com/repos/${{ github.repository }}/actions/runs/$runId" -Headers $headers
+            $branch = [string]$run.head_branch
+            $sha = [string]$run.head_sha
+            $attempt = [string]$run.run_attempt
+            $workflow = [string]$run.name
+            $conclusion = [string]$run.conclusion
+          }
+
+          if ($branch -ne "ptCLI") {
+            throw "DITT Jenkins workflow only accepts Build runs from ptCLI. Got '$branch'."
+          }
+          if ($conclusion -ne "success") {
+            throw "Build workflow run $runId is not green. Conclusion: $conclusion."
+          }
+          if ($sha -notmatch '^[0-9a-fA-F]{40}$') {
+            throw "Build workflow run $runId does not expose a valid head SHA."
+          }
+
+          "run_id=$runId" >> $env:GITHUB_OUTPUT
+          "build_config=$config" >> $env:GITHUB_OUTPUT
+          "scene_set=$sceneSet" >> $env:GITHUB_OUTPUT
+          "publish=$publish" >> $env:GITHUB_OUTPUT
+          "branch=$branch" >> $env:GITHUB_OUTPUT
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          "run_attempt=$attempt" >> $env:GITHUB_OUTPUT
+          "workflow=$workflow" >> $env:GITHUB_OUTPUT
+          Write-Host "Resolved Build run $runId on $branch at $sha."
+
+      - name: Download install artifact
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ steps.source.outputs.run_id }}
+          pattern: run-windows-*-msvc-${{ steps.source.outputs.build_config }}-install
+          path: artifact
+          merge-multiple: true
+          github-token: ${{ secrets.READ_PAT || github.token }}
+          repository: Devsh-Graphics-Programming/Nabla
+
+      - name: Prepare EX40 runtime package
+        id: package
+        shell: pwsh
+        run: |
+          $tar = Get-ChildItem -LiteralPath artifact -Filter *-install.tar -File | Select-Object -First 1
+          if (-not $tar) {
+            throw "Install artifact tar was not downloaded."
+          }
+          tar -xf $tar.FullName -C artifact
+
+          $installRoot = Join-Path $PWD "artifact/build-ct/install"
+          if (-not (Test-Path -LiteralPath $installRoot)) {
+            throw "Install root was not found in the artifact."
+          }
+
+          $config = "${{ steps.source.outputs.build_config }}"
+          $configRoot = if ($config -eq "Release") {
+            $installRoot
+          } else {
+            Join-Path $installRoot $config.ToLowerInvariant()
+          }
+          $runtimeRoot = Join-Path $configRoot "runtime"
+          $ex40Root = Join-Path $configRoot "exe/examples_tests/40_PathTracer/bin"
+          if (-not (Test-Path -LiteralPath $runtimeRoot)) {
+            throw "Runtime directory was not found: $runtimeRoot"
+          }
+          if (-not (Test-Path -LiteralPath $ex40Root)) {
+            throw "EX40 runtime directory was not found: $ex40Root"
+          }
+
+          $packageRoot = Join-Path $PWD "ex40-runtime-package"
+          $zipPath = Join-Path $PWD "ex40-runtime-package.zip"
+          Remove-Item -LiteralPath $packageRoot -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+
+          $runtimeDest = Join-Path $packageRoot ($config -eq "Release" ? "runtime" : "$($config.ToLowerInvariant())/runtime")
+          $ex40Dest = Join-Path $packageRoot ($config -eq "Release" ? "exe/examples_tests/40_PathTracer/bin" : "$($config.ToLowerInvariant())/exe/examples_tests/40_PathTracer/bin")
+          New-Item -ItemType Directory -Force -Path $runtimeDest, $ex40Dest | Out-Null
+          Copy-Item -Path (Join-Path $runtimeRoot "*") -Destination $runtimeDest -Recurse -Force
+          Copy-Item -Path (Join-Path $ex40Root "*") -Destination $ex40Dest -Recurse -Force
+
+          $exe = Get-ChildItem -LiteralPath $packageRoot -Recurse -File -Filter "40_pathtracer*.exe" | Select-Object -First 1
+          $nabla = Get-ChildItem -LiteralPath $packageRoot -Recurse -File -Filter "Nabla_*.dll" | Select-Object -First 1
+          $dxc = Get-ChildItem -LiteralPath $packageRoot -Recurse -File -Filter "dxcompiler.dll" | Select-Object -First 1
+          if (-not $exe) { throw "40_pathtracer executable was not found in the package." }
+          if (-not $nabla) { throw "Nabla runtime DLL was not found in the package." }
+          if (-not $dxc) { throw "dxcompiler.dll was not found in the package." }
+          $report = Join-Path $exe.DirectoryName "report"
+          if (-not (Test-Path -LiteralPath $report)) { throw "EX40 report template was not found in the package." }
+
+          Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force
+          $zip = Get-Item -LiteralPath $zipPath
+          if ($zip.Length -gt 200MB) {
+            throw "EX40 package is unexpectedly large: $($zip.Length) bytes."
+          }
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          Write-Host "Prepared EX40 runtime package: $($zip.Length) bytes."
+
+      - name: Trigger Jenkins
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          JENKINS_URL: https://jenkins.devsh.eu
+          JENKINS_USER: ${{ secrets.JENKINS_DITT_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_DITT_TOKEN }}
+        run: |
+          .github/scripts/Invoke-DittJenkins.ps1 `
+            -JenkinsUrl $env:JENKINS_URL `
+            -JenkinsUser $env:JENKINS_USER `
+            -JenkinsToken $env:JENKINS_TOKEN `
+            -GithubToken $env:GITHUB_TOKEN `
+            -PackagePath "${{ steps.package.outputs.zip_path }}" `
+            -Repository "${{ github.repository }}" `
+            -Branch "${{ steps.source.outputs.branch }}" `
+            -Sha "${{ steps.source.outputs.sha }}" `
+            -SourceRunId "${{ steps.source.outputs.run_id }}" `
+            -SourceRunAttempt "${{ steps.source.outputs.run_attempt }}" `
+            -SourceWorkflow "${{ steps.source.outputs.workflow }}" `
+            -SceneSet "${{ steps.source.outputs.scene_set }}" `
+            -Publish "${{ steps.source.outputs.publish }}"
