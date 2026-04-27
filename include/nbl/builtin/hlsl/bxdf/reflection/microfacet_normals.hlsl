@@ -7,6 +7,7 @@
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/config.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf/microfacet_normal_shadowing.hlsl"
 
 namespace nbl
 {
@@ -17,93 +18,93 @@ namespace bxdf
 namespace reflection
 {
 
-enum PerturbedNormalShadowing : uint16_t
-{
-    PNS_SCHUSSLER,
-    PNS_YINING
-};
+// enum ndf::PerturbedNormalShadowing : uint16_t
+// {
+//     PNS_SCHUSSLER,
+//     PNS_YINING
+// };
 
-template<typename T, PerturbedNormalShadowing P>
-struct ShadowingMethod;
+// template<typename T, ndf::PerturbedNormalShadowing P>
+// struct ShadowingMethod;
 
-// based on Microfacet-based Normal Mapping for Robust Monte Carlo Path Tracing: https://jo.dreggn.org/home/2017_normalmap.pdf
-template<typename T>
-struct ShadowingMethod<T, PNS_SCHUSSLER>
-{
-    using scalar_type = T;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type, 3, 3>;
+// // based on Microfacet-based Normal Mapping for Robust Monte Carlo Path Tracing: https://jo.dreggn.org/home/2017_normalmap.pdf
+// template<typename T>
+// struct ShadowingMethod<T, PNS_SCHUSSLER>
+// {
+//     using scalar_type = T;
+//     using vector3_type = vector<scalar_type, 3>;
+//     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
-    {
-        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
-        return hlsl::min(scalar_type(1.0),
-            clampedNdotL * hlsl::max(scalar_type(0.0), NdotNp)
-            / (clampedNpdotL + clampedNtdotL * sinThetaNp)
-        );
-    }
+//     static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
+//     {
+//         const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
+//         return hlsl::min(scalar_type(1.0),
+//             clampedNdotL * hlsl::max(scalar_type(0.0), NdotNp)
+//             / (clampedNpdotL + clampedNtdotL * sinThetaNp)
+//         );
+//     }
 
-    static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
-    {
-        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
-        return clampedNpdotV / (clampedNpdotV + clampedNtdotV * sinThetaNp);
-    }
+//     static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
+//     {
+//         const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
+//         return clampedNpdotV / (clampedNpdotV + clampedNtdotV * sinThetaNp);
+//     }
 
-    static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
-    {
-        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
-        const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
-        return hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
-    }
-};
+//     static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
+//     {
+//         const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
+//         const vector3_type local_Nt = hlsl::normalize(-vector3_type(local_Np.xy, 0.0));
+//         return hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+//     }
+// };
 
-// based on Taming the Shadow Terminator: https://www.yiningkarlli.com/projects/shadowterminator/shadow_terminator_v1_1.pdf
-template<typename T>
-struct ShadowingMethod<T, PNS_YINING>
-{
-    using scalar_type = T;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type, 3, 3>;
+// // based on Taming the Shadow Terminator: https://www.yiningkarlli.com/projects/shadowterminator/shadow_terminator_v1_1.pdf
+// template<typename T>
+// struct ShadowingMethod<T, PNS_YINING>
+// {
+//     using scalar_type = T;
+//     using vector3_type = vector<scalar_type, 3>;
+//     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
-    {
-        const scalar_type g = hlsl::min(scalar_type(1.0),
-            clampedNpdotL / (clampedNdotL * NdotNp)
-        );
-        const scalar_type g2 = g * g;
-        return -g2 * g + g2 + g;
-    }
+//     static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
+//     {
+//         const scalar_type g = hlsl::min(scalar_type(1.0),
+//             clampedNpdotL / (clampedNdotL * NdotNp)
+//         );
+//         const scalar_type g2 = g * g;
+//         return -g2 * g + g2 + g;
+//     }
 
-    // TODO: verify maths
-    // since Nt is now perpendicular to Np and not N
-    // total area of surface = 1 = hypotenuse of right triangle
-    // area of perturbed facet = cos(Np) = NdotNp
-    // area of tangent facet = cos(Nt) = sin(Np)
-    // projected area of Np onto V = area * NpdotV
-    static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
-    {
-        const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
-        const scalar_type ap = clampedNpdotV * NdotNp;
-        const scalar_type at = clampedNtdotV * sinThetaNp;
-        return ap / (ap + at);
-    }
+//     // TODO: verify maths
+//     // since Nt is now perpendicular to Np and not N
+//     // total area of surface = 1 = hypotenuse of right triangle
+//     // area of perturbed facet = cos(Np) = NdotNp
+//     // area of tangent facet = cos(Nt) = sin(Np)
+//     // projected area of Np onto V = area * NpdotV
+//     static scalar_type lambdaP(const scalar_type NdotNp, const scalar_type clampedNpdotV, const scalar_type clampedNtdotV)
+//     {
+//         const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
+//         const scalar_type ap = clampedNpdotV * NdotNp;
+//         const scalar_type at = clampedNtdotV * sinThetaNp;
+//         return ap / (ap + at);
+//     }
 
-    static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
-    {
-        const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
-        const vector3_type local_Nt = hlsl::normalize(vector3_type(local_Np.xy * -local_Np.z, 1.0 - local_Np.z*local_Np.z));
-        return hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
-    }
-};
+//     static vector3_type computeNt(const vector3_type Np, const matrix3x3_type shadingBasis)
+//     {
+//         const vector3_type local_Np = hlsl::mul(shadingBasis, Np);
+//         const vector3_type local_Nt = hlsl::normalize(vector3_type(local_Np.xy * -local_Np.z, 1.0 - local_Np.z*local_Np.z));
+//         return hlsl::mul(hlsl::transpose(shadingBasis), local_Nt);
+//     }
+// };
 
-template<class Config, class BRDF, PerturbedNormalShadowing P, uint16_t Order NBL_STRUCT_CONSTRAINABLE>
+template<class Config, class BRDF, ndf::PerturbedNormalShadowing P, uint16_t Order NBL_STRUCT_CONSTRAINABLE>
 struct SMicrofacetNormals;
 
 template<class Config, class BRDF>
 NBL_PARTIAL_REQ_TOP(config_concepts::BasicConfiguration<Config>)
-struct SMicrofacetNormals<Config, BRDF, PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BOT(config_concepts::BasicConfiguration<Config>) >
+struct SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BOT(config_concepts::BasicConfiguration<Config>) >
 {
-    using this_t = SMicrofacetNormals<Config, BRDF, PNS_SCHUSSLER, 2>;
+    using this_t = SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
     NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = false;    // TODO: temp, should account for bsdfs at some point
@@ -119,7 +120,7 @@ struct SMicrofacetNormals<Config, BRDF, PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BOT(con
     using anisocache_type = Cache;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    using shadowing_method_type = ShadowingMethod<scalar_type, PNS_SCHUSSLER>;
+    using shadowing_method_type = ndf::ShadowingMethod<scalar_type, ndf::PNS_SCHUSSLER>;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
 
@@ -406,7 +407,7 @@ struct SMicrofacetNormals<Config, BRDF, PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BOT(con
     matrix3x3_type shadingBasis;
 };
 
-template<class Config, class BRDF, PerturbedNormalShadowing P>
+template<class Config, class BRDF, ndf::PerturbedNormalShadowing P>
 NBL_PARTIAL_REQ_TOP(config_concepts::BasicConfiguration<Config>)
 struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts::BasicConfiguration<Config>) >
 {
@@ -426,7 +427,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
     using anisocache_type = Cache;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    using shadowing_method_type = ShadowingMethod<scalar_type, P>;
+    using shadowing_method_type = ndf::ShadowingMethod<scalar_type, P>;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
 
@@ -658,7 +659,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
 
 }
 
-template<typename C, typename B, reflection::PerturbedNormalShadowing P, uint16_t O>
+template<typename C, typename B, ndf::PerturbedNormalShadowing P, uint16_t O>
 struct traits<bxdf::reflection::SMicrofacetNormals<C,B,P,O> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
