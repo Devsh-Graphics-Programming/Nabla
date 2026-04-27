@@ -61,6 +61,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 .github/scripts/path_tracer_jenkins.py resolve \
+            --github-token "$GH_TOKEN" \
             --repository "${{ github.repository }}" \
             --event-name "${{ github.event_name }}" \
             --branch "${{ github.ref_name }}" \
