@@ -79,7 +79,7 @@ struct ProjectedSphericalRectangle
          hlsl::dot(hlsl::normalize(c1), _receiverNormal),
          hlsl::dot(hlsl::normalize(c2), _receiverNormal),
          hlsl::dot(hlsl::normalize(c3), _receiverNormal));
-      const scalar_type minimumProjSolidAngle = scalar_type(0.0);
+      const scalar_type minimumProjSolidAngle = _static_cast<scalar_type>(0.0);
       const vector4_type bxdfPdfAtVertex      = math::conditionalAbsOrMax(_receiverWasBSDF, dots, hlsl::promote<vector4_type>(minimumProjSolidAngle));
 
       const shapes::SphericalRectangle<T> shape                         = shapes::SphericalRectangle<T>::create(compressed);
@@ -113,7 +113,7 @@ struct ProjectedSphericalRectangle
          hlsl::promote<vector4_type>(r0zSq);
 
       // dot(normalize(corner), n) = dot(corner, n) * rsqrt(lenSq). Bilinear corners: [0]=v00 [1]=v10 [2]=v01 [3]=v11
-      const scalar_type minimumProjSolidAngle = scalar_type(0.0);
+      const scalar_type minimumProjSolidAngle = _static_cast<scalar_type>(0.0);
       const vector4_type bxdfPdfAtVertex      = math::conditionalAbsOrMax(_receiverWasBSDF,
          dots * hlsl::rsqrt<vector4_type>(lenSq),
          hlsl::promote<vector4_type>(minimumProjSolidAngle));

@@ -58,7 +58,7 @@ struct SphericalRectangle
 
       math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[2]);
       angle_adder.addCosine(sa.cosGamma[3]);
-      retval.k = scalar_type(2.0) * numbers::pi<scalar_type> - angle_adder.getSumOfArccos();
+      retval.k = _static_cast<scalar_type>(2.0) * numbers::pi<scalar_type> - angle_adder.getSumOfArccos();
 
       return retval;
    }
@@ -84,7 +84,7 @@ struct SphericalRectangle
       acc.addCosine(sa.cosGamma[1]);
       acc.addCosine(sa.cosGamma[2]);
       acc.addCosine(sa.cosGamma[3]);
-      sa.value = acc.getSumOfArccos() - scalar_type(2.0) * numbers::pi<scalar_type>;
+      sa.value = acc.getSumOfArccos() - _static_cast<scalar_type>(2.0) * numbers::pi<scalar_type>;
 
       return create(_basis, sa, _extents);
    }
@@ -114,8 +114,8 @@ struct SphericalRectangle
       NBL_IF_CONSTEXPR(!UseRealSinCos)
       {
          // au in [0, 4*pi] -> peel at most two 2*pi periods to land in (-pi, pi].
-         au = hlsl::select(au > numbers::pi<scalar_type>, au - scalar_type(2.0) * numbers::pi<scalar_type>, au);
-         au = hlsl::select(au > numbers::pi<scalar_type>, au - scalar_type(2.0) * numbers::pi<scalar_type>, au);
+         au = hlsl::select(au > numbers::pi<scalar_type>, au - _static_cast<scalar_type>(2.0) * numbers::pi<scalar_type>, au);
+         au = hlsl::select(au > numbers::pi<scalar_type>, au - _static_cast<scalar_type>(2.0) * numbers::pi<scalar_type>, au);
       }
       scalar_type sin_au, cos_au;
       math::sincos<scalar_type, UseRealSinCos>(au, sin_au, cos_au);
@@ -123,15 +123,15 @@ struct SphericalRectangle
       // negFu carries the sign directly (numerator and sin_au both signed), so xu's sign drops
       // out of a single multiply + hlsl::sign.
       const scalar_type negFu   = numerator / sin_au;
-      const scalar_type rcpCu_2 = hlsl::max<scalar_type>(negFu * negFu + b0 * b0, scalar_type(1.0));
-      retval.xu                 = negAbsR0z * hlsl::sign(negFu) * hlsl::rsqrt<scalar_type>(rcpCu_2 - scalar_type(1.0));
+      const scalar_type rcpCu_2 = hlsl::max<scalar_type>(negFu * negFu + b0 * b0, _static_cast<scalar_type>(1.0));
+      retval.xu                 = negAbsR0z * hlsl::sign(negFu) * hlsl::rsqrt<scalar_type>(rcpCu_2 - _static_cast<scalar_type>(1.0));
       retval.xu = hlsl::clamp<scalar_type>(retval.xu, r0.x, r1.x); // avoid Infs
       retval.d2 = retval.xu * retval.xu + r0zSq;
 
       const scalar_type h0 = r0.y * hlsl::rsqrt<scalar_type>(retval.d2 + r0.y * r0.y);
       const scalar_type h1 = r1.y * hlsl::rsqrt<scalar_type>(retval.d2 + r1.y * r1.y);
       retval.hv            = h0 + u.y * (h1 - h0);
-      retval.cosElevation2 = scalar_type(1.0) - hlsl::min<scalar_type>(retval.hv * retval.hv, 1);
+      retval.cosElevation2 = _static_cast<scalar_type>(1.0) - hlsl::min<scalar_type>(retval.hv * retval.hv, 1);
 
       return retval;
    }
@@ -200,7 +200,7 @@ struct SphericalRectangle
 
    density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
    {
-      return scalar_type(1.0) / solidAngle;
+      return _static_cast<scalar_type>(1.0) / solidAngle;
    }
 
    weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
@@ -210,7 +210,7 @@ struct SphericalRectangle
 
    density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
    {
-      return scalar_type(1.0) / solidAngle;
+      return _static_cast<scalar_type>(1.0) / solidAngle;
    }
 
    weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC

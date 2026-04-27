@@ -70,14 +70,14 @@ struct SphericalTriangle
    static SphericalTriangle create(NBL_CONST_REF_ARG(shapes::SphericalTriangle<T>) tri)
    {
       SphericalTriangle retval;
-      retval.rcpSolidAngle = scalar_type(1.0) / tri.solid_angle;
+      retval.rcpSolidAngle = _static_cast<scalar_type>(1.0) / tri.solid_angle;
       retval.tri_vertices[0] = tri.vertices[0];
       retval.tri_vertices[1] = tri.vertices[1];
       retval.triCosc = tri.cos_sides[2];
       // precompute great circle normal of arc AC: cross(A,C) has magnitude sin(b),
       // so multiplying by csc(b) normalizes it; zero when side AC is degenerate
       const scalar_type cscb = tri.csc_sides[1];
-      const vector3_type arcACPlaneNormal = hlsl::cross(tri.vertices[0], tri.vertices[2]) * hlsl::select(cscb < numeric_limits<scalar_type>::max, cscb, scalar_type(0));
+      const vector3_type arcACPlaneNormal = hlsl::cross(tri.vertices[0], tri.vertices[2]) * hlsl::select(cscb < numeric_limits<scalar_type>::max, cscb, _static_cast<scalar_type>(0));
       retval.e_C = hlsl::cross(arcACPlaneNormal, tri.vertices[0]);
       retval.cosA = tri.cos_vertices[0];
       retval.sinA = tri.sin_vertices[0];
@@ -117,14 +117,14 @@ struct SphericalTriangle
          // For large triangles with high u.x, cosA_hat can approach -1,
          // making (1 + cosA_hat) near zero and the division unstable.
          // Use the algebraic identity only when cosA_hat > 0 (safe denominator).
-         const scalar_type rcpDenum = scalar_type(1) / denum;
-         const scalar_type oneMinusCosAhat = hlsl::select(cosA_hat > scalar_type(0), sinA_hat * sinA_hat / (scalar_type(1) + cosA_hat), scalar_type(1) - cosA_hat);
-         const scalar_type DminusN = sinA * (scalar_type(1) + triCosc) * oneMinusCosAhat;
-         sinBp = sqrt<scalar_type>(max<scalar_type>(scalar_type(0), DminusN * (denum + num))) * nbl::hlsl::abs(rcpDenum);
-         cosBp = scalar_type(1) - DminusN * rcpDenum;
+         const scalar_type rcpDenum = _static_cast<scalar_type>(1) / denum;
+         const scalar_type oneMinusCosAhat = hlsl::select(cosA_hat > _static_cast<scalar_type>(0), sinA_hat * sinA_hat / (_static_cast<scalar_type>(1) + cosA_hat), _static_cast<scalar_type>(1) - cosA_hat);
+         const scalar_type DminusN = sinA * (_static_cast<scalar_type>(1) + triCosc) * oneMinusCosAhat;
+         sinBp = sqrt<scalar_type>(max<scalar_type>(_static_cast<scalar_type>(0), DminusN * (denum + num))) * nbl::hlsl::abs(rcpDenum);
+         cosBp = _static_cast<scalar_type>(1) - DminusN * rcpDenum;
 #else // 17% faster, less accurate
          cosBp = num / denum;
-         sinBp = sqrt<scalar_type>(max<scalar_type>(scalar_type(0), scalar_type(1) - cosBp * cosBp));
+         sinBp = sqrt<scalar_type>(max<scalar_type>(_static_cast<scalar_type>(0), _static_cast<scalar_type>(1) - cosBp * cosBp));
 #endif
       }
       else // STA_PBRT, accurate, slowest
@@ -133,8 +133,8 @@ struct SphericalTriangle
          const scalar_type k1 = -t + cosA;
          const scalar_type k2 = -s - sinA * triCosc;
          cosBp = (k2 + impl::differenceOfProducts(k2, -t, k1, -s) * cosA) / (impl::sumOfProducts(k2, -s, k1, -t) * sinA);
-         cosBp = nbl::hlsl::clamp(cosBp, scalar_type(-1), scalar_type(1));
-         sinBp = sqrt<scalar_type>(scalar_type(1) - cosBp * cosBp);
+         cosBp = nbl::hlsl::clamp(cosBp, _static_cast<scalar_type>(-1), _static_cast<scalar_type>(1));
+         sinBp = sqrt<scalar_type>(_static_cast<scalar_type>(1) - cosBp * cosBp);
       }
 
       // Step 3: construct C' on the great circle through A toward C
@@ -155,8 +155,8 @@ struct SphericalTriangle
       // a u.y -> angle mapping whose derivatives stay bounded near u.y = 0 (e.g. acos(z) = angle
       // from B, then sample arc-length linearly), so the Jacobian is smooth and the skip band in
       // the tester can be removed.
-      const scalar_type z = scalar_type(1) - u.y * (scalar_type(1) - cosCpB);
-      const scalar_type sinZ = sqrt<scalar_type>(max<scalar_type>(scalar_type(0), scalar_type(1) - z * z));
+      const scalar_type z = _static_cast<scalar_type>(1) - u.y * (_static_cast<scalar_type>(1) - cosCpB);
+      const scalar_type sinZ = sqrt<scalar_type>(max<scalar_type>(_static_cast<scalar_type>(0), _static_cast<scalar_type>(1) - z * z));
       return z * tri_vertices[1] + sinZ * hlsl::normalize(cp - cosCpB * tri_vertices[1]);
    }
 
@@ -190,12 +190,12 @@ struct SphericalTriangle
          const scalar_type v_num = nbl::hlsl::dot(LminusB, LminusB);
          const scalar_type v_denom = nbl::hlsl::dot(AminusB, AminusB);
          const scalar_type v = hlsl::select(v_denom > numeric_limits<scalar_type>::epsilon,
-            nbl::hlsl::clamp(v_num / v_denom, scalar_type(0.0), scalar_type(1.0)),
-            scalar_type(0.0));
-         return vector2_type(scalar_type(0.0), v);
+            nbl::hlsl::clamp(v_num / v_denom, _static_cast<scalar_type>(0.0), _static_cast<scalar_type>(1.0)),
+            _static_cast<scalar_type>(0.0));
+         return vector2_type(_static_cast<scalar_type>(0.0), v);
       }
 
-      const scalar_type rcpR = scalar_type(1.0) / nbl::hlsl::sqrt(R_sq);
+      const scalar_type rcpR = _static_cast<scalar_type>(1.0) / nbl::hlsl::sqrt(R_sq);
       vector3_type cp = tri_vertices[0] * (tripleE * rcpR) + e_C * (-tripleA * rcpR);
       // two intersections exist; pick the one on the minor arc A->C (branchless sign flip)
       cp = ieee754::flipSignIfRHSNegative(cp, nbl::hlsl::dot(cp, APlusC));
@@ -214,9 +214,9 @@ struct SphericalTriangle
       const scalar_type AxBdotE = nbl::hlsl::dot(tri_vertices[0], nbl::hlsl::cross(tri_vertices[1], e_C));
       const scalar_type num = sinBp_inv * AxBdotE;
       const scalar_type cosCpB = nbl::hlsl::dot(tri_vertices[1], cp);
-      const scalar_type den = scalar_type(1.0) + triCosc + cosCpB + cosBp_inv;
-      const scalar_type subSolidAngle = scalar_type(2.0) * nbl::hlsl::atan2(nbl::hlsl::abs(num), den);
-      const scalar_type u = nbl::hlsl::clamp(subSolidAngle * rcpSolidAngle, scalar_type(0.0), scalar_type(1.0));
+      const scalar_type den = _static_cast<scalar_type>(1.0) + triCosc + cosCpB + cosBp_inv;
+      const scalar_type subSolidAngle = _static_cast<scalar_type>(2.0) * nbl::hlsl::atan2(nbl::hlsl::abs(num), den);
+      const scalar_type u = nbl::hlsl::clamp(subSolidAngle * rcpSolidAngle, _static_cast<scalar_type>(0.0), _static_cast<scalar_type>(1.0));
 
       // Step 3: u.y = |L-B|^2 / |C'-B|^2
       // Squared Euclidean distance avoids catastrophic cancellation vs (1-dot)/(1-dot)
@@ -226,8 +226,8 @@ struct SphericalTriangle
       const scalar_type v_denom = nbl::hlsl::dot(cpMinusB, cpMinusB);
       const scalar_type v = hlsl::select(v_denom > numeric_limits<scalar_type>::epsilon,
          nbl::hlsl::clamp(v_num / nbl::hlsl::max(v_denom, numeric_limits<scalar_type>::min),
-            scalar_type(0.0), scalar_type(1.0)),
-         scalar_type(0.0));
+            _static_cast<scalar_type>(0.0), _static_cast<scalar_type>(1.0)),
+         _static_cast<scalar_type>(0.0));
 
       return vector2_type(u, v);
    }

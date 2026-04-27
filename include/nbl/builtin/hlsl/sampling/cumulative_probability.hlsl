@@ -114,8 +114,8 @@ struct CumulativeProbabilitySampler
 			// Descent visits one interior node per level. Going left tightens
 			// the upper bound to the current key; going right tightens the
 			// lower bound. Final index, leafBase is the bucket.
-			cache.oneBefore = density_type(0.0);
-			cache.upperBound = density_type(1.0);
+			cache.oneBefore = _static_cast<density_type>(0.0);
+			cache.upperBound = _static_cast<density_type>(1.0);
 			const uint32_t leafBase = 1u << depth;
 			uint32_t index = 1u;
 			for (uint32_t iter = 0u; iter < depth; ++iter)
@@ -142,10 +142,10 @@ struct CumulativeProbabilitySampler
 			// Re-read the two adjacent CDF entries after the binary search.
 			// Both sit on the cache lines the search just touched, so they are warm.
 			result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u);
-			cache.oneBefore = density_type(0.0);
+			cache.oneBefore = _static_cast<density_type>(0.0);
 			if (result)
 				cumProbAccessor.template get<density_type, codomain_type>(result - 1u, cache.oneBefore);
-			cache.upperBound = density_type(1.0);
+			cache.upperBound = _static_cast<density_type>(1.0);
 			if (result < storedCount)
 				cumProbAccessor.template get<density_type, codomain_type>(result, cache.upperBound);
 		}
@@ -168,8 +168,8 @@ struct CumulativeProbabilitySampler
 				density_type oneBefore;
 				density_type upperBound;
 			} comp;
-			comp.oneBefore = density_type(0.0);
-			comp.upperBound = density_type(1.0);
+			comp.oneBefore = _static_cast<density_type>(0.0);
+			comp.upperBound = _static_cast<density_type>(1.0);
 			result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u, comp);
 			cache.oneBefore = comp.oneBefore;
 			cache.upperBound = comp.upperBound;
@@ -206,7 +206,7 @@ struct CumulativeProbabilitySampler
 		}
 		else
 		{
-			density_type retval = density_type(1.0);
+			density_type retval = _static_cast<density_type>(1.0);
 			if (v < storedCount)
 				cumProbAccessor.template get<density_type, codomain_type>(v, retval);
 			if (v)

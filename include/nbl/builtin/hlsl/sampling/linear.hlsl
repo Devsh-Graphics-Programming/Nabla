@@ -40,13 +40,13 @@ struct Linear
         // instead of inf normalization (2/0) leading to NaN; negligible for normal inputs
         const vector2_type safeCoeffs = linearCoeffs + vector2_type(hlsl::numeric_limits<scalar_type>::min, hlsl::numeric_limits<scalar_type>::min);
         // normalize coefficients so that the PDF is simply normalizedCoeffStart + linearCoeffDiff * x
-        const scalar_type normFactor = scalar_type(2.0) / (safeCoeffs[0] + safeCoeffs[1]);
+        const scalar_type normFactor = _static_cast<scalar_type>(2.0) / (safeCoeffs[0] + safeCoeffs[1]);
         const vector2_type normalized = safeCoeffs * normFactor;
         retval.normalizedCoeffStart = normalized[0];
         retval.normalizedCoeffEnd = normalized[1];
         // precompute for the stable quadratic in generate()
         retval.squaredCoeffStart = normalized[0] * normalized[0];
-        retval.twoTimesDiff = scalar_type(2.0) * (normalized[1] - normalized[0]);
+        retval.twoTimesDiff = _static_cast<scalar_type>(2.0) * (normalized[1] - normalized[0]);
         return retval;
     }
 
@@ -82,7 +82,7 @@ struct Linear
     // Not used because we already store start for generate().
     density_type backwardPdf(const codomain_type x) NBL_CONST_MEMBER_FUNC
     {
-        assert(x >= scalar_type(0.0) && x <= scalar_type(1.0));
+        assert(x >= _static_cast<scalar_type>(0.0) && x <= _static_cast<scalar_type>(1.0));
         return hlsl::mix(normalizedCoeffStart, normalizedCoeffEnd, x);
     }
 
