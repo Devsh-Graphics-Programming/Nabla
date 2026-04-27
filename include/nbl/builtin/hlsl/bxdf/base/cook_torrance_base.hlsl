@@ -205,7 +205,7 @@ struct SCookTorrance
         using oriented_etas_t = fresnel::OrientedEtas<monochrome_type>;
         oriented_etas_t orientedEta = oriented_etas_t::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(eta));
         vector3_type dummyH;
-        MicrofacetCache cache = MicrofacetCache::template create<isotropic_interaction_type, sample_type>(interaction, _sample, orientedEta, dummyH);
+        MicrofacetCache cache = MicrofacetCache::template create<Interaction, sample_type>(interaction, _sample, orientedEta, dummyH);
         return evalAndWeight(_sample, interaction, cache);
     }
 
