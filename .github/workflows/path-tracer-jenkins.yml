@@ -11,11 +11,11 @@ on:
       build_config:
         description: "Build configuration that produced the install artifact"
         required: true
-        default: "RelWithDebInfo"
+        default: "Release"
         type: choice
         options:
-          - RelWithDebInfo
           - Release
+          - RelWithDebInfo
           - Debug
       scene_set:
         description: "Path tracer scene set to run in Jenkins"
@@ -67,7 +67,7 @@ jobs:
             --branch "${{ github.ref_name }}" \
             --sha "${{ github.sha }}" \
             --run-id "${{ inputs.run_id }}" \
-            --build-config "${{ inputs.build_config || 'RelWithDebInfo' }}" \
+            --build-config "${{ inputs.build_config || 'Release' }}" \
             --scene-set "${{ inputs.scene_set || 'both' }}" \
             --publish "${{ inputs.publish }}"
 

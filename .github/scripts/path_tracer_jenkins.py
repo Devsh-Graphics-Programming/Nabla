@@ -59,7 +59,7 @@ def resolve(args):
         if args.branch != BRANCH:
             raise CiError(f"Expected branch {BRANCH}.")
         run = wait_workflow(REPO, "build-nabla.yml", BRANCH, require_sha(args.sha), headers, "Build")
-        values = source_values(run, "RelWithDebInfo", "both", "true")
+        values = source_values(run, "Release", "both", "true")
     else:
         run = json_request("GET", f"https://api.github.com/repos/{REPO}/actions/runs/{args.run_id}", headers)
         values = source_values(run, args.build_config, args.scene_set, args.publish)
@@ -147,7 +147,7 @@ def parser():
     resolve_parser = sub.add_parser("resolve")
     add_args(resolve_parser, ["github-token", "repository", "event-name"])
     add_args(resolve_parser, ["branch", "sha", "run-id"], False, "")
-    resolve_parser.add_argument("--build-config", default="RelWithDebInfo")
+    resolve_parser.add_argument("--build-config", default="Release")
     resolve_parser.add_argument("--scene-set", default="both")
     resolve_parser.add_argument("--publish", default="true")
     resolve_parser.set_defaults(func=resolve)
