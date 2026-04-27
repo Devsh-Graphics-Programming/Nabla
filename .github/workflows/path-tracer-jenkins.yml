@@ -60,7 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 .github/scripts/path_tracer_jenkins.py resolve-source \
+          python3 .github/scripts/path_tracer_jenkins.py resolve \
             --repository "${{ github.repository }}" \
             --event-name "${{ github.event_name }}" \
             --branch "${{ github.ref_name }}" \
@@ -83,7 +83,7 @@ jobs:
       - name: Prepare EX40 runtime package
         id: package
         run: |
-          python3 .github/scripts/path_tracer_jenkins.py prepare-package \
+          python3 .github/scripts/path_tracer_jenkins.py package \
             --artifact-dir artifact \
             --build-config "${{ steps.source.outputs.build_config }}" \
             --package-root ex40-runtime-package \
@@ -96,7 +96,7 @@ jobs:
           JENKINS_USER: ${{ secrets.JENKINS_DITT_USER }}
           JENKINS_TOKEN: ${{ secrets.JENKINS_DITT_TOKEN }}
         run: |
-          python3 .github/scripts/path_tracer_jenkins.py trigger-jenkins \
+          python3 .github/scripts/path_tracer_jenkins.py trigger \
             --jenkins-url "$JENKINS_URL" \
             --jenkins-user "$JENKINS_USER" \
             --jenkins-token "$JENKINS_TOKEN" \
