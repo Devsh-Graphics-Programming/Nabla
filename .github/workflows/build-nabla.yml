@@ -218,12 +218,20 @@ jobs:
       - name: Container – Configure Project with CMake
         run: |
           mkdir profiling
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake `
-              --preset ci-configure-dynamic-${{ matrix.vendor }} `
-              -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
-              --profiling-output=profiling/cmake-profiling.json `
-              --profiling-format=google-trace
+          $configureArgs = @(
+            "--preset"
+            "ci-configure-dynamic-${{ matrix.vendor }}"
+            "-DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install"
+          )
+          if ("${{ matrix.config }}" -eq "RelWithDebInfo") {
+            $configureArgs += "-DEX40_PT_ENABLE_EXP_OPTS:BOOL=ON"
+          }
+          $configureArgs += @(
+            "--profiling-output=profiling/cmake-profiling.json"
+            "--profiling-format=google-trace"
+          )
+
+          docker exec orphan ${{ env.entry }} ${{ env.cmd }} -Command cmake @configureArgs
 
       - name: Container – Build & Install Nabla
         id: build-nabla
