@@ -1,6 +1,8 @@
 name: Run Path Tracer Compare Jenkins
 
 on:
+  push:
+    branches: [ptCLI]
   workflow_dispatch:
     inputs:
       run_id:
