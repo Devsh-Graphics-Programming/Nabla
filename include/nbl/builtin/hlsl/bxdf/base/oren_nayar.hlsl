@@ -23,6 +23,11 @@ struct SOrenNayarBase
     using this_t = SOrenNayarBase<Config, IsBSDF>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
+    using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
+    struct Cache {};
+    using isocache_type = Cache;
+    using anisocache_type = Cache;
+
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = conditional_value<IsBSDF, BxDFClampMode, BxDFClampMode::BCM_ABS, BxDFClampMode::BCM_MAX>::value;
 
     struct SCreationParams
@@ -58,19 +63,20 @@ struct SOrenNayarBase
         return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * hlsl::mix(1.0, 0.5, IsBSDF) * __rec_pi_factored_out_wo_clamps(query.getVdotL(), NdotL, interaction.getNdotV(_clamp)));
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
-        return __eval<SQuery>(query, _sample, interaction); 
+        Cache dummy;
+        return value_weight_type::create(__eval<SQuery>(query, _sample, interaction), forwardPdf(_sample, interaction,dummy));
     }
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        return eval(_sample, interaction.isotropic); 
+        return evalAndWeight(_sample, interaction.isotropic); 
     }
 
     template<typename C=bool_constant<!IsBSDF> >
-    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         typename sampling::ProjectedHemisphere<scalar_type>::cache_type cache;
         ray_dir_info_type L;
@@ -78,7 +84,7 @@ struct SOrenNayarBase
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
     template<typename C=bool_constant<IsBSDF> >
-    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u) NBL_CONST_MEMBER_FUNC
+    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         typename sampling::ProjectedSphere<scalar_type>::cache_type cache;
         vector3_type _u = u;
@@ -86,45 +92,40 @@ struct SOrenNayarBase
         L.setDirection(sampling::ProjectedSphere<scalar_type>::generate(_u, cache));
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
-    template<typename C=bool_constant<!IsBSDF> >
-    enable_if_t<C::value && !IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const random_type u, NBL_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return generate(anisotropic_interaction_type::create(interaction), u);
-    }
-    template<typename C=bool_constant<IsBSDF> >
-    enable_if_t<C::value && IsBSDF, sample_type> generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u) NBL_CONST_MEMBER_FUNC
-    {
-        return generate(anisotropic_interaction_type::create(interaction), u);
+        return generate(anisotropic_interaction_type::create(interaction), u, _cache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         if (IsBSDF)
             return sampling::ProjectedSphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
         else
             return sampling::ProjectedHemisphere<scalar_type>::backwardPdf(vector<scalar_type, 3>(0, 0, _sample.getNdotL(_clamp)));
     }
-    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return pdf(_sample, interaction.isotropic);
+        return forwardPdf(_sample, interaction.isotropic, _cache);
     }
 
     template<typename Query>
-    quotient_pdf_type __quotient_and_pdf(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type __quotientAndWeight(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type _pdf = pdf(_sample, interaction);
+        Cache dummy;
+        scalar_type _pdf = forwardPdf(_sample, interaction, dummy);
         scalar_type q = __rec_pi_factored_out_wo_clamps(query.getVdotL(), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
-        return quotient_pdf_type::create(q, _pdf);
+        return quotient_weight_type::create(q, _pdf);
     }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
         SQuery query;
         query.VdotL = hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection());
-        return __quotient_and_pdf<SQuery>(query, _sample, interaction);
+        return __quotientAndWeight<SQuery>(query, _sample, interaction);
     }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
+    quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) _cache) NBL_CONST_MEMBER_FUNC
     {
-        return quotient_and_pdf(_sample, interaction.isotropic);
+        return quotientAndWeight(_sample, interaction.isotropic, _cache);
     }
 
     scalar_type A2;

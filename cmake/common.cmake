@@ -1185,9 +1185,9 @@ define_property(TARGET PROPERTY NBL_MOUNT_POINT_DEFINES
 	BRIEF_DOCS "List of preprocessor defines with mount points"
 )
 
+option(NSC_DEBUG_EDIF_SOURCE_BIT "Add \"-fspv-debug=source\" to NSC Debug CLI" ON)
 option(NSC_DEBUG_EDIF_FILE_BIT "Add \"-fspv-debug=file\" to NSC Debug CLI" ON)
-option(NSC_DEBUG_EDIF_SOURCE_BIT "Add \"-fspv-debug=source\" to NSC Debug CLI" OFF)
-option(NSC_DEBUG_EDIF_LINE_BIT "Add \"-fspv-debug=line\" to NSC Debug CLI" OFF)
+option(NSC_DEBUG_EDIF_LINE_BIT "Add \"-fspv-debug=line\" to NSC Debug CLI" ON)
 option(NSC_DEBUG_EDIF_TOOL_BIT "Add \"-fspv-debug=tool\" to NSC Debug CLI" ON)
 option(NSC_DEBUG_EDIF_NON_SEMANTIC_BIT "Add \"-fspv-debug=vulkan-with-source\" to NSC Debug CLI" OFF)
 option(NSC_USE_DEPFILE "Generate depfiles for NSC custom commands" ON)
@@ -1235,23 +1235,23 @@ struct DeviceConfigCaps
 	)
 
 	if(NSC_DEBUG_EDIF_FILE_BIT)
-    	list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=file>)
+    	list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=file>)
 	endif()
-	
+
 	if(NSC_DEBUG_EDIF_SOURCE_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=source>)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=source>)
 	endif()
-	
+
 	if(NSC_DEBUG_EDIF_LINE_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=line>)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=line>)
 	endif()
-	
+
 	if(NSC_DEBUG_EDIF_TOOL_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=tool>)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=tool>)
 	endif()
-	
+
 	if(NSC_DEBUG_EDIF_NON_SEMANTIC_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=vulkan-with-source>)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=vulkan-with-source>)
 	endif()
 
 	if(NOT NBL_EMBED_BUILTIN_RESOURCES)

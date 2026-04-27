@@ -35,8 +35,8 @@ struct ProjectedHemisphere
 
 	static codomain_type __generate(const domain_type u)
 	{
-		vector_t2 p = ConcentricMapping<T>::generate(u * T(0.99999) + T(0.000005));
-		T z = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - p.x * p.x - p.y * p.y));
+		vector_t2 p = ConcentricMapping<T>::generate(u * _static_cast<T>(0.99999) + _static_cast<T>(0.000005));
+		T z = hlsl::sqrt<T>(hlsl::max<T>(_static_cast<T>(0.0), _static_cast<T>(1.0) - p.x * p.x - p.y * p.y));
 		return vector_t3(p.x, p.y, z);
 	}
 
@@ -64,7 +64,7 @@ struct ProjectedHemisphere
 
 	static density_type backwardPdf(const codomain_type L)
 	{
-		assert(L.z > 0);
+		assert(L.z >= 0);
 		return L.z * numbers::inv_pi<T>;
 	}
 
@@ -93,11 +93,11 @@ struct ProjectedSphere
 	static codomain_type __generate(NBL_REF_ARG(domain_type) u)
 	{
 		vector_t3 retval = hemisphere_t::__generate(u.xy);
-		const bool chooseLower = u.z > T(0.5);
+		const bool chooseLower = u.z > _static_cast<scalar_type>(0.5);
 		retval.z = chooseLower ? (-retval.z) : retval.z;
 		if (chooseLower)
-			u.z -= T(0.5);
-		u.z *= T(2.0);
+			u.z -= _static_cast<T>(0.5);
+		u.z *= _static_cast<T>(2.0);
 		return retval;
 	}
 
@@ -110,7 +110,7 @@ struct ProjectedSphere
 
 	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * cache.z * numbers::inv_pi<T>;
+		return _static_cast<T>(0.5) * cache.z * numbers::inv_pi<T>;
 	}
 
 	static weight_type forwardWeight(const domain_type u, const cache_type cache)
@@ -120,7 +120,7 @@ struct ProjectedSphere
 
 	static density_type backwardPdf(const codomain_type L)
 	{
-		return T(0.5) * hlsl::abs(L.z) * numbers::inv_pi<T>;
+		return _static_cast<T>(0.5) * hlsl::abs(L.z) * numbers::inv_pi<T>;
 	}
 
 	static weight_type backwardWeight(const codomain_type L)

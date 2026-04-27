@@ -220,12 +220,12 @@ struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 	using return_t = int32_t;
 	static return_t __call(NBL_CONST_REF_ARG(UInt64) val)
 	{
-		const uint32_t highBits = uint32_t(val >> 32);
+		const uint32_t highBits = _static_cast<uint32_t>(val >> 32);
 		const int32_t highMsb = find_msb_helper<uint32_t>::__call(highBits);
 
 		if (highMsb == -1)
 		{
-			const uint32_t lowBits = uint32_t(val);
+			const uint32_t lowBits = _static_cast<uint32_t>(val);
 			const int32_t lowMsb = find_msb_helper<uint32_t>::__call(lowBits);
 			if (lowMsb == -1)
 				return -1;
@@ -241,12 +241,12 @@ struct find_lsb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 {
 	static int32_t __call(NBL_CONST_REF_ARG(uint64_t) val)
 	{
-		const uint32_t lowBits = uint32_t(val);
+		const uint32_t lowBits = _static_cast<uint32_t>(val);
 		const int32_t lowLsb = find_lsb_helper<uint32_t>::__call(lowBits);
 
 		if (lowLsb == -1)
 		{
-			const uint32_t highBits = uint32_t(val >> 32);
+			const uint32_t highBits = _static_cast<uint32_t>(val >> 32);
 			const int32_t highLsb = find_lsb_helper<uint32_t>::__call(highBits);
 			if (highLsb == -1)
 				return -1;

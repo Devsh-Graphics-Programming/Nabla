@@ -1961,7 +1961,7 @@
             ]
         },
         {
-            
+
             "type": "bool",
             "name": "mixedAttachmentSamples",
             "value": false,
@@ -2096,21 +2096,21 @@
                     "name": "rayTracingPipelineShaderGroupHandleCaptureReplay",
                     "value": null,
                     "expose": "DISABLE",
-                    "comment": ["[DO NOT EXPOSE] for capture tools"]
+                    "comment": [ "[DO NOT EXPOSE] for capture tools" ]
                 },
                 {
                     "type": "bool",
                     "name": "rayTracingPipelineShaderGroupHandleCaptureReplayMixed",
                     "value": null,
                     "expose": "DISABLE",
-                    "comment": ["[DO NOT EXPOSE] for capture tools"]
+                    "comment": [ "[DO NOT EXPOSE] for capture tools" ]
                 },
                 {
                     "type": "bool",
                     "name": "rayTracingPipelineTraceRaysIndirect",
                     "value": "rayTracingPipeline",
                     "expose": "DISABLE",
-                    "comment": ["[DO NOT EXPOSE] Vulkan feature requirements"]
+                    "comment": [ "[DO NOT EXPOSE] Vulkan feature requirements" ]
                 },
                 {
                     "type": "bool",
@@ -4084,7 +4084,7 @@
         },
         {
             "comment": [
-                "[DO NOT EXPOSE] We don't support yet, but a TODO",
+                "[DO NOT EXPOSE] Expose KHR version instead!",
                 "VK_NV_ray_tracing_invocation_reorder"
             ]
         },
@@ -4270,13 +4270,167 @@
         },
         {
             "comment": [
-                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
-                "VK_QCOM_extension_548"
+                "[TODO] When we ship something on Android again",
+                "VK_QCOM_tile_memory_heap"
             ]
         },
         {
             "comment": [
-                "Eternal TODO: how many new extensions since we last looked? (We're up to ext number 548)"
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_549"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose eventually",
+                "VK_KHR_copy_memory_indirect",
+                "VK_EXT_memory_decompression",
+                "VK_NV_display_stereo"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] No interest",
+                "VK_KHR_video_encode_intra_refresh",
+                "VK_KHR_video_encode_quantization_map"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_IMG_extension_555"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose eventually",
+                "VK_NV_raw_access_chains",
+                "VK_NV_external_compute_queue"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_558"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose eventually",
+                "VK_KHR_shader_relaxed_extended_instruction",
+                "VK_NV_command_buffer_inheritance"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_561",
+                "VK_KHR_extension_562"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Require and use eventually",
+                "VK_KHR_maintenance7"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose as a limit",
+                "VK_NV_shader_atomic_float16_vector"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Interesting name, no idea what it does",
+                "VK_EXT_shader_replicated_composites"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_ARM_extension_566",
+                "VK_ARM_extension_567"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose as a limit",
+                "VK_EXT_shader_float8",
+                "VK_KHR_cooperative_matrix"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose eventually",
+                "VK_NV_ray_tracing_validation",
+                "VK_NV_cluster_acceleration_structure",
+                "VK_NV_partitioned_acceleration_structure"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_572"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose eventually",
+                "VK_EXT_device_generated_commands",
+                "VK_KHR_device_fault"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Require and use eventually",
+                "VK_KHR_maintenance8"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Mesa thing, probably only for VkD3d or interop",
+                "VK_MESA_image_alignment_control"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_HUAWEI_extension_577",
+                "VK_EXT_extension_578",
+                "VK_EXT_extension_579"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Expose as a limit",
+                "VK_KHR_shader_fma"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] What even is this?",
+                "VK_NV_push_constant_bank"
+            ]
+        },
+        {
+            "comment": [
+                "RayTracingPipelineFeaturesKHR",
+                "VK_EXT_ray_tracing_invocation_reorder"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "rayTracingInvocationReorder",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [ "Extension has zero-cost integration with old variants of fused TraceRay and ClosestHit/Miss execution" ]
+                }
+            ]
+        },
+        {
+            "comment": [
+                "Eternal TODO: how many new extensions since we last looked? (We're up to ext number 582)"
             ]
         }
     ],
