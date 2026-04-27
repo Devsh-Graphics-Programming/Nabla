@@ -129,10 +129,10 @@ struct SMicrofacetNormals<Config, BRDF, PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BOT(con
     template<class NormalsTexAccessor> // TODO: concept for accessor
     anisotropic_interaction_type buildInteraction(NBL_CONST_REF_ARG(NormalsTexAccessor) normalMap, const vector2_type uv, const matrix<scalar_type,3,3> object_to_world, const ray_dir_info_type V) NBL_CONST_MEMBER_FUNC
     {
-        // const matrix<scalar_type,3,3> TBN = hlsl::transpose(object_to_world);
+        const matrix<scalar_type,3,3> TBN = hlsl::transpose(object_to_world);
         vector3_type localN;
-        // normalMap.get(localN, TBN[2], TBN[0], TBN[1]);
-        normalMap.get(localN, uv);
+        normalMap.get(localN, TBN[2], TBN[0], TBN[1]);
+        // normalMap.get(localN, uv);
         localN = hlsl::promote<vector3_type>(2.0) * localN - hlsl::promote<vector3_type>(1.0);
 
         const vector3_type N = hlsl::normalize(hlsl::mul(object_to_world, localN));
@@ -436,10 +436,10 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
     template<class NormalsTexAccessor> // TODO: concept for accessor
     anisotropic_interaction_type buildInteraction(NBL_CONST_REF_ARG(NormalsTexAccessor) normalMap, const vector2_type uv, const matrix<scalar_type,3,3> object_to_world, const ray_dir_info_type V) NBL_CONST_MEMBER_FUNC
     {
-        // const matrix<scalar_type,3,3> TBN = hlsl::transpose(object_to_world);
+        const matrix<scalar_type,3,3> TBN = hlsl::transpose(object_to_world);
         vector3_type localN;
-        // normalMap.get(localN, TBN[2], TBN[0], TBN[1]);
-        normalMap.get(localN, uv);
+        normalMap.get(localN, TBN[2], TBN[0], TBN[1]);
+        // normalMap.get(localN, uv);
         localN = hlsl::promote<vector3_type>(2.0) * localN - hlsl::promote<vector3_type>(1.0);
 
         const vector3_type N = hlsl::normalize(hlsl::mul(object_to_world, localN));
@@ -596,7 +596,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
             const scalar_type NdotL = hlsl::dot(shadingNormal, L);
             const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
             const scalar_type NtdotL = hlsl::dot(Nt, L);
-            pdf += lambda_p * nested_brdf.forwardPdf(_sample, interaction, __createChildCache(_sample, interaction))
+            pdf += lambda_p * nested_brdf.forwardPdf(_sample, interaction, _cache.aniso_cache)
                 * shadowing_method_type::G1(hlsl::max(scalar_type(0.0), NdotL), NdotNp, NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
         }
 
