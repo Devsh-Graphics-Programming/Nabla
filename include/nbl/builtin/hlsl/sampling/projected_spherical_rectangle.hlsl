@@ -128,7 +128,7 @@ struct ProjectedSphericalRectangle
       typename SphericalRectangle<scalar_type>::cache_type sphrectCache; // there's nothing in the cache
       const vector3_type dir = sphrect.generateNormalizedLocal(warped, sphrectCache, hitDist);
       NBL_IF_CONSTEXPR(!UsePdfAsWeight)
-      cache.L = hlsl::mul(hlsl::transpose(sphrect.basis), dir);
+         cache.L = hlsl::mul(hlsl::transpose(sphrect.basis), dir);
       return dir;
    }
 
@@ -139,7 +139,7 @@ struct ProjectedSphericalRectangle
       typename SphericalRectangle<scalar_type>::cache_type sphrectCache; // there's nothing in the cache
       const vector3_type dir = sphrect.generateUnnormalized(warped, sphrectCache);
       NBL_IF_CONSTEXPR(!UsePdfAsWeight)
-      cache.L = dir * hlsl::rsqrt(hlsl::dot(dir, dir));
+         cache.L = dir * hlsl::rsqrt(hlsl::dot(dir, dir));
       return dir;
    }
 
@@ -162,7 +162,7 @@ struct ProjectedSphericalRectangle
    weight_type forwardWeight(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC
    {
       NBL_IF_CONSTEXPR(UsePdfAsWeight)
-      return forwardPdf(u, cache);
+         return forwardPdf(u, cache);
       return backwardWeight(cache.L);
    }
 
