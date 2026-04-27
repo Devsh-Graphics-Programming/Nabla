@@ -99,7 +99,7 @@ def add_args(parser, names, required=True, default=None):
         parser.add_argument(f"--{name}", required=required, default=default)
 
 
-def multipart(fields, file_field, file_path):
+def multipart_files(fields, files):
     boundary = "----devsh-ci-" + os.urandom(12).hex()
     parts = []
     for name, value in fields.items():
@@ -108,15 +108,20 @@ def multipart(fields, file_field, file_path):
             str(value).encode(),
             b"\r\n",
         ]
-    path = Path(file_path)
-    parts += [
-        f"--{boundary}\r\nContent-Disposition: form-data; name=\"{file_field}\"; filename=\"{path.name}\"\r\n".encode(),
-        b"Content-Type: application/zip\r\n\r\n",
-        path.read_bytes(),
-        b"\r\n",
-        f"--{boundary}--\r\n".encode(),
-    ]
+    for file_field, file_path in files:
+        path = Path(file_path)
+        parts += [
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"{file_field}\"; filename=\"{path.name}\"\r\n".encode(),
+            b"Content-Type: application/zip\r\n\r\n",
+            path.read_bytes(),
+            b"\r\n",
+        ]
+    parts.append(f"--{boundary}--\r\n".encode())
     return f"multipart/form-data; boundary={boundary}", b"".join(parts)
+
+
+def multipart(fields, file_field, file_path):
+    return multipart_files(fields, [(file_field, file_path)])
 
 
 def extract_single_tar(artifact_dir, pattern):
@@ -278,6 +283,14 @@ def cancel_superseded(base, headers, job, match, current):
 
 def start_file_job(base, headers, job, fields, file_field, file_path):
     content_type, body = multipart(fields, file_field, file_path)
+    _, response_headers, _ = jpost(base, headers, f"/{job_path(job)}/buildWithParameters", body, content_type)
+    if not response_headers.get("Location"):
+        raise CiError(f"Jenkins did not return a queue location for {job}.")
+    return wait_queue(base, headers, response_headers["Location"], job)
+
+
+def start_files_job(base, headers, job, fields, files):
+    content_type, body = multipart_files(fields, files)
     _, response_headers, _ = jpost(base, headers, f"/{job_path(job)}/buildWithParameters", body, content_type)
     if not response_headers.get("Location"):
         raise CiError(f"Jenkins did not return a queue location for {job}.")

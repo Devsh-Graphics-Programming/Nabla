@@ -1,0 +1,122 @@
+name: Run Path Tracer Compare Jenkins
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build workflow run id to use as the EX40 package source"
+        required: true
+      scene_set:
+        description: "Path tracer scene set to compare in Jenkins"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - public
+          - private
+      publish:
+        description: "Publish the generated comparison report to store.devsh.eu"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
+concurrency:
+  group: path-tracer-compare-jenkins-ptCLI
+  cancel-in-progress: true
+
+jobs:
+  trigger-jenkins:
+    name: Trigger Path Tracer Compare Jenkins
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Resolve source build
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/path_tracer_jenkins.py resolve \
+            --github-token "$GH_TOKEN" \
+            --repository "${{ github.repository }}" \
+            --event-name "${{ github.event_name }}" \
+            --branch "${{ github.ref_name }}" \
+            --sha "${{ github.sha }}" \
+            --run-id "${{ inputs.run_id }}" \
+            --build-config Release \
+            --scene-set "${{ inputs.scene_set || 'both' }}" \
+            --publish "${{ inputs.publish }}"
+
+      - name: Download Release install artifact
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ steps.source.outputs.run_id }}
+          pattern: run-windows-*-msvc-Release-install
+          path: artifact-release
+          merge-multiple: true
+          github-token: ${{ secrets.READ_PAT || github.token }}
+          repository: Devsh-Graphics-Programming/Nabla
+
+      - name: Download RelWithDebInfo install artifact
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ steps.source.outputs.run_id }}
+          pattern: run-windows-*-msvc-RelWithDebInfo-install
+          path: artifact-o1experimental
+          merge-multiple: true
+          github-token: ${{ secrets.READ_PAT || github.token }}
+          repository: Devsh-Graphics-Programming/Nabla
+
+      - name: Prepare Release package
+        id: release_package
+        run: |
+          python3 .github/scripts/path_tracer_jenkins.py package \
+            --artifact-dir artifact-release \
+            --build-config Release \
+            --package-root ex40-release-package \
+            --zip-path ex40-release-package.zip
+
+      - name: Prepare O1experimental package
+        id: o1_package
+        run: |
+          python3 .github/scripts/path_tracer_jenkins.py package \
+            --artifact-dir artifact-o1experimental \
+            --build-config RelWithDebInfo \
+            --package-root ex40-o1experimental-package \
+            --zip-path ex40-o1experimental-package.zip
+
+      - name: Trigger Jenkins
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          JENKINS_URL: https://jenkins.devsh.eu
+          JENKINS_USER: ${{ secrets.JENKINS_DITT_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_DITT_TOKEN }}
+        run: |
+          python3 .github/scripts/path_tracer_jenkins.py trigger-compare \
+            --jenkins-url "$JENKINS_URL" \
+            --jenkins-user "$JENKINS_USER" \
+            --jenkins-token "$JENKINS_TOKEN" \
+            --github-token "$GITHUB_TOKEN" \
+            --release-package-path "${{ steps.release_package.outputs.zip_path }}" \
+            --o1-package-path "${{ steps.o1_package.outputs.zip_path }}" \
+            --repository "${{ github.repository }}" \
+            --branch "${{ steps.source.outputs.branch }}" \
+            --sha "${{ steps.source.outputs.sha }}" \
+            --source-run-id "${{ steps.source.outputs.run_id }}" \
+            --source-run-attempt "${{ steps.source.outputs.run_attempt }}" \
+            --source-workflow "${{ steps.source.outputs.workflow }}" \
+            --scene-set "${{ steps.source.outputs.scene_set }}" \
+            --publish "${{ steps.source.outputs.publish }}"
