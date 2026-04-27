@@ -126,7 +126,10 @@ def extract_single_tar(artifact_dir, pattern):
                 raise CiError("Tar archive contains a path outside the artifact directory.")
             if member.issym() or member.islnk():
                 raise CiError("Tar archive contains links, refusing to extract.")
-        tar.extractall(artifact_dir, members=members)
+        try:
+            tar.extractall(artifact_dir, members=members, filter="data")
+        except TypeError:
+            tar.extractall(artifact_dir, members=members)
 
 
 def copy_contents(src, dst):

@@ -79,7 +79,7 @@ def package(args):
     copy_contents(root / "runtime", out / prefix / "runtime")
     copy_contents(root / "exe" / "examples_tests" / "40_PathTracer" / "bin", out / prefix / "exe" / "examples_tests" / "40_PathTracer" / "bin")
     exe = list(out.rglob("40_pathtracer*.exe"))
-    if not exe or not list(out.rglob("Nabla_*.dll")) or not list(out.rglob("dxcompiler.dll")):
+    if not exe or not list(out.rglob("Nabla*.dll")) or not list(out.rglob("dxcompiler.dll")):
         raise CiError("EX40 package is missing required runtime files.")
     if not (exe[0].parent / "report").is_dir():
         raise CiError("EX40 report template was not found in the package.")
