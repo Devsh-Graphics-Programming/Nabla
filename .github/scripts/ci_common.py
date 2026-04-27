@@ -1,6 +1,8 @@
 import base64
+import fnmatch
 import json
 import os
+import re
 import shutil
 import tarfile
 import time
@@ -32,6 +34,11 @@ def json_request(method, url, headers=None, payload=None):
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     _, _, data = request(method, url, headers, body, "application/json" if body else None)
     return None if not data else json.loads(data.decode("utf-8"))
+
+
+def text_request(method, url, headers=None):
+    _, _, data = request(method, url, headers)
+    return data.decode("utf-8", errors="replace")
 
 
 def github_headers(token):
@@ -174,19 +181,53 @@ def commit_status(repo, sha, token, context, state, target, description):
     })
 
 
+def workflow_runs_url(repo, workflow_file, branch, sha):
+    query = urllib.parse.urlencode({"branch": branch, "event": "push", "head_sha": sha, "per_page": 10})
+    return f"https://api.github.com/repos/{repo}/actions/workflows/{workflow_file}/runs?{query}"
+
+
+def latest_workflow_run(repo, workflow_file, branch, sha, headers, workflow_name):
+    runs = json_request("GET", workflow_runs_url(repo, workflow_file, branch, sha), headers).get("workflow_runs", [])
+    runs = [run for run in runs if run.get("name") == workflow_name and run.get("head_sha") == sha]
+    runs.sort(key=lambda run: int(run.get("run_attempt") or 0), reverse=True)
+    return runs[0] if runs else None
+
+
 def wait_workflow(repo, workflow_file, branch, sha, headers, workflow_name, timeout_seconds=21600):
     deadline = time.monotonic() + timeout_seconds
-    query = urllib.parse.urlencode({"branch": branch, "event": "push", "head_sha": sha, "per_page": 10})
-    url = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow_file}/runs?{query}"
     while time.monotonic() < deadline:
-        runs = json_request("GET", url, headers).get("workflow_runs", [])
-        runs = [run for run in runs if run.get("name") == workflow_name and run.get("head_sha") == sha]
-        runs.sort(key=lambda run: int(run.get("run_attempt") or 0), reverse=True)
-        if runs and runs[0].get("status") == "completed":
-            return runs[0]
+        run = latest_workflow_run(repo, workflow_file, branch, sha, headers, workflow_name)
+        if run and run.get("status") == "completed":
+            return run
         print(f"Waiting for {workflow_name} workflow for {sha} to complete...")
         time.sleep(60)
     raise CiError(f"Timed out waiting for {workflow_name} workflow for {sha}.")
+
+
+def wait_workflow_job_artifact(repo, workflow_file, branch, sha, headers, workflow_name, job_name, artifact_pattern, timeout_seconds=21600):
+    deadline = time.monotonic() + timeout_seconds
+    last_log = 0
+    while time.monotonic() < deadline:
+        run = latest_workflow_run(repo, workflow_file, branch, sha, headers, workflow_name)
+        if run:
+            jobs_url = f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100"
+            jobs = json_request("GET", jobs_url, headers).get("jobs", [])
+            job = next((item for item in jobs if item.get("name") == job_name), None)
+            if job and job.get("conclusion") and job.get("conclusion") != "success":
+                raise CiError(f"{workflow_name} job {job_name} finished with {job.get('conclusion')}.")
+            artifacts_url = f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100"
+            artifacts = json_request("GET", artifacts_url, headers).get("artifacts", [])
+            matches = [item for item in artifacts if fnmatch.fnmatchcase(item.get("name", ""), artifact_pattern) and not item.get("expired")]
+            if job and job.get("conclusion") == "success" and matches:
+                return run
+            if run.get("status") == "completed" and run.get("conclusion") not in {None, "success"}:
+                raise CiError(f"{workflow_name} workflow finished with {run.get('conclusion')}.")
+        now = time.monotonic()
+        if now - last_log >= 60:
+            print(f"Waiting for {workflow_name} {job_name} and {artifact_pattern} for {sha}...")
+            last_log = now
+        time.sleep(30)
+    raise CiError(f"Timed out waiting for {workflow_name} {job_name} artifact for {sha}.")
 
 
 def parameter(actions, name):
@@ -243,6 +284,38 @@ def start_file_job(base, headers, job, fields, file_field, file_path):
     return wait_queue(base, headers, response_headers["Location"], job)
 
 
+def stop_build(base, headers, job, number):
+    try:
+        jpost(base, headers, f"/{job_path(job)}/{number}/stop")
+    except CiError as exc:
+        print(f"Could not stop Jenkins build {job} #{number}: {exc}")
+
+
+def redact_console(text):
+    patterns = [
+        r"(?i)(authorization:\s*)(basic|bearer)\s+\S+",
+        r"(?i)((?:token|password|secret|cookie|access[_-]?key)\s*[=:]\s*)\S+",
+        r"AKIA[0-9A-Z]{16}",
+        r"(?i)(aws_secret_access_key\s*[=:]\s*)\S+",
+    ]
+    redacted = text
+    for pattern in patterns:
+        redacted = re.sub(pattern, lambda match: match.group(1) + "***" if match.lastindex else "***", redacted)
+    return redacted
+
+
+def print_console_tail(base, headers, job, number, lines=200):
+    try:
+        text = text_request("GET", join_url(base, f"/{job_path(job)}/{number}/consoleText"), headers)
+    except CiError as exc:
+        print(f"Could not fetch Jenkins console tail for {job} #{number}: {exc}")
+        return
+    tail = "\n".join(redact_console(text).splitlines()[-lines:])
+    print(f"--- Jenkins console tail: {job} #{number} ---")
+    print(tail)
+    print("--- End Jenkins console tail ---")
+
+
 def wait_queue(base, headers, queue_url, job):
     for _ in range(360):
         item = jget(base, headers, f"{queue_url}/api/json")
@@ -254,11 +327,17 @@ def wait_queue(base, headers, queue_url, job):
     raise CiError(f"Timed out waiting for Jenkins queue item for {job}.")
 
 
-def wait_build(base, headers, job, number):
+def wait_build(base, headers, job, number, timeout_seconds=14400):
     path = job_path(job)
-    for _ in range(600):
+    deadline = time.monotonic() + timeout_seconds
+    last_log = 0
+    while time.monotonic() < deadline:
         build = jget(base, headers, f"/{path}/{number}/api/json?tree=building,result")
         if not build.get("building"):
             return str(build.get("result") or "")
+        now = time.monotonic()
+        if now - last_log >= 300:
+            print(f"Jenkins {job} #{number} is still running.")
+            last_log = now
         time.sleep(30)
     raise CiError(f"Timed out waiting for Jenkins build {job} #{number}.")

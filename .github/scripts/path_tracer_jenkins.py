@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -19,10 +20,12 @@ from ci_common import (
     job_path,
     json_request,
     output,
+    print_console_tail,
     require_sha,
     start_file_job,
+    stop_build,
     wait_build,
-    wait_workflow,
+    wait_workflow_job_artifact,
     zip_directory,
 )
 
@@ -34,10 +37,17 @@ SCENES = {"both", "public", "private"}
 MAX_PACKAGE_BYTES = 200 * 1024 * 1024
 
 
-def source_values(run, config, scene_set, publish):
+def package_path(base, relative):
+    path = Path(str(relative))
+    if path.is_absolute() or ".." in path.parts:
+        raise CiError("EX40 package manifest contains an unsafe path.")
+    return base / path
+
+
+def source_values(run, config, scene_set, publish, require_green=True):
     if run.get("head_branch") != BRANCH:
         raise CiError(f"Expected {BRANCH}, got {run.get('head_branch')}.")
-    if run.get("name") != "Build" or run.get("conclusion") != "success":
+    if run.get("name") != "Build" or (require_green and run.get("conclusion") != "success"):
         raise CiError(f"Build run {run.get('id')} is not green.")
     return {
         "run_id": run["id"],
@@ -58,8 +68,17 @@ def resolve(args):
     if args.event_name == "push":
         if args.branch != BRANCH:
             raise CiError(f"Expected branch {BRANCH}.")
-        run = wait_workflow(REPO, "build-nabla.yml", BRANCH, require_sha(args.sha), headers, "Build")
-        values = source_values(run, "Release", "both", "true")
+        run = wait_workflow_job_artifact(
+            REPO,
+            "build-nabla.yml",
+            BRANCH,
+            require_sha(args.sha),
+            headers,
+            "Build",
+            "Nabla (windows-2022, msvc-17.13.6, Release)",
+            "run-windows-*-msvc-Release-install",
+        )
+        values = source_values(run, "Release", "both", "true", require_green=False)
     else:
         run = json_request("GET", f"https://api.github.com/repos/{REPO}/actions/runs/{args.run_id}", headers)
         values = source_values(run, args.build_config, args.scene_set, args.publish)
@@ -71,17 +90,27 @@ def package(args):
     config = choice(args.build_config, CONFIGS, "build config")
     artifact = Path(args.artifact_dir)
     extract_single_tar(artifact, "*-install.tar")
-    root = artifact / "build-ct" / "install"
-    root = root if config == "Release" else root / config.lower()
+    install_root = artifact / "build-ct" / "install"
+    root = install_root if config == "Release" else install_root / config.lower()
     out = Path(args.package_root)
     shutil.rmtree(out, ignore_errors=True)
     prefix = Path() if config == "Release" else Path(config.lower())
     copy_contents(root / "runtime", out / prefix / "runtime")
     copy_contents(root / "exe" / "examples_tests" / "40_PathTracer" / "bin", out / prefix / "exe" / "examples_tests" / "40_PathTracer" / "bin")
-    exe = list(out.rglob("40_pathtracer*.exe"))
-    if not exe or not list(out.rglob("Nabla*.dll")) or not list(out.rglob("dxcompiler.dll")):
+    manifest = root / "EX40Runtime.json"
+    if manifest.is_file():
+        shutil.copy2(manifest, out / prefix / manifest.name)
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        if data.get("schema") != "devsh.nabla.example-runtime.v1" or data.get("component") != "EX40Runtime":
+            raise CiError("EX40 package manifest is not supported.")
+        exe = [package_path(out / prefix, data["executable"])]
+        required = [package_path(out / prefix, data[name]) for name in ["nabla_runtime", "dxc_runtime", "report_template"]]
+    else:
+        exe = sorted(out.rglob("40_pathtracer*.exe"))
+        required = []
+    if not exe or not exe[0].is_file() or not list(out.rglob("Nabla*.dll")) or not list(out.rglob("dxcompiler.dll")):
         raise CiError("EX40 package is missing required runtime files.")
-    if not (exe[0].parent / "report").is_dir():
+    if any(not path.exists() for path in required) or not (exe[0].parent / "report").is_dir():
         raise CiError("EX40 report template was not found in the package.")
     zip_directory(out, args.zip_path, MAX_PACKAGE_BYTES)
     output({"zip_path": args.zip_path})
@@ -113,8 +142,15 @@ def start_suite(args, headers, suite):
     build_url = f"{args.jenkins_url.rstrip('/')}/{job_path(job)}/{number}/"
     set_status(args, suite, "pending", build_url, f"Jenkins {suite} path tracer build #{number} is running.")
     print(f"Started Jenkins {job} #{number}: {build_url}")
-    result = wait_build(args.jenkins_url, headers, job, number)
+    try:
+        result = wait_build(args.jenkins_url, headers, job, number, int(args.jenkins_timeout_minutes) * 60)
+    except CiError:
+        stop_build(args.jenkins_url, headers, job, number)
+        print_console_tail(args.jenkins_url, headers, job, number)
+        set_status(args, suite, "failure", build_url, f"Jenkins {suite} path tracer did not complete.")
+        raise
     if result not in {"SUCCESS", "UNSTABLE"}:
+        print_console_tail(args.jenkins_url, headers, job, number)
         set_status(args, suite, "failure", build_url, f"Jenkins {suite} path tracer finished with {result}.")
         raise CiError(f"Jenkins {job} #{number} finished with {result}.")
     set_status(args, suite, "success", build_url, f"Jenkins {suite} path tracer {result.lower()}.")
@@ -131,6 +167,8 @@ def trigger(args):
         raise CiError("Invalid Jenkins connection settings.")
     if not args.source_run_id.isdigit() or not args.source_run_attempt.isdigit():
         raise CiError("Invalid source run metadata.")
+    if not args.jenkins_timeout_minutes.isdigit() or not 10 <= int(args.jenkins_timeout_minutes) <= 720:
+        raise CiError("Invalid Jenkins timeout.")
     package_path = Path(args.package_path)
     if not package_path.is_file() or package_path.stat().st_size > MAX_PACKAGE_BYTES:
         raise CiError("Invalid package path or size.")
@@ -156,6 +194,7 @@ def parser():
     package_parser.set_defaults(func=package)
     trigger_parser = sub.add_parser("trigger")
     add_args(trigger_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "github-token", "package-path", "repository", "branch", "sha", "source-run-id", "source-run-attempt", "source-workflow", "scene-set", "publish"])
+    trigger_parser.add_argument("--jenkins-timeout-minutes", default="300")
     trigger_parser.set_defaults(func=trigger)
     return parser
 
