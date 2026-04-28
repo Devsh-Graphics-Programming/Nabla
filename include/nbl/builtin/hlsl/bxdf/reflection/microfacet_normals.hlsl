@@ -28,13 +28,14 @@ struct SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BO
     using this_t = SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
-    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = false;    // TODO: temp, should account for bsdfs at some point
+    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = false;
     using bxdf_type = BRDF;
     using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
     struct Cache
     {
         typename bxdf_type::isocache_type iso_cache;
         typename bxdf_type::anisocache_type aniso_cache;
+        bool sampleFromNt;
         bool sampleIsShadowed;
     };
     using isocache_type = Cache;
@@ -176,6 +177,7 @@ struct SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BO
         {
             // sample on Np
             s = nested_brdf.generate(interaction, u, _cache.aniso_cache);
+            _cache.sampleFromNt = false;
 
             if (!s.isValid())
                 return sample_type::createInvalid();
@@ -200,6 +202,7 @@ struct SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BO
             // do one reflection if we start at Nt
             Reflect<scalar_type> reflect_V = Reflect<scalar_type>::create(-V.getDirection(), Nt);
             const vector3_type V_negreflected = hlsl::normalize(reflect_V());
+            _cache.sampleFromNt = true;
 
             // sample on Np
             ray_dir_info_type Vnr;
@@ -310,13 +313,30 @@ struct SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BO
         const vector3_type Nt = shadowing_method_type::computeNt(Np, shadingBasis);
         spectral_type quo = hlsl::promote<spectral_type>(1.0);
 
-        const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
-        quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction, _cache.aniso_cache);
-        quo *= qw.quotient();
+        if (_cache.sampleFromNt)
+        {
+            Reflect<scalar_type> reflect_V = Reflect<scalar_type>::create(-V.getDirection(), Nt);
+            const vector3_type V_negreflected = hlsl::normalize(reflect_V());
+
+            ray_dir_info_type Vnr;
+            Vnr.setDirection(V_negreflected);
+            typename bxdf_type::isotropic_interaction_type iso_negreflected = bxdf_type::isotropic_interaction_type::create(Vnr, Np);
+            iso_negreflected.luminosityContributionHint = interaction.getLuminosityContributionHint();
+            typename bxdf_type::anisotropic_interaction_type interaction_negreflected = bxdf_type::anisotropic_interaction_type::create(iso_negreflected);
+
+            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction_negreflected, _cache.aniso_cache);
+            quo *= qw.quotient();
+        }
+        else
+        {
+            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction, _cache.aniso_cache);
+            quo *= qw.quotient();
+        }
 
         if (_cache.sampleIsShadowed)
         {
             const vector3_type L = _sample.getL().getDirection();
+            const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
             quo *= shadowing_method_type::G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), hlsl::max(scalar_type(0.0), NdotNp), NpdotL, hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
         }
 
@@ -335,13 +355,14 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
     using this_t = SMicrofacetNormals<Config, BRDF, P, 1>;
     BXDF_CONFIG_TYPE_ALIASES(Config);
 
-    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = false;    // TODO: temp, should account for bsdfs at some point
+    NBL_CONSTEXPR_STATIC_INLINE bool IsBSDF = false;    // TODO: could probably merge with transmitted 1st order
     using bxdf_type = BRDF;
     using random_type = conditional_t<IsBSDF, vector3_type, vector2_type>;
     struct Cache
     {
         typename bxdf_type::isocache_type iso_cache;
         typename bxdf_type::anisocache_type aniso_cache;
+        bool sampleFromNt;
         bool sampleIsShadowed;
     };
     using isocache_type = Cache;
@@ -465,6 +486,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
         {
             // sample on Np
             s = nested_brdf.generate(interaction, u, _cache.aniso_cache);
+            _cache.sampleFromNt = false;
         }
         else
         {
@@ -473,6 +495,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
             iso_t.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_t = bxdf_type::anisotropic_interaction_type::create(iso_t);
             s = nested_brdf.generate(interaction_t, u, _cache.aniso_cache);
+            _cache.sampleFromNt = true;
             _cache.sampleIsShadowed = true;
         }
         if (!s.isValid() || hlsl::dot(shadingNormal, s.getL().getDirection()) < scalar_type(0.0))
@@ -559,13 +582,25 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
         const vector3_type Nt = shadowing_method_type::computeNt(Np, shadingBasis);
         spectral_type quo = hlsl::promote<spectral_type>(1.0);
 
-        const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
-        quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction, _cache.aniso_cache);
-        quo *= qw.quotient();
+        if (_cache.sampleFromNt)
+        {
+            typename bxdf_type::isotropic_interaction_type iso_t = bxdf_type::isotropic_interaction_type::create(V, Nt);
+            iso_t.luminosityContributionHint = interaction.getLuminosityContributionHint();
+            typename bxdf_type::anisotropic_interaction_type interaction_t = bxdf_type::anisotropic_interaction_type::create(iso_t);
+
+            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction_t, _cache.aniso_cache);
+            quo *= qw.quotient();
+        }
+        else
+        {
+            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction, _cache.aniso_cache);
+            quo *= qw.quotient();
+        }
 
         if (_cache.sampleIsShadowed)
         {
             const vector3_type L = _sample.getL().getDirection();
+            const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
             quo *= shadowing_method_type::G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, Nt)), NpdotL, hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
         }
 
