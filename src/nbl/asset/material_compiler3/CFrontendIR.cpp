@@ -116,41 +116,94 @@ bool CFrontendIR::CCookTorrance::invalid(const SInvalidCheckArgs& args) const
 }
 
 
-auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig) -> typed_pointer_type<const IExprNode>
+auto CFrontendIR::deepCopy(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR) -> typed_pointer_type<const IExprNode>
 {
-	auto& pool = getObjectPool();
-	struct SEntry
-	{
-		typed_pointer_type<const IExprNode> handle;
-		bool visited = false;
-	};
-	core::vector<SEntry> stack;
+	auto& dstPool = getObjectPool();
+	// if not explicitly other, then its ours
+	if (!pSourceIR)
+		pSourceIR = this;
+	const auto& srcPool = pSourceIR->getObjectPool();
+
+	core::vector<typed_pointer_type<const IExprNode>> stack;
 	stack.reserve(32);
-	stack.push_back({.handle=orig});
+	stack.push_back(orig);
+	// use a hashmap to not explore whole DAG
+	core::unordered_map<typed_pointer_type<const IExprNode>,typed_pointer_type<IExprNode>> substitutions;
+	while (!stack.empty())
+	{
+		const auto entry = stack.back();
+		const auto* const node = srcPool.deref(entry);
+		if (!node) // this is an error
+			return {};
+		const auto childCount = node->getChildCount();
+		if (auto& copyH=substitutions[entry]; !copyH)
+		{
+			for (uint8_t c=0; c<childCount; c++)
+			{
+				const auto childH = node->getChildHandle(c);
+				if (auto child=srcPool.deref(childH); !child)
+					continue; // this is not an error
+				stack.push_back(childH);
+			}
+			// copy copies everything including child handles
+			copyH = node->copy(this);
+			if (!copyH)
+				return {};
+		}
+		else
+		{
+			auto* const copy = dstPool.deref(copyH);
+			for (uint8_t c=0; c<childCount; c++)
+			{
+				const auto childH = node->getChildHandle(c);
+				if (!childH)
+					continue;
+				auto found = substitutions.find(childH);
+				assert(found!=substitutions.end());
+				copy->setChild(c,found->second);
+			}
+			stack.pop_back();
+		}
+	}
+	return substitutions[orig];
+}
+
+auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR) -> typed_pointer_type<const IExprNode>
+{
+	auto& dstPool = getObjectPool();
+	// if not explicitly other, then its ours
+	if (!pSourceIR)
+		pSourceIR = this;
+	const auto& srcPool = pSourceIR->getObjectPool();
+
+	core::vector<typed_pointer_type<const IExprNode>> stack;
+	stack.reserve(32);
+	stack.push_back(orig);
+	// use a hashmap to not explore whole DAG
+	core::unordered_set<typed_pointer_type<const IExprNode>> visited;
 	// use a hashmap because of holes in child arrays
 	core::unordered_map<typed_pointer_type<const IExprNode>,typed_pointer_type<IExprNode>> substitutions;
 	while (!stack.empty())
 	{
-		auto& entry = stack.back();
-		const auto* const node = pool.deref(entry.handle);
+		const auto entry = stack.back();
+		const auto* const node = srcPool.deref(entry);
 		if (!node) // this is an error
 			return {};
 		const auto childCount = node->getChildCount();
-		if (entry.visited)
+		if (auto [it,inserted] = visited.insert(entry); inserted)
 		{
-			entry.visited = true;
 			for (uint8_t c=0; c<childCount; c++)
 			{
 				const auto childH = node->getChildHandle(c);
-				if (auto child=pool.deref(childH); !child)
+				if (auto child=srcPool.deref(childH); !child)
 					continue; // this is not an error
-				stack.push_back({.handle=childH});
+				stack.push_back(childH);
 			}
 		}
 		else
 		{
 			const bool needToReciprocate = node->reciprocatable();
-			bool needToCopy = needToReciprocate;
+			bool needToCopy = pSourceIR!=this || needToReciprocate;
 			// if one descendant has changed then we need to copy node
 			if (!needToCopy)
 			{
@@ -165,8 +218,8 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig) ->
 			if (needToCopy)
 			{
 				const auto copyH = node->copy(this);
-				// copy copies everything including children
-				auto* const copy = pool.deref(copyH);
+				// copy copies everything including child handles
+				auto* const copy = dstPool.deref(copyH);
 				if (!copy)
 					return {};
 				if (needToReciprocate)
@@ -180,7 +233,7 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig) ->
 					if (auto found=substitutions.find(childH); found!=substitutions.end())
 						copy->setChild(c,found->second);
 				}
-				substitutions.insert({entry.handle,copyH});
+				substitutions.insert({entry,copyH});
 			}
 			stack.pop_back();
 		}
@@ -191,15 +244,27 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig) ->
 	return substitutions[orig];
 }
 
-auto CFrontendIR::copyLayers(const typed_pointer_type<const CLayer> orig) -> typed_pointer_type<CLayer>
+auto CFrontendIR::copyLayers(const typed_pointer_type<const CLayer> orig, const CFrontendIR* pSourceIR) -> typed_pointer_type<CLayer>
 {
-	auto& pool = getObjectPool();
-	auto copyH = pool.emplace<CLayer>();
+	auto& dstPool = getObjectPool();
+	// if not explicitly other, then its ours
+	if (!pSourceIR)
+		pSourceIR = this;
+	const auto& srcPool = pSourceIR->getObjectPool();
+
+	auto copyH = dstPool.emplace<CLayer>();
 	{
-		auto* outLayer = pool.deref(copyH);
-		for (const auto* layer=pool.deref(orig); true; layer=pool.deref(layer->coated))
+		auto* outLayer = dstPool.deref(copyH);
+		for (const auto* layer=srcPool.deref(orig); true; layer=srcPool.deref(layer->coated))
 		{
 			*outLayer = *layer;
+			// need to deep copy the nodes
+			if (pSourceIR!=this)
+			{
+				outLayer->brdfBottom = deepCopy(layer->brdfBottom,pSourceIR)._const_cast();
+				outLayer->btdf = deepCopy(layer->btdf,pSourceIR)._const_cast();
+				outLayer->brdfTop = deepCopy(layer->brdfTop,pSourceIR)._const_cast();
+			}
 			if (!layer->coated)
 			{
 				// terminate the new stack
@@ -207,33 +272,38 @@ auto CFrontendIR::copyLayers(const typed_pointer_type<const CLayer> orig) -> typ
 				break;
 			}
 			// continue the new stack
-			outLayer->coated = pool.emplace<CLayer>();
-			outLayer = pool.deref(outLayer->coated);
+			outLayer->coated = dstPool.emplace<CLayer>();
+			outLayer = dstPool.deref(outLayer->coated);
 		}
 	}
 	return copyH;
 }
 
-auto CFrontendIR::reverse(const typed_pointer_type<const CLayer> orig) -> typed_pointer_type<CLayer>
+auto CFrontendIR::reverse(const typed_pointer_type<const CLayer> orig, const CFrontendIR* pSourceIR) -> typed_pointer_type<CLayer>
 {
-	auto& pool = getObjectPool();
+	auto& dstPool = getObjectPool();
+	// if not explicitly other, then its ours
+	if (!pSourceIR)
+		pSourceIR = this;
+	const auto& srcPool = pSourceIR->getObjectPool();
+
 	// we build the new linked list from the tail
-	auto copyH = pool.emplace<CLayer>();
+	auto copyH = dstPool.emplace<CLayer>();
 	{
-		auto* outLayer = pool.deref(copyH);
+		auto* outLayer = dstPool.deref(copyH);
 		typed_pointer_type<CLayer> underLayerH={};
-		for (const auto* layer=pool.deref(orig); true; layer=pool.deref(layer->coated))
+		for (const auto* layer=srcPool.deref(orig); true; layer=srcPool.deref(layer->coated))
 		{
 			outLayer->coated = underLayerH;
 			// we reciprocate everything because numerator and denominator switch (top and bottom of layer stack)
-			outLayer->brdfBottom = reciprocate(layer->brdfTop)._const_cast();
-			outLayer->btdf = reciprocate(layer->btdf)._const_cast();
-			outLayer->brdfTop = reciprocate(layer->brdfBottom)._const_cast();
+			outLayer->brdfBottom = reciprocate(layer->brdfTop,pSourceIR)._const_cast();
+			outLayer->btdf = reciprocate(layer->btdf,pSourceIR)._const_cast();
+			outLayer->brdfTop = reciprocate(layer->brdfBottom,pSourceIR)._const_cast();
 			if (!layer->coated)
 				break;
 			underLayerH = copyH;
-			copyH = pool.emplace<CLayer>();
-			outLayer = pool.deref(copyH);
+			copyH = dstPool.emplace<CLayer>();
+			outLayer = dstPool.deref(copyH);
 		}
 	}
 	return copyH;

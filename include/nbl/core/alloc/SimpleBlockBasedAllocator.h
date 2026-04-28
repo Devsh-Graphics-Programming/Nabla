@@ -404,7 +404,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 				block_t* block = entry.second;
 				if (recycledBlocks.size()<base_t::m_initBlockCount)
 				{
-					block->addrAlloc.reset();
+					block->getAllocator().reset();
 					const auto id = m_blockIndexAlloc.alloc_addr(1,1);
 					assert(id!=block_id_alloc_t::invalid_address);
 					recycledBlocks[id] = block;

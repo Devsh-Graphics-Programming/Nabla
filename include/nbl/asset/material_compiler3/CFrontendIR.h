@@ -841,6 +841,12 @@ class CFrontendIR final : public CNodePool
 #undef COPY_DEFAULT_IMPL
 #undef TYPE_NAME_STR
 
+		//
+		inline void reset()
+		{
+			getObjectPool().reset();
+			m_rootNodes.clear();
+		}
 
 		// basic utilities
 		inline typed_pointer_type<CMul> createMul(const typed_pointer_type<IExprNode> lhs, const typed_pointer_type<IExprNode> rhs)
@@ -894,14 +900,17 @@ class CFrontendIR final : public CNodePool
 				fresnel->orientedRealEta = pool.emplace<CSpectralVariable>(std::move(params));
 			return fresnelH;
 		}
+		
+		// To copy every node in the tree keeping same dedup, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<const IExprNode> deepCopy(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR=nullptr);
 
-		// To quickly make a matching backface BxDF from a frontface or vice versa
-		NBL_API2 typed_pointer_type<const IExprNode> reciprocate(const typed_pointer_type<const IExprNode> orig);
+		// To quickly make a matching backface BxDF from a frontface or vice versa, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<const IExprNode> reciprocate(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR=nullptr);
 
-		// a deep copy of the layer stack, wont copy the BxDFs
-		NBL_API2 typed_pointer_type<CLayer> copyLayers(const typed_pointer_type<const CLayer> orig);
-		// Reverse the linked list of layers and reciprocate their Etas
-		NBL_API2 typed_pointer_type<CLayer> reverse(const typed_pointer_type<const CLayer> orig);
+		// a deep copy of the layer stack, wont copy the BxDFs, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<CLayer> copyLayers(const typed_pointer_type<const CLayer> orig, const CFrontendIR* pSourceIR=nullptr);
+		// Reverse the linked list of layers and reciprocate their Etas, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<CLayer> reverse(const typed_pointer_type<const CLayer> orig, const CFrontendIR* pSourceIR=nullptr);
 
 		// first query, we check presence of btdf layers all the way through the layer stack
 		inline bool transmissive(const typed_pointer_type<const CLayer> rootHandle) const

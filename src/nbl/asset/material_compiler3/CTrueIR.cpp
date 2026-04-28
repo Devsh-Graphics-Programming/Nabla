@@ -56,77 +56,113 @@ using namespace nbl::system;
 // Spill should be a big circular buffer allocated per-subgroup - hard to control in Pipeline Shaders https://github.com/KhronosGroup/Vulkan-Docs/issues/2717
 // So need to allocate worst case spill for all rays in a dispatch (although can do persistent threads and reduce the dispatch size a little)
 
-auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMaterialHandle>
-{
-	const auto logger = args.logger;
-	if (!args)
-	{
-		logger.log("Invalid Arguments to `CTrueIR::addMaterials`",ELL_ERROR);
-		return {};
-	}
-	auto& astPool = args.forest->getObjectPool();
 
+CTrueIR::CTrueIR(creation_params_type&& params) : CNodePool(std::move(params)), m_basicNodes(this)
+{
+	reset();
+}
+
+CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
+{
+	auto& pool = ir->getObjectPool();
+	//
+	blackHoleBxDF = pool.emplace<CContributorSum>();
+	{
+		auto* const node = pool.deref(blackHoleBxDF._const_cast());
+		node->product = {};
+		const bool success = node->recomputeHash(pool);
+		assert(success);
+		ir->m_uniqueNodes[node->getHash()] = blackHoleBxDF;
+	}
+	//
+	errorBxDF = pool.emplace<CContributorSum>();
+	{
+		auto* const node = pool.deref(errorBxDF._const_cast());
+		node->product = {}; // TODO: magenta diffuse and rest of setup
+		//const bool success = node->recomputeHash(pool);
+		//assert(success);
+	}
+}
+
+
+auto CTrueIR::SAddSession::makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH) -> SMaterial::SOriented
+{
+	SMaterial::SOriented retval = {};
+	assert(layerStack.empty());
+
+	auto& astPool = args.forest->getObjectPool();
+	auto& irPool = tmpIR->getObjectPool();
+	// go down through layers and create all the dependencies
+	for (const auto* layer=astPool.deref(rootH); layer; layer=astPool.deref(layer->coated))
+	{
+		// TODO: actually re-check the expressions for being null after optimization
+		bool noTopReflection = !layer->brdfTop;
+		bool noTransmission = !layer->btdf;
+		// if there's literally nothing on the top level, you can't get to the next layer to retroreflect from it
+		if (noTopReflection && noTransmission)
+		{
+			args.logger.log("Skipping current layer and farther ones due to no transmission and reflection",ELL_DEBUG);
+			break;
+		}
+		layerStack.push_back(layer);
+		// find out rest of the layers don't matter because they're blocked from being seen, its not a complete check
+		if (noTransmission)
+		{
+			args.logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
+			break;
+		}
+// TODO: handle the rest of this stuff
+//assert(false);
+		// Only if we're not in the last layer do we care about the bottom BRDF (you can't hit it otherwise)
+		// Note that this won't catch the next layer being a blackhole and needs to be undone if it is
+		if (layer->coated && layer->brdfBottom)
+		{
+			// do stuff with brdfBottom
+		}
+	}
+	if (!layerStack.empty())
+		retval.metadata |= SMaterial::EMetadataBits::NotBlackhole;
+	// then go back up and make the layers
+	while (!layerStack.empty())
+	{
+		const auto* const inLayer = layerStack.back();
+		layerStack.pop_back();
+		// allocate a layer
+		const auto layerH = irPool.emplace<COrientedLayer>();
+		auto* const outLayer = irPool.deref(layerH);
+		retval.root = layerH;
+		// process the BTDF
+		//...
+		// process the top BRDF
+		outLayer->brdfTop = makeContributors(inLayer->brdfTop);
+		// if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
+		// hmm this would require decorrellation... because don't want rest of BTDF to affect
+		//...
+	}
+	// skip replace delta transmissions by the layer undernearth, if null then keep as delta
+
+	// AST is Sum Expression to the BRDF nodes
+	// We need to keep the Ancestor prefix as an unrolled linked list
+	return retval;
+}
+
+//
+auto CTrueIR::SAddSession::makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH) -> typed_pointer_type<const CContributorSum>
+{
 	// debug what we're processing
 	auto printSubtree = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH)->void
 	{
 		CFrontendIR::SDotPrinter printer(args.forest);
 		printer.exprStack.push(nodeH);
-		logger.log("Subtree Dot3 : \n%s\n", ELL_DEBUG,printer().c_str());
+		args.logger.log("Subtree Dot3 : \n%s\n", ELL_DEBUG,printer().c_str());
 	};
-
-//	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
-//	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
-
-	// Some of the things we must canonicalize:
-	// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
-	// Expression nodes really come in 4 variants:
-	// - add
-	// - mul
-	// - complement, which is equivalent to 1 ADD (-1 MUL x)
-	// - function/other
-	// BRDFs can appear only under ADD and MUL nodes, so if we want to canonicalize:
-	// 1. The Add above can be ignored, we form full multiplication chain to the top
-	// 2. Adds in sibling nodes (below the last add) cause us to have to add a factored copy to the IR
-	// DFS from right-to-left (inverse order of adding children to stack), would cause us to keep postifxes of the multiplier chain every time we descend into ADD.
-	// We want to essentially visit the parent ADD node again after dealing with its subtree (in-order traversal) then mul chain can be reset just to the parent.
-	// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
-	// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
-	// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node
-	struct SContributor
-	{
-		// the "active" contributor, basically the leftmost item in the subbranch below and ADD
-		typed_pointer_type<const IContributor> contributor;
-	};
-	core::vector<SContributor> contributorStack;
-	// Every time we encounter an AST leaf we must add the current contributor together with all the factors multiplied together
-	struct SFactor
-	{
-		// We only track multiplicative factors, we break down every BRDF equally into the canonical form
-		typed_pointer_type<const IFactorLeaf> handle;
-		uint8_t negate : 1 = false;
-		uint8_t monochrome : 1 = true;
-		// extend later when allowing variable buckets
-		uint8_t liveSpectralChannels : 3 = 0b111;
-	};
-	// here we keep the multiplication chain unsorted so its each to add/remove nodes as we encounter them
-	core::vector<SFactor> mulChain;
-	//
-	struct StackEntry
-	{
-		inline bool notVisited() const {return !visited;}
-
-		const CFrontendIR::IExprNode* node;
-		// the ancestor ADD node to go back to if we hit a 0 MUL
-		uint16_t nonMulImmediateAncestorStackEnd = 0;
-		// the length of the `mulChain` at the time we first visited the node
-		uint16_t mulChainLen = 0;
-		bool visited = false;
-		// only relevant for Add nodes
-		bool addContributor = false;
-	};
-	core::vector<StackEntry> exprStack;
+	typed_pointer_type<const CContributorSum> headH = {};
+	if (!bxdfRootH)
+		return headH;
+	printSubtree(bxdfRootH);
+	
 	// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
-	auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
+	auto sortMuls = [](const SAddSession::SFactor& lhs, const SAddSession::SFactor& rhs)->bool
 	{
 		// monochrome is cheaper
 		if (lhs.monochrome!=rhs.monochrome)
@@ -137,217 +173,176 @@ auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMater
 		// but want negations to show up together in the sorted list so easier to put back together
 		return lhs.handle.value<rhs.handle.value;
 	};
-	core::vector<SFactor> mulChainSortScratch;
-	auto getContributors = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH)->auto
-	{
-		typed_pointer_type<const CContributorSum> headH = {};
-		if (!bxdfRootH)
-			return headH;
-		printSubtree(bxdfRootH);
 
-		// scratches are initialized
-		assert(mulChain.empty());
-		assert(contributorStack.empty());
-		exprStack.push_back({.node=astPool.deref(bxdfRootH)});
-		typed_pointer_type<CContributorSum> tailH = {};
-		while (!exprStack.empty())
+	auto& astPool = args.forest->getObjectPool();
+	auto& irPool = tmpIR->getObjectPool();
+	// scratches are initialized
+	assert(mulChain.empty());
+	assert(contributorStack.empty());
+	exprStack.push_back({.node=astPool.deref(bxdfRootH)});
+	typed_pointer_type<CContributorSum> tailH = {};
+	while (!exprStack.empty())
+	{
+		auto& entry = exprStack.back();
+		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
+		const ast_expr_type_e astExprType = entry.node->getType();
+		const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
+		//
+		if (entry.notVisited())
 		{
-			auto& entry = exprStack.back();
-			using ast_expr_type_e = CFrontendIR::IExprNode::Type;
-			const ast_expr_type_e astExprType = entry.node->getType();
-			const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
-			//
-			if (entry.notVisited())
+			if (isContributor)
 			{
-				if (isContributor)
+				// TODO actually make the contributor
+				const auto contributorType = 0;
+				switch (contributorType)
 				{
-					// TODO actually make the contributor
-					const auto contributorType = 0;
-					switch (contributorType)
+					case 45:
 					{
-						case 45:
-						{
-							// TODO: add to contributorStack
-							contributorStack.push_back({.contributor={}});
-							break;
-						}
-						// unsupported contributor
-						default:
-							logger.log("Unsupported contributor type %d skipping subtree",ELL_ERROR,contributorType);
-							return m_errorBxDF;
+						// TODO: add to contributorStack
+						contributorStack.push_back({.contributor={}});
+						break;
 					}
-					// dont want to deal with the contributor again
-					exprStack.pop_back();
-				}
-				else
-				{
-#if 0 // TODO: Other factors
-					// spot prefix being null/zero to stop exploring
-					// can make the decision wholly on current factor
-					bool continueExploring = true;
-					if (continueExploring)
+					// unsupported contributor
+					default:
 					{
-						// make the actual factor
-						auto derivedFactorH = getObjectPool().emplace<CConstant>();
-						// TODO: find the place where to insert it
-						{
-							// shtuff
-						}
-						entry.factor = derivedFactorH;
-						// add self after making self
-						ancestors.push_back(getObjectPool().deref(entry.factor));
-						// TODO: push the children nodes onto the stack
-						continue;
-					}
-#endif
-					const bool isAdd = astExprType==ast_expr_type_e::Add;
-					if (isAdd)
-					{
-						entry.addContributor = true;
-						// Current Add node will perform the job of the parent add node for this subtree
-						if (entry.nonMulImmediateAncestorStackEnd)
-						exprStack[entry.nonMulImmediateAncestorStackEnd-1].addContributor = false;
-					}
-					const bool notMul = astExprType!=ast_expr_type_e::Mul;
-					// go through children
-					const auto childCount = entry.node->getChildCount();
-					// add in reverse so stack processes in order
-					for (auto childIx=childCount; childIx; )
-					{
-						// making sure we visit this node again each time a subtree of an Add node is done
-						if (isAdd && childIx!=childCount)
-						{
-							auto& extraEntry = exprStack.emplace_back(entry);
-							extraEntry.visited = true;
-							extraEntry.addContributor = true;
-						}
-						// regular exploration
-						exprStack.push_back({
-							.node = astPool.deref(entry.node->getChildHandle(--childIx)),
-							.nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd
-						});
+						args.logger.log("Unsupported contributor type %d skipping subtree",ELL_ERROR,contributorType);
+						exprStack.clear();
+						mulChain.clear();
+						contributorStack.clear();
+						return tmpIR->getBasicNodes().errorBxDF;
 					}
 				}
-				entry.visited = true;
+				// dont want to deal with the contributor again
+				exprStack.pop_back();
 			}
 			else
 			{
-				assert(!isContributor);
-				// do stuff now
-				switch (astExprType)
+#if 0 // TODO: Other factors
+				// spot prefix being null/zero to stop exploring
+				// can make the decision wholly on current factor
+				bool continueExploring = true;
+				if (continueExploring)
 				{
-					case ast_expr_type_e::Add:
+					// make the actual factor
+					auto derivedFactorH = getObjectPool().emplace<CConstant>();
+					// TODO: find the place where to insert it
 					{
-						// we visit leftmost subtrees first so this is the right order
-						{
-							auto* const tail = getObjectPool().deref(tailH);
-							tailH = getObjectPool().emplace<CContributorSum>();
-							if (tailH)
-								tail->rest = tailH;
-							else
-								headH = tailH;
-						}
-						// add current contributor with weight to BxDF Sum
-						{
-							const auto weightedH = getObjectPool().emplace<CWeightedContributor>();
-							getObjectPool().deref(tailH)->product = weightedH;
-							auto* weighted = getObjectPool().deref(weightedH);
-							weighted->contributor = contributorStack.back().contributor;
-							if (!mulChain.empty())
-							{
-								const CFactorCombiner::SState combinerState = {
-									.type = CFactorCombiner::Type::Mul,
-									.childCount = mulChain.size()
-								};
-								// TODO: create the combiner node
-								//const auto factorH = getObjectPool().emplace<CFactorCombiner>();
-								{
-									// every contributor node gets its own SORTED ancestor prefix
-									mulChainSortScratch = mulChain;
-									std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
-									//auto oit = getObjectPool().deref(factorH)->child;
-									//for (const auto& mul : mulChainSortScratch)
-										//*(oit++) = mul.handle;
-								}
-								//weighted->factor = factorH;
-							}
-						}
-						// when we are done we need to reset the mul chain back to its original state
-						mulChain.resize(entry.mulChainLen);
-						break;
+						// shtuff
 					}
-					default:
-						break;
+					entry.factor = derivedFactorH;
+					// add self after making self
+					ancestors.push_back(getObjectPool().deref(entry.factor));
+					// TODO: push the children nodes onto the stack
+					continue;
 				}
-				exprStack.pop_back();
+#endif
+				const bool isAdd = astExprType==ast_expr_type_e::Add;
+				if (isAdd)
+				{
+					entry.addContributor = true;
+					// Current Add node will perform the job of the parent add node for this subtree
+					if (entry.nonMulImmediateAncestorStackEnd)
+						exprStack[entry.nonMulImmediateAncestorStackEnd-1].addContributor = false;
+				}
+				const bool notMul = astExprType!=ast_expr_type_e::Mul;
+				// go through children
+				const auto childCount = entry.node->getChildCount();
+				// add in reverse so stack processes in order
+				for (auto childIx=childCount; childIx; )
+				{
+					// making sure we visit this node again each time a subtree of an Add node is done
+					if (isAdd && childIx!=childCount)
+					{
+						auto& extraEntry = exprStack.emplace_back(entry);
+						extraEntry.visited = true;
+						extraEntry.addContributor = true;
+					}
+					// regular exploration
+					exprStack.push_back({
+						.node = astPool.deref(entry.node->getChildHandle(--childIx)),
+						// to be able to go back to the non mul that is supposed to add our subtree
+						.nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd
+					});
+				}
 			}
+			entry.visited = true;
 		}
-		// we got all the AST ADD nodes on the way back out
-		assert(mulChain.empty());
-		assert(contributorStack.empty());
-		return headH;
-	};
-	//
-	core::vector<const CFrontendIR::CLayer*> layerStack;
-	auto makeOrientedMaterial = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH)->SMaterial::SOriented
+		else
+		{
+			assert(!isContributor);
+			// do stuff now
+			switch (astExprType)
+			{
+				case ast_expr_type_e::Add:
+				{
+					// we visited the leftmost subtrees first so this is the right order
+					{
+						auto* const tail = irPool.deref(tailH);
+						tailH = irPool.emplace<CContributorSum>();
+						if (tailH)
+							tail->rest = tailH;
+						else
+							headH = tailH;
+					}
+					// add current contributor with weight to BxDF Sum
+					{
+						const auto weightedH = irPool.emplace<CWeightedContributor>();
+						irPool.deref(tailH)->product = weightedH;
+						auto* weighted = irPool.deref(weightedH);
+						weighted->contributor = contributorStack.back().contributor;
+						if (!mulChain.empty())
+						{
+							const CFactorCombiner::SState combinerState = {
+								.type = CFactorCombiner::Type::Mul,
+								.childCount = mulChain.size()
+							};
+							// TODO: create the combiner node
+							//const auto factorH = getObjectPool().emplace<CFactorCombiner>();
+							{
+								// every contributor node gets its own SORTED ancestor prefix
+								mulChainSortScratch = mulChain;
+								std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
+								//auto oit = getObjectPool().deref(factorH)->child;
+								//for (const auto& mul : mulChainSortScratch)
+									//*(oit++) = mul.handle;
+							}
+							//weighted->factor = factorH;
+						}
+					}
+					// when we are done we need to reset the mul chain back to its original state
+					mulChain.resize(entry.mulChainLen);
+					break;
+				}
+				default:
+					break;
+			}
+			exprStack.pop_back();
+		}
+	}
+	// we got all the AST ADD nodes on the way back out
+	assert(mulChain.empty());
+	assert(contributorStack.empty());
+	return headH;
+}
+
+//
+auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMaterialHandle>
+{
+	const auto logger = args.logger;
+	if (!args)
 	{
-		SMaterial::SOriented retval = {};
+		logger.log("Invalid Arguments to `CTrueIR::addMaterials`",ELL_ERROR);
+		return {};
+	}
+	const auto& astPool = args.forest->getObjectPool();
 
-		// go down through layers and create all the dependencies
-		layerStack.clear();
-		for (const auto* layer=astPool.deref(rootH); layer; layer=astPool.deref(layer->coated))
-		{
-			// TODO: actually re-check the expressions for being null after optimization
-			bool noTopReflection = !layer->brdfTop;
-			bool noTransmission = !layer->btdf;
-			// if there's literally nothing on the top level, you can't get to the next layer to retroreflect from it
-			if (noTopReflection && noTransmission)
-			{
-				logger.log("Skipping current layer and farther ones due to no transmission and reflection",ELL_DEBUG);
-				break;
-			}
-			layerStack.push_back(layer);
-			// find out rest of the layers don't matter because they're blocked from being seen, its not a complete check
-			if (noTransmission)
-			{
-				logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
-				break;
-			}
-			// Only if we're not in the last layer do we care about the bottom BRDF (you can't hit it otherwise)
-			// Note that this won't catch the next layer being a blackhole and needs to be undone if it is
-			if (layer->coated && layer->brdfBottom)
-			{
-				// do stuff with brdfBottom
-			}
-		}
-		if (!layerStack.empty())
-			retval.metadata |= SMaterial::EMetadataBits::NotBlackhole;
-		// then go back up and make the layers
-		while (!layerStack.empty())
-		{
-			const auto* const inLayer = layerStack.back();
-			layerStack.pop_back();
-			// allocate a layer
-			const auto layerH = getObjectPool().emplace<COrientedLayer>();
-			auto* const outLayer = getObjectPool().deref(layerH);
-			retval.root = layerH;
-			// process the BTDF
-			//...
-			// process the top BRDF
-			outLayer->brdfTop = getContributors(inLayer->brdfTop);
-			// if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
-			// hmm this would require decorrellation... because don't want rest of BTDF to affect
-			//...
-		}
-		// skip replace delta transmissions by the layer undernearth, if null then keep as delta
 
-		// AST is Sum Expression to the BRDF nodes
-		// We need to keep the Ancestor prefix as an unrolled linked list
-		return retval;
-	};
+//	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
+//	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
 
+	SAddSession session = {args};
 	const auto inputMaterials = args.forest->getMaterials();
-	core::vector<SMaterialHandle> retval(inputMaterials.size(), {});
+	core::vector<SMaterialHandle> retval(inputMaterials.size(),{});
 	auto outIt = retval.begin();
 	for (const auto& rootH : inputMaterials)
 	{
@@ -360,9 +355,14 @@ auto CTrueIR::addMaterials(const SAddMaterialsArgs& args) -> core::vector<SMater
 			result = BlackholeMaterialHandle;
 			continue;
 		}
+		session.tmpIR->reset();
+		// reverse AST into another tree
+		session.tmpAST->reset();
+		const auto backRootH = session.tmpAST->reverse(rootH,args.forest);
+		// TODO: hash, deduplicate, collect metadata and insert into current IR
 		SMaterial material = {
-			.front = makeOrientedMaterial(rootH),
-//			.back = makeOrientedMaterial(rootH) // TODO: reverse AST into another tree
+			.front = session.makeOrientedMaterial(rootH),
+			.back = session.makeOrientedMaterial(backRootH)
 		};
 
 		// TODO: better debug info

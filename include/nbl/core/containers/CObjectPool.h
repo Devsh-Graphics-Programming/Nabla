@@ -86,6 +86,15 @@ class CObjectPool final : public IObjectPoolBase
 			for (auto& entry : m_allocations)
 				destroy(deref<INonTrivial>(entry.first),entry.second.count,entry.second.stride);
 		}
+		
+		//
+		inline void reset()
+		{
+			for (auto& entry : m_allocations)
+				destroy(deref<INonTrivial>(entry.first),entry.second.count,entry.second.stride);
+			m_allocations.clear();
+			m_pool.reset();
+		}
 
 		//
 		struct check_t
