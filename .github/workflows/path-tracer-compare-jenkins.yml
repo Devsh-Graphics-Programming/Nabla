@@ -65,6 +65,7 @@ jobs:
             --sha "${{ github.sha }}" \
             --run-id "${{ inputs.run_id }}" \
             --build-config Release \
+            --extra-build-config RelWithDebInfo \
             --scene-set "${{ inputs.scene_set || 'both' }}" \
             --publish "${{ inputs.publish }}"
 

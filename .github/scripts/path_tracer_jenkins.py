@@ -83,6 +83,18 @@ def resolve(args):
     else:
         run = json_request("GET", f"https://api.github.com/repos/{REPO}/actions/runs/{args.run_id}", headers)
         values = source_values(run, args.build_config, args.scene_set, args.publish)
+    for config in args.extra_build_config:
+        config = choice(config, CONFIGS, "extra build config")
+        wait_workflow_job_artifact(
+            REPO,
+            "build-nabla.yml",
+            BRANCH,
+            values["sha"],
+            headers,
+            "Build",
+            f"Nabla (windows-2022, msvc-17.13.6, {config})",
+            f"run-windows-*-msvc-{config}-install",
+        )
     output(values)
     print(f"Resolved Build run {values['run_id']} on {BRANCH} at {values['sha']}.")
 
@@ -327,6 +339,7 @@ def parser():
     add_args(resolve_parser, ["github-token", "repository", "event-name"])
     add_args(resolve_parser, ["branch", "sha", "run-id"], False, "")
     resolve_parser.add_argument("--build-config", default="Release")
+    resolve_parser.add_argument("--extra-build-config", action="append", default=[])
     resolve_parser.add_argument("--scene-set", default="both")
     resolve_parser.add_argument("--publish", default="true")
     resolve_parser.set_defaults(func=resolve)
