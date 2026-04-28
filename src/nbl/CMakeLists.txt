@@ -45,12 +45,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 if (NBL_USE_CONAN)
-	# convert to lowercase
-	if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
-		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/generators")
-	else()
-		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE_LOWER}/generators")
-	endif()
+	list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/generators")
 endif()
 
 # include utility macros/functions
