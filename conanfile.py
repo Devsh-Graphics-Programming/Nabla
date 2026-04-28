@@ -1,12 +1,13 @@
 import json
 from conan import ConanFile
-from conan.tools.cmake import cmake_layout, CMakeToolchain, CMakeDeps
+from conan.tools.cmake import cmake_layout, CMakeToolchain, CMakeConfigDeps
 
 class VeritasProject(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
 
     default_options = {
-        "libyuv/*:with_jpeg":False
+        "libyuv/*:with_jpeg":False,
+        "dav1d/*:with_tools":False
     }
 
     def requirements(self):
@@ -16,9 +17,7 @@ class VeritasProject(ConanFile):
         cmake_layout(self)
 
     def generate(self):
-        deps = CMakeDeps(self)
-        deps.configuration_types = ["Debug", "Release", "RelWithDebInfo"]
-        deps.build_context_activated = ["Release"]
+        deps = CMakeConfigDeps(self)
         deps.generate()
         
         tc = CMakeToolchain(self)
