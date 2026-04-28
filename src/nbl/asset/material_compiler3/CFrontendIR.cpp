@@ -484,35 +484,6 @@ void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 	str << "\n}\n";
 }
 
-void CFrontendIR::SParameter::printDot(std::ostringstream& sstr, const core::string& selfID) const
-{
-	sstr << "\n\t" << selfID << "[label=\"scale = " << std::to_string(scale);
-	if (view)
-	{
-		sstr << "\\nchannel = " << std::to_string(viewChannel);
-		const auto& viewParams = view->getCreationParameters();
-		sstr << "\\nWraps = {" << sampler.TextureWrapU;
-		if (viewParams.viewType!=ICPUImageView::ET_1D && viewParams.viewType!=ICPUImageView::ET_1D_ARRAY)
-			sstr << "," << sampler.TextureWrapV;
-		if (viewParams.viewType==ICPUImageView::ET_3D)
-			sstr << "," << sampler.TextureWrapW;
-		sstr << "}\\nBorder = " << sampler.BorderColor;
-		// don't bother printing the rest, we really don't care much about those
-	}
-	sstr << "\"]";
-	// TODO: do specialized printing for image views (they need to be gathered into a view set -> need a printing context struct)
-	/*
-	struct SDotPrintContext
-	{
-		std::ostringstream* sstr;
-		core::unordered_map<ICPUImageView*,core::blake3_hash>* usedViews;
-		uint16_t indentation = 0;
-	};
-	*/
-	if (view)
-		sstr << "\n\t" << selfID << " -> _view_" << std::to_string(reinterpret_cast<const uint64_t&>(view));
-}
-
 core::string CFrontendIR::CSpectralVariable::getLabelSuffix() const
 {
 	if (getKnotCount()<2)
@@ -532,7 +503,7 @@ core::string CFrontendIR::CSpectralVariable::getLabelSuffix() const
 void CFrontendIR::CSpectralVariable::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-	pWonky->knots.printDot(getKnotCount(),sstr,selfID,{});
+	CNodePool::printDotParameterSet(pWonky->knots,getKnotCount(),sstr,selfID,{});
 }
 
 void CFrontendIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
@@ -554,25 +525,6 @@ void CFrontendIR::CFresnel::printDot(std::ostringstream& sstr, const core::strin
 {
 }
 
-void CFrontendIR::IBxDF::SBasicNDFParams::printDot(std::ostringstream& sstr, const core::string& selfID) const
-{
-	constexpr const char* paramSemantics[] = {
-		"dh/du",
-		"dh/dv",
-		"alpha_u",
-		"alpha_v"
-	};
-	SParameterSet<4>::printDot(sstr,selfID,paramSemantics,!definitelyIsotropic());
-	if (!stretchInvariant())
-	{
-		const auto referenceID = selfID+"_reference";
-		sstr << "\n\t" << referenceID << " [label=\"";
-		printMatrix(sstr,reference);
-		sstr << "\"]";
-		sstr << "\n\t" << selfID << " -> " << referenceID << " [label=\"Stretch Reference\"]";
-	}
-}
-
 void CFrontendIR::COrenNayar::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	ndParams.printDot(sstr,selfID);
@@ -584,25 +536,24 @@ void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::
 }
 
 //!  AST-> IR methods
-auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
 	assert(false); // unimplemented
 	return {};
 }
 
-auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+{
+	return ir->getObjectPool().emplace<CTrueIR::CDeltaTransmission>();
+}
+
+auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
 	assert(false); // unimplemented
 	return {};
 }
 
-auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
-{
-	assert(false); // unimplemented
-	return {};
-}
-
-auto CFrontendIR::CCookTorrance::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+auto CFrontendIR::CCookTorrance::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
 	assert(false); // unimplemented
 	return {};
@@ -729,7 +680,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		{
 			if (isContributor)
 			{
-				contributorStack.push_back({.contributor=static_cast<const IContributor*>(entry.node)->createIRNode(srcAST,irPool)});
+				contributorStack.push_back({.contributor=static_cast<const IContributor*>(entry.node)->createIRNode(srcAST,tmpIR.get())});
 				exprStack.pop_back();
 			}
 			else

@@ -83,116 +83,6 @@ class CFrontendIR final : public CNodePool
 				return nullptr;
 			return core::smart_refctd_ptr<CFrontendIR>(new CFrontendIR(std::move(params)),core::dont_grab);
 		}
-		template<typename T, uint16_t N, uint16_t M>
-		static inline void printMatrix(std::ostringstream& sstr, const hlsl::matrix<T,N,M>& m)
-		{
-			for (uint16_t i=0; i<N; i++)
-			{
-				if (i)
-					sstr << "\\n";
-				for (uint16_t j=0; j<M; j++)
-				{
-					if (j)
-						sstr << ",";
-					sstr << std::to_string(m[i][j]);
-				}
-			}
-		}
-		
-		struct SParameter
-		{
-			inline operator bool() const
-			{
-				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
-			}
-			inline bool operator!=(const SParameter& other) const
-			{
-				if (scale!=other.scale)
-					return true;
-				if (viewChannel!=other.viewChannel)
-					return true;
-				// don't compare paddings!
-				if (view!=other.view)
-					return true;
-				return sampler!=other.sampler;
-			}
-			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
-
-			NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
-
-			// at this stage we store the multipliers in highest precision
-			float scale = std::numeric_limits<float>::infinity();
-			// rest are ignored if the view is null
-			uint8_t viewChannel : 2 = 0;
-			uint8_t padding[3] = {0,0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
-			core::smart_refctd_ptr<const ICPUImageView> view = {};
-			// shadow comparison functions are ignored
-			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
-			ICPUSampler::SParams sampler = {};
-		};
-		// In the forest, this is not a node, we'll deduplicate later
-		template<uint8_t Count>
-		struct SParameterSet
-		{
-			private:
-				friend class CSpectralVariable;
-				template<typename StringConstIterator=const core::string*>
-				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
-				{
-					bool imageUsed = false;
-					for (uint8_t i=0; i<_count; i++)
-					{
-						const auto paramID = selfID+"_param"+std::to_string(i);
-						if (params[i].view)
-							imageUsed = true;
-						params[i].printDot(sstr,paramID);
-						sstr << "\n\t" << selfID << " -> " << paramID;
-						if (paramNameBegin)
-							sstr <<" [label=\"" << *(paramNameBegin++) << "\"]";
-						else
-							sstr <<" [label=\"Param " << std::to_string(i) <<"\"]";
-					}
-					if (uvRequired || imageUsed)
-					{
-						const auto uvTransformID = selfID+"_uvTransform";
-						sstr << "\n\t" << uvTransformID << " [label=\"uvSlot = " << std::to_string(uvSlot()) << "\\n";
-						printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
-						sstr << "\"]";
-						sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
-					}
-				}
-
-			public:
-				inline operator bool() const
-				{
-					for (uint8_t i=0; i<Count; i++)
-					if (!params[i])
-						return false;
-					return true;
-				}
-				// Ignored if no modulator textures and isotropic BxDF
-				uint8_t& uvSlot() {return params[0].padding[0];}
-				const uint8_t& uvSlot() const {return params[0].padding[0];}
-				// Note: the padding abuse
-				static_assert(sizeof(SParameter::padding)>0);
-
-				template<typename StringConstIterator=const core::string*>
-				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
-				{
-					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin),uvRequired);
-				}
-
-				// identity transform by default, ignored if no UVs
-				// NOTE: a transform could be applied per-param, whats important that the UV slot remains the smae across all of them.
-				hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
-					1,0,0,
-					0,1,0
-				);
-				SParameter params[Count] = {};
-
-				// to make sure there will be no padding inbetween
-				static_assert(alignof(SParameter)>=alignof(hlsl::float32_t2x3));
-		};
 
 		// basic "built-in" nodes
 		class INode : public CNodePool::INode
@@ -325,7 +215,7 @@ class CFrontendIR final : public CNodePool
 			protected:
 				friend class CFrontendIR;
 				using ir_contributor_handle_t = CTrueIR::typed_pointer_type<CTrueIR::IContributor>;
-				virtual ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const = 0;
+				virtual ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const = 0;
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
@@ -568,7 +458,7 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
@@ -713,44 +603,7 @@ class CFrontendIR final : public CNodePool
 		class IBxDF : public obj_pool_type::INonTrivial, public IContributor
 		{
 			public:
-				// Why are all of these kept together and forced to fetch from the same UV ?
-				// Because they're supposed to be filtered together with the knowledge of the NDF
-				// TODO: should really be 5 parameters (2+3) cause of rotatable anisotropic roughness
-				struct SBasicNDFParams : SParameterSet<4>
-				{
-					inline auto getDerivMap() {return std::span<SParameter,2>(params,2);}
-					inline auto getDerivMap() const {return std::span<const SParameter,2>(params,2);}
-					inline auto getRougness() {return std::span<SParameter,2>(params+2,2);}
-					inline auto getRougness() const {return std::span<const SParameter,2>(params+2,2);}
-					
-					inline SBasicNDFParams()
-					{
-						// initialize with constant flat deriv map and smooth roughness
-						for (auto& param : params)
-							param.scale = 0.f;
-					}
-
-					// conservative check, checks if we can optimize certain things this way
-					inline bool definitelyIsotropic() const
-					{
-						// a derivative map from a texture allows for anisotropic NDFs at higher mip levels when pre-filtered properly
-						for (auto i=0; i<2; i++)
-						if (getDerivMap()[i].scale!=0.f && getDerivMap()[i].view)
-							return false;
-						// if roughness inputs are not equal (same scale, same texture) then NDF can be anisotropic in places
-						if (getRougness()[0]!=getRougness()[1])
-							return false;
-						// if a reference stretch is used, stretched triangles can turn the distribution anisotropic
-						return stretchInvariant();
-					}
-					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
-					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
-
-					NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
-
-					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
-					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
-				};
+				// ?
 		};
 		// Delta Transmission is the only Special Delta Distribution Node, because of how useful it is for compiling Anyhit shaders, the rest can be done easily with:
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
@@ -777,7 +630,7 @@ class CFrontendIR final : public CNodePool
 			protected:
 				COPY_DEFAULT_IMPL
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		// Base diffuse node
@@ -797,7 +650,7 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -843,7 +696,7 @@ class CFrontendIR final : public CNodePool
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 #undef COPY_DEFAULT_IMPL
 #undef TYPE_NAME_STR

@@ -61,13 +61,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class IContributor : public INode
 		{
 			public:
-				// ?
+				virtual bool isEmitter() const = 0;
 		};
 		// this is for a term in a mul or add expression
 		class IFactor : public INode
 		{
 			protected:
-				uint64_t padding;
+				uint64_t padding = 0;
 		};
 		// we step away from our usual way of doing things via linked lists, because this is simpler to rearrange
 		class CFactorCombiner final : public obj_pool_type::IVariableSize, public IFactor
@@ -215,7 +215,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const CCorellatedTransmission> firstTransmission = {};
 		};
 
-// TODO: Parameter Node
+		//
+		template<uint8_t Channels>
+		class CTextureSample : public obj_pool_type::INonTrivial, public INode
+		{
+			public:
+				SParameterSet<Channels> paramSet = {};
+		};
 		
 		// Unit Radiance emitter modulated by an IES profile
 		class CEmitter final : public obj_pool_type::INonTrivial, public IContributor
@@ -226,18 +232,19 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const
 				{
 					core::blake3_hasher hasher = {};
-//					hasher << pool.deref(profile)->getHash();
+					hasher << pool.deref(profile)->getHash();
 					hasher << profileTransform;
 					return hasher.operator core::blake3_hash_t();
 				}
+
+				inline bool isEmitter() const override {return true;}
 
 				// you can set the members later
 				inline CEmitter() = default;
 
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
 				// `profile.scale` can still be used to influence the light strength without influencing NEE light picking probabilities
-// TODO: this IR will have parameters hashed and deduped as actual nodes
-//				SParameter profile = {};
+				typed_pointer_type<const CTextureSample<2>> profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
 					0,1,0,
@@ -283,19 +290,50 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Both this and Yining are faster because of the 2 BxDF evaluations instead of 3, and they only differ by the inter-facet shadowing and masking functions and the tangent facet normal is computed.
 		// However an orthogonal microfacet will work better for BSDFs because the facet tangents and normals form a square and not a rhombus, which means that a V to the "left" of the perturbed normal
 		// will always be to the "right" of the orthogonal microfacet, meaning we'll get a consistent refraction (both L=refract(V,facet) will curve away from -V in the same direction.
-		class IBxDF final : public obj_pool_type::INonTrivial, public IContributor
+		class IBxDF : public obj_pool_type::INonTrivial, public IContributor
 		{
 			public:
-				// TODO:
-				// - Share ParamSet with AST
-				// - Share SBasicNDFParams with AST
-				// - hash NDF Params
-				// - maybe share IBxDF
-				// - and base BxDFs ?
+				inline bool isEmitter() const override {return false;}
 		};
+		class CDeltaTransmission final : public IBxDF
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
+
+				core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				{
+					core::blake3_hasher hasher = {};
+					// TODO: put the type in the hash
+					return hasher.operator core::blake3_hash_t();
+				}
+
+				inline CDeltaTransmission() = default;
+		};
+		class IBxDFWithNDF : public IBxDF
+		{
+			public:
+		};
+		class COrenNayar final : public IBxDFWithNDF
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
+
+				inline COrenNayar() = default;
+		};
+		class CCookTorrance final : public IBxDFWithNDF
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
+
+				inline CCookTorrance() = default;
+		};
+		//! Parameter Nodes
+		// ScalarConstant
+		// SpectralConstant
+		// NormalMap -> impliu
 		//! Basic factor nodes
 		class IFactorLeaf : public IFactor {};
-		class CConstant final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		class CConstantFactor final : public obj_pool_type::INonTrivial, public IFactorLeaf
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CConstant);}
@@ -308,7 +346,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 				// you can set the children later
-				inline CConstant() = default;
+				inline CConstantFactor() = default;
 		};
 #undef TYPE_NAME_STR
 
@@ -452,6 +490,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		NBL_API2 bool rewrite(SMaterial& material, CTrueIR* srcIR);
 
 		core::vector<SMaterial> m_materials;
+		// TODO: either we put the typeid in the hash, or we have a type of hashmap per type
 		core::unordered_map<core::blake3_hash_t,typed_pointer_type<const INode>> m_uniqueNodes;
 		friend struct SBasicNodes;
 		const SBasicNodes m_basicNodes;
