@@ -44,6 +44,7 @@ concurrency:
 jobs:
   trigger-jenkins:
     name: Trigger Path Tracer Jenkins
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
