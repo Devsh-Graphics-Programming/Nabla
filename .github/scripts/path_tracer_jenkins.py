@@ -3,6 +3,7 @@ import argparse
 import json
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from ci_common import (
@@ -23,7 +24,6 @@ from ci_common import (
     print_console_tail,
     require_sha,
     start_file_job,
-    start_files_job,
     stop_build,
     wait_build,
     wait_workflow_job_artifact,
@@ -126,6 +126,40 @@ def set_compare_status(args, suite, state, target, description):
     commit_status(REPO, args.sha, args.github_token, f"jenkins/path-tracer-compare-{suite}", state, target, description)
 
 
+def report_url(suite, variant):
+    if variant == "release":
+        return f"https://store.devsh.eu/ditt/{suite}/latest/"
+    if variant == "o1experimental":
+        return f"https://store.devsh.eu/ditt/{suite}/o1experimental/latest/"
+    raise CiError(f"Invalid report variant: {variant}.")
+
+
+def report_prefix(suite, variant):
+    return report_url(suite, variant).removeprefix("https://store.devsh.eu/")
+
+
+def wait_path_tracer_status(args, suite):
+    context = f"jenkins/path-tracer-{suite}"
+    deadline = time.monotonic() + int(args.jenkins_timeout_minutes) * 60
+    last_log = 0
+    headers = github_headers(args.github_token)
+    while time.monotonic() < deadline:
+        data = json_request("GET", f"https://api.github.com/repos/{REPO}/commits/{args.sha}/status", headers)
+        statuses = [status for status in data.get("statuses", []) if status.get("context") == context]
+        if statuses:
+            state = statuses[0].get("state")
+            if state == "success":
+                return statuses[0].get("target_url") or report_url(suite, "release")
+            if state in {"failure", "error"}:
+                raise CiError(f"{context} finished with {state}.")
+        now = time.monotonic()
+        if now - last_log >= 60:
+            print(f"Waiting for {context} on {args.sha}...")
+            last_log = now
+        time.sleep(30)
+    raise CiError(f"Timed out waiting for {context}.")
+
+
 def start_suite(args, headers, suite):
     job = f"ci/ditt/real/ex40-{suite}"
     set_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Waiting for Jenkins {suite} path tracer run.")
@@ -162,9 +196,8 @@ def start_suite(args, headers, suite):
     return job, number, result, build_url
 
 
-def start_compare_suite(args, headers, suite):
-    job = f"ci/ditt/compare/o1experimental-vs-o3-{suite}"
-    set_compare_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Waiting for Jenkins {suite} O1experimental vs O3 comparison.")
+def start_compare_render(args, headers, suite, package_path, store_prefix, label):
+    job = f"ci/ditt/real/ex40-{suite}"
     cancel_superseded(args.jenkins_url, headers, job, {"SOURCE_REPOSITORY": REPO, "SOURCE_BRANCH": BRANCH}, {
         "SOURCE_RUN_ID": args.source_run_id,
         "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
@@ -177,14 +210,54 @@ def start_compare_suite(args, headers, suite):
         "SOURCE_RUN_ID": args.source_run_id,
         "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
         "SOURCE_WORKFLOW": args.source_workflow,
+        "STORE_PREFIX": store_prefix,
     }
-    files = [
-        ("EX40_RELEASE_PACKAGE_FILE", args.release_package_path),
-        ("EX40_O1_PACKAGE_FILE", args.o1_package_path),
-    ]
-    number = start_files_job(args.jenkins_url, headers, job, fields, files)
+    number = start_file_job(args.jenkins_url, headers, job, fields, "EX40_PACKAGE_FILE", package_path)
     build_url = f"{args.jenkins_url.rstrip('/')}/{job_path(job)}/{number}/"
-    set_compare_status(args, suite, "pending", build_url, f"Jenkins {suite} O1experimental vs O3 build #{number} is running.")
+    print(f"Started Jenkins {job} #{number} for {label}: {build_url}")
+    try:
+        result = wait_build(args.jenkins_url, headers, job, number, int(args.jenkins_timeout_minutes) * 60)
+    except CiError:
+        stop_build(args.jenkins_url, headers, job, number)
+        print_console_tail(args.jenkins_url, headers, job, number)
+        raise
+    if result not in {"SUCCESS", "UNSTABLE"}:
+        print_console_tail(args.jenkins_url, headers, job, number)
+        raise CiError(f"Jenkins {job} #{number} finished with {result}.")
+    return job, number, result, build_url
+
+
+def start_compare_suite(args, headers, suite):
+    set_compare_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Waiting for Jenkins {suite} O1experimental vs O3 comparison.")
+    if bool_text(args.render_release) == "true":
+        set_compare_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Rendering Jenkins {suite} Release/O3 baseline.")
+        start_compare_render(args, headers, suite, args.release_package_path, report_prefix(suite, "release"), "Release O3")
+    elif bool_text(args.wait_release_status) == "true":
+        release_target = wait_path_tracer_status(args, suite)
+        print(f"Release/O3 baseline for {suite} is ready: {release_target}")
+
+    set_compare_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Rendering Jenkins {suite} O1experimental candidate.")
+    start_compare_render(args, headers, suite, args.o1_package_path, report_prefix(suite, "o1experimental"), "O1experimental")
+
+    job = f"ci/ditt/compare/report-bundle-o1experimental-vs-o3-{suite}"
+    cancel_superseded(args.jenkins_url, headers, job, {"SOURCE_REPOSITORY": REPO, "SOURCE_BRANCH": BRANCH}, {
+        "SOURCE_RUN_ID": args.source_run_id,
+        "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
+    })
+    fields = {
+        "PUBLISH": args.publish,
+        "SOURCE_REPOSITORY": REPO,
+        "SOURCE_BRANCH": BRANCH,
+        "SOURCE_SHA": args.sha,
+        "SOURCE_RUN_ID": args.source_run_id,
+        "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
+        "SOURCE_WORKFLOW": args.source_workflow,
+        "BASELINE_REPORT_URL": report_url(suite, "release"),
+        "CANDIDATE_REPORT_URL": report_url(suite, "o1experimental"),
+    }
+    number = start_file_job(args.jenkins_url, headers, job, fields, "EX40_COMPARE_PACKAGE_FILE", args.release_package_path)
+    build_url = f"{args.jenkins_url.rstrip('/')}/{job_path(job)}/{number}/"
+    set_compare_status(args, suite, "pending", build_url, f"Jenkins {suite} report-bundle comparison #{number} is running.")
     print(f"Started Jenkins {job} #{number}: {build_url}")
     try:
         result = wait_build(args.jenkins_url, headers, job, number, int(args.jenkins_timeout_minutes) * 60)
@@ -235,6 +308,8 @@ def trigger_compare(args):
         raise CiError("Invalid source run metadata.")
     if not args.jenkins_timeout_minutes.isdigit() or not 10 <= int(args.jenkins_timeout_minutes) <= 720:
         raise CiError("Invalid Jenkins timeout.")
+    args.render_release = bool_text(args.render_release)
+    args.wait_release_status = bool_text(args.wait_release_status)
     for path in [Path(args.release_package_path), Path(args.o1_package_path)]:
         if not path.is_file() or path.stat().st_size > MAX_PACKAGE_BYTES:
             raise CiError("Invalid compare package path or size.")
@@ -265,6 +340,8 @@ def parser():
     compare_parser = sub.add_parser("trigger-compare")
     add_args(compare_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "github-token", "release-package-path", "o1-package-path", "repository", "branch", "sha", "source-run-id", "source-run-attempt", "source-workflow", "scene-set", "publish"])
     compare_parser.add_argument("--jenkins-timeout-minutes", default="420")
+    compare_parser.add_argument("--render-release", default="false")
+    compare_parser.add_argument("--wait-release-status", default="false")
     compare_parser.set_defaults(func=trigger_compare)
     return parser
 
