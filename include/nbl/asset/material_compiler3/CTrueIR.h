@@ -1,11 +1,15 @@
-// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_MATERIAL_COMPILER_V3_C_TRUE_IR_H_INCLUDED_
 #define _NBL_ASSET_MATERIAL_COMPILER_V3_C_TRUE_IR_H_INCLUDED_
 
 
-#include "nbl/asset/material_compiler3/CFrontendIR.h"
+#include "nbl/system/ILogger.h"
+
+#include "nbl/asset/material_compiler3/CNodePool.h"
+#include "nbl/asset/format/EColorSpace.h"
+#include "nbl/asset/ICPUImageView.h"
 
 
 namespace nbl::asset::material_compiler3
@@ -306,6 +310,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// you can set the children later
 				inline CConstant() = default;
 		};
+#undef TYPE_NAME_STR
+
+		//
+//		inline typed_pointer_type<const CConstant> createConstant()
 
 
 		// Each material comes down to this, this is the only struct we don't de-duplicate
@@ -373,30 +381,25 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			// create the `BlackholeMaterialHandle`
 			m_materials = {SMaterial{.debugInfo=getObjectPool().emplace<CNodePool::CDebugInfo>("CTrueIR's BlackHole Material")}};
 		}
-
-		// Returns indices into `this->getMaterials()` for every `forest->getMaterials()`
-		// We take the trees from the forest, and canonicalize them into our weird Domain Specific IR with Upside down expression trees.
-		// Process:
-		// 1. Decompression (duplicating nodes, etc.)
-		// 2. Canonicalize Expressions (Transform into Sum-Product form, DCE, etc.)
-		// 3. Split BTDFs (front vs. back part), reciprocate Etas
-		// 4. Simplify and Hoist Layer terms (delta sampling property)
-		// 5. Subexpression elimination
+		
+		// TODO: Optimization passes on the IR
 		// It is the backend's job to handle:
 		// - constant encoding precision (scale factors, UV matrices, IoRs)
 		// - multiscatter compensation
 		// - compilation failure to unsupported complex layering
 		// - compilation failure to unsupported complex layering
-		struct SAddMaterialsArgs
+		SMaterialHandle addMaterial(SMaterial material, CTrueIR* srcIR=nullptr)
 		{
-			explicit inline operator bool() const {return forest;}
-
-			const CFrontendIR* forest;
-			system::logger_opt_ptr logger;
-
-		};
-		NBL_API2 core::vector<SMaterialHandle> addMaterials(const SAddMaterialsArgs& args);
-		
+			if (!srcIR)
+				srcIR = this;
+			if (rewrite(material,srcIR))
+			{
+				m_materials.push_back(material);
+				return {.value=static_cast<uint32_t>(m_materials.size()-1)};
+			}
+			else
+				return {};
+		}
 
 		// For Debug Visualization
 		struct SDotPrinter final
@@ -444,81 +447,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 	protected:
 		NBL_API2 CTrueIR(creation_params_type&& params);
-		
-		struct SAddSession
-		{
-			inline SAddSession(const SAddMaterialsArgs& _args) : args(_args)
-			{
-				tmpAST = CFrontendIR::create({.composed={.blockSizeKBLog2=10},.maxBlocks=64});
-				// give slightly more memory to IR, since the AST tends to be a bit more compact
-				tmpIR = CTrueIR::create({.composed={.blockSizeKBLog2=12},.maxBlocks=64});
-			}
 
-			NBL_API2 SMaterial::SOriented makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH);
-
-			NBL_API2 typed_pointer_type<const CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
-
-			// inputs to the addMaterials function
-			const SAddMaterialsArgs& args;
-			// for rewriting AST expressions
-			core::smart_refctd_ptr<CFrontendIR> tmpAST;
-			// for making IR nodes before we Merkle Hash them and remove duplicates (so main IR doesn't get bloated)
-			core::smart_refctd_ptr<CTrueIR> tmpIR;
-			// for going over layers in the AST
-			core::vector<const CFrontendIR::CLayer*> layerStack;
-			// Some of the things we must canonicalize:
-			// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
-			// Expression nodes of the Frontend AST really come in 4 variants:
-			// - add
-			// - mul
-			// - complement, which is equivalent to 1 ADD (-1 MUL x)
-			// - function/other
-			// BRDFs can appear only under ADD and MUL nodes in the AST not the function/other/complement, so if we want to canonicalize:
-			// 1. The Add above can be ignored, we form full multiplication chain to the top
-			// 2. Adds in sibling nodes (below the last add) cause us to have to add a factored copy to the IR
-			// DFS from right-to-left (inverse order of adding children to stack), would cause us to keep postifxes of the multiplier chain every time we descend into ADD.
-			// We want to essentially visit the parent ADD node again after dealing with its subtree (in-order traversal) then mul chain can be reset just to the parent.
-			// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
-			// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
-			// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node.
-			struct SContributor
-			{
-				// the "active" contributor, basically the leftmost item in the subbranch below and ADD
-				typed_pointer_type<const IContributor> contributor;
-			};
-			core::vector<SContributor> contributorStack;
-			// Every time we encounter an AST leaf we must add the current contributor together with all the factors multiplied together
-			struct SFactor
-			{
-				// We only track multiplicative factors, we break down every BRDF equally into the canonical form
-				typed_pointer_type<const IFactorLeaf> handle;
-				uint8_t negate : 1 = false;
-				uint8_t monochrome : 1 = true;
-				// extend later when allowing variable bucket count
-				uint8_t liveSpectralChannels : 3 = 0b111;
-			};
-			// here we keep the multiplication chain unsorted so its each to add/remove nodes as we encounter them
-			core::vector<SFactor> mulChain;
-			// scratch for sorting the mul chain before adding a contributor
-			core::vector<SFactor> mulChainSortScratch;
-			// By maintaining a hash map of AST nodes which simplify to a Constant (unity, or zero, or other) we could resolve the issue of the `nonMulImmediateAncestorStackEnd`
-			// which has us adding the same non-mul node multiple times to stack during the traversal.
-			// However how much of that would be moving IR manipulation into the AST ?
-			struct StackEntry
-			{
-				inline bool notVisited() const {return !visited;}
-
-				const CFrontendIR::IExprNode* node;
-				// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
-				uint16_t nonMulImmediateAncestorStackEnd = 0;
-				// the length of the `mulChain` at the time we first visited the node
-				uint16_t mulChainLen = 0;
-				bool visited = false;
-				// only relevant for Add nodes
-				bool addContributor = false;
-			};
-			core::vector<StackEntry> exprStack;
-		};
+		// copies from other IR into ours and makes sure things get hashed properly
+		NBL_API2 bool rewrite(SMaterial& material, CTrueIR* srcIR);
 
 		core::vector<SMaterial> m_materials;
 		core::unordered_map<core::blake3_hash_t,typed_pointer_type<const INode>> m_uniqueNodes;

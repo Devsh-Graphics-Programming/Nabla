@@ -11,6 +11,7 @@ namespace nbl::asset::material_compiler3
 {
 
 constexpr auto ELL_ERROR = nbl::system::ILogger::E_LOG_LEVEL::ELL_ERROR;
+constexpr auto ELL_DEBUG = nbl::system::ILogger::E_LOG_LEVEL::ELL_DEBUG;
 using namespace nbl::system;
 
 bool CFrontendIR::CEmitter::invalid(const SInvalidCheckArgs& args) const
@@ -580,6 +581,287 @@ void CFrontendIR::COrenNayar::printDot(std::ostringstream& sstr, const core::str
 void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	ndParams.printDot(sstr,selfID);
+}
+
+//!  AST-> IR methods
+auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+{
+	assert(false); // unimplemented
+	return {};
+}
+
+auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+{
+	assert(false); // unimplemented
+	return {};
+}
+
+auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+{
+	assert(false); // unimplemented
+	return {};
+}
+
+auto CFrontendIR::CCookTorrance::createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const -> ir_contributor_handle_t
+{
+	assert(false); // unimplemented
+	return {};
+}
+
+auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST) -> oriented_material_t
+{
+	oriented_material_t retval = {};
+
+	srcAST = _srcAST;
+	const auto& astPool = srcAST->getObjectPool();
+	assert(layerStack.empty());
+
+	auto& irPool = tmpIR->getObjectPool();
+	// go down through layers and create all the dependencies
+	for (const auto* layer=astPool.deref(rootH); layer; layer=astPool.deref(layer->coated))
+	{
+		// TODO: actually re-check the expressions for being null after optimization
+		bool noTopReflection = !layer->brdfTop;
+		bool noTransmission = !layer->btdf;
+		// if there's literally nothing on the top level, you can't get to the next layer to retroreflect from it
+		if (noTopReflection && noTransmission)
+		{
+			args.logger.log("Skipping current layer and farther ones due to no transmission and reflection",ELL_DEBUG);
+			break;
+		}
+		layerStack.push_back(layer);
+		// find out rest of the layers don't matter because they're blocked from being seen, its not a complete check
+		if (noTransmission)
+		{
+			args.logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
+			break;
+		}
+// TODO: handle the rest of this stuff
+//assert(false);
+		// Only if we're not in the last layer do we care about the bottom BRDF (you can't hit it otherwise)
+		// Note that this won't catch the next layer being a blackhole and needs to be undone if it is
+		if (layer->coated && layer->brdfBottom)
+		{
+			// do stuff with brdfBottom
+		}
+	}
+	if (!layerStack.empty())
+		retval.metadata |= CTrueIR::SMaterial::EMetadataBits::NotBlackhole;
+	// then go back up and make the layers
+	while (!layerStack.empty())
+	{
+		const auto* const inLayer = layerStack.back();
+		layerStack.pop_back();
+		// allocate a layer
+		const auto layerH = irPool.emplace<CTrueIR::COrientedLayer>();
+		auto* const outLayer = irPool.deref(layerH);
+		retval.root = layerH;
+		// process the BTDF
+		//...
+		// process the top BRDF
+		outLayer->brdfTop = makeContributors(inLayer->brdfTop);
+		// if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
+		// hmm this would require decorrellation... because don't want rest of BTDF to affect
+		//...
+	}
+	// skip replace delta transmissions by the layer undernearth, if null then keep as delta
+
+	// AST is Sum Expression to the BRDF nodes
+	// We need to keep the Ancestor prefix as an unrolled linked list
+	return retval;
+}
+
+//
+auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH) -> CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum>
+{
+	// debug what we're processing
+	auto printSubtree = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH)->void
+	{
+		SDotPrinter printer(srcAST);
+		printer.exprStack.push(nodeH);
+		args.logger.log("Subtree Dot3 : \n%s\n", ELL_DEBUG,printer().c_str());
+	};
+
+	using contributor_sum_handle_t = CTrueIR::typed_pointer_type<CTrueIR::CContributorSum>;
+	contributor_sum_handle_t headH = {};
+	if (!bxdfRootH)
+		return headH;
+	printSubtree(bxdfRootH);
+	
+	// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
+	auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
+	{
+		// monochrome is cheaper
+		if (lhs.monochrome!=rhs.monochrome)
+			return lhs.monochrome;
+		// not doing a complement is cheaper
+		if (lhs.handle.value==rhs.handle.value)
+			return lhs.negate<rhs.negate;
+		// but want negations to show up together in the sorted list so easier to put back together
+		return lhs.handle.value<rhs.handle.value;
+	};
+
+	auto& astPool = srcAST->getObjectPool();
+	auto& irPool = tmpIR->getObjectPool();
+	// scratches are initialized
+	assert(mulChain.empty());
+	assert(contributorStack.empty());
+	exprStack.push_back({.node=astPool.deref(bxdfRootH)});
+	contributor_sum_handle_t tailH = {};
+	while (!exprStack.empty())
+	{
+		// how to report an error
+#if 0
+		{
+			args.logger.log("MESSAGE",ELL_ERROR);
+			exprStack.clear();
+			mulChain.clear();
+			contributorStack.clear();
+			return tmpIR->getBasicNodes().errorBxDF;
+		}
+#endif
+		auto& entry = exprStack.back();
+		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
+		const ast_expr_type_e astExprType = entry.node->getType();
+		const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
+		//
+		if (entry.notVisited())
+		{
+			if (isContributor)
+			{
+				contributorStack.push_back({.contributor=static_cast<const IContributor*>(entry.node)->createIRNode(srcAST,irPool)});
+				exprStack.pop_back();
+			}
+			else
+			{
+				const bool isAdd = astExprType==ast_expr_type_e::Add;
+				if (isAdd)
+				{
+					entry.addContributor = true;
+					// Current Add node will perform the job of the parent add node for this subtree
+					if (entry.nonMulImmediateAncestorStackEnd)
+						exprStack[entry.nonMulImmediateAncestorStackEnd-1].addContributor = false;
+				}
+				const bool notMul = astExprType!=ast_expr_type_e::Mul;
+				// go through children
+				const auto childCount = entry.node->getChildCount();
+				// add in reverse so stack processes in order
+				for (auto childIx=childCount; childIx; )
+				{
+					// making sure we visit this node again each time a subtree of an Add node is done
+					if (isAdd && childIx!=childCount)
+					{
+						auto& extraEntry = exprStack.emplace_back(entry);
+						extraEntry.visited = true;
+						extraEntry.addContributor = true;
+					}
+					// regular exploration
+					exprStack.push_back({
+						.node = astPool.deref(entry.node->getChildHandle(--childIx)),
+						// to be able to go back to the non mul that is supposed to add our subtree
+						.nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd
+					});
+				}
+			}
+			entry.visited = true;
+		}
+		else
+		{
+			assert(!isContributor);
+			// do stuff now
+			switch (astExprType)
+			{
+				case ast_expr_type_e::Add:
+				{
+					// we visited the leftmost subtrees first so this is the right order
+					{
+						auto* const tail = irPool.deref(tailH);
+						tailH = irPool.emplace<CTrueIR::CContributorSum>();
+						if (tailH)
+							tail->rest = tailH;
+						else
+							headH = tailH;
+					}
+					// add current contributor with weight to BxDF Sum
+					{
+						const auto weightedH = irPool.emplace<CTrueIR::CWeightedContributor>();
+						irPool.deref(tailH)->product = weightedH;
+						auto* weighted = irPool.deref(weightedH);
+						weighted->contributor = contributorStack.back().contributor;
+						if (!mulChain.empty())
+						{
+							const CTrueIR::CFactorCombiner::SState combinerState = {
+								.type = CTrueIR::CFactorCombiner::Type::Mul,
+								.childCount = mulChain.size()
+							};
+							// TODO: create the combiner node
+							//const auto factorH = getObjectPool().emplace<CFactorCombiner>();
+							{
+								// every contributor node gets its own SORTED ancestor prefix
+								mulChainSortScratch = mulChain;
+								std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
+								//auto oit = getObjectPool().deref(factorH)->child;
+								//for (const auto& mul : mulChainSortScratch)
+									//*(oit++) = mul.handle;
+							}
+							//weighted->factor = factorH;
+						}
+					}
+					// when we are done we need to reset the mul chain back to its original state
+					mulChain.resize(entry.mulChainLen);
+					break;
+				}
+				default:
+					break;
+			}
+			exprStack.pop_back();
+		}
+	}
+	// There was never an ADD node
+	if (!contributorStack.empty())
+	{
+		// only one contributor could have been encountered
+		assert(contributorStack.size()==1);
+		// TODO: add the contributor
+		mulChain.clear();
+		contributorStack.clear();
+	}
+	// we got all the AST ADD nodes on the way back out
+	assert(mulChain.empty());
+	return headH;
+}
+
+//
+CTrueIR::SMaterialHandle CFrontendIR::makeFinalIR(const typed_pointer_type<const CLayer> rootH, SAdd2IRSession& session) const
+{
+	const auto& astPool = getObjectPool();
+
+//	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
+//	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
+
+	const auto* astRoot = astPool.deref<const CFrontendIR::CLayer>(rootH);
+	// no material
+	if (!astRoot)
+		return CTrueIR::BlackholeMaterialHandle;
+	session.tmpIR->reset();
+	// reverse AST into another tree
+	session.tmpAST->reset();
+	const auto backRootH = session.tmpAST->reverse(rootH,this);
+	CTrueIR::SMaterial material = {
+		.front = session.makeOrientedMaterial(rootH,this),
+		.back = session.makeOrientedMaterial(backRootH,session.tmpAST.get())
+	};
+
+	auto retval = session.args.ir->addMaterial(material);
+	if (retval)
+	{
+		// TODO: better debug info
+		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
+		{
+			material.debugInfo = session.args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
+		}
+	}
+	return retval;
 }
 
 }

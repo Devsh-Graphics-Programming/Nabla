@@ -1,20 +1,13 @@
-﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿
+// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
 #define _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
 
 
-#include "nbl/system/ILogger.h"
+#include "nbl/asset/material_compiler3/CTrueIR.h"
 
-#include "nbl/asset/material_compiler3/CNodePool.h"
-#include "nbl/asset/format/EColorSpace.h"
-#include "nbl/asset/ICPUImageView.h"
-
-
-
-// temporary
-#define NBL_API
 
 namespace nbl::asset::material_compiler3
 {
@@ -258,6 +251,7 @@ class CFrontendIR final : public CNodePool
 					return retval;
 				}
 
+				// TODO: rename to `EType` and the `getType` to `getExprNodeType`
 				// A "contributor" of a term to the lighting equation: a BxDF (reflection or tranmission) or Emitter term
 				// Contributors are not allowed to be multiplied together, but every additive term in the Expression must contain a contributor factor.
 				enum class Type : uint8_t
@@ -327,6 +321,11 @@ class CFrontendIR final : public CNodePool
 		{
 			public:
 				inline Type getType() const override final {return Type::Contributor;}
+
+			protected:
+				friend class CFrontendIR;
+				using ir_contributor_handle_t = CTrueIR::typed_pointer_type<CTrueIR::IContributor>;
+				virtual ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const = 0;
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
@@ -568,6 +567,8 @@ class CFrontendIR final : public CNodePool
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
@@ -775,6 +776,8 @@ class CFrontendIR final : public CNodePool
 
 			protected:
 				COPY_DEFAULT_IMPL
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
 		};
 		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		// Base diffuse node
@@ -793,6 +796,8 @@ class CFrontendIR final : public CNodePool
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -837,6 +842,8 @@ class CFrontendIR final : public CNodePool
 				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR::obj_pool_type& pool) const;
 		};
 #undef COPY_DEFAULT_IMPL
 #undef TYPE_NAME_STR
@@ -845,7 +852,6 @@ class CFrontendIR final : public CNodePool
 		inline void reset()
 		{
 			getObjectPool().reset();
-			m_rootNodes.clear();
 		}
 
 		// basic utilities
@@ -930,18 +936,46 @@ class CFrontendIR final : public CNodePool
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		NBL_API2 bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() const {return m_rootNodes;}
-
-		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
-		// TODO: shall we copy and hand out a new handle? Allow RootNode from a foreign const pool
-		inline bool addMaterial(const typed_pointer_type<const CLayer> rootNode, system::logger_opt_ptr logger)
+		// Each material comes down to this, after lowering to the true IR ir the indices into `ir->getMaterials()` are returned
+		// We take the trees from the forest, and canonicalize them into our weird Domain Specific IR with Upside down expression trees.
+		// Process:
+		// 1. Decompression (duplicating nodes, etc.)
+		// 2. Canonicalize Expressions (Transform into Sum-Product form, DCE, etc.)
+		// 3. Split BTDFs (front vs. back part), reciprocate Etas
+		// 4. Simplify and Hoist Layer terms (delta sampling property)
+		// 5. Subexpression elimination
+		// Further transforms in the IR can be done by invoking IR passes
+		struct SAddMaterialsArgs
 		{
-			if (valid(rootNode,logger))
+			explicit inline operator bool() const {return !rootNodes.empty() && ir && result;}
+
+			std::span<const typed_pointer_type<const CLayer>> rootNodes;
+			CTrueIR* ir;
+			CTrueIR::SMaterialHandle* result;
+			system::logger_opt_ptr logger;
+		};
+		// returns the number of materials successfully converted
+		inline uint32_t addMaterials(const SAddMaterialsArgs args) const
+		{
+			uint32_t retval = 0;
+			if (!args)
 			{
-				m_rootNodes.push_back(rootNode);
-				return true;
+				args.logger.log("Invalid Arguments to `CTrueIR::addMaterials`",system::ILogger::ELL_ERROR);
+				return retval;
 			}
-			return false;
+			SAdd2IRSession session = {args};
+			auto outIt = args.result;
+			for (const auto& rootH : args.rootNodes)
+			{
+				if (!rootH) // its a valid material (blackhole)
+					*outIt = CTrueIR::BlackholeMaterialHandle;
+				else if (valid(rootH,args.logger))
+					*outIt = makeFinalIR(rootH,session);
+				// now check for failure
+				if (*outIt)
+					retval++;
+			}
+			return retval;
 		}
 
 		// For Debug Visualization
@@ -974,6 +1008,86 @@ class CFrontendIR final : public CNodePool
 
 	protected:
 		using CNodePool::CNodePool;
+		
+		struct SAdd2IRSession
+		{
+			inline SAdd2IRSession(const SAddMaterialsArgs& _args) : args(_args)
+			{
+				tmpAST = CFrontendIR::create({.composed={.blockSizeKBLog2=10},.maxBlocks=64});
+				// give slightly more memory to IR, since the AST tends to be a bit more compact
+				tmpIR = CTrueIR::create({.composed={.blockSizeKBLog2=12},.maxBlocks=64});
+			}
+
+			using oriented_material_t = CTrueIR::SMaterial::SOriented;
+			NBL_API2 oriented_material_t makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST);
+
+			NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
+
+			// inputs to the addMaterials function
+			const SAddMaterialsArgs& args;
+			// for rewriting AST expressions
+			core::smart_refctd_ptr<CFrontendIR> tmpAST;
+			// for making IR nodes before we Merkle Hash them and remove duplicates (so main IR doesn't get bloated)
+			core::smart_refctd_ptr<CTrueIR> tmpIR;
+			// changes dynamically
+			const CFrontendIR* srcAST;
+			// for going over layers in the AST
+			core::vector<const CLayer*> layerStack;
+			// Some of the things we must canonicalize:
+			// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
+			// Expression nodes of the Frontend AST really come in 4 variants:
+			// - add
+			// - mul
+			// - complement, which is equivalent to 1 ADD (-1 MUL x)
+			// - function/other
+			// BRDFs can appear only under ADD and MUL nodes in the AST not the function/other/complement, so if we want to canonicalize:
+			// 1. The Add above can be ignored, we form full multiplication chain to the top
+			// 2. Adds in sibling nodes (below the last add) cause us to have to add a factored copy to the IR
+			// DFS from right-to-left (inverse order of adding children to stack), would cause us to keep postifxes of the multiplier chain every time we descend into ADD.
+			// We want to essentially visit the parent ADD node again after dealing with its subtree (in-order traversal) then mul chain can be reset just to the parent.
+			// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
+			// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
+			// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node.
+			struct SContributor
+			{
+				// the "active" contributor, basically the leftmost item in the subbranch below and ADD
+				CTrueIR::typed_pointer_type<const CTrueIR::IContributor> contributor;
+			};
+			core::vector<SContributor> contributorStack;
+			// Every time we encounter an AST leaf we must add the current contributor together with all the factors multiplied together
+			struct SFactor
+			{
+				using handle_t = CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>;
+				// We only track multiplicative factors, we break down every BRDF equally into the canonical form
+				handle_t handle;
+				uint8_t negate : 1 = false;
+				uint8_t monochrome : 1 = true;
+				// extend later when allowing variable bucket count
+				uint8_t liveSpectralChannels : 3 = 0b111;
+			};
+			// here we keep the multiplication chain unsorted so its each to add/remove nodes as we encounter them
+			core::vector<SFactor> mulChain;
+			// scratch for sorting the mul chain before adding a contributor
+			core::vector<SFactor> mulChainSortScratch;
+			// By maintaining a hash map of AST nodes which simplify to a Constant (unity, or zero, or other) we could resolve the issue of the `nonMulImmediateAncestorStackEnd`
+			// which has us adding the same non-mul node multiple times to stack during the traversal.
+			// However how much of that would be moving IR manipulation into the AST ?
+			struct StackEntry
+			{
+				inline bool notVisited() const {return !visited;}
+
+				const CFrontendIR::IExprNode* node;
+				// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
+				uint16_t nonMulImmediateAncestorStackEnd = 0;
+				// the length of the `mulChain` at the time we first visited the node
+				uint16_t mulChainLen = 0;
+				bool visited = false;
+				// only relevant for Add nodes
+				bool addContributor = false;
+			};
+			core::vector<StackEntry> exprStack;
+		};
+		NBL_API2 CTrueIR::SMaterialHandle makeFinalIR(const typed_pointer_type<const CLayer> rootH, SAdd2IRSession& session) const;
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
 		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
@@ -992,8 +1106,6 @@ class CFrontendIR final : public CNodePool
 			retval += "\"]";
 			return retval;
 		}
-
-		core::vector<typed_pointer_type<const CLayer>> m_rootNodes;
 };
 
 inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const
@@ -1017,10 +1129,9 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 	core::stack<StackEntry> exprStack;
 	// why a separate stack to the main one? Because we don't push siblings.
 	core::vector<typed_pointer_type<const IExprNode>> ancestorPrefix;
-	// unused yet
+	// TODO: unused yet
 	core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
-	// should probably size it better, if I knew total node count allocated or live
-	visitedNodes.reserve(m_rootNodes.size()<<3);
+	visitedNodes.reserve(128);
 	//
 	auto validateExpression = [&](const typed_pointer_type<const IExprNode> exprRoot, const bool isBTDF) -> bool
 	{
