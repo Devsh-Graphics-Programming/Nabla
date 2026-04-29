@@ -64,7 +64,7 @@ struct ShadowingMethod<T, PNS_YINING>
     static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
     {
         const scalar_type g = hlsl::min(scalar_type(1.0),
-            clampedNpdotL / (clampedNdotL * NdotNp)
+            clampedNdotL / (clampedNpdotL * NdotNp)
         );
         const scalar_type g2 = g * g;
         return -g2 * g + g2 + g;
@@ -80,6 +80,8 @@ struct ShadowingMethod<T, PNS_YINING>
     {
         const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
         const scalar_type ap = clampedNpdotV * NdotNp;
+        if (ap < numeric_limits<scalar_type>::min)
+            return scalar_type(0.0);
         const scalar_type at = clampedNtdotV * sinThetaNp;
         return ap / (ap + at);
     }
