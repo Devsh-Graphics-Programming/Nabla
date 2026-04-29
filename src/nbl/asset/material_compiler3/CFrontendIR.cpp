@@ -568,7 +568,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	assert(layerStack.empty());
 
 	auto& irPool = tmpIR->getObjectPool();
-	// go down through layers and create all the dependencies
+	// go down through layers and enqueue them so the layers can be added in reverse
 	for (const auto* layer=astPool.deref(rootH); layer; layer=astPool.deref(layer->coated))
 	{
 		// TODO: actually re-check the expressions for being null after optimization
@@ -587,38 +587,62 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			args.logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
 			break;
 		}
-// TODO: handle the rest of this stuff
-//assert(false);
-		// Only if we're not in the last layer do we care about the bottom BRDF (you can't hit it otherwise)
-		// Note that this won't catch the next layer being a blackhole and needs to be undone if it is
-		if (layer->coated && layer->brdfBottom)
-		{
-			// do stuff with brdfBottom
-		}
 	}
-	if (!layerStack.empty())
-		retval.metadata |= CTrueIR::SMaterial::EMetadataBits::NotBlackhole;
-	// then go back up and make the layers
-	while (!layerStack.empty())
+	// Some metadata needed for us
+	bool layersBelowCanScatterBack = false;
+	CTrueIR::typed_pointer_type<CTrueIR::COrientedLayer> prevLayerH = {};
+	// then go in reverse and do the layers
+	for (auto layerIt=layerStack.rbegin(); layerIt!=layerStack.rend(); layerIt++)
 	{
-		const auto* const inLayer = layerStack.back();
-		layerStack.pop_back();
+		const auto& inLayer = *layerIt;
 		// allocate a layer
 		const auto layerH = irPool.emplace<CTrueIR::COrientedLayer>();
-		auto* const outLayer = irPool.deref(layerH);
-		retval.root = layerH;
-		// process the BTDF
-		//...
-		// process the top BRDF
-		outLayer->brdfTop = makeContributors(inLayer->brdfTop);
-		// if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
-		// hmm this would require decorrellation... because don't want rest of BTDF to affect
-		//...
-	}
-	// skip replace delta transmissions by the layer undernearth, if null then keep as delta
+		{
+			auto* const outLayer = irPool.deref(layerH);
+			// process the top BRDF
+			outLayer->brdfTop = makeContributors(inLayer->brdfTop);
+			// process the BTDF
+			const auto btdfH = makeContributors(inLayer->btdf);
+			// because we're oriented, the bottom brdf can't exist without a BTDF on top (there's no ray that can reach it from our oriented side)
+			if (btdfH)
+			{
+				const auto transmissionH = irPool.emplace<CTrueIR::CCorellatedTransmission>();
+				{
+					auto* const transmission = irPool.deref(transmissionH);
+					transmission->btdf = btdfH;
+					// Only if we have a layer below us capable of reflecting the ray back, do we care about the bottom BRDF (you can't hit it otherwise)
+					if (layersBelowCanScatterBack)
+						transmission->brdfBottom = makeContributors(inLayer->brdfBottom);
+					// we check if previous layer didn't get oprimized away, but we don't add its optimized version because don't want pointers across two pools (crash)
+					if (retval.root)
+						transmission->coated = prevLayerH;
+				}
+			}
+		}
+		prevLayerH = layerH;
+		// Now optimize everything inserting it into the proper IR
+		{
+			// TODO: pass which copies the layers over into full IR while optimizing
+			retval.root = layerH; // wrong pool handle
+			auto* const outLayer = irPool.deref(layerH); // wrong IR Pool
 
-	// AST is Sum Expression to the BRDF nodes
-	// We need to keep the Ancestor prefix as an unrolled linked list
+			// ideas for the pass:
+			// - skip replace delta transmissions by the layer undernearth, if null then keep as delta
+			// - if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
+			// observations:
+			// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
+
+			// TODO: combine layer meta with `retval.metadata`
+
+			// Set this for the next layer after us, we are reflective or previous layer scatters back towards us and we don't block it
+			layersBelowCanScatterBack = bool(outLayer->brdfTop) || layersBelowCanScatterBack && outLayer->firstTransmission;
+		}
+	}
+	// quick sanity check
+	assert((retval.root ? bool(irPool.deref(retval.root)->firstTransmission):false)==layersBelowCanScatterBack);
+	// might turn this into an assert
+	if (retval.root)
+		retval.metadata |= CTrueIR::SMaterial::EMetadataBits::NotBlackhole;
 	return retval;
 }
 
@@ -773,7 +797,13 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	{
 		// only one contributor could have been encountered
 		assert(contributorStack.size()==1);
-		// TODO: add the contributor
+		// add the contributor
+		headH = irPool.emplace<CTrueIR::CContributorSum>();
+		{
+			const auto weightedH = irPool.emplace<CTrueIR::CWeightedContributor>();
+			irPool.deref(weightedH)->contributor = contributorStack.back().contributor;
+			irPool.deref(headH)->product = weightedH;
+		}
 		mulChain.clear();
 		contributorStack.clear();
 	}
@@ -806,7 +836,7 @@ CTrueIR::SMaterialHandle CFrontendIR::makeFinalIR(const typed_pointer_type<const
 	auto retval = session.args.ir->addMaterial(material);
 	if (retval)
 	{
-		// TODO: better debug info
+		// TODO: better debug info (e.g. concat all the layer info during `makeOrientedMaterial` via the `session` object
 		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
 		{
 			material.debugInfo = session.args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());

@@ -77,7 +77,7 @@ class CNodePool : public core::IReferenceCounted
 			uint8_t viewChannel : 2 = 0;
 			uint8_t padding[3] = {0,0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
-			// shadow comparison functions are ignored
+			// lodbias and clamp shadow comparison functions, anisotropy and minFilter are ignored
 			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
 			ICPUSampler::SParams sampler = {};
 		};
@@ -328,7 +328,67 @@ inline void CNodePool::SBasicNDFParams::printDot(std::ostringstream& sstr, const
 	}
 }
 
-#if 0 // TODO
+// specialization of parameter hashing
+template<typename Dummy>
+struct core::blake3_hasher::update_impl<CNodePool::SParameter,Dummy>
+{
+	using input_t = asset::material_compiler3::CNodePool::SParameter;
+
+	static inline void __call(blake3_hasher& hasher, const input_t& param)
+	{
+		hasher << param.scale;
+		if (!param.view)
+			return;
+		const auto& viewParams = param.view->getCreationParameters();
+		// TODO: hash it like CAssetConverter
+		{
+			hasher << ptrdiff_t(param.view.get());
+		}
+		// in the future this might change
+		hasher << param.viewChannel;
+		const auto& sampler = param.sampler;
+		hasher << param.sampler.BorderColor;
+		hasher << param.sampler.MaxFilter;
+		using view_type_e = asset::IImageView<asset::ICPUImage>::E_TYPE;
+		switch (viewParams.viewType)
+		{
+			case view_type_e::ET_3D:
+				hasher << param.sampler.TextureWrapW;
+				[[fallthrough]];
+			case view_type_e::ET_2D: [[fallthrough]];
+			case view_type_e::ET_2D_ARRAY: [[fallthrough]];
+			case view_type_e::ET_CUBE_MAP: [[fallthrough]];
+			case view_type_e::ET_CUBE_MAP_ARRAY:
+				hasher << param.sampler.TextureWrapV;
+				[[fallthrough]];
+			default:
+				hasher << param.sampler.TextureWrapU;
+				break;
+		}
+	}
+};
+template<uint8_t Count, typename Dummy>
+struct core::blake3_hasher::update_impl<CNodePool::SParameterSet<Count>,Dummy>
+{
+	using input_t = asset::material_compiler3::CNodePool::SParameterSet<Count>;
+
+	static inline void __call(blake3_hasher& hasher, const input_t& input)
+	{
+		bool noTextures = true;
+		for (uint8_t i=0; i<Count; i++)
+		if (input.params[i].view)
+		{
+			noTextures = false;
+			break;
+		}
+		if (noTextures)
+			return;
+		hasher << input.uvTransform;
+		hasher << input.uvSlot();
+		for (uint8_t i=0; i<Count; i++)
+			hasher << input.params[i];
+	}
+};
 template<typename Dummy>
 struct core::blake3_hasher::update_impl<CNodePool::SBasicNDFParams,Dummy>
 {
@@ -339,28 +399,12 @@ struct core::blake3_hasher::update_impl<CNodePool::SBasicNDFParams,Dummy>
 		using type_e = input_t::EParamType;
 		const type_e type = input.determineParamType();
 		update_impl<uint8_t>::__call(hasher,static_cast<uint8_t>(type));
-		const auto roughness = input.getRougness();
-		switch (type)
-		{
-			case type_e::TotallyMapped:
-				break;
-			case type_e::AnisotropicMapped:
-				break;
-			case type_e::IsotropicMapped:
-				break;
-			case type_e::AnisotropicConstant:
-				update_impl<float32_t>::__call(hasher,roughness[1]);
-				[[fallthrough]];
-			case type_e::IsotropicConstant:
-				update_impl<float32_t>::__call(hasher,roughness[0]);
-				break;
-			default:
-				assert(false);
-				break;
-		}
+		update_impl<asset::material_compiler3::CNodePool::SParameterSet<4>>::__call(hasher,*this);
+		// reference stretch can be applied on non-mapped NDFs too
+		if (!input.stretchInvariant())
+			hasher << input.reference;
 	}
 };
-#endif
 
 } // namespace nbl::asset::material_compiler3
 #endif

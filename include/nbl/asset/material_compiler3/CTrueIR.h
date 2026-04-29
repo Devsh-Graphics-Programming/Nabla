@@ -36,10 +36,36 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class INode : public CNodePool::INode
 		{
 			public:
+				enum class EFinalType : uint8_t
+				{
+					COrientedLayer=0,
+					CCorellatedTransmission,
+					CContributorSum,
+					CWeightedContributor,
+					CEmitter,
+					CDeltaTransmission,
+					CParameters_1,
+					CParameters_2,
+					CParameters_3,
+					CParameters_4,
+					COrenNayar,
+					CCookTorrance,
+					CFactorCombiner,
+					CConstantFactor
+				};
+				virtual EFinalType getFinalType() const = 0;
+
 				const auto& getHash() const {return hash;}
 
-				// only call once the nodes underneath are linked up, returning empty hash means error/invalid node
-				virtual core::blake3_hash_t computeHash(const obj_pool_type& pool) const = 0;
+				// only call once the nodes underneath are linked up (because it doesn't call recursively), returning empty hash means error/invalid node
+				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				{
+					core::blake3_hasher hasher = {};
+					// always put the node type into the hash
+					hasher << static_cast<uint8_t>(getFinalType());
+					computeHash_impl(pool,hasher);
+					return hasher.operator core::blake3_hash_t();
+				}
 
 			protected:
 				friend class CTrueIR;
@@ -48,6 +74,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					hash = computeHash(pool);
 					return hash!=core::blake3_hash_t{};
 				}
+				virtual void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const = 0;
 
 				// Each node is final and immutable, has a precomputed hash for the whole subtree beneath it.
 				// Debug info does not form part of the hash, so can get wildly replaced.
@@ -73,6 +100,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class CFactorCombiner final : public obj_pool_type::IVariableSize, public IFactor
 		{
 			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CFactorCombiner;}
+
 				// There's only two ops we support
 				enum Type : uint8_t
 				{
@@ -88,15 +117,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				};
 				static_assert(sizeof(SState) == sizeof(IFactor::padding));
 				inline SState getState() const {return std::bit_cast<SState>(padding);}
-				
-				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const override final
-				{
-					core::blake3_hasher hasher = {};
-					hasher << padding; // hash whole state at once
-					for (uint16_t i=0; i<getState().childCount; i++)
-						hasher << pool.deref(child[i])->getHash();
-					return hasher.operator core::blake3_hash_t();
-				}
 
 				// Only sane child count allowed
 				inline typed_pointer_type<const IFactor> getChildHandle(const uint8_t ix)
@@ -107,6 +127,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			protected:
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << padding; // hash whole state at once
+					for (uint16_t i=0; i<getState().childCount; i++)
+						hasher << pool.deref(child[i])->getHash();
+				}
+
 				friend class CTrueIR;
 				typed_pointer_type<const IFactor> child[1] = {{}};
 		};
@@ -114,16 +141,18 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Note that this is not a root node, its a flipped leaf!
 		class CWeightedContributor final : public obj_pool_type::INonTrivial, public INode
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CWeightedContributor);}
-
-				core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					core::blake3_hasher hasher = {};
 					hasher << pool.deref(contributor)->getHash();
-					hasher << pool.deref(factor)->getHash();
-					return hasher.operator core::blake3_hash_t();
+					if (factor)
+						hasher << pool.deref(factor)->getHash();
+					// TODO: else where it hashes with a premade hash of a `IFactor = CConstantFactor` of monochrome 1.0 scalar
 				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CWeightedContributor;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CWeightedContributor);}
 
 
 				typed_pointer_type<const IContributor> contributor = {};
@@ -134,8 +163,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
 		class CContributorSum final : public obj_pool_type::INonTrivial, public INode
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CContributorSum);}
 
 				// CANONICALIZATION NOTE: The conntributors shall be ordered in following order:
 				// - according to their type, emitters first, then BxDFs, within those
@@ -148,13 +175,22 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// Also BxDFs and Emitters (which only hold IES profiles) are monochromatic so accumulating their contribution first uses least registers.
 				// Fresnel, Beer extinction and other analytic modifiers never produce 0s so should be evaluated last.
 				// Function factors which have to be evaluated via composition go even later, but within their dimension category.
-				core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					core::blake3_hasher hasher = {};
-					hasher << (product ? pool.deref(product)->getHash():core::blake3_hash_t());
-					hasher << (rest ? pool.deref(rest)->getHash():core::blake3_hash_t());
-					return hasher.operator core::blake3_hash_t();
+					// this is an invalid combo, because `rest->product` could be hoisted in place of `product`
+					assert(product || !rest);
+					if (product)
+					{
+						hasher << pool.deref(product)->getHash();
+						if (rest)
+							hasher << pool.deref(rest)->getHash();
+					}
 				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CContributorSum;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CContributorSum);}
 
 
 				// the product is ...
@@ -168,23 +204,28 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Corellated layering is a far far far TODO, all it means that certain convolutions don't happen - certain BxDFs don't layer over each other (tricky to express in AST and IR)
 		class CCorellatedTransmission final : public obj_pool_type::INonTrivial, public INode
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
-				
-				core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					core::blake3_hasher hasher = {};
+					// invalid combo, null btdf prevents you crossing over to the next layer and hitting current from below
+					// also if there's no btdf it makes no sense to have a `next` sibling.
+					assert(btdf);
 					hasher << pool.deref(btdf)->getHash();
-					hasher << pool.deref(brdfBottom)->getHash();
-					hasher << pool.deref(coated)->getHash();
-					hasher << pool.deref(next)->getHash();
-					return hasher.operator core::blake3_hash_t();
+					hasher << (brdfBottom ? pool.deref(brdfBottom)->getHash():core::blake3_hash_t());
+					hasher << (coated ? pool.deref(coated)->getHash():core::blake3_hash_t());
+					if (next)
+						hasher << pool.deref(next)->getHash();
 				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CCorellatedTransmission;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
 
 				// you can set the children later
 				inline CCorellatedTransmission() = default;
 
-				// to get to the coated layer we must transmit through
+				// Obligatory if you don't want transmission then don't put a valid handle in `COrientedLayer::firstTransmission`
+				// Also shouldn't contain `CDeltaTransmission` in the BTDF unless `coated` is null (TODO a check for that)
 				typed_pointer_type<const CContributorSum> btdf = {};
 				// because the layer is oriented, these last two members must be null when the coating stops
 				typed_pointer_type<const CContributorSum> brdfBottom = {};
@@ -195,16 +236,17 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// The oriented layer is a layer with already all the Etas reciprocated, etc.
 		class COrientedLayer final : public obj_pool_type::INonTrivial, public INode
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrientedLayer);}
-
-				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					core::blake3_hasher hasher = {};
-					hasher << pool.deref(brdfTop)->getHash();
-					hasher << pool.deref(firstTransmission)->getHash();
-					return hasher.operator core::blake3_hash_t();
+					hasher << (brdfTop ? pool.deref(brdfTop)->getHash():core::blake3_hash_t());
+					if (firstTransmission)
+						hasher << pool.deref(firstTransmission)->getHash();
 				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::COrientedLayer;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrientedLayer);}
 
 				// you can set the children later
 				inline COrientedLayer() = default;
@@ -217,25 +259,40 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		//
 		template<uint8_t Channels>
-		class CTextureSample : public obj_pool_type::INonTrivial, public INode
+		class CParameters final : public obj_pool_type::INonTrivial, public INode
 		{
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << paramSet;
+				}
+
 			public:
+				inline EFinalType getFinalType() const override
+				{
+					static_assert(1<=Channels && Channels<=4);
+					return static_cast<EFinalType>(static_cast<uint8_t>(EFinalType::CParameters_1)-1+Channels);
+				}
+
+				// TODO: improve the token pasting here
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CParameters<Count>);}
+
 				SParameterSet<Channels> paramSet = {};
 		};
 		
 		// Unit Radiance emitter modulated by an IES profile
 		class CEmitter final : public obj_pool_type::INonTrivial, public IContributor
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CEmitter);}
-
-				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					core::blake3_hasher hasher = {};
-					hasher << pool.deref(profile)->getHash();
 					hasher << profileTransform;
-					return hasher.operator core::blake3_hash_t();
+					if (profile)
+						hasher << pool.deref(profile)->getHash();
 				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CEmitter;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CEmitter);}
 
 				inline bool isEmitter() const override {return true;}
 
@@ -244,7 +301,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
 				// `profile.scale` can still be used to influence the light strength without influencing NEE light picking probabilities
-				typed_pointer_type<const CTextureSample<2>> profile = {};
+				typed_pointer_type<const CParameters<2>> profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
 					0,1,0,
@@ -297,25 +354,32 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 		class CDeltaTransmission final : public IBxDF
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
+				// nothing to do
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override {}
 
-				core::blake3_hash_t computeHash(const obj_pool_type& pool) const
-				{
-					core::blake3_hasher hasher = {};
-					// TODO: put the type in the hash
-					return hasher.operator core::blake3_hash_t();
-				}
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CDeltaTransmission;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
 
 				inline CDeltaTransmission() = default;
 		};
 		class IBxDFWithNDF : public IBxDF
 		{
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					assert(false); // unimplemented
+				}
+
 			public:
+				// CParameters<4> ?
+				//CNodePool::SBasicNDFParams ndfParams;
 		};
 		class COrenNayar final : public IBxDFWithNDF
 		{
 			public:
+				inline EFinalType getFinalType() const override {return EFinalType::COrenNayar;}
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 
 				inline COrenNayar() = default;
@@ -323,6 +387,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class CCookTorrance final : public IBxDFWithNDF
 		{
 			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CCookTorrance;}
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
 
 				inline CCookTorrance() = default;
@@ -330,20 +396,20 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		//! Parameter Nodes
 		// ScalarConstant
 		// SpectralConstant
-		// NormalMap -> impliu
 		//! Basic factor nodes
 		class IFactorLeaf : public IFactor {};
+		// TODO use CParameters<1> or CParameters<3> + colorpsace semantics (part of `CSpectralVariable`)
 		class CConstantFactor final : public obj_pool_type::INonTrivial, public IFactorLeaf
 		{
-			public:
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CConstant);}
-				
-				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const override final
+				inline void computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					core::blake3_hasher hasher = {};
-					// TODO: hash the parameter
-					return hasher.operator core::blake3_hash_t();
+					assert(false);// TODO: hash the parameter
 				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CConstantFactor;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CConstant);}
 
 				// you can set the children later
 				inline CConstantFactor() = default;
