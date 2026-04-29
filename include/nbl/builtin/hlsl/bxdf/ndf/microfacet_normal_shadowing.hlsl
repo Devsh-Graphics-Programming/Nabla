@@ -30,7 +30,7 @@ struct ShadowingMethod<T, PNS_SCHUSSLER>
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
+    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL, const bool isTangentFacet=false)
     {
         const scalar_type sinThetaNp = hlsl::sqrt(hlsl::max(1.0 - NdotNp * NdotNp, 0.0));
         return hlsl::min(scalar_type(1.0),
@@ -61,10 +61,10 @@ struct ShadowingMethod<T, PNS_YINING>
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL)
+    static scalar_type G1(const scalar_type clampedNdotL, const scalar_type NdotNp, const scalar_type clampedNpdotL, const scalar_type clampedNtdotL, const bool isTangentFacet=false)
     {
         const scalar_type g = hlsl::min(scalar_type(1.0),
-            clampedNdotL / (clampedNpdotL * NdotNp)
+            clampedNdotL / (hlsl::mix(clampedNpdotL, clampedNtdotL, isTangentFacet) * NdotNp)
         );
         const scalar_type g2 = g * g;
         return -g2 * g + g2 + g;

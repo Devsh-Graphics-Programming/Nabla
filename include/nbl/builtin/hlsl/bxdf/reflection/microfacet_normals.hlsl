@@ -451,7 +451,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
             typename bxdf_type::anisotropic_interaction_type interaction_t = bxdf_type::anisotropic_interaction_type::create(iso_t);
 
             const scalar_type shadowing_t = shadowing_method_type::G1(hlsl::max(scalar_type(0.0), NdotL), hlsl::dot(shadingNormal, Nt),
-                                        NpdotL, hlsl::max(scalar_type(0.0), NtdotL));
+                                        NpdotL, hlsl::max(scalar_type(0.0), NtdotL), true);
 
             value_weight_type eval_t = nested_brdf.evalAndWeight(sample_t, interaction_t);
             eval += eval_t.value() * (scalar_type(1.0) - lambda_p) * shadowing_t;
@@ -601,7 +601,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
         {
             const vector3_type L = _sample.getL().getDirection();
             const scalar_type NpdotL = _sample.getNdotL(BxDFClampMode::BCM_MAX);
-            quo *= shadowing_method_type::G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, Nt)), NpdotL, hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)));
+            quo *= shadowing_method_type::G1(hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, L)), hlsl::max(scalar_type(0.0), hlsl::dot(shadingNormal, Nt)), NpdotL, hlsl::max(scalar_type(0.0), hlsl::dot(Nt, L)), true);
         }
 
         return quotient_weight_type::create(quo, forwardPdf(_sample, interaction, _cache));
