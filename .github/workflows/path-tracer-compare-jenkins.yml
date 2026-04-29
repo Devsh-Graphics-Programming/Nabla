@@ -22,11 +22,6 @@ on:
         required: true
         default: true
         type: boolean
-      render_release:
-        description: "Render the Release/O3 baseline before comparison. Push runs wait for Run Path Tracer Jenkins instead."
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -42,7 +37,7 @@ jobs:
     name: Trigger Path Tracer Compare Jenkins
     if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 420
+    timeout-minutes: 720
 
     steps:
       - name: Checkout
@@ -129,5 +124,4 @@ jobs:
             --source-workflow "${{ steps.source.outputs.workflow }}" \
             --scene-set "${{ steps.source.outputs.scene_set }}" \
             --publish "${{ steps.source.outputs.publish }}" \
-            --render-release "${{ github.event_name == 'workflow_dispatch' && inputs.render_release || false }}" \
-            --wait-release-status "${{ github.event_name == 'push' }}"
+            --render-release true
