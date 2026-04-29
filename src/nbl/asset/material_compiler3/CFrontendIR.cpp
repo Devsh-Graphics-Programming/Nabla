@@ -516,7 +516,7 @@ core::string CFrontendIR::CSpectralVariable::getLabelSuffix() const
 void CFrontendIR::CSpectralVariable::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-	CNodePool::printDotParameterSet(pWonky->knots,getKnotCount(),sstr,selfID,{});
+	CTrueIR::printDotParameterSet(pWonky->knots,getKnotCount(),sstr,selfID,{});
 }
 
 void CFrontendIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
@@ -552,18 +552,10 @@ void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::
 auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
 	auto& irPool = ir->getObjectPool();
-	const auto profileH = irPool.emplace<CTrueIR::CParameters<2>>();
-	if (auto* const profile=irPool.deref(profileH); profile)
-	{
-		return {}; // unimplemented
-//		profile->paramSet = profile;
-	}
-	else
-		return {};
 	const auto retval = irPool.emplace<CTrueIR::CEmitter>();
 	if (auto* const contributor=irPool.deref(retval))
 	{
-		contributor->profile = profileH;
+		contributor->profile = profile;
 		contributor->profileTransform = profileTransform;
 	}
 	return retval;

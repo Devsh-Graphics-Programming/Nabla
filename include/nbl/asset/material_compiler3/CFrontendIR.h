@@ -245,10 +245,10 @@ class CFrontendIR final : public CNodePool
 				struct SCreationParams
 				{
 					// Knots are "data points" on the (wavelength,value) plot, from which we can interpolate the rest of the spectrum
-					SParameterSet<Count> knots = {};
+					CTrueIR::SParameterSet<Count> knots = {};
 
 					// a little bit of abuse and padding reuse
-					static_assert(sizeof(SParameter::padding)>2);
+					static_assert(sizeof(CTrueIR::SParameter::padding)>2);
 					template<bool Enable=true> requires (Enable==(Count>1))
 					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(knots.params[0].padding[2]); }
 					template<bool Enable=true> requires (Enable==(Count>1))
@@ -281,25 +281,25 @@ class CFrontendIR final : public CNodePool
 				// these getters are immutable
 				inline uint8_t getKnotCount() const
 				{
-					static_assert(sizeof(SParameter::padding)>1);
+					static_assert(sizeof(CTrueIR::SParameter::padding)>1);
 					return paramsBeginPadding()[1];
 				}
 				inline Semantics getSemantics() const
 				{
-					static_assert(sizeof(SParameter::padding)>2);
+					static_assert(sizeof(CTrueIR::SParameter::padding)>2);
 					const auto retval = static_cast<Semantics>(paramsBeginPadding()[2]);
 					assert((getKnotCount()==1)==(retval==Semantics::NoneUndefined));
 					return retval;
 				}
 
 				//
-				inline SParameter* getParam(const uint8_t i)
+				inline CTrueIR::SParameter* getParam(const uint8_t i)
 				{
 					if (i<getKnotCount())
 						return &pWonky()->knots.params[i];
 					return nullptr;
 				}
-				inline const SParameter* getParam(const uint8_t i) const {return const_cast<const SParameter*>(const_cast<CSpectralVariable*>(this)->getParam(i));}
+				inline const CTrueIR::SParameter* getParam(const uint8_t i) const {return const_cast<const CTrueIR::SParameter*>(const_cast<CSpectralVariable*>(this)->getParam(i));}
 
 				//
 				template<uint8_t Count>
@@ -310,7 +310,7 @@ class CFrontendIR final : public CNodePool
 				// for copying
 				static inline uint32_t calc_size(const CSpectralVariable& other)
 				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(other.getKnotCount()-1)*sizeof(SParameter);
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(other.getKnotCount()-1)*sizeof(CTrueIR::SParameter);
 				}
 
 				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
@@ -443,7 +443,7 @@ class CFrontendIR final : public CNodePool
 
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
 				// `profile.scale` can still be used to influence the light strength without influencing NEE light picking probabilities
-				SParameter profile = {};
+				CTrueIR::SParameter profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
 					0,1,0,
@@ -641,7 +641,7 @@ class CFrontendIR final : public CNodePool
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 				inline COrenNayar() = default;
 
-				SBasicNDFParams ndParams = {};
+				CTrueIR::SBasicNDFParams ndParams = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
@@ -667,7 +667,7 @@ class CFrontendIR final : public CNodePool
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
 				inline CCookTorrance() = default;
 
-				SBasicNDFParams ndParams = {};
+				CTrueIR::SBasicNDFParams ndParams = {};
 				// We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
 				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
 				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
