@@ -674,7 +674,7 @@ class CFrontendIR final : public CNodePool
 				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
 				// BRDFs and BTDFs components into separate expressions, and also importance sample much better, for details see comments in CTrueIR. 
 				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
-				// 
+				// TODO: these could be put in the padding of `ndParams.params`
 				NDF ndf : 7 = NDF::GGX;
 				uint8_t reciprocateEta : 1 = false;
 

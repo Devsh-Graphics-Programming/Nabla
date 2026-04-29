@@ -154,6 +154,7 @@ auto CFrontendIR::deepCopy(const typed_pointer_type<const IExprNode> orig, const
 		else
 		{
 			auto* const copy = dstPool.deref(copyH);
+			copy->debugInfo = copyDebugInfo(node->debugInfo,pSourceIR);
 			for (uint8_t c=0; c<childCount; c++)
 			{
 				const auto childH = node->getChildHandle(c);
@@ -223,6 +224,8 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, co
 				auto* const copy = dstPool.deref(copyH);
 				if (!copy)
 					return {};
+				if (pSourceIR!=this)
+					copy->debugInfo = copyDebugInfo(node->debugInfo,pSourceIR);
 				if (needToReciprocate)
 					node->reciprocate(copy);
 				// only changed children need to be set
@@ -262,6 +265,7 @@ auto CFrontendIR::copyLayers(const typed_pointer_type<const CLayer> orig, const 
 			// need to deep copy the nodes
 			if (pSourceIR!=this)
 			{
+				outLayer->debugInfo = copyDebugInfo(layer->debugInfo,pSourceIR);
 				outLayer->brdfBottom = deepCopy(layer->brdfBottom,pSourceIR)._const_cast();
 				outLayer->btdf = deepCopy(layer->btdf,pSourceIR)._const_cast();
 				outLayer->brdfTop = deepCopy(layer->brdfTop,pSourceIR)._const_cast();
@@ -293,8 +297,17 @@ auto CFrontendIR::reverse(const typed_pointer_type<const CLayer> orig, const CFr
 	{
 		auto* outLayer = dstPool.deref(copyH);
 		typed_pointer_type<CLayer> underLayerH={};
+		std::string debugData; debugData.reserve(4096);
 		for (const auto* layer=srcPool.deref(orig); true; layer=srcPool.deref(layer->coated))
 		{
+			debugData = "REVERSED {";
+			if (auto* debugInfo=srcPool.deref(layer->debugInfo); debugInfo)
+			{
+				const auto span = debugInfo->data();
+				debugData += std::string_view(reinterpret_cast<const char*>(span.data()),span.size()-1);
+			}
+			debugData += '}';
+			outLayer->debugInfo = dstPool.emplace<CDebugInfo>(debugData);
 			outLayer->coated = underLayerH;
 			// we reciprocate everything because numerator and denominator switch (top and bottom of layer stack)
 			outLayer->brdfBottom = reciprocate(layer->brdfTop,pSourceIR)._const_cast();
@@ -844,6 +857,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			const auto weightedH = irPool.emplace<CTrueIR::CWeightedContributor>();
 			irPool.deref(weightedH)->contributor = contributorStack.back().contributor;
 			irPool.deref(headH)->product = weightedH;
+			// TODO: do the factor as a mul chain!
 		}
 		mulChain.clear();
 		contributorStack.clear();

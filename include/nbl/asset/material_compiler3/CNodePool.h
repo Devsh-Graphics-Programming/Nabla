@@ -162,6 +162,16 @@ class CNodePool : public core::IReferenceCounted
 			protected:
 				const uint32_t m_size;
 		};
+		// copy the debug nodes between pools
+		inline typed_pointer_type<CDebugInfo> copyDebugInfo(const typed_pointer_type<const CDebugInfo> orig, const CNodePool* pSource)
+		{
+			assert(pSource);
+			if (!orig)
+				return {};
+			const auto span = pSource->getObjectPool().deref(orig)->data();
+			const auto oldView = std::string_view(reinterpret_cast<const char*>(span.data()),span.size()-1);
+			return getObjectPool().emplace<CDebugInfo>(oldView);
+		}
 
 		// Why are all of these kept together and forced to fetch from the same UV ?
 		// Because they're supposed to be filtered together with the knowledge of the NDF

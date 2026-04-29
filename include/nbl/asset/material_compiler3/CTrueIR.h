@@ -257,7 +257,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const CCorellatedTransmission> firstTransmission = {};
 		};
 
-		//
+		// TODO: break this into UV-sample-able params and regular params
 		template<uint8_t Channels>
 		class CParameters final : public obj_pool_type::INonTrivial, public INode
 		{
