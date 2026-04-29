@@ -141,6 +141,10 @@ def start_suite(args, headers, suite):
     build_url = f"{args.jenkins_url.rstrip('/')}/{job_path(job)}/{number}/"
     set_status(args, suite, "pending", build_url, f"Jenkins {suite} path tracer build #{number} is running.")
     print(f"Started Jenkins {job} #{number}: {build_url}")
+    return suite, job, number, build_url
+
+
+def wait_suite(args, headers, suite, job, number, build_url):
     try:
         result = wait_build(args.jenkins_url, headers, job, number, int(args.jenkins_timeout_minutes) * 60)
     except CiError:
@@ -174,7 +178,8 @@ def trigger(args):
     headers = basic_headers(args.jenkins_user, args.jenkins_token)
     add_jenkins_crumb(args.jenkins_url, headers)
     suites = ["public", "private"] if args.scene_set == "both" else [args.scene_set]
-    for result in [start_suite(args, headers, suite) for suite in suites]:
+    builds = [start_suite(args, headers, suite) for suite in suites]
+    for result in [wait_suite(args, headers, *build) for build in builds]:
         print(f"{result[0]} #{result[1]} {result[2]} {result[3]}")
 
 
