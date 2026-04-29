@@ -401,7 +401,7 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_point
 	fr->debugInfo = getObjectPool().emplace<CNodePool::CDebugInfo>(found->first);
 	{
 		CSpectralVariable::SCreationParams<3> params = {};
-		params.getSemantics() = CSpectralVariable::Semantics::Fixed3_SRGB;
+		params.getSemantics() = CTrueIR::ISpectralVariable::ESemantics::Fixed3_SRGB;
 		params.knots.params[0].scale = found->second.x.real();
 		params.knots.params[1].scale = found->second.y.real();
 		params.knots.params[2].scale = found->second.z.real();
@@ -409,7 +409,7 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_point
 	}
 	{
 		CSpectralVariable::SCreationParams<3> params = {};
-		params.getSemantics() = CSpectralVariable::Semantics::Fixed3_SRGB;
+		params.getSemantics() = CTrueIR::ISpectralVariable::ESemantics::Fixed3_SRGB;
 		params.knots.params[0].scale = found->second.x.imag();
 		params.knots.params[1].scale = found->second.y.imag();
 		params.knots.params[2].scale = found->second.z.imag();
@@ -568,31 +568,36 @@ auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrue
 
 auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
+	if (ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::Invalid)
+		return {};
 	auto& irPool = ir->getObjectPool();
 	const auto retval = irPool.emplace<CTrueIR::COrenNayar>();
 	if (auto* const contributor = irPool.deref(retval))
-	{
-		return {}; // unimplemented
-//		contributor->ndParams = ndParams;
-	}
+		contributor->ndfParams = ndParams; // the padding abuse is the same between the classes
 	return retval;
 }
 
 auto CFrontendIR::CCookTorrance::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
-	auto& irPool = ir->getObjectPool();
-	return {}; // unimplemented
-#if 0
-	const auto etaH = irPool.emplace<CTrueIR::CRealEta>();
-	if (!etaH)
+	if (ndParams.getDistribution()>CTrueIR::SBasicNDFParams::EDistribution::Beckmann)
 		return {};
+	auto& irPool = ir->getObjectPool();
+	CTrueIR::typed_pointer_type<const CTrueIR::ISpectralVariable> etaH = {};
+#if 0 // TODO: pass the transmission info
+	if (isBTDF)
+	{
+		etaH = irPool.emplace<CTrueIR::CSpectralVariable<>>();
+		if (!etaH)
+			return {};
+	}
+#endif
 	const auto retval = irPool.emplace<CTrueIR::CCookTorrance>();
 	if (auto* const ct=irPool.deref(retval); ct)
 	{
-		ct->ndParams = ndParams;
+		ct->ndfParams = ndParams; // the padding abuse is the same between the classes
+		ct->orientedRealEta = etaH;
 	}
 	return retval;
-#endif
 }
 
 auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST) -> oriented_material_t
@@ -696,38 +701,28 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH) -> CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum>
 {
 	// debug what we're processing
+	SDotPrinter astPrinter(srcAST);
 	auto printSubtree = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH)->void
 	{
-		SDotPrinter printer(srcAST);
-		printer.exprStack.push(nodeH);
-		args.logger.log("Subtree Dot3 : \n%s\n", ELL_DEBUG,printer().c_str());
+		assert(astPrinter.exprStack.empty());
+		astPrinter.exprStack.push(nodeH);
+		args.logger.log("Subtree Dot3 : \n%s\n", ELL_DEBUG,astPrinter().c_str());
+		assert(astPrinter.exprStack.empty());
 	};
 
 	using contributor_sum_handle_t = CTrueIR::typed_pointer_type<CTrueIR::CContributorSum>;
 	contributor_sum_handle_t headH = {};
 	if (!bxdfRootH)
 		return headH;
+	// temporary debug for WIP
 	printSubtree(bxdfRootH);
-	
-	// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
-	auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
-	{
-		// monochrome is cheaper
-		if (lhs.monochrome!=rhs.monochrome)
-			return lhs.monochrome;
-		// not doing a complement is cheaper
-		if (lhs.handle.value==rhs.handle.value)
-			return lhs.negate<rhs.negate;
-		// but want negations to show up together in the sorted list so easier to put back together
-		return lhs.handle.value<rhs.handle.value;
-	};
 
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
 	// scratches are initialized
 	assert(mulChain.empty());
 	assert(contributorStack.empty());
-	exprStack.push_back({.node=astPool.deref(bxdfRootH)});
+	exprStack.push_back({.nodeH=bxdfRootH});
 	contributor_sum_handle_t tailH = {};
 	while (!exprStack.empty())
 	{
@@ -742,15 +737,24 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		}
 #endif
 		auto& entry = exprStack.back();
+		const auto* const node = astPool.deref(entry.nodeH);
 		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
-		const ast_expr_type_e astExprType = entry.node->getType();
+		const ast_expr_type_e astExprType = node->getType();
 		const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
 		//
 		if (entry.notVisited())
 		{
 			if (isContributor)
 			{
-				contributorStack.push_back({.contributor=static_cast<const IContributor*>(entry.node)->createIRNode(srcAST,tmpIR.get())});
+				const auto contributorH = static_cast<const IContributor*>(node)->createIRNode(srcAST,tmpIR.get());
+				// TODO: recompute instead of compute
+				if (!contributorH || irPool.deref(contributorH)->computeHash(irPool)==core::blake3_hash_t{})
+				{
+					args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
+					printSubtree(entry.nodeH);
+					assert(false); // unimplemented
+				}
+				contributorStack.push_back({.contributor=contributorH});
 				exprStack.pop_back();
 			}
 			else
@@ -765,7 +769,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 				const bool notMul = astExprType!=ast_expr_type_e::Mul;
 				// go through children
-				const auto childCount = entry.node->getChildCount();
+				const auto childCount = node->getChildCount();
 				// add in reverse so stack processes in order
 				for (auto childIx=childCount; childIx; )
 				{
@@ -778,7 +782,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					}
 					// regular exploration
 					exprStack.push_back({
-						.node = astPool.deref(entry.node->getChildHandle(--childIx)),
+						.nodeH = node->getChildHandle(--childIx),
 						// to be able to go back to the non mul that is supposed to add our subtree
 						.nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd
 					});
@@ -804,30 +808,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							headH = tailH;
 					}
 					// add current contributor with weight to BxDF Sum
-					{
-						const auto weightedH = irPool.emplace<CTrueIR::CWeightedContributor>();
-						irPool.deref(tailH)->product = weightedH;
-						auto* weighted = irPool.deref(weightedH);
-						weighted->contributor = contributorStack.back().contributor;
-						if (!mulChain.empty())
-						{
-							const CTrueIR::CFactorCombiner::SState combinerState = {
-								.type = CTrueIR::CFactorCombiner::Type::Mul,
-								.childCount = mulChain.size()
-							};
-							// TODO: create the combiner node
-							//const auto factorH = getObjectPool().emplace<CFactorCombiner>();
-							{
-								// every contributor node gets its own SORTED ancestor prefix
-								mulChainSortScratch = mulChain;
-								std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
-								//auto oit = getObjectPool().deref(factorH)->child;
-								//for (const auto& mul : mulChainSortScratch)
-									//*(oit++) = mul.handle;
-							}
-							//weighted->factor = factorH;
-						}
-					}
+					irPool.deref(tailH)->product = popContributor();
 					// when we are done we need to reset the mul chain back to its original state
 					mulChain.resize(entry.mulChainLen);
 					break;
@@ -845,18 +826,55 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		assert(contributorStack.size()==1);
 		// add the contributor
 		headH = irPool.emplace<CTrueIR::CContributorSum>();
-		{
-			const auto weightedH = irPool.emplace<CTrueIR::CWeightedContributor>();
-			irPool.deref(weightedH)->contributor = contributorStack.back().contributor;
-			irPool.deref(headH)->product = weightedH;
-			// TODO: do the factor as a mul chain!
-		}
+		irPool.deref(headH)->product = popContributor();
 		mulChain.clear();
-		contributorStack.clear();
 	}
 	// we got all the AST ADD nodes on the way back out
 	assert(mulChain.empty());
 	return headH;
+}
+
+//
+auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_type<const CTrueIR::CWeightedContributor>
+{
+	auto& irPool = tmpIR->getObjectPool();
+	//
+	const auto retval = irPool.emplace<CTrueIR::CWeightedContributor>();
+	auto* weighted = irPool.deref(retval);
+	weighted->contributor = contributorStack.back().contributor;
+	contributorStack.pop_back();
+	if (!mulChain.empty())
+	{
+		assert(false); // unimplemented
+		const CTrueIR::CFactorCombiner::SState combinerState = {
+			.type = CTrueIR::CFactorCombiner::Type::Mul,
+			.childCount = mulChain.size()
+		};
+		// TODO: create the combiner node
+		//const auto factorH = getObjectPool().emplace<CFactorCombiner>();
+		{
+			// every contributor node gets its own SORTED ancestor prefix
+			mulChainSortScratch = mulChain;
+			// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
+			auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
+			{
+				// monochrome is cheaper
+				if (lhs.monochrome!=rhs.monochrome)
+					return lhs.monochrome;
+				// not doing a complement is cheaper
+				if (lhs.handle.value==rhs.handle.value)
+					return lhs.negate<rhs.negate;
+				// but want negations to show up together in the sorted list so easier to put back together
+				return lhs.handle.value<rhs.handle.value;
+			};
+			std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
+			//auto oit = getObjectPool().deref(factorH)->child;
+			//for (const auto& mul : mulChainSortScratch)
+				//*(oit++) = mul.handle;
+		}
+		//weighted->factor = factorH;
+	}
+	return retval;
 }
 
 //

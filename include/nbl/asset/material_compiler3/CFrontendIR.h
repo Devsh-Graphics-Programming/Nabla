@@ -226,19 +226,7 @@ class CFrontendIR final : public CNodePool
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable);}
 				// Variable length but has no children
 
-				enum class Semantics : uint8_t
-				{
-					NoneUndefined = 0,
-					// 3 knots, their wavelengths are implied and fixed at color primaries
-					Fixed3_SRGB = 1,
-					Fixed3_DCI_P3 = 2,
-					Fixed3_BT2020 = 3,
-					Fixed3_AdobeRGB = 4,
-					Fixed3_AcesCG = 5,
-					// Ideas: each node is described by (wavelength,value) pair
-					// PairsLinear = 5, // linear interpolation
-					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
-				};
+				using semantics_e = CTrueIR::ISpectralVariable::ESemantics;
 
 				//
 				template<uint8_t Count>
@@ -248,24 +236,24 @@ class CFrontendIR final : public CNodePool
 					CTrueIR::SParameterSet<Count> knots = {};
 
 					// a little bit of abuse and padding reuse
-					static_assert(sizeof(CTrueIR::SParameter::padding)>2);
 					template<bool Enable=true> requires (Enable==(Count>1))
-					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(knots.params[0].padding[2]); }
+					semantics_e& getSemantics() {return reinterpret_cast<semantics_e&>(knots.params[1].padding[0]); }
 					template<bool Enable=true> requires (Enable==(Count>1))
-					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
+					const semantics_e& getSemantics() const {return const_cast<const semantics_e&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
 				};
 				//
 				template<uint8_t Count>
 				inline CSpectralVariable(SCreationParams<Count>&& params)
 				{
 					// back up the count
+					static_assert(sizeof(CTrueIR::SParameter::padding)>1);
 					params.knots.params[0].padding[1] = Count;
 					// set it correctly for monochrome
 					if constexpr (Count==1)
-						params.knots.params[0].padding[2] = static_cast<uint8_t>(Semantics::NoneUndefined);
+						params.knots.params[1].padding[0] = static_cast<uint8_t>(semantics_e::NoneUndefined);
 					else
 					{
-						assert(params.getSemantics()!=Semantics::NoneUndefined);
+						assert(params.getSemantics()!=semantics_e::NoneUndefined);
 					}
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
 				}
@@ -282,14 +270,13 @@ class CFrontendIR final : public CNodePool
 				inline uint8_t getKnotCount() const
 				{
 					static_assert(sizeof(CTrueIR::SParameter::padding)>1);
-					return paramsBeginPadding()[1];
+					return pWonky()->knots.params[0].padding[1];
 				}
-				inline Semantics getSemantics() const
+				inline semantics_e getSemantics() const
 				{
-					static_assert(sizeof(CTrueIR::SParameter::padding)>2);
-					const auto retval = static_cast<Semantics>(paramsBeginPadding()[2]);
-					assert((getKnotCount()==1)==(retval==Semantics::NoneUndefined));
-					return retval;
+					if (getKnotCount()<2)
+						return semantics_e::NoneUndefined;
+					return static_cast<semantics_e>(pWonky()->knots.params[1].padding[0]);
 				}
 
 				//
@@ -334,11 +321,11 @@ class CFrontendIR final : public CNodePool
 					if (const auto semantic=getSemantics(); knotCount>1)
 					switch (semantic)
 					{
-						case Semantics::Fixed3_SRGB: [[fallthrough]];
-						case Semantics::Fixed3_DCI_P3: [[fallthrough]];
-						case Semantics::Fixed3_BT2020: [[fallthrough]];
-						case Semantics::Fixed3_AdobeRGB: [[fallthrough]];
-						case Semantics::Fixed3_AcesCG:
+						case semantics_e::Fixed3_SRGB: [[fallthrough]];
+						case semantics_e::Fixed3_DCI_P3: [[fallthrough]];
+						case semantics_e::Fixed3_BT2020: [[fallthrough]];
+						case semantics_e::Fixed3_AdobeRGB: [[fallthrough]];
+						case semantics_e::Fixed3_AcesCG:
 							if (knotCount!=3)
 							{
 								args.logger.log("Semantic %d is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic),knotCount);
@@ -364,7 +351,6 @@ class CFrontendIR final : public CNodePool
 			private:
 				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
 				const SCreationParams<1>* pWonky() const {return reinterpret_cast<const SCreationParams<1>*>(this+1);}
-				const uint8_t* paramsBeginPadding() const {return pWonky()->knots.params[0].padding;}
 		};
 		//
 		class IUnaryOp : public obj_pool_type::INonTrivial, public IExprNode
@@ -639,7 +625,10 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline uint8_t getChildCount() const override {return 0;}
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
-				inline COrenNayar() = default;
+				inline COrenNayar()
+				{
+					ndParams.getDistribution() = CTrueIR::SBasicNDFParams::EDistribution::Invalid;
+				}
 
 				CTrueIR::SBasicNDFParams ndParams = {};
 
@@ -658,25 +647,19 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline uint8_t getChildCount() const override {return 1;}
 
-				enum class NDF : uint8_t
-				{
-					GGX = 0,
-					Beckmann = 1
-				};
-
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
-				inline CCookTorrance() = default;
+
+				inline CCookTorrance()
+				{
+					ndParams.getDistribution() = CTrueIR::SBasicNDFParams::EDistribution::GGX;
+				}
+				
+				inline bool isEtaReciprocal() const {return ndParams.params[2].padding[0];}
+				inline void setEtaReciprocal(const bool value) {ndParams.params[2].padding[0] = value;}
 
 				CTrueIR::SBasicNDFParams ndParams = {};
-				// We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
-				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
-				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
-				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
-				// BRDFs and BTDFs components into separate expressions, and also importance sample much better, for details see comments in CTrueIR. 
+				// See the comments in CTrueIR about this on a matching class 
 				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
-				// TODO: these could be put in the padding of `ndParams.params`
-				NDF ndf : 7 = NDF::GGX;
-				uint8_t reciprocateEta : 1 = false;
 
 			protected:
 				COPY_DEFAULT_IMPL
@@ -689,10 +672,13 @@ class CFrontendIR final : public CNodePool
 				inline bool reciprocatable() const override {return true;}
 				inline void reciprocate(IExprNode* dst) const override
 				{
-					(*static_cast<CCookTorrance*>(dst) = *this).reciprocateEta = ~reciprocateEta;
+					(*static_cast<CCookTorrance*>(dst) = *this).setEtaReciprocal(!isEtaReciprocal());
 				}
 
-				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
+				inline core::string getLabelSuffix() const override
+				{
+					return ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
+				}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
@@ -876,6 +862,8 @@ class CFrontendIR final : public CNodePool
 
 			NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
 
+			NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CWeightedContributor> popContributor();
+
 			// inputs to the addMaterials function
 			const SAddMaterialsArgs& args;
 			// for rewriting AST expressions
@@ -929,7 +917,7 @@ class CFrontendIR final : public CNodePool
 			{
 				inline bool notVisited() const {return !visited;}
 
-				const CFrontendIR::IExprNode* node;
+				CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH;
 				// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
 				uint16_t nonMulImmediateAncestorStackEnd = 0;
 				// the length of the `mulChain` at the time we first visited the node

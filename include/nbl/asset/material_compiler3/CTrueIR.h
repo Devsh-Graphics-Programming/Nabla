@@ -57,8 +57,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			// at this stage we store the multipliers in highest precision
 			float scale = std::numeric_limits<float>::infinity();
 			// rest are ignored if the view is null
-			uint8_t viewChannel : 2 = 0;
-			uint8_t padding[3] = {0,0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
+			uint16_t viewChannel : 2 = 0;
+			uint8_t padding[2] = {0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
 			// lodbias and clamp shadow comparison functions, anisotropy and minFilter are ignored
 			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
@@ -103,6 +103,15 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// TODO: should really be 5 parameters (2+3) cause of rotatable anisotropic roughness
 		struct SBasicNDFParams : SParameterSet<4>
 		{
+			enum class EDistribution : uint8_t
+			{
+				GGX = 0,
+				Beckmann = 1,
+				Invalid = 255
+			};
+			inline EDistribution& getDistribution() {return reinterpret_cast<EDistribution&>(params[1].padding[0]);}
+			inline const EDistribution& getDistribution() const {return reinterpret_cast<const EDistribution&>(params[1].padding[0]);}
+
 			inline auto getDerivMap() {return std::span<SParameter,2>(params,2);}
 			inline auto getDerivMap() const {return std::span<const SParameter,2>(params,2);}
 			inline auto getRougness() {return std::span<SParameter,2>(params+2,2);}
@@ -110,6 +119,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					
 			inline SBasicNDFParams()
 			{
+				getDistribution() = EDistribution::Invalid;
 				// initialize with constant flat deriv map and smooth roughness
 				for (auto& param : params)
 					param.scale = 0.f;
@@ -183,14 +193,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					CWeightedContributor,
 					CEmitter,
 					CDeltaTransmission,
-					CParameters_1,
-					CParameters_2,
-					CParameters_3,
-					CParameters_4,
+					CSpectralVariable_1,
+					CSpectralVariable_2,
+					CSpectralVariable_3,
+					CSpectralVariable_4,
 					COrenNayar,
 					CCookTorrance,
-					CFactorCombiner,
-					CConstantFactor
+					CFactorCombiner
 				};
 				virtual EFinalType getFinalType() const = 0;
 
@@ -413,28 +422,73 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// this node must be non-null until the last layer
 				typed_pointer_type<const CCorellatedTransmission> firstTransmission = {};
 		};
+		//
+		class IFactorLeaf : public IFactor
+		{
+			public:
+				inline bool isScalar() const {return getSpectralBins()==1;}
 
-		// TODO: break this into UV-sample-able params and regular params
-		template<uint8_t Channels>
-		class CParameters final : public obj_pool_type::INonTrivial, public INode
+				virtual uint8_t getSpectralBins() const = 0;
+		};
+		class ISpectralVariable : public IFactorLeaf
+		{
+			public:
+				enum class ESemantics : uint8_t
+				{
+					NoneUndefined = 0,
+					// 3 knots, their wavelengths are implied and fixed at color primaries
+					Fixed3_SRGB = 1,
+					Fixed3_DCI_P3 = 2,
+					Fixed3_BT2020 = 3,
+					Fixed3_AdobeRGB = 4,
+					Fixed3_AcesCG = 5,
+					// Ideas: each node is described by (wavelength,value) pair
+					// PairsLinear = 5, // linear interpolation
+					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
+				};
+		};
+		template<uint8_t SpectralBins>
+		class CSpectralVariable final : public obj_pool_type::INonTrivial, public ISpectralVariable
 		{
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
 					hasher << paramSet;
+					if constexpr (SpectralBins>1)
+					{
+						if (!getSemantics()==ESemantics::NoneUndefined)
+							return false;
+						hasher << getSemantics();
+					}
 					return true;
 				}
 
 			public:
 				inline EFinalType getFinalType() const override
 				{
-					static_assert(1<=Channels && Channels<=4);
-					return static_cast<EFinalType>(static_cast<uint8_t>(EFinalType::CParameters_1)-1+Channels);
+					static_assert(1<=SpectralBins && SpectralBins<=4);
+					return static_cast<EFinalType>(static_cast<uint8_t>(EFinalType::CSpectralVariable_1)-1+SpectralBins);
+				}
+				
+				// TODO: improve the token pasting here
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable<SpectralBins>);}
+
+				//
+				inline uint8_t getSpectralBins() const {return SpectralBins;}
+
+				//
+				template<uint8_t N> requires (N>1 && N==SpectralBins)
+				inline ESemantics getSemantics() const {return static_cast<ESemantics>(paramSet.params[1].padding[0]);}
+				template<uint8_t N> requires (N>1 && N==SpectralBins)
+				inline void setSemantics(const ESemantics value) {paramSet.params[1].padding[0] = static_cast<uint8_t>(value);}
+
+				// you can set the children later
+				inline CSpectralVariable()
+				{
+					if constexpr (SpectralBins>1)
+						setSemantics(ESemantics::Fixed3_SRGB);
 				}
 
-				// TODO: improve the token pasting here
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CParameters<Count>);}
-
-				SParameterSet<Channels> paramSet = {};
+				SParameterSet<SpectralBins> paramSet = {};
 		};
 		
 		// Unit Radiance emitter modulated by an IES profile
@@ -514,12 +568,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Both this and Yining are faster because of the 2 BxDF evaluations instead of 3, and they only differ by the inter-facet shadowing and masking functions and the tangent facet normal is computed.
 		// However an orthogonal microfacet will work better for BSDFs because the facet tangents and normals form a square and not a rhombus, which means that a V to the "left" of the perturbed normal
 		// will always be to the "right" of the orthogonal microfacet, meaning we'll get a consistent refraction (both L=refract(V,facet) will curve away from -V in the same direction.
-		class IBxDF : public obj_pool_type::INonTrivial, public IContributor
+		class IBxDF : public IContributor
 		{
 			public:
 				inline bool isEmitter() const override {return false;}
 		};
-		class CDeltaTransmission final : public IBxDF
+		class CDeltaTransmission final : public obj_pool_type::INonTrivial, public IBxDF
 		{
 				// nothing to do
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override {return true;}
@@ -533,56 +587,66 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 		class IBxDFWithNDF : public IBxDF
 		{
+			protected:
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					assert(false); // unimplemented
-					return false;
+					hasher << ndfParams;
+					return true;
 				}
 
 			public:
-				// CParameters<4> ?
-				//CNodePool::SBasicNDFParams ndfParams;
+				SBasicNDFParams ndfParams = {};
 		};
-		class COrenNayar final : public IBxDFWithNDF
+		class COrenNayar final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
 		{
 			public:
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					if (ndfParams.getDistribution()!=SBasicNDFParams::EDistribution::Invalid)
+						return false;
+					IBxDFWithNDF::computeHash_impl(pool,hasher);
+					return true;
+				}
+
 				inline EFinalType getFinalType() const override {return EFinalType::COrenNayar;}
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 
 				inline COrenNayar() = default;
 		};
-		class CCookTorrance final : public IBxDFWithNDF
+		class CCookTorrance final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
 		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					if (ndfParams.getDistribution()>SBasicNDFParams::EDistribution::Beckmann)
+						return false;
+					IBxDFWithNDF::computeHash_impl(pool,hasher);
+					hasher << static_cast<uint8_t>(ndfParams.getDistribution());
+					hasher << isEtaReciprocal();
+					HASH_OPTIONALS_HASH(orientedRealEta);
+					return true;
+				}
+
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCookTorrance;}
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
 
 				inline CCookTorrance() = default;
+
+				//
+				inline bool isEtaReciprocal() const {return ndfParams.params[2].padding[0];}
+				inline void setEtaReciprocal(const bool value) {ndfParams.params[2].padding[0] = value;}
+
+				// BTDF ONLY! We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
+				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
+				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
+				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
+				// BRDFs and BTDFs components into separate expressions, and also importance sample much better. 
+				typed_pointer_type<const ISpectralVariable> orientedRealEta = {};
 		};
 		//! Parameter Nodes
-		// ScalarConstant
-		// SpectralConstant
 		//! Basic factor nodes
-		class IFactorLeaf : public IFactor {};
-		// TODO use CParameters<1> or CParameters<3> + colorpsace semantics (part of `CSpectralVariable`)
-		class CConstantFactor final : public obj_pool_type::INonTrivial, public IFactorLeaf
-		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
-				{
-					assert(false);// TODO: hash the parameter
-					return false;
-				}
-
-			public:
-				inline EFinalType getFinalType() const override {return EFinalType::CConstantFactor;}
-
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CConstant);}
-
-				// you can set the children later
-				inline CConstantFactor() = default;
-		};
 #undef TYPE_NAME_STR
 #undef HASH_THE_HASH
 		
@@ -881,7 +945,8 @@ struct core::blake3_hasher::update_impl<CTrueIR::SBasicNDFParams,Dummy>
 		using type_e = input_t::EParamType;
 		const type_e type = input.determineParamType();
 		update_impl<uint8_t>::__call(hasher,static_cast<uint8_t>(type));
-		update_impl<asset::material_compiler3::CTrueIR::SParameterSet<4>>::__call(hasher,*this);
+		update_impl<asset::material_compiler3::CTrueIR::SParameterSet<4>>::__call(hasher,input);
+		hasher << input.getDistribution();
 		// reference stretch can be applied on non-mapped NDFs too
 		if (!input.stretchInvariant())
 			hasher << input.reference;
