@@ -23,7 +23,6 @@ from ci_common import (
     print_console_tail,
     require_sha,
     start_file_job,
-    start_files_job,
     stop_build,
     wait_build,
     wait_workflow_job_artifact,
@@ -33,7 +32,7 @@ from ci_common import (
 
 REPO = "Devsh-Graphics-Programming/Nabla"
 BRANCH = "ptCLI"
-CONFIGS = {"RelWithDebInfo", "Release", "Debug"}
+BUILD_CONFIG = "Release"
 SCENES = {"both", "public", "private"}
 MAX_PACKAGE_BYTES = 200 * 1024 * 1024
 
@@ -45,14 +44,14 @@ def package_path(base, relative):
     return base / path
 
 
-def source_values(run, config, scene_set, publish, require_green=True):
+def source_values(run, scene_set, publish, require_green=True):
     if run.get("head_branch") != BRANCH:
         raise CiError(f"Expected {BRANCH}, got {run.get('head_branch')}.")
     if run.get("name") != "Build" or (require_green and run.get("conclusion") != "success"):
         raise CiError(f"Build run {run.get('id')} is not green.")
     return {
         "run_id": run["id"],
-        "build_config": choice(config, CONFIGS, "build config"),
+        "build_config": BUILD_CONFIG,
         "scene_set": choice(scene_set, SCENES, "scene set"),
         "publish": bool_text(publish),
         "branch": BRANCH,
@@ -79,23 +78,22 @@ def resolve(args):
             "Nabla (windows-2022, msvc-17.13.6, Release)",
             "run-windows-*-msvc-Release-install",
         )
-        values = source_values(run, "Release", "both", "true", require_green=False)
+        values = source_values(run, "both", "true", require_green=False)
     else:
         run = json_request("GET", f"https://api.github.com/repos/{REPO}/actions/runs/{args.run_id}", headers)
-        values = source_values(run, args.build_config, args.scene_set, args.publish)
+        values = source_values(run, args.scene_set, args.publish)
     output(values)
     print(f"Resolved Build run {values['run_id']} on {BRANCH} at {values['sha']}.")
 
 
 def package(args):
-    config = choice(args.build_config, CONFIGS, "build config")
     artifact = Path(args.artifact_dir)
     extract_single_tar(artifact, "*-install.tar")
     install_root = artifact / "build-ct" / "install"
-    root = install_root if config == "Release" else install_root / config.lower()
+    root = install_root
     out = Path(args.package_root)
     shutil.rmtree(out, ignore_errors=True)
-    prefix = Path() if config == "Release" else Path(config.lower())
+    prefix = Path()
     copy_contents(root / "runtime", out / prefix / "runtime")
     copy_contents(root / "exe" / "examples_tests" / "40_PathTracer" / "bin", out / prefix / "exe" / "examples_tests" / "40_PathTracer" / "bin")
     manifest = root / "EX40Runtime.json"
@@ -120,10 +118,6 @@ def package(args):
 
 def set_status(args, suite, state, target, description):
     commit_status(REPO, args.sha, args.github_token, f"jenkins/path-tracer-{suite}", state, target, description)
-
-
-def set_compare_status(args, suite, state, target, description):
-    commit_status(REPO, args.sha, args.github_token, f"jenkins/path-tracer-compare-{suite}", state, target, description)
 
 
 def start_suite(args, headers, suite):
@@ -162,45 +156,6 @@ def start_suite(args, headers, suite):
     return job, number, result, build_url
 
 
-def start_compare_suite(args, headers, suite):
-    job = f"ci/ditt/compare/o1experimental-vs-o3-{suite}"
-    set_compare_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Waiting for Jenkins {suite} O1experimental vs O3 comparison.")
-    cancel_superseded(args.jenkins_url, headers, job, {"SOURCE_REPOSITORY": REPO, "SOURCE_BRANCH": BRANCH}, {
-        "SOURCE_RUN_ID": args.source_run_id,
-        "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
-    })
-    fields = {
-        "PUBLISH": args.publish,
-        "SOURCE_REPOSITORY": REPO,
-        "SOURCE_BRANCH": BRANCH,
-        "SOURCE_SHA": args.sha,
-        "SOURCE_RUN_ID": args.source_run_id,
-        "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
-        "SOURCE_WORKFLOW": args.source_workflow,
-    }
-    files = [
-        ("EX40_RELEASE_PACKAGE_FILE", args.release_package_path),
-        ("EX40_O1_PACKAGE_FILE", args.o1_package_path),
-    ]
-    number = start_files_job(args.jenkins_url, headers, job, fields, files)
-    build_url = f"{args.jenkins_url.rstrip('/')}/{job_path(job)}/{number}/"
-    set_compare_status(args, suite, "pending", build_url, f"Jenkins {suite} O1experimental vs O3 build #{number} is running.")
-    print(f"Started Jenkins {job} #{number}: {build_url}")
-    try:
-        result = wait_build(args.jenkins_url, headers, job, number, int(args.jenkins_timeout_minutes) * 60)
-    except CiError:
-        stop_build(args.jenkins_url, headers, job, number)
-        print_console_tail(args.jenkins_url, headers, job, number)
-        set_compare_status(args, suite, "failure", build_url, f"Jenkins {suite} comparison did not complete.")
-        raise
-    if result not in {"SUCCESS", "UNSTABLE"}:
-        print_console_tail(args.jenkins_url, headers, job, number)
-        set_compare_status(args, suite, "failure", build_url, f"Jenkins {suite} comparison finished with {result}.")
-        raise CiError(f"Jenkins {job} #{number} finished with {result}.")
-    set_compare_status(args, suite, "success", build_url, f"Jenkins {suite} O1experimental vs O3 {result.lower()}.")
-    return job, number, result, build_url
-
-
 def trigger(args):
     if args.repository != REPO or choice(args.branch, {BRANCH}, "branch") != BRANCH:
         raise CiError("Invalid source repository or branch.")
@@ -223,49 +178,22 @@ def trigger(args):
         print(f"{result[0]} #{result[1]} {result[2]} {result[3]}")
 
 
-def trigger_compare(args):
-    if args.repository != REPO or choice(args.branch, {BRANCH}, "branch") != BRANCH:
-        raise CiError("Invalid source repository or branch.")
-    args.sha = require_sha(args.sha)
-    args.scene_set = choice(args.scene_set, SCENES, "scene set")
-    args.publish = bool_text(args.publish)
-    if not args.jenkins_url.startswith("https://") or not args.jenkins_user or not args.jenkins_token:
-        raise CiError("Invalid Jenkins connection settings.")
-    if not args.source_run_id.isdigit() or not args.source_run_attempt.isdigit():
-        raise CiError("Invalid source run metadata.")
-    if not args.jenkins_timeout_minutes.isdigit() or not 10 <= int(args.jenkins_timeout_minutes) <= 720:
-        raise CiError("Invalid Jenkins timeout.")
-    for path in [Path(args.release_package_path), Path(args.o1_package_path)]:
-        if not path.is_file() or path.stat().st_size > MAX_PACKAGE_BYTES:
-            raise CiError("Invalid compare package path or size.")
-    headers = basic_headers(args.jenkins_user, args.jenkins_token)
-    add_jenkins_crumb(args.jenkins_url, headers)
-    suites = ["public", "private"] if args.scene_set == "both" else [args.scene_set]
-    for result in [start_compare_suite(args, headers, suite) for suite in suites]:
-        print(f"{result[0]} #{result[1]} {result[2]} {result[3]}")
-
-
 def parser():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
     resolve_parser = sub.add_parser("resolve")
     add_args(resolve_parser, ["github-token", "repository", "event-name"])
     add_args(resolve_parser, ["branch", "sha", "run-id"], False, "")
-    resolve_parser.add_argument("--build-config", default="Release")
     resolve_parser.add_argument("--scene-set", default="both")
     resolve_parser.add_argument("--publish", default="true")
     resolve_parser.set_defaults(func=resolve)
     package_parser = sub.add_parser("package")
-    add_args(package_parser, ["artifact-dir", "build-config", "package-root", "zip-path"])
+    add_args(package_parser, ["artifact-dir", "package-root", "zip-path"])
     package_parser.set_defaults(func=package)
     trigger_parser = sub.add_parser("trigger")
     add_args(trigger_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "github-token", "package-path", "repository", "branch", "sha", "source-run-id", "source-run-attempt", "source-workflow", "scene-set", "publish"])
     trigger_parser.add_argument("--jenkins-timeout-minutes", default="300")
     trigger_parser.set_defaults(func=trigger)
-    compare_parser = sub.add_parser("trigger-compare")
-    add_args(compare_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "github-token", "release-package-path", "o1-package-path", "repository", "branch", "sha", "source-run-id", "source-run-attempt", "source-workflow", "scene-set", "publish"])
-    compare_parser.add_argument("--jenkins-timeout-minutes", default="420")
-    compare_parser.set_defaults(func=trigger_compare)
     return parser
 
 

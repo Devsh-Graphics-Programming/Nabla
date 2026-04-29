@@ -8,15 +8,6 @@ on:
       run_id:
         description: "Build workflow run id to use as the EX40 package source"
         required: true
-      build_config:
-        description: "Build configuration that produced the install artifact"
-        required: true
-        default: "Release"
-        type: choice
-        options:
-          - Release
-          - RelWithDebInfo
-          - Debug
       scene_set:
         description: "Path tracer scene set to run in Jenkins"
         required: true
@@ -67,7 +58,6 @@ jobs:
             --branch "${{ github.ref_name }}" \
             --sha "${{ github.sha }}" \
             --run-id "${{ inputs.run_id }}" \
-            --build-config "${{ inputs.build_config || 'Release' }}" \
             --scene-set "${{ inputs.scene_set || 'both' }}" \
             --publish "${{ inputs.publish }}"
 
@@ -86,7 +76,6 @@ jobs:
         run: |
           python3 .github/scripts/path_tracer_jenkins.py package \
             --artifact-dir artifact \
-            --build-config "${{ steps.source.outputs.build_config }}" \
             --package-root ex40-runtime-package \
             --zip-path ex40-runtime-package.zip
 
