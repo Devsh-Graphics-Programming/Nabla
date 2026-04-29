@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import tarfile
 import time
 import urllib.error
@@ -17,17 +18,32 @@ class CiError(RuntimeError):
     pass
 
 
+TRANSIENT_HTTP_CODES = {408, 429, 500, 502, 503, 504}
+
+
 def request(method, url, headers=None, body=None, content_type=None):
     request_headers = dict(headers or {})
     if content_type:
         request_headers["Content-Type"] = content_type
     req = urllib.request.Request(url, data=body, headers=request_headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=60) as response:
-            return response.status, response.headers, response.read()
-    except urllib.error.HTTPError as exc:
-        data = exc.read().decode("utf-8", errors="replace")
-        raise CiError(f"HTTP {exc.code} from {url}: {data[:800]}") from exc
+    attempts = 6 if method.upper() == "GET" else 1
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                return response.status, response.headers, response.read()
+        except urllib.error.HTTPError as exc:
+            if attempt < attempts and exc.code in TRANSIENT_HTTP_CODES:
+                print(f"Transient HTTP {exc.code}; retrying request {attempt}/{attempts}.")
+                time.sleep(min(5 * attempt, 30))
+                continue
+            data = exc.read().decode("utf-8", errors="replace")
+            raise CiError(f"HTTP {exc.code} from {url}: {data[:800]}") from exc
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+            if attempt < attempts:
+                print(f"Transient request failure; retrying request {attempt}/{attempts}.")
+                time.sleep(min(5 * attempt, 30))
+                continue
+            raise CiError(f"HTTP request failed for {url}: {exc}") from exc
 
 
 def json_request(method, url, headers=None, payload=None):
