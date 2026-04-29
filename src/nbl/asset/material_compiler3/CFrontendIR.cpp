@@ -538,8 +538,22 @@ void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::
 //!  AST-> IR methods
 auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
-	assert(false); // unimplemented
-	return {};
+	auto& irPool = ir->getObjectPool();
+	const auto profileH = irPool.emplace<CTrueIR::CParameters<2>>();
+	if (auto* const profile=irPool.deref(profileH); profile)
+	{
+		return {}; // unimplemented
+//		profile->paramSet = profile;
+	}
+	else
+		return {};
+	const auto retval = irPool.emplace<CTrueIR::CEmitter>();
+	if (auto* const contributor=irPool.deref(retval))
+	{
+		contributor->profile = profileH;
+		contributor->profileTransform = profileTransform;
+	}
+	return retval;
 }
 
 auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
@@ -549,14 +563,31 @@ auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrue
 
 auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
-	assert(false); // unimplemented
-	return {};
+	auto& irPool = ir->getObjectPool();
+	const auto retval = irPool.emplace<CTrueIR::COrenNayar>();
+	if (auto* const contributor = irPool.deref(retval))
+	{
+		return {}; // unimplemented
+//		contributor->ndParams = ndParams;
+	}
+	return retval;
 }
 
 auto CFrontendIR::CCookTorrance::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
-	assert(false); // unimplemented
-	return {};
+	auto& irPool = ir->getObjectPool();
+	return {}; // unimplemented
+#if 0
+	const auto etaH = irPool.emplace<CTrueIR::CRealEta>();
+	if (!etaH)
+		return {};
+	const auto retval = irPool.emplace<CTrueIR::CCookTorrance>();
+	if (auto* const ct=irPool.deref(retval); ct)
+	{
+		ct->ndParams = ndParams;
+	}
+	return retval;
+#endif
 }
 
 auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST) -> oriented_material_t
@@ -629,20 +660,30 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			// ideas for the pass:
 			// - skip replace delta transmissions by the layer undernearth, if null then keep as delta
 			// - if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
+			// - order the `CWeightedContributor` within the `CContributorSum` linked list so emitters are first, and so on (null products go last)
 			// observations:
 			// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
 
 			// TODO: combine layer meta with `retval.metadata`
 
 			// Set this for the next layer after us, we are reflective or previous layer scatters back towards us and we don't block it
-			layersBelowCanScatterBack = bool(outLayer->brdfTop) || layersBelowCanScatterBack && outLayer->firstTransmission;
+			if (outLayer)
+				layersBelowCanScatterBack = bool(outLayer->brdfTop) || layersBelowCanScatterBack && outLayer->firstTransmission;
+			else
+				layersBelowCanScatterBack = false;
 		}
 	}
-	// quick sanity check
-	assert((retval.root ? bool(irPool.deref(retval.root)->firstTransmission):false)==layersBelowCanScatterBack);
-	// might turn this into an assert
+	layerStack.clear();
+	// last touch ups
 	if (retval.root)
+	{
+		// might turn this into an assert
 		retval.metadata |= CTrueIR::SMaterial::EMetadataBits::NotBlackhole;
+	}
+	else
+	{
+		assert(!layersBelowCanScatterBack);
+	}
 	return retval;
 }
 
