@@ -16,6 +16,7 @@ concurrency:
 jobs:
   prepare-host-rg:
     name: Prepare host ripgrep
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: windows-2022
 
     steps:
@@ -50,6 +51,7 @@ jobs:
   build-windows:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
     needs: prepare-host-rg
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ${{ matrix.os }}
 
     env:
@@ -462,7 +464,7 @@ jobs:
   examples-status:
     name: Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
     needs: build-windows
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -526,7 +528,7 @@ jobs:
 
   update-badges:
     name: Update Build & Image Badges
-    if: ${{ always() && github.ref == 'refs/heads/master' }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && (github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
     needs: build-windows
     runs-on: windows-2022
     permissions:
@@ -594,7 +596,7 @@ jobs:
 
   deploy-production:
     name: Deploy Godbolt production image
-    if: ${{ always() && github.ref == 'refs/heads/master' }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && (github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
     needs: build-windows
     runs-on: windows-2022
 
@@ -630,6 +632,7 @@ jobs:
   smoke-tests:
     name: Nabla / Smoke (${{ matrix.os }}, ${{ matrix.vendor }}-latest, ${{ matrix.config }})
     needs: build-windows
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: windows-2022
     strategy:
       fail-fast: false
