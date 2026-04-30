@@ -270,11 +270,39 @@ def cancel_older_workflow_runs(repo, token, workflow_name, branch, current_run_i
                 continue
             if current_created and run.get("created_at", "") >= current_created:
                 continue
-            json_request("POST", f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/cancel", headers)
+            cancel_workflow_run(repo, headers, run["id"])
             cancelled.append(run["id"])
             print(f"Cancelled superseded {workflow_name} run {run['id']} on {branch}.")
     if not cancelled:
         print(f"No superseded {workflow_name} runs found on {branch}.")
+
+
+def workflow_run_status(repo, headers, run_id):
+    run = json_request("GET", f"https://api.github.com/repos/{repo}/actions/runs/{run_id}", headers)
+    return run.get("status"), run.get("conclusion")
+
+
+def wait_workflow_run_completed(repo, headers, run_id, timeout_seconds):
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        status, conclusion = workflow_run_status(repo, headers, run_id)
+        if status == "completed":
+            return conclusion or ""
+        time.sleep(5)
+    status, _ = workflow_run_status(repo, headers, run_id)
+    return "" if status != "completed" else "completed"
+
+
+def cancel_workflow_run(repo, headers, run_id):
+    json_request("POST", f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/cancel", headers)
+    conclusion = wait_workflow_run_completed(repo, headers, run_id, 45)
+    if conclusion:
+        return
+    print(f"Workflow run {run_id} did not stop after cancel; force-cancelling.")
+    json_request("POST", f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/force-cancel", headers)
+    conclusion = wait_workflow_run_completed(repo, headers, run_id, 60)
+    if not conclusion:
+        raise CiError(f"Workflow run {run_id} is still running after force-cancel.")
 
 
 def parameter(actions, name):
