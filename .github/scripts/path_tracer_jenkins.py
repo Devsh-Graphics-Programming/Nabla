@@ -3,6 +3,8 @@ import argparse
 import json
 import shutil
 import sys
+import time
+import urllib.parse
 from pathlib import Path
 
 from ci_common import (
@@ -18,6 +20,7 @@ from ci_common import (
     copy_contents,
     extract_single_tar,
     github_headers,
+    jget,
     job_path,
     json_request,
     output,
@@ -36,6 +39,7 @@ BRANCH = "ptCLI"
 BUILD_CONFIG = "Release"
 SCENES = {"both", "public", "private"}
 MAX_PACKAGE_BYTES = 200 * 1024 * 1024
+KEEP_WAIT_POLL_SECONDS = 30
 
 
 def package_path(base, relative):
@@ -133,13 +137,44 @@ def cancel_jenkins(args):
         cancel_matching(args.jenkins_url, headers, f"ci/ditt/real/ex40-{suite}", match)
 
 
+def active_job_items(base, headers, job):
+    path = job_path(job)
+    result = []
+    tree = urllib.parse.quote("builds[number,building]", safe="")
+    for build in jget(base, headers, f"/{path}/api/json?tree={tree}").get("builds", []):
+        if build.get("building"):
+            result.append(f"build #{build['number']}")
+    tree = urllib.parse.quote("items[id,task[fullName]]", safe="")
+    for item in jget(base, headers, f"/queue/api/json?tree={tree}").get("items", []):
+        if (item.get("task") or {}).get("fullName") == job:
+            result.append(f"queue item {item['id']}")
+    return result
+
+
+def wait_job_idle(args, headers, job):
+    deadline = time.monotonic() + int(args.jenkins_timeout_minutes) * 60
+    while True:
+        active = active_job_items(args.jenkins_url, headers, job)
+        if not active:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise CiError(f"Timed out waiting for Jenkins {job} to become idle.")
+        print(f"Waiting for Jenkins {job} before keep-mode trigger: {', '.join(active)}.")
+        time.sleep(min(KEEP_WAIT_POLL_SECONDS, remaining))
+
+
 def start_suite(args, headers, suite):
     job = f"ci/ditt/real/ex40-{suite}"
     set_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Waiting for Jenkins {suite} path tracer run.")
-    cancel_superseded(args.jenkins_url, headers, job, {"SOURCE_REPOSITORY": REPO, "SOURCE_BRANCH": BRANCH}, {
-        "SOURCE_RUN_ID": args.source_run_id,
-        "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
-    })
+    if args.preempt == "true":
+        cancel_superseded(args.jenkins_url, headers, job, {"SOURCE_REPOSITORY": REPO, "SOURCE_BRANCH": BRANCH}, {
+            "SOURCE_RUN_ID": args.source_run_id,
+            "SOURCE_RUN_ATTEMPT": args.source_run_attempt,
+        })
+    else:
+        print(f"Jenkins preemption disabled for {job}; waiting for the job to become idle.")
+        wait_job_idle(args, headers, job)
     fields = {
         "FAIL_ON_RENDER_FAILURE": "false",
         "PUBLISH": args.publish,
@@ -179,6 +214,7 @@ def trigger(args):
     args.sha = require_sha(args.sha)
     args.scene_set = choice(args.scene_set, SCENES, "scene set")
     args.publish = bool_text(args.publish)
+    args.preempt = bool_text(args.preempt)
     if not args.jenkins_url.startswith("https://") or not args.jenkins_user or not args.jenkins_token:
         raise CiError("Invalid Jenkins connection settings.")
     if not args.source_run_id.isdigit() or not args.source_run_attempt.isdigit():
@@ -214,6 +250,7 @@ def parser():
     trigger_parser = sub.add_parser("trigger")
     add_args(trigger_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "github-token", "package-path", "repository", "branch", "sha", "source-run-id", "source-run-attempt", "source-workflow", "scene-set", "publish"])
     trigger_parser.add_argument("--jenkins-timeout-minutes", default="300")
+    trigger_parser.add_argument("--preempt", default="true")
     trigger_parser.set_defaults(func=trigger)
     return parser
 

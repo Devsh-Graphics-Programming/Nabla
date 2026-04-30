@@ -31,6 +31,7 @@ permissions:
 jobs:
   cancel-superseded:
     name: Cancel superseded Path Tracer Jenkins runs
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -43,7 +44,7 @@ jobs:
             .github/scripts
 
       - name: Cancel older Actions runs
-        if: github.event_name == 'push'
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '/ci keep') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -55,7 +56,7 @@ jobs:
             --run-id "${{ github.run_id }}"
 
       - name: Cancel older Jenkins runs
-        if: github.event_name == 'push'
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '/ci keep') }}
         env:
           JENKINS_URL: https://jenkins.devsh.eu
           JENKINS_USER: ${{ secrets.JENKINS_DITT_USER }}
@@ -71,7 +72,7 @@ jobs:
   trigger-jenkins:
     name: Trigger Path Tracer Jenkins
     needs: cancel-superseded
-    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
@@ -136,4 +137,5 @@ jobs:
             --source-run-attempt "${{ steps.source.outputs.run_attempt }}" \
             --source-workflow "${{ steps.source.outputs.workflow }}" \
             --scene-set "${{ steps.source.outputs.scene_set }}" \
-            --publish "${{ steps.source.outputs.publish }}"
+            --publish "${{ steps.source.outputs.publish }}" \
+            --preempt "${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '/ci keep') }}"

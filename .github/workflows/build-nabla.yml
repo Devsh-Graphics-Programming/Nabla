@@ -12,6 +12,7 @@ permissions:
 jobs:
   cancel-superseded:
     name: Cancel superseded Build runs
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +25,7 @@ jobs:
             .github/scripts
 
       - name: Cancel older branch builds
-        if: github.event_name == 'push'
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '/ci keep') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -38,7 +39,7 @@ jobs:
   prepare-host-rg:
     name: Prepare host ripgrep
     needs: cancel-superseded
-    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: windows-2022
 
     steps:
@@ -73,7 +74,7 @@ jobs:
   build-windows:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
     needs: prepare-host-rg
-    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ${{ matrix.os }}
 
     env:
@@ -486,7 +487,7 @@ jobs:
   examples-status:
     name: Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
     needs: build-windows
-    if: ${{ always() && (github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
+    if: ${{ always() && (github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -550,7 +551,7 @@ jobs:
 
   update-badges:
     name: Update Build & Image Badges
-    if: ${{ always() && github.ref == 'refs/heads/master' && (github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && (github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
     needs: build-windows
     runs-on: windows-2022
     permissions:
@@ -618,7 +619,7 @@ jobs:
 
   deploy-production:
     name: Deploy Godbolt production image
-    if: ${{ always() && github.ref == 'refs/heads/master' && (github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && (github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci'))) }}
     needs: build-windows
     runs-on: windows-2022
 
@@ -654,7 +655,7 @@ jobs:
   smoke-tests:
     name: Nabla / Smoke (${{ matrix.os }}, ${{ matrix.vendor }}-latest, ${{ matrix.config }})
     needs: build-windows
-    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
+    if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '/ci skip') && !contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: windows-2022
     strategy:
       fail-fast: false

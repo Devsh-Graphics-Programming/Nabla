@@ -12,6 +12,8 @@
     <img src="https://img.shields.io/discord/308323056592486420?label=discord&logo=discord&logoColor=white&color=7289DA" alt="Join our Discord" /></a>
 </p>
 
+Push CI understands `/ci skip` and `/ci keep` commit-message commands. See [`docs/ci-commands.md`](docs/ci-commands.md).
+
 # Table of Contents
 
 1. [Showcase](#showcase)
