@@ -1,0 +1,47 @@
+name: Cancel Superseded Runs
+
+on:
+  push:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  cancel:
+    name: Cancel older runs on this branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Cancel older Actions runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for workflow in "Build" "Run Path Tracer Jenkins" "Cancel Superseded Runs"; do
+            python3 .github/scripts/cancel_older_runs.py \
+              --github-token "$GH_TOKEN" \
+              --repository "${{ github.repository }}" \
+              --workflow-name "$workflow" \
+              --branch "${{ github.ref_name }}" \
+              --run-id "${{ github.run_id }}"
+          done
+
+      - name: Cancel older Jenkins runs
+        env:
+          JENKINS_URL: https://jenkins.devsh.eu
+          JENKINS_USER: ${{ secrets.JENKINS_DITT_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_DITT_TOKEN }}
+        run: |
+          python3 .github/scripts/path_tracer_jenkins.py cancel-jenkins \
+            --jenkins-url "$JENKINS_URL" \
+            --jenkins-user "$JENKINS_USER" \
+            --jenkins-token "$JENKINS_TOKEN" \
+            --repository "${{ github.repository }}" \
+            --branch "${{ github.ref_name }}"

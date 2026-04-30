@@ -255,6 +255,7 @@ def cancel_older_workflow_runs(repo, token, workflow_name, branch, current_run_i
     headers = github_headers(token)
     current = json_request("GET", f"https://api.github.com/repos/{repo}/actions/runs/{current_run_id}", headers)
     current_created = current.get("created_at", "")
+    current_sha = current.get("head_sha", "")
     statuses = ["queued", "in_progress", "waiting", "requested", "pending"]
     cancelled = []
     for status in statuses:
@@ -264,6 +265,8 @@ def cancel_older_workflow_runs(repo, token, workflow_name, branch, current_run_i
             if int(run.get("id") or 0) == int(current_run_id):
                 continue
             if run.get("name") != workflow_name or run.get("head_branch") != branch:
+                continue
+            if current_sha and run.get("head_sha") == current_sha:
                 continue
             if current_created and run.get("created_at", "") >= current_created:
                 continue
