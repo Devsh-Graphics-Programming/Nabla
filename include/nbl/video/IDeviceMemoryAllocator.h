@@ -47,11 +47,11 @@ class NBL_API2 IDeviceMemoryAllocator
 					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
 					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
 					external_handle_t handle) : 
-          m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), 
-          m_reqs(reqs), 
-          m_handleType(handleType),
+					m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), 
+					m_reqs(reqs), 
+					m_handleType(handleType),
 					m_handle(handle)
-        {}
+				{}
 
 				static inline uint32_t end() {return 32u;}
 
@@ -96,7 +96,7 @@ class NBL_API2 IDeviceMemoryAllocator
 					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
 					external_handle_t handle
 				) : 
-        IMemoryTypeIterator(reqs, allocateFlags, handleType, handle)
+				IMemoryTypeIterator(reqs, allocateFlags, handleType, handle)
 				{
 					currentIndex = hlsl::findLSB(m_reqs.memoryTypeBits);
 				}
