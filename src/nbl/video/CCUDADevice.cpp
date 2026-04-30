@@ -40,7 +40,21 @@ CCUDADevice::CCUDADevice(
 
 	for (uint32_t locationType = 0; locationType < m_allocationGranularity.size(); ++locationType)
 	{
-		const auto prop = getMemAllocationProp(static_cast<CUmemLocationType>(locationType));
+	
+    #ifdef _WIN32
+      OBJECT_ATTRIBUTES metadata = {
+        .Length = sizeof(OBJECT_ATTRIBUTES)
+      };
+    #endif
+
+	  const auto prop = CUmemAllocationProp{
+      .type = CU_MEM_ALLOCATION_TYPE_PINNED,
+      .requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
+      .location = { .type = static_cast<CUmemLocationType>(locationType), .id = m_handle },
+  #ifdef _WIN32
+      .win32HandleMetaData = &metadata,
+  #endif
+    };
 		ASSERT_CUDA_SUCCESS(cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM), m_handler);
 	}
 }
@@ -81,32 +95,27 @@ CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 	return CUDA_SUCCESS;
 }
 
-CUmemAllocationProp CCUDADevice::getMemAllocationProp(CUmemLocationType locationType) const
-{
-	
-#ifdef _WIN32
-	OBJECT_ATTRIBUTES metadata = {};
-	metadata.Length = sizeof(OBJECT_ATTRIBUTES);
-#endif
-
-	 return {
-		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
-		.location = { .type = locationType, .id = m_handle },
-#ifdef _WIN32
-		.win32HandleMetaData = &metadata,
-#endif
-	};
-}
-
 core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemory(CCUDAExportableMemory::SCreationParams&& inParams)
 {
 	CCUDAExportableMemory::SCachedCreationParams params = { inParams };
 
 	auto& cu = m_handler->getCUDAFunctionTable();
-
-	const auto prop = getMemAllocationProp(params.location);
 	
+#ifdef _WIN32
+	OBJECT_ATTRIBUTES metadata = {
+	  .Length = sizeof(OBJECT_ATTRIBUTES)
+	};
+#endif
+
+	 const auto prop = CUmemAllocationProp{
+		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
+		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
+		.location = { .type = params.location, .id = m_handle },
+#ifdef _WIN32
+		.win32HandleMetaData = &metadata,
+#endif
+	};
+
 	params.granularSize = roundToGranularity(params.location, params.size);
 
 	CUmemGenericAllocationHandle mem;

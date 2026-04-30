@@ -100,8 +100,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 	private:
 		CUresult reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory) const;
 
-		CUmemAllocationProp getMemAllocationProp(CUmemLocationType locationType) const;
-		
 		static constexpr auto CudaMemoryLocationCount = 5;
 
     const system::logger_opt_ptr m_logger;
