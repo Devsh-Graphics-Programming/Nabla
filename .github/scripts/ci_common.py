@@ -251,6 +251,29 @@ def wait_workflow_job_artifact(repo, workflow_file, branch, sha, headers, workfl
     raise CiError(f"Timed out waiting for {workflow_name} {job_name} artifact for {sha}.")
 
 
+def cancel_older_workflow_runs(repo, token, workflow_name, branch, current_run_id):
+    headers = github_headers(token)
+    current = json_request("GET", f"https://api.github.com/repos/{repo}/actions/runs/{current_run_id}", headers)
+    current_created = current.get("created_at", "")
+    statuses = ["queued", "in_progress", "waiting", "requested", "pending"]
+    cancelled = []
+    for status in statuses:
+        query = urllib.parse.urlencode({"branch": branch, "status": status, "per_page": 100})
+        runs = json_request("GET", f"https://api.github.com/repos/{repo}/actions/runs?{query}", headers).get("workflow_runs", [])
+        for run in runs:
+            if int(run.get("id") or 0) == int(current_run_id):
+                continue
+            if run.get("name") != workflow_name or run.get("head_branch") != branch:
+                continue
+            if current_created and run.get("created_at", "") >= current_created:
+                continue
+            json_request("POST", f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/cancel", headers)
+            cancelled.append(run["id"])
+            print(f"Cancelled superseded {workflow_name} run {run['id']} on {branch}.")
+    if not cancelled:
+        print(f"No superseded {workflow_name} runs found on {branch}.")
+
+
 def parameter(actions, name):
     for action in actions or []:
         for parameter in action.get("parameters") or []:
@@ -294,6 +317,22 @@ def cancel_superseded(base, headers, job, match, current):
     tree = urllib.parse.quote("items[id,task[fullName],actions[parameters[name,value]]]", safe="")
     for item in jget(base, headers, f"/queue/api/json?tree={tree}").get("items", []):
         if (item.get("task") or {}).get("fullName") == job and superseded(item.get("actions"), match, current):
+            jpost(base, headers, f"/queue/cancelItem?id={item['id']}")
+
+
+def cancel_matching(base, headers, job, match):
+    path = job_path(job)
+    tree = urllib.parse.quote("builds[number,building,actions[parameters[name,value]]]", safe="")
+    for build in jget(base, headers, f"/{path}/api/json?tree={tree}").get("builds", []):
+        values = parameters(build.get("actions"))
+        if build.get("building") and all(values.get(key) == value for key, value in match.items()):
+            print(f"Stopping superseded Jenkins build {job} #{build['number']}.")
+            jpost(base, headers, f"/{path}/{build['number']}/stop")
+    tree = urllib.parse.quote("items[id,task[fullName],actions[parameters[name,value]]]", safe="")
+    for item in jget(base, headers, f"/queue/api/json?tree={tree}").get("items", []):
+        values = parameters(item.get("actions"))
+        if (item.get("task") or {}).get("fullName") == job and all(values.get(key) == value for key, value in match.items()):
+            print(f"Cancelling superseded Jenkins queue item {item['id']} for {job}.")
             jpost(base, headers, f"/queue/cancelItem?id={item['id']}")
 
 

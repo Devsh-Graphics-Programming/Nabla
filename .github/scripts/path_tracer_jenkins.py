@@ -11,6 +11,7 @@ from ci_common import (
     add_jenkins_crumb,
     basic_headers,
     bool_text,
+    cancel_matching,
     cancel_superseded,
     choice,
     commit_status,
@@ -120,6 +121,18 @@ def set_status(args, suite, state, target, description):
     commit_status(REPO, args.sha, args.github_token, f"jenkins/path-tracer-{suite}", state, target, description)
 
 
+def cancel_jenkins(args):
+    if args.repository != REPO:
+        raise CiError("Invalid source repository.")
+    if not args.jenkins_url.startswith("https://") or not args.jenkins_user or not args.jenkins_token:
+        raise CiError("Invalid Jenkins connection settings.")
+    headers = basic_headers(args.jenkins_user, args.jenkins_token)
+    add_jenkins_crumb(args.jenkins_url, headers)
+    match = {"SOURCE_REPOSITORY": REPO, "SOURCE_BRANCH": args.branch}
+    for suite in ["public", "private"]:
+        cancel_matching(args.jenkins_url, headers, f"ci/ditt/real/ex40-{suite}", match)
+
+
 def start_suite(args, headers, suite):
     job = f"ci/ditt/real/ex40-{suite}"
     set_status(args, suite, "pending", f"https://github.com/{REPO}/actions/runs/{args.source_run_id}", f"Waiting for Jenkins {suite} path tracer run.")
@@ -195,6 +208,9 @@ def parser():
     package_parser = sub.add_parser("package")
     add_args(package_parser, ["artifact-dir", "package-root", "zip-path"])
     package_parser.set_defaults(func=package)
+    cancel_parser = sub.add_parser("cancel-jenkins")
+    add_args(cancel_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "repository", "branch"])
+    cancel_parser.set_defaults(func=cancel_jenkins)
     trigger_parser = sub.add_parser("trigger")
     add_args(trigger_parser, ["jenkins-url", "jenkins-user", "jenkins-token", "github-token", "package-path", "repository", "branch", "sha", "source-run-id", "source-run-attempt", "source-workflow", "scene-set", "publish"])
     trigger_parser.add_argument("--jenkins-timeout-minutes", default="300")

@@ -25,16 +25,52 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: write
   statuses: write
 
-concurrency:
-  group: path-tracer-jenkins-ptCLI
-  cancel-in-progress: true
-
 jobs:
+  cancel-superseded:
+    name: Cancel superseded Path Tracer Jenkins runs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout scripts
+        if: github.event_name == 'push'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Cancel older Actions runs
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/cancel_older_runs.py \
+            --github-token "$GH_TOKEN" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${{ github.ref_name }}" \
+            --run-id "${{ github.run_id }}"
+
+      - name: Cancel older Jenkins runs
+        if: github.event_name == 'push'
+        env:
+          JENKINS_URL: https://jenkins.devsh.eu
+          JENKINS_USER: ${{ secrets.JENKINS_DITT_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_DITT_TOKEN }}
+        run: |
+          python3 .github/scripts/path_tracer_jenkins.py cancel-jenkins \
+            --jenkins-url "$JENKINS_URL" \
+            --jenkins-user "$JENKINS_USER" \
+            --jenkins-token "$JENKINS_TOKEN" \
+            --repository "${{ github.repository }}" \
+            --branch "${{ github.ref_name }}"
+
   trigger-jenkins:
     name: Trigger Path Tracer Jenkins
+    needs: cancel-superseded
     if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 360

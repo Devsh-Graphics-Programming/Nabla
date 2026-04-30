@@ -7,15 +7,37 @@ on:
 
 permissions:
   contents: read
-  actions: read
-
-concurrency:
-  group: push-lock-${{ github.ref }}
-  cancel-in-progress: true
+  actions: write
 
 jobs:
+  cancel-superseded:
+    name: Cancel superseded Build runs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout scripts
+        if: github.event_name == 'push'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Cancel older branch builds
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/cancel_older_runs.py \
+            --github-token "$GH_TOKEN" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${{ github.ref_name }}" \
+            --run-id "${{ github.run_id }}"
+
   prepare-host-rg:
     name: Prepare host ripgrep
+    needs: cancel-superseded
     if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, 'no CI') && !contains(github.event.head_commit.message, 'no ci')) }}
     runs-on: windows-2022
 
