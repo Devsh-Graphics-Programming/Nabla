@@ -377,7 +377,7 @@ def stop_build(base, headers, job, number):
     path = job_path(job)
     if not build_is_running(base, headers, job, number):
         return True
-    for endpoint, wait_seconds in [("stop", 30), ("term", 60), ("kill", 30)]:
+    for endpoint, wait_seconds in [("stop", 10), ("term", 60), ("kill", 30)]:
         if not build_is_running(base, headers, job, number):
             return True
         try:
