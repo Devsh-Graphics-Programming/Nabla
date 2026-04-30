@@ -37,8 +37,10 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             , m_allocationAlignment(allocationAlignment)
             , m_allocationAlignmentForBufferImageCopy(allocationAlignmentForBufferImageCopy)
         {
-            m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
-            m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+            if (m_defaultDownloadBuffer)
+                m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+            if (m_defaultUploadBuffer)
+                m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
         }
         
         IUtilities() = delete;
@@ -94,6 +96,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer = nullptr;
 
             // Try Create Download Buffer
+            if (downstreamSize > 0u)
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = downstreamSize;
@@ -127,6 +130,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             // Try Create Upload Buffer
+            if (upstreamSize > 0u)
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = upstreamSize;
@@ -374,6 +378,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * data must not be nullptr
         inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, IUpstreamingDataProducer& callback)
         {
+            if (!m_defaultUploadBuffer)
+            {
+                m_logger.log("no staging buffer available for upload. check `upstreamSize` passed to `IUtilities::create`",system::ILogger::ELL_ERROR);
+                return false;
+            }
             if (!bufferRange.isValid() || !bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT))
             {
                 m_logger.log("Invalid `bufferRange` or buffer has no `EUF_TRANSFER_DST_BIT` usage flag, cannot `updateBufferRangeViaStagingBuffer`!", system::ILogger::ELL_ERROR);
@@ -623,6 +632,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>, SIntendedSubmitInfo>
         inline bool downloadBufferRangeViaStagingBuffer(const std::function<data_consumption_callback_t>& consumeCallback, IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange)
         {
+            if (!m_defaultDownloadBuffer)
+            {
+                m_logger.log("no staging buffer available for download. check `downstreamSize` passed to `IUtilities::create`",system::ILogger::ELL_ERROR);
+                return false;
+            }
             if (!srcBufferRange.isValid() || !srcBufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_SRC_BIT))
             {
                 m_logger.log("Invalid `srcBufferRange` or buffer has no `EUF_TRANSFER_SRC_BIT` usage flag, cannot `downloadBufferRangeViaStagingBuffer`!",system::ILogger::ELL_ERROR);

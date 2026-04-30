@@ -20,8 +20,6 @@
 #include <combaseapi.h>
 #include <sstream>
 #include <dxc/dxcapi.h>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -363,38 +361,132 @@ namespace nbl::wave
     extern nbl::core::string preprocess(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
 }
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+static bool isHorizontalWhitespace(const char c)
 {
-    const bool depfileEnabled = preprocessOptions.depfile;
+    return c == ' ' || c == '\t' || c == '\r' || c == '\v' || c == '\f';
+}
+
+static bool consumeIdentifier(std::string_view line, size_t& pos, const std::string_view identifier)
+{
+    if (line.substr(pos, identifier.size()) != identifier)
+        return false;
+
+    const size_t end = pos + identifier.size();
+    if (end < line.size())
+    {
+        const char next = line[end];
+        if ((next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z') || (next >= '0' && next <= '9') || next == '_')
+            return false;
+    }
+
+    pos = end;
+    return true;
+}
+
+static void normalizeLegacyShaderStagePragmas(std::string& code)
+{
+    std::string normalized;
+    normalized.reserve(code.size());
+
+    size_t lineStart = 0u;
+    while (lineStart < code.size())
+    {
+        const size_t lineEnd = code.find('\n', lineStart);
+        const bool hasNewline = lineEnd != std::string::npos;
+        const size_t lineSize = hasNewline ? (lineEnd - lineStart) : (code.size() - lineStart);
+        const std::string_view line(code.data() + lineStart, lineSize);
+
+        size_t pos = 0u;
+        while (pos < line.size() && isHorizontalWhitespace(line[pos]))
+            ++pos;
+
+        bool normalizedLegacyPragma = false;
+        if (pos < line.size() && line[pos] == '#')
+        {
+            ++pos;
+            while (pos < line.size() && isHorizontalWhitespace(line[pos]))
+                ++pos;
+
+            if (consumeIdentifier(line, pos, "pragma"))
+            {
+                while (pos < line.size() && isHorizontalWhitespace(line[pos]))
+                    ++pos;
+
+                const size_t pragmaArgumentPos = pos;
+                if (consumeIdentifier(line, pos, "shader_stage"))
+                    normalizedLegacyPragma = true;
+                else
+                    pos = pragmaArgumentPos;
+            }
+        }
+
+        if (normalizedLegacyPragma)
+        {
+            normalized.append(line.substr(0u, pos - std::string_view("shader_stage").size()));
+            normalized += "wave ";
+            normalized.append(line.substr(pos - std::string_view("shader_stage").size()));
+        }
+        else
+        {
+            normalized.append(line);
+        }
+
+        if (hasNewline)
+            normalized.push_back('\n');
+
+        lineStart = hasNewline ? (lineEnd + 1u) : code.size();
+    }
+
+    code = std::move(normalized);
+}
+
+static void ensureTrailingNewline(std::string& code)
+{
+    if (!code.empty() && code.back() != '\n' && code.back() != '\r')
+        code.push_back('\n');
+}
+
+static std::string preprocessShaderImpl(
+    std::string&& code,
+    IShader::E_SHADER_STAGE& stage,
+    const CHLSLCompiler::SPreprocessorOptions& preprocessOptions,
+    std::vector<std::string>& dxc_compile_flags_override,
+    std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>* dependencies,
+    system::ISystem* system)
+{
+    auto effectiveOptions = preprocessOptions;
+    IShaderCompiler::CIncludeFinder::SSessionCache localIncludeSessionCache;
+    if (effectiveOptions.includeFinder)
+    {
+        if (!effectiveOptions.readIncludeSessionCache && !effectiveOptions.writeIncludeSessionCache)
+        {
+            effectiveOptions.readIncludeSessionCache = &localIncludeSessionCache;
+            effectiveOptions.writeIncludeSessionCache = &localIncludeSessionCache;
+        }
+        else if (!effectiveOptions.readIncludeSessionCache && effectiveOptions.writeIncludeSessionCache)
+            effectiveOptions.readIncludeSessionCache = effectiveOptions.writeIncludeSessionCache;
+    }
+
+    const bool depfileEnabled = effectiveOptions.depfile;
     if (depfileEnabled)
     {
-        if (preprocessOptions.depfilePath.empty())
+        if (effectiveOptions.depfilePath.empty())
         {
-            preprocessOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
+            effectiveOptions.logger.log("Depfile path is empty.", system::ILogger::ELL_ERROR);
             return {};
         }
     }
 
-    std::vector<CCache::SEntry::SPreprocessingDependency> localDependencies;
+    std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> localDependencies;
     auto* dependenciesOut = dependencies;
     if (depfileEnabled && !dependenciesOut)
         dependenciesOut = &localDependencies;
 
-    // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
-    // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
-    size_t line_index = 0;
-    for (size_t i = 0; i < code.size(); i++) {
-        if (code[i] == '\n') {
-            auto line = code.substr(line_index, i - line_index);
-            boost::trim(line);
-            if (boost::starts_with(line, "#pragma"))
-                code.insert(i++, 1, '\n');
-            line_index = i;
-        }
-    }
+    normalizeLegacyShaderStagePragmas(code);
+    ensureTrailingNewline(code);
 
     // preprocess
-    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependenciesOut),
+    core::string resolvedString = nbl::wave::preprocess(code, effectiveOptions, bool(dependenciesOut),
         [&dxc_compile_flags_override, &stage, &dependenciesOut](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
@@ -409,36 +501,28 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     );
     
-    // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
-    if constexpr (false)
-    {
-        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
-        if (auto file=future.acquire(); file&&bool(*file))
-        {
-            system::IFile::success_t succ;
-            (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
-            succ.getBytesProcessed(true);
-        }
-    }
-
     if (resolvedString.empty())
         return resolvedString;
 
     if (depfileEnabled)
     {
         IShaderCompiler::DepfileWriteParams params = {};
-        const std::string depfilePathString = preprocessOptions.depfilePath.generic_string();
+        const std::string depfilePathString = effectiveOptions.depfilePath.generic_string();
         params.depfilePath = depfilePathString;
-        params.sourceIdentifier = preprocessOptions.sourceIdentifier;
+        params.sourceIdentifier = effectiveOptions.sourceIdentifier;
         if (!params.sourceIdentifier.empty())
             params.workingDirectory = std::filesystem::path(std::string(params.sourceIdentifier)).parent_path();
-        params.system = m_system.get();
-        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, preprocessOptions.includeFinder, preprocessOptions.logger))
+        params.system = system;
+        if (!IShaderCompiler::writeDepfile(params, *dependenciesOut, effectiveOptions.includeFinder, effectiveOptions.logger))
             return {};
     }
 
     return resolvedString;
+}
+
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+{
+    return preprocessShaderImpl(std::move(code), stage, preprocessOptions, dxc_compile_flags_override, dependencies, m_system.get());
 }
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
@@ -461,6 +545,46 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
 
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
     if (newCode.empty()) return nullptr;
+
+    auto saveToFile = [&](const std::string& filePath, const void* buffer, size_t size, const char* loggerName)
+    {
+        core::smart_refctd_ptr<system::IFile> saveFile;
+
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        // Ensure it doesn't exist
+        m_system->deleteFile(filePath + "_temp");
+        m_system->createFile(future, filePath + "_temp", system::IFile::ECF_WRITE);
+        if (future.wait())
+        {
+            future.acquire().move_into(saveFile);
+            if (saveFile)
+            {
+                system::IFile::success_t succ;
+                saveFile->write(succ, buffer, 0, size);
+                if (!succ)
+                {
+                    logger.log(std::string("Failed Writing To Temp ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+                    return;
+                }
+                saveFile = nullptr; // drop handle first
+                m_system->deleteFile(filePath); // safe to delete + rename
+                auto renameResult = m_system->moveFileOrDirectory(filePath + "_temp", filePath);
+                if (renameResult)
+                {
+                    logger.log(std::string("Failed Saving ") + loggerName + " File. Check it's not open.", nbl::system::ILogger::ELL_ERROR);
+                    // Clean up
+                    m_system->deleteFile(filePath + "_temp");
+                }
+            }
+            else
+                logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+        }
+        else
+            logger.log(std::string("Failed Creating ") + loggerName + " File.", nbl::system::ILogger::ELL_ERROR);
+    };
+
+    if (!options.preprocessedOutputPath.empty())
+        saveToFile(options.preprocessedOutputPath, newCode.data(), newCode.size(), "Preprocessed Output");
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
@@ -500,13 +624,13 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
                 // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
                 arguments.push_back(L"main");
             }
-            // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+            // If a custom SPIR-V optimizer is specified and set to replace default optimization passes, use that instead of DXC's spirv-opt.
             // This is how we can get more optimizer options.
             // 
             // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
             // optimization levels greater than zero; they will all invoke the same optimization recipe. 
             // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-            if (hlslOptions.spirvOptimizer)
+            if (hlslOptions.spirvOptimizer && !hlslOptions.optimizerIsExtraPasses)
                 arguments.push_back(L"-O0");
         }
         //
@@ -566,6 +690,9 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     // Optimizer step (TODO: improve by working on `compileResult.objectBlob->GetBufferPointer()` directly)
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
+
+    if (outSpirv && !options.spvOutputPath.empty())
+        saveToFile(options.spvOutputPath, outSpirv->getPointer(), outSpirv->getSize(), "SPIR-V Output");
 
     return core::make_smart_refctd_ptr<asset::IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }

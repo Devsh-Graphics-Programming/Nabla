@@ -46,6 +46,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
         }
 
         //
+        inline auto& getTargets() const {return base_t::getTargets();}
         inline core::vector<base_t::STarget>* getTargets()
         {
             if (isMutable())

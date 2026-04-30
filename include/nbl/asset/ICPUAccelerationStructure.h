@@ -247,13 +247,16 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 				geometryCount = m_triangleGeoms->size();
 			}
 
-      // https://registry.khronos.org/vulkan/specs/latest/man/html/vkGetAccelerationStructureBuildSizesKHR.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
-			if (geometryCount == 0) {
-				if (m_geometryPrimitiveCount && m_geometryPrimitiveCount->size() > 0) return false;
-			}
-		  else
+			// https://registry.khronos.org/vulkan/specs/latest/man/html/vkGetAccelerationStructureBuildSizesKHR.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
+			if (geometryCount == 0)
 			{
-				if (!m_geometryPrimitiveCount || m_geometryPrimitiveCount->size() != geometryCount) return false;
+				if (m_geometryPrimitiveCount && m_geometryPrimitiveCount->size() > 0)
+					return false;
+			}
+			else
+			{
+				if (!m_geometryPrimitiveCount || m_geometryPrimitiveCount->size() != geometryCount)
+					return false;
 			}
 			return true;
 		}
@@ -275,7 +278,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		core::smart_refctd_dynamic_array<uint32_t> m_geometryPrimitiveCount = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 
-    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 };
 
 class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelAccelerationStructure
@@ -287,14 +290,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 
 		//
 		ICPUTopLevelAccelerationStructure() = default;
-
-		//
-		inline auto& getBuildRangeInfo()
-		{
-			assert(isMutable());
-			return m_buildRangeInfo;
-		}
-		inline auto& getBuildRangeInfo() const {return m_buildRangeInfo;}
 		
 		//
 		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const {return m_buildFlags;}
@@ -365,7 +360,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 			auto cp = core::make_smart_refctd_ptr<ICPUTopLevelAccelerationStructure>();
 
 			cp->m_instances = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<PolymorphicInstance>>(*m_instances);
-			cp->m_buildRangeInfo = m_buildRangeInfo;
 			cp->m_buildFlags = m_buildFlags;
 
 			if (_depth--)
@@ -385,9 +379,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 			if (!m_instances) return false;
 			for (const auto& instance : *m_instances)
 				if (!instance.getBase().blas->valid()) return false;
-			if (m_buildRangeInfo.instanceCount != m_instances->size()) return false;
-			// https://registry.khronos.org/vulkan/specs/latest/man/html/VkAccelerationStructureBuildRangeInfoKHR.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03660
-			if (m_buildRangeInfo.instanceByteOffset % 16 != 0) return false;
 			return true;
 		}
 
@@ -396,15 +387,16 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 
 	private:
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
-		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 
-    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
-    {
-      if (!m_instances) return;
-      for (const auto& instance : *m_instances)
-        if (!visit(instance.getBase().blas.get())) return;
-    }
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		{
+			if (!m_instances)
+				return;
+			for (const auto& instance : *m_instances)
+			if (!visit(instance.getBase().blas.get()))
+				return;
+		}
 };
 
 }

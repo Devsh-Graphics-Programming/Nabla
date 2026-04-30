@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_RWMC_RESOLVE_PARAMETERS_HLSL_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include <nbl/builtin/hlsl/colorspace.hlsl>
 
 namespace nbl
 {
@@ -10,33 +11,48 @@ namespace hlsl
 namespace rwmc
 {
 
-struct ResolveParameters
+struct SResolveParameters
 {
-	uint32_t lastCascadeIndex;
-	float initialEmin; // a minimum image brightness that we always consider reliable
-	float reciprocalBase;
-	float reciprocalN;
-	float reciprocalKappa;
-	float colorReliabilityFactor;
-	float NOverKappa;
+	using scalar_t = float32_t;
+
+	struct SCreateParams
+	{
+		scalar_t minReliableLuma;
+		scalar_t kappa;
+		scalar_t start;
+		scalar_t base;
+		uint32_t sampleCount;
+	};
+
+	static SResolveParameters create(SCreateParams params)
+	{
+		SResolveParameters retval;
+		retval.initialEmin = params.minReliableLuma;
+		retval.reciprocalBase = 1.f / params.base;
+		const scalar_t N = scalar_t(params.sampleCount);
+		retval.reciprocalN = 1.f / N;
+		retval.reciprocalKappa = 1.f / params.kappa;
+		// if not interested in exact expected value estimation (kappa!=1.f), can usually accept a bit more variance relative to the image brightness we already have
+		// allow up to ~<cascadeBase> more energy in one sample to lessen bias in some cases
+		retval.colorReliabilityFactor = params.base + (1.f - params.base) * retval.reciprocalKappa;
+		retval.NOverKappa = N * retval.reciprocalKappa;
+
+		return retval;
+	}
+
+	template<typename SampleType, typename Colorspace = colorspace::scRGB>
+	scalar_t calcLuma(NBL_CONST_REF_ARG(SampleType) col)
+	{
+		return hlsl::dot<SampleType>(hlsl::transpose(Colorspace::ToXYZ())[1], col);
+	}
+
+	scalar_t initialEmin; // a minimum image brightness that we always consider reliable
+	scalar_t reciprocalBase;
+	scalar_t reciprocalN;
+	scalar_t reciprocalKappa;
+	scalar_t colorReliabilityFactor;
+	scalar_t NOverKappa;
 };
-
-inline ResolveParameters computeResolveParameters(float base, uint32_t sampleCount, float minReliableLuma, float kappa, uint32_t cascadeSize)
-{
-	ResolveParameters retval;
-	retval.lastCascadeIndex = cascadeSize - 1u;
-	retval.initialEmin = minReliableLuma;
-	retval.reciprocalBase = 1.f / base;
-	const float N = float(sampleCount);
-	retval.reciprocalN = 1.f / N;
-	retval.reciprocalKappa = 1.f / kappa;
-	// if not interested in exact expected value estimation (kappa!=1.f), can usually accept a bit more variance relative to the image brightness we already have
-	// allow up to ~<cascadeBase> more energy in one sample to lessen bias in some cases
-	retval.colorReliabilityFactor = base + (1.f - base) * retval.reciprocalKappa;
-	retval.NOverKappa = N * retval.reciprocalKappa;
-
-	return retval;
-}
 
 }
 }

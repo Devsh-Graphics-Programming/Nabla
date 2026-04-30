@@ -76,7 +76,8 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 			// Provided by VK_NV_displacement_micromap
 			ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT = 0x1u<<9u,
 			// Provided by VK_KHR_ray_tracing_position_fetch
-			ALLOW_DATA_ACCESS = 0x1u<<11u,
+			ALLOW_DATA_ACCESS_BIT = 0x1u<<11u,
+			ALLOW_DATA_ACCESS = ALLOW_DATA_ACCESS_BIT // deprecated
 		};
 
 		

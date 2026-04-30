@@ -98,6 +98,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct lgamma_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct beta_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct gamma_helper;
 
 #ifdef __HLSL_VERSION
 
@@ -195,12 +197,12 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
-		const FloatingPoint a1 = FloatingPoint(NBL_FP64_LITERAL(0.254829592));
-		const FloatingPoint a2 = FloatingPoint(NBL_FP64_LITERAL(-0.284496736));
-		const FloatingPoint a3 = FloatingPoint(NBL_FP64_LITERAL(1.421413741));
-		const FloatingPoint a4 = FloatingPoint(NBL_FP64_LITERAL(-1.453152027));
-		const FloatingPoint a5 = FloatingPoint(NBL_FP64_LITERAL(1.061405429));
-		const FloatingPoint p = FloatingPoint(NBL_FP64_LITERAL(0.3275911));
+		const FloatingPoint a1 = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.254829592));
+		const FloatingPoint a2 = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.284496736));
+		const FloatingPoint a3 = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(1.421413741));
+		const FloatingPoint a4 = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-1.453152027));
+		const FloatingPoint a5 = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(1.061405429));
+		const FloatingPoint p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.3275911));
 
 		FloatingPoint _sign = FloatingPoint(sign(_x));
 		FloatingPoint x = abs(_x);
@@ -391,10 +393,10 @@ struct erf_helper<float16_t>
 	static float16_t __call(float16_t _x)
 	{
 		// A&S approximation to 2.5x10-5
-		const float16_t a1 = float16_t(0.3480242f);
-		const float16_t a2 = float16_t(-0.0958798f);
-		const float16_t a3 = float16_t(0.7478556f);
-		const float16_t p = float16_t(0.47047f);
+		const float16_t a1 = _static_cast<float16_t>(0.3480242f);
+		const float16_t a2 = _static_cast<float16_t>(-0.0958798f);
+		const float16_t a3 = _static_cast<float16_t>(0.7478556f);
+		const float16_t p = _static_cast<float16_t>(0.47047f);
 
 		float16_t _sign = float16_t(sign<float16_t>(_x));
 		float16_t x = abs_helper<float16_t>::__call(_x);
@@ -412,35 +414,36 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
-		FloatingPoint x = clamp<FloatingPoint>(_x, FloatingPoint(NBL_FP64_LITERAL(-0.99999)), FloatingPoint(NBL_FP64_LITERAL(0.99999)));
+		// TODO: maybe need to replace `FloatingPoint(NBL_FP64_LITERAL` with `_static_cast<FloatingPoint>(NBL_FP64_LITERAL` to make DXC shut up
+		FloatingPoint x = clamp<FloatingPoint>(_x, _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.99999)), _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.99999)));
 
-		FloatingPoint w = -log_helper<FloatingPoint>::__call((FloatingPoint(NBL_FP64_LITERAL(1.0)) - x) * (FloatingPoint(NBL_FP64_LITERAL(1.0)) + x));
+		FloatingPoint w = -log_helper<FloatingPoint>::__call((_static_cast<FloatingPoint>(NBL_FP64_LITERAL(1.0)) - x) * (_static_cast<FloatingPoint>(NBL_FP64_LITERAL(1.0)) + x));
 		FloatingPoint p;
 		if (w < 5.0)
 		{
-			w -= FloatingPoint(NBL_FP64_LITERAL(2.5));
-			p = FloatingPoint(NBL_FP64_LITERAL(2.81022636e-08));
-			p = FloatingPoint(NBL_FP64_LITERAL(3.43273939e-07)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(-3.5233877e-06)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(-4.39150654e-06)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(0.00021858087)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(-0.00125372503)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(-0.00417768164)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(0.246640727)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(1.50140941)) + p * w;
+			w -= _static_cast<FloatingPoint>(NBL_FP64_LITERAL(2.5));
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(2.81022636e-08));
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(3.43273939e-07)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-3.5233877e-06)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-4.39150654e-06)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.00021858087)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.00125372503)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.00417768164)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.246640727)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(1.50140941)) + p * w;
 		}
 		else
 		{
 			w = sqrt_helper<FloatingPoint>::__call(w) - FloatingPoint(NBL_FP64_LITERAL(3.0));
-			p = FloatingPoint(NBL_FP64_LITERAL(-0.000200214257));
-			p = FloatingPoint(NBL_FP64_LITERAL(0.000100950558)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(0.00134934322)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(-0.00367342844)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(0.00573950773)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(-0.0076224613)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(0.00943887047)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(1.00167406)) + p * w;
-			p = FloatingPoint(NBL_FP64_LITERAL(2.83297682)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.000200214257));
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.000100950558)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.00134934322)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.00367342844)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.00573950773)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(-0.0076224613)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(0.00943887047)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(1.00167406)) + p * w;
+			p = _static_cast<FloatingPoint>(NBL_FP64_LITERAL(2.83297682)) + p * w;
 		}
 		return p * x;
 	}
@@ -603,6 +606,88 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 			return T(0.0);
 
 		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
+	}
+};
+
+// incomplete gamma function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	NBL_CONSTEXPR_STATIC_INLINE T epsilon = 1e-15;
+	NBL_CONSTEXPR_STATIC_INLINE T big = 4503599627370496.0;
+	NBL_CONSTEXPR_STATIC_INLINE T bigInv = 2.22044604925031308085e-16;
+
+	static T __call(T a, T x)
+	{
+        assert(a >= T(0.0) && x >= T(0.0));
+
+        if (x == T(0.0))
+            return T(0.0);
+
+        T ax = (a * log_helper<T>::__call(x)) - x - lgamma_helper<T>::__call(a);
+        if (ax < T(-709.78271289338399))
+            return hlsl::mix(T(0.0), T(1.0), a < x);
+
+        if (x <= T(1.0) || x <= a)
+        {
+            T r2 = a;
+            T c2 = T(1.0);
+            T ans2 = T(1.0);
+
+            do {
+                r2 = r2 + T(1.0);
+                c2 = c2 * x / r2;
+                ans2 += c2;
+            } while ((c2 / ans2) > epsilon);
+
+            return exp_helper<T>::__call(ax) * ans2 / a;
+        }
+
+        int c = 0;
+        T y = T(1.0) - a;
+        T z = x + y + T(1.0);
+        T p3 = T(1.0);
+        T q3 = x;
+        T p2 = x + T(1.0);
+        T q2 = z * x;
+        T ans = p2 / q2;
+        T error;
+
+        do {
+            c++;
+            y += T(1.0);
+            z += T(2.0);
+            T yc = y * c;
+            T p = (p2 * z) - (p3 * yc);
+            T q = (q2 * z) - (q3 * yc);
+
+            if (q != T(0.0))
+            {
+                T nextans = p / q;
+                error = abs_helper<T>::__call((ans - nextans) / nextans);
+                ans = nextans;
+            }
+            else
+            {
+                error = 1;
+            }
+
+            p3 = p2;
+            p2 = p;
+            q3 = q2;
+            q2 = q;
+
+            if (abs_helper<T>::__call(p) > big)
+            {
+                p3 *= bigInv;
+                p2 *= bigInv;
+                q3 *= bigInv;
+                q2 *= bigInv;
+            }
+        } while (error > epsilon);
+
+        return T(1.0) - (exp_helper<T>::__call(ax) * ans);
 	}
 };
 

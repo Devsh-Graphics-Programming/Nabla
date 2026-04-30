@@ -143,6 +143,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 
         void unmountBuiltins();
 		bool areBuiltinsMounted() const;
+        size_t getMountedBuiltinArchiveCount() const;
+        core::vector<system::path> getBuiltinMountAliases() const;
+        inline size_t getMountedArchiveCount() const { return m_cachedArchiveFiles.getSize(); }
 
         //
         struct SystemInfo
@@ -205,8 +208,16 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             //! The key is file extension
             core::CMultiObjectCache<std::string,core::smart_refctd_ptr<IArchiveLoader>,std::vector> perFileExt;
         } m_loaders;
+        struct SBuiltinMount
+        {
+            core::smart_refctd_ptr<IFileArchive> archive;
+            system::path pathAlias;
+        };
+        void mountBuiltin(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias = "");
+        bool isBuiltinMounted(const SBuiltinMount& mount) const;
         //
         core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
+        core::vector<SBuiltinMount> m_builtinMounts;
 
     private:
         struct SRequestParams_NOOP

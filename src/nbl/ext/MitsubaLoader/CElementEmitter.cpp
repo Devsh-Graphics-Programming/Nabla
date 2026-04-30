@@ -21,6 +21,8 @@ auto CElementEmitter::compAddPropertyMap() -> AddPropertyMap<CElementEmitter>
 	using this_t = CElementEmitter;
 	AddPropertyMap<CElementEmitter> retval;
 
+#pragma warning( push )
+#pragma warning( disable : 5103 )
 	// funky transform setting
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("position",POINT)
 		{
@@ -116,6 +118,7 @@ auto CElementEmitter::compAddPropertyMap() -> AddPropertyMap<CElementEmitter>
 	NBL_EXT_MITSUBA_LOADER_REGISTER_SIMPLE_ADD_VARIANT_PROPERTY_CONSTRAINED(gamma,FLOAT,std::is_same,EnvMap);
 
 #undef ADD_SPECTRUM
+#pragma warning( pop )
 	return retval;
 }
 

@@ -1,25 +1,20 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED_
+#define _NBL_CORE_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED_
 
-#ifndef __NBL_CORE_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __NBL_CORE_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
-
-#include "nbl/core/math/intutil.h"
-#include "nbl/core/math/glslFunctions.h"
-
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace nbl
-{
-namespace core
+
+namespace nbl::core
 {
 
+// base classes
 namespace impl
 {
-
 template<typename _size_type>
 class GeneralpurposeAddressAllocatorBase
 {
@@ -48,16 +43,16 @@ class GeneralpurposeAddressAllocatorBase
 
 
         // constructors
-        GeneralpurposeAddressAllocatorBase(size_type bufSz, size_type minBlockSz) noexcept :
+        inline GeneralpurposeAddressAllocatorBase(size_type bufSz, size_type minBlockSz) noexcept :
             bufferSize(bufSz), freeSize(0u), freeListCount(findFreeListCount(bufferSize,minBlockSz)),
             usingFirstBuffer(0u), minBlockSize(minBlockSz){}
-        GeneralpurposeAddressAllocatorBase(size_type newBuffSz, const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc) noexcept :
+        inline GeneralpurposeAddressAllocatorBase(size_type newBuffSz, const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc) noexcept :
             bufferSize(newBuffSz), freeSize(0u), freeListCount(findFreeListCount(bufferSize, other.minBlockSize)),
             usingFirstBuffer(0u), minBlockSize(other.minBlockSize)
         {
             copyState(other, newReservedSpc);
         }
-        GeneralpurposeAddressAllocatorBase(size_type newBuffSz, GeneralpurposeAddressAllocatorBase&& other, void* newReservedSpc) noexcept :
+        inline GeneralpurposeAddressAllocatorBase(size_type newBuffSz, GeneralpurposeAddressAllocatorBase&& other, void* newReservedSpc) noexcept :
             bufferSize(newBuffSz), freeSize(0u), freeListCount(findFreeListCount(bufferSize,other.minBlockSize)),
             usingFirstBuffer(0u), minBlockSize(other.minBlockSize)
         {
@@ -78,7 +73,7 @@ class GeneralpurposeAddressAllocatorBase
         virtual ~GeneralpurposeAddressAllocatorBase() {}
 
 
-        GeneralpurposeAddressAllocatorBase& operator=(GeneralpurposeAddressAllocatorBase&& other)
+        inline GeneralpurposeAddressAllocatorBase& operator=(GeneralpurposeAddressAllocatorBase&& other)
         {
             std::swap(bufferSize,other.bufferSize);
             std::swap(freeSize,other.freeSize);
@@ -100,9 +95,9 @@ class GeneralpurposeAddressAllocatorBase
         // members
         size_type               bufferSize;
         size_type               freeSize;
-public: // TODO!
+    public: // TODO!
         uint32_t                freeListCount;
-protected:
+    protected:
         uint32_t                usingFirstBuffer;
         size_type               minBlockSize;
 
@@ -274,7 +269,7 @@ protected:
             return hlsl::findMSB(byteSize/minBlockSz);
         }
         //!
-        void copyState(const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc)
+        inline void copyState(const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc)
         {
             swapFreeLists(newReservedSpc);
             // first, insert new block or trim existing
@@ -322,12 +317,12 @@ template<typename _size_type>
 class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
+
     protected:
         typedef typename Base::Block                            Block;
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         using Base::Base;
-
 
         inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
@@ -375,12 +370,12 @@ template<typename _size_type>
 class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
+
     protected:
         typedef typename Base::Block                            Block;
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         using Base::Base;
-
 
         inline std::pair<Block,Block>   findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
@@ -441,19 +436,20 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
     private:
         typedef AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type> Base;
         typedef typename AllocStrategy::Block                                               Block;
+
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
+        static constexpr inline bool supportsNullBuffer = true;
 
-        GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
+        inline GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
 
         virtual ~GeneralpurposeAddressAllocator() {}
 
-        // `reservedSpc` param for GeneralpurposeAddressAllocator cannot be nullptr because it needs some memory to operate. Get the exact amount of memory from the `reserved_size`
-        // method below.
-        GeneralpurposeAddressAllocator(void* reservedSpc, size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, size_type minBlockSz) noexcept :
-                    Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), AllocStrategy(bufSz-Base::alignOffset,minBlockSz)
+        using extra_ctor_param_types = type_list<size_type/*Minimum Block Size*/>;
+        // `reservedSpc` param for GeneralpurposeAddressAllocator cannot be nullptr because it needs some memory to operate. Get the exact amount of memory from the `reserved_size` method below.
+        inline GeneralpurposeAddressAllocator(void* reservedSpc, size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, size_type minBlockSz) noexcept :
+            Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), AllocStrategy(bufSz-Base::alignOffset,minBlockSz)
         {
             // buffer has to be large enough for at least one block of minimum size, buffer has to be smaller than magic value
             assert(bufSz>=Base::alignOffset+AllocStrategy::minBlockSize && AllocStrategy::bufferSize<invalid_address);
@@ -464,20 +460,14 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         }
 
         template<typename... Args>
-        GeneralpurposeAddressAllocator(size_type newBuffSz, const GeneralpurposeAddressAllocator& other, void* newReservedSpc, Args&&... args) noexcept :
-                    Base(other,newReservedSpc,std::forward<Args>(args)...),
-                    AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc)
-        {
-        }
+        inline GeneralpurposeAddressAllocator(size_type newBuffSz, const GeneralpurposeAddressAllocator& other, void* newReservedSpc, Args&&... args) noexcept :
+            Base(other,newReservedSpc,std::forward<Args>(args)...), AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc) {}
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
-        GeneralpurposeAddressAllocator(size_type newBuffSz, GeneralpurposeAddressAllocator&& other, void* newReservedSpc, Args&&... args) noexcept :
-                    Base(std::move(other),newReservedSpc,std::forward<Args>(args)...),
-                    AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc)
-        {
-        }
+        inline GeneralpurposeAddressAllocator(size_type newBuffSz, GeneralpurposeAddressAllocator&& other, void* newReservedSpc, Args&&... args) noexcept :
+            Base(std::move(other),newReservedSpc,std::forward<Args>(args)...), AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc) {}
 
-        GeneralpurposeAddressAllocator& operator=(GeneralpurposeAddressAllocator&& other)
+        inline GeneralpurposeAddressAllocator& operator=(GeneralpurposeAddressAllocator&& other)
         {
             Base::operator=(std::move(other));
             AllocStrategy::operator=(std::move(other));
@@ -690,17 +680,12 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         }
 };
 
-
-}
 }
 
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
-namespace nbl
+namespace nbl::core
 {
-namespace core
-{
-
 // aliases
 template<typename size_type>
 class GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<size_type>
@@ -726,8 +711,6 @@ class GeneralpurposeAddressAllocatorMT : public AddressAllocatorBasicConcurrency
 };
 
 }
-}
-
 #endif
 
 

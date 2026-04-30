@@ -51,9 +51,35 @@ jobs:
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
 
-            if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
-              docker network create --driver nat docker_default
-              if ($LASTEXITCODE -ne 0) { exit 1 }
+            $maxAttempts = 12
+            $delaySeconds = 5
+            $dockerReady = $false
+
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              $networkNames = docker network ls --format '{{.Name}}'
+              if ($LASTEXITCODE -eq 0) {
+                if (-not ($networkNames | Where-Object { $_ -eq 'docker_default' })) {
+                  docker network create --driver nat docker_default
+                  if ($LASTEXITCODE -eq 0) {
+                    $dockerReady = $true
+                    break
+                  }
+                }
+                else {
+                  $dockerReady = $true
+                  break
+                }
+              }
+
+              if ($attempt -lt $maxAttempts) {
+                Write-Host "Docker not ready yet (attempt $attempt/$maxAttempts), retry in ${delaySeconds}s..."
+                Start-Sleep -Seconds $delaySeconds
+              }
+            }
+
+            if (-not $dockerReady) {
+              Write-Error "Docker was not ready after $($maxAttempts*$delaySeconds)s total wait"
+              exit 1
             }
 
             $sendDiscord = "${{ inputs.withDiscordMSG }}" -eq "true"
@@ -97,7 +123,7 @@ jobs:
           & "nginx/nginx-1.24.0/nginx.exe" -t -p "nginx/nginx-1.24.0" -c "conf/nginx.conf"
 
       - name: Download NSC Godbolt artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           run-id: ${{ inputs.run_id }}
           pattern: run-windows-*-msvc-${{ inputs.build_config }}-nsc-godbolt-image

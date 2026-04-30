@@ -30,22 +30,6 @@ namespace nbl::ext::MitsubaLoader
 {
 class IElement;
 
-// TODO: replace with common Class for Material Compiler V3 Node Pool
-template<typename... types>
-class ElementPool final : public core::Unmovable// similar to : public std::tuple<core::vector<types>...>
-{
-		core::SimpleBlockBasedAllocator<core::LinearAddressAllocator<uint32_t>,core::aligned_allocator> poolAllocator;
-	public:
-		ElementPool() : poolAllocator(4096u*1024u, 256u, 256u) {} // TODO: is it correct?
-
-		template<typename T, typename... Args>
-		inline T* construct(Args&& ... args)
-		{
-			T* ptr = reinterpret_cast<T*>(poolAllocator.allocate(sizeof(T), alignof(T)));
-			return new (ptr) T(std::forward<Args>(args)...);
-		}
-};
-
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 class ParserManager final
 {
@@ -88,8 +72,15 @@ class ParserManager final
 
 			private:
 				friend class ParserManager;
-				// TODO: This leaks memory all over the place because destructors are not ran!
-				std::unique_ptr<ElementPool<>> objects = std::make_unique<ElementPool<>>();
+                struct PoolConfig
+                {
+                    using AddressAllocator = core::LinearAddressAllocator<uint32_t>;
+                    using HandleValue = void*;
+                    constexpr static inline bool ThreadSafe = false;
+                };
+				using pool_t = core::CObjectPool<PoolConfig>;
+				// could list transform  with supported_elements_t and have a separate pool per type
+				std::unique_ptr<pool_t> objects = std::make_unique<pool_t>(pool_t::creation_params_type{.composed={.addrAllocCtorExtraParams={},.blockSizeKBLog2=12,.initBlockCount=8}});
 		};
 		Result parse(system::IFile* _file, const Params& _params) const;
 		

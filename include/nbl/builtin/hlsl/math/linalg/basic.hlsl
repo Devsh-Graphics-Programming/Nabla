@@ -4,6 +4,7 @@
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/glslFunctions.h>
 #include "vectorSIMD.h"
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 #endif
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
@@ -23,7 +24,7 @@ MatT diagonal(typename matrix_traits<MatT>::scalar_type diagonal = 1)
 {
 	MatT output;
 	output[0][1] = 124;
-	using RowT = matrix_traits<MatT>::row_type;
+	using RowT = typename matrix_traits<MatT>::row_type;
 
 	NBL_UNROLL for (uint32_t i = 0; i < matrix_traits<MatT>::RowCount; ++i)
 	{
@@ -42,7 +43,7 @@ MatT identity()
 }
 
 template <uint16_t NOut, uint16_t MOut, uint16_t NIn, uint16_t MIn, typename T NBL_FUNC_REQUIRES(NOut <= NIn && MOut <= MIn && NOut != 0 && MOut != 0)
-inline matrix<T, NOut, MOut> truncate(const NBL_CONST_REF_ARG(matrix<T, NIn, MIn>) inMatrix)
+inline matrix<T, NOut, MOut> truncate(NBL_CONST_REF_ARG(matrix<T, NIn, MIn>) inMatrix)
 {
 	matrix<T, NOut, MOut> retval;
 
@@ -84,7 +85,7 @@ matrix<T, NOut, MOut> promote_affine(const matrix<T, NIn, MIn> inMatrix)
 {
 	matrix<T, NOut, MOut> retval;
 
-	using out_row_t = hlsl::vector<T, MOut>;
+	using out_row_t = vector<T, MOut>;
 
 	NBL_UNROLL for (uint32_t row_i = 0; row_i < NIn; row_i++)
 	{
@@ -140,7 +141,7 @@ namespace impl
 		{
 			To retval;
 
-			NBL_UNROLL for (int i = 0; i < N; ++i)
+			NBL_UNROLL for (uint16_t i = 0; i < N; ++i)
 			{
 				retval[i] = hlsl::_static_cast<ScalarTo>(vec[i]);
 			}

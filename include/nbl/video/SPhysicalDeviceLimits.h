@@ -19,7 +19,8 @@ namespace nbl::video
 // Struct is populated with Nabla Core Profile Limit Minimums
 struct SPhysicalDeviceLimits
 {
-    enum E_POINT_CLIPPING_BEHAVIOR : uint8_t {
+    enum E_POINT_CLIPPING_BEHAVIOR : uint8_t
+    {
         EPCB_ALL_CLIP_PLANES = nbl::hlsl::PointClippingBehavior::EPCB_ALL_CLIP_PLANES,
         EPCB_USER_CLIP_PLANES_ONLY = nbl::hlsl::PointClippingBehavior::EPCB_USER_CLIP_PLANES_ONLY
     };

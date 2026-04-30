@@ -25,33 +25,21 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 			public:
 				std::string m_id;
 		};
-		class IGeometry : public CID
-		{
-			public:
-				inline IGeometry() : CID(), type(CElementShape::Type::INVALID) {}
-				inline ~IGeometry() = default;
-
-				CElementShape::Type type;
-		};
-		class CPolygonGeometry final : public asset::IPolygonGeometryMetadata, public IGeometry
-		{
-			public:
-				inline CPolygonGeometry() : asset::IPolygonGeometryMetadata(), IGeometry() {}
-				inline CPolygonGeometry(CPolygonGeometry&& other) : CPolygonGeometry() {operator=(std::move(other));}
-				inline ~CPolygonGeometry() = default;
-
-				inline CPolygonGeometry& operator=(CPolygonGeometry&& other)
-				{
-					asset::IPolygonGeometryMetadata::operator=(std::move(other));
-					IGeometry::operator=(std::move(other));
-					return *this;
-				}
-		};
 		class CGeometryCollection final : public asset::IGeometryCollectionMetadata, public CID
 		{
 			public:
-				inline CGeometryCollection() : asset::IGeometryCollectionMetadata(), CID() {}
+				inline CGeometryCollection() : asset::IGeometryCollectionMetadata(), CID(), type(CElementShape::Type::INVALID) {}
+				inline CGeometryCollection(CGeometryCollection&& other) : CGeometryCollection() {operator=(std::move(other));}
 				inline ~CGeometryCollection() = default;
+
+				inline CGeometryCollection& operator=(CGeometryCollection&& other)
+				{
+					asset::IGeometryCollectionMetadata::operator=(std::move(other));
+					CID::operator=(std::move(other));
+					return *this;
+				}
+
+				CElementShape::Type type;
 		};
 
 		struct SGlobal
@@ -69,32 +57,33 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		const char* getLoaderName() const override {return LoaderName;}
 
         // add more overloads when more asset implementations of IGeometry<ICPUBuffer> exist
-        inline const CPolygonGeometry* getAssetSpecificMetadata(const asset::ICPUPolygonGeometry* asset) const
+        inline const CGeometryCollection* getAssetSpecificMetadata(const asset::ICPUGeometryCollection* asset) const
         {
             const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
-            return static_cast<const CPolygonGeometry*>(found);
+            return static_cast<const CGeometryCollection*>(found);
         }
 
 	private:
 		friend struct SContext;
-		struct SGeometryMetaPair
+		struct SGeometryCollectionMetaPair
 		{
-			core::smart_refctd_ptr<asset::ICPUPolygonGeometry> geom;
-			CMitsubaMetadata::CPolygonGeometry meta;
+			core::smart_refctd_ptr<asset::ICPUGeometryCollection> collection;
+			CMitsubaMetadata::CGeometryCollection meta;
 		};
-		inline void setPolygonGeometryMeta(core::unordered_map<const CElementShape*,SGeometryMetaPair>&& container)
+		template<typename Key>
+		inline void setGeometryCollectionMeta(core::unordered_map<Key,SGeometryCollectionMetaPair>&& container)
 		{
 			const uint32_t count = container.size();
-			m_metaPolygonGeometryStorage = IAssetMetadata::createContainer<CPolygonGeometry>(count);
+			m_metaPolygonGeometryStorage = IAssetMetadata::createContainer<CGeometryCollection>(count);
 			auto outIt = m_metaPolygonGeometryStorage->begin();
 			for (auto& el : container)
 			{
 				*outIt = std::move(el.second.meta);
-				IAssetMetadata::insertAssetSpecificMetadata(el.second.geom.get(),outIt++);
+				IAssetMetadata::insertAssetSpecificMetadata(el.second.collection.get(),outIt++);
 			}
 		}
 
-		meta_container_t<CPolygonGeometry> m_metaPolygonGeometryStorage;
+		meta_container_t<CGeometryCollection> m_metaPolygonGeometryStorage;
 };
 
 }

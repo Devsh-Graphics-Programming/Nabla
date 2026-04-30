@@ -38,6 +38,8 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
                 DISPATCH_BASE = 1<<4,
                 FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
                 EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
+                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
                 // Not Supported Yet
                 //CREATE_LIBRARY = base_flag(CREATE_LIBRARY),
                 // Not Supported Yet

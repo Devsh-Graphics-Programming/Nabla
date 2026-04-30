@@ -12,6 +12,8 @@
 #include <functional>
 
 
+#pragma warning( push )
+#pragma warning( disable : 5103 )
 namespace nbl::ext::MitsubaLoader
 {
 namespace impl
@@ -423,3 +425,4 @@ bool CElementBSDF::onEndTag(CMitsubaMetadata* globalMetadata, system::logger_opt
 }
 
 }
+#pragma warning( pop )

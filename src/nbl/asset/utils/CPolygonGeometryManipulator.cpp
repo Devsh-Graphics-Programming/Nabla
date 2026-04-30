@@ -20,257 +20,163 @@ namespace nbl::asset
 {
 
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* inGeo)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* inGeo, const bool reverse, const bool recomputeHash)
 {
-		const auto* indexing = inGeo->getIndexingCallback();
-		if (!indexing)
-				return nullptr;
+    const auto* indexing = inGeo->getIndexingCallback();
+    if (!indexing)
+		  return nullptr;
 
-		const auto indexView = inGeo->getIndexView();
-		const auto primCount = inGeo->getPrimitiveCount();
-		const uint8_t degree = indexing->degree();
-		const auto outIndexCount = primCount*degree;
-		if (outIndexCount<primCount)
-				return nullptr;
+    const auto indexView = inGeo->getIndexView();
+    const auto primCount = inGeo->getPrimitiveCount();
+    const uint8_t degree = indexing->degree();
+    const auto outIndexCount = primCount*degree;
+    if (outIndexCount<primCount)
+	    return nullptr;
 
-		const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(inGeo->clone(0u));
+    const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(inGeo->clone(0u));
 
-		auto* outGeo = outGeometry.get();
-		outGeo->setIndexing(IPolygonGeometryBase::NGonList(degree));
+    auto* outGeo = outGeometry.get();
+    outGeo->setIndexing(IPolygonGeometryBase::NGonList(degree));
 
-		auto createOutView = [&](const ICPUPolygonGeometry::SDataView& inView) -> ICPUPolygonGeometry::SDataView
-		{
-				if (!inView)
-						return {};
-				auto buffer = ICPUBuffer::create({ outIndexCount*inView.composed.stride , inView.src.buffer->getUsageFlags() });
-				return {
-						.composed = inView.composed,
-						.src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
-				};
+    auto createOutView = [&](const ICPUPolygonGeometry::SDataView& inView) -> ICPUPolygonGeometry::SDataView
+    {
+		if (!inView)
+				return {};
+		auto buffer = ICPUBuffer::create({ outIndexCount*inView.composed.stride , inView.src.buffer->getUsageFlags() });
+		return {
+				.composed = inView.composed,
+				.src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
 		};
+    };
 
-		const auto inIndexView = inGeo->getIndexView();
-		auto outIndexView = createOutView(inIndexView);
-		auto indexBuffer = outIndexView.src.buffer;
-		const auto indexSize = inIndexView.composed.stride;
-		std::byte* outIndices = reinterpret_cast<std::byte*>(outIndexView.getPointer());
-		outGeo->setIndexView({});
+    const auto inIndexView = inGeo->getIndexView();
+    auto outIndexView = createOutView(inIndexView);
+    auto indexBuffer = outIndexView.src.buffer;
+    const auto indexSize = inIndexView.composed.stride;
+    std::byte* outIndices = reinterpret_cast<std::byte*>(outIndexView.getPointer());
+    outGeo->setIndexView({});
 
-		const auto inVertexView = inGeo->getPositionView();
-		auto outVertexView = createOutView(inVertexView);
-		auto vertexBuffer = outVertexView.src.buffer;
-		const auto vertexSize = inVertexView.composed.stride;
-		const std::byte* inVertices = reinterpret_cast<const std::byte*>(inVertexView.getPointer());
-		std::byte* const outVertices = reinterpret_cast<std::byte*>(vertexBuffer->getPointer());
-		outGeo->setPositionView(std::move(outVertexView));
+    const auto inVertexView = inGeo->getPositionView();
+    auto outVertexView = createOutView(inVertexView);
+    auto vertexBuffer = outVertexView.src.buffer;
+    const auto vertexSize = inVertexView.composed.stride;
+    const std::byte* inVertices = reinterpret_cast<const std::byte*>(inVertexView.getPointer());
+    std::byte* const outVertices = reinterpret_cast<std::byte*>(vertexBuffer->getPointer());
+    outGeo->setPositionView(std::move(outVertexView));
 
-		const auto inNormalView = inGeo->getNormalView();
-		const std::byte* const inNormals = reinterpret_cast<const std::byte*>(inNormalView.getPointer());
-		auto outNormalView = createOutView(inNormalView);
-		auto outNormalBuffer = outNormalView.src.buffer;
-		outGeo->setNormalView(std::move(outNormalView));
+    const auto inNormalView = inGeo->getNormalView();
+    const std::byte* const inNormals = reinterpret_cast<const std::byte*>(inNormalView.getPointer());
+    auto outNormalView = createOutView(inNormalView);
+    auto outNormalBuffer = outNormalView.src.buffer;
+    outGeo->setNormalView(std::move(outNormalView));
 
-		outGeometry->getJointWeightViews()->resize(inGeo->getJointWeightViews().size());
-		for (uint64_t jointView_i = 0u; jointView_i < inGeo->getJointWeightViews().size(); jointView_i++)
+    outGeometry->getJointWeightViews()->resize(inGeo->getJointWeightViews().size());
+    for (uint64_t jointView_i = 0u; jointView_i < inGeo->getJointWeightViews().size(); jointView_i++)
+    {
+		auto& inJointWeightView = inGeo->getJointWeightViews()[jointView_i];
+		auto& outJointWeightView = outGeometry->getJointWeightViews()->operator[](jointView_i);
+		outJointWeightView.indices = createOutView(inJointWeightView.indices);
+		outJointWeightView.weights = createOutView(inJointWeightView.weights);
+    }
+
+    outGeometry->getAuxAttributeViews()->resize(inGeo->getAuxAttributeViews().size());
+    for (uint64_t auxView_i = 0u; auxView_i < inGeo->getAuxAttributeViews().size(); auxView_i++)
+		outGeo->getAuxAttributeViews()->operator[](auxView_i) = createOutView(inGeo->getAuxAttributeViews()[auxView_i]);
+
+    std::array<uint32_t,255> indices;
+    for (uint64_t prim_i = 0u; prim_i < primCount; prim_i++)
+    {
+		IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
+			.indexBuffer = indexView.getPointer(),
+			.indexSize = indexView.composed.stride,
+			.beginPrimitive = prim_i,
+			.endPrimitive = prim_i + 1,
+            .reversePrims = reverse,
+			.out = indices.data()
+		};
+		indexing->operator()(context);
+		for (uint8_t primIndex_i=0; primIndex_i<degree; primIndex_i++)
 		{
-				auto& inJointWeightView = inGeo->getJointWeightViews()[jointView_i];
-				auto& outJointWeightView = outGeometry->getJointWeightViews()->operator[](jointView_i);
-				outJointWeightView.indices = createOutView(inJointWeightView.indices);
-				outJointWeightView.weights = createOutView(inJointWeightView.weights);
+			const auto outIndex = prim_i * degree + primIndex_i;
+			const auto inIndex = indices[primIndex_i];
+			// TODO: these memcpys from view to view could really be DRY-ed and lambdified
+			memcpy(outIndices + outIndex * indexSize, &outIndex, indexSize);
+			memcpy(outVertices + outIndex * vertexSize, inVertices + inIndex * vertexSize, vertexSize);
+		    if (inNormalView)
+		    {
+				std::byte* const outNormals = reinterpret_cast<std::byte*>(outNormalBuffer->getPointer());
+				const auto normalSize = inNormalView.composed.stride;
+				memcpy(outNormals + outIndex * normalSize, inNormals + inIndex * normalSize, normalSize);
+		    }
+
+		    for (uint64_t jointView_i = 0u; jointView_i < inGeo->getJointWeightViews().size(); jointView_i++)
+		    {
+				auto& inView = inGeo->getJointWeightViews()[jointView_i];
+				auto& outView = outGeometry->getJointWeightViews()->operator[](jointView_i);
+
+				const std::byte* const inJointIndices = reinterpret_cast<const std::byte*>(inView.indices.getPointer());
+				const auto jointIndexSize = inView.indices.composed.stride;
+				std::byte* const outJointIndices = reinterpret_cast<std::byte*>(outView.indices.getPointer());
+				memcpy(outJointIndices + outIndex * jointIndexSize, inJointIndices + inIndex * jointIndexSize, jointIndexSize);
+
+				const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
+				const auto jointWeightSize = inView.weights.composed.stride;
+				std::byte* const outWeights = reinterpret_cast<std::byte*>(outView.weights.getPointer());
+				memcpy(outWeights + outIndex * jointWeightSize, outWeights + inIndex * jointWeightSize, jointWeightSize);
+		    }
+
+		    for (uint64_t auxView_i = 0u; auxView_i < inGeo->getAuxAttributeViews().size(); auxView_i++)
+		    {
+				auto& inView = inGeo->getAuxAttributeViews()[auxView_i];
+				auto& outView = outGeometry->getAuxAttributeViews()->operator[](auxView_i);
+				const auto attrSize = inView.composed.stride;
+				const std::byte* const inAuxs = reinterpret_cast<const std::byte*>(inView.getPointer());
+				std::byte* const outAuxs = reinterpret_cast<std::byte*>(outView.getPointer());
+				memcpy(outAuxs + outIndex * attrSize, inAuxs + inIndex * attrSize, attrSize);
+		    }
 		}
+    }
 
-		outGeometry->getAuxAttributeViews()->resize(inGeo->getAuxAttributeViews().size());
-		for (uint64_t auxView_i = 0u; auxView_i < inGeo->getAuxAttributeViews().size(); auxView_i++)
-				outGeo->getAuxAttributeViews()->operator[](auxView_i) = createOutView(inGeo->getAuxAttributeViews()[auxView_i]);
+    if (recomputeHash)
+    	recomputeContentHashes(outGeo);
 
-		std::array<uint32_t,255> indices;
-		for (uint64_t prim_i = 0u; prim_i < primCount; prim_i++)
-		{
-				IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
-						.indexBuffer = indexView.getPointer(),
-						.indexSize = indexView.composed.stride,
-						.beginPrimitive = prim_i,
-						.endPrimitive = prim_i + 1,
-						.out = indices.data()
-				};
-				indexing->operator()(context);
-				for (uint8_t primIndex_i=0; primIndex_i<degree; primIndex_i++)
-				{
-						const auto outIndex = prim_i * degree + primIndex_i;
-						const auto inIndex = indices[primIndex_i];
-						// TODO: these memcpys from view to view could really be DRY-ed and lambdified
-						memcpy(outIndices + outIndex * indexSize, &outIndex, indexSize);
-						memcpy(outVertices + outIndex * vertexSize, inVertices + inIndex * vertexSize, vertexSize);
-						if (inNormalView)
-						{
-								std::byte* const outNormals = reinterpret_cast<std::byte*>(outNormalBuffer->getPointer());
-								const auto normalSize = inNormalView.composed.stride;
-								memcpy(outNormals + outIndex * normalSize, inNormals + inIndex * normalSize, normalSize);
-						}
-
-						for (uint64_t jointView_i = 0u; jointView_i < inGeo->getJointWeightViews().size(); jointView_i++)
-						{
-								auto& inView = inGeo->getJointWeightViews()[jointView_i];
-								auto& outView = outGeometry->getJointWeightViews()->operator[](jointView_i);
-
-								const std::byte* const inJointIndices = reinterpret_cast<const std::byte*>(inView.indices.getPointer());
-								const auto jointIndexSize = inView.indices.composed.stride;
-								std::byte* const outJointIndices = reinterpret_cast<std::byte*>(outView.indices.getPointer());
-								memcpy(outJointIndices + outIndex * jointIndexSize, inJointIndices + inIndex * jointIndexSize, jointIndexSize);
-
-								const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
-								const auto jointWeightSize = inView.weights.composed.stride;
-								std::byte* const outWeights = reinterpret_cast<std::byte*>(outView.weights.getPointer());
-								memcpy(outWeights + outIndex * jointWeightSize, outWeights + inIndex * jointWeightSize, jointWeightSize);
-						}
-
-						for (uint64_t auxView_i = 0u; auxView_i < inGeo->getAuxAttributeViews().size(); auxView_i++)
-						{
-								auto& inView = inGeo->getAuxAttributeViews()[auxView_i];
-								auto& outView = outGeometry->getAuxAttributeViews()->operator[](auxView_i);
-								const auto attrSize = inView.composed.stride;
-								const std::byte* const inAuxs = reinterpret_cast<const std::byte*>(inView.getPointer());
-								std::byte* const outAuxs = reinterpret_cast<std::byte*>(outView.getPointer());
-								memcpy(outAuxs + outIndex * attrSize, inAuxs + inIndex * attrSize, attrSize);
-						}
-				}
-		}
-
-		recomputeContentHashes(outGeo);
-		return outGeometry;
+	return outGeometry;
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, SSNGVxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, SSNGVxCmpFunction vxcmp, const bool recomputeHash)
 {
-		if (!inPolygon)
-		{
-				_NBL_DEBUG_BREAK_IF(true);
-				return nullptr;
-		}
-
-		// Mesh need to be unwelded (TODO: why? the output only need to be unwelded, really should be checking `inPolygon->getIndexingCallback()->count()!=3`)
-		if (inPolygon->getIndexView() && inPolygon->getIndexingCallback()!=IPolygonGeometryBase::TriangleList())
-		{
+	if (!inPolygon)
+	{
 			_NBL_DEBUG_BREAK_IF(true);
 			return nullptr;
-		}
+	}
 
-		auto result = CSmoothNormalGenerator::calculateNormals(inPolygon, epsilon, vxcmp);
-		if (enableWelding)
-		{
-			auto weldPredicate = CVertexWelder::DefaultWeldPredicate(epsilon);
-			return CVertexWelder::weldVertices(result.geom.get(), result.vertexHashGrid, weldPredicate);
-		}
-		return result.geom;
+	if (!inPolygon->getIndexingCallback() && inPolygon->getIndexingCallback()->degree()!=3)
+	{
+		_NBL_DEBUG_BREAK_IF(true);
+		return nullptr;
+	}
+
+    // right now we can't handle this, see TODOs in CSmoothNormalGenerator
+	if (inPolygon->getIndexView())
+	{
+		_NBL_DEBUG_BREAK_IF(true);
+		return nullptr;
+	}
+
+	auto result = CSmoothNormalGenerator::calculateNormals(inPolygon, epsilon, vxcmp, false);
+	if (enableWelding)
+	{
+		auto weldPredicate = CVertexWelder::DefaultWeldPredicate(epsilon);
+		result.geom = CVertexWelder::weldVertices(result.geom.get(), result.vertexHashGrid, weldPredicate, false);
+	}
+
+    if (recomputeHash)
+        recomputeContentHashes(result.geom.get());
+	return result.geom;
 }
 
 #if 0
-//! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
-//! triangles and vice versa.
-//! \param mesh: Mesh on which the operation is performed.
-void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer) 
-{
-	if (!inbuffer)
-		return;
-    auto* pipeline = inbuffer->getPipeline();
-    const E_PRIMITIVE_TOPOLOGY primType = pipeline->getCachedCreationParams().primitiveAssembly.primitiveType;
-
-    const uint32_t idxcnt = inbuffer->getIndexCount();
-    if (!inbuffer->getIndices())
-        return;
-
-    if (inbuffer->getIndexType() == EIT_16BIT)
-    {
-        uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
-        switch (primType)
-        {
-        case EPT_TRIANGLE_FAN:
-            for (uint32_t i = 1; i < idxcnt; i += 2)
-            {
-                const uint16_t tmp = idx[i];
-                idx[i] = idx[i + 1];
-                idx[i + 1] = tmp;
-            }
-            break;
-        case EPT_TRIANGLE_STRIP:
-            if (idxcnt % 2) //odd
-            {
-                for (uint32_t i = 0; i < (idxcnt >> 1); i++)
-                {
-                    const uint16_t tmp = idx[i];
-                    idx[i] = idx[idxcnt - 1 - i];
-                    idx[idxcnt - 1 - i] = tmp;
-                }
-            }
-            else //even
-            {
-                auto newIndexBuffer = ICPUBuffer::create({ (idxcnt + 1u) * sizeof(uint16_t) });
-                auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
-                destPtr[0] = idx[0];
-                memcpy(destPtr + 1u, idx, sizeof(uint16_t) * idxcnt);
-                inbuffer->setIndexCount(idxcnt + 1u);
-                SBufferBinding<ICPUBuffer> ixBufBinding{ 0u, std::move(newIndexBuffer) };
-                inbuffer->setIndexBufferBinding(std::move(ixBufBinding));
-            }
-            break;
-        case EPT_TRIANGLE_LIST:
-            for (uint32_t i = 0; i < idxcnt; i += 3)
-            {
-                const uint16_t tmp = idx[i + 1];
-                idx[i + 1] = idx[i + 2];
-                idx[i + 2] = tmp;
-            }
-            break;
-        default: break;
-        }
-    }
-    else if (inbuffer->getIndexType() == EIT_32BIT)
-    {
-        uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
-        switch (primType)
-        {
-        case EPT_TRIANGLE_FAN:
-            for (uint32_t i = 1; i < idxcnt; i += 2)
-            {
-                const uint32_t tmp = idx[i];
-                idx[i] = idx[i + 1];
-                idx[i + 1] = tmp;
-            }
-            break;
-        case EPT_TRIANGLE_STRIP:
-            if (idxcnt % 2) //odd
-            {
-                for (uint32_t i = 0; i < (idxcnt >> 1); i++)
-                {
-                    const uint32_t tmp = idx[i];
-                    idx[i] = idx[idxcnt - 1 - i];
-                    idx[idxcnt - 1 - i] = tmp;
-                }
-            }
-            else //even
-            {
-                auto newIndexBuffer = ICPUBuffer::create({ (idxcnt + 1u) * sizeof(uint32_t) });
-                auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
-                destPtr[0] = idx[0];
-                memcpy(destPtr + 1u, idx, sizeof(uint32_t) * idxcnt);
-                inbuffer->setIndexCount(idxcnt + 1);
-                SBufferBinding<ICPUBuffer> ixBufBinding{ 0u, std::move(newIndexBuffer) };
-                inbuffer->setIndexBufferBinding(std::move(ixBufBinding));
-            }
-            break;
-        case EPT_TRIANGLE_LIST:
-            for (uint32_t i = 0; i < idxcnt; i += 3)
-            {
-                const uint32_t tmp = idx[i + 1];
-                idx[i + 1] = idx[i + 2];
-                idx[i + 2] = tmp;
-            }
-            break;
-        default: break;
-        }
-    }
-}
-
 core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)
 {
 	if (!_inbuffer)
@@ -401,128 +307,6 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 	return outbuffer;
 }
 
-//! Creates a copy of the mesh, which will only consist of unique primitives
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
-{
-	if (!inbuffer)
-		return nullptr;
-    const ICPURenderpassIndependentPipeline* oldPipeline = inbuffer->getPipeline();
-    if (!oldPipeline)
-        return nullptr;
-
-    const uint32_t idxCnt = inbuffer->getIndexCount();
-    if (idxCnt<2u || !inbuffer->getIndices())
-        return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer); // yes we want an extra grab
-    
-    const auto& oldVtxParams = oldPipeline->getCachedCreationParams().vertexInput;
-    
-	auto clone = core::move_and_static_cast<ICPUMeshBuffer>(inbuffer->clone(0u));
-
-    constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
-
-    auto pipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
-    auto& vtxParams = pipeline->getCachedCreationParams().vertexInput;
-    vtxParams = SVertexInputParams();
-
-    vtxParams.enabledBindingFlags = (1u<<NEW_VTX_BUF_BINDING);
-    vtxParams.enabledAttribFlags = oldVtxParams.enabledAttribFlags;
-
-    constexpr size_t MAX_ATTRIBS = asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
-	{
-		size_t stride = 0;
-		int32_t offset[MAX_ATTRIBS];
-		size_t newAttribSizes[MAX_ATTRIBS];
-		const uint8_t* sourceBuffers[MAX_ATTRIBS] = {NULL};
-		size_t sourceBufferStrides[MAX_ATTRIBS];
-		for (size_t i=0; i< MAX_ATTRIBS; i++)
-		{
-			const auto& vbuf = inbuffer->getAttribBoundBuffer(i);
-			if (inbuffer->isAttributeEnabled(i) && vbuf.buffer)
-			{
-				offset[i] = stride;
-				newAttribSizes[i] = getTexelOrBlockBytesize(inbuffer->getAttribFormat(i));
-				stride += newAttribSizes[i];
-				if (stride>=0xdeadbeefu)
-					return nullptr;
-
-				sourceBuffers[i] = reinterpret_cast<const uint8_t*>(vbuf.buffer->getPointer());
-				sourceBuffers[i] += inbuffer->getAttribCombinedOffset(i);
-				sourceBufferStrides[i] = inbuffer->getAttribStride(i);
-			}
-			else
-				offset[i] = -1;
-		}
-
-        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
-        vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = stride;
-
-		auto vertexBuffer = ICPUBuffer::create({ stride*idxCnt });
-        clone->setVertexBufferBinding({0u, vertexBuffer}, 0u);
-		for (size_t i=0; i<MAX_ATTRIBS; i++)
-		{
-            if (offset[i] >= 0)
-            {
-                vtxParams.attributes[i].binding = NEW_VTX_BUF_BINDING;
-                vtxParams.attributes[i].format = inbuffer->getAttribFormat(i);
-                vtxParams.attributes[i].relativeOffset = offset[i];
-            }
-		}
-
-		uint8_t* destPointer = reinterpret_cast<uint8_t*>(vertexBuffer->getPointer());
-		if (inbuffer->getIndexType()==EIT_16BIT)
-		{
-			uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
-			for (uint64_t i=0; i<idxCnt; i++,idx++)
-			for (size_t j=0; j<MAX_ATTRIBS; j++)
-			{
-				if (offset[j]<0)
-					continue;
-
-				memcpy(destPointer,sourceBuffers[j]+(int64_t(*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
-				destPointer += newAttribSizes[j];
-			}
-		}
-		else if (inbuffer->getIndexType()==EIT_32BIT)
-		{
-			uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
-			for (uint64_t i=0; i<idxCnt; i++,idx++)
-			for (size_t j=0; j<MAX_ATTRIBS; j++)
-			{
-				if (offset[j]<0)
-					continue;
-
-				memcpy(destPointer,sourceBuffers[j]+(int64_t(*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
-				destPointer += newAttribSizes[j];
-			}
-		}
-
-        clone->setPipeline(std::move(pipeline));
-
-        if (_makeIndexBuf)
-        {
-            auto idxbuf = ICPUBuffer::create({ idxCnt*(idxCnt<0x10000 ? 2u : 4u) });
-            if (idxCnt<0x10000u)
-            {
-                for (uint32_t i = 0u; i < idxCnt; ++i)
-                    reinterpret_cast<uint16_t*>(idxbuf->getPointer())[i] = i;
-                clone->setIndexType(EIT_16BIT);
-            }
-            else
-            {
-                for (uint32_t i = 0u; i < idxCnt; ++i)
-                    reinterpret_cast<uint32_t*>(idxbuf->getPointer())[i] = i;
-                clone->setIndexType(EIT_32BIT);
-            }
-            clone->setIndexBufferBinding({ 0u, std::move(idxbuf) });
-        }
-        else
-        {
-            clone->setIndexType(EIT_UNKNOWN);
-        }
-	}
-
-	return clone;
-}
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric)
 {
@@ -1358,78 +1142,5 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 
 	return true;
 }
-
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
-{
-    if (_inIndexType == EIT_16BIT)
-    {
-        if (_outIndexType == EIT_16BIT)
-            return CMeshManipulator::lineStripsToLines<uint16_t,uint16_t>(_input, _idxCount);
-        else
-            return CMeshManipulator::lineStripsToLines<uint16_t,uint32_t>(_input, _idxCount);
-    }
-	else if (_inIndexType == EIT_32BIT)
-    {
-        if (_outIndexType == EIT_16BIT)
-            return CMeshManipulator::lineStripsToLines<uint32_t,uint16_t>(_input, _idxCount);
-        else
-            return CMeshManipulator::lineStripsToLines<uint32_t,uint32_t>(_input, _idxCount);
-    }
-	return nullptr;
-}
-
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
-{
-	if (_inIndexType == EIT_16BIT)
-    {
-        if (_outIndexType == EIT_16BIT)
-            return CMeshManipulator::triangleStripsToTriangles<uint16_t,uint16_t>(_input, _idxCount);
-        else
-            return CMeshManipulator::triangleStripsToTriangles<uint16_t,uint32_t>(_input, _idxCount);
-    }
-	else if (_inIndexType == EIT_32BIT)
-    {
-        if (_outIndexType == EIT_16BIT)
-            return CMeshManipulator::triangleStripsToTriangles<uint32_t,uint16_t>(_input, _idxCount);
-        else
-            return CMeshManipulator::triangleStripsToTriangles<uint32_t,uint32_t>(_input, _idxCount);
-    }
-	return nullptr;
-}
-
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
-{
-	if (_inIndexType == EIT_16BIT)
-    {
-        if (_outIndexType == EIT_16BIT)
-            return CMeshManipulator::trianglesFanToTriangles<uint16_t,uint16_t>(_input, _idxCount);
-        else
-            return CMeshManipulator::trianglesFanToTriangles<uint16_t,uint32_t>(_input, _idxCount);
-    }
-	else if (_inIndexType == EIT_32BIT)
-    {
-        if (_outIndexType == EIT_16BIT)
-            return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint16_t>(_input, _idxCount);
-        else
-            return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint32_t>(_input, _idxCount);
-    }
-	return nullptr;
-}
-
-float IMeshManipulator::DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint) 
-{
-    core::vectorSIMDf PointToStart = InPoint - P0;
-    core::vectorSIMDf Diff = core::cross(P0 - P1, PointToStart);
-
-    return core::dot(Diff, Diff).x;
-}
-
-float IMeshManipulator::DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal) 
-{
-    core::vectorSIMDf PointToPlane = InPoint - PlanePoint;
-
-    return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? core::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
-}
-
 #endif
 } // end namespace nbl::asset

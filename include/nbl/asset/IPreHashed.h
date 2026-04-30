@@ -39,61 +39,61 @@ class IPreHashed : public IAsset
 				discardContent_impl();
 		}
 
-    static inline void discardDependantsContents(const std::span<IAsset*> roots)
-    {
-      core::vector<IAsset*> stack;
-      core::unordered_set<IAsset*> alreadyVisited; // whether we have push the node to the stack
-      auto push = [&stack,&alreadyVisited](IAsset* node) -> bool
-      {
-        const auto [dummy,inserted] = alreadyVisited.insert(node);
-        if (inserted)
-          stack.push_back(node);
-        return true;
-      };
-      for (const auto& root : roots)
-        push(root);
-      while (!stack.empty())
-      {
-        auto* entry = stack.back();
-        stack.pop_back();
-        entry->visitDependents(push);
-        // pre order traversal does discard
-        auto* isPrehashed = dynamic_cast<IPreHashed*>(entry);
-        if (isPrehashed)
-          isPrehashed->discardContent();
-      }
-    }
-    static inline bool anyDependantDiscardedContents(const IAsset* root)
-    {
-      core::vector<const IAsset*> stack;
-      core::unordered_set<const IAsset*> alreadyVisited; // whether we have push the node to the stack
-      bool result = false;
-      auto push = [&stack,&alreadyVisited,&result](const IAsset* node) -> bool
-      {
-        const auto [dummy,inserted] = alreadyVisited.insert(node);
-        if (inserted)
+        static inline void discardDependantsContents(const std::span<IAsset* const> roots)
         {
-          auto* isPrehashed = dynamic_cast<const IPreHashed*>(node);
-          if (isPrehashed && isPrehashed->missingContent())
-          {
-            stack.clear();
-            result = true;
-            return false;
-          }
-          stack.push_back(node);
+            core::vector<IAsset*> stack;
+            core::unordered_set<IAsset*> alreadyVisited; // whether we have push the node to the stack
+            auto push = [&stack,&alreadyVisited](IAsset* node) -> bool
+            {
+                const auto [dummy,inserted] = alreadyVisited.insert(node);
+                if (inserted)
+                    stack.push_back(node);
+                return true;
+            };
+            for (const auto& root : roots)
+                push(root);
+            while (!stack.empty())
+            {
+                auto* entry = stack.back();
+                stack.pop_back();
+                entry->visitDependents(push);
+                // pre order traversal does discard
+                auto* isPrehashed = dynamic_cast<IPreHashed*>(entry);
+                if (isPrehashed)
+                    isPrehashed->discardContent();
+            }
         }
-        return true;
-      };
-      if (!push(root))
-        return true;
-      while (!stack.empty())
-      {
-        auto* entry = stack.back();
-        stack.pop_back();
-        entry->visitDependents(push);
-      }
-      return result;
-    }
+        static inline bool anyDependantDiscardedContents(const IAsset* root)
+        {
+            core::vector<const IAsset*> stack;
+            core::unordered_set<const IAsset*> alreadyVisited; // whether we have push the node to the stack
+            bool result = false;
+            auto push = [&stack,&alreadyVisited,&result](const IAsset* node) -> bool
+            {
+                const auto [dummy,inserted] = alreadyVisited.insert(node);
+                if (inserted)
+                {
+                    auto* isPrehashed = dynamic_cast<const IPreHashed*>(node);
+                    if (isPrehashed && isPrehashed->missingContent())
+                    {
+                        stack.clear();
+                        result = true;
+                        return false;
+                    }
+                    stack.push_back(node);
+                }
+                return true;
+            };
+            if (!push(root))
+                return true;
+            while (!stack.empty())
+            {
+                auto* entry = stack.back();
+                stack.pop_back();
+                entry->visitDependents(push);
+            }
+            return result;
+        }
 
 	protected:
 		inline IPreHashed() = default;
