@@ -158,6 +158,8 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		);
 		const NVRTC& getNVRTCFunctionTable() const {return m_nvrtc;}
 
+		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
+
 		//
 		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{
@@ -261,7 +263,6 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 
 	protected:
-		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
 
 		~CCUDAHandler() = default;
 		
