@@ -54,7 +54,7 @@ NBL_CONCEPT_BEGIN(1)
 #define accessor NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(AccessorT::value_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::accessors::GenericReadAccessor, AccessorT, typename AccessorT::value_type, float32_t2))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(nbl::hlsl::concepts::accessors::GenericReadAccessor, AccessorT, typename AccessorT::value_type, float32_t2))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.getAvgLuma()), ::nbl::hlsl::is_same_v, typename AccessorT::value_type))
 );
 #undef accessor

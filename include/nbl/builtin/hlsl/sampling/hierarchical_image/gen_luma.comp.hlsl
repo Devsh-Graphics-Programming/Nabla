@@ -1,6 +1,7 @@
 #include "common.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/colorspace.hlsl"
+#include "nbl/builtin/hlsl/sampling/spherical_mapping.hlsl"
 
 using namespace nbl;
 using namespace nbl::hlsl;
@@ -23,10 +24,13 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 {	
 	if (all(threadID.xyz < uint32_t3(pc.lumaMapWidth, pc.lumaMapHeight, pc.lumaMapLayer)))
 	{
-		const float uv_y = (float(threadID.y) + float(0.5f)) / pc.lumaMapHeight;
+		const float uv = (float32_t2(threadID.xy) + promote<float32_t2>(0.5)) / float32_t2(pc.lumaMapWidth, pc.lumaMapHeight);
 		const float32_t3 envMapSample = envMap.Load(int4(threadID.xyz, 0));
-		// Ask(kevin): If I want to divide with Spherical::forwardPdf here to replace the sin(numbers::pi<float32_t> * uv_y), I have to call generate first to get the cache, which is a lot of wasted calculation
-		float32_t luma = calcLuma(envMapSample) * sin(numbers::pi<float32_t> * uv_y);
+		// Ask(kevin): I have to call generate first to get the cache, which is a lot of wasted calculation. Is this okay?
+		sampling::SphericalMapping postWarp;
+		sampling::SphericalMapping::cache_type postWarpCache;
+		postWarp.generate(uv, postWarpCache);
+		float32_t luma = calcLuma(envMapSample) / postWarp.forwardPdf(uv, postWarpCache);
 
 		// We reduce the luma of the corner texel since we want to do "corner sampling" when generating warp map.
 		if (threadID.x == 0 || threadID.x == (pc.lumaMapWidth - 1))
