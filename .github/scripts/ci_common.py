@@ -316,7 +316,7 @@ def cancel_superseded(base, headers, job, match, current):
     tree = urllib.parse.quote("builds[number,building,actions[parameters[name,value]]]", safe="")
     for build in jget(base, headers, f"/{path}/api/json?tree={tree}").get("builds", []):
         if build.get("building") and superseded(build.get("actions"), match, current):
-            jpost(base, headers, f"/{path}/{build['number']}/stop")
+            stop_build(base, headers, job, build["number"])
     tree = urllib.parse.quote("items[id,task[fullName],actions[parameters[name,value]]]", safe="")
     for item in jget(base, headers, f"/queue/api/json?tree={tree}").get("items", []):
         if (item.get("task") or {}).get("fullName") == job and superseded(item.get("actions"), match, current):
@@ -330,7 +330,7 @@ def cancel_matching(base, headers, job, match):
         values = parameters(build.get("actions"))
         if build.get("building") and all(values.get(key) == value for key, value in match.items()):
             print(f"Stopping superseded Jenkins build {job} #{build['number']}.")
-            jpost(base, headers, f"/{path}/{build['number']}/stop")
+            stop_build(base, headers, job, build["number"])
     tree = urllib.parse.quote("items[id,task[fullName],actions[parameters[name,value]]]", safe="")
     for item in jget(base, headers, f"/queue/api/json?tree={tree}").get("items", []):
         values = parameters(item.get("actions"))
@@ -355,11 +355,42 @@ def start_files_job(base, headers, job, fields, files):
     return wait_queue(base, headers, response_headers["Location"], job)
 
 
-def stop_build(base, headers, job, number):
+def build_is_running(base, headers, job, number):
+    path = job_path(job)
     try:
-        jpost(base, headers, f"/{job_path(job)}/{number}/stop")
+        return bool(jget(base, headers, f"/{path}/{number}/api/json?tree=building").get("building"))
     except CiError as exc:
-        print(f"Could not stop Jenkins build {job} #{number}: {exc}")
+        print(f"Could not query Jenkins build {job} #{number}: {exc}")
+        return False
+
+
+def wait_build_stopped(base, headers, job, number, timeout_seconds):
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not build_is_running(base, headers, job, number):
+            return True
+        time.sleep(2)
+    return not build_is_running(base, headers, job, number)
+
+
+def stop_build(base, headers, job, number):
+    path = job_path(job)
+    if not build_is_running(base, headers, job, number):
+        return True
+    for endpoint, wait_seconds in [("stop", 30), ("term", 60), ("kill", 30)]:
+        if not build_is_running(base, headers, job, number):
+            return True
+        try:
+            print(f"Requesting Jenkins {endpoint} for {job} #{number}.")
+            jpost(base, headers, f"/{path}/{number}/{endpoint}")
+        except CiError as exc:
+            print(f"Could not request Jenkins {endpoint} for {job} #{number}: {exc}")
+        if wait_build_stopped(base, headers, job, number, wait_seconds):
+            print(f"Jenkins build {job} #{number} stopped after {endpoint}.")
+            return True
+    if build_is_running(base, headers, job, number):
+        raise CiError(f"Jenkins build {job} #{number} is still running after stop escalation.")
+    return True
 
 
 def redact_console(text):
