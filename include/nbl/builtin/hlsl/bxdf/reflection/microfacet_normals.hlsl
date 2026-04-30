@@ -324,7 +324,7 @@ struct SMicrofacetNormals<Config, BRDF, ndf::PNS_SCHUSSLER, 2 NBL_PARTIAL_REQ_BO
             iso_negreflected.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_negreflected = bxdf_type::anisotropic_interaction_type::create(iso_negreflected);
 
-            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction_negreflected, _cache.aniso_cache);
+            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction_negreflected, __createChildCache(_sample, interaction_negreflected));
             quo *= qw.quotient();
         }
         else
@@ -588,7 +588,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
             iso_t.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_t = bxdf_type::anisotropic_interaction_type::create(iso_t);
 
-            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction_t, _cache.aniso_cache);
+            quotient_weight_type qw = nested_brdf.quotientAndWeight(_sample, interaction_t, __createChildCache(_sample, interaction_t));
             quo *= qw.quotient();
         }
         else

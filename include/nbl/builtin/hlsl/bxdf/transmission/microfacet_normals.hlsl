@@ -266,7 +266,7 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
             iso_t.luminosityContributionHint = interaction.getLuminosityContributionHint();
             typename bxdf_type::anisotropic_interaction_type interaction_t = bxdf_type::anisotropic_interaction_type::create(iso_t);
 
-            quotient_weight_type qw = nested_bsdf.quotientAndWeight(_sample, interaction_t, _cache.aniso_cache);
+            quotient_weight_type qw = nested_bsdf.quotientAndWeight(_sample, interaction_t, __createChildCache(_sample, interaction_t));
             quo *= qw.quotient();
         }
         else
