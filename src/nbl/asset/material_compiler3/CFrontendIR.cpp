@@ -552,80 +552,57 @@ void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::
 	ndParams.printDot(sstr,selfID);
 }
 
-//!  AST-> IR methods
-auto CFrontendIR::CEmitter::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+
+//! IR making
+CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_pointer_type<const CLayer> rootH, const CFrontendIR* ast)
 {
-	assert(!forBTDF);
-	auto& irPool = ir->getObjectPool();
-	const auto retval = irPool.emplace<CTrueIR::CEmitter>();
-	if (auto* const contributor=irPool.deref(retval))
+	// TODO 
+//	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
+//	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
+
+	const auto& astPool = ast->getObjectPool();
+	const auto* astRoot = astPool.deref<const CFrontendIR::CLayer>(rootH);
+	// no material
+	if (!astRoot)
+		return CTrueIR::BlackholeMaterialHandle;
+	tmpIR->reset();
+	// reverse AST into another tree
+	tmpAST->reset();
+	const auto backRootH = tmpAST->reverse(rootH,ast);
+	CTrueIR::SMaterial material = {
+		.front = makeOrientedMaterial(rootH,ast),
+		.back = makeOrientedMaterial(backRootH,tmpAST.get())
+	};
+
+	const auto errorLayer = args.ir->getBasicNodes().errorLayer;
+	auto printLayer = [&](const typed_pointer_type<const CLayer> _rootH, const CFrontendIR* _ast)->void
 	{
-		contributor->profile = profile;
-		contributor->profileTransform = profileTransform;
+		astPrinter.reset(_ast);
+		astPrinter.layerStack.push_back(_rootH);
+		args.logger.log("Subtree Dot3 : \n%s\n",ELL_DEBUG,astPrinter().c_str());
+		assert(astPrinter.layerStack.empty());
+	};
+	if (material.front.root==errorLayer)
+	{
+		args.logger.log("Failed to create Frontface Material",ELL_ERROR);
+		printLayer(rootH,ast);
+		return {};
 	}
-	return retval;
-}
-
-auto CFrontendIR::CDeltaTransmission::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
-{
-	assert(forBTDF);
-	return ir->getObjectPool().emplace<CTrueIR::CDeltaTransmission>();
-}
-
-auto CFrontendIR::COrenNayar::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
-{
-	if (ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::Invalid)
-		return {};
-	auto& irPool = ir->getObjectPool();
-	const auto retval = irPool.emplace<CTrueIR::COrenNayar>();
-	if (auto* const contributor = irPool.deref(retval))
-		contributor->ndfParams = ndParams; // the padding abuse is the same between the classes
-	return retval;
-}
-
-auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
-{
-	if (ndParams.getDistribution()>CTrueIR::SBasicNDFParams::EDistribution::Beckmann)
-		return {};
-	auto& irPool = ir->getObjectPool();
-	CTrueIR::typed_pointer_type<const CTrueIR::ISpectralVariable> etaH = {};
-	if (forBTDF)
+	if (material.back.root==errorLayer)
 	{
-		if (!orientedRealEta)
-			return {};
-		const auto* const srcEta = ast->getObjectPool().deref(orientedRealEta);
-		switch (srcEta->getSemantics())
+		args.logger.log("Failed to create Backface Material for reversed AST",ELL_ERROR);
+		printLayer(backRootH,tmpAST.get());
+		return {};
+	}
+
+	auto retval = args.ir->addMaterial(material);
+	if (retval)
+	{
+		// TODO: better debug info (e.g. concat all the layer info during `makeOrientedMaterial` via the `session` object
+		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
 		{
-			case CSpectralVariable::semantics_e::NoneUndefined:
-			{
-				assert(srcEta->getKnotCount()==1);
-				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<1>>();
-				auto* const dstEta = irPool.deref(handle);
-				if (!dstEta)
-					return {};
-				dstEta->paramSet.uvTransform = srcEta->uvTransform();
-				dstEta->paramSet.params[0] = *srcEta->getParam(0);
-				break;
-			}
-			default:
-			{
-				assert(srcEta->getKnotCount()==3);
-				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<3>>();
-				auto* const dstEta = irPool.deref(handle);
-				if (!dstEta)
-					return {};
-				dstEta->paramSet.uvTransform = srcEta->uvTransform();
-				for (auto i=0; i<3; i++)
-					dstEta->paramSet.params[i] = *srcEta->getParam(i);
-				break;
-			}
+			material.debugInfo = args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
 		}
-	}
-	const auto retval = irPool.emplace<CTrueIR::CCookTorrance>();
-	if (auto* const ct=irPool.deref(retval); ct)
-	{
-		ct->ndfParams = ndParams; // the padding abuse is the same between the classes
-		ct->orientedRealEta = etaH;
 	}
 	return retval;
 }
@@ -664,7 +641,9 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			break;
 		}
 	}
+
 	const auto errorBxDF = tmpIR->getBasicNodes().errorBxDF;
+	const auto errorLayer = tmpIR->getBasicNodes().errorLayer;
 	// Some metadata needed for us
 	bool layersBelowCanScatterBack = false;
 	CTrueIR::typed_pointer_type<CTrueIR::COrientedLayer> prevLayerH = {};
@@ -679,7 +658,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			// process the top BRDF
 			outLayer->brdfTop = makeContributors(inLayer->brdfTop);
 			if (outLayer->brdfTop==errorBxDF)
-				return {};
+				return {.root=errorLayer};
 			// process the BTDF
 			btdfSubtree = true;
 			const auto btdfH = makeContributors(inLayer->btdf);
@@ -688,7 +667,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			if (btdfH)
 			{
 				if (btdfH==errorBxDF)
-					return {};
+					return {.root=errorLayer};
 				const auto transmissionH = irPool.emplace<CTrueIR::CCorellatedTransmission>();
 				{
 					auto* const transmission = irPool.deref(transmissionH);
@@ -698,7 +677,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 					{
 						transmission->brdfBottom = makeContributors(inLayer->brdfBottom);
 						if (transmission->brdfBottom==errorBxDF)
-							return {};
+							return {.root=errorLayer};
 					}
 					// we check if previous layer didn't get oprimized away, but we don't add its optimized version because don't want pointers across two pools (crash)
 					if (retval.root)
@@ -932,56 +911,80 @@ auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_typ
 	return retval;
 }
 
-//
-CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_pointer_type<const CLayer> rootH, const CFrontendIR* ast)
+// AST Node -> IR methods
+auto CFrontendIR::CEmitter::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
-	// TODO 
-//	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
-//	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
-
-	const auto& astPool = ast->getObjectPool();
-	const auto* astRoot = astPool.deref<const CFrontendIR::CLayer>(rootH);
-	// no material
-	if (!astRoot)
-		return CTrueIR::BlackholeMaterialHandle;
-	tmpIR->reset();
-	// reverse AST into another tree
-	tmpAST->reset();
-	const auto backRootH = tmpAST->reverse(rootH,ast);
-	CTrueIR::SMaterial material = {
-		.front = makeOrientedMaterial(rootH,ast),
-		.back = makeOrientedMaterial(backRootH,tmpAST.get())
-	};
-
-	const auto errorLayer = args.ir->getBasicNodes().errorLayer;
-	auto printLayer = [&](const typed_pointer_type<const CLayer> _rootH, const CFrontendIR* _ast)->void
+	assert(!forBTDF);
+	auto& irPool = ir->getObjectPool();
+	const auto retval = irPool.emplace<CTrueIR::CEmitter>();
+	if (auto* const contributor=irPool.deref(retval))
 	{
-		astPrinter.reset(_ast);
-		astPrinter.layerStack.push_back(_rootH);
-		args.logger.log("Subtree Dot3 : \n%s\n",ELL_DEBUG,astPrinter().c_str());
-		assert(astPrinter.layerStack.empty());
-	};
-	if (material.front.root==errorLayer)
-	{
-		args.logger.log("Failed to create Frontface Material",ELL_ERROR);
-		printLayer(rootH,ast);
-		return {};
+		contributor->profile = profile;
+		contributor->profileTransform = profileTransform;
 	}
-	if (material.back.root==errorLayer)
-	{
-		args.logger.log("Failed to create Backface Material for reversed AST",ELL_ERROR);
-		printLayer(backRootH,tmpAST.get());
-		return {};
-	}
+	return retval;
+}
 
-	auto retval = args.ir->addMaterial(material);
-	if (retval)
+auto CFrontendIR::CDeltaTransmission::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+{
+	assert(forBTDF);
+	return ir->getObjectPool().emplace<CTrueIR::CDeltaTransmission>();
+}
+
+auto CFrontendIR::COrenNayar::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+{
+	if (ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::Invalid)
+		return {};
+	auto& irPool = ir->getObjectPool();
+	const auto retval = irPool.emplace<CTrueIR::COrenNayar>();
+	if (auto* const contributor = irPool.deref(retval))
+		contributor->ndfParams = ndParams; // the padding abuse is the same between the classes
+	return retval;
+}
+
+auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+{
+	if (ndParams.getDistribution()>CTrueIR::SBasicNDFParams::EDistribution::Beckmann)
+		return {};
+	auto& irPool = ir->getObjectPool();
+	CTrueIR::typed_pointer_type<const CTrueIR::ISpectralVariable> etaH = {};
+	if (forBTDF)
 	{
-		// TODO: better debug info (e.g. concat all the layer info during `makeOrientedMaterial` via the `session` object
-		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
+		if (!orientedRealEta)
+			return {};
+		const auto* const srcEta = ast->getObjectPool().deref(orientedRealEta);
+		switch (srcEta->getSemantics())
 		{
-			material.debugInfo = args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
+			case CSpectralVariable::semantics_e::NoneUndefined:
+			{
+				assert(srcEta->getKnotCount()==1);
+				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<1>>();
+				auto* const dstEta = irPool.deref(handle);
+				if (!dstEta)
+					return {};
+				dstEta->paramSet.uvTransform = srcEta->uvTransform();
+				dstEta->paramSet.params[0] = *srcEta->getParam(0);
+				break;
+			}
+			default:
+			{
+				assert(srcEta->getKnotCount()==3);
+				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<3>>();
+				auto* const dstEta = irPool.deref(handle);
+				if (!dstEta)
+					return {};
+				dstEta->paramSet.uvTransform = srcEta->uvTransform();
+				for (auto i=0; i<3; i++)
+					dstEta->paramSet.params[i] = *srcEta->getParam(i);
+				break;
+			}
 		}
+	}
+	const auto retval = irPool.emplace<CTrueIR::CCookTorrance>();
+	if (auto* const ct=irPool.deref(retval); ct)
+	{
+		ct->ndfParams = ndParams; // the padding abuse is the same between the classes
+		ct->orientedRealEta = etaH;
 	}
 	return retval;
 }

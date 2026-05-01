@@ -658,9 +658,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline bool operator==(const SBasicNodes& other) const = default;
 
-				typed_pointer_type<const COrientedLayer> errorLayer = {};
 				typed_pointer_type<const CContributorSum> blackHoleBxDF = {};
+				// these are never meant to be hashed and inserted into `m_uniqueNodes`
 				typed_pointer_type<const CContributorSum> errorBxDF = {};
+				typed_pointer_type<const COrientedLayer> errorLayer = {};
 
 			private:
 				friend class CTrueIR;

@@ -74,13 +74,30 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 		assert(success);
 		ir->m_uniqueNodes[node->getHash()] = blackHoleBxDF;
 	}
-	//
+	// we never compute the hashes on these ones, they're supposed to have invalid hash
+	errorLayer = pool.emplace<COrientedLayer>();
+	{
+		auto* const node = pool.deref(errorLayer._const_cast());
+		node->brdfTop = errorBxDF;
+		node->firstTransmission = {};
+	}
 	errorBxDF = pool.emplace<CContributorSum>();
 	{
 		auto* const node = pool.deref(errorBxDF._const_cast());
-		node->product = {}; // TODO: magenta diffuse and rest of setup
-		//const bool success = node->recomputeHash(pool);
-		//assert(success);
+		node->product = pool.emplace<CWeightedContributor>();
+		{
+			auto* const weighted = pool.deref(node->product._const_cast());
+			weighted->contributor = pool.emplace<COrenNayar>();
+			const auto factorH = pool.emplace<CSpectralVariable<3>>();
+			{
+				auto* const factor = pool.deref(factorH);
+				// make a magenta constant color (can do checkerboard of green & magenta in the future with a small texture)
+				for (auto i=0; i<3; i++)
+					factor->paramSet.params[i].scale = i!=1 ? 1.f:0.f;
+			}
+			weighted->factor = pool.emplace<CSpectralVariable<3>>();
+		}
+		node->rest = {};
 	}
 }
 
