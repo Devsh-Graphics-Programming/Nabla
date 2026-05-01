@@ -361,6 +361,9 @@ class CFrontendIR final : public CNodePool
 			private:
 				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
 				const SCreationParams<1>* pWonky() const {return reinterpret_cast<const SCreationParams<1>*>(this+1);}
+
+				friend class CFrontendIR;
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::ISpectralVariable> createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		//
 		class IUnaryOp : public obj_pool_type::INonTrivial, public IExprNode

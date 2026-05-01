@@ -753,6 +753,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	assert(contributorStack.empty());
 	exprStack.push_back({.nodeH=bxdfRootH});
 	CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> tailH = {};
+	// the mul node gets visited after children are made
 	while (!exprStack.empty())
 	{
 		auto& entry = exprStack.back();
@@ -814,6 +815,11 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			// do stuff now
 			switch (astExprType)
 			{
+				case ast_expr_type_e::Mul:
+				{
+					// silently skip
+					break;
+				}
 				case ast_expr_type_e::Add:
 				{
 					// we visited the leftmost subtrees first so this is the right order
@@ -835,6 +841,26 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					}
 					// when we are done we need to reset the mul chain back to its original state
 					mulChain.resize(entry.mulChainLen);
+					break;
+				}
+				case ast_expr_type_e::SpectralVariable:
+				{
+					const auto varH = static_cast<const CSpectralVariable*>(node)->createIRNode(srcAST,tmpIR.get());
+					auto* const var = irPool.deref(varH);
+					if (!var)
+					{
+						args.logger.log("Failed to create the Spectral Variable.",ELL_ERROR);
+						return (headH=errorRetval);
+					}
+					auto& factor = mulChain.emplace_back();
+					factor.handle = varH;
+					const auto channels = var->getSpectralBins();
+					factor.monochrome = channels>1;
+					for (uint8_t c=0; c<channels; c++)
+					{
+						if (!(var->getParameter(c)->scale>std::numeric_limits<float>::min()))
+							factor.liveSpectralChannels &= ~(0b1<<c);
+					}
 					break;
 				}
 				default:
@@ -865,6 +891,35 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	// we got all the AST ADD nodes on the way back out
 	assert(mulChain.empty());
 	return headH;
+}
+
+auto CFrontendIR::CSpectralVariable::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::ISpectralVariable>
+{
+	return {};
+	auto& irPool = ir->getObjectPool();
+	uint8_t realCount = 1;
+	for (uint8_t c=0; c<getKnotCount(); c++)
+	if (*getParam(c)!=*getParam(0))
+		realCount = 3;
+	CTrueIR::typed_pointer_type<CTrueIR::ISpectralVariable> retval = {};
+	// TODO: maybe make it wholly polymorphic like the AST ? Or even have both classes use the same struct ?
+	switch (realCount)
+	{
+		case 1:
+		{
+			retval = irPool.emplace<CTrueIR::CSpectralVariable<1>>();
+			break;
+		}
+		case 3:
+		{
+			retval = irPool.emplace<CTrueIR::CSpectralVariable<3>>();
+			break;
+		}
+		default:
+			break;
+	}
+//	==
+	return retval;
 }
 
 //

@@ -434,6 +434,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class ISpectralVariable : public IFactorLeaf
 		{
 			public:
+				virtual uint8_t getSpectralBins() const = 0;
+
+				virtual SParameter* getParameter(const uint8_t i) = 0;
+				inline const SParameter* getParameter(const uint8_t i) const {return const_cast<const SParameter*>(const_cast<ISpectralVariable*>(this)->getParameter(i));}
+
 				enum class ESemantics : uint8_t
 				{
 					NoneUndefined = 0,
@@ -447,6 +452,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// PairsLinear = 5, // linear interpolation
 					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
 				};
+				inline ESemantics getSemantics() const
+				{
+					if (getSpectralBins()>1)
+						return static_cast<ESemantics>(getParameter(1)->padding[0]);
+					else
+						return ESemantics::NoneUndefined;
+				}
 		};
 		template<uint8_t SpectralBins>
 		class CSpectralVariable final : public obj_pool_type::INonTrivial, public ISpectralVariable
@@ -456,7 +468,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					hasher << paramSet;
 					if constexpr (SpectralBins>1)
 					{
-						const ESemantics semantics = getSemantics<SpectralBins>();
+						const ESemantics semantics = getSemantics();
 						if (semantics!=ESemantics::NoneUndefined)
 							return false;
 						hasher << semantics;
@@ -465,6 +477,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
+				// TODO: maybe undo this?
 				inline EFinalType getFinalType() const override
 				{
 					static_assert(1<=SpectralBins && SpectralBins<=4);
@@ -475,11 +488,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable<SpectralBins>);}
 
 				//
-				inline uint8_t getSpectralBins() const {return SpectralBins;}
+				inline uint8_t getSpectralBins() const override {return SpectralBins;}
 
 				//
-				template<uint8_t N> requires (N>1 && N==SpectralBins)
-				inline ESemantics getSemantics() const {return static_cast<ESemantics>(paramSet.params[1].padding[0]);}
+				inline SParameter* getParameter(const uint8_t i) {return paramSet.params+i;}
+
+				//
 				template<uint8_t N> requires (N>1 && N==SpectralBins)
 				inline void setSemantics(const ESemantics value) {paramSet.params[1].padding[0] = static_cast<uint8_t>(value);}
 
