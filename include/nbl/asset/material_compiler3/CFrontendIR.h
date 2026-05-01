@@ -150,6 +150,7 @@ class CFrontendIR final : public CNodePool
 					Mul = 1,
 					Add = 2,
 					Complement = 3,
+					SpectralVariable = 4,
 					Other = 5
 				};
 				virtual inline Type getType() const {return Type::Other;}
@@ -226,8 +227,10 @@ class CFrontendIR final : public CNodePool
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable);}
 				// Variable length but has no children
 
-				using semantics_e = CTrueIR::ISpectralVariable::ESemantics;
+				//
+				inline IExprNode::Type getType() const override {return Type::SpectralVariable;}
 
+				using semantics_e = CTrueIR::ISpectralVariable::ESemantics;
 				//
 				template<uint8_t Count>
 				struct SCreationParams
@@ -812,7 +815,7 @@ class CFrontendIR final : public CNodePool
 				if (!rootH) // its a valid material (blackhole)
 					*outIt = CTrueIR::BlackholeMaterialHandle;
 				else if (valid(rootH,args.logger))
-					*outIt = makeFinalIR(rootH,session);
+					*outIt = session.makeFinalIR(rootH,this);
 				// now check for failure
 				if (*outIt)
 					retval++;
@@ -824,12 +827,21 @@ class CFrontendIR final : public CNodePool
 		struct SDotPrinter final
 		{
 			public:
+				inline SDotPrinter() = default;
 				inline SDotPrinter(const CFrontendIR* ir) : m_ir(ir) {}
 				// assign in reverse because we want materials to print in order
 				inline SDotPrinter(const CFrontendIR* ir, std::span<const typed_pointer_type<const CLayer>> roots) : m_ir(ir), layerStack(roots.rbegin(),roots.rend())
 				{
 					// should probably size it better, if I knew total node count allocated or live
 					visitedNodes.reserve(roots.size()<<3);
+				}
+
+				inline void reset(const CFrontendIR* ir)
+				{
+					visitedNodes.clear();
+					layerStack.clear();
+					exprStack.clear();
+					m_ir = ir;
 				}
 
 				NBL_API2 void operator()(std::ostringstream& output);
@@ -843,96 +855,108 @@ class CFrontendIR final : public CNodePool
 				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
 				// TODO: track layering depth and indent  accordingly?
 				core::vector<typed_pointer_type<const CLayer>> layerStack;
-				core::stack<typed_pointer_type<const IExprNode>> exprStack;
+				core::vector<typed_pointer_type<const IExprNode>> exprStack;
 			private:
-				const CFrontendIR* m_ir;
+				const CFrontendIR* m_ir = nullptr;
 		};
 
 	protected:
 		using CNodePool::CNodePool;
 		
-		struct SAdd2IRSession
+		struct SAdd2IRSession final
 		{
-			inline SAdd2IRSession(const SAddMaterialsArgs& _args) : args(_args)
-			{
-				tmpAST = CFrontendIR::create({.composed={.blockSizeKBLog2=10},.maxBlocks=64});
-				// give slightly more memory to IR, since the AST tends to be a bit more compact
-				tmpIR = CTrueIR::create({.composed={.blockSizeKBLog2=12},.maxBlocks=64});
-			}
+			public:
+				inline SAdd2IRSession(const SAddMaterialsArgs& _args) : args(_args)
+				{
+					tmpAST = CFrontendIR::create({.composed={.blockSizeKBLog2=10},.maxBlocks=64});
+					// give slightly more memory to IR, since the AST tends to be a bit more compact
+					tmpIR = CTrueIR::create({.composed={.blockSizeKBLog2=12},.maxBlocks=64});
+				}
 
-			using oriented_material_t = CTrueIR::SMaterial::SOriented;
-			NBL_API2 oriented_material_t makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST);
+				NBL_API2 CTrueIR::SMaterialHandle makeFinalIR(const typed_pointer_type<const CLayer> rootH, const CFrontendIR* ast);
 
-			NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
+			private:
+				inline void printSubtree(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH)
+				{
+					assert(astPrinter.exprStack.empty());
+					astPrinter.exprStack.push_back(nodeH);
+					args.logger.log("Subtree Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,astPrinter().c_str());
+					assert(astPrinter.exprStack.empty());
+				}
+				
+				using oriented_material_t = CTrueIR::SMaterial::SOriented;
+				NBL_API2 oriented_material_t makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST);
 
-			NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CWeightedContributor> popContributor();
+				NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
 
-			// inputs to the addMaterials function
-			const SAddMaterialsArgs& args;
-			// for rewriting AST expressions
-			core::smart_refctd_ptr<CFrontendIR> tmpAST;
-			// for making IR nodes before we Merkle Hash them and remove duplicates (so main IR doesn't get bloated)
-			core::smart_refctd_ptr<CTrueIR> tmpIR;
-			// changes dynamically
-			const CFrontendIR* srcAST;
-			bool btdfSubtree = false;
-			// for going over layers in the AST
-			core::vector<const CLayer*> layerStack;
-			// Some of the things we must canonicalize:
-			// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
-			// Expression nodes of the Frontend AST really come in 4 variants:
-			// - add
-			// - mul
-			// - complement, which is equivalent to 1 ADD (-1 MUL x)
-			// - function/other
-			// BRDFs can appear only under ADD and MUL nodes in the AST not the function/other/complement, so if we want to canonicalize:
-			// 1. The Add above can be ignored, we form full multiplication chain to the top
-			// 2. Adds in sibling nodes (below the last add) cause us to have to add a factored copy to the IR
-			// DFS from right-to-left (inverse order of adding children to stack), would cause us to keep postifxes of the multiplier chain every time we descend into ADD.
-			// We want to essentially visit the parent ADD node again after dealing with its subtree (in-order traversal) then mul chain can be reset just to the parent.
-			// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
-			// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
-			// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node.
-			struct SContributor
-			{
-				// the "active" contributor, basically the leftmost item in the subbranch below and ADD
-				CTrueIR::typed_pointer_type<const CTrueIR::IContributor> contributor;
-			};
-			core::vector<SContributor> contributorStack;
-			// Every time we encounter an AST leaf we must add the current contributor together with all the factors multiplied together
-			struct SFactor
-			{
-				using handle_t = CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>;
-				// We only track multiplicative factors, we break down every BRDF equally into the canonical form
-				handle_t handle;
-				uint8_t negate : 1 = false;
-				uint8_t monochrome : 1 = true;
-				// extend later when allowing variable bucket count
-				uint8_t liveSpectralChannels : 3 = 0b111;
-			};
-			// here we keep the multiplication chain unsorted so its each to add/remove nodes as we encounter them
-			core::vector<SFactor> mulChain;
-			// scratch for sorting the mul chain before adding a contributor
-			core::vector<SFactor> mulChainSortScratch;
-			// By maintaining a hash map of AST nodes which simplify to a Constant (unity, or zero, or other) we could resolve the issue of the `nonMulImmediateAncestorStackEnd`
-			// which has us adding the same non-mul node multiple times to stack during the traversal.
-			// However how much of that would be moving IR manipulation into the AST ?
-			struct StackEntry
-			{
-				inline bool notVisited() const {return !visited;}
+				NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CWeightedContributor> popContributor();
 
-				CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH;
-				// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
-				uint16_t nonMulImmediateAncestorStackEnd = 0;
-				// the length of the `mulChain` at the time we first visited the node
-				uint16_t mulChainLen = 0;
-				bool visited = false;
-				// only relevant for Add nodes
-				bool addContributor = false;
-			};
-			core::vector<StackEntry> exprStack;
+				// inputs to the addMaterials function
+				const SAddMaterialsArgs& args;
+				// for rewriting AST expressions
+				core::smart_refctd_ptr<CFrontendIR> tmpAST;
+				// for making IR nodes before we Merkle Hash them and remove duplicates (so main IR doesn't get bloated)
+				core::smart_refctd_ptr<CTrueIR> tmpIR;
+				// changes dynamically
+				const CFrontendIR* srcAST;
+				SDotPrinter astPrinter;
+				bool btdfSubtree = false;
+				// for going over layers in the AST
+				core::vector<const CLayer*> layerStack;
+				// Some of the things we must canonicalize:
+				// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
+				// Expression nodes of the Frontend AST really come in 4 variants:
+				// - add
+				// - mul
+				// - complement, which is equivalent to 1 ADD (-1 MUL x)
+				// - function/other
+				// BRDFs can appear only under ADD and MUL nodes in the AST not the function/other/complement, so if we want to canonicalize:
+				// 1. The Add above can be ignored, we form full multiplication chain to the top
+				// 2. Adds in sibling nodes (below the last add) cause us to have to add a factored copy to the IR
+				// DFS from right-to-left (inverse order of adding children to stack), would cause us to keep postifxes of the multiplier chain every time we descend into ADD.
+				// We want to essentially visit the parent ADD node again after dealing with its subtree (in-order traversal) then mul chain can be reset just to the parent.
+				// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
+				// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
+				// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node.
+				struct SContributor
+				{
+					// the "active" contributor, basically the leftmost item in the subbranch below and ADD
+					CTrueIR::typed_pointer_type<const CTrueIR::IContributor> contributor;
+				};
+				core::vector<SContributor> contributorStack;
+				// Every time we encounter an AST leaf we must add the current contributor together with all the factors multiplied together
+				struct SFactor
+				{
+					using handle_t = CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>;
+					// We only track multiplicative factors, we break down every BRDF equally into the canonical form
+					handle_t handle;
+					uint8_t negate : 1 = false;
+					uint8_t monochrome : 1 = true;
+					// extend later when allowing variable bucket count
+					uint8_t liveSpectralChannels : 3 = 0b111;
+				};
+				// here we keep the multiplication chain unsorted so its each to add/remove nodes as we encounter them
+				core::vector<SFactor> mulChain;
+				// scratch for sorting the mul chain before adding a contributor
+				core::vector<SFactor> mulChainSortScratch;
+				// By maintaining a hash map of AST nodes which simplify to a Constant (unity, or zero, or other) we could resolve the issue of the `nonMulImmediateAncestorStackEnd`
+				// which has us adding the same non-mul node multiple times to stack during the traversal.
+				// However how much of that would be moving IR manipulation into the AST ?
+				struct StackEntry
+				{
+					inline bool notVisited() const {return !visited;}
+
+					CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH;
+					// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
+					uint16_t nonMulImmediateAncestorStackEnd = 0;
+					// the length of the `mulChain` at the time we first visited the node
+					uint16_t mulChainLen = 0;
+					bool visited = false;
+					// only relevant for Add nodes
+					bool addContributor = false;
+				};
+				core::vector<StackEntry> exprStack;
 		};
-		NBL_API2 CTrueIR::SMaterialHandle makeFinalIR(const typed_pointer_type<const CLayer> rootH, SAdd2IRSession& session) const;
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
 		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
@@ -952,6 +976,40 @@ class CFrontendIR final : public CNodePool
 			return retval;
 		}
 };
+}
+
+// specialize the `to_string
+namespace nbl::system::impl
+{
+template<>
+struct to_string_helper<nbl::asset::material_compiler3::CFrontendIR::IExprNode::Type>
+{
+	using type = nbl::asset::material_compiler3::CFrontendIR::IExprNode::Type;
+
+	static inline std::string __call(const type value)
+	{
+		switch (value)
+		{
+			case type::Contributor:
+				return "Contributor";
+			case type::Mul:
+				return "Mul";
+			case type::Complement:
+				return "Complement";
+			case type::SpectralVariable:
+				return "SpectralVariable";
+			case type::Other:
+				return "Other";
+			default:
+				break;
+		}
+		return "";
+	}
+};
+}
+
+namespace nbl::asset::material_compiler3
+{
 
 inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 {

@@ -6,6 +6,7 @@
 
 
 #include "nbl/system/ILogger.h"
+#include "nbl/system/to_string.h"
 
 #include "nbl/asset/material_compiler3/CNodePool.h"
 #include "nbl/asset/format/EColorSpace.h"
@@ -657,6 +658,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline bool operator==(const SBasicNodes& other) const = default;
 
+				typed_pointer_type<const COrientedLayer> errorLayer = {};
 				typed_pointer_type<const CContributorSum> blackHoleBxDF = {};
 				typed_pointer_type<const CContributorSum> errorBxDF = {};
 

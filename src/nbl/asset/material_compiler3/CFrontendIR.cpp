@@ -172,6 +172,9 @@ auto CFrontendIR::deepCopy(const typed_pointer_type<const IExprNode> orig, const
 
 auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR) -> typed_pointer_type<const IExprNode>
 {
+	if (!orig)
+		return {};
+
 	auto& dstPool = getObjectPool();
 	// if not explicitly other, then its ours
 	if (!pSourceIR)
@@ -224,10 +227,11 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, co
 				auto* const copy = dstPool.deref(copyH);
 				if (!copy)
 					return {};
-				if (pSourceIR!=this)
-					copy->debugInfo = copyDebugInfo(node->debugInfo,pSourceIR);
 				if (needToReciprocate)
 					node->reciprocate(copy);
+				// reciprocate might take full copies, and copy pointers across, so do all modifications after
+				if (pSourceIR!=this)
+					copy->debugInfo = copyDebugInfo(node->debugInfo,pSourceIR);
 				// only changed children need to be set
 				for (uint8_t c=0; c<childCount; c++)
 				{
@@ -426,8 +430,8 @@ void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 	{			
 		while (!exprStack.empty())
 		{
-			const auto entry = exprStack.top();
-			exprStack.pop();
+			const auto entry = exprStack.back();
+			exprStack.pop_back();
 			const auto nodeID = m_ir->getNodeID(entry);
 			str << "\n\t" << m_ir->getLabelledNodeID(entry);
 			const auto* node = m_ir->getObjectPool().deref(entry);
@@ -443,7 +447,7 @@ void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 						const auto visited = visitedNodes.find(childHandle);
 						if (visited!=visitedNodes.end())
 							continue;
-						exprStack.push(childHandle);
+						exprStack.push_back(childHandle);
 						visitedNodes.insert(childHandle);
 					}
 				}
@@ -483,7 +487,7 @@ void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 			const auto visited = visitedNodes.find(root);
 			if (visited!=visitedNodes.end())
 				return;
-			exprStack.push(root);
+			exprStack.push_back(root);
 			visitedNodes.insert(root);
 		};
 		pushExprRoot(layerNode->brdfTop,"Top BRDF");
@@ -631,6 +635,8 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	oriented_material_t retval = {};
 
 	srcAST = _srcAST;
+	astPrinter.reset(srcAST);
+
 	const auto& astPool = srcAST->getObjectPool();
 	assert(layerStack.empty());
 	auto clearLayerStackOnExit = core::makeRAIIExiter([this]()->void{layerStack.clear();});
@@ -673,7 +679,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			// process the top BRDF
 			outLayer->brdfTop = makeContributors(inLayer->brdfTop);
 			if (outLayer->brdfTop==errorBxDF)
-				return {}; // TODO: error material
+				return {};
 			// process the BTDF
 			btdfSubtree = true;
 			const auto btdfH = makeContributors(inLayer->btdf);
@@ -682,7 +688,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			if (btdfH)
 			{
 				if (btdfH==errorBxDF)
-					return {}; // TODO: error material
+					return {};
 				const auto transmissionH = irPool.emplace<CTrueIR::CCorellatedTransmission>();
 				{
 					auto* const transmission = irPool.deref(transmissionH);
@@ -692,7 +698,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 					{
 						transmission->brdfBottom = makeContributors(inLayer->brdfBottom);
 						if (transmission->brdfBottom==errorBxDF)
-							return {}; // TODO: error material
+							return {};
 					}
 					// we check if previous layer didn't get oprimized away, but we don't add its optimized version because don't want pointers across two pools (crash)
 					if (retval.root)
@@ -738,23 +744,28 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 
 //
 auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH) -> CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum>
-{
-	// debug what we're processing
-	SDotPrinter astPrinter(srcAST);
-	auto printSubtree = [&](const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH)->void
-	{
-		assert(astPrinter.exprStack.empty());
-		astPrinter.exprStack.push(nodeH);
-		args.logger.log("Subtree Dot3 : \n%s\n", ELL_DEBUG,astPrinter().c_str());
-		assert(astPrinter.exprStack.empty());
-	};
-
-	using contributor_sum_handle_t = CTrueIR::typed_pointer_type<CTrueIR::CContributorSum>;
-	contributor_sum_handle_t headH = {};
+{	
+	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
 	if (!bxdfRootH)
 		return headH;
 	// temporary debug for WIP
 	printSubtree(bxdfRootH);
+
+	// error on exit
+	const auto errorRetval = tmpIR->getBasicNodes().errorBxDF;
+	auto printFailAndCleanupOnExit = core::makeRAIIExiter([&]()->void
+		{
+			if (headH!=errorRetval)
+				return;
+			printSubtree(exprStack.back().nodeH);
+			args.logger.log("Within BxDF:\n",ELL_DEBUG,astPrinter().c_str());
+			printSubtree(bxdfRootH);
+			// no point pushing an error contributor, don't want a best effort compilation within a layer, don't want contributors missing or substituted
+			exprStack.clear();
+			mulChain.clear();
+			contributorStack.clear();
+		}
+	);
 
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
@@ -762,7 +773,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	assert(mulChain.empty());
 	assert(contributorStack.empty());
 	exprStack.push_back({.nodeH=bxdfRootH});
-	contributor_sum_handle_t tailH = {};
+	CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> tailH = {};
 	while (!exprStack.empty())
 	{
 		auto& entry = exprStack.back();
@@ -780,12 +791,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				if (!contributorH || irPool.deref(contributorH)->computeHash(irPool)==core::blake3_hash_t{})
 				{
 					args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
-					printSubtree(entry.nodeH);
-					// no point pushing an error contributor, don't want a best effort compilation within a layer, don't want contributors missing or substituted
-					exprStack.clear();
-					mulChain.clear();
-					contributorStack.clear();
-					return tmpIR->getBasicNodes().errorBxDF;
+					return (headH=errorRetval);
 				}
 				contributorStack.push_back({.contributor=contributorH});
 				exprStack.pop_back();
@@ -841,13 +847,22 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							headH = tailH;
 					}
 					// add current contributor with weight to BxDF Sum
-					irPool.deref(tailH)->product = popContributor();
+					if (const auto contributor=popContributor(); contributor)
+						irPool.deref(tailH)->product = contributor;
+					else
+					{
+						args.logger.log("Failed to Pop the Contributor from the Stack, most likely failed to create the factor node chain.",ELL_ERROR);
+						return (headH=errorRetval);
+					}
 					// when we are done we need to reset the mul chain back to its original state
 					mulChain.resize(entry.mulChainLen);
 					break;
 				}
 				default:
-					break;
+				{
+					args.logger.log("Unsupported AST Expression type \"%s\"",ELL_ERROR,system::to_string(astExprType).c_str());
+					return (headH=errorRetval);
+				}
 			}
 			exprStack.pop_back();
 		}
@@ -859,7 +874,13 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		assert(contributorStack.size()==1);
 		// add the contributor
 		headH = irPool.emplace<CTrueIR::CContributorSum>();
-		irPool.deref(headH)->product = popContributor();
+		if (const auto contributor=popContributor(); contributor)
+			irPool.deref(headH._const_cast())->product = contributor;
+		else
+		{
+			args.logger.log("Failed to Pop the Single Contributor from the Stack, most likely failed to create the factor node chain.",ELL_ERROR);
+			return (headH=errorRetval);
+		}
 		mulChain.clear();
 	}
 	// we got all the AST ADD nodes on the way back out
@@ -878,6 +899,7 @@ auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_typ
 	contributorStack.pop_back();
 	if (!mulChain.empty())
 	{
+		return {};
 		assert(false); // unimplemented
 		const CTrueIR::CFactorCombiner::SState combinerState = {
 			.type = CTrueIR::CFactorCombiner::Type::Mul,
@@ -911,34 +933,54 @@ auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_typ
 }
 
 //
-CTrueIR::SMaterialHandle CFrontendIR::makeFinalIR(const typed_pointer_type<const CLayer> rootH, SAdd2IRSession& session) const
+CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_pointer_type<const CLayer> rootH, const CFrontendIR* ast)
 {
-	const auto& astPool = getObjectPool();
-
 	// TODO 
 //	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
 //	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
 
+	const auto& astPool = ast->getObjectPool();
 	const auto* astRoot = astPool.deref<const CFrontendIR::CLayer>(rootH);
 	// no material
 	if (!astRoot)
 		return CTrueIR::BlackholeMaterialHandle;
-	session.tmpIR->reset();
+	tmpIR->reset();
 	// reverse AST into another tree
-	session.tmpAST->reset();
-	const auto backRootH = session.tmpAST->reverse(rootH,this);
+	tmpAST->reset();
+	const auto backRootH = tmpAST->reverse(rootH,ast);
 	CTrueIR::SMaterial material = {
-		.front = session.makeOrientedMaterial(rootH,this),
-		.back = session.makeOrientedMaterial(backRootH,session.tmpAST.get())
+		.front = makeOrientedMaterial(rootH,ast),
+		.back = makeOrientedMaterial(backRootH,tmpAST.get())
 	};
 
-	auto retval = session.args.ir->addMaterial(material);
+	const auto errorLayer = args.ir->getBasicNodes().errorLayer;
+	auto printLayer = [&](const typed_pointer_type<const CLayer> _rootH, const CFrontendIR* _ast)->void
+	{
+		astPrinter.reset(_ast);
+		astPrinter.layerStack.push_back(_rootH);
+		args.logger.log("Subtree Dot3 : \n%s\n",ELL_DEBUG,astPrinter().c_str());
+		assert(astPrinter.layerStack.empty());
+	};
+	if (material.front.root==errorLayer)
+	{
+		args.logger.log("Failed to create Frontface Material",ELL_ERROR);
+		printLayer(rootH,ast);
+		return {};
+	}
+	if (material.back.root==errorLayer)
+	{
+		args.logger.log("Failed to create Backface Material for reversed AST",ELL_ERROR);
+		printLayer(backRootH,tmpAST.get());
+		return {};
+	}
+
+	auto retval = args.ir->addMaterial(material);
 	if (retval)
 	{
 		// TODO: better debug info (e.g. concat all the layer info during `makeOrientedMaterial` via the `session` object
 		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
 		{
-			material.debugInfo = session.args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
+			material.debugInfo = args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
 		}
 	}
 	return retval;
