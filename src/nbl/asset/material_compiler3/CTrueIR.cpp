@@ -87,7 +87,7 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 bool CTrueIR::rewrite(SMaterial& material, CTrueIR* srcIR)
 {
 	// TODO: hash, deduplicate, collect metadata and insert into current IR
-	return true;
+	return false;
 }
 
 

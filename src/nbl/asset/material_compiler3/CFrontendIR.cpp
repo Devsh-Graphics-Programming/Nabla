@@ -549,8 +549,9 @@ void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::
 }
 
 //!  AST-> IR methods
-auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+auto CFrontendIR::CEmitter::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
+	assert(!forBTDF);
 	auto& irPool = ir->getObjectPool();
 	const auto retval = irPool.emplace<CTrueIR::CEmitter>();
 	if (auto* const contributor=irPool.deref(retval))
@@ -561,12 +562,13 @@ auto CFrontendIR::CEmitter::createIRNode(const CFrontendIR* ast, CTrueIR* ir) co
 	return retval;
 }
 
-auto CFrontendIR::CDeltaTransmission::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+auto CFrontendIR::CDeltaTransmission::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
+	assert(forBTDF);
 	return ir->getObjectPool().emplace<CTrueIR::CDeltaTransmission>();
 }
 
-auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+auto CFrontendIR::COrenNayar::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
 	if (ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::Invalid)
 		return {};
@@ -577,20 +579,44 @@ auto CFrontendIR::COrenNayar::createIRNode(const CFrontendIR* ast, CTrueIR* ir) 
 	return retval;
 }
 
-auto CFrontendIR::CCookTorrance::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
+auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> ir_contributor_handle_t
 {
 	if (ndParams.getDistribution()>CTrueIR::SBasicNDFParams::EDistribution::Beckmann)
 		return {};
 	auto& irPool = ir->getObjectPool();
 	CTrueIR::typed_pointer_type<const CTrueIR::ISpectralVariable> etaH = {};
-#if 0 // TODO: pass the transmission info
-	if (isBTDF)
+	if (forBTDF)
 	{
-		etaH = irPool.emplace<CTrueIR::CSpectralVariable<>>();
-		if (!etaH)
+		if (!orientedRealEta)
 			return {};
+		const auto* const srcEta = ast->getObjectPool().deref(orientedRealEta);
+		switch (srcEta->getSemantics())
+		{
+			case CSpectralVariable::semantics_e::NoneUndefined:
+			{
+				assert(srcEta->getKnotCount()==1);
+				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<1>>();
+				auto* const dstEta = irPool.deref(handle);
+				if (!dstEta)
+					return {};
+				dstEta->paramSet.uvTransform = srcEta->uvTransform();
+				dstEta->paramSet.params[0] = *srcEta->getParam(0);
+				break;
+			}
+			default:
+			{
+				assert(srcEta->getKnotCount()==3);
+				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<3>>();
+				auto* const dstEta = irPool.deref(handle);
+				if (!dstEta)
+					return {};
+				dstEta->paramSet.uvTransform = srcEta->uvTransform();
+				for (auto i=0; i<3; i++)
+					dstEta->paramSet.params[i] = *srcEta->getParam(i);
+				break;
+			}
+		}
 	}
-#endif
 	const auto retval = irPool.emplace<CTrueIR::CCookTorrance>();
 	if (auto* const ct=irPool.deref(retval); ct)
 	{
@@ -607,6 +633,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	srcAST = _srcAST;
 	const auto& astPool = srcAST->getObjectPool();
 	assert(layerStack.empty());
+	auto clearLayerStackOnExit = core::makeRAIIExiter([this]()->void{layerStack.clear();});
 
 	auto& irPool = tmpIR->getObjectPool();
 	// go down through layers and enqueue them so the layers can be added in reverse
@@ -618,17 +645,20 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 		// if there's literally nothing on the top level, you can't get to the next layer to retroreflect from it
 		if (noTopReflection && noTransmission)
 		{
-			args.logger.log("Skipping current layer and farther ones due to no transmission and reflection",ELL_DEBUG);
+			if (layer->coated)
+				args.logger.log("Skipping current layer and farther ones due to no transmission and reflection",ELL_DEBUG);
 			break;
 		}
 		layerStack.push_back(layer);
 		// find out rest of the layers don't matter because they're blocked from being seen, its not a complete check
 		if (noTransmission)
 		{
-			args.logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
+			if (layer->coated)
+				args.logger.log("Skipping remaining layers due to no transmission",ELL_DEBUG);
 			break;
 		}
 	}
+	const auto errorBxDF = tmpIR->getBasicNodes().errorBxDF;
 	// Some metadata needed for us
 	bool layersBelowCanScatterBack = false;
 	CTrueIR::typed_pointer_type<CTrueIR::COrientedLayer> prevLayerH = {};
@@ -642,18 +672,28 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 			auto* const outLayer = irPool.deref(layerH);
 			// process the top BRDF
 			outLayer->brdfTop = makeContributors(inLayer->brdfTop);
+			if (outLayer->brdfTop==errorBxDF)
+				return {}; // TODO: error material
 			// process the BTDF
+			btdfSubtree = true;
 			const auto btdfH = makeContributors(inLayer->btdf);
+			btdfSubtree = false;
 			// because we're oriented, the bottom brdf can't exist without a BTDF on top (there's no ray that can reach it from our oriented side)
 			if (btdfH)
 			{
+				if (btdfH==errorBxDF)
+					return {}; // TODO: error material
 				const auto transmissionH = irPool.emplace<CTrueIR::CCorellatedTransmission>();
 				{
 					auto* const transmission = irPool.deref(transmissionH);
 					transmission->btdf = btdfH;
 					// Only if we have a layer below us capable of reflecting the ray back, do we care about the bottom BRDF (you can't hit it otherwise)
 					if (layersBelowCanScatterBack)
+					{
 						transmission->brdfBottom = makeContributors(inLayer->brdfBottom);
+						if (transmission->brdfBottom==errorBxDF)
+							return {}; // TODO: error material
+					}
 					// we check if previous layer didn't get oprimized away, but we don't add its optimized version because don't want pointers across two pools (crash)
 					if (retval.root)
 						transmission->coated = prevLayerH;
@@ -683,7 +723,6 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 				layersBelowCanScatterBack = false;
 		}
 	}
-	layerStack.clear();
 	// last touch ups
 	if (retval.root)
 	{
@@ -726,16 +765,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	contributor_sum_handle_t tailH = {};
 	while (!exprStack.empty())
 	{
-		// how to report an error
-#if 0
-		{
-			args.logger.log("MESSAGE",ELL_ERROR);
-			exprStack.clear();
-			mulChain.clear();
-			contributorStack.clear();
-			return tmpIR->getBasicNodes().errorBxDF;
-		}
-#endif
 		auto& entry = exprStack.back();
 		const auto* const node = astPool.deref(entry.nodeH);
 		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
@@ -746,13 +775,17 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		{
 			if (isContributor)
 			{
-				const auto contributorH = static_cast<const IContributor*>(node)->createIRNode(srcAST,tmpIR.get());
+				const auto contributorH = static_cast<const IContributor*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get());
 				// TODO: recompute instead of compute
 				if (!contributorH || irPool.deref(contributorH)->computeHash(irPool)==core::blake3_hash_t{})
 				{
 					args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
 					printSubtree(entry.nodeH);
-					assert(false); // unimplemented
+					// no point pushing an error contributor, don't want a best effort compilation within a layer, don't want contributors missing or substituted
+					exprStack.clear();
+					mulChain.clear();
+					contributorStack.clear();
+					return tmpIR->getBasicNodes().errorBxDF;
 				}
 				contributorStack.push_back({.contributor=contributorH});
 				exprStack.pop_back();
@@ -882,6 +915,7 @@ CTrueIR::SMaterialHandle CFrontendIR::makeFinalIR(const typed_pointer_type<const
 {
 	const auto& astPool = getObjectPool();
 
+	// TODO 
 //	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
 //	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
 

@@ -455,9 +455,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					hasher << paramSet;
 					if constexpr (SpectralBins>1)
 					{
-						if (!getSemantics()==ESemantics::NoneUndefined)
+						const ESemantics semantics = getSemantics<SpectralBins>();
+						if (semantics!=ESemantics::NoneUndefined)
 							return false;
-						hasher << getSemantics();
+						hasher << semantics;
 					}
 					return true;
 				}
@@ -485,7 +486,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline CSpectralVariable()
 				{
 					if constexpr (SpectralBins>1)
-						setSemantics(ESemantics::Fixed3_SRGB);
+						setSemantics<SpectralBins>(ESemantics::Fixed3_SRGB);
 				}
 
 				SParameterSet<SpectralBins> paramSet = {};
@@ -680,13 +681,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				NotBlackhole = 0x1u<<0, // actually have a material
 				NonDelta = 0x1u<<1, // can evaluate against point lights (or other samplings)
 				DeltaTransmissive = 0x1u<<2, // can use stochastic transparency for closest hit rays and blending for anyhit 
-				Emissive = 0x1u<<3, // maybe register for NEE, but definitely grab the emission
-				NonSpatiallyVaryingEmissive = 0x1u<<4, // definitely register for NEE
-				// TODO: 5,6 left
+				NonSpatiallyVaryingEmissive = 0x1u<<3, // definitely register for NEE
+				SpatiallyVaryingEmissive = 0x1u<<4, // maybe register for NEE but needs different kind of NEE
+				// TODO: 5,6,7 left
 				// Bits that help us remove expensive code from impl
-				DerivativeMap = 0x1u<<7,
-				DirectionallyVaryingEmissive = 0x1u<<8, // IES profile
-				SpatiallyVaryingEmissive = 0x1u<<9, // textured light
+				DerivativeMap = 0x1u<<8,
+				DirectionallyVaryingEmissive = 0x1u<<9, // IES profile
 				Lambertian = 0x1u<<10,
 				OrenNayar = 0x1u<<11,
 				GGX = 0x1u<<12,

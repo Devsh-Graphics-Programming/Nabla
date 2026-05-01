@@ -215,7 +215,7 @@ class CFrontendIR final : public CNodePool
 			protected:
 				friend class CFrontendIR;
 				using ir_contributor_handle_t = CTrueIR::typed_pointer_type<CTrueIR::IContributor>;
-				virtual ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const = 0;
+				virtual ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const = 0;
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
@@ -263,6 +263,9 @@ class CFrontendIR final : public CNodePool
 				}
 
 				// encapsulation due to padding abuse
+				inline auto& uvTransform() {return pWonky()->knots.uvTransform;}
+				inline const auto& uvTransform() const {return pWonky()->knots.uvTransform;}
+
 				inline uint8_t& uvSlot() {return pWonky()->knots.uvSlot();}
 				inline const uint8_t& uvSlot() const {return pWonky()->knots.uvSlot();}
 
@@ -444,7 +447,7 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
@@ -616,7 +619,7 @@ class CFrontendIR final : public CNodePool
 			protected:
 				COPY_DEFAULT_IMPL
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		// Base diffuse node
@@ -639,7 +642,7 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -682,7 +685,7 @@ class CFrontendIR final : public CNodePool
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 #undef COPY_DEFAULT_IMPL
 #undef TYPE_NAME_STR
@@ -872,6 +875,7 @@ class CFrontendIR final : public CNodePool
 			core::smart_refctd_ptr<CTrueIR> tmpIR;
 			// changes dynamically
 			const CFrontendIR* srcAST;
+			bool btdfSubtree = false;
 			// for going over layers in the AST
 			core::vector<const CLayer*> layerStack;
 			// Some of the things we must canonicalize:
