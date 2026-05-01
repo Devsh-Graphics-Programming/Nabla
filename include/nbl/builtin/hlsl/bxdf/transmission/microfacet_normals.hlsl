@@ -79,6 +79,13 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
         return bxdf_type::anisocache_type::template create<anisotropic_interaction_type, sample_type>(interaction, _sample, orientedEta);
     }
 
+    static spectral_type __calculateQuotient(const spectral_type quo, const spectral_type quo_other, const scalar_type choiceProb, const scalar_type pdf, const scalar_type pdf_other)
+    {
+        const scalar_type weight = pdf / (pdf + pdf_other);  // balance heuristic
+        return (quo * weight / choiceProb) / (scalar_type(1.0) + pdf_other * (scalar_type(1.0) - choiceProb) / (pdf * choiceProb)) +
+                (quo_other * (scalar_type(1.0) - weight)) / (pdf_other * (scalar_type(1.0) - choiceProb) + (pdf * choiceProb));
+    }
+
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction) NBL_CONST_MEMBER_FUNC
     {
         return evalAndWeight(_sample, anisotropic_interaction_type::create(interaction));
@@ -258,6 +265,9 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
         }
 
         const vector3_type Nt = shadowing_method_type::computeNt(Np, shadingBasis);
+        const scalar_type NpdotV = interaction.getNdotV();
+        const scalar_type NtdotV = hlsl::dot(Nt, V.getDirection());
+        const scalar_type lambda_p = shadowing_method_type::lambdaP(NdotNp, hlsl::abs(NpdotV), hlsl::abs(NtdotV));
         spectral_type quo = hlsl::promote<spectral_type>(1.0);
 
         if (_cache.sampleFromNt)
@@ -267,12 +277,14 @@ struct SMicrofacetNormals<Config, BRDF, P, 1 NBL_PARTIAL_REQ_BOT(config_concepts
             typename bxdf_type::anisotropic_interaction_type interaction_t = bxdf_type::anisotropic_interaction_type::create(iso_t);
 
             quotient_weight_type qw = nested_bsdf.quotientAndWeight(_sample, interaction_t, __createChildCache(_sample, interaction_t));
-            quo *= qw.quotient();
+            value_weight_type vw_other = nested_bsdf.evalAndWeight(_sample, interaction_t);
+            quo *= __calculateQuotient(qw.quotient(), vw_other.value(), scalar_type(1.0) - lambda_p, qw.weight(), vw_other.weight());
         }
         else
         {
             quotient_weight_type qw = nested_bsdf.quotientAndWeight(_sample, interaction, _cache.aniso_cache);
-            quo *= qw.quotient();
+            value_weight_type vw_other = nested_bsdf.evalAndWeight(_sample, interaction);
+            quo *= __calculateQuotient(qw.quotient(), vw_other.value(), lambda_p, qw.weight(), vw_other.weight());
         }
 
         if (_cache.sampleIsShadowed)
