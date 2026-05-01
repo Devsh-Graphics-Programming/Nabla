@@ -262,7 +262,11 @@ class CFrontendIR final : public CNodePool
 				}
 				inline CSpectralVariable(const CSpectralVariable& other)
 				{
-					std::uninitialized_copy_n(other.pWonky(),other.getKnotCount(),pWonky());
+					const auto* const src = other.pWonky();
+					auto* const dst = pWonky();
+					std::uninitialized_copy_n(src,1,dst);
+					const size_t count = other.getKnotCount();
+					std::uninitialized_copy_n(src->knots.params+1,count-1,dst->knots.params+1);
 				}
 
 				// encapsulation due to padding abuse
