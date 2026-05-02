@@ -1,6 +1,7 @@
 ﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#define _NBL_ASSET_MATERIAL_COMPILER3_C_FRONTEND_IR_CPP_
 #include "nbl/asset/material_compiler3/CFrontendIR.h"
 
 #include "nbl/builtin/hlsl/complex.hlsl"
@@ -55,7 +56,7 @@ bool CFrontendIR::CFresnel::invalid(const SInvalidCheckArgs& args) const
 			const auto knotCount = imagEta->getKnotCount();
 			for (uint8_t i=0; i<knotCount; i++)
 			{
-				const auto& param = *imagEta->getParam(i);
+				const auto& param = imagEta->getParameter(i);
 				if (param.scale==0.f)
 					continue;
 				args.logger.log("Fresnels used for BTDFs cannot have Imaginary Eta, scale must be 0.f for all knots, is %.*e at knot %u",ELL_ERROR,param.scale,i);
@@ -403,21 +404,19 @@ auto CFrontendIR::createNamedFresnel(const std::string_view name) -> typed_point
 	const auto frH = getObjectPool().emplace<CFrontendIR::CFresnel>();
 	auto* fr = getObjectPool().deref(frH);
 	fr->debugInfo = getObjectPool().emplace<CNodePool::CDebugInfo>(found->first);
+	fr->orientedRealEta = getObjectPool().emplace<CSpectralVariableExpr>(3);
 	{
-		CSpectralVariable::SCreationParams<3> params = {};
-		params.getSemantics() = CTrueIR::ISpectralVariable::ESemantics::Fixed3_SRGB;
-		params.knots.params[0].scale = found->second.x.real();
-		params.knots.params[1].scale = found->second.y.real();
-		params.knots.params[2].scale = found->second.z.real();
-		fr->orientedRealEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
+		auto* const eta = getObjectPool().deref(fr->orientedRealEta);
+		eta->setSemantics(CTrueIR::ISpectralVariable::ESemantics::Fixed3_SRGB);
+		for (uint8_t c=0; c<3; c++)
+			eta->setParameter(c,{.scale=found->second[c].real()});
 	}
+	fr->orientedImagEta = getObjectPool().emplace<CSpectralVariableExpr>(3);
 	{
-		CSpectralVariable::SCreationParams<3> params = {};
-		params.getSemantics() = CTrueIR::ISpectralVariable::ESemantics::Fixed3_SRGB;
-		params.knots.params[0].scale = found->second.x.imag();
-		params.knots.params[1].scale = found->second.y.imag();
-		params.knots.params[2].scale = found->second.z.imag();
-		fr->orientedImagEta = getObjectPool().emplace<CSpectralVariable>(std::move(params));
+		auto* const eta = getObjectPool().deref(fr->orientedImagEta);
+		eta->setSemantics(CTrueIR::ISpectralVariable::ESemantics::Fixed3_SRGB);
+		for (uint8_t c=0; c<3; c++)
+			eta->setParameter(c,{.scale=found->second[c].imag()});
 	}
 	return frH;
 }
@@ -501,26 +500,25 @@ void CFrontendIR::SDotPrinter::operator()(std::ostringstream& str)
 	str << "\n}\n";
 }
 
-core::string CFrontendIR::CSpectralVariable::getLabelSuffix() const
+core::string CFrontendIR::ISpectralVariableExpr::getLabelSuffix() const
 {
 	if (getKnotCount()<2)
 		return "";
 	constexpr const char* SemanticNames[] =
 	{
-		"",
+		"", 
 		"\\nSemantics = Fixed3_SRGB",
 		"\\nSemantics = Fixed3_DCI_P3",
 		"\\nSemantics = Fixed3_BT2020",
 		"\\nSemantics = Fixed3_AdobeRGB",
 		"\\nSemantics = Fixed3_AcesCG"
 	};
-	auto pWonky = reinterpret_cast<const SCreationParams<2>*>(this+1);
-	return SemanticNames[static_cast<uint8_t>(pWonky->getSemantics())];
+	return SemanticNames[static_cast<uint8_t>(getSemantics())];
 }
-void CFrontendIR::CSpectralVariable::printDot(std::ostringstream& sstr, const core::string& selfID) const
+// TODO: move `printDot` to CNodePool ?
+void CFrontendIR::ISpectralVariableExpr::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
-	auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-	CTrueIR::printDotParameterSet(pWonky->knots,getKnotCount(),sstr,selfID,{});
+	CTrueIR::printDotParameterSet(*pWonky(),getKnotCount(),sstr,selfID,{});
 }
 
 void CFrontendIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
@@ -845,7 +843,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 				case ast_expr_type_e::SpectralVariable:
 				{
-					const auto varH = static_cast<const CSpectralVariable*>(node)->createIRNode(srcAST,tmpIR.get());
+					const auto varH = static_cast<const CSpectralVariableExpr*>(node)->createIRNode(srcAST,tmpIR.get());
 					auto* const var = irPool.deref(varH);
 					if (!var)
 					{
@@ -855,10 +853,11 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					auto& factor = mulChain.emplace_back();
 					factor.handle = varH;
 					const auto channels = var->getSpectralBins();
-					factor.monochrome = channels>1;
+					factor.monochrome = channels<2;
 					for (uint8_t c=0; c<channels; c++)
 					{
-						if (!(var->getParameter(c)->scale>std::numeric_limits<float>::min()))
+						const auto* const cVar = var;
+						if (!(cVar->getParameter(c).scale>std::numeric_limits<float>::min()))
 							factor.liveSpectralChannels &= ~(0b1<<c);
 					}
 					break;
@@ -893,33 +892,17 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	return headH;
 }
 
-auto CFrontendIR::CSpectralVariable::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::ISpectralVariable>
+auto CFrontendIR::ISpectralVariableExpr::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::CSpectralVariableFactor>
 {
-	return {};
 	auto& irPool = ir->getObjectPool();
 	uint8_t realCount = 1;
 	for (uint8_t c=0; c<getKnotCount(); c++)
-	if (*getParam(c)!=*getParam(0))
+	if (getParameter(c)!=getParameter(0))
 		realCount = 3;
-	CTrueIR::typed_pointer_type<CTrueIR::ISpectralVariable> retval = {};
-	// TODO: maybe make it wholly polymorphic like the AST ? Or even have both classes use the same struct ?
-	switch (realCount)
-	{
-		case 1:
-		{
-			retval = irPool.emplace<CTrueIR::CSpectralVariable<1>>();
-			break;
-		}
-		case 3:
-		{
-			retval = irPool.emplace<CTrueIR::CSpectralVariable<3>>();
-			break;
-		}
-		default:
-			break;
-	}
-//	==
-	return retval;
+//	CTrueIR::ISpectralVariableFactor(realCount,*static_cast<const ISpectralVariable*>(this));
+	CTrueIR::CSpectralVariableFactor::CSpectralVariable(realCount,*static_cast<const ISpectralVariable*>(this));
+	return {};
+//	return irPool.emplace<CTrueIR::CSpectralVariableFactor>(realCount,*this);
 }
 
 //
@@ -1002,38 +985,15 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 	if (ndParams.getDistribution()>CTrueIR::SBasicNDFParams::EDistribution::Beckmann)
 		return {};
 	auto& irPool = ir->getObjectPool();
-	CTrueIR::typed_pointer_type<const CTrueIR::ISpectralVariable> etaH = {};
+	CTrueIR::typed_pointer_type<const CTrueIR::CSpectralVariableFactor> etaH = {};
 	if (forBTDF)
 	{
-		if (!orientedRealEta)
-			return {};
 		const auto* const srcEta = ast->getObjectPool().deref(orientedRealEta);
-		switch (srcEta->getSemantics())
-		{
-			case CSpectralVariable::semantics_e::NoneUndefined:
-			{
-				assert(srcEta->getKnotCount()==1);
-				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<1>>();
-				auto* const dstEta = irPool.deref(handle);
-				if (!dstEta)
-					return {};
-				dstEta->paramSet.uvTransform = srcEta->uvTransform();
-				dstEta->paramSet.params[0] = *srcEta->getParam(0);
-				break;
-			}
-			default:
-			{
-				assert(srcEta->getKnotCount()==3);
-				const auto handle = irPool.emplace<CTrueIR::CSpectralVariable<3>>();
-				auto* const dstEta = irPool.deref(handle);
-				if (!dstEta)
-					return {};
-				dstEta->paramSet.uvTransform = srcEta->uvTransform();
-				for (auto i=0; i<3; i++)
-					dstEta->paramSet.params[i] = *srcEta->getParam(i);
-				break;
-			}
-		}
+		if (!srcEta)
+			return {};
+		etaH = srcEta->createIRNode(ast,ir);
+		if (!etaH)
+			return {};
 	}
 	const auto retval = irPool.emplace<CTrueIR::CCookTorrance>();
 	if (auto* const ct=irPool.deref(retval); ct)
@@ -1044,4 +1004,5 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 	return retval;
 }
 
+template class CTrueIR::CSpectralVariable<CFrontendIR::ISpectralVariableExpr>;
 }

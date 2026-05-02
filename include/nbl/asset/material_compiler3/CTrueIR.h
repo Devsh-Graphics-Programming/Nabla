@@ -194,10 +194,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					CWeightedContributor,
 					CEmitter,
 					CDeltaTransmission,
-					CSpectralVariable_1,
-					CSpectralVariable_2,
-					CSpectralVariable_3,
-					CSpectralVariable_4,
+					CSpectralVariable,
 					COrenNayar,
 					CCookTorrance,
 					CFactorCombiner
@@ -431,14 +428,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				virtual uint8_t getSpectralBins() const = 0;
 		};
-		class ISpectralVariable : public IFactorLeaf
+		//
+		class ISpectralVariable
 		{
+				inline SParameter& getParameter(const uint8_t i) {return pWonky()->params[i];}
+
 			public:
-				virtual uint8_t getSpectralBins() const = 0;
-
-				virtual SParameter* getParameter(const uint8_t i) = 0;
-				inline const SParameter* getParameter(const uint8_t i) const {return const_cast<const SParameter*>(const_cast<ISpectralVariable*>(this)->getParameter(i));}
-
 				enum class ESemantics : uint8_t
 				{
 					NoneUndefined = 0,
@@ -452,21 +447,144 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// PairsLinear = 5, // linear interpolation
 					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
 				};
+
+				// essential!
+				inline uint8_t getKnotCount() const
+				{
+					static_assert(sizeof(SParameter::padding)>1);
+					return getParameter(0).padding[1];
+				}
+
+				// encapsulation due to padding abuse
+				inline auto& uvTransform() {return pWonky()->uvTransform;}
+				inline const auto& uvTransform() const {return pWonky()->uvTransform;}
+
+				inline uint8_t& uvSlot() {return pWonky()->uvSlot();}
+				inline const uint8_t& uvSlot() const {return pWonky()->uvSlot();}
+				
+				inline const SParameter& getParameter(const uint8_t i) const {assert(i<getKnotCount()); return pWonky()->params[i];}
+				inline void setParameter(const uint8_t i, const SParameter& value)
+				{
+					assert(i<getKnotCount());
+					auto& param = getParameter(i);
+					uint8_t backup[sizeof(param.padding)];
+					std::copy_n(param.padding,sizeof(param.padding),backup);
+					param = value;
+					std::copy_n(backup,sizeof(param.padding),param.padding);
+				}
+
 				inline ESemantics getSemantics() const
 				{
-					if (getSpectralBins()>1)
-						return static_cast<ESemantics>(getParameter(1)->padding[0]);
+					if (getKnotCount()>1)
+						return static_cast<ESemantics>(getParameter(1).padding[0]);
 					else
 						return ESemantics::NoneUndefined;
 				}
-		};
-		template<uint8_t SpectralBins>
-		class CSpectralVariable final : public obj_pool_type::INonTrivial, public ISpectralVariable
-		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+
+				inline void setSemantics(const ESemantics value)
 				{
-					hasher << paramSet;
-					if constexpr (SpectralBins>1)
+					if (getKnotCount()>1)
+						getParameter(1).padding[0] = static_cast<uint8_t>(value);
+				}
+
+			protected:
+				inline ISpectralVariable() = default;
+				// fill out the params later
+				inline void init(const uint8_t knotCount)
+				{
+					std::uninitialized_default_construct_n(pWonky(),1);
+					if (knotCount>1)
+						std::uninitialized_default_construct_n(pWonky()->params+1,knotCount-1);
+					// back up the count
+					static_assert(sizeof(SParameter::padding)>1);
+					getParameter(0).padding[1] = knotCount;
+					// set it correctly for monochrome
+					setSemantics(ESemantics::NoneUndefined);
+				}
+				inline void init(const ISpectralVariable& other)
+				{
+					const auto* const src = other.pWonky();
+					auto* const dst = pWonky();
+					std::uninitialized_copy_n(src,1,dst);
+					const size_t count = other.getKnotCount();
+					if (count>1)
+						std::uninitialized_copy_n(src->params+1,count-1,dst->params+1);
+				}
+				inline void init(const uint8_t knotCount, const ISpectralVariable& other)
+				{
+					init(knotCount);
+					const auto count = hlsl::min(other.getKnotCount(),knotCount);
+					for (uint8_t c=0; c<count; c++)
+						getParameter(c) = other.getParameter(c);
+					// restore
+					getParameter(0).padding[1] = knotCount;
+				}
+				inline ~ISpectralVariable() = default;
+				
+				bool valid(const system::logger_opt_ptr logger) const;
+
+				virtual inline SParameterSet<1>* pWonky() = 0;
+				inline const SParameterSet<1>* pWonky() const {return const_cast<const SParameterSet<1>*>(const_cast<ISpectralVariable*>(this)->pWonky());}
+		};
+		// This node could also represent non directional emission, but we have another node for that
+		template<class OtherBase> requires std::is_base_of_v<ISpectralVariable,OtherBase>
+		class alignas(SParameterSet<1>) CSpectralVariable final : public obj_pool_type::IVariableSize, public OtherBase
+		{
+				using this_t = CSpectralVariable<OtherBase>;
+
+			protected:
+				inline ~CSpectralVariable()
+				{
+					const auto count = ISpectralVariable::getKnotCount();
+					std::destroy_n(pWonky(),1);
+					if (count>1)
+						std::destroy_n(pWonky()->params+1,count-1);
+				}
+
+				inline SParameterSet<1>* pWonky() override final {return reinterpret_cast<SParameterSet<1>*>(this+1);}
+
+			public:
+				inline CSpectralVariable(const uint8_t knotCount) {ISpectralVariable::init(knotCount);}
+				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
+				inline CSpectralVariable(const U& other) {ISpectralVariable::init(other);}
+				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
+				inline CSpectralVariable(const uint8_t knotCount, const U& other) {ISpectralVariable::init(knotCount,other);}
+				
+				//
+				inline _typed_pointer_type<this_t> copy(obj_pool_type& pool) const
+				{
+					return pool.emplace<this_t>(*this);
+				}
+
+				//
+				static inline uint32_t calc_size(const uint8_t knotCount)
+				{
+					return sizeof(this_t)+sizeof(SParameterSet<1>)+sizeof(SParameter)*(knotCount-1);
+				}
+				// for copying
+				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
+				static inline uint32_t calc_size(const U& other)
+				{
+					return calc_size(other.getKnotCount());
+				}
+				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
+				static inline uint32_t calc_size(const uint8_t knotCount, const U& other)
+				{
+					return calc_size(knotCount);
+				}
+				
+				// TODO: improve the token pasting here
+				inline const std::string_view getTypeName() const override final {return TYPE_NAME_STR(CSpectralVariable<SpectralBins>);}
+		};
+		//
+		class ISpectralVariableFactor : public ISpectralVariable, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override final
+				{
+					hasher << *pWonky();
+					for (uint8_t c=1; c<getKnotCount(); c++)
+						hasher << pWonky()->params[c];
+					if (getKnotCount()>1)
 					{
 						const ESemantics semantics = getSemantics();
 						if (semantics!=ESemantics::NoneUndefined)
@@ -477,35 +595,15 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
-				// TODO: maybe undo this?
-				inline EFinalType getFinalType() const override
+				inline EFinalType getFinalType() const override final
 				{
-					static_assert(1<=SpectralBins && SpectralBins<=4);
-					return static_cast<EFinalType>(static_cast<uint8_t>(EFinalType::CSpectralVariable_1)-1+SpectralBins);
-				}
-				
-				// TODO: improve the token pasting here
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable<SpectralBins>);}
-
-				//
-				inline uint8_t getSpectralBins() const override {return SpectralBins;}
-
-				//
-				inline SParameter* getParameter(const uint8_t i) {return paramSet.params+i;}
-
-				//
-				template<uint8_t N> requires (N>1 && N==SpectralBins)
-				inline void setSemantics(const ESemantics value) {paramSet.params[1].padding[0] = static_cast<uint8_t>(value);}
-
-				// you can set the children later
-				inline CSpectralVariable()
-				{
-					if constexpr (SpectralBins>1)
-						setSemantics<SpectralBins>(ESemantics::Fixed3_SRGB);
+					return EFinalType::CSpectralVariable;
 				}
 
-				SParameterSet<SpectralBins> paramSet = {};
+				//
+				inline uint8_t getSpectralBins() const override final {return getKnotCount();}
 		};
+		using CSpectralVariableFactor = CSpectralVariable<ISpectralVariableFactor>;
 		
 		// Unit Radiance emitter modulated by an IES profile
 		class CEmitter final : public obj_pool_type::INonTrivial, public IContributor
@@ -659,7 +757,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
 				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
 				// BRDFs and BTDFs components into separate expressions, and also importance sample much better. 
-				typed_pointer_type<const ISpectralVariable> orientedRealEta = {};
+				typed_pointer_type<const CSpectralVariableFactor> orientedRealEta = {};
 		};
 		//! Parameter Nodes
 		//! Basic factor nodes
@@ -841,7 +939,78 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		const SBasicNodes m_basicNodes;
 };
 
+template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
+
 NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::SMaterial::EMetadataBits)
+
+}
+
+//
+namespace nbl::system::impl
+{
+template<>
+struct system::impl::to_string_helper<asset::material_compiler3::CTrueIR::ISpectralVariable::ESemantics>
+{
+	using type = asset::material_compiler3::CTrueIR::ISpectralVariable::ESemantics;
+
+	static inline std::string __call(const type value)
+	{
+		switch (value)
+		{
+			case type::NoneUndefined:
+				return "NoneUndefined";
+			case type::Fixed3_SRGB:
+				return "Fixed3_SRGB";
+			case type::Fixed3_DCI_P3:
+				return "Fixed3_DCI_P3";
+			case type::Fixed3_BT2020:
+				return "Fixed3_BT2020";
+			case type::Fixed3_AdobeRGB:
+				return "Fixed3_AdobeRGB";
+			case type::Fixed3_AcesCG:
+				return "Fixed3_AcesCG";
+			default:
+				break;
+		}
+		return "";
+	}
+};
+}
+
+//
+namespace nbl::asset::material_compiler3
+{
+
+inline bool CTrueIR::ISpectralVariable::valid(const system::logger_opt_ptr logger) const
+{
+	const auto knotCount = getKnotCount();
+	// non-monochrome spectral variable 
+	if (const auto semantic=getSemantics(); knotCount>1)
+	switch (semantic)
+	{
+		case ESemantics::Fixed3_SRGB: [[fallthrough]];
+		case ESemantics::Fixed3_DCI_P3: [[fallthrough]];
+		case ESemantics::Fixed3_BT2020: [[fallthrough]];
+		case ESemantics::Fixed3_AdobeRGB: [[fallthrough]];
+		case ESemantics::Fixed3_AcesCG:
+			if (knotCount!=3)
+			{
+				logger.log("Semantic %s is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,system::to_string(semantic).c_str(),knotCount);
+				return false;
+			}
+			break;
+		default:
+			logger.log("Invalid Semantic %s",system::ILogger::ELL_ERROR,system::to_string(semantic).c_str());
+			return false;
+	}
+	for (auto i=0u; i<knotCount; i++)
+	if (!getParameter(i))
+	{
+		logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
+		return false;
+	}
+	return true;
+}
 
 inline void CTrueIR::SParameter::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {

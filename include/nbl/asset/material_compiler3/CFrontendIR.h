@@ -220,151 +220,36 @@ class CFrontendIR final : public CNodePool
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
-		class CSpectralVariable final : public obj_pool_type::IVariableSize, public IExprNode
+		class ISpectralVariableExpr : public CTrueIR::ISpectralVariable, public IExprNode
 		{
 			public:
-				inline uint8_t getChildCount() const override final { return 0; }
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable);}
 				// Variable length but has no children
+				inline uint8_t getChildCount() const override final {return 0;}
 
 				//
-				inline IExprNode::Type getType() const override {return Type::SpectralVariable;}
-
-				using semantics_e = CTrueIR::ISpectralVariable::ESemantics;
-				//
-				template<uint8_t Count>
-				struct SCreationParams
-				{
-					// Knots are "data points" on the (wavelength,value) plot, from which we can interpolate the rest of the spectrum
-					CTrueIR::SParameterSet<Count> knots = {};
-
-					// a little bit of abuse and padding reuse
-					template<bool Enable=true> requires (Enable==(Count>1))
-					semantics_e& getSemantics() {return reinterpret_cast<semantics_e&>(knots.params[1].padding[0]); }
-					template<bool Enable=true> requires (Enable==(Count>1))
-					const semantics_e& getSemantics() const {return const_cast<const semantics_e&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
-				};
-				//
-				template<uint8_t Count>
-				inline CSpectralVariable(SCreationParams<Count>&& params)
-				{
-					// back up the count
-					static_assert(sizeof(CTrueIR::SParameter::padding)>1);
-					params.knots.params[0].padding[1] = Count;
-					// set it correctly for monochrome
-					if constexpr (Count==1)
-						params.knots.params[1].padding[0] = static_cast<uint8_t>(semantics_e::NoneUndefined);
-					else
-					{
-						assert(params.getSemantics()!=semantics_e::NoneUndefined);
-					}
-					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
-				}
-				inline CSpectralVariable(const CSpectralVariable& other)
-				{
-					const auto* const src = other.pWonky();
-					auto* const dst = pWonky();
-					std::uninitialized_copy_n(src,1,dst);
-					const size_t count = other.getKnotCount();
-					std::uninitialized_copy_n(src->knots.params+1,count-1,dst->knots.params+1);
-				}
-
-				// encapsulation due to padding abuse
-				inline auto& uvTransform() {return pWonky()->knots.uvTransform;}
-				inline const auto& uvTransform() const {return pWonky()->knots.uvTransform;}
-
-				inline uint8_t& uvSlot() {return pWonky()->knots.uvSlot();}
-				inline const uint8_t& uvSlot() const {return pWonky()->knots.uvSlot();}
-
-				// these getters are immutable
-				inline uint8_t getKnotCount() const
-				{
-					static_assert(sizeof(CTrueIR::SParameter::padding)>1);
-					return pWonky()->knots.params[0].padding[1];
-				}
-				inline semantics_e getSemantics() const
-				{
-					if (getKnotCount()<2)
-						return semantics_e::NoneUndefined;
-					return static_cast<semantics_e>(pWonky()->knots.params[1].padding[0]);
-				}
+				inline IExprNode::Type getType() const override final {return Type::SpectralVariable;}
 
 				//
-				inline CTrueIR::SParameter* getParam(const uint8_t i)
-				{
-					if (i<getKnotCount())
-						return &pWonky()->knots.params[i];
-					return nullptr;
-				}
-				inline const CTrueIR::SParameter* getParam(const uint8_t i) const {return const_cast<const CTrueIR::SParameter*>(const_cast<CSpectralVariable*>(this)->getParam(i));}
-
-				//
-				template<uint8_t Count>
-				static inline uint32_t calc_size(const SCreationParams<Count>&)
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
-				}
-				// for copying
-				static inline uint32_t calc_size(const CSpectralVariable& other)
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(other.getKnotCount()-1)*sizeof(CTrueIR::SParameter);
-				}
-
-				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
+				inline operator bool() const {return valid(nullptr);}
 
 			protected:
-				inline ~CSpectralVariable()
-				{
-					std::destroy_n(pWonky()->knots.params,getKnotCount());
-				}
 				inline _typed_pointer_type<IExprNode> copy(CFrontendIR* ir) const override final
 				{
-					auto& pool = ir->getObjectPool();
-					const uint8_t count = getKnotCount();
-					return pool.emplace<CSpectralVariable>(*this);
+					return static_cast<const CSpectralVariableExpr*>(this)->copy(ir->getObjectPool());
 				}
 
-				inline bool invalid(const SInvalidCheckArgs& args) const override
-				{
-					const auto knotCount = getKnotCount();
-					// non-monochrome spectral variable 
-					if (const auto semantic=getSemantics(); knotCount>1)
-					switch (semantic)
-					{
-						case semantics_e::Fixed3_SRGB: [[fallthrough]];
-						case semantics_e::Fixed3_DCI_P3: [[fallthrough]];
-						case semantics_e::Fixed3_BT2020: [[fallthrough]];
-						case semantics_e::Fixed3_AdobeRGB: [[fallthrough]];
-						case semantics_e::Fixed3_AcesCG:
-							if (knotCount!=3)
-							{
-								args.logger.log("Semantic %d is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic),knotCount);
-								return false;
-							}
-							break;
-						default:
-							args.logger.log("Invalid Semantic %d",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic));
-							return true;
-					}
-					for (auto i=0u; i<knotCount; i++)
-					if (!*getParam(i))
-					{
-						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
-						return true;
-					}
-					return false;
-				}
+				//
+				inline bool invalid(const SInvalidCheckArgs& args) const override final {return !valid(args.logger);}
 				
-				NBL_API2 core::string getLabelSuffix() const override;
-				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				//
+				NBL_API2 core::string getLabelSuffix() const override final;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
-			private:
-				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
-				const SCreationParams<1>* pWonky() const {return reinterpret_cast<const SCreationParams<1>*>(this+1);}
-
+				//
 				friend class CFrontendIR;
-				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::ISpectralVariable> createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::CSpectralVariableFactor> createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
+		using CSpectralVariableExpr = CTrueIR::CSpectralVariable<ISpectralVariableExpr>;
 		//
 		class IUnaryOp : public obj_pool_type::INonTrivial, public IExprNode
 		{
@@ -483,8 +368,8 @@ class CFrontendIR final : public CNodePool
 
 				// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
 				// Eta and `LdotX` is taken from the leaf BTDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
-				typed_pointer_type<CSpectralVariable> perpTransmittance = {};
-				typed_pointer_type<CSpectralVariable> thickness = {};
+				typed_pointer_type<CSpectralVariableExpr> perpTransmittance = {};
+				typed_pointer_type<CSpectralVariableExpr> thickness = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
@@ -492,7 +377,7 @@ class CFrontendIR final : public CNodePool
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? perpTransmittance:thickness;}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override
 				{
-					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariable>(newChild);
+					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
@@ -509,9 +394,9 @@ class CFrontendIR final : public CNodePool
 				inline CFresnel() = default;
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
-				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
+				typed_pointer_type<CSpectralVariableExpr> orientedRealEta = {};
 				// Specifying this turns your Fresnel into a conductor one, note that currently these are disallowed on BTDFs!
-				typed_pointer_type<CSpectralVariable> orientedImagEta = {};
+				typed_pointer_type<CSpectralVariableExpr> orientedImagEta = {};
 				// if you want to reuse the same parameter but want to flip the interfaces around
 				uint8_t reciprocateEtas : 1 = false;
 
@@ -521,7 +406,7 @@ class CFrontendIR final : public CNodePool
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override
 				{
-					*(ix ? &orientedImagEta:&orientedRealEta) = block_allocator_type::_static_cast<CSpectralVariable>(newChild);
+					*(ix ? &orientedImagEta:&orientedRealEta) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
@@ -672,13 +557,13 @@ class CFrontendIR final : public CNodePool
 
 				CTrueIR::SBasicNDFParams ndParams = {};
 				// See the comments in CTrueIR about this on a matching class 
-				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
+				typed_pointer_type<CSpectralVariableExpr> orientedRealEta = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
 
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override {orientedRealEta = block_allocator_type::_static_cast<CSpectralVariable>(newChild);}
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override {orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);}
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				
@@ -752,10 +637,14 @@ class CFrontendIR final : public CNodePool
 		{
 			auto& pool = getObjectPool();
 			const auto fresnelH = pool.emplace<CFresnel>();
-			CSpectralVariable::SCreationParams<1> params = {};
-			params.knots.params[0].scale = orientedRealEta;
 			if (auto* const fresnel=pool.deref(fresnelH); fresnel)
-				fresnel->orientedRealEta = pool.emplace<CSpectralVariable>(std::move(params));
+			{
+				fresnel->orientedRealEta = pool.emplace<CSpectralVariableExpr>(uint8_t(1));
+				if (auto* const var=pool.deref<CSpectralVariableExpr>(fresnel->orientedRealEta); var)
+					var->setParameter(0,{.scale=orientedRealEta});
+				else
+					return {};
+			}
 			return fresnelH;
 		}
 		
@@ -983,6 +872,8 @@ class CFrontendIR final : public CNodePool
 			return retval;
 		}
 };
+
+template class CTrueIR::CSpectralVariable<CFrontendIR::ISpectralVariableExpr>;
 }
 
 // specialize the `to_string

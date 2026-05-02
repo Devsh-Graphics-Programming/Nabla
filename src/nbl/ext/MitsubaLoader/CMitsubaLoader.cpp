@@ -505,6 +505,7 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 }
 
 
+using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariableExpr;
 template<int N>
 void getParameters(const std::span<parameter_t,N> out, const hlsl::vector<float32_t,N> value)
 {
@@ -516,6 +517,21 @@ void getParameters(const std::span<parameter_t> out, const float32_t value)
 	for (auto it=out.begin(); it!=out.end(); it++)
 		it->scale = value;
 }
+template<typename T> requires hlsl::concepts::FloatingPoint<T>
+void getParameters(spectral_var_t* const out, const T value)
+{
+	out->setSemantics(spectral_var_t::ESemantics::Fixed3_SRGB);
+	for (uint8_t i=0; i<out->getKnotCount(); i++)
+	{
+		parameter_t param = {};
+		if constexpr (hlsl::is_vector_v<T>)
+			getParameters({&param,1},value[i]);
+		else
+			getParameters({&param,1},value);
+		out->setParameter(i,std::move(param));
+	}
+}
+
 hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, const CElementTexture::SpectrumOrTexture& src)
 {
 	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
@@ -556,6 +572,16 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 	}
 	return retval;
 }
+void SContext::getParameters(spectral_var_t* const out, const CElementTexture::SpectrumOrTexture& src)
+{
+	assert(out->getKnotCount()==3);
+	out->setSemantics(spectral_var_t::ESemantics::Fixed3_SRGB);
+	parameter_t params[3] = {};
+	out->uvTransform() = getParameters(params,src);
+	for (uint8_t i=0; i<out->getKnotCount(); i++)
+		out->setParameter(i,std::move(params[i]));
+}
+
 hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, const CElementTexture::FloatOrTexture& src)
 {
 	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
@@ -575,8 +601,15 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, con
 		MitsubaLoader::getParameters(out,src.value);
 	return retval;
 }
+void SContext::getParameters(spectral_var_t* const out, const CElementTexture::FloatOrTexture& src)
+{
+	out->setSemantics(spectral_var_t::ESemantics::Fixed3_SRGB);
+	parameter_t param = {};
+	out->uvTransform() = getParameters({&param,1},src);
+	for (uint8_t i=0; i<out->getKnotCount(); i++)
+		out->setParameter(i,std::move(param));
+}
 
-using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariable;
 auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debugFileWriter) -> frontend_emitter_t
 {
 	auto& frontPool = frontIR->getObjectPool();
@@ -601,13 +634,9 @@ auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debu
 			emitter->profileTransform = hlsl::math::linalg::truncate<3,3>(_emitter->transform.matrix);
 		}
 	}
-	{
-		spectral_var_t::SCreationParams<3> params = {};
-		// if you wanted a textured emitter, this would be the place to do it
-		MitsubaLoader::getParameters<3>(params.knots.params,_emitter->area.radiance);
-		params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-		mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
-	}
+	const auto varH = frontPool.emplace<spectral_var_t>(3);
+	MitsubaLoader::getParameters(frontPool.deref(varH),_emitter->area.radiance);
+	mul->rhs = varH;
 
 	if (debugFileWriter)
 	{
@@ -666,13 +695,12 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	auto logger = inner.params.logger;
 	const core::string debugName = bsdf->id.empty() ? std::format("0x{:x}",ptrdiff_t(bsdf)):bsdf->id;
 	
-	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& factor, const ECommonDebug debug)->auto
+	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& _factor, const ECommonDebug debug)->auto
 	{
-		spectral_var_t::SCreationParams<3> params = {};
-		params.knots.uvTransform = getParameters(params.knots.params,factor);
-		params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-		const auto factorH = frontPool.emplace<spectral_var_t>(std::move(params));
-		frontPool.deref(factorH)->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
+		const auto factorH = frontPool.emplace<spectral_var_t>(3);
+		auto* const factor = frontPool.deref(factorH);
+		getParameters(factor,_factor);
+		factor->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
 		return factorH;
 	};
 
@@ -827,14 +855,13 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 							roughness[0].scale = roughness[1].scale = 0.f;
 						mul->lhs = orenNayarH;
 					}
+					const auto albedoH = frontPool.emplace<spectral_var_t>(3);
 					{
-						spectral_var_t::SCreationParams<3> params = {};
-						params.knots.uvTransform = getParameters(params.knots.params,_bsdf->diffuse.reflectance);
-						params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
-						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
-						mul->rhs = albedoH;
+						auto* const albedo = frontPool.deref(albedoH);
+						getParameters(albedo,_bsdf->diffuse.reflectance);
+						albedo->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
 					}
+					mul->rhs = albedoH;
 				}
 				leaf->brdfTop = roughDiffuseH;
 				break;
@@ -866,18 +893,16 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					auto* const fresnel = frontPool.deref(fresnelH);
 					const float extEta = _bsdf->conductor.extEta;
 					{
-						spectral_var_t::SCreationParams<3> params = {};
+						const auto varH = frontPool.emplace<spectral_var_t>(1);
 						const hlsl::float32_t3 eta = _bsdf->conductor.eta.vvalue.xyz;
-						MitsubaLoader::getParameters<3>(params.knots.params,eta/extEta);
-						params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-						fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
+						MitsubaLoader::getParameters(frontPool.deref(varH),eta/extEta);
+						fresnel->orientedRealEta = varH;
 					}
 					{
-						spectral_var_t::SCreationParams<3> params = {};
+						const auto varH = frontPool.emplace<spectral_var_t>(1);
 						const hlsl::float32_t3 k = _bsdf->conductor.k.vvalue.xyz;
-						MitsubaLoader::getParameters<3>(params.knots.params,k/extEta);
-						params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-						fresnel->orientedImagEta = frontPool.emplace<spectral_var_t>(std::move(params));
+						MitsubaLoader::getParameters(frontPool.deref(varH),k/extEta);
+						fresnel->orientedImagEta = varH;
 					}
 				}
 				else
@@ -958,11 +983,9 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					const CElementTexture::FloatOrTexture constZero = {0.f};
 					mul->lhs = createOrenNayar(_bsdf->difftrans.transmittance,constZero,constZero);
 					// normalize the Oren Nayar over the full sphere
-					{
-						spectral_var_t::SCreationParams<1> params = {};
-						params.knots.params[0].scale = 0.5f;
-						mul->rhs = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
-					}
+					const auto varH = frontPool.emplace<spectral_var_t>(1);
+					frontPool.deref(varH)->setParameter(0,{.scale=0.5f});
+					mul->rhs = varH;
 				}
 				leaf->brdfTop = diffTransH;
 				leaf->btdf = diffTransH;
@@ -1058,10 +1081,9 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						const auto beerH = hasExtinction ? frontPool.emplace<frontend_ir_t::CBeer>():frontend_ir_t::typed_pointer_type<frontend_ir_t::CBeer>{};
 						if (auto* const beer=frontPool.deref(beerH); beer)
 						{
-							spectral_var_t::SCreationParams<3> params = {};
-							params.knots.uvTransform = getParameters(params.knots.params,sigmaA);
-							params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-							beer->perpTransmittance = frontPool.emplace<spectral_var_t>(std::move(params));
+							const auto varH = frontPool.emplace<spectral_var_t>(1);
+							getParameters(frontPool.deref(varH),sigmaA);
+							beer->perpTransmittance = varH;
 						}
 						fillCoatingLayer(coating,_bsdf->coating,_bsdf->type==CElementBSDF::ROUGHCOATING,beerH);
 						// attach the nested as layer
@@ -1102,19 +1124,18 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						auto* const mix = frontPool.deref(mixH);
 						const uint8_t realChildCount = hlsl::min<uint8_t>(childCount,_bsdf->mixturebsdf.weightCount);
 						const auto firstH = realChildCount>=1 ? getChildFromCache(_bsdf->mixturebsdf.bsdf[0]):frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>{};
-						spectral_var_t::SCreationParams<1> firstParams = {};
-						firstParams.knots.params[0].scale = _bsdf->mixturebsdf.weights[0];
-						const auto firstWeightH = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(firstParams));
+						const auto firstWeightH = frontPool.emplace<spectral_var_t>(1);
+						frontPool.deref(firstWeightH)->setParameter(0,{.scale=_bsdf->mixturebsdf.weights[0]});
 						if (realChildCount<2)
 							createWeightedSum(mix,firstH,firstWeightH,{},{});
 						else
 						for (uint8_t c=1; c<realChildCount; c++)
 						{
 							const auto otherH = getChildFromCache(_bsdf->mixturebsdf.bsdf[c]);
-							spectral_var_t::SCreationParams<1> params = {};
-							params.knots.params[0].scale = _bsdf->mixturebsdf.weights[c];
+							const auto weightH = frontPool.emplace<spectral_var_t>(1);
+							frontPool.deref(weightH)->setParameter(0,{.scale=_bsdf->mixturebsdf.weights[c]});
 							// don't feel like spending time on this, since its never used, trust CTrueIR optimizer to remove this during canonicalization
-							createWeightedSum(mix,mixH,unityFactor._const_cast(),otherH,frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params)));
+							createWeightedSum(mix,mixH,unityFactor._const_cast(),otherH,weightH);
 						}
 						newMaterialH = mixH;
 						break;
@@ -1312,19 +1333,17 @@ SContext::SContext(
 		//
 		{
 			{
-				spectral_var_t::SCreationParams<1> params = {};
-				params.knots.params[0].scale = 1.f;
-				unityFactor = frontPool.emplace<spectral_var_t>(std::move(params));
+				unityFactor = frontPool.emplace<spectral_var_t>(1);
+				frontPool.deref(unityFactor._const_cast())->setParameter(0,{.scale=1.f});
 			}
 			deltaTransmission = frontPool.emplace<frontend_ir_t::CDeltaTransmission>();
 			const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
 			{
 				auto* const mul = frontPool.deref(mulH);
 				mul->lhs = frontPool.emplace<frontend_ir_t::COrenNayar>();
-				spectral_var_t::SCreationParams<3> params = {};
-				MitsubaLoader::getParameters<3>(params.knots.params,{1.f,0.f,1.f});
-				params.getSemantics() = true_ir_t::ISpectralVariable::ESemantics::Fixed3_SRGB;
-				mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
+				const auto varH = frontPool.emplace<spectral_var_t>(3);
+				MitsubaLoader::getParameters(frontPool.deref(varH),float32_t3(1.f,0.f,1.f));
+				mul->rhs = varH;
 			}
 			errorBRDF = mulH;
 			auto constructUnsupported = [&](const std::string_view debugName)->auto

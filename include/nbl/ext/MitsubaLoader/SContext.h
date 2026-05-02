@@ -69,7 +69,9 @@ struct SContext final
 		void writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer);
 		//
 		hlsl::float32_t2x3 getParameters(const std::span<true_ir_t::SParameter> out, const CElementTexture::FloatOrTexture& src);
+		void getParameters(asset::material_compiler3::CFrontendIR::CSpectralVariableExpr* const out, const CElementTexture::FloatOrTexture& src);
 		hlsl::float32_t2x3 getParameters(const std::span<true_ir_t::SParameter,3> out, const CElementTexture::SpectrumOrTexture& src);
+		void getParameters(asset::material_compiler3::CFrontendIR::CSpectralVariableExpr* const out, const CElementTexture::SpectrumOrTexture& src);
 		true_ir_t::SParameter getTexture(const CElementTexture* tex, hlsl::float32_t2x3* outUvTransform);
 		true_ir_t::SParameter genProfile(const CElementEmissionProfile* profile);
 
@@ -92,7 +94,7 @@ struct SContext final
 		// for a debug print
 		core::vector<frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer>> debugAllMaterials;
 		// common frontend nodes
-		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CSpectralVariable> unityFactor;
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CSpectralVariableExpr> unityFactor;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::IExprNode> errorBRDF;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> errorMaterial, unsupportedPhong, unsupportedWard;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CDeltaTransmission> deltaTransmission;

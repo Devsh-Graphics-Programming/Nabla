@@ -1,6 +1,7 @@
 ﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#define _NBL_ASSET_MATERIAL_COMPILER3_C_TRUE_IR_CPP_
 #include "nbl/asset/material_compiler3/CTrueIR.h"
 
 #include "nbl/builtin/hlsl/complex.hlsl"
@@ -9,7 +10,6 @@
 
 namespace nbl::asset::material_compiler3
 {
-
 constexpr auto ELL_ERROR = nbl::system::ILogger::E_LOG_LEVEL::ELL_ERROR;
 constexpr auto ELL_DEBUG = nbl::system::ILogger::E_LOG_LEVEL::ELL_DEBUG;
 using namespace nbl::system;
@@ -88,14 +88,14 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 		{
 			auto* const weighted = pool.deref(node->product._const_cast());
 			weighted->contributor = pool.emplace<COrenNayar>();
-			const auto factorH = pool.emplace<CSpectralVariable<3>>();
+			const auto factorH = pool.emplace<CSpectralVariableFactor>(uint8_t(3));
 			{
 				auto* const factor = pool.deref(factorH);
 				// make a magenta constant color (can do checkerboard of green & magenta in the future with a small texture)
 				for (auto i=0; i<3; i++)
-					factor->paramSet.params[i].scale = i!=1 ? 1.f:0.f;
+					factor->setParameter(i,{.scale = i!=1 ? 1.f:0.f});
 			}
-			weighted->factor = pool.emplace<CSpectralVariable<3>>();
+			weighted->factor = factorH;
 		}
 		node->rest = {};
 	}
@@ -107,5 +107,5 @@ bool CTrueIR::rewrite(SMaterial& material, CTrueIR* srcIR)
 	return false;
 }
 
-
+template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
 }
