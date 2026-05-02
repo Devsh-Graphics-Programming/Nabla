@@ -899,10 +899,7 @@ auto CFrontendIR::ISpectralVariableExpr::createIRNode(const CFrontendIR* ast, CT
 	for (uint8_t c=0; c<getKnotCount(); c++)
 	if (getParameter(c)!=getParameter(0))
 		realCount = 3;
-//	CTrueIR::ISpectralVariableFactor(realCount,*static_cast<const ISpectralVariable*>(this));
-	CTrueIR::CSpectralVariableFactor::CSpectralVariable(realCount,*static_cast<const ISpectralVariable*>(this));
-	return {};
-//	return irPool.emplace<CTrueIR::CSpectralVariableFactor>(realCount,*this);
+	return irPool.emplace<CTrueIR::CSpectralVariableFactor>(realCount,*this);
 }
 
 //
