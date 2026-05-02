@@ -65,7 +65,7 @@ struct Bilinear
 
         // bilinear PDF = marginal_y_pdf * conditional_x_pdf; reuse both linear caches
         const scalar_type yPdf = lineary.forwardPdf(u.y, linearYCache);
-        cache.normalizedStart = yPdf * linearx.linearCoeffStart;
+        cache.normalizedStart = yPdf * linearx.normalizedCoeffStart;
         cache.linearXCache.diffTimesX *= yPdf;
         return p;
     }
