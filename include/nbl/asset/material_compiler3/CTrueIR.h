@@ -250,11 +250,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			protected:
 				uint64_t padding = 0;
 		};
+#define TYPE_NAME_STR(NAME) "nbl::asset::material_compiler3::CTrueIR::"#NAME
 		// we step away from our usual way of doing things via linked lists, because this is simpler to rearrange
 		class CFactorCombiner final : public obj_pool_type::IVariableSize, public IFactor
 		{
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CFactorCombiner;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFactorCombiner);}
 
 				// There's only two ops we support
 				enum Type : uint8_t
@@ -270,14 +273,39 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					uint64_t childIxComplementMask : 57 = 0x0u;
 				};
 				static_assert(sizeof(SState) == sizeof(IFactor::padding));
+				
+				//
+				static inline uint32_t calc_size(const SState state)
+				{
+					return sizeof(CFactorCombiner)+sizeof(child[0])*(state.childCount-1);
+				}
+				inline CFactorCombiner(const SState state)
+				{
+					padding = std::bit_cast<uint64_t>(state);
+				}
+
+				//
 				inline SState getState() const {return std::bit_cast<SState>(padding);}
+				//
+				inline void setComplementMask(const uint64_t mask)
+				{
+					assert(mask < (0x1<<57));
+					auto state = getState();
+					state.childIxComplementMask = mask;
+					padding = std::bit_cast<uint64_t>(state);
+				}
 
 				// Only sane child count allowed
-				inline typed_pointer_type<const IFactor> getChildHandle(const uint8_t ix)
+				inline typed_pointer_type<const IFactor> getChildHandle(const uint8_t ix) const
 				{
 					if (ix<getState().childCount)
 						return child[ix];
 					return {};
+				}
+				inline void setChildHandle(const uint8_t ix, const typed_pointer_type<const IFactor> handle)
+				{
+					if (ix<getState().childCount)
+						child[ix] = handle;
 				}
 
 			protected:
@@ -295,10 +323,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return true;
 				}
 
-				friend class CTrueIR;
 				typed_pointer_type<const IFactor> child[1] = {{}};
 		};
-#define TYPE_NAME_STR(NAME) "nbl::asset::material_compiler3::CTrueIR::"#NAME
 		// Note that this is not a root node, its a flipped leaf!
 		class CWeightedContributor final : public obj_pool_type::INonTrivial, public INode
 		{
@@ -489,6 +515,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			protected:
 				inline ISpectralVariable() = default;
+				// delete all these so we dont implicitly copy
+				inline ISpectralVariable(const ISpectralVariable&) = delete;
+				inline ISpectralVariable(ISpectralVariable&&) = delete;
+				inline ISpectralVariable& operator=(const ISpectralVariable&) = delete;
+				inline ISpectralVariable& operator=(ISpectralVariable&&) = delete;
 				// fill out the params later
 				inline void init(const uint8_t knotCount)
 				{
@@ -544,16 +575,16 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline SParameterSet<1>* pWonky() override final {return reinterpret_cast<SParameterSet<1>*>(this+1);}
 
 			public:
-				inline CSpectralVariable(const uint8_t knotCount) {ISpectralVariable::init(knotCount);}
-				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
-				inline CSpectralVariable(const U& other) {ISpectralVariable::init(other);}
-				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
-				inline CSpectralVariable(const uint8_t knotCount, const U& other) {ISpectralVariable::init(knotCount,other);}
+				inline CSpectralVariable(const uint8_t knotCount) : OtherBase() {ISpectralVariable::init(knotCount);}
+				inline CSpectralVariable(const ISpectralVariable& other) : OtherBase() {ISpectralVariable::init(other);}
+				inline CSpectralVariable(const uint8_t knotCount, const ISpectralVariable& other) : OtherBase() {ISpectralVariable::init(knotCount,other);}
 				
 				//
 				inline _typed_pointer_type<this_t> copy(obj_pool_type& pool) const
 				{
-					return pool.emplace<this_t>(*this);
+					// need to coax the compiler into compiling
+					const ISpectralVariable& rThis = *this;
+					return pool.emplace<this_t>(rThis);
 				}
 
 				//
@@ -562,13 +593,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return sizeof(this_t)+sizeof(SParameterSet<1>)+sizeof(SParameter)*(knotCount-1);
 				}
 				// for copying
-				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
-				static inline uint32_t calc_size(const U& other)
+				static inline uint32_t calc_size(const ISpectralVariable& other)
 				{
 					return calc_size(other.getKnotCount());
 				}
-				template<typename U> requires std::is_base_of_v<ISpectralVariable,U>
-				static inline uint32_t calc_size(const uint8_t knotCount, const U& other)
+				static inline uint32_t calc_size(const uint8_t knotCount, const ISpectralVariable& other)
 				{
 					return calc_size(knotCount);
 				}

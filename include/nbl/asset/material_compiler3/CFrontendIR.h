@@ -778,6 +778,7 @@ class CFrontendIR final : public CNodePool
 					astPrinter.exprStack.push_back(nodeH);
 					args.logger.log("Subtree Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,astPrinter().c_str());
 					assert(astPrinter.exprStack.empty());
+					astPrinter.visitedNodes.clear();
 				}
 				
 				using oriented_material_t = CTrueIR::SMaterial::SOriented;

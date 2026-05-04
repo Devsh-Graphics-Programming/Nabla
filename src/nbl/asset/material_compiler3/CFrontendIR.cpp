@@ -599,7 +599,7 @@ CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_po
 		// TODO: better debug info (e.g. concat all the layer info during `makeOrientedMaterial` via the `session` object
 		if (const auto* debug=astPool.deref<const CDebugInfo>(astRoot->debugInfo); debug && !debug->data().empty())
 		{
-			material.debugInfo = args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),debug->data().size());
+			material.debugInfo = args.ir->getObjectPool().emplace<CNodePool::CDebugInfo>(debug->data().data(),static_cast<uint32_t>(debug->data().size()));
 		}
 	}
 	return retval;
@@ -735,7 +735,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			if (headH!=errorRetval)
 				return;
 			printSubtree(exprStack.back().nodeH);
-			args.logger.log("Within BxDF:\n",ELL_DEBUG,astPrinter().c_str());
+			args.logger.log("Within BxDF:\n",ELL_DEBUG);
 			printSubtree(bxdfRootH);
 			// no point pushing an error contributor, don't want a best effort compilation within a layer, don't want contributors missing or substituted
 			exprStack.clear();
@@ -859,11 +859,24 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					factor.handle = varH;
 					const auto channels = var->getSpectralBins();
 					factor.monochrome = channels<2;
+					// this wont be affected by sorting
+					if (mulChain.size()>=2)
+						factor.liveSpectralChannels = mulChain[mulChain.size()-2].liveSpectralChannels;
 					for (uint8_t c=0; c<channels; c++)
 					{
 						const auto* const cVar = var;
 						if (!(cVar->getParameter(c).scale>std::numeric_limits<float>::min()))
 							factor.liveSpectralChannels &= ~(0b1<<c);
+					}
+					if (factor.liveSpectralChannels==0)
+					{
+						const auto logLevel = system::ILogger::ELL_PERFORMANCE;
+						args.logger.log("The Node parent of the subtree:\n",logLevel);
+						printSubtree(pEntry->nodeH);
+						args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
+						printSubtree(bxdfRootH);
+						// TODO handle a 0 factor
+						assert(false);
 					}
 					break;
 				}
@@ -920,35 +933,40 @@ auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_typ
 	contributorStack.pop_back();
 	if (!mulChain.empty())
 	{
-		return {};
-		assert(false); // unimplemented
+		assert(mulChain.back().liveSpectralChannels);
+		// now scan the stuff
 		const CTrueIR::CFactorCombiner::SState combinerState = {
 			.type = CTrueIR::CFactorCombiner::Type::Mul,
 			.childCount = mulChain.size()
 		};
-		// TODO: create the combiner node
-		//const auto factorH = getObjectPool().emplace<CFactorCombiner>();
+		// every contributor node gets its own SORTED ancestor prefix
+		mulChainSortScratch = mulChain;
+		// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
+		auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
 		{
-			// every contributor node gets its own SORTED ancestor prefix
-			mulChainSortScratch = mulChain;
-			// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
-			auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
+			// monochrome is cheaper
+			if (lhs.monochrome!=rhs.monochrome)
+				return lhs.monochrome;
+			// not doing a complement/negation is cheaper
+			if (lhs.negate!=rhs.negate)
+				return rhs.negate;
+			// DO NOT sort by live spectral channels
+			// but want negations to show up together in the sorted list so easier to put back together
+			return lhs.handle.value<rhs.handle.value;
+		};
+		std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
+		//
+		const auto factorH = irPool.emplace<CTrueIR::CFactorCombiner>(combinerState);
+		{
+			auto* const factor = irPool.deref(factorH);
+			auto i = 0;
+			for (const auto& mul : mulChainSortScratch)
 			{
-				// monochrome is cheaper
-				if (lhs.monochrome!=rhs.monochrome)
-					return lhs.monochrome;
-				// not doing a complement is cheaper
-				if (lhs.handle.value==rhs.handle.value)
-					return lhs.negate<rhs.negate;
-				// but want negations to show up together in the sorted list so easier to put back together
-				return lhs.handle.value<rhs.handle.value;
-			};
-			std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
-			//auto oit = getObjectPool().deref(factorH)->child;
-			//for (const auto& mul : mulChainSortScratch)
-				//*(oit++) = mul.handle;
+				assert(!mul.negate); // TODO: handle later
+				factor->setChildHandle(i++,mul.handle);
+			}
 		}
-		//weighted->factor = factorH;
+		weighted->factor = factorH;
 	}
 	return retval;
 }
