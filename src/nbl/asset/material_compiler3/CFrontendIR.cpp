@@ -754,14 +754,15 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	// the mul node gets visited after children are made
 	while (!exprStack.empty())
 	{
-		auto& entry = exprStack.back();
-		const auto* const node = astPool.deref(entry.nodeH);
+		auto pEntry = &exprStack.back();
+		const auto* const node = astPool.deref(pEntry->nodeH);
 		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
 		const ast_expr_type_e astExprType = node->getType();
 		const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
 		//
-		if (entry.notVisited())
+		if (pEntry->notVisited())
 		{
+			pEntry->visited = true;
 			if (isContributor)
 			{
 				const auto contributorH = static_cast<const IContributor*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get());
@@ -773,20 +774,25 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 				contributorStack.push_back({.contributor=contributorH});
 				exprStack.pop_back();
+				// shouldn't invalidate but lets play it safe
+				pEntry = nullptr;
 			}
 			else
 			{
 				const bool isAdd = astExprType==ast_expr_type_e::Add;
 				if (isAdd)
 				{
-					entry.addContributor = true;
+					pEntry->addContributor = true;
 					// Current Add node will perform the job of the parent add node for this subtree
-					if (entry.nonMulImmediateAncestorStackEnd)
-						exprStack[entry.nonMulImmediateAncestorStackEnd-1].addContributor = false;
+					if (pEntry->nonMulImmediateAncestorStackEnd)
+						exprStack[pEntry->nonMulImmediateAncestorStackEnd-1].addContributor = false;
 				}
 				const bool notMul = astExprType!=ast_expr_type_e::Mul;
 				// go through children
 				const auto childCount = node->getChildCount();
+				// pushing back invalidates iterators
+				const auto entry = *pEntry;
+				pEntry = nullptr;
 				// add in reverse so stack processes in order
 				for (auto childIx=childCount; childIx; )
 				{
@@ -794,7 +800,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					if (isAdd && childIx!=childCount)
 					{
 						auto& extraEntry = exprStack.emplace_back(entry);
-						extraEntry.visited = true;
+						assert(extraEntry.visited);
 						extraEntry.addContributor = true;
 					}
 					// regular exploration
@@ -805,7 +811,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					});
 				}
 			}
-			entry.visited = true;
 		}
 		else
 		{
@@ -838,7 +843,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						return (headH=errorRetval);
 					}
 					// when we are done we need to reset the mul chain back to its original state
-					mulChain.resize(entry.mulChainLen);
+					mulChain.resize(pEntry->mulChainLen);
 					break;
 				}
 				case ast_expr_type_e::SpectralVariable:
@@ -869,6 +874,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 			}
 			exprStack.pop_back();
+			// shouldn't invalidate but lets play it safe
+			pEntry = nullptr;
 		}
 	}
 	// There was never an ADD node

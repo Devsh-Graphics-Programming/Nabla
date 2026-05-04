@@ -452,7 +452,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline uint8_t getKnotCount() const
 				{
 					static_assert(sizeof(SParameter::padding)>1);
-					return getParameter(0).padding[1];
+					return pWonky()->params[0].padding[1];
 				}
 
 				// encapsulation due to padding abuse
