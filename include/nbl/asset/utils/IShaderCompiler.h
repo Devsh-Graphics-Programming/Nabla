@@ -366,16 +366,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					{
 						public:
 							inline bool operator==(const SCompilerArgs& other) const {
-								bool retVal = true;
-								if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs || optimizerIsExtraPasses != other.optimizerIsExtraPasses) retVal = false;
-								if (optimizerPasses.size() != other.optimizerPasses.size()) retVal = false;
+								if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs || optimizerIsExtraPasses != other.optimizerIsExtraPasses)
+									return false;
+								if (optimizerPasses.size() != other.optimizerPasses.size())
+									return false;
 								for (auto passesIt = optimizerPasses.begin(), otherPassesIt = other.optimizerPasses.begin(); passesIt != optimizerPasses.end(); passesIt++, otherPassesIt++) {
 									if (*passesIt != *otherPassesIt) {
-										retVal = false;
-										break;
+										return false;
 									}
 								}
-								return retVal;
+								return true;
 							}
 
 						private:
