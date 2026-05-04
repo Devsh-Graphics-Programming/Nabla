@@ -17,11 +17,10 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 
 	switch (m_params.location)
 	{
-    case CU_MEM_LOCATION_TYPE_HOST:   memoryTypeBits &= ~vram; break;
     case CU_MEM_LOCATION_TYPE_DEVICE: memoryTypeBits &=  vram; break;
-      // TODO(Atil): Figure out how to handle these
     case CU_MEM_LOCATION_TYPE_HOST_NUMA:
     case CU_MEM_LOCATION_TYPE_HOST_NUMA_CURRENT:
+    case CU_MEM_LOCATION_TYPE_HOST:   memoryTypeBits &= ~vram; break;
     default: break;
 	}
 
