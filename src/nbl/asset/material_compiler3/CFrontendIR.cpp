@@ -995,7 +995,7 @@ auto CFrontendIR::CEmitter::createIRNode(const bool forBTDF, const CFrontendIR* 
 	assert(!forBTDF);
 	auto& irPool = ir->getObjectPool();
 	const auto retval = irPool.emplace<CTrueIR::CEmitter>();
-	if (auto* const contributor=irPool.deref(retval))
+	if (auto* const contributor=irPool.deref(retval); contributor)
 	{
 		contributor->profile = profile;
 		contributor->profileTransform = profileTransform;

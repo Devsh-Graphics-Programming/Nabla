@@ -640,16 +640,21 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
 					hasher << profileTransform;
-					// we ignore most of the sampler, needs to be set always the same
-					const auto& sampler = profile.sampler;
-					using namespace ::nbl::asset;
-					if (sampler.BorderColor!=ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_TRANSPARENT_BLACK || sampler.MaxFilter!=ISampler::E_TEXTURE_FILTER::ETF_LINEAR)
-						return false;
-					using clamp_e = hlsl::TextureClamp;
-					if (sampler.TextureWrapW!=clamp_e::ETC_CLAMP_TO_EDGE)
-						return false;
-					// there's a limited set of symmetries we can exploit in our IES tabulations, TODO: check which (probably not REPEAT)
-					hasher << profile;
+					if (profile.view)
+					{
+						// we ignore most of the sampler, needs to be set always the same
+						const auto& sampler = profile.sampler;
+						using namespace ::nbl::asset;
+						if (sampler.BorderColor!=ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_TRANSPARENT_BLACK || sampler.MaxFilter!=ISampler::E_TEXTURE_FILTER::ETF_LINEAR)
+							return false;
+						using clamp_e = hlsl::TextureClamp;
+						if (sampler.TextureWrapW!=clamp_e::ETC_CLAMP_TO_EDGE)
+							return false;
+						// there's a limited set of symmetries we can exploit in our IES tabulations, TODO: check which (probably not REPEAT)
+						hasher << profile;
+					}
+					else
+						hasher << profile.scale;
 					return true;
 				}
 
