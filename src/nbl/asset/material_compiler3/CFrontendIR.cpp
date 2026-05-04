@@ -719,7 +719,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	return retval;
 }
 
-//
+// TODO: this really needs a visited AST nodes (or at least subtrees) cache!
 auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH) -> CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum>
 {	
 	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
@@ -825,22 +825,25 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 				case ast_expr_type_e::Add:
 				{
-					// we visited the leftmost subtrees first so this is the right order
+					if (pEntry->addContributor)
 					{
-						auto* const tail = irPool.deref(tailH);
-						tailH = irPool.emplace<CTrueIR::CContributorSum>();
-						if (tailH)
-							tail->rest = tailH;
+						// we visited the leftmost subtrees first so this is the right order
+						{
+							auto* const tail = irPool.deref(tailH);
+							tailH = irPool.emplace<CTrueIR::CContributorSum>();
+							if (tailH)
+								tail->rest = tailH;
+							else
+								headH = tailH;
+						}
+						// add current contributor with weight to BxDF Sum
+						if (const auto contributor=popContributor(); contributor)
+							irPool.deref(tailH)->product = contributor;
 						else
-							headH = tailH;
-					}
-					// add current contributor with weight to BxDF Sum
-					if (const auto contributor=popContributor(); contributor)
-						irPool.deref(tailH)->product = contributor;
-					else
-					{
-						args.logger.log("Failed to Pop the Contributor from the Stack, most likely failed to create the factor node chain.",ELL_ERROR);
-						return (headH=errorRetval);
+						{
+							args.logger.log("Failed to Pop the Contributor from the Stack, most likely failed to create the factor node chain.",ELL_ERROR);
+							return (headH=errorRetval);
+						}
 					}
 					// when we are done we need to reset the mul chain back to its original state
 					mulChain.resize(pEntry->mulChainLen);
@@ -875,8 +878,23 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						printSubtree(pEntry->nodeH);
 						args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
 						printSubtree(bxdfRootH);
-						// TODO handle a 0 factor
-						assert(false);
+						// cancel exploration of all descendands of our first non mul node
+						exprStack.resize(pEntry->nonMulImmediateAncestorStackEnd);
+						pEntry = nullptr;
+						// if there was nothing else in the tree, we can bail out the whole material
+						if (exprStack.empty())
+						{
+							mulChain.clear();
+							// for the MUL subtree to form the whole tree, there needs to be only one contributor in the stack
+							assert(contributorStack.size()==1);
+							contributorStack.clear();
+							args.logger.log("This MUL subtree is the only subtree, returning no contributors for this Tree.",logLevel);
+							return headH;
+						}
+						// don't add this MUL subtree island's contributor, it won't exist
+						pEntry = &exprStack.back();
+						pEntry->addContributor = false;
+						contributorStack.pop_back();
 					}
 					break;
 				}
