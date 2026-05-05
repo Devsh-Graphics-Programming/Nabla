@@ -765,6 +765,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	{
 		auto pEntry = &exprStack.back();
 		const auto* const node = astPool.deref(pEntry->nodeH);
+		assert(node);
+		//
 		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
 		const ast_expr_type_e astExprType = node->getType();
 		const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
@@ -802,22 +804,37 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				// pushing back invalidates iterators
 				const auto entry = *pEntry;
 				pEntry = nullptr;
+				// making sure we visit this node again each time a subtree of an Add node is done
+				bool secondAdd = false;
 				// add in reverse so stack processes in order
 				for (auto childIx=childCount; childIx; )
 				{
+					const auto childH = node->getChildHandle(--childIx);
+					// to be able to figure out which substring of the prefix applies to current contributor
+					const auto mulChainLen = notMul ? static_cast<uint16_t>(mulChain.size()):entry.mulChainLen;
+					// to be able to go back to the non mul that is supposed to add our subtree
+					const auto nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd;
+					// skip null child
+					if (!childH)
+					{
+						// because non-contributors don't pop themselves when coming off the stack, we have this
+						assert(nonMulImmediateAncestorStackEnd);
+						// if our ancestor is a mul node this means we need to kill the subtree
+//						if (astPool.deref(exprStack[nonMulImmediateAncestorStackEnd-1].nodeH)->getType()!=)
+//						{
+//						}
+						continue;
+					}
 					// making sure we visit this node again each time a subtree of an Add node is done
-					if (isAdd && childIx!=childCount)
+					if (isAdd && secondAdd)
 					{
 						auto& extraEntry = exprStack.emplace_back(entry);
 						assert(extraEntry.visited);
 						extraEntry.addContributor = true;
 					}
+					secondAdd = true;
 					// regular exploration
-					exprStack.push_back({
-						.nodeH = node->getChildHandle(--childIx),
-						// to be able to go back to the non mul that is supposed to add our subtree
-						.nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd
-					});
+					exprStack.push_back({.nodeH=childH,.nonMulImmediateAncestorStackEnd=nonMulImmediateAncestorStackEnd,.mulChainLen=mulChainLen});
 				}
 			}
 		}
@@ -871,8 +888,11 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					factor.handle = varH;
 					const auto channels = var->getSpectralBins();
 					factor.monochrome = channels<2;
-					// this wont be affected by sorting
-					if (mulChain.size()>=2)
+					// we only want the mul chain length till the mul subtree's root
+					assert(exprStack.size()>=pEntry->nonMulImmediateAncestorStackEnd);
+					const auto mulChainBegin = pEntry->nonMulImmediateAncestorStackEnd ? (exprStack[pEntry->nonMulImmediateAncestorStackEnd-1].mulChainLen):uint16_t(0);
+					// this wont be affected by sorting, but we need to check if our prefix is large enough
+					if (mulChain.size()>=mulChainBegin+2)
 						factor.liveSpectralChannels = mulChain[mulChain.size()-2].liveSpectralChannels;
 					for (uint8_t c=0; c<channels; c++)
 					{
@@ -888,12 +908,14 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
 						printSubtree(bxdfRootH);
 						// cancel exploration of all descendands of our first non mul node
+						mulChain.resize(mulChainBegin);
 						exprStack.resize(pEntry->nonMulImmediateAncestorStackEnd);
 						pEntry = nullptr;
 						// if there was nothing else in the tree, we can bail out the whole material
 						if (exprStack.empty())
 						{
-							mulChain.clear();
+							// if there are no expression above, there must not be a mul chain
+							assert(mulChain.empty());
 							// for the MUL subtree to form the whole tree, there needs to be only one contributor in the stack
 							assert(contributorStack.size()==1);
 							contributorStack.clear();
@@ -958,16 +980,18 @@ auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_typ
 	auto* weighted = irPool.deref(retval);
 	weighted->contributor = contributorStack.back().contributor;
 	contributorStack.pop_back();
-	if (!mulChain.empty())
+	// we only want the mul chain length till the mul subtree's root, this is the prefix
+	const size_t mulChainBegin = exprStack.empty() ? 0ull:(exprStack.back().mulChainLen);
+	if (mulChainBegin<mulChain.size())
 	{
 		assert(mulChain.back().liveSpectralChannels);
 		// now scan the stuff
 		const CTrueIR::CFactorCombiner::SState combinerState = {
 			.type = CTrueIR::CFactorCombiner::Type::Mul,
-			.childCount = mulChain.size()
+			.childCount = mulChain.size()-mulChainBegin
 		};
 		// every contributor node gets its own SORTED ancestor prefix
-		mulChainSortScratch = mulChain;
+		mulChainSortScratch = {mulChain.begin()+mulChainBegin,mulChain.end()};
 		// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
 		auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
 		{
