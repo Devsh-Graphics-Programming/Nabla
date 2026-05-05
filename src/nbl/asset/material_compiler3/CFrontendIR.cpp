@@ -769,7 +769,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		//
 		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
 		const ast_expr_type_e astExprType = node->getType();
-		const bool isContributor = astExprType==CFrontendIR::IExprNode::Type::Contributor;
+		const bool isContributor = astExprType==ast_expr_type_e::Contributor;
 		//
 		if (pEntry->notVisited())
 		{
@@ -793,10 +793,20 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				const bool isAdd = astExprType==ast_expr_type_e::Add;
 				if (isAdd)
 				{
-					pEntry->addContributor = true;
-					// Current Add node will perform the job of the parent add node for this subtree
+					// There are no other nodes above current Add other than Mul, then we must add any potential contributors immediately below
 					if (pEntry->nonMulImmediateAncestorStackEnd)
-						exprStack[pEntry->nonMulImmediateAncestorStackEnd-1].addContributor = false;
+						pEntry->addContributor = true;
+					// A contributor can only be in the leftmost branch of an Add node's subtree, it also cannot be under any other node than Add or Mul.
+					// Mostly making sure that Add nodes within complex weighting functions don't add contributors all of the sudden.
+					// Its like a flood fill on the AST, where any non-Mul and non-Add node stops filling below.
+					else if (auto& nonMulAncestor=exprStack[pEntry->nonMulImmediateAncestorStackEnd-1]; nonMulAncestor.addContributor)
+					{
+						// So use this knowledge to our advantage, however if we ever alias `addContributor` with anything else we'd need to check the ancestor type
+						assert(astPool.deref(nonMulAncestor.nodeH)->getType()==ast_expr_type_e::Add);
+						pEntry->addContributor = true;
+						// Current Add node will perform the job of the parent add node for this subtree, it takes over
+						nonMulAncestor.addContributor = false;
+					}
 				}
 				const bool notMul = astExprType!=ast_expr_type_e::Mul;
 				// go through children
@@ -805,7 +815,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				const auto entry = *pEntry;
 				pEntry = nullptr;
 				// making sure we visit this node again each time a subtree of an Add node is done
-				bool secondAdd = false;
+				bool pushedAChild = false;
 				// add in reverse so stack processes in order
 				for (auto childIx=childCount; childIx; )
 				{
@@ -819,23 +829,42 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					{
 						// because non-contributors don't pop themselves when coming off the stack, we have this
 						assert(nonMulImmediateAncestorStackEnd);
-						// if our ancestor is a mul node this means we need to kill the subtree
-//						if (astPool.deref(exprStack[nonMulImmediateAncestorStackEnd-1].nodeH)->getType()!=)
-//						{
-//						}
+						// what should happen depends if we're in the middle of a MUL subtree
+						if (notMul)
+						{
+							// Generally this is the same as having an OpUndef, for Add we can skip adding this branch which we'll handle outside the loop
+							continue;
+						}
+						else // kill subtree
+						{
+							const auto logLevel = system::ILogger::ELL_WARNING;
+							args.logger.log("A null immediate child was encountered in the Mul node forming the subtree:\n",logLevel);
+							printSubtree(entry.nodeH);
+							args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
+							printSubtree(bxdfRootH);
+							mulChain.resize(mulChainLen);
+							// this is so we don't pop a contributor if we happen to be in the right hand subtree relative to the top contributor in the stack and below an `Other` function
+							if (entry.addContributor)
+								contributorStack.pop_back();
+							exprStack.resize(nonMulImmediateAncestorStackEnd);
+							break;
+						}
 						continue;
 					}
 					// making sure we visit this node again each time a subtree of an Add node is done
-					if (isAdd && secondAdd)
+					if (isAdd && pushedAChild)
 					{
 						auto& extraEntry = exprStack.emplace_back(entry);
 						assert(extraEntry.visited);
 						extraEntry.addContributor = true;
 					}
-					secondAdd = true;
+					pushedAChild = true;
 					// regular exploration
 					exprStack.push_back({.nodeH=childH,.nonMulImmediateAncestorStackEnd=nonMulImmediateAncestorStackEnd,.mulChainLen=mulChainLen});
 				}
+				// didn't manage to add any child, dead ADD node
+				if (isAdd && !pushedAChild)
+					exprStack.back().addContributor = false;
 			}
 		}
 		else
@@ -871,7 +900,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							return (headH=errorRetval);
 						}
 					}
-					// when we are done we need to reset the mul chain back to its original state
+					// When we are done we need to reset the mul chain back to its original state, even if we don't add a contributor.
+					// Because this could have been MUL BXDF ADD F_0, F_1 in Reverse Polish Notation
 					mulChain.resize(pEntry->mulChainLen);
 					break;
 				}
@@ -884,6 +914,9 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						args.logger.log("Failed to create the Spectral Variable.",ELL_ERROR);
 						return (headH=errorRetval);
 					}
+					// Note that we push onto the mul-chain even if the first non-MUL ancestor node is not an ADD (e.g. Fresnel or other complex function).
+					// Also we may have ADD nodes which are disconnected from a contributor by having an Other ancestor
+					// TODO: mulChain probably needs to get renamed into something more semantically sound
 					auto& factor = mulChain.emplace_back();
 					factor.handle = varH;
 					const auto channels = var->getSpectralBins();
@@ -923,14 +956,21 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							return headH;
 						}
 						// don't add this MUL subtree island's contributor, it won't exist
-						pEntry = &exprStack.back();
-						pEntry->addContributor = false;
-						contributorStack.pop_back();
+						if (auto& nonMulAncestor=exprStack.back(); nonMulAncestor.addContributor)
+						{
+							// if we ever alias `addContributor` with anything else we'd need to check the ancestor type
+							assert(astPool.deref(nonMulAncestor.nodeH)->getType()==ast_expr_type_e::Add);
+							nonMulAncestor.addContributor = false;
+							contributorStack.pop_back();
+						}
 					}
 					break;
 				}
 				default:
 				{
+					// Due to the genious design of the AST, two BxDFs cannot be multiplied, and the BxDF must be in the leftmost branch of an Add.
+					// This makes it impossible to have an `IContributorDependant` which is involved in a MUL with more than 1 contributor.
+					// But one contributor can be multiplied with many `IContributorDependant` which is not a problem because they all go on the mulChain as needed.
 					args.logger.log("Unsupported AST Expression type \"%s\"",ELL_ERROR,system::to_string(astExprType).c_str());
 					return (headH=errorRetval);
 				}
