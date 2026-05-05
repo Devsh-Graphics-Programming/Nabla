@@ -101,10 +101,49 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 	}
 }
 
-bool CTrueIR::rewrite(SMaterial& material, CTrueIR* srcIR)
+void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 {
-	// TODO: hash, deduplicate, collect metadata and insert into current IR
-	return false;
+	output << "IR PRINTING UnIMPLEMENTED!\n";
+}
+
+CTrueIR::SRewriteSession::~SRewriteSession()
+{
+	if (success)
+		return;
+	// if session was not a success, then clean up all the nodes
+	for (const auto& handle : createdNodes)
+		args.dst->getObjectPool()._delete(handle,1);
+}
+
+bool CTrueIR::SRewriteSession::rewrite(typed_pointer_type<const COrientedLayer>& oriented)
+{
+	if (!success)
+		return false;
+
+	success = args.src==args.dst;
+	// TODO: go through the layers
+//	assert(success);
+	return success;
+}
+
+bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrientedLayer>& oriented)
+{
+	if (!success)
+		return false;
+	// ideas for the pass:
+	// - skip replace delta transmissions by the layer undernearth, if null then keep as delta
+	// - if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
+	// - order the `CWeightedContributor` within the `CContributorSum` linked list so emitters are first, and so on (null products go last)
+	// observations:
+	// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
+
+	// TODO: combine layer meta with `retval.metadata`
+
+	// TODO: deduplicate, collect metadata and insert into current IR
+
+	success = args.src==args.dst;
+	assert(success);
+	return success;
 }
 
 template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;

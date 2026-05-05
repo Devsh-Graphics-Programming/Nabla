@@ -780,6 +780,13 @@ class CFrontendIR final : public CNodePool
 					assert(astPrinter.exprStack.empty());
 					astPrinter.visitedNodes.clear();
 				}
+				inline void printIRLayer(const CTrueIR::typed_pointer_type<const CTrueIR::COrientedLayer> layerH, const CTrueIR* ir)
+				{
+					irPrinter.reset(ir);
+					irPrinter.layerStack.push_back(layerH);
+					args.logger.log("IR Layer Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,irPrinter().c_str());
+					irPrinter.visitedNodes.clear();
+				}
 				
 				using oriented_material_t = CTrueIR::SMaterial::SOriented;
 				NBL_API2 oriented_material_t makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST);
@@ -797,6 +804,7 @@ class CFrontendIR final : public CNodePool
 				// changes dynamically
 				const CFrontendIR* srcAST;
 				SDotPrinter astPrinter;
+				CTrueIR::SDotPrinter irPrinter;
 				bool btdfSubtree = false;
 				// for going over layers in the AST
 				core::vector<const CLayer*> layerStack;

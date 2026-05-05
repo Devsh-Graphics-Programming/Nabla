@@ -822,26 +822,37 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Each material comes down to this, this is the only struct we don't de-duplicate
 		struct SMaterial
 		{
-			// Stats needed by a renderer to skip loading parts of a material or remove expensive code altogether
-			enum class EMetadataBits : uint16_t
+			//
+			struct SMetadata
 			{
-				None = 0,
-				// if any such contributor present
-				NotBlackhole = 0x1u<<0, // actually have a material
-				NonDelta = 0x1u<<1, // can evaluate against point lights (or other samplings)
-				DeltaTransmissive = 0x1u<<2, // can use stochastic transparency for closest hit rays and blending for anyhit 
-				NonSpatiallyVaryingEmissive = 0x1u<<3, // definitely register for NEE
-				SpatiallyVaryingEmissive = 0x1u<<4, // maybe register for NEE but needs different kind of NEE
-				// TODO: 5,6,7 left
-				// Bits that help us remove expensive code from impl
-				DerivativeMap = 0x1u<<8,
-				DirectionallyVaryingEmissive = 0x1u<<9, // IES profile
-				Lambertian = 0x1u<<10,
-				OrenNayar = 0x1u<<11,
-				GGX = 0x1u<<12,
-				AnisotropicGGX = 0x1u<<13,
-				Beckmann = 0x1u<<14,
-				AnisotropicBeckmann = 0x1u<<15,
+				// Stats needed by a renderer to skip loading parts of a material or remove expensive code altogether
+				enum class ECapabilityBits : uint16_t
+				{
+					None = 0,
+					// if any such contributor present
+					NotBlackhole = 0x1u<<0, // actually have a material
+					NonDelta = 0x1u<<1, // can evaluate against point lights (or other samplings)
+					DeltaTransmissive = 0x1u<<2, // can use stochastic transparency for closest hit rays and blending for anyhit 
+					NonSpatiallyVaryingEmissive = 0x1u<<3, // definitely register for NEE
+					SpatiallyVaryingEmissive = 0x1u<<4, // maybe register for NEE but needs different kind of NEE
+					// TODO: 5,6,7 left
+					// Bits that help us remove expensive code from impl
+					DerivativeMap = 0x1u<<8,
+					DirectionallyVaryingEmissive = 0x1u<<9, // IES profile
+					Lambertian = 0x1u<<10,
+					OrenNayar = 0x1u<<11,
+					GGX = 0x1u<<12,
+					AnisotropicGGX = 0x1u<<13,
+					Beckmann = 0x1u<<14,
+					AnisotropicBeckmann = 0x1u<<15,
+				};
+				//
+				constexpr static inline uint8_t MaxUVSlots = 32;
+				std::bitset<MaxUVSlots> usedUVSlots = {};
+				// the tangent frames are a subset of used UV slots, unless there's an anisotropic BRDF involved
+				std::bitset<MaxUVSlots> usedTangentFrames = {};
+				//
+				core::bitflag<ECapabilityBits> capabilities = {};
 			};
 			//
 			struct SOriented
@@ -849,12 +860,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// null means no material
 				typed_pointer_type<const COrientedLayer> root = {};
 				//
-				constexpr static inline uint8_t MaxUVSlots = 32;
-				std::bitset<MaxUVSlots> usedUVSlots = {};
-				// the tangent frames are a subset of used UV slots, unless there's an anisotropic BRDF involved
-				std::bitset<MaxUVSlots> usedTangentFrames = {};
-				//
-				core::bitflag<EMetadataBits> metadata = {};
+				SMetadata metadata = {};
 			};
 			SOriented front = {};
 			SOriented back = {};
@@ -883,6 +889,41 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			// create the `BlackholeMaterialHandle`
 			m_materials = {SMaterial{.debugInfo=getObjectPool().emplace<CNodePool::CDebugInfo>("CTrueIR's BlackHole Material")}};
 		}
+
+		//! Utitilies for copying from other IR into ours while optimizing
+		// This one doesn't touch your coated nodes, but only the first coating
+		inline bool rewriteSingleLayer(typed_pointer_type<const COrientedLayer>& singleLayer, SMaterial::SMetadata& metadata, CTrueIR* srcIR)
+		{
+			SRewriteSession session = SRewriteArgs{.src=srcIR,.dst=this,.pMetadata=&metadata};
+			return session.rewriteSingleLayer(singleLayer);
+		}
+		inline bool rewrite(SMaterial::SOriented& material, CTrueIR* srcIR)
+		{
+			SRewriteSession session = SRewriteArgs{.src=srcIR,.dst=this,.pMetadata=&material.metadata};
+			return session.rewrite(material.root);
+		}
+		inline bool rewrite(SMaterial& material, CTrueIR* srcIR)
+		{
+			SRewriteSession session = SRewriteArgs{.src=srcIR,.dst=this};
+			if (material.front.root)
+			{
+				session.changeMetadata(&material.front.metadata);
+				session.rewrite(material.front.root);
+			}
+			if (material.back.root)
+			{
+				session.changeMetadata(&material.back.metadata);
+				session.rewrite(material.back.root);
+			}
+			if (material.debugInfo && srcIR!=this)
+			{
+				// TODO: copy the debug info across into new pool
+				assert(false);
+				material = {};
+				return false;
+			}
+			return true;
+		}
 		
 		// TODO: Optimization passes on the IR
 		// It is the backend's job to handle:
@@ -907,12 +948,20 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		struct SDotPrinter final
 		{
 			public:
+				inline SDotPrinter() = default;
 				inline SDotPrinter(const CTrueIR* ir) : m_ir(ir) {}
 				// assign in reverse because we want materials to print in order
 				inline SDotPrinter(const CTrueIR* ir, std::span<const SMaterial> roots) : m_ir(ir)//, layerStack(roots.rbegin(),roots.rend())
 				{
 					// should probably size it better, if I knew total node count allocated or live
 					visitedNodes.reserve(roots.size()<<4);
+				}
+
+				inline void reset(const CTrueIR* ir)
+				{
+					visitedNodes.clear();
+					layerStack.clear();
+					m_ir = ir;
 				}
 
 				NBL_API2 void operator()(std::ostringstream& output);
@@ -924,11 +973,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 			
 				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
-#if 0
 				// TODO: track layering depth and indent accordingly?
-				core::vector<typed_pointer_type<const CLayer>> layerStack;
-				core::stack<typed_pointer_type<const IExprNode>> exprStack;
-#endif
+				core::vector<typed_pointer_type<const COrientedLayer>> layerStack;
+//				core::stack<typed_pointer_type<const IExprNode>> exprStack;
+
 			private:
 				const CTrueIR* m_ir;
 		};
@@ -954,17 +1002,48 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			{
 				const auto uvTransformID = selfID+"_uvTransform";
 				sstr << "\n\t" << uvTransformID << " [label=\"uvSlot = " << std::to_string(_set.uvSlot()) << "\\n";
-				printMatrix(sstr,*reinterpret_cast<const decltype(_set.uvTransform)*>(_set.params+_count));
+				printMatrix(sstr,_set.uvTransform);
 				sstr << "\"]";
 				sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
 			}
 		}
 
 	protected:
-		NBL_API2 CTrueIR(creation_params_type&& params);
+		struct SRewriteArgs final
+		{
+			inline bool needDeepCopy() const {return src!=dst;}
 
-		// copies from other IR into ours and makes sure things get hashed properly
-		NBL_API2 bool rewrite(SMaterial& material, CTrueIR* srcIR);
+			const CTrueIR* const src;
+			CTrueIR* const dst;
+			const SMaterial::SMetadata* pMetadata;
+		};
+		struct SRewriteSession final
+		{
+			public:
+				inline SRewriteSession(const SRewriteArgs& _args) : args(_args) {}
+				NBL_API2 ~SRewriteSession();
+
+				inline void changeMetadata(SMaterial::SMetadata* pMetadata) {args.pMetadata = pMetadata;}
+
+				NBL_API2 bool rewrite(typed_pointer_type<const COrientedLayer>& oriented);
+				NBL_API2 bool rewriteSingleLayer(typed_pointer_type<const COrientedLayer>& oriented);
+
+			private:
+				template <typename T, typename... FuncArgs>
+				inline typed_pointer_type<T> emplace(FuncArgs&&... args)
+				{
+					const auto retval =  args.dst->getObjectPool().emplace<T,FuncArgs...>(1u,std::forward<FuncArgs>(args)...);
+					if (retval)
+						createdNodes.push_back(retval);
+					return retval;
+				}
+
+				SRewriteArgs args;
+				core::vector<typed_pointer_type<INode>> createdNodes;
+				bool success = true;
+		};
+
+		NBL_API2 CTrueIR(creation_params_type&& params);
 
 		core::vector<SMaterial> m_materials;
 		// TODO: either we put the typeid in the hash, or we have a type of hashmap per type
@@ -975,7 +1054,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
 
-NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::SMaterial::EMetadataBits)
+NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::SMaterial::SMetadata::ECapabilityBits)
 
 }
 

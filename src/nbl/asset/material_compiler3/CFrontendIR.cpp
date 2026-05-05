@@ -554,10 +554,6 @@ void CFrontendIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::
 //! IR making
 CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_pointer_type<const CLayer> rootH, const CFrontendIR* ast)
 {
-	// TODO 
-//	core::unordered_map<const CFrontendIR::IExprNode*,bool> brdfs;
-//	core::unordered_map<const CFrontendIR::IExprNode*,bool> btdfs;
-
 	const auto& astPool = ast->getObjectPool();
 	const auto* astRoot = astPool.deref<const CFrontendIR::CLayer>(rootH);
 	// no material
@@ -567,6 +563,7 @@ CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_po
 	// reverse AST into another tree
 	tmpAST->reset();
 	const auto backRootH = tmpAST->reverse(rootH,ast);
+	// do not attempt and cache these, a normal person will not send the same material over and over to convert to IR
 	CTrueIR::SMaterial material = {
 		.front = makeOrientedMaterial(rootH,ast),
 		.back = makeOrientedMaterial(backRootH,tmpAST.get())
@@ -593,7 +590,7 @@ CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_po
 		return {};
 	}
 
-	auto retval = args.ir->addMaterial(material);
+	auto retval = args.ir->addMaterial(material,tmpIR.get());
 	if (retval)
 	{
 		// TODO: better debug info (e.g. concat all the layer info during `makeOrientedMaterial` via the `session` object
@@ -608,6 +605,13 @@ CTrueIR::SMaterialHandle CFrontendIR::SAdd2IRSession::makeFinalIR(const typed_po
 auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST) -> oriented_material_t
 {
 	oriented_material_t retval = {};
+
+	// TODO: cache root expressions for layers since they tend to be reused quite a bit 
+	// HOWEVER the `tmpAST` gets cleared every call to `makeOrientedMaterial` so only cache within a `makeOrientedMaterial` call,
+	// so clear when AST changes or keep separate caches for original AST and tmp.
+//	core::unordered_map<const CFrontendIR::CLayer*,CTrueIR::COrientedLayer> layers;
+//	core::unordered_map<const CFrontendIR::IExprNode*,CTrueIR::CContributorSum> topBRDFcache;
+//	core::unordered_map<const CFrontendIR::IExprNode*,CTrueIR::CContributorSum> BTDFcache;
 
 	srcAST = _srcAST;
 	astPrinter.reset(srcAST);
@@ -644,7 +648,6 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	const auto errorLayer = tmpIR->getBasicNodes().errorLayer;
 	// Some metadata needed for us
 	bool layersBelowCanScatterBack = false;
-	CTrueIR::typed_pointer_type<CTrueIR::COrientedLayer> prevLayerH = {};
 	// then go in reverse and do the layers
 	for (auto layerIt=layerStack.rbegin(); layerIt!=layerStack.rend(); layerIt++)
 	{
@@ -677,40 +680,46 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 						if (transmission->brdfBottom==errorBxDF)
 							return {.root=errorLayer};
 					}
-					// we check if previous layer didn't get oprimized away, but we don't add its optimized version because don't want pointers across two pools (crash)
+					// we check if previous layer didn't get oprimized away
 					if (retval.root)
-						transmission->coated = prevLayerH;
+						transmission->coated = retval.root;
 				}
 			}
 		}
-		prevLayerH = layerH;
+		retval.root = layerH;
 		// Now optimize everything inserting it into the proper IR
 		{
-			// TODO: pass which copies the layers over into full IR while optimizing
-			retval.root = layerH; // wrong pool handle
-			auto* const outLayer = irPool.deref(layerH); // wrong IR Pool
-
-			// ideas for the pass:
-			// - skip replace delta transmissions by the layer undernearth, if null then keep as delta
-			// - if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
-			// - order the `CWeightedContributor` within the `CContributorSum` linked list so emitters are first, and so on (null products go last)
-			// observations:
-			// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
-
-			// TODO: combine layer meta with `retval.metadata`
-
+			// temporary debug print
+			constexpr bool DebugBeforeAndAfterOpt = true;
+			if constexpr(DebugBeforeAndAfterOpt)
+			{
+				args.logger.log("Before optimization:",ELL_DEBUG);
+				printIRLayer(layerH,tmpIR.get());
+			}
+			// avoid O(Layer^2) scaling by processing bottom layers over and over
+			if (!tmpIR->rewriteSingleLayer(retval.root,retval.metadata,tmpIR.get()))
+			{
+				args.logger.log("Failed to rewrite and optimize IR layer (printing layer and everything it coats):\n",ELL_ERROR);
+				printIRLayer(layerH,tmpIR.get());
+				return {.root=errorLayer};
+			}
+			// Now remember that our rewriter can optimize us into a blackhole/null layer
+			if constexpr(DebugBeforeAndAfterOpt)
+			{
+				args.logger.log("After optimization:",ELL_DEBUG);
+				printIRLayer(retval.root,tmpIR.get());
+			}
 			// Set this for the next layer after us, we are reflective or previous layer scatters back towards us and we don't block it
-			if (outLayer)
+			if (auto* const outLayer=irPool.deref(retval.root); outLayer)
 				layersBelowCanScatterBack = bool(outLayer->brdfTop) || layersBelowCanScatterBack && outLayer->firstTransmission;
 			else
 				layersBelowCanScatterBack = false;
 		}
 	}
-	// last touch ups
+	// last checks
 	if (retval.root)
 	{
-		// might turn this into an assert
-		retval.metadata |= CTrueIR::SMaterial::EMetadataBits::NotBlackhole;
+//		assert(retval.metadata.capabilities|CTrueIR::SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
 	}
 	else
 	{
