@@ -55,19 +55,23 @@ struct DivisionPolicy
 };
 
 // TODO: Separate parallelFFTs from Channels as two different concepts (dictates FFTSize)
-template<uint16_t _ElementsPerInvocation, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledChannelsPerRound, bool _Interleaved, uint16_t _DivisionPolicy, bool _ShareTwiddles, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
+template<uint16_t _ElementsPerInvocation, uint16_t _RealChannels, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledChannelsPerRound, bool _Interleaved, uint16_t _DivisionPolicy, bool _ShareTwiddles, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
 struct ConstevalParameters
 {
     using scalar_t = _Scalar;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = _ElementsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Channels = ElementsPerInvocation >> 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t RealChannels = _RealChannels;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerRealChannel = ElementsPerInvocation / RealChannels;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = _SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(1) << SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1) << WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t NumSubgroupsLog2 = WorkgroupSizeLog2 - SubgroupSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTTotalSize = ElementsPerInvocation * (uint32_t(1) << WorkgroupSizeLog2);
+
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTTotalSize = ElementsPerRealChannel * (uint32_t(1) << WorkgroupSizeLog2);
+
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffledChannelsPerRound = _ShuffledChannelsPerRound;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffleRounds = mpl::ceil_div_v<Channels, ShuffledChannelsPerRound>;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = ShuffledChannelsPerRound * ((sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << (WorkgroupSizeLog2 + (_Interleaved ? 1 : 0)));
@@ -439,7 +443,7 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog
         const uint16_t WorkgroupSize = consteval_parameters_t::WorkgroupSize;
 
         // Subgroup-sized FFT at the start
-        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::__call(0, Channels - 1, loAccessor, hiAccessor);
+        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, Channels - 1, loAccessor, hiAccessor);
 
         // Get workgroup threadID
         const uint32_t threadID = uint32_t(workgroup::SubgroupContiguousIndex());
