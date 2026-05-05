@@ -44,12 +44,23 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			{
 				if (scale!=other.scale)
 					return true;
-				if (viewChannel!=other.viewChannel)
-					return true;
+				if (view)
+				{
+					if (viewChannel!=other.viewChannel)
+						return true;
+					if (wrapU!=other.wrapU)
+						return true;
+					if (wrapV!=other.wrapV)
+						return true;
+					if (wrapW!=other.wrapW)
+						return true;
+					if (borderColor!=other.borderColor)
+						return true;
+					if (linearMagnification!=other.linearMagnification)
+						return true;
+				}
 				// don't compare paddings!
-				if (view!=other.view)
-					return true;
-				return sampler!=other.sampler;
+				return view!=other.view;
 			}
 			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
 
@@ -57,13 +68,17 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			// at this stage we store the multipliers in highest precision
 			float scale = std::numeric_limits<float>::infinity();
-			// rest are ignored if the view is null
+			// rest are ignored if the view is null, only take the things that matter from ISampler
+			static_assert(std::is_same_v<std::underlying_type_t<hlsl::TextureClamp>,uint16_t>);
 			uint16_t viewChannel : 2 = 0;
+			uint16_t linearMagnification : 1 = true;
+			hlsl::TextureClamp wrapU : 3 = hlsl::TextureClamp::ETC_REPEAT;
+			hlsl::TextureClamp wrapV : 3 = hlsl::TextureClamp::ETC_REPEAT;
+			hlsl::TextureClamp wrapW : 3 = hlsl::TextureClamp::ETC_REPEAT;
+			uint16_t borderColor : 3 = ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_BLACK;
+			// 1 bit left over
 			uint8_t padding[2] = {0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
-			// lodbias and clamp shadow comparison functions, anisotropy and minFilter are ignored
-			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
-			ICPUSampler::SParams sampler = {};
 		};
 		// We worry about keeping parameters in the same image view later (the backend)
 		template<uint8_t Count>
@@ -643,15 +658,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					if (profile.view)
 					{
 						// we ignore most of the sampler, needs to be set always the same
-						const auto& sampler = profile.sampler;
-						using namespace ::nbl::asset;
-						if (sampler.BorderColor!=ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_TRANSPARENT_BLACK || sampler.MaxFilter!=ISampler::E_TEXTURE_FILTER::ETF_LINEAR)
-							return false;
-						using clamp_e = hlsl::TextureClamp;
-						if (sampler.TextureWrapW!=clamp_e::ETC_CLAMP_TO_EDGE)
-							return false;
+						auto copy = profile;
+						copy.wrapU = hlsl::TextureClamp::ETC_CLAMP_TO_EDGE;
+						copy.wrapV = hlsl::TextureClamp::ETC_CLAMP_TO_EDGE;
+						copy.wrapW = hlsl::TextureClamp::ETC_CLAMP_TO_EDGE;
+						copy.linearMagnification = true;
+						copy.borderColor = ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_TRANSPARENT_BLACK;
 						// there's a limited set of symmetries we can exploit in our IES tabulations, TODO: check which (probably not REPEAT)
-						hasher << profile;
+						hasher << copy;
 					}
 					else
 						hasher << profile.scale;
@@ -1132,13 +1146,13 @@ inline void CTrueIR::SParameter::printDot(std::ostringstream& sstr, const core::
 	{
 		sstr << "\\nchannel = " << std::to_string(viewChannel);
 		const auto& viewParams = view->getCreationParameters();
-		sstr << "\\nWraps = {" << sampler.TextureWrapU;
+		sstr << "\\nWraps = {" << wrapU;
 		if (viewParams.viewType!=ICPUImageView::ET_1D && viewParams.viewType!=ICPUImageView::ET_1D_ARRAY)
-			sstr << "," << sampler.TextureWrapV;
+			sstr << "," << wrapV;
 		if (viewParams.viewType==ICPUImageView::ET_3D)
-			sstr << "," << sampler.TextureWrapW;
-		sstr << "}\\nBorder = " << sampler.BorderColor;
-		// don't bother printing the rest, we really don't care much about those
+			sstr << "," << wrapW;
+		// TODO: conditionally print this if wrap modes require it
+		sstr << "}\\nBorder = " << borderColor;
 	}
 	sstr << "\"]";
 	// TODO: do specialized printing for image views (they need to be gathered into a view set -> need a printing context struct)
@@ -1191,25 +1205,38 @@ struct core::blake3_hasher::update_impl<CTrueIR::SParameter,Dummy>
 		}
 		// in the future this might change
 		hasher << param.viewChannel;
-		const auto& sampler = param.sampler;
-		hasher << sampler.BorderColor;
-		hasher << sampler.MaxFilter;
+		hasher << param.linearMagnification;
+		bool wrapModeUsesBorder = false;
+		auto hashWrap = [&](const hlsl::TextureClamp wrap)->void
+		{
+			hasher << wrap;
+			switch (wrap)
+			{
+				case hlsl::TextureClamp::ETC_CLAMP_TO_BORDER:
+					wrapModeUsesBorder = true;
+					break;
+				default:
+					break;
+			}
+		};
 		using view_type_e = asset::IImageView<asset::ICPUImage>::E_TYPE;
 		switch (viewParams.viewType)
 		{
 			case view_type_e::ET_3D:
-				hasher << sampler.TextureWrapW;
+				hashWrap(param.wrapW);
 				[[fallthrough]];
 			case view_type_e::ET_2D: [[fallthrough]];
 			case view_type_e::ET_2D_ARRAY: [[fallthrough]];
 			case view_type_e::ET_CUBE_MAP: [[fallthrough]];
 			case view_type_e::ET_CUBE_MAP_ARRAY:
-				hasher << sampler.TextureWrapV;
+				hashWrap(param.wrapV);
 				[[fallthrough]];
 			default:
-				hasher << sampler.TextureWrapU;
+				hashWrap(param.wrapU);
 				break;
 		}
+		if (wrapModeUsesBorder)
+			hasher << param.borderColor;
 	}
 };
 template<uint8_t Count, typename Dummy>
