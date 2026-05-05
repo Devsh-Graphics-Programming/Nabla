@@ -27,11 +27,9 @@ template<uint16_t SubgroupSize, typename Scalar, class device_capabilities>
 struct FFT<SubgroupSize, false, Scalar, device_capabilities>
 {
     template <typename InvocationElementsAccessor>
-    static void FFT_loop(uint32_t stride, uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
+    static void FFT_loop(uint32_t threadStride, uint16_t lowChannel, uint16_t highChannel, NBL_CONST_REF_ARG(complex_t<Scalar>) twiddle, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
     {
-        const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & stride);
-        // Get twiddle with k = subgroupInvocation mod stride, halfN = stride
-        const complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride);
+        const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & threadStride);
         [unroll]
         for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
         {
@@ -39,7 +37,7 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
             loAccessor.get(channel, lo);
             hiAccessor.get(channel, hi);
             const vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
-            const vector <Scalar, 2> exchanged = glsl::subgroupShuffleXor< vector <Scalar, 2> >(toTrade, stride);
+            const vector <Scalar, 2> exchanged = glsl::subgroupShuffleXor< vector <Scalar, 2> >(toTrade, threadStride);
             if (topHalf)
             {
                 lo.real(exchanged.x);
@@ -56,11 +54,11 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
         }
     }
 
-    template <typename InvocationElementsAccessor>
+    template <bool ShareTwiddles, typename InvocationElementsAccessor>
     static void __call(uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
     {
         // special first iteration
-        const complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
+        complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
         [unroll]
         for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
         {
@@ -73,19 +71,39 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
         }                                                                        
         
         // Decimation in Frequency
-        [unroll]
-        for (uint32_t stride = SubgroupSize >> 1; stride > 0; stride >>= 1)
-            FFT_loop(stride, lowChannel, highChannel, loAccessor, hiAccessor);
+        // Compute all twiddles at the start, then reshare them among threads
+        if (ShareTwiddles)
+        {
+            uint32_t iteration = 1;
+            [unroll]
+            for (uint32_t threadStride = SubgroupSize >> 1; threadStride > 0; threadStride >>= 1)
+            {
+                const vector <Scalar, 2> toTrade = vector <Scalar, 2>(twiddle.real(), twiddle.imag());
+                const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() & (threadStride - 1)) << iteration);
+                twiddle.real(otherTwiddle.x);
+                twiddle.imag(otherTwiddle.y);
+                FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
+                iteration++;
+            }
+        }
+        // Recompute twiddles at every step
+        else 
+        {
+            [unroll]
+            for (uint32_t threadStride = SubgroupSize >> 1; threadStride > 0; threadStride >>= 1)
+            {
+                // Get twiddle with k = subgroupInvocation mod threadStride, halfN = threadStride
+                const complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (threadStride - 1), threadStride);
+                FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
+            }
+        } 
     }
 
     // Interleaved versions of the above methods, required to implement the first steps in Interleaved DIF
     template <uint16_t NumSubgroupsLog2, typename InvocationElementsAccessor>
-    static void FFT_loop(uint32_t elementStride, uint32_t threadStride, uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
+    static void FFT_loop(uint32_t threadStride, uint16_t lowChannel, uint16_t highChannel, NBL_CONST_REF_ARG(complex_t<Scalar>) twiddle, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
     {
         const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & threadStride);
-        // Get twiddle with k = gl_SubgroupInvocationID() * NumSubgroups + gl_SubgroupID() mod elementStride, halfN = elementStride
-        const uint32_t loLaneIndex = (glsl::gl_SubgroupInvocationID() << NumSubgroupsLog2) + glsl::gl_SubgroupID();
-        const complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(loLaneIndex & (elementStride - 1), elementStride);
         [unroll]
         for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
         {
@@ -117,7 +135,7 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
         // special first iteration
         // Get twiddle with k = gl_SubgroupInvocationID() * NumSubgroups + gl_SubgroupID() mod WorkgroupSize, halfN = WorkgroupSize
         const uint32_t loLaneIndex = (glsl::gl_SubgroupInvocationID() << NumSubgroupsLog2) + glsl::gl_SubgroupID();
-        const complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(loLaneIndex, WorkgroupSize); 
+        complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(loLaneIndex, WorkgroupSize); 
         [unroll]
         for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
         {
@@ -134,7 +152,8 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
         [unroll]
         for (uint32_t elementStride = WorkgroupSize >> 1; elementStride > SubgroupSize; elementStride >>= 1)
         {
-            FFT_loop<NumSubgroupsLog2>(elementStride, threadStride, lowChannel, highChannel, loAccessor, hiAccessor);
+            twiddle = fft2::twiddle<false, Scalar>(loLaneIndex & (elementStride - 1), elementStride);
+            FFT_loop<NumSubgroupsLog2>(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
             threadStride >>= 1;
         }
     }

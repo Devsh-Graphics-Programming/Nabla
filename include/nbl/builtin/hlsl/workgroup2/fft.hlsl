@@ -55,7 +55,7 @@ struct DivisionPolicy
 };
 
 // TODO: Separate parallelFFTs from Channels as two different concepts (dictates FFTSize)
-template<uint16_t _ElementsPerInvocation, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledChannelsPerRound, bool _Interleaved, uint16_t _DivisionPolicy, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
+template<uint16_t _ElementsPerInvocation, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledChannelsPerRound, bool _Interleaved, uint16_t _DivisionPolicy, bool _ShareTwiddles, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
 struct ConstevalParameters
 {
     using scalar_t = _Scalar;
@@ -71,6 +71,8 @@ struct ConstevalParameters
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffledChannelsPerRound = _ShuffledChannelsPerRound;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffleRounds = mpl::ceil_div_v<Channels, ShuffledChannelsPerRound>;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = ShuffledChannelsPerRound * ((sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << (WorkgroupSizeLog2 + (_Interleaved ? 1 : 0)));
+
+    NBL_CONSTEXPR_STATIC_INLINE bool ShareTwiddles = _ShareTwiddles;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivisionPolicy = _DivisionPolicy;
 };
@@ -313,10 +315,10 @@ template<bool Inverse, typename consteval_params_t, class device_capabilities = 
 struct FFT;
 
 // Non-interleaved (shuffle after every butterfly) forward FFT
-template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledChannelsPerRound, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
-struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, Scalar>, device_capabilities>
+template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledChannelsPerRound, uint16_t DivisionPolicy, bool ShareTwiddles, typename Scalar, class device_capabilities>
+struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>, device_capabilities>
 {
-    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, Scalar>;
+    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>;
     using scalar_t = typename consteval_parameters_t::scalar_t;
 
     template<typename InvocationElementsAccessor, typename SharedMemoryAdaptor>
@@ -384,15 +386,15 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLo
             sharedmemAccessor = sharedmemAdaptor.accessor;
         }
         // Subgroup-sized FFT
-        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::__call(0, Channels - 1, loAccessor, hiAccessor);
+        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, Channels - 1, loAccessor, hiAccessor);
     }
 };
 
 // Non-interleaved (shuffle after every butterfly) inverse FFT
-template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledChannelsPerRound, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
-struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, Scalar>, device_capabilities>
+template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledChannelsPerRound, uint16_t DivisionPolicy, bool ShareTwiddles, typename Scalar, class device_capabilities>
+struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>, device_capabilities>
 {
-    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, Scalar>;
+    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>;
     using scalar_t = typename consteval_parameters_t::scalar_t;
 
     template<typename InvocationElementsAccessor, typename SharedMemoryAdaptor>
