@@ -33,7 +33,7 @@ class CDraw3DLine : public core::IReferenceCounted
 		}
 
 
-		void setData(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
+		void setData(const hlsl::float32_t4x4& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
 		{
 			m_viewProj = viewProjMat;
 			m_lines = linesData;
@@ -45,7 +45,7 @@ class CDraw3DLine : public core::IReferenceCounted
 			m_lines.clear();
 		}
 
-		void setLine(const core::matrix4SIMD& viewProjMat,
+		void setLine(const hlsl::float32_t4x4& viewProjMat,
 			float fromX, float fromY, float fromZ,
 			float toX, float toY, float toZ,
 			float r, float g, float b, float a
@@ -54,7 +54,7 @@ class CDraw3DLine : public core::IReferenceCounted
 			m_lines = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>{ std::pair(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }}) };
 		}
 
-		void addLine(const core::matrix4SIMD& viewProjMat,
+		void addLine(const hlsl::float32_t4x4& viewProjMat,
 			float fromX, float fromY, float fromZ,
 			float toX, float toY, float toZ,
 			float r, float g, float b, float a
@@ -73,7 +73,7 @@ class CDraw3DLine : public core::IReferenceCounted
 			m_lines.insert(m_lines.end(), linesData.begin(), linesData.end());
 		}
 
-		void setViewProjMatrix(const core::matrix4SIMD& viewProjMat)
+		void setViewProjMatrix(const hlsl::float32_t4x4& viewProjMat)
 		{
 			m_viewProj = viewProjMat;
 		}
@@ -91,7 +91,7 @@ class CDraw3DLine : public core::IReferenceCounted
 		*/
 		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline);
 
-		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
+		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const hlsl::float32_t3x4& tform=hlsl::float32_t3x4())
 		{
 			auto addLine = [&](auto s, auto e) -> void
 			{
@@ -128,7 +128,7 @@ class CDraw3DLine : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IGPUBuffer> m_linesBuffer =  nullptr;
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_rpindependent_pipeline;
-		core::matrix4SIMD m_viewProj;
+		hlsl::float32_t4x4 m_viewProj;
 		core::vector<std::pair<S3DLineVertex, S3DLineVertex>> m_lines;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
 };

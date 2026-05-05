@@ -297,36 +297,36 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     VkPhysicalDeviceProperties2 deviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
     setPNextChainTail(&deviceProperties2);
     // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
-    VkPhysicalDeviceVulkan11Properties                      vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
+    VkPhysicalDeviceVulkan11Properties  vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
     addToPNextChain(&vulkan11Properties);
     //! Declare all the property structs before so they don't go out of scope
     //! Provided by Vk 1.2
-    VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
+    VkPhysicalDeviceVulkan12Properties  vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
     addToPNextChain(&vulkan12Properties);
     //! Provided by Vk 1.3
-    VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
+    VkPhysicalDeviceVulkan13Properties  vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
     addToPNextChain(&vulkan13Properties);
     //! Required by Nabla Core Profile
-    VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
-    VkPhysicalDeviceRobustness2PropertiesEXT                robustness2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT };
+    VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
+    VkPhysicalDeviceRobustness2PropertiesEXT        robustness2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT };
     addToPNextChain(&robustness2Properties);
     //! Extensions (ordered by spec extension number)
-    VkPhysicalDeviceConservativeRasterizationPropertiesEXT  conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
-    VkPhysicalDeviceDiscardRectanglePropertiesEXT           discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
-    VkPhysicalDeviceSampleLocationsPropertiesEXT            sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
-    VkPhysicalDeviceAccelerationStructurePropertiesKHR      accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
-    VkPhysicalDevicePCIBusInfoPropertiesEXT                 PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT };
-    VkPhysicalDeviceFragmentDensityMapPropertiesEXT         fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
-    VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
-    //VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV     deviceGeneratedCommandsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV };
+    VkPhysicalDeviceConservativeRasterizationPropertiesEXT      conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
+    VkPhysicalDeviceDiscardRectanglePropertiesEXT               discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
+    VkPhysicalDeviceSampleLocationsPropertiesEXT                sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR          accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
+    VkPhysicalDevicePCIBusInfoPropertiesEXT                     PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT };
+    VkPhysicalDeviceFragmentDensityMapPropertiesEXT             fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
+    VkPhysicalDeviceLineRasterizationPropertiesEXT              lineRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
     //VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
-    VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
-    VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
-    VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
-    VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
-    VkPhysicalDeviceMaintenance5PropertiesKHR               maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
-    VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
+    VkPhysicalDeviceFragmentDensityMap2PropertiesEXT            fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR             rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+    VkPhysicalDeviceCooperativeMatrixPropertiesKHR              cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
+    VkPhysicalDeviceShaderSMBuiltinsPropertiesNV                shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
+    VkPhysicalDeviceShaderCoreProperties2AMD                    shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
+    VkPhysicalDeviceMaintenance5PropertiesKHR                   maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
+    VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT        graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
+    VkPhysicalDeviceRayTracingInvocationReorderPropertiesEXT    rayTracingInvocationReorderProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_EXT };
 
      {
         //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
@@ -361,6 +361,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&maintenance5Properties);
         if (isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
             addToPNextChain(&graphicsPipelineLibraryProperties);
+        if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            addToPNextChain(&rayTracingInvocationReorderProperties);
         // call
         finalizePNextChain();
         vkGetPhysicalDeviceProperties2(vk_physicalDevice,&deviceProperties2);
@@ -635,6 +637,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrixSupportedStages = static_cast<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
 
+        if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+        {
+            properties.limits.maxHitObjectReplacementSBTIndex = rayTracingInvocationReorderProperties.maxShaderBindingTableRecordIndex;
+            properties.limits.actuallyReordersRayTracingInvocations = rayTracingInvocationReorderProperties.rayTracingInvocationReorderReorderingHint==VK_RAY_TRACING_INVOCATION_REORDER_MODE_REORDER_EXT;
+        }
+
 
         //! Nabla
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
@@ -732,6 +740,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                    cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
         VkPhysicalDeviceMaintenance5FeaturesKHR                         maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT              graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT };
+        VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT          rayTracingInvocationReorderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT };
 
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
@@ -800,6 +809,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&maintenance5Features);
         if (isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
             addToPNextChain(&graphicsPipelineLibraryFeatures);
+        if (isExtensionSupported(VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            addToPNextChain(&rayTracingInvocationReorderFeatures);
         // call
         finalizePNextChain();
         vkGetPhysicalDeviceFeatures2(vk_physicalDevice,&deviceFeatures);
@@ -1239,6 +1250,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrix = cooperativeMatrixFeatures.cooperativeMatrix;
+
+        if (isExtensionSupported(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME))
+            properties.limits.rayTracingInvocationReorder = rayTracingInvocationReorderFeatures.rayTracingInvocationReorder;
     }
 
     // we compare all limits against the defaults easily!
@@ -1422,6 +1436,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         if ((COND) && !enableExtensionIfAvailable(__VA_ARGS__)) \
             return nullptr
 
+        //
+        const auto& limits = m_initData.properties.limits;
 
         // Extensions required by Nabla Core Profile
 #ifdef _NBL_WINDOWS_API_
@@ -1607,13 +1623,13 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         );
 
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR, nullptr };
-        REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure && m_initData.properties.limits.rayTracingPositionFetch, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME, &rayTracingPositionFetchFeatures);
+        REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure && limits.rayTracingPositionFetch, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME, &rayTracingPositionFetchFeatures);
 
         VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,nullptr };
         enableExtensionIfAvailable(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME,&colorWriteEnableFeatures);
 
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR,nullptr };
-        REQUIRE_EXTENSION_IF(enabledFeatures.cooperativeMatrixRobustBufferAccess,VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME,&cooperativeMatrixFeatures);
+        REQUIRE_EXTENSION_IF(limits.cooperativeMatrix,VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME,&cooperativeMatrixFeatures);
         
         VkPhysicalDeviceMaintenance5FeaturesKHR maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR, nullptr };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT, nullptr };
@@ -1634,13 +1650,15 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             assert(pipelineLibraryEnabled);
             graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = true;
         }
+        
+        VkPhysicalDeviceRayTracingInvocationReorderFeaturesEXT rayTracingInvocationReorderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_EXT,nullptr };
+        REQUIRE_EXTENSION_IF(enabledFeatures.rayTracingPipeline && limits.rayTracingInvocationReorder,VK_EXT_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,&rayTracingInvocationReorderFeatures);
 
         #undef REQUIRE_EXTENSION_IF
 
 
         // prime ourselves with good defaults, we actually re-query all available Vulkan <= MinimumApiVersion features so that by default they're all enabled unless we explicitly disable
         vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice,&vk_deviceFeatures2);
-        const auto& limits = m_initData.properties.limits;
 
         /* Vulkan 1.0 Core  */
         vk_deviceFeatures2.features.robustBufferAccess = enabledFeatures.robustBufferAccess;
@@ -1880,9 +1898,13 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         //colorWriteEnableFeatures [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 
-        if (limits.cooperativeMatrix) {
+        if (limits.cooperativeMatrix)
+        {
+            cooperativeMatrixFeatures.cooperativeMatrix = true;
             cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess = enabledFeatures.cooperativeMatrixRobustBufferAccess;
         }
+
+        rayTracingInvocationReorderFeatures.rayTracingInvocationReorder = limits.rayTracingInvocationReorder;
 
         // convert a set into a vector
         core::vector<const char*> extensionStrings(extensionsToEnable.size());

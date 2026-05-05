@@ -23,10 +23,10 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
         AddressAllocator& getBaseRef() {return reinterpret_cast<AddressAllocator&>(*this);}
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename AddressAllocator::size_type);
+        using extra_ctor_param_types = typename AddressAllocator::extra_ctor_param_types;
 
         typedef address_allocator_traits<AddressAllocator>              traits;
         static_assert(address_allocator_traits<AddressAllocator>::supportsArbitraryOrderFrees,"AddressAllocator does not support arbitrary order frees!");
-
 
         using AddressAllocator::AddressAllocator;
         virtual ~AddressAllocatorBasicConcurrencyAdaptor() {}

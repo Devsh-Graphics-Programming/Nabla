@@ -4,9 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_REFLECTION_BECKMANN_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_BECKMANN_INCLUDED_
 
-#include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
-#include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/base/cook_torrance_base.hlsl"
 
@@ -20,10 +18,10 @@ namespace reflection
 {
 
 template<class Config>
-using SBeckmannIsotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
+using SBeckmannIsotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::sample_type::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
 template<class Config>
-using SBeckmannAnisotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
+using SBeckmannAnisotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::sample_type::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
 }
 

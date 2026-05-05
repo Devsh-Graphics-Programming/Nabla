@@ -75,8 +75,8 @@ zstd -d < <prefix>-msvc-<config>-nsc-godbolt-image.tar.zst | docker load
 <details>
 <summary>Docker load example (click to expand)</summary>
 
-```  
-C:\Users\anastaziuk\Desktop\DevshGraphicsProgramming\Nabla\tools\nsc\docker>zstd -d < run-windows-17.13.6-msvc-Debug-nsc-godbolt-image.tar.zst | docker load
+```
+path\\to\\artifact>zstd -d < run-windows-17.13.6-msvc-Debug-nsc-godbolt-image.tar.zst | docker load
 b2ebf78c3627: Loading layer [==================================================>]  3.149MB/3.149MB
 4c201e14cc01: Loading layer [==================================================>]   77.4MB/77.4MB
 68a216251b8f: Loading layer [==================================================>]  61.95kB/61.95kB

@@ -68,6 +68,6 @@
 #include "nbl/asset/metadata/CMTLMetadata.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
-//#include "nbl/asset/metadata/CIESProfileMetadata.h"
+#include "nbl/asset/metadata/CIESProfileMetadata.h"
 
 #endif

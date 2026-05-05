@@ -122,7 +122,7 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& system, core::smart_refctd_ptr<CCompilerSet>&& compilerSet = nullptr) :
             m_system(std::move(system)),
             m_compilerSet(std::move(compilerSet)),
-            m_defaultLoaderOverride(this)
+            m_defaultLoaderOverride({.manager=this})
         {
             assert(IPreHashed::INVALID_HASH == static_cast<core::blake3_hash_t>(core::blake3_hasher{}));
             initializeMeshTools();
@@ -385,8 +385,10 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         uint32_t getAssetLoaderCount() { return static_cast<uint32_t>(m_loaders.vector.size()); }
 
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
-        uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
+        inline uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
         {
+            if (!_loader)
+                return 0xdeadbeefu;
             // there's no way it ever fails, so no 0xdeadbeef return
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
@@ -395,8 +397,10 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
             m_loaders.pushToVector(std::move(_loader));
             return static_cast<uint32_t>(m_loaders.vector.size())-1u;
         }
-        void removeAssetLoader(IAssetLoader* _loader)
+        inline void removeAssetLoader(IAssetLoader* _loader)
         {
+            if (!_loader)
+                return;
             m_loaders.eraseFromVector(
                 std::find_if(std::begin(m_loaders.vector), std::end(m_loaders.vector), [_loader](const core::smart_refctd_ptr<IAssetLoader>& a)->bool { return a.get()==_loader; })
             );
@@ -409,8 +413,10 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetWriterCount() { return static_cast<uint32_t>(m_writers.perType.getSize()); } // todo.. well, it's not really writer count.. but rather type<->writer association count
 
-        void addAssetWriter(core::smart_refctd_ptr<IAssetWriter>&& _writer)
+        inline void addAssetWriter(core::smart_refctd_ptr<IAssetWriter>&& _writer)
         {
+            if (!_writer)
+                return;
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
             const char** exts = _writer->getAssociatedFileExtensions();
             for (uint32_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
@@ -425,8 +431,10 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
                 }
             }
         }
-        void removeAssetWriter(IAssetWriter* _writer)
+        inline void removeAssetWriter(IAssetWriter* _writer)
         {
+            if (!_writer)
+                return;
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
             const char** exts = _writer->getAssociatedFileExtensions();
             size_t extIx = 0u;

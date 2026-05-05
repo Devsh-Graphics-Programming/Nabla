@@ -17,7 +17,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
 {
     auto removeTrailingWhiteChars = [](std::string& str) -> void
     {
-        if (std::isspace(str.back()))
+        if (!str.empty() && std::isspace(static_cast<unsigned char>(str.back())))
         {
             auto it = str.rbegin();
             while (it != str.rend() && std::isspace(static_cast<unsigned char>(*it)))
@@ -33,16 +33,16 @@ bool CIESProfileParser::parse(CIESProfile& result)
     std::getline(ss, line);
     removeTrailingWhiteChars(line);
 
-    CIESProfile::Version iesVersion;
-
+   
+    CIESProfile::properties_t::Version iesVersion;
     if (line.find(SIG_LM63_1995.data()) != std::string::npos)
-        iesVersion = CIESProfile::V_1995;
+        iesVersion = CIESProfile::properties_t::V_1995;
     else if (line.find(SIG_LM63_2002.data()) != std::string::npos)
-        iesVersion = CIESProfile::V_2002;
+        iesVersion = CIESProfile::properties_t::V_2002;
     else if (line.find(SIG_IESNA91.data()) != std::string::npos)
-        iesVersion = CIESProfile::V_1995;
+        iesVersion = CIESProfile::properties_t::V_1995;
     else if (line.find(SIG_ERCO_LG.data()) != std::string::npos)
-        iesVersion = CIESProfile::V_1995;
+        iesVersion = CIESProfile::properties_t::V_1995;
     else
     {
         errorMsg = "Unknown IESNA:LM-63 version, the IES input being parsed is invalid!";
@@ -82,9 +82,8 @@ bool CIESProfileParser::parse(CIESProfile& result)
         errorMsg = "unrecognized type";
         return false;
     }
-    CIESProfile::PhotometricType type =
-        static_cast<CIESProfile::PhotometricType>(type_);
-    if (type != CIESProfile::PhotometricType::TYPE_C) {
+    auto type = static_cast<CIESProfile::properties_t::PhotometricType>(type_);
+    if (type != CIESProfile::properties_t::TYPE_C) {
         errorMsg = "Only type C is supported for now";
         return false;
     }
@@ -100,38 +99,42 @@ bool CIESProfileParser::parse(CIESProfile& result)
     if (error)
         return false;
 
-    result = CIESProfile(type, hSize, vSize);
-    result.version = iesVersion;
+    {
+        CIESProfile::properties_t init;
+		init.setType(type);
+		init.setVersion(iesVersion);
+		init.maxCandelaValue = 0.f;
+		init.totalEmissionIntegral = 0.f;
+		init.avgEmmision = 0.f;
+        result = CIESProfile(init, hlsl::uint32_t2(hSize, vSize));
+    }
 
     if (vSize < 2)
         return false;
 
-    {
-        const uint32_t maxDimMeasureSize = core::max(hSize, vSize);
-        result.optimalIESResolution = decltype(result.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
-        result.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
-    }
+    using angle_t = CIESProfile::accessor_t::angle_t;
+    using candela_t = CIESProfile::accessor_t::candela_t;
 
-    auto& vAngles = result.vAngles;
+    auto& vAngles = result.accessor.vAngles;
     for (int i = 0; i < vSize; i++) {
-        vAngles[i] = getDouble("vertical angle truncated");
+        vAngles[i] = static_cast<angle_t>(getDouble("vertical angle truncated"));
     }
     if (!std::is_sorted(vAngles.begin(), vAngles.end())) {
         errorMsg = "Vertical angles should be sorted";
         return false;
     }
-    if (vAngles[0] != 0.0 && vAngles[0] != 90.0) {
+    if (vAngles[0] != 0.f && vAngles[0] != 90.f) {
         errorMsg = "First vertical angle must be 0 or 90 in type C";
         return false;
     }
-    if (vAngles[vSize - 1] != 90.0 && vAngles[vSize - 1] != 180.0) {
+    if (vAngles[vSize - 1] != 90.f && vAngles[vSize - 1] != 180.f) {
         errorMsg = "Last vertical angle must be 90 or 180 in type C";
         return false;
     }
 
-    auto& hAngles = result.hAngles;
+    auto& hAngles = result.accessor.hAngles;
     for (int i = 0; i < hSize; i++) {
-        hAngles[i] = getDouble("horizontal angle truncated");
+        hAngles[i] = static_cast<angle_t>(getDouble("horizontal angle truncated"));
         if (i != 0 && hAngles[i - 1] > hAngles[i])
             return false; // Angles should be sorted
     }
@@ -141,26 +144,26 @@ bool CIESProfileParser::parse(CIESProfile& result)
         const auto firstHAngle = hAngles.front();
         const auto lastHAngle = hAngles.back();
 
-        if (lastHAngle == 0)
-            result.symmetry = CIESProfile::ISOTROPIC;
-        else if (lastHAngle == 90)
+        if (lastHAngle == 0.f)
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::ISOTROPIC);
+        else if (lastHAngle == 90.f)
         {
-            result.symmetry = CIESProfile::QUAD_SYMETRIC;
-            fluxMultiplier = 4.0;
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::QUAD_SYMETRIC);
+            fluxMultiplier = 4.f;
         }
-        else if (lastHAngle == 180)
+        else if (lastHAngle == 180.f)
         {
-            result.symmetry = CIESProfile::HALF_SYMETRIC;
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::HALF_SYMETRIC);
             fluxMultiplier = 2.0;
         }
-        else if (lastHAngle == 360)
-            result.symmetry = CIESProfile::NO_LATERAL_SYMMET;
+        else if (lastHAngle == 360.f)
+            result.accessor.properties.setSymmetry(CIESProfile::properties_t::NO_LATERAL_SYMMET);
         else
         {
-            if (firstHAngle == 90 && lastHAngle == 270 && result.version == CIESProfile::V_1995)
+            if (firstHAngle == 90.f && lastHAngle == 270.f && iesVersion == CIESProfile::properties_t::V_1995)
             {
-                result.symmetry = CIESProfile::OTHER_HALF_SYMMETRIC;
-                fluxMultiplier = 2.0;
+                result.accessor.properties.setSymmetry(CIESProfile::properties_t::OTHER_HALF_SYMMETRIC);
+                fluxMultiplier = 2.f;
 
                 for (auto& angle : hAngles)
                     angle -= firstHAngle; // patch the profile to HALF_SYMETRIC by shifting [90,270] range to [0, 180]
@@ -169,57 +172,81 @@ bool CIESProfileParser::parse(CIESProfile& result)
                 return false;
         }
     }
+	const auto symmetry = result.accessor.properties.getSymmetry();
 
     {
         const double factor = ballastFactor * candelaMultiplier;
         for (int i = 0; i < hSize; i++)
             for (int j = 0; j < vSize; j++)
-                result.setCandelaValue(i, j, factor * getDouble("intensity value truncated"));
+                result.accessor.setValue(hlsl::uint32_t2(i, j), static_cast<candela_t>(factor * getDouble("intensity value truncated")));
     }
 
     float totalEmissionIntegral = 0.0, nonZeroEmissionDomainSize = 0.0;
     constexpr auto FULL_SOLID_ANGLE = 4.0f * core::PI<float>();
 
-    const auto H_ANGLES_I_RANGE = result.symmetry != CIESProfile::ISOTROPIC ? result.hAngles.size() - 1 : 1;
-    const auto V_ANGLES_I_RANGE = result.vAngles.size() - 1;
+    // TODO: this code could have two separate inner for loops for `result.symmetry != CIESProfile::ISOTROPIC` cases 
+    const auto H_ANGLES_I_RANGE = symmetry != CIESProfile::properties_t::ISOTROPIC ? result.accessor.hAngles.size() - 1 : 1;
+    const auto V_ANGLES_I_RANGE = result.accessor.vAngles.size() - 1;
 
-    for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
+    float smallestRangeSolidAngle = FULL_SOLID_ANGLE;
+    for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
     {
-        const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? (hAngles[i + 1] - hAngles[i]) : core::PI<float>() * 2.0f;
+        const float thetaRad = core::radians<float>(result.accessor.vAngles[j]);
+        const float cosLo = std::cos(thetaRad);
+        const float cosHi = std::cos(core::radians<float>(result.accessor.vAngles[j+1]));
+        const float dsinTheta = cosLo - cosHi;
 
-        for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
+        float stripIntegral = 0.f;
+        float nonZeroStripDomain = 0.f;
+        for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
         {
-            const auto candelaValue = result.getCandelaValue(i, j);
+            const float dPhiRad = symmetry != CIESProfile::properties_t::ISOTROPIC ? core::radians<float>(hAngles[i + 1] - hAngles[i]) : (core::PI<float>() * 2.0f);
+            // TODO: in reality one should transform the 4 vertices (or 3) into octahedral map, work out the dUV/dPhi and dUV/dTheta vectors as-if for Anisotropic Filtering
+            // then choose the minor axis length, and use that as a pixel size (since looking for smallest thing, dont have to worry about handling discont)
+            const float solidAngle = dsinTheta * dPhiRad;
+            if (solidAngle<smallestRangeSolidAngle)
+                smallestRangeSolidAngle = solidAngle;
+
+            const auto candelaValue = result.accessor.value(hlsl::uint32_t2(i, j));
 
             // interpolate candela value spanned onto a solid angle
-            const auto candelaAverage = result.symmetry != CIESProfile::ISOTROPIC ? 
-                  0.25f * (candelaValue + result.getCandelaValue(i + 1, j) + result.getCandelaValue(i, j + 1) + result.getCandelaValue(i + 1, j + 1))
-                : 0.5f * (candelaValue + result.getCandelaValue(i, j + 1));
+            const auto candelaAverage = symmetry != CIESProfile::properties_t::ISOTROPIC ?
+                  0.25f * (candelaValue + result.accessor.value(hlsl::uint32_t2(i + 1, j)) + result.accessor.value(hlsl::uint32_t2(i, j + 1)) + result.accessor.value(hlsl::uint32_t2(i + 1, j + 1)))
+                : 0.5f * (candelaValue + result.accessor.value(hlsl::uint32_t2(i, j + 1)));
 
-            if (result.maxCandelaValue < candelaValue)
-                result.maxCandelaValue = candelaValue;
+            if (result.accessor.properties.maxCandelaValue < candelaValue)
+                result.accessor.properties.maxCandelaValue = candelaValue;
 
-            const float thetaRad = core::radians<float>(result.vAngles[j]);
-            const float cosLo = std::cos(core::radians<float>(result.vAngles[j]));
-            const float cosHi = std::cos(core::radians<float>(result.vAngles[j + 1]));
-
-            const auto differentialSolidAngle = dPhiRad*(cosLo - cosHi);
-            const auto integralV = candelaAverage * differentialSolidAngle;
-
-            if (integralV > 0.0)
-            {
-                totalEmissionIntegral += integralV;
-                nonZeroEmissionDomainSize += differentialSolidAngle;
-            }
+            stripIntegral += candelaAverage*dPhiRad;
+            if (candelaAverage>0.f)
+                nonZeroStripDomain += dPhiRad;
         }
+        totalEmissionIntegral += stripIntegral*dsinTheta;
+        nonZeroEmissionDomainSize += nonZeroStripDomain*dsinTheta;
     }
 
-    nonZeroEmissionDomainSize = std::clamp<float>(nonZeroEmissionDomainSize, 0.0, FULL_SOLID_ANGLE);
-    if (nonZeroEmissionDomainSize <= 0) // protect us from division by 0 (just in case, we should never hit it)
+    // assuming octahedral map
+    {
+        const uint32_t maxDimMeasureSize = core::sqrt(FULL_SOLID_ANGLE/smallestRangeSolidAngle);
+        result.accessor.properties.optimalIESResolution = decltype(result.accessor.properties.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
+        auto& res = result.accessor.properties.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
+		res.x = core::max(res.x, CIESProfile::texture_t::MinTextureWidth);
+		res.y = core::max(res.y, CIESProfile::texture_t::MinTextureHeight);
+    }
+
+    assert(nonZeroEmissionDomainSize >= 0.f);
+    //assert(nonZeroEmissionDomainSize*fluxMultiplier =approx= 2.f*(cosBack-cosFront)*PI);
+    if (nonZeroEmissionDomainSize <= std::numeric_limits<float>::min()) // protect us from division by small numbers (just in case, we should never hit it)
         return false;
 
-    result.avgEmmision = totalEmissionIntegral / static_cast<decltype(totalEmissionIntegral)>(nonZeroEmissionDomainSize);
-    result.totalEmissionIntegral = totalEmissionIntegral * fluxMultiplier; // we use fluxMultiplier to calculate final total emission for case where we have some symmetry between planes (fluxMultiplier is 1.0f if ISOTROPIC or NO_LATERAL_SYMMET because they already have correct total emission integral calculated), also note it doesn't affect average emission at all
+    result.accessor.properties.avgEmmision = totalEmissionIntegral / static_cast<decltype(totalEmissionIntegral)>(nonZeroEmissionDomainSize);
+    result.accessor.properties.totalEmissionIntegral = totalEmissionIntegral * fluxMultiplier; // we use fluxMultiplier to calculate final total emission for case where we have some symmetry between planes (fluxMultiplier is 1.0f if ISOTROPIC or NO_LATERAL_SYMMET because they already have correct total emission integral calculated), also note it doesn't affect average emission at all
+	{
+        const float cosLo = std::cos(core::radians(result.accessor.vAngles.front()));
+        const float cosHi = std::cos(core::radians<float>(result.accessor.vAngles.back()));
+        const float dsinTheta = cosLo - cosHi;
+        result.accessor.properties.fullDomainAvgEmission = result.accessor.properties.totalEmissionIntegral*(0.5f/core::PI<float>())/dsinTheta;
+	}
 
     return !error;
 }

@@ -8,17 +8,15 @@
 #include "nbl/asset/metadata/IAssetMetadata.h"
 #include "nbl/asset/ICPUImage.h"
 
-//#include "nbl/ext/MitsubaLoader/SContext.h"
-//#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 #include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
 #include "nbl/ext/MitsubaLoader/CElementSensor.h"
-//#include "nbl/ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 
 namespace nbl::ext::MitsubaLoader
 {
 
-//! A class to derive mitsuba mesh loader metadata objects from
+//! A class to derive mitsuba scene loader metadata objects from
 class CMitsubaMetadata : public asset::IAssetMetadata
 {
 	public:
@@ -27,84 +25,65 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 			public:
 				std::string m_id;
 		};
-#if 0
-		class CMesh : public asset::IMeshMetadata, public CID
+		class CGeometryCollection final : public asset::IGeometryCollectionMetadata, public CID
 		{
 			public:
-				CMesh() : IMeshMetadata(), CID(), type(CElementShape::Type::INVALID) {}
-				~CMesh() {}
+				inline CGeometryCollection() : asset::IGeometryCollectionMetadata(), CID(), type(CElementShape::Type::INVALID) {}
+				inline CGeometryCollection(CGeometryCollection&& other) : CGeometryCollection() {operator=(std::move(other));}
+				inline ~CGeometryCollection() = default;
+
+				inline CGeometryCollection& operator=(CGeometryCollection&& other)
+				{
+					asset::IGeometryCollectionMetadata::operator=(std::move(other));
+					CID::operator=(std::move(other));
+					return *this;
+				}
 
 				CElementShape::Type type;
 		};
-#endif
+
 		struct SGlobal
 		{
 			public:
-				inline SGlobal() : m_integrator("invalid") {}// TODO
+				inline SGlobal() : m_integrator("invalid") {}
 
 				CElementIntegrator m_integrator;
 				core::vector<CElementSensor> m_sensors;
 		} m_global;
 
-		inline CMitsubaMetadata() :	IAssetMetadata()/*, m_metaMeshStorage(), m_metaMeshInstanceStorage(), m_metaMeshInstanceAuxStorage(),
-			m_meshStorageIt(nullptr), m_instanceStorageIt(nullptr), m_instanceAuxStorageIt(nullptr)*/
-		{
-		}
+		inline CMitsubaMetadata() :	IAssetMetadata(), m_metaPolygonGeometryStorage() {}
 
 		constexpr static inline const char* LoaderName = "ext::MitsubaLoader::CMitsubaLoader";
 		const char* getLoaderName() const override {return LoaderName;}
-#if 0
-        //!
-        inline const CMesh* getAssetSpecificMetadata(const asset::ICPUMesh* asset) const
+
+        // add more overloads when more asset implementations of IGeometry<ICPUBuffer> exist
+        inline const CGeometryCollection* getAssetSpecificMetadata(const asset::ICPUGeometryCollection* asset) const
         {
             const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
-            return static_cast<const CMesh*>(found);
+            return static_cast<const CGeometryCollection*>(found);
         }
-#endif
+
 	private:
-//		friend class CMitsubaLoader;
-#if 0
-		meta_container_t<CMesh> m_metaMeshStorage;
-		CMesh* m_meshStorageIt;
-
-		inline void reserveMeshStorage(uint32_t meshCount, uint32_t instanceCount)
+		friend struct SContext;
+		struct SGeometryCollectionMetaPair
 		{
-			m_metaMeshStorage = IAssetMetadata::createContainer<CMesh>(meshCount);
-			m_metaMeshInstanceStorage = IAssetMetadata::createContainer<CMesh::SInstance>(instanceCount);
-			m_metaMeshInstanceAuxStorage = IAssetMetadata::createContainer<CMesh::SInstanceAuxilaryData>(instanceCount);
-			m_meshStorageIt = m_metaMeshStorage->begin();
-			m_instanceStorageIt = m_metaMeshInstanceStorage->begin();
-			m_instanceAuxStorageIt = m_metaMeshInstanceAuxStorage->begin();
-		}
-		template<typename InstanceIterator>
-		inline uint32_t addMeshMeta(const asset::ICPUMesh* mesh, std::string&& id, const CElementShape::Type type, InstanceIterator instancesBegin, InstanceIterator instancesEnd)
+			core::smart_refctd_ptr<asset::ICPUGeometryCollection> collection;
+			CMitsubaMetadata::CGeometryCollection meta;
+		};
+		template<typename Key>
+		inline void setGeometryCollectionMeta(core::unordered_map<Key,SGeometryCollectionMetaPair>&& container)
 		{
-			auto instanceStorageBegin = m_instanceStorageIt;
-			auto instanceAuxStorageBegin = m_instanceAuxStorageIt;
-
-			auto* meta = m_meshStorageIt++;
-			meta->m_id = std::move(id);
+			const uint32_t count = container.size();
+			m_metaPolygonGeometryStorage = IAssetMetadata::createContainer<CGeometryCollection>(count);
+			auto outIt = m_metaPolygonGeometryStorage->begin();
+			for (auto& el : container)
 			{
-				// copy instance data
-				for (auto it=instancesBegin; it!=instancesEnd; ++it)
-				{
-					auto& inst = it->second;
-					(m_instanceStorageIt++)->worldTform = inst.tform;
-					*(m_instanceAuxStorageIt++) = {
-						inst.emitter.front,
-						inst.emitter.back,
-						inst.bsdf
-					};
-				}
-				meta->m_instances = { instanceStorageBegin,m_instanceStorageIt };
-				meta->m_instanceAuxData = { instanceAuxStorageBegin,m_instanceAuxStorageIt };
+				*outIt = std::move(el.second.meta);
+				IAssetMetadata::insertAssetSpecificMetadata(el.second.collection.get(),outIt++);
 			}
-			meta->type = type;
-			IAssetMetadata::insertAssetSpecificMetadata(mesh,meta);
-
-			return meta->m_instances.size();
 		}
-#endif
+
+		meta_container_t<CGeometryCollection> m_metaPolygonGeometryStorage;
 };
 
 }

@@ -57,6 +57,7 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		
 		// Can be public because we don't need to worry about mutexes unlike the Smooth Resize class
 		inline ISwapchainResources* getSwapchainResources() override {return m_swapchainResources.get();}
+		inline const ISwapchainResources* getSwapchainResources() const {return m_swapchainResources.get();}
 
 		// need to see if the swapchain is invalidated (e.g. because we're starting from 0-area old Swapchain) and try to recreate the swapchain
 		inline SAcquireResult acquireNextImage()

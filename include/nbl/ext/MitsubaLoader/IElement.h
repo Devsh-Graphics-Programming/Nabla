@@ -30,7 +30,7 @@ template<typename T, typename TypeList>
 using mpl_of_passing_t = mpl_of_passing<T,TypeList>::type;
 }
 
-class IElement
+class IElement : public core::IObjectPoolBase::INonTrivial
 {
 	public:
 		enum class Type

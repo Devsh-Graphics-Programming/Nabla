@@ -6,115 +6,30 @@
 using namespace nbl;
 using namespace asset;
 
-const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT theta, IES_STORAGE_FORMAT phi) const 
-{
-    auto wrapPhi = [&](const IES_STORAGE_FORMAT& _phi) -> IES_STORAGE_FORMAT
-    {
-        constexpr auto M_HALF_PI =core::HALF_PI<double>();
-        constexpr auto M_TWICE_PI = core::PI<double>() * 2.0;
-
-        switch (symmetry)
-        {
-            case ISOTROPIC: //! axial symmetry
-                return 0.0;
-            case QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap onto [0, 90] degrees range
-            {
-                float wrapPhi = abs(_phi); //! first MIRROR
-
-                if (wrapPhi > M_HALF_PI) //! then REPEAT
-                    wrapPhi = std::clamp<IES_STORAGE_FORMAT>(M_HALF_PI - (wrapPhi - M_HALF_PI), 0, M_HALF_PI);
-
-                return wrapPhi; //! eg. maps (in degrees) 91,269,271 -> 89 and 179,181,359 -> 1
-            }
-            case HALF_SYMETRIC: //! phi MIRROR wrap onto [0, 180] degrees range
-            case OTHER_HALF_SYMMETRIC:
-                return abs(_phi); //! eg. maps (in degress) 181 -> 179 or 359 -> 1
-            case NO_LATERAL_SYMMET: //! plot onto whole (in degress) [0, 360] range
-            {
-                if (_phi < 0)
-                    return _phi + M_TWICE_PI;
-                else
-                    return _phi;
-            }
-            default:
-                assert(false);
-                return 69;
-        }
-    };
-
-    const float vAngle = core::degrees(theta), hAngle = core::degrees(wrapPhi(phi));
-
-    assert(vAngle >= 0.0 && vAngle <= 180.0);
-    assert(hAngle >= 0.0 && hAngle <= 360.0);
-
-    if (vAngle > vAngles.back())
-        return 0.0;
-
-    // bilinear interpolation
-    auto lb = [](const core::vector<double>& angles, double angle) -> size_t
-    {
-        assert(!angles.empty());
-        const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
-        return (size_t)std::max((int64_t)idx - 1, (int64_t)0);
-    };
-
-    auto ub = [](const core::vector<double>& angles, double angle) -> size_t
-    {
-        assert(!angles.empty());
-        const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
-        return std::min<size_t>(idx, angles.size() - 1);
-    };
-
-    const size_t j0 = lb(vAngles, vAngle);
-    const size_t j1 = ub(vAngles, vAngle);
-    const size_t i0 = symmetry == ISOTROPIC ? 0 : lb(hAngles, hAngle);
-    const size_t i1 = symmetry == ISOTROPIC ? 0 : ub(hAngles, hAngle);
-
-    double uResp = i1 == i0 ? 1.0 : 1.0 / (hAngles[i1] - hAngles[i0]);
-    double vResp = j1 == j0 ? 1.0 : 1.0 / (vAngles[j1] - vAngles[j0]);
-
-    double u = (hAngle - hAngles[i0]) * uResp;
-    double v = (vAngle - vAngles[j0]) * vResp;
-
-    double s0 = getCandelaValue(i0, j0) * (1.0 - v) + getCandelaValue(i0, j1) * (v);
-    double s1 = getCandelaValue(i1, j0) * (1.0 - v) + getCandelaValue(i1, j1) * (v);
-
-    return s0 * (1.0 - u) + s1 * u;
-}
-
-inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const float& v)
-{
-    core::vectorSIMDf pos = core::vectorSIMDf(2 * (u - 0.5), 2 * (v - 0.5), 0.0);
-    float abs_x = core::abs(pos.x), abs_y = core::abs(pos.y);
-    pos.z = 1.0 - abs_x - abs_y;
-    if (pos.z < 0.0) {
-        pos.x = core::sign(pos.x) * (1.0 - abs_y);
-        pos.y = core::sign(pos.y) * (1.0 - abs_x);
-    }
-
-    return core::normalize(pos);
-}
-
-
-inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
-{
-    const float theta = std::acos(std::clamp<float>(dir.z, -1.f, 1.f));
-    const float phi = std::atan2(dir.y, dir.x);
-
-    return { theta, phi };
-}
-
 template<class ExecutionPolicy>
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, hlsl::uint32_t2 resolution) const
 {
-    const bool inFlattenDomain = flatten >= 0.0 && flatten <= 1.0; // [0, 1] range for blend equation, 1 is normally invalid but we use it to for special implied domain flatten mode
-    assert(inFlattenDomain);
+    uint32_t width = resolution.x;
+    uint32_t height = resolution.y;
 
-    if (width > CDC_MAX_TEXTURE_WIDTH)
-        width = CDC_MAX_TEXTURE_WIDTH;
+    if (width > texture_t::MaxTextureWidth)
+        width = texture_t::MaxTextureWidth;
 
-    if (height > CDC_MAX_TEXTURE_HEIGHT)
-        height = CDC_MAX_TEXTURE_HEIGHT;
+    if (height > texture_t::MaxTextureHeight)
+        height = texture_t::MaxTextureHeight;
+
+    width = core::max(width, texture_t::MinTextureWidth);
+    height = core::max(height, texture_t::MinTextureHeight);
+
+    auto makeOdd = [](uint32_t value, const uint32_t maxValue) -> uint32_t
+    {
+        if (value & 1u)
+            return value;
+        return (value < maxValue) ? (value + 1u) : (value - 1u);
+    };
+    // TODO: remove this once we exploit symmetries and fold the domain.
+    width = makeOdd(width, texture_t::MaxTextureWidth);
+    height = makeOdd(height, texture_t::MaxTextureHeight);
 
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -125,21 +40,24 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     imgInfo.arrayLayers = 1u;
     imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
     imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-    imgInfo.format = IES_TEXTURE_STORAGE_FORMAT;
+    imgInfo.format = properties_t::IES_TEXTURE_STORAGE_FORMAT;
     auto outImg = asset::ICPUImage::create(std::move(imgInfo));
 
     asset::ICPUImage::SBufferCopy region;
-    constexpr auto texelBytesz = asset::getTexelOrBlockBytesize<IES_TEXTURE_STORAGE_FORMAT>();
+    constexpr auto texelBytesz = asset::getTexelOrBlockBytesize<properties_t::IES_TEXTURE_STORAGE_FORMAT>();
     const size_t bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, texelBytesz);
     region.bufferRowLength = bufferRowLength;
     region.imageExtent = imgInfo.extent;
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;
     region.imageSubresource.mipLevel = 0u;
+    region.imageSubresource.aspectMask = core::bitflag(asset::IImage::EAF_COLOR_BIT);
     region.bufferImageHeight = 0u;
     region.bufferOffset = 0u;
 
-    auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * bufferRowLength * height);
+    asset::ICPUBuffer::SCreationParams bParams;
+    bParams.size = texelBytesz * bufferRowLength * height;
+    auto buffer = asset::ICPUBuffer::create(std::move(bParams));
 
     if (!outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull, region)))
         return {};
@@ -150,46 +68,28 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
         CFillImageFilter::state_type state;
         state.outImage = outImg.get();
-        state.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        state.subresource.aspectMask = core::bitflag(asset::IImage::EAF_COLOR_BIT);
         state.subresource.baseArrayLayer = 0u;
         state.subresource.layerCount = 1u;
         state.outRange.extent = creationParams.extent;
 
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
+		const auto texture = texture_t::create(accessor.properties.maxCandelaValue, hlsl::uint32_t2(width, height));
 
-        // Late Optimization TODO: Modify the Max Value for the UNORM texture to be the Max Value after flatten blending 
-        const double maxValue = getMaxCandelaValue();
-        const double maxValueRecip = 1.0 / maxValue;
-
-        const double vertInv = 1.0 / height;
-        const double horiInv = 1.0 / width;
-
-        const double flattenTarget = getAvgEmmision(fullDomainFlatten);
-        const double domainLo = core::radians(vAngles.front());
-        const double domainHi = core::radians(vAngles.back());
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
-            const auto dir = octahdronUVToDir(((float)position.x + 0.5) * vertInv, ((float)position.y + 0.5) * horiInv);
-            const auto [theta, phi] = sphericalDirToRadians(dir);
-            const auto intensity = sample(theta, phi);
-            
-            //! blend the IES texture with "flatten"
-            double blendV = intensity * (1.0 - flatten);
-            if (fullDomainFlatten && domainLo<=theta && theta<=domainHi || intensity >0.0)
-                blendV += flattenTarget * flatten;
-
-            blendV *= maxValueRecip;
+            const auto texel = texture.__call(accessor, hlsl::uint32_t2(position.x, position.y));
 
             asset::IImageFilter::IState::ColorValue color;
-            //asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV); TODO: FIX THIS ENCODE, GIVES ARTIFACTS
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D + 0.5, 0.0, UI16_MAX_D));
+            constexpr float UI16_MAX_D = static_cast<float>(std::numeric_limits<std::uint16_t>::max());
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(texel * UI16_MAX_D + 0.5f, 0.f, UI16_MAX_D)); // TODO: use asset::encodePixels when its fixed (no artifacts)
             *color.asUShort = encodeV;
             color.writeMemory(wInfo, blockArrayOffset);
         };
 
         CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
         const auto& regions = outImg->getRegions(state.subresource.mipLevel);
-        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outImg.get(), fill, regions.begin(), regions.end(), clip);
+        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outImg.get(), fill, regions, clip);
     }
 
     ICPUImageView::SCreationParams viewParams = {};
@@ -197,7 +97,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
     viewParams.viewType = IImageView<ICPUImage>::ET_2D;
     viewParams.format = viewParams.image->getCreationParameters().format;
-    viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+    viewParams.subresourceRange.aspectMask = core::bitflag(asset::IImage::EAF_COLOR_BIT);
     viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
     viewParams.subresourceRange.layerCount = 1u;
 
@@ -206,11 +106,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 }
 
 //! Explicit instantiations
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const bool, uint32_t, uint32_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const bool, uint32_t, uint32_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const bool, uint32_t, uint32_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, hlsl::uint32_t2) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, hlsl::uint32_t2) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, hlsl::uint32_t2) const;
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(hlsl::uint32_t2 resolution) const
 {
-    return createIESTexture(std::execution::seq, flatten, fullDomainFlatten, width, height);
+    return createIESTexture(std::execution::seq, resolution);
 }

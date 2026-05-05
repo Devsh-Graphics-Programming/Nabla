@@ -10,9 +10,9 @@
 namespace nbl::video
 {
 
-class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<const IGPUPipelineLayout>>
+class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<const IGPUPipelineLayout,const IGPUBuffer>>
 {
-        using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout>;
+        using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout,const IGPUBuffer>;
 
     public:
         struct SHitGroup
@@ -143,8 +143,8 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
 
         struct SShaderGroupHandle
         {
-          private:
-            uint8_t data[video::SPhysicalDeviceLimits::ShaderGroupHandleSize];
+            private:
+                uint8_t data[video::SPhysicalDeviceLimits::ShaderGroupHandleSize];
         };
         static_assert(sizeof(SShaderGroupHandle) == video::SPhysicalDeviceLimits::ShaderGroupHandleSize);
 
@@ -172,8 +172,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
         virtual uint16_t getDefaultStackSize() const = 0;
 
     protected:
-        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached)
-        {}
+        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached) {}
 
         virtual ~IGPURayTracingPipeline() = default;
 

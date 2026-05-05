@@ -14,6 +14,9 @@
 #include "nbl/system/DynamicFunctionCaller.h"
 #include "nbl/system/SReadWriteSpinLock.h"
 
+// printing and serialization
+#include "nbl/system/to_string.h"
+
 // files
 #include "nbl/system/IFile.h"
 

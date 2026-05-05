@@ -272,7 +272,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
-							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf)))
+							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(hlsl::float32_t3x4),sizeof(core::vectorSIMDf)))
 								return false;
 						}
 						else
@@ -289,8 +289,9 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
 				}
-
-				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
+				
+				template<typename ForwardIterator> // TODO: requires
+				inline ForwardIterator fillTracking(ForwardIterator oit) const
 				{
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratch.buffer);
 					if (Base::isUpdate)
@@ -486,7 +487,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 					return retval;
 				}
 
-				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
+				template<typename ForwardIterator> // TODO: requires
+				inline ForwardIterator fillTracking(ForwardIterator oit) const
 				{
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratch.buffer);
 					if (Base::isUpdate)
@@ -499,6 +501,13 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 						*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(blas);
 
 					return oit;
+				}
+
+				// to get the section that `trackedBLASes` get written into
+				template<typename ForwardIterator> // TODO: requires
+				inline ForwardIterator getBLASTrackingOffset(ForwardIterator begin) const
+				{
+					return begin+(Base::isUpdate ? 4:3);
 				}
 
 
@@ -622,7 +631,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				inline PolymorphicInstance(const PolymorphicInstance<blas_ref_t>&) = default;
 				inline PolymorphicInstance(PolymorphicInstance<blas_ref_t>&&) = default;
 
-				// I made all these assignment operators because of the `core::matrix3x4SIMD` alignment and keeping `type` correct at all times
+				// I made all these assignment operators because of the `hlsl::float32_t3x4` alignment and keeping `type` correct at all times
 				inline PolymorphicInstance<blas_ref_t>& operator=(const StaticInstance<blas_ref_t>& _static)
 				{
 					type = INSTANCE_TYPE::STATIC;
@@ -657,7 +666,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				static_assert(std::is_same_v<std::underlying_type_t<INSTANCE_TYPE>,uint32_t>);
 				// these must be 0 as per vulkan spec
 				uint32_t reservedMotionFlags = 0u;
-				// I don't do an actual union because the preceeding members don't play nicely with alignment of `core::matrix3x4SIMD` and Vulkan requires this struct to be packed
+				// I don't do an actual union because the preceeding members don't play nicely with alignment of `hlsl::float32_t3x4` and Vulkan requires this struct to be packed
 				SRTMotionInstance<blas_ref_t> largestUnionMember = {};
 				static_assert(alignof(SRTMotionInstance<blas_ref_t>)==8ull);
 
@@ -713,8 +722,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				*(tracked++) = *(it++);
 		}
 		// Useful if TLAS got built externally as well
-		template<typename Iterator>
-		inline void insertTrackedBLASes(const Iterator begin, const Iterator end, const build_ver_t buildVer)
+		template<typename ForwardIterator>
+		inline void insertTrackedBLASes(ForwardIterator begin, const uint32_t count, const build_ver_t buildVer)
 		{
 			if (buildVer==0)
 				return;
@@ -725,14 +734,19 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			for (auto it=std::next(prev); it!=m_pendingBuilds.end()&&it->ordinal>buildVer; prev=it++) {}
 			auto inserted = m_pendingBuilds.emplace_after(prev);
 			// now fill the contents
-			inserted->BLASes.insert(begin,end);
+			inserted->BLASes.reserve(count);
+			for (auto i=0u; i<count; i++)
+			{
+				inserted->BLASes.insert(*begin);
+				++begin;
+			}
 			inserted->ordinal = buildVer;
 		}
-		template<typename Iterator>
-		inline build_ver_t pushTrackedBLASes(const Iterator begin, const Iterator end)
+		template<typename ForwardIterator>
+		inline build_ver_t pushTrackedBLASes(const ForwardIterator begin, const uint32_t count)
 		{
 			const auto buildVer = registerNextBuildVer();
-			insertTrackedBLASes<Iterator>(begin,end,buildVer);
+			insertTrackedBLASes<ForwardIterator>(begin,count,buildVer);
 			return buildVer;
 		}
 		// a little utility to make sure nothing from before this build version gets tracked
@@ -750,18 +764,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		const uint32_t m_maxInstanceCount;
 
 	private:
-		struct DynamicUpCastingSpanIterator
-		{
-			inline bool operator!=(const DynamicUpCastingSpanIterator& other) const {return ptr!=other.ptr;}
-
-			inline DynamicUpCastingSpanIterator operator++() {return {ptr++};}
-
-			inline const IGPUBottomLevelAccelerationStructure* operator*() const {return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get());}
-
-			std::span<const core::smart_refctd_ptr<const core::IReferenceCounted>>::iterator ptr;
-		};
 		friend class ILogicalDevice;
 		friend class IQueue;
+
 		inline const core::unordered_set<blas_smart_ptr_t>* getPendingBuildTrackedBLASes(const build_ver_t buildVer) const
 		{
 			const auto found = std::find_if(m_pendingBuilds.begin(),m_pendingBuilds.end(),[buildVer](const auto& item)->bool{return item.ordinal==buildVer;});

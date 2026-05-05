@@ -132,16 +132,8 @@ class CElementBSDF : public IElement
 		inline RoughSpecularBase& operator=(const RoughSpecularBase& other)
 		{
 			distribution = other.distribution;
-			switch (distribution)
-			{
-				case ASHIKHMIN_SHIRLEY:
-					alphaU = other.alphaU;
-					alphaV = other.alphaV;
-					break;
-				default:
-					alpha = other.alpha;
-					break;
-			}
+			alphaU = other.alphaU;
+			alphaV = other.alphaV;
 			specularReflectance = other.specularReflectance;
 			return *this;
 		}

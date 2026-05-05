@@ -120,6 +120,15 @@ struct SBufferRange
 	inline bool operator!=(const SBufferRange<const BufferType>& rhs) const { return !operator==(rhs); }
 };
 
+template<typename BufferType>
+struct SStridedRange
+{
+	inline operator bool() const {return range.isValid();}
+
+	SBufferRange<BufferType> range = {};
+	uint32_t stride = 0;
+};
+
 }
 
 namespace std

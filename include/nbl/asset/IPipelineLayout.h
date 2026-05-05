@@ -89,6 +89,7 @@ template<typename DescLayoutType>
 class IPipelineLayout
 {
     public:
+        using desc_layout_t = DescLayoutType;
         static inline constexpr uint32_t DESCRIPTOR_SET_COUNT = 4u;
 
         std::span<const DescLayoutType* const,DESCRIPTOR_SET_COUNT> getDescriptorSetLayouts() const

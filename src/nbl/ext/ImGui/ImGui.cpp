@@ -10,6 +10,7 @@
 #include "nbl/ext/ImGui/ImGui.h"
 #include "nbl/ext/ImGui/builtin/hlsl/common.hlsl"
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
@@ -154,6 +155,14 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		smart_refctd_ptr<IShader> vertex, fragment;
 	} shaders;
 
+	if (creationParams.spirv.has_value())
+	{
+		// TODO: since prebuild is experminetal currently I don't validate anything
+		auto& spirv = creationParams.spirv.value();
+		shaders.vertex = spirv.vertex;
+		shaders.fragment = spirv.fragment;
+	}
+	else
 	{		
 		//! proxy the system, we will touch it gently
 		auto system = smart_refctd_ptr<ISystem>(creationParams.assetManager->getSystem());
@@ -269,18 +278,18 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 
 		shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
 		shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
+	}
 
-		if (!shaders.vertex)
-		{
-			creationParams.utilities->getLogger()->log("Failed to compile vertex shader!", ILogger::ELL_ERROR);
-			return nullptr;
-		}
+	if (!shaders.vertex)
+	{
+		creationParams.utilities->getLogger()->log("Failed to create vertex shader!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
 
-		if (!shaders.fragment)
-		{
-			creationParams.utilities->getLogger()->log("Failed to compile fragment shader!", ILogger::ELL_ERROR);
-			return nullptr;
-		}
+	if (!shaders.fragment)
+	{
+		creationParams.utilities->getLogger()->log("Failed to create fragment shader!", ILogger::ELL_ERROR);
+		return nullptr;
 	}
 	
 	SVertexInputParams vertexInputParams{};
@@ -332,6 +341,7 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		rasterizationParams.faceCullingMode = EFCM_NONE;
 		rasterizationParams.depthWriteEnable = false;
 		rasterizationParams.depthBoundsTestEnable = false;
+		rasterizationParams.depthCompareOp = ECO_ALWAYS;
 		rasterizationParams.viewportCount = creationParams.viewportCount;
 	}
 
@@ -939,14 +949,20 @@ UI::UI(SCreationParameters&& creationParams, core::smart_refctd_ptr<video::IGPUG
 UI::~UI()
 {
 	// I assume somebody has not killed ImGUI context & atlas but if so then we do nothing
+	auto* const context = reinterpret_cast<ImGuiContext*>(m_imContextBackPointer);
+	ImGuiContext* const previousContext = ImGui::GetCurrentContext();
+	if (context && previousContext != context)
+		ImGui::SetCurrentContext(context);
 
 	// we must call it to unlock atlas from potential "render" state before we kill it (obvsly if its ours!)
-	if(m_imFontAtlasBackPointer)
+	if (m_imFontAtlasBackPointer && context && context->WithinFrameScope)
 		ImGui::EndFrame();
 
 	// context belongs to the instance, we must free it
-	if(m_imContextBackPointer)
-		ImGui::DestroyContext(reinterpret_cast<ImGuiContext*>(m_imContextBackPointer));
+	if (context)
+		ImGui::DestroyContext(context);
+	if (previousContext && previousContext != context)
+		ImGui::SetCurrentContext(previousContext);
 
 	// and if we own the atlas we must free it as well, if user passed its own at creation time then its "shared" - at this point m_imFontAtlasBackPointer is nullptr and we don't free anything
 	if (m_imFontAtlasBackPointer)
@@ -969,26 +985,48 @@ bool UI::createMDIBuffer(SCreationParameters& creationParams)
 		return flags;
 	};
 
+	auto* device = creationParams.utilities->getLogicalDevice();
+	const auto* physDev = device->getPhysicalDevice();
+	const auto upStreamingBits = physDev->getUpStreamingMemoryTypeBits();
+	const auto hostVisibleBits = physDev->getHostVisibleMemoryTypeBits();
+	bool usedFallback = false;
+
 	if (!creationParams.streamingBuffer)
 	{
 		IGPUBuffer::SCreationParams mdiCreationParams = {};
 		mdiCreationParams.usage = SCachedCreationParams::RequiredUsageFlags;
 		mdiCreationParams.size = mdiBufferDefaultSize;
 
-		auto buffer = creationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
+		auto buffer = device->createBuffer(std::move(mdiCreationParams));
 		buffer->setObjectDebugName("MDI Upstream Buffer");
 
-		auto memoryReqs = buffer->getMemoryReqs();
-		memoryReqs.memoryTypeBits &= creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+		const auto baseReqs = buffer->getMemoryReqs();
 
-		auto allocation = creationParams.utilities->getLogicalDevice()->allocate(memoryReqs,buffer.get(),SCachedCreationParams::RequiredAllocateFlags);
+		auto tryAllocate = [&](uint32_t typeBits)->IDeviceMemoryAllocator::SAllocation
 		{
-			const bool allocated = allocation.isValid();
-			assert(allocated);
+			auto reqs = baseReqs;
+			reqs.memoryTypeBits &= typeBits;
+			if (!reqs.memoryTypeBits)
+				return {};
+			return device->allocate(reqs,buffer.get(),SCachedCreationParams::RequiredAllocateFlags);
+		};
+
+		auto allocation = tryAllocate(upStreamingBits);
+		if (!allocation.isValid())
+		{
+			allocation = tryAllocate(hostVisibleBits);
+			usedFallback = allocation.isValid();
+			if (usedFallback)
+				creationParams.utilities->getLogger()->log("ImGui MDI buffer: up-streaming allocation failed, falling back to host-visible memory.", ILogger::ELL_WARNING);
+		}
+		if (!allocation.isValid())
+		{
+			creationParams.utilities->getLogger()->log("ImGui MDI buffer: failed to allocate device memory!", ILogger::ELL_ERROR);
+			return false;
 		}
 		auto memory = allocation.memory;
 
-		if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
+		if (!memory->map({ 0ull, baseReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
 			creationParams.utilities->getLogger()->log("Could not map device memory!", ILogger::ELL_ERROR);
 
 		creationParams.streamingBuffer = make_smart_refctd_ptr<SCachedCreationParams::streaming_buffer_t>(SBufferRange<IGPUBuffer>{0ull,mdiCreationParams.size,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
@@ -1000,7 +1038,7 @@ bool UI::createMDIBuffer(SCreationParameters& creationParams)
 	const auto validation = std::to_array
 	({
 		std::make_pair(buffer->getCreationParams().usage.hasFlags(SCachedCreationParams::RequiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
-		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
+		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & (usedFallback ? hostVisibleBits : upStreamingBits)), "MDI buffer must have suitable host-visible memory type bits enabled!"),
 		std::make_pair(binding.memory->getAllocateFlags().hasFlags(SCachedCreationParams::RequiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 		std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 		std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "MDI buffer's memory current mapping access flags don't meet requirements!")

@@ -24,7 +24,8 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 		virtual bool onAppTerminated() override
 		{
 			// break the circular references from queues tracking submit resources
-			m_device->waitIdle();
+			if (m_device)
+				m_device->waitIdle();
 			m_device = nullptr;
 			m_api = nullptr;
 			return base_t::onAppTerminated();

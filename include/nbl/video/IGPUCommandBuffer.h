@@ -539,12 +539,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
 
         bool setRayTracingPipelineStackSize(uint32_t pipelineStackSize);
-        bool traceRays(
-          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, 
-          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-          uint32_t width, uint32_t height, uint32_t depth);
+
+        bool traceRays(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const uint32_t width, const uint32_t height, const uint32_t depth);
         bool traceRaysIndirect(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding);
 
         //! Secondary CommandBuffer execute
@@ -556,9 +552,12 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             auto oit = reserveReferences(std::distance(begin,end));
             if (oit)
-            while (begin!=end)
-                *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(begin++));
-            return oit;
+            {
+                while (begin!=end)
+                    *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(begin++));
+                return true;
+            }
+            return false;
         }
         inline bool recordReferences(const std::span<const IReferenceCounted*> refs) {return recordReferences(refs.begin(),refs.end());}
 
@@ -573,8 +572,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit,size},.dst=tlas});
                 while (beginBLASes!=endBLASes)
                     *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(beginBLASes++));
+                return true;
             }
-            return oit;
+            return false;
         }
 
         virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
@@ -719,14 +719,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
         virtual bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) = 0;
-        virtual bool traceRays_impl(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-            uint32_t width, uint32_t height, uint32_t depth) = 0;
-        virtual bool traceRaysIndirect_impl(
-          const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) = 0;
+        virtual bool traceRays_impl(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const uint32_t width, const uint32_t height, const uint32_t depth) = 0;
+        virtual bool traceRaysIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
@@ -881,14 +875,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
-
-        bool invalidShaderGroups(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
-            core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         
+        bool invalidShaderGroups(const IGPURayTracingPipeline::SShaderBindingTable& sbt, const core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>
         uint32_t buildAccelerationStructures_common(const std::span<const DeviceBuildInfo> infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);
@@ -901,7 +889,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
-        core::smart_refctd_ptr<const core::IReferenceCounted>* reserveReferences(const uint32_t size);
+        IGPUCommandPool::CTrackedIterator reserveReferences(const uint32_t size);
 
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
@@ -912,7 +900,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // The Command Pool already tracks resources referenced in the Build Infos or Copies From Memory (Deserializations), so we only need pointers into those records.
         struct TLASTrackingWrite
         {
-            std::span<const core::smart_refctd_ptr<const IReferenceCounted>> src;
+            // TODO: pack a little more efficiently so we can recover `CTrackedIterator` more easily
+            IGPUCommandPool::CTrackedIterator srcBegin;
+            uint32_t count;
             IGPUTopLevelAccelerationStructure* dst;
         };
         struct TLASTrackingCopy

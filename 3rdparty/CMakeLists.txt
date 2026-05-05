@@ -149,6 +149,8 @@ if(CMAKE_TOOLCHAIN_FILE)
 	list(APPEND NBL_JPEG_CMAKE_OPTIONS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
+nbl_append_sanitize_address_cmake_options(NBL_JPEG_CMAKE_OPTIONS)
+
 # TODO: might find an alternative library which supports add_subdirectory, untill then we need to switch to a workaround just like
 # we do for DXC due to: https://github.com/libjpeg-turbo/libjpeg-turbo/blob/0b742742c873025e2a127918d4969238ace7ae5b/CMakeLists.txt#L69
 execute_process(COMMAND "${CMAKE_COMMAND}" -S "${CMAKE_CURRENT_SOURCE_DIR}/libjpeg-turbo" -B "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo" -G "${CMAKE_GENERATOR}" ${NBL_JPEG_CMAKE_OPTIONS}
@@ -492,10 +494,6 @@ endif()
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 		
-		if(MSVC AND NBL_SANITIZE_ADDRESS)
-			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
-		endif()
-		
 		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
 		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
 			# maybe explicit global mapping would be better, to discuss
@@ -531,9 +529,6 @@ nbl_install_file_spec(${CMAKE_CURRENT_BINARY_DIR}/imath/config/ImathConfig.h ima
 nbl_install_dir(imath/src/Imath)
 
 nbl_install_file(blake/c/blake3.h)
-
-nbl_install_file_spec(nlohmann_json/include/nlohmann/json_fwd.hpp nlohmann)
-nbl_install_file_spec(nlohmann_json/include/nlohmann/detail/abi_macros.hpp nlohmann/detail)
 
 nbl_install_dir(boost/superproject/libs/preprocessor/include/boost)
 

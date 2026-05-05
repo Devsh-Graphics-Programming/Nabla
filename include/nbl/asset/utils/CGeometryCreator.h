@@ -115,8 +115,14 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 			\param subdivision Specifies subdivision level of the icosphere.
 			\param smooth Specifies whether vertecies should be built for smooth or flat shading.
 		*/
-
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createIcoSphere(float radius=1.f, uint32_t subdivision=1, bool smooth=false) const;
+
+		//! Create a grid geometry
+		/**
+			No vertex buffer, only index in triangle strip topology without reset, "snake" with degenerates
+			\param "resolution" Specifies resolution of grid
+		*/
+		core::smart_refctd_ptr<ICPUPolygonGeometry> createGrid(const hlsl::uint16_t2 resolution = { 128u, 128u }) const;
 
 	private:
 		SCreationParams m_params;

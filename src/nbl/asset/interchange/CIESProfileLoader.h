@@ -9,8 +9,6 @@
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-#if 0 // TODO: Arek
-
 #include "nbl/asset/utils/CIESProfileParser.h" // TODO: move to `src/asset/interchange`
 #include "nbl/asset/metadata/CIESProfileMetadata.h"
 
@@ -26,20 +24,7 @@ class CIESProfileLoader final : public asset::IAssetLoader
 			\return True if file seems to be loadable. 
 		*/
 
-		bool isALoadableFileFormat(io::IReadFile *_file) const override 
-		{
-			const size_t begginingOfFile = _file->getPos();
-			_file->seek(0ull);
-			std::string versionBuffer(0x45, ' ');
-			_file->read(versionBuffer.data(), versionBuffer.size());
-			_file->seek(begginingOfFile);
-
-			for (const auto& it : CIESProfileParser::VALID_SIGNATURES)
-				if (versionBuffer.find(it.data()) != std::string::npos)
-					return true;
-			
-			return false;
-		}
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		//! Returns an array of string literals terminated by nullptr
 		const char **getAssociatedFileExtensions() const override 
@@ -56,13 +41,8 @@ class CIESProfileLoader final : public asset::IAssetLoader
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
 		//! Loads an asset from an opened file, returns nullptr in case of failure.
-		asset::SAssetBundle
-		loadAsset(io::IReadFile* _file,
-		const asset::IAssetLoader::SAssetLoadParams& _params,
-		asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr,
-		uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 } // namespace nbl::asset
-#endif // end TODO: Arek
 
 #endif // __NBL_ASSET_C_IES_PROFILE_LOADER_H_INCLUDED__

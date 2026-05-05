@@ -30,22 +30,6 @@ namespace nbl::ext::MitsubaLoader
 {
 class IElement;
 
-// TODO: replace with common Class for Material Compiler V3 Node Pool
-template<typename... types>
-class ElementPool // similar to : public std::tuple<core::vector<types>...>
-{
-		core::SimpleBlockBasedAllocator<core::LinearAddressAllocator<uint32_t>,core::aligned_allocator> poolAllocator;
-	public:
-		ElementPool() : poolAllocator(4096u*1024u, 256u, 256u) {} // TODO: is it correct?
-
-		template<typename T, typename... Args>
-		inline T* construct(Args&& ... args)
-		{
-			T* ptr = reinterpret_cast<T*>(poolAllocator.allocate(sizeof(T), alignof(T)));
-			return new (ptr) T(std::forward<Args>(args)...);
-		}
-};
-
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 class ParserManager final
 {
@@ -64,14 +48,39 @@ class ParserManager final
 			system::ISystem* system;
 			asset::IAssetLoader::IAssetLoaderOverride* _override;
 		};
-		struct Result
+		template<typename ElementT>
+		struct SNamedElement
 		{
-			explicit inline operator bool() const {return bool(metadata);}
+			ElementT* element = nullptr;
+			core::string name = {};
+		};
+		struct Result final
+		{
+			public:
+				explicit inline operator bool() const {return bool(metadata);}
 
-			// note that its shared between per-file contexts
-			core::smart_refctd_ptr<CMitsubaMetadata> metadata = nullptr;
-			//
-			core::vector<std::pair<CElementShape*,std::string> > shapegroups = {};
+				// note that its shared between per-file contexts
+				core::smart_refctd_ptr<CMitsubaMetadata> metadata = nullptr;
+				//
+				using emitter_t = SNamedElement<const CElementEmitter>;
+				core::vector<emitter_t> emitters = {};
+				//
+				using shape_group_t = SNamedElement<const CElementShape>;
+				core::vector<shape_group_t> shapegroups = {};
+				//
+				hlsl::float32_t3 ambient = {0,0,0};
+
+			private:
+				friend class ParserManager;
+                struct PoolConfig
+                {
+                    using AddressAllocator = core::LinearAddressAllocator<uint32_t>;
+                    using HandleValue = void*;
+                    constexpr static inline bool ThreadSafe = false;
+                };
+				using pool_t = core::CObjectPool<PoolConfig>;
+				// could list transform  with supported_elements_t and have a separate pool per type
+				std::unique_ptr<pool_t> objects = std::make_unique<pool_t>(pool_t::creation_params_type{.composed={.addrAllocCtorExtraParams={},.blockSizeKBLog2=12,.initBlockCount=8}});
 		};
 		Result parse(system::IFile* _file, const Params& _params) const;
 		
@@ -97,11 +106,6 @@ class ParserManager final
 	private:
 		const core::tuple_transform_t<IElement::AddPropertyMap,supported_elements_t> addPropertyMaps;
 
-		struct SNamedElement
-		{
-			IElement* element = nullptr;
-			core::string name = {};
-		};
 		// the XMLs can include each other, so this stores the stuff across files
 		struct SessionContext
 		{
@@ -120,13 +124,12 @@ class ParserManager final
 			const ParserManager* const manager;
 			//
 			uint32_t sceneDeclCount = 0;
-			// TODO: This leaks memory all over the place because destructors are not ran!
-			ElementPool<> objects = {};
 			// aliases and names (in Mitsbua XML you can give nodes names and `ref` them)
 			core::unordered_map<core::string,IElement*,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> handles = {};
 			// stack of currently processed elements, each element of index N is parent of the element of index N+1
 			// the scene element is a parent of all elements of index 0
-			core::stack<SNamedElement> elements = {};
+			using named_element_t = SNamedElement<IElement>;
+			core::stack<named_element_t> elements = {};
 		};
 		// This is for a single XML File
 		struct XMLContext
@@ -147,7 +150,7 @@ class ParserManager final
 		{
 			// we still push nullptr (failed creation) onto the stack, we only stop parse on catastrphic failure later on if a use of the element pops up
 			// this is why we don't need XMLCOntext for `killParseWithError`
-			using func_t = SNamedElement(*)(const char**/*attributes*/,SessionContext*);
+			using func_t = SessionContext::named_element_t(*)(const char**/*attributes*/,SessionContext*);
 			func_t create;
 			bool retvalGoesOnStack;
 		};
@@ -156,8 +159,8 @@ class ParserManager final
 		template<typename Element>
 		struct CreateElement;
 		//
-		static SNamedElement processAlias(const char** _atts, SessionContext* ctx);
-		static SNamedElement processRef(const char** _atts, SessionContext* ctx);
+		static SessionContext::named_element_t processAlias(const char** _atts, SessionContext* ctx);
+		static SessionContext::named_element_t processRef(const char** _atts, SessionContext* ctx);
 };
 
 }

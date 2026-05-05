@@ -6,6 +6,7 @@
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
+#include "nbl/builtin/hlsl/math/quaternions.hlsl"
 
 #include <cmath>
 #include <cstdint>
@@ -746,7 +747,8 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	geometries->push_back({
 		.geometry = cylinder
 	});
-	const auto coneTransform = hlsl::math::linalg::rotation_mat(hlsl::numbers::pi<hlsl::float32_t> * -0.5f, hlsl::float32_t3(1.f, 0.f, 0.f));
+	const auto coneRotation = hlsl::math::quaternion<hlsl::float32_t>::create(hlsl::float32_t3(1.f, 0.f, 0.f), hlsl::numbers::pi<hlsl::float32_t> * -0.5f);
+	const auto coneTransform = hlsl::math::linalg::promote_affine<3, 4>(hlsl::_static_cast<hlsl::float32_t3x3>(coneRotation));
 	geometries->push_back({
 		.transform = hlsl::math::linalg::promote_affine<3, 4>(coneTransform),
 		.geometry = cone
@@ -1882,6 +1884,133 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
+	}
+
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
+	return retval;
+}
+
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createGrid(const hlsl::uint16_t2 resolution) const
+{
+	using namespace hlsl;
+
+	if (resolution.x < 2 || resolution.y < 2)
+		return nullptr;
+
+	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	retval->setIndexing(IPolygonGeometryBase::TriangleStrip());
+
+	//! Create indices
+	/*	
+		i \in [0, resolution.x - 1], j \in [0, resolution.y - 1]
+		logical vertex id : V(i, j)
+
+		Eg. resolution = {5u, 4u}:
+
+		 j=3  15--16--17--18--19
+			   | \ | \ | \ | \ |
+		 j=2  10--11--12--13--14
+			   | \ | \ | \ | \ |
+		 j=1   5-- 6-- 7-- 8-- 9
+			   | \ | \ | \ | \ |
+		 j=0   0-- 1-- 2-- 3-- 4
+			   i=0  1   2   3   4
+
+		Strip order (one draw), rows linked by 2 degenerate indices:
+		row 0 -> 1 (L->R):  0,5, 1,6, 2,7, 3,8, 4,9, 9,9
+		row 1 -> 2 (R->L):  9,14, 8,13, 7,12, 6,11, 5,10, 5,5
+		row 2 -> 3 (L->R):  5,10, 6,11, 7,12, 8,13, 9,14, 14,14
+	*/
+
+	const size_t indexCount = 2ull * resolution.x * (resolution.y - 1) + 2ull * (resolution.y - 2);
+	const size_t maxIndex = resolution.x * resolution.y - 1u;
+
+	auto createIndices = [&]<typename IndexT>() -> void
+	{
+		auto indexView = createIndexView<IndexT>(indexCount, maxIndex);
+
+		auto V = [&](IndexT i, IndexT j) { return IndexT(j * resolution.x + i); };
+		auto* index = static_cast<IndexT*>(indexView.src.buffer->getPointer());
+		#define PUSH_INDEX(value) *index = value; ++index;
+
+		for (IndexT j = 0u; j < resolution.y - 1; ++j)
+		{
+			if ((j & 1u) == 0)
+			{
+				for (IndexT i = 0u; i < resolution.x; ++i)
+				{
+					PUSH_INDEX(V(i, j))
+					PUSH_INDEX(V(i, j + 1))
+				}
+
+				if (j + 1 < resolution.y - 1)
+				{
+					IndexT last = V(resolution.x - 1, j + 1);
+					PUSH_INDEX(last)
+					PUSH_INDEX(last)
+				}
+			}
+			else
+			{
+				for (int i = int(resolution.x) - 1; i >= 0; --i)
+				{
+					PUSH_INDEX(V(uint32_t(i), j))
+					PUSH_INDEX(V(uint32_t(i), j + 1))
+				}
+
+				if (j + 1 < resolution.y - 1)
+				{
+					IndexT first = V(0, j + 1);
+					PUSH_INDEX(first)
+					PUSH_INDEX(first)
+				}
+			}
+		}
+		retval->setIndexView(std::move(indexView));
+	};
+
+	if (maxIndex <= std::numeric_limits<uint16_t>::max())
+		createIndices.template operator() < uint16_t > ();
+	else if (maxIndex <= std::numeric_limits<uint32_t>::max())
+		createIndices.template operator() < uint32_t > ();
+	else
+		return nullptr;
+
+	//! Create positions
+	const size_t vertexCount = resolution.x * resolution.y;
+	{
+		shapes::AABB<4, float32_t> aabb;
+		aabb.maxVx = float32_t4((resolution.x - 0.5f) / float(resolution.x), 0.5f, (resolution.y - 0.5f) / float(resolution.y), 1.f);
+		aabb.minVx = float32_t4(0.5f / float(resolution.x), 0.5f, 0.5f / float(resolution.y), 1.f);
+
+		static constexpr auto stride = getTexelOrBlockBytesize<EF_A2R10G10B10_UNORM_PACK32>();
+		const auto bytes = stride * vertexCount;
+		auto buffer = ICPUBuffer::create({ bytes, IBuffer::EUF_NONE });
+		ICPUPolygonGeometry::SDataView positionView = {
+			.composed = {
+				.encodedDataRange = {.f32 = aabb},
+				.stride = stride,
+				.format = EF_A2R10G10B10_UNORM_PACK32,
+				.rangeFormat = IGeometryBase::EAABBFormat::F32
+			},
+			.src = {.offset = 0,.size = buffer->getSize(),.buffer = core::smart_refctd_ptr(buffer)}
+		};
+
+		auto* packed = reinterpret_cast<uint32_t*>(buffer->getPointer());
+		for (uint32_t j = 0; j < resolution.y; ++j)
+			for (uint32_t i = 0; i < resolution.x; ++i)
+			{
+				const double u = (i + 0.5) / double(resolution.x);
+				const double v = (j + 0.5) / double(resolution.y);
+
+				float64_t4 rgbaunorm = { u, 0.5, v, 1.0 };
+
+				*packed = {};
+				encodePixels<asset::EF_A2R10G10B10_UNORM_PACK32, double>(packed, (double*)&rgbaunorm);
+				++packed;
+			}
+
+		retval->setPositionView(std::move(positionView));
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());

@@ -8,7 +8,8 @@
 #include <nbl/builtin/hlsl/mpl.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
-
+#include <nbl/builtin/hlsl/math/quaternions.hlsl>
+#include <nbl/builtin/hlsl/math/linalg/basic.hlsl>
 
 namespace nbl
 {
@@ -75,6 +76,27 @@ vector<T,N> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,M>) lhs, const vector<T,P>
             retval[i] = tmp[i];
     }
     return retval;
+}
+
+template<typename T, uint32_t N>
+inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(math::quaternion<T>) quat)
+{
+	static_assert(N == 3 || N == 4);
+	matrix<T, 3, 3> mat = _static_cast<matrix<T, 3, 3> >(quat);
+
+	outMat[0] = mat[0];
+	outMat[1] = mat[1];
+	outMat[2] = mat[2];
+}
+
+template<typename T, uint32_t N>
+inline void setTranslation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(vector<T, 3>) translation)
+{
+	static_assert(N == 3 || N == 4);
+
+	outMat[0].w = translation.x;
+	outMat[1].w = translation.y;
+	outMat[2].w = translation.z;
 }
 
 // useful for fast computation of a Normal Matrix
@@ -155,17 +177,23 @@ struct cofactors
 template<typename Mat3x4 NBL_FUNC_REQUIRES(is_matrix_v<Mat3x4>) // TODO: allow any matrix type AND our emulated ones
 Mat3x4 pseudoInverse3x4(NBL_CONST_REF_ARG(Mat3x4) tform, NBL_CONST_REF_ARG(matrix<scalar_type_t<Mat3x4>,3,3>) sub3x3Inv)
 {
-    Mat3x4 retval;
-    retval[0] = sub3x3Inv[0];
-    retval[1] = sub3x3Inv[1];
-    retval[2] = sub3x3Inv[2];
-    retval[3] = -hlsl::mul(sub3x3Inv,tform[3]);
-    return retval;
+    using scalar_type = scalar_type_t<Mat3x4>;
+    using Mat4x3 = matrix<scalar_type,4,3>;
+    Mat4x3 retval_T;
+    retval_T[0] = sub3x3Inv[0];
+    retval_T[1] = sub3x3Inv[1];
+    retval_T[2] = sub3x3Inv[2];
+    const vector<scalar_type,3> tform3 = vector<scalar_type,3>(tform[0][3], tform[1][3], tform[2][3]);
+    retval_T[3] = -hlsl::mul(sub3x3Inv,tform3);
+    return hlsl::transpose(retval_T);
 }
 template<typename Mat3x4 NBL_FUNC_REQUIRES(is_matrix_v<Mat3x4>) // TODO: allow any matrix type AND our emulated ones
 Mat3x4 pseudoInverse3x4(NBL_CONST_REF_ARG(Mat3x4) tform)
 {
-    return pseudoInverse3x4(tform,inverse(matrix<scalar_type_t<Mat3x4>,3,3>(tform)));
+    using scalar_type = scalar_type_t<Mat3x4>;
+    using Mat3x3 = matrix<scalar_type,3,3>;
+    Mat3x3 tform3x3 = math::linalg::truncate<3,3,3,4,scalar_type>(tform);
+    return pseudoInverse3x4(tform,inverse(tform3x3));
 }
 
 

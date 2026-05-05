@@ -1,155 +1,154 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_ADDRESS_ALLOCATOR_BASE_H_INCLUDED_
+#define _NBL_CORE_ADDRESS_ALLOCATOR_BASE_H_INCLUDED_
 
-#ifndef __NBL_CORE_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
-#define __NBL_CORE_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
 
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
-namespace nbl
+
+namespace nbl::core
 {
-namespace core
+
+#define _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
+        using size_type =                                   SIZE_TYPE;\
+        using difference_type =                             typename std::make_signed<size_type>::type;\
+        using ubyte_pointer =                               uint8_t*;\
+        static constexpr size_type                          invalid_address = nbl::core::address_type_traits<size_type>::invalid_address
+
+template<typename CRTP, typename _size_type>
+class AddressAllocatorBase
 {
+    public:
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-    #define _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
-            using size_type =                                   SIZE_TYPE;\
-            using difference_type =                             typename std::make_signed<size_type>::type;\
-            using ubyte_pointer =                               uint8_t*;\
-            static constexpr size_type                          invalid_address = nbl::core::address_type_traits<size_type>::invalid_address
+        AddressAllocatorBase() { invalidate(); }
 
-    template<typename CRTP, typename _size_type>
-    class AddressAllocatorBase
-    {
-        public:
-            _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        inline _size_type           max_alignment() const noexcept
+        {
+            return maxRequestableAlignment;
+        }
 
-            AddressAllocatorBase() { invalidate(); }
+        inline _size_type           get_align_offset() const noexcept
+        {
+            return alignOffset;
+        }
 
-            inline _size_type           max_alignment() const noexcept
-            {
-                return maxRequestableAlignment;
-            }
+        inline _size_type           get_combined_offset() const noexcept
+        {
+            return combinedOffset;
+        }
 
-            inline _size_type           get_align_offset() const noexcept
-            {
-                return alignOffset;
-            }
+        // usage: for resizeable allocators built on top of non-resizeable ones (that resize via the CRTP constructor)
+        // we usually call this before attempting to create the memory for the resized allocator,
+        // so we don't know exactly what the addressOffset or alignOffset will be
+        inline _size_type           safe_shrink_size(_size_type sizeBound, _size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        {
+            if (newBuffAlignmentWeCanGuarantee<maxRequestableAlignment)
+                return sizeBound+maxRequestableAlignment-newBuffAlignmentWeCanGuarantee;
+            else if (sizeBound)
+                return sizeBound;
+            else
+                return std::max(maxRequestableAlignment,newBuffAlignmentWeCanGuarantee);
+        }
+    protected:
+        virtual ~AddressAllocatorBase() {}
 
-            inline _size_type           get_combined_offset() const noexcept
-            {
-                return combinedOffset;
-            }
+        inline AddressAllocatorBase(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment) :
+                reservedSpace(reservedSpc), addressOffset(addressOffsetToApply), alignOffset(alignOffsetNeeded),
+                maxRequestableAlignment(maxAllocatableAlignment), combinedOffset(addressOffset+alignOffset)
+        {
+            #ifdef _NBL_DEBUG
+                    // pointer to reserved memory has to be aligned to SIMD types!
+                assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
+                assert(maxAllocatableAlignment);
+                assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
+            #endif // _NBL_DEBUG
+        }
+        inline AddressAllocatorBase(CRTP&& other, void* newReservedSpc)
+        {
+            operator=(std::move(other));
+            reservedSpace = newReservedSpc;
+            #ifdef _NBL_DEBUG
+                // reserved space has to be aligned at least to SIMD
+                assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
+            #endif // _NBL_DEBUG
+        }
+        // TODO: list of extra parameter types for move and copy ctors, and utilities to static assert them
+        // NOTE: there's only one move ctor, so maybe all the base classes shouldn't perfectly forward it anymore?
+        inline AddressAllocatorBase(CRTP&& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
+                AddressAllocatorBase(std::move(other),newReservedSpc)
+        {
+            addressOffset = newAddressOffset;
+            alignOffset = newAlignOffset;
+            combinedOffset = addressOffset+alignOffset;
+        }
+        inline AddressAllocatorBase(const CRTP& other, void* newReservedSpc) :
+            reservedSpace(newReservedSpc), addressOffset(other.addressOffset), alignOffset(other.alignOffset),
+            maxRequestableAlignment(other.maxRequestableAlignment), combinedOffset(other.combinedOffset)
+        {
+            #ifdef _NBL_DEBUG
+                // reserved space has to be aligned at least to SIMD
+                assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
+            #endif // _NBL_DEBUG
+        }
+        inline AddressAllocatorBase(const CRTP& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
+            AddressAllocatorBase(other, newReservedSpc)
+        {
+            addressOffset = newAddressOffset;
+            alignOffset = newAlignOffset;
+            combinedOffset = addressOffset+alignOffset;
+        }
 
-            // usage: for resizeable allocators built on top of non-resizeable ones (that resize via the CRTP constructor)
-            // we usually call this before attempting to create the memory for the resized allocator,
-            // so we don't know exactly what the addressOffset or alignOffset will be
-            inline _size_type           safe_shrink_size(_size_type sizeBound, _size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
-            {
-                if (newBuffAlignmentWeCanGuarantee<maxRequestableAlignment)
-                    return sizeBound+maxRequestableAlignment-newBuffAlignmentWeCanGuarantee;
-                else if (sizeBound)
-                    return sizeBound;
-                else
-                    return std::max(maxRequestableAlignment,newBuffAlignmentWeCanGuarantee);
-            }
-        protected:
-            virtual ~AddressAllocatorBase() {}
+        inline bool checkResize(_size_type newBuffSz, _size_type newAlignOffset)
+        {
+            // cannot reallocate the data into smaller storage than is necessary
+            if (newBuffSz<safe_shrink_size(0u,maxRequestableAlignment)) return false;
+            // need enough space for the new alignment
+            if (newAlignOffset>newBuffSz) return false;
 
-            AddressAllocatorBase(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment) :
-                    reservedSpace(reservedSpc), addressOffset(addressOffsetToApply), alignOffset(alignOffsetNeeded),
-                    maxRequestableAlignment(maxAllocatableAlignment), combinedOffset(addressOffset+alignOffset)
-            {
-                #ifdef _NBL_DEBUG
-                     // pointer to reserved memory has to be aligned to SIMD types!
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
-                    assert(maxAllocatableAlignment);
-                    assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
-                #endif // _NBL_DEBUG
-            }
-            AddressAllocatorBase(CRTP&& other, void* newReservedSpc)
-            {
-                operator=(std::move(other));
-                reservedSpace = newReservedSpc;
-                #ifdef _NBL_DEBUG
-                    // reserved space has to be aligned at least to SIMD
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
-                #endif // _NBL_DEBUG
-            }
-            AddressAllocatorBase(CRTP&& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
-                    AddressAllocatorBase(std::move(other),newReservedSpc)
-            {
-                addressOffset = newAddressOffset;
-                alignOffset = newAlignOffset;
-                combinedOffset = addressOffset+alignOffset;
-            }
-            AddressAllocatorBase(const CRTP& other, void* newReservedSpc) :
-                reservedSpace(newReservedSpc), addressOffset(other.addressOffset), alignOffset(other.alignOffset),
-                maxRequestableAlignment(other.maxRequestableAlignment), combinedOffset(other.combinedOffset)
-            {
-                #ifdef _NBL_DEBUG
-                    // reserved space has to be aligned at least to SIMD
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
-                #endif // _NBL_DEBUG
-            }
-            AddressAllocatorBase(const CRTP& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
-                AddressAllocatorBase(other, newReservedSpc)
-            {
-                addressOffset = newAddressOffset;
-                alignOffset = newAlignOffset;
-                combinedOffset = addressOffset+alignOffset;
-            }
+            return true;
+        }
 
-            inline bool checkResize(_size_type newBuffSz, _size_type newAlignOffset)
-            {
-                // cannot reallocate the data into smaller storage than is necessary
-                if (newBuffSz<safe_shrink_size(0u,maxRequestableAlignment)) return false;
-                // need enough space for the new alignment
-                if (newAlignOffset>newBuffSz) return false;
+        inline _size_type           getAddressOffset() const noexcept {return addressOffset;}
 
-                return true;
-            }
+        inline const void*          getReservedSpacePtr() const noexcept {return reservedSpace;}
 
-            inline _size_type           getAddressOffset() const noexcept {return addressOffset;}
+        inline AddressAllocatorBase& operator=(AddressAllocatorBase&& other)
+        {
+            reservedSpace = other.reservedSpace;
+            addressOffset = other.addressOffset;
+            alignOffset = other.alignOffset;
+            maxRequestableAlignment = other.maxRequestableAlignment;
+            combinedOffset = other.combinedOffset;
+            other.invalidate();
+            return *this;
+        }
 
-            inline const void*          getReservedSpacePtr() const noexcept {return reservedSpace;}
+        inline void invalidate()
+        {
+            reservedSpace = nullptr;
+            addressOffset = invalid_address;
+            alignOffset = invalid_address;
+            maxRequestableAlignment = invalid_address;
+            combinedOffset = invalid_address;
+        }
 
-            AddressAllocatorBase& operator=(AddressAllocatorBase&& other)
-            {
-                reservedSpace = other.reservedSpace;
-                addressOffset = other.addressOffset;
-                alignOffset = other.alignOffset;
-                maxRequestableAlignment = other.maxRequestableAlignment;
-                combinedOffset = other.combinedOffset;
-                other.invalidate();
-                return *this;
-            }
+        // pointer to allocator specific state-keeping data, please note that irrBaW address allocators were designed to allocate memory they can't actually access
+        void*       reservedSpace;
+        // automatic offset to be added to generated addresses
+        _size_type  addressOffset;
+        // the positive offset that would have to be applied to `addressOffset`  to make it `maxRequestableAlignment`-aligned to some unknown value
+        _size_type  alignOffset;
+        // this cannot be deduced from the `addressOffset` , so we let the user specify it
+        _size_type  maxRequestableAlignment;
 
-            void invalidate()
-            {
-                reservedSpace = nullptr;
-                addressOffset = invalid_address;
-                alignOffset = invalid_address;
-                maxRequestableAlignment = invalid_address;
-                combinedOffset = invalid_address;
-            }
-
-            // pointer to allocator specific state-keeping data, please note that irrBaW address allocators were designed to allocate memory they can't actually access
-            void*           reservedSpace;
-            // automatic offset to be added to generated addresses
-            _size_type  addressOffset;
-            // the positive offset that would have to be applied to `addressOffset`  to make it `maxRequestableAlignment`-aligned to some unknown value
-            _size_type  alignOffset;
-            // this cannot be deduced from the `addressOffset` , so we let the user specify it
-            _size_type  maxRequestableAlignment;
-
-            //internal usage
-            _size_type combinedOffset;
-    };
+        //internal usage
+        _size_type  combinedOffset;
+};
 
 }
-}
-
 #endif
 

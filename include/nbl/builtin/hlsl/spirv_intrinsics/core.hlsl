@@ -10,9 +10,11 @@
 #include "spirv/unified1/spirv.hpp"
 
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
+#include <nbl/builtin/hlsl/concepts/matrix.hlsl>
 
 namespace nbl 
 {
@@ -331,9 +333,9 @@ template<typename Vector NBL_FUNC_REQUIRES(is_vector_v<Vector>)
 [[vk::ext_instruction( spv::OpDot )]]
 typename vector_traits<Vector>::scalar_type dot(Vector lhs, Vector rhs);
 
-template<typename Matrix>
+template<typename Matrix NBL_FUNC_REQUIRES(is_matrix_v<Matrix>)
 [[vk::ext_instruction( spv::OpTranspose )]]
-Matrix transpose(Matrix mat);
+typename matrix_traits<Matrix>::transposed_type transpose(Matrix mat);
 
 template<typename Integral>
 [[vk::ext_instruction(spv::OpBitCount)]]

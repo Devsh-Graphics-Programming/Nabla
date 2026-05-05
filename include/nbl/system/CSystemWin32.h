@@ -2,9 +2,12 @@
 #define _NBL_SYSTEM_C_SYSTEM_WIN32_H_INCLUDED_
 
 #include "nbl/system/ISystem.h"
+#include "nbl/system/ModuleLookupUtils.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <delayimp.h>
 
@@ -51,13 +54,7 @@ class NBL_API2 CSystemWin32 : public ISystem
             #endif
             ; // legal & on purpose
              
-            const auto executableDirectory = []() -> std::filesystem::path
-            {
-                wchar_t path[MAX_PATH] = { 0 };
-                GetModuleFileNameW(NULL, path, MAX_PATH);
-
-                return std::filesystem::path(path).parent_path();
-            }();
+            const auto exeDirectory = executableDirectory();
 
             // load from right next to the executable (always be able to override like this)
             HMODULE res = LoadLibraryExA(dllName, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
@@ -80,7 +77,7 @@ class NBL_API2 CSystemWin32 : public ISystem
 
                 // then relative to the executable's directory
                 {
-                    const auto path = std::filesystem::absolute(executableDirectory / requestModulePath).string();
+                    const auto path = std::filesystem::absolute(exeDirectory / requestModulePath).string();
 
                     if (logRequests)
                         printf("[INFO]: Requesting \"%s\" module load with \"%s\" search path...\n", dllName, path.c_str());

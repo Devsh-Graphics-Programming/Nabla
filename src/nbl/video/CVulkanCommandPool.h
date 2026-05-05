@@ -2,7 +2,6 @@
 #define _NBL_VIDEO_C_VULKAN_COMMAND_POOL_H_INCLUDED_
 
 #include "nbl/video/IGPUCommandPool.h"
-#include "nbl/core/containers/CMemoryPool.h"
 
 #include <mutex>
 

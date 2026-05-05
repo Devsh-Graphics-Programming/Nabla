@@ -18,14 +18,7 @@ struct DimAdaptorRecursive
     using rng_type = RNG;
     using return_type = vector<uint32_t, DIM>;
 
-    static DimAdaptorRecursive<RNG, DIM> construct(NBL_REF_ARG(rng_type) rng)
-    {
-        DimAdaptorRecursive<RNG, DIM> retval;
-        retval.rng = rng;
-        return retval;
-    }
-
-    return_type operator()()
+    static return_type __call(NBL_REF_ARG(rng_type) rng)
     {
         array_set<return_type, uint32_t> setter;
 
@@ -34,8 +27,6 @@ struct DimAdaptorRecursive
             setter(retval, i, rng());
         return retval;
     }
-
-    rng_type rng;
 };
 
 }

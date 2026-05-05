@@ -27,7 +27,12 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 	const ACCESS_FLAGS accessMask,
 	const IImage::LAYOUT imageLayout)
 {
-	assert(bool(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value & IQueue::FAMILY_FLAGS::TRANSFER_BIT));
+	{
+		const auto queueFlags = logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags;
+		const auto required = core::bitflag<IQueue::FAMILY_FLAGS>(IQueue::FAMILY_FLAGS::TRANSFER_BIT) | IQueue::FAMILY_FLAGS::GRAPHICS_BIT | IQueue::FAMILY_FLAGS::COMPUTE_BIT;
+		if (!queueFlags.hasAnyFlag(required))
+			logicalDevice->getLogger()->log("ScreenShot: queue family %u lacks transfer/graphics/compute flags; continuing anyway.", system::ILogger::ELL_WARNING, queue->getFamilyIndex());
+	}
 
 	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 	auto gpuImage = fetchedImageViewParmas.image;
@@ -35,12 +40,17 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 
 	if(!fetchedGpuImageParams.usage.hasFlags(IImage::EUF_TRANSFER_SRC_BIT))
 	{
-		assert(false);
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: source image missing TRANSFER_SRC usage.", system::ILogger::ELL_ERROR);
 		return nullptr;
 	}
 
 	if (isBlockCompressionFormat(fetchedGpuImageParams.format))
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: block-compressed formats are not supported.", system::ILogger::ELL_ERROR);
 		return nullptr;
+	}
 
 	core::smart_refctd_ptr<IGPUBuffer> gpuTexelBuffer;
 	
@@ -48,10 +58,28 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 	{
 		// commandbuffer should refcount the pool, so it should be 100% legal to drop at the end of the scope
 		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+		if (!gpuCommandPool)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: failed to create command pool.", system::ILogger::ELL_ERROR);
+			return nullptr;
+		}
 		gpuCommandPool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &gpuCommandBuffer);
-		assert(gpuCommandBuffer);
+		if (!gpuCommandBuffer)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: failed to create command buffer.", system::ILogger::ELL_ERROR);
+			return nullptr;
+		}
 	}
-	gpuCommandBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+	if (auto* logger = logicalDevice->getLogger())
+		logger->log("ScreenShot: recording command buffer.", system::ILogger::ELL_INFO);
+	if (!gpuCommandBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: failed to begin command buffer.", system::ILogger::ELL_ERROR);
+		return nullptr;
+	}
 	{
 		auto extent = gpuImage->getMipSize();
 
@@ -68,9 +96,27 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		bufferCreationParams.size = extent.x*extent.y*extent.z*getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = IBuffer::EUF_TRANSFER_DST_BIT;
 		gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));
+		if (!gpuTexelBuffer)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: failed to create GPU texel buffer.", system::ILogger::ELL_ERROR);
+			return nullptr;
+		}
 		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs();
 		gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+		if (!gpuTexelBufferMemReqs.memoryTypeBits)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: no down-streaming memory type for texel buffer.", system::ILogger::ELL_ERROR);
+			return nullptr;
+		}
 		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
+		if (!gpuTexelBufferMem.isValid())
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: failed to allocate texel buffer memory.", system::ILogger::ELL_ERROR);
+			return nullptr;
+		}
 
 		IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
 		decltype(info)::image_barrier_t barrier = {};
@@ -102,7 +148,12 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 			gpuCommandBuffer->pipelineBarrier(EDF_NONE,info);
 		}
 	}
-	gpuCommandBuffer->end();
+	if (!gpuCommandBuffer->end())
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: failed to end command buffer.", system::ILogger::ELL_ERROR);
+		return nullptr;
+	}
 
 	auto signalSemaphore = logicalDevice->createSemaphore(0);
 
@@ -124,22 +175,63 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		info.waitSemaphores = { &waitSemaphoreInfo, &waitSemaphoreInfo + 1 };
 	}
 
-	queue->submit({ &info, &info + 1});
+	if (auto* logger = logicalDevice->getLogger())
+		logger->log("ScreenShot: submitting copy command buffer.", system::ILogger::ELL_INFO);
+	if (queue->submit({ &info, &info + 1}) != IQueue::RESULT::SUCCESS)
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: failed to submit copy command buffer.", system::ILogger::ELL_ERROR);
+		return nullptr;
+	}
 
 	ISemaphore::SWaitInfo waitInfo{ signalSemaphore.get(), 1u};
 
+	if (auto* logger = logicalDevice->getLogger())
+		logger->log("ScreenShot: waiting for copy completion.", system::ILogger::ELL_INFO);
 	if (logicalDevice->blockForSemaphores({&waitInfo, &waitInfo + 1}) != ISemaphore::WAIT_RESULT::SUCCESS)
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: failed to wait for copy completion.", system::ILogger::ELL_ERROR);
 		return nullptr;
+	}
 
 	core::smart_refctd_ptr<ICPUImageView> cpuImageView;
 	{
 		const auto gpuTexelBufferSize = gpuTexelBuffer->getSize(); // If you get validation errors from the `invalidateMappedMemoryRanges` we need to expose VK_WHOLE_BUFFER equivalent constant
-		ILogicalDevice::MappedMemoryRange mappedMemoryRange(gpuTexelBuffer->getBoundMemory().memory,0u,gpuTexelBufferSize);
+		auto* allocation = gpuTexelBuffer->getBoundMemory().memory;
+		if (!allocation)
+			return nullptr;
 
-		if (gpuTexelBuffer->getBoundMemory().memory->haveToMakeVisible())
+		bool mappedHere = false;
+		if (!allocation->getMappedPointer())
+		{
+			const IDeviceMemoryAllocation::MemoryRange range = { 0u, gpuTexelBufferSize };
+			if (!allocation->map(range, IDeviceMemoryAllocation::EMCAF_READ))
+			{
+				if (auto* logger = logicalDevice->getLogger())
+					logger->log("ScreenShot: failed to map texel buffer memory.", system::ILogger::ELL_ERROR);
+				return nullptr;
+			}
+			mappedHere = true;
+		}
+
+		ILogicalDevice::MappedMemoryRange mappedMemoryRange(allocation,0u,gpuTexelBufferSize);
+		if (allocation->haveToMakeVisible())
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: invalidating mapped range.", system::ILogger::ELL_INFO);
 			logicalDevice->invalidateMappedMemoryRanges(1u,&mappedMemoryRange);
+		}
 
 		auto cpuNewImage = ICPUImage::create(std::move(fetchedGpuImageParams));
+		if (!cpuNewImage)
+		{
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: failed to create CPU image.", system::ILogger::ELL_ERROR);
+			if (mappedHere)
+				allocation->unmap();
+			return nullptr;
+		}
 
 		auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 		ICPUImage::SBufferCopy& region = regions->front();
@@ -155,10 +247,22 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		region.imageExtent = cpuNewImage->getCreationParameters().extent;
 
 		auto cpuNewTexelBuffer = ICPUBuffer::create({ gpuTexelBufferSize });
+		if (!cpuNewTexelBuffer)
 		{
-			memcpy(cpuNewTexelBuffer->getPointer(), gpuTexelBuffer->getBoundMemory().memory->getMappedPointer(), gpuTexelBuffer->getSize());
+			if (auto* logger = logicalDevice->getLogger())
+				logger->log("ScreenShot: failed to create CPU buffer.", system::ILogger::ELL_ERROR);
+			if (mappedHere)
+				allocation->unmap();
+			return nullptr;
+		}
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: copying GPU data to CPU buffer.", system::ILogger::ELL_INFO);
+		{
+			memcpy(cpuNewTexelBuffer->getPointer(), allocation->getMappedPointer(), gpuTexelBuffer->getSize());
 		}
 		cpuNewImage->setBufferAndRegions(core::smart_refctd_ptr(cpuNewTexelBuffer), regions);
+		if (mappedHere)
+			allocation->unmap();
 		{
 			auto newCreationParams = cpuNewImage->getCreationParameters();
 
@@ -190,6 +294,12 @@ inline bool createScreenShot(
 {
 	assert(outFile->getFlags()&system::IFile::ECF_WRITE);
 	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
+	if (!cpuImageView)
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: GPU readback failed, no image to write.", system::ILogger::ELL_ERROR);
+		return false;
+	}
 	IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
 	return assetManager->writeAsset(outFile,writeParams);
 }
@@ -205,6 +315,12 @@ inline bool createScreenShot(
 	const ACCESS_FLAGS accessMask = ACCESS_FLAGS::MEMORY_WRITE_BITS)
 {
 	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
+	if (!cpuImageView)
+	{
+		if (auto* logger = logicalDevice->getLogger())
+			logger->log("ScreenShot: GPU readback failed, no image to write.", system::ILogger::ELL_ERROR);
+		return false;
+	}
 	IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
 	return assetManager->writeAsset(filename.string(),writeParams); // TODO: Use std::filesystem::path
 }

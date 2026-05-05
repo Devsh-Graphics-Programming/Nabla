@@ -29,6 +29,8 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 VIEW_INDEX_FROM_DEVICE_INDEX = 1<<3,
                 FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
                 EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
+                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
             };
             #undef base_flag
 

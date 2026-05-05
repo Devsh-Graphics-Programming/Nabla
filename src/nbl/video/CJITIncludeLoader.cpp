@@ -4,7 +4,7 @@
 
 namespace nbl::video
 {
-auto CJITIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const -> found_t
+auto CJITIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName, bool) const -> found_t
 {
     assert(searchPath=="nbl/builtin/hlsl/jit");
     
