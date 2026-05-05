@@ -49,7 +49,7 @@ if (NBL_USE_CONAN)
 	if (CMAKE_GENERATOR MATCHES "Visual Studio" OR CMAKE_GENERATOR MATCHES "Ninja Multi-Config")
 		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/generators")
 	else()
-		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE_LOWER}/generators")
+		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}/generators")
 	endif()
 endif()
 
@@ -72,7 +72,7 @@ option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
 option(_NBL_COMPILE_WITH_PNG_WRITER_ "Compile with PNG Writer" ON)
 option(_NBL_COMPILE_WITH_AVIF_LOADER_ "Compile with AVIF Loader" ON)
-option(_NBL_COMPILE_WITH_AVIF_WRITER_ "Compile with AVIF Loader" ON)
+option(_NBL_COMPILE_WITH_AVIF_WRITER_ "Compile with AVIF Writer" ON)
 option(_NBL_COMPILE_WITH_TGA_LOADER_ "Compile with TGA Loader" ON)
 option(_NBL_COMPILE_WITH_TGA_WRITER_ "Compile with TGA Writer" ON)
 option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
@@ -227,6 +227,7 @@ set(NBL_ASSET_SOURCES
 
 # Image loaders
 	asset/interchange/IImageLoader.cpp
+	asset/interchange/CImageLoaderAVIF.cpp
 	asset/interchange/CImageLoaderJPG.cpp
 	asset/interchange/CImageLoaderPNG.cpp
 	asset/interchange/CImageLoaderTGA.cpp
