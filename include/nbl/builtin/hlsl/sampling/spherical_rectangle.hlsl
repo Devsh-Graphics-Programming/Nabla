@@ -148,7 +148,8 @@ struct SphericalRectangle
       // which what alss `generateLocalBasisXY` needs, in which case `__generate` can already compute it and return it as `hitDist2`
       hitDist = 1.f / cosElevationOverD;
 
-      const vector3_type retval = vector3_type(core.xu / hitDist, core.hv, r0.z / hitDist);
+      // x/hitDist == x * cosElevationOverD; saves two divs vs the obvious form.
+      const vector3_type retval = vector3_type(core.xu * cosElevationOverD, core.hv, r0.z * cosElevationOverD);
       assert(!hlsl::isnan(computeHitT(retval)));
       return retval;
    }

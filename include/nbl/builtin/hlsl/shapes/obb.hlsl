@@ -26,17 +26,17 @@ struct OBB
 			axesScale[dim_i] = axes[dim_i] * obbScale[dim_i];
 		}
 		OBB ret;
-		for (int row_i = 0; row_i < D; row_i++)
+		for (int16_t row_i = 0; row_i < D; row_i++)
 		{
-		  for (int col_i = 0; col_i < D; col_i++)
+		  for (int16_t col_i = 0; col_i < D; col_i++)
 		  {
 				ret.transform[row_i][col_i] = axesScale[col_i][row_i];
 		  }
 		}
-		for (int dim_i = 0; dim_i < D; dim_i++)
+		for (int16_t dim_i = 0; dim_i < D; dim_i++)
 		{
 			scalar_t sum = 0; 
-			for (int dim_j = 0; dim_j < D; dim_j++)
+			for (int16_t dim_j = 0; dim_j < D; dim_j++)
 			{
 				sum += axesScale[dim_j][dim_i];
 			}
@@ -49,7 +49,7 @@ struct OBB
 	NBL_CONSTEXPR_STATIC_INLINE OBB createAxisAligned(point_t mid, point_t len)
 	{
 		point_t axes[D];
-		for (int dim_i = 0; dim_i < D; dim_i++)
+		for (int16_t dim_i = 0; dim_i < D; dim_i++)
 		{
 			axes[dim_i] = point_t(0);
 			axes[dim_i][dim_i] = 1;
