@@ -36,10 +36,10 @@ using namespace nbl::video;
 
 	CUdeviceptr mappedVulkanMemory = 0;
 	if (importedFromVulkan)
-		cuda_native::getMappedBuffer(*importedFromVulkan,&mappedVulkanMemory);
+		cuda_native::getMappedBuffer(importedFromVulkan,&mappedVulkanMemory);
 
-	const CUdeviceptr cudaDevicePtr = cuda_native::getDeviceptr(*cudaMemory);
-	const CUexternalSemaphore cudaSemaphore = importedSemaphore ? cuda_native::getInternalObject(*importedSemaphore):nullptr;
+	const CUdeviceptr cudaDevicePtr = cuda_native::getDeviceptr(cudaMemory);
+	const CUexternalSemaphore cudaSemaphore = importedSemaphore ? cuda_native::getInternalObject(importedSemaphore):nullptr;
 	return exportedToVulkan.get() && mappedVulkanMemory && cudaDevicePtr && cudaSemaphore;
 }
 
@@ -102,7 +102,7 @@ public:
 		if (!handler)
 			return true;
 
-		const auto& devices = nbl::video::cuda_native::getAvailableDevices(*handler);
+		const auto& devices = nbl::video::cuda_native::getAvailableDevices(handler);
 		if (devices.empty())
 			return true;
 

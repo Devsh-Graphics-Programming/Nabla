@@ -146,6 +146,26 @@ struct SCUDADeviceInfo
 const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler);
 const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler);
 
+inline const CUDA& getCUDAFunctionTable(const CCUDAHandler* handler)
+{
+	return getCUDAFunctionTable(*handler);
+}
+
+inline const CUDA& getCUDAFunctionTable(const core::smart_refctd_ptr<CCUDAHandler>& handler)
+{
+	return getCUDAFunctionTable(*handler);
+}
+
+inline const NVRTC& getNVRTCFunctionTable(const CCUDAHandler* handler)
+{
+	return getNVRTCFunctionTable(*handler);
+}
+
+inline const NVRTC& getNVRTCFunctionTable(const core::smart_refctd_ptr<CCUDAHandler>& handler)
+{
+	return getNVRTCFunctionTable(*handler);
+}
+
 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
@@ -155,12 +175,46 @@ T* cast_CUDA_ptr(CUdeviceptr ptr) { return reinterpret_cast<T*>(ptr); }
 
 const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler);
 
+inline const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler* handler)
+{
+	return getAvailableDevices(*handler);
+}
+
+inline const core::vector<SCUDADeviceInfo>& getAvailableDevices(const core::smart_refctd_ptr<CCUDAHandler>& handler)
+{
+	return getAvailableDevices(*handler);
+}
+
 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 inline nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, const char* source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
 {
 	return createProgram(handler,prog,std::string(source),name,headerCount,headerContents,includeNames);
 }
 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, system::IFile* file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
+inline nvrtcResult createProgram(CCUDAHandler* handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+{
+	return createProgram(*handler,prog,std::move(source),name,headerCount,headerContents,includeNames);
+}
+inline nvrtcResult createProgram(const core::smart_refctd_ptr<CCUDAHandler>& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+{
+	return createProgram(*handler,prog,std::move(source),name,headerCount,headerContents,includeNames);
+}
+inline nvrtcResult createProgram(CCUDAHandler* handler, nvrtcProgram* prog, const char* source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+{
+	return createProgram(*handler,prog,source,name,headerCount,headerContents,includeNames);
+}
+inline nvrtcResult createProgram(const core::smart_refctd_ptr<CCUDAHandler>& handler, nvrtcProgram* prog, const char* source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+{
+	return createProgram(*handler,prog,source,name,headerCount,headerContents,includeNames);
+}
+inline nvrtcResult createProgram(CCUDAHandler* handler, nvrtcProgram* prog, system::IFile* file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+{
+	return createProgram(*handler,prog,file,headerCount,headerContents,includeNames);
+}
+inline nvrtcResult createProgram(const core::smart_refctd_ptr<CCUDAHandler>& handler, nvrtcProgram* prog, system::IFile* file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+{
+	return createProgram(*handler,prog,file,headerCount,headerContents,includeNames);
+}
 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
 
@@ -189,6 +243,54 @@ ptx_and_nvrtcResult_t compileDirectlyToPTX(
 	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
 	std::string* log=nullptr
 );
+inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	CCUDAHandler* handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+	std::string* log=nullptr
+)
+{
+	return compileDirectlyToPTX(*handler,std::move(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
+}
+inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	const core::smart_refctd_ptr<CCUDAHandler>& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+	std::string* log=nullptr
+)
+{
+	return compileDirectlyToPTX(*handler,std::move(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
+}
+inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	CCUDAHandler* handler, const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+	std::string* log=nullptr
+)
+{
+	return compileDirectlyToPTX(*handler,source,filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
+}
+inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	const core::smart_refctd_ptr<CCUDAHandler>& handler, const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+	std::string* log=nullptr
+)
+{
+	return compileDirectlyToPTX(*handler,source,filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
+}
+inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	CCUDAHandler* handler, system::IFile* file, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+	std::string* log=nullptr
+)
+{
+	return compileDirectlyToPTX(*handler,file,nvrtcOptions,headerCount,headerContents,includeNames,log);
+}
+inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	const core::smart_refctd_ptr<CCUDAHandler>& handler, system::IFile* file, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+	std::string* log=nullptr
+)
+{
+	return compileDirectlyToPTX(*handler,file,nvrtcOptions,headerCount,headerContents,includeNames,log);
+}
 
 CUdevice getInternalObject(const CCUDADevice& device);
 CUcontext getContext(const CCUDADevice& device);
@@ -197,6 +299,76 @@ CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory);
 CUexternalMemory getInternalObject(const CCUDAImportedMemory& memory);
 CUresult getMappedBuffer(const CCUDAImportedMemory& memory, CUdeviceptr* mappedBuffer);
 CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore& semaphore);
+
+inline CUdevice getInternalObject(const CCUDADevice* device)
+{
+	return getInternalObject(*device);
+}
+
+inline CUdevice getInternalObject(const core::smart_refctd_ptr<CCUDADevice>& device)
+{
+	return getInternalObject(*device);
+}
+
+inline CUcontext getContext(const CCUDADevice* device)
+{
+	return getContext(*device);
+}
+
+inline CUcontext getContext(const core::smart_refctd_ptr<CCUDADevice>& device)
+{
+	return getContext(*device);
+}
+
+inline size_t roundToGranularity(const CCUDADevice* device, CUmemLocationType location, size_t size)
+{
+	return roundToGranularity(*device,location,size);
+}
+
+inline size_t roundToGranularity(const core::smart_refctd_ptr<CCUDADevice>& device, CUmemLocationType location, size_t size)
+{
+	return roundToGranularity(*device,location,size);
+}
+
+inline CUdeviceptr getDeviceptr(const CCUDAExportableMemory* memory)
+{
+	return getDeviceptr(*memory);
+}
+
+inline CUdeviceptr getDeviceptr(const core::smart_refctd_ptr<CCUDAExportableMemory>& memory)
+{
+	return getDeviceptr(*memory);
+}
+
+inline CUexternalMemory getInternalObject(const CCUDAImportedMemory* memory)
+{
+	return getInternalObject(*memory);
+}
+
+inline CUexternalMemory getInternalObject(const core::smart_refctd_ptr<CCUDAImportedMemory>& memory)
+{
+	return getInternalObject(*memory);
+}
+
+inline CUresult getMappedBuffer(const CCUDAImportedMemory* memory, CUdeviceptr* mappedBuffer)
+{
+	return getMappedBuffer(*memory,mappedBuffer);
+}
+
+inline CUresult getMappedBuffer(const core::smart_refctd_ptr<CCUDAImportedMemory>& memory, CUdeviceptr* mappedBuffer)
+{
+	return getMappedBuffer(*memory,mappedBuffer);
+}
+
+inline CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore* semaphore)
+{
+	return getInternalObject(*semaphore);
+}
+
+inline CUexternalSemaphore getInternalObject(const core::smart_refctd_ptr<CCUDAImportedSemaphore>& semaphore)
+{
+	return getInternalObject(*semaphore);
+}
 
 }
 

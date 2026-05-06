@@ -6,6 +6,7 @@
 - Consumers can request native CUDA with `find_package(Nabla CONFIG COMPONENTS Core CUDAInteropNative)` and override the SDK root with `-DNabla_CUDA_TOOLKIT_ROOT=<cuda-root>`.
 - A consumer can use a newer compatible local CUDA SDK through `CUDAInteropNative` without rebuilding Nabla or the clean `CUDAInterop` target.
 - Rebuilds stay local: changing CUDA SDK headers affects only targets that include `CUDAInteropNative.h`.
+- Native accessors accept Nabla objects, raw pointers, and `smart_refctd_ptr`, so opt-in code can keep CUDA usage terse without moving CUDA types into clean headers.
 
 ```cmake
 find_package(Nabla CONFIG REQUIRED)
