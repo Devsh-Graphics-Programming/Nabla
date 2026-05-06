@@ -1,5 +1,23 @@
 #include "nabla.h"
+
+#ifdef _NBL_COMPILE_WITH_CUDA_
+#error "Nabla consumers must not get the CUDA opt-in define."
+#endif
+
+#ifdef CUDA_VERSION
+#error "Nabla consumers must not include CUDA SDK headers."
+#endif
+
 #include "nbl/system/IApplicationFramework.h"
+
+#ifdef _NBL_COMPILE_WITH_CUDA_
+#error "Nabla consumers must not get the CUDA opt-in define."
+#endif
+
+#ifdef CUDA_VERSION
+#error "Nabla consumers must not include CUDA SDK headers."
+#endif
+
 #include "nbl/ext/CUDAInterop/CUDAInterop.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
