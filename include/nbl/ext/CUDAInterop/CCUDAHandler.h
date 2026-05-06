@@ -25,7 +25,7 @@ namespace cuda_native
 struct SAccess;
 }
 
-class CCUDAHandler : public core::IReferenceCounted
+class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 {
 	public:
 		struct SNativeState;

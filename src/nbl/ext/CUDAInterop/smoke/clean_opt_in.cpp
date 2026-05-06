@@ -4,11 +4,11 @@
 #include <type_traits>
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
-#error "Nabla::ext::CUDAInterop must not propagate the CUDA build define."
+#error "Nabla::Nabla must not propagate the CUDA build define."
 #endif
 
 #ifdef CUDA_VERSION
-#error "Nabla::ext::CUDAInterop must not require CUDA SDK headers."
+#error "Nabla::Nabla must not require CUDA SDK headers."
 #endif
 
 namespace

@@ -8,7 +8,7 @@
 #include <utility>
 
 #ifndef CUDA_VERSION
-#error "Nabla::ext::CUDAInteropNative must expose CUDA SDK headers."
+#error "Nabla::ext::CUDAInterop must expose CUDA SDK headers."
 #endif
 
 namespace

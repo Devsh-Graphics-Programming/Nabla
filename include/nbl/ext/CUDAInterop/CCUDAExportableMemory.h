@@ -26,7 +26,7 @@ enum class ECUDAMemoryLocation : uint32_t
 	HOST_NUMA_CURRENT = 4
 };
 
-class CCUDAExportableMemory : public core::IReferenceCounted
+class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
 	public:
 		struct SNativeState;

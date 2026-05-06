@@ -19,7 +19,7 @@ namespace cuda_native
 struct SAccess;
 }
 
-class CCUDAImportedSemaphore : public core::IReferenceCounted
+class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
 {
 	public:
 		struct SNativeState;

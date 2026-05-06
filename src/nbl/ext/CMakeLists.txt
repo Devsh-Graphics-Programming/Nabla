@@ -40,16 +40,8 @@ endif()
 
 add_subdirectory(CUDAInterop)
 if (NBL_COMPILE_WITH_CUDA)
-    set(NBL_EXT_CUDA_INTEROP_INCLUDE_DIRS
-        ${NBL_EXT_CUDA_INTEROP_INCLUDE_DIRS}
-        PARENT_SCOPE
-    )
     set(NBL_EXT_CUDA_INTEROP_LIB
         ${NBL_EXT_CUDA_INTEROP_LIB}
-        PARENT_SCOPE
-    )
-    set(NBL_EXT_CUDA_INTEROP_NATIVE_LIB
-        ${NBL_EXT_CUDA_INTEROP_NATIVE_LIB}
         PARENT_SCOPE
     )
 endif()

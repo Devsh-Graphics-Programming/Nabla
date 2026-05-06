@@ -16,7 +16,7 @@ namespace cuda_native
 struct SAccess;
 }
 
-class CCUDAImportedMemory : public core::IReferenceCounted
+class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 {
 	public:
 		struct SNativeState;

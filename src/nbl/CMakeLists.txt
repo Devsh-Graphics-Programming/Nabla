@@ -124,6 +124,20 @@ set(NBL_CORE_SOURCES
 	core/alloc/refctd_memory_resource.cpp
 	core/hash/blake.cpp
 )
+
+set(NBL_CUDA_INTEROP_SOURCES
+	ext/CUDAInterop/CUDAInteropStubs.cpp
+)
+if(NBL_COMPILE_WITH_CUDA)
+	set(NBL_CUDA_INTEROP_SOURCES
+		ext/CUDAInterop/CCUDADevice.cpp
+		ext/CUDAInterop/CCUDAExportableMemory.cpp
+		ext/CUDAInterop/CCUDAHandler.cpp
+		ext/CUDAInterop/CCUDAImportedMemory.cpp
+		ext/CUDAInterop/CCUDAImportedSemaphore.cpp
+	)
+endif()
+
 set(NBL_SYSTEM_SOURCES
 	system/DefaultFuncPtrLoader.cpp
 	system/IFileBase.cpp
@@ -306,6 +320,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
 	${NBL_META_SOURCES}
+	${NBL_CUDA_INTEROP_SOURCES}
 )
 
 if(MSVC)
@@ -414,6 +429,11 @@ endif()
 
 if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
+endif()
+
+if(NBL_COMPILE_WITH_CUDA)
+	target_compile_definitions(Nabla PRIVATE _NBL_COMPILE_WITH_CUDA_)
+	target_include_directories(Nabla PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 set(INTERFACE_BUILD_DEFINITIONS
@@ -783,34 +803,16 @@ add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
 if(DEFINED NBL_EXT_CUDA_INTEROP_LIB AND TARGET ${NBL_EXT_CUDA_INTEROP_LIB})
-	set_target_properties(${NBL_EXT_CUDA_INTEROP_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)
-
-	set(_NBL_EXT_CUDA_INTEROP_INSTALL_ARGS)
 	if(NBL_ENABLE_CONFIG_INSTALL AND NOT NBL_STATIC_BUILD)
-		list(APPEND _NBL_EXT_CUDA_INTEROP_INSTALL_ARGS EXPORT NablaCUDAInteropExportTargets)
-	endif()
-	nbl_install_lib_spec(${NBL_EXT_CUDA_INTEROP_LIB} "nbl/ext/CUDA_INTEROP" ${_NBL_EXT_CUDA_INTEROP_INSTALL_ARGS})
-
-	if(NBL_ENABLE_CONFIG_INSTALL AND NOT NBL_STATIC_BUILD)
+		install(TARGETS ${NBL_EXT_CUDA_INTEROP_LIB}
+			EXPORT NablaCUDAInteropExportTargets
+			COMPONENT Libraries
+		)
 		install(EXPORT NablaCUDAInteropExportTargets
 			NAMESPACE Nabla::
 			DESTINATION cmake
 			COMPONENT Libraries
 		)
-	endif()
-
-	if(DEFINED NBL_EXT_CUDA_INTEROP_NATIVE_LIB AND TARGET ${NBL_EXT_CUDA_INTEROP_NATIVE_LIB})
-		if(NBL_ENABLE_CONFIG_INSTALL AND NOT NBL_STATIC_BUILD)
-			install(TARGETS ${NBL_EXT_CUDA_INTEROP_NATIVE_LIB}
-				EXPORT NablaCUDAInteropNativeExportTargets
-				COMPONENT Libraries
-			)
-			install(EXPORT NablaCUDAInteropNativeExportTargets
-				NAMESPACE Nabla::
-				DESTINATION cmake
-				COMPONENT Libraries
-			)
-		endif()
 	endif()
 endif()
 
