@@ -778,10 +778,27 @@ if(NBL_PCH)
 	)
 endif()
 
-# extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
+
+if(DEFINED NBL_EXT_CUDA_INTEROP_LIB AND TARGET ${NBL_EXT_CUDA_INTEROP_LIB})
+	set_target_properties(${NBL_EXT_CUDA_INTEROP_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)
+
+	set(_NBL_EXT_CUDA_INTEROP_INSTALL_ARGS)
+	if(NBL_ENABLE_CONFIG_INSTALL AND NOT NBL_STATIC_BUILD)
+		list(APPEND _NBL_EXT_CUDA_INTEROP_INSTALL_ARGS EXPORT NablaCUDAInteropExportTargets)
+	endif()
+	nbl_install_lib_spec(${NBL_EXT_CUDA_INTEROP_LIB} "nbl/ext/CUDA_INTEROP" ${_NBL_EXT_CUDA_INTEROP_INSTALL_ARGS})
+
+	if(NBL_ENABLE_CONFIG_INSTALL AND NOT NBL_STATIC_BUILD)
+		install(EXPORT NablaCUDAInteropExportTargets
+			NAMESPACE Nabla::
+			DESTINATION cmake
+			COMPONENT Libraries
+		)
+	endif()
+endif()
 
 if(TARGET ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB})
 	set_target_properties(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)

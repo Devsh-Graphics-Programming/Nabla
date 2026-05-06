@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 project(NblExtCUDAInteropSmoke CXX)
 
 if(NOT TARGET Nabla::Nabla)
-	find_package(Nabla REQUIRED CONFIG)
+	find_package(Nabla REQUIRED CONFIG COMPONENTS Core CUDAInterop)
 endif()
 
 enable_testing()
