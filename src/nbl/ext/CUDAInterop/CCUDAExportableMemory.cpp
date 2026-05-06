@@ -2,8 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/video/CCUDAExportableMemory.h"
-#include "nbl/video/CCUDADevice.h"
+#include "nbl/ext/CUDAInterop/CCUDAExportableMemory.h"
+#include "nbl/ext/CUDAInterop/CCUDADevice.h"
+#include "nbl/ext/CUDAInterop/CCUDAHandler.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video

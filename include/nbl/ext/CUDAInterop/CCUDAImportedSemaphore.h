@@ -6,6 +6,8 @@
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
+#include "nbl/video/declarations.h"
+
 #include "cuda.h"
 #include "nvrtc.h"
 #if CUDA_VERSION < 9000
@@ -19,7 +21,9 @@
 namespace nbl::video
 {
 
-class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
+class CCUDADevice;
+
+class CCUDAImportedSemaphore : public core::IReferenceCounted
 {
     public:
 

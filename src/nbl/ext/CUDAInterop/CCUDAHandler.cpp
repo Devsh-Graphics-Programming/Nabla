@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/video/CCUDAHandler.h"
+#include "nbl/ext/CUDAInterop/CCUDAHandler.h"
 #include "nbl/system/CFileView.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -488,7 +488,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	{\
 		if (!cuda.p ## FUNC)\
 			return nullptr;\
-		auto result = cuda.p ## FUNC ## (__VA_ARGS__);\
+		auto result = cuda.p ## FUNC(__VA_ARGS__);\
 		if (result!=CUDA_SUCCESS)\
 			return nullptr;\
 	}
@@ -568,6 +568,22 @@ CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 	auto ptx = asset::ICPUBuffer::create(std::move(ptxParams));
 	auto ptxPtr = static_cast<char*>(ptx->getPointer());
 	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
+}
+
+CCUDAHandler::cubin_and_nvrtcResult_t CCUDAHandler::getCUBIN(nvrtcProgram prog)
+{
+	size_t _size = 0ull;
+	nvrtcResult sizeRes = m_nvrtc.pnvrtcGetCUBINSize(prog,&_size);
+	if (sizeRes!=NVRTC_SUCCESS)
+		return {nullptr,sizeRes};
+	if (_size==0ull)
+		return {nullptr,NVRTC_ERROR_INVALID_INPUT};
+
+	asset::ICPUBuffer::SCreationParams cubinParams = {};
+	cubinParams.size = _size;
+	auto cubin = asset::ICPUBuffer::create(std::move(cubinParams));
+	auto cubinPtr = static_cast<char*>(cubin->getPointer());
+	return {std::move(cubin),m_nvrtc.pnvrtcGetCUBIN(prog,cubinPtr)};
 }
 
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)

@@ -5,13 +5,12 @@
 #define _NBL_VIDEO_C_CUDA_DEVICE_H_
 
 
-#include "nbl/video/IPhysicalDevice.h"
-#include "nbl/video/CCUDAExportableMemory.h"
-#include "nbl/video/CCUDAImportedMemory.h"
-#include "nbl/video/CCUDAImportedSemaphore.h"
-
-
 #ifdef _NBL_COMPILE_WITH_CUDA_
+
+#include "nbl/video/declarations.h"
+#include "nbl/ext/CUDAInterop/CCUDAExportableMemory.h"
+#include "nbl/ext/CUDAInterop/CCUDAImportedMemory.h"
+#include "nbl/ext/CUDAInterop/CCUDAImportedSemaphore.h"
 
 #include "cuda.h"
 #include "nvrtc.h"
@@ -27,7 +26,7 @@ namespace nbl::video
 {
 class CCUDAHandler;
 
-class NBL_API2 CCUDADevice : public core::IReferenceCounted
+class CCUDADevice : public core::IReferenceCounted
 {
   public:
 #ifdef _WIN32

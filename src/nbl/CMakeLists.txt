@@ -95,12 +95,8 @@ configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${
 file(GENERATE OUTPUT "${CONFIG_OUTPUT}" INPUT "${CONFIG_DIRECOTORY}/.int/BuildConfigOptions.h.conf")
 nbl_install_file_spec("${CONFIG_OUTPUT}" nbl/config)
 
-if (NBL_COMPILE_WITH_CUDA)
-	message(STATUS "Building with CUDA interop")
-	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
-	if (NBL_BUILD_OPTIX)
-		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
-	endif()
+if (NBL_BUILD_OPTIX)
+	set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
 endif()
 
 # => TODO: clean!
@@ -291,12 +287,6 @@ set(NBL_VIDEO_SOURCES
 	video/CVulkanEvent.cpp
 	video/CSurfaceVulkan.cpp
 	
-# CUDA
-	video/CCUDAHandler.cpp
-	video/CCUDADevice.cpp
-	video/CCUDAImportedSemaphore.cpp
-	video/CCUDAExportableMemory.cpp
-	video/CCUDAImportedMemory.cpp
 )
 
 set(NBL_SCENE_SOURCES
@@ -423,10 +413,6 @@ endif()
 
 if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
-endif()
-
-if(NBL_COMPILE_WITH_CUDA)
-	target_compile_definitions(Nabla PUBLIC _NBL_COMPILE_WITH_CUDA_)
 endif()
 
 set(INTERFACE_BUILD_DEFINITIONS
@@ -663,11 +649,6 @@ list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 target_link_libraries(Nabla PRIVATE volk)
 # volk is part of public interface headers in Nabla
 target_compile_definitions(Nabla PUBLIC $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>)
-
-# CUDA
-if (NBL_COMPILE_WITH_CUDA)
-	list(APPEND PUBLIC_BUILD_INCLUDE_DIRS "${CUDAToolkit_INCLUDE_DIRS}")
-endif()
 
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 	# this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path

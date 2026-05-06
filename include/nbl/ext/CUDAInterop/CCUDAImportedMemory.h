@@ -1,7 +1,9 @@
-#ifndef _NBL_VIDEO_C_CUDA_IMPORTED_MEMORY_H
-#define _NBL_VIDEO_C_CUDA_IMPORTED_MEMORY_H
+#ifndef _NBL_EXT_CUDA_INTEROP_C_CUDA_IMPORTED_MEMORY_H_
+#define _NBL_EXT_CUDA_INTEROP_C_CUDA_IMPORTED_MEMORY_H_
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
+
+#include "nbl/video/declarations.h"
 
 #include "cuda.h"
 #include "nvrtc.h"
@@ -9,12 +11,12 @@
   #error "Need CUDA 9.0 SDK or higher."
 #endif
 
-#endif // _NBL_COMPILE_WITH_CUDA
-
 namespace nbl::video
 {
 
-class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
+class CCUDADevice;
+
+class CCUDAImportedMemory : public core::IReferenceCounted
 {
     public:
 
@@ -38,5 +40,7 @@ class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 };
 
 }
+
+#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

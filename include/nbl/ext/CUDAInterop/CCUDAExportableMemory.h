@@ -7,6 +7,8 @@
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
+#include "nbl/video/declarations.h"
+
 #include "cuda.h"
 #include "nvrtc.h"
 #if CUDA_VERSION < 9000
@@ -22,7 +24,7 @@ namespace nbl::video
 
 class CCUDADevice;
 
-class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
+class CCUDAExportableMemory : public core::IReferenceCounted
 {
     public:
 

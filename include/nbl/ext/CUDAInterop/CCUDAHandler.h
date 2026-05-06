@@ -9,7 +9,7 @@
 
 #include "nbl/system/declarations.h"
 
-#include "nbl/video/CCUDADevice.h"
+#include "nbl/ext/CUDAInterop/CCUDADevice.h"
 
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -17,7 +17,7 @@ namespace nbl::video
 {
 
 
-class NBL_API2 CCUDAHandler : public core::IReferenceCounted
+class CCUDAHandler : public core::IReferenceCounted
 {
 		public:
 		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
@@ -151,6 +151,8 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 			nvrtcCreateProgram,
 			nvrtcDestroyProgram,
 			nvrtcGetLoweredName,
+			nvrtcGetCUBIN,
+			nvrtcGetCUBINSize,
 			nvrtcGetPTX,
 			nvrtcGetPTXSize,
 			nvrtcGetProgramLog,
@@ -216,6 +218,13 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		};
 		ptx_and_nvrtcResult_t getPTX(nvrtcProgram prog);
 
+		struct cubin_and_nvrtcResult_t
+		{
+			core::smart_refctd_ptr<asset::ICPUBuffer> cubin;
+			nvrtcResult result;
+		};
+		cubin_and_nvrtcResult_t getCUBIN(nvrtcProgram prog);
+
 		//
 		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
 			std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
@@ -260,6 +269,49 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 			return compileDirectlyToPTX_impl(result,program,nvrtcOptions,log);
 		}
 
+		inline cubin_and_nvrtcResult_t compileDirectlyToCUBIN(
+			std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		)
+		{
+			nvrtcProgram program = nullptr;
+			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+			auto cleanup = core::makeRAIIExiter([&]() -> void
+			{
+				if (result!=NVRTC_SUCCESS && program)
+					m_nvrtc.pnvrtcDestroyProgram(&program);
+			});
+
+			result = createProgram(&program,std::move(source),filename,headerCount,headerContents,includeNames);
+			return compileDirectlyToCUBIN_impl(result,program,nvrtcOptions,log);
+		}
+		inline cubin_and_nvrtcResult_t compileDirectlyToCUBIN(
+			const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		)
+		{
+			return compileDirectlyToCUBIN(std::string(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
+		}
+		inline cubin_and_nvrtcResult_t compileDirectlyToCUBIN(
+			system::IFile* file, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		)
+		{
+			nvrtcProgram program = nullptr;
+			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+			auto cleanup = core::makeRAIIExiter([&]() -> void
+			{
+				if (result!=NVRTC_SUCCESS && program)
+					m_nvrtc.pnvrtcDestroyProgram(&program);
+			});
+
+			result = createProgram(&program,file,headerCount,headerContents,includeNames);
+			return compileDirectlyToCUBIN_impl(result,program,nvrtcOptions,log);
+		}
+
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 
 	protected:
@@ -279,6 +331,20 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 				return {nullptr,result};
 			
 			return getPTX(program);
+		}
+
+		inline cubin_and_nvrtcResult_t compileDirectlyToCUBIN_impl(nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
+		{
+			if (result!=NVRTC_SUCCESS)
+				return {nullptr,result};
+
+			result = compileProgram(program,nvrtcOptions);
+			if (log)
+				getProgramLog(program,*log);
+			if (result!=NVRTC_SUCCESS)
+				return {nullptr,result};
+			
+			return getCUBIN(program);
 		}
 
 		// function tables

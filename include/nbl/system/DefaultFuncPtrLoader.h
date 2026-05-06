@@ -35,7 +35,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 			return lib!=nullptr;
 		}
 
-		void* loadFuncPtr(const char* funcname) override final;
+		NBL_API2 void* loadFuncPtr(const char* funcname) override final;
 };
 
 }
