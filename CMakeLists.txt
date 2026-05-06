@@ -75,7 +75,7 @@ set(NBL_CUDA_TOOLKIT_ROOT "" CACHE PATH "Optional CUDA Toolkit root used when NB
 
 if(NBL_COMPILE_WITH_CUDA)
 	if(NBL_CUDA_TOOLKIT_ROOT)
-		set(CUDAToolkit_ROOT "${NBL_CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA Toolkit root" FORCE)
+		set(CUDAToolkit_ROOT "${NBL_CUDA_TOOLKIT_ROOT}")
 	endif()
 	find_package(CUDAToolkit REQUIRED)
 	if(${CUDAToolkit_VERSION} VERSION_GREATER_EQUAL "13.0")

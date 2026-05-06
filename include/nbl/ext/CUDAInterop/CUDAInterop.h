@@ -4,6 +4,10 @@
 #ifndef _NBL_EXT_CUDA_INTEROP_H_INCLUDED_
 #define _NBL_EXT_CUDA_INTEROP_H_INCLUDED_
 
+#include "nbl/ext/CUDAInterop/CCUDADevice.h"
+#include "nbl/ext/CUDAInterop/CCUDAExportableMemory.h"
 #include "nbl/ext/CUDAInterop/CCUDAHandler.h"
+#include "nbl/ext/CUDAInterop/CCUDAImportedMemory.h"
+#include "nbl/ext/CUDAInterop/CCUDAImportedSemaphore.h"
 
 #endif

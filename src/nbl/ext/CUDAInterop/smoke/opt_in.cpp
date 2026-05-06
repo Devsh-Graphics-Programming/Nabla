@@ -1,9 +1,11 @@
 #include "nbl/ext/CUDAInterop/CUDAInterop.h"
+#include "nbl/system/IApplicationFramework.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 #ifndef _NBL_COMPILE_WITH_CUDA_
 #error "CUDA interop consumers must opt in through Nabla::ext::CUDAInterop."
@@ -69,8 +71,10 @@ bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 
 	CUdeviceptr deviceMemory = 0;
 	bool ok = cuda.pcuMemAlloc_v2(&deviceMemory, sizeof(input))==CUDA_SUCCESS;
-	ok = ok && cuda.pcuMemcpyHtoD_v2(deviceMemory, input.data(), sizeof(input))==CUDA_SUCCESS;
-	ok = ok && cuda.pcuMemcpyDtoH_v2(output.data(), deviceMemory, sizeof(output))==CUDA_SUCCESS;
+	if (ok)
+		ok = cuda.pcuMemcpyHtoD_v2(deviceMemory,input.data(),sizeof(input))==CUDA_SUCCESS;
+	if (ok)
+		ok = cuda.pcuMemcpyDtoH_v2(output.data(),deviceMemory,sizeof(output))==CUDA_SUCCESS;
 	if (deviceMemory)
 		ok = cuda.pcuMemFree_v2(deviceMemory)==CUDA_SUCCESS && ok;
 
@@ -79,19 +83,37 @@ bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 }
 }
 
-int main()
+class CUDAInteropOptInSmoke final : public nbl::system::IApplicationFramework
 {
-	static_assert(std::is_same_v<decltype(std::declval<const nbl::video::CCUDADevice&>().getInternalObject()), CUdevice>);
-	CUdeviceptr devicePtr = 0;
-	static_cast<void>(devicePtr);
+	using base_t = nbl::system::IApplicationFramework;
 
-	auto handler = nbl::video::CCUDAHandler::create(nullptr, nullptr);
-	if (!handler)
-		return 0;
+public:
+	using base_t::base_t;
 
-	const auto& devices = handler->getAvailableDevices();
-	if (devices.empty())
-		return 0;
+	bool onAppInitialized(nbl::core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	{
+		static_cast<void>(system);
 
-	return cudaDriverRoundtrip(*handler, devices.front().handle) ? 0:1;
-}
+		if (!isAPILoaded())
+			return false;
+
+		static_assert(std::is_same_v<decltype(std::declval<const nbl::video::CCUDADevice&>().getInternalObject()), CUdevice>);
+		CUdeviceptr devicePtr = 0;
+		static_cast<void>(devicePtr);
+
+		auto handler = nbl::video::CCUDAHandler::create(nullptr, nullptr);
+		if (!handler)
+			return true;
+
+		const auto& devices = handler->getAvailableDevices();
+		if (devices.empty())
+			return true;
+
+		return cudaDriverRoundtrip(*handler, devices.front().handle);
+	}
+
+	void workLoopBody() override {}
+	bool keepRunning() override { return false; }
+};
+
+NBL_MAIN_FUNC(CUDAInteropOptInSmoke)

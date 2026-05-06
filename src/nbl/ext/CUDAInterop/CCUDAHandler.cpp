@@ -570,22 +570,6 @@ CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
 }
 
-CCUDAHandler::cubin_and_nvrtcResult_t CCUDAHandler::getCUBIN(nvrtcProgram prog)
-{
-	size_t _size = 0ull;
-	nvrtcResult sizeRes = m_nvrtc.pnvrtcGetCUBINSize(prog,&_size);
-	if (sizeRes!=NVRTC_SUCCESS)
-		return {nullptr,sizeRes};
-	if (_size==0ull)
-		return {nullptr,NVRTC_ERROR_INVALID_INPUT};
-
-	asset::ICPUBuffer::SCreationParams cubinParams = {};
-	cubinParams.size = _size;
-	auto cubin = asset::ICPUBuffer::create(std::move(cubinParams));
-	auto cubinPtr = static_cast<char*>(cubin->getPointer());
-	return {std::move(cubin),m_nvrtc.pnvrtcGetCUBIN(prog,cubinPtr)};
-}
-
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)
 {
 	if (!vulkanConnection)

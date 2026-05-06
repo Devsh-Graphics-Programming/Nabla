@@ -11,18 +11,18 @@
 namespace nbl::system
 {
 
-class DefaultFuncPtrLoader final : FuncPtrLoader
+class NBL_API2 DefaultFuncPtrLoader final : FuncPtrLoader
 {
 		void* lib;
 
 	public:
 		inline DefaultFuncPtrLoader() : lib(nullptr) {}
-		NBL_API2 DefaultFuncPtrLoader(const char* name);
+		DefaultFuncPtrLoader(const char* name);
 		inline DefaultFuncPtrLoader(DefaultFuncPtrLoader&& other) : DefaultFuncPtrLoader()
 		{
 			operator=(std::move(other));
 		}
-		NBL_API2 ~DefaultFuncPtrLoader();
+		~DefaultFuncPtrLoader();
 
 		inline DefaultFuncPtrLoader& operator=(DefaultFuncPtrLoader&& other)
 		{
@@ -35,7 +35,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 			return lib!=nullptr;
 		}
 
-		NBL_API2 void* loadFuncPtr(const char* funcname) override final;
+		void* loadFuncPtr(const char* funcname) override final;
 };
 
 }
