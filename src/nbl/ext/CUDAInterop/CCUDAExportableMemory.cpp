@@ -2,13 +2,17 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/ext/CUDAInterop/CCUDAExportableMemory.h"
-#include "nbl/ext/CUDAInterop/CCUDADevice.h"
-#include "nbl/ext/CUDAInterop/CCUDAHandler.h"
+#include "CUDAInteropNativeState.hpp"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
+
+CCUDAExportableMemory::CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState)
+	: m_device(std::move(device))
+	, m_params(std::move(params))
+	, m_native(std::move(nativeState))
+{}
 
 core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
 {
@@ -18,10 +22,10 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 
 	switch (m_params.location)
 	{
-    case CU_MEM_LOCATION_TYPE_DEVICE: memoryTypeBits &=  vram; break;
-    case CU_MEM_LOCATION_TYPE_HOST_NUMA:
-    case CU_MEM_LOCATION_TYPE_HOST_NUMA_CURRENT:
-    case CU_MEM_LOCATION_TYPE_HOST:   memoryTypeBits &= ~vram; break;
+    case ECUDAMemoryLocation::DEVICE: memoryTypeBits &=  vram; break;
+    case ECUDAMemoryLocation::HOST_NUMA:
+    case ECUDAMemoryLocation::HOST_NUMA_CURRENT:
+    case ECUDAMemoryLocation::HOST:   memoryTypeBits &= ~vram; break;
     default: break;
 	}
 
@@ -40,14 +44,24 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 
 CCUDAExportableMemory::~CCUDAExportableMemory()
 {
-	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
+	const auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
 
-  ASSERT_CUDA_SUCCESS(cu.pcuMemUnmap(m_params.ptr, m_params.granularSize), m_device->getHandler());
+  ASSERT_CUDA_SUCCESS(cu.pcuMemUnmap(m_native->ptr, m_params.granularSize), m_device->getHandler());
 
-	ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(m_params.ptr, m_params.granularSize), m_device->getHandler());
+	ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize), m_device->getHandler());
 
   bool closeSucceed = CloseExternalHandle(m_params.externalHandle);
 	assert(closeSucceed);
+
+}
+
+namespace cuda_native
+{
+
+CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory)
+{
+	return SAccess::native(memory).ptr;
+}
 
 }
 }

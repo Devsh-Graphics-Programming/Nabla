@@ -9,158 +9,30 @@
 
 #include "nbl/system/declarations.h"
 
-#include "nbl/ext/CUDAInterop/CCUDADevice.h"
+#include <array>
+#include <cstdint>
+#include <memory>
+#include <string>
 
-
-#ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
+class CCUDADevice;
+class CVulkanConnection;
+class IPhysicalDevice;
 
+namespace cuda_native
+{
+struct SAccess;
+}
 
 class CCUDAHandler : public core::IReferenceCounted
 {
-		public:
-		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
-
-		inline bool defaultHandleResult(CUresult result) const
-		{
-			core::smart_refctd_ptr<system::ILogger> logger = m_logger.get();
-			return defaultHandleResult(result,logger.get());
-		}
-
-		//
-		bool defaultHandleResult(nvrtcResult result);
-
-		//
-		template<typename T>
-		static T* cast_CUDA_ptr(CUdeviceptr ptr) { return reinterpret_cast<T*>(ptr); }
-
-		//
+	public:
+		struct SNativeState;
 		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
 
-		//
-		using LibLoader = system::DefaultFuncPtrLoader;
-		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA,LibLoader
-			,cuCtxCreate_v4
-			,cuDevicePrimaryCtxRetain
-			,cuDevicePrimaryCtxRelease
-			,cuDevicePrimaryCtxSetFlags
-			,cuDevicePrimaryCtxGetState
-			,cuCtxDestroy_v2
-			,cuCtxEnablePeerAccess
-			,cuCtxGetApiVersion
-			,cuCtxGetCurrent
-			,cuCtxGetDevice
-			,cuCtxGetSharedMemConfig
-			,cuCtxPopCurrent_v2
-			,cuCtxPushCurrent_v2
-			,cuCtxSetCacheConfig
-			,cuCtxSetCurrent
-			,cuCtxSetSharedMemConfig
-			,cuCtxSynchronize
-			,cuDeviceComputeCapability
-			,cuDeviceCanAccessPeer
-			,cuDeviceGetCount
-			,cuDeviceGet
-			,cuDeviceGetAttribute
-			,cuDeviceGetLuid
-			,cuDeviceGetUuid_v2
-			,cuDeviceTotalMem_v2
-			,cuDeviceGetName
-			,cuDriverGetVersion
-			,cuEventCreate
-			,cuEventDestroy_v2
-			,cuEventElapsedTime
-			,cuEventQuery
-			,cuEventRecord
-			,cuEventSynchronize
-			,cuFuncGetAttribute
-			,cuFuncSetCacheConfig
-			,cuGetErrorName
-			,cuGetErrorString
-			,cuGraphicsMapResources
-			,cuGraphicsResourceGetMappedPointer_v2
-			,cuGraphicsResourceGetMappedMipmappedArray
-			,cuGraphicsSubResourceGetMappedArray
-			,cuGraphicsUnmapResources
-			,cuGraphicsUnregisterResource
-			,cuInit
-			,cuLaunchKernel
-			,cuMemAlloc_v2
-			,cuMemcpyDtoD_v2
-			,cuMemcpyDtoH_v2
-			,cuMemcpyHtoD_v2
-			,cuMemcpyDtoDAsync_v2
-			,cuMemcpyDtoHAsync_v2
-			,cuMemcpyHtoDAsync_v2
-			,cuMemGetAddressRange_v2
-			,cuMemFree_v2
-			,cuMemFreeHost
-			,cuMemGetInfo_v2
-			,cuMemHostAlloc
-			,cuMemHostRegister_v2
-			,cuMemHostUnregister
-			,cuMemsetD32_v2
-			,cuMemsetD32Async
-			,cuMemsetD8_v2
-			,cuMemsetD8Async
-			,cuModuleGetFunction
-			,cuModuleGetGlobal_v2
-			,cuModuleLoadDataEx
-			,cuModuleLoadFatBinary
-			,cuModuleUnload
-			,cuOccupancyMaxActiveBlocksPerMultiprocessor
-			,cuPointerGetAttribute
-			,cuStreamAddCallback
-			,cuStreamCreate
-			,cuStreamDestroy_v2
-			,cuStreamQuery
-			,cuStreamSynchronize
-			,cuStreamWaitEvent
-			,cuSurfObjectCreate
-			,cuSurfObjectDestroy
-			,cuTexObjectCreate
-			,cuTexObjectDestroy
-			,cuImportExternalMemory
-			,cuDestroyExternalMemory
-			,cuExternalMemoryGetMappedBuffer
-			,cuMemUnmap
-			,cuMemAddressFree
-			,cuMemGetAllocationGranularity
-			,cuMemAddressReserve
-			,cuMemCreate
-			,cuMemExportToShareableHandle
-			,cuMemMap
-			,cuMemRelease
-			,cuMemSetAccess
-			,cuMemImportFromShareableHandle
-			,cuLaunchHostFunc
-			,cuDestroyExternalSemaphore
-			,cuImportExternalSemaphore
-			,cuSignalExternalSemaphoresAsync
-			,cuWaitExternalSemaphoresAsync
-			,cuLogsRegisterCallback
-		);
-		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
+		CCUDAHandler(std::unique_ptr<SNativeState>&& nativeState, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
 
-		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC,LibLoader,
-			nvrtcGetErrorString,
-			nvrtcVersion,
-			nvrtcAddNameExpression,
-			nvrtcCompileProgram,
-			nvrtcCreateProgram,
-			nvrtcDestroyProgram,
-			nvrtcGetLoweredName,
-			nvrtcGetPTX,
-			nvrtcGetPTXSize,
-			nvrtcGetProgramLog,
-			nvrtcGetProgramLogSize
-		);
-		const NVRTC& getNVRTCFunctionTable() const {return m_nvrtc;}
-
-		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
-
-		//
 		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{
 			auto begin = m_headers.empty() ? nullptr:(&m_headers[0].get());
@@ -169,29 +41,9 @@ class CCUDAHandler : public core::IReferenceCounted
 		inline const auto& getSTDHeaderContents() { return m_headerContents; }
 		inline const auto& getSTDHeaderNames() { return m_headerNames; }
 
-		//
-		nvrtcResult createProgram(nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
-		inline nvrtcResult createProgram(nvrtcProgram* prog, const char* source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
-		{
-			return createProgram(prog,std::string(source),name,headerCount,headerContents,includeNames);
-		}
-		inline nvrtcResult createProgram(nvrtcProgram* prog, system::IFile* file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
-		{
-			const auto filesize = file->getSize();
-			std::string source(filesize+1u,'0');
-
-			system::IFile::success_t bytesRead;
-			file->read(bytesRead,source.data(),0u,file->getSize());
-			source.resize(bytesRead.getBytesProcessed());
-
-			return createProgram(prog,std::move(source),file->getFileName().string().c_str(),headerCount,headerContents,includeNames);
-		}
-
 		struct SCUDADeviceInfo
 		{
-			CUdevice handle = {};
-			CUuuid uuid = {};
-			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
+			std::array<uint8_t,16> uuid = {};
 		};
 
 		inline core::vector<SCUDADeviceInfo> const& getAvailableDevices() const
@@ -199,93 +51,15 @@ class CCUDAHandler : public core::IReferenceCounted
 			return m_availableDevices;
 		}
 
-		//
-		inline nvrtcResult compileProgram(nvrtcProgram prog, core::SRange<const char* const> options)
-		{
-			return m_nvrtc.pnvrtcCompileProgram(prog,options.size(),options.begin());
-		}
-
-		//
-		nvrtcResult getProgramLog(nvrtcProgram prog, std::string& log);
-
-		//
-		struct ptx_and_nvrtcResult_t
-		{
-			core::smart_refctd_ptr<asset::ICPUBuffer> ptx;
-			nvrtcResult result;
-		};
-		ptx_and_nvrtcResult_t getPTX(nvrtcProgram prog);
-
-		//
-		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
-			std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-			std::string* log=nullptr
-		)
-		{
-			nvrtcProgram program = nullptr;
-			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
-			auto cleanup = core::makeRAIIExiter([&]() -> void
-			{
-				if (result!=NVRTC_SUCCESS && program)
-					m_nvrtc.pnvrtcDestroyProgram(&program); // TODO: do we need to destroy the program if we successfully get PTX?
-			});
-
-			result = createProgram(&program,std::move(source),filename,headerCount,headerContents,includeNames);
-			return compileDirectlyToPTX_impl(result,program,nvrtcOptions,log);
-		}
-		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
-			const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-			std::string* log=nullptr
-		)
-		{
-			return compileDirectlyToPTX(std::string(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
-		}
-		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
-			system::IFile* file, core::SRange<const char* const> nvrtcOptions,
-			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-			std::string* log=nullptr
-		)
-		{
-			nvrtcProgram program = nullptr;
-			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
-			auto cleanup = core::makeRAIIExiter([&]() -> void
-			{
-				if (result!=NVRTC_SUCCESS && program)
-					m_nvrtc.pnvrtcDestroyProgram(&program); // TODO: do we need to destroy the program if we successfully get PTX?
-			});
-
-			result = createProgram(&program,file,headerCount,headerContents,includeNames);
-			return compileDirectlyToPTX_impl(result,program,nvrtcOptions,log);
-		}
-
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 
 	protected:
+		~CCUDAHandler() override;
 
-		~CCUDAHandler() = default;
-		
-		//
-		inline ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
-		{
-			if (result!=NVRTC_SUCCESS)
-				return {nullptr,result};
+	private:
+		friend struct cuda_native::SAccess;
 
-			result = compileProgram(program,nvrtcOptions);
-			if (log)
-				getProgramLog(program,*log);
-			if (result!=NVRTC_SUCCESS)
-				return {nullptr,result};
-			
-			return getPTX(program);
-		}
-
-		// function tables
-		CUDA m_cuda;
-		NVRTC m_nvrtc;
-
-		//
+		std::unique_ptr<SNativeState> m_native;
 		core::vector<SCUDADeviceInfo> m_availableDevices;
 		core::vector<core::smart_refctd_ptr<system::IFile>> m_headers;
 		core::vector<const char*> m_headerContents;
@@ -295,16 +69,6 @@ class CCUDAHandler : public core::IReferenceCounted
 		int m_version;
 };
 
-#define ASSERT_CUDA_SUCCESS(expr, handler) \
-    do { \
-        const auto cudaResult = (expr); \
-        if (!((handler)->defaultHandleResult(cudaResult))) { \
-            assert(false); \
-        } \
-    } while(0)
-
 }
-
-#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

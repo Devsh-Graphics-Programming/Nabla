@@ -1,14 +1,11 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#include "nbl/ext/CUDAInterop/CCUDADevice.h"
-#include "nbl/ext/CUDAInterop/CCUDAHandler.h"
+#include "CUDAInteropNativeState.hpp"
 
 #ifdef _WIN32
 #include <winternl.h>
 #endif
-
-#include "nbl/ext/CUDAInterop/CCUDAImportedMemory.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
@@ -18,28 +15,27 @@ CCUDADevice::CCUDADevice(
 	core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, 
 	IPhysicalDevice* const vulkanDevice, 
 	const E_VIRTUAL_ARCHITECTURE virtualArchitecture,
-	CUdevice device,
+	std::unique_ptr<SNativeState>&& nativeState,
 	core::smart_refctd_ptr<CCUDAHandler>&& handler) : 
 	m_logger(vulkanDevice->getDebugCallback()->getLogger()),
   m_defaultCompileOptions(), 
   m_vulkanConnection(std::move(vulkanConnection)), 
   m_physicalDevice(vulkanDevice), 
   m_virtualArchitecture(virtualArchitecture),
-	m_handle(device),
 	m_handler(std::move(handler)),
-	m_allocationGranularity{}
+	m_native(std::move(nativeState))
 {
 	m_defaultCompileOptions.push_back("--std=c++14");
 	m_defaultCompileOptions.push_back(virtualArchCompileOption[m_virtualArchitecture]);
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
 
-  const auto& cu = m_handler->getCUDAFunctionTable();
+  const auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
 	
-	ASSERT_CUDA_SUCCESS(cu.pcuCtxCreate_v4(&m_context, nullptr, 0, m_handle), m_handler);
-	ASSERT_CUDA_SUCCESS(cu.pcuCtxSetCurrent(m_context), m_handler);
+	ASSERT_CUDA_SUCCESS(cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle), m_handler);
+	ASSERT_CUDA_SUCCESS(cu.pcuCtxSetCurrent(m_native->context), m_handler);
 
-	for (uint32_t locationType = 0; locationType < m_allocationGranularity.size(); ++locationType)
+	for (uint32_t locationType = 0; locationType < m_native->allocationGranularity.size(); ++locationType)
 	{
 	
     #ifdef _WIN32
@@ -50,24 +46,47 @@ CCUDADevice::CCUDADevice(
 
 	  const auto prop = CUmemAllocationProp{
       .type = CU_MEM_ALLOCATION_TYPE_PINNED,
-      .requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
-      .location = { .type = static_cast<CUmemLocationType>(locationType), .id = m_handle },
+      .requestedHandleTypes = cuda_native::getAllocationHandleType(),
+      .location = { .type = static_cast<CUmemLocationType>(locationType), .id = m_native->handle },
   #ifdef _WIN32
       .win32HandleMetaData = &metadata,
   #endif
     };
-		ASSERT_CUDA_SUCCESS(cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM), m_handler);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemGetAllocationGranularity(&m_native->allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM), m_handler);
 	}
 }
 
-size_t CCUDADevice::roundToGranularity(CUmemLocationType location, size_t size) const
+size_t CCUDADevice::roundToGranularity(ECUDAMemoryLocation location, size_t size) const
 {
-	return ((size - 1) / m_allocationGranularity[location] + 1) * m_allocationGranularity[location];
+	return cuda_native::roundToGranularity(*this,cuda_native::toNative(location),size);
 }
 
-CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory) const
+namespace cuda_native
 {
-	const auto& cu = m_handler->getCUDAFunctionTable();
+
+CUdevice getInternalObject(const CCUDADevice& device)
+{
+	return SAccess::native(device).handle;
+}
+
+CUcontext getContext(const CCUDADevice& device)
+{
+	return SAccess::native(device).context;
+}
+
+size_t roundToGranularity(const CCUDADevice& device, CUmemLocationType location, size_t size)
+{
+	const auto& granularity = SAccess::native(device).allocationGranularity[location];
+	return ((size - 1) / granularity + 1) * granularity;
+}
+
+}
+
+static CUresult reserveAddressAndMapMemory(const CCUDADevice& device, CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory)
+{
+	const auto handler = device.getHandler();
+	const auto& native = cuda_native::SAccess::native(device);
+	const auto& cu = cuda_native::getCUDAFunctionTable(*handler);
 	
 	CUdeviceptr ptr = 0;
 	if (const auto err = cu.pcuMemAddressReserve(&ptr, size, alignment, 0, 0); CUDA_SUCCESS != err)
@@ -75,19 +94,19 @@ CUresult CCUDADevice::reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 
 	if (const auto err = cu.pcuMemMap(ptr, size, 0, memory, 0); CUDA_SUCCESS != err)
 	{
-		ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(ptr, size), m_handler);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(ptr, size), handler);
 		return err;
 	}
 	
 	CUmemAccessDesc accessDesc = {
-		.location = { .type = location, .id = m_handle },
+		.location = { .type = location, .id = native.handle },
 		.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
 	};
 
 	if (auto err = cu.pcuMemSetAccess(ptr, size, &accessDesc, 1); CUDA_SUCCESS != err)
 	{
-		ASSERT_CUDA_SUCCESS(cu.pcuMemUnmap(ptr, size), m_handler);
-		ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(ptr, size), m_handler);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemUnmap(ptr, size), handler);
+		ASSERT_CUDA_SUCCESS(cu.pcuMemAddressFree(ptr, size), handler);
 		return err;
 	}
 
@@ -100,7 +119,8 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 {
 	CCUDAExportableMemory::SCachedCreationParams params = { inParams };
 
-	auto& cu = m_handler->getCUDAFunctionTable();
+	auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
+	const auto nativeLocation = cuda_native::toNative(params.location);
 	
 #ifdef _WIN32
 	OBJECT_ATTRIBUTES metadata = {
@@ -110,14 +130,15 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 
 	 const auto prop = CUmemAllocationProp{
 		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
-		.location = { .type = params.location, .id = m_handle },
+		.requestedHandleTypes = cuda_native::getAllocationHandleType(),
+		.location = { .type = nativeLocation, .id = m_native->handle },
 #ifdef _WIN32
 		.win32HandleMetaData = &metadata,
 #endif
 	};
 
 	params.granularSize = roundToGranularity(params.location, params.size);
+	auto nativeState = std::make_unique<CCUDAExportableMemory::SNativeState>();
 
 	CUmemGenericAllocationHandle mem;
 	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
@@ -133,7 +154,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 		return nullptr;
 	}
 
-	if (const auto err = reserveAddressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
+	if (const auto err = reserveAddressAndMapMemory(*this,&nativeState->ptr, params.granularSize, params.alignment, nativeLocation, mem); CUDA_SUCCESS != err)
 	{
 		m_logger.log("Fail to reserve address and map memory!", system::ILogger::ELL_ERROR);
 
@@ -152,12 +173,12 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 		return nullptr;
 	}
 	
-	return core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params));
+	return core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params), std::move(nativeState));
 }
 
 core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
 {
-	const auto& cu = m_handler->getCUDAFunctionTable();
+	const auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
 	const auto handleType = mem->getCreationParams().externalHandleType;
 
 	if (!handleType) return nullptr;
@@ -180,12 +201,12 @@ core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(co
 		m_logger.log("Fail to import external memory into CUDA!", system::ILogger::ELL_ERROR);
 		return nullptr;
 	}
-	return core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), cuExtMem);
+	return core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), std::make_unique<CCUDAImportedMemory::SNativeState>(cuExtMem));
 }
 
 core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sema)
 {
-	auto& cu = m_handler->getCUDAFunctionTable();
+	auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
 	auto handleType = sema->getCreationParams().externalHandleTypes.value;
 
 	if (!handleType)
@@ -210,12 +231,12 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 		return nullptr;
 	}
 	
-	return core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), cusema);
+	return core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), std::make_unique<CCUDAImportedSemaphore::SNativeState>(cusema));
 }
 
 CCUDADevice::~CCUDADevice()
 {
-	ASSERT_CUDA_SUCCESS(m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context), m_handler);
+	ASSERT_CUDA_SUCCESS(cuda_native::getCUDAFunctionTable(*m_handler).pcuCtxDestroy_v2(m_native->context), m_handler);
 }
 
 }

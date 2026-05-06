@@ -4,47 +4,36 @@
 #ifndef _NBL_VIDEO_C_CUDA_IMPORTED_SEMAPHORE_H_
 #define _NBL_VIDEO_C_CUDA_IMPORTED_SEMAPHORE_H_
 
-#ifdef _NBL_COMPILE_WITH_CUDA_
-
 #include "nbl/video/declarations.h"
 
-#include "cuda.h"
-#include "nvrtc.h"
-#if CUDA_VERSION < 9000
-  #error "Need CUDA 9.0 SDK or higher."
-#endif
-
-// useful includes in the future
-//#include "cudaEGL.h"
-//#include "cudaVDPAU.h"
+#include <memory>
+#include <utility>
 
 namespace nbl::video
 {
 
 class CCUDADevice;
 
+namespace cuda_native
+{
+struct SAccess;
+}
+
 class CCUDAImportedSemaphore : public core::IReferenceCounted
 {
-    public:
+	public:
+		struct SNativeState;
+		CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<ISemaphore> src, std::unique_ptr<SNativeState>&& nativeState);
+		~CCUDAImportedSemaphore() override;
 
-      CUexternalSemaphore getInternalObject() const { return m_handle; }
-      CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, 
-        core::smart_refctd_ptr<ISemaphore> src, 
-        CUexternalSemaphore semaphore)
-          : m_device(std::move(device))
-          , m_src(std::move(src))
-          , m_handle(semaphore)
-      {}
-      ~CCUDAImportedSemaphore() override;
+	private:
+		friend struct cuda_native::SAccess;
 
-    private:
-      core::smart_refctd_ptr<CCUDADevice> m_device;
-      core::smart_refctd_ptr<ISemaphore> m_src;
-      CUexternalSemaphore m_handle;
+		core::smart_refctd_ptr<CCUDADevice> m_device;
+		core::smart_refctd_ptr<ISemaphore> m_src;
+		std::unique_ptr<SNativeState> m_native;
 };
 
 }
-
-#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/ext/CUDAInterop/CCUDAHandler.h"
+#include "CUDAInteropNativeState.hpp"
 #include "nbl/system/CFileView.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
@@ -13,13 +13,11 @@ namespace nbl::video
 {
 	
 CCUDAHandler::CCUDAHandler(
-	CUDA&& _cuda, 
-	NVRTC&& _nvrtc, 
+	std::unique_ptr<SNativeState>&& nativeState,
 	core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, 
 	core::smart_refctd_ptr<system::ILogger>&& _logger,
 	int _version)
-	: m_cuda(std::move(_cuda))
-	, m_nvrtc(std::move(_nvrtc))
+	: m_native(std::move(nativeState))
 	, m_headers(std::move(_headers))
 	, m_logger(std::move(_logger))
 	, m_version(_version)
@@ -32,29 +30,38 @@ CCUDAHandler::CCUDAHandler(
 	}
 
 	int deviceCount = 0;
-	if (m_cuda.pcuDeviceGetCount(&deviceCount) != CUDA_SUCCESS || deviceCount <= 0)
+	if (m_native->cuda.pcuDeviceGetCount(&deviceCount) != CUDA_SUCCESS || deviceCount <= 0)
 		return;
 
 	for (int device_i = 0; device_i < deviceCount; device_i++)
 	{
 		CUdevice handle = -1;
-		if (m_cuda.pcuDeviceGet(&handle, device_i) != CUDA_SUCCESS || handle < 0)
+		if (m_native->cuda.pcuDeviceGet(&handle, device_i) != CUDA_SUCCESS || handle < 0)
 			continue;
 
 		CUuuid uuid = {};
-		if (m_cuda.pcuDeviceGetUuid_v2(&uuid, handle) != CUDA_SUCCESS)
+		if (m_native->cuda.pcuDeviceGetUuid_v2(&uuid, handle) != CUDA_SUCCESS)
 			continue;
 
-		m_availableDevices.emplace_back(handle, uuid);
+		auto& nativeDevice = m_native->availableDevices.emplace_back();
+		nativeDevice.handle = handle;
+		nativeDevice.uuid = uuid;
+		auto& cleanDevice = m_availableDevices.emplace_back();
+		memcpy(cleanDevice.uuid.data(),&uuid,cleanDevice.uuid.size());
 
-		int* attributes = m_availableDevices.back().attributes;
+		int* attributes = nativeDevice.attributes;
 		for (int i = 0; i < CU_DEVICE_ATTRIBUTE_MAX; i++)
-			m_cuda.pcuDeviceGetAttribute(attributes + i, static_cast<CUdevice_attribute>(i), handle);
+			m_native->cuda.pcuDeviceGetAttribute(attributes + i, static_cast<CUdevice_attribute>(i), handle);
 
 	}
 }
 
-bool CCUDAHandler::defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
+CCUDAHandler::~CCUDAHandler() = default;
+
+namespace cuda_native
+{
+
+bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
 {
 	switch (result)
 	{
@@ -420,7 +427,12 @@ bool CCUDAHandler::defaultHandleResult(CUresult result, const system::logger_opt
 	return false;
 }
 
-bool CCUDAHandler::defaultHandleResult(nvrtcResult result)
+bool defaultHandleResult(const CCUDAHandler& handler, CUresult result)
+{
+	return defaultHandleResult(result,SAccess::logger(handler));
+}
+
+bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
 {
 	switch (result)
 	{
@@ -428,19 +440,21 @@ bool CCUDAHandler::defaultHandleResult(nvrtcResult result)
 			return true;
 			break;
 		default:
-			if (m_nvrtc.pnvrtcGetErrorString)
-				m_logger.log("%s\n",system::ILogger::ELL_ERROR,m_nvrtc.pnvrtcGetErrorString(result));
+			if (SAccess::native(handler).nvrtc.pnvrtcGetErrorString)
+				SAccess::logger(handler).log("%s\n",system::ILogger::ELL_ERROR,SAccess::native(handler).nvrtc.pnvrtcGetErrorString(result));
 			else
-				m_logger.log(R"===(CudaHandler: `pnvrtcGetErrorString` is nullptr, the nvrtc library probably not found on the system.\n)===",system::ILogger::ELL_ERROR);
+				SAccess::logger(handler).log(R"===(CudaHandler: `pnvrtcGetErrorString` is nullptr, the nvrtc library probably not found on the system.\n)===",system::ILogger::ELL_ERROR);
 			break;
 	}
 	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 }
 
+}
+
 core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger)
 {
-	CUDA cuda = CUDA(
+	cuda_native::CUDA cuda = cuda_native::CUDA(
 		#if defined(_NBL_WINDOWS_API_)
 			"nvcuda"
 		#elif defined(_NBL_POSIX_API_)
@@ -450,7 +464,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		#endif
 	);
 	
-	NVRTC nvrtc = {};
+	cuda_native::NVRTC nvrtc = {};
 	#if defined(_NBL_WINDOWS_API_)
 	// Perpetual TODO: any new CUDA releases we need to account for?
 	// Version List: https://developer.nvidia.com/cuda-toolkit-archive
@@ -468,7 +482,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		{
 			std::string path(*verpath);
 			path += *suffix;
-			nvrtc = NVRTC(path.c_str());
+			nvrtc = cuda_native::NVRTC(path.c_str());
 			if (nvrtc.pnvrtcVersion)
 				break;
 		}
@@ -476,7 +490,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 			break;
 	}
 	#elif defined(_NBL_POSIX_API_)
-	nvrtc = NVRTC("nvrtc");
+	nvrtc = cuda_native::NVRTC("nvrtc");
 	//nvrtc_builtins = NVRTC("nvrtc-builtins");
 	#else
 	#error "Unsuported Platform"
@@ -526,10 +540,28 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		));
 	}
 
-	return core::make_smart_refctd_ptr<CCUDAHandler>(std::move(cuda),std::move(nvrtc), std::move(headers), std::move(_logger), cudaVersion);
+	return core::make_smart_refctd_ptr<CCUDAHandler>(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc)), std::move(headers), std::move(_logger), cudaVersion);
 }
 
-nvrtcResult CCUDAHandler::createProgram(nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+namespace cuda_native
+{
+
+const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler)
+{
+	return SAccess::native(handler).cuda;
+}
+
+const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler)
+{
+	return SAccess::native(handler).nvrtc;
+}
+
+const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler)
+{
+	return SAccess::native(handler).availableDevices;
+}
+
+nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 #if defined(_NBL_WINDOWS_API_)
 	source.insert(0ull,"#ifndef _WIN64\n#define _WIN64\n#endif\n");
@@ -538,26 +570,43 @@ nvrtcResult CCUDAHandler::createProgram(nvrtcProgram* prog, std::string&& source
 #else
 #error "Unsuported Platform"
 #endif
-	return m_nvrtc.pnvrtcCreateProgram(prog,source.c_str(),name,headerCount,headerContents,includeNames);
+	return SAccess::native(handler).nvrtc.pnvrtcCreateProgram(prog,source.c_str(),name,headerCount,headerContents,includeNames);
 }
 
-nvrtcResult CCUDAHandler::getProgramLog(nvrtcProgram prog, std::string& log)
+nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, system::IFile* file, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+{
+	const auto filesize = file->getSize();
+	std::string source(filesize+1u,'0');
+
+	system::IFile::success_t bytesRead;
+	file->read(bytesRead,source.data(),0u,file->getSize());
+	source.resize(bytesRead.getBytesProcessed());
+
+	return createProgram(handler,prog,std::move(source),file->getFileName().string().c_str(),headerCount,headerContents,includeNames);
+}
+
+nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options)
+{
+	return SAccess::native(handler).nvrtc.pnvrtcCompileProgram(prog,options.size(),options.begin());
+}
+
+nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log)
 {
 	size_t _size = 0ull;
-	nvrtcResult sizeRes = m_nvrtc.pnvrtcGetProgramLogSize(prog, &_size);
+	nvrtcResult sizeRes = SAccess::native(handler).nvrtc.pnvrtcGetProgramLogSize(prog, &_size);
 	if (sizeRes != NVRTC_SUCCESS)
 		return sizeRes;
 	if (_size == 0ull)
 		return NVRTC_ERROR_INVALID_INPUT;
 
 	log.resize(_size);
-	return m_nvrtc.pnvrtcGetProgramLog(prog,log.data());
+	return SAccess::native(handler).nvrtc.pnvrtcGetProgramLog(prog,log.data());
 }
 
-CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
+ptx_and_nvrtcResult_t getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
 {
 	size_t _size = 0ull;
-	nvrtcResult sizeRes = m_nvrtc.pnvrtcGetPTXSize(prog,&_size);
+	nvrtcResult sizeRes = SAccess::native(handler).nvrtc.pnvrtcGetPTXSize(prog,&_size);
 	if (sizeRes!=NVRTC_SUCCESS)
 		return {nullptr,sizeRes};
 	if (_size==0ull)
@@ -567,7 +616,57 @@ CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 	ptxParams.size = _size;
 	auto ptx = asset::ICPUBuffer::create(std::move(ptxParams));
 	auto ptxPtr = static_cast<char*>(ptx->getPointer());
-	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
+	return {std::move(ptx),SAccess::native(handler).nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
+}
+
+static ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
+{
+	if (result!=NVRTC_SUCCESS)
+		return {nullptr,result};
+
+	result = compileProgram(handler,program,nvrtcOptions);
+	if (log)
+		getProgramLog(handler,program,*log);
+	if (result!=NVRTC_SUCCESS)
+		return {nullptr,result};
+
+	return getPTX(handler,program);
+}
+
+ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount, const char* const* headerContents, const char* const* includeNames,
+	std::string* log)
+{
+	nvrtcProgram program = nullptr;
+	nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+	auto cleanup = core::makeRAIIExiter([&]() -> void
+	{
+		if (result!=NVRTC_SUCCESS && program)
+			SAccess::native(handler).nvrtc.pnvrtcDestroyProgram(&program);
+	});
+
+	result = createProgram(handler,&program,std::move(source),filename,headerCount,headerContents,includeNames);
+	return compileDirectlyToPTX_impl(handler,result,program,nvrtcOptions,log);
+}
+
+ptx_and_nvrtcResult_t compileDirectlyToPTX(
+	CCUDAHandler& handler, system::IFile* file, core::SRange<const char* const> nvrtcOptions,
+	const int headerCount, const char* const* headerContents, const char* const* includeNames,
+	std::string* log)
+{
+	nvrtcProgram program = nullptr;
+	nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+	auto cleanup = core::makeRAIIExiter([&]() -> void
+	{
+		if (result!=NVRTC_SUCCESS && program)
+			SAccess::native(handler).nvrtc.pnvrtcDestroyProgram(&program);
+	});
+
+	result = createProgram(handler,&program,file,headerCount,headerContents,includeNames);
+	return compileDirectlyToPTX_impl(handler,result,program,nvrtcOptions,log);
+}
+
 }
 
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)
@@ -578,7 +677,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 	if (std::find(devices.begin(),devices.end(),physicalDevice)==devices.end())
 		return nullptr;
 
-	for (const auto& device : m_availableDevices)
+	for (const auto& device : m_native->availableDevices)
 	{
 		if (!memcmp(&device.uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
@@ -662,7 +761,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 			if (arch==CCUDADevice::EVA_COUNT)
 				continue;
 
-			return core::make_smart_refctd_ptr<CCUDADevice>(std::move(vulkanConnection), physicalDevice, arch, device.handle, core::smart_refctd_ptr<CCUDAHandler>(this));
+			return core::make_smart_refctd_ptr<CCUDADevice>(std::move(vulkanConnection), physicalDevice, arch, std::make_unique<CCUDADevice::SNativeState>(device.handle), core::smart_refctd_ptr<CCUDAHandler>(this));
 		}
 	}
 	return nullptr;

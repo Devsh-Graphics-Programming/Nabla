@@ -1,4 +1,4 @@
-#include "nbl/ext/CUDAInterop/CUDAInterop.h"
+#include "nbl/ext/CUDAInterop/CUDAInteropNative.h"
 #include "nbl/system/IApplicationFramework.h"
 
 #include <algorithm>
@@ -7,8 +7,8 @@
 #include <type_traits>
 #include <utility>
 
-#ifndef _NBL_COMPILE_WITH_CUDA_
-#error "CUDA interop consumers must opt in through Nabla::ext::CUDAInterop."
+#ifndef CUDA_VERSION
+#error "Nabla::ext::CUDAInteropNative must expose CUDA SDK headers."
 #endif
 
 namespace
@@ -25,7 +25,7 @@ using namespace nbl::video;
 	auto cudaMemory = cudaDevice.createExportableMemory({
 		.size = 4096,
 		.alignment = 4096,
-		.location = CU_MEM_LOCATION_TYPE_DEVICE,
+		.location = ECUDAMemoryLocation::DEVICE,
 	});
 	if (!cudaMemory)
 		return false;
@@ -36,15 +36,16 @@ using namespace nbl::video;
 
 	CUdeviceptr mappedVulkanMemory = 0;
 	if (importedFromVulkan)
-		importedFromVulkan->getMappedBuffer(&mappedVulkanMemory);
+		cuda_native::getMappedBuffer(*importedFromVulkan,&mappedVulkanMemory);
 
-	const CUexternalSemaphore cudaSemaphore = importedSemaphore ? importedSemaphore->getInternalObject():nullptr;
-	return exportedToVulkan.get() && mappedVulkanMemory && cudaSemaphore;
+	const CUdeviceptr cudaDevicePtr = cuda_native::getDeviceptr(*cudaMemory);
+	const CUexternalSemaphore cudaSemaphore = importedSemaphore ? cuda_native::getInternalObject(*importedSemaphore):nullptr;
+	return exportedToVulkan.get() && mappedVulkanMemory && cudaDevicePtr && cudaSemaphore;
 }
 
 bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 {
-	auto& cuda = handler.getCUDAFunctionTable();
+	auto& cuda = cuda_native::getCUDAFunctionTable(handler);
 
 	CUcontext context = nullptr;
 	if (cuda.pcuDevicePrimaryCtxRetain(&context, device)!=CUDA_SUCCESS)
@@ -83,7 +84,7 @@ bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 }
 }
 
-class CUDAInteropOptInSmoke final : public nbl::system::IApplicationFramework
+class CUDAInteropNativeOptInSmoke final : public nbl::system::IApplicationFramework
 {
 	using base_t = nbl::system::IApplicationFramework;
 
@@ -95,13 +96,13 @@ public:
 		if (!isAPILoaded())
 			return false;
 
-		static_assert(std::is_same_v<decltype(std::declval<const nbl::video::CCUDADevice&>().getInternalObject()), CUdevice>);
+		static_assert(std::is_same_v<decltype(nbl::video::cuda_native::getInternalObject(std::declval<const nbl::video::CCUDADevice&>())), CUdevice>);
 
 		auto handler = nbl::video::CCUDAHandler::create(nullptr, nullptr);
 		if (!handler)
 			return true;
 
-		const auto& devices = handler->getAvailableDevices();
+		const auto& devices = nbl::video::cuda_native::getAvailableDevices(*handler);
 		if (devices.empty())
 			return true;
 
@@ -112,4 +113,4 @@ public:
 	bool keepRunning() override { return false; }
 };
 
-NBL_MAIN_FUNC(CUDAInteropOptInSmoke)
+NBL_MAIN_FUNC(CUDAInteropNativeOptInSmoke)
