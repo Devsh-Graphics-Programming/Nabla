@@ -40,45 +40,83 @@ struct DivisionPolicy
 {
     // No division performed at any step of the FFT
     NBL_CONSTEXPR_STATIC_INLINE uint16_t NoDivision = 0;
+    // Divides the array by sqrt(FFTSize) right at the start of the algorithm
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DivBySqrtAtStart = NoDivision + 1;
     // Divides the array by sqrt(FFTSize) at the time of the last workgroup barrier before subgroupFFT (forward) or at the time of the first workgroup barrier
     // after subgroupFFT (inverse).
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t DivBySqrtHalfway = NoDivision + 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DivBySqrtHalfway = DivBySqrtAtStart + 1;
     // Divides the array by sqrt(FFTSize) right at the end of the algorithm
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivBySqrtAtEnd = DivBySqrtHalfway + 1;
-    // Divides the array by sqrt(FFTSize) by considering `sqrt(FFTSize) = a * b`, dividing by `a` halfway (as described in `DivBySqrtHalfway`) and then dividing 
-    // by `b` at the end. `a` and `b` are chosen so that their weight is proportional to the number of butterflies before the division.
+    // Total division by sqrt(FFTSize) in three steps: Once right at the start of the algorithm, once before the first workgroupBarrier, and once after the last workgroupBarrier. 
+    // Only valid if ElementsPerInvocation > 2.
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivBySqrtByParts = DivBySqrtAtEnd + 1;
     // The three following all perform divisions in the same manner as their counterparts above, but they divide the array by `FFTSize`.
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t DivByFullSizeHalfway = DivBySqrtByParts + 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DivByFullSizeAtStart = DivBySqrtByParts + 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t DivByFullSizeHalfway = DivByFullSizeAtStart + 1;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivByFullSizeAtEnd = DivByFullSizeHalfway + 1;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivByFullSizeByParts = DivByFullSizeAtEnd + 1;
 };
 
-// TODO: Separate parallelFFTs from Channels as two different concepts (dictates FFTSize)
-template<uint16_t _ElementsPerInvocation, uint16_t _RealChannels, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledChannelsPerRound, bool _Interleaved, uint16_t _DivisionPolicy, bool _ShareTwiddles, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
+namespace impl
+{
+template<uint16_t ElementsPerInvocation, uint16_t WorkgroupSizeLog2>
+struct DivisionConstants
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t TODO = 0;
+};
+} //namespace impl
+
+template<uint16_t _ElementsPerInvocationPerChannel, uint16_t _Channels, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledVirtualChannelsPerRound, bool _Interleaved, bool _ShareTwiddles, uint16_t _DivisionPolicy, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
 struct ConstevalParameters
 {
     using scalar_t = _Scalar;
+    using DivisionConstants = impl::DivisionConstants<_ElementsPerInvocationPerChannel, _WorkgroupSizeLog2>;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = _ElementsPerInvocation;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t Channels = ElementsPerInvocation >> 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t RealChannels = _RealChannels;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerRealChannel = ElementsPerInvocation / RealChannels;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocationPerChannel = _ElementsPerInvocationPerChannel;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Channels = _Channels;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t InnerVirtualChannels = Channels * (ElementsPerInvocationPerChannel >> 1);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = _SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(1) << SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1) << WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t NumSubgroupsLog2 = WorkgroupSizeLog2 - SubgroupSizeLog2;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTTotalSize = ElementsPerRealChannel * (uint32_t(1) << WorkgroupSizeLog2);
-
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffledChannelsPerRound = _ShuffledChannelsPerRound;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffleRounds = mpl::ceil_div_v<Channels, ShuffledChannelsPerRound>;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = ShuffledChannelsPerRound * ((sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << (WorkgroupSizeLog2 + (_Interleaved ? 1 : 0)));
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffledVirtualChannelsPerRound = _ShuffledVirtualChannelsPerRound;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffleRounds = mpl::ceil_div_v<InnerVirtualChannels, ShuffledVirtualChannelsPerRound>;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = ShuffledVirtualChannelsPerRound * ((sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << (WorkgroupSizeLog2 + (_Interleaved ? 1 : 0)));
 
     NBL_CONSTEXPR_STATIC_INLINE bool ShareTwiddles = _ShareTwiddles;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivisionPolicy = _DivisionPolicy;
+};
+
+// Takes an elements accessor (lo/hi) with signature `acc.set/get(channel, pair)` and flattens it to 1D
+// Workgroup-sized FFT works on many channels of a single pair each. Since these are constant folded it's the easiest solution
+template<uint16_t Channels, typename Scalar, typename InvocationElementsAccessor>
+struct WorkgroupRadix2AccessorAdaptor
+{
+    static WorkgroupRadix2AccessorAdaptor create(NBL_REF_ARG(InvocationElementsAccessor) _accessor)
+    {
+        WorkgroupRadix2AccessorAdaptor retVal;
+        retVal.accessor = _accessor;
+        return retVal;
+    }
+
+    void get(uint32_t virtualChannel, NBL_REF_ARG(complex_t<Scalar>) value)
+    {
+        const uint32_t channel = virtualChannel / Channels;
+        const uint32_t pair = virtualChannel % Channels;
+        accessor.get(channel, pair, value);
+    }
+
+    void set(uint32_t virtualChannel, NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+    {
+        const uint32_t channel = virtualChannel / Channels;
+        const uint32_t pair = virtualChannel % Channels;
+        accessor.set(channel, pair, value);
+    }
+
+    InvocationElementsAccessor accessor;
 };
 } //namespace fft
 
@@ -144,9 +182,9 @@ struct FFTIndexingUtilsHelper
             const uint32_t radix2mask = (1 << Radix2FFTSizeLog2) - 1;
             return ExtraPrimeFactor * hlsl::bitReverseAs<uint32_t>(laneIdx, Radix2FFTSizeLog2) + (laneIdx >> Radix2FFTSizeLog2);
         }
-    else
-    {
-        return hlsl::bitReverseAs<uint32_t>(laneIdx, Radix2FFTSizeLog2);
+        else
+        {
+            return hlsl::bitReverseAs<uint32_t>(laneIdx, Radix2FFTSizeLog2);
         }
     }
 
@@ -159,7 +197,7 @@ struct FFTIndexingUtilsHelper
         }
         else // ExtraPrimeFactor == 5
         {
-        return (x * 52429u) >> 18; // valid for x <= 81919
+            return (x * 52429u) >> 18; // valid for x <= 81919
         }
     }
 
@@ -171,9 +209,9 @@ struct FFTIndexingUtilsHelper
             const uint32_t divByPrimeFactor = fastDiv(freqIdx);
             return hlsl::bitReverseAs<uint32_t>(divByPrimeFactor, Radix2FFTSizeLog2) + ((freqIdx - ExtraPrimeFactor * divByPrimeFactor) << Radix2FFTSizeLog2);
         }
-    else
-    {
-        return hlsl::bitReverseAs<uint32_t>(freqIdx, Radix2FFTSizeLog2);
+        else
+        {
+            return hlsl::bitReverseAs<uint32_t>(freqIdx, Radix2FFTSizeLog2);
         }
     }
 
@@ -315,47 +353,48 @@ struct exchangeValues
 
 //-------------- ------------------------------------ END UTILS --------------------------------------------------------
 
-template<bool Inverse, typename consteval_params_t, class device_capabilities = void>
-struct FFT;
-
-// Non-interleaved (shuffle after every butterfly) forward FFT
-template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledChannelsPerRound, uint16_t DivisionPolicy, bool ShareTwiddles, typename Scalar, class device_capabilities>
-struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>, device_capabilities>
+namespace impl
 {
-    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>;
+template<bool Inverse, typename inner_consteval_params_t, class device_capabilities = void>
+struct InnerFFT;
+
+// Non-interleaved (shuffle after every butterfly) inner (post thread-local butterflies) forward FFT
+template<uint16_t ElementsPerInvocationPerChannel, uint16_t Channels, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledVirtualChannelsPerRound, bool ShareTwiddles, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
+struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, DivisionPolicy, Scalar>, device_capabilities>
+{
+    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, DivisionPolicy, Scalar>;
     using scalar_t = typename consteval_parameters_t::scalar_t;
 
     template<typename InvocationElementsAccessor, typename SharedMemoryAdaptor>
     static void FFT_loop(uint32_t stride, uint32_t threadID, NBL_REF_ARG(uint32_t) ownedSmemIndex, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const uint32_t ShuffleRounds = consteval_parameters_t::ShuffleRounds;
-        const uint16_t Channels = consteval_parameters_t::Channels;
+        const uint16_t VirtualChannels = consteval_parameters_t::InnerVirtualChannels;
         // Get twiddle with k = threadID mod stride, halfN = stride
         const complex_t<scalar_t> twiddle = hlsl::fft::twiddle<false, scalar_t>(threadID & (stride - 1), stride);
 
         bool pingPong = false;
-        // Unrolling this loop increases register pressure. Why? Who knows. 
-        // It's not like it can't reuse the registers, and calls to exchangeValues are inlined anyway.
-        //[unroll]
-        for (uint32_t round = 0; round < ShuffleRounds; round++)
-        {
-            if (round)
-                pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
-            const uint32_t lowChannel = round * ShuffledChannelsPerRound;
-            const uint32_t highChannel = min(Channels, lowChannel + ShuffledChannelsPerRound) - 1;
-            [unroll]
-            for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
+        // If register pressure high, can avoid unroll
+        [unroll]
+            for (uint32_t round = 0; round < ShuffleRounds; round++)
             {
-                complex_t<scalar_t> lo, hi;
-                loAccessor.get(channel, lo);
-                hiAccessor.get(channel, hi);
-                fft2::DIF<scalar_t>::radix2(twiddle, lo, hi);
-                loAccessor.set(channel, lo);
-                hiAccessor.set(channel, hi);
-            }
+                if (round)
+                    pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
+                const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
+                const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
+                [unroll]
+                    for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
+                    {
+                        complex_t<scalar_t> lo, hi;
+                        loAccessor.get(channel, lo);
+                        hiAccessor.get(channel, hi);
+                        fft2::DIF<scalar_t>::radix2(twiddle, lo, hi);
+                        loAccessor.set(channel, lo);
+                        hiAccessor.set(channel, hi);
+                    }
 
-            fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride >> 1, sharedmemAdaptor, pingPong);
-        }
+                fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride >> 1, sharedmemAdaptor, pingPong);
+            }
         // After the last exchangeValues, the memory we just read from is now owned by us, so update
         ownedSmemIndex = pingPong ? ownedSmemIndex : ownedSmemIndex ^ (stride >> 1);
     }
@@ -363,7 +402,7 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLo
     template<typename InvocationElementsAccessor, typename SharedMemoryAccessor>
     static void __call(NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        const uint16_t Channels = consteval_parameters_t::Channels;
+        const uint16_t VirtualChannels = consteval_parameters_t::InnerVirtualChannels;
         const uint16_t SubgroupSize = consteval_parameters_t::SubgroupSize;
         const uint16_t WorkgroupSize = consteval_parameters_t::WorkgroupSize;
 
@@ -374,63 +413,63 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLo
         if (WorkgroupSize > SubgroupSize)
         {
             // Set up the memory adaptor
-            using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, uint32_t, uint32_t, 1, ShuffledChannelsPerRound * WorkgroupSize>;
+            using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, uint32_t, uint32_t, 1, ShuffledVirtualChannelsPerRound* WorkgroupSize>;
             adaptor_t sharedmemAdaptor;
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             uint32_t ownedSmemIndex = threadID;
             // NOT unrolling this loop increases register pressure????
             [unroll]
-            for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
-            {
-                FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
-            }
+                for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
+                {
+                    FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                }
 
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
         }
         // Subgroup-sized FFT
-        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, Channels - 1, loAccessor, hiAccessor);
+        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
     }
 };
 
-// Non-interleaved (shuffle after every butterfly) inverse FFT
-template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledChannelsPerRound, uint16_t DivisionPolicy, bool ShareTwiddles, typename Scalar, class device_capabilities>
-struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>, device_capabilities>
+// Non-interleaved (shuffle after every butterfly) inner (post thread-local butterflies) inverse FFT
+template<uint16_t ElementsPerInvocationPerChannel, uint16_t Channels, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledVirtualChannelsPerRound, bool ShareTwiddles, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
+struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, DivisionPolicy, Scalar>, device_capabilities>
 {
-    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledChannelsPerRound, false, DivisionPolicy, ShareTwiddles, Scalar>;
+    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, DivisionPolicy, Scalar>;
     using scalar_t = typename consteval_parameters_t::scalar_t;
 
     template<typename InvocationElementsAccessor, typename SharedMemoryAdaptor>
     static void FFT_loop(uint32_t stride, uint32_t threadID, NBL_REF_ARG(uint32_t) ownedSmemIndex, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const uint32_t ShuffleRounds = consteval_parameters_t::ShuffleRounds;
-        const uint16_t Channels = consteval_parameters_t::Channels;
+        const uint16_t VirtualChannels = consteval_parameters_t::InnerVirtualChannels;
         // Get twiddle with k = threadID mod stride, halfN = stride
         const complex_t<scalar_t> twiddle = hlsl::fft::twiddle<true, scalar_t>(threadID & ((stride << 1) - 1), stride << 1);
 
         bool pingPong = false;
-        //[unroll]
-        for (uint32_t round = 0; round < ShuffleRounds; round++)
-        {
-            if (round)
-                pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
-            const uint32_t lowChannel = round * ShuffledChannelsPerRound;
-            const uint32_t highChannel = min(Channels, lowChannel + ShuffledChannelsPerRound) - 1;
-
-            fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride, sharedmemAdaptor, pingPong);
-            
-            [unroll]
-            for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
+        [unroll]
+            for (uint32_t round = 0; round < ShuffleRounds; round++)
             {
-                complex_t<scalar_t> lo, hi;
-                loAccessor.get(channel, lo);
-                hiAccessor.get(channel, hi);
-                fft2::DIT<scalar_t>::radix2(twiddle, lo, hi);
-                loAccessor.set(channel, lo);
-                hiAccessor.set(channel, hi);
+                if (round)
+                    pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
+                const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
+                const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
+
+                fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride, sharedmemAdaptor, pingPong);
+
+                [unroll]
+                    for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
+                    {
+                        complex_t<scalar_t> lo, hi;
+                        loAccessor.get(channel, lo);
+                        hiAccessor.get(channel, hi);
+                        fft2::DIT<scalar_t>::radix2(twiddle, lo, hi);
+                        loAccessor.set(channel, lo);
+                        hiAccessor.set(channel, hi);
+                    }
             }
-        }
         // After the last exchangeValues, the memory we just read from is now owned by us, so update
         ownedSmemIndex = pingPong ? ownedSmemIndex : ownedSmemIndex ^ (stride >> 1);
     }
@@ -438,12 +477,12 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog
     template<typename InvocationElementsAccessor, typename SharedMemoryAccessor>
     static void __call(NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        const uint16_t Channels = consteval_parameters_t::Channels;
+        const uint16_t VirtualChannels = consteval_parameters_t::InnerVirtualChannels;
         const uint16_t SubgroupSize = consteval_parameters_t::SubgroupSize;
         const uint16_t WorkgroupSize = consteval_parameters_t::WorkgroupSize;
 
         // Subgroup-sized FFT at the start
-        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, Channels - 1, loAccessor, hiAccessor);
+        subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
 
         // Get workgroup threadID
         const uint32_t threadID = uint32_t(workgroup::SubgroupContiguousIndex());
@@ -452,22 +491,25 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocation, SubgroupSizeLog
         if (WorkgroupSize > SubgroupSize)
         {
             // Set up the memory adaptor
-            using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, uint32_t, uint32_t, 1, ShuffledChannelsPerRound * WorkgroupSize>;
+            using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor, uint32_t, uint32_t, 1, ShuffledVirtualChannelsPerRound* WorkgroupSize>;
             adaptor_t sharedmemAdaptor;
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             uint32_t ownedSmemIndex = threadID;
             [unroll]
-            for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
-            {
-                FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
-            }
+                for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
+                {
+                    FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                }
 
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
         }
     }
 };
+
+} //namespace impl
+
 
 } //namespace workgroup2
 } //namespace hlsl
