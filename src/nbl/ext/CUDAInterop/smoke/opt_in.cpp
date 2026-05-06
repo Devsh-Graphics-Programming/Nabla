@@ -90,16 +90,12 @@ class CUDAInteropOptInSmoke final : public nbl::system::IApplicationFramework
 public:
 	using base_t::base_t;
 
-	bool onAppInitialized(nbl::core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	bool onAppInitialized(nbl::core::smart_refctd_ptr<nbl::system::ISystem>&&) override
 	{
-		static_cast<void>(system);
-
 		if (!isAPILoaded())
 			return false;
 
 		static_assert(std::is_same_v<decltype(std::declval<const nbl::video::CCUDADevice&>().getInternalObject()), CUdevice>);
-		CUdeviceptr devicePtr = 0;
-		static_cast<void>(devicePtr);
 
 		auto handler = nbl::video::CCUDAHandler::create(nullptr, nullptr);
 		if (!handler)

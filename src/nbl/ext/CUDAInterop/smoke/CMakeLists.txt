@@ -1,7 +1,5 @@
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-	cmake_minimum_required(VERSION 3.30)
-	project(NblExtCUDAInteropSmoke CXX)
-endif()
+cmake_minimum_required(VERSION 3.30)
+project(NblExtCUDAInteropSmoke CXX)
 
 if(NOT TARGET Nabla::Nabla)
 	find_package(Nabla REQUIRED CONFIG)
@@ -12,16 +10,6 @@ enable_testing()
 function(nbl_add_cuda_interop_smoke TARGET_NAME SOURCE_FILE)
 	add_executable(${TARGET_NAME} ${SOURCE_FILE})
 	target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
-	if(MSVC)
-		target_compile_options(${TARGET_NAME} PRIVATE
-			/Gm-
-			/bigobj
-			/Zc:wchar_t
-			/Zc:preprocessor
-			/Zc:inline
-			/Zc:forScope
-		)
-	endif()
 
 	add_test(NAME ${TARGET_NAME} COMMAND $<TARGET_FILE:${TARGET_NAME}>)
 endfunction()

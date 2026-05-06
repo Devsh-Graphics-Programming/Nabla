@@ -763,8 +763,11 @@ if(TARGET ngfx)
 	)
 endif()
 
-# on MSVC it won't compile without this option!
-target_compile_options(Nabla PUBLIC $<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/bigobj>)
+# on MSVC it won't compile without these options!
+target_compile_options(Nabla PUBLIC
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/bigobj>
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Zc:preprocessor>
+)
 
 if(NBL_PCH)
 	target_precompile_headers(Nabla
