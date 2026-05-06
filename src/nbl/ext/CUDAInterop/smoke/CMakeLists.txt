@@ -1,6 +1,9 @@
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 	cmake_minimum_required(VERSION 3.30)
 	project(NblExtCUDAInteropSmoke CXX)
+endif()
+
+if(NOT TARGET Nabla::Nabla)
 	find_package(Nabla REQUIRED CONFIG)
 endif()
 
@@ -19,19 +22,8 @@ function(nbl_add_cuda_interop_smoke TARGET_NAME SOURCE_FILE)
 			/Zc:forScope
 		)
 	endif()
-	if(COMMAND nbl_adjust_flags)
-		nbl_adjust_flags(TARGET ${TARGET_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
-	endif()
-
-	set(_NBL_CUDA_INTEROP_SMOKE_PATH_MODS "PATH=path_list_prepend:$<TARGET_FILE_DIR:Nabla::Nabla>")
-	if(CUDAToolkit_BIN_DIR)
-		list(APPEND _NBL_CUDA_INTEROP_SMOKE_PATH_MODS "PATH=path_list_prepend:${CUDAToolkit_BIN_DIR}")
-	endif()
 
 	add_test(NAME ${TARGET_NAME} COMMAND $<TARGET_FILE:${TARGET_NAME}>)
-	set_tests_properties(${TARGET_NAME} PROPERTIES
-		ENVIRONMENT_MODIFICATION "${_NBL_CUDA_INTEROP_SMOKE_PATH_MODS}"
-	)
 endfunction()
 
 nbl_add_cuda_interop_smoke(NblExtCUDAInteropPublicBoundarySmoke public_boundary.cpp)
