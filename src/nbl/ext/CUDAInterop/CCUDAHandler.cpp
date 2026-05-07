@@ -12,6 +12,21 @@
 
 namespace nbl::video
 {
+
+namespace
+{
+
+int cudaVersionMajor(int version)
+{
+	return version/1000;
+}
+
+int cudaVersionMinor(int version)
+{
+	return (version%1000)/10;
+}
+
+}
 	
 CCUDAHandler::CCUDAHandler(
 	std::unique_ptr<SNativeState>&& nativeState,
@@ -455,6 +470,8 @@ bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
 
 core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger)
 {
+	const system::logger_opt_ptr logger(_logger.get());
+
 	cuda_native::CUDA cuda = cuda_native::CUDA(
 		#if defined(_NBL_WINDOWS_API_)
 			"nvcuda"
@@ -502,18 +519,32 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	#define SAFE_CUDA_CALL(FUNC,...) \
 	{\
 		if (!cuda.p ## FUNC)\
+		{\
+			logger.log("CCUDAHandler: CUDA Driver API function %s was not found. Need CUDA driver runtime %d.%d or newer.",system::ILogger::ELL_ERROR,#FUNC,cudaVersionMajor(cuda_native::MinimumCUDADriverVersion),cudaVersionMinor(cuda_native::MinimumCUDADriverVersion));\
 			return nullptr;\
+		}\
 		auto result = cuda.p ## FUNC(__VA_ARGS__);\
 		if (result!=CUDA_SUCCESS)\
+		{\
+			logger.log("CCUDAHandler: %s failed with CUDA error code %d.",system::ILogger::ELL_ERROR,#FUNC,static_cast<int>(result));\
 			return nullptr;\
+		}\
 	}
 	
 	SAFE_CUDA_CALL(cuInit,0)
 				
 	int cudaVersion = 0;
 	SAFE_CUDA_CALL(cuDriverGetVersion,&cudaVersion)
-	if (cudaVersion<13000)
+	if (cudaVersion<cuda_native::MinimumCUDADriverVersion)
+	{
+		logger.log(
+			"CCUDAHandler: CUDA driver runtime %d.%d is below required %d.%d.",
+			system::ILogger::ELL_ERROR,
+			cudaVersionMajor(cudaVersion),cudaVersionMinor(cudaVersion),
+			cudaVersionMajor(cuda_native::MinimumCUDADriverVersion),cudaVersionMinor(cuda_native::MinimumCUDADriverVersion)
+		);
 		return nullptr;
+	}
 
 	// stop the pollution
 	#undef SAFE_CUDA_CALL
@@ -521,11 +552,26 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 
 	// check nvrtc existence and compatibility
 	if (!nvrtc.pnvrtcVersion)
+	{
+		logger.log("CCUDAHandler: NVRTC runtime was not found. Need NVRTC %d.x or newer.",system::ILogger::ELL_ERROR,cuda_native::MinimumNVRTCMajorVersion);
 		return nullptr;
+	}
 	int nvrtcVersion[2] = { -1,-1 };
-	nvrtc.pnvrtcVersion(nvrtcVersion+0,nvrtcVersion+1);
-	if (nvrtcVersion[0]<9)
+	const auto nvrtcVersionResult = nvrtc.pnvrtcVersion(nvrtcVersion+0,nvrtcVersion+1);
+	if (nvrtcVersionResult!=NVRTC_SUCCESS)
+	{
+		logger.log("CCUDAHandler: nvrtcVersion failed with NVRTC error code %d.",system::ILogger::ELL_ERROR,static_cast<int>(nvrtcVersionResult));
 		return nullptr;
+	}
+	if (nvrtcVersion[0]<cuda_native::MinimumNVRTCMajorVersion)
+	{
+		logger.log(
+			"CCUDAHandler: NVRTC runtime %d.%d is below required %d.x.",
+			system::ILogger::ELL_ERROR,
+			nvrtcVersion[0],nvrtcVersion[1],cuda_native::MinimumNVRTCMajorVersion
+		);
+		return nullptr;
+	}
 
 	// add headers
 	core::vector<core::smart_refctd_ptr<system::IFile>> headers;

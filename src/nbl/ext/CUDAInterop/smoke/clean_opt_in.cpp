@@ -23,14 +23,11 @@ public:
 
 	bool onAppInitialized(nbl::core::smart_refctd_ptr<nbl::system::ISystem>&&) override
 	{
-		static_assert(std::is_same_v<decltype(nbl::video::CCUDAExportableMemory::SCreationParams{}.location), nbl::video::ECUDAMemoryLocation>);
-
-		const nbl::video::CCUDAExportableMemory::SCreationParams params = {
-			.size = 4096,
-			.alignment = 4096,
-			.location = nbl::video::ECUDAMemoryLocation::DEVICE,
-		};
-		return isAPILoaded() && params.location==nbl::video::ECUDAMemoryLocation::DEVICE;
+		static_assert(std::is_class_v<nbl::video::CCUDADevice>);
+		static_assert(std::is_class_v<nbl::video::CCUDAExportableMemory>);
+		static_assert(std::is_class_v<nbl::video::CCUDAImportedMemory>);
+		static_assert(std::is_class_v<nbl::video::CCUDAImportedSemaphore>);
+		return isAPILoaded();
 	}
 
 	void workLoopBody() override {}

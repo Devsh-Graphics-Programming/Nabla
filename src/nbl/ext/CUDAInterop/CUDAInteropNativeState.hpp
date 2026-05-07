@@ -57,16 +57,6 @@ struct CCUDAImportedSemaphore::SNativeState
 namespace cuda_native
 {
 
-inline CUmemLocationType toNative(ECUDAMemoryLocation location)
-{
-	return static_cast<CUmemLocationType>(static_cast<uint32_t>(location));
-}
-
-inline ECUDAMemoryLocation toNabla(CUmemLocationType location)
-{
-	return static_cast<ECUDAMemoryLocation>(static_cast<uint32_t>(location));
-}
-
 inline CUmemAllocationHandleType getAllocationHandleType()
 {
 #ifdef _WIN32

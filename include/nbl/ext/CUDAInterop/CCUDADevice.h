@@ -81,10 +81,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 
 		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_physicalDevice->getProperties().deviceUUID, 16); }
 
-		size_t roundToGranularity(ECUDAMemoryLocation location, size_t size) const;
-
-		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDAExportableMemory::SCreationParams&& inParams);
-
 		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
 
 		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);

@@ -22,14 +22,10 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 	uint32_t memoryTypeBits = (1 << pd->getMemoryProperties().memoryTypeCount) - 1;
 	uint32_t vram = pd->getDeviceLocalMemoryTypeBits();
 
-	switch (m_params.location)
-	{
-    case ECUDAMemoryLocation::DEVICE: memoryTypeBits &=  vram; break;
-    case ECUDAMemoryLocation::HOST_NUMA:
-    case ECUDAMemoryLocation::HOST_NUMA_CURRENT:
-    case ECUDAMemoryLocation::HOST:   memoryTypeBits &= ~vram; break;
-    default: break;
-	}
+	if (m_params.deviceLocal)
+		memoryTypeBits &= vram;
+	else
+		memoryTypeBits &= ~vram;
 
 	IDeviceMemoryBacked::SDeviceMemoryRequirements req = {};
 	req.size = m_params.granularSize;

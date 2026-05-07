@@ -18,35 +18,21 @@ namespace cuda_native
 struct SAccess;
 }
 
-enum class ECUDAMemoryLocation : uint32_t
-{
-	DEVICE = 1,
-	HOST = 2,
-	HOST_NUMA = 3,
-	HOST_NUMA_CURRENT = 4
-};
-
 class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
 	public:
 		struct SNativeState;
-		struct SCreationParams
+		struct SCachedCreationParams
 		{
 			size_t size;
 			uint32_t alignment;
-			ECUDAMemoryLocation location;
-		};
-
-		struct SCachedCreationParams : SCreationParams
-		{
 			size_t granularSize;
 			external_handle_t externalHandle;
+			bool deviceLocal;
 		};
 
 		CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
 		~CCUDAExportableMemory() override;
-
-		const SCreationParams& getCreationParams() const { return m_params; }
 
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 

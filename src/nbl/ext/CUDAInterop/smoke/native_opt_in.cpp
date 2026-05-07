@@ -22,10 +22,10 @@ using namespace nbl::video;
 	core::smart_refctd_ptr<IDeviceMemoryAllocation> vulkanMemory,
 	core::smart_refctd_ptr<ISemaphore> vulkanSemaphore)
 {
-	auto cudaMemory = cudaDevice.createExportableMemory({
+	auto cudaMemory = cuda_native::createExportableMemory(cudaDevice, {
 		.size = 4096,
 		.alignment = 4096,
-		.location = ECUDAMemoryLocation::DEVICE,
+		.location = CU_MEM_LOCATION_TYPE_DEVICE,
 	});
 	if (!cudaMemory)
 		return false;

@@ -18,6 +18,9 @@
 namespace nbl::video::cuda_native
 {
 
+inline constexpr int MinimumCUDADriverVersion = 13000;
+inline constexpr int MinimumNVRTCMajorVersion = MinimumCUDADriverVersion/1000;
+
 using LibLoader = system::DefaultFuncPtrLoader;
 
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA,LibLoader
@@ -141,6 +144,13 @@ struct SCUDADeviceInfo
 	CUdevice handle = {};
 	CUuuid uuid = {};
 	int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
+};
+
+struct SExportableMemoryCreationParams
+{
+	size_t size;
+	uint32_t alignment;
+	CUmemLocationType location;
 };
 
 NBL_API2 const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler);
@@ -295,6 +305,7 @@ inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
 NBL_API2 CUdevice getInternalObject(const CCUDADevice& device);
 NBL_API2 CUcontext getContext(const CCUDADevice& device);
 NBL_API2 size_t roundToGranularity(const CCUDADevice& device, CUmemLocationType location, size_t size);
+NBL_API2 core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice& device, SExportableMemoryCreationParams&& params);
 NBL_API2 CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory);
 NBL_API2 CUexternalMemory getInternalObject(const CCUDAImportedMemory& memory);
 NBL_API2 CUresult getMappedBuffer(const CCUDAImportedMemory& memory, CUdeviceptr* mappedBuffer);
@@ -328,6 +339,16 @@ inline size_t roundToGranularity(const CCUDADevice* device, CUmemLocationType lo
 inline size_t roundToGranularity(const core::smart_refctd_ptr<CCUDADevice>& device, CUmemLocationType location, size_t size)
 {
 	return roundToGranularity(*device,location,size);
+}
+
+inline core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice* device, SExportableMemoryCreationParams&& params)
+{
+	return createExportableMemory(*device,std::move(params));
+}
+
+inline core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(const core::smart_refctd_ptr<CCUDADevice>& device, SExportableMemoryCreationParams&& params)
+{
+	return createExportableMemory(*device,std::move(params));
 }
 
 inline CUdeviceptr getDeviceptr(const CCUDAExportableMemory* memory)
