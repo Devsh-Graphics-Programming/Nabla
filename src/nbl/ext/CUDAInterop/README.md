@@ -90,8 +90,9 @@ Reference smoke:
 - `NBL_CUDA_INTEROP_RUNTIME_JSON` can point runtime discovery at custom JSON files without rebuilding the application.
 - The JSON is a build artifact. Nabla packages do not install JSON files with host-specific CUDA paths.
 - Package consumers generate their own JSON when they call `nbl_target_link_cuda_interop`.
-- Runtime lookup reads `nbl_cuda_interop_runtime.json` first, then checks app-local include bundles, explicit environment variables, `CUDA_PATH` style toolkit roots, Python/conda package layouts, and common system install roots.
-- `cuda_native::compileDirectlyToPTX` appends discovered include directories to the NVRTC option list.
+- Runtime lookup reads explicit JSON paths and `NBL_CUDA_INTEROP_RUNTIME_JSON` first, then checks executable-local `nbl_cuda_interop_runtime.json`, app-local include bundles, explicit include-dir environment variables, `CUDA_PATH` style toolkit roots, Python/conda package layouts, and common system install roots.
+- App-local and Python/conda package probing looks for directories that contain CUDA runtime headers. It does not hardcode a CUDA major version in the path.
+- `cuda_native::compileDirectlyToPTX` appends discovered include directories to the NVRTC option list and caches the default discovery result after first use.
 - Production machines do not need the full CUDA SDK just because Nabla was built with CUDA.
 - If an application compiles CUDA source with NVRTC and includes headers such as `cuda_fp16.h`, it must provide those runtime headers through the generated JSON path, an app-local bundle, a runtime/header package, or an installed toolkit.
 - `CUDA_PATH` is a developer fallback. It is not required for packaged applications.

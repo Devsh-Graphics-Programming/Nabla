@@ -17,6 +17,12 @@ namespace nbl::video::cuda_interop
 namespace
 {
 
+#if defined(_NBL_PLATFORM_WINDOWS_)
+inline constexpr char EnvironmentPathListSeparator = ';';
+#else
+inline constexpr char EnvironmentPathListSeparator = ':';
+#endif
+
 std::string readEnvironmentVariable(const char* name)
 {
 	if (const char* value = std::getenv(name))
@@ -71,6 +77,39 @@ void appendIncludeDir(core::vector<system::path>& includeDirs, system::path path
 		includeDirs.push_back(std::move(path));
 }
 
+void appendCUDAIncludeDirsBelow(core::vector<system::path>& includeDirs, const system::path& root, uint32_t maxDepth)
+{
+	if (!isDirectory(root))
+		return;
+
+	if (looksLikeCUDAIncludeDir(root))
+	{
+		appendIncludeDir(includeDirs,root);
+		return;
+	}
+	if (maxDepth==0u)
+		return;
+
+	core::vector<system::path> candidates;
+	std::error_code error;
+	for (const auto& entry : std::filesystem::directory_iterator(root,error))
+	{
+		if (error)
+			break;
+
+		std::error_code entryError;
+		if (!entry.is_directory(entryError))
+			continue;
+		candidates.push_back(entry.path());
+	}
+
+	std::sort(candidates.begin(),candidates.end(),[](const system::path& lhs, const system::path& rhs) {
+		return lhs.generic_string()>rhs.generic_string();
+	});
+	for (const auto& candidate : candidates)
+		appendCUDAIncludeDirsBelow(includeDirs,candidate,maxDepth-1u);
+}
+
 void appendCUDAIncludeRoot(core::vector<system::path>& includeDirs, const system::path& root)
 {
 	if (root.empty())
@@ -102,24 +141,20 @@ void appendRuntimePathsConfig(core::vector<system::path>& includeDirs, const sys
 			appendIncludeDir(includeDirs,system::path(path.get<std::string>()));
 }
 
-void appendRuntimePathsConfigEnv(core::vector<system::path>& includeDirs, const char* name)
+template<typename Append>
+void appendPathListEnv(const char* name, Append append)
 {
 	const auto value = readEnvironmentVariable(name);
 	if (value.empty())
 		return;
 
-	#if defined(_NBL_PLATFORM_WINDOWS_)
-	constexpr char Separator = ';';
-	#else
-	constexpr char Separator = ':';
-	#endif
-
 	size_t begin = 0;
 	while (begin<value.size())
 	{
-		const auto end = value.find(Separator,begin);
+		const auto end = value.find(EnvironmentPathListSeparator,begin);
 		const auto segment = value.substr(begin,end==std::string::npos ? std::string::npos:end-begin);
-		appendRuntimePathsConfig(includeDirs,system::path(segment));
+		if (!segment.empty())
+			append(system::path(segment));
 		if (end==std::string::npos)
 			break;
 		begin = end+1;
@@ -131,21 +166,13 @@ void appendRuntimePathsConfigs(core::vector<system::path>& includeDirs, const co
 	for (const auto& runtimePathFile : explicitRuntimePathFiles)
 		appendRuntimePathsConfig(includeDirs,runtimePathFile);
 
-	appendRuntimePathsConfigEnv(includeDirs,"NBL_CUDA_INTEROP_RUNTIME_JSON");
-	appendRuntimePathsConfigEnv(includeDirs,"Nabla_CUDA_INTEROP_RUNTIME_JSON");
+	const auto appendConfig = [&](const system::path& path) { appendRuntimePathsConfig(includeDirs,path); };
+	appendPathListEnv("NBL_CUDA_INTEROP_RUNTIME_JSON",appendConfig);
+	appendPathListEnv("Nabla_CUDA_INTEROP_RUNTIME_JSON",appendConfig);
 
 	const auto exeDir = system::executableDirectory();
 	if (!exeDir.empty())
 		appendRuntimePathsConfig(includeDirs,exeDir/RuntimePathsFileName);
-
-	#if defined(_NBL_PLATFORM_WINDOWS_)
-	const auto releaseModuleDir = system::loadedModuleDirectory("Nabla.dll");
-	if (!releaseModuleDir.empty())
-		appendRuntimePathsConfig(includeDirs,releaseModuleDir/RuntimePathsFileName);
-	const auto debugModuleDir = system::loadedModuleDirectory("Nabla_debug.dll");
-	if (!debugModuleDir.empty())
-		appendRuntimePathsConfig(includeDirs,debugModuleDir/RuntimePathsFileName);
-	#endif
 }
 
 void appendAppLocalIncludeDirs(core::vector<system::path>& includeDirs)
@@ -155,9 +182,10 @@ void appendAppLocalIncludeDirs(core::vector<system::path>& includeDirs)
 		return;
 
 	appendIncludeDir(includeDirs,exeDir/"cuda"/"include");
-	appendIncludeDir(includeDirs,exeDir/"nvidia"/"cu13"/"include");
+	appendCUDAIncludeDirsBelow(includeDirs,exeDir/"nvidia",4u);
 	appendIncludeDir(includeDirs,exeDir/"Libraries"/"cuda"/"include");
 	appendIncludeDir(includeDirs,exeDir.parent_path()/"cuda"/"include");
+	appendCUDAIncludeDirsBelow(includeDirs,exeDir.parent_path()/"nvidia",4u);
 }
 
 void appendPythonPackageIncludeDirs(core::vector<system::path>& includeDirs, const system::path& root)
@@ -165,40 +193,17 @@ void appendPythonPackageIncludeDirs(core::vector<system::path>& includeDirs, con
 	if (root.empty())
 		return;
 
-	appendIncludeDir(includeDirs,root/"Lib"/"site-packages"/"nvidia"/"cu13"/"include");
-	appendIncludeDir(includeDirs,root/"lib"/"site-packages"/"nvidia"/"cu13"/"include");
+	appendCUDAIncludeDirsBelow(includeDirs,root/"Lib"/"site-packages"/"nvidia",4u);
+	appendCUDAIncludeDirsBelow(includeDirs,root/"lib"/"site-packages"/"nvidia",4u);
 	appendIncludeDir(includeDirs,root/"Library"/"include");
 	appendIncludeDir(includeDirs,root/"include");
 }
 
-void appendPathListEnv(core::vector<system::path>& includeDirs, const char* name)
-{
-	const auto value = readEnvironmentVariable(name);
-	if (value.empty())
-		return;
-
-	#if defined(_NBL_PLATFORM_WINDOWS_)
-	constexpr char Separator = ';';
-	#else
-	constexpr char Separator = ':';
-	#endif
-
-	size_t begin = 0;
-	while (begin<value.size())
-	{
-		const auto end = value.find(Separator,begin);
-		const auto segment = value.substr(begin,end==std::string::npos ? std::string::npos:end-begin);
-		appendIncludeDir(includeDirs,system::path(segment));
-		if (end==std::string::npos)
-			break;
-		begin = end+1;
-	}
-}
-
 void appendEnvironmentIncludeDirs(core::vector<system::path>& includeDirs)
 {
-	appendPathListEnv(includeDirs,"NBL_CUDA_RUNTIME_INCLUDE_DIRS");
-	appendPathListEnv(includeDirs,"Nabla_CUDA_RUNTIME_INCLUDE_DIRS");
+	const auto appendInclude = [&](const system::path& path) { appendIncludeDir(includeDirs,path); };
+	appendPathListEnv("NBL_CUDA_RUNTIME_INCLUDE_DIRS",appendInclude);
+	appendPathListEnv("Nabla_CUDA_RUNTIME_INCLUDE_DIRS",appendInclude);
 
 	appendCUDAIncludeRoot(includeDirs,readEnvironmentVariable("CUDA_PATH"));
 	appendCUDAIncludeRoot(includeDirs,readEnvironmentVariable("CUDA_HOME"));
@@ -942,13 +947,18 @@ ptx_and_nvrtcResult_t getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
 	return {std::move(ptx),SAccess::native(handler).nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
 }
 
+static const core::vector<std::string>& getDefaultRuntimeIncludeOptions()
+{
+	static const auto RuntimeIncludeOptions = cuda_interop::makeNVRTCIncludeOptions(cuda_interop::findRuntimeCompileEnvironment());
+	return RuntimeIncludeOptions;
+}
+
 static ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
 {
 	if (result!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
-	const auto runtimeEnvironment = cuda_interop::findRuntimeCompileEnvironment();
-	const auto runtimeIncludeOptions = cuda_interop::makeNVRTCIncludeOptions(runtimeEnvironment);
+	const auto& runtimeIncludeOptions = getDefaultRuntimeIncludeOptions();
 	core::vector<const char*> options;
 	options.reserve(nvrtcOptions.size()+runtimeIncludeOptions.size());
 	for (const auto option : nvrtcOptions)
