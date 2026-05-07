@@ -118,6 +118,7 @@ class smart_refctd_ptr
 };
 static_assert(sizeof(smart_refctd_ptr<IReferenceCounted>) == sizeof(IReferenceCounted*), "smart_refctd_ptr has a memory overhead!");
 
+
 template< class T, class... Args >
 smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args);
 

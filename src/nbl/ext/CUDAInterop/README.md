@@ -93,11 +93,12 @@ Smoke examples:
 - CUDA implementation state is owned by Nabla through private `SNativeState` members. Consumers cannot construct CUDA wrapper objects with arbitrary internal CUDA state.
 - `CUDAInteropNative.h` declares exported accessor classes whose definitions still live in `Nabla.dll`. The opt-in header owns only the CUDA SDK surface. Nabla owns the implementation and ABI.
 - Native opt-in ABI uses CUDA Driver API handles/enums such as `CUdevice`, `CUcontext`, `CUdeviceptr`, `CUexternalMemory`, and `CUexternalSemaphore`, plus small Nabla-owned parameter structs.
+- Runtime include-option construction is header-only and is not part of the exported ABI.
 - A package built with one compatible CUDA SDK can be consumed by native interop code built with another compatible SDK without rebuilding Nabla. The loaded driver and NVRTC runtime are still validated at runtime.
 
 ## Runtime Header Discovery
 
-NVRTC may need CUDA runtime headers when user kernels include files such as `cuda_fp16.h`, `vector_types.h`, or `cuda_runtime_api.h`.
+NVRTC may need CUDA runtime headers when user kernels include files such as `cuda_fp16.h`, `vector_types.h`, or `cuda_runtime_api.h`. This is a runtime concern of applications that compile CUDA source with NVRTC, not a default `Nabla::Nabla` package requirement.
 
 - `nbl_target_link_cuda_interop` generates `nbl_cuda_interop_runtime.json` for the target that opted into native CUDA interop.
 - The JSON is a build artifact. Nabla packages do not install host-specific CUDA paths.
@@ -105,7 +106,7 @@ NVRTC may need CUDA runtime headers when user kernels include files such as `cud
 - `NBL_CUDA_INTEROP_RUNTIME_JSON` can point runtime discovery at custom JSON files without rebuilding the application.
 - Runtime lookup checks explicit JSON paths first, then executable-local JSON, app-local header bundles, explicit include-dir environment variables, `CUDA_PATH` style toolkit roots, Python/conda package layouts, and common system install roots.
 - The probe looks for directories that contain CUDA runtime headers. It does not hardcode a CUDA major version in app-local paths.
-- `cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX` appends discovered include directories to NVRTC options and caches the default discovery result after first use.
+- `cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX` appends discovered include directories to NVRTC options. Default discovery is cached after the first call.
 
 Production machines do not need the full CUDA SDK just because Nabla was built with CUDA. Applications that use NVRTC with CUDA runtime headers can provide those headers through generated JSON, a custom JSON path, an app-local bundle, an official runtime/header package, or an installed toolkit.
 
@@ -114,7 +115,11 @@ Nabla does not ship CUDA runtime headers by default. NVIDIA CUDA EULA allows red
 - https://docs.nvidia.com/cuda/eula/#distribution
 - https://docs.nvidia.com/cuda/eula/#attachment-a
 
-Attachment A includes header groups relevant to NVRTC runtime compilation, including `nvrtc.h`, `cuda_fp16.h`, `cuda_bf16.h`, `cuda_fp8.h`, `cuda_fp6.h`, `cuda_fp4.h`, `cuda_runtime_api.h`, `cuda.h`, `vector_functions.h`, and `vector_types.h`.
+Attachment A lists header groups relevant to NVRTC runtime compilation:
+
+- NVIDIA Runtime Compilation Library and Header: `nvrtc.h`
+- CUDA Floating Point Type Headers: `cuda_fp16.h`, `cuda_fp16.hpp`, `cuda_bf16.h`, `cuda_bf16.hpp`, `cuda_fp8.h`, `cuda_fp8.hpp`, `cuda_fp6.h`, `cuda_fp6.hpp`, `cuda_fp4.h`, `cuda_fp4.hpp`
+- CUDA Headers for Runtime Compilation: `crt/host_defines.h`, `cuComplex.h`, `cuda_awbarrier_helpers.h`, `cuda_awbarrier_primitives.h`, `cuda_awbarrier.h`, `cuda_pipeline_helpers.h`, `cuda_pipeline_primitives.h`, `cuda_pipeline.h`, `cuda_runtime_api.h`, `cuda.h`, `cuda/std/tuple`, `cuda/std/type_traits`, `cuda/std/utility`, `device_types.h`, `vector_functions.h`, and `vector_types.h`
 
 CuPy documents the same NVRTC issue for CUDA 12.2+. Their install docs say: "On CUDA 12.2 or later, CUDA Runtime header files are required to compile kernels in CuPy." They show the common `vector_types.h` failure and recommend CUDA runtime header packages for PyPI/system package installs:
 

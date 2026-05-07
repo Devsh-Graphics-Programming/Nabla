@@ -53,11 +53,13 @@ bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 		return false;
 
 	CUcontext poppedContext = nullptr;
+	bool contextPushed = false;
 	auto releaseContext = [&]()
 	{
 		if (context)
 		{
-			cuda.pcuCtxPopCurrent_v2(&poppedContext);
+			if (contextPushed)
+				cuda.pcuCtxPopCurrent_v2(&poppedContext);
 			cuda.pcuDevicePrimaryCtxRelease_v2(device);
 		}
 	};
@@ -67,6 +69,7 @@ bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 		releaseContext();
 		return false;
 	}
+	contextPushed = true;
 
 	constexpr std::array<uint32_t, 4> input = {0x12345678u, 0x90abcdefu, 0xfedcba09u, 0x87654321u};
 	std::array<uint32_t, input.size()> output = {};

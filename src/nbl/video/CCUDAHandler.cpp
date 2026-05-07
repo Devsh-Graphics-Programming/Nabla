@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/video/CUDAInterop.h"
-#include "nbl/system/ModuleLookupUtils.h"
 
 #include "nlohmann/json.hpp"
 
@@ -253,11 +252,10 @@ void appendSystemIncludeDirs(core::vector<system::path>& includeDirs)
 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs, core::vector<system::path> runtimePathFiles)
 {
 	SRuntimeCompileEnvironment environment;
-	environment.runtimePathFiles = std::move(runtimePathFiles);
 	for (auto& includeDir : explicitIncludeDirs)
 		appendIncludeDir(environment.includeDirs,std::move(includeDir));
 
-	appendRuntimePathsConfigs(environment.includeDirs,environment.runtimePathFiles);
+	appendRuntimePathsConfigs(environment.includeDirs,runtimePathFiles);
 	appendAppLocalIncludeDirs(environment.includeDirs);
 	appendEnvironmentIncludeDirs(environment.includeDirs);
 	appendSystemIncludeDirs(environment.includeDirs);
@@ -268,14 +266,6 @@ SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::pa
 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs)
 {
 	return findRuntimeCompileEnvironment(std::move(explicitIncludeDirs),{});
-}
-
-core::vector<std::string> makeNVRTCIncludeOptions(const SRuntimeCompileEnvironment& environment)
-{
-	core::vector<std::string> options;
-	for (const auto& includeDir : environment.includeDirs)
-		options.push_back("-I" + includeDir.generic_string());
-	return options;
 }
 
 }
@@ -307,12 +297,10 @@ int cudaVersionMinor(int version)
 CCUDAHandler::CCUDAHandler(
 	std::unique_ptr<SNativeState>&& nativeState,
 	core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, 
-	core::smart_refctd_ptr<system::ILogger>&& _logger,
-	int _version)
+	core::smart_refctd_ptr<system::ILogger>&& _logger)
 	: m_native(std::move(nativeState))
 	, m_headers(std::move(_headers))
 	, m_logger(std::move(_logger))
-	, m_version(_version)
 {
 	assert(m_native);
 
@@ -866,7 +854,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	}
 
 	return core::smart_refctd_ptr<CCUDAHandler>(
-		new CCUDAHandler(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc)),std::move(headers),std::move(_logger),cudaVersion),
+		new CCUDAHandler(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc)),std::move(headers),std::move(_logger)),
 		core::dont_grab
 	);
 }
@@ -1097,12 +1085,10 @@ struct CCUDAHandler::SNativeState {};
 CCUDAHandler::CCUDAHandler(
 	std::unique_ptr<SNativeState>&& nativeState,
 	core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers,
-	core::smart_refctd_ptr<system::ILogger>&& _logger,
-	int _version)
+	core::smart_refctd_ptr<system::ILogger>&& _logger)
 	: m_native(std::move(nativeState))
 	, m_headers(std::move(_headers))
 	, m_logger(std::move(_logger))
-	, m_version(_version)
 {
 	assert(m_native);
 }

@@ -161,8 +161,8 @@ struct SPTXResult
 	nvrtcResult result;
 };
 
-// These are opt-in CUDA-native declarations for symbols implemented and exported by Nabla.
-// Only consumers that include this header and link Nabla::ext::CUDAInterop see CUDA SDK types.
+// Opt-in native CUDA API. The declarations below are implemented by the Nabla library.
+// This header is intentionally the only public path that includes CUDA SDK types.
 class NBL_API2 CCUDAHandlerAccessor
 {
 	public:

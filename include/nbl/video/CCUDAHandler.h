@@ -33,12 +33,17 @@ inline constexpr const char* RuntimePathsFileName = "nbl_cuda_interop_runtime.js
 struct SRuntimeCompileEnvironment
 {
 	core::vector<system::path> includeDirs;
-	core::vector<system::path> runtimePathFiles;
 };
 
 NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs = {});
 NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs, core::vector<system::path> runtimePathFiles);
-NBL_API2 core::vector<std::string> makeNVRTCIncludeOptions(const SRuntimeCompileEnvironment& environment);
+inline core::vector<std::string> makeNVRTCIncludeOptions(const SRuntimeCompileEnvironment& environment)
+{
+	core::vector<std::string> options;
+	for (const auto& includeDir : environment.includeDirs)
+		options.push_back("-I" + includeDir.generic_string());
+	return options;
+}
 }
 
 class NBL_API2 CCUDAHandler : public core::IReferenceCounted
@@ -73,7 +78,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		friend struct cuda_native::SAccess;
 
 		struct SNativeState;
-		CCUDAHandler(std::unique_ptr<SNativeState>&& nativeState, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
+		CCUDAHandler(std::unique_ptr<SNativeState>&& nativeState, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger);
 
 		std::unique_ptr<SNativeState> m_native;
 		core::vector<SCUDADeviceInfo> m_availableDevices;
@@ -82,7 +87,6 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		core::vector<std::string> m_headerNamesStorage;
 		core::vector<const char*> m_headerNames;
 		system::logger_opt_smart_ptr m_logger;
-		int m_version;
 };
 
 }
