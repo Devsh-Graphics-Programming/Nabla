@@ -21,8 +21,7 @@ endfunction()
 
 function(_nbl_cuda_interop_make_runtime_paths_json _OUT_CONTENT)
 	set(_include_dirs ${ARGN})
-	set(_json "{\n  \"cudaRuntimeIncludeDirs\": [")
-	set(_first ON)
+	set(_cuda_runtime_include_dir_entries "")
 
 	foreach(_include_dir IN LISTS _include_dirs)
 		if("${_include_dir}" STREQUAL "")
@@ -32,21 +31,22 @@ function(_nbl_cuda_interop_make_runtime_paths_json _OUT_CONTENT)
 		file(TO_CMAKE_PATH "${_include_dir}" _include_dir_json)
 		string(REPLACE "\"" "\\\"" _include_dir_json "${_include_dir_json}")
 
-		if(_first)
-			string(APPEND _json "\n")
-			set(_first OFF)
-		else()
-			string(APPEND _json ",\n")
-		endif()
-		string(APPEND _json "    \"${_include_dir_json}\"")
+		list(APPEND _cuda_runtime_include_dir_entries "    \"${_include_dir_json}\"")
 	endforeach()
 
-	if(NOT _first)
-		string(APPEND _json "\n  ]\n}\n")
-	else()
-		string(APPEND _json "]\n}\n")
-	endif()
+	set(_json_entry_separator [=[
+,
+]=])
+	list(JOIN _cuda_runtime_include_dir_entries "${_json_entry_separator}" _cuda_runtime_include_dirs)
 
+	set(_json [=[
+{
+  "cudaRuntimeIncludeDirs": [
+@_cuda_runtime_include_dirs@
+  ]
+}
+]=])
+	string(CONFIGURE "${_json}" _json @ONLY)
 	set(${_OUT_CONTENT} "${_json}" PARENT_SCOPE)
 endfunction()
 

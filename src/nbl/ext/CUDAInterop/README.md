@@ -66,6 +66,33 @@ auto memory = nbl::video::cuda_native::createExportableMemory(cudaDevice, {
 - `CUDA_PATH` is a developer fallback. It is not required for packaged applications.
 - Direct `target_link_libraries(app PRIVATE Nabla::ext::CUDAInterop)` remains possible, but it only adds compile/link usage requirements and does not create the runtime discovery JSON.
 
+## Runtime Header Distribution
+
+Nabla packages do not ship CUDA runtime headers. That is a packaging choice, not a hard legal requirement for applications that need NVRTC runtime compilation.
+
+NVIDIA CUDA EULA limits CUDA redistribution to selected components. The distribution section says: "The portions of the SDK that are distributable under the Agreement are listed in Attachment A." Attachment A then lists the CUDA Toolkit files that may be redistributed with applications. See:
+
+- https://docs.nvidia.com/cuda/eula/#distribution
+- https://docs.nvidia.com/cuda/eula/#attachment-a
+
+Relevant Attachment A header entries include:
+
+- `nvrtc.h` under `NVIDIA Runtime Compilation Library and Header`.
+- `cuda_occupancy.h` under `CUDA Occupancy Calculation Header Library`.
+- `cuda_fp16.h`, `cuda_fp16.hpp`, `cuda_bf16.h`, `cuda_bf16.hpp`, `cuda_fp8.h`, `cuda_fp8.hpp`, `cuda_fp6.h`, `cuda_fp6.hpp`, `cuda_fp4.h`, `cuda_fp4.hpp` under `CUDA Floating Point Type Headers`.
+- `crt/host_defines.h`, `cuComplex.h`, `cuda_awbarrier_helpers.h`, `cuda_awbarrier_primitives.h`, `cuda_awbarrier.h`, `cuda_pipeline_helpers.h`, `cuda_pipeline_primitives.h`, `cuda_pipeline.h`, `cuda_runtime_api.h`, `cuda.h`, `cuda/std/tuple`, `cuda/std/type_traits`, `cuda/std/utility`, `device_types.h`, `vector_functions.h`, `vector_types.h` under `CUDA Headers for Runtime Compilation`.
+
+CuPy documents the same runtime-compile problem. Their install docs say: "On CUDA 12.2 or later, CUDA Runtime header files are required to compile kernels in CuPy." They also show the common `vector_types.h` failure and recommend `nvidia-cuda-runtime-cu12` for PyPI installs or `cuda-cudart-dev` from system packages:
+
+- https://docs.cupy.dev/en/v13.5.0/install.html#cupy-always-raises-nvrtc-error-compilation-6
+- https://github.com/cupy/cupy/issues/8466
+
+For Nabla consumers this means:
+
+- The default Nabla package stays SDK-free for consumers that only link `Nabla::Nabla`.
+- Native interop consumers can install CUDA runtime headers through an official package, point `NBL_CUDA_INTEROP_RUNTIME_JSON` at their own JSON, pass `INCLUDE_DIRS` to `nbl_target_link_cuda_interop`, or ship an app-local header bundle if their distribution model allows it.
+- Shipping such headers is a consumer packaging decision. Nabla runtime discovery supports it, but Nabla does not install host-specific CUDA header paths or redistribute CUDA headers by default.
+
 ## Properties
 
 - Consumers that only link `Nabla::Nabla` do not need CUDA SDK headers to parse Nabla headers.

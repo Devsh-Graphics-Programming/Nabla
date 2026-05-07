@@ -5,11 +5,11 @@
 #include "nbl/ext/CUDAInterop/CUDAInterop.h"
 #include "nbl/system/ModuleLookupUtils.h"
 
+#include "nlohmann/json.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
-#include <sstream>
-#include <string_view>
 #include <system_error>
 
 namespace nbl::video::cuda_interop
@@ -17,21 +17,11 @@ namespace nbl::video::cuda_interop
 namespace
 {
 
-std::string readEnvironmentVariable(std::string_view name)
+std::string readEnvironmentVariable(const char* name)
 {
-	#if defined(_NBL_PLATFORM_WINDOWS_)
-	char* value = nullptr;
-	size_t size = 0;
-	if (_dupenv_s(&value,&size,std::string(name).c_str()) || !value)
-		return {};
-	std::string result(value);
-	std::free(value);
-	return result;
-	#else
-	if (const char* value = std::getenv(std::string(name).c_str()))
+	if (const char* value = std::getenv(name))
 		return value;
 	return {};
-	#endif
 }
 
 bool isDirectory(const system::path& path)
@@ -90,50 +80,6 @@ void appendCUDAIncludeRoot(core::vector<system::path>& includeDirs, const system
 	appendIncludeDir(includeDirs,root/"include");
 }
 
-core::vector<std::string> parseStringArray(std::string_view text, std::string_view key)
-{
-	core::vector<std::string> values;
-	const std::string quotedKey = "\"" + std::string(key) + "\"";
-	const auto keyPos = text.find(quotedKey);
-	if (keyPos==std::string_view::npos)
-		return values;
-
-	const auto arrayBegin = text.find('[',keyPos+quotedKey.size());
-	if (arrayBegin==std::string_view::npos)
-		return values;
-	const auto arrayEnd = text.find(']',arrayBegin+1);
-	if (arrayEnd==std::string_view::npos)
-		return values;
-
-	for (auto pos = arrayBegin+1; pos<arrayEnd;)
-	{
-		const auto quoteBegin = text.find('"',pos);
-		if (quoteBegin==std::string_view::npos || quoteBegin>=arrayEnd)
-			break;
-
-		std::string value;
-		auto cursor = quoteBegin+1;
-		for (; cursor<arrayEnd; ++cursor)
-		{
-			const char c = text[cursor];
-			if (c=='\\')
-			{
-				if (++cursor<arrayEnd)
-					value.push_back(text[cursor]);
-				continue;
-			}
-			if (c=='"')
-				break;
-			value.push_back(c);
-		}
-
-		values.push_back(std::move(value));
-		pos = cursor+1;
-	}
-
-	return values;
-}
-
 void appendRuntimePathsConfig(core::vector<system::path>& includeDirs, const system::path& configFile)
 {
 	if (!isRegularFile(configFile))
@@ -143,13 +89,20 @@ void appendRuntimePathsConfig(core::vector<system::path>& includeDirs, const sys
 	if (!input)
 		return;
 
-	std::stringstream buffer;
-	buffer << input.rdbuf();
-	for (const auto& path : parseStringArray(buffer.str(),"cudaRuntimeIncludeDirs"))
-		appendIncludeDir(includeDirs,system::path(path));
+	const auto json = nlohmann::json::parse(input,nullptr,false);
+	if (json.is_discarded())
+		return;
+
+	const auto paths = json.find("cudaRuntimeIncludeDirs");
+	if (paths==json.end() || !paths->is_array())
+		return;
+
+	for (const auto& path : *paths)
+		if (path.is_string())
+			appendIncludeDir(includeDirs,system::path(path.get<std::string>()));
 }
 
-void appendRuntimePathsConfigEnv(core::vector<system::path>& includeDirs, std::string_view name)
+void appendRuntimePathsConfigEnv(core::vector<system::path>& includeDirs, const char* name)
 {
 	const auto value = readEnvironmentVariable(name);
 	if (value.empty())
@@ -218,7 +171,7 @@ void appendPythonPackageIncludeDirs(core::vector<system::path>& includeDirs, con
 	appendIncludeDir(includeDirs,root/"include");
 }
 
-void appendPathListEnv(core::vector<system::path>& includeDirs, std::string_view name)
+void appendPathListEnv(core::vector<system::path>& includeDirs, const char* name)
 {
 	const auto value = readEnvironmentVariable(name);
 	if (value.empty())
