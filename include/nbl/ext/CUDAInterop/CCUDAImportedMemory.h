@@ -19,13 +19,14 @@ struct SAccess;
 class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 {
 	public:
-		struct SNativeState;
-		CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<nbl::video::IDeviceMemoryAllocation> src, std::unique_ptr<SNativeState>&& nativeState);
-
 		~CCUDAImportedMemory() override;
 
 	private:
+		friend class CCUDADevice;
 		friend struct cuda_native::SAccess;
+
+		struct SNativeState;
+		CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<nbl::video::IDeviceMemoryAllocation> src, std::unique_ptr<SNativeState>&& nativeState);
 
 		core::smart_refctd_ptr<CCUDADevice> m_device;
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_src;

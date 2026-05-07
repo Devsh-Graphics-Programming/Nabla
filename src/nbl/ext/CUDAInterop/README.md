@@ -11,17 +11,25 @@
 - Consumers can override the SDK root with `-DNabla_CUDA_TOOLKIT_ROOT=<cuda-root>` when requesting `CUDAInterop`.
 - Native accessors accept Nabla objects, raw pointers, and `smart_refctd_ptr`.
 
-## Usage
+## Basic Usage
 
 ```cmake
 find_package(Nabla CONFIG REQUIRED)
 target_link_libraries(app PRIVATE Nabla::Nabla)
 ```
 
+This path does not require CUDA SDK headers on the consuming project.
+
+## Native Opt-In
+
+Use the native opt-in path only in targets that include `CUDAInteropNative.h` or use raw CUDA Driver API/NVRTC types.
+
 ```cmake
 find_package(Nabla CONFIG REQUIRED COMPONENTS CUDAInterop)
 nbl_target_link_cuda_interop(native_app PRIVATE)
 ```
+
+`nbl_target_link_cuda_interop` links `Nabla::ext::CUDAInterop` and writes runtime CUDA header discovery JSON for `native_app`.
 
 ```cmake
 find_package(Nabla CONFIG REQUIRED COMPONENTS CUDAInterop)
@@ -36,18 +44,41 @@ nbl_target_link_cuda_interop(native_app PRIVATE
 )
 ```
 
+Pseudo flow:
+
 ```cpp
 #include "nbl/ext/CUDAInterop/CUDAInteropNative.h"
 
-auto runtimeEnv = nbl::video::cuda_interop::findRuntimeCompileEnvironment();
-auto includeOptions = nbl::video::cuda_interop::makeNVRTCIncludeOptions(runtimeEnv);
+auto handler = nbl::video::CCUDAHandler::create(system, std::move(logger));
+auto cudaDevice = handler->createDevice(std::move(vulkanConnection), physicalDevice);
 
 auto memory = nbl::video::cuda_native::createExportableMemory(cudaDevice, {
     .size = size,
     .alignment = alignment,
     .location = CU_MEM_LOCATION_TYPE_DEVICE,
 });
+
+std::string log;
+auto [ptx, result] = nbl::video::cuda_native::compileDirectlyToPTX(
+    handler,
+    cudaSource,
+    "kernel.cu",
+    cudaDevice->geDefaultCompileOptions(),
+    0,
+    nullptr,
+    nullptr,
+    &log
+);
 ```
+
+`compileDirectlyToPTX` performs runtime CUDA header discovery internally. Code that drives NVRTC manually can call `cuda_interop::findRuntimeCompileEnvironment` and `cuda_interop::makeNVRTCIncludeOptions` directly.
+
+Reference smoke:
+
+- CMake target setup: `src/nbl/ext/CUDAInterop/smoke/CMakeLists.txt`
+- SDK-free package boundary check: `src/nbl/ext/CUDAInterop/smoke/public_boundary.cpp`
+- Default Nabla package usage without native opt-in: `src/nbl/ext/CUDAInterop/smoke/clean_opt_in.cpp`
+- Native CUDA opt-in, runtime header discovery, `cuda_fp16.h`, NVRTC and raw interop usage: `src/nbl/ext/CUDAInterop/smoke/native_opt_in.cpp`
 
 ## Runtime Header Discovery
 
@@ -100,6 +131,7 @@ For Nabla consumers this means:
 - Raw CUDA access is not wrapped away in the native opt-in path. Native code uses CUDA Driver API and NVRTC types directly.
 - CUDA SDK structs with version-sensitive layout are kept out of exported Nabla ABI.
 - The exported native ABI uses stable CUDA Driver API handles/enums and small Nabla-owned parameter structs.
+- Native state is PIMPL-owned by Nabla. Consumers cannot construct CUDA wrapper objects with arbitrary internal state.
 - A package built with one compatible CUDA SDK can be consumed by native interop code built with another compatible SDK without rebuilding Nabla.
 - `CCUDAHandler::create` validates the loaded CUDA driver and NVRTC runtime. It returns `nullptr` when the runtime is missing or below the required CUDA 13.0 / NVRTC 13.x floor.
 - Runtime CUDA header discovery is independent from the CUDA SDK used to build Nabla.

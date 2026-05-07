@@ -14,7 +14,9 @@ CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> dev
 	: m_device(std::move(device))
 	, m_src(std::move(src))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
 
 namespace cuda_native
 {
@@ -57,7 +59,9 @@ CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> dev
 	: m_device(std::move(device))
 	, m_src(std::move(src))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
 
 CCUDAImportedMemory::~CCUDAImportedMemory() = default;
 

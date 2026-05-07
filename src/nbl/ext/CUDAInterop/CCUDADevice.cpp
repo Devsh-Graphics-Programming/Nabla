@@ -27,6 +27,8 @@ CCUDADevice::CCUDADevice(
 	m_handler(std::move(handler)),
 	m_native(std::move(nativeState))
 {
+	assert(m_native);
+
 	m_defaultCompileOptions.push_back("--std=c++14");
 	m_defaultCompileOptions.push_back(virtualArchCompileOption[m_virtualArchitecture]);
 	m_defaultCompileOptions.push_back("-dc");
@@ -150,7 +152,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice
 #endif
 	};
 
-	auto nativeState = std::make_unique<CCUDAExportableMemory::SNativeState>();
+	auto nativeState = SAccess::makeExportableMemoryNativeState();
 
 	CUmemGenericAllocationHandle mem;
 	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
@@ -166,7 +168,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice
 		return nullptr;
 	}
 
-	if (const auto err = reserveAddressAndMapMemory(device,&nativeState->ptr, params.granularSize, params.alignment, inParams.location, mem); CUDA_SUCCESS != err)
+	if (const auto err = reserveAddressAndMapMemory(device,&SAccess::deviceptr(*nativeState), params.granularSize, params.alignment, inParams.location, mem); CUDA_SUCCESS != err)
 	{
 		logger.log("Fail to reserve address and map memory!", system::ILogger::ELL_ERROR);
 
@@ -185,7 +187,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice
 		return nullptr;
 	}
 	
-	return core::make_smart_refctd_ptr<CCUDAExportableMemory>(core::smart_refctd_ptr<CCUDADevice>(&device), std::move(params), std::move(nativeState));
+	return SAccess::makeExportableMemory(core::smart_refctd_ptr<CCUDADevice>(&device),std::move(params),std::move(nativeState));
 }
 
 }
@@ -215,7 +217,10 @@ core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(co
 		m_logger.log("Fail to import external memory into CUDA!", system::ILogger::ELL_ERROR);
 		return nullptr;
 	}
-	return core::make_smart_refctd_ptr<CCUDAImportedMemory>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(mem), std::make_unique<CCUDAImportedMemory::SNativeState>(cuExtMem));
+	return core::smart_refctd_ptr<CCUDAImportedMemory>(
+		new CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice>(this),std::move(mem),std::make_unique<CCUDAImportedMemory::SNativeState>(cuExtMem)),
+		core::dont_grab
+	);
 }
 
 core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sema)
@@ -245,7 +250,10 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 		return nullptr;
 	}
 	
-	return core::make_smart_refctd_ptr<CCUDAImportedSemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), std::move(sema), std::make_unique<CCUDAImportedSemaphore::SNativeState>(cusema));
+	return core::smart_refctd_ptr<CCUDAImportedSemaphore>(
+		new CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this),std::move(sema),std::make_unique<CCUDAImportedSemaphore::SNativeState>(cusema)),
+		core::dont_grab
+	);
 }
 
 CCUDADevice::~CCUDADevice()
@@ -275,7 +283,9 @@ CCUDADevice::CCUDADevice(
 	, m_virtualArchitecture(virtualArchitecture)
 	, m_handler(std::move(handler))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
 
 CCUDADevice::~CCUDADevice() = default;
 

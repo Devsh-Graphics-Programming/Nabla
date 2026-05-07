@@ -14,7 +14,17 @@ CCUDAExportableMemory::CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice>
 	: m_device(std::move(device))
 	, m_params(std::move(params))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
+
+core::smart_refctd_ptr<CCUDAExportableMemory> CCUDAExportableMemory::create(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState)
+{
+	return core::smart_refctd_ptr<CCUDAExportableMemory>(
+		new CCUDAExportableMemory(std::move(device),std::move(params),std::move(nativeState)),
+		core::dont_grab
+	);
+}
 
 core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
 {
@@ -76,7 +86,17 @@ CCUDAExportableMemory::CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice>
 	: m_device(std::move(device))
 	, m_params(std::move(params))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
+
+core::smart_refctd_ptr<CCUDAExportableMemory> CCUDAExportableMemory::create(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState)
+{
+	return core::smart_refctd_ptr<CCUDAExportableMemory>(
+		new CCUDAExportableMemory(std::move(device),std::move(params),std::move(nativeState)),
+		core::dont_grab
+	);
+}
 
 CCUDAExportableMemory::~CCUDAExportableMemory() = default;
 

@@ -309,6 +309,8 @@ CCUDAHandler::CCUDAHandler(
 	, m_logger(std::move(_logger))
 	, m_version(_version)
 {
+	assert(m_native);
+
 	for (auto& header : m_headers)
 	{
 		m_headerContents.push_back(reinterpret_cast<const char*>(header->getMappedPointer()));
@@ -858,7 +860,10 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		));
 	}
 
-	return core::make_smart_refctd_ptr<CCUDAHandler>(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc)), std::move(headers), std::move(_logger), cudaVersion);
+	return core::smart_refctd_ptr<CCUDAHandler>(
+		new CCUDAHandler(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc)),std::move(headers),std::move(_logger),cudaVersion),
+		core::dont_grab
+	);
 }
 
 namespace cuda_native
@@ -1090,7 +1095,10 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 			if (arch==CCUDADevice::EVA_COUNT)
 				continue;
 
-			return core::make_smart_refctd_ptr<CCUDADevice>(std::move(vulkanConnection), physicalDevice, arch, std::make_unique<CCUDADevice::SNativeState>(device.handle), core::smart_refctd_ptr<CCUDAHandler>(this));
+			return core::smart_refctd_ptr<CCUDADevice>(
+				new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch,std::make_unique<CCUDADevice::SNativeState>(device.handle),core::smart_refctd_ptr<CCUDAHandler>(this)),
+				core::dont_grab
+			);
 		}
 	}
 	return nullptr;
@@ -1115,7 +1123,9 @@ CCUDAHandler::CCUDAHandler(
 	, m_headers(std::move(_headers))
 	, m_logger(std::move(_logger))
 	, m_version(_version)
-{}
+{
+	assert(m_native);
+}
 
 CCUDAHandler::~CCUDAHandler() = default;
 

@@ -76,6 +76,15 @@ struct SAccess
 
 	static CCUDAExportableMemory::SNativeState& native(CCUDAExportableMemory& memory) { return *memory.m_native; }
 	static const CCUDAExportableMemory::SNativeState& native(const CCUDAExportableMemory& memory) { return *memory.m_native; }
+	static std::unique_ptr<CCUDAExportableMemory::SNativeState> makeExportableMemoryNativeState()
+	{
+		return std::unique_ptr<CCUDAExportableMemory::SNativeState>(new CCUDAExportableMemory::SNativeState());
+	}
+	static CUdeviceptr& deviceptr(CCUDAExportableMemory::SNativeState& nativeState) { return nativeState.ptr; }
+	static core::smart_refctd_ptr<CCUDAExportableMemory> makeExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, CCUDAExportableMemory::SCachedCreationParams&& params, std::unique_ptr<CCUDAExportableMemory::SNativeState>&& nativeState)
+	{
+		return CCUDAExportableMemory::create(std::move(device),std::move(params),std::move(nativeState));
+	}
 
 	static CCUDAImportedMemory::SNativeState& native(CCUDAImportedMemory& memory) { return *memory.m_native; }
 	static const CCUDAImportedMemory::SNativeState& native(const CCUDAImportedMemory& memory) { return *memory.m_native; }

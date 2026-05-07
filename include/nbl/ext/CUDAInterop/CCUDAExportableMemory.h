@@ -21,7 +21,6 @@ struct SAccess;
 class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
 	public:
-		struct SNativeState;
 		struct SCachedCreationParams
 		{
 			size_t size;
@@ -31,13 +30,16 @@ class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 			bool deviceLocal;
 		};
 
-		CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
 		~CCUDAExportableMemory() override;
 
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
 	private:
 		friend struct cuda_native::SAccess;
+
+		struct SNativeState;
+		CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
+		static core::smart_refctd_ptr<CCUDAExportableMemory> create(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
 
 		core::smart_refctd_ptr<CCUDADevice> m_device;
 		SCachedCreationParams m_params;

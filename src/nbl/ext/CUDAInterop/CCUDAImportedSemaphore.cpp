@@ -13,7 +13,9 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 	: m_device(std::move(device))
 	, m_src(std::move(src))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
 
 namespace cuda_native
 {
@@ -44,7 +46,9 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 	: m_device(std::move(device))
 	, m_src(std::move(src))
 	, m_native(std::move(nativeState))
-{}
+{
+	assert(m_native);
+}
 
 CCUDAImportedSemaphore::~CCUDAImportedSemaphore() = default;
 

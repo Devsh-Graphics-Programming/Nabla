@@ -25,7 +25,6 @@ struct SAccess;
 class NBL_API2 CCUDADevice : public core::IReferenceCounted
 {
 	public:
-		struct SNativeState;
 #ifdef _WIN32
 		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
 #else
@@ -68,8 +67,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		};
 		inline E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() {return m_virtualArchitecture;}
 
-		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
-
 		~CCUDADevice() override;
 
 		inline core::SRange<const char* const> geDefaultCompileOptions() const
@@ -86,7 +83,11 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);
 
 	private:
+		friend class CCUDAHandler;
 		friend struct cuda_native::SAccess;
+
+		struct SNativeState;
+		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
 
 		static constexpr auto CudaMemoryLocationCount = 5;
 

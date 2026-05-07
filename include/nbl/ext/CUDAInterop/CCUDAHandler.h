@@ -44,10 +44,7 @@ NBL_API2 core::vector<std::string> makeNVRTCIncludeOptions(const SRuntimeCompile
 class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 {
 	public:
-		struct SNativeState;
 		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
-
-		CCUDAHandler(std::unique_ptr<SNativeState>&& nativeState, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
 
 		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{
@@ -74,6 +71,9 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 
 	private:
 		friend struct cuda_native::SAccess;
+
+		struct SNativeState;
+		CCUDAHandler(std::unique_ptr<SNativeState>&& nativeState, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
 
 		std::unique_ptr<SNativeState> m_native;
 		core::vector<SCUDADeviceInfo> m_availableDevices;
