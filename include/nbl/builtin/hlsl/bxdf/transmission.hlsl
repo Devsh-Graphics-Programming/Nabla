@@ -11,6 +11,7 @@
 #include "nbl/builtin/hlsl/bxdf/transmission/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/ggx.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/iridescent.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/microfacet_normals.hlsl"
 
 namespace nbl
 {
