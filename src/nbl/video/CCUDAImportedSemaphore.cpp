@@ -20,7 +20,7 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 namespace cuda_native
 {
 
-CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore& semaphore)
+CUexternalSemaphore CCUDAImportedSemaphoreAccessor::getInternalObject(const CCUDAImportedSemaphore& semaphore)
 {
 	return SAccess::native(semaphore).handle;
 }
@@ -29,8 +29,9 @@ CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore& semaphore)
 
 CCUDAImportedSemaphore::~CCUDAImportedSemaphore()
 {
-	auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
-	ASSERT_CUDA_SUCCESS(cu.pcuDestroyExternalSemaphore(m_native->handle), m_device->getHandler());
+	auto& cu = cuda_native::CCUDAHandlerAccessor::getCUDAFunctionTable(*m_device->getHandler());
+	if (!cuda_native::CCUDAHandlerAccessor::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalSemaphore(m_native->handle)))
+		assert(false);
 }
 }
 

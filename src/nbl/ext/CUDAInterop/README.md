@@ -5,7 +5,7 @@
 - `Nabla::Nabla` owns the SDK-free CUDA interop API in `nbl/video/CCUDA*.h` and its implementation in `src/nbl/video/CCUDA*.cpp`.
 - Those headers do not include CUDA SDK headers. Consumers that only link `Nabla::Nabla` do not need `cuda.h`, `nvrtc.h`, or a CUDA SDK install just to parse Nabla headers.
 - `Nabla::ext::CUDAInterop` is an `INTERFACE` target for native CUDA opt-in. It builds no library. It only adds `CUDAInteropNative.h`, `CUDA::toolkit`, and runtime-header discovery setup to targets that ask for raw CUDA interop.
-- `CUDAInteropNative.h` is the only public opt-in header that includes CUDA SDK headers and exposes `cuda_native::*` accessors for CUDA Driver API and NVRTC types.
+- `CUDAInteropNative.h` is the only public opt-in header that includes CUDA SDK headers and exposes `cuda_native::*Accessor` classes for CUDA Driver API and NVRTC types.
 
 ## CMake Usage
 
@@ -52,16 +52,17 @@ cmake -S . -B build -DNabla_CUDA_TOOLKIT_ROOT=<cuda-root>
 auto handler = nbl::video::CCUDAHandler::create(system, std::move(logger));
 auto cudaDevice = handler->createDevice(std::move(vulkanConnection), physicalDevice);
 
-auto memory = nbl::video::cuda_native::createExportableMemory(cudaDevice, {
+auto memory = nbl::video::cuda_native::CCUDADeviceAccessor::createExportableMemory(*cudaDevice, {
     .size = size,
     .alignment = alignment,
     .location = CU_MEM_LOCATION_TYPE_DEVICE,
 });
 
 std::string log;
-auto [ptx, result] = nbl::video::cuda_native::compileDirectlyToPTX(
-    handler,
-    cudaSource,
+std::string cudaSource = loadKernelText();
+auto [ptx, result] = nbl::video::cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX(
+    *handler,
+    std::move(cudaSource),
     "kernel.cu",
     cudaDevice->geDefaultCompileOptions(),
     0,
@@ -71,7 +72,12 @@ auto [ptx, result] = nbl::video::cuda_native::compileDirectlyToPTX(
 );
 ```
 
-Native access is not wrapped away. Opt-in code uses CUDA Driver API and NVRTC types directly.
+Native access is not wrapped away. Opt-in code uses CUDA Driver API and NVRTC types directly through accessor classes:
+
+- `CCUDAHandlerAccessor` exposes CUDA/NVRTC function tables, NVRTC program helpers, PTX compilation, native device enumeration, and default error handling.
+- `CCUDADeviceAccessor` exposes `CUdevice`, `CUcontext`, memory granularity, and CUDA allocation creation.
+- `CCUDAExportableMemoryAccessor`, `CCUDAImportedMemoryAccessor`, and `CCUDAImportedSemaphoreAccessor` expose the raw CUDA handles needed for interop.
+- Accessor methods take explicit Nabla references. Callers dereference `smart_refctd_ptr` at the call site instead of going through pointer/smart-pointer convenience overloads.
 
 Smoke examples:
 
@@ -84,7 +90,7 @@ Smoke examples:
 - `CCUDAHandler`, `CCUDADevice`, `CCUDAExportableMemory`, `CCUDAImportedMemory`, and `CCUDAImportedSemaphore` are exported from `Nabla.dll` through the normal Nabla ABI.
 - Their public declarations do not expose CUDA SDK structs, CUDA SDK layouts, or `cuda.h` / `nvrtc.h` includes.
 - CUDA implementation state is owned by Nabla through private `SNativeState` members. Consumers cannot construct CUDA wrapper objects with arbitrary internal CUDA state.
-- `CUDAInteropNative.h` declares exported accessor functions whose definitions still live in `Nabla.dll`.
+- `CUDAInteropNative.h` declares exported accessor classes whose definitions still live in `Nabla.dll`. The opt-in header owns only the CUDA SDK surface. Nabla owns the implementation and ABI.
 - Native opt-in ABI uses CUDA Driver API handles/enums such as `CUdevice`, `CUcontext`, `CUdeviceptr`, `CUexternalMemory`, and `CUexternalSemaphore`, plus small Nabla-owned parameter structs.
 - A package built with one compatible CUDA SDK can be consumed by native interop code built with another compatible SDK without rebuilding Nabla. The loaded driver and NVRTC runtime are still validated at runtime.
 
@@ -98,7 +104,7 @@ NVRTC may need CUDA runtime headers when user kernels include files such as `cud
 - `NBL_CUDA_INTEROP_RUNTIME_JSON` can point runtime discovery at custom JSON files without rebuilding the application.
 - Runtime lookup checks explicit JSON paths first, then executable-local JSON, app-local header bundles, explicit include-dir environment variables, `CUDA_PATH` style toolkit roots, Python/conda package layouts, and common system install roots.
 - The probe looks for directories that contain CUDA runtime headers. It does not hardcode a CUDA major version in app-local paths.
-- `cuda_native::compileDirectlyToPTX` appends discovered include directories to NVRTC options and caches the default discovery result after first use.
+- `cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX` appends discovered include directories to NVRTC options and caches the default discovery result after first use.
 
 Production machines do not need the full CUDA SDK just because Nabla was built with CUDA. Applications that use NVRTC with CUDA runtime headers can provide those headers through generated JSON, a custom JSON path, an app-local bundle, an official runtime/header package, or an installed toolkit.
 

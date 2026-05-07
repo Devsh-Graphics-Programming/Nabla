@@ -7,10 +7,6 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-#include <concepts>
-#include <type_traits>
-#include <utility>
-
 namespace nbl::core
 {
 
@@ -121,41 +117,6 @@ class smart_refctd_ptr
 		inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
 };
 static_assert(sizeof(smart_refctd_ptr<IReferenceCounted>) == sizeof(IReferenceCounted*), "smart_refctd_ptr has a memory overhead!");
-
-template<typename>
-struct is_smart_refctd_ptr : std::false_type {};
-
-template<typename T>
-struct is_smart_refctd_ptr<smart_refctd_ptr<T>> : std::true_type {};
-
-template<typename T>
-inline constexpr bool is_smart_refctd_ptr_v = is_smart_refctd_ptr<std::remove_cvref_t<T>>::value;
-
-template<typename T>
-inline constexpr bool is_raw_pointer_or_smart_refctd_ptr_v = std::is_pointer_v<std::remove_cvref_t<T>> || is_smart_refctd_ptr_v<T>;
-
-template<typename Object>
-decltype(auto) dereference(Object&& object)
-{
-	using object_t = std::remove_cvref_t<Object>;
-	if constexpr (std::is_pointer_v<object_t>)
-		return *object;
-	else if constexpr (is_smart_refctd_ptr_v<Object>)
-		return *object;
-	else
-		return std::forward<Object>(object);
-}
-
-template<typename Object, typename Target>
-concept dereferenceable_to = is_raw_pointer_or_smart_refctd_ptr_v<Object> && requires(Object&& object) {
-	{ dereference(std::forward<Object>(object)) } -> std::convertible_to<Target&>;
-};
-
-template<typename Object, typename Target>
-concept const_dereferenceable_to = is_raw_pointer_or_smart_refctd_ptr_v<Object> && requires(Object&& object) {
-	{ dereference(std::forward<Object>(object)) } -> std::convertible_to<const Target&>;
-};
-
 
 template< class T, class... Args >
 smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args);

@@ -9,10 +9,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 
-#include <concepts>
 #include <string>
-#include <type_traits>
-#include <utility>
 
 #include "cuda.h"
 #include "nvrtc.h"
@@ -158,196 +155,62 @@ struct SExportableMemoryCreationParams
 	CUmemLocationType location;
 };
 
-namespace detail
-{
-
-template<typename Source>
-concept program_text_source = std::same_as<std::remove_cvref_t<Source>, std::string> ||
-	std::convertible_to<Source, const char*>;
-
-}
-
-NBL_API2 const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler);
-NBL_API2 const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler);
-
-template<typename Handler>
-requires core::const_dereferenceable_to<Handler, CCUDAHandler>
-inline const CUDA& getCUDAFunctionTable(Handler&& handler)
-{
-	return getCUDAFunctionTable(core::dereference(std::forward<Handler>(handler)));
-}
-
-template<typename Handler>
-requires core::const_dereferenceable_to<Handler, CCUDAHandler>
-inline const NVRTC& getNVRTCFunctionTable(Handler&& handler)
-{
-	return getNVRTCFunctionTable(core::dereference(std::forward<Handler>(handler)));
-}
-
-NBL_API2 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
-NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
-NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
-
-template<typename T>
-T* cast_CUDA_ptr(CUdeviceptr ptr) { return reinterpret_cast<T*>(ptr); }
-
-NBL_API2 const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler);
-
-template<typename Handler>
-requires core::const_dereferenceable_to<Handler, CCUDAHandler>
-inline const core::vector<SCUDADeviceInfo>& getAvailableDevices(Handler&& handler)
-{
-	return getAvailableDevices(core::dereference(std::forward<Handler>(handler)));
-}
-
-NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
-inline nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, const char* source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
-{
-	return createProgram(handler,prog,std::string(source),name,headerCount,headerContents,includeNames);
-}
-NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, system::IFile* file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
-
-template<typename Handler, typename Source>
-requires core::dereferenceable_to<Handler, CCUDAHandler> && detail::program_text_source<Source>
-inline nvrtcResult createProgram(Handler&& handler, nvrtcProgram* prog, Source&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
-{
-	auto& handlerRef = core::dereference(std::forward<Handler>(handler));
-	if constexpr (std::same_as<std::remove_cvref_t<Source>, std::string>)
-		return createProgram(handlerRef,prog,std::string(std::forward<Source>(source)),name,headerCount,headerContents,includeNames);
-	else
-	{
-		const char* sourceText = source;
-		return createProgram(handlerRef,prog,sourceText,name,headerCount,headerContents,includeNames);
-	}
-}
-
-template<typename Handler, typename File>
-requires core::dereferenceable_to<Handler, CCUDAHandler> && std::convertible_to<File, system::IFile*>
-inline nvrtcResult createProgram(Handler&& handler, nvrtcProgram* prog, File file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
-{
-	return createProgram(core::dereference(std::forward<Handler>(handler)),prog,static_cast<system::IFile*>(file),headerCount,headerContents,includeNames);
-}
-NBL_API2 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
-NBL_API2 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
-
 struct ptx_and_nvrtcResult_t
 {
 	core::smart_refctd_ptr<asset::ICPUBuffer> ptx;
 	nvrtcResult result;
 };
 
-NBL_API2 ptx_and_nvrtcResult_t getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
-NBL_API2 ptx_and_nvrtcResult_t compileDirectlyToPTX(
-	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-	std::string* log=nullptr
-);
-inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
-	CCUDAHandler& handler, const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-	std::string* log=nullptr
-)
+// These are opt-in CUDA-native declarations for symbols implemented and exported by Nabla.
+// Only consumers that include this header and link Nabla::ext::CUDAInterop see CUDA SDK types.
+class NBL_API2 CCUDAHandlerAccessor
 {
-	return compileDirectlyToPTX(handler,std::string(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
-}
-NBL_API2 ptx_and_nvrtcResult_t compileDirectlyToPTX(
-	CCUDAHandler& handler, system::IFile* file, core::SRange<const char* const> nvrtcOptions,
-	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-	std::string* log=nullptr
-);
+	public:
+		static const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler);
+		static const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler);
+		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
+		static bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
+		static bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
+		static const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler);
+		static nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
+		static nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
+		static nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
+		static ptx_and_nvrtcResult_t getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
+		static ptx_and_nvrtcResult_t compileDirectlyToPTX(
+			CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		);
+};
 
-template<typename Handler, typename Source>
-requires core::dereferenceable_to<Handler, CCUDAHandler> && detail::program_text_source<Source>
-inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
-	Handler&& handler, Source&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-	std::string* log=nullptr
-)
+class NBL_API2 CCUDADeviceAccessor
 {
-	auto& handlerRef = core::dereference(std::forward<Handler>(handler));
-	if constexpr (std::same_as<std::remove_cvref_t<Source>, std::string>)
-		return compileDirectlyToPTX(handlerRef,std::string(std::forward<Source>(source)),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
-	else
-	{
-		const char* sourceText = source;
-		return compileDirectlyToPTX(handlerRef,sourceText,filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
-	}
-}
+	public:
+		static CUdevice getInternalObject(const CCUDADevice& device);
+		static CUcontext getContext(const CCUDADevice& device);
+		static size_t roundToGranularity(const CCUDADevice& device, CUmemLocationType location, size_t size);
+		static core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice& device, SExportableMemoryCreationParams&& params);
+};
 
-template<typename Handler, typename File>
-requires core::dereferenceable_to<Handler, CCUDAHandler> && std::convertible_to<File, system::IFile*>
-inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
-	Handler&& handler, File file, core::SRange<const char* const> nvrtcOptions,
-	const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-	std::string* log=nullptr
-)
+class NBL_API2 CCUDAExportableMemoryAccessor
 {
-	return compileDirectlyToPTX(core::dereference(std::forward<Handler>(handler)),static_cast<system::IFile*>(file),nvrtcOptions,headerCount,headerContents,includeNames,log);
-}
+	public:
+		static CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory);
+};
 
-NBL_API2 CUdevice getInternalObject(const CCUDADevice& device);
-NBL_API2 CUcontext getContext(const CCUDADevice& device);
-NBL_API2 size_t roundToGranularity(const CCUDADevice& device, CUmemLocationType location, size_t size);
-NBL_API2 core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice& device, SExportableMemoryCreationParams&& params);
-NBL_API2 CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory);
-NBL_API2 CUexternalMemory getInternalObject(const CCUDAImportedMemory& memory);
-NBL_API2 CUresult getMappedBuffer(const CCUDAImportedMemory& memory, CUdeviceptr* mappedBuffer);
-NBL_API2 CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore& semaphore);
-
-template<typename Object>
-requires (
-	core::const_dereferenceable_to<Object, CCUDADevice> ||
-	core::const_dereferenceable_to<Object, CCUDAImportedMemory> ||
-	core::const_dereferenceable_to<Object, CCUDAImportedSemaphore>
-)
-inline auto getInternalObject(Object&& object)
+class NBL_API2 CCUDAImportedMemoryAccessor
 {
-	return getInternalObject(core::dereference(std::forward<Object>(object)));
-}
+	public:
+		static CUexternalMemory getInternalObject(const CCUDAImportedMemory& memory);
+		static CUresult getMappedBuffer(const CCUDAImportedMemory& memory, CUdeviceptr* mappedBuffer);
+};
 
-template<typename Device>
-requires core::const_dereferenceable_to<Device, CCUDADevice>
-inline CUcontext getContext(Device&& device)
+class NBL_API2 CCUDAImportedSemaphoreAccessor
 {
-	return getContext(core::dereference(std::forward<Device>(device)));
-}
-
-template<typename Device>
-requires core::const_dereferenceable_to<Device, CCUDADevice>
-inline size_t roundToGranularity(Device&& device, CUmemLocationType location, size_t size)
-{
-	return roundToGranularity(core::dereference(std::forward<Device>(device)),location,size);
-}
-
-template<typename Device>
-requires core::dereferenceable_to<Device, CCUDADevice>
-inline core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(Device&& device, SExportableMemoryCreationParams&& params)
-{
-	return createExportableMemory(core::dereference(std::forward<Device>(device)),std::move(params));
-}
-
-template<typename Memory>
-requires core::const_dereferenceable_to<Memory, CCUDAExportableMemory>
-inline CUdeviceptr getDeviceptr(Memory&& memory)
-{
-	return getDeviceptr(core::dereference(std::forward<Memory>(memory)));
-}
-
-template<typename Memory>
-requires core::const_dereferenceable_to<Memory, CCUDAImportedMemory>
-inline CUresult getMappedBuffer(Memory&& memory, CUdeviceptr* mappedBuffer)
-{
-	return getMappedBuffer(core::dereference(std::forward<Memory>(memory)),mappedBuffer);
-}
+	public:
+		static CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore& semaphore);
+};
 
 }
-
-#define ASSERT_CUDA_SUCCESS(expr, handler) \
-	do { \
-		const auto cudaResult = (expr); \
-		if (!nbl::video::cuda_native::defaultHandleResult(*(handler), cudaResult)) { \
-			assert(false); \
-		} \
-	} while(0)
 
 #endif

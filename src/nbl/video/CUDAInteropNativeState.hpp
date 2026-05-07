@@ -57,15 +57,6 @@ struct CCUDAImportedSemaphore::SNativeState
 namespace cuda_native
 {
 
-inline CUmemAllocationHandleType getAllocationHandleType()
-{
-#ifdef _WIN32
-	return CU_MEM_HANDLE_TYPE_WIN32;
-#else
-	return CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
-#endif
-}
-
 struct SAccess
 {
 	static CCUDAHandler::SNativeState& native(CCUDAHandler& handler) { return *handler.m_native; }
@@ -96,6 +87,14 @@ struct SAccess
 	static system::logger_opt_ptr logger(const CCUDADevice& device) { return device.m_logger; }
 	static const CCUDADevice* device(const CCUDAImportedMemory& memory) { return memory.m_device.get(); }
 	static IDeviceMemoryAllocation* source(const CCUDAImportedMemory& memory) { return memory.m_src.get(); }
+	static CUmemAllocationHandleType allocationHandleType()
+	{
+	#ifdef _WIN32
+		return CU_MEM_HANDLE_TYPE_WIN32;
+	#else
+		return CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+	#endif
+	}
 };
 
 }
