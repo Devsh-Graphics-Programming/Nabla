@@ -126,11 +126,11 @@ set(NBL_CORE_SOURCES
 )
 
 set(NBL_CUDA_INTEROP_SOURCES
-	ext/CUDAInterop/CCUDADevice.cpp
-	ext/CUDAInterop/CCUDAExportableMemory.cpp
-	ext/CUDAInterop/CCUDAHandler.cpp
-	ext/CUDAInterop/CCUDAImportedMemory.cpp
-	ext/CUDAInterop/CCUDAImportedSemaphore.cpp
+	video/CCUDADevice.cpp
+	video/CCUDAExportableMemory.cpp
+	video/CCUDAHandler.cpp
+	video/CCUDAImportedMemory.cpp
+	video/CCUDAImportedSemaphore.cpp
 )
 
 set(NBL_SYSTEM_SOURCES

@@ -1,4 +1,4 @@
-#include "nbl/ext/CUDAInterop/CUDAInterop.h"
+#include "nbl/video/CUDAInterop.h"
 #include "nbl/system/IApplicationFramework.h"
 
 #include <type_traits>

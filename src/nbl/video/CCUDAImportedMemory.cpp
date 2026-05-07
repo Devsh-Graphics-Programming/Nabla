@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/ext/CUDAInterop/CUDAInterop.h"
+#include "nbl/video/CUDAInterop.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #include "CUDAInteropNativeState.hpp"

@@ -5,9 +5,9 @@
 #define _NBL_VIDEO_C_CUDA_DEVICE_H_
 
 #include "nbl/video/declarations.h"
-#include "nbl/ext/CUDAInterop/CCUDAExportableMemory.h"
-#include "nbl/ext/CUDAInterop/CCUDAImportedMemory.h"
-#include "nbl/ext/CUDAInterop/CCUDAImportedSemaphore.h"
+#include "nbl/video/CCUDAExportableMemory.h"
+#include "nbl/video/CCUDAImportedMemory.h"
+#include "nbl/video/CCUDAImportedSemaphore.h"
 
 #include <cstring>
 #include <memory>

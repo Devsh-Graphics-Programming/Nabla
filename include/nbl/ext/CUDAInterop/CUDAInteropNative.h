@@ -4,7 +4,7 @@
 #ifndef _NBL_EXT_CUDA_INTEROP_NATIVE_H_INCLUDED_
 #define _NBL_EXT_CUDA_INTEROP_NATIVE_H_INCLUDED_
 
-#include "nbl/ext/CUDAInterop/CUDAInterop.h"
+#include "nbl/video/CUDAInterop.h"
 
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/system/DynamicFunctionCaller.h"

@@ -18,7 +18,7 @@
 #error "Nabla consumers must not include CUDA SDK headers."
 #endif
 
-#include "nbl/ext/CUDAInterop/CUDAInterop.h"
+#include "nbl/video/CUDAInterop.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #error "Nabla consumers must not get the CUDA opt-in define."
