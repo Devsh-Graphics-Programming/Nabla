@@ -126,17 +126,12 @@ set(NBL_CORE_SOURCES
 )
 
 set(NBL_CUDA_INTEROP_SOURCES
-	ext/CUDAInterop/CUDAInteropStubs.cpp
+	ext/CUDAInterop/CCUDADevice.cpp
+	ext/CUDAInterop/CCUDAExportableMemory.cpp
+	ext/CUDAInterop/CCUDAHandler.cpp
+	ext/CUDAInterop/CCUDAImportedMemory.cpp
+	ext/CUDAInterop/CCUDAImportedSemaphore.cpp
 )
-if(NBL_COMPILE_WITH_CUDA)
-	set(NBL_CUDA_INTEROP_SOURCES
-		ext/CUDAInterop/CCUDADevice.cpp
-		ext/CUDAInterop/CCUDAExportableMemory.cpp
-		ext/CUDAInterop/CCUDAHandler.cpp
-		ext/CUDAInterop/CCUDAImportedMemory.cpp
-		ext/CUDAInterop/CCUDAImportedSemaphore.cpp
-	)
-endif()
 
 set(NBL_SYSTEM_SOURCES
 	system/DefaultFuncPtrLoader.cpp

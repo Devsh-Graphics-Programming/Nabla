@@ -38,3 +38,15 @@ target_link_libraries(app PRIVATE Nabla::Nabla)
 find_package(Nabla CONFIG REQUIRED COMPONENTS Core CUDAInterop)
 target_link_libraries(native_app PRIVATE Nabla::ext::CUDAInterop)
 ```
+
+## Properties
+
+- `Nabla::Nabla` can be built with CUDA support without making CUDA SDK headers a public compile-time requirement.
+- Consumers that only link `Nabla::Nabla` do not need a CUDA SDK to parse Nabla headers.
+- Consumers that need raw CUDA include `CUDAInteropNative.h` and link `Nabla::ext::CUDAInterop` explicitly.
+- Raw CUDA access is not wrapped away. Native code can use CUDA Driver API types, NVRTC types, and Nabla native accessors in the opt-in path.
+- The Nabla source list is stable. CUDA interop `.cpp` files stay visible in IDE projects for CUDA ON and CUDA OFF builds.
+- CUDA OFF implementations are local stubs in the same `.cpp` files. Clean API entry points stay linkable and return `nullptr` for unavailable CUDA features instead of producing unresolved symbols.
+- CUDA implementation headers and SDK includes stay behind `_NBL_COMPILE_WITH_CUDA_`, so CUDA OFF builds do not need `cuda.h` or `nvrtc.h`.
+- A package built with CUDA support can be consumed without a local CUDA SDK unless the `CUDAInterop` component is requested.
+- A consumer can use a compatible local CUDA SDK for native interop without rebuilding Nabla.

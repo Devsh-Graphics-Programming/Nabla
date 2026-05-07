@@ -2,9 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "CUDAInteropNativeState.hpp"
+#include "nbl/ext/CUDAInterop/CUDAInterop.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
+#include "CUDAInteropNativeState.hpp"
 
 namespace nbl::video
 {
@@ -41,6 +42,24 @@ CCUDAImportedMemory::~CCUDAImportedMemory()
   auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
   ASSERT_CUDA_SUCCESS(cu.pcuDestroyExternalMemory(m_native->handle), m_device->getHandler());
 }
+
+}
+
+#else
+
+namespace nbl::video
+{
+
+// CUDA OFF stub keeps the clean public API linkable and reports feature absence with nullptr instead of unresolved symbols.
+struct CCUDAImportedMemory::SNativeState {};
+
+CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<IDeviceMemoryAllocation> src, std::unique_ptr<SNativeState>&& nativeState)
+	: m_device(std::move(device))
+	, m_src(std::move(src))
+	, m_native(std::move(nativeState))
+{}
+
+CCUDAImportedMemory::~CCUDAImportedMemory() = default;
 
 }
 

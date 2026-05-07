@@ -2,10 +2,11 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "CUDAInteropNativeState.hpp"
-#include "nbl/system/CFileView.h"
+#include "nbl/ext/CUDAInterop/CUDAInterop.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
+#include "CUDAInteropNativeState.hpp"
+#include "nbl/system/CFileView.h"
 #include "jitify/jitify.hpp"
 
 
@@ -764,6 +765,39 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 			return core::make_smart_refctd_ptr<CCUDADevice>(std::move(vulkanConnection), physicalDevice, arch, std::make_unique<CCUDADevice::SNativeState>(device.handle), core::smart_refctd_ptr<CCUDAHandler>(this));
 		}
 	}
+	return nullptr;
+}
+
+}
+
+#else
+
+namespace nbl::video
+{
+
+// CUDA OFF stub keeps the clean public API linkable and reports feature absence with nullptr instead of unresolved symbols.
+struct CCUDAHandler::SNativeState {};
+
+CCUDAHandler::CCUDAHandler(
+	std::unique_ptr<SNativeState>&& nativeState,
+	core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers,
+	core::smart_refctd_ptr<system::ILogger>&& _logger,
+	int _version)
+	: m_native(std::move(nativeState))
+	, m_headers(std::move(_headers))
+	, m_logger(std::move(_logger))
+	, m_version(_version)
+{}
+
+CCUDAHandler::~CCUDAHandler() = default;
+
+core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem*, core::smart_refctd_ptr<system::ILogger>&&)
+{
+	return nullptr;
+}
+
+core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&&, IPhysicalDevice*)
+{
 	return nullptr;
 }
 

@@ -1,13 +1,15 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#include "nbl/ext/CUDAInterop/CUDAInterop.h"
+
+#ifdef _NBL_COMPILE_WITH_CUDA_
 #include "CUDAInteropNativeState.hpp"
 
 #ifdef _WIN32
 #include <winternl.h>
 #endif
 
-#ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
 
@@ -237,6 +239,52 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 CCUDADevice::~CCUDADevice()
 {
 	ASSERT_CUDA_SUCCESS(cuda_native::getCUDAFunctionTable(*m_handler).pcuCtxDestroy_v2(m_native->context), m_handler);
+}
+
+}
+
+#else
+
+namespace nbl::video
+{
+
+// CUDA OFF stub keeps the clean public API linkable and reports feature absence with nullptr instead of unresolved symbols.
+struct CCUDADevice::SNativeState {};
+
+CCUDADevice::CCUDADevice(
+	core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection,
+	IPhysicalDevice* const vulkanDevice,
+	const E_VIRTUAL_ARCHITECTURE virtualArchitecture,
+	std::unique_ptr<SNativeState>&& nativeState,
+	core::smart_refctd_ptr<CCUDAHandler>&& handler)
+	: m_logger(nullptr)
+	, m_vulkanConnection(std::move(vulkanConnection))
+	, m_physicalDevice(vulkanDevice)
+	, m_virtualArchitecture(virtualArchitecture)
+	, m_handler(std::move(handler))
+	, m_native(std::move(nativeState))
+{}
+
+CCUDADevice::~CCUDADevice() = default;
+
+size_t CCUDADevice::roundToGranularity(ECUDAMemoryLocation, size_t size) const
+{
+	return size;
+}
+
+core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemory(CCUDAExportableMemory::SCreationParams&&)
+{
+	return nullptr;
+}
+
+core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&&)
+{
+	return nullptr;
+}
+
+core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&&)
+{
+	return nullptr;
 }
 
 }

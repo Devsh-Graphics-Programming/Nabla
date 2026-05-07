@@ -2,9 +2,11 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "CUDAInteropNativeState.hpp"
+#include "nbl/ext/CUDAInterop/CUDAInterop.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
+#include "CUDAInteropNativeState.hpp"
+
 namespace nbl::video
 {
 
@@ -64,6 +66,29 @@ CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory)
 }
 
 }
+}
+
+#else
+
+namespace nbl::video
+{
+
+// CUDA OFF stub keeps the clean public API linkable and reports feature absence with nullptr instead of unresolved symbols.
+struct CCUDAExportableMemory::SNativeState {};
+
+CCUDAExportableMemory::CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState)
+	: m_device(std::move(device))
+	, m_params(std::move(params))
+	, m_native(std::move(nativeState))
+{}
+
+CCUDAExportableMemory::~CCUDAExportableMemory() = default;
+
+core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice*, IDeviceMemoryBacked*) const
+{
+	return nullptr;
+}
+
 }
 
 #endif // _NBL_COMPILE_WITH_CUDA_
