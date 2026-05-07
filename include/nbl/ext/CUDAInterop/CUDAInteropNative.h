@@ -145,7 +145,6 @@ struct SCUDADeviceInfo
 {
 	CUdevice handle = {};
 	CUuuid uuid = {};
-	int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
 };
 
 struct SExportableMemoryCreationParams

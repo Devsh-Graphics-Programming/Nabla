@@ -44,6 +44,8 @@ Consumers can also choose the SDK used for native compilation with:
 cmake -S . -B build -DNabla_CUDA_TOOLKIT_ROOT=<cuda-root>
 ```
 
+This affects native opt-in compilation and generated runtime header discovery only. It does not rebuild Nabla and does not change the `Nabla.dll` ABI.
+
 ## Native Usage
 
 ```cpp
@@ -92,9 +94,10 @@ Smoke examples:
 - Their public declarations do not expose CUDA SDK structs, CUDA SDK layouts, or `cuda.h` / `nvrtc.h` includes.
 - CUDA implementation state is owned by Nabla through private `SNativeState` members. Consumers cannot construct CUDA wrapper objects with arbitrary internal CUDA state.
 - `CUDAInteropNative.h` declares exported accessor classes whose definitions still live in `Nabla.dll`. The opt-in header owns only the CUDA SDK surface. Nabla owns the implementation and ABI.
-- Native opt-in ABI uses CUDA Driver API handles/enums such as `CUdevice`, `CUcontext`, `CUdeviceptr`, `CUexternalMemory`, and `CUexternalSemaphore`, plus small Nabla-owned parameter structs.
+- Native opt-in ABI uses CUDA Driver API handles/enums such as `CUdevice`, `CUcontext`, `CUdeviceptr`, `CUexternalMemory`, and `CUexternalSemaphore`, plus small fixed-layout parameter/result structs.
+- SDK-sized arrays and other layouts derived from CUDA SDK constants stay private to Nabla. A consumer can build native opt-in code with its own compatible SDK independently from the SDK used to build Nabla.
 - Runtime include-option construction is header-only and is not part of the exported ABI.
-- A package built with one compatible CUDA SDK can be consumed by native interop code built with another compatible SDK without rebuilding Nabla. The loaded driver and NVRTC runtime are still validated at runtime.
+- The loaded CUDA driver and NVRTC runtime are validated at runtime.
 
 ## Runtime Header Discovery
 

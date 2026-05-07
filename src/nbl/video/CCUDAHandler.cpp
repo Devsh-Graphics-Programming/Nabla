@@ -325,15 +325,15 @@ CCUDAHandler::CCUDAHandler(
 		if (m_native->cuda.pcuDeviceGetUuid_v2(&uuid, handle) != CUDA_SUCCESS)
 			continue;
 
-		auto& nativeDevice = m_native->availableDevices.emplace_back();
-		nativeDevice.handle = handle;
-		nativeDevice.uuid = uuid;
+		auto& nativeDevice = m_native->deviceStates.emplace_back();
+		nativeDevice.info.handle = handle;
+		nativeDevice.info.uuid = uuid;
+		m_native->availableDevices.push_back(nativeDevice.info);
 		auto& cleanDevice = m_availableDevices.emplace_back();
 		memcpy(cleanDevice.uuid.data(),&uuid,cleanDevice.uuid.size());
 
-		int* attributes = nativeDevice.attributes;
-		for (int i = 0; i < CU_DEVICE_ATTRIBUTE_MAX; i++)
-			m_native->cuda.pcuDeviceGetAttribute(attributes + i, static_cast<CUdevice_attribute>(i), handle);
+		for (size_t i = 0; i < nativeDevice.attributes.size(); i++)
+			m_native->cuda.pcuDeviceGetAttribute(&nativeDevice.attributes[i], static_cast<CUdevice_attribute>(i), handle);
 
 	}
 }
@@ -979,9 +979,9 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 	if (std::find(devices.begin(),devices.end(),physicalDevice)==devices.end())
 		return nullptr;
 
-	for (const auto& device : m_native->availableDevices)
+	for (const auto& device : m_native->deviceStates)
 	{
-		if (!memcmp(&device.uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
+		if (!memcmp(&device.info.uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
 			CCUDADevice::E_VIRTUAL_ARCHITECTURE arch = CCUDADevice::EVA_COUNT;
 			const int& archMajor = device.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR];
@@ -1064,7 +1064,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 				continue;
 
 			return core::smart_refctd_ptr<CCUDADevice>(
-				new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch,std::make_unique<CCUDADevice::SNativeState>(device.handle),core::smart_refctd_ptr<CCUDAHandler>(this)),
+				new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch,std::make_unique<CCUDADevice::SNativeState>(device.info.handle),core::smart_refctd_ptr<CCUDAHandler>(this)),
 				core::dont_grab
 			);
 		}

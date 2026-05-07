@@ -10,9 +10,16 @@ namespace nbl::video
 
 struct CCUDAHandler::SNativeState
 {
+	struct SDeviceState
+	{
+		cuda_native::SCUDADeviceInfo info = {};
+		std::array<int,CU_DEVICE_ATTRIBUTE_MAX> attributes = {};
+	};
+
 	cuda_native::CUDA cuda;
 	cuda_native::NVRTC nvrtc;
 	core::vector<cuda_native::SCUDADeviceInfo> availableDevices;
+	core::vector<SDeviceState> deviceStates;
 
 	SNativeState(cuda_native::CUDA&& _cuda, cuda_native::NVRTC&& _nvrtc)
 		: cuda(std::move(_cuda))
