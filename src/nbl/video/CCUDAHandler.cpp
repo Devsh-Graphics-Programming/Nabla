@@ -919,7 +919,7 @@ nvrtcResult CCUDAHandlerAccessor::getProgramLog(const CCUDAHandler& handler, nvr
 	return SAccess::native(handler).nvrtc.pnvrtcGetProgramLog(prog,log.data());
 }
 
-ptx_and_nvrtcResult_t CCUDAHandlerAccessor::getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
+SPTXResult CCUDAHandlerAccessor::getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
 {
 	size_t _size = 0ull;
 	nvrtcResult sizeRes = SAccess::native(handler).nvrtc.pnvrtcGetPTXSize(prog,&_size);
@@ -941,8 +941,9 @@ static const core::vector<std::string>& getDefaultRuntimeIncludeOptions()
 	return RuntimeIncludeOptions;
 }
 
-static ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
+static SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string& log)
 {
+	log.clear();
 	if (result!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
@@ -957,24 +958,22 @@ static ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(CCUDAHandler& handler, nv
 	const auto* optionsBegin = options.empty() ? nullptr:options.data();
 	const auto* optionsEnd = options.empty() ? nullptr:optionsBegin+options.size();
 	result = CCUDAHandlerAccessor::compileProgram(handler,program,{optionsBegin,optionsEnd});
-	if (log)
-		CCUDAHandlerAccessor::getProgramLog(handler,program,*log);
+	CCUDAHandlerAccessor::getProgramLog(handler,program,log);
 	if (result!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
 	return CCUDAHandlerAccessor::getPTX(handler,program);
 }
 
-ptx_and_nvrtcResult_t CCUDAHandlerAccessor::compileDirectlyToPTX(
+SPTXResult CCUDAHandlerAccessor::compileDirectlyToPTX(
 	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-	const int headerCount, const char* const* headerContents, const char* const* includeNames,
-	std::string* log)
+	std::string& log, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 	nvrtcProgram program = nullptr;
 	nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
 	auto cleanup = core::makeRAIIExiter([&]() -> void
 	{
-		if (result!=NVRTC_SUCCESS && program)
+		if (program)
 			SAccess::native(handler).nvrtc.pnvrtcDestroyProgram(&program);
 	});
 

@@ -155,7 +155,7 @@ struct SExportableMemoryCreationParams
 	CUmemLocationType location;
 };
 
-struct ptx_and_nvrtcResult_t
+struct SPTXResult
 {
 	core::smart_refctd_ptr<asset::ICPUBuffer> ptx;
 	nvrtcResult result;
@@ -175,11 +175,10 @@ class NBL_API2 CCUDAHandlerAccessor
 		static nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 		static nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
 		static nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
-		static ptx_and_nvrtcResult_t getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
-		static ptx_and_nvrtcResult_t compileDirectlyToPTX(
+		static SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
+		static SPTXResult compileDirectlyToPTX(
 			CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
-			std::string* log=nullptr
+			std::string& log, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
 		);
 };
 

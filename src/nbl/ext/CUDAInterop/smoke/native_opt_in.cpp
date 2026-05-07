@@ -95,17 +95,17 @@ bool cudaFp16HeaderCompileProbe(CCUDAHandler& handler)
 	)cuda";
 
 	std::string log;
-	auto [ptx, result] = cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX(
+	auto compile = cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX(
 		handler,
 		std::string(Source),
 		"cuda_fp16_discovery_probe.cu",
 		{nullptr,nullptr},
+		log,
 		0,
 		nullptr,
-		nullptr,
-		&log
+		nullptr
 	);
-	return result==NVRTC_SUCCESS && ptx && ptx->getSize()>0u;
+	return compile.result==NVRTC_SUCCESS && compile.ptx && compile.ptx->getSize()>0u;
 }
 }
 

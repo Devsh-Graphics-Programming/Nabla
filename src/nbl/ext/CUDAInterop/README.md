@@ -60,15 +60,15 @@ auto memory = nbl::video::cuda_native::CCUDADeviceAccessor::createExportableMemo
 
 std::string log;
 std::string cudaSource = loadKernelText();
-auto [ptx, result] = nbl::video::cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX(
+auto compile = nbl::video::cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX(
     *handler,
     std::move(cudaSource),
     "kernel.cu",
     cudaDevice->geDefaultCompileOptions(),
+    log,
     0,
     nullptr,
-    nullptr,
-    &log
+    nullptr
 );
 ```
 
@@ -78,6 +78,7 @@ Native access is not wrapped away. Opt-in code uses CUDA Driver API and NVRTC ty
 - `CCUDADeviceAccessor` exposes `CUdevice`, `CUcontext`, memory granularity, and CUDA allocation creation.
 - `CCUDAExportableMemoryAccessor`, `CCUDAImportedMemoryAccessor`, and `CCUDAImportedSemaphoreAccessor` expose the raw CUDA handles needed for interop.
 - Accessor methods take explicit Nabla references. Callers dereference `smart_refctd_ptr` at the call site instead of going through pointer/smart-pointer convenience overloads.
+- `compileDirectlyToPTX` returns PTX/result and writes the NVRTC log to a required `std::string&`. There is no optional output pointer in the public API.
 
 Smoke examples:
 
