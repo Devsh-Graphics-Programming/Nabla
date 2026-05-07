@@ -312,6 +312,7 @@ if(NBL_ENABLE_CONFIG_INSTALL)
 		set(_NBL_NABLA_CONFIG_FILES
 			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
 			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			"${CMAKE_CURRENT_LIST_DIR}/cmake/NablaCUDAInteropHelpers.cmake"
 		)
 
 		install(EXPORT NablaExportTargets

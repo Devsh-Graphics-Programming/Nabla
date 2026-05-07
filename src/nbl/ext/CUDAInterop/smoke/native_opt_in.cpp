@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <type_traits>
 #include <utility>
 
@@ -82,6 +83,30 @@ bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 	releaseContext();
 	return ok && std::ranges::equal(input, output);
 }
+
+bool cudaFp16HeaderCompileProbe(CCUDAHandler& handler)
+{
+	constexpr const char* Source = R"cuda(
+		#include <cuda_fp16.h>
+		extern "C" __global__ void fp16_probe(unsigned short* out)
+		{
+			out[0] = sizeof(__half);
+		}
+	)cuda";
+
+	std::string log;
+	auto [ptx, result] = cuda_native::compileDirectlyToPTX(
+		handler,
+		Source,
+		"cuda_fp16_discovery_probe.cu",
+		{nullptr,nullptr},
+		0,
+		nullptr,
+		nullptr,
+		&log
+	);
+	return result==NVRTC_SUCCESS && ptx && ptx->getSize()>0u;
+}
 }
 
 class CUDAInteropNativeOptInSmoke final : public nbl::system::IApplicationFramework
@@ -98,9 +123,26 @@ public:
 
 		static_assert(std::is_same_v<decltype(nbl::video::cuda_native::getInternalObject(std::declval<const nbl::video::CCUDADevice&>())), CUdevice>);
 
+		#ifdef NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON
+		const auto runtimeEnvironment = nbl::video::cuda_interop::findRuntimeCompileEnvironment({}, {NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON});
+		if (!std::filesystem::exists(NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON))
+			return false;
+		#else
+		const auto runtimeEnvironment = nbl::video::cuda_interop::findRuntimeCompileEnvironment();
+		#endif
+		const auto includeOptions = nbl::video::cuda_interop::makeNVRTCIncludeOptions(runtimeEnvironment);
+		const auto hasRuntimeHeaders = std::find_if(runtimeEnvironment.includeDirs.begin(),runtimeEnvironment.includeDirs.end(),[](const auto& includeDir) {
+			return std::filesystem::exists(includeDir/"cuda_fp16.h") || std::filesystem::exists(includeDir/"cuda_runtime_api.h");
+		})!=runtimeEnvironment.includeDirs.end();
+		if (includeOptions.empty() || !hasRuntimeHeaders)
+			return false;
+
 		auto handler = nbl::video::CCUDAHandler::create(nullptr, nullptr);
 		if (!handler)
 			return true;
+
+		if (!cudaFp16HeaderCompileProbe(*handler))
+			return false;
 
 		const auto& devices = nbl::video::cuda_native::getAvailableDevices(handler);
 		if (devices.empty())

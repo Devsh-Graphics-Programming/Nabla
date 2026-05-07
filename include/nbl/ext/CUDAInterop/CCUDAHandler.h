@@ -8,6 +8,7 @@
 #include "nbl/core/definitions.h"
 
 #include "nbl/system/declarations.h"
+#include "nbl/system/path.h"
 
 #include <array>
 #include <cstdint>
@@ -23,6 +24,21 @@ class IPhysicalDevice;
 namespace cuda_native
 {
 struct SAccess;
+}
+
+namespace cuda_interop
+{
+inline constexpr const char* RuntimePathsFileName = "nbl_cuda_interop_runtime.json";
+
+struct SRuntimeCompileEnvironment
+{
+	core::vector<system::path> includeDirs;
+	core::vector<system::path> runtimePathFiles;
+};
+
+NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs = {});
+NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs, core::vector<system::path> runtimePathFiles);
+NBL_API2 core::vector<std::string> makeNVRTCIncludeOptions(const SRuntimeCompileEnvironment& environment);
 }
 
 class NBL_API2 CCUDAHandler : public core::IReferenceCounted
