@@ -113,10 +113,14 @@ NVRTC may need CUDA runtime headers when user kernels include files such as `cud
 
 Production machines do not need the full CUDA SDK just because Nabla was built with CUDA. Applications that use NVRTC with CUDA runtime headers can provide those headers through generated JSON, a custom JSON path, an app-local bundle, an official runtime/header package, or an installed toolkit.
 
-Nabla does not ship CUDA runtime headers by default. NVIDIA CUDA EULA allows redistribution only for selected components. The distribution section says: "The portions of the SDK that are distributable under the Agreement are listed in Attachment A." Attachment A says: "The following CUDA Toolkit files may be distributed with applications developed by you." See:
+Nabla could ship an app-local bundle of selected CUDA runtime headers and make it available to runtime discovery. That model is allowed by the NVIDIA CUDA EULA for the components listed in Attachment A. Nabla intentionally does not bundle these headers. Because of that, end users should prefer an official CUDA runtime/header package for production machines. An installed toolkit also works, but the full toolkit is mainly for developers compiling Nabla or native CUDA code.
+
+NVIDIA CUDA EULA allows redistribution only for selected components. The distribution section says: "The portions of the SDK that are distributable under the Agreement are listed in Attachment A." Attachment A says: "The following CUDA Toolkit files may be distributed with applications developed by you." See:
 
 - https://docs.nvidia.com/cuda/eula/#distribution
 - https://docs.nvidia.com/cuda/eula/#attachment-a
+
+This means the Attachment A header groups below can be redistributed with applications under the EULA terms. It does not mean the full CUDA SDK can be redistributed. Applications that need NVRTC runtime compilation can decide whether to ship the allowed headers, depend on an official runtime/header package, or point discovery at an installed toolkit/header package.
 
 Attachment A lists header groups relevant to NVRTC runtime compilation:
 
@@ -144,3 +148,6 @@ The split follows the same boundary pattern used by mature GPU projects: default
 - OpenCV keeps CUDA implementation headers private and includes `cuda.h`, `cuda_runtime.h`, and NPP there: https://github.com/opencv/opencv/blob/808d2d596c475d95fedb6025c9ed425d62bba04c/modules/core/include/opencv2/core/private.cuda.hpp#L47-L61
 - Blender/Cycles exposes a CUDA device boundary without CUDA SDK headers in the boundary header: https://github.com/blender/blender/blob/794c527e8595a9f448e0143a217d0ceb648c5e7e/intern/cycles/device/cuda/device.h#L7-L27
 - Blender/Cycles keeps `CUdevice`, `CUcontext`, `cuda.h`, and `cuew.h` in the CUDA implementation header/source: https://github.com/blender/blender/blob/794c527e8595a9f448e0143a217d0ceb648c5e7e/intern/cycles/device/cuda/device_impl.h#L12-L30
+- OpenMM keeps the CUDA platform boundary on OpenMM types/properties in `CudaPlatform.h`, while `CudaContext.h` is the CUDA-specific low-level header that includes CUDA SDK headers and exposes `CUmodule` / `CUfunction`: https://github.com/openmm/openmm/blob/master/platforms/cuda/include/CudaPlatform.h#L48-L120 and https://github.com/openmm/openmm/blob/master/platforms/cuda/include/CudaContext.h#L32-L52
+- GROMACS gates CUDA source handling behind `GMX_GPU_CUDA` in the library build and keeps CUDA runtime types in internal GPU utility headers: https://gitlab.com/gromacs/gromacs/-/blob/main/src/gromacs/CMakeLists.txt#L339-L367 and https://gitlab.com/gromacs/gromacs/-/blob/main/src/gromacs/gpu_utils/gputraits.cuh#L44-L58
+- ONNX Runtime keeps the public C API provider-neutral and routes CUDA through provider-specific bridge/factory code: https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_c_api.h#L1-L80 and https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/session/provider_bridge_ort.cc#L110-L150
