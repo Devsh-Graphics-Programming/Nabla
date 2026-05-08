@@ -340,10 +340,15 @@ CCUDAHandler::CCUDAHandler(
 
 CCUDAHandler::~CCUDAHandler() = default;
 
+uint32_t CCUDAHandler::getBuildCUDAVersion()
+{
+	return CUDA_VERSION;
+}
+
 namespace cuda_native
 {
 
-bool CCUDAHandlerAccessor::defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
+bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
 {
 	switch (result)
 	{
@@ -709,12 +714,12 @@ bool CCUDAHandlerAccessor::defaultHandleResult(CUresult result, const system::lo
 	return false;
 }
 
-bool CCUDAHandlerAccessor::defaultHandleResult(const CCUDAHandler& handler, CUresult result)
+bool defaultHandleResult(const CCUDAHandler& handler, CUresult result)
 {
-	return CCUDAHandlerAccessor::defaultHandleResult(result,SAccess::logger(handler));
+	return defaultHandleResult(result,SAccess::logger(handler));
 }
 
-bool CCUDAHandlerAccessor::defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
+bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
 {
 	switch (result)
 	{
@@ -862,22 +867,22 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 namespace cuda_native
 {
 
-const CUDA& CCUDAHandlerAccessor::getCUDAFunctionTable(const CCUDAHandler& handler)
+const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler)
 {
 	return SAccess::native(handler).cuda;
 }
 
-const NVRTC& CCUDAHandlerAccessor::getNVRTCFunctionTable(const CCUDAHandler& handler)
+const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler)
 {
 	return SAccess::native(handler).nvrtc;
 }
 
-const core::vector<SCUDADeviceInfo>& CCUDAHandlerAccessor::getAvailableDevices(const CCUDAHandler& handler)
+const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler)
 {
 	return SAccess::native(handler).availableDevices;
 }
 
-nvrtcResult CCUDAHandlerAccessor::createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 #if defined(_NBL_WINDOWS_API_)
 	source.insert(0ull,"#ifndef _WIN64\n#define _WIN64\n#endif\n");
@@ -889,12 +894,12 @@ nvrtcResult CCUDAHandlerAccessor::createProgram(CCUDAHandler& handler, nvrtcProg
 	return SAccess::native(handler).nvrtc.pnvrtcCreateProgram(prog,source.c_str(),name,headerCount,headerContents,includeNames);
 }
 
-nvrtcResult CCUDAHandlerAccessor::compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options)
+nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options)
 {
 	return SAccess::native(handler).nvrtc.pnvrtcCompileProgram(prog,options.size(),options.begin());
 }
 
-nvrtcResult CCUDAHandlerAccessor::getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log)
+nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log)
 {
 	size_t _size = 0ull;
 	nvrtcResult sizeRes = SAccess::native(handler).nvrtc.pnvrtcGetProgramLogSize(prog, &_size);
@@ -907,7 +912,7 @@ nvrtcResult CCUDAHandlerAccessor::getProgramLog(const CCUDAHandler& handler, nvr
 	return SAccess::native(handler).nvrtc.pnvrtcGetProgramLog(prog,log.data());
 }
 
-SPTXResult CCUDAHandlerAccessor::getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
+SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
 {
 	size_t _size = 0ull;
 	nvrtcResult sizeRes = SAccess::native(handler).nvrtc.pnvrtcGetPTXSize(prog,&_size);
@@ -945,15 +950,15 @@ static SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult r
 
 	const auto* optionsBegin = options.empty() ? nullptr:options.data();
 	const auto* optionsEnd = options.empty() ? nullptr:optionsBegin+options.size();
-	result = CCUDAHandlerAccessor::compileProgram(handler,program,{optionsBegin,optionsEnd});
-	CCUDAHandlerAccessor::getProgramLog(handler,program,log);
+	result = compileProgram(handler,program,{optionsBegin,optionsEnd});
+	getProgramLog(handler,program,log);
 	if (result!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
-	return CCUDAHandlerAccessor::getPTX(handler,program);
+	return getPTX(handler,program);
 }
 
-SPTXResult CCUDAHandlerAccessor::compileDirectlyToPTX(
+SPTXResult compileDirectlyToPTX(
 	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
 	std::string& log, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
@@ -965,7 +970,7 @@ SPTXResult CCUDAHandlerAccessor::compileDirectlyToPTX(
 			SAccess::native(handler).nvrtc.pnvrtcDestroyProgram(&program);
 	});
 
-	result = CCUDAHandlerAccessor::createProgram(handler,&program,std::move(source),filename,headerCount,headerContents,includeNames);
+	result = createProgram(handler,&program,std::move(source),filename,headerCount,headerContents,includeNames);
 	return compileDirectlyToPTX_impl(handler,result,program,nvrtcOptions,log);
 }
 
@@ -1094,6 +1099,11 @@ CCUDAHandler::CCUDAHandler(
 }
 
 CCUDAHandler::~CCUDAHandler() = default;
+
+uint32_t CCUDAHandler::getBuildCUDAVersion()
+{
+	return 0u;
+}
 
 core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem*, core::smart_refctd_ptr<system::ILogger>&&)
 {

@@ -4,6 +4,7 @@
 #ifndef _NBL_VIDEO_CUDA_INTEROP_H_INCLUDED_
 #define _NBL_VIDEO_CUDA_INTEROP_H_INCLUDED_
 
+#include "nbl/video/CUDAInteropHandles.h"
 #include "nbl/video/CCUDADevice.h"
 #include "nbl/video/CCUDAExportableMemory.h"
 #include "nbl/video/CCUDAHandler.h"

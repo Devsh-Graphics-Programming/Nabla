@@ -17,20 +17,15 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 	assert(m_native);
 }
 
-namespace cuda_native
+cuda_interop::SCUexternalSemaphore CCUDAImportedSemaphore::getInternalObject() const
 {
-
-CUexternalSemaphore CCUDAImportedSemaphoreAccessor::getInternalObject(const CCUDAImportedSemaphore& semaphore)
-{
-	return SAccess::native(semaphore).handle;
-}
-
+	return cuda_native::SCUexternalSemaphore(m_native->handle).asOpaque();
 }
 
 CCUDAImportedSemaphore::~CCUDAImportedSemaphore()
 {
-	auto& cu = cuda_native::CCUDAHandlerAccessor::getCUDAFunctionTable(*m_device->getHandler());
-	if (!cuda_native::CCUDAHandlerAccessor::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalSemaphore(m_native->handle)))
+	auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
+	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalSemaphore(m_native->handle)))
 		assert(false);
 }
 }
@@ -52,6 +47,11 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 }
 
 CCUDAImportedSemaphore::~CCUDAImportedSemaphore() = default;
+
+cuda_interop::SCUexternalSemaphore CCUDAImportedSemaphore::getInternalObject() const
+{
+	return {};
+}
 
 }
 

@@ -5,6 +5,7 @@
 #define _NBL_VIDEO_C_CUDA_IMPORTED_SEMAPHORE_H_
 
 #include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
 
 #include <memory>
 #include <utility>
@@ -23,6 +24,7 @@ class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
 {
 	public:
 		~CCUDAImportedSemaphore() override;
+		cuda_interop::SCUexternalSemaphore getInternalObject() const;
 
 	private:
 		friend class CCUDADevice;

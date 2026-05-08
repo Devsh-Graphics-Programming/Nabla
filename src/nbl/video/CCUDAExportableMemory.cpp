@@ -52,12 +52,12 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 
 CCUDAExportableMemory::~CCUDAExportableMemory()
 {
-	const auto& cu = cuda_native::CCUDAHandlerAccessor::getCUDAFunctionTable(*m_device->getHandler());
+	const auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
 
-	if (!cuda_native::CCUDAHandlerAccessor::defaultHandleResult(*m_device->getHandler(), cu.pcuMemUnmap(m_native->ptr, m_params.granularSize)))
+	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemUnmap(m_native->ptr, m_params.granularSize)))
 		assert(false);
 
-	if (!cuda_native::CCUDAHandlerAccessor::defaultHandleResult(*m_device->getHandler(), cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize)))
+	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize)))
 		assert(false);
 
   bool closeSucceed = CloseExternalHandle(m_params.externalHandle);
@@ -65,15 +65,11 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 
 }
 
-namespace cuda_native
+cuda_interop::SCUdeviceptr CCUDAExportableMemory::getDeviceptr() const
 {
-
-CUdeviceptr CCUDAExportableMemoryAccessor::getDeviceptr(const CCUDAExportableMemory& memory)
-{
-	return SAccess::native(memory).ptr;
+	return cuda_native::SCUdeviceptr(m_native->ptr).asOpaque();
 }
 
-}
 }
 
 #else
@@ -101,6 +97,11 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDAExportableMemory::create(core
 }
 
 CCUDAExportableMemory::~CCUDAExportableMemory() = default;
+
+cuda_interop::SCUdeviceptr CCUDAExportableMemory::getDeviceptr() const
+{
+	return {};
+}
 
 core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice*, IDeviceMemoryBacked*) const
 {

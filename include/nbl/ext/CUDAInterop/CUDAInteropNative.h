@@ -13,6 +13,7 @@
 
 #include "cuda.h"
 #include "nvrtc.h"
+#include <type_traits>
 #if CUDA_VERSION < 13000
 	#error "Need CUDA 13.0 SDK or higher."
 #endif
@@ -160,54 +161,91 @@ struct SPTXResult
 	nvrtcResult result;
 };
 
-// Opt-in native CUDA API. The declarations below are implemented by the Nabla library.
-// This header is intentionally the only public path that includes CUDA SDK types.
-class NBL_API2 CCUDAHandlerAccessor
+template<typename Opaque, typename Native>
+concept cuda_opaque_handle =
+	std::is_trivially_copyable_v<Opaque> &&
+	std::is_trivially_copyable_v<Native> &&
+	sizeof(Opaque)==sizeof(Native) &&
+	alignof(Opaque)==alignof(Native);
+
+template<typename Opaque>
+struct SOpaqueCUDAType;
+
+template<> struct SOpaqueCUDAType<cuda_interop::SCUdevice> { using type = CUdevice; };
+template<> struct SOpaqueCUDAType<cuda_interop::SCUcontext> { using type = CUcontext; };
+template<> struct SOpaqueCUDAType<cuda_interop::SCUdeviceptr> { using type = CUdeviceptr; };
+template<> struct SOpaqueCUDAType<cuda_interop::SCUexternalMemory> { using type = CUexternalMemory; };
+template<> struct SOpaqueCUDAType<cuda_interop::SCUexternalSemaphore> { using type = CUexternalSemaphore; };
+
+template<typename Opaque>
+struct SNativeHandle
 {
-	public:
-		static const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler);
-		static const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler);
-		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
-		static bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
-		static bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
-		static const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler);
-		static nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
-		static nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
-		static nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
-		static SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
-		static SPTXResult compileDirectlyToPTX(
-			CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-			std::string& log, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
-		);
+	using cuda_t = typename SOpaqueCUDAType<Opaque>::type;
+	static_assert(cuda_opaque_handle<Opaque,cuda_t>);
+
+	SNativeHandle() = default;
+	SNativeHandle(const SNativeHandle&) = default;
+	SNativeHandle(const cuda_t& native) { operator=(native); }
+	SNativeHandle(const Opaque& opaque) { operator=(opaque); }
+
+	SNativeHandle& operator=(const SNativeHandle&) = default;
+	SNativeHandle& operator=(const cuda_t& native) { value = native; return *this; }
+	SNativeHandle& operator=(const Opaque& opaque) { operator Opaque&() = opaque; return *this; }
+
+	operator cuda_t&() { return value; }
+	operator const cuda_t&() const { return value; }
+	operator Opaque&() { return reinterpret_cast<Opaque&>(value); }
+	operator const Opaque&() const { return reinterpret_cast<const Opaque&>(value); }
+
+	Opaque* opaque() { return &static_cast<Opaque&>(*this); }
+	const Opaque* opaque() const { return &static_cast<const Opaque&>(*this); }
+	Opaque asOpaque() const { return static_cast<const Opaque&>(*this); }
+
+	cuda_t value = {};
 };
 
-class NBL_API2 CCUDADeviceAccessor
-{
-	public:
-		static CUdevice getInternalObject(const CCUDADevice& device);
-		static CUcontext getContext(const CCUDADevice& device);
-		static size_t roundToGranularity(const CCUDADevice& device, CUmemLocationType location, size_t size);
-		static core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice& device, SExportableMemoryCreationParams&& params);
-};
+using SCUdevice = SNativeHandle<cuda_interop::SCUdevice>;
+using SCUcontext = SNativeHandle<cuda_interop::SCUcontext>;
+using SCUdeviceptr = SNativeHandle<cuda_interop::SCUdeviceptr>;
+using SCUexternalMemory = SNativeHandle<cuda_interop::SCUexternalMemory>;
+using SCUexternalSemaphore = SNativeHandle<cuda_interop::SCUexternalSemaphore>;
 
-class NBL_API2 CCUDAExportableMemoryAccessor
+inline bool isBuildCUDAVersionCompatible()
 {
-	public:
-		static CUdeviceptr getDeviceptr(const CCUDAExportableMemory& memory);
-};
+	const auto buildVersion = CCUDAHandler::getBuildCUDAVersion();
+	return buildVersion==0u || buildVersion==CUDA_VERSION;
+}
 
-class NBL_API2 CCUDAImportedMemoryAccessor
+inline bool isDeviceLocal(CUmemLocationType location)
 {
-	public:
-		static CUexternalMemory getInternalObject(const CCUDAImportedMemory& memory);
-		static CUresult getMappedBuffer(const CCUDAImportedMemory& memory, CUdeviceptr* mappedBuffer);
-};
+	return location==CU_MEM_LOCATION_TYPE_DEVICE;
+}
 
-class NBL_API2 CCUDAImportedSemaphoreAccessor
+// Opt-in native CUDA declarations. Nabla owns the definitions.
+NBL_API2 const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler);
+NBL_API2 const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler);
+NBL_API2 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
+NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
+NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
+NBL_API2 const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler);
+NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
+NBL_API2 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
+NBL_API2 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
+NBL_API2 SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
+NBL_API2 SPTXResult compileDirectlyToPTX(
+	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+	std::string& log, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
+);
+
+inline size_t roundToGranularity(const CCUDADevice& device, CUmemLocationType location, size_t size)
 {
-	public:
-		static CUexternalSemaphore getInternalObject(const CCUDAImportedSemaphore& semaphore);
-};
+	return device.roundToGranularity(static_cast<uint32_t>(location),size);
+}
+
+inline core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDADevice& device, SExportableMemoryCreationParams&& params)
+{
+	return device.createExportableMemory({params.size,params.alignment,static_cast<uint32_t>(params.location)});
+}
 
 }
 

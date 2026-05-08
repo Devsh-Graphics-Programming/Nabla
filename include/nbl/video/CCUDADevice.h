@@ -5,6 +5,7 @@
 #define _NBL_VIDEO_C_CUDA_DEVICE_H_
 
 #include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
 #include "nbl/video/CCUDAExportableMemory.h"
 #include "nbl/video/CCUDAImportedMemory.h"
 #include "nbl/video/CCUDAImportedSemaphore.h"
@@ -75,9 +76,21 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		}
 
 		const CCUDAHandler* getHandler() const { return m_handler.get();  }
+		cuda_interop::SCUdevice getInternalObject() const;
+		cuda_interop::SCUcontext getContext() const;
+
+		struct SExportableMemoryCreationParams
+		{
+			size_t size;
+			uint32_t alignment;
+			uint32_t locationType;
+		};
+
+		size_t roundToGranularity(uint32_t locationType, size_t size) const;
 
 		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_physicalDevice->getProperties().deviceUUID, 16); }
 
+		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(SExportableMemoryCreationParams&& params);
 		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
 
 		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);

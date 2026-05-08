@@ -2,6 +2,7 @@
 #define _NBL_VIDEO_C_CUDA_IMPORTED_MEMORY_H_
 
 #include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
 
 #include <memory>
 #include <utility>
@@ -20,6 +21,8 @@ class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 {
 	public:
 		~CCUDAImportedMemory() override;
+		cuda_interop::SCUexternalMemory getInternalObject() const;
+		bool getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const;
 
 	private:
 		friend class CCUDADevice;

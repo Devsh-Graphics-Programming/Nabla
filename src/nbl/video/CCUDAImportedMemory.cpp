@@ -18,31 +18,34 @@ CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> dev
 	assert(m_native);
 }
 
-namespace cuda_native
+cuda_interop::SCUexternalMemory CCUDAImportedMemory::getInternalObject() const
 {
-
-CUexternalMemory CCUDAImportedMemoryAccessor::getInternalObject(const CCUDAImportedMemory& memory)
-{
-  return SAccess::native(memory).handle;
+  return cuda_native::SCUexternalMemory(m_native->handle).asOpaque();
 }
 
-CUresult CCUDAImportedMemoryAccessor::getMappedBuffer(const CCUDAImportedMemory& memory, CUdeviceptr* mappedBuffer)
+bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const
 {
+  if (!mappedBuffer)
+	  return false;
+
   CUDA_EXTERNAL_MEMORY_BUFFER_DESC bufferDesc = {};
   bufferDesc.offset = 0;
-  bufferDesc.size = SAccess::source(memory)->getAllocationSize();
+  bufferDesc.size = m_src->getAllocationSize();
 
-  const auto& cu = CCUDAHandlerAccessor::getCUDAFunctionTable(*SAccess::device(memory)->getHandler());
-  return cu.pcuExternalMemoryGetMappedBuffer(mappedBuffer, SAccess::native(memory).handle, &bufferDesc);
+  CUdeviceptr nativeMappedBuffer = 0;
+  const auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
+  const auto result = cu.pcuExternalMemoryGetMappedBuffer(&nativeMappedBuffer, m_native->handle, &bufferDesc);
+  if (!cuda_native::defaultHandleResult(*m_device->getHandler(),result))
+	  return false;
   
-}
-
+  *mappedBuffer = cuda_native::SCUdeviceptr(nativeMappedBuffer).asOpaque();
+  return true;
 }
 
 CCUDAImportedMemory::~CCUDAImportedMemory()
 {
-  auto& cu = cuda_native::CCUDAHandlerAccessor::getCUDAFunctionTable(*m_device->getHandler());
-	if (!cuda_native::CCUDAHandlerAccessor::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalMemory(m_native->handle)))
+  auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
+	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalMemory(m_native->handle)))
 		assert(false);
 }
 
@@ -65,6 +68,16 @@ CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> dev
 }
 
 CCUDAImportedMemory::~CCUDAImportedMemory() = default;
+
+cuda_interop::SCUexternalMemory CCUDAImportedMemory::getInternalObject() const
+{
+	return {};
+}
+
+bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr*) const
+{
+	return false;
+}
 
 }
 

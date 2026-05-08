@@ -23,7 +23,7 @@ using namespace nbl::video;
 	core::smart_refctd_ptr<IDeviceMemoryAllocation> vulkanMemory,
 	core::smart_refctd_ptr<ISemaphore> vulkanSemaphore)
 {
-	auto cudaMemory = cuda_native::CCUDADeviceAccessor::createExportableMemory(cudaDevice, {
+	auto cudaMemory = cuda_native::createExportableMemory(cudaDevice, {
 		.size = 4096,
 		.alignment = 4096,
 		.location = CU_MEM_LOCATION_TYPE_DEVICE,
@@ -35,18 +35,20 @@ using namespace nbl::video;
 	auto importedFromVulkan = cudaDevice.importExternalMemory(std::move(vulkanMemory));
 	auto importedSemaphore = cudaDevice.importExternalSemaphore(std::move(vulkanSemaphore));
 
-	CUdeviceptr mappedVulkanMemory = 0;
+	cuda_native::SCUdeviceptr mappedVulkanMemory;
 	if (importedFromVulkan)
-		cuda_native::CCUDAImportedMemoryAccessor::getMappedBuffer(*importedFromVulkan,&mappedVulkanMemory);
+		importedFromVulkan->getMappedBuffer(mappedVulkanMemory.opaque());
 
-	const CUdeviceptr cudaDevicePtr = cuda_native::CCUDAExportableMemoryAccessor::getDeviceptr(*cudaMemory);
-	const CUexternalSemaphore cudaSemaphore = importedSemaphore ? cuda_native::CCUDAImportedSemaphoreAccessor::getInternalObject(*importedSemaphore):nullptr;
+	const CUdeviceptr cudaDevicePtr = cuda_native::SCUdeviceptr(cudaMemory->getDeviceptr());
+	CUexternalSemaphore cudaSemaphore = nullptr;
+	if (importedSemaphore)
+		cudaSemaphore = cuda_native::SCUexternalSemaphore(importedSemaphore->getInternalObject());
 	return exportedToVulkan.get() && mappedVulkanMemory && cudaDevicePtr && cudaSemaphore;
 }
 
 bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 {
-	auto& cuda = cuda_native::CCUDAHandlerAccessor::getCUDAFunctionTable(handler);
+	auto& cuda = cuda_native::getCUDAFunctionTable(handler);
 
 	CUcontext context = nullptr;
 	if (cuda.pcuDevicePrimaryCtxRetain(&context, device)!=CUDA_SUCCESS)
@@ -98,7 +100,7 @@ bool cudaFp16HeaderCompileProbe(CCUDAHandler& handler)
 	)cuda";
 
 	std::string log;
-	auto compile = cuda_native::CCUDAHandlerAccessor::compileDirectlyToPTX(
+	auto compile = cuda_native::compileDirectlyToPTX(
 		handler,
 		std::string(Source),
 		"cuda_fp16_discovery_probe.cu",
@@ -124,7 +126,9 @@ public:
 		if (!isAPILoaded())
 			return false;
 
-		static_assert(std::is_same_v<decltype(nbl::video::cuda_native::CCUDADeviceAccessor::getInternalObject(std::declval<const nbl::video::CCUDADevice&>())), CUdevice>);
+		static_assert(std::is_same_v<nbl::video::cuda_native::SCUdevice::cuda_t, CUdevice>);
+		if (!nbl::video::cuda_native::isBuildCUDAVersionCompatible())
+			return false;
 
 		#ifdef NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON
 		const auto runtimeEnvironment = nbl::video::cuda_interop::findRuntimeCompileEnvironment({}, {NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON});
@@ -147,7 +151,7 @@ public:
 		if (!cudaFp16HeaderCompileProbe(*handler))
 			return false;
 
-		const auto& devices = nbl::video::cuda_native::CCUDAHandlerAccessor::getAvailableDevices(*handler);
+		const auto& devices = nbl::video::cuda_native::getAvailableDevices(*handler);
 		if (devices.empty())
 			return true;
 

@@ -50,6 +50,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 {
 	public:
 		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
+		static uint32_t getBuildCUDAVersion();
 
 		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{

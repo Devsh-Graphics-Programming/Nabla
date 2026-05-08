@@ -5,6 +5,7 @@
 #define _NBL_VIDEO_C_CUDA_EXPORTABLE_MEMORY_H_
 
 #include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
 
 #include <memory>
 #include <utility>
@@ -32,6 +33,7 @@ class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 
 		~CCUDAExportableMemory() override;
 
+		cuda_interop::SCUdeviceptr getDeviceptr() const;
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
 	private:
