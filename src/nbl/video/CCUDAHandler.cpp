@@ -345,6 +345,16 @@ uint32_t CCUDAHandler::getBuildCUDAVersion()
 	return CUDA_VERSION;
 }
 
+const cuda_native::CUDA& CCUDAHandler::getCUDAFunctionTable() const
+{
+	return cuda_native::SAccess::native(*this).cuda;
+}
+
+const cuda_native::NVRTC& CCUDAHandler::getNVRTCFunctionTable() const
+{
+	return cuda_native::SAccess::native(*this).nvrtc;
+}
+
 namespace cuda_native
 {
 
@@ -867,21 +877,6 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 namespace cuda_native
 {
 
-const CUDA& getCUDAFunctionTable(const CCUDAHandler& handler)
-{
-	return SAccess::native(handler).cuda;
-}
-
-const NVRTC& getNVRTCFunctionTable(const CCUDAHandler& handler)
-{
-	return SAccess::native(handler).nvrtc;
-}
-
-const core::vector<SCUDADeviceInfo>& getAvailableDevices(const CCUDAHandler& handler)
-{
-	return SAccess::native(handler).availableDevices;
-}
-
 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 #if defined(_NBL_WINDOWS_API_)
@@ -1103,6 +1098,16 @@ CCUDAHandler::~CCUDAHandler() = default;
 uint32_t CCUDAHandler::getBuildCUDAVersion()
 {
 	return 0u;
+}
+
+const cuda_native::CUDA& CCUDAHandler::getCUDAFunctionTable() const
+{
+	std::abort();
+}
+
+const cuda_native::NVRTC& CCUDAHandler::getNVRTCFunctionTable() const
+{
+	std::abort();
 }
 
 core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem*, core::smart_refctd_ptr<system::ILogger>&&)

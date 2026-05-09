@@ -3,6 +3,26 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/video/CUDAInterop.h"
 
+namespace nbl::video
+{
+
+CCUDADevice::E_VIRTUAL_ARCHITECTURE CCUDADevice::getVirtualArchitecture() const
+{
+	return m_virtualArchitecture;
+}
+
+core::SRange<const char* const> CCUDADevice::geDefaultCompileOptions() const
+{
+	return {m_defaultCompileOptions.data(),m_defaultCompileOptions.data()+m_defaultCompileOptions.size()};
+}
+
+const CCUDAHandler* CCUDADevice::getHandler() const
+{
+	return m_handler.get();
+}
+
+}
+
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #include "CUDAInteropNativeState.hpp"
 
@@ -13,6 +33,30 @@
 namespace nbl::video
 {
 
+namespace
+{
+
+constexpr const char* VirtualArchCompileOption[] = {
+	"-arch=compute_30",
+	"-arch=compute_32",
+	"-arch=compute_35",
+	"-arch=compute_37",
+	"-arch=compute_50",
+	"-arch=compute_52",
+	"-arch=compute_53",
+	"-arch=compute_60",
+	"-arch=compute_61",
+	"-arch=compute_62",
+	"-arch=compute_70",
+	"-arch=compute_72",
+	"-arch=compute_75",
+	"-arch=compute_80"
+};
+
+static_assert(sizeof(VirtualArchCompileOption)/sizeof(*VirtualArchCompileOption)==CCUDADevice::EVA_COUNT);
+
+}
+
 CCUDADevice::CCUDADevice(
 	core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, 
 	IPhysicalDevice* const vulkanDevice, 
@@ -22,7 +66,6 @@ CCUDADevice::CCUDADevice(
 	m_logger(vulkanDevice->getDebugCallback()->getLogger()),
   m_defaultCompileOptions(), 
   m_vulkanConnection(std::move(vulkanConnection)), 
-  m_physicalDevice(vulkanDevice), 
   m_virtualArchitecture(virtualArchitecture),
 	m_handler(std::move(handler)),
 	m_native(std::move(nativeState))
@@ -30,11 +73,11 @@ CCUDADevice::CCUDADevice(
 	assert(m_native);
 
 	m_defaultCompileOptions.push_back("--std=c++14");
-	m_defaultCompileOptions.push_back(virtualArchCompileOption[m_virtualArchitecture]);
+	m_defaultCompileOptions.push_back(VirtualArchCompileOption[m_virtualArchitecture]);
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
 
-  const auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
+  const auto& cu = m_handler->getCUDAFunctionTable();
 	
 	if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle)))
 		assert(false);
@@ -92,7 +135,7 @@ static CUresult reserveAddressAndMapMemory(const CCUDADevice& device, CUdevicept
 {
 	const auto handler = device.getHandler();
 	const auto& native = cuda_native::SAccess::native(device);
-	const auto& cu = cuda_native::getCUDAFunctionTable(*handler);
+	const auto& cu = handler->getCUDAFunctionTable();
 	
 	CUdeviceptr ptr = 0;
 	if (const auto err = cu.pcuMemAddressReserve(&ptr, size, alignment, 0, 0); CUDA_SUCCESS != err)
@@ -140,7 +183,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 	if (params.granularSize==0u)
 		return nullptr;
 
-	auto& cu = cuda_native::getCUDAFunctionTable(*handler);
+	auto& cu = handler->getCUDAFunctionTable();
 	
 #ifdef _WIN32
 	OBJECT_ATTRIBUTES metadata = {
@@ -199,7 +242,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 
 core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
 {
-	const auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
+	const auto& cu = m_handler->getCUDAFunctionTable();
 	const auto handleType = mem->getCreationParams().externalHandleType;
 
 	if (!handleType) return nullptr;
@@ -230,7 +273,7 @@ core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(co
 
 core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sema)
 {
-	auto& cu = cuda_native::getCUDAFunctionTable(*m_handler);
+	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = sema->getCreationParams().externalHandleTypes.value;
 
 	if (!handleType)
@@ -263,7 +306,7 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 
 CCUDADevice::~CCUDADevice()
 {
-	if (!cuda_native::defaultHandleResult(*m_handler, cuda_native::getCUDAFunctionTable(*m_handler).pcuCtxDestroy_v2(m_native->context)))
+	if (!cuda_native::defaultHandleResult(*m_handler, m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context)))
 		assert(false);
 }
 
@@ -285,7 +328,6 @@ CCUDADevice::CCUDADevice(
 	core::smart_refctd_ptr<CCUDAHandler>&& handler)
 	: m_logger(nullptr)
 	, m_vulkanConnection(std::move(vulkanConnection))
-	, m_physicalDevice(vulkanDevice)
 	, m_virtualArchitecture(virtualArchitecture)
 	, m_handler(std::move(handler))
 	, m_native(std::move(nativeState))

@@ -23,10 +23,10 @@ using namespace nbl::video;
 	core::smart_refctd_ptr<IDeviceMemoryAllocation> vulkanMemory,
 	core::smart_refctd_ptr<ISemaphore> vulkanSemaphore)
 {
-	auto cudaMemory = cuda_native::createExportableMemory(cudaDevice, {
+	auto cudaMemory = cudaDevice.createExportableMemory({
 		.size = 4096,
 		.alignment = 4096,
-		.location = CU_MEM_LOCATION_TYPE_DEVICE,
+		.locationType = CU_MEM_LOCATION_TYPE_DEVICE,
 	});
 	if (!cudaMemory)
 		return false;
@@ -48,7 +48,7 @@ using namespace nbl::video;
 
 bool cudaDriverRoundtrip(CCUDAHandler& handler, CUdevice device)
 {
-	auto& cuda = cuda_native::getCUDAFunctionTable(handler);
+	auto& cuda = handler.getCUDAFunctionTable();
 
 	CUcontext context = nullptr;
 	if (cuda.pcuDevicePrimaryCtxRetain(&context, device)!=CUDA_SUCCESS)
@@ -151,11 +151,15 @@ public:
 		if (!cudaFp16HeaderCompileProbe(*handler))
 			return false;
 
-		const auto& devices = nbl::video::cuda_native::getAvailableDevices(*handler);
-		if (devices.empty())
+		int deviceCount = 0;
+		if (handler->getCUDAFunctionTable().pcuDeviceGetCount(&deviceCount)!=CUDA_SUCCESS || deviceCount==0)
 			return true;
 
-		return cudaDriverRoundtrip(*handler, devices.front().handle);
+		CUdevice device = {};
+		if (handler->getCUDAFunctionTable().pcuDeviceGet(&device,0)!=CUDA_SUCCESS)
+			return false;
+
+		return cudaDriverRoundtrip(*handler, device);
 	}
 
 	void workLoopBody() override {}

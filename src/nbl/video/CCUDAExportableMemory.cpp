@@ -52,7 +52,7 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 
 CCUDAExportableMemory::~CCUDAExportableMemory()
 {
-	const auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
+	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 
 	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemUnmap(m_native->ptr, m_params.granularSize)))
 		assert(false);

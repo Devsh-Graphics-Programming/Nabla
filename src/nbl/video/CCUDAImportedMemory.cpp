@@ -33,7 +33,7 @@ bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuff
   bufferDesc.size = m_src->getAllocationSize();
 
   CUdeviceptr nativeMappedBuffer = 0;
-  const auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
+  const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
   const auto result = cu.pcuExternalMemoryGetMappedBuffer(&nativeMappedBuffer, m_native->handle, &bufferDesc);
   if (!cuda_native::defaultHandleResult(*m_device->getHandler(),result))
 	  return false;
@@ -44,7 +44,7 @@ bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuff
 
 CCUDAImportedMemory::~CCUDAImportedMemory()
 {
-  auto& cu = cuda_native::getCUDAFunctionTable(*m_device->getHandler());
+  auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalMemory(m_native->handle)))
 		assert(false);
 }

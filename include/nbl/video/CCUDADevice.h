@@ -10,7 +10,6 @@
 #include "nbl/video/CCUDAImportedMemory.h"
 #include "nbl/video/CCUDAImportedSemaphore.h"
 
-#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -50,32 +49,13 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 			EVA_80,
 			EVA_COUNT
 		};
-		static inline constexpr const char* virtualArchCompileOption[] = {
-			"-arch=compute_30",
-			"-arch=compute_32",
-			"-arch=compute_35",
-			"-arch=compute_37",
-			"-arch=compute_50",
-			"-arch=compute_52",
-			"-arch=compute_53",
-			"-arch=compute_60",
-			"-arch=compute_61",
-			"-arch=compute_62",
-			"-arch=compute_70",
-			"-arch=compute_72",
-			"-arch=compute_75",
-			"-arch=compute_80"
-		};
-		inline E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() {return m_virtualArchitecture;}
+		E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() const;
 
 		~CCUDADevice() override;
 
-		inline core::SRange<const char* const> geDefaultCompileOptions() const
-		{
-			return {m_defaultCompileOptions.data(),m_defaultCompileOptions.data()+m_defaultCompileOptions.size()};
-		}
+		core::SRange<const char* const> geDefaultCompileOptions() const;
 
-		const CCUDAHandler* getHandler() const { return m_handler.get();  }
+		const CCUDAHandler* getHandler() const;
 		cuda_interop::SCUdevice getInternalObject() const;
 		cuda_interop::SCUcontext getContext() const;
 
@@ -87,8 +67,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		};
 
 		size_t roundToGranularity(uint32_t locationType, size_t size) const;
-
-		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_physicalDevice->getProperties().deviceUUID, 16); }
 
 		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(SExportableMemoryCreationParams&& params);
 		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
@@ -105,7 +83,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
-		IPhysicalDevice* const m_physicalDevice;
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
 
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;

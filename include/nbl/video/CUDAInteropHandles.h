@@ -10,30 +10,25 @@
 namespace nbl::video::cuda_interop
 {
 
-struct alignas(alignof(int32_t)) SCUdevice
+/*
+	SDK-free CUDA handle surrogates used by Nabla's public video API.
+
+	These types are the small glue layer between Nabla and SDK-typed CUDA interop code. They let nbl/video/CCUDA*.h
+	expose CUDA-related objects without including cuda.h or nvrtc.h, so consumers that only link Nabla::Nabla do
+	not inherit CUDA SDK as a public compile-time dependency. CUDAInteropNative.h maps these opaque handles back
+	to the real CU* types and checks their size/alignment against the SDK selected by the opt-in consumer.
+*/
+template<typename Storage>
+struct alignas(alignof(Storage)) SOpaqueCUDAHandle
 {
-	uint8_t value[sizeof(int32_t)] = {};
+	uint8_t value[sizeof(Storage)] = {};
 };
 
-struct alignas(alignof(void*)) SCUcontext
-{
-	uint8_t value[sizeof(void*)] = {};
-};
-
-struct alignas(alignof(uintptr_t)) SCUdeviceptr
-{
-	uint8_t value[sizeof(uintptr_t)] = {};
-};
-
-struct alignas(alignof(void*)) SCUexternalMemory
-{
-	uint8_t value[sizeof(void*)] = {};
-};
-
-struct alignas(alignof(void*)) SCUexternalSemaphore
-{
-	uint8_t value[sizeof(void*)] = {};
-};
+struct SCUdevice : SOpaqueCUDAHandle<int32_t> {};
+struct SCUcontext : SOpaqueCUDAHandle<void*> {};
+struct SCUdeviceptr : SOpaqueCUDAHandle<uintptr_t> {};
+struct SCUexternalMemory : SOpaqueCUDAHandle<void*> {};
+struct SCUexternalSemaphore : SOpaqueCUDAHandle<void*> {};
 
 }
 
