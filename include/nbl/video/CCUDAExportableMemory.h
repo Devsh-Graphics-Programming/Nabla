@@ -14,11 +14,6 @@ namespace nbl::video
 {
 class CCUDADevice;
 
-namespace cuda_native
-{
-struct SAccess;
-}
-
 class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
 	public:
@@ -37,7 +32,7 @@ class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
 	private:
-		friend struct cuda_native::SAccess;
+		friend class CCUDADevice;
 
 		struct SNativeState;
 		CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);

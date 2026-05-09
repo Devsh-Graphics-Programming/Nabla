@@ -12,21 +12,16 @@ namespace nbl::video
 
 class CCUDADevice;
 
-namespace cuda_native
-{
-struct SAccess;
-}
-
 class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 {
 	public:
 		~CCUDAImportedMemory() override;
 		cuda_interop::SCUexternalMemory getInternalObject() const;
 		bool getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const;
+		bool getMappedBuffer(cuda_interop::SCUdeviceptr& mappedBuffer) const { return getMappedBuffer(&mappedBuffer); }
 
 	private:
 		friend class CCUDADevice;
-		friend struct cuda_native::SAccess;
 
 		struct SNativeState;
 		CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<nbl::video::IDeviceMemoryAllocation> src, std::unique_ptr<SNativeState>&& nativeState);

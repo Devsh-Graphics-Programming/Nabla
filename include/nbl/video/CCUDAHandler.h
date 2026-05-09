@@ -25,7 +25,6 @@ namespace cuda_native
 {
 class CUDA;
 class NVRTC;
-struct SAccess;
 }
 
 namespace cuda_interop
@@ -52,9 +51,10 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 {
 	public:
 		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
-		static uint32_t getBuildCUDAVersion();
+		static uint32_t getBuildCUDASDKVersion();
 		const cuda_native::CUDA& getCUDAFunctionTable() const;
 		const cuda_native::NVRTC& getNVRTCFunctionTable() const;
+		inline system::logger_opt_ptr getLogger() const { return m_logger.getOptRawPtr(); }
 
 		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{
@@ -80,8 +80,6 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		~CCUDAHandler() override;
 
 	private:
-		friend struct cuda_native::SAccess;
-
 		struct SNativeState;
 		CCUDAHandler(std::unique_ptr<SNativeState>&& nativeState, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger);
 

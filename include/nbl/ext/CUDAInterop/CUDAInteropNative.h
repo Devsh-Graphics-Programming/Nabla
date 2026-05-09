@@ -39,21 +39,25 @@
 #include "nbl/video/CUDAInterop.h"
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/system/DynamicFunctionCaller.h"
-
 #include "cuda.h"
 #include "nvrtc.h"
-#include <cassert>
-#include <type_traits>
-#if CUDA_VERSION < 13000
-	#error "Need CUDA 13.0 SDK or higher."
-#endif
-
 namespace nbl::video::cuda_native
 {
 
 inline constexpr int MinimumCUDADriverVersion = 13000;
 inline constexpr int MinimumNVRTCMajorVersion = MinimumCUDADriverVersion/1000;
+static_assert(CUDA_VERSION >= MinimumCUDADriverVersion, "Need CUDA 13.0 SDK or higher.");
 
+/*
+	The CUDA/NVRTC table classes below contain the calls used and tested by Nabla's interop implementation.
+	After including this SDK opt-in header, consumer code can load extra Driver API or NVRTC symbols from the
+	same loaded libraries without changing Nabla's ABI:
+
+	auto pcuNewCall = NBL_SYSTEM_LOAD_DYNLIB_FUNCPTR(handler->getCUDAFunctionTable(), cuNewCall);
+
+	The requested symbol must be declared by the CUDA SDK headers visible to this translation unit because the
+	helper uses decltype(cuNewCall) to preserve the native function signature.
+*/
 using LibLoader = system::DefaultFuncPtrLoader;
 
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA,LibLoader
@@ -184,73 +188,33 @@ struct SPTXResult
 	nvrtcResult result;
 };
 
-template<typename Opaque, typename Native>
-concept cuda_opaque_handle =
-	std::is_trivially_copyable_v<Opaque> &&
-	std::is_trivially_copyable_v<Native> &&
-	sizeof(Opaque)==sizeof(Native) &&
-	alignof(Opaque)==alignof(Native);
-/*
-	Map Nabla opaque handles to CUDA SDK handle types.
-
-	This is deliberately small. It is not an attempt to wrap CUDA. It only gives SDK opt-in code a convenient
-	way to pass Nabla-owned opaque handles to CUDA C APIs while checking that the public opaque type has the same
-	layout as the CUDA type visible in this translation unit. If a future SDK changes one of these handle layouts,
-	the SDK opt-in build fails here instead of letting ABI drift propagate through packaged Nabla headers.
-*/
-template<typename Opaque>
-struct SOpaqueCUDAType;
-
-template<> struct SOpaqueCUDAType<cuda_interop::SCUdevice> { using type = CUdevice; };
-template<> struct SOpaqueCUDAType<cuda_interop::SCUcontext> { using type = CUcontext; };
-template<> struct SOpaqueCUDAType<cuda_interop::SCUdeviceptr> { using type = CUdeviceptr; };
-template<> struct SOpaqueCUDAType<cuda_interop::SCUexternalMemory> { using type = CUexternalMemory; };
-template<> struct SOpaqueCUDAType<cuda_interop::SCUexternalSemaphore> { using type = CUexternalSemaphore; };
 /*
 	CUDA SDK view of an SDK-free opaque handle.
 
 	The conversions are intentionally available only after including this header. Public Nabla headers expose
-	only the opaque SCU* values. Once a consumer opts in, SNativeHandle restores the CUDA spelling and ergonomics
-	for raw Driver API calls without adding accessors to every interop operation.
+	only the opaque SCU* values. Once a consumer opts in, the aliases below restore the CUDA spelling and
+	ergonomics for raw Driver API calls without adding accessors to every interop operation. Each alias maps one
+	Nabla opaque handle to the matching CUDA SDK handle and validates size/alignment against the SDK selected by
+	this opt-in translation unit.
 */
-template<typename Opaque>
-struct SNativeHandle
+using SCUdevice = cuda_interop::SNativeHandle<cuda_interop::SCUdevice, CUdevice>;
+using SCUcontext = cuda_interop::SNativeHandle<cuda_interop::SCUcontext, CUcontext>;
+using SCUdeviceptr = cuda_interop::SNativeHandle<cuda_interop::SCUdeviceptr, CUdeviceptr>;
+using SCUexternalMemory = cuda_interop::SNativeHandle<cuda_interop::SCUexternalMemory, CUexternalMemory>;
+using SCUexternalSemaphore = cuda_interop::SNativeHandle<cuda_interop::SCUexternalSemaphore, CUexternalSemaphore>;
+
+/*
+	Check whether this opt-in translation unit uses the exact CUDA SDK version that was used to build Nabla's
+	CUDA interop implementation. Opaque handle layout is checked by SNativeHandle aliases above. This exact
+	version check is a policy helper for SDK-typed code that wants to warn about or reject compatible-but-different
+	SDK headers.
+*/
+inline bool isBuildCUDASDKVersionExactMatch()
 {
-	using cuda_t = typename SOpaqueCUDAType<Opaque>::type;
-	static_assert(cuda_opaque_handle<Opaque,cuda_t>);
-
-	SNativeHandle() = default;
-	SNativeHandle(const SNativeHandle&) = default;
-	SNativeHandle(const cuda_t& native) { operator=(native); }
-	SNativeHandle(const Opaque& opaque) { operator=(opaque); }
-
-	SNativeHandle& operator=(const SNativeHandle&) = default;
-	SNativeHandle& operator=(const cuda_t& native) { value = native; return *this; }
-	SNativeHandle& operator=(const Opaque& opaque) { operator Opaque&() = opaque; return *this; }
-
-	operator cuda_t&() { return value; }
-	operator const cuda_t&() const { return value; }
-	operator Opaque&() { return reinterpret_cast<Opaque&>(value); }
-	operator const Opaque&() const { return reinterpret_cast<const Opaque&>(value); }
-
-	Opaque* opaque() { return &static_cast<Opaque&>(*this); }
-	const Opaque* opaque() const { return &static_cast<const Opaque&>(*this); }
-	Opaque asOpaque() const { return static_cast<const Opaque&>(*this); }
-
-	cuda_t value = {};
-};
-
-using SCUdevice = SNativeHandle<cuda_interop::SCUdevice>;
-using SCUcontext = SNativeHandle<cuda_interop::SCUcontext>;
-using SCUdeviceptr = SNativeHandle<cuda_interop::SCUdeviceptr>;
-using SCUexternalMemory = SNativeHandle<cuda_interop::SCUexternalMemory>;
-using SCUexternalSemaphore = SNativeHandle<cuda_interop::SCUexternalSemaphore>;
-
-inline bool isBuildCUDAVersionCompatible()
-{
-	const auto buildVersion = CCUDAHandler::getBuildCUDAVersion();
+	const auto buildVersion = CCUDAHandler::getBuildCUDASDKVersion();
 	return buildVersion==0u || buildVersion==CUDA_VERSION;
 }
+
 /*
 	Nabla interop API declarations with CUDA SDK signatures.
 
@@ -263,12 +227,6 @@ inline bool isBuildCUDAVersionCompatible()
 NBL_API2 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
 NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
 NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
-#define NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler) \
-	do { \
-		const auto nblCudaInteropResult = (expr); \
-		if (!::nbl::video::cuda_native::defaultHandleResult(*(handler), nblCudaInteropResult)) \
-			assert(false); \
-	} while(0)
 NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 NBL_API2 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
 NBL_API2 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);

@@ -37,7 +37,7 @@ using namespace nbl::video;
 
 	cuda_native::SCUdeviceptr mappedVulkanMemory;
 	if (importedFromVulkan)
-		importedFromVulkan->getMappedBuffer(mappedVulkanMemory.opaque());
+		importedFromVulkan->getMappedBuffer(mappedVulkanMemory);
 
 	const CUdeviceptr cudaDevicePtr = cuda_native::SCUdeviceptr(cudaMemory->getDeviceptr());
 	CUexternalSemaphore cudaSemaphore = nullptr;
@@ -127,8 +127,7 @@ public:
 			return false;
 
 		static_assert(std::is_same_v<nbl::video::cuda_native::SCUdevice::cuda_t, CUdevice>);
-		if (!nbl::video::cuda_native::isBuildCUDAVersionCompatible())
-			return false;
+		[[maybe_unused]] const bool exactBuildSDK = nbl::video::cuda_native::isBuildCUDASDKVersionExactMatch();
 
 		#ifdef NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON
 		const auto runtimeEnvironment = nbl::video::cuda_interop::findRuntimeCompileEnvironment({}, {NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON});
@@ -147,6 +146,11 @@ public:
 		auto handler = nbl::video::CCUDAHandler::create(nullptr, nullptr);
 		if (!handler)
 			return true;
+
+		auto pcuDriverGetVersion = NBL_SYSTEM_LOAD_DYNLIB_FUNCPTR(handler->getCUDAFunctionTable(), cuDriverGetVersion);
+		int loadedDriverVersion = 0;
+		if (!pcuDriverGetVersion || pcuDriverGetVersion(&loadedDriverVersion)!=CUDA_SUCCESS || loadedDriverVersion==0)
+			return false;
 
 		if (!cudaFp16HeaderCompileProbe(*handler))
 			return false;

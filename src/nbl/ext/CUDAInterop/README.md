@@ -6,7 +6,7 @@
 - The public Nabla headers do not include `cuda.h`, `nvrtc.h`, or other CUDA SDK headers. A consumer that only links `Nabla::Nabla` does not need a CUDA SDK install just to parse Nabla headers.
 - CUDA native state is stored behind incomplete `SNativeState` members in Nabla classes. Public headers expose fixed-layout opaque value handles from `nbl/video/CUDAInteropHandles.h`.
 - `Nabla::ext::CUDAInterop` is an `INTERFACE` target. It builds no artifact. It only adds the SDK opt-in header, `CUDA::toolkit`, and runtime-header discovery setup to targets that ask for raw CUDA interop.
-- `CUDAInteropNative.h` is the only opt-in header that includes CUDA SDK headers. It maps Nabla opaque handles to CUDA SDK types with `cuda_native::SNativeHandle`.
+- `CUDAInteropNative.h` is the opt-in SDK boundary. It includes CUDA SDK headers and aliases Nabla opaque handles to CUDA SDK types through `cuda_interop::SNativeHandle`.
 
 ## CMake Usage
 
@@ -55,8 +55,11 @@ This affects SDK opt-in compilation and generated runtime header discovery only.
 auto handler = nbl::video::CCUDAHandler::create(system, std::move(logger));
 auto cudaDevice = handler->createDevice(std::move(vulkanConnection), physicalDevice);
 
-if (!nbl::video::cuda_native::isBuildCUDAVersionCompatible())
-    return false;
+const bool exactBuildSDK = nbl::video::cuda_native::isBuildCUDASDKVersionExactMatch();
+if (!exactBuildSDK)
+{
+    // Warn here, or return false if this application requires exact same-SDK policy.
+}
 
 auto memory = cudaDevice->createExportableMemory({
     .size = size,
@@ -66,7 +69,7 @@ auto memory = cudaDevice->createExportableMemory({
 
 nbl::video::cuda_native::SCUdeviceptr mapped;
 if (importedMemory)
-    importedMemory->getMappedBuffer(mapped.opaque());
+    importedMemory->getMappedBuffer(mapped);
 
 CUdeviceptr rawMapped = mapped;
 CUdeviceptr rawExported = nbl::video::cuda_native::SCUdeviceptr(memory->getDeviceptr());
@@ -86,16 +89,25 @@ auto compile = nbl::video::cuda_native::compileDirectlyToPTX(
 SDK opt-in access is not a full CUDA wrapper. It is the glue between Nabla resource lifetime and raw CUDA interop:
 
 - `CCUDAHandler::getCUDAFunctionTable` and `CCUDAHandler::getNVRTCFunctionTable` expose the loaded Driver API and NVRTC tables after SDK opt-in.
-- `cuda_native::SNativeHandle<T>` converts between SDK-free Nabla opaque handles and CUDA SDK handles such as `CUdeviceptr`.
+- The default tables contain the CUDA/NVRTC calls used and tested by Nabla. SDK opt-in code can load extra symbols from the same dynamic table without changing Nabla's ABI. The symbol name must be declared by the CUDA SDK headers visible to that translation unit:
+
+```cpp
+auto pcuNewCall = NBL_SYSTEM_LOAD_DYNLIB_FUNCPTR(handler->getCUDAFunctionTable(), cuNewCall);
+if (pcuNewCall)
+    pcuNewCall(...);
+```
+
+- `cuda_interop::SNativeHandle<Opaque, Native>` converts between SDK-free Nabla opaque handles and CUDA SDK handles such as `CUdeviceptr`. The template itself is SDK-free. `CUDAInteropNative.h` only provides CUDA-typed aliases.
 - CUDA enum values can be passed to SDK-free Nabla methods such as `CCUDADevice::createExportableMemory` and `CCUDADevice::roundToGranularity`. Nabla stores them as integer values in its public ABI.
-- `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr`. SDK opt-in code can pass `cuda_native::SCUdeviceptr::opaque()` and then use the wrapper as `CUdeviceptr`.
+- `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr`. SDK opt-in code can pass `cuda_native::SCUdeviceptr` directly and then use it as `CUdeviceptr`.
 - `compileDirectlyToPTX` returns PTX/result and writes the NVRTC log to a required `std::string&`.
+- `cuda_native::isBuildCUDASDKVersionExactMatch()` checks exact SDK version equality between the consumer translation unit and the SDK used to build Nabla's interop implementation. It is a policy helper, not an automatic runtime rejection rule.
 
 Smoke examples:
 
 - `src/nbl/ext/CUDAInterop/smoke/public_boundary.cpp` checks that `Nabla::Nabla` headers stay SDK-free.
 - `src/nbl/ext/CUDAInterop/smoke/clean_opt_in.cpp` checks `Nabla::Nabla` package usage without SDK opt-in.
-- `src/nbl/ext/CUDAInterop/smoke/native_opt_in.cpp` checks SDK opt-in, runtime header discovery, `cuda_fp16.h`, NVRTC, and raw interop usage.
+- `src/nbl/ext/CUDAInterop/smoke/native_opt_in.cpp` checks SDK opt-in, runtime header discovery, `cuda_fp16.h`, NVRTC, extra dynamic symbol loading, and raw interop usage.
 
 ## ABI
 
@@ -104,7 +116,7 @@ Smoke examples:
 - Opaque handle types are small trivially-copyable byte arrays with fixed size/alignment chosen to match CUDA SDK handle storage. The SDK opt-in header validates this with `static_assert`s against the SDK used by the consumer.
 - CUDA implementation state is owned by Nabla through private `SNativeState` members. Consumers cannot construct CUDA wrapper objects with arbitrary internal CUDA state.
 - SDK-sized arrays, CUDA enum storage, and CUDA implementation headers stay private to Nabla.
-- A consumer can build SDK opt-in code with its own compatible SDK independently from the SDK used to build Nabla. SDK-typed code can check `cuda_native::isBuildCUDAVersionCompatible()` when exact CUDA SDK version matching is required.
+- A consumer can build SDK opt-in code with its own compatible SDK independently from the SDK used to build Nabla. SDK-typed code can check `cuda_native::isBuildCUDASDKVersionExactMatch()` when exact CUDA SDK version matching is required.
 - Runtime include-option construction is header-only and is not part of the exported ABI.
 - The loaded CUDA driver and NVRTC runtime are validated at runtime.
 

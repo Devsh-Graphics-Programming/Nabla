@@ -15,11 +15,6 @@ namespace nbl::video
 
 class CCUDADevice;
 
-namespace cuda_native
-{
-struct SAccess;
-}
-
 class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
 {
 	public:
@@ -28,7 +23,6 @@ class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
 
 	private:
 		friend class CCUDADevice;
-		friend struct cuda_native::SAccess;
 
 		struct SNativeState;
 		CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<ISemaphore> src, std::unique_ptr<SNativeState>&& nativeState);

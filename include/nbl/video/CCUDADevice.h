@@ -18,11 +18,6 @@ namespace nbl::video
 {
 class CCUDAHandler;
 
-namespace cuda_native
-{
-struct SAccess;
-}
-
 class NBL_API2 CCUDADevice : public core::IReferenceCounted
 {
 	public:
@@ -84,7 +79,6 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 
 	private:
 		friend class CCUDAHandler;
-		friend struct cuda_native::SAccess;
 
 		struct SNativeState;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
