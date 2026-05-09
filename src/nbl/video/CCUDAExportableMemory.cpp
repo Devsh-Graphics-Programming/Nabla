@@ -54,14 +54,12 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 {
 	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 
-	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemUnmap(m_native->ptr, m_params.granularSize)))
-		assert(false);
+	cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemUnmap(m_native->ptr, m_params.granularSize));
 
-	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize)))
-		assert(false);
+	cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize));
 
-  bool closeSucceed = CloseExternalHandle(m_params.externalHandle);
-	assert(closeSucceed);
+	if (!CloseExternalHandle(m_params.externalHandle))
+		cuda_native::SAccess::logger(*m_device).log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
 
 }
 

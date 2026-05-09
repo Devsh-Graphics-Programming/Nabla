@@ -10,6 +10,7 @@
 #include "nbl/video/CCUDAImportedMemory.h"
 #include "nbl/video/CCUDAImportedSemaphore.h"
 
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -66,7 +67,15 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 			uint32_t locationType;
 		};
 
-		size_t roundToGranularity(uint32_t locationType, size_t size) const;
+		inline size_t roundToGranularity(uint32_t locationType, size_t size) const
+		{
+			if (locationType>=m_allocationGranularity.size())
+				return 0u;
+			const auto granularity = m_allocationGranularity[locationType];
+			if (size==0u || granularity==0u)
+				return 0u;
+			return ((size - 1) / granularity + 1) * granularity;
+		}
 
 		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(SExportableMemoryCreationParams&& params);
 		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
@@ -83,6 +92,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
+		std::array<size_t,5> m_allocationGranularity = {};
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
 
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;

@@ -257,7 +257,6 @@ set(NBL_VIDEO_SOURCES
 	video/IGPUAccelerationStructure.cpp
 	video/IGPUCommandBuffer.cpp
 	video/IQueue.cpp
-	video/EApiType.cpp
 	video/IGPUDescriptorSet.cpp
 	video/IDeviceMemoryAllocation.cpp
 	video/IDeviceMemoryBacked.cpp

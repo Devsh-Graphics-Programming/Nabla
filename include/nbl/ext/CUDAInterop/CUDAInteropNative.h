@@ -42,6 +42,7 @@
 
 #include "cuda.h"
 #include "nvrtc.h"
+#include <cassert>
 #include <type_traits>
 #if CUDA_VERSION < 13000
 	#error "Need CUDA 13.0 SDK or higher."
@@ -262,6 +263,12 @@ inline bool isBuildCUDAVersionCompatible()
 NBL_API2 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
 NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
 NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
+#define NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler) \
+	do { \
+		const auto nblCudaInteropResult = (expr); \
+		if (!::nbl::video::cuda_native::defaultHandleResult(*(handler), nblCudaInteropResult)) \
+			assert(false); \
+	} while(0)
 NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 NBL_API2 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
 NBL_API2 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);

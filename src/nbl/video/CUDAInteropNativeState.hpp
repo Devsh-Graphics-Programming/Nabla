@@ -31,7 +31,6 @@ struct CCUDADevice::SNativeState
 {
 	CUdevice handle = {};
 	CUcontext context = nullptr;
-	std::array<size_t,5> allocationGranularity = {};
 
 	explicit SNativeState(CUdevice _handle)
 		: handle(_handle)

@@ -45,8 +45,7 @@ bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuff
 CCUDAImportedMemory::~CCUDAImportedMemory()
 {
   auto& cu = m_device->getHandler()->getCUDAFunctionTable();
-	if (!cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalMemory(m_native->handle)))
-		assert(false);
+	cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalMemory(m_native->handle));
 }
 
 }
