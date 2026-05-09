@@ -59,18 +59,50 @@ struct DivisionPolicy
 
 namespace impl
 {
-template<uint16_t ElementsPerInvocation, uint16_t WorkgroupSizeLog2>
+
+struct Constants
+{
+    NBL_CONSTEXPR_STATIC_INLINE float32_t INV_SQRT_2 = 0.707106781f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t INV_SQRT_3 = 0.577350269f;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t INV_SQRT_5 = 0.447213595f;
+};
+
+template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2>
 struct DivisionConstants
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t TODO = 0;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLength = ElementsPerInvocation * (1 << (WorkgroupSizeLog2));
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLength = float32_t(1) / FFTLength;
+
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthA = ElementsPerInvocation >> 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthB = 1u << (WorkgroupSizeLog2 - SubgroupSizeLog2);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthC = 1u << (SubgroupSizeLog2 + 1);
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLengthA = float32_t(1) / FFTLengthA;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLengthB = float32_t(1) / FFTLengthB;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLengthC = float32_t(1) / FFTLengthC;
+
+    NBL_CONSTEXPR_STATIC_INLINE float32_t PrimeFactorInvSqrt = (ElementsPerInvocation % 3 ? (ElementsPerInvocation % 5 ? float32_t(1) : Constants::INV_SQRT_5) : Constants::INV_SQRT_3);
+
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2 = WorkgroupSizeLog2 + mpl::log2_v<ElementsPerInvocation>;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLength = float32_t(1) / (1u << (FFTLengthLog2 / 2)) * (FFTLengthLog2 & 1 ? Constants::INV_SQRT_2 : float32_t(1)) * PrimeFactorInvSqrt;
+    
+    // Log2A part should only consider log2 of the pure radix2, ignoring extra prime factor
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t Radix2ElementsPerInvocation = (ElementsPerInvocation % 3 ? (ElementsPerInvocation % 5 ? ElementsPerInvocation : ElementsPerInvocation / 5) : ElementsPerInvocation / 3);
+
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2A = mpl::log2_v <Radix2ElementsPerInvocation> - 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2B = WorkgroupSizeLog2 - SubgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2C = SubgroupSizeLog2 + 1;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLengthA = float32_t(1) / (1u << (FFTLengthLog2A / 2)) * (FFTLengthLog2A & 1 ? Constants::INV_SQRT_2 : float32_t(1)) * PrimeFactorInvSqrt;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLengthB = float32_t(1) / (1u << (FFTLengthLog2B / 2)) * (FFTLengthLog2B & 1 ? Constants::INV_SQRT_2 : float32_t(1));
+    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLengthC = float32_t(1) / (1u << (FFTLengthLog2C / 2)) * (FFTLengthLog2C & 1 ? Constants::INV_SQRT_2 : float32_t(1));
 };
+
 } //namespace impl
 
 template<uint16_t _ElementsPerInvocationPerChannel, uint16_t _Channels, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledVirtualChannelsPerRound, bool _Interleaved, bool _ShareTwiddles, uint16_t _DivisionPolicy, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
 struct ConstevalParameters
 {
     using scalar_t = _Scalar;
-    using DivisionConstants = impl::DivisionConstants<_ElementsPerInvocationPerChannel, _WorkgroupSizeLog2>;
+    using DivisionConstants = impl::DivisionConstants<_ElementsPerInvocationPerChannel, _SubgroupSizeLog2, _WorkgroupSizeLog2>;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocationPerChannel = _ElementsPerInvocationPerChannel;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Channels = _Channels;
@@ -376,25 +408,25 @@ struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel,
         bool pingPong = false;
         // If register pressure high, can avoid unroll
         [unroll]
-            for (uint32_t round = 0; round < ShuffleRounds; round++)
+        for (uint32_t round = 0; round < ShuffleRounds; round++)
+        {
+            if (round)
+                pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
+            const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
+            const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
+            [unroll]
+            for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
             {
-                if (round)
-                    pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
-                const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
-                const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
-                [unroll]
-                    for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
-                    {
-                        complex_t<scalar_t> lo, hi;
-                        loAccessor.get(channel, lo);
-                        hiAccessor.get(channel, hi);
-                        fft2::DIF<scalar_t>::radix2(twiddle, lo, hi);
-                        loAccessor.set(channel, lo);
-                        hiAccessor.set(channel, hi);
-                    }
-
-                fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride >> 1, sharedmemAdaptor, pingPong);
+                complex_t<scalar_t> lo, hi;
+                loAccessor.get(channel, lo);
+                hiAccessor.get(channel, hi);
+                fft2::DIF<scalar_t>::radix2(twiddle, lo, hi);
+                loAccessor.set(channel, lo);
+                hiAccessor.set(channel, hi);
             }
+
+            fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride >> 1, sharedmemAdaptor, pingPong);
+        }
         // After the last exchangeValues, the memory we just read from is now owned by us, so update
         ownedSmemIndex = pingPong ? ownedSmemIndex : ownedSmemIndex ^ (stride >> 1);
     }
@@ -420,14 +452,33 @@ struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel,
             uint32_t ownedSmemIndex = threadID;
             // NOT unrolling this loop increases register pressure????
             [unroll]
-                for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
-                {
-                    FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
-                }
+            for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
+            {
+                FFT_loop(stride, threadID, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+            }
 
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
         }
+
+        const float32_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
+                                       : (DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway ? consteval_parameters_t::DivisionConstants::InvSqrtFFTLength
+                                       : (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeByParts ? consteval_parameters_t::DivisionConstants::InvFFTLengthC
+                                       : consteval_parameters_t::DivisionConstants::InvSqrtFFTLengthC))); // Assume DivBySqrtByParts, won't be used otherwise
+
+        if (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway || DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway || DivisionPolicy == fft::DivisionPolicy::DivByFullSizeByParts || DivisionPolicy == fft::DivisionPolicy::DivBySqrtByParts)
+        {
+            [unroll]
+            for (uint32_t channel = 0; channel < VirtualChannels; channel++)
+            {
+                complex_t<scalar_t> lo, hi;
+                loAccessor.get(channel, lo);
+                hiAccessor.get(channel, hi);
+                loAccessor.set(channel, lo * scalar_t(DivisionFactor));
+                hiAccessor.set(channel, hi * scalar_t(DivisionFactor));
+            }
+        }
+
         // Subgroup-sized FFT
         subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
     }
@@ -450,26 +501,26 @@ struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, 
 
         bool pingPong = false;
         [unroll]
-            for (uint32_t round = 0; round < ShuffleRounds; round++)
-            {
-                if (round)
-                    pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
-                const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
-                const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
+        for (uint32_t round = 0; round < ShuffleRounds; round++)
+        {
+            if (round)
+                pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
+            const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
+            const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
 
-                fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride, sharedmemAdaptor, pingPong);
+            fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride, sharedmemAdaptor, pingPong);
 
-                [unroll]
-                    for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
-                    {
-                        complex_t<scalar_t> lo, hi;
-                        loAccessor.get(channel, lo);
-                        hiAccessor.get(channel, hi);
-                        fft2::DIT<scalar_t>::radix2(twiddle, lo, hi);
-                        loAccessor.set(channel, lo);
-                        hiAccessor.set(channel, hi);
-                    }
-            }
+            [unroll]
+                for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
+                {
+                    complex_t<scalar_t> lo, hi;
+                    loAccessor.get(channel, lo);
+                    hiAccessor.get(channel, hi);
+                    fft2::DIT<scalar_t>::radix2(twiddle, lo, hi);
+                    loAccessor.set(channel, lo);
+                    hiAccessor.set(channel, hi);
+                }
+        }
         // After the last exchangeValues, the memory we just read from is now owned by us, so update
         ownedSmemIndex = pingPong ? ownedSmemIndex : ownedSmemIndex ^ (stride >> 1);
     }
@@ -483,6 +534,24 @@ struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, 
 
         // Subgroup-sized FFT at the start
         subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
+
+        const float32_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
+                                       : (DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway ? consteval_parameters_t::DivisionConstants::InvSqrtFFTLength
+                                       : (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeByParts ? consteval_parameters_t::DivisionConstants::InvFFTLengthC
+                                       : consteval_parameters_t::DivisionConstants::InvSqrtFFTLengthC))); // Assume DivBySqrtByParts, won't be used otherwise
+
+        if (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway || DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway || DivisionPolicy == fft::DivisionPolicy::DivByFullSizeByParts || DivisionPolicy == fft::DivisionPolicy::DivBySqrtByParts)
+        {
+            [unroll]
+            for (uint32_t channel = 0; channel < VirtualChannels; channel++)
+            {
+                complex_t<scalar_t> lo, hi;
+                loAccessor.get(channel, lo);
+                hiAccessor.get(channel, hi);
+                loAccessor.set(channel, lo * scalar_t(DivisionFactor));
+                hiAccessor.set(channel, hi * scalar_t(DivisionFactor));
+            }
+        }
 
         // Get workgroup threadID
         const uint32_t threadID = uint32_t(workgroup::SubgroupContiguousIndex());
