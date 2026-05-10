@@ -16,23 +16,20 @@
 namespace nbl::video::cuda_interop
 {
 
-template<> struct SOpaqueCUDANativeType<SCUdevice> { using type = CUdevice; };
-template<> struct SOpaqueCUDANativeType<SCUcontext> { using type = CUcontext; };
-template<> struct SOpaqueCUDANativeType<SCUdeviceptr> { using type = CUdeviceptr; };
-template<> struct SOpaqueCUDANativeType<SCUexternalMemory> { using type = CUexternalMemory; };
-template<> struct SOpaqueCUDANativeType<SCUexternalSemaphore> { using type = CUexternalSemaphore; };
-template<> struct SOpaqueCUDANativeType<SCUresult> { using type = CUresult; };
-template<> struct SOpaqueCUDANativeType<SNVRTCResult> { using type = nvrtcResult; };
-template<> struct SOpaqueCUDANativeType<SNVRTCProgram> { using type = nvrtcProgram; };
+#define NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(OPAQUE, NATIVE) \
+	template<> struct SOpaqueCUDANativeType<OPAQUE> { using type = NATIVE; }; \
+	static_assert(cuda_opaque_handle<OPAQUE,NATIVE>)
 
-static_assert(cuda_opaque_handle<SCUdevice,CUdevice>);
-static_assert(cuda_opaque_handle<SCUcontext,CUcontext>);
-static_assert(cuda_opaque_handle<SCUdeviceptr,CUdeviceptr>);
-static_assert(cuda_opaque_handle<SCUexternalMemory,CUexternalMemory>);
-static_assert(cuda_opaque_handle<SCUexternalSemaphore,CUexternalSemaphore>);
-static_assert(cuda_opaque_handle<SCUresult,CUresult>);
-static_assert(cuda_opaque_handle<SNVRTCResult,nvrtcResult>);
-static_assert(cuda_opaque_handle<SNVRTCProgram,nvrtcProgram>);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SCUdevice, CUdevice);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SCUcontext, CUcontext);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SCUdeviceptr, CUdeviceptr);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SCUexternalMemory, CUexternalMemory);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SCUexternalSemaphore, CUexternalSemaphore);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SCUresult, CUresult);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SNVRTCResult, nvrtcResult);
+NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE(SNVRTCProgram, nvrtcProgram);
+
+#undef NBL_CUDA_INTEROP_DECLARE_NATIVE_HANDLE
 
 }
 
