@@ -21,7 +21,7 @@ struct CCUDAHandler::SNativeState
 	cuda_native::CUDA cuda;
 	cuda_native::NVRTC nvrtc;
 	int cudaDriverVersion = 0;
-	std::array<int,2> nvrtcVersion = {-1,-1};
+	cuda_interop::SRuntimeVersion nvrtcVersion = {-1,-1};
 	// Snapshot discovery at handler creation so diagnostics and NVRTC compile options describe the same runtime setup.
 	cuda_interop::SRuntimeCompileEnvironment runtimeEnvironment;
 	core::vector<std::string> runtimeIncludeOptions;
@@ -32,7 +32,7 @@ struct CCUDAHandler::SNativeState
 		cuda_native::CUDA&& _cuda,
 		cuda_native::NVRTC&& _nvrtc,
 		int _cudaDriverVersion,
-		std::array<int,2> _nvrtcVersion,
+		cuda_interop::SRuntimeVersion _nvrtcVersion,
 		cuda_interop::SRuntimeCompileEnvironment&& _runtimeEnvironment)
 		: cuda(std::move(_cuda))
 		, nvrtc(std::move(_nvrtc))

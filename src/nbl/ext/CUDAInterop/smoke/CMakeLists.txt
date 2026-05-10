@@ -24,9 +24,6 @@ endfunction()
 nbl_add_cuda_interop_smoke(NblExtCUDAInteropPublicBoundarySmoke public_boundary.cpp)
 target_link_libraries(NblExtCUDAInteropPublicBoundarySmoke PRIVATE Nabla::Nabla)
 
-nbl_add_cuda_interop_smoke(NblExtCUDAInteropCleanNablaSmoke clean_opt_in.cpp)
-target_link_libraries(NblExtCUDAInteropCleanNablaSmoke PRIVATE Nabla::Nabla)
-
 if(TARGET Nabla::ext::CUDAInterop)
 	nbl_add_cuda_interop_smoke(NblExtCUDAInteropNativeOptInSmoke native_opt_in.cpp)
 	set(_nbl_cuda_interop_smoke_args PRIVATE)

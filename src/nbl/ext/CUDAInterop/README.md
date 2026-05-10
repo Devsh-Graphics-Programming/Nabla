@@ -68,14 +68,18 @@ auto memory = cudaDevice->createExportableMemory({
     .locationType = CU_MEM_LOCATION_TYPE_DEVICE,
 });
 
+auto& cu = handler->getCUDAFunctionTable();
+auto& nvrtc = handler->getNVRTCFunctionTable();
+int driverVersion = 0;
+NBL_CUDA_INTEROP_ASSERT_SUCCESS(cu.pcuDriverGetVersion(&driverVersion), *handler);
+
 nbl::video::cuda_native::SCUdeviceptr mapped;
 if (importedMemory)
     importedMemory->getMappedBuffer(mapped);
 
+nbl::video::cuda_native::SCUdeviceptr exported = memory->getDeviceptr();
 CUdeviceptr rawMapped = mapped;
-CUdeviceptr rawExported = nbl::video::cuda_native::SCUdeviceptr(memory->getDeviceptr());
-auto& cu = handler->getCUDAFunctionTable();
-auto& nvrtc = handler->getNVRTCFunctionTable();
+CUdeviceptr rawExported = exported;
 
 std::string log;
 auto compile = nbl::video::cuda_native::compileDirectlyToPTX(
@@ -102,12 +106,12 @@ if (pcuNewCall)
 - CUDA enum values can be passed to SDK-free Nabla methods such as `CCUDADevice::createExportableMemory` and `CCUDADevice::roundToGranularity`. Nabla stores them as integer values in its public ABI.
 - `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr`. SDK opt-in code can pass `cuda_native::SCUdeviceptr` directly and then use it as `CUdeviceptr`.
 - `compileDirectlyToPTX` returns PTX/result and writes the NVRTC log to a required `std::string&`.
+- `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handlerRef)` is available for tests/examples that intentionally assert on CUDA/NVRTC failures. Pass a `CCUDAHandler&`. Nabla implementation code should still prefer explicit error handling and clean returns.
 - `cuda_native::isBuildCUDASDKVersionExactMatch()` checks exact SDK version equality between the consumer translation unit and the SDK used to build Nabla's interop implementation. It is a policy helper, not an automatic runtime rejection rule.
 
 Smoke examples:
 
 - `src/nbl/ext/CUDAInterop/smoke/public_boundary.cpp` checks that `Nabla::Nabla` headers stay SDK-free.
-- `src/nbl/ext/CUDAInterop/smoke/clean_opt_in.cpp` checks `Nabla::Nabla` package usage without SDK opt-in.
 - `src/nbl/ext/CUDAInterop/smoke/native_opt_in.cpp` checks SDK opt-in, runtime header discovery, `cuda_fp16.h`, NVRTC, extra dynamic symbol loading, and raw interop usage.
 
 ## ABI

@@ -1,7 +1,6 @@
 #ifndef __NBL_E_API_TYPE_H_INCLUDED__
 #define __NBL_E_API_TYPE_H_INCLUDED__
 
-#include "nbl/core/declarations.h"
 #include <cstdint>
 #ifdef _WIN32
 	#ifndef WIN32_LEAN_AND_MEAN

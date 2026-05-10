@@ -1,24 +1,8 @@
 #include "nabla.h"
 
-#ifdef _NBL_COMPILE_WITH_CUDA_
-#error "Nabla consumers must not get the CUDA opt-in define."
-#endif
-
-#ifdef CUDA_VERSION
-#error "Nabla consumers must not include CUDA SDK headers."
-#endif
-
 #include "nbl/system/IApplicationFramework.h"
-
-#ifdef _NBL_COMPILE_WITH_CUDA_
-#error "Nabla consumers must not get the CUDA opt-in define."
-#endif
-
-#ifdef CUDA_VERSION
-#error "Nabla consumers must not include CUDA SDK headers."
-#endif
-
 #include "nbl/video/CUDAInterop.h"
+#include <type_traits>
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #error "Nabla consumers must not get the CUDA opt-in define."
@@ -40,6 +24,10 @@ public:
 
 	bool onAppInitialized(nbl::core::smart_refctd_ptr<nbl::system::ISystem>&&) override
 	{
+		static_assert(std::is_class_v<nbl::video::CCUDADevice>);
+		static_assert(std::is_class_v<nbl::video::CCUDAExportableMemory>);
+		static_assert(std::is_class_v<nbl::video::CCUDAImportedMemory>);
+		static_assert(std::is_class_v<nbl::video::CCUDAImportedSemaphore>);
 		return isAPILoaded();
 	}
 

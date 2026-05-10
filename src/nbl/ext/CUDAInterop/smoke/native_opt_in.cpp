@@ -39,8 +39,8 @@ using namespace nbl::video;
 	if (importedFromVulkan)
 		importedFromVulkan->getMappedBuffer(mappedVulkanMemory);
 
-	const CUdeviceptr cudaDevicePtr = cuda_native::SCUdeviceptr(cudaMemory->getDeviceptr());
-	CUexternalSemaphore cudaSemaphore = nullptr;
+	const cuda_native::SCUdeviceptr cudaDevicePtr = cudaMemory->getDeviceptr();
+	cuda_native::SCUexternalSemaphore cudaSemaphore;
 	if (importedSemaphore)
 		cudaSemaphore = cuda_native::SCUexternalSemaphore(importedSemaphore->getInternalObject());
 	return exportedToVulkan.get() && mappedVulkanMemory && cudaDevicePtr && cudaSemaphore;
@@ -130,7 +130,9 @@ public:
 		[[maybe_unused]] const bool exactBuildSDK = nbl::video::cuda_native::isBuildCUDASDKVersionExactMatch();
 
 		#ifdef NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON
-		const auto runtimeEnvironment = nbl::video::cuda_interop::findRuntimeCompileEnvironment({}, {NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON});
+		const nbl::core::vector<nbl::system::path> explicitIncludeDirs;
+		const nbl::core::vector<nbl::system::path> runtimePathFiles = {NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON};
+		const auto runtimeEnvironment = nbl::video::cuda_interop::findRuntimeCompileEnvironment(explicitIncludeDirs, runtimePathFiles);
 		if (!std::filesystem::exists(NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON))
 			return false;
 		#else

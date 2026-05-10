@@ -87,7 +87,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
-		std::array<size_t,5> m_allocationGranularity = {};
+		std::array<size_t,cuda_interop::AllocationGranularityLocationTypeCount> m_allocationGranularity = {};
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
 		bool m_valid = false;
 

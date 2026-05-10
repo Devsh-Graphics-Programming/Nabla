@@ -36,6 +36,7 @@
 #include "nbl/video/utilities/CSmoothResizeSurface.h"
 #include "nbl/video/utilities/CDefaultSwapchainFramebuffers.h"
 #include "nbl/video/utilities/CAssetConverter.h"
+#include "nbl/video/CUDAInterop.h"
 
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"

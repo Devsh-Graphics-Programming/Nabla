@@ -19,8 +19,6 @@ class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 	public:
 		struct SCachedCreationParams
 		{
-			size_t size;
-			uint32_t alignment;
 			size_t granularSize;
 			external_handle_t externalHandle;
 			bool deviceLocal;

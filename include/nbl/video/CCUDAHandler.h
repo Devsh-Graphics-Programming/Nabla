@@ -23,6 +23,7 @@ class IPhysicalDevice;
 
 namespace cuda_native
 {
+// SDK-free forward declarations for the dynamic CUDA/NVRTC tables exposed by the opt-in native header.
 class CUDA;
 class NVRTC;
 }
@@ -30,6 +31,8 @@ class NVRTC;
 namespace cuda_interop
 {
 inline constexpr const char* RuntimePathsFileName = "nbl_cuda_interop_runtime.json";
+inline constexpr uint32_t RuntimeVersionComponentCount = 2u;
+using SRuntimeVersion = std::array<int,RuntimeVersionComponentCount>;
 
 struct SRuntimeIncludeDir
 {
@@ -45,8 +48,9 @@ struct SRuntimeCompileEnvironment
 	core::vector<SRuntimeIncludeDir> includeDirInfos;
 };
 
-NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs = {});
-NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs, core::vector<system::path> runtimePathFiles);
+NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment();
+NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(const core::vector<system::path>& explicitIncludeDirs);
+NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(const core::vector<system::path>& explicitIncludeDirs, const core::vector<system::path>& runtimePathFiles);
 inline core::vector<std::string> makeNVRTCIncludeOptions(const SRuntimeCompileEnvironment& environment)
 {
 	core::vector<std::string> options;
@@ -62,7 +66,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
 		static uint32_t getBuildCUDASDKVersion();
 		uint32_t getLoadedCUDADriverVersion() const;
-		std::array<int,2> getLoadedNVRTCVersion() const;
+		cuda_interop::SRuntimeVersion getLoadedNVRTCVersion() const;
 		const cuda_native::CUDA& getCUDAFunctionTable() const;
 		const cuda_native::NVRTC& getNVRTCFunctionTable() const;
 		core::SRange<const char* const> getDefaultRuntimeIncludeOptions() const;

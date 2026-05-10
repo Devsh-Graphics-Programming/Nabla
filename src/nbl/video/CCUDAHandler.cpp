@@ -299,7 +299,7 @@ void appendSystemIncludeDirs(SRuntimeCompileEnvironment& environment)
 
 }
 
-SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs, core::vector<system::path> runtimePathFiles)
+SRuntimeCompileEnvironment findRuntimeCompileEnvironment(const core::vector<system::path>& explicitIncludeDirs, const core::vector<system::path>& runtimePathFiles)
 {
 	SRuntimeCompileEnvironment environment;
 
@@ -314,8 +314,8 @@ SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::pa
 		This is also why mismatched or partial roots produce diagnostics instead of changing discovery order or
 		hard-failing before the user kernel is compiled.
 	*/
-	for (auto& includeDir : explicitIncludeDirs)
-		appendIncludeDir(environment,std::move(includeDir),"explicit include dir");
+	for (const auto& includeDir : explicitIncludeDirs)
+		appendIncludeDir(environment,includeDir,"explicit include dir");
 
 	appendRuntimePathsConfigs(environment,runtimePathFiles);
 	appendAppLocalIncludeDirs(environment);
@@ -325,9 +325,17 @@ SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::pa
 	return environment;
 }
 
-SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs)
+SRuntimeCompileEnvironment findRuntimeCompileEnvironment(const core::vector<system::path>& explicitIncludeDirs)
 {
-	return findRuntimeCompileEnvironment(std::move(explicitIncludeDirs),{});
+	static const core::vector<system::path> EmptyRuntimePathFiles;
+	return findRuntimeCompileEnvironment(explicitIncludeDirs,EmptyRuntimePathFiles);
+}
+
+SRuntimeCompileEnvironment findRuntimeCompileEnvironment()
+{
+	static const core::vector<system::path> EmptyIncludeDirs;
+	static const core::vector<system::path> EmptyRuntimePathFiles;
+	return findRuntimeCompileEnvironment(EmptyIncludeDirs,EmptyRuntimePathFiles);
 }
 
 }
@@ -378,7 +386,7 @@ std::string cudaVersionString(int version)
 	return stream.str();
 }
 
-std::string cudaVersionString(const std::array<int,2>& version)
+std::string cudaVersionString(const cuda_interop::SRuntimeVersion& version)
 {
 	std::ostringstream stream;
 	stream << version[0] << "." << version[1];
@@ -401,7 +409,7 @@ std::string runtimeIncludeDirDescription(const cuda_interop::SRuntimeIncludeDir&
 
 std::string cudaRuntimeReport(
 	const int buildVersion, const int cudaDriverVersion, const system::path& cudaDriverPath,
-	const std::array<int,2>& nvrtcVersion, const std::string& nvrtcLibraryName, const system::path& nvrtcPath,
+	const cuda_interop::SRuntimeVersion& nvrtcVersion, const std::string& nvrtcLibraryName, const system::path& nvrtcPath,
 	const cuda_interop::SRuntimeCompileEnvironment& runtimeEnvironment)
 {
 	std::ostringstream stream;
@@ -489,7 +497,7 @@ uint32_t CCUDAHandler::getLoadedCUDADriverVersion() const
 	return m_native->cudaDriverVersion;
 }
 
-std::array<int,2> CCUDAHandler::getLoadedNVRTCVersion() const
+cuda_interop::SRuntimeVersion CCUDAHandler::getLoadedNVRTCVersion() const
 {
 	return m_native->nvrtcVersion;
 }
@@ -970,7 +978,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	// stop the pollution
 	#undef SAFE_CUDA_CALL
 
-	auto readNVRTCVersion = [&](const cuda_native::NVRTC& candidate, std::array<int,2>& version, const char* name) -> bool
+	auto readNVRTCVersion = [&](const cuda_native::NVRTC& candidate, cuda_interop::SRuntimeVersion& version, const char* name) -> bool
 	{
 		if (!candidate.pnvrtcVersion)
 			return false;
@@ -985,12 +993,12 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	};
 
 	cuda_native::NVRTC nvrtc = {};
-	std::array<int,2> nvrtcVersion = {-1,-1};
+	cuda_interop::SRuntimeVersion nvrtcVersion = {-1,-1};
 	std::string nvrtcLibraryName;
 
 	#if defined(_NBL_WINDOWS_API_)
 	cuda_native::NVRTC fallbackNVRTC = {};
-	std::array<int,2> fallbackNVRTCVersion = {-1,-1};
+	cuda_interop::SRuntimeVersion fallbackNVRTCVersion = {-1,-1};
 	std::string fallbackNVRTCLibraryName;
 
 	/*
@@ -1016,7 +1024,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 			candidateName += *suffix;
 
 			cuda_native::NVRTC candidate(candidateName.c_str());
-			std::array<int,2> candidateVersion = {-1,-1};
+			cuda_interop::SRuntimeVersion candidateVersion = {-1,-1};
 			if (!readNVRTCVersion(candidate,candidateVersion,candidateName.c_str()))
 				continue;
 
@@ -1361,7 +1369,7 @@ uint32_t CCUDAHandler::getLoadedCUDADriverVersion() const
 	return 0u;
 }
 
-std::array<int,2> CCUDAHandler::getLoadedNVRTCVersion() const
+cuda_interop::SRuntimeVersion CCUDAHandler::getLoadedNVRTCVersion() const
 {
 	return {-1,-1};
 }

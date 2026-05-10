@@ -11,6 +11,8 @@
 namespace nbl::video::cuda_interop
 {
 
+inline constexpr uint32_t AllocationGranularityLocationTypeCount = 5u;
+
 /*
 	SDK-free CUDA handle surrogates used by Nabla's public video API.
 

@@ -4,6 +4,7 @@
 #ifndef _NBL_VIDEO_CUDA_INTEROP_NATIVE_API_H_INCLUDED_
 #define _NBL_VIDEO_CUDA_INTEROP_NATIVE_API_H_INCLUDED_
 
+#include <cassert>
 #include <string>
 
 #include "nbl/video/CUDAInterop.h"
@@ -19,6 +20,11 @@ namespace nbl::video::cuda_native
 inline constexpr int MinimumCUDADriverVersion = 13000;
 inline constexpr int MinimumNVRTCMajorVersion = MinimumCUDADriverVersion/1000;
 static_assert(CUDA_VERSION >= MinimumCUDADriverVersion, "Need CUDA 13.0 SDK or higher.");
+static_assert(CU_MEM_LOCATION_TYPE_INVALID==0);
+static_assert(CU_MEM_LOCATION_TYPE_DEVICE==1);
+static_assert(CU_MEM_LOCATION_TYPE_HOST==2);
+static_assert(CU_MEM_LOCATION_TYPE_HOST_NUMA==3);
+static_assert(CU_MEM_LOCATION_TYPE_HOST_NUMA_CURRENT+1==cuda_interop::AllocationGranularityLocationTypeCount);
 
 /*
 	Low-level CUDA SDK boundary shared by Nabla's CUDA implementation and explicit CUDA interop opt-in users.
@@ -177,6 +183,16 @@ struct SPTXResult
 NBL_API2 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
 NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
 NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
+
+// Opt-in convenience for examples/tests that intentionally assert on failures. Pass a CCUDAHandler reference.
+// Nabla implementation code should prefer explicit error handling paths.
+#define NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler) \
+	do { \
+		const auto nblCudaInteropResult = (expr); \
+		if (!::nbl::video::cuda_native::defaultHandleResult((handler),nblCudaInteropResult)) \
+			assert(false); \
+	} while (false)
+
 NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 NBL_API2 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
 NBL_API2 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);

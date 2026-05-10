@@ -167,8 +167,6 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 	const auto location = static_cast<CUmemLocationType>(inParams.locationType);
 
 	CCUDAExportableMemory::SCachedCreationParams params = {
-		.size = inParams.size,
-		.alignment = inParams.alignment,
 		.granularSize = roundToGranularity(inParams.locationType, inParams.size),
 		.deviceLocal = isDeviceLocal(location)
 	};
@@ -208,7 +206,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 		return nullptr;
 	}
 
-	if (const auto err = reserveAddressAndMapMemory(*handler,m_native->handle,&nativeState->ptr, params.granularSize, params.alignment, location, mem); CUDA_SUCCESS != err)
+	if (const auto err = reserveAddressAndMapMemory(*handler,m_native->handle,&nativeState->ptr, params.granularSize, inParams.alignment, location, mem); CUDA_SUCCESS != err)
 	{
 		m_logger.log("Fail to reserve address and map memory!", system::ILogger::ELL_ERROR);
 
