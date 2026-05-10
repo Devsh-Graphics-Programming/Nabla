@@ -185,7 +185,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC,LibLoader,
 #define NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler) \
 	do { \
 		const auto nblCudaInteropResult = (expr); \
-		if (!(handler).defaultHandleResult(nblCudaInteropResult)) \
+		if (!(handler)->defaultHandleResult(nblCudaInteropResult)) \
 			assert(false); \
 	} while (false)
 

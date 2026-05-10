@@ -71,7 +71,7 @@ auto memory = cudaDevice->createExportableMemory({
 auto& cu = handler->getCUDAFunctionTable();
 auto& nvrtc = handler->getNVRTCFunctionTable();
 int driverVersion = 0;
-NBL_CUDA_INTEROP_ASSERT_SUCCESS(cu.pcuDriverGetVersion(&driverVersion), *handler);
+NBL_CUDA_INTEROP_ASSERT_SUCCESS(cu.pcuDriverGetVersion(&driverVersion), handler);
 
 CUdeviceptr mapped = 0;
 if (importedMemory)
@@ -103,7 +103,7 @@ if (pcuNewCall)
 - CUDA enum values can be passed to SDK-free Nabla methods such as `CCUDADevice::createExportableMemory` and `CCUDADevice::roundToGranularity`. Nabla stores them as integer values in its public ABI.
 - `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr` in SDK-free code. SDK opt-in code can pass `CUdeviceptr` directly.
 - `CCUDAHandler::createProgram`, `compileProgram`, `getProgramLog`, `getPTX`, and `compileDirectlyToPTX` are SDK-free Nabla methods. SDK opt-in code can call them with native `nvrtcProgram` / `nvrtcResult` because the opaque conversions are enabled by `CUDAInteropNative.h`.
-- `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handlerRef)` is available for call sites that intentionally assert on CUDA/NVRTC failures. Pass a `CCUDAHandler&`. Nabla implementation code should still prefer explicit error handling and clean returns.
+- `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler)` is available for call sites that intentionally assert on CUDA/NVRTC failures. Pass a pointer-like `CCUDAHandler` handle. Nabla implementation code should still prefer explicit error handling and clean returns.
 - `cuda_native::isBuildCUDASDKVersionExactMatch()` checks exact SDK version equality between the consumer translation unit and the SDK used to build Nabla's interop implementation. It is a policy helper, not an automatic runtime rejection rule.
 
 Smoke examples:
