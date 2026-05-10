@@ -80,6 +80,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 	private:
 		friend class CCUDAHandler;
 
+		static constexpr uint32_t AllocationGranularityLocationTypeCount = 5u;
 		struct SNativeState;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
 		bool isValid() const;
@@ -87,7 +88,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
-		std::array<size_t,cuda_interop::AllocationGranularityLocationTypeCount> m_allocationGranularity = {};
+		std::array<size_t,AllocationGranularityLocationTypeCount> m_allocationGranularity = {};
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
 		bool m_valid = false;
 
