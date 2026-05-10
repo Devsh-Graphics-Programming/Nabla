@@ -65,7 +65,7 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 
 cuda_interop::SCUdeviceptr CCUDAExportableMemory::getDeviceptr() const
 {
-	return cuda_native::SCUdeviceptr(m_native->ptr);
+	return cuda_interop::SNativeHandle<cuda_interop::SCUdeviceptr,CUdeviceptr>(m_native->ptr);
 }
 
 }

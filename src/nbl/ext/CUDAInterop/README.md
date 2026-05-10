@@ -6,7 +6,8 @@
 - The public Nabla headers do not include `cuda.h`, `nvrtc.h`, or other CUDA SDK headers. A consumer that only links `Nabla::Nabla` does not need a CUDA SDK install just to parse Nabla headers.
 - CUDA native state is stored behind incomplete `SNativeState` members in Nabla classes. Public headers expose fixed-layout opaque value handles from `nbl/video/CUDAInteropHandles.h`.
 - `Nabla::ext::CUDAInterop` is an `INTERFACE` target. It builds no artifact. It only adds the SDK opt-in header, `CUDA::toolkit`, and runtime-header discovery setup to targets that ask for raw CUDA interop.
-- `CUDAInteropNative.h` is the opt-in SDK boundary. It includes CUDA SDK headers and aliases Nabla opaque handles to CUDA SDK types through `cuda_interop::SNativeHandle`.
+- `nbl/video/CUDAInteropNativeAPI.h` is the low-level SDK boundary used by Nabla's CUDA implementation and by opt-in consumers. It declares the dynamic CUDA/NVRTC tables and exported Nabla glue functions whose signatures use CUDA SDK types.
+- `nbl/ext/CUDAInterop/CUDAInteropNative.h` is the public opt-in entrypoint. It includes the native API header and aliases Nabla opaque handles to CUDA SDK types through `cuda_interop::SNativeHandle`.
 
 ## CMake Usage
 
@@ -89,7 +90,7 @@ auto compile = nbl::video::cuda_native::compileDirectlyToPTX(
 SDK opt-in access is not a full CUDA wrapper. It is the glue between Nabla resource lifetime and raw CUDA interop:
 
 - `CCUDAHandler::getCUDAFunctionTable` and `CCUDAHandler::getNVRTCFunctionTable` expose the loaded Driver API and NVRTC tables after SDK opt-in.
-- The default tables contain the CUDA/NVRTC calls used and tested by Nabla. SDK opt-in code can load extra symbols from the same dynamic table without changing Nabla's ABI. The symbol name must be declared by the CUDA SDK headers visible to that translation unit:
+- The shipped tables contain the CUDA/NVRTC calls used and tested by Nabla. SDK opt-in code can load extra symbols from the same dynamic table without changing Nabla's ABI. The symbol name must be declared by the CUDA SDK headers visible to that translation unit:
 
 ```cpp
 auto pcuNewCall = NBL_SYSTEM_LOAD_DYNLIB_FUNCPTR(handler->getCUDAFunctionTable(), cuNewCall);
@@ -115,7 +116,7 @@ Smoke examples:
 - Their public declarations do not expose CUDA SDK structs, CUDA SDK layouts, or `cuda.h` / `nvrtc.h` includes.
 - Opaque handle types are small trivially-copyable byte arrays with fixed size/alignment chosen to match CUDA SDK handle storage. The SDK opt-in header validates this with `static_assert`s against the SDK used by the consumer.
 - CUDA implementation state is owned by Nabla through private `SNativeState` members. Consumers cannot construct CUDA wrapper objects with arbitrary internal CUDA state.
-- SDK-sized arrays, CUDA enum storage, and CUDA implementation headers stay private to Nabla.
+- SDK-sized arrays, CUDA enum storage, and CUDA implementation state stay private to Nabla.
 - A consumer can build SDK opt-in code with its own compatible SDK independently from the SDK used to build Nabla. SDK-typed code can check `cuda_native::isBuildCUDASDKVersionExactMatch()` when exact CUDA SDK version matching is required.
 - Runtime include-option construction is header-only and is not part of the exported ABI.
 - The loaded CUDA driver and NVRTC runtime are validated at runtime.
@@ -129,8 +130,11 @@ NVRTC may need CUDA runtime headers when user kernels include files such as `cud
 - Package consumers generate their own JSON when they call `nbl_target_link_cuda_interop`.
 - `NBL_CUDA_INTEROP_RUNTIME_JSON` can point runtime discovery at custom JSON files without rebuilding the application.
 - Runtime lookup checks explicit JSON paths first, then executable-local JSON, app-local header bundles, explicit include-dir environment variables, `CUDA_PATH` style toolkit roots, Python/conda package layouts, and common system install roots.
+- Runtime lookup records the source of every accepted include root and parses `CUDA_VERSION` from `cuda.h` when available. The startup report prints the primary include root, its source, its parsed CUDA version, and the full search order.
+- The first include root is not required to match the SDK used to build Nabla. It is the first `-I` path visible to NVRTC, so the first path containing a requested header wins just like normal C/C++ include search.
+- If the primary runtime header root is incomplete or reports a different CUDA version than the loaded NVRTC runtime, Nabla logs a warning. This is diagnostic policy, not an automatic hard failure.
 - The probe looks for directories that contain CUDA runtime headers. It does not hardcode a CUDA major version in app-local paths.
-- `cuda_native::compileDirectlyToPTX` appends discovered include directories to NVRTC options. Discovery is cached after the first call.
+- `CCUDAHandler` captures discovered include directories when it is created. `cuda_native::compileDirectlyToPTX` reuses those exact include options, so the startup report matches the NVRTC search paths used by that handler.
 
 Production machines do not need the full CUDA SDK just because Nabla was built with CUDA. Applications that use NVRTC with CUDA runtime headers can provide those headers through generated JSON, a custom JSON path, an app-local bundle, an official runtime/header package, or an installed toolkit.
 
@@ -157,7 +161,7 @@ CuPy documents the same NVRTC issue for CUDA 12.2+. Their install docs say: "On 
 ## CUDA ON/OFF Builds
 
 - SDK-free public headers stay stable for CUDA ON and CUDA OFF Nabla builds.
-- CUDA implementation headers and SDK includes stay behind `_NBL_COMPILE_WITH_CUDA_`.
+- Nabla implementation `.cpp` files include CUDA SDK headers only behind `_NBL_COMPILE_WITH_CUDA_`.
 - CUDA OFF implementations are local stubs in the same `.cpp` files. Factory/import/export paths return `nullptr` for unavailable CUDA features instead of producing unresolved symbols.
 - The Nabla source list stays stable, so CUDA interop `.cpp` files remain visible in IDE projects for both CUDA ON and CUDA OFF builds.
 

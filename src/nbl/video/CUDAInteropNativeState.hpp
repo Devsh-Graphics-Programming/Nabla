@@ -1,9 +1,10 @@
 #ifndef _NBL_VIDEO_CUDA_INTEROP_NATIVE_STATE_H_INCLUDED_
 #define _NBL_VIDEO_CUDA_INTEROP_NATIVE_STATE_H_INCLUDED_
 
-#include "nbl/ext/CUDAInterop/CUDAInteropNative.h"
+#include "nbl/video/CUDAInteropNativeAPI.h"
 
 #include <array>
+#include <utility>
 
 namespace nbl::video
 {
@@ -12,18 +13,33 @@ struct CCUDAHandler::SNativeState
 {
 	struct SDeviceState
 	{
-		cuda_native::SCUDADeviceInfo info = {};
+		CUdevice handle = {};
+		CUuuid uuid = {};
 		std::array<int,CU_DEVICE_ATTRIBUTE_MAX> attributes = {};
 	};
 
 	cuda_native::CUDA cuda;
 	cuda_native::NVRTC nvrtc;
-	core::vector<cuda_native::SCUDADeviceInfo> availableDevices;
+	int cudaDriverVersion = 0;
+	std::array<int,2> nvrtcVersion = {-1,-1};
+	// Snapshot discovery at handler creation so diagnostics and NVRTC compile options describe the same runtime setup.
+	cuda_interop::SRuntimeCompileEnvironment runtimeEnvironment;
+	core::vector<std::string> runtimeIncludeOptions;
+	core::vector<const char*> runtimeIncludeOptionPtrs;
 	core::vector<SDeviceState> deviceStates;
 
-	SNativeState(cuda_native::CUDA&& _cuda, cuda_native::NVRTC&& _nvrtc)
+	SNativeState(
+		cuda_native::CUDA&& _cuda,
+		cuda_native::NVRTC&& _nvrtc,
+		int _cudaDriverVersion,
+		std::array<int,2> _nvrtcVersion,
+		cuda_interop::SRuntimeCompileEnvironment&& _runtimeEnvironment)
 		: cuda(std::move(_cuda))
 		, nvrtc(std::move(_nvrtc))
+		, cudaDriverVersion(_cudaDriverVersion)
+		, nvrtcVersion(_nvrtcVersion)
+		, runtimeEnvironment(std::move(_runtimeEnvironment))
+		, runtimeIncludeOptions(cuda_interop::makeNVRTCIncludeOptions(runtimeEnvironment))
 	{}
 };
 

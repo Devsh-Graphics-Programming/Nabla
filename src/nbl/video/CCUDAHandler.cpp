@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <sstream>
 #include <system_error>
 
 namespace nbl::video::cuda_interop
@@ -62,28 +63,71 @@ bool looksLikeCUDAIncludeDir(const system::path& path)
 		isRegularFile(path/"nv"/"target");
 }
 
-void appendIncludeDir(core::vector<system::path>& includeDirs, system::path path)
+uint32_t readCUDAVersion(const system::path& includeDir)
+{
+	std::ifstream input(includeDir/"cuda.h");
+	if (!input)
+		return 0u;
+
+	std::string line;
+	while (std::getline(input,line))
+	{
+		std::istringstream stream(line);
+		std::string directive;
+		stream >> directive;
+		if (directive!="#define")
+			continue;
+
+		std::string name;
+		stream >> name;
+		if (name!="CUDA_VERSION")
+			continue;
+
+		uint32_t version = 0u;
+		if (stream >> version)
+			return version;
+	}
+	return 0u;
+}
+
+bool looksLikeCompleteRuntimeHeaderSet(const system::path& includeDir)
+{
+	return isRegularFile(includeDir/"cuda.h") &&
+		isRegularFile(includeDir/"cuda_runtime_api.h") &&
+		isRegularFile(includeDir/"vector_types.h");
+}
+
+void appendIncludeDir(SRuntimeCompileEnvironment& environment, system::path path, std::string source)
 {
 	if (path.empty() || !looksLikeCUDAIncludeDir(path))
 		return;
 
 	path = normalizedAbsolute(std::move(path));
 	const auto pathString = path.generic_string();
-	const auto alreadyAdded = std::find_if(includeDirs.begin(),includeDirs.end(),[&](const system::path& existing) {
+	const auto alreadyAdded = std::find_if(environment.includeDirs.begin(),environment.includeDirs.end(),[&](const system::path& existing) {
 		return existing.generic_string()==pathString;
 	});
-	if (alreadyAdded==includeDirs.end())
-		includeDirs.push_back(std::move(path));
+	if (alreadyAdded==environment.includeDirs.end())
+	{
+		SRuntimeIncludeDir info;
+		info.path = path;
+		info.source = std::move(source);
+		info.cudaVersion = readCUDAVersion(path);
+		info.completeRuntimeHeaderSet = looksLikeCompleteRuntimeHeaderSet(path);
+
+		environment.includeDirs.push_back(std::move(path));
+		environment.includeDirInfos.push_back(std::move(info));
+	}
 }
 
-void appendCUDAIncludeDirsBelow(core::vector<system::path>& includeDirs, const system::path& root, uint32_t maxDepth)
+void appendCUDAIncludeDirsBelow(SRuntimeCompileEnvironment& environment, const system::path& root, uint32_t maxDepth, std::string source)
 {
 	if (!isDirectory(root))
 		return;
 
 	if (looksLikeCUDAIncludeDir(root))
 	{
-		appendIncludeDir(includeDirs,root);
+		appendIncludeDir(environment,root,std::move(source));
 		return;
 	}
 	if (maxDepth==0u)
@@ -106,19 +150,19 @@ void appendCUDAIncludeDirsBelow(core::vector<system::path>& includeDirs, const s
 		return lhs.generic_string()>rhs.generic_string();
 	});
 	for (const auto& candidate : candidates)
-		appendCUDAIncludeDirsBelow(includeDirs,candidate,maxDepth-1u);
+		appendCUDAIncludeDirsBelow(environment,candidate,maxDepth-1u,source);
 }
 
-void appendCUDAIncludeRoot(core::vector<system::path>& includeDirs, const system::path& root)
+void appendCUDAIncludeRoot(SRuntimeCompileEnvironment& environment, const system::path& root, std::string source)
 {
 	if (root.empty())
 		return;
 
-	appendIncludeDir(includeDirs,root);
-	appendIncludeDir(includeDirs,root/"include");
+	appendIncludeDir(environment,root,source);
+	appendIncludeDir(environment,root/"include",std::move(source));
 }
 
-void appendRuntimePathsConfig(core::vector<system::path>& includeDirs, const system::path& configFile)
+void appendRuntimePathsConfig(SRuntimeCompileEnvironment& environment, const system::path& configFile, const char* source)
 {
 	if (!isRegularFile(configFile))
 		return;
@@ -137,7 +181,7 @@ void appendRuntimePathsConfig(core::vector<system::path>& includeDirs, const sys
 
 	for (const auto& path : *paths)
 		if (path.is_string())
-			appendIncludeDir(includeDirs,system::path(path.get<std::string>()));
+			appendIncludeDir(environment,system::path(path.get<std::string>()),std::string(source)+": "+configFile.generic_string());
 }
 
 template<typename Append>
@@ -160,60 +204,66 @@ void appendPathListEnv(const char* name, Append append)
 	}
 }
 
-void appendRuntimePathsConfigs(core::vector<system::path>& includeDirs, const core::vector<system::path>& explicitRuntimePathFiles)
+void appendRuntimePathsConfigs(SRuntimeCompileEnvironment& environment, const core::vector<system::path>& explicitRuntimePathFiles)
 {
 	for (const auto& runtimePathFile : explicitRuntimePathFiles)
-		appendRuntimePathsConfig(includeDirs,runtimePathFile);
+		appendRuntimePathsConfig(environment,runtimePathFile,"explicit runtime JSON");
 
-	const auto appendConfig = [&](const system::path& path) { appendRuntimePathsConfig(includeDirs,path); };
-	appendPathListEnv("NBL_CUDA_INTEROP_RUNTIME_JSON",appendConfig);
-	appendPathListEnv("Nabla_CUDA_INTEROP_RUNTIME_JSON",appendConfig);
+	appendPathListEnv("NBL_CUDA_INTEROP_RUNTIME_JSON",[&](const system::path& path) {
+		appendRuntimePathsConfig(environment,path,"NBL_CUDA_INTEROP_RUNTIME_JSON");
+	});
+	appendPathListEnv("Nabla_CUDA_INTEROP_RUNTIME_JSON",[&](const system::path& path) {
+		appendRuntimePathsConfig(environment,path,"Nabla_CUDA_INTEROP_RUNTIME_JSON");
+	});
 
 	const auto exeDir = system::executableDirectory();
 	if (!exeDir.empty())
-		appendRuntimePathsConfig(includeDirs,exeDir/RuntimePathsFileName);
+		appendRuntimePathsConfig(environment,exeDir/RuntimePathsFileName,"executable-local runtime JSON");
 }
 
-void appendAppLocalIncludeDirs(core::vector<system::path>& includeDirs)
+void appendAppLocalIncludeDirs(SRuntimeCompileEnvironment& environment)
 {
 	const auto exeDir = system::executableDirectory();
 	if (exeDir.empty())
 		return;
 
-	appendIncludeDir(includeDirs,exeDir/"cuda"/"include");
-	appendCUDAIncludeDirsBelow(includeDirs,exeDir/"nvidia",4u);
-	appendIncludeDir(includeDirs,exeDir/"Libraries"/"cuda"/"include");
-	appendIncludeDir(includeDirs,exeDir.parent_path()/"cuda"/"include");
-	appendCUDAIncludeDirsBelow(includeDirs,exeDir.parent_path()/"nvidia",4u);
+	appendIncludeDir(environment,exeDir/"cuda"/"include","app-local cuda/include");
+	appendCUDAIncludeDirsBelow(environment,exeDir/"nvidia",4u,"app-local nvidia package");
+	appendIncludeDir(environment,exeDir/"Libraries"/"cuda"/"include","app-local Libraries/cuda/include");
+	appendIncludeDir(environment,exeDir.parent_path()/"cuda"/"include","parent app-local cuda/include");
+	appendCUDAIncludeDirsBelow(environment,exeDir.parent_path()/"nvidia",4u,"parent app-local nvidia package");
 }
 
-void appendPythonPackageIncludeDirs(core::vector<system::path>& includeDirs, const system::path& root)
+void appendPythonPackageIncludeDirs(SRuntimeCompileEnvironment& environment, const system::path& root, const char* source)
 {
 	if (root.empty())
 		return;
 
-	appendCUDAIncludeDirsBelow(includeDirs,root/"Lib"/"site-packages"/"nvidia",4u);
-	appendCUDAIncludeDirsBelow(includeDirs,root/"lib"/"site-packages"/"nvidia",4u);
-	appendIncludeDir(includeDirs,root/"Library"/"include");
-	appendIncludeDir(includeDirs,root/"include");
+	appendCUDAIncludeDirsBelow(environment,root/"Lib"/"site-packages"/"nvidia",4u,std::string(source)+" Python nvidia package");
+	appendCUDAIncludeDirsBelow(environment,root/"lib"/"site-packages"/"nvidia",4u,std::string(source)+" Python nvidia package");
+	appendIncludeDir(environment,root/"Library"/"include",std::string(source)+" Library/include");
+	appendIncludeDir(environment,root/"include",std::string(source)+" include");
 }
 
-void appendEnvironmentIncludeDirs(core::vector<system::path>& includeDirs)
+void appendEnvironmentIncludeDirs(SRuntimeCompileEnvironment& environment)
 {
-	const auto appendInclude = [&](const system::path& path) { appendIncludeDir(includeDirs,path); };
-	appendPathListEnv("NBL_CUDA_RUNTIME_INCLUDE_DIRS",appendInclude);
-	appendPathListEnv("Nabla_CUDA_RUNTIME_INCLUDE_DIRS",appendInclude);
+	appendPathListEnv("NBL_CUDA_RUNTIME_INCLUDE_DIRS",[&](const system::path& path) {
+		appendIncludeDir(environment,path,"NBL_CUDA_RUNTIME_INCLUDE_DIRS");
+	});
+	appendPathListEnv("Nabla_CUDA_RUNTIME_INCLUDE_DIRS",[&](const system::path& path) {
+		appendIncludeDir(environment,path,"Nabla_CUDA_RUNTIME_INCLUDE_DIRS");
+	});
 
-	appendCUDAIncludeRoot(includeDirs,readEnvironmentVariable("CUDA_PATH"));
-	appendCUDAIncludeRoot(includeDirs,readEnvironmentVariable("CUDA_HOME"));
-	appendCUDAIncludeRoot(includeDirs,readEnvironmentVariable("CUDA_ROOT"));
-	appendCUDAIncludeRoot(includeDirs,readEnvironmentVariable("CUDAToolkit_ROOT"));
+	appendCUDAIncludeRoot(environment,readEnvironmentVariable("CUDA_PATH"),"CUDA_PATH");
+	appendCUDAIncludeRoot(environment,readEnvironmentVariable("CUDA_HOME"),"CUDA_HOME");
+	appendCUDAIncludeRoot(environment,readEnvironmentVariable("CUDA_ROOT"),"CUDA_ROOT");
+	appendCUDAIncludeRoot(environment,readEnvironmentVariable("CUDAToolkit_ROOT"),"CUDAToolkit_ROOT");
 
-	appendPythonPackageIncludeDirs(includeDirs,readEnvironmentVariable("VIRTUAL_ENV"));
-	appendPythonPackageIncludeDirs(includeDirs,readEnvironmentVariable("CONDA_PREFIX"));
+	appendPythonPackageIncludeDirs(environment,readEnvironmentVariable("VIRTUAL_ENV"),"VIRTUAL_ENV");
+	appendPythonPackageIncludeDirs(environment,readEnvironmentVariable("CONDA_PREFIX"),"CONDA_PREFIX");
 }
 
-void appendCUDAInstallRoots(core::vector<system::path>& includeDirs, const system::path& root)
+void appendCUDAInstallRoots(SRuntimeCompileEnvironment& environment, const system::path& root, const char* source)
 {
 	if (!isDirectory(root))
 		return;
@@ -233,17 +283,17 @@ void appendCUDAInstallRoots(core::vector<system::path>& includeDirs, const syste
 		return lhs.generic_string()>rhs.generic_string();
 	});
 	for (const auto& candidate : candidates)
-		appendIncludeDir(includeDirs,candidate);
+		appendIncludeDir(environment,candidate,source);
 }
 
-void appendSystemIncludeDirs(core::vector<system::path>& includeDirs)
+void appendSystemIncludeDirs(SRuntimeCompileEnvironment& environment)
 {
 	#if defined(_NBL_PLATFORM_WINDOWS_)
-	appendCUDAInstallRoots(includeDirs,"C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA");
+	appendCUDAInstallRoots(environment,"C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA","system CUDA Toolkit install root");
 	#else
-	appendIncludeDir(includeDirs,"/usr/local/cuda/include");
-	appendCUDAInstallRoots(includeDirs,"/usr/local");
-	appendIncludeDir(includeDirs,"/usr/include");
+	appendIncludeDir(environment,"/usr/local/cuda/include","system /usr/local/cuda");
+	appendCUDAInstallRoots(environment,"/usr/local","system /usr/local CUDA install root");
+	appendIncludeDir(environment,"/usr/include","system /usr/include");
 	#endif
 }
 
@@ -252,13 +302,25 @@ void appendSystemIncludeDirs(core::vector<system::path>& includeDirs)
 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs, core::vector<system::path> runtimePathFiles)
 {
 	SRuntimeCompileEnvironment environment;
-	for (auto& includeDir : explicitIncludeDirs)
-		appendIncludeDir(environment.includeDirs,std::move(includeDir));
 
-	appendRuntimePathsConfigs(environment.includeDirs,runtimePathFiles);
-	appendAppLocalIncludeDirs(environment.includeDirs);
-	appendEnvironmentIncludeDirs(environment.includeDirs);
-	appendSystemIncludeDirs(environment.includeDirs);
+	/*
+		Runtime header discovery builds the ordered include list passed to NVRTC. It is not a lock to the CUDA SDK
+		used to build Nabla. A packaged Nabla must stay relocatable, so host-specific include paths are accepted
+		only when the application provides them at runtime: direct arguments, JSON next to the executable, an
+		override JSON, app-local header bundles, environment variables, or finally common toolkit install roots.
+
+		The first root containing a requested header wins exactly like normal C/C++ include search. Keep every
+		accepted root with its source and parsed CUDA_VERSION so startup logs can explain what NVRTC will see.
+		This is also why mismatched or partial roots produce diagnostics instead of changing discovery order or
+		hard-failing before the user kernel is compiled.
+	*/
+	for (auto& includeDir : explicitIncludeDirs)
+		appendIncludeDir(environment,std::move(includeDir),"explicit include dir");
+
+	appendRuntimePathsConfigs(environment,runtimePathFiles);
+	appendAppLocalIncludeDirs(environment);
+	appendEnvironmentIncludeDirs(environment);
+	appendSystemIncludeDirs(environment);
 
 	return environment;
 }
@@ -292,6 +354,82 @@ int cudaVersionMinor(int version)
 	return (version%1000)/10;
 }
 
+int cudaVersionCode(int major, int minor)
+{
+	return major*1000+minor*10;
+}
+
+system::path loadedRuntimeModulePath(const char* moduleName)
+{
+	#if defined(_NBL_PLATFORM_WINDOWS_)
+	const auto moduleDir = system::loadedModuleDirectory(moduleName);
+	if (moduleDir.empty())
+		return {};
+	return moduleDir/(std::string(moduleName)+".dll");
+	#else
+	return {};
+	#endif
+}
+
+std::string cudaVersionString(int version)
+{
+	std::ostringstream stream;
+	stream << cudaVersionMajor(version) << "." << cudaVersionMinor(version);
+	return stream.str();
+}
+
+std::string cudaVersionString(const std::array<int,2>& version)
+{
+	std::ostringstream stream;
+	stream << version[0] << "." << version[1];
+	return stream.str();
+}
+
+std::string runtimeIncludeDirDescription(const cuda_interop::SRuntimeIncludeDir& includeDir)
+{
+	std::ostringstream stream;
+	stream << includeDir.path.generic_string() << " (" << includeDir.source;
+	if (includeDir.cudaVersion!=0u)
+		stream << ", CUDA_VERSION " << includeDir.cudaVersion << " / " << cudaVersionString(includeDir.cudaVersion);
+	else
+		stream << ", CUDA_VERSION unknown";
+	if (!includeDir.completeRuntimeHeaderSet)
+		stream << ", partial header root";
+	stream << ")";
+	return stream.str();
+}
+
+std::string cudaRuntimeReport(
+	const int buildVersion, const int cudaDriverVersion, const system::path& cudaDriverPath,
+	const std::array<int,2>& nvrtcVersion, const std::string& nvrtcLibraryName, const system::path& nvrtcPath,
+	const cuda_interop::SRuntimeCompileEnvironment& runtimeEnvironment)
+{
+	std::ostringstream stream;
+	stream << "CCUDAHandler: CUDA interop runtime report:\n";
+	stream << "  - Nabla build CUDA SDK: " << cudaVersionString(buildVersion) << "\n";
+	stream << "  - CUDA Driver API: " << cudaVersionString(cudaDriverVersion);
+	if (!cudaDriverPath.empty())
+		stream << " (" << cudaDriverPath.generic_string() << ")";
+	stream << "\n";
+	stream << "  - NVRTC runtime: " << cudaVersionString(nvrtcVersion) << " (" << nvrtcLibraryName;
+	if (!nvrtcPath.empty())
+		stream << ", " << nvrtcPath.generic_string();
+	stream << ")\n";
+
+	if (runtimeEnvironment.includeDirs.empty())
+	{
+		stream << "  - NVRTC runtime header search path: none discovered";
+	}
+	else
+	{
+		stream << "  - Primary NVRTC runtime header path: " << runtimeIncludeDirDescription(runtimeEnvironment.includeDirInfos.front()) << "\n";
+		stream << "  - NVRTC runtime header search order (first path containing the requested header wins):\n";
+		for (const auto& includeDir : runtimeEnvironment.includeDirInfos)
+			stream << "    - " << runtimeIncludeDirDescription(includeDir) << "\n";
+	}
+	return stream.str();
+}
+
 }
 	
 CCUDAHandler::CCUDAHandler(
@@ -310,6 +448,8 @@ CCUDAHandler::CCUDAHandler(
 		m_headerNamesStorage.push_back(header->getFileName().string());
 		m_headerNames.push_back(m_headerNamesStorage.back().c_str());
 	}
+	for (const auto& option : m_native->runtimeIncludeOptions)
+		m_native->runtimeIncludeOptionPtrs.push_back(option.c_str());
 
 	int deviceCount = 0;
 	if (m_native->cuda.pcuDeviceGetCount(&deviceCount) != CUDA_SUCCESS || deviceCount <= 0)
@@ -326,9 +466,8 @@ CCUDAHandler::CCUDAHandler(
 			continue;
 
 		auto& nativeDevice = m_native->deviceStates.emplace_back();
-		nativeDevice.info.handle = handle;
-		nativeDevice.info.uuid = uuid;
-		m_native->availableDevices.push_back(nativeDevice.info);
+		nativeDevice.handle = handle;
+		nativeDevice.uuid = uuid;
 		auto& cleanDevice = m_availableDevices.emplace_back();
 		memcpy(cleanDevice.uuid.data(),&uuid,cleanDevice.uuid.size());
 
@@ -345,6 +484,16 @@ uint32_t CCUDAHandler::getBuildCUDASDKVersion()
 	return CUDA_VERSION;
 }
 
+uint32_t CCUDAHandler::getLoadedCUDADriverVersion() const
+{
+	return m_native->cudaDriverVersion;
+}
+
+std::array<int,2> CCUDAHandler::getLoadedNVRTCVersion() const
+{
+	return m_native->nvrtcVersion;
+}
+
 const cuda_native::CUDA& CCUDAHandler::getCUDAFunctionTable() const
 {
 	return m_native->cuda;
@@ -353,6 +502,14 @@ const cuda_native::CUDA& CCUDAHandler::getCUDAFunctionTable() const
 const cuda_native::NVRTC& CCUDAHandler::getNVRTCFunctionTable() const
 {
 	return m_native->nvrtc;
+}
+
+core::SRange<const char* const> CCUDAHandler::getDefaultRuntimeIncludeOptions() const
+{
+	if (m_native->runtimeIncludeOptionPtrs.empty())
+		return {nullptr,nullptr};
+	const auto* begin = m_native->runtimeIncludeOptionPtrs.data();
+	return {begin,begin+m_native->runtimeIncludeOptionPtrs.size()};
 }
 
 namespace cuda_native
@@ -478,6 +635,11 @@ bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
 		case CUDA_ERROR_INVALID_PTX:
 			logger.log(R"===(CCUDAHandler:
 				This indicates that a PTX JIT compilation failed. 
+			)===",system::ILogger::ELL_ERROR);
+			break;
+		case CUDA_ERROR_UNSUPPORTED_PTX_VERSION:
+			logger.log(R"===(CCUDAHandler:
+				This indicates that the PTX version is unsupported by the CUDA driver. Check that the CUDA driver runtime can consume PTX produced by the loaded NVRTC runtime.
 			)===",system::ILogger::ELL_ERROR);
 			break;
 		case CUDA_ERROR_INVALID_GRAPHICS_CONTEXT:
@@ -717,15 +879,25 @@ bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
 			break;
 		case CUDA_ERROR_UNKNOWN:
 		default:
-			logger.log("CCUDAHandler: Unknown CUDA Error!\n",system::ILogger::ELL_ERROR);
+			logger.log("CCUDAHandler: Unknown CUDA error code %d.",system::ILogger::ELL_ERROR,static_cast<int>(result));
 			break;
 	}
-	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 }
 
 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result)
 {
+	if (result==CUDA_ERROR_UNSUPPORTED_PTX_VERSION)
+	{
+		const auto cudaVersion = handler.getLoadedCUDADriverVersion();
+		const auto nvrtcVersion = handler.getLoadedNVRTCVersion();
+		handler.getLogger().log(
+			"CCUDAHandler: CUDA driver API %d.%d rejected PTX produced through NVRTC %d.%d. Install a newer NVIDIA driver or use an NVRTC/runtime-header set compatible with the installed driver.",
+			system::ILogger::ELL_ERROR,
+			cudaVersionMajor(cudaVersion),cudaVersionMinor(cudaVersion),
+			nvrtcVersion[0],nvrtcVersion[1]
+		);
+	}
 	return defaultHandleResult(result,handler.getLogger());
 }
 
@@ -745,7 +917,6 @@ bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
 				logger.log(R"===(CudaHandler: `pnvrtcGetErrorString` is nullptr, the nvrtc library probably not found on the system.\n)===",system::ILogger::ELL_ERROR);
 			break;
 	}
-	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 }
 
@@ -764,39 +935,6 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 			#error "Unsuported Platform"
 		#endif
 	);
-	
-	cuda_native::NVRTC nvrtc = {};
-	#if defined(_NBL_WINDOWS_API_)
-	// Perpetual TODO: any new CUDA releases we need to account for?
-	// Version List: https://developer.nvidia.com/cuda-toolkit-archive
-	const char* nvrtc64_versions[] = {
-		"nvrtc64_132",
-		"nvrtc64_131",
-		"nvrtc64_130",
-		nullptr
-	};
-
-	const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
-	for (auto verpath=nvrtc64_versions; *verpath; verpath++)
-	{
-		for (auto suffix=nvrtc64_suffices; *suffix; suffix++)
-		{
-			std::string path(*verpath);
-			path += *suffix;
-			nvrtc = cuda_native::NVRTC(path.c_str());
-			if (nvrtc.pnvrtcVersion)
-				break;
-		}
-		if (nvrtc.pnvrtcVersion)
-			break;
-	}
-	#elif defined(_NBL_POSIX_API_)
-	nvrtc = cuda_native::NVRTC("nvrtc");
-	//nvrtc_builtins = NVRTC("nvrtc-builtins");
-	#else
-	#error "Unsuported Platform"
-	#endif
-	
 
 	// need a complex safe calling chain because DLL/SO might not have loaded
 	#define SAFE_CUDA_CALL(FUNC,...) \
@@ -832,18 +970,91 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	// stop the pollution
 	#undef SAFE_CUDA_CALL
 
+	auto readNVRTCVersion = [&](const cuda_native::NVRTC& candidate, std::array<int,2>& version, const char* name) -> bool
+	{
+		if (!candidate.pnvrtcVersion)
+			return false;
+
+		const auto result = candidate.pnvrtcVersion(version.data(),version.data()+1);
+		if (result==NVRTC_SUCCESS)
+			return true;
+
+		logger.log("CCUDAHandler: nvrtcVersion failed for %s with NVRTC error code %d.",system::ILogger::ELL_WARNING,name,static_cast<int>(result));
+		version = {-1,-1};
+		return false;
+	};
+
+	cuda_native::NVRTC nvrtc = {};
+	std::array<int,2> nvrtcVersion = {-1,-1};
+	std::string nvrtcLibraryName;
+
+	#if defined(_NBL_WINDOWS_API_)
+	cuda_native::NVRTC fallbackNVRTC = {};
+	std::array<int,2> fallbackNVRTCVersion = {-1,-1};
+	std::string fallbackNVRTCLibraryName;
+
+	/*
+		The CUDA driver consumes the final PTX, not the toolkit that provided headers or nvrtc*.dll.
+		A real machine can have an older NVIDIA driver and a newer CUDA Toolkit side by side, for example
+		driver API 13.1 from nvcuda.dll with CUDA 13.2 Toolkit/NVRTC in CUDA_PATH. In that setup NVRTC can
+		emit PTX the installed driver rejects with CUDA_ERROR_UNSUPPORTED_PTX_VERSION. Prefer an NVRTC runtime
+		that is not newer than the loaded driver and log the full version matrix when no compatible one exists.
+	*/
+	const char* nvrtc64_versions[] = {
+		"nvrtc64_132",
+		"nvrtc64_131",
+		"nvrtc64_130",
+		nullptr
+	};
+
+	const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
+	for (auto verpath=nvrtc64_versions; *verpath && !nvrtc.pnvrtcVersion; verpath++)
+	{
+		for (auto suffix=nvrtc64_suffices; *suffix; suffix++)
+		{
+			std::string candidateName(*verpath);
+			candidateName += *suffix;
+
+			cuda_native::NVRTC candidate(candidateName.c_str());
+			std::array<int,2> candidateVersion = {-1,-1};
+			if (!readNVRTCVersion(candidate,candidateVersion,candidateName.c_str()))
+				continue;
+
+			if (cudaVersionCode(candidateVersion[0],candidateVersion[1])<=cudaVersion)
+			{
+				nvrtc = std::move(candidate);
+				nvrtcVersion = candidateVersion;
+				nvrtcLibraryName = std::move(candidateName);
+				break;
+			}
+
+			if (!fallbackNVRTC.pnvrtcVersion)
+			{
+				fallbackNVRTC = std::move(candidate);
+				fallbackNVRTCVersion = candidateVersion;
+				fallbackNVRTCLibraryName = std::move(candidateName);
+			}
+		}
+	}
+
+	if (!nvrtc.pnvrtcVersion && fallbackNVRTC.pnvrtcVersion)
+	{
+		nvrtc = std::move(fallbackNVRTC);
+		nvrtcVersion = fallbackNVRTCVersion;
+		nvrtcLibraryName = std::move(fallbackNVRTCLibraryName);
+	}
+	#elif defined(_NBL_POSIX_API_)
+	nvrtcLibraryName = "nvrtc";
+	nvrtc = cuda_native::NVRTC(nvrtcLibraryName.c_str());
+	readNVRTCVersion(nvrtc,nvrtcVersion,nvrtcLibraryName.c_str());
+	#else
+	#error "Unsuported Platform"
+	#endif
 
 	// check nvrtc existence and compatibility
 	if (!nvrtc.pnvrtcVersion)
 	{
 		logger.log("CCUDAHandler: NVRTC runtime was not found. Need NVRTC %d.x or newer.",system::ILogger::ELL_ERROR,cuda_native::MinimumNVRTCMajorVersion);
-		return nullptr;
-	}
-	int nvrtcVersion[2] = { -1,-1 };
-	const auto nvrtcVersionResult = nvrtc.pnvrtcVersion(nvrtcVersion+0,nvrtcVersion+1);
-	if (nvrtcVersionResult!=NVRTC_SUCCESS)
-	{
-		logger.log("CCUDAHandler: nvrtcVersion failed with NVRTC error code %d.",system::ILogger::ELL_ERROR,static_cast<int>(nvrtcVersionResult));
 		return nullptr;
 	}
 	if (nvrtcVersion[0]<cuda_native::MinimumNVRTCMajorVersion)
@@ -856,6 +1067,51 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		return nullptr;
 	}
 
+	const auto buildVersion = CCUDAHandler::getBuildCUDASDKVersion();
+	auto runtimeEnvironment = cuda_interop::findRuntimeCompileEnvironment();
+	const auto cudaDriverPath = loadedRuntimeModulePath("nvcuda");
+	const auto nvrtcPath = loadedRuntimeModulePath(nvrtcLibraryName.c_str());
+	const auto report = cudaRuntimeReport(buildVersion,cudaVersion,cudaDriverPath,nvrtcVersion,nvrtcLibraryName,nvrtcPath,runtimeEnvironment);
+	logger.log("%s",system::ILogger::ELL_INFO,report.c_str());
+
+	if (cudaVersionCode(nvrtcVersion[0],nvrtcVersion[1])>cudaVersion)
+	{
+		logger.log(
+			"CCUDAHandler: NVRTC runtime %d.%d is newer than CUDA driver API %d.%d. PTX generated by this NVRTC may be unsupported by the installed driver.",
+			system::ILogger::ELL_WARNING,
+			nvrtcVersion[0],nvrtcVersion[1],
+			cudaVersionMajor(cudaVersion),cudaVersionMinor(cudaVersion)
+		);
+	}
+	if (runtimeEnvironment.includeDirs.empty())
+	{
+		logger.log("CCUDAHandler: no CUDA runtime headers were discovered for NVRTC include paths.",system::ILogger::ELL_WARNING);
+	}
+	else
+	{
+		const auto& primaryIncludeDir = runtimeEnvironment.includeDirInfos.front();
+		if (!primaryIncludeDir.completeRuntimeHeaderSet)
+		{
+			logger.log(
+				"CCUDAHandler: primary NVRTC runtime header path %s does not contain cuda.h, cuda_runtime_api.h, and vector_types.h together. NVRTC may use later include paths for missing headers.",
+				system::ILogger::ELL_WARNING,
+				primaryIncludeDir.path.generic_string().c_str()
+			);
+		}
+
+		const auto nvrtcVersionCode = cudaVersionCode(nvrtcVersion[0],nvrtcVersion[1]);
+		if (primaryIncludeDir.cudaVersion!=0u && primaryIncludeDir.cudaVersion!=static_cast<uint32_t>(nvrtcVersionCode))
+		{
+			logger.log(
+				"CCUDAHandler: primary NVRTC runtime headers report CUDA_VERSION %u (%s), while loaded NVRTC is %s. This is allowed by discovery policy, but kernels using version-specific CUDA headers may fail to compile.",
+				system::ILogger::ELL_WARNING,
+				primaryIncludeDir.cudaVersion,
+				cudaVersionString(primaryIncludeDir.cudaVersion).c_str(),
+				cudaVersionString(nvrtcVersion).c_str()
+			);
+		}
+	}
+
 	// add headers
 	core::vector<core::smart_refctd_ptr<system::IFile>> headers;
 	for (const auto& it : jitify::detail::get_jitsafe_headers_map())
@@ -864,14 +1120,13 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 		headers.push_back(core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
 			it.first.c_str(),
 			core::bitflag(system::IFile::ECF_READ)|system::IFile::ECF_MAPPABLE,
-			// ASK(kevin): What initial_modified_time should I use? Is this how this parameter is used?
 			std::chrono::clock_cast<system::IFile::time_point_t::clock>(std::chrono::system_clock::now()),
 			const_cast<void*>(contents),it.second.size()+1u
 		));
 	}
 
 	return core::smart_refctd_ptr<CCUDAHandler>(
-		new CCUDAHandler(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc)),std::move(headers),std::move(_logger)),
+		new CCUDAHandler(std::make_unique<SNativeState>(std::move(cuda),std::move(nvrtc),cudaVersion,nvrtcVersion,std::move(runtimeEnvironment)),std::move(headers),std::move(_logger)),
 		core::dont_grab
 	);
 }
@@ -927,25 +1182,19 @@ SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
 	return {std::move(ptx),nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
 }
 
-static const core::vector<std::string>& getDefaultRuntimeIncludeOptions()
-{
-	static const auto RuntimeIncludeOptions = cuda_interop::makeNVRTCIncludeOptions(cuda_interop::findRuntimeCompileEnvironment());
-	return RuntimeIncludeOptions;
-}
-
 static SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string& log)
 {
 	log.clear();
 	if (result!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
-	const auto& runtimeIncludeOptions = getDefaultRuntimeIncludeOptions();
+	const auto runtimeIncludeOptions = handler.getDefaultRuntimeIncludeOptions();
 	core::vector<const char*> options;
 	options.reserve(nvrtcOptions.size()+runtimeIncludeOptions.size());
 	for (const auto option : nvrtcOptions)
 		options.push_back(option);
-	for (const auto& option : runtimeIncludeOptions)
-		options.push_back(option.c_str());
+	for (const auto option : runtimeIncludeOptions)
+		options.push_back(option);
 
 	const auto* optionsBegin = options.empty() ? nullptr:options.data();
 	const auto* optionsEnd = options.empty() ? nullptr:optionsBegin+options.size();
@@ -985,7 +1234,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 
 	for (const auto& device : m_native->deviceStates)
 	{
-		if (!memcmp(&device.info.uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
+		if (!memcmp(&device.uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
 			CCUDADevice::E_VIRTUAL_ARCHITECTURE arch = CCUDADevice::EVA_COUNT;
 			const int& archMajor = device.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR];
@@ -1067,10 +1316,13 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 			if (arch==CCUDADevice::EVA_COUNT)
 				continue;
 
-			return core::smart_refctd_ptr<CCUDADevice>(
-				new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch,std::make_unique<CCUDADevice::SNativeState>(device.info.handle),core::smart_refctd_ptr<CCUDAHandler>(this)),
+			auto cudaDevice = core::smart_refctd_ptr<CCUDADevice>(
+				new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch,std::make_unique<CCUDADevice::SNativeState>(device.handle),core::smart_refctd_ptr<CCUDAHandler>(this)),
 				core::dont_grab
 			);
+			if (!cudaDevice->isValid())
+				return nullptr;
+			return std::move(cudaDevice);
 		}
 	}
 	return nullptr;
@@ -1104,6 +1356,16 @@ uint32_t CCUDAHandler::getBuildCUDASDKVersion()
 	return 0u;
 }
 
+uint32_t CCUDAHandler::getLoadedCUDADriverVersion() const
+{
+	return 0u;
+}
+
+std::array<int,2> CCUDAHandler::getLoadedNVRTCVersion() const
+{
+	return {-1,-1};
+}
+
 const cuda_native::CUDA& CCUDAHandler::getCUDAFunctionTable() const
 {
 	std::abort();
@@ -1112,6 +1374,11 @@ const cuda_native::CUDA& CCUDAHandler::getCUDAFunctionTable() const
 const cuda_native::NVRTC& CCUDAHandler::getNVRTCFunctionTable() const
 {
 	std::abort();
+}
+
+core::SRange<const char* const> CCUDAHandler::getDefaultRuntimeIncludeOptions() const
+{
+	return {nullptr,nullptr};
 }
 
 core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem*, core::smart_refctd_ptr<system::ILogger>&&)

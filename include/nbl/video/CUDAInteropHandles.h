@@ -65,10 +65,6 @@ struct SNativeHandle
 	operator Opaque&() { return reinterpret_cast<Opaque&>(value); }
 	operator const Opaque&() const { return reinterpret_cast<const Opaque&>(value); }
 
-	Opaque* opaque() { return &static_cast<Opaque&>(*this); }
-	const Opaque* opaque() const { return &static_cast<const Opaque&>(*this); }
-	Opaque asOpaque() const { return static_cast<const Opaque&>(*this); }
-
 	cuda_t value = {};
 };
 

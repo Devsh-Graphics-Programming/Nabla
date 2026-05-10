@@ -19,7 +19,7 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 
 cuda_interop::SCUexternalSemaphore CCUDAImportedSemaphore::getInternalObject() const
 {
-	return cuda_native::SCUexternalSemaphore(m_native->handle);
+	return cuda_interop::SNativeHandle<cuda_interop::SCUexternalSemaphore,CUexternalSemaphore>(m_native->handle);
 }
 
 CCUDAImportedSemaphore::~CCUDAImportedSemaphore()

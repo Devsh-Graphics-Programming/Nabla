@@ -31,9 +31,18 @@ namespace cuda_interop
 {
 inline constexpr const char* RuntimePathsFileName = "nbl_cuda_interop_runtime.json";
 
+struct SRuntimeIncludeDir
+{
+	system::path path;
+	std::string source;
+	uint32_t cudaVersion = 0u;
+	bool completeRuntimeHeaderSet = false;
+};
+
 struct SRuntimeCompileEnvironment
 {
 	core::vector<system::path> includeDirs;
+	core::vector<SRuntimeIncludeDir> includeDirInfos;
 };
 
 NBL_API2 SRuntimeCompileEnvironment findRuntimeCompileEnvironment(core::vector<system::path> explicitIncludeDirs = {});
@@ -52,8 +61,11 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 	public:
 		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
 		static uint32_t getBuildCUDASDKVersion();
+		uint32_t getLoadedCUDADriverVersion() const;
+		std::array<int,2> getLoadedNVRTCVersion() const;
 		const cuda_native::CUDA& getCUDAFunctionTable() const;
 		const cuda_native::NVRTC& getNVRTCFunctionTable() const;
+		core::SRange<const char* const> getDefaultRuntimeIncludeOptions() const;
 		inline system::logger_opt_ptr getLogger() const { return m_logger.getOptRawPtr(); }
 
 		inline core::SRange<system::IFile* const> getSTDHeaders()

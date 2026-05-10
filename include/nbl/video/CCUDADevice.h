@@ -82,12 +82,14 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 
 		struct SNativeState;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
+		bool isValid() const;
 
 		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
 		std::array<size_t,5> m_allocationGranularity = {};
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
+		bool m_valid = false;
 
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;
 		std::unique_ptr<SNativeState> m_native;

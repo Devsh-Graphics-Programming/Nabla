@@ -67,15 +67,15 @@ static CUmemAllocationHandleType getAllocationHandleType()
 }
 
 CCUDADevice::CCUDADevice(
-	core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, 
-	IPhysicalDevice* const vulkanDevice, 
+	core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection,
+	IPhysicalDevice* const vulkanDevice,
 	const E_VIRTUAL_ARCHITECTURE virtualArchitecture,
 	std::unique_ptr<SNativeState>&& nativeState,
-	core::smart_refctd_ptr<CCUDAHandler>&& handler) : 
+	core::smart_refctd_ptr<CCUDAHandler>&& handler) :
 	m_logger(vulkanDevice->getDebugCallback()->getLogger()),
-  m_defaultCompileOptions(), 
-  m_vulkanConnection(std::move(vulkanConnection)), 
-  m_virtualArchitecture(virtualArchitecture),
+	m_defaultCompileOptions(),
+	m_vulkanConnection(std::move(vulkanConnection)),
+	m_virtualArchitecture(virtualArchitecture),
 	m_handler(std::move(handler)),
 	m_native(std::move(nativeState))
 {
@@ -86,43 +86,43 @@ CCUDADevice::CCUDADevice(
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
 
-  const auto& cu = m_handler->getCUDAFunctionTable();
+	const auto& cu = m_handler->getCUDAFunctionTable();
 	
 	if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle)))
-		assert(false);
+		return;
 	if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuCtxSetCurrent(m_native->context)))
-		assert(false);
+		return;
 
 	for (uint32_t locationType = 0; locationType < m_allocationGranularity.size(); ++locationType)
 	{
-	
-    #ifdef _WIN32
-      OBJECT_ATTRIBUTES metadata = {
-        .Length = sizeof(OBJECT_ATTRIBUTES)
-      };
-    #endif
+#ifdef _WIN32
+		OBJECT_ATTRIBUTES metadata = {
+			.Length = sizeof(OBJECT_ATTRIBUTES)
+		};
+#endif
 
-	  const auto prop = CUmemAllocationProp{
-      .type = CU_MEM_ALLOCATION_TYPE_PINNED,
-      .requestedHandleTypes = getAllocationHandleType(),
-      .location = { .type = static_cast<CUmemLocationType>(locationType), .id = m_native->handle },
-  #ifdef _WIN32
-      .win32HandleMetaData = &metadata,
-  #endif
-    };
+		const auto prop = CUmemAllocationProp{
+			.type = CU_MEM_ALLOCATION_TYPE_PINNED,
+			.requestedHandleTypes = getAllocationHandleType(),
+			.location = { .type = static_cast<CUmemLocationType>(locationType), .id = m_native->handle },
+#ifdef _WIN32
+			.win32HandleMetaData = &metadata,
+#endif
+		};
 		if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM)))
-			assert(false);
+			return;
 	}
+	m_valid = true;
 }
 
 cuda_interop::SCUdevice CCUDADevice::getInternalObject() const
 {
-	return cuda_native::SCUdevice(m_native->handle);
+	return cuda_interop::SNativeHandle<cuda_interop::SCUdevice,CUdevice>(m_native->handle);
 }
 
 cuda_interop::SCUcontext CCUDADevice::getContext() const
 {
-	return cuda_native::SCUcontext(m_native->context);
+	return cuda_interop::SNativeHandle<cuda_interop::SCUcontext,CUcontext>(m_native->context);
 }
 
 static bool isDeviceLocal(CUmemLocationType location)
@@ -176,14 +176,14 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 		return nullptr;
 
 	auto& cu = handler->getCUDAFunctionTable();
-	
+
 #ifdef _WIN32
 	OBJECT_ATTRIBUTES metadata = {
-	  .Length = sizeof(OBJECT_ATTRIBUTES)
+		.Length = sizeof(OBJECT_ATTRIBUTES)
 	};
 #endif
 
-	 const auto prop = CUmemAllocationProp{
+	const auto prop = CUmemAllocationProp{
 		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
 		.requestedHandleTypes = getAllocationHandleType(),
 		.location = { .type = location, .id = m_native->handle },
@@ -275,10 +275,9 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32,
-		// TODO(kevinyu): Fix this later. Make it compile first.
 		.handle = {.win32 = {.handle = sema->getExternalHandle() }},
 #else
-    .type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD,
+		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD,
 		.handle = {.fd = sema->getExternalHandle()}
 #endif
 	};
@@ -299,7 +298,13 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 
 CCUDADevice::~CCUDADevice()
 {
-	cuda_native::defaultHandleResult(*m_handler, m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context));
+	if (m_native->context)
+		cuda_native::defaultHandleResult(*m_handler, m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context));
+}
+
+bool CCUDADevice::isValid() const
+{
+	return m_valid;
 }
 
 }
@@ -321,6 +326,7 @@ CCUDADevice::CCUDADevice(
 	: m_logger(nullptr)
 	, m_vulkanConnection(std::move(vulkanConnection))
 	, m_virtualArchitecture(virtualArchitecture)
+	, m_valid(false)
 	, m_handler(std::move(handler))
 	, m_native(std::move(nativeState))
 {
@@ -328,6 +334,11 @@ CCUDADevice::CCUDADevice(
 }
 
 CCUDADevice::~CCUDADevice() = default;
+
+bool CCUDADevice::isValid() const
+{
+	return false;
+}
 
 cuda_interop::SCUdevice CCUDADevice::getInternalObject() const
 {

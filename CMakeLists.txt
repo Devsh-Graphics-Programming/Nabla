@@ -70,7 +70,7 @@ else()
 	message(STATUS "Vulkan SDK is not found")
 endif()
 
-option(NBL_COMPILE_WITH_CUDA "Build the CUDA interop extension?" OFF)
+option(NBL_COMPILE_WITH_CUDA "Build CUDA interop support?" OFF)
 set(NBL_CUDA_TOOLKIT_ROOT "" CACHE PATH "Optional CUDA Toolkit root used when NBL_COMPILE_WITH_CUDA is ON")
 
 if(NBL_COMPILE_WITH_CUDA)
