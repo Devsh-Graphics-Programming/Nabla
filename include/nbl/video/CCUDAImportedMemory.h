@@ -5,8 +5,6 @@
 #include "nbl/video/CUDAInteropHandles.h"
 
 #include <memory>
-#include <type_traits>
-#include <utility>
 
 namespace nbl::video
 {
@@ -19,22 +17,10 @@ class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 		~CCUDAImportedMemory() override;
 		cuda_interop::SCUexternalMemory getInternalObject() const;
 		bool getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const;
-		bool getMappedBuffer(cuda_interop::SCUdeviceptr& mappedBuffer) const { return getMappedBuffer(&mappedBuffer); }
-		template<typename DevicePtr>
-		requires (!std::is_same_v<std::remove_cv_t<DevicePtr>,cuda_interop::SCUdeviceptr>)
-		bool getMappedBuffer(DevicePtr* mappedBuffer) const
+		NBL_CUDA_INTEROP_NATIVE_FOR(DevicePtr, cuda_interop::SCUdeviceptr)
+		inline bool getMappedBuffer(DevicePtr& mappedBuffer) const
 		{
-			cuda_interop::SCUdeviceptr opaqueMappedBuffer = {};
-			const auto result = getMappedBuffer(&opaqueMappedBuffer);
-			if (result && mappedBuffer)
-				*mappedBuffer = static_cast<DevicePtr>(opaqueMappedBuffer);
-			return result;
-		}
-		template<typename DevicePtr>
-		requires (!std::is_same_v<std::remove_cv_t<DevicePtr>,cuda_interop::SCUdeviceptr>)
-		bool getMappedBuffer(DevicePtr& mappedBuffer) const
-		{
-			return getMappedBuffer(&mappedBuffer);
+			return getMappedBuffer(cuda_interop::asOpaqueOutput<cuda_interop::SCUdeviceptr>(mappedBuffer));
 		}
 
 	private:

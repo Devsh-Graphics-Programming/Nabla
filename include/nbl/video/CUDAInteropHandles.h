@@ -7,7 +7,6 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <type_traits>
 
 namespace nbl::video::cuda_interop
@@ -34,8 +33,32 @@ concept cuda_opaque_handle =
 template<typename Opaque, typename Native>
 concept cuda_native_handle_for =
 	requires { typename SOpaqueCUDANativeType<Opaque>::type; } &&
-	std::same_as<std::remove_cv_t<Native>,typename SOpaqueCUDANativeType<Opaque>::type> &&
-	cuda_opaque_handle<Opaque,std::remove_cv_t<Native>>;
+	std::same_as<std::remove_cvref_t<Native>,typename SOpaqueCUDANativeType<Opaque>::type> &&
+	cuda_opaque_handle<Opaque,std::remove_cvref_t<Native>>;
+
+template<typename Opaque, typename Native>
+requires cuda_native_handle_for<Opaque,Native>
+Opaque* asOpaqueOutput(Native* native)
+{
+	return reinterpret_cast<Opaque*>(native);
+}
+
+template<typename Opaque, typename Native>
+requires cuda_native_handle_for<Opaque,Native>
+Opaque* asOpaqueOutput(Native& native)
+{
+	return asOpaqueOutput<Opaque>(&native);
+}
+
+/*
+	Declare a narrow native-reference bridge for SDK opt-in code. Value conversions make SCU* handles usable as
+	native CUDA handles after CUDAInteropNative.h is included, but output parameters still need a writable object
+	whose storage matches the opaque handle. Use asOpaqueOutput inside such bridge overloads. This macro keeps
+	them short and constrained to the exact SDK type validated for the opaque handle.
+*/
+#define NBL_CUDA_INTEROP_NATIVE_FOR(TYPE, OPAQUE) \
+	template<typename TYPE> \
+	requires ::nbl::video::cuda_interop::cuda_native_handle_for<OPAQUE,TYPE>
 
 template<typename Derived, typename Storage>
 struct alignas(alignof(Storage)) SOpaqueCUDAHandle
@@ -53,47 +76,38 @@ struct alignas(alignof(Storage)) SOpaqueCUDAHandle
 
 	template<typename Native>
 	requires cuda_native_handle_for<Derived,Native>
-	Derived& operator=(const Native& native)
+	operator Native&()
 	{
-		std::memcpy(value,&native,sizeof(native));
-		return static_cast<Derived&>(*this);
+		return *reinterpret_cast<Native*>(value);
 	}
 
 	template<typename Native>
 	requires cuda_native_handle_for<Derived,Native>
-	operator Native() const
+	operator const Native&() const
 	{
-		Native native = {};
-		std::memcpy(&native,value,sizeof(native));
-		return native;
+		return *reinterpret_cast<const Native*>(value);
+	}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	Derived& operator=(const Native& native)
+	{
+		static_cast<Native&>(*this) = native;
+		return static_cast<Derived&>(*this);
 	}
 
 	template<typename Native>
 	requires cuda_native_handle_for<Derived,Native>
 	friend bool operator==(const Derived& lhs, const Native& rhs)
 	{
-		return static_cast<Native>(lhs)==rhs;
+		return static_cast<const Native&>(lhs)==rhs;
 	}
 
 	template<typename Native>
 	requires cuda_native_handle_for<Derived,Native>
 	friend bool operator==(const Native& lhs, const Derived& rhs)
 	{
-		return lhs==static_cast<Native>(rhs);
-	}
-
-	template<typename Native>
-	requires cuda_native_handle_for<Derived,Native>
-	friend bool operator!=(const Derived& lhs, const Native& rhs)
-	{
-		return !(lhs==rhs);
-	}
-
-	template<typename Native>
-	requires cuda_native_handle_for<Derived,Native>
-	friend bool operator!=(const Native& lhs, const Derived& rhs)
-	{
-		return !(lhs==rhs);
+		return lhs==static_cast<const Native&>(rhs);
 	}
 };
 

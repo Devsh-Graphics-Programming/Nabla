@@ -101,8 +101,8 @@ if (pcuNewCall)
 
 - `cuda_interop::SCU*`, `SCUresult`, `SNVRTCResult`, and `SNVRTCProgram` are SDK-free opaque values in Nabla headers. After including `CUDAInteropNative.h`, they become constructible from and convertible to matching CUDA/NVRTC SDK types such as `CUdeviceptr`, `CUexternalSemaphore`, `CUresult`, `nvrtcResult`, and `nvrtcProgram`.
 - CUDA enum values can be passed to SDK-free Nabla methods such as `CCUDADevice::createExportableMemory` and `CCUDADevice::roundToGranularity`. Nabla stores them as integer values in its public ABI.
-- `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr` in SDK-free code. SDK opt-in code can pass `CUdeviceptr` directly.
-- `CCUDAHandler::createProgram`, `compileProgram`, `getProgramLog`, `getPTX`, and `compileDirectlyToPTX` are SDK-free Nabla methods. SDK opt-in code can call them with native `nvrtcProgram` / `nvrtcResult` because the opaque conversions are enabled by `CUDAInteropNative.h`.
+- SDK-free output parameters stay pointer-based. SDK opt-in code can pass native CUDA output variables directly through small inline bridge overloads.
+- `CCUDAHandler::compileProgram`, `getProgramLog`, `getPTX`, and `compileDirectlyToPTX` are SDK-free Nabla methods. SDK opt-in code can use their results with native `nvrtcProgram` / `nvrtcResult` because the opaque conversions are enabled by `CUDAInteropNative.h`.
 - `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler)` is available for call sites that intentionally assert on CUDA/NVRTC failures. Pass a pointer-like `CCUDAHandler` handle. Nabla implementation code should still prefer explicit error handling and clean returns.
 - `cuda_native::isBuildCUDASDKVersionExactMatch()` checks exact SDK version equality between the consumer translation unit and the SDK used to build Nabla's interop implementation. It is a policy helper, not an automatic runtime rejection rule.
 
