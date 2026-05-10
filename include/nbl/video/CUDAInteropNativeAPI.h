@@ -8,11 +8,33 @@
 #include <string>
 
 #include "nbl/video/CUDAInterop.h"
-#include "nbl/asset/ICPUBuffer.h"
 #include "nbl/system/DynamicFunctionCaller.h"
 
 #include "cuda.h"
 #include "nvrtc.h"
+
+namespace nbl::video::cuda_interop
+{
+
+template<> struct SOpaqueCUDANativeType<SCUdevice> { using type = CUdevice; };
+template<> struct SOpaqueCUDANativeType<SCUcontext> { using type = CUcontext; };
+template<> struct SOpaqueCUDANativeType<SCUdeviceptr> { using type = CUdeviceptr; };
+template<> struct SOpaqueCUDANativeType<SCUexternalMemory> { using type = CUexternalMemory; };
+template<> struct SOpaqueCUDANativeType<SCUexternalSemaphore> { using type = CUexternalSemaphore; };
+template<> struct SOpaqueCUDANativeType<SCUresult> { using type = CUresult; };
+template<> struct SOpaqueCUDANativeType<SNVRTCResult> { using type = nvrtcResult; };
+template<> struct SOpaqueCUDANativeType<SNVRTCProgram> { using type = nvrtcProgram; };
+
+static_assert(cuda_opaque_handle<SCUdevice,CUdevice>);
+static_assert(cuda_opaque_handle<SCUcontext,CUcontext>);
+static_assert(cuda_opaque_handle<SCUdeviceptr,CUdeviceptr>);
+static_assert(cuda_opaque_handle<SCUexternalMemory,CUexternalMemory>);
+static_assert(cuda_opaque_handle<SCUexternalSemaphore,CUexternalSemaphore>);
+static_assert(cuda_opaque_handle<SCUresult,CUresult>);
+static_assert(cuda_opaque_handle<SNVRTCResult,nvrtcResult>);
+static_assert(cuda_opaque_handle<SNVRTCProgram,nvrtcProgram>);
+
+}
 
 namespace nbl::video::cuda_native
 {
@@ -30,9 +52,8 @@ static_assert(CUDA_VERSION >= MinimumCUDADriverVersion, "Need CUDA 13.0 SDK or h
 	do not include it, so normal Nabla consumers do not need cuda.h or nvrtc.h.
 
 	The declarations below intentionally use CUDA/NVRTC SDK types because they describe the SDK-typed glue between
-	raw CUDA code and Nabla's exported CUDA interop objects: dynamic function tables, NVRTC helpers, error handling,
-	and runtime header discovery integration. Consumers enter this surface only by linking Nabla::ext::CUDAInterop
-	and including nbl/ext/CUDAInterop/CUDAInteropNative.h.
+	raw CUDA code and Nabla's exported CUDA interop objects. Consumers enter this surface only by linking
+	Nabla::ext::CUDAInterop and including nbl/ext/CUDAInterop/CUDAInteropNative.h.
 */
 using LibLoader = system::DefaultFuncPtrLoader;
 
@@ -161,36 +182,10 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC,LibLoader,
 	nvrtcGetProgramLogSize
 );
 
-struct SPTXResult
-{
-	core::smart_refctd_ptr<asset::ICPUBuffer> ptx;
-	nvrtcResult result;
-};
-
-/*
-	Exported Nabla glue declarations with CUDA SDK signatures.
-
-	These are not a CUDA wrapper. They are the small boundary surface used for error handling, NVRTC helpers,
-	runtime header discovery integration, and dynamic CUDA/NVRTC table access. Nabla owns the definitions.
-	The signatures mention CUDA SDK types, so they are intentionally unavailable to consumers that only parse
-	SDK-free nbl/video/CCUDA*.h headers.
-*/
-NBL_API2 bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger);
-NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, CUresult result);
-NBL_API2 bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result);
-NBL_API2 nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
-NBL_API2 nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options);
-NBL_API2 nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log);
-NBL_API2 SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog);
-NBL_API2 SPTXResult compileDirectlyToPTX(
-	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-	std::string& log, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
-);
-
 #define NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler) \
 	do { \
 		const auto nblCudaInteropResult = (expr); \
-		if (!::nbl::video::cuda_native::defaultHandleResult((handler),nblCudaInteropResult)) \
+		if (!(handler).defaultHandleResult(nblCudaInteropResult)) \
 			assert(false); \
 	} while (false)
 

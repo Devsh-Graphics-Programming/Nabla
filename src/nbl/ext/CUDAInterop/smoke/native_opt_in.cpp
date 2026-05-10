@@ -35,14 +35,14 @@ using namespace nbl::video;
 	auto importedFromVulkan = cudaDevice.importExternalMemory(std::move(vulkanMemory));
 	auto importedSemaphore = cudaDevice.importExternalSemaphore(std::move(vulkanSemaphore));
 
-	cuda_native::SCUdeviceptr mappedVulkanMemory;
+	CUdeviceptr mappedVulkanMemory = 0;
 	if (importedFromVulkan)
 		importedFromVulkan->getMappedBuffer(mappedVulkanMemory);
 
-	const cuda_native::SCUdeviceptr cudaDevicePtr = cudaMemory->getDeviceptr();
-	cuda_native::SCUexternalSemaphore cudaSemaphore;
+	const CUdeviceptr cudaDevicePtr = cudaMemory->getDeviceptr();
+	CUexternalSemaphore cudaSemaphore = nullptr;
 	if (importedSemaphore)
-		cudaSemaphore = cuda_native::SCUexternalSemaphore(importedSemaphore->getInternalObject());
+		cudaSemaphore = importedSemaphore->getInternalObject();
 	return exportedToVulkan.get() && mappedVulkanMemory && cudaDevicePtr && cudaSemaphore;
 }
 
@@ -100,8 +100,7 @@ bool cudaFp16HeaderCompileProbe(CCUDAHandler& handler)
 	)cuda";
 
 	std::string log;
-	auto compile = cuda_native::compileDirectlyToPTX(
-		handler,
+	auto compile = handler.compileDirectlyToPTX(
 		std::string(Source),
 		"cuda_fp16_discovery_probe.cu",
 		{nullptr,nullptr},
@@ -126,7 +125,8 @@ public:
 		if (!isAPILoaded())
 			return false;
 
-		static_assert(std::is_same_v<nbl::video::cuda_native::SCUdevice::cuda_t, CUdevice>);
+		static_assert(nbl::video::cuda_interop::cuda_opaque_handle<nbl::video::cuda_interop::SCUdevice, CUdevice>);
+		static_assert(nbl::video::cuda_interop::cuda_opaque_handle<nbl::video::cuda_interop::SNVRTCProgram, nvrtcProgram>);
 		[[maybe_unused]] const bool exactBuildSDK = nbl::video::cuda_native::isBuildCUDASDKVersionExactMatch();
 
 		#ifdef NBL_CUDA_INTEROP_SMOKE_RUNTIME_JSON

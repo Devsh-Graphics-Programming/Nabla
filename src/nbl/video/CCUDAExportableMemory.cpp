@@ -54,9 +54,9 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 {
 	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 
-	cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemUnmap(m_native->ptr, m_params.granularSize));
+	m_device->getHandler()->defaultHandleResult(cu.pcuMemUnmap(m_native->ptr, m_params.granularSize));
 
-	cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize));
+	m_device->getHandler()->defaultHandleResult(cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize));
 
 	if (!CloseExternalHandle(m_params.externalHandle))
 		m_device->getHandler()->getLogger().log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
@@ -65,7 +65,7 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 
 cuda_interop::SCUdeviceptr CCUDAExportableMemory::getDeviceptr() const
 {
-	return cuda_interop::SNativeHandle<cuda_interop::SCUdeviceptr,CUdeviceptr>(m_native->ptr);
+	return m_native->ptr;
 }
 
 }

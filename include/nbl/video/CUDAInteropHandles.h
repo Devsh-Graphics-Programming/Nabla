@@ -4,8 +4,10 @@
 #ifndef _NBL_VIDEO_CUDA_INTEROP_HANDLES_H_INCLUDED_
 #define _NBL_VIDEO_CUDA_INTEROP_HANDLES_H_INCLUDED_
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 
 namespace nbl::video::cuda_interop
@@ -19,17 +21,8 @@ namespace nbl::video::cuda_interop
 	not inherit CUDA SDK as a public compile-time dependency. CUDAInteropNative.h maps these opaque handles back
 	to the real CU* types and checks their size/alignment against the SDK selected by the opt-in consumer.
 */
-template<typename Storage>
-struct alignas(alignof(Storage)) SOpaqueCUDAHandle
-{
-	uint8_t value[sizeof(Storage)] = {};
-};
-
-struct SCUdevice : SOpaqueCUDAHandle<int32_t> {};
-struct SCUcontext : SOpaqueCUDAHandle<void*> {};
-struct SCUdeviceptr : SOpaqueCUDAHandle<uintptr_t> {};
-struct SCUexternalMemory : SOpaqueCUDAHandle<void*> {};
-struct SCUexternalSemaphore : SOpaqueCUDAHandle<void*> {};
+template<typename Opaque>
+struct SOpaqueCUDANativeType;
 
 template<typename Opaque, typename Native>
 concept cuda_opaque_handle =
@@ -38,35 +31,89 @@ concept cuda_opaque_handle =
 	sizeof(Opaque)==sizeof(Native) &&
 	alignof(Opaque)==alignof(Native);
 
-/*
-	Native view of an SDK-free opaque handle.
-
-	This template does not depend on CUDA SDK types by itself. CUDAInteropNative.h binds it to concrete CU* types
-	after the consumer opts into CUDA SDK headers. The layout check keeps the public opaque handle and the native
-	SDK handle compatible in that translation unit while preserving Nabla's SDK-free public headers.
-*/
 template<typename Opaque, typename Native>
-struct SNativeHandle
+concept cuda_native_handle_for =
+	requires { typename SOpaqueCUDANativeType<Opaque>::type; } &&
+	std::same_as<std::remove_cv_t<Native>,typename SOpaqueCUDANativeType<Opaque>::type> &&
+	cuda_opaque_handle<Opaque,std::remove_cv_t<Native>>;
+
+template<typename Derived, typename Storage>
+struct alignas(alignof(Storage)) SOpaqueCUDAHandle
 {
-	using cuda_t = Native;
-	static_assert(cuda_opaque_handle<Opaque,cuda_t>);
+	uint8_t value[sizeof(Storage)] = {};
 
-	SNativeHandle() = default;
-	SNativeHandle(const SNativeHandle&) = default;
-	SNativeHandle(const cuda_t& native) { operator=(native); }
-	SNativeHandle(const Opaque& opaque) { operator=(opaque); }
+	SOpaqueCUDAHandle() = default;
 
-	SNativeHandle& operator=(const SNativeHandle&) = default;
-	SNativeHandle& operator=(const cuda_t& native) { value = native; return *this; }
-	SNativeHandle& operator=(const Opaque& opaque) { operator Opaque&() = opaque; return *this; }
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	SOpaqueCUDAHandle(const Native& native)
+	{
+		operator=(native);
+	}
 
-	operator cuda_t&() { return value; }
-	operator const cuda_t&() const { return value; }
-	operator Opaque&() { return reinterpret_cast<Opaque&>(value); }
-	operator const Opaque&() const { return reinterpret_cast<const Opaque&>(value); }
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	Derived& operator=(const Native& native)
+	{
+		std::memcpy(value,&native,sizeof(native));
+		return static_cast<Derived&>(*this);
+	}
 
-	cuda_t value = {};
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	operator Native() const
+	{
+		Native native = {};
+		std::memcpy(&native,value,sizeof(native));
+		return native;
+	}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	friend bool operator==(const Derived& lhs, const Native& rhs)
+	{
+		return static_cast<Native>(lhs)==rhs;
+	}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	friend bool operator==(const Native& lhs, const Derived& rhs)
+	{
+		return lhs==static_cast<Native>(rhs);
+	}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	friend bool operator!=(const Derived& lhs, const Native& rhs)
+	{
+		return !(lhs==rhs);
+	}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Derived,Native>
+	friend bool operator!=(const Native& lhs, const Derived& rhs)
+	{
+		return !(lhs==rhs);
+	}
 };
+
+#define NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(NAME, STORAGE) \
+	struct NAME : SOpaqueCUDAHandle<NAME,STORAGE> \
+	{ \
+		using SOpaqueCUDAHandle<NAME,STORAGE>::SOpaqueCUDAHandle; \
+		using SOpaqueCUDAHandle<NAME,STORAGE>::operator=; \
+	}
+
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SCUdevice, int32_t);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SCUcontext, void*);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SCUdeviceptr, uintptr_t);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SCUexternalMemory, void*);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SCUexternalSemaphore, void*);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SCUresult, int32_t);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SNVRTCResult, int32_t);
+NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE(SNVRTCProgram, void*);
+
+#undef NBL_CUDA_INTEROP_DECLARE_OPAQUE_HANDLE
 
 }
 

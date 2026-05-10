@@ -7,13 +7,16 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/definitions.h"
 
+#include "nbl/asset/ICPUBuffer.h"
 #include "nbl/system/declarations.h"
 #include "nbl/system/path.h"
+#include "nbl/video/CUDAInteropHandles.h"
 
 #include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <type_traits>
 
 namespace nbl::video
 {
@@ -71,6 +74,35 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		const cuda_native::NVRTC& getNVRTCFunctionTable() const;
 		core::SRange<const char* const> getDefaultRuntimeIncludeOptions() const;
 		inline system::logger_opt_ptr getLogger() const { return m_logger.getOptRawPtr(); }
+
+		struct SPTXResult
+		{
+			core::smart_refctd_ptr<asset::ICPUBuffer> ptx;
+			cuda_interop::SNVRTCResult result;
+		};
+
+		static bool defaultHandleResult(cuda_interop::SCUresult result, const system::logger_opt_ptr& logger);
+		bool defaultHandleResult(cuda_interop::SCUresult result) const;
+		bool defaultHandleResult(cuda_interop::SNVRTCResult result) const;
+
+		cuda_interop::SNVRTCResult createProgram(cuda_interop::SNVRTCProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
+		template<typename Program>
+		requires (!std::is_same_v<std::remove_cv_t<Program>,cuda_interop::SNVRTCProgram>)
+		cuda_interop::SNVRTCResult createProgram(Program* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+		{
+			cuda_interop::SNVRTCProgram opaqueProgram = {};
+			const auto result = createProgram(&opaqueProgram,std::move(source),name,headerCount,headerContents,includeNames);
+			if (prog)
+				*prog = static_cast<Program>(opaqueProgram);
+			return result;
+		}
+		cuda_interop::SNVRTCResult compileProgram(cuda_interop::SNVRTCProgram prog, core::SRange<const char* const> options) const;
+		cuda_interop::SNVRTCResult getProgramLog(cuda_interop::SNVRTCProgram prog, std::string& log) const;
+		SPTXResult getPTX(cuda_interop::SNVRTCProgram prog) const;
+		SPTXResult compileDirectlyToPTX(
+			std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+			std::string& log, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
+		);
 
 		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{

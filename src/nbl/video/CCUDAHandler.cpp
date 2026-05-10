@@ -520,11 +520,9 @@ core::SRange<const char* const> CCUDAHandler::getDefaultRuntimeIncludeOptions() 
 	return {begin,begin+m_native->runtimeIncludeOptionPtrs.size()};
 }
 
-namespace cuda_native
+bool CCUDAHandler::defaultHandleResult(cuda_interop::SCUresult opaqueResult, const system::logger_opt_ptr& logger)
 {
-
-bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
-{
+	const CUresult result = opaqueResult;
 	switch (result)
 	{
 		case CUDA_SUCCESS:
@@ -893,26 +891,28 @@ bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger)
 	return false;
 }
 
-bool defaultHandleResult(const CCUDAHandler& handler, CUresult result)
+bool CCUDAHandler::defaultHandleResult(cuda_interop::SCUresult opaqueResult) const
 {
+	const CUresult result = opaqueResult;
 	if (result==CUDA_ERROR_UNSUPPORTED_PTX_VERSION)
 	{
-		const auto cudaVersion = handler.getLoadedCUDADriverVersion();
-		const auto nvrtcVersion = handler.getLoadedNVRTCVersion();
-		handler.getLogger().log(
+		const auto cudaVersion = getLoadedCUDADriverVersion();
+		const auto nvrtcVersion = getLoadedNVRTCVersion();
+		getLogger().log(
 			"CCUDAHandler: CUDA driver API %d.%d rejected PTX produced through NVRTC %d.%d. Install a newer NVIDIA driver or use an NVRTC/runtime-header set compatible with the installed driver.",
 			system::ILogger::ELL_ERROR,
 			cudaVersionMajor(cudaVersion),cudaVersionMinor(cudaVersion),
 			nvrtcVersion[0],nvrtcVersion[1]
 		);
 	}
-	return defaultHandleResult(result,handler.getLogger());
+	return defaultHandleResult(opaqueResult,getLogger());
 }
 
-bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
+bool CCUDAHandler::defaultHandleResult(cuda_interop::SNVRTCResult opaqueResult) const
 {
-	const auto& nvrtc = handler.getNVRTCFunctionTable();
-	const auto logger = handler.getLogger();
+	const nvrtcResult result = opaqueResult;
+	const auto& nvrtc = getNVRTCFunctionTable();
+	const auto logger = getLogger();
 	switch (result)
 	{
 		case NVRTC_SUCCESS:
@@ -926,8 +926,6 @@ bool defaultHandleResult(const CCUDAHandler& handler, nvrtcResult result)
 			break;
 	}
 	return false;
-}
-
 }
 
 core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger)
@@ -1139,10 +1137,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	);
 }
 
-namespace cuda_native
-{
-
-nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+cuda_interop::SNVRTCResult CCUDAHandler::createProgram(cuda_interop::SNVRTCProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 #if defined(_NBL_WINDOWS_API_)
 	source.insert(0ull,"#ifndef _WIN64\n#define _WIN64\n#endif\n");
@@ -1151,33 +1146,40 @@ nvrtcResult createProgram(CCUDAHandler& handler, nvrtcProgram* prog, std::string
 #else
 #error "Unsuported Platform"
 #endif
-	return handler.getNVRTCFunctionTable().pnvrtcCreateProgram(prog,source.c_str(),name,headerCount,headerContents,includeNames);
+	nvrtcProgram nativeProgram = nullptr;
+	const auto result = getNVRTCFunctionTable().pnvrtcCreateProgram(&nativeProgram,source.c_str(),name,headerCount,headerContents,includeNames);
+	if (prog)
+		*prog = nativeProgram;
+	return result;
 }
 
-nvrtcResult compileProgram(const CCUDAHandler& handler, nvrtcProgram prog, core::SRange<const char* const> options)
+cuda_interop::SNVRTCResult CCUDAHandler::compileProgram(cuda_interop::SNVRTCProgram prog, core::SRange<const char* const> options) const
 {
-	return handler.getNVRTCFunctionTable().pnvrtcCompileProgram(prog,options.size(),options.begin());
+	const nvrtcProgram nativeProgram = prog;
+	return getNVRTCFunctionTable().pnvrtcCompileProgram(nativeProgram,options.size(),options.begin());
 }
 
-nvrtcResult getProgramLog(const CCUDAHandler& handler, nvrtcProgram prog, std::string& log)
+cuda_interop::SNVRTCResult CCUDAHandler::getProgramLog(cuda_interop::SNVRTCProgram prog, std::string& log) const
 {
 	size_t _size = 0ull;
-	const auto& nvrtc = handler.getNVRTCFunctionTable();
-	nvrtcResult sizeRes = nvrtc.pnvrtcGetProgramLogSize(prog, &_size);
+	const nvrtcProgram nativeProgram = prog;
+	const auto& nvrtc = getNVRTCFunctionTable();
+	nvrtcResult sizeRes = nvrtc.pnvrtcGetProgramLogSize(nativeProgram, &_size);
 	if (sizeRes != NVRTC_SUCCESS)
 		return sizeRes;
 	if (_size == 0ull)
 		return NVRTC_ERROR_INVALID_INPUT;
 
 	log.resize(_size);
-	return nvrtc.pnvrtcGetProgramLog(prog,log.data());
+	return nvrtc.pnvrtcGetProgramLog(nativeProgram,log.data());
 }
 
-SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
+CCUDAHandler::SPTXResult CCUDAHandler::getPTX(cuda_interop::SNVRTCProgram prog) const
 {
 	size_t _size = 0ull;
-	const auto& nvrtc = handler.getNVRTCFunctionTable();
-	nvrtcResult sizeRes = nvrtc.pnvrtcGetPTXSize(prog,&_size);
+	const nvrtcProgram nativeProgram = prog;
+	const auto& nvrtc = getNVRTCFunctionTable();
+	nvrtcResult sizeRes = nvrtc.pnvrtcGetPTXSize(nativeProgram,&_size);
 	if (sizeRes!=NVRTC_SUCCESS)
 		return {nullptr,sizeRes};
 	if (_size==0ull)
@@ -1187,13 +1189,14 @@ SPTXResult getPTX(const CCUDAHandler& handler, nvrtcProgram prog)
 	ptxParams.size = _size;
 	auto ptx = asset::ICPUBuffer::create(std::move(ptxParams));
 	auto ptxPtr = static_cast<char*>(ptx->getPointer());
-	return {std::move(ptx),nvrtc.pnvrtcGetPTX(prog,ptxPtr)};
+	return {std::move(ptx),nvrtc.pnvrtcGetPTX(nativeProgram,ptxPtr)};
 }
 
-static SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string& log)
+static CCUDAHandler::SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, cuda_interop::SNVRTCResult result, cuda_interop::SNVRTCProgram program, core::SRange<const char* const> nvrtcOptions, std::string& log)
 {
 	log.clear();
-	if (result!=NVRTC_SUCCESS)
+	const nvrtcResult nativeResult = result;
+	if (nativeResult!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
 	const auto runtimeIncludeOptions = handler.getDefaultRuntimeIncludeOptions();
@@ -1206,30 +1209,29 @@ static SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, nvrtcResult r
 
 	const auto* optionsBegin = options.empty() ? nullptr:options.data();
 	const auto* optionsEnd = options.empty() ? nullptr:optionsBegin+options.size();
-	result = compileProgram(handler,program,{optionsBegin,optionsEnd});
-	getProgramLog(handler,program,log);
-	if (result!=NVRTC_SUCCESS)
+	result = handler.compileProgram(program,{optionsBegin,optionsEnd});
+	handler.getProgramLog(program,log);
+	if (static_cast<nvrtcResult>(result)!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
-	return getPTX(handler,program);
+	return handler.getPTX(program);
 }
 
-SPTXResult compileDirectlyToPTX(
-	CCUDAHandler& handler, std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+CCUDAHandler::SPTXResult CCUDAHandler::compileDirectlyToPTX(
+	std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
 	std::string& log, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
-	nvrtcProgram program = nullptr;
-	nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+	cuda_interop::SNVRTCProgram program = {};
+	cuda_interop::SNVRTCResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
 	auto cleanup = core::makeRAIIExiter([&]() -> void
 	{
-		if (program)
-			handler.getNVRTCFunctionTable().pnvrtcDestroyProgram(&program);
+		nvrtcProgram nativeProgram = program;
+		if (nativeProgram)
+			getNVRTCFunctionTable().pnvrtcDestroyProgram(&nativeProgram);
 	});
 
-	result = createProgram(handler,&program,std::move(source),filename,headerCount,headerContents,includeNames);
-	return compileDirectlyToPTX_impl(handler,result,program,nvrtcOptions,log);
-}
-
+	result = createProgram(&program,std::move(source),filename,headerCount,headerContents,includeNames);
+	return compileDirectlyToPTX_impl(*this,result,program,nvrtcOptions,log);
 }
 
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)

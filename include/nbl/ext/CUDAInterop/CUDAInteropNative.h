@@ -40,30 +40,17 @@ namespace nbl::video::cuda_native
 {
 
 /*
-	CUDA SDK view of an SDK-free opaque handle.
+	This header specializes the SDK-free opaque handles from nbl/video/CUDAInteropHandles.h for the CUDA SDK
+	visible to this translation unit. After that opt-in, Nabla interop methods can be called with native CUDA/NVRTC
+	types such as CUdeviceptr, CUexternalSemaphore, nvrtcProgram, CUresult, and nvrtcResult.
 
-	The conversions are intentionally available only after including this header. Public Nabla headers expose
-	only the opaque SCU* values. Once a consumer opts in, the aliases below restore the CUDA spelling and
-	ergonomics for raw Driver API calls without adding accessors to every interop operation. Each alias maps one
-	Nabla opaque handle to the matching CUDA SDK handle and validates size/alignment against the SDK selected by
-	this opt-in translation unit.
-*/
-using SCUdevice = cuda_interop::SNativeHandle<cuda_interop::SCUdevice, CUdevice>;
-using SCUcontext = cuda_interop::SNativeHandle<cuda_interop::SCUcontext, CUcontext>;
-using SCUdeviceptr = cuda_interop::SNativeHandle<cuda_interop::SCUdeviceptr, CUdeviceptr>;
-using SCUexternalMemory = cuda_interop::SNativeHandle<cuda_interop::SCUexternalMemory, CUexternalMemory>;
-using SCUexternalSemaphore = cuda_interop::SNativeHandle<cuda_interop::SCUexternalSemaphore, CUexternalSemaphore>;
-
-/*
-	Check whether this opt-in translation unit uses the exact CUDA SDK version that was used to build Nabla's
-	CUDA interop implementation. Opaque handle layout is checked by SNativeHandle aliases above. This exact
-	version check is a policy helper for SDK-typed code that wants to warn about or reject compatible-but-different
-	SDK headers.
+	The size/alignment checks live in nbl/video/CUDAInteropNativeAPI.h. This exact version check is a policy helper
+	for SDK-typed code that wants to warn about or reject compatible-but-different SDK headers.
 */
 inline bool isBuildCUDASDKVersionExactMatch()
 {
 	const auto buildVersion = CCUDAHandler::getBuildCUDASDKVersion();
-	return buildVersion==0u || buildVersion==CUDA_VERSION;
+	return buildVersion==CUDA_VERSION;
 }
 
 }

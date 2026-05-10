@@ -20,7 +20,7 @@ CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> dev
 
 cuda_interop::SCUexternalMemory CCUDAImportedMemory::getInternalObject() const
 {
-	return cuda_interop::SNativeHandle<cuda_interop::SCUexternalMemory,CUexternalMemory>(m_native->handle);
+	return m_native->handle;
 }
 
 bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const
@@ -35,17 +35,17 @@ bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuff
 	CUdeviceptr nativeMappedBuffer = 0;
 	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
 	const auto result = cu.pcuExternalMemoryGetMappedBuffer(&nativeMappedBuffer, m_native->handle, &bufferDesc);
-	if (!cuda_native::defaultHandleResult(*m_device->getHandler(),result))
+	if (!m_device->getHandler()->defaultHandleResult(result))
 		return false;
 
-	*mappedBuffer = cuda_interop::SNativeHandle<cuda_interop::SCUdeviceptr,CUdeviceptr>(nativeMappedBuffer);
+	*mappedBuffer = nativeMappedBuffer;
 	return true;
 }
 
 CCUDAImportedMemory::~CCUDAImportedMemory()
 {
 	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
-	cuda_native::defaultHandleResult(*m_device->getHandler(), cu.pcuDestroyExternalMemory(m_native->handle));
+	m_device->getHandler()->defaultHandleResult(cu.pcuDestroyExternalMemory(m_native->handle));
 }
 
 }

@@ -88,9 +88,9 @@ CCUDADevice::CCUDADevice(
 
 	const auto& cu = m_handler->getCUDAFunctionTable();
 	
-	if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle)))
+	if (!m_handler->defaultHandleResult(cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle)))
 		return;
-	if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuCtxSetCurrent(m_native->context)))
+	if (!m_handler->defaultHandleResult(cu.pcuCtxSetCurrent(m_native->context)))
 		return;
 
 	for (uint32_t locationType = 0; locationType < m_allocationGranularity.size(); ++locationType)
@@ -109,7 +109,7 @@ CCUDADevice::CCUDADevice(
 			.win32HandleMetaData = &metadata,
 #endif
 		};
-		if (!cuda_native::defaultHandleResult(*m_handler, cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM)))
+		if (!m_handler->defaultHandleResult(cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM)))
 			return;
 	}
 	m_valid = true;
@@ -117,12 +117,12 @@ CCUDADevice::CCUDADevice(
 
 cuda_interop::SCUdevice CCUDADevice::getInternalObject() const
 {
-	return cuda_interop::SNativeHandle<cuda_interop::SCUdevice,CUdevice>(m_native->handle);
+	return m_native->handle;
 }
 
 cuda_interop::SCUcontext CCUDADevice::getContext() const
 {
-	return cuda_interop::SNativeHandle<cuda_interop::SCUcontext,CUcontext>(m_native->context);
+	return m_native->context;
 }
 
 static bool isDeviceLocal(CUmemLocationType location)
@@ -140,7 +140,7 @@ static CUresult reserveAddressAndMapMemory(const CCUDAHandler& handler, CUdevice
 
 	if (const auto err = cu.pcuMemMap(ptr, size, 0, memory, 0); CUDA_SUCCESS != err)
 	{
-		cuda_native::defaultHandleResult(handler, cu.pcuMemAddressFree(ptr, size));
+		handler.defaultHandleResult(cu.pcuMemAddressFree(ptr, size));
 		return err;
 	}
 	
@@ -151,8 +151,8 @@ static CUresult reserveAddressAndMapMemory(const CCUDAHandler& handler, CUdevice
 
 	if (auto err = cu.pcuMemSetAccess(ptr, size, &accessDesc, 1); CUDA_SUCCESS != err)
 	{
-		cuda_native::defaultHandleResult(handler, cu.pcuMemUnmap(ptr, size));
-		cuda_native::defaultHandleResult(handler, cu.pcuMemAddressFree(ptr, size));
+		handler.defaultHandleResult(cu.pcuMemUnmap(ptr, size));
+		handler.defaultHandleResult(cu.pcuMemAddressFree(ptr, size));
 		return err;
 	}
 
@@ -202,7 +202,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 	if (auto err = cu.pcuMemExportToShareableHandle(&params.externalHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
 	{
 		m_logger.log("Fail to create externalHandle!", system::ILogger::ELL_ERROR);
-		cuda_native::defaultHandleResult(*handler, cu.pcuMemRelease(mem));
+		handler->defaultHandleResult(cu.pcuMemRelease(mem));
 		return nullptr;
 	}
 
@@ -210,7 +210,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 	{
 		m_logger.log("Fail to reserve address and map memory!", system::ILogger::ELL_ERROR);
 
-		cuda_native::defaultHandleResult(*handler, cu.pcuMemRelease(mem));
+		handler->defaultHandleResult(cu.pcuMemRelease(mem));
 
 		if (!CloseExternalHandle(params.externalHandle))
 			m_logger.log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
@@ -220,9 +220,9 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 
 	if (const auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
 	{
-		cuda_native::defaultHandleResult(*handler, err);
-		cuda_native::defaultHandleResult(*handler, cu.pcuMemUnmap(nativeState->ptr, params.granularSize));
-		cuda_native::defaultHandleResult(*handler, cu.pcuMemAddressFree(nativeState->ptr, params.granularSize));
+		handler->defaultHandleResult(err);
+		handler->defaultHandleResult(cu.pcuMemUnmap(nativeState->ptr, params.granularSize));
+		handler->defaultHandleResult(cu.pcuMemAddressFree(nativeState->ptr, params.granularSize));
 		if (!CloseExternalHandle(params.externalHandle))
 			m_logger.log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
 		return nullptr;
@@ -297,7 +297,7 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 CCUDADevice::~CCUDADevice()
 {
 	if (m_native->context)
-		cuda_native::defaultHandleResult(*m_handler, m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context));
+		m_handler->defaultHandleResult(m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context));
 }
 
 bool CCUDADevice::isValid() const

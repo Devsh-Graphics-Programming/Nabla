@@ -6,8 +6,8 @@
 - The public Nabla headers do not include `cuda.h`, `nvrtc.h`, or other CUDA SDK headers. A consumer that only links `Nabla::Nabla` does not need a CUDA SDK install just to parse Nabla headers.
 - CUDA native state is stored behind incomplete `SNativeState` members in Nabla classes. Public headers expose fixed-layout opaque value handles from `nbl/video/CUDAInteropHandles.h`.
 - `Nabla::ext::CUDAInterop` is an `INTERFACE` target. It builds no artifact. It only adds the SDK opt-in header, `CUDA::toolkit`, and runtime-header discovery setup to targets that ask for raw CUDA interop.
-- `nbl/video/CUDAInteropNativeAPI.h` is the low-level SDK boundary used by Nabla's CUDA implementation and by opt-in consumers. It declares the dynamic CUDA/NVRTC tables and exported Nabla glue functions whose signatures use CUDA SDK types.
-- `nbl/ext/CUDAInterop/CUDAInteropNative.h` is the public opt-in entrypoint. It includes the native API header and aliases Nabla opaque handles to CUDA SDK types through `cuda_interop::SNativeHandle`.
+- `nbl/video/CUDAInteropNativeAPI.h` is the low-level SDK boundary used by Nabla's CUDA implementation and by opt-in consumers. It declares the dynamic CUDA/NVRTC tables and binds SDK-free opaque handles to CUDA/NVRTC SDK types.
+- `nbl/ext/CUDAInterop/CUDAInteropNative.h` is the public opt-in entrypoint. It includes the native API header so SDK-typed code can use CUDA/NVRTC handles directly with Nabla interop methods.
 
 ## CMake Usage
 
@@ -73,17 +73,14 @@ auto& nvrtc = handler->getNVRTCFunctionTable();
 int driverVersion = 0;
 NBL_CUDA_INTEROP_ASSERT_SUCCESS(cu.pcuDriverGetVersion(&driverVersion), *handler);
 
-nbl::video::cuda_native::SCUdeviceptr mapped;
+CUdeviceptr mapped = 0;
 if (importedMemory)
     importedMemory->getMappedBuffer(mapped);
 
-nbl::video::cuda_native::SCUdeviceptr exported = memory->getDeviceptr();
-CUdeviceptr rawMapped = mapped;
-CUdeviceptr rawExported = exported;
+CUdeviceptr exported = memory->getDeviceptr();
 
 std::string log;
-auto compile = nbl::video::cuda_native::compileDirectlyToPTX(
-    *handler,
+auto compile = handler->compileDirectlyToPTX(
     std::move(cudaSource),
     "kernel.cu",
     cudaDevice->geDefaultCompileOptions(),
@@ -102,11 +99,11 @@ if (pcuNewCall)
     pcuNewCall(...);
 ```
 
-- `cuda_interop::SNativeHandle<Opaque, Native>` converts between SDK-free Nabla opaque handles and CUDA SDK handles such as `CUdeviceptr`. The template itself is SDK-free. `CUDAInteropNative.h` only provides CUDA-typed aliases.
+- `cuda_interop::SCU*`, `SCUresult`, `SNVRTCResult`, and `SNVRTCProgram` are SDK-free opaque values in Nabla headers. After including `CUDAInteropNative.h`, they become constructible from and convertible to matching CUDA/NVRTC SDK types such as `CUdeviceptr`, `CUexternalSemaphore`, `CUresult`, `nvrtcResult`, and `nvrtcProgram`.
 - CUDA enum values can be passed to SDK-free Nabla methods such as `CCUDADevice::createExportableMemory` and `CCUDADevice::roundToGranularity`. Nabla stores them as integer values in its public ABI.
-- `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr`. SDK opt-in code can pass `cuda_native::SCUdeviceptr` directly and then use it as `CUdeviceptr`.
-- `compileDirectlyToPTX` returns PTX/result and writes the NVRTC log to a required `std::string&`.
-- `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handlerRef)` is available for tests/examples that intentionally assert on CUDA/NVRTC failures. Pass a `CCUDAHandler&`. Nabla implementation code should still prefer explicit error handling and clean returns.
+- `CCUDAImportedMemory::getMappedBuffer` writes an opaque `cuda_interop::SCUdeviceptr` in SDK-free code. SDK opt-in code can pass `CUdeviceptr` directly.
+- `CCUDAHandler::createProgram`, `compileProgram`, `getProgramLog`, `getPTX`, and `compileDirectlyToPTX` are SDK-free Nabla methods. SDK opt-in code can call them with native `nvrtcProgram` / `nvrtcResult` because the opaque conversions are enabled by `CUDAInteropNative.h`.
+- `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handlerRef)` is available for call sites that intentionally assert on CUDA/NVRTC failures. Pass a `CCUDAHandler&`. Nabla implementation code should still prefer explicit error handling and clean returns.
 - `cuda_native::isBuildCUDASDKVersionExactMatch()` checks exact SDK version equality between the consumer translation unit and the SDK used to build Nabla's interop implementation. It is a policy helper, not an automatic runtime rejection rule.
 
 Smoke examples:
@@ -138,7 +135,7 @@ NVRTC may need CUDA runtime headers when user kernels include files such as `cud
 - The first include root is not required to match the SDK used to build Nabla. It is the first `-I` path visible to NVRTC, so the first path containing a requested header wins just like normal C/C++ include search.
 - If the primary runtime header root is incomplete or reports a different CUDA version than the loaded NVRTC runtime, Nabla logs a warning. This is diagnostic policy, not an automatic hard failure.
 - The probe looks for directories that contain CUDA runtime headers. It does not hardcode a CUDA major version in app-local paths.
-- `CCUDAHandler` captures discovered include directories when it is created. `cuda_native::compileDirectlyToPTX` reuses those exact include options, so the startup report matches the NVRTC search paths used by that handler.
+- `CCUDAHandler` captures discovered include directories when it is created. `CCUDAHandler::compileDirectlyToPTX` reuses those exact include options, so the startup report matches the NVRTC search paths used by that handler.
 
 Production machines do not need the full CUDA SDK just because Nabla was built with CUDA. Applications that use NVRTC with CUDA runtime headers can provide those headers through generated JSON, a custom JSON path, an app-local bundle, an official runtime/header package, or an installed toolkit.
 
