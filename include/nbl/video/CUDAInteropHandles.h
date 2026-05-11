@@ -13,12 +13,17 @@ namespace nbl::video::cuda_interop
 {
 
 /*
-	SDK-free CUDA handle surrogates used by Nabla's public video API.
+	SDK-free CUDA interop boundary.
 
-	These types are the small glue layer between Nabla and SDK-typed CUDA interop code. They let nbl/video/CCUDA*.h
-	expose CUDA-related objects without including cuda.h or nvrtc.h, so consumers that only link Nabla::Nabla do
-	not inherit CUDA SDK as a public compile-time dependency. CUDAInteropNative.h maps these opaque handles back
-	to the real CU* types and checks their size/alignment against the SDK selected by the opt-in consumer.
+	Public nbl/video/CCUDA*.h headers cannot include cuda.h or nvrtc.h, but they still need to carry CUDA interop
+	state and write CUDA/NVRTC handles for opt-in users. The split below keeps those two roles explicit:
+	- SOpaqueCUDAHandle owns handle bits and is used in Nabla object layout, parameters, and return values.
+	- SOutput is a non-owning output adapter. C++ does not apply user-defined conversions through T* or mutable T&,
+	  so output parameters need a small bridge to write directly into either SCU* storage or native SDK storage.
+
+	CUDAInteropNative.h is the only header that maps these opaque types back to CUDA/NVRTC SDK types. These helpers
+	are class templates with in-class member definitions, so they are inline by the language rules and add no exported
+	symbols.
 */
 template<typename Opaque>
 struct SOpaqueCUDANativeType;
@@ -37,21 +42,8 @@ concept cuda_native_handle_for =
 	cuda_opaque_handle<Opaque,std::remove_cvref_t<Native>>;
 
 /*
-	Output bridge for SDK-free APIs that write CUDA/NVRTC handles.
-
-	Value conversions in SOpaqueCUDAHandle are enough for inputs and return values, but C++ does not apply those
-	user-defined conversions through output pointers or mutable output references. This type centralizes that one
-	boundary case. Without it, every Nabla method that writes a native CUDA/NVRTC handle would need a separate
-	SDK-typed overload, or SDK opt-in callers would have to spell the SDK-free SCU* type manually. With SOutput,
-	Nabla methods keep one SDK-free signature while SDK opt-in callers still use raw CUDA spelling:
-
-	    CUdeviceptr ptr = 0;
-	    importedMemory->getMappedBuffer(ptr);
-	    nvrtcProgram program = nullptr;
-	    handler->createProgram(program,std::move(source),"kernel.cu");
-
-	SDK-free callers can pass SCU* objects or SCU* pointers. SDK opt-in callers can pass the matching native
-	CUDA/NVRTC object or pointer after CUDAInteropNative.h specializes SOpaqueCUDANativeType for the selected SDK.
+	Non-owning output bridge for SDK-free APIs. It keeps one Nabla signature while opt-in callers can pass raw
+	CUDA/NVRTC output variables directly, e.g. `CUdeviceptr ptr; memory->getMappedBuffer(ptr);`.
 */
 template<typename Opaque>
 struct SOutput
@@ -68,7 +60,6 @@ struct SOutput
 	requires cuda_native_handle_for<Opaque,Native>
 	SOutput(Native* native) : ptr(reinterpret_cast<Opaque*>(native)) {}
 
-	Opaque* get() const { return ptr; }
 	Opaque& operator*() const { return *ptr; }
 	operator Opaque*() const { return ptr; }
 	explicit operator bool() const { return ptr!=nullptr; }
@@ -77,6 +68,10 @@ struct SOutput
 		Opaque* ptr;
 };
 
+/*
+	Owned opaque value used in public Nabla ABI. Native reference conversions become available only after the opt-in
+	header specializes SOpaqueCUDANativeType for the selected CUDA SDK.
+*/
 template<typename Derived, typename Storage>
 struct alignas(alignof(Storage)) SOpaqueCUDAHandle
 {
