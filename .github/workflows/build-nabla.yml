@@ -63,7 +63,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.cudaCacheRoot }}
-          key: cuda-toolkit-${{ env.cudaVersion }}-windows-2025-x64-v1
+          key: cuda-toolkit-${{ env.cudaVersion }}-windows-2025-x64-choco-v1
 
       - name: Install CUDA Toolkit
         if: steps.cache-cuda.outputs.cache-hit != 'true'
@@ -90,29 +90,25 @@ jobs:
             return
           }
 
-          winget source update
-          winget install `
-            --exact `
-            --id Nvidia.CUDA `
+          choco install cuda `
             --version $env:cudaVersion `
-            --source winget `
-            --location $env:cudaCacheRoot `
-            --accept-package-agreements `
-            --accept-source-agreements `
-            --disable-interactivity
+            --yes `
+            --no-progress
 
           if ($LASTEXITCODE -ne 0) {
             throw "CUDA Toolkit $env:cudaVersion installation failed."
           }
 
-          if (-not (Test-CudaToolkit $env:cudaCacheRoot) -and (Test-CudaToolkit $env:cudaInstallRoot)) {
-            New-Item -ItemType Directory -Force -Path $env:cudaCacheRoot | Out-Null
-            robocopy $env:cudaInstallRoot $env:cudaCacheRoot /MIR /R:2 /W:2 /NFL /NDL /NP
-            if ($LASTEXITCODE -gt 7) {
-              throw "Failed to mirror CUDA Toolkit into cache root. robocopy exit code: $LASTEXITCODE"
-            }
-            $global:LASTEXITCODE = 0
+          if (-not (Test-CudaToolkit $env:cudaInstallRoot)) {
+            throw "CUDA Toolkit $env:cudaMajorMinor was not found at $env:cudaInstallRoot after installation."
           }
+
+          New-Item -ItemType Directory -Force -Path $env:cudaCacheRoot | Out-Null
+          robocopy $env:cudaInstallRoot $env:cudaCacheRoot /MIR /R:2 /W:2 /NFL /NDL /NP
+          if ($LASTEXITCODE -gt 7) {
+            throw "Failed to mirror CUDA Toolkit into cache root. robocopy exit code: $LASTEXITCODE"
+          }
+          $global:LASTEXITCODE = 0
 
           if (-not (Test-CudaToolkit $env:cudaCacheRoot)) {
             throw "CUDA Toolkit $env:cudaMajorMinor was not found at $env:cudaCacheRoot after installation."
@@ -279,7 +275,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.cudaHostRoot }}
-          key: cuda-toolkit-13.2.1-windows-2025-x64-v1
+          key: cuda-toolkit-13.2.1-windows-2025-x64-choco-v1
 
       - name: Verify CUDA Toolkit
         shell: pwsh
@@ -771,7 +767,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.cudaHostRoot }}
-          key: cuda-toolkit-13.2.1-windows-2025-x64-v1
+          key: cuda-toolkit-13.2.1-windows-2025-x64-choco-v1
 
       - name: Verify CUDA Toolkit
         shell: pwsh
