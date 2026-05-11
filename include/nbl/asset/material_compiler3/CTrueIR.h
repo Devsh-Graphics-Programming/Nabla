@@ -429,7 +429,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline EFinalType getFinalType() const override {return EFinalType::CCorellatedTransmission;}
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
-				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? "brdfBottom" : "btdf"; }
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? (ix > 1 ? "next" : "brdfBottom") : "btdf"; }
 
 				// you can set the children later
 				inline CCorellatedTransmission() = default;

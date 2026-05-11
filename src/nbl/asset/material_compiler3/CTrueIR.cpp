@@ -174,8 +174,9 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 					const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
 					if (transmission)
 					{
-						typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom };	// TODO: what about coated and next?
+						typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom, transmission->next };
 						printChildren(children, node);
+						layerStack.push_back(transmission->coated);
 					}
 					break;
 				}
