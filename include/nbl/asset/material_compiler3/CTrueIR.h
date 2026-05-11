@@ -229,6 +229,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return hasher.operator core::blake3_hash_t();
 				}
 
+				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
+
 			protected:
 				friend class CTrueIR;
 				inline bool recomputeHash(const obj_pool_type& pool)
@@ -646,6 +648,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				//
 				inline uint8_t getSpectralBins() const override final {return getKnotCount();}
+
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 		};
 		using CSpectralVariableFactor = CSpectralVariable<ISpectralVariableFactor>;
 		
@@ -691,6 +695,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					0,0,1
 				);
 				// TODO: semantic flags/metadata (symmetries of the profile)
+
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 		};
 
 		// To use a bump map, the Material needs to be provided UVs (which can or can not have associated tangents and smooth normals), but that's the responsibility of backend.
@@ -775,6 +781,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 
 				inline COrenNayar() = default;
+
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 		};
 		class CCookTorrance final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
 		{
@@ -799,6 +807,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//
 				inline bool isEtaReciprocal() const {return ndfParams.params[2].padding[0];}
 				inline void setEtaReciprocal(const bool value) {ndfParams.params[2].padding[0] = value;}
+
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 				// BTDF ONLY! We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
 				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
@@ -969,12 +979,19 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				{
 					// should probably size it better, if I knew total node count allocated or live
 					visitedNodes.reserve(roots.size()<<4);
+					layerStack.reserve(roots.size());
+					for (const auto& m : roots)
+					{
+						layerStack.push_back(m.front.root);
+						layerStack.push_back(m.back.root);
+					}
 				}
 
 				inline void reset(const CTrueIR* ir)
 				{
 					visitedNodes.clear();
 					layerStack.clear();
+					nodeStack.clear();
 					m_ir = ir;
 				}
 
@@ -989,7 +1006,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
 				// TODO: track layering depth and indent accordingly?
 				core::vector<typed_pointer_type<const COrientedLayer>> layerStack;
-//				core::stack<typed_pointer_type<const IExprNode>> exprStack;
+				core::vector<typed_pointer_type<const INode>> nodeStack;
 
 			private:
 				const CTrueIR* m_ir;
@@ -1056,6 +1073,19 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				core::vector<typed_pointer_type<INode>> createdNodes;
 				bool success = true;
 		};
+
+		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const { return core::string("_") + std::to_string(handle.value); }
+		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
+		{
+			const INode* node = getObjectPool().deref(handle);
+			core::string retval = getNodeID(handle);
+			retval += " [label=\"";
+			retval += node->getTypeName();
+			// maybe also add hash?
+			// maybe label suffix?
+			retval += "\"]";
+			return retval;
+		}
 
 		NBL_API2 CTrueIR(creation_params_type&& params);
 
