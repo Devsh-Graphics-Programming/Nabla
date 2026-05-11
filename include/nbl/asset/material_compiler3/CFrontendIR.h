@@ -808,6 +808,7 @@ class CFrontendIR final : public CNodePool
 				bool btdfSubtree = false;
 				// for going over layers in the AST
 				core::vector<const CLayer*> layerStack;
+#if 0 // dead and wrong
 				// Some of the things we must canonicalize:
 				// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
 				// Expression nodes of the Frontend AST really come in 4 variants:
@@ -849,18 +850,24 @@ class CFrontendIR final : public CNodePool
 				// However how much of that would be moving IR manipulation into the AST ?
 				struct StackEntry
 				{
+					constexpr static inline uint64_t DontAddContributor = (0x1u<<10)-1;
+
 					inline bool notVisited() const {return !visited;}
 
 					CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH;
 					// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
-					uint16_t nonMulImmediateAncestorStackEnd = 0;
-					// the length of the `mulChain` at the time we first visited the node
-					uint16_t mulChainLen = 0;
-					bool visited = false;
-					// only relevant for Add nodes
-					bool addContributor = false;
+					uint64_t nonMulImmediateAncestorStackEnd : 11 = 0;
+					// the start of the `mulChain`, basically the bits that don't cross an Other node
+					uint64_t mulChainBegin : 21 = 0;
+					// the length of the `mulChain` at the time we first visited the node, so that we may reset the prefix back to what it was before continuing down another leg of the ADD
+					uint64_t mulChainPrefixEnd : 21 = 0;
+					// only relevant for Add nodes, the value tells you what to trim the contributor stack to
+					uint64_t contributorStackLen : 10 = DontAddContributor;
+					//
+					uint64_t visited : 1 = false;
 				};
 				core::vector<StackEntry> exprStack;
+#endif
 		};
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
@@ -988,8 +995,8 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 				const auto childHandle = node->getChildHandle(childIx);
 				if (const auto child=getObjectPool().deref(childHandle); child)
 				{
-					// Only Add nodes can have Contributors in any subtree, Mul and Complement only the first, and others can't have them at all
-					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && !nodeIsAdd || nodeType==IExprNode::Type::Complement || nodeType==IExprNode::Type::Other;
+					// Only Add nodes can have Contributors in any subtree, Mul only the first, and others can't have them at all. Especially don't allow the complementing of a BxDF!
+					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && !nodeIsAdd || nodeType==IExprNode::Type::Other || nodeType==IExprNode::Type::Complement;
 					StackEntry newEntry = {.node=child,.handle=childHandle};
 					if (noContribBelow)
 					{
@@ -1040,8 +1047,12 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().data());
 				return false;
 			}
-			if (entry.contribSlot<MaxContributors)
+			if (nodeType==IExprNode::Type::Contributor)
+			{
+				assert(entry.contribSlot<MaxContributors);
+				assert(entry.contribState==SubtreeContributorState::Required);
 				contributorsFound.set(entry.contribSlot);
+			}
 		}
 		for (uint8_t i=0; i<contributorCount; i++)
 		if (!contributorsFound.test(i))

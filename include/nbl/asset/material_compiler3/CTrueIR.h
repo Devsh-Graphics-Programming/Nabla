@@ -829,9 +829,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 		const SBasicNodes& getBasicNodes() const {return m_basicNodes;}
 
-		//
-//		inline typed_pointer_type<const CConstant> createConstant()
-
 
 		// Each material comes down to this, this is the only struct we don't de-duplicate
 		struct SMaterial
