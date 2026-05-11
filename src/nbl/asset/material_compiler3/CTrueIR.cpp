@@ -118,6 +118,22 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 				if (!node)
 					continue;
 				output << "\n\t" << m_ir->getLabelledNodeID(entry);
+				auto printChildren = [&](std::span<typed_pointer_type<const INode>> children, const INode* node)->void {
+					uint32_t childIx = 0u;
+					for (const auto childHandle : children)
+					{
+						if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
+						{
+							output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
+							const auto visited = visitedNodes.find(childHandle);
+							if (visited != visitedNodes.end())
+								continue;
+							nodeStack.push_back(childHandle);
+							visitedNodes.insert(childHandle);
+						}
+						childIx++;
+					}
+					};
 				switch (node->getFinalType())
 				{
 				case INode::EFinalType::CFactorCombiner:
@@ -149,44 +165,17 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 					if (contributeSum)
 					{
 						typed_pointer_type<const INode> children[] = {contributeSum->product, contributeSum->rest};
-						uint32_t childIx = 0u;
-						for (const auto childHandle : children)
-						{
-							if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
-							{
-								output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
-								const auto visited = visitedNodes.find(childHandle);
-								if (visited != visitedNodes.end())
-									continue;
-								nodeStack.push_back(childHandle);
-								visitedNodes.insert(childHandle);
-							}
-							childIx++;
-						}
+						printChildren(children, node);
 					}
 					break;
 				}
 				case INode::EFinalType::CCorellatedTransmission:
 				{
-					// TODO:
 					const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
 					if (transmission)
 					{
 						typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom };	// TODO: what about coated and next?
-						uint32_t childIx = 0u;
-						for (const auto childHandle : children)
-						{
-							if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
-							{
-								output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
-								const auto visited = visitedNodes.find(childHandle);
-								if (visited != visitedNodes.end())
-									continue;
-								nodeStack.push_back(childHandle);
-								visitedNodes.insert(childHandle);
-							}
-							childIx++;
-						}
+						printChildren(children, node);
 					}
 					break;
 				}
@@ -196,20 +185,7 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 					if (contributor)
 					{
 						typed_pointer_type<const INode> children[] = { contributor->contributor, contributor->factor };
-						uint32_t childIx = 0u;
-						for (const auto childHandle : children)
-						{
-							if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
-							{
-								output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
-								const auto visited = visitedNodes.find(childHandle);
-								if (visited != visitedNodes.end())
-									continue;
-								nodeStack.push_back(childHandle);
-								visitedNodes.insert(childHandle);
-							}
-							childIx++;
-						}
+						printChildren(children, node);
 					}
 					break;
 				}
