@@ -103,7 +103,156 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 
 void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 {
-	output << "IR PRINTING UnIMPLEMENTED!\n";
+	output << "digraph {\n";
+
+	const auto errorBxDF = m_ir->getBasicNodes().errorBxDF;
+	const auto errorLayer = m_ir->getBasicNodes().errorLayer;
+	auto drainNodeStack = [&]()->void
+		{
+			while (!nodeStack.empty())
+			{
+				const auto entry = nodeStack.back();
+				nodeStack.pop_back();
+				const auto nodeID = m_ir->getNodeID(entry);
+				const auto* node = m_ir->getObjectPool().deref(entry);
+				if (!node)
+					continue;
+				output << "\n\t" << m_ir->getLabelledNodeID(entry);
+				auto printChildren = [&](std::span<typed_pointer_type<const INode>> children, const INode* node)->void {
+					uint32_t childIx = 0u;
+					for (const auto childHandle : children)
+					{
+						if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
+						{
+							output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
+							const auto visited = visitedNodes.find(childHandle);
+							if (visited != visitedNodes.end())
+								continue;
+							nodeStack.push_back(childHandle);
+							visitedNodes.insert(childHandle);
+						}
+						childIx++;
+					}
+					};
+				switch (node->getFinalType())
+				{
+				case INode::EFinalType::CFactorCombiner:
+				{
+					const auto* combiner = dynamic_cast<const CFactorCombiner*>(node);
+					const auto state = combiner->getState();
+					const auto childCount = state.childCount;
+					if (childCount)
+					{
+						for (auto childIx = 0; childIx < childCount; childIx++)
+						{
+							const auto childHandle = combiner->getChildHandle(childIx);
+							if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
+							{
+								output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle);
+								const auto visited = visitedNodes.find(childHandle);
+								if (visited != visitedNodes.end())
+									continue;
+								nodeStack.push_back(childHandle);
+								visitedNodes.insert(childHandle);
+							}
+						}
+					}
+					break;
+				}
+				case INode::EFinalType::CContributorSum:
+				{
+					const auto* contributeSum = dynamic_cast<const CContributorSum*>(node);
+					if (contributeSum)
+					{
+						typed_pointer_type<const INode> children[] = {contributeSum->product, contributeSum->rest};
+						printChildren(children, node);
+					}
+					break;
+				}
+				case INode::EFinalType::CCorellatedTransmission:
+				{
+					const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
+					if (transmission)
+					{
+						typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom, transmission->next };
+						printChildren(children, node);
+						layerStack.push_back(transmission->coated);
+					}
+					break;
+				}
+				case INode::EFinalType::CWeightedContributor:
+				{
+					const auto* contributor = dynamic_cast<const CWeightedContributor*>(node);
+					if (contributor)
+					{
+						typed_pointer_type<const INode> children[] = { contributor->contributor, contributor->factor };
+						printChildren(children, node);
+					}
+					break;
+				}
+				case INode::EFinalType::CCookTorrance:
+				{
+					const auto* ct = dynamic_cast<const CCookTorrance*>(node);
+					if (ct)
+					{
+						if (const auto eta = m_ir->getObjectPool().deref(ct->orientedRealEta); eta)
+						{
+							output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(ct->orientedRealEta) << "[label=\"orientedRealEta\"]";
+							const auto visited = visitedNodes.find(ct->orientedRealEta);
+							if (visited != visitedNodes.end())
+								continue;
+							nodeStack.push_back(ct->orientedRealEta);
+							visitedNodes.insert(ct->orientedRealEta);
+						}
+					}
+					break;
+				}
+				default:
+					break;
+				}
+				// special printing
+				node->printDot(output, nodeID);
+			}
+		};
+	drainNodeStack();
+
+	while (!layerStack.empty())
+	{
+		const auto layerHandle = layerStack.back();
+		layerStack.pop_back();
+		// don't print layer nodes multiple times
+		const auto visited = visitedNodes.find(layerHandle);
+		if (visited != visitedNodes.end())
+			continue;
+		visitedNodes.insert(layerHandle);
+		const auto* layerNode = m_ir->getObjectPool().deref(layerHandle);
+		if (!layerNode)
+			continue;
+		//
+		const auto layerID = m_ir->getNodeID(layerHandle);
+		output << "\n\t" << m_ir->getLabelledNodeID(layerHandle);
+		//
+		auto pushNodeRoot = [&](const typed_pointer_type<const INode> root, const std::string_view edgeLabel)->void
+			{
+				if (!root)
+					return;
+				// print the link from the layer to the expression
+				output << "\n\t" << layerID << " -> " << m_ir->getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
+				// but not the expression again
+				const auto visited = visitedNodes.find(root);
+				if (visited != visitedNodes.end())
+					return;
+				nodeStack.push_back(root);
+				visitedNodes.insert(root);
+			};
+		pushNodeRoot(layerNode->brdfTop, "Top BRDF");
+		pushNodeRoot(layerNode->firstTransmission, "BTDF");
+		drainNodeStack();
+	}
+
+	// TODO: print image views
+
+	output << "\n}\n";
 }
 
 CTrueIR::SRewriteSession::~SRewriteSession()
@@ -144,6 +293,36 @@ bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrie
 	success = args.src==args.dst;
 	assert(success);
 	return success;
+}
+
+void CTrueIR::ISpectralVariableFactor::printDot(std::ostringstream& sstr, const core::string& selfID) const
+{
+	printDotParameterSet(*pWonky(), getKnotCount(), sstr, selfID, {});
+}
+
+void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
+{
+	if (profile)
+		profile.printDot(sstr, selfID);
+	if (profile.view)
+	{
+		const auto transformNodeID = selfID + "_pTform";
+		sstr << "\n\t" << transformNodeID << " [label=\"";
+		printMatrix(sstr, profileTransform);
+		sstr << "\"]";
+		// connect up
+		sstr << "\n\t" << selfID << " -> " << transformNodeID << "[label=\"Profile Transform\"]";
+	}
+}
+
+void CTrueIR::COrenNayar::printDot(std::ostringstream& sstr, const core::string& selfID) const
+{
+	ndfParams.printDot(sstr, selfID);
+}
+
+void CTrueIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::string& selfID) const
+{
+	ndfParams.printDot(sstr, selfID);
 }
 
 template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
