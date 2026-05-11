@@ -684,6 +684,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 					if (retval.root)
 						transmission->coated = retval.root;
 				}
+				outLayer->firstTransmission = transmissionH;
 			}
 		}
 		retval.root = layerH;
