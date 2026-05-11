@@ -49,7 +49,7 @@ jobs:
 
   prepare-host-cuda:
     name: Prepare host CUDA 13.2
-    runs-on: windows-2022
+    runs-on: windows-2025
 
     env:
       cudaVersion: '13.2.1'
@@ -63,7 +63,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.cudaCacheRoot }}
-          key: cuda-toolkit-${{ env.cudaVersion }}-windows-x64-v1
+          key: cuda-toolkit-${{ env.cudaVersion }}-windows-2025-x64-v1
 
       - name: Install CUDA Toolkit
         if: steps.cache-cuda.outputs.cache-hit != 'true'
@@ -75,7 +75,9 @@ jobs:
             $nvcc = Join-Path $Root 'bin\nvcc.exe'
             $cudaH = Join-Path $Root 'include\cuda.h'
             $nvrtcH = Join-Path $Root 'include\nvrtc.h'
-            if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH)) {
+            $fp16H = Join-Path $Root 'include\cuda_fp16.h'
+            $vectorTypesH = Join-Path $Root 'include\vector_types.h'
+            if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH) -or -not (Test-Path $fp16H) -or -not (Test-Path $vectorTypesH)) {
               return $false
             }
 
@@ -88,35 +90,33 @@ jobs:
             return
           }
 
-          if (-not (Test-CudaToolkit $env:cudaInstallRoot)) {
-            if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-              throw "winget is required to install CUDA Toolkit $env:cudaVersion on the host runner."
+          winget source update
+          winget install `
+            --exact `
+            --id Nvidia.CUDA `
+            --version $env:cudaVersion `
+            --source winget `
+            --location $env:cudaCacheRoot `
+            --accept-package-agreements `
+            --accept-source-agreements `
+            --disable-interactivity
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "CUDA Toolkit $env:cudaVersion installation failed."
+          }
+
+          if (-not (Test-CudaToolkit $env:cudaCacheRoot) -and (Test-CudaToolkit $env:cudaInstallRoot)) {
+            New-Item -ItemType Directory -Force -Path $env:cudaCacheRoot | Out-Null
+            robocopy $env:cudaInstallRoot $env:cudaCacheRoot /MIR /R:2 /W:2 /NFL /NDL /NP
+            if ($LASTEXITCODE -gt 7) {
+              throw "Failed to mirror CUDA Toolkit into cache root. robocopy exit code: $LASTEXITCODE"
             }
-
-            winget install `
-              --exact `
-              --id Nvidia.CUDA `
-              --version $env:cudaVersion `
-              --source winget `
-              --accept-package-agreements `
-              --accept-source-agreements `
-              --disable-interactivity
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "CUDA Toolkit $env:cudaVersion installation failed."
-            }
+            $global:LASTEXITCODE = 0
           }
 
-          if (-not (Test-CudaToolkit $env:cudaInstallRoot)) {
-            throw "CUDA Toolkit $env:cudaMajorMinor was not found at $env:cudaInstallRoot after installation."
+          if (-not (Test-CudaToolkit $env:cudaCacheRoot)) {
+            throw "CUDA Toolkit $env:cudaMajorMinor was not found at $env:cudaCacheRoot after installation."
           }
-
-          New-Item -ItemType Directory -Force -Path $env:cudaCacheRoot | Out-Null
-          robocopy $env:cudaInstallRoot $env:cudaCacheRoot /MIR /R:2 /W:2 /NFL /NDL /NP
-          if ($LASTEXITCODE -gt 7) {
-            throw "Failed to mirror CUDA Toolkit into cache root. robocopy exit code: $LASTEXITCODE"
-          }
-          $global:LASTEXITCODE = 0
 
       - name: Verify CUDA Toolkit
         shell: pwsh
@@ -124,7 +124,9 @@ jobs:
           $nvcc = Join-Path $env:cudaCacheRoot 'bin\nvcc.exe'
           $cudaH = Join-Path $env:cudaCacheRoot 'include\cuda.h'
           $nvrtcH = Join-Path $env:cudaCacheRoot 'include\nvrtc.h'
-          if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH)) {
+          $fp16H = Join-Path $env:cudaCacheRoot 'include\cuda_fp16.h'
+          $vectorTypesH = Join-Path $env:cudaCacheRoot 'include\vector_types.h'
+          if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH) -or -not (Test-Path $fp16H) -or -not (Test-Path $vectorTypesH)) {
             throw "CUDA Toolkit cache is incomplete at $env:cudaCacheRoot."
           }
           $version = & $nvcc --version
@@ -277,7 +279,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.cudaHostRoot }}
-          key: cuda-toolkit-13.2.1-windows-x64-v1
+          key: cuda-toolkit-13.2.1-windows-2025-x64-v1
 
       - name: Verify CUDA Toolkit
         shell: pwsh
@@ -769,7 +771,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.cudaHostRoot }}
-          key: cuda-toolkit-13.2.1-windows-x64-v1
+          key: cuda-toolkit-13.2.1-windows-2025-x64-v1
 
       - name: Verify CUDA Toolkit
         shell: pwsh
