@@ -55,7 +55,7 @@ jobs:
       cudaVersion: '13.2.1'
       cudaMajorMinor: '13.2'
       cudaInstallRoot: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2
-      cudaCacheRoot: ${{ runner.tool_cache }}\cuda\v13.2
+      cudaCacheRoot: C:\nabla-ci\cuda\v13.2
 
     steps:
       - name: Restore CUDA Toolkit
@@ -145,7 +145,7 @@ jobs:
       mount: C:\mount\nabla
       binary: C:\mount\nabla\build-ct
       install: build-ct\install
-      cudaHostRoot: ${{ runner.tool_cache }}\cuda\v13.2
+      cudaHostRoot: C:\nabla-ci\cuda\v13.2
       cudaContainerRoot: C:\cuda\v13.2
       cudaContainerRootCMake: C:/cuda/v13.2
 
@@ -739,7 +739,7 @@ jobs:
     needs: build-windows
     runs-on: windows-2022
     env:
-      cudaHostRoot: ${{ runner.tool_cache }}\cuda\v13.2
+      cudaHostRoot: C:\nabla-ci\cuda\v13.2
     strategy:
       fail-fast: false
       matrix:
