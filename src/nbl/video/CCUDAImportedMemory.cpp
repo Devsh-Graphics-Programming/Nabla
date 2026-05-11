@@ -23,7 +23,7 @@ cuda_interop::SCUexternalMemory CCUDAImportedMemory::getInternalObject() const
 	return m_native->handle;
 }
 
-bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const
+bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer) const
 {
 	if (!mappedBuffer)
 		return false;
@@ -73,7 +73,7 @@ cuda_interop::SCUexternalMemory CCUDAImportedMemory::getInternalObject() const
 	return {};
 }
 
-bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SCUdeviceptr*) const
+bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr>) const
 {
 	return false;
 }

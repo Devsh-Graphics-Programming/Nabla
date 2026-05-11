@@ -1137,7 +1137,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	);
 }
 
-cuda_interop::SNVRTCResult CCUDAHandler::createProgram(cuda_interop::SNVRTCProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+cuda_interop::SNVRTCResult CCUDAHandler::createProgram(cuda_interop::SOutput<cuda_interop::SNVRTCProgram> prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 #if defined(_NBL_WINDOWS_API_)
 	source.insert(0ull,"#ifndef _WIN64\n#define _WIN64\n#endif\n");
@@ -1230,7 +1230,7 @@ CCUDAHandler::SPTXResult CCUDAHandler::compileDirectlyToPTX(
 			getNVRTCFunctionTable().pnvrtcDestroyProgram(&nativeProgram);
 	});
 
-	result = createProgram(&program,std::move(source),filename,headerCount,headerContents,includeNames);
+	result = createProgram(program,std::move(source),filename,headerCount,headerContents,includeNames);
 	return compileDirectlyToPTX_impl(*this,result,program,nvrtcOptions,log);
 }
 

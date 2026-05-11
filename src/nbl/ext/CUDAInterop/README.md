@@ -79,6 +79,9 @@ if (importedMemory)
 
 CUdeviceptr exported = memory->getDeviceptr();
 
+nvrtcProgram program = nullptr;
+auto createResult = handler->createProgram(program, std::string(cudaSource), "kernel.cu");
+
 std::string log;
 auto compile = handler->compileDirectlyToPTX(
     std::move(cudaSource),
@@ -101,7 +104,7 @@ if (pcuNewCall)
 
 - `cuda_interop::SCU*`, `SCUresult`, `SNVRTCResult`, and `SNVRTCProgram` are SDK-free opaque values in Nabla headers. After including `CUDAInteropNative.h`, they become constructible from and convertible to matching CUDA/NVRTC SDK types such as `CUdeviceptr`, `CUexternalSemaphore`, `CUresult`, `nvrtcResult`, and `nvrtcProgram`.
 - CUDA enum values can be passed to SDK-free Nabla methods such as `CCUDADevice::createExportableMemory` and `CCUDADevice::roundToGranularity`. Nabla stores them as integer values in its public ABI.
-- SDK-free output parameters stay pointer-based. SDK opt-in code can pass native CUDA output variables directly through small inline bridge overloads.
+- SDK-free output parameters use `cuda_interop::SOutput<...>`. SDK-free code can pass opaque `SCU*` values or pointers. SDK opt-in code can pass matching native CUDA/NVRTC output variables directly, for example `CUdeviceptr mapped; importedMemory->getMappedBuffer(mapped);` or `nvrtcProgram program; handler->createProgram(program, ...)`.
 - `CCUDAHandler::compileProgram`, `getProgramLog`, `getPTX`, and `compileDirectlyToPTX` are SDK-free Nabla methods. SDK opt-in code can use their results with native `nvrtcProgram` / `nvrtcResult` because the opaque conversions are enabled by `CUDAInteropNative.h`.
 - `NBL_CUDA_INTEROP_ASSERT_SUCCESS(expr, handler)` is available for call sites that intentionally assert on CUDA/NVRTC failures. Pass a pointer-like `CCUDAHandler` handle. Nabla implementation code should still prefer explicit error handling and clean returns.
 - `cuda_native::isBuildCUDASDKVersionExactMatch()` checks exact SDK version equality between the consumer translation unit and the SDK used to build Nabla's interop implementation. It is a policy helper, not an automatic runtime rejection rule.

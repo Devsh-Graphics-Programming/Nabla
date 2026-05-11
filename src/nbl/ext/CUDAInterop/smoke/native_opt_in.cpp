@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -111,6 +112,19 @@ bool cudaFp16HeaderCompileProbe(CCUDAHandler& handler)
 	);
 	return compile.result==NVRTC_SUCCESS && compile.ptx && compile.ptx->getSize()>0u;
 }
+
+bool nativeNVRTCOutputProbe(CCUDAHandler& handler)
+{
+	constexpr const char* Source = R"cuda(
+		extern "C" __global__ void native_output_probe() {}
+	)cuda";
+
+	nvrtcProgram program = nullptr;
+	const auto result = handler.createProgram(program,std::string(Source),"native_output_probe.cu");
+	if (program)
+		handler.getNVRTCFunctionTable().pnvrtcDestroyProgram(&program);
+	return result==NVRTC_SUCCESS;
+}
 }
 
 class CUDAInteropNativeOptInSmoke final : public nbl::system::IApplicationFramework
@@ -152,6 +166,9 @@ public:
 		auto pcuDriverGetVersion = NBL_SYSTEM_LOAD_DYNLIB_FUNCPTR(handler->getCUDAFunctionTable(), cuDriverGetVersion);
 		int loadedDriverVersion = 0;
 		if (!pcuDriverGetVersion || pcuDriverGetVersion(&loadedDriverVersion)!=CUDA_SUCCESS || loadedDriverVersion==0)
+			return false;
+
+		if (!nativeNVRTCOutputProbe(*handler))
 			return false;
 
 		if (!cudaFp16HeaderCompileProbe(*handler))

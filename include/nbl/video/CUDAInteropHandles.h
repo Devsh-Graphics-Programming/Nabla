@@ -36,29 +36,46 @@ concept cuda_native_handle_for =
 	std::same_as<std::remove_cvref_t<Native>,typename SOpaqueCUDANativeType<Opaque>::type> &&
 	cuda_opaque_handle<Opaque,std::remove_cvref_t<Native>>;
 
-template<typename Opaque, typename Native>
-requires cuda_native_handle_for<Opaque,Native>
-Opaque* asOpaqueOutput(Native* native)
-{
-	return reinterpret_cast<Opaque*>(native);
-}
-
-template<typename Opaque, typename Native>
-requires cuda_native_handle_for<Opaque,Native>
-Opaque* asOpaqueOutput(Native& native)
-{
-	return asOpaqueOutput<Opaque>(&native);
-}
-
 /*
-	Declare a narrow native-reference bridge for SDK opt-in code. Value conversions make SCU* handles usable as
-	native CUDA handles after CUDAInteropNative.h is included, but output parameters still need a writable object
-	whose storage matches the opaque handle. Use asOpaqueOutput inside such bridge overloads. This macro keeps
-	them short and constrained to the exact SDK type validated for the opaque handle.
+	Output bridge for SDK-free APIs that write CUDA/NVRTC handles.
+
+	Value conversions in SOpaqueCUDAHandle are enough for inputs and return values, but C++ does not apply those
+	user-defined conversions through output pointers or mutable output references. This type centralizes that one
+	boundary case. Without it, every Nabla method that writes a native CUDA/NVRTC handle would need a separate
+	SDK-typed overload, or SDK opt-in callers would have to spell the SDK-free SCU* type manually. With SOutput,
+	Nabla methods keep one SDK-free signature while SDK opt-in callers still use raw CUDA spelling:
+
+	    CUdeviceptr ptr = 0;
+	    importedMemory->getMappedBuffer(ptr);
+	    nvrtcProgram program = nullptr;
+	    handler->createProgram(program,std::move(source),"kernel.cu");
+
+	SDK-free callers can pass SCU* objects or SCU* pointers. SDK opt-in callers can pass the matching native
+	CUDA/NVRTC object or pointer after CUDAInteropNative.h specializes SOpaqueCUDANativeType for the selected SDK.
 */
-#define NBL_CUDA_INTEROP_NATIVE_FOR(TYPE, OPAQUE) \
-	template<typename TYPE> \
-	requires ::nbl::video::cuda_interop::cuda_native_handle_for<OPAQUE,TYPE>
+template<typename Opaque>
+struct SOutput
+{
+	SOutput(std::nullptr_t) : ptr(nullptr) {}
+	SOutput(Opaque& opaque) : ptr(&opaque) {}
+	SOutput(Opaque* opaque) : ptr(opaque) {}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Opaque,Native>
+	SOutput(Native& native) : ptr(reinterpret_cast<Opaque*>(&native)) {}
+
+	template<typename Native>
+	requires cuda_native_handle_for<Opaque,Native>
+	SOutput(Native* native) : ptr(reinterpret_cast<Opaque*>(native)) {}
+
+	Opaque* get() const { return ptr; }
+	Opaque& operator*() const { return *ptr; }
+	operator Opaque*() const { return ptr; }
+	explicit operator bool() const { return ptr!=nullptr; }
+
+	private:
+		Opaque* ptr;
+};
 
 template<typename Derived, typename Storage>
 struct alignas(alignof(Storage)) SOpaqueCUDAHandle

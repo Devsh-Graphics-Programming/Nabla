@@ -16,7 +16,6 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <utility>
 
 namespace nbl::video
 {
@@ -85,12 +84,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		bool defaultHandleResult(cuda_interop::SCUresult result) const;
 		bool defaultHandleResult(cuda_interop::SNVRTCResult result) const;
 
-		cuda_interop::SNVRTCResult createProgram(cuda_interop::SNVRTCProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
-		NBL_CUDA_INTEROP_NATIVE_FOR(Program, cuda_interop::SNVRTCProgram)
-		inline cuda_interop::SNVRTCResult createProgram(Program* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
-		{
-			return createProgram(cuda_interop::asOpaqueOutput<cuda_interop::SNVRTCProgram>(prog),std::move(source),name,headerCount,headerContents,includeNames);
-		}
+		cuda_interop::SNVRTCResult createProgram(cuda_interop::SOutput<cuda_interop::SNVRTCProgram> prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 		cuda_interop::SNVRTCResult compileProgram(cuda_interop::SNVRTCProgram prog, core::SRange<const char* const> options) const;
 		cuda_interop::SNVRTCResult getProgramLog(cuda_interop::SNVRTCProgram prog, std::string& log) const;
 		SPTXResult getPTX(cuda_interop::SNVRTCProgram prog) const;

@@ -16,12 +16,7 @@ class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
 	public:
 		~CCUDAImportedMemory() override;
 		cuda_interop::SCUexternalMemory getInternalObject() const;
-		bool getMappedBuffer(cuda_interop::SCUdeviceptr* mappedBuffer) const;
-		NBL_CUDA_INTEROP_NATIVE_FOR(DevicePtr, cuda_interop::SCUdeviceptr)
-		inline bool getMappedBuffer(DevicePtr& mappedBuffer) const
-		{
-			return getMappedBuffer(cuda_interop::asOpaqueOutput<cuda_interop::SCUdeviceptr>(mappedBuffer));
-		}
+		bool getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer) const;
 
 	private:
 		friend class CCUDADevice;
