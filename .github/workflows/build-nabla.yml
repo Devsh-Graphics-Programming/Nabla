@@ -294,7 +294,16 @@ jobs:
 
       - name: Pull Image
         run: |
-          docker pull "${{ env.image }}:${{ matrix.tag }}"
+          $image = "${{ env.image }}:${{ matrix.tag }}"
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            docker pull $image
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+            Write-Warning "docker pull failed for $image on attempt $attempt."
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          exit $LASTEXITCODE
 
       - name: Run Container
         run: |
