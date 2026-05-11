@@ -729,7 +729,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 }
 
 
-// TODO: this really needs a visited AST nodes (or at least subtrees) cache!
+//
 auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH) -> CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum>
 {	
 	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
@@ -741,20 +741,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
 
-	// Simple and inefficient Factor Gather with no Contributors:
-	// - want canonical form, so vector of mul chains
-	// - Solution, distribute/hoist the ADD over the MUL. So replace a `MUL ADD A B C` with `ADD MUL A C MUL B C`
-	// - However if there's a long `MUL` chain, then hoist all the way to the top above that MUL, then every unexplored (pushed) node goes in the mul chain
-	// - Bottom up or Top Down?
-	// 	   + Bottom up requires descent to bottom anyway to find the ADD within MUL islands
-	// 	   + Top down we can find the first ADD, then rewrite it and continue rewriting subexpressions
-	// - Visit Cache? Every original AST node has its own mul chain set ?
-	// 	   + If 0 factor gets slapped on, chain dies, gets removed from sum
-	// - linked lists needed ? Or just MUL in tmpAST or IR?
-	// 1. somehow mark when an AST `IExprNode` doesn't need exploring anymore
-	// 2. explore on repeat
-	// Variant with contributors:
-	// - just sort the contributor last in the linked list, problem solved
+	// basic checks
+	assert(canonicalSum.empty());
 
 	// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
 	auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
@@ -770,28 +758,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		// then by handle
 		return lhs.typeless.value<rhs.typeless.value;
 	};
-	// Holds the single `Product_j` of full expression in the form:
-	// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
-	// Everything on the `irChain` multiplies together, everything on the `astStack` before the current top is our relative through a MUL node.
-	// CONTRIBUTOR and OTHER are leaf nodes which don't add any children onto the `astStack`. 
-	// ADD node (and COMPLEMENT which is a specialization of `ADD 1 (-X)`) duplicates the `astStack`, the ADD node at the top of the stack,
-	// itself was in a MUL relationship with all of the preceding AST nodes which are not explored yet, so its children will also be.
-	// The key is to not add both children of the ADD onto the same `astStack` because they themselves are not MUL together.
-	struct SCanonicalProduct
-	{
-		// Deal with optimizing this later on, not sure if `DoublyLinkedList` is appropriate, maybe I'd need a `DoublyLinkedBeadedCurtain` data structure
-		// also the mulChain needs to be sorted later on, and doubly linked list is PITA to sort
-		core::vector<typed_pointer_type<const IExprNode>> astStack = {}; // its also a stack
-		core::vector<SFactor> irChain = {};
-		uint8_t hasContributor : 1 = false;
-		// extend later when allowing variable bucket count
-		uint8_t negate : 3 = 0b000;
-		uint8_t liveSpectralChannels : 3 = 0b111;
-	};
-	// TODO: for the visited cache, we'd somehow need to cache a "2D slice" from this, meaning skipping the `irChain` prefix of a node
-	// (would need linked list IR so span/front-back of an irChain subsection can be kept)
-	// but also keeping how many of these separate irChains get spawned by the AST node
-	core::list<SCanonicalProduct> canonicalSum;
 	
 	// error value
 	const auto errorRetval = tmpIR->getBasicNodes().errorBxDF;
@@ -969,9 +935,9 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				case ast_expr_type_e::SpectralVariable:
 				{
 					const auto varH = static_cast<const CSpectralVariableExpr*>(node)->createIRNode(srcAST,tmpIR.get());
-					auto* const var = irPool.deref(varH);
+					const auto* const var = irPool.deref(varH);
 					// no soft fail, the node wasn't null to begin with
-					if (!var)
+					if (!var || var->computeHash(irPool)==core::blake3_hash_t{})
 					{
 						printSubtree(nodeH);
 						args.logger.log("Failed to create the Spectral Variable.",ELL_ERROR);
@@ -1070,6 +1036,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					const auto factorH = irPool.emplace<CTrueIR::CFactorCombiner>(combinerState);
 					{
 						auto* const factor = irPool.deref(factorH);
+// TODO: !factor handle
 						auto i = 0;
 						// monochrome negation
 						if (it->negate && it->negate==0b111)
@@ -1103,6 +1070,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							}
 							factor->setChildHandle(i++,itChain->factor.handle);
 						}
+// TODO: !factor-recomputeHash
 					}
 					weightedContrib->factor = factorH;
 				}
@@ -1115,306 +1083,9 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			assert(false);
 		}
 	}
+	canonicalSum.clear();
 
-#if 0  // old and dead code
-
-	// Either the same contributor has to be added multiple times and then later cleaned up - the `addContributor` solution
-	// or, we properly add a single contributor and MUL its different additive factors - easily done during a rewrite
-	// The former is better because it allows canonicalization of multiplicative factors and gather of identical contributors. To implement it:
-	// - every ADD node that's reachable via ADD and MUL must add a fully weighted contributor when its visited again by its child
-	//   (all the factors on the way from the ROOT to the ADD node + MUL subtree island below)
-	// - therefore every ADD node must know the length of the mul prefix from itself to a non-ADD & non-MUL ancestor so it can both
-	//		+ be reset so the MUL island of the child node doesn't affect its siblings
-	//		+ we're not counting parts of the mul chain crossing an Other node (which models an arbitrary function - e.g. fresnel)
-	// - islands of MUL nodes must be able to jump back to their first non-MUL ancestor (ADD or Other) and prevent adding of any contributors weighted by them
-	// - when an ADD node doesn't add contributors it should still get its MUL Island properly taken care of
-
-// Rewrite Rules
-// (a+b)(c+d) = ac+bd+bc+ad
-
-
-	// scratches are initialized
-	assert(mulChain.empty());
-	assert(contributorStack.empty());
-	exprStack.push_back({.nodeH=bxdfRootH});
-	// the mul node gets visited after children are made
-	while (!exprStack.empty())
-	{
-		auto pEntry = &exprStack.back();
-		const auto* const node = astPool.deref(pEntry->nodeH);
-		assert(node);
-		//
-		using ast_expr_type_e = CFrontendIR::IExprNode::Type;
-		const ast_expr_type_e astExprType = node->getType();
-		const bool isContributor = astExprType==ast_expr_type_e::Contributor;
-		//
-		if (pEntry->notVisited())
-		{
-			pEntry->visited = true;
-			if (isContributor)
-			{
-				const auto contributorH = static_cast<const IContributor*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get());
-				// TODO: recompute instead of compute
-				if (!contributorH || irPool.deref(contributorH)->computeHash(irPool)==core::blake3_hash_t{})
-				{
-					args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
-					return (headH=errorRetval);
-				}
-				contributorStack.push_back({.contributor=contributorH});
-				exprStack.pop_back();
-				// shouldn't invalidate but lets play it safe
-				pEntry = nullptr;
-			}
-			else if (astExprType==ast_expr_type_e::SpectralVariable)
-			{
-				// this is just easier to read than going through the circus below to do nothing
-			}
-			else
-			{
-				const bool isAdd = astExprType==ast_expr_type_e::Add;
-				if (isAdd)
-				{
-					// There are no other nodes above current Add other than Mul, then we must add any potential contributors immediately below
-					if (!pEntry->nonMulImmediateAncestorStackEnd)
-						pEntry->contributorStackLen = contributorStack.size();
-					// A contributor can only be in the leftmost branch of a Mul node's subtree, it also cannot be under any other node than Add or Mul.
-					// Mostly making sure that Add nodes within complex weighting functions don't add contributors all of the sudden.
-					// Its like a flood fill on the AST, where any non-Mul and non-Add node stops filling below.
-					else if (auto& nonMulAncestor=exprStack[pEntry->nonMulImmediateAncestorStackEnd-1]; nonMulAncestor.contributorStackLen!=StackEntry::DontAddContributor)
-					{
-						// So use this knowledge to our advantage, however if we ever alias `addContributor` with anything else we'd need to check the ancestor type
-						assert(astPool.deref(nonMulAncestor.nodeH)->getType()==ast_expr_type_e::Add);
-						// Current Add node will perform the job of the parent add node for this subtree, it takes over
-						pEntry->contributorStackLen = contributorStack.size();
-						// if we're in the leftmost subtree then reset to current, otherwise also reset to current because the contributor stack size will remain unchanged
-						nonMulAncestor.contributorStackLen = StackEntry::DontAddContributor;
-					}
-				}
-				const bool notMul = astExprType!=ast_expr_type_e::Mul;
-				// go through children
-				const auto childCount = node->getChildCount();
-				// pushing back invalidates iterators
-				const auto entry = *pEntry;
-				pEntry = nullptr;
-				// making sure we visit this node again each time a subtree of an Add node is done
-				bool pushedAChild = false;
-				// we don't push onto mulchain in the loop so can compute once
-				const auto mulChainBegin = astExprType==ast_expr_type_e::Other ? static_cast<uint16_t>(mulChain.size()):entry.mulChainBegin;
-				const auto mulChainPrefixEnd = notMul ? static_cast<uint16_t>(mulChain.size()):entry.mulChainPrefixEnd;
-				assert(mulChainBegin<=mulChainPrefixEnd);
-				// add in reverse so stack processes in order
-				for (auto childIx=childCount; childIx;)
-				{
-					const auto childH = node->getChildHandle(--childIx);
-					// to be able to go back to the non mul that is supposed to add our subtree
-					const auto nonMulImmediateAncestorStackEnd = notMul ? static_cast<uint16_t>(exprStack.size()):entry.nonMulImmediateAncestorStackEnd;
-					// skip null child
-					if (!childH)
-					{
-						// what should happen depends if we're in the middle of a MUL subtree
-						if (notMul)
-						{
-							// Generally this is the same as having an OpUndef, for Add we can skip adding this branch's contributor which we implicitly handle with `pushedAChild`
-							continue;
-						}
-						else // kill MUL subtree
-						{
-							struct SHandleZeroMulArgs
-							{
-								std::string_view preSubtreePrintMsg;
-								std::string_view preTreePrintMsg;
-								std::string_view bailMsg;
-								// whether to assert contributor stack against <=1 or ==1
-								bool sureContributorAlreadyAdded;
-							};
-
-							const auto logLevel = system::ILogger::ELL_WARNING;
-							args.logger.log("A null immediate child was encountered in the Mul node forming the subtree:\n",logLevel);
-							printSubtree(entry.nodeH);
-							args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
-							printSubtree(bxdfRootH);
-							// this is mulChainLen to at the first non-MUL ancestor
-							mulChain.resize(mulChainPrefixEnd);
-							// go back to the ancestor
-							exprStack.resize(nonMulImmediateAncestorStackEnd);
-							// we only had the root above our MUL node, we need to bail out of the whole material
-							if (exprStack.empty())
-							{
-								// if there are no expression above, there must not be a mul chain
-								assert(mulChain.empty());
-								// for the MUL subtree to form the whole tree, there needs to be only one contributor in the stack, but we might have not added it yet
-								assert(contributorStack.size()<=1);
-								contributorStack.clear();
-								args.logger.log("This MUL subtree is the only subtree, and one of the nodes is UNDEF, returning no contributors for this Tree.",logLevel);
-								return headH;
-							}
-							// If we're in the MUL node with an ancestor, there are twp posibilities as to what's above us:
-							// - Other, in which case its enough just to clear out the mul chain prefix and the expression stack, any node in our subtree couldn't have pushed a contributor
-							// - ADD, then we need to distinguish between an ADD which can add a contributor or cannot, and this we'll know by looking at the node we went back to
-							if (auto& nonMulAncestor=exprStack.back(); nonMulAncestor.contributorStackLen!=StackEntry::DontAddContributor)
-							{
-								// if we ever alias `addContributor` with anything else we'd need to check the ancestor type
-								assert(astPool.deref(nonMulAncestor.nodeH)->getType()==ast_expr_type_e::Add);
-								// now if we're here it means there's an ADD node above us which meant to add the contributor, but due to what we do before the loop at the very start of the else case
-								for (auto ancestorEnd=nonMulAncestor.nonMulImmediateAncestorStackEnd; ancestorEnd; ancestorEnd=exprStack[ancestorEnd-1].nonMulImmediateAncestorStackEnd)
-								{
-									// all other ADDs above the first ADD above our MUL node CANNOT add a contributor (mul chain incomplete)
-									assert(exprStack[ancestorEnd-1].contributorStackLen==StackEntry::DontAddContributor);
-								}
-								// In the subtree of our current MUL to its immediate ADD there can only be one contributor, if even pushed at all yet
-								assert(contributorStack.size()==(nonMulAncestor.contributorStackLen+1) || contributorStack.size()==nonMulAncestor.contributorStackLen);
-								contributorStack.resize(nonMulAncestor.contributorStackLen);
-								// prevent the ADD we go back to from adding the contributor
-								nonMulAncestor.contributorStackLen = StackEntry::DontAddContributor;
-							}
-							break;
-						}
-						continue;
-					}
-					// making sure we visit this node again each time a subtree of an Add node is done
-					if (isAdd && pushedAChild)
-					{
-						auto& extraEntry = exprStack.emplace_back(entry);
-						assert(extraEntry.visited);
-						// the `contributorStackLen` stays the same
-					}
-					pushedAChild = true;
-					// regular exploration
-					exprStack.push_back({
-						.nodeH = childH,
-						.nonMulImmediateAncestorStackEnd = nonMulImmediateAncestorStackEnd,
-						.mulChainBegin = mulChainBegin,
-						.mulChainPrefixEnd = mulChainPrefixEnd,
-						.contributorStackLen = contributorStackLen
-					});
-				}
-				// didn't manage to add any child, dead ADD node, even if couldn't add a contributor in the first place, just disable speculatively
-				if (isAdd && !pushedAChild)
-					exprStack.back().contributorStackLen = StackEntry::DontAddContributor;
-			}
-		}
-		else
-		{
-			assert(!isContributor);
-			// do stuff now
-			switch (astExprType)
-			{
-				case ast_expr_type_e::Mul:
-				{
-					// silently skip
-					break;
-				}
-				case ast_expr_type_e::Add:
-				{
-					if (pEntry->contributorStackLen!=StackEntry::DontAddContributor)
-					{
-// TODO: assert that contributor stack is at most one element more than current node's known contributor reset length
-						// we visited the leftmost subtrees first so this is the right order
-						{
-							auto* const tail = irPool.deref(tailH);
-							tailH = irPool.emplace<CTrueIR::CContributorSum>();
-							if (tailH)
-								tail->rest = tailH;
-							else
-								headH = tailH;
-						}
-						// add current contributor with weight to BxDF Sum
-						if (const auto contributor=popContributor(); contributor)
-							irPool.deref(tailH)->product = contributor;
-						else
-						{
-							args.logger.log("Failed to Pop the Contributor from the Stack, most likely failed to create the factor node chain.",ELL_ERROR);
-							return (headH=errorRetval);
-						}
-// TODO: let us resize the stack, not `popContributor`
-					}
-					// When we are done we need to reset the mul chain back to its original state, even if we don't add a contributor.
-					// Because this could have been `MUL BXDF ADD F_0, F_1` in Polish Notation, and when we go onto the `F_1` branch we need to remove the `F_0`'s factors from the chain. 
-					mulChain.resize(pEntry->mulChainPrefixEnd);
-					break;
-				}
-				case ast_expr_type_e::SpectralVariable:
-				{
-					const auto varH = static_cast<const CSpectralVariableExpr*>(node)->createIRNode(srcAST,tmpIR.get());
-					auto* const var = irPool.deref(varH);
-					if (!var)
-					{
-						args.logger.log("Failed to create the Spectral Variable.",ELL_ERROR);
-						return (headH=errorRetval);
-					}
-					// Note that we push onto the mul-chain even if the first non-MUL ancestor node is not an ADD (e.g. Fresnel or other complex function).
-					// Also we may have ADD nodes which are disconnected from a contributor by having an Other ancestor
-					const bool belowAnOther = pEntry->mulChainBegin>0;
-					// TODO: mulChain probably needs to get renamed into something more semantically sound
-					auto& factor = mulChain.emplace_back();
-					factor.handle = varH;
-					const auto channels = var->getSpectralBins();
-					factor.monochrome = channels<2;
-					// we only want the mul chain length till the mul subtree's root
-					assert(exprStack.size()>=pEntry->nonMulImmediateAncestorStackEnd);
-					const auto mulChainBegin = pEntry->nonMulImmediateAncestorStackEnd ? (exprStack[pEntry->nonMulImmediateAncestorStackEnd-1].mulChainLen):uint16_t(0);
-					// this wont be affected by sorting, but we need to check if our prefix is large enough
-					if (mulChain.size()>=mulChainBegin+2)
-						factor.liveSpectralChannels = mulChain[mulChain.size()-2].liveSpectralChannels;
-					for (uint8_t c=0; c<channels; c++)
-					{
-						const auto* const cVar = var;
-						if (!(cVar->getParameter(c).scale>std::numeric_limits<float>::min()))
-							factor.liveSpectralChannels &= ~(0b1<<c);
-					}
-					if (factor.liveSpectralChannels==0)
-					{
-						const auto logLevel = system::ILogger::ELL_PERFORMANCE;
-						args.logger.log("The Node parent of the subtree:\n",logLevel);
-						printSubtree(pEntry->nodeH);
-						args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
-						printSubtree(bxdfRootH);
-						// cancel exploration of all descendands of our first non mul node
-						mulChain.resize(pEntry->mulChainPrefixEnd);
-						exprStack.resize(pEntry->nonMulImmediateAncestorStackEnd);
-						pEntry = nullptr;
-						// if there was nothing else in the tree, we can bail out the whole material
-						if (exprStack.empty())
-						{
-							// if there are no expression above, there must not be a mul chain
-							assert(mulChain.empty());
-							// for the MUL subtree to form the whole tree, there needs to be only one contributor in the stack
-							assert(contributorStack.size()==1);
-							contributorStack.clear();
-							args.logger.log("This MUL subtree is the only subtree, returning no contributors for this Tree.",logLevel);
-							return headH;
-						}
-						// don't add this MUL subtree island's contributor, it won't exist
-						if (auto& nonMulAncestor=exprStack.back(); nonMulAncestor.contributorStackLen!=StackEntry::DontAddContributor)
-						{
-							// if we ever alias `addContributor` with anything else we'd need to check the ancestor type
-							assert(astPool.deref(nonMulAncestor.nodeH)->getType()==ast_expr_type_e::Add);
-							nonMulAncestor.addContributor = false;
-							contributorStack.pop_back();
-						}
-					}
-					break;
-				}
-				default:
-				{
-					// Due to the genious design of the AST, two BxDFs cannot be multiplied, and the BxDF must be in the leftmost branch of a Mul.
-					// We just need to handle an `IContributorDependant` that is involved in a MUL with more than 1 contributor.
-					// For example MUL ADD BXDF_0 BXDF_1 FRESNEL_0
-					// One contributor can be multiplied with many `IContributorDependant` which is not a problem because they all go on the mulChain as needed.
-					args.logger.log("Unsupported AST Expression type \"%s\"",ELL_ERROR,system::to_string(astExprType).c_str());
-// TODO: add readymade node to `mulChain`
-
-					return (headH=errorRetval);
-				}
-			}
-			exprStack.pop_back();
-			// shouldn't invalidate but lets play it safe
-			pEntry = nullptr;
-		}
-	}
-#endif
-
-
+	return headH;
 }
 
 auto CFrontendIR::ISpectralVariableExpr::createIRNode(const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::CSpectralVariableFactor>

@@ -806,24 +806,7 @@ class CFrontendIR final : public CNodePool
 				bool btdfSubtree = false;
 				// for going over layers in the AST
 				core::vector<const CLayer*> layerStack;
-#if 0 // dead and wrong
-				// Some of the things we must canonicalize:
-				// A ( f_0 (B + C) + D f_1 ) = f_0 B A + f_0 C A + f_1 D A
-				// Expression nodes of the Frontend AST really come in 4 variants:
-				// - add
-				// - mul
-				// - complement, which is equivalent to 1 ADD (-1 MUL x)
-				// - function/other
-				// BRDFs can appear only under ADD and MUL nodes in the AST not the function/other/complement, so if we want to canonicalize:
-				// 1. The Add above can be ignored, we form full multiplication chain to the top
-				// 2. Adds in sibling nodes (below the last add) cause us to have to add a factored copy to the IR
-				// DFS from right-to-left (inverse order of adding children to stack), would cause us to keep postifxes of the multiplier chain every time we descend into ADD.
-				// We want to essentially visit the parent ADD node again after dealing with its subtree (in-order traversal) then mul chain can be reset just to the parent.
-				// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
-				// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
-				// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node.
-
-#endif
+				// Distribute/hoist the ADD over the MUL. So replace a `MUL ADD A B C` with `ADD MUL A C MUL B C`
 				struct SFactor
 				{
 					struct SContributor
@@ -852,6 +835,32 @@ class CFrontendIR final : public CNodePool
 						SOrdered factor = {};
 					};
 				};
+				// Holds the single `Product_j` of full expression in the form:
+				// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
+				// Everything on the `irChain` multiplies together, everything on the `astStack` before the current top is our relative through a MUL node.
+				// CONTRIBUTOR and OTHER are leaf nodes which don't add any children onto the `astStack`. 
+				// ADD node (and COMPLEMENT which is a specialization of `ADD 1 (-X)`) duplicates the `astStack`, the ADD node at the top of the stack,
+				// itself was in a MUL relationship with all of the preceding AST nodes which are not explored yet, so its children will also be.
+				// The key is to not add both children of the ADD onto the same `astStack` because they themselves are not MUL together.
+				struct SCanonicalProduct
+				{
+					// Deal with optimizing this later on, not sure if `DoublyLinkedList` is appropriate, maybe I'd need a `DoublyLinkedBeadedCurtain` data structure
+					// also the mulChain needs to be sorted later on, and doubly linked list is PITA to sort
+					core::vector<typed_pointer_type<const IExprNode>> astStack = {}; // its also a stack
+					core::vector<SFactor> irChain = {};
+					// Expressions for `h_{ij}` can also have ADD/MUL inside and we distribute and canonicalize them at the same time
+					uint8_t hasContributor : 1 = false;
+					// extend later when allowing variable bucket count
+					uint8_t negate : 3 = 0b000;
+					uint8_t liveSpectralChannels : 3 = 0b111;
+				};
+				// We rework the expression Top down because Bottom up would require descent from the top anyway to find ADD within MUL.
+				// The List<Stack<>> allows us to descend the AST dually with multiple traversals at once, so we never actually need to rewrite the AST into something else.
+				core::list<SCanonicalProduct> canonicalSum;
+				// TODO: Visit Cache? Every original AST node has its own set of partial mul chains which can be slapped on later ?
+				// For the visited cache, we'd somehow need to cache a "2D slice" from this, meaning storing a part of the `irChain` prefix of a node
+				// (would need linked list IR so span/front-back of an irChain subsection can be kept)
+				// Maybe we could actually keep each IExprNode's irChains as reference to another IExprNode's irChains with a bitmask of the terms to take (merge sort to apply during traversal) 
 		};
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
