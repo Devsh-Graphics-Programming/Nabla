@@ -756,34 +756,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	// Variant with contributors:
 	// - just sort the contributor last in the linked list, problem solved
 
-	struct SFactor
-	{
-		struct SContributor
-		{
-			CTrueIR::typed_pointer_type<const CTrueIR::IContributor> handle = {};
-			uint32_t zeroValue = 0;
-		};
-		// these are the parts that need to be sorted
-		struct SOrdered
-		{
-			CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf> handle = {};
-			uint32_t monochrome : 1 = true;
-			// 0 for contributors and leaf factors, contributors can be told apart from leaf factors by having 0s in the whole DWORD here
-			uint32_t padding : 31 = 0;
-		};
-
-		// TODO: do this better, check whole DWORD is 0
-		inline bool isContributor() const {return contributor.zeroValue==0;}
-
-		union
-		{
-			CTrueIR::typed_pointer_type<const CTrueIR::INode> typeless;
-			// contributor is always monochrome, etc.
-			SContributor contributor;
-			// the fatter thing which actually can be monochrome, etc.
-			SOrdered factor = {};
-		};
-	};
 	// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
 	auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
 	{
@@ -1145,20 +1117,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	}
 
 #if 0  // old and dead code
-	// error on exit
-	auto printFailAndCleanupOnExit = core::makeRAIIExiter([&]()->void
-		{
-			if (headH!=errorRetval)
-				return;
-			printSubtree(exprStack.back().nodeH);
-			args.logger.log("Within BxDF:\n",ELL_DEBUG);
-			printSubtree(bxdfRootH);
-			// no point pushing an error contributor, don't want a best effort compilation within a layer, don't want contributors missing or substituted
-			exprStack.clear();
-			mulChain.clear();
-			contributorStack.clear();
-		}
-	);
 
 	// Either the same contributor has to be added multiple times and then later cleaned up - the `addContributor` solution
 	// or, we properly add a single contributor and MUL its different additive factors - easily done during a rewrite
@@ -1454,25 +1412,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			pEntry = nullptr;
 		}
 	}
-	// There was never an ADD node
-	if (!contributorStack.empty())
-	{
-		// only one contributor could have been encountered
-		assert(contributorStack.size()==1);
-		// add the contributor
-		headH = irPool.emplace<CTrueIR::CContributorSum>();
-		if (const auto contributor=popContributor(); contributor)
-			irPool.deref(headH._const_cast())->product = contributor;
-		else
-		{
-			args.logger.log("Failed to Pop the Single Contributor from the Stack, most likely failed to create the factor node chain.",ELL_ERROR);
-			return (headH=errorRetval);
-		}
-		mulChain.clear();
-	}
-	// we got all the AST ADD nodes on the way back out
-	assert(mulChain.empty());
-	return headH;
 #endif
 
 
@@ -1486,60 +1425,6 @@ auto CFrontendIR::ISpectralVariableExpr::createIRNode(const CFrontendIR* ast, CT
 	if (getParameter(c)!=getParameter(0))
 		realCount = 3;
 	return irPool.emplace<CTrueIR::CSpectralVariableFactor>(realCount,*this);
-}
-
-//
-auto CFrontendIR::SAdd2IRSession::popContributor() -> CTrueIR::typed_pointer_type<const CTrueIR::CWeightedContributor>
-{
-#if 0 // old wrong code
-	auto& irPool = tmpIR->getObjectPool();
-	//
-	const auto retval = irPool.emplace<CTrueIR::CWeightedContributor>();
-	auto* weighted = irPool.deref(retval);
-	weighted->contributor = contributorStack.back().contributor;
-	contributorStack.pop_back();
-	// we only want the mul chain length till the mul subtree's root, this is the prefix
-	const size_t mulChainBegin = exprStack.empty() ? 0ull:(exprStack.back().mulChainLen);
-	if (mulChainBegin<mulChain.size())
-	{
-		assert(mulChain.back().liveSpectralChannels);
-		// now scan the stuff
-		const CTrueIR::CFactorCombiner::SState combinerState = {
-			.type = CTrueIR::CFactorCombiner::Type::Mul,
-			.childCount = mulChain.size()-mulChainBegin
-		};
-		// every contributor node gets its own SORTED ancestor prefix
-		mulChainSortScratch = {mulChain.begin()+mulChainBegin,mulChain.end()};
-		// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
-		auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
-		{
-			// monochrome is cheaper
-			if (lhs.monochrome!=rhs.monochrome)
-				return lhs.monochrome;
-			// not doing a complement/negation is cheaper
-			if (lhs.negate!=rhs.negate)
-				return rhs.negate;
-			// DO NOT sort by live spectral channels
-			// but want negations to show up together in the sorted list so easier to put back together
-			return lhs.handle.value<rhs.handle.value;
-		};
-		std::sort(mulChainSortScratch.begin(),mulChainSortScratch.end(),sortMuls);
-		//
-		const auto factorH = irPool.emplace<CTrueIR::CFactorCombiner>(combinerState);
-		{
-			auto* const factor = irPool.deref(factorH);
-			auto i = 0;
-			for (const auto& mul : mulChainSortScratch)
-			{
-				assert(!mul.negate); // TODO: handle later
-				factor->setChildHandle(i++,mul.handle);
-			}
-		}
-		weighted->factor = factorH;
-	}
-	return retval;
-#endif
-	return {};
 }
 
 // AST Node -> IR methods

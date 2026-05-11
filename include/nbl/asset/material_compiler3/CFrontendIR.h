@@ -793,8 +793,6 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
 
-				NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CWeightedContributor> popContributor();
-
 				// inputs to the addMaterials function
 				const SAddMaterialsArgs& args;
 				// for rewriting AST expressions
@@ -824,50 +822,36 @@ class CFrontendIR final : public CNodePool
 				// If we perform DFS stack push left-to-right, we'll know the contributor already for all the leaf nodes if we push it onto the stack.
 				// Then for all other leaf nodes we can accumulate them in the MUL chain, and adding their weighted contributor whenever we're back at an ADD node (be it the ancestor or sibling/cousin).
 				// If the contributor is null or multiplied with a null we can keep draining the stack until we're back at its immediate parent ADD node.
-				struct SContributor
-				{
-					// the "active" contributor, basically the leftmost item in the subbranch below and ADD
-					CTrueIR::typed_pointer_type<const CTrueIR::IContributor> contributor;
-				};
-				core::vector<SContributor> contributorStack;
-				// Every time we encounter an AST leaf we must add the current contributor together with all the factors multiplied together
+
+#endif
 				struct SFactor
 				{
-					using handle_t = CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>;
-					// We only track multiplicative factors, we break down every BRDF equally into the canonical form
-					handle_t handle;
-					uint8_t negate : 1 = false;
-					uint8_t monochrome : 1 = true;
-					// extend later when allowing variable bucket count
-					uint8_t liveSpectralChannels : 3 = 0b111;
-				};
-				// here we keep the multiplication chain unsorted so its each to add/remove nodes as we encounter them
-				core::vector<SFactor> mulChain;
-				// scratch for sorting the mul chain before adding a contributor
-				core::vector<SFactor> mulChainSortScratch;
-				// By maintaining a hash map of AST nodes which simplify to a Constant (unity, or zero, or other) we could resolve the issue of the `nonMulImmediateAncestorStackEnd`
-				// which has us adding the same non-mul node multiple times to stack during the traversal.
-				// However how much of that would be moving IR manipulation into the AST ?
-				struct StackEntry
-				{
-					constexpr static inline uint64_t DontAddContributor = (0x1u<<10)-1;
+					struct SContributor
+					{
+						CTrueIR::typed_pointer_type<const CTrueIR::IContributor> handle = {};
+						uint32_t zeroValue = 0;
+					};
+					// these are the parts that need to be sorted
+					struct SOrdered
+					{
+						CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf> handle = {};
+						uint32_t monochrome : 1 = true;
+						// 0 for contributors and leaf factors, contributors can be told apart from leaf factors by having 0s in the whole DWORD here
+						uint32_t padding : 31 = 0;
+					};
 
-					inline bool notVisited() const {return !visited;}
+					// TODO: do this better, check whole DWORD is 0
+					inline bool isContributor() const {return contributor.zeroValue==0;}
 
-					CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH;
-					// the ancestor ADD node to go back to if we hit a 0 MUL, or if our ADD or any other node becomes 0
-					uint64_t nonMulImmediateAncestorStackEnd : 11 = 0;
-					// the start of the `mulChain`, basically the bits that don't cross an Other node
-					uint64_t mulChainBegin : 21 = 0;
-					// the length of the `mulChain` at the time we first visited the node, so that we may reset the prefix back to what it was before continuing down another leg of the ADD
-					uint64_t mulChainPrefixEnd : 21 = 0;
-					// only relevant for Add nodes, the value tells you what to trim the contributor stack to
-					uint64_t contributorStackLen : 10 = DontAddContributor;
-					//
-					uint64_t visited : 1 = false;
+					union
+					{
+						CTrueIR::typed_pointer_type<const CTrueIR::INode> typeless;
+						// contributor is always monochrome, etc.
+						SContributor contributor;
+						// the fatter thing which actually can be monochrome, etc.
+						SOrdered factor = {};
+					};
 				};
-				core::vector<StackEntry> exprStack;
-#endif
 		};
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
