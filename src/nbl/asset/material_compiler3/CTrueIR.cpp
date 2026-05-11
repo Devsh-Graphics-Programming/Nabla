@@ -74,6 +74,15 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 		assert(success);
 		ir->m_uniqueNodes[node->getHash()] = blackHoleBxDF;
 	}
+	//
+	scalarNegation = pool.emplace<CSpectralVariableFactor>(uint8_t(1));
+	{
+		auto* const node = pool.deref(scalarNegation._const_cast());
+		node->setParameter(0,{.scale=-1.f});
+		const bool success = node->recomputeHash(pool);
+		assert(success);
+		ir->m_uniqueNodes[node->getHash()] = scalarNegation;
+	}
 	// we never compute the hashes on these ones, they're supposed to have invalid hash
 	errorLayer = pool.emplace<COrientedLayer>();
 	{

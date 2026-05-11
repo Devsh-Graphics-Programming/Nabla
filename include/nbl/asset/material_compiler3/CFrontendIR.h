@@ -812,7 +812,9 @@ class CFrontendIR final : public CNodePool
 					struct SContributor
 					{
 						CTrueIR::typed_pointer_type<const CTrueIR::IContributor> handle = {};
-						uint32_t zeroValue = 0;
+						uint32_t monochrome : 1 = true;
+						uint32_t isContributor : 1 = true;
+						uint32_t zeroValue : 30 = 0;
 					};
 					// these are the parts that need to be sorted
 					struct SOrdered
@@ -824,7 +826,7 @@ class CFrontendIR final : public CNodePool
 					};
 
 					// TODO: do this better, check whole DWORD is 0
-					inline bool isContributor() const {return contributor.zeroValue==0;}
+					inline bool isContributor() const {return contributor.monochrome && contributor.isContributor && contributor.zeroValue==0;}
 
 					union
 					{

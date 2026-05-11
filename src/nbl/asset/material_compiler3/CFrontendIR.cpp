@@ -752,7 +752,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		if (lhs.isContributor()!=rhs.isContributor())
 			return lhs.isContributor();
 		// only one contributor allowed per chain!
-		assert(!lhs.isContributor() && !rhs.isContributor());
+		assert(&lhs==&rhs || !lhs.isContributor() && !rhs.isContributor());
 		// monochrome is cheaper
 		if (lhs.factor.monochrome!=rhs.factor.monochrome)
 			return lhs.factor.monochrome;
@@ -762,26 +762,26 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	
 	// error value
 	const auto errorRetval = tmpIR->getBasicNodes().errorBxDF;
+	// negationNode
+	const auto scalarNegation = tmpIR->getBasicNodes().scalarNegation;
 
 	// good code start
 	assert(canonicalSum.empty());
 	// add the first term to explore
 	canonicalSum.emplace_back().astStack.emplace_back() = bxdfRootH;
 	// error on exit
-	auto it=canonicalSum.begin();
 	auto printFailAndCleanupOnExit = core::makeRAIIExiter([&]()->void
 		{
 			if (headH!=errorRetval)
 				return;
-			printSubtree(it->astStack.back());
-			args.logger.log("Within BxDF:\n",ELL_DEBUG);
+			args.logger.log("Within BxDF:",ELL_DEBUG);
 			printSubtree(bxdfRootH);
 			// no point emitting an error contributor, don't want a best effort compilation within a layer, don't want contributors missing or substituted
 			canonicalSum.clear();
 		}
 	);
 	CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> tailH = {};
-	for (; it!=canonicalSum.end(); it++)
+	for (auto it=canonicalSum.begin(); it!=canonicalSum.end(); it++)
 	{
 		auto& irChain = it->irChain;
 		auto& astStack = it->astStack;
@@ -812,6 +812,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					if (!contributorH || irPool.deref(contributorH)->computeHash(irPool)==core::blake3_hash_t{})
 					{
 						args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
+						printSubtree(nodeH);
 						return (headH=errorRetval);
 					}
 					it->hasContributor = true;
@@ -832,6 +833,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							if constexpr (HardFail)
 							{
 								args.logger.log("Undef node in a MUL",ELL_ERROR);
+								printSubtree(nodeH);
 								return (headH=errorRetval);
 							}
 							else
@@ -868,6 +870,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							if constexpr (HardFail)
 							{
 								args.logger.log("Undef node in an ADD",ELL_ERROR);
+								printSubtree(nodeH);
 								return (headH=errorRetval);
 							}
 							else
@@ -922,6 +925,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						if constexpr (HardFail)
 						{
 							args.logger.log("Child of COMPLEMENT is null,",ELL_ERROR);
+							printSubtree(nodeH);
 							return (headH=errorRetval);
 						}
 						else
@@ -935,13 +939,18 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 				case ast_expr_type_e::SpectralVariable:
 				{
+					//
+					astStack.pop_back();
+					// shouldn't invalidate iterator, but underline our vector changes
+					pEntry = nullptr;
+					//
 					const auto varH = static_cast<const CSpectralVariableExpr*>(node)->createIRNode(srcAST,tmpIR.get());
 					const auto* const var = irPool.deref(varH);
 					// no soft fail, the node wasn't null to begin with
 					if (!var || var->computeHash(irPool)==core::blake3_hash_t{})
 					{
-						printSubtree(nodeH);
 						args.logger.log("Failed to create the Spectral Variable.",ELL_ERROR);
+						printSubtree(nodeH);
 						return (headH=errorRetval);
 					}
 					// see what channels are dead
@@ -978,14 +987,17 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				}
 				case ast_expr_type_e::Other:
 				{
+					//
+					astStack.pop_back();
 					// TODO: We need to start a new `canonicalSum` and save a link to it in the current IR
-					printSubtree(nodeH);
 					args.logger.log("Unsupported AST Expression type \"%s\"",ELL_ERROR,system::to_string(astExprType).c_str());
+					printSubtree(nodeH);
 					return (headH=errorRetval);
 					break;
 				}
 				default:
 					assert(false);
+					printSubtree(nodeH);
 					return (headH=errorRetval);
 			}
 		}
@@ -1006,23 +1018,10 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		{
 			// if we have a contributor first node in the sorted chain must be the contributor
 			assert(irChain.front().isContributor());
-			// we visited the leftmost subtrees first so this is the right order
+			// produce the weighted contributor
+			const auto weightedContribH = irPool.emplace<CTrueIR::CWeightedContributor>();
+			if (auto* const weightedContrib=irPool.deref(weightedContribH); weightedContrib)
 			{
-				auto* const tail = irPool.deref(tailH);
-				// allocate new tail
-				tailH = irPool.emplace<CTrueIR::CContributorSum>();
-				// append it
-				if (tail)
-					tail->rest = tailH;
-				else
-					headH = tailH;
-			}
-			// now get the true tail
-			{
-				auto* const tail = irPool.deref(tailH);
-				// and slap the mul chain onto it
-				const auto weightedContribH = irPool.emplace<CTrueIR::CWeightedContributor>();
-				auto* const weightedContrib = irPool.deref(weightedContribH);
 				weightedContrib->contributor = irChain.front().contributor.handle;
 				// now the mul chain
 				if (irChain.size()>1)
@@ -1035,16 +1034,12 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					if (it->negate==0)
 						--combinerState.childCount;
 					const auto factorH = irPool.emplace<CTrueIR::CFactorCombiner>(combinerState);
+					if (auto* const factor=irPool.deref(factorH); factor)
 					{
-						auto* const factor = irPool.deref(factorH);
-// TODO: !factor handle
 						auto i = 0;
 						// monochrome negation
 						if (it->negate && it->negate==0b111)
-						{
-							// TODO: do with premade node so sorting is correct (lowest)
-							assert(false);
-						}
+							factor->setChildHandle(i++,scalarNegation);
 						bool monochromeNodes = true;
 						for (auto itChain=irChain.begin()+1; itChain!=irChain.end(); itChain++)
 						{
@@ -1056,11 +1051,17 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 								if (!itChain->factor.monochrome)
 								{
 									monochromeNodes = false;
-									// make the non-monochrome negation node
+									// make the non-monochrome negation node, not using premade cause that would tie me up with spectral buckets
 									if (it->negate && it->negate!=0b111)
 									{
-										// TODO: do with premade node so sorting is correct (lowest)
-										assert(false);
+										const auto negationH = irPool.emplace<CTrueIR::CSpectralVariableFactor>(uint8_t(3));
+										if (auto* const negation=irPool.deref(negationH); negation)
+										{
+											for (uint8_t c=0; c<3; c++)
+												negation->setParameter(c,{.scale=bool((it->negate>>c)&0x1u) ? (-1.f):1.f});
+// TODO: !negation->recomputeHash
+										}
+										factor->setChildHandle(i++,negationH);
 									}
 								}
 							}
@@ -1073,10 +1074,35 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						}
 // TODO: !factor-recomputeHash
 					}
+					else
+					{
+						args.logger.log("Couldn't allocate a `CTrueIR::CFactorCombiner` node",ELL_ERROR);
+						return (headH=errorRetval);
+					}
 					weightedContrib->factor = factorH;
 				}
-				tail->product = weightedContribH;
 			}
+			else
+			{
+				args.logger.log("Couldn't allocate a `CTrueIR::CWeightedContributor` node",ELL_ERROR);
+				return (headH=errorRetval);
+			}
+			// we visited the leftmost subtrees first so this is the right order
+			auto* const oldTail = irPool.deref(tailH);
+			// allocate new tail and slap the mul chain onto it
+			tailH = irPool.emplace<CTrueIR::CContributorSum>();
+			if (auto* const tail=irPool.deref(tailH); tail)
+				tail->product = weightedContribH;
+			else
+			{
+				args.logger.log("Couldn't allocate a `CTrueIR::CContributorSum` node",ELL_ERROR);
+				return (headH=errorRetval);
+			}
+			// append it
+			if (oldTail)
+				oldTail->rest = tailH;
+			else
+				headH = tailH;
 		}
 		else
 		{

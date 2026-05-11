@@ -636,7 +636,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					if (getKnotCount()>1)
 					{
 						const ESemantics semantics = getSemantics();
-						if (semantics!=ESemantics::NoneUndefined)
+						if (semantics==ESemantics::NoneUndefined)
 							return false;
 						hasher << semantics;
 					}
@@ -832,6 +832,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline bool operator==(const SBasicNodes& other) const = default;
 
 				typed_pointer_type<const CContributorSum> blackHoleBxDF = {};
+				typed_pointer_type<const CSpectralVariableFactor> scalarNegation = {};
 				// these are never meant to be hashed and inserted into `m_uniqueNodes`
 				typed_pointer_type<const CContributorSum> errorBxDF = {};
 				typed_pointer_type<const COrientedLayer> errorLayer = {};
