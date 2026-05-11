@@ -87,7 +87,7 @@ auto compile = handler->compileDirectlyToPTX(
     std::move(cudaSource),
     "kernel.cu",
     cudaDevice->geDefaultCompileOptions(),
-    log
+    &log
 );
 ```
 

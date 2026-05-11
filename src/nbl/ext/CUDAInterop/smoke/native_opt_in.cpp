@@ -105,7 +105,7 @@ bool cudaFp16HeaderCompileProbe(CCUDAHandler& handler)
 		std::string(Source),
 		"cuda_fp16_discovery_probe.cu",
 		{nullptr,nullptr},
-		log,
+		&log,
 		0,
 		nullptr,
 		nullptr

@@ -90,7 +90,7 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 		SPTXResult getPTX(cuda_interop::SNVRTCProgram prog) const;
 		SPTXResult compileDirectlyToPTX(
 			std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-			std::string& log, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
+			std::string* log=nullptr, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr
 		);
 
 		inline core::SRange<system::IFile* const> getSTDHeaders()

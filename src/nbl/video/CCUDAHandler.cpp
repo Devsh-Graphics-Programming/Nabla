@@ -1192,9 +1192,10 @@ CCUDAHandler::SPTXResult CCUDAHandler::getPTX(cuda_interop::SNVRTCProgram prog) 
 	return {std::move(ptx),nvrtc.pnvrtcGetPTX(nativeProgram,ptxPtr)};
 }
 
-static CCUDAHandler::SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, cuda_interop::SNVRTCResult result, cuda_interop::SNVRTCProgram program, core::SRange<const char* const> nvrtcOptions, std::string& log)
+static CCUDAHandler::SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler, cuda_interop::SNVRTCResult result, cuda_interop::SNVRTCProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
 {
-	log.clear();
+	if (log)
+		log->clear();
 	const nvrtcResult nativeResult = result;
 	if (nativeResult!=NVRTC_SUCCESS)
 		return {nullptr,result};
@@ -1210,7 +1211,8 @@ static CCUDAHandler::SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler,
 	const auto* optionsBegin = options.empty() ? nullptr:options.data();
 	const auto* optionsEnd = options.empty() ? nullptr:optionsBegin+options.size();
 	result = handler.compileProgram(program,{optionsBegin,optionsEnd});
-	handler.getProgramLog(program,log);
+	if (log)
+		handler.getProgramLog(program,*log);
 	if (static_cast<nvrtcResult>(result)!=NVRTC_SUCCESS)
 		return {nullptr,result};
 
@@ -1219,7 +1221,7 @@ static CCUDAHandler::SPTXResult compileDirectlyToPTX_impl(CCUDAHandler& handler,
 
 CCUDAHandler::SPTXResult CCUDAHandler::compileDirectlyToPTX(
 	std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
-	std::string& log, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+	std::string* log, const int headerCount, const char* const* headerContents, const char* const* includeNames)
 {
 	cuda_interop::SNVRTCProgram program = {};
 	cuda_interop::SNVRTCResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
