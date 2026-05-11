@@ -229,6 +229,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return hasher.operator core::blake3_hash_t();
 				}
 
+				virtual inline std::string_view getChildName_impl(const uint8_t ix) const { return ""; }
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 
 			protected:
@@ -359,6 +360,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline EFinalType getFinalType() const override {return EFinalType::CWeightedContributor;}
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CWeightedContributor);}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? "factor" : "contributor"; }
 
 
 				typed_pointer_type<const IContributor> contributor = {};
@@ -397,7 +399,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline EFinalType getFinalType() const override {return EFinalType::CContributorSum;}
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CContributorSum);}
-
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? "rest" : "product"; }
 
 				// the product is ...
 				typed_pointer_type<const CWeightedContributor> product = {};
@@ -427,6 +429,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline EFinalType getFinalType() const override {return EFinalType::CCorellatedTransmission;}
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? "brdfBottom" : "btdf"; }
 
 				// you can set the children later
 				inline CCorellatedTransmission() = default;
