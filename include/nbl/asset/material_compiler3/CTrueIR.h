@@ -248,6 +248,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 #define HASH_OPTIONALS_HASH(HANDLE) if (HANDLE) {HASH_REQUIREDS_HASH(HANDLE);} else {hasher << core::blake3_hash_t::EmptyInput();}
 
+				virtual _typed_pointer_type<INode> copy(CTrueIR* ir) const = 0;
+#define COPY_DEFAULT_IMPL inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final \
+				{ \
+					return CNodePool::copyNode<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(this,ir); \
+				}
+
 				// Each node is final and immutable, has a precomputed hash for the whole subtree beneath it.
 				// Debug info does not form part of the hash, so can get wildly replaced.
 				core::blake3_hash_t hash = core::blake3_hash_t::EmptyInput();
@@ -341,6 +347,15 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return true;
 				}
 
+				inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final
+				{
+					auto& pool = ir->getObjectPool();
+					const auto copyH = pool.emplace<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(getState());
+					if (auto* const copy = pool.deref(copyH); copyH)
+						*copy = *this;
+					return copyH;
+				}
+
 				typed_pointer_type<const IFactor> child[1] = {{}};
 		};
 		// Note that this is not a root node, its a flipped leaf!
@@ -366,6 +381,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const IContributor> contributor = {};
 				// if null then assumed to be 1
 				typed_pointer_type<const IFactor> factor = {};
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 		// One BRDF or BTDF component of a layer is represented as
 		// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
@@ -405,6 +423,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const CWeightedContributor> product = {};
 				// the rest node is ...
 				_typed_pointer_type<const CContributorSum> rest = {};
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 
 		// For codegen, we can compute total uncorrelated layering by convolving every `h_{ij}(w_i,w_o) l_i(w_i,w_o)` term in the layer above with layer below
@@ -442,6 +463,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				_typed_pointer_type<const COrientedLayer> coated = {};
 				// optional, indicates a "sibling" transmission thats next to this one
 				_typed_pointer_type<const CCorellatedTransmission> next = {};
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 		// The oriented layer is a layer with already all the Etas reciprocated, etc.
 		class COrientedLayer final : public obj_pool_type::INonTrivial, public INode
@@ -465,6 +489,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const CContributorSum> brdfTop = {};
 				// this node must be non-null until the last layer
 				typed_pointer_type<const CCorellatedTransmission> firstTransmission = {};
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 		//
 		class IFactorLeaf : public IFactor
@@ -653,6 +680,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline uint8_t getSpectralBins() const override final {return getKnotCount();}
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
+
+		    protected:
+				inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final
+				{
+					return static_cast<const CSpectralVariableFactor*>(this)->copy(ir->getObjectPool());
+				}
 		};
 		using CSpectralVariableFactor = CSpectralVariable<ISpectralVariableFactor>;
 		
@@ -700,6 +733,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 
 		// To use a bump map, the Material needs to be provided UVs (which can or can not have associated tangents and smooth normals), but that's the responsibility of backend.
@@ -755,6 +791,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
 
 				inline CDeltaTransmission() = default;
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 		class IBxDFWithNDF : public IBxDF
 		{
@@ -786,6 +825,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline COrenNayar() = default;
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 		class CCookTorrance final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
 		{
@@ -819,6 +861,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
 				// BRDFs and BTDFs components into separate expressions, and also importance sample much better. 
 				typed_pointer_type<const CSpectralVariableFactor> orientedRealEta = {};
+
+		    protected:
+			    COPY_DEFAULT_IMPL
 		};
 		//! Parameter Nodes
 		//! Basic factor nodes
@@ -965,6 +1010,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			}
 			return true;
 		}
+
+		uint32_t deepCopy(typed_pointer_type<const INode>* out, const std::span<const typed_pointer_type<const INode>> orig, const CTrueIR* srcIR=nullptr);
 		
 		// TODO: Optimization passes on the IR
 		// It is the backend's job to handle:
