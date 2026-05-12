@@ -306,11 +306,9 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 		auto copy = substitutions[o];
 		const auto* const node = dstPool.deref(copy);
 		if (!node) // this is invalid
-		{
 			invalidCount++;
-			continue;
-		}
-		*copies = copy;
+		else
+			*copies = copy;
 		copies++;
 	}
 	return invalidCount;
