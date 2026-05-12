@@ -67,7 +67,7 @@ class NBL_API2 IDeviceMemoryAllocator
 					ret.memoryTypeIndex = dereference();
 					ret.dedication = dedication;
 					ret.externalHandleType = m_handleType;
-					ret.externalHandle = external_handle;
+					ret.importHandle = external_handle;
 					return ret;
 				}
 		

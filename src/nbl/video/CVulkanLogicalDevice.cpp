@@ -204,7 +204,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     VkImportMemoryFdInfoKHR importInfo = {
         .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
         .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
-        .fd = info.externalHandle,
+        .fd = info.importHandle,
     };
 #endif
 
@@ -221,9 +221,9 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     external_handle_t externalHandle = ExternalHandleNull;
     if (info.externalHandleType)
     {
-        if (info.externalHandle) //importing
+        if (info.importHandle) //importing
         {
-            externalHandle = DuplicateExternalHandle(info.externalHandle);
+            externalHandle = DuplicateExternalHandle(info.importHandle);
 #ifdef _WIN32
             importInfo.handle = externalHandle;
 #else
@@ -266,7 +266,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     if (vk_res!=VK_SUCCESS)
         return {};
 
-    const bool exported = info.externalHandleType && !info.externalHandle;
+    const bool exported = info.externalHandleType && !info.importHandle;
 
     if (exported)
     {

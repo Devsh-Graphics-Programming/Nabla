@@ -239,7 +239,7 @@ core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(co
 
 	if (!handleType) return nullptr;
 
-	const auto externalHandle = mem->getExternalHandle();
+	const auto externalHandle = mem->getExportHandle();
 
 	CUDA_EXTERNAL_MEMORY_HANDLE_DESC extMemDesc = {};
 #ifdef _WIN32
@@ -274,10 +274,10 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32,
-		.handle = {.win32 = {.handle = sema->getExternalHandle() }},
+		.handle = {.win32 = {.handle = sema->getExportHandle() }},
 #else
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD,
-		.handle = {.fd = sema->getExternalHandle()}
+		.handle = {.fd = sema->getExportHandle()}
 #endif
 	};
 

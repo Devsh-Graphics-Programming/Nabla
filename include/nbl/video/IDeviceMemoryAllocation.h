@@ -175,9 +175,10 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::EMAF_NONE;
             // Handle Type for external resources
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
-            //! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
-            //! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
-            external_handle_t externalHandle = 0;
+            //! Imports the given handle  if importHandle != nullptr && externalHandleType != EHT_NONE
+            //! Creates exportable memory if importHandle == nullptr && externalHandleType != EHT_NONE
+            // Note:: Closing importHandle is not the responsibility of this class
+            external_handle_t importHandle = 0;
         };
 
         struct SCreationParams: SInfo
@@ -188,7 +189,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         inline const SCreationParams& getCreationParams() const { return m_params; }
 
-        virtual external_handle_t getExternalHandle() const = 0;
+        virtual external_handle_t getExportHandle() const = 0;
 
     protected:
 

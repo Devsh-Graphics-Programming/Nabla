@@ -23,9 +23,12 @@ class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 
         inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
 
-        inline external_handle_t getExternalHandle() const override
+        inline external_handle_t getExportHandle() const override
         {
-          return m_externalHandle;
+          // Do not return duplicated importHandle
+          if (m_params.importHandle == nullptr)
+            return m_externalHandle;
+          return nullptr;
         }
 
     private:
@@ -36,6 +39,9 @@ class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 
         core::smart_refctd_ptr<const CVulkanLogicalDevice> m_vulkanDevice;
         const VkDeviceMemory m_deviceMemoryHandle;
+
+        // Can store either duplicated importHandle or exportHandle.
+        // This handle will be closed when destructor is called, unlike importHandle in SCreationParams.
         const external_handle_t m_externalHandle;
 };
 

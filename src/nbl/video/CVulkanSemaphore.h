@@ -24,12 +24,16 @@ class CVulkanSemaphore final : public ISemaphore
     
 	    inline const void* getNativeHandle() const override {return &m_semaphore;}
         VkSemaphore getInternalObject() const {return m_semaphore;}
-        external_handle_t getExternalHandle() const override { return m_externalHandle; }
+        external_handle_t getExportHandle() const override { return m_externalHandle; }
 
         void setObjectDebugName(const char* label) const override;
 
     private:
         const VkSemaphore m_semaphore;
+
+        // Can store either duplicated importHandle or exportHandle.
+        // This handle will be closed when destructor is called, unlike importHandle in SCreationParams.
+        // For now, it only store exportHandle, since we haven't support importing external semaphore yet
         const external_handle_t m_externalHandle;
 };
 
