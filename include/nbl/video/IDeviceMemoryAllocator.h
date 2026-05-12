@@ -45,12 +45,10 @@ class NBL_API2 IDeviceMemoryAllocator
 			public:
 				IMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
 					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
-					external_handle_t handle) : 
+					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) : 
 					m_allocateFlags(static_cast<uint32_t>(allocateFlags.value)), 
 					m_reqs(reqs), 
-					m_handleType(handleType),
-					m_handle(handle)
+					m_handleType(handleType)
 				{}
 
 				static inline uint32_t end() {return 32u;}
@@ -61,7 +59,7 @@ class NBL_API2 IDeviceMemoryAllocator
 					return *this;
 				}
 
-				inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication)
+				inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication, external_handle_t external_handle)
 				{
 					SAllocateInfo ret;
 					ret.allocationSize = m_reqs.size;
@@ -69,7 +67,7 @@ class NBL_API2 IDeviceMemoryAllocator
 					ret.memoryTypeIndex = dereference();
 					ret.dedication = dedication;
 					ret.externalHandleType = m_handleType;
-					ret.externalHandle = m_handle;
+					ret.externalHandle = external_handle;
 					return ret;
 				}
 		
@@ -83,7 +81,6 @@ class NBL_API2 IDeviceMemoryAllocator
 				IDeviceMemoryBacked::SDeviceMemoryRequirements m_reqs;
 				uint32_t m_allocateFlags;
 				IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE m_handleType;
-				external_handle_t m_handle;
 		};
 
 		//! DefaultMemoryTypeIterator will iterate through set bits of memoryTypeBits from LSB to MSB
@@ -93,10 +90,9 @@ class NBL_API2 IDeviceMemoryAllocator
 				DefaultMemoryTypeIterator(
 					const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
 					core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType,
-					external_handle_t handle
+					IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType
 				) : 
-				IMemoryTypeIterator(reqs, allocateFlags, handleType, handle)
+				IMemoryTypeIterator(reqs, allocateFlags, handleType)
 				{
 					currentIndex = hlsl::findLSB(m_reqs.memoryTypeBits);
 				}
@@ -127,9 +123,9 @@ class NBL_API2 IDeviceMemoryAllocator
 			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE,
 			external_handle_t externalHandle = {})
 		{
-			for (memory_type_iterator_t memTypeIt(reqs, allocateFlags, externalHandleType, externalHandle); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
+			for (memory_type_iterator_t memTypeIt(reqs, allocateFlags, externalHandleType); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
 			{
-				SAllocateInfo allocateInfo = memTypeIt.operator()(dedication);
+				SAllocateInfo allocateInfo = memTypeIt.operator()(dedication, externalHandle);
 				auto allocation = allocate(allocateInfo);
 				if (allocation.isValid())
 					return allocation;
