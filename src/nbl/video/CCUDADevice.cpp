@@ -32,6 +32,7 @@ CCUDADevice::CCUDADevice(
 	m_defaultCompileOptions.push_back(virtualArchCompileOption[m_virtualArchitecture]);
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
+	m_defaultCompileOptions.push_back("-IC:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2/include/");
 
   const auto& cu = m_handler->getCUDAFunctionTable();
 	
