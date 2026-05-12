@@ -11,7 +11,7 @@ namespace nbl::video
 
 class CCUDADevice;
 
-class NBL_API2 CCUDAImportedMemory : public core::IReferenceCounted
+class NBL_API2 CCUDAImportedMemory final : public core::IReferenceCounted
 {
 	public:
 		~CCUDAImportedMemory() override;

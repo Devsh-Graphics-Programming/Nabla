@@ -14,7 +14,7 @@ namespace nbl::video
 {
 class CCUDADevice;
 
-class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
+class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 {
 	public:
 		struct SCachedCreationParams

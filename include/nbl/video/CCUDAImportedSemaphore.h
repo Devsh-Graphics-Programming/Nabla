@@ -15,7 +15,7 @@ namespace nbl::video
 
 class CCUDADevice;
 
-class NBL_API2 CCUDAImportedSemaphore : public core::IReferenceCounted
+class NBL_API2 CCUDAImportedSemaphore final : public core::IReferenceCounted
 {
 	public:
 		~CCUDAImportedSemaphore() override;
