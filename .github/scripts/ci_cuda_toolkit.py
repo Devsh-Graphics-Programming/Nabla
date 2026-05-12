@@ -30,11 +30,15 @@ def major_minor(version: str) -> str:
     return f"{major}.{minor}"
 
 
+def cache_base() -> Path:
+    base = os.environ.get("CUDA_CACHE_BASE", "").strip()
+    if not base:
+        raise SystemExit("CUDA_CACHE_BASE is not set.")
+    return Path(base)
+
+
 def cache_root(version: str) -> str:
-    mm = major_minor(version)
-    if platform.system() == "Windows":
-        return rf"C:\nabla-ci\cuda\v{mm}"
-    return f"/opt/nabla-ci/cuda/v{mm}"
+    return str(cache_base() / f"v{major_minor(version)}")
 
 
 def cache_key(version: str) -> str:

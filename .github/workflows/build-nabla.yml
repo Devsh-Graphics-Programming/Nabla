@@ -11,7 +11,8 @@ permissions:
 
 env:
   CUDA_VERSION: '13.2.1'
-  CUDA_CONTAINER_ROOT: C:\cuda
+  CUDA_CACHE_BASE: 'C:\nabla-ci\cuda'
+  CUDA_CONTAINER_ROOT: 'C:\cuda'
 
 concurrency:
   group: push-lock-${{ github.ref }}
