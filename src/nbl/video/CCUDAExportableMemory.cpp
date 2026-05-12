@@ -60,7 +60,7 @@ CCUDAExportableMemory::~CCUDAExportableMemory()
 
 	m_device->getHandler()->defaultHandleResult(cu.pcuMemAddressFree(m_native->ptr, m_params.granularSize));
 
-	if (!CloseExternalHandle(m_params.externalHandle))
+	if (!system::CloseExternalHandle(m_params.externalHandle))
 		m_device->getHandler()->getLogger().log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
 
 }

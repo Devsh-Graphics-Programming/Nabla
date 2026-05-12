@@ -15,7 +15,7 @@ class ILogicalDevice;
 class CVulkanSemaphore final : public ISemaphore
 {
     public:
-        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, SCreationParams&& creationParams, const VkSemaphore semaphore, const external_handle_t externalHandle)
+        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, SCreationParams&& creationParams, const VkSemaphore semaphore, const system::external_handle_t externalHandle)
             : ISemaphore(std::move(_vkdev), std::move(creationParams)), m_semaphore(semaphore), m_externalHandle(externalHandle) {}
         ~CVulkanSemaphore();
 
@@ -24,7 +24,7 @@ class CVulkanSemaphore final : public ISemaphore
     
 	    inline const void* getNativeHandle() const override {return &m_semaphore;}
         VkSemaphore getInternalObject() const {return m_semaphore;}
-        external_handle_t getExportHandle() const override { return m_externalHandle; }
+        system::external_handle_t getExportHandle() const override { return m_externalHandle; }
 
         void setObjectDebugName(const char* label) const override;
 
@@ -33,7 +33,7 @@ class CVulkanSemaphore final : public ISemaphore
 
         // Can store either duplicated importHandle or exportHandle.
         // For now, it only store exportHandle, since we haven't support importing external semaphore yet
-        const external_handle_t m_externalHandle;
+        const system::external_handle_t m_externalHandle;
 };
 
 }

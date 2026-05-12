@@ -80,7 +80,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     if (!m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         return nullptr;
 
-    external_handle_t externalHandle = external_handle_t{};
+    system::external_handle_t externalHandle = system::ExternalHandleNull;
     const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes.value);
     if (handleType != 0)
     {
@@ -218,12 +218,12 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     
     const void** pNext = &vk_allocateFlagsInfo.pNext;
 
-    external_handle_t externalHandle = ExternalHandleNull;
+    system::external_handle_t externalHandle = system::ExternalHandleNull;
     if (info.externalHandleType)
     {
         if (info.importHandle) //importing
         {
-            externalHandle = DuplicateExternalHandle(info.importHandle);
+            externalHandle = system::DuplicateExternalHandle(info.importHandle);
 #ifdef _WIN32
             importInfo.handle = externalHandle;
 #else

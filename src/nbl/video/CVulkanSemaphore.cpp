@@ -12,7 +12,7 @@ CVulkanSemaphore::~CVulkanSemaphore()
   vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
 	if (m_creationParams.externalHandleTypes != EHT_NONE)
 	{
-		CloseExternalHandle(m_externalHandle);
+		system::CloseExternalHandle(m_externalHandle);
 	}
 }
 

@@ -91,15 +91,19 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         E_API_TYPE getAPIType() const;
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
+        [[deprecated]]
         inline bool isDedicated() const {return m_params.dedicated;}
 
         //! Returns the size of the memory allocation
+        [[deprecated]]
         inline size_t getAllocationSize() const {return m_params.allocationSize;}
 
         //!
+        [[deprecated]]
         inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const { return m_params.allocateFlags; }
 
         //!
+        [[deprecated]]
         inline core::bitflag<E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlags() const { return m_params.memoryPropertyFlags; }
 
         //! Utility function, tells whether the allocation can be mapped (whether mapMemory will ever return anything other than nullptr)
@@ -178,7 +182,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             //! Imports the given handle  if importHandle != nullptr && externalHandleType != EHT_NONE
             //! Creates exportable memory if importHandle == nullptr && externalHandleType != EHT_NONE
             // Note:: Closing importHandle is not the responsibility of this class
-            external_handle_t importHandle = 0;
+            system::external_handle_t importHandle = 0;
         };
 
         struct SCreationParams: SInfo
@@ -189,7 +193,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         inline const SCreationParams& getCreationParams() const { return m_params; }
 
-        virtual external_handle_t getExportHandle() const = 0;
+        virtual system::external_handle_t getExportHandle() const = 0;
 
     protected:
 

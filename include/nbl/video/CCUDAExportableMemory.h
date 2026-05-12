@@ -20,7 +20,7 @@ class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 		struct SCachedCreationParams
 		{
 			size_t granularSize;
-			external_handle_t externalHandle;
+			system::external_handle_t externalHandle;
 			bool deviceLocal;
 		};
 

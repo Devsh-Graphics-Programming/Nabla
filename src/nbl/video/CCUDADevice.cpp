@@ -213,7 +213,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 
 		handler->defaultHandleResult(cu.pcuMemRelease(mem));
 
-		if (!CloseExternalHandle(params.externalHandle))
+		if (!system::CloseExternalHandle(params.externalHandle))
 			m_logger.log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
 
 		return nullptr;
@@ -224,7 +224,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 		handler->defaultHandleResult(err);
 		handler->defaultHandleResult(cu.pcuMemUnmap(nativeState->ptr, params.granularSize));
 		handler->defaultHandleResult(cu.pcuMemAddressFree(nativeState->ptr, params.granularSize));
-		if (!CloseExternalHandle(params.externalHandle))
+		if (!system::CloseExternalHandle(params.externalHandle))
 			m_logger.log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
 		return nullptr;
 	}

@@ -26,7 +26,7 @@ class NBL_API2 IDeviceMemoryAllocator
 			IDeviceMemoryBacked* dedication = nullptr;
 			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
 			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
-			external_handle_t externalHandle = ExternalHandleNull;
+			system::external_handle_t externalHandle = system::ExternalHandleNull;
 		};
 
 		struct SAllocation
@@ -66,7 +66,7 @@ class NBL_API2 IDeviceMemoryAllocator
 					return *this;
 				}
 
-				inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication, external_handle_t external_handle)
+				inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication, system::external_handle_t external_handle)
 				{
 					SAllocateInfo ret;
 					ret.allocationSize = m_reqs.size;
