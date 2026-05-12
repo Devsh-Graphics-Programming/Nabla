@@ -108,7 +108,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
-                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                auto deviceMemAllocation = device->allocate(reqs, { buffer.get(), allocateFlags });
                                 
                 if (!deviceMemAllocation.isValid())
                 {
@@ -143,7 +143,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
-                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                auto deviceMemAllocation = device->allocate(reqs, { buffer.get(), allocateFlags });
                 
                 if (!deviceMemAllocation.isValid())
                 {

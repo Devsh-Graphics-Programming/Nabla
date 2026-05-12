@@ -2320,7 +2320,7 @@ class MetaDeviceMemoryAllocator final
 			if (memReqs.requiresDedicatedAllocation)
 			{
 				// allocate and bind right away
-				auto allocation = m_allocator->allocate(memReqs,gpuObj);
+				auto allocation = m_allocator->allocate(memReqs, { gpuObj });
 				if (!allocation.isValid())
 				{
 					m_logger.log("Failed to allocate and bind dedicated memory for %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());

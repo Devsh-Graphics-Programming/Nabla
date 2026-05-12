@@ -17,9 +17,16 @@ class NBL_API2 IDeviceMemoryAllocator
 
 		struct SAllocateInfo : IDeviceMemoryAllocation::SInfo
 		{
-			size_t memoryTypeIndex = 0u;
 			IDeviceMemoryBacked* dedication = nullptr; // if you make the info have a `dedication` the memory will be bound right away, also it will use VK_KHR_dedicated_allocation on vulkan
 			// size_t opaqueCaptureAddress = 0u; Note that this mechanism is intended only to support capture/replay tools, and is not recommended for use in other applications.
+			uint8_t memoryTypeIndex = 0u;
+		};
+
+		struct SAllocateParams {
+			IDeviceMemoryBacked* dedication = nullptr;
+			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
+			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
+			external_handle_t externalHandle = ExternalHandleNull;
 		};
 
 		struct SAllocation
@@ -116,16 +123,14 @@ class NBL_API2 IDeviceMemoryAllocator
 		};
 
 		template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
+		// TODO(kevinyu) : Fix all example_tests if this api change to use SAllocateParams is approved
 		inline SAllocation allocate(
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, 
-			IDeviceMemoryBacked* dedication = nullptr,
-			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
-			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE,
-			external_handle_t externalHandle = {})
+			const SAllocateParams& params)
 		{
-			for (memory_type_iterator_t memTypeIt(reqs, allocateFlags, externalHandleType); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
+			for (memory_type_iterator_t memTypeIt(reqs, params.allocateFlags, params.externalHandleType); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
 			{
-				SAllocateInfo allocateInfo = memTypeIt.operator()(dedication, externalHandle);
+				SAllocateInfo allocateInfo = memTypeIt.operator()(params.dedication, params.externalHandle);
 				auto allocation = allocate(allocateInfo);
 				if (allocation.isValid())
 					return allocation;

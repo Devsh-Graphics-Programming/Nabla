@@ -44,10 +44,12 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 	req.requiresDedicatedAllocation = nullptr != dedication;
 
 	return device->allocate(req, 
-		dedication, 
-		IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE, 
-		CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE, 
-		m_params.externalHandle).memory;
+		{ 
+		  dedication,
+		  IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
+		  CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE,
+		  m_params.externalHandle 
+		}).memory;
 }
 
 CCUDAExportableMemory::~CCUDAExportableMemory()
