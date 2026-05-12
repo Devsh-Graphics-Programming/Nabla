@@ -11,6 +11,7 @@ permissions:
 
 env:
   CUDA_VERSION: '13.2.1'
+  CUDA_CONTAINER_ROOT: C:\cuda
 
 concurrency:
   group: push-lock-${{ github.ref }}
@@ -72,10 +73,7 @@ jobs:
         with:
           path: ${{ steps.cuda.outputs.cache_root }}
           key: ${{ steps.cuda.outputs.cache_key }}
-
-      - name: Install CUDA Toolkit
-        if: steps.cache-cuda.outputs.cache-hit != 'true'
-        run: python .github/scripts/ci_cuda_toolkit.py install
+          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
 
       - name: Verify CUDA Toolkit
         run: python .github/scripts/ci_cuda_toolkit.py verify
@@ -226,6 +224,7 @@ jobs:
         with:
           path: ${{ steps.cuda.outputs.cache_root }}
           key: ${{ steps.cuda.outputs.cache_key }}
+          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
 
       - name: Verify CUDA Toolkit
         run: python .github/scripts/ci_cuda_toolkit.py verify
@@ -255,11 +254,10 @@ jobs:
             --env-file .\docker\ci-windows.env `
             --env-file .\docker\ninja.env `
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
-            --env "CUDA_PATH=${{ steps.cuda.outputs.container_root }}" `
-            --env "${{ steps.cuda.outputs.version_env }}=${{ steps.cuda.outputs.container_root }}" `
+            --env "CUDA_PATH=${{ env.CUDA_CONTAINER_ROOT }}" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
-            -v "${{ steps.cuda.outputs.cache_root }}:${{ steps.cuda.outputs.container_root }}" `
+            -v "${{ steps.cuda.outputs.cache_root }}:${{ env.CUDA_CONTAINER_ROOT }}" `
             -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
             -w "${{ env.mount }}" `
             "${{ env.image }}:${{ matrix.tag }}" `
@@ -281,7 +279,7 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
-              -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.container_root_cmake }} `
+              -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ env.CUDA_CONTAINER_ROOT }} `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
@@ -718,6 +716,7 @@ jobs:
         with:
           path: ${{ steps.cuda.outputs.cache_root }}
           key: ${{ steps.cuda.outputs.cache_key }}
+          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
 
       - name: Verify CUDA Toolkit
         run: python .github/scripts/ci_cuda_toolkit.py verify
