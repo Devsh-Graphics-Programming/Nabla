@@ -4,62 +4,43 @@
 #ifndef _NBL_VIDEO_C_CUDA_EXPORTABLE_MEMORY_H_
 #define _NBL_VIDEO_C_CUDA_EXPORTABLE_MEMORY_H_
 
+#include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
 
-#ifdef _NBL_COMPILE_WITH_CUDA_
-
-#include "cuda.h"
-#include "nvrtc.h"
-#if CUDA_VERSION < 9000
-  #error "Need CUDA 9.0 SDK or higher."
-#endif
-
-// useful includes in the future
-//#include "cudaEGL.h"
-//#include "cudaVDPAU.h"
+#include <memory>
+#include <utility>
 
 namespace nbl::video
 {
-
 class CCUDADevice;
 
 class NBL_API2 CCUDAExportableMemory : public core::IReferenceCounted
 {
-    public:
+	public:
+		struct SCachedCreationParams
+		{
+			size_t granularSize;
+			external_handle_t externalHandle;
+			bool deviceLocal;
+		};
 
-        struct SCreationParams
-        {
-            size_t            size;
-            uint32_t          alignment;
-            CUmemLocationType location;
-        };
+		~CCUDAExportableMemory() override;
 
-        struct SCachedCreationParams : SCreationParams
-        {
-            size_t granularSize;
-            CUdeviceptr ptr;
-            external_handle_t externalHandle;
-        };
+		cuda_interop::SCUdeviceptr getDeviceptr() const;
+		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
-        CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
-            : m_device(std::move(device))
-            , m_params(std::move(params))
-        {}
-        ~CCUDAExportableMemory() override;
+	private:
+		friend class CCUDADevice;
 
-        CUdeviceptr getDeviceptr() const { return m_params.ptr;  }
+		struct SNativeState;
+		CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
+		static core::smart_refctd_ptr<CCUDAExportableMemory> create(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
 
-        const SCreationParams& getCreationParams() const { return m_params; }
-
-        core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
-
-    private:
-
-        core::smart_refctd_ptr<CCUDADevice> m_device;
-        SCachedCreationParams m_params;
+		core::smart_refctd_ptr<CCUDADevice> m_device;
+		SCachedCreationParams m_params;
+		std::unique_ptr<SNativeState> m_native;
 };
 
 }
-
-#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

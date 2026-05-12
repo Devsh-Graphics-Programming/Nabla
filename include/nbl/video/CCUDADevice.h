@@ -4,24 +4,15 @@
 #ifndef _NBL_VIDEO_C_CUDA_DEVICE_H_
 #define _NBL_VIDEO_C_CUDA_DEVICE_H_
 
-
-#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
 #include "nbl/video/CCUDAExportableMemory.h"
 #include "nbl/video/CCUDAImportedMemory.h"
 #include "nbl/video/CCUDAImportedSemaphore.h"
 
-
-#ifdef _NBL_COMPILE_WITH_CUDA_
-
-#include "cuda.h"
-#include "nvrtc.h"
-#if CUDA_VERSION < 9000
-	#error "Need CUDA 9.0 SDK or higher."
-#endif
-
-// useful includes in the future
-//#include "cudaEGL.h"
-//#include "cudaVDPAU.h"
+#include <array>
+#include <memory>
+#include <vector>
 
 namespace nbl::video
 {
@@ -29,13 +20,11 @@ class CCUDAHandler;
 
 class NBL_API2 CCUDADevice : public core::IReferenceCounted
 {
-  public:
+	public:
 #ifdef _WIN32
 		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
-		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_WIN32;
 #else
 		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryAllocation::EHT_OPAQUE_FD;
-		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 #endif
 
 		enum E_VIRTUAL_ARCHITECTURE
@@ -56,66 +45,57 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 			EVA_80,
 			EVA_COUNT
 		};
-		static inline constexpr const char* virtualArchCompileOption[] = {
-			"-arch=compute_30",
-			"-arch=compute_32",
-			"-arch=compute_35",
-			"-arch=compute_37",
-			"-arch=compute_50",
-			"-arch=compute_52",
-			"-arch=compute_53",
-			"-arch=compute_60",
-			"-arch=compute_61",
-			"-arch=compute_62",
-			"-arch=compute_70",
-			"-arch=compute_72",
-			"-arch=compute_75",
-			"-arch=compute_80"
-		};
-		inline E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() {return m_virtualArchitecture;}
+		E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() const;
 
-		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, CUdevice device, core::smart_refctd_ptr<CCUDAHandler>&& handler);
+		~CCUDADevice() override;
 
-		~CCUDADevice();
+		core::SRange<const char* const> geDefaultCompileOptions() const;
 
-		inline core::SRange<const char* const> geDefaultCompileOptions() const
+		const CCUDAHandler* getHandler() const;
+		cuda_interop::SCUdevice getInternalObject() const;
+		cuda_interop::SCUcontext getContext() const;
+
+		struct SExportableMemoryCreationParams
 		{
-			return {m_defaultCompileOptions.data(),m_defaultCompileOptions.data()+m_defaultCompileOptions.size()};
+			size_t size;
+			uint32_t alignment;
+			uint32_t locationType;
+		};
+
+		inline size_t roundToGranularity(uint32_t locationType, size_t size) const
+		{
+			if (locationType>=m_allocationGranularity.size())
+				return 0u;
+			const auto granularity = m_allocationGranularity[locationType];
+			if (size==0u || granularity==0u)
+				return 0u;
+			return ((size - 1) / granularity + 1) * granularity;
 		}
 
-		CUdevice getInternalObject() const { return m_handle; }
-
-		const CCUDAHandler* getHandler() const { return m_handler.get();  }
-
-		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_physicalDevice->getProperties().deviceUUID, 16); }
-
-		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
-
-		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(CCUDAExportableMemory::SCreationParams&& inParams);
-
+		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(SExportableMemoryCreationParams&& params);
 		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
 
 		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);
 
 	private:
-		CUresult reserveAddressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory) const;
+		friend class CCUDAHandler;
 
-		static constexpr auto CudaMemoryLocationCount = 5;
+		static constexpr uint32_t AllocationGranularityLocationTypeCount = 5u;
+		struct SNativeState;
+		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
+		bool isValid() const;
 
-    const system::logger_opt_ptr m_logger;
+		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
-		IPhysicalDevice* const m_physicalDevice;
+		std::array<size_t,AllocationGranularityLocationTypeCount> m_allocationGranularity = {};
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
+		bool m_valid = false;
 
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;
-		CUdevice m_handle;
-		CUcontext m_context;
-		std::array<size_t, CudaMemoryLocationCount> m_allocationGranularity;
+		std::unique_ptr<SNativeState> m_native;
 };
 
 }
-
-#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

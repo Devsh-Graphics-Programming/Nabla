@@ -95,12 +95,8 @@ configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${
 file(GENERATE OUTPUT "${CONFIG_OUTPUT}" INPUT "${CONFIG_DIRECOTORY}/.int/BuildConfigOptions.h.conf")
 nbl_install_file_spec("${CONFIG_OUTPUT}" nbl/config)
 
-if (NBL_COMPILE_WITH_CUDA)
-	message(STATUS "Building with CUDA interop")
-	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
-	if (NBL_BUILD_OPTIX)
-		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
-	endif()
+if (NBL_BUILD_OPTIX)
+	set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
 endif()
 
 # => TODO: clean!
@@ -128,6 +124,15 @@ set(NBL_CORE_SOURCES
 	core/alloc/refctd_memory_resource.cpp
 	core/hash/blake.cpp
 )
+
+set(NBL_CUDA_INTEROP_SOURCES
+	video/CCUDADevice.cpp
+	video/CCUDAExportableMemory.cpp
+	video/CCUDAHandler.cpp
+	video/CCUDAImportedMemory.cpp
+	video/CCUDAImportedSemaphore.cpp
+)
+
 set(NBL_SYSTEM_SOURCES
 	system/DefaultFuncPtrLoader.cpp
 	system/IFileBase.cpp
@@ -291,12 +296,6 @@ set(NBL_VIDEO_SOURCES
 	video/CVulkanEvent.cpp
 	video/CSurfaceVulkan.cpp
 	
-# CUDA
-	video/CCUDAHandler.cpp
-	video/CCUDADevice.cpp
-	video/CCUDAImportedSemaphore.cpp
-	video/CCUDAExportableMemory.cpp
-	video/CCUDAImportedMemory.cpp
 )
 
 set(NBL_SCENE_SOURCES
@@ -315,6 +314,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
 	${NBL_META_SOURCES}
+	${NBL_CUDA_INTEROP_SOURCES}
 )
 
 if(MSVC)
@@ -426,7 +426,8 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
 if(NBL_COMPILE_WITH_CUDA)
-	target_compile_definitions(Nabla PUBLIC _NBL_COMPILE_WITH_CUDA_)
+	target_compile_definitions(Nabla PRIVATE _NBL_COMPILE_WITH_CUDA_)
+	target_include_directories(Nabla PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 set(INTERFACE_BUILD_DEFINITIONS
@@ -664,11 +665,6 @@ target_link_libraries(Nabla PRIVATE volk)
 # volk is part of public interface headers in Nabla
 target_compile_definitions(Nabla PUBLIC $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>)
 
-# CUDA
-if (NBL_COMPILE_WITH_CUDA)
-	list(APPEND PUBLIC_BUILD_INCLUDE_DIRS "${CUDAToolkit_INCLUDE_DIRS}")
-endif()
-
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 	# this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 	# -> TODO
@@ -781,8 +777,11 @@ if(TARGET ngfx)
 	)
 endif()
 
-# on MSVC it won't compile without this option!
-target_compile_options(Nabla PUBLIC $<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/bigobj>)
+# on MSVC it won't compile without these options!
+target_compile_options(Nabla PUBLIC
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/bigobj>
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Zc:preprocessor>
+)
 
 if(NBL_PCH)
 	target_precompile_headers(Nabla
@@ -793,10 +792,23 @@ if(NBL_PCH)
 	)
 endif()
 
-# extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
+
+if(DEFINED NBL_EXT_CUDA_INTEROP_LIB AND TARGET ${NBL_EXT_CUDA_INTEROP_LIB})
+	if(NBL_ENABLE_CONFIG_INSTALL AND NOT NBL_STATIC_BUILD)
+		install(TARGETS ${NBL_EXT_CUDA_INTEROP_LIB}
+			EXPORT NablaCUDAInteropExportTargets
+			COMPONENT Libraries
+		)
+		install(EXPORT NablaCUDAInteropExportTargets
+			NAMESPACE Nabla::
+			DESTINATION cmake
+			COMPONENT Libraries
+		)
+	endif()
+endif()
 
 if(TARGET ${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB})
 	set_target_properties(${NBL_EXT_FULL_SCREEN_TRIANGLE_LIB} PROPERTIES EXCLUDE_FROM_ALL OFF)
