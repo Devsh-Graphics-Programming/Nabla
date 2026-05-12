@@ -9,6 +9,9 @@ permissions:
   contents: read
   actions: read
 
+env:
+  CUDA_VERSION: '13.2.1'
+
 concurrency:
   group: push-lock-${{ github.ref }}
   cancel-in-progress: true
@@ -48,88 +51,34 @@ jobs:
           & $rgExe --version
 
   prepare-host-cuda:
-    name: Prepare host CUDA 13.2
+    name: Prepare host CUDA
     runs-on: windows-2025
 
-    env:
-      cudaVersion: '13.2.1'
-      cudaMajorMinor: '13.2'
-      cudaInstallRoot: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2
-      cudaCacheRoot: C:\nabla-ci\cuda\v13.2
-
     steps:
+      - name: Checkout CUDA CI helper
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: CUDA Toolkit paths
+        id: cuda
+        run: python .github/scripts/ci_cuda_toolkit.py outputs
+
       - name: Restore CUDA Toolkit
         id: cache-cuda
         uses: actions/cache@v5
         with:
-          path: ${{ env.cudaCacheRoot }}
-          key: cuda-toolkit-${{ env.cudaVersion }}-windows-2025-x64-choco-v1
+          path: ${{ steps.cuda.outputs.cache_root }}
+          key: ${{ steps.cuda.outputs.cache_key }}
 
       - name: Install CUDA Toolkit
         if: steps.cache-cuda.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          function Test-CudaToolkit {
-            param([string]$Root)
-
-            $nvcc = Join-Path $Root 'bin\nvcc.exe'
-            $cudaH = Join-Path $Root 'include\cuda.h'
-            $nvrtcH = Join-Path $Root 'include\nvrtc.h'
-            $fp16H = Join-Path $Root 'include\cuda_fp16.h'
-            $vectorTypesH = Join-Path $Root 'include\vector_types.h'
-            if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH) -or -not (Test-Path $fp16H) -or -not (Test-Path $vectorTypesH)) {
-              return $false
-            }
-
-            $version = & $nvcc --version 2>&1
-            return ($LASTEXITCODE -eq 0 -and ($version -match "release $env:cudaMajorMinor"))
-          }
-
-          if (Test-CudaToolkit $env:cudaCacheRoot) {
-            Write-Host "CUDA Toolkit $env:cudaMajorMinor already restored at $env:cudaCacheRoot"
-            return
-          }
-
-          choco install cuda `
-            --version $env:cudaVersion `
-            --yes `
-            --no-progress
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "CUDA Toolkit $env:cudaVersion installation failed."
-          }
-
-          if (-not (Test-CudaToolkit $env:cudaInstallRoot)) {
-            throw "CUDA Toolkit $env:cudaMajorMinor was not found at $env:cudaInstallRoot after installation."
-          }
-
-          New-Item -ItemType Directory -Force -Path $env:cudaCacheRoot | Out-Null
-          robocopy $env:cudaInstallRoot $env:cudaCacheRoot /MIR /R:2 /W:2 /NFL /NDL /NP
-          if ($LASTEXITCODE -gt 7) {
-            throw "Failed to mirror CUDA Toolkit into cache root. robocopy exit code: $LASTEXITCODE"
-          }
-          $global:LASTEXITCODE = 0
-
-          if (-not (Test-CudaToolkit $env:cudaCacheRoot)) {
-            throw "CUDA Toolkit $env:cudaMajorMinor was not found at $env:cudaCacheRoot after installation."
-          }
+        run: python .github/scripts/ci_cuda_toolkit.py install
 
       - name: Verify CUDA Toolkit
-        shell: pwsh
-        run: |
-          $nvcc = Join-Path $env:cudaCacheRoot 'bin\nvcc.exe'
-          $cudaH = Join-Path $env:cudaCacheRoot 'include\cuda.h'
-          $nvrtcH = Join-Path $env:cudaCacheRoot 'include\nvrtc.h'
-          $fp16H = Join-Path $env:cudaCacheRoot 'include\cuda_fp16.h'
-          $vectorTypesH = Join-Path $env:cudaCacheRoot 'include\vector_types.h'
-          if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH) -or -not (Test-Path $fp16H) -or -not (Test-Path $vectorTypesH)) {
-            throw "CUDA Toolkit cache is incomplete at $env:cudaCacheRoot."
-          }
-          $version = & $nvcc --version
-          if ($LASTEXITCODE -ne 0 -or -not ($version -match "release $env:cudaMajorMinor")) {
-            throw "Expected CUDA Toolkit $env:cudaMajorMinor. nvcc output: $version"
-          }
-          $version
+        run: python .github/scripts/ci_cuda_toolkit.py verify
 
   build-windows:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
@@ -143,9 +92,6 @@ jobs:
       mount: C:\mount\nabla
       binary: C:\mount\nabla\build-ct
       install: build-ct\install
-      cudaHostRoot: C:\nabla-ci\cuda\v13.2
-      cudaContainerRoot: C:\cuda\v13.2
-      cudaContainerRootCMake: C:/cuda/v13.2
 
     strategy:
       fail-fast: false
@@ -252,6 +198,10 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: CUDA Toolkit paths
+        id: cuda
+        run: python .github/scripts/ci_cuda_toolkit.py outputs
+
       - name: Restore ripgrep host tool
         id: cache-rg
         uses: actions/cache@v5
@@ -274,23 +224,11 @@ jobs:
         id: cache-cuda
         uses: actions/cache@v5
         with:
-          path: ${{ env.cudaHostRoot }}
-          key: cuda-toolkit-13.2.1-windows-2025-x64-choco-v1
+          path: ${{ steps.cuda.outputs.cache_root }}
+          key: ${{ steps.cuda.outputs.cache_key }}
 
       - name: Verify CUDA Toolkit
-        shell: pwsh
-        run: |
-          $nvcc = Join-Path '${{ env.cudaHostRoot }}' 'bin\nvcc.exe'
-          $cudaH = Join-Path '${{ env.cudaHostRoot }}' 'include\cuda.h'
-          $nvrtcH = Join-Path '${{ env.cudaHostRoot }}' 'include\nvrtc.h'
-          if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH)) {
-            throw "CUDA Toolkit 13.2 cache was not restored to ${{ env.cudaHostRoot }}."
-          }
-          $version = & $nvcc --version
-          if ($LASTEXITCODE -ne 0 -or -not ($version -match 'release 13.2')) {
-            throw "Expected CUDA Toolkit 13.2. nvcc output: $version"
-          }
-          $version
+        run: python .github/scripts/ci_cuda_toolkit.py verify
 
       - name: Pull Image
         run: |
@@ -317,11 +255,11 @@ jobs:
             --env-file .\docker\ci-windows.env `
             --env-file .\docker\ninja.env `
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
-            --env "CUDA_PATH=${{ env.cudaContainerRoot }}" `
-            --env "CUDA_PATH_V13_2=${{ env.cudaContainerRoot }}" `
+            --env "CUDA_PATH=${{ steps.cuda.outputs.container_root }}" `
+            --env "${{ steps.cuda.outputs.version_env }}=${{ steps.cuda.outputs.container_root }}" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
-            -v "${{ env.cudaHostRoot }}:${{ env.cudaContainerRoot }}" `
+            -v "${{ steps.cuda.outputs.cache_root }}:${{ steps.cuda.outputs.container_root }}" `
             -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
             -w "${{ env.mount }}" `
             "${{ env.image }}:${{ matrix.tag }}" `
@@ -343,7 +281,7 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
-              -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ env.cudaContainerRootCMake }} `
+              -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.container_root_cmake }} `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
@@ -745,8 +683,6 @@ jobs:
     name: Nabla / Smoke (${{ matrix.os }}, ${{ matrix.vendor }}-latest, ${{ matrix.config }})
     needs: build-windows
     runs-on: windows-2022
-    env:
-      cudaHostRoot: C:\nabla-ci\cuda\v13.2
     strategy:
       fail-fast: false
       matrix:
@@ -759,8 +695,13 @@ jobs:
         with:
           fetch-depth: 1
           sparse-checkout: |
+            .github/scripts
             smoke
             src/nbl/ext/CUDAInterop/smoke
+
+      - name: CUDA Toolkit paths
+        id: cuda
+        run: python .github/scripts/ci_cuda_toolkit.py outputs
 
       - name: Download VulkanSDK
         uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
@@ -775,23 +716,11 @@ jobs:
         id: cache-cuda
         uses: actions/cache@v5
         with:
-          path: ${{ env.cudaHostRoot }}
-          key: cuda-toolkit-13.2.1-windows-2025-x64-choco-v1
+          path: ${{ steps.cuda.outputs.cache_root }}
+          key: ${{ steps.cuda.outputs.cache_key }}
 
       - name: Verify CUDA Toolkit
-        shell: pwsh
-        run: |
-          $nvcc = Join-Path '${{ env.cudaHostRoot }}' 'bin\nvcc.exe'
-          $cudaH = Join-Path '${{ env.cudaHostRoot }}' 'include\cuda.h'
-          $nvrtcH = Join-Path '${{ env.cudaHostRoot }}' 'include\nvrtc.h'
-          if (-not (Test-Path $nvcc) -or -not (Test-Path $cudaH) -or -not (Test-Path $nvrtcH)) {
-            throw "CUDA Toolkit 13.2 cache was not restored to ${{ env.cudaHostRoot }}."
-          }
-          $version = & $nvcc --version
-          if ($LASTEXITCODE -ne 0 -or -not ($version -match 'release 13.2')) {
-            throw "Expected CUDA Toolkit 13.2. nvcc output: $version"
-          }
-          $version
+        run: python .github/scripts/ci_cuda_toolkit.py verify
 
       - name: Download Nabla install artifact
         uses: actions/download-artifact@v8
@@ -824,6 +753,6 @@ jobs:
             -B smoke/cuda-interop-smoke `
             -D "CMAKE_PREFIX_PATH=${{ github.workspace }}\smoke\build-ct\install\cmake" `
             -D "NBL_CUDA_INTEROP_SMOKE_WITH_NATIVE=ON" `
-            -D "Nabla_CUDA_TOOLKIT_ROOT=${{ env.cudaHostRoot }}"
+            -D "Nabla_CUDA_TOOLKIT_ROOT=${{ steps.cuda.outputs.cache_root }}"
 
           cmake --build smoke/cuda-interop-smoke --config ${{ matrix.config }}
