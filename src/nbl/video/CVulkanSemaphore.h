@@ -32,7 +32,6 @@ class CVulkanSemaphore final : public ISemaphore
         const VkSemaphore m_semaphore;
 
         // Can store either duplicated importHandle or exportHandle.
-        // This handle will be closed when destructor is called, unlike importHandle in SCreationParams.
         // For now, it only store exportHandle, since we haven't support importing external semaphore yet
         const external_handle_t m_externalHandle;
 };
