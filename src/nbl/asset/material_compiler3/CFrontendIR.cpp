@@ -807,9 +807,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					// shouldn't invalidate iterator, but underline our vector changes
 					pEntry = nullptr;
 					// push onto the irChain
-					const auto contributorH = static_cast<const IContributor*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get());
-					// TODO: recompute instead of compute hash
-					if (!contributorH || irPool.deref(contributorH)->computeHash(irPool)==core::blake3_hash_t{})
+					const auto contributorH = tmpIR->hashNCache(static_cast<const IContributor*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get()));
+					if (!contributorH)
 					{
 						args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
 						printSubtree(nodeH);
@@ -944,10 +943,10 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					// shouldn't invalidate iterator, but underline our vector changes
 					pEntry = nullptr;
 					//
-					const auto varH = static_cast<const CSpectralVariableExpr*>(node)->createIRNode(srcAST,tmpIR.get());
+					const auto varH = tmpIR->hashNCache(static_cast<const CSpectralVariableExpr*>(node)->createIRNode(srcAST,tmpIR.get()));
 					const auto* const var = irPool.deref(varH);
 					// no soft fail, the node wasn't null to begin with
-					if (!var || var->computeHash(irPool)==core::blake3_hash_t{})
+					if (!var)
 					{
 						args.logger.log("Failed to create the Spectral Variable.",ELL_ERROR);
 						printSubtree(nodeH);
@@ -1059,7 +1058,12 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 										{
 											for (uint8_t c=0; c<3; c++)
 												negation->setParameter(c,{.scale=bool((it->negate>>c)&0x1u) ? (-1.f):1.f});
-// TODO: !negation->recomputeHash
+										}
+										const auto uniqueH = tmpIR->hashNCache(negationH);
+										if (!uniqueH)
+										{
+											args.logger.log("Couldn't create a unique spectral negation node",ELL_ERROR);
+											return (headH=errorRetval);
 										}
 										factor->setChildHandle(i++,negationH);
 									}
@@ -1072,27 +1076,29 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							}
 							factor->setChildHandle(i++,itChain->factor.handle);
 						}
-// TODO: !factor-recomputeHash
 					}
-					else
+					const auto uniqueH = tmpIR->hashNCache(factorH);
+					if (!uniqueH)
 					{
-						args.logger.log("Couldn't allocate a `CTrueIR::CFactorCombiner` node",ELL_ERROR);
+						args.logger.log("Couldn't allocate or hash a `CTrueIR::CFactorCombiner` node",ELL_ERROR);
 						return (headH=errorRetval);
 					}
-					weightedContrib->factor = factorH;
+					weightedContrib->factor = uniqueH;
 				}
 			}
-			else
+			const auto uniqueWeightedH = tmpIR->hashNCache(weightedContribH);
+			if (!uniqueWeightedH)
 			{
-				args.logger.log("Couldn't allocate a `CTrueIR::CWeightedContributor` node",ELL_ERROR);
+				args.logger.log("Couldn't allocate or hash a `CTrueIR::CWeightedContributor` node",ELL_ERROR);
 				return (headH=errorRetval);
 			}
 			// we visited the leftmost subtrees first so this is the right order
 			auto* const oldTail = irPool.deref(tailH);
 			// allocate new tail and slap the mul chain onto it
 			tailH = irPool.emplace<CTrueIR::CContributorSum>();
+			// note that we hold off on hashing the tail node, cause its subject to change
 			if (auto* const tail=irPool.deref(tailH); tail)
-				tail->product = weightedContribH;
+				tail->product = uniqueWeightedH;
 			else
 			{
 				args.logger.log("Couldn't allocate a `CTrueIR::CContributorSum` node",ELL_ERROR);

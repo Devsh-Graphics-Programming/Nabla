@@ -237,20 +237,20 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline bool recomputeHash(const obj_pool_type& pool)
 				{
 					hash = computeHash(pool);
-					return hash!=core::blake3_hash_t{};
+					return hash!=core::blake3_hash_t::EmptyInput();
 				}
 				virtual bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const = 0;
 #define HASH_REQUIREDS_HASH(HANDLE) { \
-					if (const auto hash=pool.deref(HANDLE)->getHash(); hash==core::blake3_hash_t{}) \
+					if (const auto hash=pool.deref(HANDLE)->getHash(); hash==core::blake3_hash_t::EmptyInput()) \
 						return false; \
 					else \
 						hasher << hash; \
 				}
-#define HASH_OPTIONALS_HASH(HANDLE) if (HANDLE) {HASH_REQUIREDS_HASH(HANDLE);} else {hasher << core::blake3_hash_t{};}
+#define HASH_OPTIONALS_HASH(HANDLE) if (HANDLE) {HASH_REQUIREDS_HASH(HANDLE);} else {hasher << core::blake3_hash_t::EmptyInput();}
 
 				// Each node is final and immutable, has a precomputed hash for the whole subtree beneath it.
 				// Debug info does not form part of the hash, so can get wildly replaced.
-				core::blake3_hash_t hash;
+				core::blake3_hash_t hash = core::blake3_hash_t::EmptyInput();
 		};
 		//
 		template<typename T> requires std::is_base_of_v<INode,std::remove_const_t<T>>
@@ -842,7 +842,23 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				NBL_API2 SBasicNodes(CTrueIR* ir);
 		};
 		const SBasicNodes& getBasicNodes() const {return m_basicNodes;}
-
+		
+		//
+		template<typename T> requires std::is_base_of_v<INode,T>
+		inline typed_pointer_type<const T> hashNCache(const typed_pointer_type<T> origH)
+		{
+			auto* const orig = getObjectPool().deref(origH);
+			if (orig)
+			if (orig->getHash()!=core::blake3_hash_t::EmptyInput() || orig->recomputeHash(getObjectPool()))
+			{
+				auto& slot = m_uniqueNodes[orig->getHash()];
+				if (slot)
+					return CNodePool::obj_pool_type::block_allocator_type::_static_cast<const T>(slot);
+				slot = origH;
+				return origH;
+			}
+			return {};
+		}
 
 		// Each material comes down to this, this is the only struct we don't de-duplicate
 		struct SMaterial
@@ -1079,10 +1095,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
 		{
 			const INode* node = getObjectPool().deref(handle);
+			assert(node);
 			core::string retval = getNodeID(handle);
 			retval += " [label=\"";
 			retval += node->getTypeName();
-			// maybe also add hash?
+			retval += "\\n" + system::to_string(node->getHash());
 			// maybe label suffix?
 			retval += "\"]";
 			return retval;

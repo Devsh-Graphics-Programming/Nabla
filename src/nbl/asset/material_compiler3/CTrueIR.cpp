@@ -258,7 +258,7 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 			drainNodeStack();
 		};
 		pushNodeRoot(layerNode->brdfTop, "Top BRDF");
-		pushNodeRoot(layerNode->firstTransmission, "BTDF");
+		pushNodeRoot(layerNode->firstTransmission, "Corellated Trans");
 	}
 
 	// TODO: print image views
