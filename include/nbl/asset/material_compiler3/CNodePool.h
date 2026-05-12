@@ -118,6 +118,18 @@ class CNodePool : public core::IReferenceCounted
 	protected:
 		inline CNodePool(typename obj_pool_type::creation_params_type&& params) : m_composed(std::move(params)) {}
 
+		// does a shallow copy (no need to deref any of the children/deeper references), the pool itself must have a `deepCopy` method for that
+		template<typename T> requires std::is_copy_assignable_v<T>
+		static typed_pointer_type<T> copyNode(const T* src, CNodePool* dstPool)
+		{
+			assert(src);
+			auto& pool = dstPool->getObjectPool();
+			const auto copyH = pool.emplace<T>();
+			if (auto* const copy=pool.deref(copyH); copyH)
+				*copy = *src;
+			return copyH;
+		}
+
 		obj_pool_type m_composed;
 };
 
