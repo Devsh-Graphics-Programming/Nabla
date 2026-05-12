@@ -27,6 +27,20 @@ class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 		~CCUDAExportableMemory() override;
 
 		cuda_interop::SCUdeviceptr getDeviceptr() const;
+
+		/**
+		 * @brief Exports the CUDA memory as a Vulkan device memory allocation.
+		 * 
+		 * Creates an IDeviceMemoryAllocation object that references the underlying CUDA memory,
+		 * allowing it to be used within the Vulkan rendering pipeline while maintaining
+		 * interoperability with CUDA operations.
+		 * 
+		 * @param device The logical device that will own the exported memory allocation.
+		 * @param dedication Optional pointer to a device memory backed resource for dedicated allocation.
+		 *                   If provided, the memory will be dedicated to that specific resource and
+		 *                   automatically bound to it.
+		 * @return A smart pointer to the exported IDeviceMemoryAllocation, or nullptr on failure.
+		 */
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
 	private:
