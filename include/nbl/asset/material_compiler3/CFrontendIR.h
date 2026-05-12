@@ -161,11 +161,7 @@ class CFrontendIR final : public CNodePool
 				virtual _typed_pointer_type<IExprNode> copy(CFrontendIR* ir) const = 0;
 #define COPY_DEFAULT_IMPL inline _typed_pointer_type<IExprNode> copy(CFrontendIR* ir) const override final \
 				{ \
-					auto& pool = ir->getObjectPool(); \
-					const auto copyH = pool.emplace<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(); \
-					if (auto* const copy = pool.deref(copyH); copyH) \
-						*copy = *this; \
-					return copyH; \
+					return CNodePool::copyNode<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(this,ir); \
 				}
 
 				// child managment
