@@ -14,7 +14,7 @@ CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
     if (m_externalHandle != system::ExternalHandleNull)
     {
-        bool success = system::CloseExternalHandle(m_externalHandle);
+        const auto success = system::CloseExternalHandle(m_externalHandle);
         if (!success) m_vulkanDevice->getLogger()->log("Failed to close external handle for Vulkan memory allocation", system::ILogger::ELL_ERROR);
         assert(success);
     }

@@ -12,7 +12,7 @@ CVulkanSemaphore::~CVulkanSemaphore()
   vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
 	if (m_creationParams.externalHandleTypes != EHT_NONE)
 	{
-		bool success = system::CloseExternalHandle(m_externalHandle);
+		const auto success = system::CloseExternalHandle(m_externalHandle);
 		if (!success) vulkanDevice->getLogger()->log("Failed to close external handle for Vulkan semaphore", system::ILogger::ELL_ERROR);
 		assert(success);
 	}
