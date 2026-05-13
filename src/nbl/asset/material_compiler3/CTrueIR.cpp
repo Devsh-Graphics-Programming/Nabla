@@ -132,169 +132,37 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 		if (!node) // this is an error
 			return {};
 		const auto nodeType = node->getFinalType();
+		const auto childCount = node->getChildCount();
 		if (auto& copyH = substitutions[entry]; !copyH)
 		{
-			switch (nodeType)
+			for (uint8_t c = 0; c < childCount; c++)
 			{
-			case INode::EFinalType::CFactorCombiner:
-			{
-				const auto* combiner = dynamic_cast<const CFactorCombiner*>(node);
-				const uint8_t childCount = combiner->getState().childCount;
-				if (childCount)
-				{
-					for (uint8_t c = 0; c < childCount; c++)
-					{
-						const auto childH = combiner->getChildHandle(c);
-						if (auto child = srcPool.deref(childH); !child)
-							continue; // this is not an error
-						stack.push_back(childH);
-					}
-				}
-				break;
+				const auto childH = node->getChildHandle(c);
+				if (auto child = srcPool.deref(childH); !child)
+					continue; // this is not an error
+				stack.push_back(childH);
 			}
-			case INode::EFinalType::CContributorSum:
-			{
-				const auto* contributeSum = dynamic_cast<const CContributorSum*>(node);
-				if (contributeSum)
-				{
-					typed_pointer_type<const INode> children[] = { contributeSum->product, contributeSum->rest };
-					for (const auto childH : children)
-					{
-						if (auto child = srcPool.deref(childH); !child)
-							continue;
-						stack.push_back(childH);
-					}
-				}
-				break;
-			}
-			case INode::EFinalType::CCorellatedTransmission:
-			{
-				const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
-				if (transmission)
-				{
-					typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom, transmission->next };
-					for (const auto childH : children)
-					{
-						if (auto child = srcPool.deref(childH); !child)
-							continue;
-						stack.push_back(childH);
-					}
-					//layerStack.push_back(transmission->coated); TODO: how to handle coated?
-				}
-				break;
-			}
-			case INode::EFinalType::CWeightedContributor:
-			{
-				const auto* contributor = dynamic_cast<const CWeightedContributor*>(node);
-				if (contributor)
-				{
-					typed_pointer_type<const INode> children[] = { contributor->contributor, contributor->factor };
-					for (const auto childH : children)
-					{
-						if (auto child = srcPool.deref(childH); !child)
-							continue;
-						stack.push_back(childH);
-					}
-				}
-				break;
-			}
-			case INode::EFinalType::CCookTorrance:
-			{
-				const auto* ct = dynamic_cast<const CCookTorrance*>(node);
-				if (ct)
-					if (const auto eta = srcPool.deref(ct->orientedRealEta); eta)
-						stack.push_back(ct->orientedRealEta);
-				break;
-			}
-			default:
-				break;
-			}
+
+		    // TODO: how to handle coated in CorrelatedTransmission?
 
 			// copy copies everything including child handles
 			copyH = node->copy(this);
 			if (!copyH)
-				return {};
+				continue;	// TODO: handle invalid nodes somehow
 		}
 		else
 		{
 			auto* const copy = dstPool.deref(copyH);
-			auto setCopyChildren = [&]<typename T>(const typed_pointer_type<const T>& src, typed_pointer_type<const T>& cop) -> void
-				{
-					if (auto child = srcPool.deref(src); child)
-					{
-						auto found = substitutions.find(src);
-						assert(found != substitutions.end());
-						cop = _static_cast<typed_pointer_type<const T>>(found->second);
-					}
-				};
-			switch (nodeType)
+			for (uint8_t c = 0; c < childCount; c++)
 			{
-			case INode::EFinalType::CFactorCombiner:
-			{
-				const auto* combiner = dynamic_cast<const CFactorCombiner*>(node);
-				const uint8_t childCount = combiner->getState().childCount;
-				if (childCount)
-				{
-					for (uint8_t c = 0; c < childCount; c++)
-					{
-						const auto childH = combiner->getChildHandle(c);
-						if (!childH)
-							continue;
-						auto found = substitutions.find(childH);
-						assert(found != substitutions.end());
-
-						const auto child = _static_cast<typed_pointer_type<const IFactor>>(found->second);
-						dynamic_cast<CFactorCombiner*>(copy)->setChildHandle(c, child);
-					}
-				}
-				break;
+				const auto childH = node->getChildHandle(c);
+				if (!childH)
+					continue;
+				auto found = substitutions.find(childH);
+				assert(found != substitutions.end());
+				copy->setChild(c, found->second);
 			}
-			case INode::EFinalType::CContributorSum:
-			{
-				const auto* contributeSum = dynamic_cast<const CContributorSum*>(node);
-				auto* copySum = dynamic_cast<CContributorSum*>(copy);
-				if (contributeSum && copySum)
-				{
-					setCopyChildren(contributeSum->product, copySum->product);
-					setCopyChildren(contributeSum->product, copySum->product);
-				}
-				break;
-			}
-			case INode::EFinalType::CCorellatedTransmission:
-			{
-				const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
-				auto* copyTransmission = dynamic_cast<CCorellatedTransmission*>(copy);
-				if (transmission && copyTransmission)
-				{
-					setCopyChildren(transmission->btdf, copyTransmission->btdf);
-					setCopyChildren(transmission->brdfBottom, copyTransmission->brdfBottom);
-					setCopyChildren(transmission->next, copyTransmission->next);
-					//layerStack.push_back(transmission->coated); TODO: how to handle coated?
-				}
-				break;
-			}
-			case INode::EFinalType::CWeightedContributor:
-			{
-				const auto* contributor = dynamic_cast<const CWeightedContributor*>(node);
-				auto* copyContributor = dynamic_cast<CWeightedContributor*>(copy);
-				if (contributor && copyContributor)
-				{
-					setCopyChildren(contributor->contributor, copyContributor->contributor);
-					setCopyChildren(contributor->factor, copyContributor->factor);
-				}
-				break;
-			}
-			case INode::EFinalType::CCookTorrance:
-			{
-				const auto* ct = dynamic_cast<const CCookTorrance*>(node);
-				auto* copyCt = dynamic_cast<CCookTorrance*>(copy);
-				if (ct && copyCt)
-					setCopyChildren(ct->orientedRealEta, copyCt->orientedRealEta);
-				break;
-			}
-			default:
-				break;
-			}
+			// TODO: how to handle coated in CorrelatedTransmission?
 			stack.pop_back();
 		}
 	}
@@ -333,10 +201,12 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 			if (!node)
 				continue;
 			output << "\n\t" << m_ir->getLabelledNodeID(entry);
-			auto printChildren = [&](std::span<typed_pointer_type<const INode>> children, const INode* node)->void {
-				uint32_t childIx = 0u;
-				for (const auto childHandle : children)
+			const auto childCount = node->getChildCount();
+			if (childCount)
+			{
+				for (auto childIx = 0; childIx < childCount; childIx++)
 				{
+					const auto childHandle = node->getChildHandle(childIx);
 					if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
 					{
 						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
@@ -346,84 +216,12 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 						nodeStack.push_back(childHandle);
 						visitedNodes.insert(childHandle);
 					}
-					childIx++;
 				}
-				};
-			switch (node->getFinalType())
-			{
-			case INode::EFinalType::CFactorCombiner:
-			{
-				const auto* combiner = dynamic_cast<const CFactorCombiner*>(node);
-				const auto state = combiner->getState();
-				const auto childCount = state.childCount;
-				if (childCount)
-				{
-					for (auto childIx = 0; childIx < childCount; childIx++)
-					{
-						const auto childHandle = combiner->getChildHandle(childIx);
-						if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
-						{
-							output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle);
-							const auto visited = visitedNodes.find(childHandle);
-							if (visited != visitedNodes.end())
-								continue;
-							nodeStack.push_back(childHandle);
-							visitedNodes.insert(childHandle);
-						}
-					}
-				}
-				break;
 			}
-			case INode::EFinalType::CContributorSum:
-			{
-				const auto* contributeSum = dynamic_cast<const CContributorSum*>(node);
-				if (contributeSum)
-				{
-					typed_pointer_type<const INode> children[] = {contributeSum->product, contributeSum->rest};
-					printChildren(children, node);
-				}
-				break;
-			}
-			case INode::EFinalType::CCorellatedTransmission:
+			if (node->getFinalType() == INode::EFinalType::CCorellatedTransmission)
 			{
 				const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
-				if (transmission)
-				{
-					typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom, transmission->next };
-					printChildren(children, node);
-					layerStack.push_back(transmission->coated);
-				}
-				break;
-			}
-			case INode::EFinalType::CWeightedContributor:
-			{
-				const auto* contributor = dynamic_cast<const CWeightedContributor*>(node);
-				if (contributor)
-				{
-					typed_pointer_type<const INode> children[] = { contributor->contributor, contributor->factor };
-					printChildren(children, node);
-				}
-				break;
-			}
-			case INode::EFinalType::CCookTorrance:
-			{
-				const auto* ct = dynamic_cast<const CCookTorrance*>(node);
-				if (ct)
-				{
-					if (const auto eta = m_ir->getObjectPool().deref(ct->orientedRealEta); eta)
-					{
-						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(ct->orientedRealEta) << "[label=\"orientedRealEta\"]";
-						const auto visited = visitedNodes.find(ct->orientedRealEta);
-						if (visited != visitedNodes.end())
-							continue;
-						nodeStack.push_back(ct->orientedRealEta);
-						visitedNodes.insert(ct->orientedRealEta);
-					}
-				}
-				break;
-			}
-			default:
-				break;
+				layerStack.push_back(transmission->coated);
 			}
 			// special printing
 			node->printDot(output, nodeID);

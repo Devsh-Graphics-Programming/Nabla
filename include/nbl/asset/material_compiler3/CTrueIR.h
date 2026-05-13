@@ -12,7 +12,6 @@
 #include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/ICPUImageView.h"
 
-
 namespace nbl::asset::material_compiler3
 {
 
@@ -20,6 +19,7 @@ namespace nbl::asset::material_compiler3
 // They appear "flipped upside down", its expected our backends will evaluate contributors first, and then bother with the attenuators. 
 class CTrueIR : public CNodePool // TODO: turn into an asset!
 {
+	    using block_allocator_type = CNodePool::obj_pool_type::block_allocator_type;
 		template<typename T>
 		using _typed_pointer_type = CNodePool::obj_pool_type::mem_pool_type::typed_pointer_type<T>;
 
@@ -229,11 +229,34 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return hasher.operator core::blake3_hash_t();
 				}
 
+				// Only sane child count allowed
+				virtual uint8_t getChildCount() const = 0;
+				inline _typed_pointer_type<INode> getChildHandle(const uint8_t ix)
+				{
+					if (ix < getChildCount())
+						return getChildHandle_impl(ix);
+					return {};
+				}
+				inline _typed_pointer_type<const INode> getChildHandle(const uint8_t ix) const
+				{
+					auto retval = const_cast<INode*>(this)->getChildHandle(ix);
+					return retval;
+				}
+
 				virtual inline std::string_view getChildName_impl(const uint8_t ix) const { return ""; }
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 
 			protected:
 				friend class CTrueIR;
+				// child managment
+				virtual inline _typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const { assert(false); return {}; }
+				inline void setChild(const uint8_t ix, _typed_pointer_type<INode> newChild)
+				{
+					assert(ix < getChildCount());
+					setChild_impl(ix, newChild);
+				}
+				virtual inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) { assert(false); }
+
 				inline bool recomputeHash(const obj_pool_type& pool)
 				{
 					hash = computeHash(pool);
@@ -319,16 +342,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					padding = std::bit_cast<uint64_t>(state);
 				}
 
+				inline uint8_t getChildCount() const override final { return getState().childCount; }
+
 				// Only sane child count allowed
-				inline typed_pointer_type<const IFactor> getChildHandle(const uint8_t ix) const
-				{
-					if (ix<getState().childCount)
-						return child[ix];
-					return {};
-				}
 				inline void setChildHandle(const uint8_t ix, const typed_pointer_type<const IFactor> handle)
 				{
-					if (ix<getState().childCount)
+					if (ix < getState().childCount)
 						child[ix] = handle;
 				}
 
@@ -346,6 +365,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					}
 					return true;
 				}
+
+				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final { return block_allocator_type::_static_cast<INode>(child[0]); }
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final { child[0] = block_allocator_type::_static_cast<IFactor>(newChild); }
 
 				inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final
 				{
@@ -374,6 +396,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CWeightedContributor;}
 
+				inline uint8_t getChildCount() const override final { return 2; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CWeightedContributor);}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? "factor" : "contributor"; }
 
@@ -384,6 +408,18 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		    protected:
 			    COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+			    {
+			        return ix ? block_allocator_type::_static_cast<INode>(factor) : block_allocator_type::_static_cast<INode>(contributor);
+			    }
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+			    {
+					if (ix)
+			            factor = block_allocator_type::_static_cast<IFactor>(newChild);
+					else
+						contributor = block_allocator_type::_static_cast<IContributor>(newChild);
+			    }
 		};
 		// One BRDF or BTDF component of a layer is represented as
 		// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
@@ -416,6 +452,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CContributorSum;}
 
+				inline uint8_t getChildCount() const override final { return 2; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CContributorSum);}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? "rest" : "product"; }
 
@@ -426,6 +464,18 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		    protected:
 			    COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+				{
+					return ix ? block_allocator_type::_static_cast<INode>(rest) : block_allocator_type::_static_cast<INode>(product);
+				}
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				{
+					if (ix)
+						rest = block_allocator_type::_static_cast<CContributorSum>(newChild);
+					else
+						product = block_allocator_type::_static_cast<CWeightedContributor>(newChild);
+				}
 		};
 
 		// For codegen, we can compute total uncorrelated layering by convolving every `h_{ij}(w_i,w_o) l_i(w_i,w_o)` term in the layer above with layer below
@@ -449,6 +499,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCorellatedTransmission;}
 
+				inline uint8_t getChildCount() const override final { return 3; }	// TODO: or 4?
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? (ix > 1 ? "next" : "brdfBottom") : "btdf"; }
 
@@ -466,6 +518,24 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		    protected:
 			    COPY_DEFAULT_IMPL
+
+		        inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+				{
+					if (ix > 1)
+						return block_allocator_type::_static_cast<INode>(next);
+					if (ix)
+						return block_allocator_type::_static_cast<INode>(brdfBottom);
+					return block_allocator_type::_static_cast<INode>(btdf);
+				}
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				{
+					if (ix > 1)
+						next = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
+					else if (ix)
+						brdfBottom = block_allocator_type::_static_cast<CContributorSum>(newChild);
+					else
+						btdf = block_allocator_type::_static_cast<CContributorSum>(newChild);
+				}
 		};
 		// The oriented layer is a layer with already all the Etas reciprocated, etc.
 		class COrientedLayer final : public obj_pool_type::INonTrivial, public INode
@@ -480,6 +550,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::COrientedLayer;}
 
+				inline uint8_t getChildCount() const override final { return 2; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrientedLayer);}
 
 				// you can set the children later
@@ -492,6 +564,18 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		    protected:
 			    COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+				{
+					return ix ? block_allocator_type::_static_cast<INode>(firstTransmission) : block_allocator_type::_static_cast<INode>(brdfTop);
+				}
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				{
+					if (ix)
+						firstTransmission = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
+					else
+						brdfTop = block_allocator_type::_static_cast<CContributorSum>(newChild);
+				}
 		};
 		//
 		class IFactorLeaf : public IFactor
@@ -676,6 +760,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return EFinalType::CSpectralVariable;
 				}
 
+				inline uint8_t getChildCount() const override final { return 0; }
+
 				//
 				inline uint8_t getSpectralBins() const override final {return getKnotCount();}
 
@@ -714,6 +800,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CEmitter;}
+
+				inline uint8_t getChildCount() const override final { return 0; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CEmitter);}
 
@@ -788,6 +876,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CDeltaTransmission;}
 
+				inline uint8_t getChildCount() const override final { return 0; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
 
 				inline CDeltaTransmission() = default;
@@ -820,6 +910,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				inline EFinalType getFinalType() const override {return EFinalType::COrenNayar;}
 
+				inline uint8_t getChildCount() const override final { return 0; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 
 				inline COrenNayar() = default;
@@ -845,7 +937,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCookTorrance;}
 
+				inline uint8_t getChildCount() const override final { return 1; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return "orientedRealEta"; }
 
 				inline CCookTorrance() = default;
 
@@ -864,6 +959,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		    protected:
 			    COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final	{ return block_allocator_type::_static_cast<INode>(orientedRealEta); }
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final { orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableFactor>(newChild); }
 		};
 		//! Parameter Nodes
 		//! Basic factor nodes
