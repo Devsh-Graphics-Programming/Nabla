@@ -649,13 +649,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SExternalMemoryProperties
         {
-            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE exportableTypes : 7;
-            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE compatibleTypes : 7;
-            // TODO(kevin): This should actually be core::bitflag to be semantically correct. What should we do? Should we use bool for each flag instead of enum?
+            // Need 15 bit to store all possible value of E_EXTERNAL_HANDLE_TYPE. So bitfield will not save any space.
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE exportableTypes;
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE compatibleTypes;
             E_EXTERNAL_MEMORY_FEATURE_FLAGS features : 3;
             bool operator == (SExternalMemoryProperties const& rhs) const = default;
         };
-        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint32_t));
 
         SExternalMemoryProperties getExternalBufferProperties(
             core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, 

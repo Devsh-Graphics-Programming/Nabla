@@ -80,7 +80,10 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EHT_D3D11_TEXTURE_KMT = 0x00000010,
             EHT_D3D12_HEAP = 0x00000020,
             EHT_D3D12_RESOURCE = 0x00000040,
+            EHT_DMA_BUF = 0x00000080,
             EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
+            EHT_SCI_BUF_NV = 0x00002000,
+            EHT_SCREEN_BUFFER_QNX = 0x00004000,
         };
 
         //
