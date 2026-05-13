@@ -187,7 +187,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         struct SCreationParams: SInfo
         {
             core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
-            const bool dedicated = false;
+            bool dedicated = false;
         };
         
         inline const SCreationParams& getCreationParams() const { return m_params; }
