@@ -129,26 +129,27 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 	{
 		const auto entry = stack.back();
 		const auto* const node = srcPool.deref(entry);
-		if (!node) // this is an error
-			return {};
-		const auto nodeType = node->getFinalType();
+		assert(!node);
 		const auto childCount = node->getChildCount();
 		if (auto& copyH = substitutions[entry]; !copyH)
 		{
+			uint8_t pushedChildren = 0;
 			for (uint8_t c = 0; c < childCount; c++)
 			{
 				const auto childH = node->getChildHandle(c);
 				if (auto child = srcPool.deref(childH); !child)
 					continue; // this is not an error
 				stack.push_back(childH);
+				pushedChildren++;
 			}
 
 		    // TODO: how to handle coated in CorrelatedTransmission?
 
 			// copy copies everything including child handles
 			copyH = node->copy(this);
-			if (!copyH)
-				continue;	// TODO: handle invalid nodes somehow
+			if (!copyH)	// node invalid so pop stack until copy and all added children removed
+				for (uint8_t i = 0; i < pushedChildren + 1; i++)
+					stack.pop_back();
 		}
 		else
 		{
