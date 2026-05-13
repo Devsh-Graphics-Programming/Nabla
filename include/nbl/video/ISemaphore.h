@@ -34,7 +34,10 @@ class ISemaphore : public IBackendObject
             core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
         };
 
-        struct SCreationParams : SCachedCreationParams {}; 
+        struct SCreationParams : SCachedCreationParams
+        {
+            uint64_t initialValue;
+        }; 
 
         // basically a pool function
         virtual uint64_t getCounterValue() const = 0;
