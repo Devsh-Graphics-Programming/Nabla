@@ -24,8 +24,7 @@ We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
 class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
-    friend class IDeviceMemoryAllocator;
-    friend class ILogicalDevice;
+
     public:
         //! Access flags for how the application plans to use mapped memory (if any)
         /** When you create the memory you can allow for it to be mapped (be given a pointer)
