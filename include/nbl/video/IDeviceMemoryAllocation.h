@@ -63,7 +63,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             //EMPF_RDMA_CAPABLE_BIT_NV = 0x00000200,
         };
         //
-        enum E_MEMORY_HEAP_FLAGS : uint32_t
+        enum E_MEMORY_HEAP_FLAGS : uint8_t
         {
             EMHF_NONE               = 0,
             EMHF_DEVICE_LOCAL_BIT   = 0x00000001,
@@ -71,7 +71,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         };
 
         //! Flags for imported/exported allocation
-        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
+        enum E_EXTERNAL_HANDLE_TYPE : uint16_t
         {
             EHT_NONE = 0,
             EHT_OPAQUE_FD = 0x00000001,
