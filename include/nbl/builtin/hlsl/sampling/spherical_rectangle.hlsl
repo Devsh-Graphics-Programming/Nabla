@@ -149,7 +149,8 @@ struct SphericalRectangle
       hitDist = 1.f / cosElevationOverD;
 
       const vector3_type retval = vector3_type(core.xu / hitDist, core.hv, r0.z / hitDist);
-      assert(!hlsl::isnan(computeHitT(retval)));
+      const vector3_type worldL = basis[0] * retval[0] + basis[1] * retval[1] + basis[2] * retval[2];
+      assert(!hlsl::isnan(computeHitT(worldL)));
       return retval;
    }
 
@@ -162,14 +163,15 @@ struct SphericalRectangle
    }
 
    // utility to determine maxT for a ray from L shot from the origin which we're sure intersects the rectangle
-   scalar_type computeHitT(const vector3_type L)
+   scalar_type computeHitT(const vector3_type L) NBL_CONST_MEMBER_FUNC
    {
       const scalar_type retval = hlsl::abs(r0.z / hlsl::dot(L, basis[2]));
       {
          const vector3_type hitPointRelative = L * retval;
-         const vector2_type uv               = mul(basis, L).xy - r0.xy;
-         assert(uv[0] >= 0.0 && uv[0] <= rectExtents[0]);
-         assert(uv[1] >= 0.0 && uv[1] <= rectExtents[1]);
+         const vector2_type uv               = mul(basis, hitPointRelative).xy - r0.xy;
+         const vector2_type tol              = hlsl::max<vector2_type>(hlsl::abs(extents), hlsl::promote<vector2_type>(_static_cast<scalar_type>(1.0))) * _static_cast<scalar_type>(1e-5);
+         assert(uv[0] >= -tol[0] && uv[0] <= extents[0] + tol[0]);
+         assert(uv[1] >= -tol[1] && uv[1] <= extents[1] + tol[1]);
       }
       return retval;
    }
@@ -186,7 +188,7 @@ struct SphericalRectangle
       // TODO: maybe try just `min(yv,ry1)`
       const vector2_type retval = vector2_type(core.xu, hlsl::clamp(yv, r0.y, r1y));
       assert(retval[0] >= r0.x && retval[1] >= r0.y);
-      assert(retval[0] <= r0.x + rectExtents[0] && retval[1] <= r0.y + rectExtents[1]);
+      assert(retval[0] <= r0.x + extents[0] && retval[1] <= r0.y + extents[1]);
       return retval;
    }
 
