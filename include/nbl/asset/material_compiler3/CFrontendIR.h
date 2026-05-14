@@ -362,8 +362,7 @@ class CFrontendIR final : public CNodePool
 				// you can set the members later
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
-				// Eta and `LdotX` is taken from the leaf BTDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
+				// See `CTrueIR::Beer` for docs
 				typed_pointer_type<CSpectralVariableExpr> perpTransmittance = {};
 				typed_pointer_type<CSpectralVariableExpr> thickness = {};
 
@@ -376,7 +375,7 @@ class CFrontendIR final : public CNodePool
 					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 				
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
@@ -846,6 +845,8 @@ class CFrontendIR final : public CNodePool
 					// also the mulChain needs to be sorted later on, and doubly linked list is PITA to sort
 					core::vector<typed_pointer_type<const IExprNode>> astStack = {}; // its also a stack
 					core::vector<SFactor> irChain = {};
+					// this is to help us hash in reverse properly
+					CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> sumTermH = {};
 					// Expressions for `h_{ij}` can also have ADD/MUL inside and we distribute and canonicalize them at the same time
 					uint8_t hasContributor : 1 = false;
 					// extend later when allowing variable bucket count

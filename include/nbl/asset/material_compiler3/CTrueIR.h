@@ -212,7 +212,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					CSpectralVariable,
 					COrenNayar,
 					CCookTorrance,
-					CFactorCombiner
+					CFactorCombiner,
+					CBeer,
+					CFresnel,
+					CThinInfiniteScatterCorrection
 				};
 				virtual EFinalType getFinalType() const = 0;
 
@@ -225,7 +228,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// always put the node type into the hash
 					hasher << static_cast<uint8_t>(getFinalType());
 					if (!computeHash_impl(pool,hasher))
-						return {};
+ 						return {};
 					return hasher.operator core::blake3_hash_t();
 				}
 
@@ -741,15 +744,26 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		{
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override final
 				{
-					hasher << *pWonky();
-					for (uint8_t c=1; c<getKnotCount(); c++)
-						hasher << pWonky()->params[c];
-					if (getKnotCount()>1)
+					const auto count = getKnotCount();
+					hasher << count;
 					{
 						const ESemantics semantics = getSemantics();
-						if (semantics==ESemantics::NoneUndefined)
+						if (getKnotCount()>1 && semantics==ESemantics::NoneUndefined)
 							return false;
 						hasher << semantics;
+					}
+					bool hasTextures = false;
+					const auto* const wonky = pWonky();
+					for (uint8_t i=0; i<count; i++)
+					{
+						// fear not, without a view, nothing excpt for scale will hash
+						hasher << wonky->params[i];
+						hasTextures = hasTextures || wonky->params[i].view;
+					}
+					if (hasTextures)
+					{
+						hasher << wonky->uvTransform;
+						hasher << wonky->uvSlot();
 					}
 					return true;
 				}
@@ -963,8 +977,104 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final	{ return block_allocator_type::_static_cast<INode>(orientedRealEta); }
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final { orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableFactor>(newChild); }
 		};
-		//! Parameter Nodes
 		//! Basic factor nodes
+		// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
+		// Eta and `LdotX` is taken from the contributor BxDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same.
+		// Note: its allowed to apply Beer directly on BRDF as well as BTDF to simulate foggy extinction on the top layer
+		class CBeer final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << channels;
+					HASH_REQUIREDS_HASH(perpTransmittance);
+					HASH_REQUIREDS_HASH(thickness);
+					return true;
+				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CBeer;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
+
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
+
+				inline uint8_t getSpectralBins() const override {return channels;}
+
+				// cannot be null, otherwise no point being there as term will multiply to 0
+				typed_pointer_type<const IFactor> perpTransmittance = {};
+				// cannot be null, otherwise its always exp2(0) and term will always be 1
+				typed_pointer_type<const IFactor> thickness = {};
+				// can be worked out by analyzing what we point to, but not needed
+				uint8_t channels = 3;
+		};
+		class CFresnel final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << reciprocateEtas;
+					hasher << channels;
+					if (orientedImagEta)
+					{
+						HASH_OPTIONALS_HASH(orientedRealEta);
+						hasher << orientedImagEta;
+					}
+					else
+					{
+						HASH_REQUIREDS_HASH(orientedRealEta);
+					}
+					return true;
+				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CFresnel;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
+
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Imaginary":"Real";}
+
+				inline uint8_t getSpectralBins() const override {return channels;}
+
+				// cannot be null or a constant of 1 while imaginary is null
+				typed_pointer_type<const IFactor> orientedRealEta = {};
+				// If null, then treated as a 0 (important to optimize those to 0). MUST be null for BTDFs!
+				typed_pointer_type<const IFactor> orientedImagEta = {};
+				// easier on the codegen
+				uint8_t reciprocateEtas : 1 = false;
+				// can be worked out by analyzing what we point to, but not needed
+				uint8_t channels : 7 = 3;
+		};
+		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << channels;
+					HASH_REQUIREDS_HASH(reflectanceTop);
+					HASH_OPTIONALS_HASH(extinction);
+					if (reflectanceBottom)
+						hasher << reflectanceBottom;
+					else
+						hasher << reflectanceTop;
+					return true;
+				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CThinInfiniteScatterCorrection;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
+
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
+
+				inline uint8_t getSpectralBins() const override {return channels;}
+
+				// cannot be null otherwise no point being there
+				typed_pointer_type<const IFactor> reflectanceTop = {};
+				// optional, if null then treated as E=1.0
+				typed_pointer_type<const IFactor> extinction = {};
+				// optional, if null then `reflectanceTop` used in its place
+				typed_pointer_type<const IFactor> reflectanceBottom = {};
+				// can be worked out by analyzing what we point to, but not needed
+				uint8_t channels = 3;
+		};
 #undef TYPE_NAME_STR
 #undef HASH_THE_HASH
 		
@@ -1441,17 +1551,16 @@ struct core::blake3_hasher::update_impl<CTrueIR::SParameterSet<Count>,Dummy>
 	{
 		bool noTextures = true;
 		for (uint8_t i=0; i<Count; i++)
-		if (input.params[i].view)
 		{
-			noTextures = false;
-			break;
+			// fear not, without a view, nothing excpt for scale will hash
+			hasher << input.params[i];
+			if (input.params[i].view)
+				noTextures = false;
 		}
 		if (noTextures)
 			return;
 		hasher << input.uvTransform;
 		hasher << input.uvSlot();
-		for (uint8_t i=0; i<Count; i++)
-			hasher << input.params[i];
 	}
 };
 template<typename Dummy>
