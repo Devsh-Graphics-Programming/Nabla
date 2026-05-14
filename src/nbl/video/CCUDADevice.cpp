@@ -50,7 +50,17 @@ constexpr const char* VirtualArchCompileOption[] = {
 	"-arch=compute_70",
 	"-arch=compute_72",
 	"-arch=compute_75",
-	"-arch=compute_80"
+	"-arch=compute_80",
+	"-arch=compute_86",
+	"-arch=compute_87",
+	"-arch=compute_88",
+	"-arch=compute_89",
+	"-arch=compute_90",
+	"-arch=compute_100",
+	"-arch=compute_110",
+	"-arch=compute_103",
+	"-arch=compute_120",
+	"-arch=compute_121",
 };
 
 static_assert(sizeof(VirtualArchCompileOption)/sizeof(*VirtualArchCompileOption)==CCUDADevice::EVA_COUNT);
