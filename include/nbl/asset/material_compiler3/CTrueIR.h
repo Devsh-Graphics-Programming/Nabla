@@ -231,6 +231,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
  						return {};
 					return hasher.operator core::blake3_hash_t();
 				}
+				inline bool recomputeHash(const obj_pool_type& pool)
+				{
+					hash = computeHash(pool);
+					return hash != core::blake3_hash_t::EmptyInput();
+				}
+
+				virtual _typed_pointer_type<INode> copy(CTrueIR* ir) const = 0;
 
 				// Only sane child count allowed
 				virtual uint8_t getChildCount() const = 0;
@@ -245,26 +252,28 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					auto retval = const_cast<INode*>(this)->getChildHandle(ix);
 					return retval;
 				}
+				inline void setChild(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<INode> newChild)
+				{
+					assert(ix < getChildCount());
+					setChild_impl(pool, ix, newChild);
+				}
 
-				virtual inline std::string_view getChildName_impl(const uint8_t ix) const { return ""; }
+				inline std::string_view getChildName(const uint8_t ix) const
+				{
+					assert(ix < getChildCount());
+					return getChildName_impl(ix);
+				}
+
+				//
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 
 			protected:
-				friend class CTrueIR;
 				// child managment
 				virtual inline _typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const { assert(false); return {}; }
-				inline void setChild(const uint8_t ix, _typed_pointer_type<INode> newChild)
-				{
-					assert(ix < getChildCount());
-					setChild_impl(ix, newChild);
-				}
-				virtual inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) { assert(false); }
+				virtual inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) { assert(false); }
 
-				inline bool recomputeHash(const obj_pool_type& pool)
-				{
-					hash = computeHash(pool);
-					return hash!=core::blake3_hash_t::EmptyInput();
-				}
+				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
+
 				virtual bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const = 0;
 #define HASH_REQUIREDS_HASH(HANDLE) { \
 					if (const auto hash=pool.deref(HANDLE)->getHash(); hash==core::blake3_hash_t::EmptyInput()) \
@@ -274,7 +283,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 #define HASH_OPTIONALS_HASH(HANDLE) if (HANDLE) {HASH_REQUIREDS_HASH(HANDLE);} else {hasher << core::blake3_hash_t::EmptyInput();}
 
-				virtual _typed_pointer_type<INode> copy(CTrueIR* ir) const = 0;
 #define COPY_DEFAULT_IMPL inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final \
 				{ \
 					return CNodePool::copyNode<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(this,ir); \
@@ -370,21 +378,19 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final { return child[ix]; }
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final { child[ix] = block_allocator_type::_static_cast<IFactor>(newChild); }
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				{
+					child[ix] = pool._dynamic_cast<const IFactor>(newChild);
+				}
 
 				inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final
 				{
 					auto& pool = ir->getObjectPool();
 					const auto copyH = pool.emplace<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(getState());
-					if (auto* const copy = pool.deref(copyH); copyH)
-					{
-						for (uint64_t c = 0; c < getState().childCount; c++) 
-						{
-							auto childHandle = child[c];
-							if (auto* const _child = pool.deref(childHandle); _child)
-								copy->child[c] = block_allocator_type::_static_cast<IFactor>(_child->copy(ir));
-						}
-					}
+					// default copy doesn't call copy on the children, references are copied by value (this is not a deep copy!)
+					if (auto* const copy=pool.deref(copyH); copyH)
+					for (uint64_t c=0; c<getState().childCount; c++) 
+						copy->child[c] = child[c];
 					return copyH;
 				}
 
@@ -425,12 +431,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						return factor;
 					return contributor;
 			    }
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
 					if (ix)
-			            factor = block_allocator_type::_static_cast<IFactor>(newChild);
+			            factor = pool._dynamic_cast<const IFactor>(newChild);
 					else
-						contributor = block_allocator_type::_static_cast<IContributor>(newChild);
+						contributor = pool._dynamic_cast<const IContributor>(newChild);
 			    }
 		};
 		// One BRDF or BTDF component of a layer is represented as
@@ -483,12 +489,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						return rest;
 					return product;
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					if (ix)
-						rest = block_allocator_type::_static_cast<CContributorSum>(newChild);
+						rest = pool._dynamic_cast<const CContributorSum>(newChild);
 					else
-						product = block_allocator_type::_static_cast<CWeightedContributor>(newChild);
+						product = pool._dynamic_cast<const CWeightedContributor>(newChild);
 				}
 		};
 
@@ -520,14 +526,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				{
 					switch (ix)
 					{
-					case 1:
-						return "brdfBottom";
-					case 2:
-						return "coated";
-					case 3:
-						return "next";
-					default:
-						return "btdf";
+						case 1:
+							return "brdfBottom";
+						case 2:
+							return "coated";
+						case 3:
+							return "next";
+						default:
+							return "btdf";
 					}
 				}
 
@@ -550,31 +556,31 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				{
 					switch (ix)
 					{
-					case 1:
-						return brdfBottom;
-					case 2:
-						return coated;
-					case 3:
-						return next;
-					default:
-						return btdf;
+						case 1:
+							return brdfBottom;
+						case 2:
+							return coated;
+						case 3:
+							return next;
+						default:
+							return btdf;
 					}
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					switch (ix)
 					{
-					case 1:
-						brdfBottom = block_allocator_type::_static_cast<CContributorSum>(newChild);
-						break;
-					case 2:
-						coated = block_allocator_type::_static_cast<COrientedLayer>(newChild);
-						break;
-					case 3:
-						next = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
-						break;
-					default:
-						btdf = block_allocator_type::_static_cast<CContributorSum>(newChild);
+						case 1:
+							brdfBottom = pool._dynamic_cast<const CContributorSum>(newChild);
+							break;
+						case 2:
+							coated = pool._dynamic_cast<const COrientedLayer>(newChild);
+							break;
+						case 3:
+							next = pool._dynamic_cast<const CCorellatedTransmission>(newChild);
+							break;
+						default:
+							btdf = pool._dynamic_cast<const CContributorSum>(newChild);
 					}
 				}
 		};
@@ -613,12 +619,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					else
 						return brdfTop;
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					if (ix)
-						firstTransmission = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
+						firstTransmission = pool._dynamic_cast<const CCorellatedTransmission>(newChild);
 					else
-						brdfTop = block_allocator_type::_static_cast<CContributorSum>(newChild);
+						brdfTop = pool._dynamic_cast<const CContributorSum>(newChild);
 				}
 		};
 		//
@@ -1016,7 +1022,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			    COPY_DEFAULT_IMPL
 
 				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final { return orientedRealEta; }
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final { orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableFactor>(newChild); }
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final { orientedRealEta = pool._dynamic_cast<const CSpectralVariableFactor>(newChild); }
 		};
 		//! Basic factor nodes
 		// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
@@ -1059,12 +1065,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						return thickness;
 				    return perpTransmittance;
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					if (ix)
-						thickness = block_allocator_type::_static_cast<IFactor>(newChild);
+						thickness = pool._dynamic_cast<const IFactor>(newChild);
 					else
-						perpTransmittance = block_allocator_type::_static_cast<IFactor>(newChild);
+						perpTransmittance = pool._dynamic_cast<const IFactor>(newChild);
 				}
 		};
 		class CFresnel final : public obj_pool_type::INonTrivial, public IFactorLeaf
@@ -1114,12 +1120,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					    return orientedImagEta;
 				    return orientedRealEta;
 			    }
-			    inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+			    inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
 				    if (ix)
-						orientedImagEta = block_allocator_type::_static_cast<IFactor>(newChild);
+						orientedImagEta = pool._dynamic_cast<const IFactor>(newChild);
 				    else
-						orientedRealEta = block_allocator_type::_static_cast<IFactor>(newChild);
+						orientedRealEta = pool._dynamic_cast<const IFactor>(newChild);
 			    }
 		};
 		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IFactorLeaf
@@ -1167,14 +1173,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					    return extinction;
 				    return reflectanceTop;
 			    }
-			    inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+			    inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
 					if (ix > 1)
-						reflectanceBottom = block_allocator_type::_static_cast<IFactor>(newChild);
+						reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
 				    if (ix)
-					    extinction = block_allocator_type::_static_cast<IFactor>(newChild);
+					    extinction = pool._dynamic_cast<const IFactor>(newChild);
 				    else
-					    reflectanceTop = block_allocator_type::_static_cast<IFactor>(newChild);
+					    reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
 			    }
 		};
 #undef COPY_DEFAULT_IMPL
@@ -1208,7 +1214,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			if (orig->getHash()!=core::blake3_hash_t::EmptyInput() || orig->recomputeHash(getObjectPool()))
 			{
 				auto& slot = m_uniqueNodes[orig->getHash()];
-				if (slot)
+				if (slot) // not dynamic cast because the type was part of the hash!
 					return CNodePool::obj_pool_type::block_allocator_type::_static_cast<const T>(slot);
 				slot = origH;
 				return origH;
@@ -1322,7 +1328,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			return true;
 		}
 
-		uint32_t deepCopy(typed_pointer_type<const INode>* out, const std::span<const typed_pointer_type<const INode>> orig, const CTrueIR* srcIR=nullptr);
+		uint32_t deepCopy(typed_pointer_type<INode>* out, const std::span<const typed_pointer_type<const INode>> orig, const CTrueIR* srcIR=nullptr);
 		
 		// TODO: Optimization passes on the IR
 		// It is the backend's job to handle:

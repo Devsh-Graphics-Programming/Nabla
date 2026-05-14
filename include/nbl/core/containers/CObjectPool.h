@@ -127,6 +127,11 @@ class CObjectPool final : public IObjectPoolBase
 				mutableH = h;
 			return const_cast<this_t*>(this)->deref<non_const_t>(mutableH,check);
 		}
+		template<typename T, typename U>// requires (std::is_const_v<T> == std::is_const_v<U>)
+		inline typed_pointer_type<T> _dynamic_cast(const typed_pointer_type<U> h) const
+		{
+			return m_pool._dynamic_cast<T,U>(h);
+		}
 
 		//
         template <typename T, typename... FuncArgs> requires (!std::is_array_v<T>) // for now until we have a test

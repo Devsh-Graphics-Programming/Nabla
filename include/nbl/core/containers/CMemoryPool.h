@@ -56,6 +56,11 @@ class CMemoryPool final : public Uncopyable
 		{
 			return m_block_alctr.deref<const T>(p);
 		}
+		template<typename T, typename U>
+		inline typed_pointer_type<T> _dynamic_cast(const typed_pointer_type<U> h) const
+		{
+			return m_block_alctr._dynamic_cast<T,U>(h);
+		}
     
         //
         inline typed_pointer_type<void> allocate(const size_type s, const size_type a)

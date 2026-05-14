@@ -388,8 +388,22 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		template<typename T>
 		inline const T* deref(typed_pointer_type<T> p) const
 		{
-			std::remove_const_t<T>* mut = const_cast<this_t*>(this)->deref<std::remove_const_t<T>>(p);
+			using mut_t = std::remove_const_t<T>;
+			typed_pointer_type<mut_t> m = {}; m.value = p.value;
+			mut_t* mut = const_cast<this_t*>(this)->deref<mut_t>(m);
 			return mut;
+		}
+		template<typename T, typename U> requires (std::is_const_v<T> == std::is_const_v<U>)
+		inline typed_pointer_type<T> _dynamic_cast(typed_pointer_type<U> h) const
+		{
+			typed_pointer_type<T> retval;
+			retval.value = h.value;
+			if (h)
+			{
+				const auto* const p = deref<const U>(h);
+				retval.value += ptrdiff_t(dynamic_cast<const T*>(p)) - ptrdiff_t(p);
+			}
+			return retval;
 		}
 
 		// deallocates everything

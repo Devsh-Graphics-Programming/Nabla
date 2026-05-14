@@ -110,8 +110,7 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 	}
 }
 
-uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
-    const std::span<const typed_pointer_type<const INode>> orig, const CTrueIR* srcIR)
+uint32_t CTrueIR::deepCopy(typed_pointer_type<INode>* out, const std::span<const typed_pointer_type<const INode>> orig, const CTrueIR* srcIR)
 {
 	auto& dstPool = getObjectPool();
 	// if not explicitly other, then its ours
@@ -159,7 +158,7 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 					continue;
 				auto found = substitutions.find(childH);
 				assert(found != substitutions.end());
-				copy->setChild(c, found->second);
+				copy->setChild(dstPool, c, found->second);
 			}
 			stack.pop_back();
 		}
@@ -172,7 +171,10 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 		auto copy = substitutions[o];
 		const auto* const node = dstPool.deref(copy);
 		if (!node) // this is invalid
+		{
 			invalidCount++;
+			*copies = {}; // can't count on the output array to be null initialized
+		}
 		else
 			*copies = copy;
 		copies++;
@@ -184,6 +186,7 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 {
 	output << "digraph {\n";
 
+	const auto& pool = m_ir->getObjectPool();
 	const auto errorBxDF = m_ir->getBasicNodes().errorBxDF;
 	const auto errorLayer = m_ir->getBasicNodes().errorLayer;
 	auto drainNodeStack = [&]()->void
@@ -195,7 +198,7 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 			assert(entry);
 			nodeStack.pop_back();
 			const auto nodeID = m_ir->getNodeID(entry);
-			const auto* node = m_ir->getObjectPool().deref(entry);
+			const auto* node = pool.deref(entry);
 			if (!node)
 				continue;
 			output << "\n\t" << m_ir->getLabelledNodeID(entry);
@@ -205,14 +208,12 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 				for (auto childIx = 0; childIx < childCount; childIx++)
 				{
 					const auto childHandle = node->getChildHandle(childIx);
-					if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
+					if (const auto child = pool.deref(childHandle); child)
 					{
-						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
-						const auto visited = visitedNodes.find(childHandle);
-						if (visited != visitedNodes.end())
-							continue;
-						nodeStack.push_back(childHandle);
-						visitedNodes.insert(childHandle);
+						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName(childIx) << "\"]";
+						const auto [unused,inserted] = visitedNodes.insert(childHandle);
+						if (inserted)
+							nodeStack.push_back(childHandle);
 					}
 				}
 			}
@@ -227,12 +228,11 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 		const auto layerHandle = layerStack.back();
 		layerStack.pop_back();
 		// don't print layer nodes multiple times
-		const auto visited = visitedNodes.find(layerHandle);
-		if (visited != visitedNodes.end())
-			continue;
-		visitedNodes.insert(layerHandle);
-		const auto* layerNode = m_ir->getObjectPool().deref(layerHandle);
+		const auto* layerNode = pool.deref(layerHandle);
 		if (!layerNode)
+			continue;
+		const auto [unused,inserted] = visitedNodes.insert(layerHandle);
+		if (!inserted)
 			continue;
 		//
 		const auto layerID = m_ir->getNodeID(layerHandle);
@@ -245,18 +245,18 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 			// print the link from the layer to the expression
 			output << "\n\t" << layerID << " -> " << m_ir->getNodeID(root) << "[label=\"" << edgeLabel << "\"]";
 			// but not the expression again
-			const auto visited = visitedNodes.find(root);
-			if (visited != visitedNodes.end())
+			const auto [unused,inserted] = visitedNodes.insert(root);
+			if (!inserted)
 				return;
 			nodeStack.push_back(root);
-			visitedNodes.insert(root);
 			drainNodeStack();
 		};
+		// TODO: a bit concerned about 
 		pushNodeRoot(layerNode->brdfTop, "Top BRDF");
 		pushNodeRoot(layerNode->firstTransmission, "Corellated Trans");
 	}
 
-	// TODO: print image views
+	// TODO: print image views and make THAT part of the function the same for CTrueIR and Cfrontend
 
 	output << "\n}\n";
 }
