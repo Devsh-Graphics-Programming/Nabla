@@ -460,25 +460,19 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 					}
 					return tex_clamp_e::ETC_REPEAT;
 				};
-				auto& params = retval.sampler;
-				params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
-				params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
+				retval.wrapU = getWrapMode(bitmap.wrapModeU);
+				retval.wrapV = getWrapMode(bitmap.wrapModeV);
 				switch (bitmap.filterType)
 				{
 					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
 						[[fallthrough]]; // we dont support this fancy stuff
 					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-						params.MinFilter = ISampler::ETF_LINEAR;
-						params.MaxFilter = ISampler::ETF_LINEAR;
-						params.MipmapMode = ISampler::ESMM_LINEAR;
+						retval.linearMagnification = true;
 						break;
 					default:
-						params.MinFilter = ISampler::ETF_NEAREST;
-						params.MaxFilter = ISampler::ETF_NEAREST;
-						params.MipmapMode = ISampler::ESMM_NEAREST;
+						retval.linearMagnification = false;
 						break;
 				}
-				params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
 				// TODO: embed the gamma in the material compiler Frontend
 				// or adjust gamma on pixels (painful and long process)
 				//assert(std::isnan(bitmap.gamma));
@@ -551,8 +545,12 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 			out[c].viewChannel = param.viewChannel;
 			if (formatChannelCount>1 && src.texture->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID)
 				out[c].viewChannel += c;
+			out[c].linearMagnification = param.linearMagnification;
+			out[c].wrapU = param.wrapU;
+			out[c].wrapV = param.wrapV;
+			out[c].wrapW = param.wrapW;
+			out[c].borderColor = param.borderColor;
 			out[c].view = param.view;
-			out[c].sampler = param.sampler;
 		}
 	}
 	else
@@ -593,8 +591,12 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, con
 			out[c].scale = param.scale;
 			// assign same channel to everything because the `src` is monochrome
 			out[c].viewChannel = param.viewChannel;
+			out[c].linearMagnification = param.linearMagnification;
+			out[c].wrapU = param.wrapU;
+			out[c].wrapV = param.wrapV;
+			out[c].wrapW = param.wrapW;
+			out[c].borderColor = param.borderColor;
 			out[c].view = param.view;
-			out[c].sampler = param.sampler;
 		}
 	}
     else

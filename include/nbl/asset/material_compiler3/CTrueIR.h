@@ -298,7 +298,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//
 				static inline uint32_t calc_size(const SState state)
 				{
-					return sizeof(CFactorCombiner)+sizeof(child[0])*(state.childCount-1);
+					return core::alignUp(sizeof(CFactorCombiner)+sizeof(child[0])*(state.childCount-1),alignof(CFactorCombiner));
 				}
 				inline CFactorCombiner(const SState state)
 				{
@@ -613,7 +613,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//
 				static inline uint32_t calc_size(const uint8_t knotCount)
 				{
-					return sizeof(this_t)+sizeof(SParameterSet<1>)+sizeof(SParameter)*(knotCount-1);
+					return core::alignUp(sizeof(this_t)+sizeof(SParameterSet<1>)+sizeof(SParameter)*(knotCount-1),alignof(this_t));
 				}
 				// for copying
 				static inline uint32_t calc_size(const ISpectralVariable& other)
