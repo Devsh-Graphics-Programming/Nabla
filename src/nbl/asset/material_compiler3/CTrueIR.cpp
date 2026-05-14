@@ -143,8 +143,6 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 				pushedChildren++;
 			}
 
-		    // TODO: how to handle coated in CorrelatedTransmission?
-
 			// copy copies everything including child handles
 			copyH = node->copy(this);
 			if (!copyH)	// node invalid so pop stack until copy and all added children removed
@@ -163,7 +161,6 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
 				assert(found != substitutions.end());
 				copy->setChild(c, found->second);
 			}
-			// TODO: how to handle coated in CorrelatedTransmission?
 			stack.pop_back();
 		}
 	}
@@ -218,11 +215,6 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 						visitedNodes.insert(childHandle);
 					}
 				}
-			}
-			if (node->getFinalType() == INode::EFinalType::CCorellatedTransmission)
-			{
-				const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
-				layerStack.push_back(transmission->coated);
 			}
 			// special printing
 			node->printDot(output, nodeID);

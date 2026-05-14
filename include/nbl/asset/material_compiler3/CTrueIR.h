@@ -506,10 +506,23 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCorellatedTransmission;}
 
-				inline uint8_t getChildCount() const override final { return 3; }	// TODO: or 4?
+				inline uint8_t getChildCount() const override final { return 4; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCorellatedTransmission);}
-				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return ix ? (ix > 1 ? "next" : "brdfBottom") : "btdf"; }
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final
+				{
+					switch (ix)
+					{
+					case 1:
+						return "brdfBottom";
+					case 2:
+						return "coated";
+					case 3:
+						return "next";
+					default:
+						return "btdf";
+					}
+				}
 
 				// you can set the children later
 				inline CCorellatedTransmission() = default;
@@ -528,20 +541,34 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 		        inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 				{
-					if (ix > 1)
-						return next;
-					if (ix)
+					switch (ix)
+					{
+					case 1:
 						return brdfBottom;
-					return btdf;
+					case 2:
+						return coated;
+					case 3:
+						return next;
+					default:
+						return btdf;
+					}
 				}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
-					if (ix > 1)
-						next = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
-					else if (ix)
+					switch (ix)
+					{
+					case 1:
 						brdfBottom = block_allocator_type::_static_cast<CContributorSum>(newChild);
-					else
+						break;
+					case 2:
+						coated = block_allocator_type::_static_cast<COrientedLayer>(newChild);
+						break;
+					case 3:
+						next = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
+						break;
+					default:
 						btdf = block_allocator_type::_static_cast<CContributorSum>(newChild);
+					}
 				}
 		};
 		// The oriented layer is a layer with already all the Etas reciprocated, etc.
@@ -1143,6 +1170,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					    reflectanceTop = block_allocator_type::_static_cast<IFactor>(newChild);
 			    }
 		};
+#undef COPY_DEFAULT_IMPL
 #undef TYPE_NAME_STR
 #undef HASH_THE_HASH
 		
