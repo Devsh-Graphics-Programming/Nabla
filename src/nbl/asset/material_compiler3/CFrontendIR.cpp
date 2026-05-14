@@ -610,6 +610,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	// HOWEVER the `tmpAST` gets cleared every call to `makeOrientedMaterial` so only cache within a `makeOrientedMaterial` call,
 	// so clear when AST changes or keep separate caches for original AST and tmp.
 //	core::unordered_map<const CFrontendIR::CLayer*,CTrueIR::COrientedLayer> layers;
+//	core::unordered_map<const CFrontendIR::CLayer*,CTrueIR::CCorellatedTransmission> transmissions;
 //	core::unordered_map<const CFrontendIR::IExprNode*,CTrueIR::CContributorSum> topBRDFcache;
 //	core::unordered_map<const CFrontendIR::IExprNode*,CTrueIR::CContributorSum> BTDFcache;
 
@@ -648,7 +649,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 	const auto errorLayer = tmpIR->getBasicNodes().errorLayer;
 	// Some metadata needed for us
 	bool layersBelowCanScatterBack = false;
-	// then go in reverse and do the layers
+	// then go in reverse and do the layers bottom up
 	for (auto layerIt=layerStack.rbegin(); layerIt!=layerStack.rend(); layerIt++)
 	{
 		const auto& inLayer = *layerIt;
@@ -680,14 +681,14 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 						if (transmission->brdfBottom==errorBxDF)
 							return {.root=errorLayer};
 					}
-					// we check if previous layer didn't get oprimized away
+					// we check if previous layer didn't get optimized away
 					if (retval.root)
 						transmission->coated = retval.root;
 				}
-				outLayer->firstTransmission = transmissionH;
+				outLayer->firstTransmission = tmpIR->hashNCache(transmissionH);
 			}
 		}
-		retval.root = layerH;
+		retval.root = tmpIR->hashNCache(layerH);
 		// Now optimize everything inserting it into the proper IR
 		{
 			// temporary debug print
@@ -711,7 +712,7 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 				printIRLayer(retval.root,tmpIR.get());
 			}
 			// Set this for the next layer after us, we are reflective or previous layer scatters back towards us and we don't block it
-			if (auto* const outLayer=irPool.deref(retval.root); outLayer)
+			if (const auto* const outLayer=irPool.deref(retval.root); outLayer)
 				layersBelowCanScatterBack = bool(outLayer->brdfTop) || layersBelowCanScatterBack && outLayer->firstTransmission;
 			else
 				layersBelowCanScatterBack = false;
@@ -780,7 +781,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			canonicalSum.clear();
 		}
 	);
-	CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> tailH = {};
 	for (auto it=canonicalSum.begin(); it!=canonicalSum.end(); it++)
 	{
 		auto& irChain = it->irChain;
@@ -958,8 +958,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					for (uint8_t c=0; c<channels; c++)
 					{
 						const auto* const cVar = var;
-						const auto scale = cVar->getParameter(c).scale;
-						if (std::numeric_limits<float>::min()<=scale && scale<std::numeric_limits<float>::infinity())
+						const auto absScale = hlsl::abs(cVar->getParameter(c).scale);
+						if (std::numeric_limits<float>::min()<=absScale && absScale<std::numeric_limits<float>::infinity())
 							liveMask |= uint8_t(1)<<c;
 					}
 					// promote monochromatic mask
@@ -969,7 +969,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					// combine masks and check if we're dead
 					if ((it->liveSpectralChannels&=liveMask)==0)
 					{
-						const auto logLevel = system::ILogger::ELL_PERFORMANCE;
+						const auto logLevel = system::ILogger::ELL_PERFORMANCE; 
 						// if we REALLY want to we can print all the nodes in the `irChain` so far, but then the irChain needs to track debug data from AST
 						args.logger.log("Product turns to 0 by multiplying the chain so far with the Spectral Variable:\n",logLevel);
 						printSubtree(nodeH);
@@ -1092,12 +1092,10 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				args.logger.log("Couldn't allocate or hash a `CTrueIR::CWeightedContributor` node",ELL_ERROR);
 				return (headH=errorRetval);
 			}
-			// we visited the leftmost subtrees first so this is the right order
-			auto* const oldTail = irPool.deref(tailH);
 			// allocate new tail and slap the mul chain onto it
-			tailH = irPool.emplace<CTrueIR::CContributorSum>();
+			it->sumTermH = irPool.emplace<CTrueIR::CContributorSum>();
 			// note that we hold off on hashing the tail node, cause its subject to change
-			if (auto* const tail=irPool.deref(tailH); tail)
+			if (auto* const tail=irPool.deref(it->sumTermH); tail)
 				tail->product = uniqueWeightedH;
 			else
 			{
@@ -1105,10 +1103,11 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				return (headH=errorRetval);
 			}
 			// append it
-			if (oldTail)
-				oldTail->rest = tailH;
-			else
-				headH = tailH;
+			if (it!=canonicalSum.begin())
+			{
+				auto itCopy = it;
+				irPool.deref((--itCopy)->sumTermH)->rest = it->sumTermH;
+			}
 		}
 		else
 		{
@@ -1116,8 +1115,15 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			assert(false);
 		}
 	}
-	canonicalSum.clear();
-
+	// now hash in reverse
+	for (auto it=canonicalSum.rbegin(); it!=canonicalSum.rend(); it++)
+		it->sumTermH = tmpIR->hashNCache(it->sumTermH)._const_cast();
+	// set result
+	if (!canonicalSum.empty())
+	{
+		headH = canonicalSum.begin()->sumTermH;
+		canonicalSum.clear();
+	}
 	return headH;
 }
 

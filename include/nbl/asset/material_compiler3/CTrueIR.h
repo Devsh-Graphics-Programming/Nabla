@@ -225,7 +225,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// always put the node type into the hash
 					hasher << static_cast<uint8_t>(getFinalType());
 					if (!computeHash_impl(pool,hasher))
-						return {};
+ 						return {};
 					return hasher.operator core::blake3_hash_t();
 				}
 
@@ -630,15 +630,26 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		{
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override final
 				{
-					hasher << *pWonky();
-					for (uint8_t c=1; c<getKnotCount(); c++)
-						hasher << pWonky()->params[c];
-					if (getKnotCount()>1)
+					const auto count = getKnotCount();
+					hasher << count;
 					{
 						const ESemantics semantics = getSemantics();
-						if (semantics==ESemantics::NoneUndefined)
+						if (getKnotCount()>1 && semantics==ESemantics::NoneUndefined)
 							return false;
 						hasher << semantics;
+					}
+					bool hasTextures = false;
+					const auto* const wonky = pWonky();
+					for (uint8_t i=0; i<count; i++)
+					{
+						// fear not, without a view, nothing excpt for scale will hash
+						hasher << wonky->params[i];
+						hasTextures = hasTextures || wonky->params[i].view;
+					}
+					if (hasTextures)
+					{
+						hasher << wonky->uvTransform;
+						hasher << wonky->uvSlot();
 					}
 					return true;
 				}
@@ -1296,17 +1307,16 @@ struct core::blake3_hasher::update_impl<CTrueIR::SParameterSet<Count>,Dummy>
 	{
 		bool noTextures = true;
 		for (uint8_t i=0; i<Count; i++)
-		if (input.params[i].view)
 		{
-			noTextures = false;
-			break;
+			// fear not, without a view, nothing excpt for scale will hash
+			hasher << input.params[i];
+			if (input.params[i].view)
+				noTextures = false;
 		}
 		if (noTextures)
 			return;
 		hasher << input.uvTransform;
 		hasher << input.uvSlot();
-		for (uint8_t i=0; i<Count; i++)
-			hasher << input.params[i];
 	}
 };
 template<typename Dummy>

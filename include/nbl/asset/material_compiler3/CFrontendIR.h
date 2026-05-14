@@ -846,6 +846,8 @@ class CFrontendIR final : public CNodePool
 					// also the mulChain needs to be sorted later on, and doubly linked list is PITA to sort
 					core::vector<typed_pointer_type<const IExprNode>> astStack = {}; // its also a stack
 					core::vector<SFactor> irChain = {};
+					// this is to help us hash in reverse properly
+					CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> sumTermH = {};
 					// Expressions for `h_{ij}` can also have ADD/MUL inside and we distribute and canonicalize them at the same time
 					uint8_t hasContributor : 1 = false;
 					// extend later when allowing variable bucket count
