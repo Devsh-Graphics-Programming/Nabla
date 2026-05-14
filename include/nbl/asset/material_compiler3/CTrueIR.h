@@ -981,8 +981,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		    protected:
 			    COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final	{ return block_allocator_type::_static_cast<INode>(orientedRealEta); }
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final { orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableFactor>(newChild); }
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final { return orientedRealEta; }
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final { orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableFactor>(newChild); }
 		};
 		//! Basic factor nodes
 		// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
@@ -1001,6 +1001,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CBeer;}
 
+				inline uint8_t getChildCount() const override final { return 2; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
@@ -1013,6 +1015,23 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const IFactor> thickness = {};
 				// can be worked out by analyzing what we point to, but not needed
 				uint8_t channels = 3;
+
+		    protected:
+				COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
+				{
+					if (ix)
+						return thickness;
+				    return perpTransmittance;
+				}
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+				{
+					if (ix)
+						thickness = block_allocator_type::_static_cast<IFactor>(newChild);
+					else
+						perpTransmittance = block_allocator_type::_static_cast<IFactor>(newChild);
+				}
 		};
 		class CFresnel final : public obj_pool_type::INonTrivial, public IFactorLeaf
 		{
@@ -1035,6 +1054,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CFresnel;}
 
+				inline uint8_t getChildCount() const override final { return 2; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Imaginary":"Real";}
@@ -1049,6 +1070,23 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				uint8_t reciprocateEtas : 1 = false;
 				// can be worked out by analyzing what we point to, but not needed
 				uint8_t channels : 7 = 3;
+
+		    protected:
+			    COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
+			    {
+				    if (ix)
+					    return orientedImagEta;
+				    return orientedRealEta;
+			    }
+			    inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+			    {
+				    if (ix)
+						orientedImagEta = block_allocator_type::_static_cast<IFactor>(newChild);
+				    else
+						orientedRealEta = block_allocator_type::_static_cast<IFactor>(newChild);
+			    }
 		};
 		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IFactorLeaf
 		{
@@ -1067,6 +1105,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CThinInfiniteScatterCorrection;}
 
+				inline uint8_t getChildCount() const override final { return 3; }
+
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
@@ -1081,6 +1121,27 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const IFactor> reflectanceBottom = {};
 				// can be worked out by analyzing what we point to, but not needed
 				uint8_t channels = 3;
+
+		    protected:
+			    COPY_DEFAULT_IMPL
+
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
+			    {
+					if (ix > 1)
+						return reflectanceBottom;
+				    if (ix)
+					    return extinction;
+				    return reflectanceTop;
+			    }
+			    inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
+			    {
+					if (ix > 1)
+						reflectanceBottom = block_allocator_type::_static_cast<IFactor>(newChild);
+				    if (ix)
+					    extinction = block_allocator_type::_static_cast<IFactor>(newChild);
+				    else
+					    reflectanceTop = block_allocator_type::_static_cast<IFactor>(newChild);
+			    }
 		};
 #undef TYPE_NAME_STR
 #undef HASH_THE_HASH
