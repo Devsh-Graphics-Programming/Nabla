@@ -212,7 +212,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					CSpectralVariable,
 					COrenNayar,
 					CCookTorrance,
-					CFactorCombiner
+					CFactorCombiner,
+					CBeer,
+					CFresnel,
+					CThinInfiniteScatterCorrection
 				};
 				virtual EFinalType getFinalType() const = 0;
 
@@ -831,8 +834,104 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// BRDFs and BTDFs components into separate expressions, and also importance sample much better. 
 				typed_pointer_type<const CSpectralVariableFactor> orientedRealEta = {};
 		};
-		//! Parameter Nodes
 		//! Basic factor nodes
+		// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
+		// Eta and `LdotX` is taken from the contributor BxDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same.
+		// Note: its allowed to apply Beer directly on BRDF as well as BTDF to simulate foggy extinction on the top layer
+		class CBeer final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << channels;
+					HASH_REQUIREDS_HASH(perpTransmittance);
+					HASH_REQUIREDS_HASH(thickness);
+					return true;
+				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CBeer;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
+
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
+
+				inline uint8_t getSpectralBins() const override {return channels;}
+
+				// cannot be null, otherwise no point being there as term will multiply to 0
+				typed_pointer_type<const IFactor> perpTransmittance = {};
+				// cannot be null, otherwise its always exp2(0) and term will always be 1
+				typed_pointer_type<const IFactor> thickness = {};
+				// can be worked out by analyzing what we point to, but not needed
+				uint8_t channels = 3;
+		};
+		class CFresnel final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << reciprocateEtas;
+					hasher << channels;
+					if (orientedImagEta)
+					{
+						HASH_OPTIONALS_HASH(orientedRealEta);
+						hasher << orientedImagEta;
+					}
+					else
+					{
+						HASH_REQUIREDS_HASH(orientedRealEta);
+					}
+					return true;
+				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CFresnel;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
+
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Imaginary":"Real";}
+
+				inline uint8_t getSpectralBins() const override {return channels;}
+
+				// cannot be null or a constant of 1 while imaginary is null
+				typed_pointer_type<const IFactor> orientedRealEta = {};
+				// If null, then treated as a 0 (important to optimize those to 0). MUST be null for BTDFs!
+				typed_pointer_type<const IFactor> orientedImagEta = {};
+				// easier on the codegen
+				uint8_t reciprocateEtas : 1 = false;
+				// can be worked out by analyzing what we point to, but not needed
+				uint8_t channels : 7 = 3;
+		};
+		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				{
+					hasher << channels;
+					HASH_REQUIREDS_HASH(reflectanceTop);
+					HASH_OPTIONALS_HASH(extinction);
+					if (reflectanceBottom)
+						hasher << reflectanceBottom;
+					else
+						hasher << reflectanceTop;
+					return true;
+				}
+
+			public:
+				inline EFinalType getFinalType() const override {return EFinalType::CThinInfiniteScatterCorrection;}
+
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
+
+				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
+
+				inline uint8_t getSpectralBins() const override {return channels;}
+
+				// cannot be null otherwise no point being there
+				typed_pointer_type<const IFactor> reflectanceTop = {};
+				// optional, if null then treated as E=1.0
+				typed_pointer_type<const IFactor> extinction = {};
+				// optional, if null then `reflectanceTop` used in its place
+				typed_pointer_type<const IFactor> reflectanceBottom = {};
+				// can be worked out by analyzing what we point to, but not needed
+				uint8_t channels = 3;
+		};
 #undef TYPE_NAME_STR
 #undef HASH_THE_HASH
 		

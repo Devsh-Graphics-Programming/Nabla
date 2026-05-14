@@ -362,8 +362,7 @@ class CFrontendIR final : public CNodePool
 				// you can set the members later
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
-				// Eta and `LdotX` is taken from the leaf BTDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
+				// See `CTrueIR::Beer` for docs
 				typed_pointer_type<CSpectralVariableExpr> perpTransmittance = {};
 				typed_pointer_type<CSpectralVariableExpr> thickness = {};
 
@@ -376,7 +375,7 @@ class CFrontendIR final : public CNodePool
 					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 				
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
