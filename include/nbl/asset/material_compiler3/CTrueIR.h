@@ -234,7 +234,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				// Only sane child count allowed
 				virtual uint8_t getChildCount() const = 0;
-				inline _typed_pointer_type<INode> getChildHandle(const uint8_t ix)
+				inline _typed_pointer_type<const INode> getChildHandle(const uint8_t ix)
 				{
 					if (ix < getChildCount())
 						return getChildHandle_impl(ix);
@@ -252,13 +252,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			protected:
 				friend class CTrueIR;
 				// child managment
-				virtual inline _typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const { assert(false); return {}; }
+				virtual inline _typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const { assert(false); return {}; }
 				inline void setChild(const uint8_t ix, _typed_pointer_type<INode> newChild)
 				{
 					assert(ix < getChildCount());
 					setChild_impl(ix, newChild);
 				}
-				virtual inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) { assert(false); }
+				virtual inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) { assert(false); }
 
 				inline bool recomputeHash(const obj_pool_type& pool)
 				{
@@ -369,8 +369,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					return true;
 				}
 
-				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final { return block_allocator_type::_static_cast<INode>(child[0]); }
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final { child[0] = block_allocator_type::_static_cast<IFactor>(newChild); }
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final { return child[ix]; }
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final { child[ix] = block_allocator_type::_static_cast<IFactor>(newChild); }
 
 				inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final
 				{
@@ -412,11 +412,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		    protected:
 			    COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 			    {
-			        return ix ? block_allocator_type::_static_cast<INode>(factor) : block_allocator_type::_static_cast<INode>(contributor);
+					if (ix)
+						return factor;
+					return contributor;
 			    }
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
 					if (ix)
 			            factor = block_allocator_type::_static_cast<IFactor>(newChild);
@@ -468,11 +470,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		    protected:
 			    COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 				{
-					return ix ? block_allocator_type::_static_cast<INode>(rest) : block_allocator_type::_static_cast<INode>(product);
+					if (ix)
+						return rest;
+					return product;
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					if (ix)
 						rest = block_allocator_type::_static_cast<CContributorSum>(newChild);
@@ -522,15 +526,15 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		    protected:
 			    COPY_DEFAULT_IMPL
 
-		        inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+		        inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 				{
 					if (ix > 1)
-						return block_allocator_type::_static_cast<INode>(next);
+						return next;
 					if (ix)
-						return block_allocator_type::_static_cast<INode>(brdfBottom);
-					return block_allocator_type::_static_cast<INode>(btdf);
+						return brdfBottom;
+					return btdf;
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					if (ix > 1)
 						next = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
@@ -568,11 +572,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		    protected:
 			    COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<INode> getChildHandle_impl(const uint8_t ix) const override final
+				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 				{
-					return ix ? block_allocator_type::_static_cast<INode>(firstTransmission) : block_allocator_type::_static_cast<INode>(brdfTop);
+					if (ix)
+						return firstTransmission;
+					else
+						return brdfTop;
 				}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<INode> newChild) override final
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 				{
 					if (ix)
 						firstTransmission = block_allocator_type::_static_cast<CCorellatedTransmission>(newChild);
