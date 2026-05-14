@@ -110,6 +110,76 @@ CTrueIR::SBasicNodes::SBasicNodes(CTrueIR* ir)
 	}
 }
 
+uint32_t CTrueIR::deepCopy(typed_pointer_type<const INode>* out,
+    const std::span<const typed_pointer_type<const INode>> orig, const CTrueIR* srcIR)
+{
+	auto& dstPool = getObjectPool();
+	// if not explicitly other, then its ours
+	if (!srcIR)
+		srcIR = this;
+	const auto& srcPool = srcIR->getObjectPool();
+
+	core::vector<typed_pointer_type<const INode>> stack;
+	stack.reserve(orig.size() + 32);
+	for (const auto& o : orig)
+	    stack.push_back(o);
+	// use a hashmap to not explore whole DAG
+	core::unordered_map<typed_pointer_type<const INode>, typed_pointer_type<INode>> substitutions;
+	while (!stack.empty())
+	{
+		const auto entry = stack.back();
+		const auto* const node = srcPool.deref(entry);
+		assert(!node);
+		const auto childCount = node->getChildCount();
+		if (auto& copyH = substitutions[entry]; !copyH)
+		{
+			uint8_t pushedChildren = 0;
+			for (uint8_t c = 0; c < childCount; c++)
+			{
+				const auto childH = node->getChildHandle(c);
+				if (auto child = srcPool.deref(childH); !child)
+					continue; // this is not an error
+				stack.push_back(childH);
+				pushedChildren++;
+			}
+
+			// copy copies everything including child handles
+			copyH = node->copy(this);
+			if (!copyH)	// node invalid so pop stack until copy and all added children removed
+				for (uint8_t i = 0; i < pushedChildren + 1; i++)
+					stack.pop_back();
+		}
+		else
+		{
+			auto* const copy = dstPool.deref(copyH);
+			for (uint8_t c = 0; c < childCount; c++)
+			{
+				const auto childH = node->getChildHandle(c);
+				if (!childH)
+					continue;
+				auto found = substitutions.find(childH);
+				assert(found != substitutions.end());
+				copy->setChild(c, found->second);
+			}
+			stack.pop_back();
+		}
+	}
+
+	uint32_t invalidCount = 0;
+	auto copies = out;
+	for (const auto& o : orig)
+	{
+		auto copy = substitutions[o];
+		const auto* const node = dstPool.deref(copy);
+		if (!node) // this is invalid
+			invalidCount++;
+		else
+			*copies = copy;
+		copies++;
+	}
+	return invalidCount;
+}
+
 void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 {
 	output << "digraph {\n";
@@ -129,10 +199,12 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 			if (!node)
 				continue;
 			output << "\n\t" << m_ir->getLabelledNodeID(entry);
-			auto printChildren = [&](std::span<typed_pointer_type<const INode>> children, const INode* node)->void {
-				uint32_t childIx = 0u;
-				for (const auto childHandle : children)
+			const auto childCount = node->getChildCount();
+			if (childCount)
+			{
+				for (auto childIx = 0; childIx < childCount; childIx++)
 				{
+					const auto childHandle = node->getChildHandle(childIx);
 					if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
 					{
 						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName_impl(childIx) << "\"]";
@@ -142,84 +214,7 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 						nodeStack.push_back(childHandle);
 						visitedNodes.insert(childHandle);
 					}
-					childIx++;
 				}
-				};
-			switch (node->getFinalType())
-			{
-			case INode::EFinalType::CFactorCombiner:
-			{
-				const auto* combiner = dynamic_cast<const CFactorCombiner*>(node);
-				const auto state = combiner->getState();
-				const auto childCount = state.childCount;
-				if (childCount)
-				{
-					for (auto childIx = 0; childIx < childCount; childIx++)
-					{
-						const auto childHandle = combiner->getChildHandle(childIx);
-						if (const auto child = m_ir->getObjectPool().deref(childHandle); child)
-						{
-							output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle);
-							const auto visited = visitedNodes.find(childHandle);
-							if (visited != visitedNodes.end())
-								continue;
-							nodeStack.push_back(childHandle);
-							visitedNodes.insert(childHandle);
-						}
-					}
-				}
-				break;
-			}
-			case INode::EFinalType::CContributorSum:
-			{
-				const auto* contributeSum = dynamic_cast<const CContributorSum*>(node);
-				if (contributeSum)
-				{
-					typed_pointer_type<const INode> children[] = {contributeSum->product, contributeSum->rest};
-					printChildren(children, node);
-				}
-				break;
-			}
-			case INode::EFinalType::CCorellatedTransmission:
-			{
-				const auto* transmission = dynamic_cast<const CCorellatedTransmission*>(node);
-				if (transmission)
-				{
-					typed_pointer_type<const INode> children[] = { transmission->btdf, transmission->brdfBottom, transmission->next };
-					printChildren(children, node);
-					layerStack.push_back(transmission->coated);
-				}
-				break;
-			}
-			case INode::EFinalType::CWeightedContributor:
-			{
-				const auto* contributor = dynamic_cast<const CWeightedContributor*>(node);
-				if (contributor)
-				{
-					typed_pointer_type<const INode> children[] = { contributor->contributor, contributor->factor };
-					printChildren(children, node);
-				}
-				break;
-			}
-			case INode::EFinalType::CCookTorrance:
-			{
-				const auto* ct = dynamic_cast<const CCookTorrance*>(node);
-				if (ct)
-				{
-					if (const auto eta = m_ir->getObjectPool().deref(ct->orientedRealEta); eta)
-					{
-						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(ct->orientedRealEta) << "[label=\"orientedRealEta\"]";
-						const auto visited = visitedNodes.find(ct->orientedRealEta);
-						if (visited != visitedNodes.end())
-							continue;
-						nodeStack.push_back(ct->orientedRealEta);
-						visitedNodes.insert(ct->orientedRealEta);
-					}
-				}
-				break;
-			}
-			default:
-				break;
 			}
 			// special printing
 			node->printDot(output, nodeID);
